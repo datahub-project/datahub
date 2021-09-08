@@ -154,7 +154,12 @@
                           "values": "string"
                         },
                         "doc": "Custom property bag.",
-                        "default": {}
+                        "default": {},
+                        "Searchable": {
+                          "/*": {
+                            "queryByDefault": true
+                          }
+                        }
                       },
                       {
                         "name": "externalUrl",
@@ -1167,7 +1172,12 @@
                           "values": "string"
                         },
                         "doc": "Custom property bag.",
-                        "default": {}
+                        "default": {},
+                        "Searchable": {
+                          "/*": {
+                            "queryByDefault": true
+                          }
+                        }
                       },
                       {
                         "name": "externalUrl",
@@ -1398,7 +1408,12 @@
                           "values": "string"
                         },
                         "doc": "Custom property bag.",
-                        "default": {}
+                        "default": {},
+                        "Searchable": {
+                          "/*": {
+                            "queryByDefault": true
+                          }
+                        }
                       },
                       {
                         "name": "externalUrl",
@@ -1592,7 +1607,12 @@
                           "values": "string"
                         },
                         "doc": "Custom property bag.",
-                        "default": {}
+                        "default": {},
+                        "Searchable": {
+                          "/*": {
+                            "queryByDefault": true
+                          }
+                        }
                       },
                       {
                         "name": "externalUrl",
@@ -1952,7 +1972,12 @@
                           "values": "string"
                         },
                         "doc": "Custom property bag.",
-                        "default": {}
+                        "default": {},
+                        "Searchable": {
+                          "/*": {
+                            "queryByDefault": true
+                          }
+                        }
                       },
                       {
                         "name": "externalUrl",
@@ -3333,7 +3358,12 @@
                           "values": "string"
                         },
                         "doc": "Custom property bag.",
-                        "default": {}
+                        "default": {},
+                        "Searchable": {
+                          "/*": {
+                            "queryByDefault": true
+                          }
+                        }
                       },
                       {
                         "name": "externalUrl",
@@ -4579,7 +4609,12 @@
                           "values": "string"
                         },
                         "doc": "Custom property bag.",
-                        "default": {}
+                        "default": {},
+                        "Searchable": {
+                          "/*": {
+                            "queryByDefault": true
+                          }
+                        }
                       },
                       {
                         "name": "description",
@@ -4723,7 +4758,12 @@
                           "values": "string"
                         },
                         "doc": "Custom property bag.",
-                        "default": {}
+                        "default": {},
+                        "Searchable": {
+                          "/*": {
+                            "queryByDefault": true
+                          }
+                        }
                       },
                       {
                         "name": "externalUrl",
@@ -4893,7 +4933,12 @@
                           "values": "string"
                         },
                         "doc": "Custom property bag.",
-                        "default": {}
+                        "default": {},
+                        "Searchable": {
+                          "/*": {
+                            "queryByDefault": true
+                          }
+                        }
                       },
                       {
                         "name": "description",

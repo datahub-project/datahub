@@ -12,6 +12,7 @@ import { GetSearchResultsQuery, useGetAutoCompleteAllResultsLazyQuery } from '..
 import { useGetAllEntitySearchResults } from '../../utils/customGraphQL/useGetAllEntitySearchResults';
 import { EntityType } from '../../types.generated';
 import analytics, { EventType } from '../analytics';
+import { AdminHeaderLinks } from '../shared/admin/AdminHeaderLinks';
 
 const Background = styled.div`
     width: 100%;
@@ -211,6 +212,7 @@ export const HomePageHeader = () => {
                     )}
                 </WelcomeText>
                 <NavGroup>
+                    <AdminHeaderLinks />
                     <ManageAccount
                         urn={user?.urn || ''}
                         pictureLink={user?.editableInfo?.pictureLink || ''}

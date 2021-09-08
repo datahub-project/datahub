@@ -1,5 +1,18 @@
 #!/bin/bash
 
+MONITORING_COMPOSE=""
+if [[ $MONITORING == true ]]; then
+  MONITORING_COMPOSE="-f monitoring/docker-compose.monitoring.yml"
+fi
+
+CONSUMERS_COMPOSE=""
+if [[ $SEPARATE_CONSUMERS == true ]]; then
+  CONSUMERS_COMPOSE="-f docker-compose.consumers.yml -f docker-compose.consumers.dev.yml"
+  if [[ $MONITORING == true ]]; then
+    MONITORING_COMPOSE="-f monitoring/docker-compose.monitoring.yml -f monitoring/docker-compose.consumers.monitoring.yml"
+  fi
+fi
+
 # Quickstarts DataHub by pulling all images from dockerhub and then running the containers locally. No images are
 # built locally.
 # Note: by default this pulls the latest (head) version or the tagged version if you checked out a release tag.
@@ -24,8 +37,8 @@ else
   cd $DIR && \
   docker-compose \
     -f quickstart/docker-compose-without-neo4j.quickstart.yml \
-    pull && \
+    $MONITORING_COMPOSE $CONSUMERS_COMPOSE pull && \
   docker-compose -p datahub \
     -f quickstart/docker-compose-without-neo4j.quickstart.yml \
-    up
+    $MONITORING_COMPOSE $CONSUMERS_COMPOSE up
 fi

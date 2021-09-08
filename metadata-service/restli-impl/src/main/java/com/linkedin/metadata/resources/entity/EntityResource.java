@@ -1,5 +1,7 @@
 package com.linkedin.metadata.resources.entity;
 
+import com.codahale.metrics.MetricRegistry;
+import com.codahale.metrics.Timer;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.LongMap;
@@ -16,10 +18,11 @@ import com.linkedin.metadata.query.Filter;
 import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.query.SearchResult;
 import com.linkedin.metadata.query.SortCriterion;
-import com.linkedin.metadata.restli.RestliUtils;
+import com.linkedin.metadata.restli.RestliUtil;
 import com.linkedin.metadata.run.DeleteEntityResponse;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.utils.BrowsePathUtils;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.parseq.Task;
 import com.linkedin.restli.common.HttpStatus;
@@ -30,6 +33,7 @@ import com.linkedin.restli.server.annotations.QueryParam;
 import com.linkedin.restli.server.annotations.RestLiCollection;
 import com.linkedin.restli.server.annotations.RestMethod;
 import com.linkedin.restli.server.resources.CollectionResourceTaskTemplate;
+import io.opentelemetry.extension.annotations.WithSpan;
 import java.net.URISyntaxException;
 import java.time.Clock;
 import java.util.Arrays;
@@ -46,8 +50,8 @@ import javax.inject.Inject;
 import javax.inject.Named;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.metadata.utils.PegasusUtils.urnToEntityName;
-import static com.linkedin.metadata.resources.ResourceUtils.*;
+import static com.linkedin.metadata.resources.ResourceUtils.validateOrThrow;
+import static com.linkedin.metadata.resources.ResourceUtils.validateOrWarn;
 import static com.linkedin.metadata.restli.RestliConstants.ACTION_AUTOCOMPLETE;
 import static com.linkedin.metadata.restli.RestliConstants.ACTION_BROWSE;
 import static com.linkedin.metadata.restli.RestliConstants.ACTION_GET_BROWSE_PATHS;
@@ -62,6 +66,7 @@ import static com.linkedin.metadata.restli.RestliConstants.PARAM_QUERY;
 import static com.linkedin.metadata.restli.RestliConstants.PARAM_SORT;
 import static com.linkedin.metadata.restli.RestliConstants.PARAM_START;
 import static com.linkedin.metadata.restli.RestliConstants.PARAM_URN;
+import static com.linkedin.metadata.utils.PegasusUtils.urnToEntityName;
 
 
 /**
@@ -95,25 +100,27 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
    */
   @RestMethod.Get
   @Nonnull
+  @WithSpan
   public Task<Entity> get(@Nonnull String urnStr, @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames)
       throws URISyntaxException {
     log.info("GET {}", urnStr);
     final Urn urn = Urn.createFromString(urnStr);
-    return RestliUtils.toTask(() -> {
+    return RestliUtil.toTask(() -> {
       final Set<String> projectedAspects =
           aspectNames == null ? Collections.emptySet() : new HashSet<>(Arrays.asList(aspectNames));
       final Entity entity = _entityService.getEntity(urn, projectedAspects);
       if (entity == null) {
-        throw RestliUtils.resourceNotFoundException();
+        throw RestliUtil.resourceNotFoundException();
       } else {
         validateOrWarn(entity);
       }
       return entity;
-    });
+    }, MetricRegistry.name(this.getClass(), "get"));
   }
 
   @RestMethod.BatchGet
   @Nonnull
+  @WithSpan
   public Task<Map<String, Entity>> batchGet(@Nonnull Set<String> urnStrs,
       @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) throws URISyntaxException {
     log.info("BATCH GET {}", urnStrs.toString());
@@ -121,7 +128,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     for (final String urnStr : urnStrs) {
       urns.add(Urn.createFromString(urnStr));
     }
-    return RestliUtils.toTask(() -> {
+    return RestliUtil.toTask(() -> {
       final Set<String> projectedAspects =
           aspectNames == null ? Collections.emptySet() : new HashSet<>(Arrays.asList(aspectNames));
       return _entityService.getEntities(urns, projectedAspects)
@@ -129,7 +136,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
           .stream()
           .peek(entry -> validateOrWarn(entry.getValue()))
           .collect(Collectors.toMap(entry -> entry.getKey().toString(), Map.Entry::getValue));
-    });
+    }, MetricRegistry.name(this.getClass(), "batchGet"));
   }
 
   private SystemMetadata populateDefaultFieldsIfEmpty(@Nullable SystemMetadata systemMetadata) {
@@ -145,16 +152,15 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     return result;
   }
 
-
   @Action(name = ACTION_INGEST)
   @Nonnull
-  public Task<Void> ingest(
-      @ActionParam(PARAM_ENTITY) @Nonnull Entity entity,
-      @ActionParam(SYSTEM_METADATA) @Optional @Nullable SystemMetadata providedSystemMetadata
-  ) throws URISyntaxException {
-
+  @WithSpan
+  public Task<Void> ingest(@ActionParam(PARAM_ENTITY) @Nonnull Entity entity,
+      @ActionParam(SYSTEM_METADATA) @Optional @Nullable SystemMetadata providedSystemMetadata)
+      throws URISyntaxException {
     validateOrThrow(entity, HttpStatus.S_422_UNPROCESSABLE_ENTITY);
 
+    Timer.Context preIngestTimer = MetricUtils.timer(this.getClass(), "preIngest").time();
     SystemMetadata systemMetadata = populateDefaultFieldsIfEmpty(providedSystemMetadata);
 
     final Set<String> projectedAspects = new HashSet<>(Arrays.asList("browsePaths"));
@@ -170,20 +176,21 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     final AuditStamp auditStamp =
         new AuditStamp().setTime(_clock.millis()).setActor(Urn.createFromString(Constants.UNKNOWN_ACTOR));
 
+    preIngestTimer.stop();
+
     // variables referenced in lambdas are required to be final
     final SystemMetadata finalSystemMetadata = systemMetadata;
-    return RestliUtils.toTask(() -> {
+    return RestliUtil.toTask(() -> {
       _entityService.ingestEntity(entity, auditStamp, finalSystemMetadata);
       return null;
-    });
+    }, MetricRegistry.name(this.getClass(), "ingest"));
   }
 
   @Action(name = ACTION_BATCH_INGEST)
   @Nonnull
-  public Task<Void> batchIngest(
-      @ActionParam(PARAM_ENTITIES) @Nonnull Entity[] entities,
-      @ActionParam(SYSTEM_METADATA) @Optional @Nullable SystemMetadata[] systemMetadataList
-      ) throws URISyntaxException {
+  @WithSpan
+  public Task<Void> batchIngest(@ActionParam(PARAM_ENTITIES) @Nonnull Entity[] entities,
+      @ActionParam(SYSTEM_METADATA) @Optional @Nullable SystemMetadata[] systemMetadataList) throws URISyntaxException {
 
     for (Entity entity : entities) {
       validateOrThrow(entity, HttpStatus.S_422_UNPROCESSABLE_ENTITY);
@@ -197,55 +204,63 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     }
 
     if (entities.length != systemMetadataList.length) {
-      throw RestliUtils.invalidArgumentsException("entities and systemMetadata length must match");
+      throw RestliUtil.invalidArgumentsException("entities and systemMetadata length must match");
     }
 
     final List<SystemMetadata> finalSystemMetadataList = Arrays.stream(systemMetadataList)
         .map(systemMetadata -> populateDefaultFieldsIfEmpty(systemMetadata))
         .collect(Collectors.toList());
 
-    return RestliUtils.toTask(() -> {
+    return RestliUtil.toTask(() -> {
       _entityService.ingestEntities(Arrays.asList(entities), auditStamp, finalSystemMetadataList);
       return null;
-    });
+    }, MetricRegistry.name(this.getClass(), "batchIngest"));
   }
 
   @Action(name = ACTION_SEARCH)
   @Nonnull
+  @WithSpan
   public Task<SearchResult> search(@ActionParam(PARAM_ENTITY) @Nonnull String entityName,
       @ActionParam(PARAM_INPUT) @Nonnull String input, @ActionParam(PARAM_FILTER) @Optional @Nullable Filter filter,
       @ActionParam(PARAM_SORT) @Optional @Nullable SortCriterion sortCriterion, @ActionParam(PARAM_START) int start,
       @ActionParam(PARAM_COUNT) int count) {
 
     log.info("GET SEARCH RESULTS for {} with query {}", entityName, input);
-    return RestliUtils.toTask(() -> _searchService.search(entityName, input, filter, sortCriterion, start, count));
+    return RestliUtil.toTask(() -> _searchService.search(entityName, input, filter, sortCriterion, start, count),
+        MetricRegistry.name(this.getClass(), "search"));
   }
 
   @Action(name = ACTION_AUTOCOMPLETE)
   @Nonnull
+  @WithSpan
   public Task<AutoCompleteResult> autocomplete(@ActionParam(PARAM_ENTITY) @Nonnull String entityName,
       @ActionParam(PARAM_QUERY) @Nonnull String query, @ActionParam(PARAM_FIELD) @Optional @Nullable String field,
       @ActionParam(PARAM_FILTER) @Optional @Nullable Filter filter, @ActionParam(PARAM_LIMIT) int limit) {
 
-    return RestliUtils.toTask(() -> _searchService.autoComplete(entityName, query, field, filter, limit));
+    return RestliUtil.toTask(() -> _searchService.autoComplete(entityName, query, field, filter, limit),
+        MetricRegistry.name(this.getClass(), "autocomplete"));
   }
 
   @Action(name = ACTION_BROWSE)
   @Nonnull
+  @WithSpan
   public Task<BrowseResult> browse(@ActionParam(PARAM_ENTITY) @Nonnull String entityName,
       @ActionParam(PARAM_PATH) @Nonnull String path, @ActionParam(PARAM_FILTER) @Optional @Nullable Filter filter,
       @ActionParam(PARAM_START) int start, @ActionParam(PARAM_LIMIT) int limit) {
 
     log.info("GET BROWSE RESULTS for {} at path {}", entityName, path);
-    return RestliUtils.toTask(() -> _searchService.browse(entityName, path, filter, start, limit));
+    return RestliUtil.toTask(() -> _searchService.browse(entityName, path, filter, start, limit),
+        MetricRegistry.name(this.getClass(), "browse"));
   }
 
   @Action(name = ACTION_GET_BROWSE_PATHS)
   @Nonnull
+  @WithSpan
   public Task<StringArray> getBrowsePaths(
       @ActionParam(value = PARAM_URN, typeref = com.linkedin.common.Urn.class) @Nonnull Urn urn) {
     log.info("GET BROWSE PATHS for {}", urn.toString());
-    return RestliUtils.toTask(() -> new StringArray(_searchService.getBrowsePaths(urnToEntityName(urn), urn)));
+    return RestliUtil.toTask(() -> new StringArray(_searchService.getBrowsePaths(urnToEntityName(urn), urn)),
+        MetricRegistry.name(this.getClass(), "getBrowsePaths"));
   }
 
   /*
@@ -253,10 +268,12 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
    */
   @Action(name = "delete")
   @Nonnull
-  public Task<DeleteEntityResponse> deleteEntity(@ActionParam(PARAM_URN) @Nonnull String urnStr) throws URISyntaxException {
+  @WithSpan
+  public Task<DeleteEntityResponse> deleteEntity(@ActionParam(PARAM_URN) @Nonnull String urnStr)
+      throws URISyntaxException {
     Urn urn = Urn.createFromString(urnStr);
 
-    return RestliUtils.toTask(() -> {
+    return RestliUtil.toTask(() -> {
       DeleteEntityResponse response = new DeleteEntityResponse();
 
       RollbackRunResult result = _entityService.deleteUrn(urn);
@@ -265,7 +282,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       response.setRows(result.getRowsDeletedFromEntityDeletion());
 
       return response;
-    });
+    }, MetricRegistry.name(this.getClass(), "delete"));
   }
 
   /*
@@ -273,9 +290,10 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
    */
   @Action(name = "setWritable")
   @Nonnull
+  @WithSpan
   public Task<Void> setWriteable(@ActionParam(PARAM_VALUE) @Optional("true") @Nonnull Boolean value) {
     log.info("setting entity resource to be writable");
-    return RestliUtils.toTask(() -> {
+    return RestliUtil.toTask(() -> {
       _entityService.setWritable(value);
       return null;
     });
@@ -283,25 +301,28 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
 
   @Action(name = "getTotalEntityCount")
   @Nonnull
+  @WithSpan
   public Task<Long> getTotalEntityCount(@ActionParam(PARAM_ENTITY) @Nonnull String entityName) {
-    return RestliUtils.toTask(() -> _searchService.docCount(entityName));
+    return RestliUtil.toTask(() -> _searchService.docCount(entityName));
   }
 
   @Action(name = "batchGetTotalEntityCount")
   @Nonnull
+  @WithSpan
   public Task<LongMap> batchGetTotalEntityCount(@ActionParam(PARAM_ENTITIES) @Nonnull String[] entityNames) {
-    return RestliUtils.toTask(() -> new LongMap(
+    return RestliUtil.toTask(() -> new LongMap(
         Arrays.stream(entityNames).collect(Collectors.toMap(Function.identity(), _searchService::docCount))));
   }
 
   @Action(name = ACTION_LIST_URNS)
   @Nonnull
+  @WithSpan
   public Task<ListUrnsResult> listUrns(
       @ActionParam(PARAM_ENTITY) @Nonnull String entityName,
       @ActionParam(PARAM_START) int start,
       @ActionParam(PARAM_COUNT) int count
   ) throws URISyntaxException {
     log.info("LIST URNS for {} with start {} and count {}", entityName, start, count);
-    return RestliUtils.toTask(() -> _entityService.listUrns(entityName, start, count));
+    return RestliUtil.toTask(() -> _entityService.listUrns(entityName, start, count), "listUrns");
   }
 }

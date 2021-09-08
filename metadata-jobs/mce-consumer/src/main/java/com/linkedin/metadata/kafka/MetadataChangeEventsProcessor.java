@@ -1,11 +1,14 @@
 package com.linkedin.metadata.kafka;
 
+import com.codahale.metrics.Histogram;
+import com.codahale.metrics.MetricRegistry;
 import com.linkedin.entity.Entity;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.EventUtils;
 import com.linkedin.metadata.kafka.config.MetadataChangeProposalProcessorCondition;
 import com.linkedin.metadata.snapshot.Snapshot;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.FailedMetadataChangeEvent;
 import com.linkedin.mxe.MetadataChangeEvent;
 import com.linkedin.mxe.Topics;
@@ -33,6 +36,9 @@ public class MetadataChangeEventsProcessor {
   private EntityClient entityClient;
   private KafkaTemplate<String, GenericRecord> kafkaTemplate;
 
+  private final Histogram kafkaLagStats =
+      MetricUtils.get().histogram(MetricRegistry.name(this.getClass(), "kafkaLag"));
+
   @Value("${KAFKA_FMCE_TOPIC_NAME:" + Topics.FAILED_METADATA_CHANGE_EVENT + "}")
   private String fmceTopicName;
 
@@ -46,6 +52,7 @@ public class MetadataChangeEventsProcessor {
   @KafkaListener(id = "${METADATA_CHANGE_EVENT_KAFKA_CONSUMER_GROUP_ID:mce-consumer-job-client}", topics =
       "${KAFKA_MCE_TOPIC_NAME:" + Topics.METADATA_CHANGE_EVENT + "}", containerFactory = "mceKafkaContainerFactory")
   public void consume(final ConsumerRecord<String, GenericRecord> consumerRecord) {
+    kafkaLagStats.update(System.currentTimeMillis() - consumerRecord.timestamp());
     final GenericRecord record = consumerRecord.value();
     log.debug("Record ", record);
 
