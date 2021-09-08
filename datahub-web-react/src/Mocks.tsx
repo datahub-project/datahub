@@ -1366,10 +1366,12 @@ export const mocks = [
                     facets: [
                         {
                             field: 'origin',
+                            displayName: 'origin',
                             aggregations: [{ value: 'PROD', count: 3 }],
                         },
                         {
                             field: 'platform',
+                            displayName: 'platform',
                             aggregations: [
                                 { value: 'HDFS', count: 1 },
                                 { value: 'MySQL', count: 1 },
@@ -1419,6 +1421,7 @@ export const mocks = [
                     facets: [
                         {
                             field: 'origin',
+                            displayName: 'origin',
                             aggregations: [
                                 {
                                     value: 'PROD',
@@ -1428,6 +1431,7 @@ export const mocks = [
                         },
                         {
                             field: 'platform',
+                            displayName: 'platform',
                             aggregations: [
                                 { value: 'hdfs', count: 1 },
                                 { value: 'mysql', count: 1 },
@@ -1472,6 +1476,7 @@ export const mocks = [
                     facets: [
                         {
                             field: 'origin',
+                            displayName: 'platform',
                             aggregations: [
                                 {
                                     value: 'PROD',
@@ -1481,6 +1486,7 @@ export const mocks = [
                         },
                         {
                             field: 'platform',
+                            displayName: 'platform',
                             aggregations: [
                                 { value: 'hdfs', count: 1 },
                                 { value: 'mysql', count: 1 },
@@ -1556,6 +1562,7 @@ export const mocks = [
                     facets: [
                         {
                             field: 'origin',
+                            displayName: 'platform',
                             aggregations: [
                                 {
                                     value: 'PROD',
@@ -1565,6 +1572,7 @@ export const mocks = [
                         },
                         {
                             field: 'platform',
+                            displayName: 'platform',
                             aggregations: [
                                 { value: 'hdfs', count: 1 },
                                 { value: 'mysql', count: 1 },
@@ -1707,6 +1715,7 @@ export const mocks = [
                     facets: [
                         {
                             field: 'origin',
+                            displayName: 'platform',
                             aggregations: [
                                 {
                                     value: 'PROD',
@@ -1716,6 +1725,7 @@ export const mocks = [
                         },
                         {
                             field: 'platform',
+                            displayName: 'platform',
                             aggregations: [
                                 { value: 'hdfs', count: 1 },
                                 { value: 'mysql', count: 1 },
@@ -1767,6 +1777,7 @@ export const mocks = [
                     facets: [
                         {
                             field: 'origin',
+                            displayName: 'platform',
                             aggregations: [
                                 {
                                     value: 'PROD',
@@ -1776,6 +1787,7 @@ export const mocks = [
                         },
                         {
                             field: 'platform',
+                            displayName: 'platform',
                             aggregations: [
                                 { value: 'hdfs', count: 1 },
                                 { value: 'mysql', count: 1 },
@@ -1820,6 +1832,7 @@ export const mocks = [
                     facets: [
                         {
                             field: 'origin',
+                            displayName: 'platform',
                             aggregations: [
                                 {
                                     value: 'PROD',
@@ -1829,6 +1842,7 @@ export const mocks = [
                         },
                         {
                             field: 'platform',
+                            displayName: 'platform',
                             aggregations: [
                                 { value: 'hdfs', count: 1 },
                                 { value: 'mysql', count: 1 },
@@ -1955,6 +1969,7 @@ export const mocks = [
                     facets: [
                         {
                             field: 'origin',
+                            displayName: 'platform',
                             aggregations: [
                                 {
                                     value: 'PROD',
@@ -1964,6 +1979,7 @@ export const mocks = [
                         },
                         {
                             field: 'platform',
+                            displayName: 'platform',
                             aggregations: [
                                 { value: 'hdfs', count: 1 },
                                 { value: 'mysql', count: 1 },

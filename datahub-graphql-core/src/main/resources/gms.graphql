@@ -267,7 +267,7 @@ type Query {
     """
     Search DataHub entities
     """
-    search(input: SearchInput!): SearchResults
+    search(input: SearchMultipleInput!): SearchResults
 
     """
     Search DataHub entities
@@ -1545,7 +1545,7 @@ type FacetMetadata {
     """
     Display name of the field
     """
-    displayName: String!
+    displayName: String
 
     """
     Aggregated search result counts by value of the field
