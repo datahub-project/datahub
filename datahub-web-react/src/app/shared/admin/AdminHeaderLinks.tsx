@@ -2,17 +2,13 @@ import styled from 'styled-components';
 import * as React from 'react';
 import { BankOutlined, BarChartOutlined } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
+import { Button } from 'antd';
 
-import { ANTD_GRAY } from '../../entity/shared/constants';
 import { useAppConfig } from '../../useAppConfig';
 import { useGetAuthenticatedUser } from '../../useGetAuthenticatedUser';
 
 const AdminLink = styled.span`
-    a {
-        color: ${ANTD_GRAY[9]};
-    }
-    font-weight: 600;
-    padding-right: 16px;
+    margin-right: 4px;
 `;
 
 export function AdminHeaderLinks() {
@@ -30,14 +26,18 @@ export function AdminHeaderLinks() {
             {showAnalytics && (
                 <AdminLink>
                     <Link to="/analytics">
-                        <BarChartOutlined /> Analytics
+                        <Button type="text">
+                            <BarChartOutlined /> Analytics
+                        </Button>
                     </Link>
                 </AdminLink>
             )}
             {showPolicyBuilder && (
                 <AdminLink>
                     <Link to="/policies">
-                        <BankOutlined /> Policies
+                        <Button type="text">
+                            <BankOutlined /> Policies
+                        </Button>
                     </Link>
                 </AdminLink>
             )}
