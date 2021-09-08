@@ -1,10 +1,11 @@
 package com.linkedin.metadata.resources.usage;
 
+import com.codahale.metrics.MetricRegistry;
 import com.linkedin.common.WindowDuration;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.metadata.usage.UsageService;
-import com.linkedin.metadata.restli.RestliUtils;
+import com.linkedin.metadata.restli.RestliUtil;
 import com.linkedin.parseq.Task;
 import com.linkedin.restli.server.annotations.Action;
 import com.linkedin.restli.server.annotations.ActionParam;
@@ -20,8 +21,8 @@ import com.linkedin.usage.UsageTimeRange;
 import com.linkedin.usage.UserUsageCounts;
 import com.linkedin.usage.UserUsageCountsArray;
 import com.linkedin.util.Pair;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import io.opentelemetry.extension.annotations.WithSpan;
+import lombok.extern.slf4j.Slf4j;
 
 import javax.annotation.Nonnull;
 import javax.inject.Inject;
@@ -35,6 +36,7 @@ import java.util.stream.Collectors;
 /**
  * Rest.li entry point: /usageStats
  */
+@Slf4j
 @RestLiSimpleResource(name = "usageStats", namespace = "com.linkedin.usage")
 public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
     private static final String ACTION_BATCH_INGEST = "batchIngest";
@@ -54,29 +56,29 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
     @Named("usageService")
     private UsageService _usageService;
 
-    private final Logger _logger = LoggerFactory.getLogger(UsageStats.class.getName());
-
     @Action(name = ACTION_BATCH_INGEST)
     @Nonnull
+    @WithSpan
     public Task<Void> batchIngest(@ActionParam(PARAM_BUCKETS) @Nonnull UsageAggregation[] buckets) {
-        _logger.info("Ingesting {} usage stats aggregations", buckets.length);
-        return RestliUtils.toTask(() -> {
+        log.info("Ingesting {} usage stats aggregations", buckets.length);
+        return RestliUtil.toTask(() -> {
             for (UsageAggregation agg: buckets) {
                 this.ingest(agg);
             }
             return null;
-        });
+        }, MetricRegistry.name(this.getClass(), "batchIngest"));
     }
 
     @Action(name = ACTION_QUERY)
     @Nonnull
+    @WithSpan
     public Task<UsageQueryResult> query(@ActionParam(PARAM_RESOURCE) @Nonnull String resource,
                                         @ActionParam(PARAM_DURATION) @Nonnull WindowDuration duration,
                                         @ActionParam(PARAM_START_TIME) @com.linkedin.restli.server.annotations.Optional Long startTime,
                                         @ActionParam(PARAM_END_TIME) @com.linkedin.restli.server.annotations.Optional Long endTime,
                                         @ActionParam(PARAM_MAX_BUCKETS) @com.linkedin.restli.server.annotations.Optional Integer maxBuckets) {
-        _logger.info("Attempting to query usage stats");
-        return RestliUtils.toTask(() -> {
+        log.info("Attempting to query usage stats");
+        return RestliUtil.toTask(() -> {
             UsageAggregationArray buckets = new UsageAggregationArray();
             buckets.addAll(_usageService.query(resource, duration, startTime, endTime, maxBuckets));
 
@@ -152,11 +154,12 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
             return new UsageQueryResult()
                     .setBuckets(buckets)
                     .setAggregations(aggregations);
-        });
+        }, MetricRegistry.name(this.getClass(), "query"));
     }
 
     @Action(name = ACTION_QUERY_RANGE)
     @Nonnull
+    @WithSpan
     public Task<UsageQueryResult> queryRange(@ActionParam(PARAM_RESOURCE) @Nonnull String resource,
                                         @ActionParam(PARAM_DURATION) @Nonnull WindowDuration duration,
                                         @ActionParam(PARAM_RANGE) UsageTimeRange range) {

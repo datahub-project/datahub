@@ -1,5 +1,6 @@
 package com.linkedin.metadata.usage.elasticsearch;
 
+import com.codahale.metrics.Timer;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -13,6 +14,7 @@ import com.linkedin.metadata.search.elasticsearch.update.BulkListener;
 import com.linkedin.metadata.usage.UsageService;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.common.WindowDuration;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.usage.FieldUsageCounts;
 import com.linkedin.usage.FieldUsageCountsArray;
 import com.linkedin.usage.UsageAggregation;
@@ -196,7 +198,7 @@ public class ElasticUsageService implements UsageService {
 
         log.debug("Search request is: " + searchRequest.toString());
 
-        try {
+        try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "esSearch").time()) {
             final SearchResponse searchResponse = elasticClient.search(searchRequest, RequestOptions.DEFAULT);
             final SearchHits hits = searchResponse.getHits();
 

@@ -1,5 +1,7 @@
 package com.linkedin.metadata.kafka;
 
+import com.codahale.metrics.Histogram;
+import com.codahale.metrics.MetricRegistry;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.element.DataElement;
 import com.linkedin.data.template.RecordTemplate;
@@ -26,6 +28,7 @@ import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.usage.UsageService;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataAuditEvent;
 import com.linkedin.mxe.MetadataAuditOperation;
 import com.linkedin.mxe.SystemMetadata;
@@ -67,6 +70,9 @@ public class MetadataAuditEventsProcessor {
   private final UsageService _usageService;
   private final SystemMetadataService _systemMetadataService;
 
+  private final Histogram kafkaLagStats =
+      MetricUtils.get().histogram(MetricRegistry.name(this.getClass(), "kafkaLag"));
+
   @Autowired
   public MetadataAuditEventsProcessor(GraphService graphService, SearchService searchService, UsageService usageService,
       SystemMetadataService systemMetadataService) {
@@ -84,6 +90,8 @@ public class MetadataAuditEventsProcessor {
   @KafkaListener(id = "${METADATA_AUDIT_EVENT_KAFKA_CONSUMER_GROUP_ID:mae-consumer-job-client}", topics =
       "${KAFKA_TOPIC_NAME:" + Topics.METADATA_AUDIT_EVENT + "}", containerFactory = "avroSerializedKafkaListener")
   public void consume(final ConsumerRecord<String, GenericRecord> consumerRecord) {
+    kafkaLagStats.update(System.currentTimeMillis() - consumerRecord.timestamp());
+
     final GenericRecord record = consumerRecord.value();
     log.debug("Got MAE");
 
