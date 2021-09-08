@@ -1567,7 +1567,7 @@ type AggregationMetadata {
     """
     Entity corresponding to the facet field
     """
-    entity: Entity!
+    entity: Entity
 }
 
 input AutoCompleteInput {
