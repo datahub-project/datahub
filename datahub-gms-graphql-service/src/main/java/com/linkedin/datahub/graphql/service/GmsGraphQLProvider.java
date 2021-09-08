@@ -1,12 +1,8 @@
 package com.linkedin.datahub.graphql.service;
 
-import com.linkedin.metadata.entity.EntityService;
 import javax.annotation.PostConstruct;
 
-import javax.inject.Inject;
-import javax.inject.Named;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Import;
 import org.springframework.stereotype.Component;
 
 import com.linkedin.datahub.graphql.GmsGraphQLEngine;
@@ -20,10 +16,6 @@ public class GmsGraphQLProvider {
     private GraphQL graphQL;
     private GraphQLEngine graphQLEngine;
 
-    @Inject
-    @Named("entityService")
-    private EntityService _entityService;
-
     @Bean
     public GraphQL graphQL() {
         return graphQL;
@@ -36,7 +28,7 @@ public class GmsGraphQLProvider {
 
     @PostConstruct
     public void init() {
-        this.graphQLEngine = new GmsGraphQLEngine().builder().configureEntityService(_entityService).build();
+        this.graphQLEngine = new GmsGraphQLEngine().builder().build();
         this.graphQL = graphQLEngine.getGraphQL();
     }
 }
