@@ -53,6 +53,7 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `chart_pattern.allow`     |          |                         | List of regex patterns for charts to include in ingestion.                                                            |
 | `chart_pattern.deny`      |          |                         | List of regex patterns for charts to exclude from ingestion.                                                          |
 | `chart_pattern.ignoreCase`  |          | `True` | Whether to ignore case sensitivity during pattern matching.                                                                                                                                  |
+| `include_deleted`         |          | `False`                 | Whether to include deleted dashboards.                                                                       |
 | `env`                     |          | `"PROD"`                | Environment to use in namespace when constructing URNs.                                                      |
 
 ## Compatibility
