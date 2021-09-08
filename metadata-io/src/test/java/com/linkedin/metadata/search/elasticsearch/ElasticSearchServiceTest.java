@@ -107,9 +107,34 @@ public class ElasticSearchServiceTest {
     browseResult = _elasticSearchService.browse(ENTITY_NAME, "", null, 0, 10);
     assertEquals(browseResult.getMetadata().getTotalNumEntities().longValue(), 1);
     assertEquals(browseResult.getGroups().get(0).getName(), "a");
+    browseResult = _elasticSearchService.browse(ENTITY_NAME, "/a", null, 0, 10);
+    assertEquals(browseResult.getMetadata().getTotalNumEntities().longValue(), 1);
+    assertEquals(browseResult.getGroups().get(0).getName(), "b");
     assertEquals(_elasticSearchService.docCount(ENTITY_NAME), 1);
 
+    Urn urn2 = new TestEntityUrn("test", "testUrn2", "VALUE_2");
+    ObjectNode document2 = JsonNodeFactory.instance.objectNode();
+    document2.set("urn", JsonNodeFactory.instance.textNode(urn2.toString()));
+    document2.set("keyPart1", JsonNodeFactory.instance.textNode("random"));
+    document2.set("textFieldOverride", JsonNodeFactory.instance.textNode("textFieldOverride2"));
+    document2.set("browsePaths", JsonNodeFactory.instance.textNode("/b/c"));
+    _elasticSearchService.upsertDocument(ENTITY_NAME, document2.toString(), urn2.toString());
+    TimeUnit.SECONDS.sleep(5);
+
+    searchResult = _elasticSearchService.search(ENTITY_NAME, "test", null, null, 0, 10);
+    assertEquals(searchResult.getNumEntities().intValue(), 1);
+    assertEquals(searchResult.getEntities().get(0), urn);
+    browseResult = _elasticSearchService.browse(ENTITY_NAME, "", null, 0, 10);
+    assertEquals(browseResult.getMetadata().getTotalNumEntities().longValue(), 2);
+    assertEquals(browseResult.getGroups().get(0).getName(), "a");
+    assertEquals(browseResult.getGroups().get(1).getName(), "b");
+    browseResult = _elasticSearchService.browse(ENTITY_NAME, "/a", null, 0, 10);
+    assertEquals(browseResult.getMetadata().getTotalNumEntities().longValue(), 1);
+    assertEquals(browseResult.getGroups().get(0).getName(), "b");
+    assertEquals(_elasticSearchService.docCount(ENTITY_NAME), 2);
+
     _elasticSearchService.deleteDocument(ENTITY_NAME, urn.toString());
+    _elasticSearchService.deleteDocument(ENTITY_NAME, urn2.toString());
     TimeUnit.SECONDS.sleep(5);
     searchResult = _elasticSearchService.search(ENTITY_NAME, "test", null, null, 0, 10);
     assertEquals(searchResult.getNumEntities().intValue(), 0);
