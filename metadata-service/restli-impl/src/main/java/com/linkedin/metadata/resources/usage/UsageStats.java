@@ -2,17 +2,25 @@ package com.linkedin.metadata.resources.usage;
 
 import com.codahale.metrics.MetricRegistry;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.WindowDuration;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
+import com.linkedin.dataset.DatasetFieldUsageCounts;
+import com.linkedin.dataset.DatasetFieldUsageCountsArray;
+import com.linkedin.dataset.DatasetUsageStatistics;
+import com.linkedin.dataset.DatasetUserUsageCounts;
+import com.linkedin.dataset.DatasetUserUsageCountsArray;
+import com.linkedin.metadata.models.AspectSpec;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.Condition;
 import com.linkedin.metadata.query.Criterion;
 import com.linkedin.metadata.query.CriterionArray;
 import com.linkedin.metadata.query.Filter;
 import com.linkedin.metadata.restli.RestliUtil;
-import com.linkedin.metadata.timeseries.elastic.ElasticSearchTimeseriesAspectService;
-import com.linkedin.metadata.usage.UsageService;
+import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.timeseries.transformer.TimeseriesAspectTransformer;
 import com.linkedin.parseq.Task;
 import com.linkedin.restli.server.annotations.Action;
 import com.linkedin.restli.server.annotations.ActionParam;
@@ -40,9 +48,11 @@ import java.net.URISyntaxException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import javax.annotation.Nonnull;
 import javax.inject.Inject;
 import javax.inject.Named;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 
@@ -71,11 +81,16 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
   private static final String ES_NULL_VALUE = "NULL";
 
   @Inject
-  @Named("usageService")
-  private UsageService _usageService;
+  @Named("timeseriesAspectService")
+  private TimeseriesAspectService _timeseriesAspectService;
+
   @Inject
-  @Named("elasticSearchTimeseriesAspectService")
-  private ElasticSearchTimeseriesAspectService _elasticSearchTimeseriesAspectService;
+  @Named("entityRegistry")
+  private EntityRegistry _entityRegistry;
+
+  @Getter(lazy = true)
+  private final AspectSpec usageStatsAspectSpec =
+      _entityRegistry.getEntitySpec(USAGE_STATS_ENTITY_NAME).getAspectSpec(USAGE_STATS_ASPECT_NAME);
 
   @Action(name = ACTION_BATCH_INGEST)
   @Nonnull
@@ -125,6 +140,7 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
         new AggregationSpec[]{uniqueUserCountAgg, totalSqlQueriesAgg, topSqlQueriesAgg};
 
     // 2. Construct the Grouping buckets with just the ts bucket.
+
     GroupingBucket timestampBucket = new GroupingBucket();
     timestampBucket.setKey(ES_FIELD_TIMESTAMP)
         .setType(GroupingBucketType.DATE_GROUPING_BUCKET)
@@ -133,8 +149,8 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
 
     // 3. Query
     GenericTable result =
-        _elasticSearchTimeseriesAspectService.getAggregatedStats(USAGE_STATS_ENTITY_NAME, USAGE_STATS_ASPECT_NAME,
-            aggregationSpecs, filter, groupingBuckets);
+        _timeseriesAspectService.getAggregatedStats(USAGE_STATS_ENTITY_NAME, USAGE_STATS_ASPECT_NAME, aggregationSpecs,
+            filter, groupingBuckets);
 
     // 4. Populate buckets from the result.
     UsageAggregationArray buckets = new UsageAggregationArray();
@@ -189,8 +205,8 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
 
     // Query backend
     GenericTable result =
-        _elasticSearchTimeseriesAspectService.getAggregatedStats(USAGE_STATS_ENTITY_NAME, USAGE_STATS_ASPECT_NAME,
-            aggregationSpecs, filter, groupingBuckets);
+        _timeseriesAspectService.getAggregatedStats(USAGE_STATS_ENTITY_NAME, USAGE_STATS_ASPECT_NAME, aggregationSpecs,
+            filter, groupingBuckets);
     // Process response
     List<UserUsageCounts> userUsageCounts = new ArrayList<>();
     for (StringArray row : result.getRows()) {
@@ -225,8 +241,8 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
 
     // Query backend
     GenericTable result =
-        _elasticSearchTimeseriesAspectService.getAggregatedStats(USAGE_STATS_ENTITY_NAME, USAGE_STATS_ASPECT_NAME,
-            aggregationSpecs, filter, groupingBuckets);
+        _timeseriesAspectService.getAggregatedStats(USAGE_STATS_ENTITY_NAME, USAGE_STATS_ASPECT_NAME, aggregationSpecs,
+            filter, groupingBuckets);
 
     // Process response
     List<FieldUsageCounts> fieldUsageCounts = new ArrayList<>();
@@ -246,7 +262,6 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
   }
 
   private UsageQueryResultAggregations getAggregations(Filter filter) {
-    // TODO: make the aggregation computation logic reusable
     UsageQueryResultAggregations aggregations = new UsageQueryResultAggregations();
     List<UserUsageCounts> userUsageCounts = getUserUsageCounts(filter);
     aggregations.setUsers(new UserUsageCountsArray(userUsageCounts));
@@ -324,7 +339,56 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
   }
 
   private void ingest(@Nonnull UsageAggregation bucket) {
-    _usageService.upsertDocument(bucket);
+    // 1. Translate the bucket to DatasetUsageStatistics first.
+    DatasetUsageStatistics datasetUsageStatistics = new DatasetUsageStatistics();
+    datasetUsageStatistics.setTimestampMillis(bucket.getBucket());
+    datasetUsageStatistics.setEventGranularity(
+        new TimeWindowSize().setUnit(windowToInterval(bucket.getDuration())).setMultiple(1));
+    UsageAggregationMetrics aggregationMetrics = bucket.getMetrics();
+    if (aggregationMetrics.hasUniqueUserCount()) {
+      datasetUsageStatistics.setUniqueUserCount(aggregationMetrics.getUniqueUserCount());
+    }
+    if (aggregationMetrics.hasTotalSqlQueries()) {
+      datasetUsageStatistics.setTotalSqlQueries(aggregationMetrics.getTotalSqlQueries());
+    }
+    if (aggregationMetrics.hasTopSqlQueries()) {
+      datasetUsageStatistics.setTopSqlQueries(aggregationMetrics.getTopSqlQueries());
+    }
+    if (aggregationMetrics.hasUsers()) {
+      DatasetUserUsageCountsArray datasetUserUsageCountsArray = new DatasetUserUsageCountsArray();
+      for (UserUsageCounts u : aggregationMetrics.getUsers()) {
+        DatasetUserUsageCounts datasetUserUsageCounts = new DatasetUserUsageCounts();
+        datasetUserUsageCounts.setUser(u.getUser());
+        datasetUserUsageCounts.setCount(u.getCount());
+        datasetUserUsageCountsArray.add(datasetUserUsageCounts);
+      }
+      datasetUsageStatistics.setUserCounts(datasetUserUsageCountsArray);
+    }
+    if (aggregationMetrics.hasFields()) {
+      DatasetFieldUsageCountsArray datasetFieldUsageCountsArray = new DatasetFieldUsageCountsArray();
+      for (FieldUsageCounts f : aggregationMetrics.getFields()) {
+        DatasetFieldUsageCounts datasetFieldUsageCounts = new DatasetFieldUsageCounts();
+        datasetFieldUsageCounts.setFieldPath(f.getFieldName());
+        datasetFieldUsageCounts.setCount(f.getCount());
+        datasetFieldUsageCountsArray.add(datasetFieldUsageCounts);
+      }
+      datasetUsageStatistics.setFieldCounts(datasetFieldUsageCountsArray);
+    }
+    // 2. Transform the aspect to timeseries documents.
+    Map<String, JsonNode> documents;
+    try {
+      documents =
+          TimeseriesAspectTransformer.transform(bucket.getResource(), datasetUsageStatistics, getUsageStatsAspectSpec(),
+              null);
+    } catch (JsonProcessingException e) {
+      log.error("Failed to generate timeseries document from aspect: {}", e.toString());
+      return;
+    }
+    // 3. Upsert the exploded documents to timeseries aspect service.
+    documents.entrySet().forEach(document -> {
+      _timeseriesAspectService.upsertDocument(USAGE_STATS_ENTITY_NAME, USAGE_STATS_ASPECT_NAME, document.getKey(),
+          document.getValue());
+    });
   }
 
   @Nonnull
