@@ -12,7 +12,8 @@ RUN apt-get update && apt-get install -y \
         libldap2-dev \
         libsasl2-dev \
         ldap-utils \
-    && python -m pip install --upgrade pip wheel setuptools
+    && python -m pip install --upgrade pip wheel setuptools==57.5.0
+
 
 FROM openjdk:8 as prod-build
 COPY . /datahub-src
