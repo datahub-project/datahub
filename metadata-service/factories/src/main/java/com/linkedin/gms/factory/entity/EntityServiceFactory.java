@@ -37,14 +37,10 @@ public class EntityServiceFactory {
         new EntityKafkaMetadataEventProducer(applicationContext.getBean(Producer.class),
             applicationContext.getBean(TopicConvention.class));
 
-    switch (daoServiceLayer) {
-      case "datastax":
-        return new DatastaxEntityService(applicationContext.getBean(DatastaxAspectDao.class), producer,
-                                         applicationContext.getBean(EntityRegistry.class));
-      
-    default: // ebean
-        return new EbeanEntityService(applicationContext.getBean(EbeanAspectDao.class), producer,
-        applicationContext.getBean(EntityRegistry.class));
+    if (daoServiceLayer.equals("datastax")) {
+      return new DatastaxEntityService(applicationContext.getBean(DatastaxAspectDao.class), producer, applicationContext.getBean(EntityRegistry.class));
+    } else { // ebean
+      return new EbeanEntityService(applicationContext.getBean(EbeanAspectDao.class), producer, applicationContext.getBean(EntityRegistry.class));
     }
   }
 }

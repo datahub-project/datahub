@@ -3,7 +3,7 @@ create keyspace datahubpoc WITH REPLICATION = {
   'replication_factor' : 1
 };
 
-create table datahubpoc.metadata_aspect (
+create table datahubpoc.metadata_aspect_v2 (
   urn                           varchar,
   aspect                        varchar,
   version                       bigint,

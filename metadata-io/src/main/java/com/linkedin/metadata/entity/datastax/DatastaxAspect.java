@@ -2,7 +2,7 @@ package com.linkedin.metadata.entity.datastax;
 
 import java.sql.Timestamp;
 
-// Dumb object
+// Dumb object for now
 
 public class DatastaxAspect {
   private String urn;
@@ -13,18 +13,6 @@ public class DatastaxAspect {
   private Timestamp createdon;
   private String createdby;
   private String createdfor;
-
-  public static final String ALL_COLUMNS = "*";
-  public static final String KEY_ID = "key";
-  public static final String URN_COLUMN = "urn";
-  public static final String ASPECT_COLUMN = "aspect";
-  public static final String VERSION_COLUMN = "version";
-  public static final String METADATA_COLUMN = "metadata";
-  public static final String CREATED_ON_COLUMN = "createdOn";
-  public static final String CREATED_BY_COLUMN = "createdBy";
-  public static final String CREATED_FOR_COLUMN = "createdFor";
-
-  public static final String SYSTEM_METADATA_COLUMN = "systemmetadata";
 
   public String toString() {
     return String.format("urn: %s, aspect: %s, version: %s, metadata: %s, createdon: %s, createdby: %s, createdfor: %s, systemmetadata: %s",
@@ -37,10 +25,10 @@ public class DatastaxAspect {
     private String aspect;
     private long version;
 
-    public PrimaryKey(String _urn, String _aspect, long _version) {
-      setUrn(_urn);
-      setAspect(_aspect);
-      setVersion(_version);
+    public PrimaryKey(String urn, String aspect, long version) {
+      setUrn(urn);
+      setAspect(aspect);
+      setVersion(version);
     }
 
     public String getUrn() {
