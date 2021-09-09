@@ -3,29 +3,20 @@ package com.linkedin.metadata.boot.steps;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.AuditStamp;
-import com.linkedin.common.BrowsePaths;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.dataplatform.DataPlatformInfo;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.boot.BootstrapStep;
-import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.dao.utils.RecordUtils;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.models.AspectSpec;
-import com.linkedin.metadata.search.utils.BrowsePathUtils;
-import com.linkedin.metadata.utils.EntityKeyUtils;
-import com.linkedin.metadata.utils.GenericAspectUtils;
-import com.linkedin.mxe.GenericAspect;
-import com.linkedin.mxe.MetadataChangeProposal;
 
 import java.io.IOException;
 import java.net.URISyntaxException;
-import java.util.Iterator;
+
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.ClassPathResource;
 
-import javax.xml.crypto.Data;
 
 
 @Slf4j
