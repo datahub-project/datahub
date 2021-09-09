@@ -12,7 +12,7 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.dataset.DatasetProfile;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.identity.CorpUserInfo;
-import com.linkedin.metadata.PegasusUtils;
+import com.linkedin.metadata.utils.PegasusUtils;
 import com.linkedin.metadata.aspect.Aspect;
 import com.linkedin.metadata.aspect.CorpUserAspect;
 import com.linkedin.metadata.aspect.CorpUserAspectArray;
@@ -23,9 +23,11 @@ import com.linkedin.metadata.entity.ebean.EbeanEntityService;
 import com.linkedin.metadata.entity.ebean.EbeanUtils;
 import com.linkedin.metadata.event.EntityEventProducer;
 import com.linkedin.metadata.key.CorpUserKey;
+import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.MergedEntityRegistry;
+import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.snapshot.CorpUserSnapshot;
 import com.linkedin.metadata.snapshot.Snapshot;
@@ -357,7 +359,7 @@ public class EbeanEntityServiceTest {
     datasetProfile.setColumnCount(15);
     MetadataChangeProposal gmce = new MetadataChangeProposal();
     gmce.setEntityUrn(entityUrn);
-    gmce.setChangeType(ChangeType.CREATE);
+    gmce.setChangeType(ChangeType.UPSERT);
     gmce.setEntityType("dataset");
     gmce.setAspectName("datasetProfile");
     JacksonDataTemplateCodec dataTemplateCodec = new JacksonDataTemplateCodec();
@@ -593,6 +595,49 @@ public class EbeanEntityServiceTest {
     assertTrue(DataTemplateUtil.areEqual(null, deletedKeyAspect));
   }
 
+  @Test
+  public void testIngestListUrns() throws Exception {
+    Urn entityUrn1 = Urn.createFromString("urn:li:corpuser:test1");
+    Urn entityUrn2 = Urn.createFromString("urn:li:corpuser:test2");
+    Urn entityUrn3 = Urn.createFromString("urn:li:corpuser:test3");
+
+    SystemMetadata metadata1 = new SystemMetadata();
+    metadata1.setLastObserved(1625792689);
+    metadata1.setRunId("run-123");
+
+    String aspectName = PegasusUtils.getAspectNameFromSchema(new CorpUserKey().schema());
+
+    // Ingest CorpUserInfo Aspect #1
+    RecordTemplate writeAspect1 = createCorpUserKey(entityUrn1);
+    _entityService.ingestAspect(entityUrn1, aspectName, writeAspect1, TEST_AUDIT_STAMP, metadata1);
+
+    // Ingest CorpUserInfo Aspect #2
+    RecordTemplate writeAspect2 = createCorpUserKey(entityUrn2);
+    _entityService.ingestAspect(entityUrn2, aspectName, writeAspect2, TEST_AUDIT_STAMP, metadata1);
+
+    // Ingest CorpUserInfo Aspect #3
+    RecordTemplate writeAspect3 = createCorpUserKey(entityUrn3);
+    _entityService.ingestAspect(entityUrn3, aspectName, writeAspect3, TEST_AUDIT_STAMP, metadata1);
+
+    // List aspects urns
+    ListUrnsResult batch1 = _entityService.listUrns(entityUrn1.getEntityType(),  0, 2);
+
+    assertEquals(0, (int) batch1.getStart());
+    assertEquals(2, (int) batch1.getCount());
+    assertEquals(3, (int) batch1.getTotal());
+    assertEquals(2, batch1.getEntities().size());
+    assertEquals(entityUrn1.toString(), batch1.getEntities().get(0).toString());
+    assertEquals(entityUrn2.toString(), batch1.getEntities().get(1).toString());
+
+    ListUrnsResult batch2 = _entityService.listUrns(entityUrn1.getEntityType(),  2, 2);
+
+    assertEquals(2, (int) batch2.getStart());
+    assertEquals(1, (int) batch2.getCount());
+    assertEquals(3, (int) batch2.getTotal());
+    assertEquals(1, batch2.getEntities().size());
+    assertEquals(entityUrn3.toString(), batch2.getEntities().get(0).toString());
+  }
+
   @Nonnull
   private com.linkedin.entity.Entity createCorpUserEntity(Urn entityUrn, String email) throws Exception {
     CorpuserUrn corpuserUrn = CorpuserUrn.createFromUrn(entityUrn);
@@ -606,6 +651,11 @@ public class EbeanEntityServiceTest {
     snapshot.setCorpUserSnapshot(corpUserSnapshot);
     entity.setValue(snapshot);
     return entity;
+  }
+
+  @Nonnull
+  private RecordTemplate createCorpUserKey(Urn urn) throws Exception {
+    return EntityKeyUtils.convertUrnToEntityKey(urn, new CorpUserKey().schema());
   }
 
   @Nonnull

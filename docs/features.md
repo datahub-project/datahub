@@ -53,6 +53,18 @@ Our open sourcing [blog post](https://engineering.linkedin.com/blog/2020/open-so
  - **Basic information**: ownershp, dimensions, formula, input & output datasets, dashboards
  - **Institutional knowledge**: support for adding free form doc to any metric
 
+## Fine-Grained Access Controls
+
+DataHub also provides mechanisms to control *who* has access to *which* metadata entities via UI & API. Using this functionality,
+admins of DataHub can define policies such as 
+
+- Dataset Owners should be able to update Documentation, but not Tags, for all datasets. 
+- A specific Data Steward should be able to add tags to any Dataset, but edit nothing else. 
+- Data Platform team should have all privileges for DataHub, including manging policies & viewing platform analytics.
+
+For an in-depth introduction into Fine-Grained Access Control, check out [Fine-Grained Access Policies](./policies.md) and 
+the August 2021 [Town Hall demo](https://www.youtube.com/watch?v=3joZINi3ti4).
+
 ## Metadata Sources
 
 We have a [Metadata Ingestion Framework](../metadata-ingestion/README.md) which supports a variety of popular connectors, like

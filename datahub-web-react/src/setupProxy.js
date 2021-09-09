@@ -1,3 +1,7 @@
+const logInFilter = function (pathname, req) {
+  return pathname.match('^/logIn') && req.method === 'POST';
+};
+
 if (process.env.REACT_APP_MOCK === 'true' || process.env.REACT_APP_MOCK === 'cy') {
     // no proxy needed, MirageJS will intercept all http requests
     module.exports = function () {};
@@ -8,6 +12,13 @@ if (process.env.REACT_APP_MOCK === 'true' || process.env.REACT_APP_MOCK === 'cy'
     module.exports = function (app) {
         app.use(
             '/logIn',
+            createProxyMiddleware(logInFilter, {
+                target: 'http://localhost:9002',
+                changeOrigin: true,
+            }),
+        );
+        app.use(
+            '/authenticate',
             createProxyMiddleware({
                 target: 'http://localhost:9002',
                 changeOrigin: true,

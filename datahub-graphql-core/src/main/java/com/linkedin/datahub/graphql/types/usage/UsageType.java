@@ -32,7 +32,7 @@ public class UsageType {
     try {
       return keys.stream().map(key -> {
         try {
-          UsageQueryResult usageQueryResult = _usageClient.getUsageStats(key.getResource(), key.getRange());
+          UsageQueryResult usageQueryResult = _usageClient.getUsageStats(key.getResource(), key.getRange(), context.getActor());
           return DataFetcherResult.<com.linkedin.datahub.graphql.generated.UsageQueryResult>newResult().data(
               UsageQueryResultMapper.map(usageQueryResult)
           ).build();

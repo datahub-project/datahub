@@ -1,5 +1,5 @@
 import React from 'react';
-import { Alert } from 'antd';
+import { Alert, message } from 'antd';
 import { useGetDataFlowQuery, useUpdateDataFlowMutation } from '../../../../graphql/dataFlow.generated';
 import { LegacyEntityProfile } from '../../../shared/LegacyEntityProfile';
 import { DataFlow, EntityType, GlobalTags } from '../../../../types.generated';
@@ -25,6 +25,10 @@ export const DataFlowProfile = ({ urn }: { urn: string }): JSX.Element => {
     const { loading, error, data } = useGetDataFlowQuery({ variables: { urn } });
     const [updateDataFlow] = useUpdateDataFlowMutation({
         refetchQueries: () => ['getDataFlow'],
+        onError: (e) => {
+            message.destroy();
+            message.error({ content: `Failed to update: \n ${e.message || ''}`, duration: 3 });
+        },
     });
 
     if (error || (!loading && !error && !data)) {

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Alert } from 'antd';
+import { Alert, message } from 'antd';
 import { useGetDataJobQuery, useUpdateDataJobMutation } from '../../../../graphql/dataJob.generated';
 import { LegacyEntityProfile } from '../../../shared/LegacyEntityProfile';
 import { DataJob, EntityType, GlobalTags } from '../../../../types.generated';
@@ -26,6 +26,10 @@ export const DataJobProfile = ({ urn }: { urn: string }): JSX.Element => {
     const { loading, error, data } = useGetDataJobQuery({ variables: { urn } });
     const [updateDataJob] = useUpdateDataJobMutation({
         refetchQueries: () => ['getDataJob'],
+        onError: (e) => {
+            message.destroy();
+            message.error({ content: `Failed to update: \n ${e.message || ''}`, duration: 3 });
+        },
     });
 
     if (error || (!loading && !error && !data)) {

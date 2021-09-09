@@ -167,11 +167,11 @@ The Aspect has four key components: its properties, the @Aspect annotation, the 
   references to other entities, of type Urn or optionally `<Entity>Urn`
 - The @Aspect annotation. This is used to declare that the record is an Aspect and can be included in an entity’s
   Snapshot. Unlike the other two annotations, @Aspect is applied to the entire record rather than a specific field.
-  Note, you can mark an aspect as a timeseries aspect. Check out
-  this [doc](metadata-model.md#timeseries-aspects) for details.
-- The @Searchable annotation. This annotation can be applied to any primitive field to indicate that it should be
-  indexed in Elasticsearch and can be searched on. For a complete guide on using the search annotation, see the
-  annotation docs further down in this document.
+  Note, you can mark an aspect as a timeseries aspect. Check out this [doc](metadata-model.md#timeseries-aspects) for
+  details.
+- The @Searchable annotation. This annotation can be applied to any primitive field or a map field to indicate that it
+  should be indexed in Elasticsearch and can be searched on. For a complete guide on using the search annotation, see
+  the annotation docs further down in this document.
 - The @Relationship annotations. These annotations create edges between the Snapshot’s Urn and the destination of the
   annotated field when the snapshots are ingested. @Relationship annotations must be applied to fields of type Urn. In
   the case of DashboardInfo, the `charts` field is an Array of Urns. The @Relationship annotation cannot be applied
@@ -397,6 +397,9 @@ ranking.
 
 Now, when Datahub ingests Dashboards, it will index the Dashboard’s title in Elasticsearch. When a user searches for
 Dashboards, that query will be used to search on the title index and matching Dashboards will be returned.
+
+Note, when @Searchable annotation is applied to a map, it will convert it into a list with "key.toString()
+=value.toString()" as elements. This allows us to index map fields, while not increasing the number of columns indexed.
 
 #### @Relationship
 

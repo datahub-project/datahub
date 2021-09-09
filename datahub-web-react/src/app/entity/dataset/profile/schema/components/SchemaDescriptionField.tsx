@@ -96,14 +96,14 @@ export default function DescriptionField({
     const onCloseModal = () => setShowAddModal(false);
 
     const onUpdateModal = async (desc: string | null) => {
-        message.loading({ content: 'Updating...' });
+        // message.loading({ content: 'Updating...' });
         try {
             await onUpdate(desc || '');
+            // message.destroy();
+            // message.success({ content: 'Updated!', duration: 2 });
+        } catch (e: unknown) {
             message.destroy();
-            message.success({ content: 'Updated!', duration: 2 });
-        } catch (e) {
-            message.destroy();
-            message.error({ content: `Update Failed! \n ${e.message || ''}`, duration: 2 });
+            if (e instanceof Error) message.error({ content: `Update Failed! \n ${e.message || ''}`, duration: 2 });
         }
         onCloseModal();
     };

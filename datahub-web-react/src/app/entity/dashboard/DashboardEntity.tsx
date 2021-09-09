@@ -93,4 +93,8 @@ export class DashboardEntity implements Entity<Dashboard> {
             platform: entity.tool,
         };
     };
+
+    displayName = (data: Dashboard) => {
+        return data.info?.name || data.urn;
+    };
 }

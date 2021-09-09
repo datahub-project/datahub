@@ -74,6 +74,11 @@ public class DefaultEntitySpec implements EntitySpec {
   }
 
   @Override
+  public Boolean hasAspect(final String name) {
+    return _aspectSpecs.containsKey(name);
+  }
+
+  @Override
   public AspectSpec getAspectSpec(final String name) {
     return _aspectSpecs.get(name);
   }

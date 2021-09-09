@@ -44,6 +44,7 @@ class LookerDashboardSourceConfig(ConfigModel):
     actor: str = "urn:li:corpuser:etl"
     dashboard_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
     chart_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
+    include_deleted: bool = False
     env: str = builder.DEFAULT_ENV
 
 
@@ -397,9 +398,15 @@ class LookerDashboardSource(Source):
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         client = self._get_looker_client()
+        dashboards = client.all_dashboards(fields="id")
+        deleted_dashboards = (
+            client.search_dashboards(fields="id", deleted="true")
+            if self.source_config.include_deleted
+            else []
+        )
         dashboard_ids = [
             dashboard_base.id
-            for dashboard_base in client.all_dashboards(fields="id")
+            for dashboard_base in dashboards + deleted_dashboards
             if dashboard_base.id is not None
         ]
 
@@ -409,7 +416,13 @@ class LookerDashboardSource(Source):
                 self.reporter.report_dashboards_dropped(dashboard_id)
                 continue
             try:
-                fields = ["id", "title", "dashboard_elements", "dashboard_filters"]
+                fields = [
+                    "id",
+                    "title",
+                    "dashboard_elements",
+                    "dashboard_filters",
+                    "deleted",
+                ]
                 dashboard_object = client.dashboard(
                     dashboard_id=dashboard_id, fields=",".join(fields)
                 )
