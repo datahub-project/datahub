@@ -27,8 +27,8 @@ public class DatastaxAspect {
   public static final String SYSTEM_METADATA_COLUMN = "systemmetadata";
 
   public String toString() {
-    return String.format("urn: %s, aspect: %s, version: %s, metadata: %s, createdon: %s, createdby: %s, createdfor: %s",
-                  urn, aspect, version, metadata, createdon, createdby, createdfor
+    return String.format("urn: %s, aspect: %s, version: %s, metadata: %s, createdon: %s, createdby: %s, createdfor: %s, systemmetadata: %s",
+                         urn, aspect, version, metadata, createdon, createdby, createdfor, systemmetadata
                   );
   }
 

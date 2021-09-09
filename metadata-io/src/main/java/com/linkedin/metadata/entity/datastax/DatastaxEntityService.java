@@ -1,31 +1,20 @@
 package com.linkedin.metadata.entity.datastax;
 
-import com.datastax.oss.driver.api.core.cql.Row;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.DataTemplateUtil;
-// import com.linkedin.data.template.JacksonDataTemplateCodec;
 import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.metadata.PegasusUtils;
 import com.linkedin.metadata.aspect.Aspect;
-// import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.VersionedAspect;
-// import com.linkedin.metadata.dao.exception.ModelConversionException;
-import com.linkedin.metadata.dao.exception.RetryLimitReached;
 import com.linkedin.metadata.dao.utils.RecordUtils;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ListResult;
 import com.linkedin.metadata.entity.RollbackResult;
 import com.linkedin.metadata.entity.RollbackRunResult;
 import com.linkedin.metadata.event.EntityEventProducer;
-// import com.linkedin.metadata.models.AspectSpec;
-// import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.run.AspectRowSummary;
-// import com.linkedin.metadata.util.GenericAspectUtils;
-// import com.linkedin.metadata.utils.mxe.EntityKeyUtils;
 import com.linkedin.mxe.MetadataAuditOperation;
-// import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 
@@ -52,10 +41,9 @@ import com.linkedin.metadata.entity.ebean.EbeanUtils;
 @Slf4j
 public class DatastaxEntityService extends EntityService {
 
-  private static final int DEFAULT_MAX_CONDITIONAL_RETRY = 3;
-
   private final DatastaxAspectDao _entityDao;
   private Boolean _alwaysEmitAuditEvent = false;
+  private static final int DEFAULT_MAX_CONDITIONAL_RETRY = 3;
 
   public DatastaxEntityService(@Nonnull final DatastaxAspectDao entityDao, @Nonnull final EntityEventProducer eventProducer,
       @Nonnull final EntityRegistry entityRegistry) {
@@ -193,8 +181,8 @@ public class DatastaxEntityService extends EntityService {
       @Nonnull final SystemMetadata systemMetadata) {
     log.debug("Invoked ingestAspect with urn: {}, aspectName: {}, newValue: {}", urn, aspectName, newValue);
 
-    UpdateAspectResult result = ingestAspectToLocalDB(urn, aspectName, ignored -> newValue, auditStamp, systemMetadata,
-        DEFAULT_MAX_CONDITIONAL_RETRY);
+    UpdateAspectResult result = ingestAspectToLocalDB(urn, aspectName, ignored -> newValue, auditStamp, systemMetadata);
+
     final RecordTemplate oldValue = result.getOldValue();
     final RecordTemplate updatedValue = result.getNewValue();
 
@@ -218,55 +206,51 @@ public class DatastaxEntityService extends EntityService {
 
   @Nonnull
   private UpdateAspectResult ingestAspectToLocalDB(@Nonnull final Urn urn, @Nonnull final String aspectName,
-      @Nonnull final Function<Optional<RecordTemplate>, RecordTemplate> updateLambda,
-      @Nonnull final AuditStamp auditStamp, @Nonnull final SystemMetadata providedSystemMetadata,
-      final int maxConditionalUpdateRetry) {
+    @Nonnull final Function<Optional<RecordTemplate>, RecordTemplate> updateLambda,
+    @Nonnull final AuditStamp auditStamp, @Nonnull final SystemMetadata providedSystemMetadata) {
 
-    return _entityDao.runInConditionalWithRetry(() -> {
+    // 1. Fetch the latest existing version of the aspect.
+    final DatastaxAspect latest = _entityDao.getLatestAspect(urn.toString(), aspectName);
 
-      // 1. Fetch the latest existing version of the aspect.
-      final DatastaxAspect latest = _entityDao.getLatestAspect(urn.toString(), aspectName);
+    // 2. Compare the latest existing and new.
+    final RecordTemplate oldValue = latest == null ? null
+        : EbeanUtils.toAspectRecord(urn, aspectName, latest.getMetadata(), getEntityRegistry());
+    final RecordTemplate newValue = updateLambda.apply(Optional.ofNullable(oldValue));
 
-      // 2. Compare the latest existing and new.
-      final RecordTemplate oldValue = latest == null ? null
-          : EbeanUtils.toAspectRecord(urn, aspectName, latest.getMetadata(), getEntityRegistry());
-      final RecordTemplate newValue = updateLambda.apply(Optional.ofNullable(oldValue));
+    if (oldValue != null && DataTemplateUtil.areEqual(oldValue, newValue)) {
+      SystemMetadata latestSystemMetadata = EbeanUtils.parseSystemMetadata(latest.getSystemmetadata());
+      latestSystemMetadata.setLastObserved(providedSystemMetadata.getLastObserved());
 
-      if (oldValue != null && DataTemplateUtil.areEqual(oldValue, newValue)) {
-        SystemMetadata latestSystemMetadata = EbeanUtils.parseSystemMetadata(latest.getSystemmetadata());
-        latestSystemMetadata.setLastObserved(providedSystemMetadata.getLastObserved());
+      final DatastaxAspect latestUpdated = new DatastaxAspect(latest.getUrn(), latest.getAspect(),
+          latest.getVersion(), latest.getMetadata(), RecordUtils.toJsonString(latestSystemMetadata), latest.getCreatedon(),
+          latest.getCreatedby(), latest.getCreatedfor());
 
-        final DatastaxAspect latestUpdated = new DatastaxAspect(latest.getUrn(), latest.getAspect(),
-            latest.getVersion(), latest.getMetadata(), RecordUtils.toJsonString(latestSystemMetadata), latest.getCreatedon(),
-            latest.getCreatedby(), latest.getCreatedfor());
+      _entityDao.updateAspect(latestUpdated, latest);
 
-        _entityDao.updateAspect(latestUpdated, latest);
-
-        return new UpdateAspectResult(urn, oldValue, oldValue,
-            EbeanUtils.parseSystemMetadata(latestUpdated.getSystemmetadata()), latestSystemMetadata,
-            MetadataAuditOperation.UPDATE);
-      }
-
-      log.debug(String.format("Ingesting aspect with name %s, urn %s", aspectName, urn));
-
-      _entityDao.saveLatestAspect(urn.toString(), aspectName, latest == null ? null : EbeanUtils.toJsonAspect(oldValue),
-          latest == null ? null : latest.getCreatedby(), latest == null ? null : latest.getCreatedfor(),
-          latest == null ? null : latest.getCreatedon(), latest == null ? null : latest.getSystemmetadata(),
-          EbeanUtils.toJsonAspect(newValue), auditStamp.getActor().toString(),
-          auditStamp.hasImpersonator() ? auditStamp.getImpersonator().toString() : null,
-          new Timestamp(auditStamp.getTime()), EbeanUtils.toJsonAspect(providedSystemMetadata));
-
-      return new UpdateAspectResult(urn, oldValue, newValue,
-          latest == null ? null : EbeanUtils.parseSystemMetadata(latest.getSystemmetadata()), providedSystemMetadata,
+      return new UpdateAspectResult(urn, oldValue, oldValue,
+          EbeanUtils.parseSystemMetadata(latestUpdated.getSystemmetadata()), latestSystemMetadata,
           MetadataAuditOperation.UPDATE);
-    }, maxConditionalUpdateRetry);
+    }
+
+    log.debug(String.format("Ingesting aspect with name %s, urn %s", aspectName, urn));
+
+    _entityDao.saveLatestAspect(urn.toString(), aspectName, latest == null ? null : EbeanUtils.toJsonAspect(oldValue),
+        latest == null ? null : latest.getCreatedby(), latest == null ? null : latest.getCreatedfor(),
+        latest == null ? null : latest.getCreatedon(), latest == null ? null : latest.getSystemmetadata(),
+        EbeanUtils.toJsonAspect(newValue), auditStamp.getActor().toString(),
+        auditStamp.hasImpersonator() ? auditStamp.getImpersonator().toString() : null,
+        new Timestamp(auditStamp.getTime()), EbeanUtils.toJsonAspect(providedSystemMetadata));
+
+    return new UpdateAspectResult(urn, oldValue, newValue,
+        latest == null ? null : EbeanUtils.parseSystemMetadata(latest.getSystemmetadata()), providedSystemMetadata,
+        MetadataAuditOperation.UPDATE);
   }
 
-  @Override
   @Nonnull
   public RecordTemplate updateAspect(@Nonnull final Urn urn, @Nonnull final String aspectName,
       @Nonnull final RecordTemplate newValue, @Nonnull final AuditStamp auditStamp, @Nonnull final long version,
       @Nonnull final boolean emitMae) {
+
     log.debug(
         String.format("Invoked updateAspect with urn: %s, aspectName: %s, newValue: %s, version: %s, emitMae: %s", urn,
             aspectName, newValue, version, emitMae));
@@ -275,48 +259,45 @@ public class DatastaxEntityService extends EntityService {
 
   @Nonnull
   private RecordTemplate updateAspect(@Nonnull final Urn urn, @Nonnull final String aspectName,
-      @Nonnull final RecordTemplate value, @Nonnull final AuditStamp auditStamp, @Nonnull final long version,
-      @Nonnull final boolean emitMae, final int maxConditionalUpdateRetry) {
+    @Nonnull final RecordTemplate value, @Nonnull final AuditStamp auditStamp, @Nonnull final long version,
+    @Nonnull final boolean emitMae, final int maxConditionalUpdateRetry) {
 
-    return _entityDao.runInConditionalWithRetry(() -> {
-      final DatastaxAspect oldAspect = _entityDao.getAspect(urn.toString(), aspectName, version);
-      final RecordTemplate oldValue = oldAspect == null ? null
-          : EbeanUtils.toAspectRecord(urn, aspectName, oldAspect.getMetadata(), getEntityRegistry());
+    final DatastaxAspect oldAspect = _entityDao.getAspect(urn.toString(), aspectName, version);
+    final RecordTemplate oldValue = oldAspect == null ? null
+        : EbeanUtils.toAspectRecord(urn, aspectName, oldAspect.getMetadata(), getEntityRegistry());
 
-      SystemMetadata oldSystemMetadata = oldAspect == null ? new SystemMetadata()
-          : EbeanUtils.parseSystemMetadata(oldAspect.getSystemmetadata());
-      // create a duplicate of the old system metadata to update and write back
-      SystemMetadata newSystemMetadata = oldAspect == null ? new SystemMetadata()
-          : EbeanUtils.parseSystemMetadata(oldAspect.getSystemmetadata());
-      newSystemMetadata.setLastObserved(System.currentTimeMillis());
+    SystemMetadata oldSystemMetadata = oldAspect == null ? new SystemMetadata()
+        : EbeanUtils.parseSystemMetadata(oldAspect.getSystemmetadata());
+    // create a duplicate of the old system metadata to update and write back
+    SystemMetadata newSystemMetadata = oldAspect == null ? new SystemMetadata()
+        : EbeanUtils.parseSystemMetadata(oldAspect.getSystemmetadata());
+    newSystemMetadata.setLastObserved(System.currentTimeMillis());
 
-      log.debug(String.format("Updating aspect with name %s, urn %s", aspectName, urn));
+    log.debug(String.format("Updating aspect with name %s, urn %s", aspectName, urn));
 
-      DatastaxAspect aspectToSave = new DatastaxAspect(urn.toString(), aspectName, version,
-          RecordUtils.toJsonString(value), RecordUtils.toJsonString(newSystemMetadata),
-          new Timestamp(auditStamp.getTime()), auditStamp.getActor().toString(),
-          auditStamp.hasImpersonator() ? auditStamp.getImpersonator().toString() : null);
+    DatastaxAspect aspectToSave = new DatastaxAspect(urn.toString(), aspectName, version,
+        RecordUtils.toJsonString(value), RecordUtils.toJsonString(newSystemMetadata),
+        new Timestamp(auditStamp.getTime()), auditStamp.getActor().toString(),
+        auditStamp.hasImpersonator() ? auditStamp.getImpersonator().toString() : null);
 
-      _entityDao.saveAspect(aspectToSave, oldAspect == null);
+    _entityDao.saveAspect(aspectToSave, oldAspect == null);
 
-      final UpdateAspectResult result = new UpdateAspectResult(urn, oldValue, value, oldSystemMetadata,
-          newSystemMetadata, MetadataAuditOperation.UPDATE);
+    final UpdateAspectResult result = new UpdateAspectResult(urn, oldValue, value, oldSystemMetadata,
+        newSystemMetadata, MetadataAuditOperation.UPDATE);
 
-      final RecordTemplate oldValue2 = result.getOldValue();
-      final RecordTemplate newValue = result.getNewValue();
+    final RecordTemplate oldValue2 = result.getOldValue();
+    final RecordTemplate newValue = result.getNewValue();
 
-      if (emitMae) {
-        log.debug(String.format("Producing MetadataAuditEvent for updated aspect %s, urn %s", aspectName, urn));
-        produceMetadataAuditEvent(urn, oldValue2, newValue, result.getOldSystemMetadata(),
-            result.getNewSystemMetadata(), MetadataAuditOperation.UPDATE);
-      } else {
-        log.debug(String.format("Skipped producing MetadataAuditEvent for updated aspect %s, urn %s. emitMAE is false.",
-            aspectName, urn));
-      }
+    if (emitMae) {
+      log.debug(String.format("Producing MetadataAuditEvent for updated aspect %s, urn %s", aspectName, urn));
+      produceMetadataAuditEvent(urn, oldValue2, newValue, result.getOldSystemMetadata(),
+          result.getNewSystemMetadata(), MetadataAuditOperation.UPDATE);
+    } else {
+      log.debug(String.format("Skipped producing MetadataAuditEvent for updated aspect %s, urn %s. emitMAE is false.",
+          aspectName, urn));
+    }
 
-      return newValue;
-      }, maxConditionalUpdateRetry);
-
+    return newValue;
   }
 
   public Boolean getAlwaysEmitAuditEvent() {

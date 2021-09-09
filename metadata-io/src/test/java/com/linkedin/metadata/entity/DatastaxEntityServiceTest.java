@@ -93,12 +93,13 @@ public class DatastaxEntityServiceTest {
     // Setup
     Cluster cluster = _cassandraContainer.getCluster();
     final String keyspaceName = "test";
+    final String tableName = "metadata_aspect_v2";
 
     try(Session session = cluster.connect()) {
 
       session.execute(String.format("CREATE KEYSPACE IF NOT EXISTS %s WITH replication = \n" +
                                     "{'class':'SimpleStrategy','replication_factor':'1'};", keyspaceName));
-      session.execute(String.format("create table %s.metadata_aspect (urn varchar, aspect varchar, systemmetadata varchar, version bigint, metadata text, createdon timestamp, createdby varchar, createdfor varchar, entity varchar, PRIMARY KEY (urn,aspect,version));", keyspaceName));
+      session.execute(String.format("create table %s.%s (urn varchar, aspect varchar, systemmetadata varchar, version bigint, metadata text, createdon timestamp, createdby varchar, createdfor varchar, entity varchar, PRIMARY KEY (urn,aspect,version));", keyspaceName, tableName));
 
       List<KeyspaceMetadata> keyspaces = session.getCluster().getMetadata().getKeyspaces();
                 List<KeyspaceMetadata> filteredKeyspaces = keyspaces
