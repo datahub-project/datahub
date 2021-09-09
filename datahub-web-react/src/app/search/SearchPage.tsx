@@ -6,11 +6,13 @@ import { Alert } from 'antd';
 import { SearchablePage } from './SearchablePage';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { FacetFilterInput, EntityType } from '../../types.generated';
-import useFilters, { useEntityFilters } from './utils/useFilters';
+import useFilters from './utils/useFilters';
 import { navigateToSearchUrl } from './utils/navigateToSearchUrl';
-import { AllEntitiesSearchResults } from './AllEntitiesSearchResults';
+import { SearchResults } from './SearchResults';
 import analytics, { EventType } from '../analytics';
 import { useGetSearchResultsQuery } from '../../graphql/search.generated';
+import { SearchCfg } from '../../conf';
+import { ENTITY_FILTER_NAME } from './utils/constants';
 
 type SearchPageParams = {
     type?: string;
@@ -28,17 +30,22 @@ export const SearchPage = () => {
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
     const query: string = params.query ? (params.query as string) : '';
     const activeType = entityRegistry.getTypeOrDefaultFromPathName(useParams<SearchPageParams>().type || '', undefined);
-    const filters: Array<FacetFilterInput> = useFilters(params, true);
-    const filtersWithoutEntities: Array<FacetFilterInput> = useFilters(params, false);
-    const entityFilters: Array<EntityType> = useEntityFilters(params);
+    const page: number = params.page && Number(params.page as string) > 0 ? Number(params.page as string) : 1;
+    const filters: Array<FacetFilterInput> = useFilters(params);
+    const filtersWithoutEntities: Array<FacetFilterInput> = filters.filter(
+        (filter) => filter.field !== ENTITY_FILTER_NAME,
+    );
+    const entityFilters: Array<EntityType> = filters
+        .filter((filter) => filter.field === ENTITY_FILTER_NAME)
+        .map((filter) => filter.value.toUpperCase() as EntityType);
 
     const { data, loading, error } = useGetSearchResultsQuery({
         variables: {
             input: {
                 types: entityFilters,
                 query,
-                start: 0,
-                count: 20,
+                start: (page - 1) * SearchCfg.RESULTS_PER_PAGE,
+                count: SearchCfg.RESULTS_PER_PAGE,
                 filters: filtersWithoutEntities,
             },
         },
@@ -81,9 +88,10 @@ export const SearchPage = () => {
             {!loading && error && (
                 <Alert type="error" message={error?.message || `Search failed to load for query ${query}`} />
             )}
-            <AllEntitiesSearchResults
+            <SearchResults
+                page={page}
                 query={query}
-                searchResults={data?.search?.searchResults}
+                searchResponse={data?.search}
                 filters={data?.search?.facets}
                 selectedFilters={filters}
                 loading={loading}
