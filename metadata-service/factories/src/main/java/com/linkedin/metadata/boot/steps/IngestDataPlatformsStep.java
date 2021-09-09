@@ -3,6 +3,7 @@ package com.linkedin.metadata.boot.steps;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.BrowsePaths;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.dataplatform.DataPlatformInfo;
 import com.linkedin.metadata.boot.BootstrapStep;
@@ -10,6 +11,7 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.dao.utils.RecordUtils;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.models.AspectSpec;
+import com.linkedin.metadata.search.utils.BrowsePathUtils;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericAspectUtils;
 import com.linkedin.mxe.GenericAspect;
@@ -24,7 +26,6 @@ import org.springframework.core.io.ClassPathResource;
 
 public class IngestDataPlatformsStep implements BootstrapStep {
 
-    private static final String PLATFORM_ENTITY_NAME = "dataPlatform";
     private static final String PLATFORM_ASPECT_NAME = "dataPlatformInfo";
 
     private final EntityService _entityService;
@@ -59,32 +60,18 @@ public class IngestDataPlatformsStep implements BootstrapStep {
             final DataPlatformInfo info = RecordUtils.toRecordTemplate(DataPlatformInfo.class,
                     dataPlatformObj.get("proposedSnapshot").get(dataPlatformSnapshotStr).get("aspects").get(0).get(dataPlatformInfoStr).toString()
             );
-            // 3. Write key & aspect
-            final MetadataChangeProposal keyAspectProposal = new MetadataChangeProposal();
-            final AspectSpec keyAspectSpec = _entityService.getKeyAspectSpec(urn);
-            GenericAspect aspect = GenericAspectUtils.serializeAspect(
-                    EntityKeyUtils.convertUrnToEntityKey(
-                            urn, keyAspectSpec.getPegasusSchema()));
-            keyAspectProposal.setAspect(aspect);
-            keyAspectProposal.setAspectName(keyAspectSpec.getName());
-            keyAspectProposal.setEntityType(PLATFORM_ENTITY_NAME);
-            keyAspectProposal.setChangeType(ChangeType.UPSERT);
-            keyAspectProposal.setEntityUrn(urn);
 
-            _entityService.ingestProposal(keyAspectProposal, new AuditStamp()
-                    .setActor(Urn.createFromString("urn:li:dataPlatform"))
-                    .setTime(System.currentTimeMillis()));
+            try {
+                final AuditStamp aspectAuditStamp = new AuditStamp();
+                aspectAuditStamp.setActor(Urn.createFromString("urn:li:dataPlatform"));
+                aspectAuditStamp.setTime(System.currentTimeMillis());
 
-            final MetadataChangeProposal proposal = new MetadataChangeProposal();
-            proposal.setEntityUrn(urn);
-            proposal.setEntityType(PLATFORM_ENTITY_NAME);
-            proposal.setAspectName(PLATFORM_ASPECT_NAME);
-            proposal.setAspect(GenericAspectUtils.serializeAspect(info));
-            proposal.setChangeType(ChangeType.UPSERT);
+                _entityService.ingestAspect(urn, PLATFORM_ASPECT_NAME, info, aspectAuditStamp);
 
-            _entityService.ingestProposal(proposal, new AuditStamp()
-                    .setActor(Urn.createFromString("urn:li:dataPlatform"))
-                    .setTime(System.currentTimeMillis()));
+            } catch (URISyntaxException e) {
+                throw new RuntimeException("Failed to ingest aspect", e);
+            }
+
         }
     }
 }
