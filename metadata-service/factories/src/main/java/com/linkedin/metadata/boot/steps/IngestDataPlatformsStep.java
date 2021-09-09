@@ -13,22 +13,18 @@ import com.linkedin.metadata.entity.EntityService;
 import java.io.IOException;
 import java.net.URISyntaxException;
 
-
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.ClassPathResource;
 
 
-
 @Slf4j
+@RequiredArgsConstructor
 public class IngestDataPlatformsStep implements BootstrapStep {
 
   private static final String PLATFORM_ASPECT_NAME = "dataPlatformInfo";
 
   private final EntityService _entityService;
-
-  public IngestDataPlatformsStep(final EntityService entityService) {
-    _entityService = entityService;
-  }
 
   @Override
   public String name() {
