@@ -36,15 +36,14 @@ public class LocalDatastaxServerConfigFactory {
 
   @Bean(name = "gmsDatastaxServiceConfig")
   protected Map<String, String> createInstance() {
-    Map<String, String> myMap = new HashMap<String, String>() {{
-        put("username", datastaxDatasourceUsername);
-        put("password", datastaxDatasourcePassword);
-        put("hosts", datastaxHosts);
-        put("port", datastaxPort);
-        put("datacenter", datastaxDataCenter);
-        put("keyspace", datastaxKeyspace);
-        put("useSsl", datastaxUseSsl);
-      }};
-    return myMap;
+    return new HashMap<String, String>() {{
+      put("username", datastaxDatasourceUsername);
+      put("password", datastaxDatasourcePassword);
+      put("hosts", datastaxHosts);
+      put("port", datastaxPort);
+      put("datacenter", datastaxDataCenter);
+      put("keyspace", datastaxKeyspace);
+      put("useSsl", datastaxUseSsl);
+    }};
   }
 }
