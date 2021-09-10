@@ -21,7 +21,7 @@ const ResultList = styled(List)`
         border-color: ${(props) => props.theme.styles['border-color-base']};
         margin-top: 8px;
         padding: 16px 32px;
-        box-shadow: ${(props) => props.theme.styles['box-shadow']};
+        border-radius: 0px;
     }
 `;
 
@@ -31,10 +31,11 @@ const SearchBody = styled.div`
 `;
 
 const FiltersContainer = styled.div`
-    margin-top: 10px;
     display: block;
     max-width: 260px;
     min-width: 260px;
+    border-right: 1px solid;
+    border-color: ${(props) => props.theme.styles['border-color-base']};
 `;
 
 const ResultContainer = styled.div`
@@ -48,7 +49,29 @@ const PaginationControlContainer = styled.div`
 `;
 
 const PaginationInfoContainer = styled.div`
-    margin-top: 16px;
+    margin-top: 15px;
+    padding-left: 16px;
+    border-bottom: 1px solid;
+    border-color: ${(props) => props.theme.styles['border-color-base']};
+`;
+
+const FiltersHeader = styled.div`
+    font-size: 14px;
+    font-weight: 600;
+
+    padding-left: 20px;
+    padding-right: 20px;
+    padding-bottom: 8px;
+
+    width: 100%;
+    height: 46px;
+    line-height: 46px;
+    border-bottom: 1px solid;
+    border-color: ${(props) => props.theme.styles['border-color-base']};
+`;
+
+const SearchFilterContainer = styled.div`
+    padding-top: 10px;
 `;
 
 interface Props {
@@ -102,11 +125,14 @@ export const SearchResults = ({
             {loading && <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />}
             <SearchBody>
                 <FiltersContainer>
-                    <SearchFilters
-                        facets={filters || []}
-                        selectedFilters={selectedFilters}
-                        onFilterSelect={onFilterSelect}
-                    />
+                    <FiltersHeader>Filter</FiltersHeader>
+                    <SearchFilterContainer>
+                        <SearchFilters
+                            facets={filters || []}
+                            selectedFilters={selectedFilters}
+                            onFilterSelect={onFilterSelect}
+                        />
+                    </SearchFilterContainer>
                 </FiltersContainer>
                 <ResultContainer>
                     <PaginationInfoContainer>
@@ -129,7 +155,6 @@ export const SearchResults = ({
                                 <Divider />
                             </>
                         )}
-                        bordered
                     />
                     <PaginationControlContainer>
                         <Pagination

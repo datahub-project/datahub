@@ -275,9 +275,14 @@ query getSearchResults($input: SearchMultipleInput!) {
                         name
                         description
                     }
+                    ... on GlossaryTerm {
+                        name
+                    }
                     ... on DataPlatform {
                         name
-                        displayName
+                        info {
+                            logoUrl
+                        }
                     }
                 }
             }
