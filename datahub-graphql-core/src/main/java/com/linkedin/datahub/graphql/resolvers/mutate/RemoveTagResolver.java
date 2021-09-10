@@ -9,20 +9,16 @@ import com.linkedin.metadata.entity.EntityService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletableFuture;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
 
+@Slf4j
+@RequiredArgsConstructor
 public class RemoveTagResolver implements DataFetcher<CompletableFuture<Boolean>> {
-  private static final Logger _logger = LoggerFactory.getLogger(MutableTypeResolver.class.getName());
-
-  private EntityService _entityService;
-
-  public RemoveTagResolver(EntityService entityService) {
-    _entityService = entityService;
-  }
+  private final EntityService _entityService;
 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
@@ -38,11 +34,11 @@ public class RemoveTagResolver implements DataFetcher<CompletableFuture<Boolean>
       try {
 
         if (!tagUrn.getEntityType().equals("tag")) {
-          _logger.error(String.format("Failed to remove %s. It is not a tag urn.", tagUrn.toString()));
+          log.error(String.format("Failed to remove %s. It is not a tag urn.", tagUrn.toString()));
           return false;
         }
 
-        _logger.info(String.format("Removing Tag. input: %s", input));
+        log.info(String.format("Removing Tag. input: %s", input));
         Urn actor = CorpuserUrn.createFromString(((QueryContext) environment.getContext()).getActor());
         LabelUtils.removeTagFromTarget(
             tagUrn,
@@ -53,7 +49,7 @@ public class RemoveTagResolver implements DataFetcher<CompletableFuture<Boolean>
         );
         return true;
       } catch (Exception e) {
-        _logger.error(String.format("Failed to perform update against input %s", input.toString()) + " " + e.getMessage());
+        log.error(String.format("Failed to perform update against input %s", input.toString()) + " " + e.getMessage());
         throw new RuntimeException(String.format("Failed to perform update against input %s", input.toString()), e);
       }
     });
