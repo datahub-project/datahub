@@ -75,9 +75,9 @@ public class DatastaxAspectDao {
 
     if (sessionConfig.containsKey("useSsl") && sessionConfig.get("useSsl").equals("true")) {
       try {
-	csb = csb.withSslContext(SSLContext.getDefault());
+        csb = csb.withSslContext(SSLContext.getDefault());
       } catch (Exception e) {
-	e.printStackTrace();
+        e.printStackTrace();
       }
     }
 
@@ -147,7 +147,6 @@ public class DatastaxAspectDao {
     long largestVersion = 0;
     if (oldAspectMetadata != null && oldTime != null) {
       largestVersion = getNextVersion(urn, aspectName);
-      // saveAspect(urn, aspectName, oldAspectMetadata, oldActor, oldImpersonator, oldTime, oldSystemMetadata, largestVersion, true);
       insertAspect(new DatastaxAspect(urn, aspectName, largestVersion, oldAspectMetadata, oldSystemMetadata, oldTime, oldActor, oldImpersonator));
     }
 
@@ -445,8 +444,10 @@ public class DatastaxAspectDao {
       .map(r -> r.getMetadata())
       .collect(Collectors.toList());
 
-    final ListResultMetadata listResultMetadata = toListResultMetadata(dsas.stream().map(
-                                                                                         r -> toExtraInfo(r)).collect(Collectors.toList()));
+    final ListResultMetadata listResultMetadata = toListResultMetadata(dsas
+                                                                       .stream()
+                                                                       .map(r -> toExtraInfo(r))
+                                                                       .collect(Collectors.toList()));
 
     return ListResult.<String>builder()
       .values(aspects)
