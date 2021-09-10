@@ -28,16 +28,17 @@ public class EntityTypeMapper {
           .build();
 
   private static final Map<String, EntityType> ENTITY_NAME_TO_TYPE =
-      ENTITY_TYPE_TO_NAME.entrySet().stream().collect(Collectors.toMap(Map.Entry::getValue, Map.Entry::getKey));
+      ENTITY_TYPE_TO_NAME.entrySet().stream().collect(Collectors.toMap(e -> e.getValue().toLowerCase(), Map.Entry::getKey));
 
   private EntityTypeMapper() {
   }
 
   public static EntityType getType(String name) {
-    if (!ENTITY_NAME_TO_TYPE.containsKey(name)) {
+    String lowercaseName = name.toLowerCase();
+    if (!ENTITY_NAME_TO_TYPE.containsKey(lowercaseName)) {
       throw new IllegalArgumentException("Unknown entity name: " + name);
     }
-    return ENTITY_NAME_TO_TYPE.get(name);
+    return ENTITY_NAME_TO_TYPE.get(lowercaseName);
   }
 
   @Nonnull

@@ -8,6 +8,7 @@ import com.linkedin.datahub.graphql.generated.FacetMetadata;
 import com.linkedin.datahub.graphql.generated.MatchedField;
 import com.linkedin.datahub.graphql.generated.SearchResult;
 import com.linkedin.datahub.graphql.generated.SearchResults;
+import com.linkedin.datahub.graphql.resolvers.EntityTypeMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.metadata.search.MatchMetadata;
 import com.linkedin.metadata.search.SearchResultMetadata;
@@ -52,13 +53,22 @@ public class UrnSearchResultsMapper<T extends RecordTemplate, E extends Entity> 
 
   private FacetMetadata mapFacet(com.linkedin.metadata.search.AggregationMetadata aggregationMetadata) {
     final FacetMetadata facetMetadata = new FacetMetadata();
+    boolean isEntityTypeFilter = aggregationMetadata.getName().equals("entity");
     facetMetadata.setField(aggregationMetadata.getName());
     facetMetadata.setAggregations(aggregationMetadata.getFilterValues()
         .stream()
-        .map(filterValue -> new AggregationMetadata(filterValue.getValue(), filterValue.getFacetCount(),
+        .map(filterValue -> new AggregationMetadata(convertFilterValue(filterValue.getValue(), isEntityTypeFilter),
+            filterValue.getFacetCount(),
             filterValue.getEntity() == null ? null : UrnToEntityMapper.map(filterValue.getEntity())))
         .collect(Collectors.toList()));
     return facetMetadata;
+  }
+
+  private String convertFilterValue(String filterValue, boolean isEntityType) {
+    if (isEntityType) {
+      return EntityTypeMapper.getType(filterValue).toString();
+    }
+    return filterValue;
   }
 
   private List<MatchedField> getMatchedFieldEntry(MatchMetadata highlightMetadata) {
