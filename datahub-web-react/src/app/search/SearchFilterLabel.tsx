@@ -17,7 +17,6 @@ const PreviewImage = styled(Image)`
     max-height: 18px;
     width: auto;
     object-fit: contain;
-    margin-right: 10px;
     background-color: transparent;
 `;
 
@@ -58,7 +57,7 @@ export const SearchFilterLabel = ({ aggregation, field }: Props) => {
         const platform = aggregation.entity as DataPlatform;
         return (
             <>
-                {!!platform.info?.logoUrl && <PreviewImage src={platform.info?.logoUrl} alt={platform.name} />}
+                {!!platform.info?.logoUrl && <PreviewImage preview={false} src={platform.info?.logoUrl} />}
                 {platform.name} ({aggregation.count})
             </>
         );
