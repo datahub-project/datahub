@@ -42,7 +42,7 @@ export const AddOwnerModal = ({ visible, onClose, owners, updateOwnership }: Pro
 
     return (
         <Modal
-            title="Add tag"
+            title="Add owner"
             visible={visible}
             onCancel={onClose}
             footer={
