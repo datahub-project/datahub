@@ -155,7 +155,6 @@ export const HomePageHeader = () => {
             type,
             query,
             history,
-            entityRegistry,
         });
     };
 
@@ -258,7 +257,6 @@ export const HomePageHeader = () => {
                                                     type: undefined,
                                                     query: suggestion,
                                                     history,
-                                                    entityRegistry,
                                                 })
                                             }
                                         >

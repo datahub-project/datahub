@@ -57,7 +57,6 @@ export const SearchablePage = ({ initialQuery, onSearch, onAutoComplete, childre
             type,
             query,
             history,
-            entityRegistry,
         });
     };
 

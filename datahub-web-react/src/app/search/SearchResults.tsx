@@ -117,7 +117,6 @@ export const SearchResults = ({
         const newFilters = selected
             ? [...selectedFilters, { field, value }]
             : selectedFilters.filter((filter) => filter.field !== field || filter.value !== value);
-        console.log({ newFilters, selectedFilters });
         onChangeFilters(newFilters);
     };
 

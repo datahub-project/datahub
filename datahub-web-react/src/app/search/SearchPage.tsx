@@ -72,15 +72,15 @@ export const SearchPage = () => {
             pageNumber: 1,
             originPath: window.location.pathname,
         });
-        navigateToSearchUrl({ type: type || activeType, query: q, page: 1, history, entityRegistry });
+        navigateToSearchUrl({ type: type || activeType, query: q, page: 1, history });
     };
 
     const onChangeFilters = (newFilters: Array<FacetFilterInput>) => {
-        navigateToSearchUrl({ type: activeType, query, page: 1, filters: newFilters, history, entityRegistry });
+        navigateToSearchUrl({ type: activeType, query, page: 1, filters: newFilters, history });
     };
 
     const onChangePage = (newPage: number) => {
-        navigateToSearchUrl({ type: activeType, query, page: newPage, filters, history, entityRegistry });
+        navigateToSearchUrl({ type: activeType, query, page: newPage, filters, history });
     };
 
     return (
