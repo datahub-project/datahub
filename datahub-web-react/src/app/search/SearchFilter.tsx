@@ -27,7 +27,7 @@ const ExpandButton = styled(Button)`
 export const SearchFilter = ({ facet, selectedFilters, onFilterSelect }: Props) => {
     const [expanded, setExpanded] = useState(false);
     const shouldTruncate =
-        FILTERS_TO_TRUNCATE.indexOf(facet.field) > -1 && facet.aggregations.length >= TRUNCATED_FILTER_LENGTH;
+        FILTERS_TO_TRUNCATE.indexOf(facet.field) > -1 && facet.aggregations.length > TRUNCATED_FILTER_LENGTH;
 
     return (
         <>
