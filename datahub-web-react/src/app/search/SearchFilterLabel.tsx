@@ -21,16 +21,13 @@ const PreviewImage = styled(Image)`
     background-color: transparent;
 `;
 
-const camelToSnakeCase = (str) => str.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
-
 export const SearchFilterLabel = ({ aggregation, field }: Props) => {
     const entityRegistry = useEntityRegistry();
 
     if (field === ENTITY_FILTER_NAME) {
         return (
             <span>
-                {entityRegistry.getCollectionName(camelToSnakeCase(aggregation.value).toUpperCase() as EntityType)} (
-                {aggregation.count})
+                {entityRegistry.getCollectionName(aggregation.value.toUpperCase() as EntityType)} ({aggregation.count})
             </span>
         );
     }
