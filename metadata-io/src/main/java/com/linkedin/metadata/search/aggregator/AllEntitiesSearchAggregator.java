@@ -152,7 +152,7 @@ public class AllEntitiesSearchAggregator {
 
     Pair<List<Urn>, List<MatchMetadata>> rankedResult = rankResults(matchedResults, numResultsPerEntity.entrySet()
         .stream()
-        .sorted(Comparator.comparingLong(Map.Entry::getValue))
+        .sorted(Comparator.<Map.Entry<String, Long>>comparingLong(Map.Entry::getValue).reversed())
         .map(Map.Entry::getKey)
         .collect(Collectors.toList()));
     List<Urn> finalMatchedResults;

@@ -1,6 +1,8 @@
 package com.linkedin.datahub.graphql.resolvers.search;
 
+import com.google.common.collect.ImmutableList;
 import com.linkedin.datahub.graphql.exception.ValidationException;
+import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.SearchMultipleInput;
 import com.linkedin.datahub.graphql.generated.SearchResults;
 import com.linkedin.datahub.graphql.resolvers.EntityTypeMapper;
@@ -29,14 +31,19 @@ public class SearchForMultipleResolver implements DataFetcher<CompletableFuture<
   private static final int DEFAULT_START = 0;
   private static final int DEFAULT_COUNT = 10;
 
+  private static final List<EntityType> SEARCHABLE_ENTITY_TYPES =
+      ImmutableList.of(EntityType.DATASET, EntityType.DASHBOARD, EntityType.CHART, EntityType.MLMODEL,
+          EntityType.MLMODEL_GROUP, EntityType.MLFEATURE_TABLE, EntityType.DATA_FLOW, EntityType.DATA_JOB,
+          EntityType.GLOSSARY_TERM);
+
   private final EntityClient _entityClient;
 
   @Override
   public CompletableFuture<SearchResults> get(DataFetchingEnvironment environment) {
     final SearchMultipleInput input = bindArgument(environment.getArgument("input"), SearchMultipleInput.class);
 
-    List<String> entityTypes = input.getTypes() == null ? null
-        : input.getTypes().stream().map(EntityTypeMapper::getName).collect(Collectors.toList());
+    List<EntityType> entityTypes = input.getTypes() == null ? SEARCHABLE_ENTITY_TYPES: input.getTypes();
+    List<String> entityNames = entityTypes.stream().map(EntityTypeMapper::getName).collect(Collectors.toList());
 
     // escape forward slash since it is a reserved character in Elasticsearch
     final String sanitizedQuery = ResolverUtils.escapeForwardSlash(input.getQuery());
@@ -53,7 +60,7 @@ public class SearchForMultipleResolver implements DataFetcher<CompletableFuture<
         log.debug(
             "Executing search for multiple entities: entity types {}, query {}, filters: {}, start: {}, count: {}",
             input.getTypes(), input.getQuery(), input.getFilters(), start, count);
-        return UrnSearchResultsMapper.map(_entityClient.searchAcrossEntities(entityTypes, sanitizedQuery,
+        return UrnSearchResultsMapper.map(_entityClient.searchAcrossEntities(entityNames, sanitizedQuery,
             ResolverUtils.buildFilter(input.getFilters()), start, count, ResolverUtils.getActor(environment)));
       } catch (Exception e) {
         log.error(
