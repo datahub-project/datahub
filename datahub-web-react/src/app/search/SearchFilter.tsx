@@ -53,7 +53,7 @@ export const SearchFilter = ({ facet, selectedFilters, onFilterSelect }: Props) 
                                     onFilterSelect(e.target.checked, facet.field, aggregation.value)
                                 }
                             >
-                                <SearchFilterLabel aggregation={aggregation} />
+                                <SearchFilterLabel field={facet.field} aggregation={aggregation} />
                             </Checkbox>
                             <br />
                         </span>

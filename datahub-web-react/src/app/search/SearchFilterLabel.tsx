@@ -5,9 +5,12 @@ import styled from 'styled-components';
 
 import { AggregationMetadata, DataPlatform, EntityType, GlossaryTerm, Tag as TagType } from '../../types.generated';
 import { StyledTag } from '../entity/shared/components/styled/StyledTag';
+import { useEntityRegistry } from '../useEntityRegistry';
+import { ENTITY_FILTER_NAME } from './utils/constants';
 
 type Props = {
     aggregation: AggregationMetadata;
+    field: string;
 };
 
 const PreviewImage = styled(Image)`
@@ -18,19 +21,39 @@ const PreviewImage = styled(Image)`
     background-color: transparent;
 `;
 
-export const SearchFilterLabel = ({ aggregation }: Props) => {
+const camelToSnakeCase = (str) => str.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
+
+export const SearchFilterLabel = ({ aggregation, field }: Props) => {
+    const entityRegistry = useEntityRegistry();
+
+    if (field === ENTITY_FILTER_NAME) {
+        return (
+            <span>
+                {entityRegistry.getCollectionName(camelToSnakeCase(aggregation.value).toUpperCase() as EntityType)} (
+                {aggregation.count})
+            </span>
+        );
+    }
+
     if (aggregation.entity?.type === EntityType.Tag) {
         const tag = aggregation.entity as TagType;
-        return <StyledTag $colorHash={tag.urn}>{tag.name}</StyledTag>;
+        return (
+            <>
+                <StyledTag $colorHash={tag.urn}>{tag.name}</StyledTag>({aggregation.count})
+            </>
+        );
     }
 
     if (aggregation.entity?.type === EntityType.GlossaryTerm) {
         const term = aggregation.entity as GlossaryTerm;
         return (
-            <Tag closable={false}>
-                {term.name}
-                <BookOutlined style={{ marginLeft: '2%' }} />
-            </Tag>
+            <>
+                <Tag closable={false}>
+                    {term.name}
+                    <BookOutlined style={{ marginLeft: '2%' }} />
+                </Tag>
+                ({aggregation.count})
+            </>
         );
     }
 
@@ -39,7 +62,7 @@ export const SearchFilterLabel = ({ aggregation }: Props) => {
         return (
             <>
                 {!!platform.info?.logoUrl && <PreviewImage src={platform.info?.logoUrl} alt={platform.name} />}
-                {platform.name}
+                {platform.name} ({aggregation.count})
             </>
         );
     }
