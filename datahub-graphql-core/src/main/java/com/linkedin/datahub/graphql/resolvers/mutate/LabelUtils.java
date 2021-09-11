@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.mutate;
 
 import com.google.common.collect.ImmutableList;
+
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.GlossaryTermAssociation;
@@ -27,8 +28,6 @@ import java.net.URISyntaxException;
 import java.util.Optional;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 
 @Slf4j
