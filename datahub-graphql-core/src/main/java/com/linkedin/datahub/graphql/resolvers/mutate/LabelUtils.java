@@ -26,10 +26,12 @@ import com.linkedin.schema.EditableSchemaMetadata;
 import java.net.URISyntaxException;
 import java.util.Optional;
 import javax.annotation.Nonnull;
+import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 
+@Slf4j
 public class LabelUtils {
   private static final ConjunctivePrivilegeGroup ALL_PRIVILEGES_GROUP = new ConjunctivePrivilegeGroup(ImmutableList.of(
       PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType()
@@ -40,8 +42,6 @@ public class LabelUtils {
   public static final String GLOSSARY_TERM_ASPECT_NAME = "glossaryTerms";
   public static final String SCHEMA_ASPECT_NAME = "editableSchemaMetadata";
   public static final String TAGS_ASPECT_NAME = "globalTags";
-
-  private static final Logger _logger = LoggerFactory.getLogger(LabelUtils.class.getName());
 
   public static void removeTermFromTarget(
       Urn labelUrn,
@@ -272,7 +272,7 @@ public class LabelUtils {
 
       return aspect;
     } catch (Exception e) {
-      _logger.error(
+      log.error(
           "Error constructing aspect from entity. Entity: {} aspect: {}. Error: {}",
           entityUrn,
           aspectName,

@@ -34,11 +34,11 @@ public class RemoveTagResolver implements DataFetcher<CompletableFuture<Boolean>
       try {
 
         if (!tagUrn.getEntityType().equals("tag")) {
-          log.error(String.format("Failed to remove %s. It is not a tag urn.", tagUrn.toString()));
+          log.error("Failed to remove %s. It is not a tag urn.", tagUrn.toString());
           return false;
         }
 
-        log.info(String.format("Removing Tag. input: %s", input));
+        log.info("Removing Tag. input: %s", input);
         Urn actor = CorpuserUrn.createFromString(((QueryContext) environment.getContext()).getActor());
         LabelUtils.removeTagFromTarget(
             tagUrn,
@@ -49,7 +49,7 @@ public class RemoveTagResolver implements DataFetcher<CompletableFuture<Boolean>
         );
         return true;
       } catch (Exception e) {
-        log.error(String.format("Failed to perform update against input %s", input.toString()) + " " + e.getMessage());
+        log.error("Failed to perform update against input {}, {}", input.toString(), e.getMessage());
         throw new RuntimeException(String.format("Failed to perform update against input %s", input.toString()), e);
       }
     });

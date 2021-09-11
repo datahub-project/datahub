@@ -34,11 +34,11 @@ public class RemoveTermResolver implements DataFetcher<CompletableFuture<Boolean
       try {
 
         if (!termUrn.getEntityType().equals("glossaryTerm")) {
-          log.error(String.format("Failed to remove %s. It is not a glossary term urn.", termUrn.toString()));
+          log.error("Failed to remove {}. It is not a glossary term urn.", termUrn.toString());
           return false;
         }
 
-        log.info(String.format("Removing Term. input: %s", input));
+        log.info(String.format("Removing Term. input: {}", input));
         Urn actor = CorpuserUrn.createFromString(((QueryContext) environment.getContext()).getActor());
         LabelUtils.removeTermFromTarget(
             termUrn,
@@ -49,7 +49,7 @@ public class RemoveTermResolver implements DataFetcher<CompletableFuture<Boolean
         );
         return true;
       } catch (Exception e) {
-        log.error(String.format("Failed to perform update against input %s", input.toString()) + " " + e.getMessage());
+        log.error("Failed to perform update against input {}, {}", input.toString(), e.getMessage());
         throw new RuntimeException(String.format("Failed to perform update against input %s", input.toString()), e);
       }
     });

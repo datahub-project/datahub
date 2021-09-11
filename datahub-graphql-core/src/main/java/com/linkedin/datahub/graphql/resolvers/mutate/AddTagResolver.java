@@ -35,11 +35,11 @@ public class AddTagResolver implements DataFetcher<CompletableFuture<Boolean>> {
       try {
 
         if (!tagUrn.getEntityType().equals("tag")) {
-          log.error(String.format("Failed to add %s. It is not a tag urn.", tagUrn.toString()));
+          log.error("Failed to add {}. It is not a tag urn.", tagUrn.toString());
           return false;
         }
 
-        log.info(String.format("Adding Tag. input: %s", input));
+        log.info("Adding Tag. input: {}", input.toString());
         Urn actor = CorpuserUrn.createFromString(((QueryContext) environment.getContext()).getActor());
         LabelUtils.addTagToTarget(
             tagUrn,
@@ -50,7 +50,7 @@ public class AddTagResolver implements DataFetcher<CompletableFuture<Boolean>> {
         );
         return true;
       } catch (Exception e) {
-        log.error(String.format("Failed to perform update against input %s", input.toString()) + " " + e.getMessage());
+        log.error("Failed to perform update against input {}, {}", input.toString(), e.getMessage());
         throw new RuntimeException(String.format("Failed to perform update against input %s", input.toString()), e);
       }
     });
