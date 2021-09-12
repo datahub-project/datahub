@@ -22,7 +22,7 @@ DATAHUB_GMS_HOST=http://localhost:8080
 DATAHUB_GMS_TOKEN=
 ```
 
-The env variables for host and token will be used only if `DATAHUB_SKIP_CONFIG` is set.
+The env variables take precendence over what is in the config.
 
 ## Delete By Urn
 
