@@ -4,7 +4,7 @@ import os.path
 import sys
 import typing
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 import click
 import requests
@@ -16,6 +16,10 @@ log = logging.getLogger(__name__)
 DEFAULT_GMS_HOST = "http://localhost:8080"
 CONDENSED_DATAHUB_CONFIG_PATH = "~/.datahubenv"
 DATAHUB_CONFIG_PATH = os.path.expanduser(CONDENSED_DATAHUB_CONFIG_PATH)
+
+ENV_VAR_SKIP_CONFIG = "DATAHUB_SKIP_CONFIG"
+ENV_METADATA_HOST = "DATAHUB_GMS_HOST"
+ENV_METADATA_TOKEN = "DATAHUB_GMS_TOKEN"
 
 
 class GmsConfig(BaseModel):
@@ -41,7 +45,7 @@ def write_datahub_config(host: str, token: Optional[str]) -> None:
 
 def should_skip_config() -> bool:
     try:
-        return os.environ["DATAHUB_SKIP_CONFIG"] == "True"
+        return os.environ[ENV_VAR_SKIP_CONFIG] == "True"
     except KeyError:
         return False
 
@@ -78,16 +82,16 @@ def get_details_from_config():
     return None, None
 
 
-def get_details_from_env():
+def get_details_from_env() -> Tuple[Optional[str], Optional[str]]:
     gms_host: Optional[str] = None
     try:
-        gms_host = os.environ["DATAHUB_GMS_HOST"]
+        gms_host = os.environ[ENV_METADATA_HOST]
     except KeyError:
         pass
 
     gms_token: Optional[str] = None
     try:
-        gms_token = os.environ["DATAHUB_GMS_TOKEN"]
+        gms_token = os.environ[ENV_METADATA_TOKEN]
     except KeyError:
         pass
 
@@ -113,7 +117,7 @@ def get_session_and_host():
 
     if gms_host is None or gms_host == "":
         log.error(
-            "GMS Host is not set. Use datahub init command or set DATAHUB_GMS_HOST env var"
+            f"GMS Host is not set. Use datahub init command or set {ENV_METADATA_HOST} env var"
         )
         return None, None
 
