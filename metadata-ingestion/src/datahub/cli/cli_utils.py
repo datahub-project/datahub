@@ -1,4 +1,5 @@
 import json
+import logging
 import os.path
 import sys
 import typing
@@ -9,6 +10,8 @@ import click
 import requests
 import yaml
 from pydantic import BaseModel, ValidationError
+
+log = logging.getLogger(__name__)
 
 DEFAULT_GMS_HOST = "http://localhost:8080"
 CONDENSED_DATAHUB_CONFIG_PATH = "~/.datahubenv"
@@ -99,14 +102,18 @@ def get_session_and_host():
     session = requests.Session()
 
     gms_host_env, gms_token_env = get_details_from_env()
-    if not should_skip_config():
+    if should_skip_config():
+        gms_host = gms_host_env
+        gms_token = gms_token_env
+    else:
         ensure_datahub_config()
         gms_host_conf, gms_token_conf = get_details_from_config()
         gms_host = first_non_null([gms_host_env, gms_host_conf])
         gms_token = first_non_null([gms_token_env, gms_token_conf])
-    else:
-        gms_host = gms_host_env
-        gms_token = gms_token_env
+
+    if gms_host is None or gms_host == "":
+        log.error("GMS Host is not set. Use datahub init command or set DATAHUB_GMS_HOST env var")
+        return None, None
 
     session.headers.update(
         {
