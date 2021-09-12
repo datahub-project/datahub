@@ -112,7 +112,9 @@ def get_session_and_host():
         gms_token = first_non_null([gms_token_env, gms_token_conf])
 
     if gms_host is None or gms_host == "":
-        log.error("GMS Host is not set. Use datahub init command or set DATAHUB_GMS_HOST env var")
+        log.error(
+            "GMS Host is not set. Use datahub init command or set DATAHUB_GMS_HOST env var"
+        )
         return None, None
 
     session.headers.update(
