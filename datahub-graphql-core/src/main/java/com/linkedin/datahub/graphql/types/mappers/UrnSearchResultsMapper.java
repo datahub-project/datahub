@@ -14,6 +14,7 @@ import com.linkedin.metadata.search.MatchMetadata;
 import com.linkedin.metadata.search.SearchResultMetadata;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -55,6 +56,8 @@ public class UrnSearchResultsMapper<T extends RecordTemplate, E extends Entity> 
     final FacetMetadata facetMetadata = new FacetMetadata();
     boolean isEntityTypeFilter = aggregationMetadata.getName().equals("entity");
     facetMetadata.setField(aggregationMetadata.getName());
+    facetMetadata.setDisplayName(
+        Optional.ofNullable(aggregationMetadata.getDisplayName()).orElse(aggregationMetadata.getName()));
     facetMetadata.setAggregations(aggregationMetadata.getFilterValues()
         .stream()
         .map(filterValue -> new AggregationMetadata(convertFilterValue(filterValue.getValue(), isEntityTypeFilter),
