@@ -7,6 +7,8 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.schema.ArrayDataSchema;
+import com.linkedin.data.schema.DataSchema;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.dao.utils.RecordUtils;
 import com.linkedin.metadata.extractor.FieldExtractor;
@@ -105,13 +107,34 @@ public class TimeseriesAspectTransformer {
         valueNode = JsonNodeFactory.instance.numberNode((Double) valueList.get(0));
         break;
       case ARRAY:
+        ArrayDataSchema dataSchema = (ArrayDataSchema) fieldSpec.getPegasusSchema();
         if (valueList.get(0) instanceof List<?>) {
           // This is the hack for non-stat-collection array fields. They will end up getting oddly serialized to a string otherwise.
           valueList = (List<Object>) valueList.get(0);
         }
         ArrayNode arrayNode = JsonNodeFactory.instance.arrayNode(valueList.size());
-        valueList.stream().map(Object::toString).forEach(arrayNode::add);
+        valueList.stream().map(x -> {
+          if (dataSchema.getItems().getType() == DataSchema.Type.RECORD) {
+            try {
+              return OBJECT_MAPPER.writeValueAsString(x);
+            } catch (JsonProcessingException e) {
+              throw new IllegalArgumentException("Failed to convert collection element to Json string!", e);
+            }
+          } else {
+            return x.toString();
+          }
+        }).forEach(arrayNode::add);
         valueNode = JsonNodeFactory.instance.textNode(arrayNode.toString());
+        break;
+      case RECORD:
+        String recordString;
+        try {
+          recordString = OBJECT_MAPPER.writeValueAsString(valueList.get(0));
+        } catch (JsonProcessingException e) {
+          throw new IllegalArgumentException(
+              "Failed to convert record object to Json string!" + valueList.get(0).toString());
+        }
+        valueNode = JsonNodeFactory.instance.textNode(recordString);
         break;
       default:
         valueNode = JsonNodeFactory.instance.textNode(valueList.get(0).toString());
@@ -124,8 +147,8 @@ public class TimeseriesAspectTransformer {
       final TimeseriesFieldCollectionSpec fieldSpec, final List<Object> values, final ObjectNode commonDocument) {
     return values.stream()
         .map(value -> getTimeseriesFieldCollectionDocument(fieldSpec, value, commonDocument))
-        .collect(Collectors.toMap(keyDocPair -> getDocId(keyDocPair.getSecond(), keyDocPair.getFirst()),
-            keyDocPair -> keyDocPair.getSecond()));
+        .collect(
+            Collectors.toMap(keyDocPair -> getDocId(keyDocPair.getSecond(), keyDocPair.getFirst()), Pair::getSecond));
   }
 
   private static Pair<String, ObjectNode> getTimeseriesFieldCollectionDocument(
@@ -152,7 +175,7 @@ public class TimeseriesAspectTransformer {
         finalDocument);
   }
 
-  private static final String getDocId(@Nonnull JsonNode document, String collectionId) {
+  private static String getDocId(@Nonnull JsonNode document, String collectionId) {
     String docId = document.get(MappingsBuilder.TIMESTAMP_MILLIS_FIELD).toString();
     JsonNode eventGranularity = document.get(MappingsBuilder.EVENT_GRANULARITY);
     if (eventGranularity != null) {
