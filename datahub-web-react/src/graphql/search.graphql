@@ -280,7 +280,9 @@ query getSearchResults($input: SearchMultipleInput!) {
                     }
                     ... on DataPlatform {
                         name
+                        displayName
                         info {
+                            displayName
                             logoUrl
                         }
                     }
