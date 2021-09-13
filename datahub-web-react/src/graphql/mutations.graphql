@@ -1,0 +1,15 @@
+mutation removeTag($input: TagUpdateInput!) {
+    removeTag(input: $input)
+}
+
+mutation addTag($input: TagUpdateInput!) {
+    addTag(input: $input)
+}
+
+mutation removeTerm($input: TermUpdateInput!) {
+    removeTerm(input: $input)
+}
+
+mutation addTerm($input: TermUpdateInput!) {
+    addTerm(input: $input)
+}

@@ -8,7 +8,7 @@ import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { navigateToSearchUrl } from '../search/utils/navigateToSearchUrl';
 import { SearchBar } from '../search/SearchBar';
-import { GetSearchResultsQuery, useGetAutoCompleteAllResultsLazyQuery } from '../../graphql/search.generated';
+import { GetSearchResultsQuery, useGetAutoCompleteMultipleResultsLazyQuery } from '../../graphql/search.generated';
 import { useGetAllEntitySearchResults } from '../../utils/customGraphQL/useGetAllEntitySearchResults';
 import { EntityType } from '../../types.generated';
 import analytics, { EventType } from '../analytics';
@@ -137,8 +137,8 @@ function sortRandom() {
 export const HomePageHeader = () => {
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
+    const [getAutoCompleteResultsForMultiple, { data: suggestionsData }] = useGetAutoCompleteMultipleResultsLazyQuery();
     const user = useGetAuthenticatedUser()?.corpUser;
-    const [getAutoCompleteResultsForAll, { data: suggestionsData }] = useGetAutoCompleteAllResultsLazyQuery();
     const themeConfig = useTheme();
 
     const onSearch = (query: string, type?: EntityType) => {
@@ -161,7 +161,7 @@ export const HomePageHeader = () => {
 
     const onAutoComplete = (query: string) => {
         if (query && query !== '') {
-            getAutoCompleteResultsForAll({
+            getAutoCompleteResultsForMultiple({
                 variables: {
                     input: {
                         query,
@@ -228,7 +228,7 @@ export const HomePageHeader = () => {
                 <SearchBarContainer>
                     <SearchBar
                         placeholderText={themeConfig.content.search.searchbarMessage}
-                        suggestions={suggestionsData?.autoCompleteForAll?.suggestions || []}
+                        suggestions={suggestionsData?.autoCompleteForMultiple?.suggestions || []}
                         onSearch={onSearch}
                         onQueryChange={onAutoComplete}
                         autoCompleteStyle={styles.searchBox}

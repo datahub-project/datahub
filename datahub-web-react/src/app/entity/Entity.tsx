@@ -82,6 +82,11 @@ export interface Entity<T> {
     getCollectionName: () => string;
 
     /**
+     * Returns the singular name of the entity used when referring to an individual
+     */
+    getEntityName?: () => string;
+
+    /**
      * Renders the 'profile' of the entity on an entity details page.
      */
     renderProfile: (urn: string) => JSX.Element;

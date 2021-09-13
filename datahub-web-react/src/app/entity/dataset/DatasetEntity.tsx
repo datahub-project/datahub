@@ -122,6 +122,10 @@ export class DatasetEntity implements Entity<Dataset> {
                 },
                 {
                     component: SidebarTagsSection,
+                    properties: {
+                        hasTags: true,
+                        hasTerms: true,
+                    },
                 },
                 {
                     component: SidebarOwnerSection,
