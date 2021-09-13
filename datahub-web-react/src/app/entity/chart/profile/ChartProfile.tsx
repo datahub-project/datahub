@@ -22,7 +22,7 @@ export enum TabType {
 const ENABLED_TAB_TYPES = [TabType.Ownership, TabType.Sources, TabType.Properties, TabType.Dashboards];
 
 export default function ChartProfile({ urn }: { urn: string }) {
-    const { loading, error, data } = useGetChartQuery({ variables: { urn } });
+    const { loading, error, data, refetch } = useGetChartQuery({ variables: { urn } });
     const [updateChart] = useUpdateChartMutation({
         refetchQueries: () => ['getChart'],
         onError: (e) => {
@@ -84,17 +84,11 @@ export default function ChartProfile({ urn }: { urn: string }) {
                     tags={
                         <TagTermGroup
                             editableTags={data.chart?.globalTags as GlobalTags}
-                            canAdd
+                            canAddTag
                             canRemove
-                            updateTags={(globalTags) => {
-                                analytics.event({
-                                    type: EventType.EntityActionEvent,
-                                    actionType: EntityActionType.UpdateTags,
-                                    entityType: EntityType.Chart,
-                                    entityUrn: urn,
-                                });
-                                return updateChart({ variables: { input: { urn, globalTags } } });
-                            }}
+                            entityUrn={urn}
+                            entityType={EntityType.Chart}
+                            refetch={refetch}
                         />
                     }
                     title={data.chart.info?.name || ''}
