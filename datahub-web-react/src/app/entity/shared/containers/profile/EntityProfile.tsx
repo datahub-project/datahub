@@ -121,7 +121,7 @@ export const EntityProfile = <T, U>({
         [history, entityType, urn, entityRegistry],
     );
 
-    const { loading, error, data } = useEntityQuery({ variables: { urn } });
+    const { loading, error, data, refetch } = useEntityQuery({ variables: { urn } });
 
     const [updateEntity] = useUpdateQuery({
         refetchQueries: () => [QUERY_NAME],
@@ -139,6 +139,7 @@ export const EntityProfile = <T, U>({
                     baseEntity: data,
                     updateEntity,
                     routeToTab,
+                    refetch,
                 }}
             >
                 <div>
@@ -167,6 +168,7 @@ export const EntityProfile = <T, U>({
                 baseEntity: data,
                 updateEntity,
                 routeToTab,
+                refetch,
             }}
         >
             <>

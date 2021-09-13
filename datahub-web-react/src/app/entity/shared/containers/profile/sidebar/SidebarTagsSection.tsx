@@ -1,31 +1,27 @@
 import React from 'react';
-import analytics, { EntityActionType, EventType } from '../../../../../analytics';
 import TagTermGroup from '../../../../../shared/tags/TagTermGroup';
-import { GenericEntityUpdate } from '../../../types';
 import { SidebarHeader } from './SidebarHeader';
-import { useEntityData, useEntityUpdate } from '../../../EntityContext';
+import { useEntityData, useRefetch } from '../../../EntityContext';
 
-export const SidebarTagsSection = () => {
+export const SidebarTagsSection = ({ properties }: { properties?: any }) => {
+    const canAddTag = properties?.hasTags;
+    const canAddTerm = properties?.hasTerms;
+
     const { urn, entityType, entityData } = useEntityData();
-    const updateEntity = useEntityUpdate<GenericEntityUpdate>();
+    const refetch = useRefetch();
     return (
         <div>
             <SidebarHeader title="Tags" />
             <TagTermGroup
                 editableTags={entityData?.globalTags}
-                glossaryTerms={entityData?.glossaryTerms}
-                canAdd
+                editableGlossaryTerms={entityData?.glossaryTerms}
+                canAddTag={canAddTag}
+                canAddTerm={canAddTerm}
                 canRemove
                 showEmptyMessage
-                updateTags={(globalTags) => {
-                    analytics.event({
-                        type: EventType.EntityActionEvent,
-                        actionType: EntityActionType.UpdateTags,
-                        entityType,
-                        entityUrn: urn,
-                    });
-                    return updateEntity({ variables: { input: { urn, globalTags } } });
-                }}
+                entityUrn={urn}
+                entityType={entityType}
+                refetch={refetch}
             />
         </div>
     );

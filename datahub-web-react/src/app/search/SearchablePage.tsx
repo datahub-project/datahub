@@ -5,7 +5,7 @@ import { useTheme } from 'styled-components';
 import { SearchHeader } from './SearchHeader';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { EntityType } from '../../types.generated';
-import { useGetAutoCompleteAllResultsLazyQuery } from '../../graphql/search.generated';
+import { useGetAutoCompleteMultipleResultsLazyQuery } from '../../graphql/search.generated';
 import { navigateToSearchUrl } from './utils/navigateToSearchUrl';
 import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
 import analytics, { EventType } from '../analytics';
@@ -39,8 +39,8 @@ export const SearchablePage = ({ initialQuery, onSearch, onAutoComplete, childre
     const entityRegistry = useEntityRegistry();
     const themeConfig = useTheme();
 
+    const [getAutoCompleteResults, { data: suggestionsData }] = useGetAutoCompleteMultipleResultsLazyQuery();
     const user = useGetAuthenticatedUser()?.corpUser;
-    const [getAutoCompleteResults, { data: suggestionsData }] = useGetAutoCompleteAllResultsLazyQuery();
 
     const search = (query: string, type?: EntityType) => {
         if (!query || query.trim().length === 0) {
@@ -78,8 +78,8 @@ export const SearchablePage = ({ initialQuery, onSearch, onAutoComplete, childre
                 placeholderText={themeConfig.content.search.searchbarMessage}
                 suggestions={
                     (suggestionsData &&
-                        suggestionsData?.autoCompleteForAll &&
-                        suggestionsData.autoCompleteForAll.suggestions) ||
+                        suggestionsData?.autoCompleteForMultiple &&
+                        suggestionsData.autoCompleteForMultiple.suggestions) ||
                     []
                 }
                 onSearch={onSearch || search}
