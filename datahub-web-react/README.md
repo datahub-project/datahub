@@ -1,23 +1,24 @@
-DataHub React App (Incubating)
-==============================================================================
+# DataHub React App
 
 ## About
-This module contains a React version of the DataHub UI, which is currently under incubation. Notice that this
-is a completely separate frontend experience from Ember and will remain so as it evolves. 
+This module contains a React version of the DataHub UI. This is now the production version of the DataHub client experience. 
+Notice that this is a completely separate frontend experience from the legacy Ember app and will remain so as it evolves. 
 
-Feel free to take a look around, deploy, and make contributions. 
+Feel free to take a look around, deploy, and contribute. 
 
-For details about the motivation please see [this RFC](../docs/rfc/active/react-app/README.md). 
+For details about the motivation please see [this RFC](../docs/rfc/active/2055-react-app/README.md). 
 
 ## Functional Goals
-The initial milestone for the app is to achieve functional parity with the existing Ember app. This means supporting
+The initial milestone for the app was to achieve functional parity with the existing Ember app. This meant supporting
 
 - Dataset Profiles, Search, Browse Experience
 - User Profiles, Search
 - LDAP Authentication Flow
 
+This has since been achieved. The new set of functional goals are reflected in the latest version of the [DataHub Roadmap](../docs/roadmap.md). 
+
 ## Design Goals
-In building out a new client experience, we intend to build on learnings from the Ember app and incorporate feedback gathered
+In building out the client experience, we intend to leverage learnings from the Ember app and incorporate feedback gathered
 from organizations operating DataHub. Two themes have emerged to serve as guideposts: 
 
 1. **Configurability**: The client experience should be configurable, such that deploying organizations can tailor certain 
@@ -34,7 +35,7 @@ from organizations operating DataHub. Two themes have emerged to serve as guidep
 
 Navigate to the `docker` directory and run the following to spin up the react app:
 ```
-./quickstart-react.sh
+./quickstart.sh
 ```
 at `http://localhost:9002`.
 
@@ -46,18 +47,53 @@ can run the following in this directory:
 which will start a forwarding server at `localhost:3000`. Note that to fetch real data, `datahub-frontend` server will also
 need to be deployed, still at `http://localhost:9002`, to service GraphQL API requests.
 
+Optionally you could also start the app with the mock server without running the docker containers by executing `yarn start:mock`. See [here](src/graphql-mock/fixtures/searchResult/userSearchResult.ts#L6) for available login users.
+
+### Functional testing
+
+Automated functional testing is powered by Cypress and MirageJS. When running the web server with Cypress the port is set to 3010 so that the usual web server running on port 3000 used for development can be started without interruptions.
+
+#### During development
+
+`yarn test:e2e`
+
+#### CI
+
+`yarn test:e2e:ci`
+
+### Theming
+
+#### Selecting a theme
+
+Theme configurations are stored in `./src/conf/theme`. To select a theme, choose one and update the `REACT_APP_THEME_CONFIG` env variable stored in `.env`.
+To change the selected theme, update the `.env` file and re-run `yarn start` from `datahub/datahub-web-react`.
+
+#### Editing a theme
+
+To edit an existing theme, the recommendation is to clone one of the existing themes into a new file with the name `<your_themes_name>.config.json`,
+and then update the env variable as descibed above. The theme files have three sections, `styles`, `assets` and `content`. The type of the theme configs is specified
+in `./src/conf/theme/types.ts`.
+
+`styles` configure overrides for the apps theming variables.
+
+`assets` configures the logo url.
+
+`content` specifies customizable text fields.
+
+While developing on your theme, all changes to assets and content are seen immediately in your local app. However, changes to styles require
+you to terminate and re-run `yarn start` to see updated styles.
+
 ## Design Details
 
 ### Package Organization
 
-The organization is yet subject to change as the app incubates. As of today (2/11/2021), the `src` dir of the app is
-broken down into the following modules
+The `src` dir of the app is broken down into the following modules
 
 **conf** - Stores global configuration flags that can be referenced across the app. For example, the number of 
 search results shown per page, or the placeholder text in the search bar box. It serves as a location where levels
 for functional configurability should reside. 
 
-**components** - Contains all important components of the app. It has a few sub-modules:
+**app** - Contains all important components of the app. It has a few sub-modules:
 
 - `auth`: Components used to render the user authentication experience. 
 - `browse`: Shared components used to render the 'browse-by-path' experience. The experience is akin to navigating a filesystem hierarchy.

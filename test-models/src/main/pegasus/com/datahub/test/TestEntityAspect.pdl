@@ -1,0 +1,10 @@
+namespace com.datahub.test
+
+/**
+ * A union of all supported metadata aspects for a Test Entity
+ */
+typeref TestEntityAspect = union[
+  TestEntityKey,
+  TestEntityInfo,
+  BrowsePaths
+]

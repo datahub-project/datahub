@@ -3,6 +3,9 @@ namespace com.linkedin.dataset
 /**
  * Upstream lineage of a dataset
  */
+@Aspect = {
+  "name": "upstreamLineage"
+}
 record UpstreamLineage {
 
   /**

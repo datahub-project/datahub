@@ -5,11 +5,18 @@ import com.linkedin.common.Urn
 /**
  * Dataset deprecation status
  */
+@Aspect = {
+  "name": "datasetDeprecation"
+}
 record DatasetDeprecation {
 
   /**
    * Whether the dataset is deprecated by owner.
    */
+  @Searchable = {
+    "fieldType": "BOOLEAN",
+    "weightsPerFieldValue": { "true": 0.5 }
+  }
   deprecated: boolean
 
   /**

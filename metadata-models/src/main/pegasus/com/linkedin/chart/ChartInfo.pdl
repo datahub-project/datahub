@@ -4,20 +4,30 @@ import com.linkedin.common.AccessLevel
 import com.linkedin.common.ChangeAuditStamps
 import com.linkedin.common.Time
 import com.linkedin.common.Url
+import com.linkedin.common.CustomProperties
+import com.linkedin.common.ExternalReference
 
 /**
  * Information about a chart
  */
-record ChartInfo {
+@Aspect = {
+  "name": "chartInfo"
+}
+record ChartInfo includes CustomProperties, ExternalReference {
 
   /**
    * Title of the chart
    */
+  @Searchable = {
+    "fieldType": "TEXT_PARTIAL",
+    "enableAutocomplete": true
+  }
   title: string
 
   /**
    * Detailed description about the chart
    */
+  @Searchable = {}
   description: string
 
   /**
@@ -33,16 +43,30 @@ record ChartInfo {
   /**
    * Data sources for the chart
    */
+  @Relationship = {
+    "/*/string": {
+      "name": "Consumes",
+      "entityTypes": [ "dataset" ]
+    }
+  }
   inputs: optional array[ChartDataSourceType]
 
   /**
    * Type of the chart
    */
+  @Searchable = {
+    "fieldType": "KEYWORD",
+    "addToFilters": true
+  }
   type: optional ChartType
 
   /**
    * Access level for the chart
    */
+  @Searchable = {
+    "fieldType": "KEYWORD",
+    "addToFilters": true
+  }
   access: optional AccessLevel
 
   /**

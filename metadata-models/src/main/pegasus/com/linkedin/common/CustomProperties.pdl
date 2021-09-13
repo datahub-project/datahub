@@ -1,0 +1,16 @@
+namespace com.linkedin.common
+
+/**
+ * Misc. properties about an entity.
+ */
+record CustomProperties {
+  /**
+   * Custom property bag.
+   */
+  @Searchable = {
+    "/*": {
+      "queryByDefault": true
+    }
+  }
+  customProperties: map[string, string] = { }
+}

@@ -1,6 +1,8 @@
 namespace com.linkedin.schema
 
 import com.linkedin.dataset.SchemaFieldPath
+import com.linkedin.common.GlobalTags
+import com.linkedin.common.GlossaryTerms
 
 /**
  * SchemaField to describe metadata related to dataset schema. Schema normalization rules: http://go/tms-schema
@@ -10,6 +12,10 @@ record SchemaField {
   /**
    * Flattened name of the field. Field is computed from jsonPath field. For data translation rules refer to wiki page above.
    */
+  @Searchable = {
+    "fieldName": "fieldPaths",
+    "fieldType": "TEXT_PARTIAL"
+  }
   fieldPath: SchemaFieldPath
 
   /**
@@ -25,6 +31,11 @@ record SchemaField {
   /**
    * Description
    */
+  @Searchable = {
+    "fieldName": "fieldDescriptions",
+    "fieldType": "TEXT",
+    "boostScore": 0.1
+  }
   description: optional string
 
   /**
@@ -41,4 +52,34 @@ record SchemaField {
    * There are use cases when a field in type B references type A. A field in A references field of type B. In such cases, we will mark the first field as recursive.
    */
   recursive: boolean = false
+
+  /**
+   * Tags associated with the field
+   */
+  @Searchable = {
+    "/tags/*/tag": {
+      "fieldName": "fieldTags",
+      "fieldType": "URN_PARTIAL",
+      "boostScore": 0.5
+    }
+  }
+  globalTags: optional GlobalTags
+
+  /**
+   * Glossary terms associated with the field
+   */
+   @Searchable = {
+    "/terms/*/urn": {
+      "fieldName": "fieldGlossaryTerms",
+      "fieldType": "URN_PARTIAL",
+      "boostScore": 0.5
+    }
+  }
+  glossaryTerms: optional GlossaryTerms
+
+  /**
+   * For schema fields that are part of complex keys, set this field to true
+   * We do this to easily distinguish between value and key fields
+   */
+  isPartOfKey: boolean = false
 }

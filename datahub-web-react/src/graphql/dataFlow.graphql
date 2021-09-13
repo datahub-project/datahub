@@ -1,0 +1,86 @@
+fragment dataFlowFields on DataFlow {
+    urn
+    type
+    orchestrator
+    flowId
+    cluster
+    info {
+        name
+        description
+        project
+        externalUrl
+        customProperties {
+            key
+            value
+        }
+    }
+    editableProperties {
+        description
+    }
+    ownership {
+        ...ownershipFields
+    }
+    globalTags {
+        ...globalTagsFields
+    }
+}
+
+query getDataFlow($urn: String!) {
+    dataFlow(urn: $urn) {
+        ...dataFlowFields
+        dataJobs {
+            entities {
+                entity {
+                    urn
+                    type
+                    ... on DataJob {
+                        urn
+                        type
+                        jobId
+                        ownership {
+                            ...ownershipFields
+                        }
+                        info {
+                            name
+                            description
+                            externalUrl
+                            customProperties {
+                                key
+                                value
+                            }
+                        }
+                        editableProperties {
+                            description
+                        }
+                        globalTags {
+                            ...globalTagsFields
+                        }
+                        inputOutput {
+                            inputDatajobs {
+                                urn
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+mutation updateDataFlow($input: DataFlowUpdateInput!) {
+    updateDataFlow(input: $input) {
+        ...dataFlowFields
+        dataJobs {
+            entities {
+                entity {
+                    urn
+                    type
+                    ... on DataJob {
+                        ...dataJobFields
+                        ...shallowLineageFields
+                    }
+                }
+            }
+        }
+    }
+}

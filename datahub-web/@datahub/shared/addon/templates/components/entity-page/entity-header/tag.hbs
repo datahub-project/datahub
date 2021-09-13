@@ -1,8 +1,0 @@
-{{#if this.text}}
-  <NachoPill::NachoPill
-    @class="nacho-pill--small {{this.baseClass}} {{if @options.styleModifier (concat this.baseClass @options.styleModifier)}}"
-    @tooltip={{@options.tooltip}}
-    @text={{if @options.titleize (titleize this.text) this.text}}
-    @state={{@options.state}}
-  />
-{{/if}}

@@ -8,12 +8,10 @@ module.exports = {
         'airbnb-typescript',
         'airbnb/hooks',
         'prettier',
-        'prettier/react',
-        'prettier/@typescript-eslint', // Uses eslint-config-prettier to disable ESLint rules from @typescript-eslint/eslint-plugin that would conflict with prettier
         'plugin:prettier/recommended',
     ],
     parserOptions: {
-        ecmaVersion: 2018, // Allows for the parsing of modern ECMAScript features
+        ecmaVersion: 2020, // Allows for the parsing of modern ECMAScript features
         sourceType: 'module', // Allows for the use of imports
         ecmaFeatures: {
             jsx: true, // Allows for the parsing of JSX
@@ -22,7 +20,8 @@ module.exports = {
     },
     rules: {
         eqeqeq: ['error', 'always'],
-        'no-console': 'warn',
+        'react/destructuring-assignment': 'off',
+        'no-console': 'off',
         'no-debugger': 'warn',
         'require-await': 'warn',
         'import/prefer-default-export': 'off', // TODO: remove this lint rule
@@ -31,6 +30,7 @@ module.exports = {
         'no-plusplus': 'off',
         'no-prototype-builtins': 'off',
         'react/require-default-props': 'off',
+        'no-underscore-dangle': 'off',
         '@typescript-eslint/no-unused-vars': [
             'error',
             {
@@ -38,6 +38,10 @@ module.exports = {
                 argsIgnorePattern: '^_',
             },
         ],
+        '@typescript-eslint/no-empty-interface': 'off',
+        "@typescript-eslint/explicit-module-boundary-types": "off",
+        "@typescript-eslint/no-explicit-any": 'off',
+        "import/no-extraneous-dependencies": 'off'
     },
     settings: {
         react: {

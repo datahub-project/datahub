@@ -27,5 +27,4 @@ class WorkUnit(_WorkUnitId, metaclass=ABCMeta):
 
 @dataclass
 class PipelineContext:
-    # TODO: autogenerate run_ids if not specified.
     run_id: str

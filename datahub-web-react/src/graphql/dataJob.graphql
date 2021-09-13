@@ -1,0 +1,23 @@
+query getDataJob($urn: String!) {
+    dataJob(urn: $urn) {
+        ...dataJobFields
+        downstreamLineage {
+            ...downstreamRelationshipFields
+        }
+        upstreamLineage {
+            ...upstreamRelationshipFields
+        }
+    }
+}
+
+mutation updateDataJob($input: DataJobUpdateInput!) {
+    updateDataJob(input: $input) {
+        ...dataJobFields
+        downstreamLineage {
+            ...downstreamRelationshipFields
+        }
+        upstreamLineage {
+            ...upstreamRelationshipFields
+        }
+    }
+}

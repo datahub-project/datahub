@@ -27,35 +27,11 @@ services:
       - "29092:29092"
       - "9092:9092"
 
-  kafka-rest-proxy:
-    image: confluentinc/cp-kafka-rest:5.4.0
-    env_file: kafka-rest-proxy/env/docker.env
-    hostname: kafka-rest-proxy
-    container_name: kafka-rest-proxy
-    ports:
-      - "8082:8082"
-    depends_on:
-      - zookeeper
-      - broker
-      - schema-registry
-
-  kafka-topics-ui:
-    image: landoop/kafka-topics-ui:0.9.4
-    env_file: kafka-topics-ui/env/docker.env
-    hostname: kafka-topics-ui
-    container_name: kafka-topics-ui
-    ports:
-      - "18000:8000"
-    depends_on:
-      - zookeeper
-      - broker
-      - schema-registry
-      - kafka-rest-proxy
-
   # This "container" is a workaround to pre-create topics
   kafka-setup:
     build:
       context: kafka-setup
+    image: linkedin/datahub-kafka-setup:${DATAHUB_VERSION:-head}
     env_file: kafka-setup/env/docker.env
     hostname: kafka-setup
     container_name: kafka-setup
@@ -74,18 +50,8 @@ services:
     ports:
       - "8081:8081"
 
-  schema-registry-ui:
-    image: landoop/schema-registry-ui:latest
-    env_file: schema-registry-ui/env/docker.env
-    container_name: schema-registry-ui
-    hostname: schema-registry-ui
-    ports:
-      - "8000:8000"
-    depends_on:
-      - schema-registry
-
   elasticsearch:
-    image: elasticsearch:5.6.8
+    image: elasticsearch:7.9.3
     env_file: elasticsearch/env/docker.env
     container_name: elasticsearch
     hostname: elasticsearch
@@ -93,16 +59,10 @@ services:
       - "9200:9200"
     volumes:
       - esdata:/usr/share/elasticsearch/data
-
-  kibana:
-    image: kibana:5.6.8
-    env_file: kibana/env/docker.env
-    container_name: kibana
-    hostname: kibana
-    ports:
-      - "5601:5601"
-    depends_on:
-      - elasticsearch
+    healthcheck:
+        test: ["CMD-SHELL", "curl -sS --fail 'http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=0s' || exit 1"]
+        start_period: 2m
+        retries: 4
 
   neo4j:
     image: neo4j:4.0.6
@@ -120,6 +80,7 @@ services:
     build:
       context: ../
       dockerfile: docker/elasticsearch-setup/Dockerfile
+    image: linkedin/datahub-elasticsearch-setup:${DATAHUB_VERSION:-head}
     env_file: elasticsearch-setup/env/docker.env
     hostname: elasticsearch-setup
     container_name: elasticsearch-setup
@@ -130,7 +91,7 @@ services:
     build:
         context: ../
         dockerfile: docker/datahub-gms/Dockerfile
-    image: linkedin/datahub-gms:${DATAHUB_VERSION:-latest}
+    image: linkedin/datahub-gms:${DATAHUB_VERSION:-head}
     hostname: datahub-gms
     container_name: datahub-gms
     ports:
@@ -141,59 +102,17 @@ services:
       - mysql
       - neo4j
 
-  datahub-gms-graphql-service:
-    build:
-        context: ../
-        dockerfile: docker/datahub-gms-graphql-service/Dockerfile
-    image: linkedin/datahub-gms-graphql-service:${DATAHUB_VERSION:-latest}
-    env_file: datahub-gms-graphql-service/env/docker.env
-    hostname: datahub-gms-graphql-service
-    container_name: datahub-gms-graphql-service
-    ports:
-      - "8091:8091"
-    depends_on:
-      - datahub-gms
-
-  datahub-frontend:
+  datahub-frontend-react:
     build:
       context: ../
       dockerfile: docker/datahub-frontend/Dockerfile
-    image: linkedin/datahub-frontend:${DATAHUB_VERSION:-latest}
+    image: linkedin/datahub-frontend-react:${DATAHUB_VERSION:-head}
     env_file: datahub-frontend/env/docker.env
-    hostname: datahub-frontend
-    container_name: datahub-frontend
+    hostname: datahub-frontend-react
+    container_name: datahub-frontend-react
     ports:
-      - "9001:9001"
+      - "9002:9002"
     depends_on:
-      - datahub-gms
-
-  datahub-mae-consumer:
-    build:
-      context: ../
-      dockerfile: docker/datahub-mae-consumer/Dockerfile
-    image: linkedin/datahub-mae-consumer:${DATAHUB_VERSION:-latest}
-    env_file: datahub-mae-consumer/env/docker.env
-    hostname: datahub-mae-consumer
-    container_name: datahub-mae-consumer
-    ports:
-        - "9091:9091"
-    depends_on:
-      - kafka-setup
-      - elasticsearch-setup
-      - neo4j
-
-  datahub-mce-consumer:
-    build:
-      context: ../
-      dockerfile: docker/datahub-mce-consumer/Dockerfile
-    image: linkedin/datahub-mce-consumer:${DATAHUB_VERSION:-latest}
-    env_file: datahub-mce-consumer/env/docker.env
-    hostname: datahub-mce-consumer
-    container_name: datahub-mce-consumer
-    ports:
-      - "9090:9090"
-    depends_on:
-      - kafka-setup
       - datahub-gms
 
 networks:

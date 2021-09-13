@@ -1,0 +1,9 @@
+source:
+  type: "file"
+  config:
+    filename: "/bootstrap_mce.json"
+
+sink:
+  type: "datahub-rest"
+  config:
+    server: "http://datahub-gms:8080"

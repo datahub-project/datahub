@@ -1,0 +1,13 @@
+version: "2"
+services:
+  testmysql:
+    image: mysql
+    container_name: "testmysql"
+    command: --default-authentication-plugin=mysql_native_password
+    environment:
+      MYSQL_ROOT_PASSWORD: example
+    ports:
+      - 53307:3306
+    volumes:
+      - ./setup:/setup
+      - ./setup/setup.sql:/docker-entrypoint-initdb.d/setup.sql

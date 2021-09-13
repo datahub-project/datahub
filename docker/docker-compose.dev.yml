@@ -8,9 +8,28 @@
 # To make a JVM app debuggable via IntelliJ, go to its env file and add JVM debug flags, and then add the JVM debug
 # port to this file.
 ---
-# TODO mount + debug docker file for frontend
 version: '3.8'
 services:
+  # Pre-creates the search indices using local mapping/settings.json
+  elasticsearch-setup:
+    image: linkedin/datahub-elasticsearch-setup:debug
+    build:
+      context: elasticsearch-setup
+      dockerfile: Dockerfile
+      args:
+        APP_ENV: dev
+    volumes:
+      - ./elasticsearch-setup/create-indices.sh:/create-indices.sh
+      - ../metadata-service/restli-impl/src/main/resources/index/:/index
+
+  kafka-setup:
+    image: linkedin/datahub-kafka-setup:debug
+    build:
+      context: kafka-setup
+      dockerfile: Dockerfile
+      args:
+        APP_ENV: dev
+
   datahub-gms:
     image: linkedin/datahub-gms:debug
     build:
@@ -20,26 +39,16 @@ services:
         APP_ENV: dev
     volumes:
       - ./datahub-gms/start.sh:/datahub/datahub-gms/scripts/start.sh
-      - ../gms/war/build/libs/:/datahub/datahub-gms/bin
+      - ./monitoring/client-prometheus-config.yaml:/datahub/datahub-gms/scripts/prometheus-config.yaml
+      - ../metadata-models/src/main/resources/:/datahub/datahub-gms/resources
+      - ../metadata-service/war/build/libs/:/datahub/datahub-gms/bin
 
-  datahub-mae-consumer:
-    image: linkedin/datahub-mae-consumer:debug
+  datahub-frontend-react:
+    image: linkedin/datahub-frontend-react:debug
     build:
-      context: datahub-mae-consumer
+      context: datahub-frontend
       dockerfile: Dockerfile
       args:
         APP_ENV: dev
     volumes:
-      - ./datahub-mae-consumer/start.sh:/datahub/datahub-mae-consumer/scripts/start.sh
-      - ../metadata-jobs/mae-consumer-job/build/libs/:/datahub/datahub-mae-consumer/bin/
-
-  datahub-mce-consumer:
-    image: linkedin/datahub-mce-consumer:debug
-    build:
-      context: datahub-mce-consumer
-      dockerfile: Dockerfile
-      args:
-        APP_ENV: dev
-    volumes:
-      - ./datahub-mce-consumer/start.sh:/datahub/datahub-mce-consumer/scripts/start.sh
-      - ../metadata-jobs/mce-consumer-job/build/libs/:/datahub/datahub-mce-consumer/bin
+      - ../datahub-frontend/build/stage/datahub-frontend:/datahub-frontend

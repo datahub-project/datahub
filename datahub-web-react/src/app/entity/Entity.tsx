@@ -1,4 +1,5 @@
-import { EntityType } from '../../types.generated';
+import { EntityType, SearchResult } from '../../types.generated';
+import { FetchedEntity } from '../lineage/types';
 
 export enum PreviewType {
     /**
@@ -13,6 +14,29 @@ export enum PreviewType {
      * A generic preview shown within other entity pages, etc.
      */
     PREVIEW,
+    /**
+     * A tiny search preview for text-box search.
+     */
+    MINI_SEARCH,
+}
+
+export enum IconStyleType {
+    /**
+     * Colored Icon
+     */
+    HIGHLIGHT,
+    /**
+     * Grayed out icon
+     */
+    ACCENT,
+    /**
+     * Rendered in a Tab pane header
+     */
+    TAB_VIEW,
+    /**
+     * Rendered in Lineage as default
+     */
+    SVG,
 }
 
 /**
@@ -27,6 +51,12 @@ export interface Entity<T> {
     type: EntityType;
 
     /**
+     * Ant-design icon associated with the Entity. For a list of all candidate icons, see
+     * https://ant.design/components/icon/
+     */
+    icon: (fontSize: number, styleType: IconStyleType) => JSX.Element;
+
+    /**
      * Returns whether the entity search is enabled
      */
     isSearchEnabled: () => boolean;
@@ -35,6 +65,11 @@ export interface Entity<T> {
      * Returns whether the entity browse is enabled
      */
     isBrowseEnabled: () => boolean;
+
+    /**
+     * Returns whether the entity browse is enabled
+     */
+    isLineageEnabled: () => boolean;
 
     /**
      * Returns the name of the entity as it appears in a URL, e.g. '/dataset/:urn'.
@@ -47,6 +82,11 @@ export interface Entity<T> {
     getCollectionName: () => string;
 
     /**
+     * Returns the singular name of the entity used when referring to an individual
+     */
+    getEntityName?: () => string;
+
+    /**
      * Renders the 'profile' of the entity on an entity details page.
      */
     renderProfile: (urn: string) => JSX.Element;
@@ -55,4 +95,19 @@ export interface Entity<T> {
      * Renders a preview of the entity across different use cases like search, browse, etc.
      */
     renderPreview: (type: PreviewType, data: T) => JSX.Element;
+
+    /**
+     * Renders a search result
+     */
+    renderSearch: (result: SearchResult) => JSX.Element;
+
+    /**
+     * Constructs config to add entity to lineage viz
+     */
+    getLineageVizConfig?: (entity: T) => FetchedEntity;
+
+    /**
+     * Returns a display name for the entity
+     */
+    displayName: (data: T) => string;
 }

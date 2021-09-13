@@ -1,0 +1,12 @@
+version: "2"
+services:
+  testsqlserver:
+    image: "mcr.microsoft.com/mssql/server:latest"
+    container_name: "testsqlserver"
+    environment:
+      ACCEPT_EULA: "Y"
+      SA_PASSWORD: "test!Password"
+    ports:
+      - 51433:1433
+    volumes:
+      - ./setup:/setup

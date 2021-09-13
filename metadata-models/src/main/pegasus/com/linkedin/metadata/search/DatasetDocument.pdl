@@ -67,4 +67,34 @@ record DatasetDocument includes BaseDocument {
    * List of upstreams for this dataset
    */
   upstreams: optional array[DatasetUrn]
+
+  /**
+   * List of tags for this dataset
+   */
+  tags: optional array[string]
+
+  /**
+   * List of field descriptions
+   */
+  fieldDescriptions: optional array[string]
+
+  /**
+   * List of tags applied to fields
+   */
+  fieldTags: optional array[string]
+
+  /**
+   * List of field descriptions
+   */
+  editedFieldDescriptions: optional array[string]
+
+  /**
+   * List of tags applied to fields
+   */
+  editedFieldTags: optional array[string]
+
+  /**
+   * List of terms for this dataset
+   */
+  glossaryTerms: optional array[string]
 }

@@ -1,0 +1,21 @@
+query getTag($urn: String!) {
+    tag(urn: $urn) {
+        urn
+        name
+        description
+        ownership {
+            ...ownershipFields
+        }
+    }
+}
+
+mutation updateTag($input: TagUpdate!) {
+    updateTag(input: $input) {
+        urn
+        name
+        description
+        ownership {
+            ...ownershipFields
+        }
+    }
+}

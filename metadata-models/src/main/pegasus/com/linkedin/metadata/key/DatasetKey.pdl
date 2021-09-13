@@ -1,0 +1,41 @@
+namespace com.linkedin.metadata.key
+
+import com.linkedin.common.Urn
+import com.linkedin.common.FabricType
+
+/**
+ * Key for a Dataset
+ */
+@Aspect = {
+  "name": "datasetKey"
+}
+record DatasetKey {
+  /**
+  * Data platform urn associated with the dataset
+  */
+  @Searchable = {
+    "fieldType": "URN",
+    "addToFilters": true
+  }
+  platform: Urn
+
+  /**
+  * Dataset native name e.g. <db>.<table>, /dir/subdir/<name>, or <name>
+  */
+  @Searchable = {
+    "fieldType": "TEXT_PARTIAL",
+    "enableAutocomplete": true,
+    "boostScore": 10.0
+  }
+  name: string
+
+  /**
+  * Fabric type where dataset belongs to or where it was generated.
+  */
+  @Searchable = {
+    "fieldType": "TEXT_PARTIAL",
+    "addToFilters": true,
+    "queryByDefault": false
+  }
+  origin: FabricType
+}

@@ -13,18 +13,163 @@ query getBrowseResults($input: BrowseInput!) {
                 name
                 origin
                 description
-                platformNativeType
+                platform {
+                    name
+                    info {
+                        logoUrl
+                    }
+                }
+                tags
+                ownership {
+                    ...ownershipFields
+                }
+                globalTags {
+                    ...globalTagsFields
+                }
             }
+            ... on Dashboard {
+                urn
+                type
+                tool
+                dashboardId
+                info {
+                    name
+                    description
+                    externalUrl
+                    access
+                    lastModified {
+                        time
+                    }
+                }
+                ownership {
+                    ...ownershipFields
+                }
+                globalTags {
+                    ...globalTagsFields
+                }
+            }
+            ... on GlossaryTerm {
+                name
+                ownership {
+                    ...ownershipFields
+                }
+                glossaryTermInfo {
+                    definition
+                    termSource
+                    sourceRef
+                    sourceUrl
+                    customProperties {
+                        key
+                        value
+                    }
+                }
+            }
+            ... on Chart {
+                urn
+                type
+                tool
+                chartId
+                info {
+                    name
+                    description
+                    externalUrl
+                    type
+                    access
+                    lastModified {
+                        time
+                    }
+                }
+                ownership {
+                    ...ownershipFields
+                }
+                globalTags {
+                    ...globalTagsFields
+                }
+            }
+            ... on DataFlow {
+                urn
+                type
+                orchestrator
+                flowId
+                cluster
+                info {
+                    name
+                    description
+                    project
+                }
+                ownership {
+                    ...ownershipFields
+                }
+                globalTags {
+                    ...globalTagsFields
+                }
+            }
+            ... on MLFeatureTable {
+                urn
+                type
+                name
+                description
+                featureTableProperties {
+                    description
+                    mlFeatures {
+                        urn
+                    }
+                    mlPrimaryKeys {
+                        urn
+                    }
+                }
+                ownership {
+                    ...ownershipFields
+                }
+                platform {
+                    name
+                    info {
+                        logoUrl
+                    }
+                }
+            }
+            ... on MLModel {
+                name
+                origin
+                description
+                tags
+                ownership {
+                    ...ownershipFields
+                }
+                globalTags {
+                    ...globalTagsFields
+                }
+                platform {
+                    name
+                    info {
+                        logoUrl
+                    }
+                }
+            }
+            ... on MLModelGroup {
+                name
+                origin
+                description
+                ownership {
+                    ...ownershipFields
+                }
+                platform {
+                    name
+                    info {
+                        logoUrl
+                    }
+                }
+            }
+        }
+        groups {
+            name
+            count
         }
         start
         count
         total
         metadata {
             path
-            groups {
-                name
-                count
-            }
             totalNumEntities
         }
     }

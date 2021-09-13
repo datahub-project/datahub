@@ -1,9 +1,0 @@
-{{#if (is-empty @value)}}
-  -
-{{else if @component}}
-  {{component @component.name options=@component.options value=@value entity=@entity}}
-{{else if (eq this.valueType 'boolean')}}
-  {{if @value 'Yes' 'No'}}
-{{else}}
-  {{@value}}
-{{/if}}

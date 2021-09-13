@@ -1,54 +1,47 @@
 import React from 'react';
-import { EntityType, FabricType, PlatformNativeType } from '../../../../types.generated';
+import { EntityType, FabricType, Owner, GlobalTags, GlossaryTerms } from '../../../../types.generated';
 import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
+import { capitalizeFirstLetter } from '../../../shared/capitalizeFirstLetter';
 
 export const Preview = ({
     urn,
     name,
     origin,
     description,
-    platformNativeType,
+    platformName,
+    platformLogo,
+    owners,
+    globalTags,
+    snippet,
+    glossaryTerms,
 }: {
     urn: string;
     name: string;
     origin: FabricType;
     description?: string | null;
-    platformNativeType?: PlatformNativeType | null;
+    platformName: string;
+    platformLogo?: string | null;
+    owners?: Array<Owner> | null;
+    globalTags?: GlobalTags | null;
+    snippet?: React.ReactNode | null;
+    glossaryTerms?: GlossaryTerms | null;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
-
-    // TODO: Should we rename the search result card?
+    const capitalPlatformName = capitalizeFirstLetter(platformName);
     return (
         <DefaultPreviewCard
-            url={`/${entityRegistry.getPathName(EntityType.Dataset)}/${urn}`}
-            title={<div style={{ margin: '5px 0px 5px 2px', fontSize: '20px', fontWeight: 'bold' }}>{name}</div>}
-        >
-            <>
-                <div style={{ margin: '0px 0px 15px 0px' }}>{description}</div>
-                <div
-                    style={{
-                        width: '150px',
-                        margin: '5px 0px 5px 0px',
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                    }}
-                >
-                    <b style={{ justifySelf: 'left' }}>Data Origin</b>
-                    <div style={{ justifySelf: 'right' }}>{origin}</div>
-                </div>
-                <div
-                    style={{
-                        width: '150px',
-                        margin: '5px 0px 5px 0px',
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                    }}
-                >
-                    <b>Platform</b>
-                    <div>{platformNativeType}</div>
-                </div>
-            </>
-        </DefaultPreviewCard>
+            url={entityRegistry.getEntityUrl(EntityType.Dataset, urn)}
+            name={name || ''}
+            description={description || ''}
+            type="Dataset"
+            logoUrl={platformLogo || ''}
+            platform={capitalPlatformName}
+            qualifier={origin}
+            tags={globalTags || undefined}
+            owners={owners}
+            snippet={snippet}
+            glossaryTerms={glossaryTerms || undefined}
+        />
     );
 };

@@ -6,6 +6,10 @@ import com.linkedin.metadata.aspect.DataJobAspect
 /**
  * A metadata snapshot for a specific DataJob entity.
  */
+@Entity = {
+  "name": "dataJob",
+  "keyAspect": "dataJobKey"
+}
 record DataJobSnapshot {
 
   /**

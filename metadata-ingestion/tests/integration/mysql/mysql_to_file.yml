@@ -6,9 +6,20 @@ source:
     username: root
     password: example
     database: metagalaxy
-    host_port: localhost:53306
+    host_port: localhost:53307
+    schema_pattern:
+      allow:
+        - "^metagalaxy"
+        - "^northwind"
+        - "^test_cases"
+    profile_pattern:
+      allow:
+        - "^northwind.*\$"
+        - "^test_cases.*\$"
+    profiling:
+      enabled: True
 
 sink:
   type: file
   config:
-    filename: './mysql_mces.json'
+    filename: "./mysql_mces.json"

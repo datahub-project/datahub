@@ -37,4 +37,9 @@ enum AzkabanJobType {
    * SQL is for running Presto, mysql queries etc
    */
   SQL
+
+  /**
+   * Glue type is for running AWS Glue job transforms.
+   */
+  GLUE
 }

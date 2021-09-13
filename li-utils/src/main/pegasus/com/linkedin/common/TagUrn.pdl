@@ -1,0 +1,25 @@
+namespace com.linkedin.common
+
+/**
+ * Globally defined tag
+ */
+@java.class = "com.linkedin.common.urn.TagUrn"
+@validate.`com.linkedin.common.validator.TypedUrnValidator` = {
+  "accessible" : true,
+  "owningTeam" : "urn:li:internalTeam:datahub",
+  "entityType" : "tag",
+  "constructable" : true,
+  "namespace" : "li",
+  "name" : "Tag",
+  "doc" : "Globally defined tags",
+  "owners" : [],
+  "fields" : [ {
+    "name" : "name",
+    "doc" : "tag name",
+    "type" : "string",
+    "maxLength" : 200
+  } ],
+  "maxLength" : 220
+
+}
+typeref TagUrn = string

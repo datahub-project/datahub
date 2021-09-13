@@ -21,11 +21,11 @@ However, if you only want to build `MCE Consumer Job` specifically:
 ```
 
 ## Dependencies
-Before starting `MCE Consumer Job`, you need to make sure that [Kafka, Schema Registry & Zookeeper](../../docker/kafka)
-and [DataHub GMS](../../docker/gms) Docker containers are up and running.
+Before starting `MCE Consumer Job`, you need to make sure that [Kafka, Schema Registry & Zookeeper](../../docker/kafka-setup)
+and [DataHub GMS](../../docker/datahub-gms) Docker containers are up and running.
 
 ## Start via Docker image
-Quickest way to try out `MCE Consumer Job` is running the [Docker image](../../docker/mce-consumer).
+Quickest way to try out `MCE Consumer Job` is running the [Docker image](../../docker/datahub-mce-consumer).
 
 ## Start via command line
 If you do modify things and want to try it out quickly without building the Docker image, you can also run

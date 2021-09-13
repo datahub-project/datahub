@@ -1,0 +1,28 @@
+namespace com.linkedin.common
+
+/**
+ * Downstream lineage of a dataset
+ */
+record EntityRelationships {
+
+  /**
+   * List of related entities
+   */
+  relationships: array[EntityRelationship]
+
+  /**
+   * The start of the result set
+   */
+   start: int
+
+  /**
+   * The start of the result set
+   */
+   count: int
+
+  /**
+   * Total number of edges found.
+   */
+   total: int
+
+}

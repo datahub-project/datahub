@@ -1,0 +1,48 @@
+[
+{
+    "auditHeader": null,
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
+            "urn": "urn:li:chart:(looker,baz2)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.chart.ChartInfo": {
+                        "customProperties": {},
+                        "externalUrl": null,
+                        "title": "Baz Chart 2",
+                        "description": "Baz Chart 2",
+                        "lastModified": {
+                            "created": {
+                                "time": 0,
+                                "actor": "urn:li:corpuser:jdoe",
+                                "impersonator": null
+                            },
+                            "lastModified": {
+                                "time": 0,
+                                "actor": "urn:li:corpuser:datahub",
+                                "impersonator": null
+                            },
+                            "deleted": null
+                        },
+                        "chartUrl": null,
+                        "inputs": [
+                            {
+                                "string": "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleHdfsDataset,PROD)"
+                            }
+                        ],
+                        "type": null,
+                        "access": null,
+                        "lastRefreshed": null
+                    }
+                }
+            ]
+        }
+    },
+    "proposedDelta": null,
+    "systemMetadata":  {
+        "runId": "serde_test",
+        "lastObserved": 1626980046000,
+        "properties": null
+    }
+}
+]

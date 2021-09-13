@@ -1,0 +1,3 @@
+pytest>=6.2
+pytest-dependency>=0.5.1
+-e ../metadata-ingestion[datahub-rest,datahub-kafka]

@@ -11,7 +11,22 @@ import com.linkedin.common.OwnershipType
 }, {
    "destination" : "com.linkedin.common.urn.CorpuserUrn",
    "source" : "com.linkedin.common.urn.DataProcessUrn"
-} ]
+}, {
+   "destination" : "com.linkedin.common.urn.CorpuserUrn",
+   "source" : "com.linkedin.common.urn.MLModelUrn"
+ }, {
+   "destination" : "com.linkedin.common.urn.CorpuserUrn",
+   "source" : "com.linkedin.common.urn.DataJobUrn"
+ }, {
+   "destination" : "com.linkedin.common.urn.CorpuserUrn",
+   "source" : "com.linkedin.common.urn.DataFlowUrn"
+}, {
+    "destination" : "com.linkedin.common.urn.CorpuserUrn",
+    "source" : "com.linkedin.common.urn.GlossaryTermUrn"
+}, {
+    "destination" : "com.linkedin.common.urn.CorpuserUrn",
+    "source" : "com.linkedin.common.urn.GlossaryNodeUrn"
+ } ]
 record OwnedBy includes BaseRelationship {
 
   /**

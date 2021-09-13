@@ -7,7 +7,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 
 
 class KafkaSourceTest(unittest.TestCase):
-    @patch("datahub.ingestion.source.kafka.confluent_kafka.Consumer")
+    @patch("datahub.ingestion.source.kafka.confluent_kafka.Consumer", autospec=True)
     def test_kafka_source_configuration(self, mock_kafka):
         ctx = PipelineContext(run_id="test")
         kafka_source = KafkaSource.create(
@@ -16,7 +16,7 @@ class KafkaSourceTest(unittest.TestCase):
         kafka_source.close()
         assert mock_kafka.call_count == 1
 
-    @patch("datahub.ingestion.source.kafka.confluent_kafka.Consumer")
+    @patch("datahub.ingestion.source.kafka.confluent_kafka.Consumer", autospec=True)
     def test_kafka_source_workunits_wildcard_topic(self, mock_kafka):
         mock_kafka_instance = mock_kafka.return_value
         mock_cluster_metadata = MagicMock()
@@ -27,17 +27,15 @@ class KafkaSourceTest(unittest.TestCase):
         kafka_source = KafkaSource.create(
             {"connection": {"bootstrap": "localhost:9092"}}, ctx
         )
-        workunits = []
-        for w in kafka_source.get_workunits():
-            workunits.append(w)
+        workunits = list(kafka_source.get_workunits())
 
-        first_mce = workunits[0].get_metadata()["mce"]
+        first_mce = workunits[0].metadata
         assert isinstance(first_mce, MetadataChangeEvent)
         mock_kafka.assert_called_once()
         mock_kafka_instance.list_topics.assert_called_once()
         assert len(workunits) == 2
 
-    @patch("datahub.ingestion.source.kafka.confluent_kafka.Consumer")
+    @patch("datahub.ingestion.source.kafka.confluent_kafka.Consumer", autospec=True)
     def test_kafka_source_workunits_topic_pattern(self, mock_kafka):
         mock_kafka_instance = mock_kafka.return_value
         mock_cluster_metadata = MagicMock()
@@ -70,12 +68,16 @@ class KafkaSourceTest(unittest.TestCase):
         workunits = [w for w in kafka_source.get_workunits()]
         assert len(workunits) == 2
 
-    @patch("datahub.ingestion.source.kafka.confluent_kafka.Consumer")
+    @patch("datahub.ingestion.source.kafka.confluent_kafka.Consumer", autospec=True)
     def test_close(self, mock_kafka):
         mock_kafka_instance = mock_kafka.return_value
         ctx = PipelineContext(run_id="test")
         kafka_source = KafkaSource.create(
-            {"topic": "test", "connection": {"bootstrap": "localhost:9092"}}, ctx
+            {
+                "topic_patterns": {"allow": ["test.*"]},
+                "connection": {"bootstrap": "localhost:9092"},
+            },
+            ctx,
         )
         kafka_source.close()
         assert mock_kafka_instance.close.call_count == 1

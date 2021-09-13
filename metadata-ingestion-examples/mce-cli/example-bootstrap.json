@@ -101,6 +101,15 @@
                       "type": {
                         "com.linkedin.schema.StringType": {}
                       }
+                    },
+                    "glossaryTerms": {
+                      "terms": [{
+                        "urn": "urn:li:glossaryTerm:instruments.FinancialInstrument_v1"
+                      }],
+                      "auditStamp": {
+                        "time": 1581407189000,
+                        "actor": "urn:li:corpuser:jdoe"
+                      }
                     }
                   },
                   {
@@ -114,6 +123,17 @@
                     }
                   }
                 ]
+              }
+            },
+            {
+              "com.linkedin.common.GlossaryTerms": {
+                "terms": [{
+                  "urn": "urn:li:glossaryTerm:instruments.FinancialInstrument_v1"
+                }],
+                "auditStamp": {
+                  "time": 1581407189000,
+                  "actor": "urn:li:corpuser:jdoe"
+                }
               }
             }
           ]
@@ -345,6 +365,233 @@
                   "urn:li:dataset:(urn:li:dataPlatform:hbase,barSky,PROD)",
                   "urn:li:dataset:(urn:li:dataPlatform:hbase,barOcean,PROD)"
                 ]
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "proposedSnapshot": {
+        "com.linkedin.metadata.snapshot.MLModelSnapshot": {
+          "urn": "urn:li:mlmodel:(urn:li:dataPlatform:science,scienceModel,PROD)",
+          "aspects": [
+            {
+              "com.linkedin.common.Ownership": {
+                "owners": [
+                  {
+                    "owner": "urn:li:corpuser:jdoe",
+                    "type": "DATAOWNER"
+                  },
+                  {
+                    "owner": "urn:li:corpuser:datahub",
+                    "type": "DATAOWNER"
+                  }
+                ],
+                "lastModified": {
+                  "time": 0,
+                  "actor": "urn:li:corpuser:jdoe"
+                }
+              }
+            },
+            {
+              "com.linkedin.ml.metadata.MLModelProperties": {
+                "description": "A sample model for predicting some outcome.",
+                "date": 0,
+                "version": {
+                  "versionTag": "1.5.3"
+                },
+                "tags": [
+                  "science"
+                ]
+              }
+            },
+            {
+              "com.linkedin.ml.metadata.TrainingData": {
+                "trainingData": [
+                  {
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,pageViewsHive,PROD)",
+                    "motivation": "For science!",
+                    "preProcessing": [
+                        "Aggregation"
+                      ]
+                  }
+                ]
+              }
+            },
+            {
+              "com.linkedin.ml.metadata.EvaluationData": {
+                "evaluationData": [
+                  {
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,pageViewsHive,PROD)"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "proposedSnapshot": {
+        "com.linkedin.metadata.snapshot.ChartSnapshot": {
+          "urn": "urn:li:chart:(Looker,1)",
+          "aspects": [
+            {
+              "com.linkedin.chart.ChartInfo": {
+                "title": "Sample Looker Chart",
+                "description": "This chart contains sample data from Kafka",
+                "lastModified": {
+                  "lastModified": {
+                    "time": 1581407189000,
+                    "actor": "urn:li:corpuser:datahub"
+                  },
+                  "created": {
+                    "time": 1581407189000,
+                    "actor": "urn:li:corpuser:jdoe"
+                  }
+                },
+                "inputs": [
+                  {
+                    "string": "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)"
+                  }
+                ],
+                "chartUrl": "https://www.looker.com",
+                "type": "BAR",
+                "access": "PUBLIC"
+              }
+            },
+            {
+              "com.linkedin.chart.ChartQuery": {
+                "rawQuery": "SELECT * FROM SampleTable",
+                "type": "SQL"
+              }
+            },
+            {
+              "com.linkedin.common.Ownership": {
+                "owners": [
+                  {
+                    "owner": "urn:li:corpuser:datahub",
+                    "type": "STAKEHOLDER"
+                  },
+                  {
+                    "owner": "urn:li:corpuser:jdoe",
+                    "type": "DATAOWNER"
+                  }
+                ],
+                "lastModified": {
+                  "time": 1581407589000,
+                  "actor": "urn:li:corpuser:datahub"
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "proposedSnapshot": {
+        "com.linkedin.metadata.snapshot.DashboardSnapshot": {
+          "urn": "urn:li:dashboard:(Looker,0)",
+          "aspects": [
+            {
+              "com.linkedin.dashboard.DashboardInfo": {
+                "title": "Sample Looker Dashboard",
+                "description": "This dashboard shows charts about user retention.",
+                "lastModified": {
+                  "lastModified": {
+                    "time": 1581407139000,
+                    "actor": "urn:li:corpuser:datahub"
+                  },
+                  "created": {
+                    "time": 1581404189000,
+                    "actor": "urn:li:corpuser:jdoe"
+                  }
+                },
+                "charts": [ "urn:li:chart:(Looker,1)" ],
+                "dashboardUrl": "https://www.looker.com",
+                "access": "PUBLIC"
+              }
+            },
+            {
+              "com.linkedin.common.Ownership": {
+                "owners": [
+                  {
+                    "owner": "urn:li:corpuser:datahub",
+                    "type": "DATAOWNER"
+                  },
+                  {
+                    "owner": "urn:li:corpuser:jdoe",
+                    "type": "STAKEHOLDER"
+                  }
+                ],
+                "lastModified": {
+                  "time": 1581407389000,
+                  "actor": "urn:li:corpuser:jdoe"
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "proposedSnapshot": {
+        "com.linkedin.metadata.snapshot.GlossaryTermSnapshot": {
+          "urn": "urn:li:glossaryTerm:instruments.FinancialInstrument_v1",
+          "aspects": [
+            {
+              "com.linkedin.glossary.GlossaryTermInfo": {
+                "definition": "written contract that gives rise to both a financial asset of one entity and a financial liability of another entity",
+                "parentNode": "urn:li:glossaryNode:instruments",
+                "sourceRef": "FIBO",
+                "termSource": "EXTERNAL",
+                "sourceUrl": "https://spec.edmcouncil.org/fibo/ontology/FBC/FinancialInstruments/FinancialInstruments/FinancialInstrument",
+                "customProperties": {
+                  "FQDN": "common.instruments.FinancialInstrument"
+                }
+              }
+            },
+            {
+              "com.linkedin.common.Ownership": {
+                "owners": [
+                  {
+                    "owner": "urn:li:corpuser:jdoe",
+                    "type": "DATAOWNER"
+                  }
+                ],
+                "lastModified": {
+                  "time": 1581407189000,
+                  "actor": "urn:li:corpuser:jdoe"
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "proposedSnapshot": {
+        "com.linkedin.metadata.snapshot.GlossaryNodeSnapshot": {
+          "urn": "urn:li:glossaryNode:instruments",
+          "aspects": [
+            {
+              "com.linkedin.glossary.GlossaryNodeInfo": {
+                "definition": "Financial Instruments"
+              }
+            },
+            {
+              "com.linkedin.common.Ownership": {
+                "owners": [
+                  {
+                    "owner": "urn:li:corpuser:jdoe",
+                    "type": "DATAOWNER"
+                  }
+                ],
+                "lastModified": {
+                  "time": 1581407189000,
+                  "actor": "urn:li:corpuser:jdoe"
+                }
               }
             }
           ]

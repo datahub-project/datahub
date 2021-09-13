@@ -1,3 +1,7 @@
+from abc import abstractmethod
+
+
 class Closeable:
-    def close(self):
+    @abstractmethod
+    def close(self) -> None:
         pass

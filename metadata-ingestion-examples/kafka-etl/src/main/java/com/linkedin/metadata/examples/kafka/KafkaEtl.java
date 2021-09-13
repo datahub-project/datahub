@@ -7,8 +7,10 @@ import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.metadata.aspect.DatasetAspect;
 import com.linkedin.metadata.dao.producer.KafkaMetadataEventProducer;
+import com.linkedin.metadata.examples.configs.TopicConventionFactory;
 import com.linkedin.metadata.snapshot.DatasetSnapshot;
 import com.linkedin.mxe.MetadataChangeEvent;
+import com.linkedin.mxe.TopicConvention;
 import com.linkedin.schema.KafkaSchema;
 import com.linkedin.schema.SchemaField;
 import com.linkedin.schema.SchemaFieldArray;
@@ -45,6 +47,10 @@ public final class KafkaEtl implements CommandLineRunner {
   private Producer<String, GenericRecord> _producer;
 
   @Inject
+  @Named(TopicConventionFactory.TOPIC_CONVENTION_BEAN)
+  private TopicConvention _topicConvention;
+
+  @Inject
   @Named("zooKeeper")
   private ZooKeeper _zooKeeper;
 
@@ -76,7 +82,7 @@ public final class KafkaEtl implements CommandLineRunner {
 
     // Kafka topics are considered datasets in the current DataHub metadata ecosystem.
     final KafkaMetadataEventProducer<DatasetSnapshot, DatasetAspect, DatasetUrn> eventProducer =
-        new KafkaMetadataEventProducer<>(DatasetSnapshot.class, DatasetAspect.class, _producer);
+        new KafkaMetadataEventProducer<>(DatasetSnapshot.class, DatasetAspect.class, _producer, _topicConvention);
     eventProducer.produceSnapshotBasedMetadataChangeEvent(
         new DatasetUrn(KAFKA_URN, schemaMetadata.getSchemaName(), FabricType.PROD), schemaMetadata);
     _producer.flush();

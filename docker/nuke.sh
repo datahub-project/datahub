@@ -6,3 +6,6 @@ cd $DIR
 # Tear down and clean up all DataHub-related containers, volumes, and network
 docker-compose -p datahub down -v
 docker-compose rm -f -v
+
+# Tear down ingestion container
+(cd ingestion && docker-compose -p datahub down -v)

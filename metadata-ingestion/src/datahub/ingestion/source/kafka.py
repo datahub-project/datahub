@@ -1,19 +1,22 @@
 import logging
-import time
 from dataclasses import dataclass, field
-from typing import Dict, Iterable, List
+from typing import Iterable, List, Optional
 
 import confluent_kafka
-from confluent_kafka.schema_registry.schema_registry_client import SchemaRegistryClient
+from confluent_kafka.schema_registry.schema_registry_client import (
+    Schema,
+    SchemaRegistryClient,
+)
 
-import datahub.ingestion.extractor.schema_util as schema_util
 from datahub.configuration import ConfigModel
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.kafka import KafkaConsumerConnectionConfig
+from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
-from datahub.ingestion.source.metadata_common import MetadataWorkUnit
-from datahub.metadata.com.linkedin.pegasus2avro.common import AuditStamp, Status
+from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.extractor import schema_util
+from datahub.metadata.com.linkedin.pegasus2avro.common import Status
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
@@ -21,11 +24,13 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     SchemaField,
     SchemaMetadata,
 )
+from datahub.metadata.schema_classes import BrowsePathsClass
 
 logger = logging.getLogger(__name__)
 
 
 class KafkaSourceConfig(ConfigModel):
+    env: str = DEFAULT_ENV
     # TODO: inline the connection config
     connection: KafkaConsumerConnectionConfig = KafkaConsumerConnectionConfig()
     topic_patterns: AllowDenyPattern = AllowDenyPattern(allow=[".*"], deny=["^_.*"])
@@ -33,23 +38,11 @@ class KafkaSourceConfig(ConfigModel):
 
 @dataclass
 class KafkaSourceReport(SourceReport):
-    topics_scanned = 0
-    warnings: Dict[str, List[str]] = field(default_factory=dict)
-    failures: Dict[str, List[str]] = field(default_factory=dict)
+    topics_scanned: int = 0
     filtered: List[str] = field(default_factory=list)
 
     def report_topic_scanned(self, topic: str) -> None:
         self.topics_scanned += 1
-
-    def report_warning(self, topic: str, reason: str) -> None:
-        if topic not in self.warnings:
-            self.warnings[topic] = []
-        self.warnings[topic].append(reason)
-
-    def report_failure(self, topic: str, reason: str) -> None:
-        if topic not in self.failures:
-            self.failures[topic] = []
-        self.failures[topic].append(reason)
 
     def report_dropped(self, topic: str) -> None:
         self.filtered.append(topic)
@@ -98,49 +91,79 @@ class KafkaSource(Source):
         logger.debug(f"topic = {topic}")
         platform = "kafka"
         dataset_name = topic
-        env = "PROD"  # TODO: configure!
-        actor, sys_time = "urn:li:corpuser:etl", int(time.time()) * 1000
 
-        metadata_record = MetadataChangeEvent()
         dataset_snapshot = DatasetSnapshot(
-            urn=f"urn:li:dataset:(urn:li:dataPlatform:{platform},{dataset_name},{env})",
+            urn=f"urn:li:dataset:(urn:li:dataPlatform:{platform},{dataset_name},{self.source_config.env})",
+            aspects=[],  # we append to this list later on
         )
         dataset_snapshot.aspects.append(Status(removed=False))
-        metadata_record.proposedSnapshot = dataset_snapshot
 
         # Fetch schema from the registry.
-        has_schema = True
+        schema: Optional[Schema] = None
         try:
             registered_schema = self.schema_registry_client.get_latest_version(
                 topic + "-value"
             )
             schema = registered_schema.schema
         except Exception as e:
-            self.report.report_warning(topic, f"failed to get schema: {e}")
-            has_schema = False
+            self.report.report_warning(topic, f"failed to get value schema: {e}")
 
         # Parse the schema
         fields: List[SchemaField] = []
-        if has_schema and schema.schema_type == "AVRO":
+        if schema and schema.schema_type == "AVRO":
+            # "value.id" or "value.[type=string]id"
             fields = schema_util.avro_schema_to_mce_fields(schema.schema_str)
-        elif has_schema:
+        elif schema is not None:
             self.report.report_warning(
-                topic, f"unable to parse kafka schema type {schema.schema_type}"
+                topic,
+                f"Parsing kafka schema type {schema.schema_type} is currently not implemented",
+            )
+        # Fetch key schema from the registry
+        key_schema: Optional[Schema] = None
+        try:
+            registered_schema = self.schema_registry_client.get_latest_version(
+                topic + "-key"
+            )
+            key_schema = registered_schema.schema
+        except Exception as e:
+            # do not report warnings because it is okay to not have key schemas
+            logger.debug(f"{topic}: no key schema found. {e}")
+            pass
+
+        # Parse the key schema
+        key_fields: List[SchemaField] = []
+        if key_schema and schema.schema_type == "AVRO":
+            key_fields = schema_util.avro_schema_to_mce_fields(
+                key_schema.schema_str, is_key_schema=True
+            )
+        elif key_schema is not None:
+            self.report.report_warning(
+                topic,
+                f"Parsing kafka schema type {key_schema.schema_type} is currently not implemented",
             )
 
-        if has_schema:
+        key_schema_str: Optional[str] = None
+        if schema is not None:
+            if key_schema:
+                key_schema_str = key_schema.schema_str
             schema_metadata = SchemaMetadata(
                 schemaName=topic,
                 version=0,
                 hash=str(schema._hash),
                 platform=f"urn:li:dataPlatform:{platform}",
-                platformSchema=KafkaSchema(documentSchema=schema.schema_str),
-                fields=fields,
-                created=AuditStamp(time=sys_time, actor=actor),
-                lastModified=AuditStamp(time=sys_time, actor=actor),
+                platformSchema=KafkaSchema(
+                    documentSchema=schema.schema_str, keySchema=key_schema_str
+                ),
+                fields=key_fields + fields,
             )
             dataset_snapshot.aspects.append(schema_metadata)
 
+        browse_path = BrowsePathsClass(
+            [f"/{self.source_config.env.lower()}/{platform}/{topic}"]
+        )
+        dataset_snapshot.aspects.append(browse_path)
+
+        metadata_record = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
         return metadata_record
 
     def get_report(self):

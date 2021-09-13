@@ -116,7 +116,7 @@ A machine learning model could as well store a model ID which uniquely identifie
 The design is supposed to be generic enough that any user of DataHub should easily be able
 to onboard their ML model and ML feature metadata to DataHub irrespective of their machine learning platform.
 
-Only thing users will need to do is to write an ETL script customized for their machine learning platform (if it's not already provided in DataHub repo). This ETL script will construct and emit ML model and ML feature metadata in the form of [MCEs](../../../what/MXE.md).
+Only thing users will need to do is to write an ETL script customized for their machine learning platform (if it's not already provided in DataHub repo). This ETL script will construct and emit ML model and ML feature metadata in the form of [MCEs](../../../what/mxe.md).
 
 ## Future Work
 

@@ -5,25 +5,45 @@ import com.linkedin.common.ChangeAuditStamps
 import com.linkedin.common.ChartUrn
 import com.linkedin.common.Time
 import com.linkedin.common.Url
+import com.linkedin.common.CustomProperties
+import com.linkedin.common.ExternalReference
 
 /**
  * Information about a dashboard
  */
-record DashboardInfo {
+@Aspect = {
+  "name": "dashboardInfo"
+}
+record DashboardInfo includes CustomProperties, ExternalReference {
 
   /**
    * Title of the dashboard
    */
+  @Searchable = {
+    "fieldType": "TEXT_PARTIAL",
+    "enableAutocomplete": true,
+    "boostScore": 10.0
+  }
   title: string
 
   /**
    * Detailed description about the dashboard
    */
+  @Searchable = {
+    "fieldType": "TEXT",
+    "hasValuesFieldName": "hasDescription"
+  }
   description: string
 
   /**
    * Charts in a dashboard
    */
+  @Relationship = {
+    "/*": {
+      "name": "Contains",
+      "entityTypes": [ "chart" ]
+    }
+  }
   charts: array[ChartUrn] = [ ]
 
   /**
@@ -39,6 +59,10 @@ record DashboardInfo {
   /**
    * Access level for the dashboard
    */
+  @Searchable = {
+    "fieldType": "KEYWORD",
+    "addToFilters": true
+  }
   access: optional AccessLevel
 
   /**

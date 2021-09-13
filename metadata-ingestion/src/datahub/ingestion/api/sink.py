@@ -9,12 +9,15 @@ from datahub.ingestion.api.report import Report
 
 @dataclass
 class SinkReport(Report):
-    # workunits_processed = 0
-    records_written = 0
+    records_written: int = 0
+    warnings: List[Any] = field(default_factory=list)
     failures: List[Any] = field(default_factory=list)
 
-    def report_record_written(self, record_envelope: RecordEnvelope):
+    def report_record_written(self, record_envelope: RecordEnvelope) -> None:
         self.records_written += 1
+
+    def report_warning(self, info: Any) -> None:
+        self.warnings.append(info)
 
     def report_failure(self, info: Any) -> None:
         self.failures.append(info)
@@ -22,7 +25,9 @@ class SinkReport(Report):
 
 class WriteCallback(metaclass=ABCMeta):
     @abstractmethod
-    def on_success(self, record_envelope: RecordEnvelope, success_metadata: dict):
+    def on_success(
+        self, record_envelope: RecordEnvelope, success_metadata: dict
+    ) -> None:
         pass
 
     @abstractmethod
@@ -31,17 +36,24 @@ class WriteCallback(metaclass=ABCMeta):
         record_envelope: RecordEnvelope,
         failure_exception: Exception,
         failure_metadata: dict,
-    ):
+    ) -> None:
         pass
 
 
 class NoopWriteCallback(WriteCallback):
-    """Convenience class to support noop"""
+    """Convenience WriteCallback class to support noop"""
 
-    def on_success(self, re, sm):
+    def on_success(
+        self, record_envelope: RecordEnvelope, success_metadata: dict
+    ) -> None:
         pass
 
-    def on_failure(self, re, fe, fm):
+    def on_failure(
+        self,
+        record_envelope: RecordEnvelope,
+        failure_exception: Exception,
+        failure_metadata: dict,
+    ) -> None:
         pass
 
 
@@ -54,7 +66,7 @@ class Sink(Closeable, metaclass=ABCMeta):
 
     @classmethod
     @abstractmethod
-    def create(cls, config_dict: dict, ctx: PipelineContext) -> 'Sink':
+    def create(cls, config_dict: dict, ctx: PipelineContext) -> "Sink":
         pass
 
     @abstractmethod
@@ -68,7 +80,7 @@ class Sink(Closeable, metaclass=ABCMeta):
     @abstractmethod
     def write_record_async(
         self, record_envelope: RecordEnvelope, callback: WriteCallback
-    ):
+    ) -> None:
         # must call callback when done.
         pass
 

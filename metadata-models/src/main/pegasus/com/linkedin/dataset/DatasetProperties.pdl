@@ -1,15 +1,24 @@
 namespace com.linkedin.dataset
 
 import com.linkedin.common.Uri
+import com.linkedin.common.CustomProperties
+import com.linkedin.common.ExternalReference
 
 /**
  * Properties associated with a Dataset
  */
-record DatasetProperties {
+@Aspect = {
+  "name": "datasetProperties"
+}
+record DatasetProperties includes CustomProperties, ExternalReference {
 
   /**
    * Documentation of the dataset
    */
+  @Searchable = {
+    "fieldType": "TEXT",
+    "hasValuesFieldName": "hasDescription"
+  }
   description: optional string
 
   /**
@@ -18,12 +27,7 @@ record DatasetProperties {
   uri: optional Uri
 
   /**
-   * tags for the dataset
+   * [Legacy] Unstructured tags for the dataset. Structured tags can be applied via the `GlobalTags` aspect.
    */
   tags: array[string] = [ ]
-
-  /**
-   * A key-value map to capture any other non-standardized properties for the dataset
-   */
-  customProperties: map[string, string] = { }
 }

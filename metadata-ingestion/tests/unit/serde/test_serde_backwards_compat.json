@@ -1,0 +1,229 @@
+[
+    {
+        "auditHeader": null,
+        "proposedSnapshot": {
+            "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+                "urn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,bigquery-public-data.covid19_geotab_mobility_impact.airport_traffic,PROD)",
+                "aspects": [
+                    {
+                        "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                            "description": {
+                                "string": "This dataset shows traffic to and from the Airport as a Percentage of the Traffic volume during the baseline period. The baseline period used for computing this metric is from 1st Feb to 15th March 2020. The dataset gets updated daily."
+                            },
+                            "uri": null,
+                            "tags": [],
+                            "customProperties": {}
+                        }
+                    },
+                    {
+                        "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                            "schemaName": "bigquery-public-data.covid19_geotab_mobility_impact.airport_traffic",
+                            "platform": "urn:li:dataPlatform:bigquery",
+                            "version": 0,
+                            "created": {
+                                "time": 1615444202056,
+                                "actor": "urn:li:corpuser:etl",
+                                "impersonator": null
+                            },
+                            "lastModified": {
+                                "time": 1615444202056,
+                                "actor": "urn:li:corpuser:etl",
+                                "impersonator": null
+                            },
+                            "deleted": null,
+                            "dataset": null,
+                            "cluster": null,
+                            "hash": "",
+                            "platformSchema": {
+                                "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                    "tableSchema": ""
+                                }
+                            },
+                            "fields": [
+                                {
+                                    "fieldPath": "aggregation_method",
+                                    "jsonPath": null,
+                                    "nullable": true,
+                                    "description": {
+                                        "string": "Aggregation period used to compute this metric"
+                                    },
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.StringType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "String()",
+                                    "recursive": false,
+                                    "globalTags": null
+                                },
+                                {
+                                    "fieldPath": "date",
+                                    "jsonPath": null,
+                                    "nullable": true,
+                                    "description": {
+                                        "string": "Date of the data"
+                                    },
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.DateType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "DATE()",
+                                    "recursive": false,
+                                    "globalTags": null
+                                },
+                                {
+                                    "fieldPath": "version",
+                                    "jsonPath": null,
+                                    "nullable": true,
+                                    "description": {
+                                        "string": "Version of the table"
+                                    },
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.StringType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "String()",
+                                    "recursive": false,
+                                    "globalTags": null
+                                },
+                                {
+                                    "fieldPath": "airport_name",
+                                    "jsonPath": null,
+                                    "nullable": true,
+                                    "description": {
+                                        "string": "Aggregation period used to compute this metric"
+                                    },
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.StringType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "String()",
+                                    "recursive": false,
+                                    "globalTags": null
+                                },
+                                {
+                                    "fieldPath": "percent_of_baseline",
+                                    "jsonPath": null,
+                                    "nullable": true,
+                                    "description": {
+                                        "string": "Proportion of trips on this date as compared to Avg number of trips on the same day of week in baseline period i.e 1st February 2020 - 15th March 2020"
+                                    },
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "Float()",
+                                    "recursive": false,
+                                    "globalTags": null
+                                },
+                                {
+                                    "fieldPath": "center_point_geom",
+                                    "jsonPath": null,
+                                    "nullable": true,
+                                    "description": {
+                                        "string": "Geographic representation of the centroid of the Airport polygon"
+                                    },
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "NullType()",
+                                    "recursive": false,
+                                    "globalTags": null
+                                },
+                                {
+                                    "fieldPath": "city",
+                                    "jsonPath": null,
+                                    "nullable": true,
+                                    "description": {
+                                        "string": "City within which the Airport is located"
+                                    },
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.StringType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "String()",
+                                    "recursive": false,
+                                    "globalTags": null
+                                },
+                                {
+                                    "fieldPath": "state_region",
+                                    "jsonPath": null,
+                                    "nullable": true,
+                                    "description": {
+                                        "string": "State within which the Airport is located"
+                                    },
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.StringType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "String()",
+                                    "recursive": false,
+                                    "globalTags": null
+                                },
+                                {
+                                    "fieldPath": "country_iso_code_2",
+                                    "jsonPath": null,
+                                    "nullable": true,
+                                    "description": {
+                                        "string": "ISO 3166-2 code representing the county and subdivision within which the Airport is located"
+                                    },
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.StringType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "String()",
+                                    "recursive": false,
+                                    "globalTags": null
+                                },
+                                {
+                                    "fieldPath": "country_name",
+                                    "jsonPath": null,
+                                    "nullable": true,
+                                    "description": {
+                                        "string": "Full text name of the country within which the Airport is located"
+                                    },
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.StringType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "String()",
+                                    "recursive": false,
+                                    "globalTags": null
+                                },
+                                {
+                                    "fieldPath": "airport_geom",
+                                    "jsonPath": null,
+                                    "nullable": true,
+                                    "description": {
+                                        "string": "Geographic representation of the Airport polygon"
+                                    },
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "NullType()",
+                                    "recursive": false,
+                                    "globalTags": null
+                                }
+                            ],
+                            "primaryKeys": null,
+                            "foreignKeysSpecs": null
+                        }
+                    }
+                ]
+            }
+        },
+        "proposedDelta": null
+    }
+]

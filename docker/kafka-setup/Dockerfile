@@ -1,8 +1,15 @@
 # This "container" is a workaround to pre-create topics
-FROM confluentinc/cp-kafka:5.4.0
+FROM confluentinc/cp-kafka:6.2.0
 
-CMD echo Waiting for Kafka to be ready... && \
-    cub kafka-ready -b $KAFKA_BOOTSTRAP_SERVER 1 60 && \
-    kafka-topics --create --if-not-exists --zookeeper $KAFKA_ZOOKEEPER_CONNECT --partitions 1 --replication-factor 1 --topic MetadataAuditEvent_v4 && \
-    kafka-topics --create --if-not-exists --zookeeper $KAFKA_ZOOKEEPER_CONNECT --partitions 1 --replication-factor 1 --topic MetadataChangeEvent_v4 && \
-    kafka-topics --create --if-not-exists --zookeeper $KAFKA_ZOOKEEPER_CONNECT --partitions 1 --replication-factor 1 --topic FailedMetadataChangeEvent_v4
+ENV METADATA_AUDIT_EVENT_NAME="MetadataAuditEvent_v4"
+ENV METADATA_CHANGE_EVENT_NAME="MetadataChangeEvent_v4"
+ENV FAILED_METADATA_CHANGE_EVENT_NAME="FailedMetadataChangeEvent_v4"
+ENV DATAHUB_USAGE_EVENT_NAME="DataHubUsageEvent_v1"
+ENV METADATA_CHANGE_LOG_VERSIONED_TOPIC="MetadataChangeLog_Versioned_v1"
+ENV METADATA_CHANGE_LOG_TIMESERIES_TOPIC="MetadataChangeLog_Timeseries_v1"
+ENV METADATA_CHANGE_PROPOSAL_TOPIC="MetadataChangeProposal_v1"
+ENV FAILED_METADATA_CHANGE_PROPOSAL_TOPIC="FailedMetadataChangeProposal_v1"
+
+COPY ./kafka-setup.sh ./kafka-setup.sh
+
+CMD ./kafka-setup.sh

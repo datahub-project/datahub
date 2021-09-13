@@ -1,23 +1,41 @@
 namespace com.linkedin.datajob
 
+import com.linkedin.common.CustomProperties
+import com.linkedin.common.ExternalReference
 
 /**
  * Information about a Data processing flow
  */
-record DataFlowInfo {
+@Aspect = {
+  "name": "dataFlowInfo"
+}
+record DataFlowInfo includes CustomProperties, ExternalReference {
 
   /**
    * Flow name
    */
+  @Searchable = {
+    "fieldType": "TEXT_PARTIAL",
+    "enableAutocomplete": true,
+    "boostScore": 10.0
+  }
   name: string
 
   /**
    * Flow description
    */
+  @Searchable = {
+    "fieldType": "TEXT",
+    "hasValuesFieldName": "hasDescription"
+  }
   description: optional string
 
   /**
    * Optional project/namespace associated with the flow
    */
+  @Searchable = {
+    "fieldType": "TEXT_PARTIAL",
+    "queryByDefault": false
+  }
   project: optional string
 }

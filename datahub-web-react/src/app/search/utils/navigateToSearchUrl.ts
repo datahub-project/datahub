@@ -31,7 +31,11 @@ export const navigateToSearchUrl = ({
     );
 
     history.push({
-        pathname: `${PageRoutes.SEARCH}/${newType ? entityRegistry.getPathName(newType) : ''}`,
+        pathname: `${PageRoutes.SEARCH}/${
+            newType && entityRegistry.getSearchEntityTypes().indexOf(newType) >= 0
+                ? entityRegistry.getPathName(newType)
+                : ''
+        }`,
         search,
     });
 };

@@ -2,6 +2,116 @@
 
 A list of previous Town Halls, their planned schedule, and the recording of the meeting.
 
+## 8/27/2021
+[Full YouTube video](https://youtu.be/3joZINi3ti4)
+
+## Agenda
+- Project Updates and Callouts by Shirshanka
+   - Business Glossary Demo
+   - 0.8.12 Upcoming Release Highlights 
+   - Users and Groups Management (Okta, Azure AD)
+- Demo: Fine Grained Access Control by John Joyce (Acryl Data)
+- Case-Study: DataHub @ Warung Pintar and Redash integration by Taufiq Ibrahim (Bizzy Group) 
+- New User Experience by John Joyce (Acryl Data)
+- Offline
+   - Performance Monitoring by Dexter Lee (Acryl Data) [video](https://youtu.be/6Xfr_Y9abZo)
+
+
+## 7/23/2021
+[Full YouTube video](https://www.youtube.com/watch?v=rZsiB8z5rG4)
+
+[Medium Post](https://medium.com/datahub-project/datahub-project-updates-f4299cd3602e?source=friends_link&sk=27af7637f7ae44786ede694c3af512a5)
+
+## Agenda
+
+- Project Updates by Shirshanka
+   - Release highlights
+- Deep Dive: Data Observability: Phase 1 by Harshal Sheth, Dexter Lee (Acryl Data)
+- Case Study: Building User Feedback into DataHub by Melinda Cardenas (NY Times)
+- Demo: AWS SageMaker integration for Models and Features by Kevin Hu (Acryl Data)
+
+
+## 6/25/2021
+[Full YouTube video](https://www.youtube.com/watch?v=xUHOdDfdFpY)
+
+[Medium Post](https://medium.com/datahub-project/datahub-project-updates-ed3155476408?source=friends_link&sk=02816a16ff2acd688e6db8eb55808d31)
+
+### Agenda
+
+- Project Updates by Shirshanka
+    - Release notes
+    - RBAC update
+    - Roadmap for H2 2021
+-  Demo: Table Popularity powered by Query Activity by Harshal Sheth (Acryl Data)
+- Case Study: Business Glossary in production at Saxo Bank by Sheetal Pratik (Saxo Bank), Madhu Podila (ThoughtWorks)
+- Developer Session: Simplified Deployment for DataHub by John Joyce, Gabe Lyons (Acryl Data)
+
+
+## 5/27/2021
+[Full YouTube video](https://www.youtube.com/watch?v=qgW_xpIr1Ho)
+
+[Medium Post](https://medium.com/datahub-project/linkedin-datahub-project-updates-ed98cdf913c1?source=friends_link&sk=9930ec5579299b155ea87c747683d1ad)
+
+### Agenda
+
+- Project Updates by Shirshanka - 10 mins
+   - 0.8.0 Release
+   - AWS Recipe by Dexter Lee (Acryl Data)
+- Demo: Product Analytics design sprint (Maggie Hays (SpotHero), Dexter Lee (Acryl Data)) - 10 mins
+- Use-Case: DataHub on GCP by Sharath Chandra (Confluent) - 10 mins
+- Deep Dive: No Code Metadata Engine by John Joyce (Acryl Data) - 20 mins
+- General Q&A and closing remarks
+
+## 4/23/2021
+[Full YouTube video](https://www.youtube.com/watch?v=dlFa4ubJ9ho)
+
+[Medium Digest](https://medium.com/datahub-project/linkedin-datahub-project-updates-2b0d26066b8f?source=friends_link&sk=686c47219ed294e0838ae3e2fe29084d)
+
+### Agenda
+
+- Welcome - 5 mins
+- Project Updates by Shirshanka - 10 mins
+   - 0.7.1 Release and callouts (dbt by Gary Lucas)
+   - Product Analytics design sprint announcement (Maggie Hayes)
+- Use-Case: DataHub at DefinedCrowd ([video](https://www.youtube.com/watch?v=qz5Rpmw8I5E)) by Pedro Silva - 15 mins 
+- Deep Dive + Demo: Lineage! Airflow, Superset integration ([video](https://www.youtube.com/watch?v=3wiaqhb8UR0)) by Harshal Sheth and Gabe Lyons - 10 mins
+- Use-Case: DataHub Hackathon at Depop ([video](https://www.youtube.com/watch?v=SmOMyFc-9J0)) by John Cragg - 10 mins
+- Observability Feedback share out - 5 mins
+- General Q&A and closing remarks - 5 mins
+
+
+## 3/19/2021
+ [YouTube video](https://www.youtube.com/watch?v=xE8Uc27VTG4) 
+ 
+ [Medium Digest](https://medium.com/datahub-project/linkedin-datahub-project-updates-697f0faddd10?source=friends_link&sk=9888633c5c7219b875125e87a703ec4d)
+
+### Agenda
+
+* Welcome - 5 mins
+* Project Updates ([slides](https://drive.google.com/file/d/1c3BTP3oDAzJr07l6pY6CkDZi5nT0cLRs/view?usp=sharing)) by [Shirshanka](https://www.linkedin.com/in/shirshankadas/) - 10 mins
+   * 0.7.0 Release
+   * Project Roadmap
+* Demo Time: Themes and Tags in the React App! by [Gabe Lyons](https://www.linkedin.com/in/gabe-lyons-9a574543/) - 10 mins
+* Use-Case: DataHub at [Wolt](https://www.linkedin.com/company/wolt-oy/) ([slides](https://drive.google.com/file/d/1za7NKbnXpFV2bBDblP35CbQEIDwc9tog/view?usp=sharing)) by [Fredrik](https://www.linkedin.com/in/fredriksannholm/?originalSubdomain=fi) and Matti - 15 mins
+* Poll Time: Observability Mocks! ([slides](https://drive.google.com/file/d/1Ih2EGf-76jhbNAjr2EsBLb7n8bra2WIz/view?usp=sharing)) - 5 mins
+* General Q&A from sign up sheet, slack, and participants - 10 mins
+* Closing remarks - 5 mins
+
+
+## 2/19/2021
+ [YouTube video](https://www.youtube.com/watch?v=Z9ImbcsAVl0) 
+ 
+ [Medium Digest](https://medium.com/datahub-project/linkedin-datahub-project-updates-february-2021-edition-338d2c6021f0)
+### Agenda
+
+* Welcome - 5 mins
+* Latest React App Demo! ([video](https://www.youtube.com/watch?v=RQBEJhcen5E)) by John Joyce and Gabe Lyons - 5 mins
+* Use-Case: DataHub at Geotab ([slides](https://docs.google.com/presentation/d/1qcgO3BW5NauuG0HnPqrxGcujsK-rJ1-EuU-7cbexkqE/edit?usp=sharing),[video](https://www.youtube.com/watch?v=boyjT2OrlU4)) by [John Yoon](https://www.linkedin.com/in/yhjyoon/) - 15 mins
+* Tech Deep Dive: Tour of new pull-based Python Ingestion scripts ([slides](https://docs.google.com/presentation/d/15Xay596WDIhzkc5c8DEv6M-Bv1N4hP8quup1tkws6ms/edit#slide=id.gb478361595_0_10),[video](https://www.youtube.com/watch?v=u0IUQvG-_xI)) by [Harshal Sheth](https://www.linkedin.com/in/hsheth2/) - 15 mins
+* General Q&A from sign up sheet, slack, and participants - 15 mins
+* Closing remarks - 5 mins
+
+
 ## 1/15/2021
 [Full Recording](https://youtu.be/r862MZTLAJ0)
 
@@ -24,8 +134,8 @@ Agenda
 Agenda
 
 - Quick intro - 5 mins
-- [Why did Grofers choose DataHub for their data catalog?](demo/Datahub%20at%20Grofers.pdf) by [Shubham Gupta](https://www.linkedin.com/in/shubhamg931/) - 15 minutes
-- [DataHub UI development - Part 2](demo/Town%20Hall%20Presentation%20-%2012-2020%20-%20UI%20Development%20Part%202.pdf) by [Charlie Tran](https://www.linkedin.com/in/charlie-tran/) (LinkedIn) - 20 minutes
+- [Why did Grofers choose DataHub for their data catalog?](demo/Datahub_at_Grofers.pdf) by [Shubham Gupta](https://www.linkedin.com/in/shubhamg931/) - 15 minutes
+- [DataHub UI development - Part 2](demo/Town_Hall_Presentation_-_12-2020_-_UI_Development_Part_2.pdf) by [Charlie Tran](https://www.linkedin.com/in/charlie-tran/) (LinkedIn) - 20 minutes
 - General Q&A from sign up sheet, slack, and participants - 15 mins
 - Closing remarks - 5 minutes
 
@@ -36,9 +146,9 @@ Agenda
 Agenda
 
 - Quick intro - 5 mins
-- [Lightning talk on Metadata use-cases at LinkedIn](https://github.com/linkedin/datahub/blob/master/docs/demo/Metadata%20Use-Cases%20at%20LinkedIn%20-%20Lightning%20Talk.pdf) by [Shirshanka Das](https://www.linkedin.com/in/shirshankadas/) (LinkedIn) - 5 mins
-- [Strongly Consistent Secondary Index (SCSI) in GMA](https://github.com/linkedin/datahub/blob/master/docs/demo/Datahub%20-%20Strongly%20Consistent%20Secondary%20Indexing.pdf), an upcoming feature by [Jyoti Wadhwani](https://www.linkedin.com/in/jyotiwadhwani/) (LinkedIn) - 15 minutes
-- [DataHub UI overview](https://github.com/linkedin/datahub/blob/master/docs/demo/DataHub-UIOverview.pdf) by [Ignacio Bona](https://www.linkedin.com/in/ignaciobona) (LinkedIn) - 20 minutes
+- [Lightning talk on Metadata use-cases at LinkedIn](demo/Metadata_Use-Cases_at_LinkedIn_-_Lightning_Talk.pdf) by [Shirshanka Das](https://www.linkedin.com/in/shirshankadas/) (LinkedIn) - 5 mins
+- [Strongly Consistent Secondary Index (SCSI) in GMA](demo/Datahub_-_Strongly_Consistent_Secondary_Indexing.pdf), an upcoming feature by [Jyoti Wadhwani](https://www.linkedin.com/in/jyotiwadhwani/) (LinkedIn) - 15 minutes
+- [DataHub UI overview](demo/DataHub-UIOverview.pdf) by [Ignacio Bona](https://www.linkedin.com/in/ignaciobona) (LinkedIn) - 20 minutes
 - General Q&A from sign up sheet, slack, and participants - 10 mins
 - Closing remarks - 5 minutes
 
@@ -50,8 +160,8 @@ Agenda
 Agenda
 
 - Quick intro - 5 mins
-- [Data Discoverability at SpotHero](https://github.com/linkedin/datahub/blob/master/docs/demo/Data%20Discoverability%20at%20SpotHero.pdf) by [Maggie Hays](https://www.linkedin.com/in/maggie-hays/) (SpotHero) - 20 mins
-- [Designing the next generation of metadata events for scale](https://github.com/linkedin/datahub/blob/master/docs/demo/Designing%20the%20next%20generation%20of%20metadata%20events%20for%20scale.pdf) by [Chris Lee](https://www.linkedin.com/in/chrisleecmu/) (LinkedIn) - 15 mins
+- [Data Discoverability at SpotHero](demo/Data_Discoverability_at_SpotHero.pdf) by [Maggie Hays](https://www.linkedin.com/in/maggie-hays/) (SpotHero) - 20 mins
+- [Designing the next generation of metadata events for scale](demo/Designing_the_next_generation_of_metadata_events_for_scale.pdf) by [Chris Lee](https://www.linkedin.com/in/chrisleecmu/) (LinkedIn) - 15 mins
 - General Q&A from sign up sheet, slack, and participants - 15 mins
 - Closing remarks - 5 mins
 
@@ -75,7 +185,7 @@ Agenda
   * Quick intro - 5 mins
   * Showcasing new entities onboarded to internal LinkedIn DataHub (Data Concepts, Schemas) by [Nagarjuna Kanamarlapudi](https://www.linkedin.com/in/nagarjunak) (LinkedIn) - 15 mins
   * Showcasing new Lineage UI in internal LinkedIn DataHub By [Ignacio Bona](https://www.linkedin.com/in/ignaciobona) (LinkedIn) - 10 mins
-  * New [RFC Process](https://github.com/linkedin/datahub/blob/master/docs/rfc.md) by [John Plaisted](https://www.linkedin.com/in/john-plaisted-49a00a78/) (LinkedIn) - 2 mins
+  * New [RFC Process](./rfc.md) by [John Plaisted](https://www.linkedin.com/in/john-plaisted-49a00a78/) (LinkedIn) - 2 mins
   * Answering questions from the signup sheet - 13 mins
   * Questions from the participants - 10 mins
   * Closing remarks - 5 mins

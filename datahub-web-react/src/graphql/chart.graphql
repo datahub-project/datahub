@@ -1,0 +1,137 @@
+query getChart($urn: String!) {
+    chart(urn: $urn) {
+        urn
+        type
+        tool
+        chartId
+        info {
+            name
+            description
+            inputs {
+                urn
+                name
+                origin
+                description
+                platform {
+                    name
+                    info {
+                        logoUrl
+                    }
+                }
+                platformNativeType
+                tags
+                ownership {
+                    ...ownershipFields
+                }
+                downstreamLineage {
+                    ...downstreamRelationshipFields
+                }
+                upstreamLineage {
+                    ...upstreamRelationshipFields
+                }
+            }
+            externalUrl
+            type
+            access
+            lastRefreshed
+            lastModified {
+                time
+            }
+            created {
+                time
+            }
+            customProperties {
+                key
+                value
+            }
+        }
+        query {
+            rawQuery
+            type
+        }
+        ownership {
+            ...ownershipFields
+        }
+        globalTags {
+            ...globalTagsFields
+        }
+        downstreamLineage {
+            ...downstreamRelationshipFields
+        }
+        upstreamLineage {
+            ...upstreamRelationshipFields
+        }
+        editableProperties {
+            description
+        }
+    }
+}
+
+mutation updateChart($input: ChartUpdateInput!) {
+    updateChart(input: $input) {
+        urn
+        type
+        tool
+        chartId
+        info {
+            name
+            description
+            inputs {
+                urn
+                name
+                origin
+                description
+                platform {
+                    name
+                    info {
+                        logoUrl
+                    }
+                }
+                platformNativeType
+                tags
+                ownership {
+                    ...ownershipFields
+                }
+                downstreamLineage {
+                    ...downstreamRelationshipFields
+                }
+                upstreamLineage {
+                    ...upstreamRelationshipFields
+                }
+            }
+            externalUrl
+            type
+            access
+            lastRefreshed
+            lastModified {
+                time
+            }
+            created {
+                time
+            }
+            customProperties {
+                key
+                value
+            }
+        }
+        query {
+            rawQuery
+            type
+        }
+        editableProperties {
+            description
+        }
+        ownership {
+            ...ownershipFields
+        }
+        globalTags {
+            ...globalTagsFields
+        }
+        downstreamLineage {
+            ...downstreamRelationshipFields
+        }
+        upstreamLineage {
+            ...upstreamRelationshipFields
+        }
+    }
+}

@@ -1,7 +1,8 @@
-import { UserOutlined } from '@ant-design/icons';
+// import { UserOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
 import React from 'react';
-import { Space, Badge, Typography, Avatar } from 'antd';
+import { Space, Badge, Typography } from 'antd';
+import CustomAvatar from '../../shared/avatar/CustomAvatar';
 
 type Props = {
     profileSrc?: string | null;
@@ -33,7 +34,7 @@ export default function UserHeader({ profileSrc, name, title, skills, teams, ema
     return (
         <Row>
             <AvatarWrapper>
-                <Avatar icon={<UserOutlined />} src={profileSrc} size={100} />
+                <CustomAvatar size={100} photoUrl={profileSrc || undefined} name={name || undefined} />
             </AvatarWrapper>
             <div>
                 <Typography.Title level={3}>{name}</Typography.Title>

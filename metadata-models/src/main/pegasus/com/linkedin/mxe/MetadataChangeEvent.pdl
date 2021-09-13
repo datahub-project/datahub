@@ -23,4 +23,9 @@ record MetadataChangeEvent {
    * Delta of the proposed metadata partial update.
    */
   proposedDelta: optional Delta
+
+  /**
+   * Metadata around how the snapshot was ingested
+   */
+   systemMetadata: optional SystemMetadata
 }

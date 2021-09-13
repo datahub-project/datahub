@@ -1,14 +1,15 @@
 import React from 'react';
 import { Redirect, useHistory, useLocation, useParams } from 'react-router';
 import * as QueryString from 'query-string';
-import { Affix } from 'antd';
+import { Affix, Alert } from 'antd';
 import { BrowseCfg } from '../../conf';
 import { BrowseResults } from './BrowseResults';
 import { SearchablePage } from '../search/SearchablePage';
 import { useGetBrowseResultsQuery } from '../../graphql/browse.generated';
-import { BrowsePath } from './BrowsePath';
+import { LegacyBrowsePath } from './LegacyBrowsePath';
 import { PageRoutes } from '../../conf/Global';
 import { useEntityRegistry } from '../useEntityRegistry';
+import { Message } from '../shared/Message';
 
 type BrowseResultsPageParams = {
     type: string;
@@ -25,7 +26,7 @@ export const BrowseResultsPage = () => {
     const params = QueryString.parse(location.search);
     const entityType = entityRegistry.getTypeFromPathName(type);
     const path = rootPath.split('/').slice(3);
-    const page = Number(params.page) || 1;
+    const page: number = params.page && Number(params.page as string) > 0 ? Number(params.page as string) : 1;
 
     const { data, loading, error } = useGetBrowseResultsQuery({
         variables: {
@@ -38,6 +39,10 @@ export const BrowseResultsPage = () => {
             },
         },
     });
+
+    if (error || (!loading && !error && !data)) {
+        return <Alert type="error" message={error?.message || 'Entity failed to load'} />;
+    }
 
     const onChangePage = (newPage: number) => {
         history.push({
@@ -53,18 +58,17 @@ export const BrowseResultsPage = () => {
     return (
         <SearchablePage>
             <Affix offsetTop={64}>
-                <BrowsePath type={entityType} path={path} />
+                <LegacyBrowsePath type={entityType} path={path} isBrowsable />
             </Affix>
-            {error && <p>Error fetching browse results!</p>}
-            {loading && <p>Loading browse results...</p>}
+            {loading && <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />}
             {data && data.browse && (
                 <BrowseResults
                     type={entityType}
                     rootPath={rootPath}
                     title={path.length > 0 ? path[path.length - 1] : entityRegistry.getCollectionName(entityType)}
+                    page={page}
                     pageSize={BrowseCfg.RESULTS_PER_PAGE}
-                    pageStart={page * BrowseCfg.RESULTS_PER_PAGE}
-                    groups={data.browse.metadata.groups}
+                    groups={data.browse.groups}
                     entities={data.browse.entities}
                     totalResults={data.browse.total}
                     onChangePage={onChangePage}

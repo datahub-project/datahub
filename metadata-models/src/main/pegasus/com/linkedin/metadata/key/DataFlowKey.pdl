@@ -1,0 +1,34 @@
+namespace com.linkedin.metadata.key
+
+/**
+ * Key for a Data Flow
+ */
+@Aspect = {
+  "name": "dataFlowKey"
+}
+record DataFlowKey {
+  /**
+  * Workflow manager like azkaban, airflow which orchestrates the flow
+  */
+  @Searchable = {
+    "fieldType": "TEXT_PARTIAL"
+  }
+  orchestrator: string
+
+  /**
+  * Unique Identifier of the data flow
+  */
+  @Searchable = {
+    "fieldType": "TEXT_PARTIAL",
+    "enableAutocomplete": true
+  }
+  flowId: string
+
+  /**
+  * Cluster where the flow is executed
+  */
+  @Searchable = {
+    "fieldType": "TEXT_PARTIAL"
+  }
+  cluster: string
+}

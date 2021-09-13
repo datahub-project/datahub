@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.types;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.datahub.graphql.QueryContext;
 
+import graphql.execution.DataFetcherResult;
 import javax.annotation.Nonnull;
 import java.util.List;
 
@@ -31,7 +32,7 @@ public interface LoadableType<T> {
      * @param urn to retrieve
      * @param context the {@link QueryContext} corresponding to the request.
      */
-    default T load(@Nonnull final String urn, @Nonnull final QueryContext context) throws Exception {
+    default DataFetcherResult<T> load(@Nonnull final String urn, @Nonnull final QueryContext context) throws Exception {
         return batchLoad(ImmutableList.of(urn), context).get(0);
     };
 
@@ -42,6 +43,6 @@ public interface LoadableType<T> {
      * @param urns to retrieve
      * @param context the {@link QueryContext} corresponding to the request.
      */
-    List<T> batchLoad(@Nonnull final List<String> urns, @Nonnull final QueryContext context) throws Exception;
+    List<DataFetcherResult<T>> batchLoad(@Nonnull final List<String> urns, @Nonnull final QueryContext context) throws Exception;
 
 }

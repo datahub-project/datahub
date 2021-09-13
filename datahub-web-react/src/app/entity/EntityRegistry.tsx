@@ -1,5 +1,7 @@
-import { EntityType } from '../../types.generated';
-import { Entity, PreviewType } from './Entity';
+import { EntityType, SearchResult } from '../../types.generated';
+import { FetchedEntity } from '../lineage/types';
+import { Entity, IconStyleType, PreviewType } from './Entity';
+import { urlEncodeUrn } from './shared/utils';
 
 function validatedGet<K, V>(key: K, map: Map<K, V>): V {
     if (map.has(key)) {
@@ -27,6 +29,10 @@ export default class EntityRegistry {
         this.pathNameToEntityType.set(entity.getPathName(), entity.type);
     }
 
+    getEntity(type: EntityType): Entity<any> {
+        return validatedGet(type, this.entityTypeToEntity);
+    }
+
     getEntities(): Array<Entity<any>> {
         return this.entities;
     }
@@ -43,9 +49,23 @@ export default class EntityRegistry {
         return this.entities.filter((entity) => entity.isBrowseEnabled()).map((entity) => entity.type);
     }
 
+    getLineageEntityTypes(): Array<EntityType> {
+        return this.entities.filter((entity) => entity.isLineageEnabled()).map((entity) => entity.type);
+    }
+
+    getIcon(type: EntityType, fontSize: number, styleType: IconStyleType): JSX.Element {
+        const entity = validatedGet(type, this.entityTypeToEntity);
+        return entity.icon(fontSize, styleType);
+    }
+
     getCollectionName(type: EntityType): string {
         const entity = validatedGet(type, this.entityTypeToEntity);
         return entity.getCollectionName();
+    }
+
+    getEntityName(type: EntityType): string | undefined {
+        const entity = validatedGet(type, this.entityTypeToEntity);
+        return entity.getEntityName?.();
     }
 
     getTypeFromCollectionName(name: string): EntityType {
@@ -55,6 +75,10 @@ export default class EntityRegistry {
     getPathName(type: EntityType): string {
         const entity = validatedGet(type, this.entityTypeToEntity);
         return entity.getPathName();
+    }
+
+    getEntityUrl(type: EntityType, urn: string): string {
+        return `/${this.getPathName(type)}/${urlEncodeUrn(urn)}`;
     }
 
     getTypeFromPathName(pathName: string): EntityType {
@@ -79,13 +103,23 @@ export default class EntityRegistry {
         return entity.renderPreview(type, data);
     }
 
-    renderSearchResult<T>(type: EntityType, data: T): JSX.Element {
+    renderSearchResult(type: EntityType, searchResult: SearchResult): JSX.Element {
         const entity = validatedGet(type, this.entityTypeToEntity);
-        return entity.renderPreview(PreviewType.SEARCH, data);
+        return entity.renderSearch(searchResult);
     }
 
     renderBrowse<T>(type: EntityType, data: T): JSX.Element {
         const entity = validatedGet(type, this.entityTypeToEntity);
         return entity.renderPreview(PreviewType.BROWSE, data);
+    }
+
+    getLineageVizConfig<T>(type: EntityType, data: T): FetchedEntity | undefined {
+        const entity = validatedGet(type, this.entityTypeToEntity);
+        return entity.getLineageVizConfig?.(data) || undefined;
+    }
+
+    getDisplayName<T>(type: EntityType, data: T): string {
+        const entity = validatedGet(type, this.entityTypeToEntity);
+        return entity.displayName(data);
     }
 }

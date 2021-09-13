@@ -50,7 +50,7 @@ task yarnLint(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
   args = ['run', 'lint']
 }
 
-task yarnBuild(type: YarnTask, dependsOn: [yarnTest, yarnLint]) {
+task yarnBuild(type: YarnTask, dependsOn: [yarnInstall, yarnTest, yarnLint]) {
   args = ['run', 'build']
 }
 

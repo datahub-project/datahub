@@ -1,0 +1,51 @@
+{
+    "styles": {
+        "primary-color": "#1890ff",
+        "layout-header-background": "#333E4C",
+        "layout-header-color": "white",
+        "layout-body-background": "#333E4C",
+        "component-background": "#333E4C",
+        "body-background": "#333E4C",
+        "border-color-base": "white",
+        "text-color": "fade(white, 85%)",
+        "text-color-secondary": "fade(white, 45%)",
+        "heading-color": "fade(white, 85%)",
+        "background-color-light": "#4b5b71",
+        "divider-color": "fade(white, 6%)",
+        "disabled-color": "fade(white, 25%)",
+        "steps-nav-arrow-color": "fade(white, 25%)",
+        "homepage-background-upper-fade": "#FFFFFF",
+        "homepage-background-lower-fade": "#333E4C"
+    },
+    "assets": {
+        "logoUrl": "/assets/logo.png"
+    },
+    "content": {
+        "title": "DataHub",
+        "homepage": {
+            "homepageMessage": "Find data you can count(*) on"
+        },
+        "search": {
+            "searchbarMessage": "Search Datasets, People, & more..."
+        },
+        "menu": {
+            "items": [
+                {
+                    "label": "DataHub Project",
+                    "path": "https://datahubproject.io",
+                    "shouldOpenInNewTab": true
+                },
+                {
+                    "label": "DataHub Docs",
+                    "path": "https://datahubproject.io/docs",
+                    "shouldOpenInNewTab": true
+                },
+                {
+                    "label": "DataHub GitHub",
+                    "path": "https://github.com/linkedin/datahub",
+                    "shouldOpenInNewTab": true
+                }
+            ]
+        }
+    }
+}

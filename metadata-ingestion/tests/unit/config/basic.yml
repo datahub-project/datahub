@@ -1,0 +1,7 @@
+---
+foo: bar
+nested:
+  hi: hello
+  array:
+    - one
+    - two

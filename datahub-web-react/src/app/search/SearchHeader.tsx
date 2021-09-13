@@ -1,23 +1,59 @@
 import * as React from 'react';
-import 'antd/dist/antd.css';
 import { Image, Layout } from 'antd';
 import { Link } from 'react-router-dom';
+import styled, { useTheme } from 'styled-components';
+
 import { SearchBar } from './SearchBar';
 import { ManageAccount } from '../shared/ManageAccount';
-import { GlobalCfg } from '../../conf';
+import { AutoCompleteResultForEntity, EntityType } from '../../types.generated';
+import EntityRegistry from '../entity/EntityRegistry';
+import { ANTD_GRAY } from '../entity/shared/constants';
+import { AdminHeaderLinks } from '../shared/admin/AdminHeaderLinks';
 
 const { Header } = Layout;
 
+const styles = {
+    header: {
+        position: 'fixed',
+        zIndex: 1,
+        width: '100%',
+        lineHeight: '20px',
+        padding: '0px 20px',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        borderBottom: `1px solid ${ANTD_GRAY[4.5]}`,
+    },
+};
+
+const LogoImage = styled(Image)`
+    display: inline-block;
+    height: 32px;
+    width: auto;
+    margin-top: 2px;
+`;
+
+const LogoSearchContainer = styled.div`
+    display: flex;
+    flex: 1;
+`;
+
+const NavGroup = styled.div`
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    min-width: 200px;
+`;
+
 type Props = {
-    types: Array<string>;
-    selectedType: string;
     initialQuery: string;
     placeholderText: string;
-    suggestions: Array<string>;
-    onSearch: (type: string, query: string) => void;
-    onQueryChange: (type: string, query: string) => void;
+    suggestions: Array<AutoCompleteResultForEntity>;
+    onSearch: (query: string, type?: EntityType) => void;
+    onQueryChange: (query: string) => void;
     authenticatedUserUrn: string;
-    authenticatedUserPictureLink?: string;
+    authenticatedUserPictureLink?: string | null;
+    entityRegistry: EntityRegistry;
 };
 
 const defaultProps = {
@@ -28,8 +64,6 @@ const defaultProps = {
  * A header containing a Logo, Search Bar view, & an account management dropdown.
  */
 export const SearchHeader = ({
-    types,
-    selectedType,
     initialQuery,
     placeholderText,
     suggestions,
@@ -37,45 +71,29 @@ export const SearchHeader = ({
     onQueryChange,
     authenticatedUserUrn,
     authenticatedUserPictureLink,
+    entityRegistry,
 }: Props) => {
+    const themeConfig = useTheme();
+
     return (
-        <Header
-            style={{
-                position: 'fixed',
-                zIndex: 1,
-                width: '100%',
-                backgroundColor: 'rgb(51 62 76)',
-                fontSize: '18px',
-                height: '64px',
-                lineHeight: '20px',
-                color: '#fff',
-                padding: '0px 80px',
-            }}
-        >
-            <div style={{ display: 'flex', alignItems: 'center' }}>
-                <Link
-                    style={{
-                        height: '64px',
-                        padding: '15px 30px',
-                        display: 'flex',
-                        alignItems: 'center',
-                    }}
-                    to="/"
-                >
-                    <Image style={{ width: '34px', height: '30px' }} src={GlobalCfg.LOGO_IMAGE} preview={false} />
-                    <div style={{ color: 'white', fontWeight: 'bold', padding: '15px' }}>DataHub</div>
+        <Header style={styles.header as any}>
+            <LogoSearchContainer>
+                <Link to="/">
+                    <LogoImage src={themeConfig.assets.logoUrl} preview={false} />
                 </Link>
                 <SearchBar
-                    types={types}
                     initialQuery={initialQuery}
-                    selectedType={selectedType}
                     placeholderText={placeholderText}
                     suggestions={suggestions}
                     onSearch={onSearch}
                     onQueryChange={onQueryChange}
+                    entityRegistry={entityRegistry}
                 />
-                <ManageAccount urn={authenticatedUserUrn} pictureLink={authenticatedUserPictureLink} />
-            </div>
+            </LogoSearchContainer>
+            <NavGroup>
+                <AdminHeaderLinks />
+                <ManageAccount urn={authenticatedUserUrn} pictureLink={authenticatedUserPictureLink || ''} />
+            </NavGroup>
         </Header>
     );
 };

@@ -1,1 +1,4 @@
 **/*.graphql
+dist/
+build/
+node_modules/

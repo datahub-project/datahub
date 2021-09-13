@@ -1,44 +1,92 @@
-import { Divider, Alert } from 'antd';
-import React from 'react';
-import styled from 'styled-components';
+import { Alert } from 'antd';
+import React, { useMemo } from 'react';
 
 import UserHeader from './UserHeader';
-import UserDetails from './UserDetails';
-import useUserParams from './routingUtils/useUserParams';
+import useUserParams from '../../shared/entitySearch/routingUtils/useUserParams';
 import { useGetUserQuery } from '../../../graphql/user.generated';
+import { useGetAllEntitySearchResults } from '../../../utils/customGraphQL/useGetAllEntitySearchResults';
+import { Message } from '../../shared/Message';
+import RelatedEntityResults from '../../shared/entitySearch/RelatedEntityResults';
+import { LegacyEntityProfile } from '../../shared/LegacyEntityProfile';
+import { CorpUser, EntityType, SearchResult } from '../../../types.generated';
 
-const PageContainer = styled.div`
-    background-color: white;
-    padding: 32px 100px;
-`;
+const messageStyle = { marginTop: '10%' };
+
+export enum TabType {
+    Ownership = 'Ownership',
+}
+const ENABLED_TAB_TYPES = [TabType.Ownership];
 
 /**
  * Responsible for reading & writing users.
  */
 export default function UserProfile() {
-    const { urn, subview, item } = useUserParams();
+    const { urn } = useUserParams();
     const { loading, error, data } = useGetUserQuery({ variables: { urn } });
+    const username = data?.corpUser?.username;
 
-    if (loading) {
-        return <Alert type="info" message="Loading" />;
-    }
+    const ownershipResult = useGetAllEntitySearchResults({
+        query: `owners:${username}`,
+    });
+
+    const contentLoading =
+        Object.keys(ownershipResult).some((type) => {
+            return ownershipResult[type].loading;
+        }) || loading;
+
+    const ownershipForDetails = useMemo(() => {
+        const filteredOwnershipResult: {
+            [key in EntityType]?: Array<SearchResult>;
+        } = {};
+
+        Object.keys(ownershipResult).forEach((type) => {
+            const entities = ownershipResult[type].data?.search?.searchResults;
+
+            if (entities && entities.length > 0) {
+                filteredOwnershipResult[type] = ownershipResult[type].data?.search?.searchResults;
+            }
+        });
+        return filteredOwnershipResult;
+    }, [ownershipResult]);
 
     if (error || (!loading && !error && !data)) {
         return <Alert type="error" message={error?.message || 'Entity failed to load'} />;
     }
 
-    return (
-        <PageContainer>
+    const getTabs = () => {
+        return [
+            {
+                name: TabType.Ownership,
+                path: TabType.Ownership.toLocaleLowerCase(),
+                content: <RelatedEntityResults searchResult={ownershipForDetails} />,
+            },
+        ].filter((tab) => ENABLED_TAB_TYPES.includes(tab.name));
+    };
+
+    const getHeader = ({ editableInfo, info }: CorpUser) => {
+        return (
             <UserHeader
-                profileSrc={data?.corpUser?.editableInfo?.pictureLink}
-                name={data?.corpUser?.info?.displayName}
-                title={data?.corpUser?.info?.title}
-                email={data?.corpUser?.info?.email}
-                skills={data?.corpUser?.editableInfo?.skills}
-                teams={data?.corpUser?.editableInfo?.teams}
+                profileSrc={editableInfo?.pictureLink}
+                name={info?.displayName}
+                title={info?.title}
+                email={info?.email}
+                skills={editableInfo?.skills}
+                teams={editableInfo?.teams}
             />
-            <Divider />
-            <UserDetails urn={urn} subview={subview} item={item} ownerships={{}} />
-        </PageContainer>
+        );
+    };
+
+    return (
+        <>
+            {contentLoading && <Message type="loading" content="Loading..." style={messageStyle} />}
+            {data && data.corpUser && (
+                <LegacyEntityProfile
+                    title=""
+                    tags={null}
+                    header={getHeader(data.corpUser as CorpUser)}
+                    tabs={getTabs()}
+                />
+            )}
+        </>
     );
 }

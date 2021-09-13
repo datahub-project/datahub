@@ -6,6 +6,10 @@ import com.linkedin.metadata.aspect.CorpUserAspect
 /**
  * A metadata snapshot for a specific CorpUser entity.
  */
+@Entity = {
+  "name": "corpuser",
+  "keyAspect": "corpUserKey"
+}
 record CorpUserSnapshot {
 
   /**

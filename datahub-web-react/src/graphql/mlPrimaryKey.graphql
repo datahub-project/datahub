@@ -1,0 +1,5 @@
+query getMLPrimaryKey($urn: String!) {
+    mlPrimaryKey(urn: $urn) {
+        ...nonRecursiveMLPrimaryKey
+    }
+}

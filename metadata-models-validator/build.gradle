@@ -1,0 +1,13 @@
+apply plugin: 'java'
+
+dependencies {
+  compile project(":entity-registry")
+  compile spec.product.pegasus.data
+  compile spec.product.pegasus.generator
+
+  compile externalDependency.commonsIo
+  compile externalDependency.findbugsAnnotations
+  compile externalDependency.guava
+
+  compileOnly externalDependency.lombok
+}

@@ -1,0 +1,17 @@
+namespace com.linkedin.schema
+
+import com.linkedin.common.ChangeAuditStamps
+
+/**
+ * EditableSchemaMetadata stores editable changes made to schema metadata. This separates changes made from
+ * ingestion pipelines and edits in the UI to avoid accidental overwrites of user-provided data by ingestion pipelines.
+ */
+@Aspect = {
+  "name": "editableSchemaMetadata"
+}
+record EditableSchemaMetadata includes ChangeAuditStamps {
+  /**
+   * Client provided a list of fields from document schema.
+   */
+  editableSchemaFieldInfo: array[EditableSchemaFieldInfo]
+}

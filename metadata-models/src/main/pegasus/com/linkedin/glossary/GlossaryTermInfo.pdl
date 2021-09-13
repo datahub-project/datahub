@@ -1,0 +1,55 @@
+namespace com.linkedin.glossary
+
+import com.linkedin.common.Url
+import com.linkedin.common.GlossaryNodeUrn
+
+/**
+ * Properties associated with a GlossaryTerm
+ */
+@Aspect = {
+   "name": "glossaryTermInfo"
+}
+record GlossaryTermInfo {
+
+  /**
+   * Definition of business term
+   */
+  @Searchable = {}
+  definition: string
+
+  /**
+   * Parent node of the glossary term
+   */
+  parentNode: optional GlossaryNodeUrn
+
+  /**
+   * Source of the Business Term (INTERNAL or EXTERNAL) with default value as INTERNAL
+   */
+  @Searchable = {
+    "fieldType": "KEYWORD"
+  }
+  termSource: string
+
+  /**
+   * External Reference to the business-term
+   */
+  @Searchable = {
+    "fieldType": "KEYWORD"
+  }
+  sourceRef: optional string
+
+  /**
+   * The abstracted URL such as https://spec.edmcouncil.org/fibo/ontology/FBC/FinancialInstruments/FinancialInstruments/CashInstrument.
+   */
+  sourceUrl: optional Url
+
+  /**
+   * A key-value map to capture any other non-standardized properties for the glossary term
+   */
+  customProperties: map[string, string] = { }
+
+  /**
+   * Schema definition of the glossary term
+   */
+  rawSchema: optional string
+}

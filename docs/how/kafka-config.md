@@ -1,3 +1,8 @@
+---
+title: "Configuring Kafka"
+hide_title: true
+---
+
 # How to configure Kafka?
 
 With the exception of `KAFKA_BOOTSTRAP_SERVER` and `KAFKA_SCHEMAREGISTRY_URL`, Kafka is configured via [spring-boot](https://spring.io/projects/spring-boot), specifically with [KafkaProperties](https://docs.spring.io/spring-boot/docs/current/api/org/springframework/boot/autoconfigure/kafka/KafkaProperties.html). See [Integration Properties](https://docs.spring.io/spring-boot/docs/current/reference/html/appendix-application-properties.html#integration-properties) prefixed with `spring.kafka`. 
@@ -24,7 +29,7 @@ DataHub components that connect to Kafka are currently:
 ## Configuring Topic Names
 
 By default, ingestion relies upon the `MetadataChangeEvent_v4`, `MetadataAuditEvent_v4`, and `FailedMetadataChangeEvent` kafka topics by default for
-[metadata events](https://github.com/linkedin/datahub/blob/master/docs/what/mxe.md.
+[metadata events](../what/mxe.md).
 
 We've included environment variables to customize the name each of these topics, if your company or organization has naming rules for your topics.
 
@@ -42,7 +47,16 @@ We've included environment variables to customize the name each of these topics,
 
 Please ensure that these environment variables are set consistently throughout your ecosystem. DataHub has a few different applications running which communicate with Kafka (see above).
 
-**How to apply configuration?**
+## Configuring Consumer Group Id
+
+Kafka Consumers in Spring are configured using Kafka listeners. By default, consumer group id is same as listener id.
+
+We've included an environment variable to customize the consumer group id, if your company or organization has specific naming rules.
+
+### datahub-mce-consumer and datahub-mae-consumer
+- `KAFKA_CONSUMER_GROUP_ID`: The name of the kafka consumer's group id.
+
+## How to apply configuration?
 - For quickstart, add these environment variables to the corresponding application's docker.env
 - For helm charts, add these environment variables as extraEnvs to the corresponding application's chart.
 For example, 
@@ -54,6 +68,8 @@ extraEnvs:
     value: "MetadataAuditEvent"
   - name: FAILED_METADATA_CHANGE_EVENT_NAME
     value: "FailedMetadataChangeEvent"
+  - name: KAFKA_CONSUMER_GROUP_ID
+    value: "my-apps-mae-consumer"
 ```
 
 ## SSL

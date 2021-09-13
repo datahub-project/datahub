@@ -1,0 +1,97 @@
+apply plugin: 'distribution'
+apply plugin: 'com.github.node-gradle.node'
+
+node {
+
+  // If true, it will download node using above parameters.
+  // If false, it will try to use globally installed node.
+  download = true
+
+  // Version of node to use.
+  version = '14.15.3'
+
+  // Version of Yarn to use.
+  yarnVersion = '1.22.0'
+
+  // Base URL for fetching node distributions (change if you have a mirror).
+  distBaseUrl = 'https://nodejs.org/dist'
+
+  // Set the work directory for unpacking node
+  workDir = file("${project.projectDir}/.gradle/nodejs")
+
+  // Set the work directory for NPM
+  yarnWorkDir = file("${project.projectDir}/.gradle/yarn")
+
+  // Set the work directory where node_modules should be located
+  nodeModulesDir = file("${project.projectDir}")
+
+}
+/*
+  Re-trigger build if any markdown files change anywhere in the project
+*/
+def projectMdFiles = project.fileTree("${project.projectDir}") {
+    include '**/*.md'
+    include '**/*.js'
+    include '**/*.ts'
+    exclude 'node_modules'
+    exclude '**/dist/**'
+    }
+
+
+/*
+  Wrappers around Yarn Tasks.
+ */
+task yarnInstall(type: YarnTask) {
+  logger.info('CI = "{}"', System.env.CI)
+  if (System.env.CI != null && System.env.CI == "true") {
+    args = ['install','--frozen-lockfile']
+  } else {
+    args = ['install']
+  }
+}
+
+task yarnGenerate(type: YarnTask, dependsOn: yarnInstall) {
+  inputs.files(projectMdFiles)
+  outputs.cacheIf { true }
+  args = ['run', 'generate']
+}
+
+task yarnServe(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
+  args = ['run', 'start']
+}
+
+task yarnLint(type: YarnTask, dependsOn: [yarnInstall]) {
+  inputs.files(projectMdFiles)
+  args = ['run', 'lint-check']
+  outputs.dir("dist")
+  // tell gradle to apply the build cache
+  outputs.cacheIf { true }
+}
+
+task yarnBuild(type: YarnTask, dependsOn: [yarnLint, yarnGenerate]) {
+  inputs.files(projectMdFiles)
+  inputs.file("package.json").withPathSensitivity(PathSensitivity.RELATIVE)
+  inputs.dir("src").withPathSensitivity(PathSensitivity.RELATIVE)
+  inputs.dir("static").withPathSensitivity(PathSensitivity.RELATIVE)
+  inputs.file("yarn.lock").withPathSensitivity(PathSensitivity.RELATIVE)
+  outputs.dir("dist")
+  // tell gradle to apply the build cache
+  outputs.cacheIf { true }
+  args = ['run', 'build']
+
+}
+task yarnClear(type: YarnTask) {
+  args = ['run','clear']
+}
+clean {
+  delete 'node_modules'
+  delete 'dist'
+  delete 'tmp'
+  delete 'build'
+  delete 'just'
+  yarnClear
+}
+
+build {
+    dependsOn yarnBuild
+}

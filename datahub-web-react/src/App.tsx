@@ -1,58 +1,112 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import Cookies from 'js-cookie';
+import { message } from 'antd';
 import { BrowserRouter as Router } from 'react-router-dom';
-import { ApolloClient, ApolloProvider, InMemoryCache } from '@apollo/client';
-import { MockedProvider } from '@apollo/client/testing';
-import './App.css';
+import { ApolloClient, ApolloProvider, createHttpLink, InMemoryCache, ServerError } from '@apollo/client';
+import { onError } from '@apollo/client/link/error';
+import { ThemeProvider } from 'styled-components';
+import './App.less';
 import { Routes } from './app/Routes';
-import { mocks } from './Mocks';
 import EntityRegistry from './app/entity/EntityRegistry';
-import { DatasetEntity } from './app/entity/dataset/DatasetEntity';
+import { DashboardEntity } from './app/entity/dashboard/DashboardEntity';
+import { ChartEntity } from './app/entity/chart/ChartEntity';
 import { UserEntity } from './app/entity/user/User';
+import { GroupEntity } from './app/entity/group/Group';
+import { DatasetEntity } from './app/entity/dataset/DatasetEntity';
+import { DataFlowEntity } from './app/entity/dataFlow/DataFlowEntity';
+import { DataJobEntity } from './app/entity/dataJob/DataJobEntity';
+import { TagEntity } from './app/entity/tag/Tag';
 import { EntityRegistryContext } from './entityRegistryContext';
-
-// Enable to use the Apollo MockProvider instead of a real HTTP client
-const MOCK_MODE = false;
+import { Theme } from './conf/theme/types';
+import defaultThemeConfig from './conf/theme/theme_light.config.json';
+import { PageRoutes } from './conf/Global';
+import { isLoggedInVar } from './app/auth/checkAuthStatus';
+import { GlobalCfg } from './conf';
+import { GlossaryTermEntity } from './app/entity/glossaryTerm/GlossaryTermEntity';
+import { MLFeatureEntity } from './app/entity/mlFeature/MLFeatureEntity';
+import { MLPrimaryKeyEntity } from './app/entity/mlPrimaryKey/MLPrimaryKeyEntity';
+import { MLFeatureTableEntity } from './app/entity/mlFeatureTable/MLFeatureTableEntity';
+import { MLModelEntity } from './app/entity/mlModel/MLModelEntity';
+import { MLModelGroupEntity } from './app/entity/mlModelGroup/MLModelGroupEntity';
 
 /*
-    Construct Apollo Client 
+    Construct Apollo Client
 */
+const httpLink = createHttpLink({ uri: '/api/v2/graphql' });
+
+const errorLink = onError(({ graphQLErrors, networkError }) => {
+    if (networkError) {
+        const serverError = networkError as ServerError;
+        if (serverError.statusCode === 401) {
+            isLoggedInVar(false);
+            Cookies.remove(GlobalCfg.CLIENT_AUTH_COOKIE);
+            window.location.replace(PageRoutes.AUTHENTICATE);
+        }
+    }
+    if (graphQLErrors && graphQLErrors.length) {
+        const firstError = graphQLErrors[0];
+        const { extensions } = firstError;
+        console.log(firstError);
+        const errorCode = extensions && (extensions.code as number);
+        // Fallback in case the calling component does not handle.
+        message.error(`${firstError.message} (code ${errorCode})`, 3);
+    }
+});
+
 const client = new ApolloClient({
-    uri: '/api/v2/graphql',
-    cache: new InMemoryCache({
-        typePolicies: {
-            Dataset: {
-                keyFields: ['urn'],
-            },
-            CorpUser: {
-                keyFields: ['urn'],
-            },
-        },
-    }),
+    connectToDevTools: true,
+    link: errorLink.concat(httpLink),
+    cache: new InMemoryCache(),
     credentials: 'include',
+    defaultOptions: {
+        watchQuery: {
+            fetchPolicy: 'no-cache',
+            nextFetchPolicy: 'cache-first',
+        },
+        query: {
+            fetchPolicy: 'no-cache',
+        },
+    },
 });
 
 const App: React.VFC = () => {
+    const [dynamicThemeConfig, setDynamicThemeConfig] = useState<Theme>(defaultThemeConfig);
+
+    useEffect(() => {
+        import(`./conf/theme/${process.env.REACT_APP_THEME_CONFIG}`).then((theme) => {
+            setDynamicThemeConfig(theme);
+        });
+    }, []);
+
     const entityRegistry = useMemo(() => {
         const register = new EntityRegistry();
         register.register(new DatasetEntity());
+        register.register(new DashboardEntity());
+        register.register(new ChartEntity());
         register.register(new UserEntity());
+        register.register(new GroupEntity());
+        register.register(new TagEntity());
+        register.register(new DataFlowEntity());
+        register.register(new DataJobEntity());
+        register.register(new GlossaryTermEntity());
+        register.register(new MLFeatureEntity());
+        register.register(new MLPrimaryKeyEntity());
+        register.register(new MLFeatureTableEntity());
+        register.register(new MLModelEntity());
+        register.register(new MLModelGroupEntity());
         return register;
     }, []);
+
     return (
-        <Router>
-            <EntityRegistryContext.Provider value={entityRegistry}>
-                {/* Temporary: For local testing during development. */}
-                {MOCK_MODE ? (
-                    <MockedProvider mocks={mocks} addTypename={false}>
-                        <Routes />
-                    </MockedProvider>
-                ) : (
+        <ThemeProvider theme={dynamicThemeConfig}>
+            <Router>
+                <EntityRegistryContext.Provider value={entityRegistry}>
                     <ApolloProvider client={client}>
                         <Routes />
                     </ApolloProvider>
-                )}
-            </EntityRegistryContext.Provider>
-        </Router>
+                </EntityRegistryContext.Provider>
+            </Router>
+        </ThemeProvider>
     );
 };
 

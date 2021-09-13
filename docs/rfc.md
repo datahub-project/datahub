@@ -1,4 +1,4 @@
-# DataHub RFC
+# DataHub RFC Process
 
 ## What is an RFC?
 
@@ -16,7 +16,7 @@ consensus among the DataHub core teams.
 An RFC goes through the following stages:
 
 - *Discussion* (Optional): Create an issue with the "RFC" label to have a more open ended, initial discussion around
-your proposal (useful if you don't have a concrete proposal yet). Consider posting to #rfc in [Slack](../slack.md)
+your proposal (useful if you don't have a concrete proposal yet). Consider posting to #rfc in [Slack](./slack.md)
 for more visibility.
 - *Pending*: when the RFC is submitted as a PR. Please add the "RFC" label to the PR.
 - *Active*: when an RFC PR is merged and undergoing implementation.
@@ -49,7 +49,7 @@ with a polite request to submit an RFC first.
 It's often helpful to get feedback on your concept before diving into the level of API design detail required for an
 RFC. You may open an issue on this repo to start a high-level discussion, with the goal of eventually formulating an RFC
 pull request with the specific implementation design. We also highly recommend sharing drafts of RFCs in #rfc on the
-[DataHub Slack](../slack.md) for early feedback.
+[DataHub Slack](./slack.md) for early feedback.
 
 ## The process
 
