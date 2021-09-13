@@ -1,5 +1,5 @@
 import { BookOutlined } from '@ant-design/icons';
-import { Image, Tag } from 'antd';
+import { Tag } from 'antd';
 import * as React from 'react';
 import styled from 'styled-components';
 
@@ -13,11 +13,12 @@ type Props = {
     field: string;
 };
 
-const PreviewImage = styled(Image)`
+const PreviewImage = styled.img`
     max-height: 18px;
     width: auto;
     object-fit: contain;
     background-color: transparent;
+    margin-right: 4px;
 `;
 
 export const SearchFilterLabel = ({ aggregation, field }: Props) => {
@@ -57,8 +58,10 @@ export const SearchFilterLabel = ({ aggregation, field }: Props) => {
         const platform = aggregation.entity as DataPlatform;
         return (
             <>
-                {!!platform.info?.logoUrl && <PreviewImage preview={false} src={platform.info?.logoUrl} />}
-                {platform.name} ({aggregation.count})
+                {!!platform.info?.logoUrl && <PreviewImage src={platform.info?.logoUrl} alt={platform.name} />}
+                <span>
+                    {platform.info?.displayName || platform.name} ({aggregation.count})
+                </span>
             </>
         );
     }

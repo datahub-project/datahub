@@ -33,7 +33,9 @@ export const SearchFilter = ({ facet, selectedFilters, onFilterSelect }: Props) 
         <>
             <div key={facet.field} style={{ padding: '0px 25px 15px 25px' }}>
                 <div style={{ fontWeight: 'bold', marginBottom: '10px' }}>
-                    {facet.field.charAt(0).toUpperCase() + facet.field.slice(1)}
+                    {facet?.displayName
+                        ? facet?.displayName?.charAt(0)?.toUpperCase() + facet?.displayName?.slice(1)
+                        : facet.field.charAt(0).toUpperCase() + facet.field.slice(1)}
                 </div>
                 {facet.aggregations.map((aggregation, i) => {
                     if (i >= TRUNCATED_FILTER_LENGTH && !expanded && shouldTruncate) {
