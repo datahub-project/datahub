@@ -2,6 +2,7 @@ package com.linkedin.metadata.boot;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.gms.factory.entity.EntityServiceFactory;
+import com.linkedin.metadata.boot.steps.IngestDataPlatformsStep;
 import com.linkedin.metadata.boot.steps.IngestPoliciesStep;
 import com.linkedin.metadata.entity.EntityService;
 import javax.annotation.Nonnull;
@@ -26,6 +27,7 @@ public class BootstrapManagerFactory {
   @Nonnull
   protected BootstrapManager createInstance() {
     final IngestPoliciesStep ingestPoliciesStep = new IngestPoliciesStep(_entityService);
-    return new BootstrapManager(ImmutableList.of(ingestPoliciesStep));
+    final IngestDataPlatformsStep ingestDataPlatformsStep = new IngestDataPlatformsStep(_entityService);
+    return new BootstrapManager(ImmutableList.of(ingestPoliciesStep, ingestDataPlatformsStep));
   }
 }
