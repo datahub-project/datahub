@@ -83,23 +83,11 @@ def get_details_from_config():
 
 
 def get_details_from_env() -> Tuple[Optional[str], Optional[str]]:
-    gms_host: Optional[str] = None
-    try:
-        gms_host = os.environ[ENV_METADATA_HOST]
-    except KeyError:
-        pass
-
-    gms_token: Optional[str] = None
-    try:
-        gms_token = os.environ[ENV_METADATA_TOKEN]
-    except KeyError:
-        pass
-
-    return gms_host, gms_token
+    return os.environ.get(ENV_METADATA_HOST), os.environ.get(ENV_METADATA_TOKEN)
 
 
 def first_non_null(ls: List[Optional[str]]) -> Optional[str]:
-    return next((el for el in ls if el is not None), None)
+    return next((el for el in ls if el is not None and el.strip() != ""), None)
 
 
 def get_session_and_host():
@@ -115,7 +103,7 @@ def get_session_and_host():
         gms_host = first_non_null([gms_host_env, gms_host_conf])
         gms_token = first_non_null([gms_token_env, gms_token_conf])
 
-    if gms_host is None or gms_host == "":
+    if gms_host is None or gms_host.strip() == "":
         log.error(
             f"GMS Host is not set. Use datahub init command or set {ENV_METADATA_HOST} env var"
         )
