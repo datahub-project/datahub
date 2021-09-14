@@ -53,7 +53,6 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
     // Chart 1:  Time Series Chart
     String wauTitle = "Weekly Active Users";
     DateInterval weeklyInterval = DateInterval.WEEK;
-    String eventType = "SearchEvent";
 
     final List<NamedLine> wauTimeseries =
         _analyticsService.getTimeseriesChart(AnalyticsService.DATAHUB_USAGE_EVENT_INDEX, dateRange, weeklyInterval,
