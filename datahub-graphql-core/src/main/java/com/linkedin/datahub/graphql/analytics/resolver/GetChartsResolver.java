@@ -51,53 +51,68 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
         new DateRange(String.valueOf(startDate.getMillis()), String.valueOf(endDate.getMillis()));
 
     // Chart 1:  Time Series Chart
-    String title = "Searches Last Week";
-    DateInterval granularity = DateInterval.DAY;
+    String wauTitle = "Weekly Active Users";
+    DateInterval weeklyInterval = DateInterval.WEEK;
     String eventType = "SearchEvent";
 
-    final List<NamedLine> searchesTimeseries =
-        _analyticsService.getTimeseriesChart(AnalyticsService.DATAHUB_USAGE_EVENT_INDEX, dateRange, granularity,
-            Optional.empty(), ImmutableMap.of("type", ImmutableList.of("SearchEvent")), Optional.empty());
+    final List<NamedLine> wauTimeseries =
+        _analyticsService.getTimeseriesChart(AnalyticsService.DATAHUB_USAGE_EVENT_INDEX, dateRange, weeklyInterval,
+            Optional.empty(), ImmutableMap.of(), Optional.of("browserId"));
     charts.add(TimeSeriesChart.builder()
-        .setTitle(title)
+        .setTitle(wauTitle)
         .setDateRange(dateRange)
-        .setInterval(granularity)
+        .setInterval(weeklyInterval)
+        .setLines(wauTimeseries)
+        .build());
+
+    // Chart 2:  Time Series Chart
+    String searchesTitle = "Searches Last Week";
+    DateInterval dailyInterval = DateInterval.DAY;
+    String searchEventType = "SearchEvent";
+
+    final List<NamedLine> searchesTimeseries =
+        _analyticsService.getTimeseriesChart(AnalyticsService.DATAHUB_USAGE_EVENT_INDEX, dateRange, dailyInterval,
+            Optional.empty(), ImmutableMap.of("type", ImmutableList.of(searchEventType)), Optional.empty());
+    charts.add(TimeSeriesChart.builder()
+        .setTitle(searchesTitle)
+        .setDateRange(dateRange)
+        .setInterval(dailyInterval)
         .setLines(searchesTimeseries)
         .build());
 
-    // Chart 2: Table Chart
-    final String title2 = "Top Search Queries";
+    // Chart 3: Table Chart
+    final String topSearchTitle = "Top Search Queries";
     final List<String> columns = ImmutableList.of("Query", "Count");
 
     final List<Row> topSearchQueries =
         _analyticsService.getTopNTableChart(AnalyticsService.DATAHUB_USAGE_EVENT_INDEX, Optional.of(dateRange),
-            "query.keyword", ImmutableMap.of("type", ImmutableList.of(eventType)), Optional.empty(), 10);
-    charts.add(TableChart.builder().setTitle(title2).setColumns(columns).setRows(topSearchQueries).build());
+            "query.keyword", ImmutableMap.of("type", ImmutableList.of(searchEventType)), Optional.empty(), 10);
+    charts.add(TableChart.builder().setTitle(topSearchTitle).setColumns(columns).setRows(topSearchQueries).build());
 
-    // Chart 3: Bar Graph Chart
-    final String title3 = "Section Views across Entity Types";
+    // Chart 4: Bar Graph Chart
+    final String sectionViewsTitle = "Section Views across Entity Types";
     final List<NamedBar> sectionViewsPerEntityType =
         _analyticsService.getBarChart(AnalyticsService.DATAHUB_USAGE_EVENT_INDEX, Optional.of(dateRange),
             ImmutableList.of("entityType.keyword", "section.keyword"),
             ImmutableMap.of("type", ImmutableList.of("EntitySectionViewEvent")), Optional.empty());
-    charts.add(BarChart.builder().setTitle(title3).setBars(sectionViewsPerEntityType).build());
+    charts.add(BarChart.builder().setTitle(sectionViewsTitle).setBars(sectionViewsPerEntityType).build());
 
-    // Chart 4: Bar Graph Chart
-    final String title4 = "Actions by Entity Type";
+    // Chart 5: Bar Graph Chart
+    final String actionsByTypeTitle = "Actions by Entity Type";
     final List<NamedBar> eventsByEventType =
         _analyticsService.getBarChart(AnalyticsService.DATAHUB_USAGE_EVENT_INDEX, Optional.of(dateRange),
             ImmutableList.of("entityType.keyword", "actionType.keyword"),
             ImmutableMap.of("type", ImmutableList.of("EntityActionEvent")), Optional.empty());
-    charts.add(BarChart.builder().setTitle(title4).setBars(eventsByEventType).build());
+    charts.add(BarChart.builder().setTitle(actionsByTypeTitle).setBars(eventsByEventType).build());
 
-    // Chart 5: Table Chart
-    final String title5 = "Top Viewed Dataset";
+    // Chart 6: Table Chart
+    final String topViewedTitle = "Top Viewed Dataset";
     final List<String> columns5 = ImmutableList.of("Dataset", "#Views");
 
     final List<Row> topViewedDatasets =
         _analyticsService.getTopNTableChart(AnalyticsService.DATAHUB_USAGE_EVENT_INDEX, Optional.of(dateRange),
             "dataset_name.keyword", ImmutableMap.of("type", ImmutableList.of("EntityViewEvent")), Optional.empty(), 10);
-    charts.add(TableChart.builder().setTitle(title5).setColumns(columns5).setRows(topViewedDatasets).build());
+    charts.add(TableChart.builder().setTitle(topViewedTitle).setColumns(columns5).setRows(topViewedDatasets).build());
     
     return charts;
   }
