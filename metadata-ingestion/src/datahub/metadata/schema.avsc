@@ -3045,6 +3045,22 @@
                                   "name": "globalTags",
                                   "default": null,
                                   "doc": "Tags associated with the field"
+                                },
+                                {
+                                  "Searchable": {
+                                    "/terms/*/urn": {
+                                      "boostScore": 0.5,
+                                      "fieldName": "editedFieldGlossaryTerms",
+                                      "fieldType": "URN_PARTIAL"
+                                    }
+                                  },
+                                  "type": [
+                                    "null",
+                                    "com.linkedin.pegasus2avro.common.GlossaryTerms"
+                                  ],
+                                  "name": "glossaryTerms",
+                                  "default": null,
+                                  "doc": "Glossary terms associated with the field"
                                 }
                               ],
                               "doc": "SchemaField to describe metadata related to dataset schema."

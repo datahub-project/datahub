@@ -35,7 +35,6 @@ import com.linkedin.timeseries.TimeWindowSize;
 import java.util.Calendar;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -50,6 +49,7 @@ import org.testng.annotations.AfterTest;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
+import static com.linkedin.metadata.ElasticSearchTestUtils.*;
 import static org.testng.Assert.*;
 
 
@@ -153,8 +153,8 @@ public class ElasticSearchTimeseriesAspectServiceTest {
   }
 
   @Test(groups = "upsert")
-  public void testUpsertProfiles() throws InterruptedException {
-    // Start time, normalized to the start of the day.
+  public void testUpsertProfiles() throws Exception {
+    // Create the testEntity profiles that we would like to use for testing.
     _startTime = Calendar.getInstance().getTimeInMillis();
     _startTime = _startTime - _startTime % 86400000;
     // Create the testEntity profiles that we would like to use for testing.
@@ -178,7 +178,7 @@ public class ElasticSearchTimeseriesAspectServiceTest {
       }
     });
 
-    TimeUnit.SECONDS.sleep(5);
+    syncAfterWrite(_searchClient);
   }
 
   /*

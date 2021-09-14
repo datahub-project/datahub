@@ -3,7 +3,7 @@ import { Link, useHistory, useLocation } from 'react-router-dom';
 import { Badge, Breadcrumb, Row } from 'antd';
 import styled from 'styled-components';
 import { InfoCircleOutlined, PartitionOutlined } from '@ant-design/icons';
-import { blue, grey } from '@ant-design/colors';
+import { grey, blue } from '@ant-design/colors';
 import { EntityType } from '../../../../../../types.generated';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import { PageRoutes } from '../../../../../../conf/Global';
@@ -43,10 +43,10 @@ const IconGroup = styled.div<{ isSelected: boolean; disabled: boolean }>`
         if (props.disabled) {
             return grey[2];
         }
-        return props.isSelected ? 'black' : grey[2];
+        return !props.isSelected ? 'black' : props.theme.styles['primary-color'] || blue[4];
     }};
     &:hover {
-        color: ${(props) => !props.disabled && (props.isSelected ? 'black' : blue[4])};
+        color: ${(props) => (props.disabled ? grey[2] : props.theme.styles['primary-color'] || blue[4])};
         cursor: ${(props) => (props.disabled ? 'not-allowed' : 'pointer')};
     }
 `;
@@ -122,7 +122,11 @@ export const ProfileNavBrowsePath = ({ type, path, upstreams, downstreams }: Pro
                     <IconGroup
                         disabled={!hasLineage}
                         isSelected={!isLineageMode}
-                        onClick={() => navigateToLineageUrl({ location, history, isLineageMode: false })}
+                        onClick={() => {
+                            if (hasLineage) {
+                                navigateToLineageUrl({ location, history, isLineageMode: false });
+                            }
+                        }}
                     >
                         <DetailIcon />
                         Details
@@ -130,7 +134,11 @@ export const ProfileNavBrowsePath = ({ type, path, upstreams, downstreams }: Pro
                     <IconGroup
                         disabled={!hasLineage}
                         isSelected={isLineageMode}
-                        onClick={() => navigateToLineageUrl({ location, history, isLineageMode: true })}
+                        onClick={() => {
+                            if (hasLineage) {
+                                navigateToLineageUrl({ location, history, isLineageMode: true });
+                            }
+                        }}
                     >
                         <LineageIcon />
                         Lineage

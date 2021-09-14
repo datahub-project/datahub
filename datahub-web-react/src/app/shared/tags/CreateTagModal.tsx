@@ -1,22 +1,17 @@
 import React, { useState } from 'react';
-import { FetchResult } from '@apollo/client';
-import { Button, Input, Modal, Space } from 'antd';
+import { message, Button, Input, Modal, Space } from 'antd';
 import styled from 'styled-components';
 
-import { UpdateDatasetMutation } from '../../../graphql/dataset.generated';
 import { useUpdateTagMutation } from '../../../graphql/tag.generated';
-import { GlobalTags, GlobalTagsUpdate, TagAssociationUpdate } from '../../../types.generated';
-import { convertTagsForUpdate } from './utils/convertTagsForUpdate';
+import { useAddTagMutation } from '../../../graphql/mutations.generated';
 
 type CreateTagModalProps = {
-    globalTags?: GlobalTags | null;
-    updateTags?: (
-        update: GlobalTagsUpdate,
-    ) => Promise<FetchResult<UpdateDatasetMutation, Record<string, any>, Record<string, any>>>;
     visible: boolean;
     onClose: () => void;
     onBack: () => void;
     tagName: string;
+    entityUrn: string;
+    entitySubresource?: string;
 };
 
 const FullWidthSpace = styled(Space)`
@@ -24,14 +19,15 @@ const FullWidthSpace = styled(Space)`
 `;
 
 export default function CreateTagModal({
-    updateTags,
-    globalTags,
     onClose,
     onBack,
     visible,
     tagName,
+    entityUrn,
+    entitySubresource,
 }: CreateTagModalProps) {
     const [stagedDescription, setStagedDescription] = useState('');
+    const [addTagMutation] = useAddTagMutation();
 
     const [updateTagMutation] = useUpdateTagMutation();
     const [disableCreate, setDisableCreate] = useState(false);
@@ -39,27 +35,37 @@ export default function CreateTagModal({
     const onOk = () => {
         setDisableCreate(true);
         // first create the new tag
+        const tagUrn = `urn:li:tag:${tagName}`;
         updateTagMutation({
             variables: {
                 input: {
-                    urn: `urn:li:tag:${tagName}`,
+                    urn: tagUrn,
                     name: tagName,
                     description: stagedDescription,
                 },
             },
-        }).then(() => {
-            // then apply the tag to the dataset
-            updateTags?.({
-                tags: [
-                    ...convertTagsForUpdate(globalTags?.tags || []),
-                    { tag: { urn: `urn:li:tag:${tagName}`, name: tagName } },
-                ] as TagAssociationUpdate[],
-            }).finally(() => {
-                // and finally close the modal
-                setDisableCreate(false);
+        })
+            .then(() => {
+                // then apply the tag to the dataset
+                addTagMutation({
+                    variables: {
+                        input: {
+                            tagUrn,
+                            targetUrn: entityUrn,
+                            subResource: entitySubresource,
+                        },
+                    },
+                }).finally(() => {
+                    // and finally close the modal
+                    setDisableCreate(false);
+                    onClose();
+                });
+            })
+            .catch((e) => {
+                message.destroy();
+                message.error({ content: `Failed to remove term: \n ${e.message || ''}`, duration: 3 });
                 onClose();
             });
-        });
     };
 
     return (

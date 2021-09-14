@@ -1,0 +1,279 @@
+[
+  {
+    "urn": "urn:li:dataPlatform:adlsGen1",
+    "aspect": {
+      "datasetNameDelimiter": "/",
+      "name": "adlsGen1",
+      "displayName": "Azure Data Lake (Gen 1)",
+      "type": "FILE_SYSTEM",
+      "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/adlslogo.png"
+    }
+  },
+  {
+    "urn": "urn:li:dataPlatform:adlsGen2",
+    "aspect": {
+      "datasetNameDelimiter": "/",
+      "name": "adlsGen2",
+      "displayName": "Azure Data Lake (Gen 2)",
+      "type": "FILE_SYSTEM",
+      "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/adlslogo.png"
+    }
+  },
+  {
+    "urn": "urn:li:dataPlatform:ambry",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "ambry",
+      "displayName": "Ambry",
+      "type": "OBJECT_STORE"
+    }
+  },
+  {
+    "urn": "urn:li:dataPlatform:couchbase",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "couchbase",
+      "displayName": "Couchbase",
+      "type": "KEY_VALUE_STORE",
+      "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/couchbaselogo.png"
+    }
+  },
+  {
+    "urn": "urn:li:dataPlatform:external",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "external",
+      "displayName": "External Source",
+      "type": "OTHERS"
+    }
+  },
+  {
+    "urn": "urn:li:dataPlatform:hdfs",
+    "aspect": {
+      "datasetNameDelimiter": "/",
+      "name": "hdfs",
+      "displayName": "HDFS",
+      "type": "FILE_SYSTEM",
+      "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/hadooplogo.png"
+    }
+  },
+  {
+    "urn": "urn:li:dataPlatform:hive",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "hive",
+      "displayName": "Hive",
+      "type": "FILE_SYSTEM",
+      "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/hivelogo.png"
+    }
+  },
+  {
+    "urn": "urn:li:dataPlatform:s3",
+    "aspect": {
+      "datasetNameDelimiter": "/",
+      "name": "s3",
+      "displayName": "AWS S3",
+      "type": "FILE_SYSTEM",
+      "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/s3.png"
+    }
+  },
+  {
+    "urn": "urn:li:dataPlatform:kafka",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "kafka",
+      "displayName": "Kafka",
+      "type": "MESSAGE_BROKER",
+      "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/kafkalogo.png"
+    }
+  },
+  {
+    "urn": "urn:li:dataPlatform:kusto",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "kusto",
+      "displayName": "Kusto",
+      "type": "OLAP_DATASTORE",
+      "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/kustologo.png"
+    }
+  },
+  {
+    "urn": "urn:li:dataPlatform:mongodb",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "mongodb",
+      "displayName": "MongoDB",
+      "type": "KEY_VALUE_STORE",
+      "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/mongodblogo.png"
+    }
+  },
+  {
+    "urn": "urn:li:dataPlatform:mysql",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "mysql",
+      "displayName": "MySQL",
+      "type": "RELATIONAL_DB",
+      "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/mysqllogo.png"
+    }
+  },
+  {
+    "urn": "urn:li:dataPlatform:oracle",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "oracle",
+      "displayName": "Oracle",
+      "type": "RELATIONAL_DB",
+      "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/oraclelogo.png"
+    }
+  },
+  {
+    "urn": "urn:li:dataPlatform:pinot",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "pinot",
+      "displayName": "Pinot",
+      "type": "OLAP_DATASTORE",
+      "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/pinotlogo.png"
+    }
+  },
+  {
+    "urn": "urn:li:dataPlatform:postgres",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "postgres",
+      "displayName": "PostgreSQL",
+      "type": "RELATIONAL_DB",
+      "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/postgreslogo.png"
+    }
+  },
+  {
+    "urn": "urn:li:dataPlatform:presto",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "presto",
+      "displayName": "Presto",
+      "type": "QUERY_ENGINE",
+      "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/prestologo.png"
+    }
+  },
+  {
+    "urn": "urn:li:dataPlatform:teradata",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "teradata",
+      "displayName": "Teradata",
+      "type": "RELATIONAL_DB",
+      "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/teradatalogo.png"
+    }
+  },
+  {
+    "urn": "urn:li:dataPlatform:voldemort",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "voldemort",
+      "displayName": "Voldemort",
+      "type": "KEY_VALUE_STORE"
+    }
+  },
+  {
+    "urn": "urn:li:dataPlatform:snowflake",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "snowflake",
+      "displayName": "Snowflake",
+      "type": "RELATIONAL_DB",
+      "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/snowflakelogo.png"
+    }
+  },
+  {
+    "urn": "urn:li:dataPlatform:redshift",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "redshift",
+      "displayName": "Redshift",
+      "type": "RELATIONAL_DB",
+      "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/redshiftlogo.png"
+    }
+  },
+  {
+    "urn": "urn:li:dataPlatform:mssql",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "mssql",
+      "displayName": "SQL Server",
+      "type": "RELATIONAL_DB",
+      "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/mssqllogo.png"
+    }
+  },
+  {
+    "urn": "urn:li:dataPlatform:bigquery",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "bigquery",
+      "displayName": "BigQuery",
+      "type": "RELATIONAL_DB",
+      "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/bigquerylogo.png"
+    }
+  },
+  {
+    "urn": "urn:li:dataPlatform:druid",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "druid",
+      "displayName": "Druid",
+      "type": "OLAP_DATASTORE",
+      "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/druidlogo.png"
+    }
+  },
+  {
+    "urn": "urn:li:dataPlatform:looker",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "looker",
+      "displayName": "Looker",
+      "type": "OTHERS",
+      "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/lookerlogo.png"
+    }
+  },
+  {
+    "urn": "urn:li:dataPlatform:feast",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "feast",
+      "displayName": "Feast",
+      "type": "OTHERS",
+      "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/feastlogo.png"
+    }
+  },
+  {
+    "urn": "urn:li:dataPlatform:sagemaker",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "sagemaker",
+      "displayName": "SageMaker",
+      "type": "OTHERS",
+      "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/sagemakerlogo.png"
+    }
+  },
+  {
+    "urn": "urn:li:dataPlatform:glue",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "glue",
+      "displayName": "Glue",
+      "type": "OTHERS",
+      "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/gluelogo.png"
+    }
+  },
+  {
+    "urn": "urn:li:dataPlatform:redash",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "redash",
+      "displayName": "Redash",
+      "type": "OTHERS",
+      "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/redashlogo.png"
+    }
+  }
+]

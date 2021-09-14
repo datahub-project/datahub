@@ -8417,12 +8417,14 @@ class EditableSchemaFieldInfoClass(DictWrapper):
         fieldPath: str,
         description: Union[None, str]=None,
         globalTags: Union[None, "GlobalTagsClass"]=None,
+        glossaryTerms: Union[None, "GlossaryTermsClass"]=None,
     ):
         super().__init__()
         
         self.fieldPath = fieldPath
         self.description = description
         self.globalTags = globalTags
+        self.glossaryTerms = glossaryTerms
     
     @classmethod
     def construct_with_defaults(cls) -> "EditableSchemaFieldInfoClass":
@@ -8435,6 +8437,7 @@ class EditableSchemaFieldInfoClass(DictWrapper):
         self.fieldPath = str()
         self.description = self.RECORD_SCHEMA.field_map["description"].default
         self.globalTags = self.RECORD_SCHEMA.field_map["globalTags"].default
+        self.glossaryTerms = self.RECORD_SCHEMA.field_map["glossaryTerms"].default
     
     
     @property
@@ -8468,6 +8471,17 @@ class EditableSchemaFieldInfoClass(DictWrapper):
     def globalTags(self, value: Union[None, "GlobalTagsClass"]) -> None:
         """Setter: Tags associated with the field"""
         self._inner_dict['globalTags'] = value
+    
+    
+    @property
+    def glossaryTerms(self) -> Union[None, "GlossaryTermsClass"]:
+        """Getter: Glossary terms associated with the field"""
+        return self._inner_dict.get('glossaryTerms')  # type: ignore
+    
+    @glossaryTerms.setter
+    def glossaryTerms(self, value: Union[None, "GlossaryTermsClass"]) -> None:
+        """Setter: Glossary terms associated with the field"""
+        self._inner_dict['glossaryTerms'] = value
     
     
 class EditableSchemaMetadataClass(DictWrapper):
