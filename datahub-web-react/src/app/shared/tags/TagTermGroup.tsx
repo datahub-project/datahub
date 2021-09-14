@@ -38,6 +38,12 @@ const TagLink = styled(Link)`
     margin-bottom: 8px;
 `;
 
+const NoElementButton = styled(Button)`
+    :not(:last-child) {
+        margin-right: 8px;
+    }
+`;
+
 export default function TagTermGroup({
     uneditableTags,
     editableTags,
@@ -203,7 +209,7 @@ export default function TagTermGroup({
                 </Typography.Paragraph>
             )}
             {canAddTag && (uneditableTags?.tags?.length || 0) + (editableTags?.tags?.length || 0) < 10 && (
-                <Button
+                <NoElementButton
                     type={showEmptyMessage && tagsEmpty ? 'default' : 'text'}
                     onClick={() => {
                         setAddModalType(EntityType.Tag);
@@ -213,11 +219,11 @@ export default function TagTermGroup({
                 >
                     <PlusOutlined />
                     Add Tag
-                </Button>
+                </NoElementButton>
             )}
             {canAddTerm &&
                 (uneditableGlossaryTerms?.terms?.length || 0) + (editableGlossaryTerms?.terms?.length || 0) < 10 && (
-                    <Button
+                    <NoElementButton
                         type={showEmptyMessage && tagsEmpty ? 'default' : 'text'}
                         onClick={() => {
                             setAddModalType(EntityType.GlossaryTerm);
@@ -227,7 +233,7 @@ export default function TagTermGroup({
                     >
                         <PlusOutlined />
                         Add Term
-                    </Button>
+                    </NoElementButton>
                 )}
             {showAddModal && !!entityUrn && !!entityType && (
                 <AddTagTermModal
