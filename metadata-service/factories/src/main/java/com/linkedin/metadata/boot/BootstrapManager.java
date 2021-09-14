@@ -22,7 +22,7 @@ public class BootstrapManager {
     // Once the application has been set up, apply boot steps.
     log.info("Starting Bootstrap Process...");
     for (int i = 0; i < _bootSteps.size(); i++) {
-      log.info(String.format("Executing Bootstrap Step %s/%s...", i, _bootSteps.size()));
+      log.info(String.format("Executing Bootstrap Step %s/%s...", i+1, _bootSteps.size()));
       final BootstrapStep step = _bootSteps.get(i);
       try {
         step.execute();
