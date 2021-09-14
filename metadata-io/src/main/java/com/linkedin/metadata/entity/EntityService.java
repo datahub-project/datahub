@@ -18,6 +18,7 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntityKeyUtils;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.processor.ChangeStreamProcessor;
 import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.mxe.MetadataAuditOperation;
@@ -80,13 +81,17 @@ public abstract class EntityService {
   private final EntityEventProducer _producer;
   private final EntityRegistry _entityRegistry;
   private final Map<String, Set<String>> _entityToValidAspects;
+  private final ChangeStreamProcessor _changeStreamProcessor;
   private Boolean _emitAspectSpecificAuditEvent = false;
   public static final String DEFAULT_RUN_ID = "no-run-id-provided";
 
-  protected EntityService(@Nonnull final EntityEventProducer producer, @Nonnull final EntityRegistry entityRegistry) {
+  protected EntityService(@Nonnull final EntityEventProducer producer,
+                          @Nonnull final EntityRegistry entityRegistry,
+                          @Nonnull final ChangeStreamProcessor changeStreamProcessor) {
     _producer = producer;
     _entityRegistry = entityRegistry;
     _entityToValidAspects = buildEntityToValidAspects(entityRegistry);
+    _changeStreamProcessor = changeStreamProcessor;
   }
 
   /**
