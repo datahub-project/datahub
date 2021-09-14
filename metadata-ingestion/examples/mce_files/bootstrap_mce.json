@@ -745,6 +745,18 @@
                   },
                   "nativeDataType": "boolean",
                   "recursive": false
+                },
+                {
+                  "fieldPath": "browser",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                  },
+                  "nativeDataType": "string",
+                  "recursive": false
                 }
               ],
               "primaryKeys": null,

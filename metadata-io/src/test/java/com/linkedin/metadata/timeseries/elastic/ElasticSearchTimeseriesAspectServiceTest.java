@@ -18,7 +18,6 @@ import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import java.util.Calendar;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -35,6 +34,7 @@ import org.testng.annotations.Test;
 
 import static org.testng.Assert.*;
 
+import static com.linkedin.metadata.ElasticSearchTestUtils.syncAfterWrite;
 
 public class ElasticSearchTimeseriesAspectServiceTest {
 
@@ -122,7 +122,7 @@ public class ElasticSearchTimeseriesAspectServiceTest {
   }
 
   @Test(groups = "upsert")
-  public void testUpsertProfiles() throws InterruptedException {
+  public void testUpsertProfiles() throws Exception {
     // Create the testEntity profiles that we would like to use for testing.
     _startTime = Calendar.getInstance().getTimeInMillis();
 
@@ -146,7 +146,7 @@ public class ElasticSearchTimeseriesAspectServiceTest {
       }
     });
 
-    TimeUnit.SECONDS.sleep(5);
+    syncAfterWrite(_searchClient);
   }
 
   @Test(groups = "query", dependsOnGroups = "upsert")
