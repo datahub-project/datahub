@@ -42,6 +42,8 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
 
     getCollectionName = () => 'Business Glossary';
 
+    getEntityName = () => 'Glossary Term';
+
     renderProfile: (urn: string) => JSX.Element = (_) => <GlossaryTermProfile />;
 
     renderSearch = (result: SearchResult) => {

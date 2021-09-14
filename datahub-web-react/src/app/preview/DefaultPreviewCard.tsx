@@ -125,7 +125,7 @@ export default function DefaultPreviewCard({
                             <EntityTitle>{name || ' '}</EntityTitle>
                         </Link>
                         <TagContainer>
-                            <TagTermGroup glossaryTerms={glossaryTerms} editableTags={tags} maxShow={3} />
+                            <TagTermGroup uneditableGlossaryTerms={glossaryTerms} uneditableTags={tags} maxShow={3} />
                         </TagContainer>
                     </TitleContainer>
                 </Link>

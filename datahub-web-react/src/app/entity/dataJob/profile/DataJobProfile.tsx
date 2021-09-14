@@ -23,7 +23,7 @@ const ENABLED_TAB_TYPES = [TabType.Ownership, TabType.Properties];
  */
 export const DataJobProfile = ({ urn }: { urn: string }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
-    const { loading, error, data } = useGetDataJobQuery({ variables: { urn } });
+    const { loading, error, data, refetch } = useGetDataJobQuery({ variables: { urn } });
     const [updateDataJob] = useUpdateDataJobMutation({
         refetchQueries: () => ['getDataJob'],
         onError: (e) => {
@@ -75,17 +75,11 @@ export const DataJobProfile = ({ urn }: { urn: string }): JSX.Element => {
                     tags={
                         <TagTermGroup
                             editableTags={data.dataJob?.globalTags as GlobalTags}
-                            canAdd
+                            canAddTag
+                            entityUrn={urn}
+                            refetch={refetch}
+                            entityType={EntityType.DataJob}
                             canRemove
-                            updateTags={(globalTags) => {
-                                analytics.event({
-                                    type: EventType.EntityActionEvent,
-                                    actionType: EntityActionType.UpdateTags,
-                                    entityType: EntityType.DataJob,
-                                    entityUrn: urn,
-                                });
-                                return updateDataJob({ variables: { input: { urn, globalTags } } });
-                            }}
                         />
                     }
                     titleLink={`/${entityRegistry.getPathName(EntityType.DataJob)}/${urn}`}

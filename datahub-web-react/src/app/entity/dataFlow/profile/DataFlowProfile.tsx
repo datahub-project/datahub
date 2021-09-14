@@ -22,7 +22,7 @@ export const DataFlowProfile = ({ urn }: { urn: string }): JSX.Element => {
         Ownership: 'Ownership',
         Properties: 'Properties',
     };
-    const { loading, error, data } = useGetDataFlowQuery({ variables: { urn } });
+    const { loading, error, data, refetch } = useGetDataFlowQuery({ variables: { urn } });
     const [updateDataFlow] = useUpdateDataFlowMutation({
         refetchQueries: () => ['getDataFlow'],
         onError: (e) => {
@@ -79,17 +79,11 @@ export const DataFlowProfile = ({ urn }: { urn: string }): JSX.Element => {
                     tags={
                         <TagTermGroup
                             editableTags={data.dataFlow?.globalTags as GlobalTags}
-                            canAdd
+                            canAddTag
                             canRemove
-                            updateTags={(globalTags) => {
-                                analytics.event({
-                                    type: EventType.EntityActionEvent,
-                                    actionType: EntityActionType.UpdateTags,
-                                    entityType: EntityType.DataFlow,
-                                    entityUrn: urn,
-                                });
-                                return updateDataFlow({ variables: { input: { urn, globalTags } } });
-                            }}
+                            entityUrn={urn}
+                            entityType={EntityType.DataFlow}
+                            refetch={refetch}
                         />
                     }
                     titleLink={`/${entityRegistry.getPathName(EntityType.DataFlow)}/${urn}`}

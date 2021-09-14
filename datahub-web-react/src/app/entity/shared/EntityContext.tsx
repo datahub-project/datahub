@@ -9,6 +9,7 @@ const EntityContext = React.createContext<EntityContextType>({
     baseEntity: null,
     updateEntity: () => Promise.resolve({}),
     routeToTab: () => {},
+    refetch: () => Promise.resolve({}),
 });
 
 export default EntityContext;
@@ -31,4 +32,9 @@ export const useEntityData = () => {
 export const useRouteToTab = () => {
     const { routeToTab } = useContext(EntityContext);
     return routeToTab;
+};
+
+export const useRefetch = () => {
+    const { refetch } = useContext(EntityContext);
+    return refetch;
 };

@@ -1,6 +1,7 @@
 namespace com.linkedin.schema
 
 import com.linkedin.common.GlobalTags
+import com.linkedin.common.GlossaryTerms
 
 /**
  * SchemaField to describe metadata related to dataset schema.
@@ -32,4 +33,16 @@ record EditableSchemaFieldInfo {
     }
   }
   globalTags: optional GlobalTags
+
+  /**
+   * Glossary terms associated with the field
+   */
+   @Searchable = {
+    "/terms/*/urn": {
+      "fieldName": "editedFieldGlossaryTerms",
+      "fieldType": "URN_PARTIAL",
+      "boostScore": 0.5
+    }
+  }
+  glossaryTerms: optional GlossaryTerms
 }
