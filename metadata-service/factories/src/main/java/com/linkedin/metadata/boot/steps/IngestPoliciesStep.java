@@ -92,7 +92,8 @@ public class IngestPoliciesStep implements BootstrapStep {
   }
 
   private boolean hasDefaultPolicies() throws URISyntaxException {
-    // If there are already default policies, denoted by presence of policy 0, don't ingest bootstrap policies. This will retain any changes made to policies.
+    // If there are already default policies, denoted by presence of policy 0, don't ingest bootstrap policies.
+    // This will retain any changes made to policies after initial bootstrap.
     final Urn defaultPolicyUrn = Urn.createFromString("urn:li:dataHubPolicy:0");
     RecordTemplate aspect = _entityService.getAspect(defaultPolicyUrn, POLICY_INFO_ASPECT_NAME, 0);
     return aspect != null;
