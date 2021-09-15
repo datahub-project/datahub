@@ -10,7 +10,7 @@ record SearchResult {
   /**
    * A list of entities returned from the search results
    */
-  entities: array[Urn]
+  entities: array[SearchEntity]
 
   /**
    * Metadata specific to the browse result of the queried path
