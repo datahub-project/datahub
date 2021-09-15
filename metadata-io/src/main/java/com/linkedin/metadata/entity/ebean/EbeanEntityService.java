@@ -47,9 +47,7 @@ import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 
 import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.entity.ebean.EbeanUtils.parseSystemMetadata;
-import static com.linkedin.metadata.entity.ebean.EbeanUtils.toAspectRecord;
-import static com.linkedin.metadata.entity.ebean.EbeanUtils.toJsonAspect;
+import static com.linkedin.metadata.entity.ebean.EbeanUtils.*;
 
 
 /**
@@ -73,8 +71,7 @@ public class EbeanEntityService extends EntityService {
 
   @Override
   @Nonnull
-  public Map<Urn, List<RecordTemplate>> getLatestAspects(
-      @Nonnull final Set<Urn> urns,
+  public Map<Urn, List<RecordTemplate>> getLatestAspects(@Nonnull final Set<Urn> urns,
       @Nonnull final Set<String> aspectNames) {
 
     log.debug(String.format("Invoked getLatestAspects with urns: %s, aspectNames: %s", urns, aspectNames));
@@ -174,17 +171,15 @@ public class EbeanEntityService extends EntityService {
 
   @Override
   @Nonnull
-  public ListResult<RecordTemplate> listLatestAspects(
-      @Nonnull final String entityName,
-      @Nonnull final String aspectName,
-      final int start,
-      final int count) {
+  public ListResult<RecordTemplate> listLatestAspects(@Nonnull final String entityName,
+      @Nonnull final String aspectName, final int start, final int count) {
 
     log.debug(
         String.format("Invoked listLatestAspects with entityName: %s, aspectName: %s, start: %s, count: %s", entityName,
             aspectName, start, count));
 
-    final ListResult<String> aspectMetadataList = _entityDao.listLatestAspectMetadata(entityName, aspectName, start, count);
+    final ListResult<String> aspectMetadataList =
+        _entityDao.listLatestAspectMetadata(entityName, aspectName, start, count);
 
     final List<RecordTemplate> aspects = new ArrayList<>();
     for (int i = 0; i < aspectMetadataList.getValues().size(); i++) {
@@ -368,8 +363,9 @@ public class EbeanEntityService extends EntityService {
     AspectSpec aspectSpec = entitySpec.getAspectSpec(metadataChangeProposal.getAspectName());
 
     if (aspectSpec == null) {
-      throw new RuntimeException(String.format("Unknown aspect {} for entity {}", metadataChangeProposal.getAspectName(),
-          metadataChangeProposal.getEntityType()));
+      throw new RuntimeException(
+          String.format("Unknown aspect {} for entity {}", metadataChangeProposal.getAspectName(),
+              metadataChangeProposal.getEntityType()));
     }
 
     log.debug("aspect spec = {}", aspectSpec);
@@ -379,8 +375,9 @@ public class EbeanEntityService extends EntityService {
       aspect = GenericAspectUtils.deserializeAspect(metadataChangeProposal.getAspect().getValue(),
           metadataChangeProposal.getAspect().getContentType(), aspectSpec);
     } catch (ModelConversionException e) {
-      throw new RuntimeException(String.format("Could not deserialize {} for aspect {}", metadataChangeProposal.getAspect().getValue(),
-          metadataChangeProposal.getAspectName()));
+      throw new RuntimeException(
+          String.format("Could not deserialize {} for aspect {}", metadataChangeProposal.getAspect().getValue(),
+              metadataChangeProposal.getAspectName()));
     }
     log.debug("aspect = {}", aspect);
 
@@ -426,8 +423,8 @@ public class EbeanEntityService extends EntityService {
         metadataChangeLog.setSystemMetadata(newSystemMetadata);
       }
 
-      log.debug(String.format("Serialized MCL event: %s", metadataChangeLog.toString()));
-      // Since only temporal aspect are ingested as of now, simply produce mae event for it
+      log.debug(String.format("Serialized MCL event: %s", metadataChangeLog));
+      // Since only timeseries aspects are ingested as of now, simply produce mae event for it
       produceMetadataChangeLog(entityUrn, aspectSpec, metadataChangeLog);
     } else {
       log.debug(
@@ -436,16 +433,6 @@ public class EbeanEntityService extends EntityService {
     }
 
     return entityUrn;
-  }
-
-  @Value
-  private static class UpdateAspectResult {
-    Urn urn;
-    RecordTemplate oldValue;
-    RecordTemplate newValue;
-    SystemMetadata oldSystemMetadata;
-    SystemMetadata newSystemMetadata;
-    MetadataAuditOperation operation;
   }
 
   public RollbackResult deleteAspect(String urn, String aspectName, String runId) {
@@ -602,10 +589,21 @@ public class EbeanEntityService extends EntityService {
       try {
         entityUrns.add(Urn.createFromString(urn));
       } catch (URISyntaxException e) {
-        throw new IllegalArgumentException(String.format("Failed to convert urn %s found in db to Urn object.", urn), e);
+        throw new IllegalArgumentException(String.format("Failed to convert urn %s found in db to Urn object.", urn),
+            e);
       }
     }
     result.setEntities(entityUrns);
     return result;
+  }
+
+  @Value
+  private static class UpdateAspectResult {
+    Urn urn;
+    RecordTemplate oldValue;
+    RecordTemplate newValue;
+    SystemMetadata oldSystemMetadata;
+    SystemMetadata newSystemMetadata;
+    MetadataAuditOperation operation;
   }
 }
