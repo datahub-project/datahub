@@ -9,14 +9,14 @@ public class DatastaxAspect {
   private String aspect;
   private long version;
   private String metadata;
-  private String systemmetadata;
-  private Timestamp createdon;
-  private String createdby;
+  private String systemMetadata;
+  private Timestamp createdOn;
+  private String createdBy;
   private String createdfor;
 
   public String toString() {
     return String.format("urn: %s, aspect: %s, version: %s, metadata: %s, createdon: %s, createdby: %s, createdfor: %s, systemmetadata: %s",
-                         urn, aspect, version, metadata, createdon, createdby, createdfor, systemmetadata
+                         urn, aspect, version, metadata, createdOn, createdBy, createdfor, systemMetadata
                   );
   }
 
@@ -63,15 +63,22 @@ public class DatastaxAspect {
     return new PrimaryKey(this.urn, this.aspect, this.version);
   }
 
-  public DatastaxAspect(String _urn, String _aspect, long _version, String _metadata, String _systemmetadata, Timestamp _createdon, String _createdby, String _createdfor) {
-    urn = _urn;
-    aspect = _aspect;
-    version = _version;
-    metadata = _metadata;
-    systemmetadata = _systemmetadata;
-    createdon = _createdon;
-    createdby = _createdby;
-    createdfor = _createdfor;
+  public DatastaxAspect(String urn,
+                        String aspect,
+                        long version,
+                        String metadata,
+                        String systemMetadata,
+                        Timestamp createdOn,
+                        String createdBy,
+                        String createdFor) {
+    this.urn = urn;
+    this.aspect = aspect;
+    this.version = version;
+    this.metadata = metadata;
+    this.systemMetadata = systemMetadata;
+    this.createdOn = createdOn;
+    this.createdBy = createdBy;
+    createdfor = createdFor;
   }
 
   public String getCreatedfor() {
@@ -81,7 +88,6 @@ public class DatastaxAspect {
   public void setCreatedfor(String createdfor) {
     this.createdfor = createdfor;
   }
-
 
   public String getAspect() {
     return aspect;
@@ -107,28 +113,28 @@ public class DatastaxAspect {
     this.metadata = metadata;
   }
 
-  public String getSystemmetadata() {
-    return systemmetadata;
+  public String getSystemMetadata() {
+    return systemMetadata;
   }
 
-  public void setSystemmetadata(String systemmetadata) {
-    this.systemmetadata = systemmetadata;
+  public void setSystemMetadata(String systemMetadata) {
+    this.systemMetadata = systemMetadata;
   }
 
-  public Timestamp getCreatedon() {
-    return createdon;
+  public Timestamp getCreatedOn() {
+    return createdOn;
   }
 
-  public void setCreatedon(Timestamp createdon) {
-    this.createdon = createdon;
+  public void setCreatedOn(Timestamp createdOn) {
+    this.createdOn = createdOn;
   }
 
-  public String getCreatedby() {
-    return createdby;
+  public String getCreatedBy() {
+    return createdBy;
   }
 
-  public void setCreatedby(String createdby) {
-    this.createdby = createdby;
+  public void setCreatedBy(String createdBy) {
+    this.createdBy = createdBy;
   }
 
   public String getUrn() {

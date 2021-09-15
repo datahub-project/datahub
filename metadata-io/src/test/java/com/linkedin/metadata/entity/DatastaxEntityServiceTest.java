@@ -15,7 +15,7 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.dataset.DatasetProfile;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.identity.CorpUserInfo;
-import com.linkedin.metadata.PegasusUtils;
+import com.linkedin.metadata.utils.PegasusUtils;
 import com.linkedin.metadata.aspect.Aspect;
 import com.linkedin.metadata.aspect.CorpUserAspect;
 import com.linkedin.metadata.aspect.CorpUserAspectArray;
@@ -95,11 +95,23 @@ public class DatastaxEntityServiceTest {
     final String keyspaceName = "test";
     final String tableName = "metadata_aspect_v2";
 
-    try(Session session = cluster.connect()) {
+    try (Session session = cluster.connect()) {
 
-      session.execute(String.format("CREATE KEYSPACE IF NOT EXISTS %s WITH replication = \n" +
-                                    "{'class':'SimpleStrategy','replication_factor':'1'};", keyspaceName));
-      session.execute(String.format("create table %s.%s (urn varchar, aspect varchar, systemmetadata varchar, version bigint, metadata text, createdon timestamp, createdby varchar, createdfor varchar, entity varchar, PRIMARY KEY (urn,aspect,version));", keyspaceName, tableName));
+      session.execute(String.format("CREATE KEYSPACE IF NOT EXISTS %s WITH replication = \n"
+              + "{'class':'SimpleStrategy','replication_factor':'1'};", keyspaceName));
+      session.execute(
+              String.format("create table %s.%s (urn varchar, \n"
+                      + "aspect varchar, \n"
+                      + "systemmetadata varchar, \n"
+                      + "version bigint, \n"
+                      + "metadata text, \n"
+                      + "createdon timestamp, \n"
+                      + "createdby varchar, \n"
+                      + "createdfor varchar, \n"
+                      + "entity varchar, \n"
+                      + "PRIMARY KEY (urn,aspect,version));",
+              keyspaceName,
+              tableName));
 
       List<KeyspaceMetadata> keyspaces = session.getCluster().getMetadata().getKeyspaces();
                 List<KeyspaceMetadata> filteredKeyspaces = keyspaces
@@ -272,8 +284,8 @@ public class DatastaxEntityServiceTest {
     DatastaxAspect readEbean2 = _aspectDao.getAspect(entityUrn.toString(), aspectName, 0);
 
     assertTrue(DataTemplateUtil.areEqual(writeAspect2, readAspect2));
-    assertTrue(DataTemplateUtil.areEqual(EbeanUtils.parseSystemMetadata(readEbean2.getSystemmetadata()), metadata2));
-    assertTrue(DataTemplateUtil.areEqual(EbeanUtils.parseSystemMetadata(readEbean1.getSystemmetadata()), metadata1));
+    assertTrue(DataTemplateUtil.areEqual(EbeanUtils.parseSystemMetadata(readEbean2.getSystemMetadata()), metadata2));
+    assertTrue(DataTemplateUtil.areEqual(EbeanUtils.parseSystemMetadata(readEbean1.getSystemMetadata()), metadata1));
 
     verify(_mockProducer, times(1)).produceMetadataAuditEvent(Mockito.eq(entityUrn), Mockito.eq(null), Mockito.any(),
         Mockito.any(), Mockito.any(), Mockito.eq(MetadataAuditOperation.UPDATE));
@@ -314,14 +326,14 @@ public class DatastaxEntityServiceTest {
     DatastaxAspect readEbean2 = _aspectDao.getAspect(entityUrn.toString(), aspectName, 0);
 
     assertTrue(DataTemplateUtil.areEqual(writeAspect2, readAspect2));
-    assertFalse(DataTemplateUtil.areEqual(EbeanUtils.parseSystemMetadata(readEbean2.getSystemmetadata()), metadata2));
-    assertFalse(DataTemplateUtil.areEqual(EbeanUtils.parseSystemMetadata(readEbean2.getSystemmetadata()), metadata1));
+    assertFalse(DataTemplateUtil.areEqual(EbeanUtils.parseSystemMetadata(readEbean2.getSystemMetadata()), metadata2));
+    assertFalse(DataTemplateUtil.areEqual(EbeanUtils.parseSystemMetadata(readEbean2.getSystemMetadata()), metadata1));
 
     SystemMetadata metadata3 = new SystemMetadata();
     metadata3.setLastObserved(1635792689);
     metadata3.setRunId("run-123");
 
-    assertTrue(DataTemplateUtil.areEqual(EbeanUtils.parseSystemMetadata(readEbean2.getSystemmetadata()), metadata3));
+    assertTrue(DataTemplateUtil.areEqual(EbeanUtils.parseSystemMetadata(readEbean2.getSystemMetadata()), metadata3));
 
     verify(_mockProducer, times(1)).produceMetadataAuditEvent(Mockito.eq(entityUrn), Mockito.eq(null), Mockito.any(),
         Mockito.any(), Mockito.any(), Mockito.eq(MetadataAuditOperation.UPDATE));
@@ -367,23 +379,23 @@ public class DatastaxEntityServiceTest {
 
     // Order not guaranteed since we aren't sorting anymore
     assertTrue(
-               DataTemplateUtil.areEqual(writeAspect1, batch1.getValues().get(0)) || 
-               DataTemplateUtil.areEqual(writeAspect2, batch1.getValues().get(0)) || 
-               DataTemplateUtil.areEqual(writeAspect3, batch1.getValues().get(0))
+               DataTemplateUtil.areEqual(writeAspect1, batch1.getValues().get(0))
+               || DataTemplateUtil.areEqual(writeAspect2, batch1.getValues().get(0))
+               || DataTemplateUtil.areEqual(writeAspect3, batch1.getValues().get(0))
                );
 
     assertTrue(
-               DataTemplateUtil.areEqual(writeAspect1, batch1.getValues().get(1)) ||
-               DataTemplateUtil.areEqual(writeAspect2, batch1.getValues().get(1)) ||
-               DataTemplateUtil.areEqual(writeAspect3, batch1.getValues().get(1))
+               DataTemplateUtil.areEqual(writeAspect1, batch1.getValues().get(1))
+               || DataTemplateUtil.areEqual(writeAspect2, batch1.getValues().get(1))
+               || DataTemplateUtil.areEqual(writeAspect3, batch1.getValues().get(1))
                );
 
     ListResult<RecordTemplate> batch2 = _entityService.listLatestAspects(entityUrn1.getEntityType(), aspectName, 2, 2);
     assertEquals(1, batch2.getValues().size());
     assertTrue(
-               DataTemplateUtil.areEqual(writeAspect1, batch2.getValues().get(0)) ||
-               DataTemplateUtil.areEqual(writeAspect2, batch2.getValues().get(0)) ||
-               DataTemplateUtil.areEqual(writeAspect3, batch2.getValues().get(0))
+               DataTemplateUtil.areEqual(writeAspect1, batch2.getValues().get(0))
+               || DataTemplateUtil.areEqual(writeAspect2, batch2.getValues().get(0))
+               || DataTemplateUtil.areEqual(writeAspect3, batch2.getValues().get(0))
                );
   }
 
