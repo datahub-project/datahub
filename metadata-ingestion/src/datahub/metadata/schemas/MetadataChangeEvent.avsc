@@ -2998,6 +2998,22 @@
                                     "fieldType": "URN_PARTIAL"
                                   }
                                 }
+                              },
+                              {
+                                "name": "glossaryTerms",
+                                "type": [
+                                  "null",
+                                  "com.linkedin.pegasus2avro.common.GlossaryTerms"
+                                ],
+                                "doc": "Glossary terms associated with the field",
+                                "default": null,
+                                "Searchable": {
+                                  "/terms/*/urn": {
+                                    "boostScore": 0.5,
+                                    "fieldName": "editedFieldGlossaryTerms",
+                                    "fieldType": "URN_PARTIAL"
+                                  }
+                                }
                               }
                             ]
                           }

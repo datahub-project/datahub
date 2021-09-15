@@ -2808,6 +2808,53 @@ class DatasetFieldProfileClass(DictWrapper):
         self._inner_dict['sampleValues'] = value
     
     
+class DatasetFieldUsageCountsClass(DictWrapper):
+    """Records field-level usage counts for a given dataset"""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.dataset.DatasetFieldUsageCounts")
+    def __init__(self,
+        fieldPath: str,
+        count: int,
+    ):
+        super().__init__()
+        
+        self.fieldPath = fieldPath
+        self.count = count
+    
+    @classmethod
+    def construct_with_defaults(cls) -> "DatasetFieldUsageCountsClass":
+        self = cls.construct({})
+        self._restore_defaults()
+        
+        return self
+    
+    def _restore_defaults(self) -> None:
+        self.fieldPath = str()
+        self.count = int()
+    
+    
+    @property
+    def fieldPath(self) -> str:
+        """Getter: The name of the field."""
+        return self._inner_dict.get('fieldPath')  # type: ignore
+    
+    @fieldPath.setter
+    def fieldPath(self, value: str) -> None:
+        """Setter: The name of the field."""
+        self._inner_dict['fieldPath'] = value
+    
+    
+    @property
+    def count(self) -> int:
+        """Getter: Number of times the field has been used."""
+        return self._inner_dict.get('count')  # type: ignore
+    
+    @count.setter
+    def count(self, value: int) -> None:
+        """Setter: Number of times the field has been used."""
+        self._inner_dict['count'] = value
+    
+    
 class DatasetLineageTypeClass(object):
     """The various types of supported dataset lineage"""
     
@@ -2828,6 +2875,8 @@ class DatasetProfileClass(DictWrapper):
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.dataset.DatasetProfile")
     def __init__(self,
         timestampMillis: int,
+        eventGranularity: Union[None, "TimeWindowSizeClass"]=None,
+        partitionSpec: Union[None, "PartitionSpecClass"]=None,
         rowCount: Union[None, int]=None,
         columnCount: Union[None, int]=None,
         fieldProfiles: Union[None, List["DatasetFieldProfileClass"]]=None,
@@ -2835,6 +2884,8 @@ class DatasetProfileClass(DictWrapper):
         super().__init__()
         
         self.timestampMillis = timestampMillis
+        self.eventGranularity = eventGranularity
+        self.partitionSpec = partitionSpec
         self.rowCount = rowCount
         self.columnCount = columnCount
         self.fieldProfiles = fieldProfiles
@@ -2848,6 +2899,8 @@ class DatasetProfileClass(DictWrapper):
     
     def _restore_defaults(self) -> None:
         self.timestampMillis = int()
+        self.eventGranularity = self.RECORD_SCHEMA.field_map["eventGranularity"].default
+        self.partitionSpec = self.RECORD_SCHEMA.field_map["partitionSpec"].default
         self.rowCount = self.RECORD_SCHEMA.field_map["rowCount"].default
         self.columnCount = self.RECORD_SCHEMA.field_map["columnCount"].default
         self.fieldProfiles = self.RECORD_SCHEMA.field_map["fieldProfiles"].default
@@ -2855,13 +2908,35 @@ class DatasetProfileClass(DictWrapper):
     
     @property
     def timestampMillis(self) -> int:
-        # No docs available.
+        """Getter: The event timestamp field as epoch at UTC in milli seconds."""
         return self._inner_dict.get('timestampMillis')  # type: ignore
     
     @timestampMillis.setter
     def timestampMillis(self, value: int) -> None:
-        # No docs available.
+        """Setter: The event timestamp field as epoch at UTC in milli seconds."""
         self._inner_dict['timestampMillis'] = value
+    
+    
+    @property
+    def eventGranularity(self) -> Union[None, "TimeWindowSizeClass"]:
+        """Getter: Granularity of the event if applicable"""
+        return self._inner_dict.get('eventGranularity')  # type: ignore
+    
+    @eventGranularity.setter
+    def eventGranularity(self, value: Union[None, "TimeWindowSizeClass"]) -> None:
+        """Setter: Granularity of the event if applicable"""
+        self._inner_dict['eventGranularity'] = value
+    
+    
+    @property
+    def partitionSpec(self) -> Union[None, "PartitionSpecClass"]:
+        """Getter: The optional partition specification."""
+        return self._inner_dict.get('partitionSpec')  # type: ignore
+    
+    @partitionSpec.setter
+    def partitionSpec(self, value: Union[None, "PartitionSpecClass"]) -> None:
+        """Setter: The optional partition specification."""
+        self._inner_dict['partitionSpec'] = value
     
     
     @property
@@ -3025,6 +3100,198 @@ class DatasetUpstreamLineageClass(DictWrapper):
     def fieldMappings(self, value: List["DatasetFieldMappingClass"]) -> None:
         """Setter: Upstream to downstream field level lineage mappings"""
         self._inner_dict['fieldMappings'] = value
+    
+    
+class DatasetUsageStatisticsClass(DictWrapper):
+    """Stats corresponding to dataset's usage."""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.dataset.DatasetUsageStatistics")
+    def __init__(self,
+        timestampMillis: int,
+        eventGranularity: Union[None, "TimeWindowSizeClass"]=None,
+        partitionSpec: Union[None, "PartitionSpecClass"]=None,
+        uniqueUserCount: Union[None, int]=None,
+        totalSqlQueries: Union[None, int]=None,
+        topSqlQueries: Union[None, List[str]]=None,
+        userCounts: Union[None, List["DatasetUserUsageCountsClass"]]=None,
+        fieldCounts: Union[None, List["DatasetFieldUsageCountsClass"]]=None,
+    ):
+        super().__init__()
+        
+        self.timestampMillis = timestampMillis
+        self.eventGranularity = eventGranularity
+        self.partitionSpec = partitionSpec
+        self.uniqueUserCount = uniqueUserCount
+        self.totalSqlQueries = totalSqlQueries
+        self.topSqlQueries = topSqlQueries
+        self.userCounts = userCounts
+        self.fieldCounts = fieldCounts
+    
+    @classmethod
+    def construct_with_defaults(cls) -> "DatasetUsageStatisticsClass":
+        self = cls.construct({})
+        self._restore_defaults()
+        
+        return self
+    
+    def _restore_defaults(self) -> None:
+        self.timestampMillis = int()
+        self.eventGranularity = self.RECORD_SCHEMA.field_map["eventGranularity"].default
+        self.partitionSpec = self.RECORD_SCHEMA.field_map["partitionSpec"].default
+        self.uniqueUserCount = self.RECORD_SCHEMA.field_map["uniqueUserCount"].default
+        self.totalSqlQueries = self.RECORD_SCHEMA.field_map["totalSqlQueries"].default
+        self.topSqlQueries = self.RECORD_SCHEMA.field_map["topSqlQueries"].default
+        self.userCounts = self.RECORD_SCHEMA.field_map["userCounts"].default
+        self.fieldCounts = self.RECORD_SCHEMA.field_map["fieldCounts"].default
+    
+    
+    @property
+    def timestampMillis(self) -> int:
+        """Getter: The event timestamp field as epoch at UTC in milli seconds."""
+        return self._inner_dict.get('timestampMillis')  # type: ignore
+    
+    @timestampMillis.setter
+    def timestampMillis(self, value: int) -> None:
+        """Setter: The event timestamp field as epoch at UTC in milli seconds."""
+        self._inner_dict['timestampMillis'] = value
+    
+    
+    @property
+    def eventGranularity(self) -> Union[None, "TimeWindowSizeClass"]:
+        """Getter: Granularity of the event if applicable"""
+        return self._inner_dict.get('eventGranularity')  # type: ignore
+    
+    @eventGranularity.setter
+    def eventGranularity(self, value: Union[None, "TimeWindowSizeClass"]) -> None:
+        """Setter: Granularity of the event if applicable"""
+        self._inner_dict['eventGranularity'] = value
+    
+    
+    @property
+    def partitionSpec(self) -> Union[None, "PartitionSpecClass"]:
+        """Getter: The optional partition specification."""
+        return self._inner_dict.get('partitionSpec')  # type: ignore
+    
+    @partitionSpec.setter
+    def partitionSpec(self, value: Union[None, "PartitionSpecClass"]) -> None:
+        """Setter: The optional partition specification."""
+        self._inner_dict['partitionSpec'] = value
+    
+    
+    @property
+    def uniqueUserCount(self) -> Union[None, int]:
+        """Getter: Unique user count"""
+        return self._inner_dict.get('uniqueUserCount')  # type: ignore
+    
+    @uniqueUserCount.setter
+    def uniqueUserCount(self, value: Union[None, int]) -> None:
+        """Setter: Unique user count"""
+        self._inner_dict['uniqueUserCount'] = value
+    
+    
+    @property
+    def totalSqlQueries(self) -> Union[None, int]:
+        """Getter: Total SQL query count"""
+        return self._inner_dict.get('totalSqlQueries')  # type: ignore
+    
+    @totalSqlQueries.setter
+    def totalSqlQueries(self, value: Union[None, int]) -> None:
+        """Setter: Total SQL query count"""
+        self._inner_dict['totalSqlQueries'] = value
+    
+    
+    @property
+    def topSqlQueries(self) -> Union[None, List[str]]:
+        """Getter: Frequent SQL queries; mostly makes sense for datasets in SQL databases"""
+        return self._inner_dict.get('topSqlQueries')  # type: ignore
+    
+    @topSqlQueries.setter
+    def topSqlQueries(self, value: Union[None, List[str]]) -> None:
+        """Setter: Frequent SQL queries; mostly makes sense for datasets in SQL databases"""
+        self._inner_dict['topSqlQueries'] = value
+    
+    
+    @property
+    def userCounts(self) -> Union[None, List["DatasetUserUsageCountsClass"]]:
+        """Getter: Users within this bucket, with frequency counts"""
+        return self._inner_dict.get('userCounts')  # type: ignore
+    
+    @userCounts.setter
+    def userCounts(self, value: Union[None, List["DatasetUserUsageCountsClass"]]) -> None:
+        """Setter: Users within this bucket, with frequency counts"""
+        self._inner_dict['userCounts'] = value
+    
+    
+    @property
+    def fieldCounts(self) -> Union[None, List["DatasetFieldUsageCountsClass"]]:
+        """Getter: Field-level usage stats"""
+        return self._inner_dict.get('fieldCounts')  # type: ignore
+    
+    @fieldCounts.setter
+    def fieldCounts(self, value: Union[None, List["DatasetFieldUsageCountsClass"]]) -> None:
+        """Setter: Field-level usage stats"""
+        self._inner_dict['fieldCounts'] = value
+    
+    
+class DatasetUserUsageCountsClass(DictWrapper):
+    """Records a single user's usage counts for a given resource"""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.dataset.DatasetUserUsageCounts")
+    def __init__(self,
+        user: str,
+        count: int,
+        userEmail: Union[None, str]=None,
+    ):
+        super().__init__()
+        
+        self.user = user
+        self.count = count
+        self.userEmail = userEmail
+    
+    @classmethod
+    def construct_with_defaults(cls) -> "DatasetUserUsageCountsClass":
+        self = cls.construct({})
+        self._restore_defaults()
+        
+        return self
+    
+    def _restore_defaults(self) -> None:
+        self.user = str()
+        self.count = int()
+        self.userEmail = self.RECORD_SCHEMA.field_map["userEmail"].default
+    
+    
+    @property
+    def user(self) -> str:
+        """Getter: The unique id of the user."""
+        return self._inner_dict.get('user')  # type: ignore
+    
+    @user.setter
+    def user(self, value: str) -> None:
+        """Setter: The unique id of the user."""
+        self._inner_dict['user'] = value
+    
+    
+    @property
+    def count(self) -> int:
+        """Getter: Number of times the dataset has been used by the user."""
+        return self._inner_dict.get('count')  # type: ignore
+    
+    @count.setter
+    def count(self, value: int) -> None:
+        """Setter: Number of times the dataset has been used by the user."""
+        self._inner_dict['count'] = value
+    
+    
+    @property
+    def userEmail(self) -> Union[None, str]:
+        """Getter: If user_email is set, we attempt to resolve the user's urn upon ingest"""
+        return self._inner_dict.get('userEmail')  # type: ignore
+    
+    @userEmail.setter
+    def userEmail(self, value: Union[None, str]) -> None:
+        """Setter: If user_email is set, we attempt to resolve the user's urn upon ingest"""
+        self._inner_dict['userEmail'] = value
     
     
 class EditableDatasetPropertiesClass(DictWrapper):
@@ -8150,12 +8417,14 @@ class EditableSchemaFieldInfoClass(DictWrapper):
         fieldPath: str,
         description: Union[None, str]=None,
         globalTags: Union[None, "GlobalTagsClass"]=None,
+        glossaryTerms: Union[None, "GlossaryTermsClass"]=None,
     ):
         super().__init__()
         
         self.fieldPath = fieldPath
         self.description = description
         self.globalTags = globalTags
+        self.glossaryTerms = glossaryTerms
     
     @classmethod
     def construct_with_defaults(cls) -> "EditableSchemaFieldInfoClass":
@@ -8168,6 +8437,7 @@ class EditableSchemaFieldInfoClass(DictWrapper):
         self.fieldPath = str()
         self.description = self.RECORD_SCHEMA.field_map["description"].default
         self.globalTags = self.RECORD_SCHEMA.field_map["globalTags"].default
+        self.glossaryTerms = self.RECORD_SCHEMA.field_map["glossaryTerms"].default
     
     
     @property
@@ -8201,6 +8471,17 @@ class EditableSchemaFieldInfoClass(DictWrapper):
     def globalTags(self, value: Union[None, "GlobalTagsClass"]) -> None:
         """Setter: Tags associated with the field"""
         self._inner_dict['globalTags'] = value
+    
+    
+    @property
+    def glossaryTerms(self) -> Union[None, "GlossaryTermsClass"]:
+        """Getter: Glossary terms associated with the field"""
+        return self._inner_dict.get('glossaryTerms')  # type: ignore
+    
+    @glossaryTerms.setter
+    def glossaryTerms(self, value: Union[None, "GlossaryTermsClass"]) -> None:
+        """Setter: Glossary terms associated with the field"""
+        self._inner_dict['glossaryTerms'] = value
     
     
 class EditableSchemaMetadataClass(DictWrapper):
@@ -9361,6 +9642,164 @@ class TagPropertiesClass(DictWrapper):
         self._inner_dict['description'] = value
     
     
+class CalendarIntervalClass(object):
+    # No docs available.
+    
+    SECOND = "SECOND"
+    MINUTE = "MINUTE"
+    HOUR = "HOUR"
+    DAY = "DAY"
+    WEEK = "WEEK"
+    MONTH = "MONTH"
+    QUARTER = "QUARTER"
+    YEAR = "YEAR"
+    
+    
+class PartitionSpecClass(DictWrapper):
+    """Defines how the data is partitioned"""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.timeseries.PartitionSpec")
+    def __init__(self,
+        partition: str,
+        timePartition: Union[None, "TimeWindowClass"]=None,
+    ):
+        super().__init__()
+        
+        self.partition = partition
+        self.timePartition = timePartition
+    
+    @classmethod
+    def construct_with_defaults(cls) -> "PartitionSpecClass":
+        self = cls.construct({})
+        self._restore_defaults()
+        
+        return self
+    
+    def _restore_defaults(self) -> None:
+        self.partition = str()
+        self.timePartition = self.RECORD_SCHEMA.field_map["timePartition"].default
+    
+    
+    @property
+    def partition(self) -> str:
+        """Getter: String representation of the partition"""
+        return self._inner_dict.get('partition')  # type: ignore
+    
+    @partition.setter
+    def partition(self, value: str) -> None:
+        """Setter: String representation of the partition"""
+        self._inner_dict['partition'] = value
+    
+    
+    @property
+    def timePartition(self) -> Union[None, "TimeWindowClass"]:
+        """Getter: Time window of the partition if applicable"""
+        return self._inner_dict.get('timePartition')  # type: ignore
+    
+    @timePartition.setter
+    def timePartition(self, value: Union[None, "TimeWindowClass"]) -> None:
+        """Setter: Time window of the partition if applicable"""
+        self._inner_dict['timePartition'] = value
+    
+    
+class TimeWindowClass(DictWrapper):
+    # No docs available.
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.timeseries.TimeWindow")
+    def __init__(self,
+        startTimeMillis: int,
+        length: "TimeWindowSizeClass",
+    ):
+        super().__init__()
+        
+        self.startTimeMillis = startTimeMillis
+        self.length = length
+    
+    @classmethod
+    def construct_with_defaults(cls) -> "TimeWindowClass":
+        self = cls.construct({})
+        self._restore_defaults()
+        
+        return self
+    
+    def _restore_defaults(self) -> None:
+        self.startTimeMillis = int()
+        self.length = TimeWindowSizeClass.construct_with_defaults()
+    
+    
+    @property
+    def startTimeMillis(self) -> int:
+        """Getter: Start time as epoch at UTC."""
+        return self._inner_dict.get('startTimeMillis')  # type: ignore
+    
+    @startTimeMillis.setter
+    def startTimeMillis(self, value: int) -> None:
+        """Setter: Start time as epoch at UTC."""
+        self._inner_dict['startTimeMillis'] = value
+    
+    
+    @property
+    def length(self) -> "TimeWindowSizeClass":
+        """Getter: The length of the window."""
+        return self._inner_dict.get('length')  # type: ignore
+    
+    @length.setter
+    def length(self, value: "TimeWindowSizeClass") -> None:
+        """Setter: The length of the window."""
+        self._inner_dict['length'] = value
+    
+    
+class TimeWindowSizeClass(DictWrapper):
+    """Defines the size of a time window."""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.timeseries.TimeWindowSize")
+    def __init__(self,
+        unit: Union[str, "CalendarIntervalClass"],
+        multiple: Optional[int]=None,
+    ):
+        super().__init__()
+        
+        self.unit = unit
+        if multiple is None:
+            # default: 1
+            self.multiple = self.RECORD_SCHEMA.field_map["multiple"].default
+        else:
+            self.multiple = multiple
+    
+    @classmethod
+    def construct_with_defaults(cls) -> "TimeWindowSizeClass":
+        self = cls.construct({})
+        self._restore_defaults()
+        
+        return self
+    
+    def _restore_defaults(self) -> None:
+        self.unit = CalendarIntervalClass.SECOND
+        self.multiple = self.RECORD_SCHEMA.field_map["multiple"].default
+    
+    
+    @property
+    def unit(self) -> Union[str, "CalendarIntervalClass"]:
+        """Getter: Interval unit such as minute/hour/day etc."""
+        return self._inner_dict.get('unit')  # type: ignore
+    
+    @unit.setter
+    def unit(self, value: Union[str, "CalendarIntervalClass"]) -> None:
+        """Setter: Interval unit such as minute/hour/day etc."""
+        self._inner_dict['unit'] = value
+    
+    
+    @property
+    def multiple(self) -> int:
+        """Getter: How many units. Defaults to 1."""
+        return self._inner_dict.get('multiple')  # type: ignore
+    
+    @multiple.setter
+    def multiple(self, value: int) -> None:
+        """Setter: How many units. Defaults to 1."""
+        self._inner_dict['multiple'] = value
+    
+    
 class FieldUsageCountsClass(DictWrapper):
     """ Records field-level usage counts for a given resource """
     
@@ -9683,10 +10122,13 @@ __SCHEMA_TYPES = {
     'com.linkedin.pegasus2avro.dataset.DatasetDeprecation': DatasetDeprecationClass,
     'com.linkedin.pegasus2avro.dataset.DatasetFieldMapping': DatasetFieldMappingClass,
     'com.linkedin.pegasus2avro.dataset.DatasetFieldProfile': DatasetFieldProfileClass,
+    'com.linkedin.pegasus2avro.dataset.DatasetFieldUsageCounts': DatasetFieldUsageCountsClass,
     'com.linkedin.pegasus2avro.dataset.DatasetLineageType': DatasetLineageTypeClass,
     'com.linkedin.pegasus2avro.dataset.DatasetProfile': DatasetProfileClass,
     'com.linkedin.pegasus2avro.dataset.DatasetProperties': DatasetPropertiesClass,
     'com.linkedin.pegasus2avro.dataset.DatasetUpstreamLineage': DatasetUpstreamLineageClass,
+    'com.linkedin.pegasus2avro.dataset.DatasetUsageStatistics': DatasetUsageStatisticsClass,
+    'com.linkedin.pegasus2avro.dataset.DatasetUserUsageCounts': DatasetUserUsageCountsClass,
     'com.linkedin.pegasus2avro.dataset.EditableDatasetProperties': EditableDatasetPropertiesClass,
     'com.linkedin.pegasus2avro.dataset.Histogram': HistogramClass,
     'com.linkedin.pegasus2avro.dataset.Quantile': QuantileClass,
@@ -9802,6 +10244,10 @@ __SCHEMA_TYPES = {
     'com.linkedin.pegasus2avro.schema.UnionType': UnionTypeClass,
     'com.linkedin.pegasus2avro.schema.UrnForeignKey': UrnForeignKeyClass,
     'com.linkedin.pegasus2avro.tag.TagProperties': TagPropertiesClass,
+    'com.linkedin.pegasus2avro.timeseries.CalendarInterval': CalendarIntervalClass,
+    'com.linkedin.pegasus2avro.timeseries.PartitionSpec': PartitionSpecClass,
+    'com.linkedin.pegasus2avro.timeseries.TimeWindow': TimeWindowClass,
+    'com.linkedin.pegasus2avro.timeseries.TimeWindowSize': TimeWindowSizeClass,
     'com.linkedin.pegasus2avro.usage.FieldUsageCounts': FieldUsageCountsClass,
     'com.linkedin.pegasus2avro.usage.UsageAggregation': UsageAggregationClass,
     'com.linkedin.pegasus2avro.usage.UsageAggregationMetrics': UsageAggregationMetricsClass,
@@ -9854,10 +10300,13 @@ __SCHEMA_TYPES = {
     'DatasetDeprecation': DatasetDeprecationClass,
     'DatasetFieldMapping': DatasetFieldMappingClass,
     'DatasetFieldProfile': DatasetFieldProfileClass,
+    'DatasetFieldUsageCounts': DatasetFieldUsageCountsClass,
     'DatasetLineageType': DatasetLineageTypeClass,
     'DatasetProfile': DatasetProfileClass,
     'DatasetProperties': DatasetPropertiesClass,
     'DatasetUpstreamLineage': DatasetUpstreamLineageClass,
+    'DatasetUsageStatistics': DatasetUsageStatisticsClass,
+    'DatasetUserUsageCounts': DatasetUserUsageCountsClass,
     'EditableDatasetProperties': EditableDatasetPropertiesClass,
     'Histogram': HistogramClass,
     'Quantile': QuantileClass,
@@ -9973,6 +10422,10 @@ __SCHEMA_TYPES = {
     'UnionType': UnionTypeClass,
     'UrnForeignKey': UrnForeignKeyClass,
     'TagProperties': TagPropertiesClass,
+    'CalendarInterval': CalendarIntervalClass,
+    'PartitionSpec': PartitionSpecClass,
+    'TimeWindow': TimeWindowClass,
+    'TimeWindowSize': TimeWindowSizeClass,
     'FieldUsageCounts': FieldUsageCountsClass,
     'UsageAggregation': UsageAggregationClass,
     'UsageAggregationMetrics': UsageAggregationMetricsClass,

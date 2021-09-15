@@ -15,20 +15,20 @@ public class IndexConventionImpl implements IndexConvention {
   private final Map<String, String> indexNameMapping = new HashMap<>();
   private final Optional<String> _prefix;
   private final String _getAllEntityIndicesPattern;
-  private final String _getAllTemporalStatIndicesPattern;
+  private final String _getAllTimeseriesIndicesPattern;
 
   private final static String ENTITY_INDEX_VERSION = "v2";
   private final static String ENTITY_INDEX_SUFFIX = "index";
-  private final static String TEMPORAL_STATS_INDEX_VERSION = "v1";
-  private final static String TEMPORAL_STATS_ENTITY_INDEX_SUFFIX = "aspect";
+  private final static String TIMESERIES_INDEX_VERSION = "v1";
+  private final static String TIMESERIES_ENTITY_INDEX_SUFFIX = "aspect";
 
   public IndexConventionImpl(@Nullable String prefix) {
     _prefix = StringUtils.isEmpty(prefix) ? Optional.empty() : Optional.of(prefix);
     _getAllEntityIndicesPattern =
         _prefix.map(p -> p + "_").orElse("") + "*" + ENTITY_INDEX_SUFFIX + "_" + ENTITY_INDEX_VERSION;
-    _getAllTemporalStatIndicesPattern =
-        _prefix.map(p -> p + "_").orElse("") + "*" + TEMPORAL_STATS_ENTITY_INDEX_SUFFIX + "_"
-            + TEMPORAL_STATS_INDEX_VERSION;
+    _getAllTimeseriesIndicesPattern =
+        _prefix.map(p -> p + "_").orElse("") + "*" + TIMESERIES_ENTITY_INDEX_SUFFIX + "_"
+            + TIMESERIES_INDEX_VERSION;
   }
 
   private String createIndexName(String baseName) {
@@ -61,8 +61,8 @@ public class IndexConventionImpl implements IndexConvention {
   @Nonnull
   @Override
   public String getTimeseriesAspectIndexName(String entityName, String aspectName) {
-    return this.getIndexName(entityName + "_" + aspectName) + TEMPORAL_STATS_ENTITY_INDEX_SUFFIX + "_"
-        + TEMPORAL_STATS_INDEX_VERSION;
+    return this.getIndexName(entityName + "_" + aspectName) + TIMESERIES_ENTITY_INDEX_SUFFIX + "_"
+        + TIMESERIES_INDEX_VERSION;
   }
 
   @Nonnull
@@ -74,6 +74,6 @@ public class IndexConventionImpl implements IndexConvention {
   @Nonnull
   @Override
   public String getAllTimeseriesAspectIndicesPattern() {
-    return _getAllTemporalStatIndicesPattern;
+    return _getAllTimeseriesIndicesPattern;
   }
 }

@@ -28,7 +28,7 @@ public class TimeseriesAspectIndexBuilders {
                 _indexConvention.getTimeseriesAspectIndexName(entitySpec.getName(), aspectSpec.getName()),
                 MappingsBuilder.getMappings(aspectSpec), Collections.emptyMap()).buildIndex();
           } catch (IOException e) {
-            log.error("Issue while building temporal stats index for entity {} aspect {}", entitySpec.getName(),
+            log.error("Issue while building timeseries field index for entity {} aspect {}", entitySpec.getName(),
                 aspectSpec.getName());
             log.error("Exception: ", e);
           }

@@ -48,7 +48,7 @@ public class ElasticSearchTimeseriesAspectServiceFactory {
   @Nonnull
   protected ElasticSearchTimeseriesAspectService getInstance() {
     return new ElasticSearchTimeseriesAspectService(searchClient, indexConvention,
-        new TimeseriesAspectIndexBuilders(entityRegistry, searchClient, indexConvention), bulkRequestsLimit,
-        bulkFlushPeriod, numRetries, retryInterval);
+        new TimeseriesAspectIndexBuilders(entityRegistry, searchClient, indexConvention), entityRegistry,
+        bulkRequestsLimit, bulkFlushPeriod, numRetries, retryInterval);
   }
 }
