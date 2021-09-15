@@ -13,3 +13,16 @@ export const truncate = (length: number, input?: string | null) => {
     }
     return input;
 };
+
+export const singularizeCollectionName = (collectionName: string): string => {
+    if (!collectionName) {
+        return collectionName;
+    }
+
+    const lastChar = collectionName[collectionName.length - 1];
+    if (lastChar === 's') {
+        return collectionName.slice(0, -1);
+    }
+
+    return collectionName;
+};
