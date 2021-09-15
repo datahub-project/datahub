@@ -1,4 +1,4 @@
-package com.linkedin.metadata.processor;
+package com.linkedin.metadata.changeprocessor;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;

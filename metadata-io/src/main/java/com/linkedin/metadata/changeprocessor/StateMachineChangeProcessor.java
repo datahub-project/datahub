@@ -1,4 +1,4 @@
-package com.linkedin.metadata.processor;
+package com.linkedin.metadata.changeprocessor;
 
 // Usage examples
 @EntityScope(entityNames = {"dataset"})

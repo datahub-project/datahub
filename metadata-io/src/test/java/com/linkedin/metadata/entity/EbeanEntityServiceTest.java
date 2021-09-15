@@ -17,7 +17,7 @@ import com.linkedin.metadata.aspect.Aspect;
 import com.linkedin.metadata.aspect.CorpUserAspect;
 import com.linkedin.metadata.aspect.CorpUserAspectArray;
 import com.linkedin.metadata.aspect.VersionedAspect;
-import com.linkedin.metadata.entity.ebean.BeforeUpdateLambda;
+import com.linkedin.metadata.changeprocessor.ChangeStreamProcessor;
 import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.entity.ebean.EbeanEntityService;
@@ -47,7 +47,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
@@ -71,6 +70,7 @@ public class EbeanEntityServiceTest {
   private EbeanAspectDao _aspectDao;
   private EbeanServer _server;
   private EntityEventProducer _mockProducer;
+  private ChangeStreamProcessor _mockChangeStreamProcessor;
 
   @Nonnull
   private static ServerConfig createTestingH2ServerConfig() {
@@ -103,7 +103,7 @@ public class EbeanEntityServiceTest {
     _mockProducer = mock(EntityEventProducer.class);
     _aspectDao = new EbeanAspectDao(_server);
     _aspectDao.setConnectionValidated(true);
-    _entityService = new EbeanEntityService(_aspectDao, _mockProducer, _testEntityRegistry, null);
+    _entityService = new EbeanEntityService(_aspectDao, _mockProducer, _testEntityRegistry, _mockChangeStreamProcessor);
   }
 
   @Test
@@ -597,16 +597,9 @@ public class EbeanEntityServiceTest {
     assertTrue(DataTemplateUtil.areEqual(null, deletedKeyAspect));
   }
 
-  private final BeforeUpdateLambda _ignoreIfEmailContainsTest = new BeforeUpdateLambda((oldValue, newValue) -> {
-    if (newValue.data().getString("email").contains("test")) {
-      return Optional.empty();
-    }
-    return Optional.of(newValue);
-  });
-
   @Test
   public void testInjestAspectWithCustomLogicShouldIgnoreUpdate() throws Exception {
-    _entityService = new EbeanEntityService(_aspectDao, _mockProducer, _testEntityRegistry, _ignoreIfEmailContainsTest);
+    _entityService = new EbeanEntityService(_aspectDao, _mockProducer, _testEntityRegistry, _mockChangeStreamProcessor );
 
     Urn entityUrn = Urn.createFromString("urn:li:corpuser:test");
 
@@ -623,7 +616,7 @@ public class EbeanEntityServiceTest {
 
   @Test
   public void testInjestAspectWithCustomLogicShouldIgnoreUpdates() throws Exception {
-    _entityService = new EbeanEntityService(_aspectDao, _mockProducer, _testEntityRegistry, _ignoreIfEmailContainsTest);
+    _entityService = new EbeanEntityService(_aspectDao, _mockProducer, _testEntityRegistry, _mockChangeStreamProcessor);
 
     Urn entityUrn = Urn.createFromString("urn:li:corpuser:test");
 
@@ -665,7 +658,7 @@ public class EbeanEntityServiceTest {
   }
 
   @Nonnull
-  private CorpUserInfo createCorpUserInfo(String email) throws Exception {
+  private CorpUserInfo createCorpUserInfo(String email) {
     CorpUserInfo corpUserInfo = new CorpUserInfo();
     corpUserInfo.setEmail(email);
     corpUserInfo.setActive(true);

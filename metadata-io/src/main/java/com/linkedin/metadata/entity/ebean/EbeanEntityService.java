@@ -8,6 +8,9 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.Aspect;
 import com.linkedin.metadata.aspect.VersionedAspect;
+import com.linkedin.metadata.changeprocessor.ChangeState;
+import com.linkedin.metadata.changeprocessor.ChangeStreamProcessor;
+import com.linkedin.metadata.changeprocessor.ProcessChangeResult;
 import com.linkedin.metadata.dao.exception.ModelConversionException;
 import com.linkedin.metadata.dao.utils.RecordUtils;
 import com.linkedin.metadata.entity.EntityService;
@@ -57,21 +60,21 @@ public class EbeanEntityService extends EntityService {
   private static final int DEFAULT_MAX_TRANSACTION_RETRY = 3;
 
   private final EbeanAspectDao _entityDao;
-  private BeforeUpdateLambda _beforeUpdateLambda;
+  private final ChangeStreamProcessor _changeStreamProcessors;
   private final JacksonDataTemplateCodec _dataTemplateCodec = new JacksonDataTemplateCodec();
   private Boolean _alwaysEmitAuditEvent = false;
 
   public EbeanEntityService(@Nonnull final EbeanAspectDao entityDao, @Nonnull final EntityEventProducer eventProducer,
-                            @Nonnull final EntityRegistry entityRegistry, BeforeUpdateLambda beforeUpdateLambda) {
-    super(eventProducer, entityRegistry);
+      @Nonnull final EntityRegistry entityRegistry, @Nonnull final ChangeStreamProcessor changeStreamProcessor) {
+    super(eventProducer, entityRegistry, changeStreamProcessor);
     _entityDao = entityDao;
-    _beforeUpdateLambda = beforeUpdateLambda;
+    _changeStreamProcessors = changeStreamProcessor;
   }
 
   @Override
   @Nonnull
   public Map<Urn, List<RecordTemplate>> getLatestAspects(@Nonnull final Set<Urn> urns,
-                                                         @Nonnull final Set<String> aspectNames) {
+      @Nonnull final Set<String> aspectNames) {
 
     log.debug(String.format("Invoked getLatestAspects with urns: %s, aspectNames: %s", urns, aspectNames));
 
@@ -171,7 +174,7 @@ public class EbeanEntityService extends EntityService {
   @Override
   @Nonnull
   public ListResult<RecordTemplate> listLatestAspects(@Nonnull final String entityName,
-                                                      @Nonnull final String aspectName, final int start, int count) {
+      @Nonnull final String aspectName, final int start, int count) {
 
     log.debug(
         String.format("Invoked listLatestAspects with entityName: %s, aspectName: %s, start: %s, count: %s", entityName,
@@ -191,19 +194,53 @@ public class EbeanEntityService extends EntityService {
         aspectMetadataList.getPageSize());
   }
 
-  @Override
-  @Nullable
-  public RecordTemplate ingestAspect(@Nonnull final Urn urn, @Nonnull final String aspectName,
-                                     @Nonnull final RecordTemplate newValue, @Nonnull final AuditStamp auditStamp,
-                                     @Nonnull final SystemMetadata systemMetadata) {
-    log.debug("Invoked ingestAspect with urn: {}, aspectName: {}, newValue: {}", urn, aspectName, newValue);
-    UpdateAspectResult result = ingestAspectToLocalDB(urn, aspectName, newValue, auditStamp, systemMetadata,
-        DEFAULT_MAX_TRANSACTION_RETRY);
+  // TODO: Move to EntityService
+  public ProcessChangeResult processIngestAspect(@Nonnull final Urn urn,
+      @Nonnull final String aspectName,
+      @Nonnull final RecordTemplate newAspect,
+      @Nonnull final AuditStamp auditStamp,
+      @Nonnull final SystemMetadata systemMetadata) {
 
-    if (result == null) {
-      log.debug("Skipping ingestAspect with urn: {}, aspectName: {}, newValue:{}", urn, aspectName, newValue);
-      return null;
+    RecordTemplate latestAspect = getLatestAspect(urn, aspectName);
+
+    // Run pre-processors
+    ProcessChangeResult result = _changeStreamProcessors.preProcess(aspectName,
+        latestAspect,
+        newAspect,
+        auditStamp,
+        systemMetadata);
+
+    if (result.changeState == ChangeState.STOP_PROCESSING) {
+      return result;
     }
+
+    // Persist aspect
+    UpdateAspectResult updateAspectResult = ingestAspectToLocalDB(urn, aspectName, newAspect, auditStamp, systemMetadata, 3);
+
+    if(result.changeState == ChangeState.SAVE_THEN_STOP){
+      return result;
+    }
+
+    // Run post-processors
+    result = _changeStreamProcessors.postProcess(aspectName,
+        latestAspect,
+        newAspect,
+        auditStamp,
+        systemMetadata);
+
+    // Emit a mae event
+
+    return result;
+  }
+
+  @Override
+  @Nonnull
+  public RecordTemplate ingestAspect(@Nonnull final Urn urn, @Nonnull final String aspectName,
+      @Nonnull final RecordTemplate newAspect, @Nonnull final AuditStamp auditStamp,
+      @Nonnull final SystemMetadata systemMetadata) {
+    log.debug("Invoked ingestAspect with urn: {}, aspectName: {}, newAspect: {}", urn, aspectName, newAspect);
+    UpdateAspectResult result = ingestAspectToLocalDB(urn, aspectName, newAspect, auditStamp, systemMetadata,
+        DEFAULT_MAX_TRANSACTION_RETRY);
 
     final RecordTemplate oldValue = result.getOldValue();
     final RecordTemplate updatedValue = result.getNewValue();
@@ -226,10 +263,13 @@ public class EbeanEntityService extends EntityService {
     return updatedValue;
   }
 
-  @Nullable
-  private UpdateAspectResult ingestAspectToLocalDB(@Nonnull final Urn urn, @Nonnull final String aspectName,
-                                                   @Nonnull RecordTemplate newValue, @Nonnull final AuditStamp auditStamp, @Nonnull final SystemMetadata providedSystemMetadata,
-                                                   final int maxTransactionRetry) {
+  @Nonnull
+  private UpdateAspectResult ingestAspectToLocalDB(@Nonnull final Urn urn,
+      @Nonnull final String aspectName,
+      @Nonnull RecordTemplate newValue,
+      @Nonnull final AuditStamp auditStamp,
+      @Nonnull final SystemMetadata providedSystemMetadata,
+      final int maxTransactionRetry) {
 
     return _entityDao.runInTransactionWithRetry(() -> {
 
@@ -241,19 +281,9 @@ public class EbeanEntityService extends EntityService {
       final RecordTemplate oldValue =
           latest == null ? null : toAspectRecord(urn, aspectName, latest.getMetadata(), getEntityRegistry());
 
-      // 3. Run user defined behaviour on old and new record.
-      Optional<RecordTemplate> modifiedValueOpt = _beforeUpdateLambda == null ?
-          Optional.of(newValue) : _beforeUpdateLambda.apply(Optional.ofNullable(oldValue), newValue);
-
-      // Ignore update if user defined function returns null
-      if (!modifiedValueOpt.isPresent()) {
-        return null;
-      }
-      RecordTemplate modifiedValue = modifiedValueOpt.get();
-
-      // 4. If there is no difference between existing and new, we just update
+      // 3. If there is no difference between existing and new, we just update
       // the lastObserved in system metadata. RunId should stay as the original runId
-      if (oldValue != null && DataTemplateUtil.areEqual(oldValue, modifiedValue)) {
+      if (oldValue != null && DataTemplateUtil.areEqual(oldValue, newValue)) {
         SystemMetadata latestSystemMetadata = EbeanUtils.parseSystemMetadata(latest.getSystemMetadata());
         latestSystemMetadata.setLastObserved(providedSystemMetadata.getLastObserved());
 
@@ -271,11 +301,11 @@ public class EbeanEntityService extends EntityService {
       _entityDao.saveLatestAspect(urn.toString(), aspectName, latest == null ? null : toJsonAspect(oldValue),
           latest == null ? null : latest.getCreatedBy(), latest == null ? null : latest.getCreatedFor(),
           latest == null ? null : latest.getCreatedOn(), latest == null ? null : latest.getSystemMetadata(),
-          toJsonAspect(modifiedValue), auditStamp.getActor().toString(),
+          toJsonAspect(newValue), auditStamp.getActor().toString(),
           auditStamp.hasImpersonator() ? auditStamp.getImpersonator().toString() : null,
           new Timestamp(auditStamp.getTime()), toJsonAspect(providedSystemMetadata));
 
-      return new UpdateAspectResult(urn, oldValue, modifiedValue,
+      return new UpdateAspectResult(urn, oldValue, newValue,
           latest == null ? null : EbeanUtils.parseSystemMetadata(latest.getSystemMetadata()), providedSystemMetadata,
           MetadataAuditOperation.UPDATE);
     }, maxTransactionRetry);
@@ -284,8 +314,8 @@ public class EbeanEntityService extends EntityService {
   @Override
   @Nonnull
   public RecordTemplate updateAspect(@Nonnull final Urn urn, @Nonnull final String aspectName,
-                                     @Nonnull final RecordTemplate newValue, @Nonnull final AuditStamp auditStamp, @Nonnull final long version,
-                                     @Nonnull final boolean emitMae) {
+      @Nonnull final RecordTemplate newValue, @Nonnull final AuditStamp auditStamp, @Nonnull final long version,
+      @Nonnull final boolean emitMae) {
     log.debug(
         String.format("Invoked updateAspect with urn: %s, aspectName: %s, newValue: %s, version: %s, emitMae: %s", urn,
             aspectName, newValue, version, emitMae));
@@ -294,8 +324,8 @@ public class EbeanEntityService extends EntityService {
 
   @Nonnull
   private RecordTemplate updateAspect(@Nonnull final Urn urn, @Nonnull final String aspectName,
-                                      @Nonnull final RecordTemplate value, @Nonnull final AuditStamp auditStamp, @Nonnull final long version,
-                                      @Nonnull final boolean emitMae, final int maxTransactionRetry) {
+      @Nonnull final RecordTemplate value, @Nonnull final AuditStamp auditStamp, @Nonnull final long version,
+      @Nonnull final boolean emitMae, final int maxTransactionRetry) {
 
     final UpdateAspectResult result = _entityDao.runInTransactionWithRetry(() -> {
 
@@ -408,7 +438,7 @@ public class EbeanEntityService extends EntityService {
 
     if (!aspectSpec.isTimeseries()) {
       UpdateAspectResult result =
-          ingestAspectToLocalDB(entityUrn, metadataChangeProposal.getAspectName(), aspect, auditStamp,
+          ingestAspectToLocalDB(entityUrn, metadataChangeProposal.getAspectName(), newAspect, auditStamp,
               systemMetadata, DEFAULT_MAX_TRANSACTION_RETRY);
       oldAspect = result.oldValue;
       oldSystemMetadata = result.oldSystemMetadata;
