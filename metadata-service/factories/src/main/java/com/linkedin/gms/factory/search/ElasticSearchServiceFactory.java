@@ -5,7 +5,6 @@ import com.linkedin.gms.factory.common.RestHighLevelClientFactory;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
-import com.linkedin.metadata.search.aggregator.AllEntitiesSearchAggregator;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilders;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
@@ -61,6 +60,6 @@ public class ElasticSearchServiceFactory {
     return new ElasticSearchService(new ESIndexBuilders(entityRegistry, searchClient, indexConvention, settingsBuilder),
         esSearchDAO, new ESBrowseDAO(entityRegistry, searchClient, indexConvention),
         new ESWriteDAO(entityRegistry, searchClient, indexConvention, bulkRequestsLimit, bulkFlushPeriod, numRetries,
-            retryInterval), new AllEntitiesSearchAggregator(entityRegistry, esSearchDAO));
+            retryInterval));
   }
 }

@@ -1,6 +1,5 @@
 package com.linkedin.datahub.graphql.types.mappers;
 
-import com.google.common.collect.Streams;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.datahub.graphql.generated.AggregationMetadata;
 import com.linkedin.datahub.graphql.generated.Entity;
@@ -10,13 +9,11 @@ import com.linkedin.datahub.graphql.generated.SearchResult;
 import com.linkedin.datahub.graphql.generated.SearchResults;
 import com.linkedin.datahub.graphql.resolvers.EntityTypeMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
-import com.linkedin.metadata.search.MatchMetadata;
+import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResultMetadata;
-import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 
 public class UrnSearchResultsMapper<T extends RecordTemplate, E extends Entity> {
@@ -37,19 +34,15 @@ public class UrnSearchResultsMapper<T extends RecordTemplate, E extends Entity> 
     result.setTotal(input.getNumEntities());
 
     final SearchResultMetadata searchResultMetadata = input.getMetadata();
-    Stream<Entity> entities = input.getEntities().stream().map(urn -> UrnToEntityMapper.map(urn));
-    if (searchResultMetadata.getMatches() != null) {
-      result.setSearchResults(
-          Streams.zip(entities, searchResultMetadata.getMatches().stream().map(this::getMatchedFieldEntry),
-              SearchResult::new).collect(Collectors.toList()));
-    } else {
-      result.setSearchResults(
-          entities.map(entity -> new SearchResult(entity, Collections.emptyList())).collect(Collectors.toList()));
-    }
-    result.setFacets(
-        searchResultMetadata.getSearchResultMetadatas().stream().map(this::mapFacet).collect(Collectors.toList()));
+    result.setSearchResults(input.getEntities().stream().map(this::mapResult).collect(Collectors.toList()));
+    result.setFacets(searchResultMetadata.getAggregations().stream().map(this::mapFacet).collect(Collectors.toList()));
 
     return result;
+  }
+
+  private SearchResult mapResult(SearchEntity searchEntity) {
+    return new SearchResult(UrnToEntityMapper.map(searchEntity.getEntity()),
+        getMatchedFieldEntry(searchEntity.getMatchedFields()));
   }
 
   private FacetMetadata mapFacet(com.linkedin.metadata.search.AggregationMetadata aggregationMetadata) {
@@ -74,9 +67,8 @@ public class UrnSearchResultsMapper<T extends RecordTemplate, E extends Entity> 
     return filterValue;
   }
 
-  private List<MatchedField> getMatchedFieldEntry(MatchMetadata highlightMetadata) {
-    return highlightMetadata.getMatchedFields()
-        .stream()
+  private List<MatchedField> getMatchedFieldEntry(List<com.linkedin.metadata.search.MatchedField> highlightMetadata) {
+    return highlightMetadata.stream()
         .map(field -> new MatchedField(field.getName(), field.getValue()))
         .collect(Collectors.toList());
   }

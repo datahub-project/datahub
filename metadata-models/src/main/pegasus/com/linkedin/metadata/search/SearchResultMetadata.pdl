@@ -10,11 +10,6 @@ record SearchResultMetadata {
   /**
    * A list of search result metadata such as aggregations
    */
-  searchResultMetadatas: array[AggregationMetadata] = []
-
-  /**
-   * A list of urns corresponding to search documents (in order) as returned by the search index
-   */
-  urns: array[Urn]
+  aggregations: array[AggregationMetadata] = []
 
 }

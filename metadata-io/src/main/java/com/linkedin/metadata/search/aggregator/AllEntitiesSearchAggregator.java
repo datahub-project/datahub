@@ -2,20 +2,19 @@ package com.linkedin.metadata.search.aggregator;
 
 import com.codahale.metrics.Timer;
 import com.google.common.collect.ImmutableList;
-import com.linkedin.common.UrnArray;
-import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.LongMap;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.Filter;
 import com.linkedin.metadata.query.SortCriterion;
 import com.linkedin.metadata.search.AggregationMetadata;
 import com.linkedin.metadata.search.AggregationMetadataArray;
+import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.FilterValueArray;
-import com.linkedin.metadata.search.MatchMetadata;
-import com.linkedin.metadata.search.MatchMetadataArray;
+import com.linkedin.metadata.search.SearchEntity;
+import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;
-import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
+import com.linkedin.metadata.search.ranker.SearchRanker;
 import com.linkedin.metadata.utils.SearchUtil;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.util.Pair;
@@ -40,16 +39,20 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class AllEntitiesSearchAggregator {
   private final EntityRegistry _entityRegistry;
-  private final ESSearchDAO _esSearchDAO;
+  private final EntitySearchService _entitySearchService;
+  private final SearchRanker _searchRanker;
+
   private final Map<String, Set<String>> _filtersPerEntity;
   private final Map<String, String> _filtersToDisplayName;
 
   private static final List<String> FILTER_RANKING =
       ImmutableList.of("entity", "platform", "origin", "tags", "glossaryTerms");
 
-  public AllEntitiesSearchAggregator(EntityRegistry entityRegistry, ESSearchDAO esSearchDAO) {
+  public AllEntitiesSearchAggregator(EntityRegistry entityRegistry, EntitySearchService entitySearchService,
+      SearchRanker searchRanker) {
     _entityRegistry = entityRegistry;
-    _esSearchDAO = esSearchDAO;
+    _entitySearchService = entitySearchService;
+    _searchRanker = searchRanker;
     _filtersPerEntity = getFiltersPerEntity(entityRegistry);
     _filtersToDisplayName = getFilterToDisplayName(entityRegistry);
   }
@@ -92,7 +95,7 @@ public class AllEntitiesSearchAggregator {
     try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "searchEntities").time()) {
       searchResults = nonEmptyEntities.stream()
           .map(entity -> new Pair<>(entity,
-              _esSearchDAO.search(entity, input, postFilters, sortCriterion, 0, from + size)))
+              _entitySearchService.search(entity, input, postFilters, sortCriterion, 0, from + size)))
           .filter(pair -> pair.getValue().getNumEntities() > 0)
           .collect(Collectors.toMap(Pair::getKey, Pair::getValue));
     }
@@ -119,19 +122,13 @@ public class AllEntitiesSearchAggregator {
     for (String entity : searchResults.keySet()) {
       SearchResult result = searchResults.get(entity);
       numEntities += result.getNumEntities();
-      if (result.getMetadata().hasMatches()) {
-        for (int i = 0; i < result.getEntities().size(); i++) {
-          matchedResults.add(new IntermediateResult(result.getEntities().get(i),
-              i < result.getMetadata().getMatches().size() ? result.getMetadata().getMatches().get(i)
-                  : new MatchMetadata(), entity));
-        }
-      } else {
-        result.getEntities()
-            .forEach(urn -> matchedResults.add(new IntermediateResult(urn, new MatchMetadata(), entity)));
-      }
+      matchedResults.addAll(result.getEntities()
+          .stream()
+          .map(searchEntity -> new IntermediateResult(searchEntity, entity))
+          .collect(Collectors.toList()));
       // Merge filters
       result.getMetadata()
-          .getSearchResultMetadatas()
+          .getAggregations()
           .stream()
           .filter(metadata -> commonFilters.contains(metadata.getName()))
           .forEach(metadata -> {
@@ -150,26 +147,22 @@ public class AllEntitiesSearchAggregator {
           });
     }
 
-    Pair<List<Urn>, List<MatchMetadata>> rankedResult = rankResults(matchedResults, numResultsPerEntity.entrySet()
+    List<SearchEntity> rankedResult = rankResults(matchedResults, numResultsPerEntity.entrySet()
         .stream()
         .sorted(Comparator.<Map.Entry<String, Long>>comparingLong(Map.Entry::getValue).reversed())
         .map(Map.Entry::getKey)
         .collect(Collectors.toList()));
-    List<Urn> finalMatchedResults;
-    List<MatchMetadata> finalMatchedMetadatas;
+    List<SearchEntity> finalMatchedResults;
     if (matchedResults.size() <= from) {
       finalMatchedResults = Collections.emptyList();
-      finalMatchedMetadatas = Collections.emptyList();
     } else {
-      finalMatchedResults = rankedResult.getFirst().subList(from, Math.min(from + size, matchedResults.size()));
-      finalMatchedMetadatas = rankedResult.getSecond().subList(from, Math.min(from + size, matchedResults.size()));
+      finalMatchedResults = rankedResult.subList(from, Math.min(from + size, matchedResults.size()));
     }
-    SearchResultMetadata finalMetadata = new SearchResultMetadata().setSearchResultMetadatas(
-        new AggregationMetadataArray(rankFilterGroups(aggregations))).setUrns(new UrnArray(finalMatchedResults));
-    finalMetadata.setMatches(new MatchMetadataArray(finalMatchedMetadatas));
+    SearchResultMetadata finalMetadata =
+        new SearchResultMetadata().setAggregations(new AggregationMetadataArray(rankFilterGroups(aggregations)));
 
     postProcessTimer.stop();
-    return new SearchResult().setEntities(new UrnArray(finalMatchedResults))
+    return new SearchResult().setEntities(new SearchEntityArray(finalMatchedResults))
         .setNumEntities(numEntities)
         .setFrom(from)
         .setPageSize(size)
@@ -177,13 +170,11 @@ public class AllEntitiesSearchAggregator {
   }
 
   private SearchResult getEmptySearchResult(int from, int size) {
-    return new SearchResult().setEntities(new UrnArray())
+    return new SearchResult().setEntities(new SearchEntityArray())
         .setNumEntities(0)
         .setFrom(from)
         .setPageSize(size)
-        .setMetadata(new SearchResultMetadata().setSearchResultMetadatas(new AggregationMetadataArray())
-            .setUrns(new UrnArray())
-            .setMatches(new MatchMetadataArray()));
+        .setMetadata(new SearchResultMetadata().setAggregations(new AggregationMetadataArray()));
   }
 
   private Set<String> getCommonFilters(Set<String> entities) {
@@ -198,7 +189,7 @@ public class AllEntitiesSearchAggregator {
     return _entityRegistry.getEntitySpecs()
         .keySet()
         .stream()
-        .filter(entity -> _esSearchDAO.docCount(entity) > 0)
+        .filter(entity -> _entitySearchService.docCount(entity) > 0)
         .collect(Collectors.toList());
   }
 
@@ -215,13 +206,12 @@ public class AllEntitiesSearchAggregator {
     return finalAggregations;
   }
 
-  private Pair<List<Urn>, List<MatchMetadata>> rankResults(List<IntermediateResult> intermediateResults,
-      List<String> entityRanking) {
+  private List<SearchEntity> rankResults(List<IntermediateResult> intermediateResults, List<String> entityRanking) {
     Map<String, List<IntermediateResult>> resultsPerEntity =
         intermediateResults.stream().collect(Collectors.groupingBy(IntermediateResult::getEntityType));
     Map<String, Integer> indexPerEntity =
         resultsPerEntity.keySet().stream().collect(Collectors.toMap(Function.identity(), entity -> 0));
-    Pair<List<Urn>, List<MatchMetadata>> result = new Pair<>(new ArrayList<>(), new ArrayList<>());
+    List<SearchEntity> result = new ArrayList<>();
     while (indexPerEntity.size() > 0) {
       for (String entity : entityRanking) {
         if (!indexPerEntity.containsKey(entity)) {
@@ -232,8 +222,7 @@ public class AllEntitiesSearchAggregator {
         int index = indexPerEntity.get(entity);
         if (index < resultsForEntity.size()) {
           IntermediateResult chosenResult = resultsForEntity.get(index);
-          result.getFirst().add(chosenResult.getUrn());
-          result.getSecond().add(chosenResult.getMatchMetadata());
+          result.add(chosenResult.getSearchEntity());
           if (index == resultsForEntity.size() - 1) {
             indexPerEntity.remove(entity);
           } else {
@@ -247,8 +236,7 @@ public class AllEntitiesSearchAggregator {
 
   @Value
   private static class IntermediateResult {
-    Urn urn;
-    MatchMetadata matchMetadata;
+    SearchEntity searchEntity;
     String entityType;
   }
 }

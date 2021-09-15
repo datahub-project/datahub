@@ -5,6 +5,7 @@ import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.Filter;
 import com.linkedin.metadata.query.SortCriterion;
+import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.aggregator.AllEntitiesSearchAggregator;
@@ -21,13 +22,12 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @RequiredArgsConstructor
-public class ElasticSearchService implements SearchService {
+public class ElasticSearchService implements EntitySearchService {
 
   private final ESIndexBuilders indexBuilders;
   private final ESSearchDAO esSearchDAO;
   private final ESBrowseDAO esBrowseDAO;
   private final ESWriteDAO esWriteDAO;
-  private final AllEntitiesSearchAggregator aggregator;
 
   @Override
   public void configure() {
@@ -65,16 +65,6 @@ public class ElasticSearchService implements SearchService {
         "Searching Search documents entityName: %s, input: %s, postFilters: %s, sortCriterion: %s, from: %s, size: %s",
         entityName, input, postFilters, sortCriterion, from, size));
     return esSearchDAO.search(entityName, input, postFilters, sortCriterion, from, size);
-  }
-
-  @Nonnull
-  @Override
-  public SearchResult searchAcrossEntities(@Nonnull List<String> entities, @Nonnull String input,
-      @Nullable Filter postFilters, @Nullable SortCriterion sortCriterion, int from, int size) {
-    log.debug(String.format(
-        "Searching Search documents entities: %s, input: %s, postFilters: %s, sortCriterion: %s, from: %s, size: %s",
-        entities, input, postFilters, sortCriterion, from, size));
-    return aggregator.search(entities, input, postFilters, sortCriterion, from, size);
   }
 
   @Nonnull

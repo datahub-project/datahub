@@ -1,24 +1,25 @@
 package com.linkedin.metadata.search.elasticsearch.query.request;
 
-import com.linkedin.common.UrnArray;
+import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.template.DoubleMap;
 import com.linkedin.data.template.LongMap;
 import com.linkedin.metadata.dao.utils.ESUtils;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
-import com.linkedin.metadata.query.Criterion;
 import com.linkedin.metadata.query.Filter;
 import com.linkedin.metadata.query.SortCriterion;
 import com.linkedin.metadata.search.AggregationMetadata;
 import com.linkedin.metadata.search.AggregationMetadataArray;
 import com.linkedin.metadata.search.FilterValueArray;
-import com.linkedin.metadata.search.MatchMetadata;
-import com.linkedin.metadata.search.MatchMetadataArray;
 import com.linkedin.metadata.search.MatchedField;
 import com.linkedin.metadata.search.MatchedFieldArray;
+import com.linkedin.metadata.search.SearchEntity;
+import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;
+import com.linkedin.metadata.search.features.Features;
 import com.linkedin.metadata.utils.SearchUtil;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.net.URISyntaxException;
@@ -45,7 +46,6 @@ import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.aggregations.Aggregation;
 import org.elasticsearch.search.aggregations.AggregationBuilder;
 import org.elasticsearch.search.aggregations.AggregationBuilders;
-import org.elasticsearch.search.aggregations.bucket.filter.ParsedFilter;
 import org.elasticsearch.search.aggregations.bucket.terms.ParsedTerms;
 import org.elasticsearch.search.aggregations.bucket.terms.Terms;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
@@ -195,28 +195,64 @@ public class SearchRequestHandler {
   @WithSpan
   public SearchResult extractResult(@Nonnull SearchResponse searchResponse, int from, int size) {
     int totalCount = (int) searchResponse.getHits().getTotalHits().value;
-    List<Urn> resultList = getResults(searchResponse);
+    List<SearchEntity> resultList = getResults(searchResponse);
     SearchResultMetadata searchResultMetadata = extractSearchResultMetadata(searchResponse);
-    searchResultMetadata.setUrns(new UrnArray(resultList));
 
-    return new SearchResult().setEntities(new UrnArray(resultList))
+    return new SearchResult().setEntities(new SearchEntityArray(resultList))
         .setMetadata(searchResultMetadata)
         .setFrom(from)
         .setPageSize(size)
         .setNumEntities(totalCount);
   }
 
+  @Nonnull
+  private List<MatchedField> extractMatchedFields(@Nonnull Map<String, HighlightField> highlightedFields) {
+    // Keep track of unique field values that matched for a given field name
+    Map<String, Set<String>> highlightedFieldNamesAndValues = new HashMap<>();
+    for (Map.Entry<String, HighlightField> entry : highlightedFields.entrySet()) {
+      // Get the field name from source e.g. name.delimited -> name
+      Optional<String> fieldName = getFieldName(entry.getKey());
+      if (!fieldName.isPresent()) {
+        continue;
+      }
+      if (!highlightedFieldNamesAndValues.containsKey(fieldName.get())) {
+        highlightedFieldNamesAndValues.put(fieldName.get(), new HashSet<>());
+      }
+      for (Text fieldValue : entry.getValue().getFragments()) {
+        highlightedFieldNamesAndValues.get(fieldName.get()).add(fieldValue.string());
+      }
+    }
+    return highlightedFieldNamesAndValues.entrySet()
+        .stream()
+        .flatMap(
+            entry -> entry.getValue().stream().map(value -> new MatchedField().setName(entry.getKey()).setValue(value)))
+        .collect(Collectors.toList());
+  }
+
+  @Nonnull
+  private Optional<String> getFieldName(String matchedField) {
+    return _defaultQueryFieldNames.stream().filter(matchedField::startsWith).findFirst();
+  }
+
+  private Map<String, Double> extractFeatures(@Nonnull SearchHit searchHit) {
+    return ImmutableMap.of(Features.Name.ELASTICSEARCH_SCORE.toString(), (double) searchHit.getScore());
+  }
+
+  private SearchEntity getResult(@Nonnull SearchHit hit) {
+    return new SearchEntity().setEntity(getUrnFromSearchHit(hit))
+        .setMatchedFields(new MatchedFieldArray(extractMatchedFields(hit.getHighlightFields())))
+        .setFeatures(new DoubleMap(extractFeatures(hit)));
+  }
+
   /**
-   * Gets list of urns returned in the search response
+   * Gets list of entities returned in the search response
    *
    * @param searchResponse the raw search response from search engine
-   * @return List of entity urns
+   * @return List of search entities
    */
   @Nonnull
-  private List<Urn> getResults(@Nonnull SearchResponse searchResponse) {
-    return Arrays.stream(searchResponse.getHits().getHits())
-        .map(this::getUrnFromSearchHit)
-        .collect(Collectors.toList());
+  private List<SearchEntity> getResults(@Nonnull SearchResponse searchResponse) {
+    return Arrays.stream(searchResponse.getHits().getHits()).map(this::getResult).collect(Collectors.toList());
   }
 
   @Nonnull
@@ -237,16 +273,11 @@ public class SearchRequestHandler {
   @Nonnull
   private SearchResultMetadata extractSearchResultMetadata(@Nonnull SearchResponse searchResponse) {
     final SearchResultMetadata searchResultMetadata =
-        new SearchResultMetadata().setSearchResultMetadatas(new AggregationMetadataArray()).setUrns(new UrnArray());
+        new SearchResultMetadata().setAggregations(new AggregationMetadataArray());
 
     final List<AggregationMetadata> aggregationMetadataList = extractAggregation(searchResponse);
     if (!aggregationMetadataList.isEmpty()) {
-      searchResultMetadata.setSearchResultMetadatas(new AggregationMetadataArray(aggregationMetadataList));
-    }
-
-    final List<MatchMetadata> highlightMetadataList = extractMatchMetadataList(searchResponse);
-    if (!highlightMetadataList.isEmpty()) {
-      searchResultMetadata.setMatches(new MatchMetadataArray(highlightMetadataList));
+      searchResultMetadata.setAggregations(new AggregationMetadataArray(aggregationMetadataList));
     }
 
     return searchResultMetadata;
@@ -296,43 +327,5 @@ public class SearchRequestHandler {
     }
 
     return aggResult;
-  }
-
-  @Nonnull
-  private List<MatchMetadata> extractMatchMetadataList(@Nonnull SearchResponse searchResponse) {
-    final List<MatchMetadata> highlightMetadataList = new ArrayList<>(searchResponse.getHits().getHits().length);
-    for (SearchHit hit : searchResponse.getHits().getHits()) {
-      highlightMetadataList.add(extractMatchMetadata(hit.getHighlightFields()));
-    }
-    return highlightMetadataList;
-  }
-
-  @Nonnull
-  private MatchMetadata extractMatchMetadata(@Nonnull Map<String, HighlightField> highlightedFields) {
-    // Keep track of unique field values that matched for a given field name
-    Map<String, Set<String>> highlightedFieldNamesAndValues = new HashMap<>();
-    for (Map.Entry<String, HighlightField> entry : highlightedFields.entrySet()) {
-      // Get the field name from source e.g. name.delimited -> name
-      Optional<String> fieldName = getFieldName(entry.getKey());
-      if (!fieldName.isPresent()) {
-        continue;
-      }
-      if (!highlightedFieldNamesAndValues.containsKey(fieldName.get())) {
-        highlightedFieldNamesAndValues.put(fieldName.get(), new HashSet<>());
-      }
-      for (Text fieldValue : entry.getValue().getFragments()) {
-        highlightedFieldNamesAndValues.get(fieldName.get()).add(fieldValue.string());
-      }
-    }
-    return new MatchMetadata().setMatchedFields(new MatchedFieldArray(highlightedFieldNamesAndValues.entrySet()
-        .stream()
-        .flatMap(
-            entry -> entry.getValue().stream().map(value -> new MatchedField().setName(entry.getKey()).setValue(value)))
-        .collect(Collectors.toList())));
-  }
-
-  @Nonnull
-  private Optional<String> getFieldName(String matchedField) {
-    return _defaultQueryFieldNames.stream().filter(matchedField::startsWith).findFirst();
   }
 }

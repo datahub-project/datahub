@@ -20,6 +20,7 @@ dependencies {
   compile externalDependency.lombok
   compile externalDependency.elasticSearchRest
   compile externalDependency.elasticSearchTransport
+  compile externalDependency.javatuples
   compile externalDependency.kafkaClients
   compile externalDependency.gmaEbeanDao
   compile externalDependency.gmaDaoApi

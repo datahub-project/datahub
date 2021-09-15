@@ -7,10 +7,9 @@ import com.linkedin.data.element.DataElement;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.gms.factory.common.GraphServiceFactory;
 import com.linkedin.gms.factory.common.SystemMetadataServiceFactory;
-import com.linkedin.gms.factory.search.SearchServiceFactory;
+import com.linkedin.gms.factory.search.EntitySearchServiceFactory;
 import com.linkedin.gms.factory.usage.UsageServiceFactory;
 import com.linkedin.metadata.EventUtils;
-import com.linkedin.metadata.utils.PegasusUtils;
 import com.linkedin.metadata.dao.utils.RecordUtils;
 import com.linkedin.metadata.extractor.AspectExtractor;
 import com.linkedin.metadata.extractor.FieldExtractor;
@@ -24,10 +23,11 @@ import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
 import com.linkedin.metadata.query.CriterionArray;
 import com.linkedin.metadata.query.Filter;
 import com.linkedin.metadata.query.RelationshipDirection;
-import com.linkedin.metadata.search.SearchService;
+import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.usage.UsageService;
+import com.linkedin.metadata.utils.PegasusUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataAuditEvent;
 import com.linkedin.mxe.MetadataAuditOperation;
@@ -60,29 +60,28 @@ import static com.linkedin.metadata.dao.Neo4jUtil.createRelationshipFilter;
 @Slf4j
 @Component
 @Conditional(MetadataChangeLogProcessorCondition.class)
-@Import({GraphServiceFactory.class, SearchServiceFactory.class, UsageServiceFactory.class,
+@Import({GraphServiceFactory.class, EntitySearchServiceFactory.class, UsageServiceFactory.class,
     SystemMetadataServiceFactory.class})
 @EnableKafka
 public class MetadataAuditEventsProcessor {
 
   private final GraphService _graphService;
-  private final SearchService _searchService;
+  private final EntitySearchService _entitySearchService;
   private final UsageService _usageService;
   private final SystemMetadataService _systemMetadataService;
 
-  private final Histogram kafkaLagStats =
-      MetricUtils.get().histogram(MetricRegistry.name(this.getClass(), "kafkaLag"));
+  private final Histogram kafkaLagStats = MetricUtils.get().histogram(MetricRegistry.name(this.getClass(), "kafkaLag"));
 
   @Autowired
-  public MetadataAuditEventsProcessor(GraphService graphService, SearchService searchService, UsageService usageService,
-      SystemMetadataService systemMetadataService) {
+  public MetadataAuditEventsProcessor(GraphService graphService, EntitySearchService entitySearchService,
+      UsageService usageService, SystemMetadataService systemMetadataService) {
     _graphService = graphService;
-    _searchService = searchService;
+    _entitySearchService = entitySearchService;
     _usageService = usageService;
     _systemMetadataService = systemMetadataService;
 
     _graphService.configure();
-    _searchService.configure();
+    _entitySearchService.configure();
     _usageService.configure();
     _systemMetadataService.configure();
   }
@@ -261,10 +260,10 @@ public class MetadataAuditEventsProcessor {
     }
 
     if (deleteEntity) {
-      _searchService.deleteDocument(entitySpec.getName(), docId);
+      _entitySearchService.deleteDocument(entitySpec.getName(), docId);
       return;
     }
 
-    _searchService.upsertDocument(entitySpec.getName(), searchDocument.get(), docId);
+    _entitySearchService.upsertDocument(entitySpec.getName(), searchDocument.get(), docId);
   }
 }
