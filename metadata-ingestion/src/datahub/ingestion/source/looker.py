@@ -377,8 +377,8 @@ class LookerDashboardSource(Source):
             description=dashboard.description,
             dashboard_elements=dashboard_elements,
             created_at=dashboard.created_at,
-            is_deleted=dashboard.deleted,
-            is_hidden=dashboard.deleted,
+            is_deleted=dashboard.deleted if dashboard.deleted is not None else False,
+            is_hidden=dashboard.deleted if dashboard.deleted is not None else False,
         )
         return looker_dashboard
 
@@ -399,7 +399,11 @@ class LookerDashboardSource(Source):
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         client = self._get_looker_client()
         dashboards = client.all_dashboards(fields="id")
-        deleted_dashboards = client.search_dashboards(fields="id", deleted="true") if self.source_config.include_deleted else []
+        deleted_dashboards = (
+            client.search_dashboards(fields="id", deleted="true")
+            if self.source_config.include_deleted
+            else []
+        )
         dashboard_ids = [
             dashboard_base.id
             for dashboard_base in dashboards + deleted_dashboards
@@ -412,7 +416,13 @@ class LookerDashboardSource(Source):
                 self.reporter.report_dashboards_dropped(dashboard_id)
                 continue
             try:
-                fields = ["id", "title", "dashboard_elements", "dashboard_filters", "deleted"]
+                fields = [
+                    "id",
+                    "title",
+                    "dashboard_elements",
+                    "dashboard_filters",
+                    "deleted",
+                ]
                 dashboard_object = client.dashboard(
                     dashboard_id=dashboard_id, fields=",".join(fields)
                 )

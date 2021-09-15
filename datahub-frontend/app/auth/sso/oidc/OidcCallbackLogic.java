@@ -214,7 +214,7 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
     final OidcConfigs configs = (OidcConfigs) _ssoManager.getSsoProvider().configs();
 
     // First, attempt to extract a list of groups from the profile, using the group name attribute config.
-    final String groupsClaimName = configs.groupsClaimName();
+    final String groupsClaimName = configs.getGroupsClaimName();
     if (profile.containsAttribute(groupsClaimName)) {
       try {
         final List<CorpGroupSnapshot> groupSnapshots = new ArrayList<>();

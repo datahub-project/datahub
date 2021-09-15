@@ -47,9 +47,9 @@ export default function UpdatableDescription({
                 entityUrn: urn,
             });
             message.success({ content: 'Updated!', duration: 2 });
-        } catch (e) {
+        } catch (e: unknown) {
             message.destroy();
-            message.error({ content: `Update Failed! \n ${e.message || ''}`, duration: 2 });
+            if (e instanceof Error) message.error({ content: `Update Failed! \n ${e.message || ''}`, duration: 2 });
         }
         setShowAddDescModal(false);
     };

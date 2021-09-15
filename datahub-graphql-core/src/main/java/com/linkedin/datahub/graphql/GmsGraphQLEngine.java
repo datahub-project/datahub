@@ -44,7 +44,11 @@ import com.linkedin.datahub.graphql.resolvers.load.LoadableTypeBatchResolver;
 import com.linkedin.datahub.graphql.resolvers.load.EntityRelationshipsResultResolver;
 import com.linkedin.datahub.graphql.resolvers.load.TimeSeriesAspectResolver;
 import com.linkedin.datahub.graphql.resolvers.load.UsageTypeResolver;
+import com.linkedin.datahub.graphql.resolvers.mutate.AddTagResolver;
+import com.linkedin.datahub.graphql.resolvers.mutate.AddTermResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.MutableTypeResolver;
+import com.linkedin.datahub.graphql.resolvers.mutate.RemoveTagResolver;
+import com.linkedin.datahub.graphql.resolvers.mutate.RemoveTermResolver;
 import com.linkedin.datahub.graphql.resolvers.policy.DeletePolicyResolver;
 import com.linkedin.datahub.graphql.resolvers.policy.ListPoliciesResolver;
 import com.linkedin.datahub.graphql.resolvers.config.AppConfigResolver;
@@ -71,7 +75,7 @@ import com.linkedin.datahub.graphql.resolvers.load.OwnerTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.browse.BrowsePathsResolver;
 import com.linkedin.datahub.graphql.resolvers.browse.BrowseResolver;
 import com.linkedin.datahub.graphql.resolvers.search.AutoCompleteResolver;
-import com.linkedin.datahub.graphql.resolvers.search.AutoCompleteForAllResolver;
+import com.linkedin.datahub.graphql.resolvers.search.AutoCompleteForMultipleResolver;
 import com.linkedin.datahub.graphql.resolvers.search.SearchResolver;
 import com.linkedin.datahub.graphql.resolvers.type.EntityInterfaceTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.type.PlatformSchemaUnionTypeResolver;
@@ -90,6 +94,7 @@ import com.linkedin.datahub.graphql.types.lineage.DataFlowDataJobsRelationshipsT
 import com.linkedin.datahub.graphql.types.glossary.GlossaryTermType;
 
 import com.linkedin.datahub.graphql.types.usage.UsageType;
+import com.linkedin.metadata.entity.EntityService;
 import graphql.execution.DataFetcherResult;
 import graphql.schema.idl.RuntimeWiring;
 import java.util.ArrayList;
@@ -125,6 +130,7 @@ import static graphql.Scalars.GraphQLLong;
 public class GmsGraphQLEngine {
 
     private final AnalyticsService analyticsService;
+    private final EntityService entityService;
 
     private final DatasetType datasetType;
     private final CorpUserType corpUserType;
@@ -178,11 +184,13 @@ public class GmsGraphQLEngine {
     public final List<BrowsableEntityType<?>> browsableTypes;
 
     public GmsGraphQLEngine() {
-        this(null);
+        this(null, null);
     }
 
-    public GmsGraphQLEngine(final AnalyticsService analyticsService) {
+    public GmsGraphQLEngine(final AnalyticsService analyticsService, final EntityService entityService) {
         this.analyticsService = analyticsService;
+        this.entityService = entityService;
+
         this.datasetType = new DatasetType(GmsClientFactory.getEntitiesClient());
         this.corpUserType = new CorpUserType(GmsClientFactory.getEntitiesClient());
         this.corpGroupType = new CorpGroupType(GmsClientFactory.getEntitiesClient());
@@ -318,8 +326,8 @@ public class GmsGraphQLEngine {
                     new SearchForMultipleResolver(GmsClientFactory.getEntitiesClient())))
             .dataFetcher("autoComplete", new AuthenticatedResolver<>(
                     new AutoCompleteResolver(searchableTypes)))
-            .dataFetcher("autoCompleteForAll", new AuthenticatedResolver<>(
-                    new AutoCompleteForAllResolver(searchableTypes)))
+            .dataFetcher("autoCompleteForMultiple", new AuthenticatedResolver<>(
+                    new AutoCompleteForMultipleResolver(searchableTypes)))
             .dataFetcher("browse", new AuthenticatedResolver<>(
                     new BrowseResolver(browsableTypes)))
             .dataFetcher("browsePaths", new AuthenticatedResolver<>(
@@ -373,15 +381,19 @@ public class GmsGraphQLEngine {
 
     private void configureMutationResolvers(final RuntimeWiring.Builder builder) {
         builder.type("Mutation", typeWiring -> typeWiring
-                .dataFetcher("updateDataset", new AuthenticatedResolver<>(new MutableTypeResolver<>(datasetType)))
-                .dataFetcher("updateTag", new AuthenticatedResolver<>(new MutableTypeResolver<>(tagType)))
-                .dataFetcher("updateChart", new AuthenticatedResolver<>(new MutableTypeResolver<>(chartType)))
-                .dataFetcher("updateDashboard", new AuthenticatedResolver<>(new MutableTypeResolver<>(dashboardType)))
-                .dataFetcher("updateDataJob", new AuthenticatedResolver<>(new MutableTypeResolver<>(dataJobType)))
-                .dataFetcher("updateDataFlow", new AuthenticatedResolver<>(new MutableTypeResolver<>(dataFlowType)))
-                .dataFetcher("createPolicy", new UpsertPolicyResolver(GmsClientFactory.getAspectsClient()))
-                .dataFetcher("updatePolicy", new UpsertPolicyResolver(GmsClientFactory.getAspectsClient()))
-                .dataFetcher("deletePolicy", new DeletePolicyResolver(GmsClientFactory.getEntitiesClient()))
+            .dataFetcher("updateDataset", new AuthenticatedResolver<>(new MutableTypeResolver<>(datasetType)))
+            .dataFetcher("updateTag", new AuthenticatedResolver<>(new MutableTypeResolver<>(tagType)))
+            .dataFetcher("updateChart", new AuthenticatedResolver<>(new MutableTypeResolver<>(chartType)))
+            .dataFetcher("updateDashboard", new AuthenticatedResolver<>(new MutableTypeResolver<>(dashboardType)))
+            .dataFetcher("updateDataJob", new AuthenticatedResolver<>(new MutableTypeResolver<>(dataJobType)))
+            .dataFetcher("updateDataFlow", new AuthenticatedResolver<>(new MutableTypeResolver<>(dataFlowType)))
+            .dataFetcher("addTag", new AuthenticatedResolver<>(new AddTagResolver(entityService)))
+            .dataFetcher("removeTag", new AuthenticatedResolver<>(new RemoveTagResolver(entityService)))
+            .dataFetcher("addTerm", new AuthenticatedResolver<>(new AddTermResolver(entityService)))
+            .dataFetcher("removeTerm", new AuthenticatedResolver<>(new RemoveTermResolver(entityService)))
+            .dataFetcher("createPolicy", new UpsertPolicyResolver(GmsClientFactory.getAspectsClient()))
+            .dataFetcher("updatePolicy", new UpsertPolicyResolver(GmsClientFactory.getAspectsClient()))
+            .dataFetcher("deletePolicy", new DeletePolicyResolver(GmsClientFactory.getEntitiesClient()))
         );
     }
 

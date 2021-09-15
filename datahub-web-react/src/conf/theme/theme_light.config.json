@@ -1,5 +1,6 @@
 {
     "styles": {
+        "primary-color": "#1890ff",
         "layout-header-background": "white",
         "layout-header-color": "#434343",
         "layout-body-background": "white",

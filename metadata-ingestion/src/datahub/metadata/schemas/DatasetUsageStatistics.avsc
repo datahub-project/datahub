@@ -1,0 +1,212 @@
+{
+  "type": "record",
+  "name": "DatasetUsageStatistics",
+  "namespace": "com.linkedin.pegasus2avro.dataset",
+  "doc": "Stats corresponding to dataset's usage.",
+  "fields": [
+    {
+      "name": "timestampMillis",
+      "type": "long",
+      "doc": "The event timestamp field as epoch at UTC in milli seconds."
+    },
+    {
+      "name": "eventGranularity",
+      "type": [
+        "null",
+        {
+          "type": "record",
+          "name": "TimeWindowSize",
+          "namespace": "com.linkedin.pegasus2avro.timeseries",
+          "doc": "Defines the size of a time window.",
+          "fields": [
+            {
+              "name": "unit",
+              "type": {
+                "type": "enum",
+                "name": "CalendarInterval",
+                "symbols": [
+                  "SECOND",
+                  "MINUTE",
+                  "HOUR",
+                  "DAY",
+                  "WEEK",
+                  "MONTH",
+                  "QUARTER",
+                  "YEAR"
+                ]
+              },
+              "doc": "Interval unit such as minute/hour/day etc."
+            },
+            {
+              "name": "multiple",
+              "type": "int",
+              "doc": "How many units. Defaults to 1.",
+              "default": 1
+            }
+          ]
+        }
+      ],
+      "doc": "Granularity of the event if applicable",
+      "default": null
+    },
+    {
+      "name": "partitionSpec",
+      "type": [
+        "null",
+        {
+          "type": "record",
+          "name": "PartitionSpec",
+          "namespace": "com.linkedin.pegasus2avro.timeseries",
+          "doc": "Defines how the data is partitioned",
+          "fields": [
+            {
+              "name": "partition",
+              "type": "string",
+              "doc": "String representation of the partition"
+            },
+            {
+              "name": "timePartition",
+              "type": [
+                "null",
+                {
+                  "type": "record",
+                  "name": "TimeWindow",
+                  "fields": [
+                    {
+                      "name": "startTimeMillis",
+                      "type": "long",
+                      "doc": "Start time as epoch at UTC."
+                    },
+                    {
+                      "name": "length",
+                      "type": "TimeWindowSize",
+                      "doc": "The length of the window."
+                    }
+                  ]
+                }
+              ],
+              "doc": "Time window of the partition if applicable",
+              "default": null
+            }
+          ]
+        }
+      ],
+      "doc": "The optional partition specification.",
+      "default": null
+    },
+    {
+      "name": "uniqueUserCount",
+      "type": [
+        "null",
+        "int"
+      ],
+      "doc": "Unique user count",
+      "default": null,
+      "TimeseriesField": {}
+    },
+    {
+      "name": "totalSqlQueries",
+      "type": [
+        "null",
+        "int"
+      ],
+      "doc": "Total SQL query count",
+      "default": null,
+      "TimeseriesField": {}
+    },
+    {
+      "name": "topSqlQueries",
+      "type": [
+        "null",
+        {
+          "type": "array",
+          "items": "string"
+        }
+      ],
+      "doc": "Frequent SQL queries; mostly makes sense for datasets in SQL databases",
+      "default": null,
+      "TimeseriesField": {}
+    },
+    {
+      "name": "userCounts",
+      "type": [
+        "null",
+        {
+          "type": "array",
+          "items": {
+            "type": "record",
+            "name": "DatasetUserUsageCounts",
+            "doc": "Records a single user's usage counts for a given resource",
+            "fields": [
+              {
+                "name": "user",
+                "type": "string",
+                "doc": "The unique id of the user.",
+                "java": {
+                  "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+                }
+              },
+              {
+                "name": "count",
+                "type": "int",
+                "doc": "Number of times the dataset has been used by the user.",
+                "TimeseriesField": {}
+              },
+              {
+                "name": "userEmail",
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "doc": "If user_email is set, we attempt to resolve the user's urn upon ingest",
+                "default": null,
+                "TimeseriesField": {}
+              }
+            ]
+          }
+        }
+      ],
+      "doc": "Users within this bucket, with frequency counts",
+      "default": null,
+      "TimeseriesFieldCollection": {
+        "key": "user"
+      }
+    },
+    {
+      "name": "fieldCounts",
+      "type": [
+        "null",
+        {
+          "type": "array",
+          "items": {
+            "type": "record",
+            "name": "DatasetFieldUsageCounts",
+            "doc": "Records field-level usage counts for a given dataset",
+            "fields": [
+              {
+                "name": "fieldPath",
+                "type": "string",
+                "doc": "The name of the field."
+              },
+              {
+                "name": "count",
+                "type": "int",
+                "doc": "Number of times the field has been used.",
+                "TimeseriesField": {}
+              }
+            ]
+          }
+        }
+      ],
+      "doc": "Field-level usage stats",
+      "default": null,
+      "TimeseriesFieldCollection": {
+        "key": "fieldPath"
+      }
+    }
+  ],
+  "Aspect": {
+    "name": "datasetUsageStatistics",
+    "type": "timeseries"
+  }
+}

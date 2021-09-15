@@ -1,6 +1,6 @@
 package com.linkedin.metadata.graph;
 
-import com.linkedin.common.urn.Urn;
+import com.linkedin.metadata.ElasticSearchTestUtils;
 import com.linkedin.metadata.graph.elastic.ESGraphQueryDAO;
 import com.linkedin.metadata.graph.elastic.ESGraphWriteDAO;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
@@ -17,28 +17,28 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.BeforeTest;
 
 import javax.annotation.Nonnull;
-import java.net.URISyntaxException;
-import java.util.concurrent.TimeUnit;
+
+import static com.linkedin.metadata.graph.elastic.ElasticSearchGraphService.INDEX_NAME;
 
 public class ElasticSearchGraphServiceTest extends GraphServiceTestBase {
 
   private ElasticsearchContainer _elasticsearchContainer;
   private RestHighLevelClient _searchClient;
-  private IndexConvention _indexConvention;
+  private final IndexConvention _indexConvention = new IndexConventionImpl(null);
+  private final String _indexName = _indexConvention.getIndexName(INDEX_NAME);
   private ElasticSearchGraphService _client;
 
   private static final String IMAGE_NAME = "docker.elastic.co/elasticsearch/elasticsearch:7.9.3";
   private static final int HTTP_PORT = 9200;
 
   @BeforeMethod
-  public void wipe() throws URISyntaxException {
-    _client.removeNode(Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)"));
-    _client.removeNode(Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)"));
+  public void wipe() throws Exception {
+    _client.clear();
+    syncAfterWrite();
   }
 
   @BeforeTest
   public void setup() {
-    _indexConvention = new IndexConventionImpl(null);
     _elasticsearchContainer = new ElasticsearchContainer(IMAGE_NAME);
     _elasticsearchContainer.start();
     _searchClient = buildRestClient();
@@ -78,6 +78,7 @@ public class ElasticSearchGraphServiceTest extends GraphServiceTestBase {
 
   @Override
   protected void syncAfterWrite() throws Exception {
-    TimeUnit.SECONDS.sleep(5);
+    ElasticSearchTestUtils.syncAfterWrite(_searchClient, _indexName);
   }
+
 }

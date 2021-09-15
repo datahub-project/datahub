@@ -8,7 +8,6 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.gms.factory.common.GraphServiceFactory;
 import com.linkedin.gms.factory.common.SystemMetadataServiceFactory;
 import com.linkedin.gms.factory.search.EntitySearchServiceFactory;
-import com.linkedin.gms.factory.usage.UsageServiceFactory;
 import com.linkedin.metadata.EventUtils;
 import com.linkedin.metadata.dao.utils.RecordUtils;
 import com.linkedin.metadata.extractor.AspectExtractor;
@@ -26,7 +25,6 @@ import com.linkedin.metadata.query.RelationshipDirection;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
-import com.linkedin.metadata.usage.UsageService;
 import com.linkedin.metadata.utils.PegasusUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataAuditEvent;
@@ -60,29 +58,24 @@ import static com.linkedin.metadata.dao.Neo4jUtil.createRelationshipFilter;
 @Slf4j
 @Component
 @Conditional(MetadataChangeLogProcessorCondition.class)
-@Import({GraphServiceFactory.class, EntitySearchServiceFactory.class, UsageServiceFactory.class,
-    SystemMetadataServiceFactory.class})
+@Import({GraphServiceFactory.class, EntitySearchServiceFactory.class, SystemMetadataServiceFactory.class})
 @EnableKafka
 public class MetadataAuditEventsProcessor {
 
   private final GraphService _graphService;
   private final EntitySearchService _entitySearchService;
-  private final UsageService _usageService;
   private final SystemMetadataService _systemMetadataService;
 
   private final Histogram kafkaLagStats = MetricUtils.get().histogram(MetricRegistry.name(this.getClass(), "kafkaLag"));
 
   @Autowired
   public MetadataAuditEventsProcessor(GraphService graphService, EntitySearchService entitySearchService,
-      UsageService usageService, SystemMetadataService systemMetadataService) {
+      SystemMetadataService systemMetadataService) {
     _graphService = graphService;
-    _entitySearchService = entitySearchService;
-    _usageService = usageService;
     _systemMetadataService = systemMetadataService;
 
     _graphService.configure();
-    _entitySearchService.configure();
-    _usageService.configure();
+    _entitySearchService = entitySearchService;
     _systemMetadataService.configure();
   }
 
@@ -109,7 +102,7 @@ public class MetadataAuditEventsProcessor {
 
         final RecordTemplate snapshot = RecordUtils.getSelectedRecordTemplateFromUnion(event.getOldSnapshot());
 
-        log.info("deleting {}", snapshot.toString());
+        log.info("deleting {}", snapshot);
 
         final EntitySpec entitySpec =
             SnapshotEntityRegistry.getInstance().getEntitySpec(PegasusUtils.getEntityNameFromSchema(snapshot.schema()));
