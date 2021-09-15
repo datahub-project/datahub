@@ -132,7 +132,7 @@ public class ElasticSearchTimeseriesAspectService implements TimeseriesAspectSer
     final BoolQueryBuilder filterQueryBuilder = ESUtils.buildFilterQuery(null);
     filterQueryBuilder.must(QueryBuilders.matchQuery("urn", urn.toString()));
     // NOTE: We are interested only in the un-exploded rows as only they carry the `event` payload.
-    filterQueryBuilder.must(QueryBuilders.termQuery(MappingsBuilder.IS_EXPLODED_FIELD, false));
+    filterQueryBuilder.mustNot(QueryBuilders.termQuery(MappingsBuilder.IS_EXPLODED_FIELD, true));
     if (startTimeMillis != null) {
       Criterion startTimeCriterion = new Criterion().setField(TIMESTAMP_FIELD)
           .setCondition(Condition.GREATER_THAN_OR_EQUAL_TO)
