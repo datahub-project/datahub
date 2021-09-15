@@ -11,6 +11,10 @@ const AdminLink = styled.span`
     margin-right: 4px;
 `;
 
+const LinkButton = styled(Button)`
+    color: white;
+`;
+
 export function AdminHeaderLinks() {
     const me = useGetAuthenticatedUser();
     const { config } = useAppConfig();
@@ -26,18 +30,18 @@ export function AdminHeaderLinks() {
             {showAnalytics && (
                 <AdminLink>
                     <Link to="/analytics">
-                        <Button type="text">
+                        <LinkButton type="text">
                             <BarChartOutlined /> Analytics
-                        </Button>
+                        </LinkButton>
                     </Link>
                 </AdminLink>
             )}
             {showPolicyBuilder && (
                 <AdminLink>
                     <Link to="/policies">
-                        <Button type="text">
+                        <LinkButton type="text">
                             <BankOutlined /> Policies
-                        </Button>
+                        </LinkButton>
                     </Link>
                 </AdminLink>
             )}
