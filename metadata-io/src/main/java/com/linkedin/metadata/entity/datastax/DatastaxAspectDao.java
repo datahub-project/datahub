@@ -425,11 +425,22 @@ public class DatastaxAspectDao {
 
     long totalCount = _cqlSession.execute(ssCount).one().getLong(0);
 
-    return toListResult(aspects, start, pageNumber, pageSize, totalCount);
+    final List<String> aspectMetadatas = aspects
+            .stream()
+            .map(r -> r.getMetadata())
+            .collect(Collectors.toList());
+
+    final ListResultMetadata listResultMetadata = toListResultMetadata(aspects
+            .stream()
+            .map(r -> toExtraInfo(r))
+            .collect(Collectors.toList()));
+
+    return toListResult(aspectMetadatas, listResultMetadata, start, pageNumber, pageSize, totalCount);
   }
 
-  private ListResult<String> toListResult(
-      @Nonnull final List<DatastaxAspect> dsas,
+  private <T> ListResult<T> toListResult(
+      @Nonnull final List<T> values,
+      @Nonnull final ListResultMetadata listResultMetadata,
       @Nonnull final Integer start,
       @Nonnull final Integer pageNumber,
       @Nonnull final Integer pageSize,
@@ -440,18 +451,8 @@ public class DatastaxAspectDao {
     final int nextStart =
       (start != null && hasNext) ? (pageNumber * pageSize) : ListResult.INVALID_NEXT_START;
 
-    final List<String> aspects = dsas
-      .stream()
-      .map(r -> r.getMetadata())
-      .collect(Collectors.toList());
-
-    final ListResultMetadata listResultMetadata = toListResultMetadata(dsas
-                                                                       .stream()
-                                                                       .map(r -> toExtraInfo(r))
-                                                                       .collect(Collectors.toList()));
-
-    return ListResult.<String>builder()
-      .values(aspects)
+    return ListResult.<T>builder()
+      .values(values)
       .metadata(listResultMetadata)
       .nextStart(nextStart)
       .hasNext(hasNext)
@@ -563,7 +564,36 @@ public class DatastaxAspectDao {
           final int start,
           final int pageSize) {
 
-    return null;
+    OffsetPager offsetPager = new OffsetPager(pageSize);
+
+    SimpleStatement ss = selectFrom("metadata_aspect_v2")
+            .all()
+            .whereColumn("aspect").isEqualTo(literal(aspectName))
+            .whereColumn("version").isEqualTo(literal(ASPECT_LATEST_VERSION))
+            .allowFiltering()
+            .build();
+
+    ResultSet rs = _cqlSession.execute(ss);
+
+    int pageNumber = start / pageSize + 1;
+
+    Page<Row> page = offsetPager.getPage(rs, pageNumber);
+
+    final List<String> urns = page
+            .getElements()
+            .stream().map(r -> toDatastaxAspect(r).getUrn())
+            .collect(Collectors.toList());
+
+    SimpleStatement ssCount = selectFrom("metadata_aspect_v2")
+            .countAll()
+            .whereColumn("aspect").isEqualTo(literal(aspectName))
+            .whereColumn("version").isEqualTo(literal(ASPECT_LATEST_VERSION))
+            .allowFiltering()
+            .build();
+
+    long totalCount = _cqlSession.execute(ssCount).one().getLong(0);
+
+    return toListResult(urns, null, start, pageNumber, pageSize, totalCount);
   }
 
   private DatastaxAspect toDatastaxAspect(Row r) {

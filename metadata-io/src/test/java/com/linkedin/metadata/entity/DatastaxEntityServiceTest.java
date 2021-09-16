@@ -15,6 +15,8 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.dataset.DatasetProfile;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.identity.CorpUserInfo;
+import com.linkedin.metadata.query.ListUrnsResult;
+import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.PegasusUtils;
 import com.linkedin.metadata.aspect.Aspect;
 import com.linkedin.metadata.aspect.CorpUserAspect;
@@ -36,11 +38,8 @@ import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataAuditOperation;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+
+import java.util.*;
 import java.util.stream.Collectors;
 
 import javax.annotation.Nonnull;
@@ -644,6 +643,57 @@ public class DatastaxEntityServiceTest {
     assertTrue(DataTemplateUtil.areEqual(null, deletedKeyAspect));
   }
 
+  @Test
+  public void testIngestListUrns() throws Exception {
+    Urn entityUrn1 = Urn.createFromString("urn:li:corpuser:test1");
+    Urn entityUrn2 = Urn.createFromString("urn:li:corpuser:test2");
+    Urn entityUrn3 = Urn.createFromString("urn:li:corpuser:test3");
+
+    SystemMetadata metadata1 = new SystemMetadata();
+    metadata1.setLastObserved(1625792689);
+    metadata1.setRunId("run-123");
+
+    String aspectName = PegasusUtils.getAspectNameFromSchema(new CorpUserKey().schema());
+
+    // Ingest CorpUserInfo Aspect #1
+    RecordTemplate writeAspect1 = createCorpUserKey(entityUrn1);
+    _entityService.ingestAspect(entityUrn1, aspectName, writeAspect1, TEST_AUDIT_STAMP, metadata1);
+
+    // Ingest CorpUserInfo Aspect #2
+    RecordTemplate writeAspect2 = createCorpUserKey(entityUrn2);
+    _entityService.ingestAspect(entityUrn2, aspectName, writeAspect2, TEST_AUDIT_STAMP, metadata1);
+
+    // Ingest CorpUserInfo Aspect #3
+    RecordTemplate writeAspect3 = createCorpUserKey(entityUrn3);
+    _entityService.ingestAspect(entityUrn3, aspectName, writeAspect3, TEST_AUDIT_STAMP, metadata1);
+
+    // List aspects urns
+    ListUrnsResult batch1 = _entityService.listUrns(entityUrn1.getEntityType(),  0, 2);
+
+    assertEquals(0, (int) batch1.getStart());
+    assertEquals(2, (int) batch1.getCount());
+    assertEquals(3, (int) batch1.getTotal());
+    assertEquals(2, batch1.getEntities().size());
+
+    final Set<String> urns = new HashSet<>();
+    urns.add(entityUrn1.toString());
+    urns.add(entityUrn2.toString());
+    urns.add(entityUrn3.toString());
+
+    urns.remove(batch1.getEntities().get(0).toString());
+    urns.remove(batch1.getEntities().get(1).toString());
+
+    ListUrnsResult batch2 = _entityService.listUrns(entityUrn1.getEntityType(),  2, 2);
+
+    assertEquals(2, (int) batch2.getStart());
+    assertEquals(1, (int) batch2.getCount());
+    assertEquals(3, (int) batch2.getTotal());
+    assertEquals(1, batch2.getEntities().size());
+    urns.remove(batch2.getEntities().get(0).toString());
+
+    assertEquals(0, urns.size());
+  }
+
   @AfterTest
   public void tearDown() {
     _cassandraContainer.stop();
@@ -662,6 +712,11 @@ public class DatastaxEntityServiceTest {
     snapshot.setCorpUserSnapshot(corpUserSnapshot);
     entity.setValue(snapshot);
     return entity;
+  }
+
+  @Nonnull
+  private RecordTemplate createCorpUserKey(Urn urn) throws Exception {
+    return EntityKeyUtils.convertUrnToEntityKey(urn, new CorpUserKey().schema());
   }
 
   @Nonnull
