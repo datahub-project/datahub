@@ -316,7 +316,7 @@ describe('EntityProfile', () => {
         );
 
         // find the tags
-        await waitFor(() => expect(getByText('Tags')).toBeInTheDocument());
+        await waitFor(() => expect(getByText('Tags & Terms')).toBeInTheDocument());
         await waitFor(() => expect(getByText('abc-sample-tag')).toBeInTheDocument());
     });
 });

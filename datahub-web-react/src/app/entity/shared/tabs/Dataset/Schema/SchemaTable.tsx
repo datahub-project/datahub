@@ -60,6 +60,10 @@ export default function SchemaTable({
     const hasUsageStats = useMemo(() => (usageStats?.aggregations?.fields?.length || 0) > 0, [usageStats]);
 
     const [tagHoveredIndex, setTagHoveredIndex] = useState<string | undefined>(undefined);
+    const hasTerms =
+        rows.filter((row) => !!row.glossaryTerms?.terms?.length).length > 0 ||
+        (editableSchemaMetadata?.editableSchemaFieldInfo.filter((row) => !!row.glossaryTerms?.terms?.length).length ||
+            0) > 0;
 
     const descriptionRender = useDescriptionRenderer(editableSchemaMetadata, onUpdateDescription);
     const usageStatsRenderer = useUsageStatsRenderer(usageStats);
@@ -68,7 +72,35 @@ export default function SchemaTable({
         onUpdateTags,
         tagHoveredIndex,
         setTagHoveredIndex,
+        { showTags: true, showTerms: true },
     );
+    const tagRenderer = useTagsAndTermsRenderer(
+        editableSchemaMetadata,
+        onUpdateTags,
+        tagHoveredIndex,
+        setTagHoveredIndex,
+        { showTags: true, showTerms: false },
+    );
+    const termRenderer = useTagsAndTermsRenderer(
+        editableSchemaMetadata,
+        onUpdateTags,
+        tagHoveredIndex,
+        setTagHoveredIndex,
+        { showTags: false, showTerms: true },
+    );
+
+    const onTagTermCell = (record: SchemaField, rowIndex: number | undefined) => ({
+        onMouseEnter: () => {
+            if (editMode) {
+                setTagHoveredIndex(`${record.fieldPath}-${rowIndex}`);
+            }
+        },
+        onMouseLeave: () => {
+            if (editMode) {
+                setTagHoveredIndex(undefined);
+            }
+        },
+    });
 
     const tagAndTermColumn = {
         width: 150,
@@ -76,18 +108,25 @@ export default function SchemaTable({
         dataIndex: 'globalTags',
         key: 'tag',
         render: tagAndTermRender,
-        onCell: (record: SchemaField, rowIndex: number | undefined) => ({
-            onMouseEnter: () => {
-                if (editMode) {
-                    setTagHoveredIndex(`${record.fieldPath}-${rowIndex}`);
-                }
-            },
-            onMouseLeave: () => {
-                if (editMode) {
-                    setTagHoveredIndex(undefined);
-                }
-            },
-        }),
+        onCell: onTagTermCell,
+    };
+
+    const tagColumn = {
+        width: 100,
+        title: 'Tags',
+        dataIndex: 'globalTags',
+        key: 'tag',
+        render: tagRenderer,
+        onCell: onTagTermCell,
+    };
+
+    const termColumn = {
+        width: 100,
+        title: 'Terms',
+        dataIndex: 'globalTags',
+        key: 'tag',
+        render: termRenderer,
+        onCell: onTagTermCell,
     };
 
     const usageColumn = {
@@ -105,7 +144,12 @@ export default function SchemaTable({
         width: 300,
     };
 
-    let allColumns: ColumnsType<ExtendedSchemaFields> = [...defaultColumns, descriptionColumn, tagAndTermColumn];
+    let allColumns: ColumnsType<ExtendedSchemaFields> = [];
+    if (hasTerms) {
+        allColumns = [...defaultColumns, descriptionColumn, tagColumn, termColumn];
+    } else {
+        allColumns = [...defaultColumns, descriptionColumn, tagAndTermColumn];
+    }
 
     if (hasUsageStats) {
         allColumns = [...allColumns, usageColumn];

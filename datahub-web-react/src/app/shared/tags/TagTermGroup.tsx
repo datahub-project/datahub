@@ -64,7 +64,11 @@ export default function TagTermGroup({
     const entityRegistry = useEntityRegistry();
     const [showAddModal, setShowAddModal] = useState(false);
     const [addModalType, setAddModalType] = useState(EntityType.Tag);
-    const tagsEmpty = !editableTags?.tags?.length;
+    const tagsEmpty =
+        !editableTags?.tags?.length &&
+        !uneditableTags?.tags?.length &&
+        !editableGlossaryTerms?.terms?.length &&
+        !uneditableGlossaryTerms?.terms?.length;
     const [removeTagMutation] = useRemoveTagMutation();
     const [removeTermMutation] = useRemoveTermMutation();
 
@@ -203,7 +207,7 @@ export default function TagTermGroup({
                     </TagLink>
                 );
             })}
-            {showEmptyMessage && (canAddTag || canAddTerm) && tagsEmpty && (
+            {showEmptyMessage && canAddTag && tagsEmpty && (
                 <Typography.Paragraph type="secondary">
                     {EMPTY_MESSAGES.tags.title}. {EMPTY_MESSAGES.tags.description}
                 </Typography.Paragraph>
