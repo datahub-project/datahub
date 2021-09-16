@@ -63,31 +63,50 @@ export default function SchemaTable({
 
     const descriptionRender = useDescriptionRenderer(editableSchemaMetadata, onUpdateDescription);
     const usageStatsRenderer = useUsageStatsRenderer(usageStats);
-    const tagAndTermRender = useTagsAndTermsRenderer(
+    const tagRenderer = useTagsAndTermsRenderer(
         editableSchemaMetadata,
         onUpdateTags,
         tagHoveredIndex,
         setTagHoveredIndex,
+        { showTags: true, showTerms: false },
+    );
+    const termRenderer = useTagsAndTermsRenderer(
+        editableSchemaMetadata,
+        onUpdateTags,
+        tagHoveredIndex,
+        setTagHoveredIndex,
+        { showTags: false, showTerms: true },
     );
 
-    const tagAndTermColumn = {
-        width: 150,
-        title: 'Tags & Terms',
+    const onTagTermCell = (record: SchemaField, rowIndex: number | undefined) => ({
+        onMouseEnter: () => {
+            if (editMode) {
+                setTagHoveredIndex(`${record.fieldPath}-${rowIndex}`);
+            }
+        },
+        onMouseLeave: () => {
+            if (editMode) {
+                setTagHoveredIndex(undefined);
+            }
+        },
+    });
+
+    const tagColumn = {
+        width: 125,
+        title: 'Tags',
         dataIndex: 'globalTags',
         key: 'tag',
-        render: tagAndTermRender,
-        onCell: (record: SchemaField, rowIndex: number | undefined) => ({
-            onMouseEnter: () => {
-                if (editMode) {
-                    setTagHoveredIndex(`${record.fieldPath}-${rowIndex}`);
-                }
-            },
-            onMouseLeave: () => {
-                if (editMode) {
-                    setTagHoveredIndex(undefined);
-                }
-            },
-        }),
+        render: tagRenderer,
+        onCell: onTagTermCell,
+    };
+
+    const termColumn = {
+        width: 125,
+        title: 'Terms',
+        dataIndex: 'globalTags',
+        key: 'tag',
+        render: termRenderer,
+        onCell: onTagTermCell,
     };
 
     const usageColumn = {
@@ -105,7 +124,7 @@ export default function SchemaTable({
         width: 300,
     };
 
-    let allColumns: ColumnsType<ExtendedSchemaFields> = [...defaultColumns, descriptionColumn, tagAndTermColumn];
+    let allColumns: ColumnsType<ExtendedSchemaFields> = [...defaultColumns, descriptionColumn, tagColumn, termColumn];
 
     if (hasUsageStats) {
         allColumns = [...allColumns, usageColumn];

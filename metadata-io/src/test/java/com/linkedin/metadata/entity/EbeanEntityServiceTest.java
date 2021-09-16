@@ -352,7 +352,7 @@ public class EbeanEntityServiceTest {
   }
 
   @Test
-  public void testIngestTemporalAspect() throws Exception {
+  public void testIngestTimeseriesAspect() throws Exception {
     Urn entityUrn = Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:foo,bar,PROD)");
     DatasetProfile datasetProfile = new DatasetProfile();
     datasetProfile.setRowCount(1000);
