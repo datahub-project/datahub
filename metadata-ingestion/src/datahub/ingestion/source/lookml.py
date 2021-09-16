@@ -154,6 +154,13 @@ class LookerModel:
                     path, f"did not resolve anything for wildcard include {inc}"
                 )
 
+            for output in outputs:
+                try:
+                    with open(output, 'r') as file:
+                        parsed = lkml.load(file)
+                        resolved.extend(LookerModel.resolve_includes(parsed["includes"], base_folder, output, reporter))
+                except:
+                    pass
             resolved.extend(outputs)
         return resolved
 
