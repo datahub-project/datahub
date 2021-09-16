@@ -16,14 +16,18 @@ class MySQLConfig(BasicSQLAlchemyConfig):
 
 class MySQLSource(SQLAlchemySource):
     def __init__(self, config, ctx):
+        self.underlying_platform = config.underlying_platform
+        self.validate_underlying_platform()
+        super().__init__(config, ctx, self.underlying_platform)
 
-        super().__init__(config, ctx, config.underlying_platform)
-
-    def validate_underlying_platform(self, config):
-        if config.underlying_platform not in ["mysql", "mariadb"]:
+    def validate_underlying_platform(self):
+        if self.underlying_platform not in ["mysql", "mariadb"]:
             raise ValueError(
-                f"Invalid {config.underlying_platform} for underlying_platform"
+                f"Invalid {self.underlying_platform} for underlying_platform"
             )
+
+    def get_underlying_platform(self):
+        return self.underlying_platform
 
     @classmethod
     def create(cls, config_dict, ctx):
