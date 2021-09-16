@@ -212,6 +212,11 @@ export default function TagTermGroup({
                     {EMPTY_MESSAGES.tags.title}. {EMPTY_MESSAGES.tags.description}
                 </Typography.Paragraph>
             )}
+            {showEmptyMessage && canAddTerm && tagsEmpty && (
+                <Typography.Paragraph type="secondary">
+                    {EMPTY_MESSAGES.terms.title}. {EMPTY_MESSAGES.terms.description}
+                </Typography.Paragraph>
+            )}
             {canAddTag && (uneditableTags?.tags?.length || 0) + (editableTags?.tags?.length || 0) < 10 && (
                 <NoElementButton
                     type={showEmptyMessage && tagsEmpty ? 'default' : 'text'}

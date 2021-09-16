@@ -60,20 +60,9 @@ export default function SchemaTable({
     const hasUsageStats = useMemo(() => (usageStats?.aggregations?.fields?.length || 0) > 0, [usageStats]);
 
     const [tagHoveredIndex, setTagHoveredIndex] = useState<string | undefined>(undefined);
-    const hasTerms =
-        rows.filter((row) => !!row.glossaryTerms?.terms?.length).length > 0 ||
-        (editableSchemaMetadata?.editableSchemaFieldInfo.filter((row) => !!row.glossaryTerms?.terms?.length).length ||
-            0) > 0;
 
     const descriptionRender = useDescriptionRenderer(editableSchemaMetadata, onUpdateDescription);
     const usageStatsRenderer = useUsageStatsRenderer(usageStats);
-    const tagAndTermRender = useTagsAndTermsRenderer(
-        editableSchemaMetadata,
-        onUpdateTags,
-        tagHoveredIndex,
-        setTagHoveredIndex,
-        { showTags: true, showTerms: true },
-    );
     const tagRenderer = useTagsAndTermsRenderer(
         editableSchemaMetadata,
         onUpdateTags,
@@ -102,17 +91,8 @@ export default function SchemaTable({
         },
     });
 
-    const tagAndTermColumn = {
-        width: 150,
-        title: 'Tags & Terms',
-        dataIndex: 'globalTags',
-        key: 'tag',
-        render: tagAndTermRender,
-        onCell: onTagTermCell,
-    };
-
     const tagColumn = {
-        width: 100,
+        width: 125,
         title: 'Tags',
         dataIndex: 'globalTags',
         key: 'tag',
@@ -121,7 +101,7 @@ export default function SchemaTable({
     };
 
     const termColumn = {
-        width: 100,
+        width: 125,
         title: 'Terms',
         dataIndex: 'globalTags',
         key: 'tag',
@@ -144,12 +124,7 @@ export default function SchemaTable({
         width: 300,
     };
 
-    let allColumns: ColumnsType<ExtendedSchemaFields> = [];
-    if (hasTerms) {
-        allColumns = [...defaultColumns, descriptionColumn, tagColumn, termColumn];
-    } else {
-        allColumns = [...defaultColumns, descriptionColumn, tagAndTermColumn];
-    }
+    let allColumns: ColumnsType<ExtendedSchemaFields> = [...defaultColumns, descriptionColumn, tagColumn, termColumn];
 
     if (hasUsageStats) {
         allColumns = [...allColumns, usageColumn];

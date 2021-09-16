@@ -15,35 +15,31 @@ export const SidebarTagsSection = ({ properties }: { properties?: any }) => {
 
     const { urn, entityType, entityData } = useEntityData();
 
-    const showTermGroup = (entityData?.glossaryTerms?.terms?.length || 0) > 0;
     const refetch = useRefetch();
     return (
         <div>
-            <SidebarHeader title={showTermGroup ? 'Tags' : 'Tags & Terms'} />
+            <SidebarHeader title="Tags" />
             <TagTermGroup
                 editableTags={entityData?.globalTags}
                 canAddTag={canAddTag}
-                canAddTerm={!showTermGroup}
                 canRemove
                 showEmptyMessage
                 entityUrn={urn}
                 entityType={entityType}
                 refetch={refetch}
             />
-            {showTermGroup && (
-                <TermSection>
-                    <SidebarHeader title="Glossary Terms" />
-                    <TagTermGroup
-                        editableGlossaryTerms={entityData?.glossaryTerms}
-                        canAddTerm={canAddTerm}
-                        canRemove
-                        showEmptyMessage
-                        entityUrn={urn}
-                        entityType={entityType}
-                        refetch={refetch}
-                    />
-                </TermSection>
-            )}
+            <TermSection>
+                <SidebarHeader title="Glossary Terms" />
+                <TagTermGroup
+                    editableGlossaryTerms={entityData?.glossaryTerms}
+                    canAddTerm={canAddTerm}
+                    canRemove
+                    showEmptyMessage
+                    entityUrn={urn}
+                    entityType={entityType}
+                    refetch={refetch}
+                />
+            </TermSection>
         </div>
     );
 };
