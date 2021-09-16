@@ -42,7 +42,6 @@ public class AllEntitiesSearchAggregator {
   private final EntitySearchService _entitySearchService;
   private final SearchRanker _searchRanker;
 
-  private final Map<String, Set<String>> _filtersPerEntity;
   private final Map<String, String> _filtersToDisplayName;
 
   private static final List<String> FILTER_RANKING =
@@ -53,20 +52,7 @@ public class AllEntitiesSearchAggregator {
     _entityRegistry = entityRegistry;
     _entitySearchService = entitySearchService;
     _searchRanker = searchRanker;
-    _filtersPerEntity = getFiltersPerEntity(entityRegistry);
     _filtersToDisplayName = getFilterToDisplayName(entityRegistry);
-  }
-
-  private static Map<String, Set<String>> getFiltersPerEntity(EntityRegistry entityRegistry) {
-    return entityRegistry.getEntitySpecs()
-        .entrySet()
-        .stream()
-        .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue()
-            .getSearchableFieldSpecs()
-            .stream()
-            .filter(spec -> spec.getSearchableAnnotation().isAddToFilters())
-            .map(spec -> spec.getSearchableAnnotation().getFieldName())
-            .collect(Collectors.toSet())));
   }
 
   private static Map<String, String> getFilterToDisplayName(EntityRegistry entityRegistry) {
@@ -95,7 +81,7 @@ public class AllEntitiesSearchAggregator {
     try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "searchEntities").time()) {
       searchResults = nonEmptyEntities.stream()
           .map(entity -> new Pair<>(entity,
-              _entitySearchService.search(entity, input, postFilters, sortCriterion, 0, from + size)))
+              _entitySearchService.search(entity, input, postFilters, sortCriterion, 0, 1000)))
           .filter(pair -> pair.getValue().getNumEntities() > 0)
           .collect(Collectors.toMap(Pair::getKey, Pair::getValue));
     }
@@ -105,10 +91,9 @@ public class AllEntitiesSearchAggregator {
     }
 
     Timer.Context postProcessTimer = MetricUtils.timer(this.getClass(), "postProcessTimer").time();
-    Set<String> commonFilters = getCommonFilters(searchResults.keySet());
 
     int numEntities = 0;
-    List<IntermediateResult> matchedResults = new ArrayList<>();
+    List<SearchEntity> matchedResults = new ArrayList<>();
     Map<String, AggregationMetadata> aggregations = new HashMap<>();
 
     Map<String, Long> numResultsPerEntity = searchResults.entrySet()
@@ -122,36 +107,25 @@ public class AllEntitiesSearchAggregator {
     for (String entity : searchResults.keySet()) {
       SearchResult result = searchResults.get(entity);
       numEntities += result.getNumEntities();
-      matchedResults.addAll(result.getEntities()
-          .stream()
-          .map(searchEntity -> new IntermediateResult(searchEntity, entity))
-          .collect(Collectors.toList()));
+      matchedResults.addAll(result.getEntities());
       // Merge filters
-      result.getMetadata()
-          .getAggregations()
-          .stream()
-          .filter(metadata -> commonFilters.contains(metadata.getName()))
-          .forEach(metadata -> {
-            if (aggregations.containsKey(metadata.getName())) {
-              Map<String, Long> mergedMap =
-                  Stream.concat(aggregations.get(metadata.getName()).getAggregations().entrySet().stream(),
-                      metadata.getAggregations().entrySet().stream())
-                      .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, Long::sum));
-              aggregations.put(metadata.getName(), new AggregationMetadata().setName(metadata.getName())
-                  .setDisplayName(_filtersToDisplayName.get(metadata.getName()))
-                  .setAggregations(new LongMap(mergedMap))
-                  .setFilterValues(new FilterValueArray(SearchUtil.convertToFilters(mergedMap))));
-            } else {
-              aggregations.put(metadata.getName(), metadata);
-            }
-          });
+      result.getMetadata().getAggregations().forEach(metadata -> {
+        if (aggregations.containsKey(metadata.getName())) {
+          Map<String, Long> mergedMap =
+              Stream.concat(aggregations.get(metadata.getName()).getAggregations().entrySet().stream(),
+                  metadata.getAggregations().entrySet().stream())
+                  .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, Long::sum));
+          aggregations.put(metadata.getName(), new AggregationMetadata().setName(metadata.getName())
+              .setDisplayName(_filtersToDisplayName.get(metadata.getName()))
+              .setAggregations(new LongMap(mergedMap))
+              .setFilterValues(new FilterValueArray(SearchUtil.convertToFilters(mergedMap))));
+        } else {
+          aggregations.put(metadata.getName(), metadata);
+        }
+      });
     }
 
-    List<SearchEntity> rankedResult = rankResults(matchedResults, numResultsPerEntity.entrySet()
-        .stream()
-        .sorted(Comparator.<Map.Entry<String, Long>>comparingLong(Map.Entry::getValue).reversed())
-        .map(Map.Entry::getKey)
-        .collect(Collectors.toList()));
+    List<SearchEntity> rankedResult = _searchRanker.rank(matchedResults);
     List<SearchEntity> finalMatchedResults;
     if (matchedResults.size() <= from) {
       finalMatchedResults = Collections.emptyList();
@@ -177,13 +151,6 @@ public class AllEntitiesSearchAggregator {
         .setMetadata(new SearchResultMetadata().setAggregations(new AggregationMetadataArray()));
   }
 
-  private Set<String> getCommonFilters(Set<String> entities) {
-    List<Set<String>> filtersPerEntity = entities.stream().map(_filtersPerEntity::get).collect(Collectors.toList());
-    return filtersPerEntity.stream()
-        .skip(1)
-        .collect(() -> new HashSet<>(filtersPerEntity.get(0)), Set::retainAll, Set::retainAll);
-  }
-
   @WithSpan
   private List<String> getNonEmptyEntities() {
     return _entityRegistry.getEntitySpecs()
@@ -204,39 +171,5 @@ public class AllEntitiesSearchAggregator {
     }
     filterGroups.forEach(filterName -> finalAggregations.add(aggregations.get(filterName)));
     return finalAggregations;
-  }
-
-  private List<SearchEntity> rankResults(List<IntermediateResult> intermediateResults, List<String> entityRanking) {
-    Map<String, List<IntermediateResult>> resultsPerEntity =
-        intermediateResults.stream().collect(Collectors.groupingBy(IntermediateResult::getEntityType));
-    Map<String, Integer> indexPerEntity =
-        resultsPerEntity.keySet().stream().collect(Collectors.toMap(Function.identity(), entity -> 0));
-    List<SearchEntity> result = new ArrayList<>();
-    while (indexPerEntity.size() > 0) {
-      for (String entity : entityRanking) {
-        if (!indexPerEntity.containsKey(entity)) {
-          continue;
-        }
-
-        List<IntermediateResult> resultsForEntity = resultsPerEntity.get(entity);
-        int index = indexPerEntity.get(entity);
-        if (index < resultsForEntity.size()) {
-          IntermediateResult chosenResult = resultsForEntity.get(index);
-          result.add(chosenResult.getSearchEntity());
-          if (index == resultsForEntity.size() - 1) {
-            indexPerEntity.remove(entity);
-          } else {
-            indexPerEntity.put(entity, index + 1);
-          }
-        }
-      }
-    }
-    return result;
-  }
-
-  @Value
-  private static class IntermediateResult {
-    SearchEntity searchEntity;
-    String entityType;
   }
 }

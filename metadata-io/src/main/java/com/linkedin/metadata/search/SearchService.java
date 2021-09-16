@@ -24,7 +24,7 @@ public class SearchService {
       SearchRanker searchRanker) {
     _entitySearchService = entitySearchService;
     _searchRanker = searchRanker;
-    _aggregator = new AllEntitiesSearchAggregator(entityRegistry, entitySearchService);
+    _aggregator = new AllEntitiesSearchAggregator(entityRegistry, entitySearchService, searchRanker);
   }
 
   /**

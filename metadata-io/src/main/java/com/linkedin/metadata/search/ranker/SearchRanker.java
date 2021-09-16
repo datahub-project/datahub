@@ -1,11 +1,13 @@
 package com.linkedin.metadata.search.ranker;
 
 import com.google.common.collect.Streams;
+import com.linkedin.data.template.DoubleMap;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.features.FeatureExtractor;
 import com.linkedin.metadata.search.features.Features;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import lombok.Value;
@@ -15,14 +17,14 @@ public abstract class SearchRanker {
 
   public abstract List<FeatureExtractor> getFeatureExtractors();
 
-  public abstract Comparable<?> score(EntityWithFeatures entityWithFeatures);
+  public abstract Comparable<?> score(SearchEntity searchEntity);
 
   /**
    * Rank the input list of entities
    */
   public List<SearchEntity> rank(List<SearchEntity> originalList) {
-    return Streams.zip(originalList.stream(), getFeatures(originalList).stream(), EntityWithFeatures::new)
-        .map(entityWithFeatures -> new ScoredEntity(entityWithFeatures.getEntity(), score(entityWithFeatures)))
+    return Streams.zip(originalList.stream(), getFeatures(originalList).stream(), this::updateFeatures)
+        .map(entity -> new ScoredEntity(entity, score(entity)))
         .sorted(Comparator.<ScoredEntity, Comparable>comparing(ScoredEntity::getScore).reversed())
         .map(ScoredEntity::getEntity)
         .collect(Collectors.toList());
@@ -38,14 +40,17 @@ public abstract class SearchRanker {
     return extractedFeatures.stream().map(CompletableFuture::join).reduce(originalFeatures, Features::merge);
   }
 
-  @Value
-  private static class EntityWithFeatures {
-    SearchEntity entity;
-    Features features;
+  private SearchEntity updateFeatures(SearchEntity originalEntity, Features features) {
+    return new SearchEntity().setEntity(originalEntity.getEntity())
+        .setMatchedFields(originalEntity.getMatchedFields())
+        .setFeatures(new DoubleMap(features.getNumericFeatures()
+            .entrySet()
+            .stream()
+            .collect(Collectors.toMap(entry -> entry.getKey().toString(), Map.Entry::getValue))));
   }
 
   @Value
-  private static class ScoredEntity {
+  protected static class ScoredEntity {
     SearchEntity entity;
     // Takes in any comparable object. Ranker uses it to order it in a descending manner
     Comparable<?> score;

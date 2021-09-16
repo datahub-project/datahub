@@ -55,6 +55,7 @@ public class ESAggregatedStatsDAO {
   private static final String ES_TERMS_AGGREGATION_PREFIX = "terms_";
   private static final String ES_MAX_AGGREGATION_PREFIX = "max_";
   private static final String ES_FIELD_TIMESTAMP = "timestampMillis";
+  private static final String ES_FIELD_URN = "urn";
   private static final String ES_KEYWORD_SUFFIX = ".keyword";
   private static final String ES_AGG_TIMESTAMP = ES_AGGREGATION_PREFIX + ES_FIELD_TIMESTAMP;
   private static final String ES_AGG_MAX_TIMESTAMP =
@@ -171,6 +172,9 @@ public class ESAggregatedStatsDAO {
   private static DataSchema.Type getTimeseriesFieldType(AspectSpec aspectSpec, String fieldPath) {
     if (fieldPath.equals(ES_FIELD_TIMESTAMP)) {
       return DataSchema.Type.LONG;
+    }
+    if (fieldPath.equals(ES_FIELD_URN)) {
+      return DataSchema.Type.STRING;
     }
     String[] memberParts = fieldPath.split("\\.");
     if (memberParts.length == 1) {
@@ -362,7 +366,7 @@ public class ESAggregatedStatsDAO {
       AggregationSpec aggregationSpec) {
     String fieldPath = aggregationSpec.getFieldPath();
     String esFieldName = fieldPath;
-    if (!isIntegralType(getAggregationSpecMemberType(aspectSpec, aggregationSpec))) {
+    if (!isIntegralType(fieldPath, getAggregationSpecMemberType(aspectSpec, aggregationSpec))) {
       esFieldName += ES_KEYWORD_SUFFIX;
     }
 
@@ -415,7 +419,7 @@ public class ESAggregatedStatsDAO {
         // Process the string grouping bucket using the 'terms' aggregation.
         String fieldName = curGroupingBucket.getKey();
         DataSchema.Type fieldType = getGroupingBucketKeyType(aspectSpec, curGroupingBucket);
-        if (!isIntegralType(fieldType)) {
+        if (!isIntegralType(fieldName, fieldType)) {
           fieldName += ES_KEYWORD_SUFFIX;
         }
         curAggregationBuilder = AggregationBuilders.terms(getGroupingBucketAggName(curGroupingBucket))
@@ -430,7 +434,10 @@ public class ESAggregatedStatsDAO {
     return lastAggregationBuilder;
   }
 
-  private boolean isIntegralType(DataSchema.Type fieldType) {
+  private boolean isIntegralType(String fieldName, DataSchema.Type fieldType) {
+    if (fieldName.equals(ES_FIELD_URN)) {
+      return true;
+    }
     switch (fieldType) {
       case INT:
       case FLOAT:

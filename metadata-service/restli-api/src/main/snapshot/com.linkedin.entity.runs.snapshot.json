@@ -2106,7 +2106,7 @@
               "Searchable" : {
                 "/terms/*/urn" : {
                   "boostScore" : 0.5,
-                  "fieldName" : "fieldGlossaryTerms",
+                  "fieldName" : "editedFieldGlossaryTerms",
                   "fieldType" : "URN_PARTIAL"
                 }
               }

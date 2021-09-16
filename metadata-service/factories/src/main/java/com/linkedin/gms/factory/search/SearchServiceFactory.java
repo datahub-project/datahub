@@ -3,6 +3,7 @@ package com.linkedin.gms.factory.search;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.SearchService;
+import com.linkedin.metadata.search.ranker.SearchRanker;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -13,7 +14,6 @@ import org.springframework.context.annotation.Primary;
 
 
 @Configuration
-@Import({ElasticSearchServiceFactory.class})
 public class SearchServiceFactory {
 
   @Autowired
@@ -24,10 +24,14 @@ public class SearchServiceFactory {
   @Qualifier("entitySearchService")
   private EntitySearchService entitySearchService;
 
+  @Autowired
+  @Qualifier("searchRanker")
+  private SearchRanker searchRanker;
+
   @Bean(name = "searchService")
   @Primary
   @Nonnull
   protected SearchService getInstance() {
-    return new SearchService(entityRegistry, entitySearchService);
+    return new SearchService(entityRegistry, entitySearchService, searchRanker);
   }
 }
