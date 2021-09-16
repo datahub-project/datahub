@@ -127,6 +127,7 @@ public class TrackingController extends Controller {
                 setConfig(props, SaslConfigs.SASL_MECHANISM, "analytics.kafka.sasl.mechanism");
                 setConfig(props, SaslConfigs.SASL_JAAS_CONFIG, "analytics.kafka.sasl.jaas.config");
                 setConfig(props, SaslConfigs.SASL_KERBEROS_SERVICE_NAME, "analytics.kafka.sasl.kerberos.service.name");
+                setConfig(props, SaslConfigs.SASL_LOGIN_CALLBACK_HANDLER_CLASS, "analytics.kafka.sasl.login.callback.handler.class");
             }
         }
 
