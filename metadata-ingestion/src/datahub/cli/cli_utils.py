@@ -17,6 +17,7 @@ DEFAULT_GMS_HOST = "http://localhost:8080"
 CONDENSED_DATAHUB_CONFIG_PATH = "~/.datahubenv"
 DATAHUB_CONFIG_PATH = os.path.expanduser(CONDENSED_DATAHUB_CONFIG_PATH)
 
+ENV_SKIP_CONFIRMATION = "DATAHUB_SKIP_CONFIRMATION"
 ENV_SKIP_CONFIG = "DATAHUB_SKIP_CONFIG"
 ENV_METADATA_HOST = "DATAHUB_GMS_HOST"
 ENV_METADATA_TOKEN = "DATAHUB_GMS_TOKEN"
@@ -44,10 +45,11 @@ def write_datahub_config(host: str, token: Optional[str]) -> None:
 
 
 def should_skip_config() -> bool:
-    try:
-        return os.environ[ENV_SKIP_CONFIG] == "True"
-    except KeyError:
-        return False
+    return os.getenv(ENV_SKIP_CONFIG, False) == "True"
+
+
+def should_skip_confirmtion() -> bool:
+    return os.getenv(ENV_SKIP_CONFIRMATION, False) == "True"
 
 
 def ensure_datahub_config() -> None:

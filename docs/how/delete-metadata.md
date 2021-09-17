@@ -24,6 +24,11 @@ DATAHUB_GMS_TOKEN=
 
 The env variables take precendence over what is in the config.
 
+If you wish to skip confirmations when using cli (e.g. in automation env) use the following env variable
+```
+DATAHUB_SKIP_CONFIRMATION=True
+```
+
 ## Delete By Urn
 
 To delete all the data related to a single entity, run
