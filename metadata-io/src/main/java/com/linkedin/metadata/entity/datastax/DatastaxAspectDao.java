@@ -3,12 +3,10 @@ package com.linkedin.metadata.entity.datastax;
 import static com.datastax.oss.driver.api.querybuilder.QueryBuilder.*;
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.CqlSessionBuilder;
-import com.datastax.oss.driver.api.core.cql.ResultSet;
-import com.datastax.oss.driver.api.core.cql.Row;
-import com.datastax.oss.driver.api.core.cql.SimpleStatement;
-import com.datastax.oss.driver.api.core.metadata.schema.ClusteringOrder;
+import com.datastax.oss.driver.api.core.cql.*;
 import com.datastax.oss.driver.api.core.paging.OffsetPager;
 import com.datastax.oss.driver.api.core.paging.OffsetPager.Page;
+import com.datastax.oss.driver.api.querybuilder.condition.Condition;
 import com.datastax.oss.driver.api.querybuilder.insert.Insert;
 import com.datastax.oss.driver.api.querybuilder.update.Update;
 import com.datastax.oss.driver.api.querybuilder.update.UpdateWithAssignments;
@@ -59,9 +57,8 @@ public class DatastaxAspectDao {
 
   public DatastaxAspectDao(@Nonnull final Map<String, String> sessionConfig) {
 
-    Integer port = Integer.parseInt(sessionConfig.get("port"));
-    List<InetSocketAddress> addresses = Arrays.asList(sessionConfig.get("hosts").split(","))
-      .stream()
+    int port = Integer.parseInt(sessionConfig.get("port"));
+    List<InetSocketAddress> addresses = Arrays.stream(sessionConfig.get("hosts").split(","))
       .map(host -> new InetSocketAddress(host, port))
       .collect(Collectors.toList());
 
@@ -91,7 +88,6 @@ public class DatastaxAspectDao {
     return getAspect(urn, aspectName, 0L);
   }
 
-  @Nullable
   public long getMaxVersion(@Nonnull final String urn, @Nonnull final String aspectName) {
     SimpleStatement ss = selectFrom("metadata_aspect_v2")
       .all()
@@ -117,50 +113,98 @@ public class DatastaxAspectDao {
     return maxVersion;
   }
 
-  private long getNextVersion(@Nonnull final String urn, @Nonnull final String aspectName) {
-    SimpleStatement ss = selectFrom("metadata_aspect_v2")
-      .all()
-      .whereColumn("urn")
-      .isEqualTo(literal(urn))
-      .whereColumn("aspect")
-      .isEqualTo(literal(aspectName))
-      .build();
+  public long batchSaveLatestAspect(
+          @Nonnull final String urn,
+          @Nonnull final String aspectName,
+          @Nullable final String oldAspectMetadata,
+          @Nullable final String oldActor,
+          @Nullable final String oldImpersonator,
+          @Nullable final Timestamp oldTime,
+          @Nullable final String oldSystemMetadata,
+          @Nonnull final String newAspectMetadata,
+          @Nonnull final String newActor,
+          @Nullable final String newImpersonator,
+          @Nonnull final Timestamp newTime,
+          @Nullable final String newSystemMetadata,
+          final int nextVersion
+  ) {
+    String entity;
 
-    ResultSet rs = _cqlSession.execute(ss);
-    List<Row> rows = rs.all();
+    try {
+      entity = (new Urn(urn)).getEntityType();
+    } catch (URISyntaxException e) {
+      throw new RuntimeException(e);
+    }
 
-    return getMaxVersion(rows) + 1;
-  }
+    BatchStatementBuilder batch = BatchStatement.builder(BatchType.LOGGED);
+    DatastaxAspect oldDatastaxAspect = new DatastaxAspect(urn, aspectName, nextVersion, oldAspectMetadata, oldSystemMetadata, oldTime, oldActor, oldImpersonator);
 
-  public long saveLatestAspect(
-      @Nonnull final String urn,
-      @Nonnull final String aspectName,
-      @Nullable final String oldAspectMetadata,
-      @Nullable final String oldActor,
-      @Nullable final String oldImpersonator,
-      @Nullable final Timestamp oldTime,
-      @Nullable final String oldSystemMetadata,
-      @Nonnull final String newAspectMetadata,
-      @Nonnull final String newActor,
-      @Nullable final String newImpersonator,
-      @Nonnull final Timestamp newTime,
-      @Nullable final String newSystemMetadata
-) {
-    // Save oldValue as the largest version + 1
-    long largestVersion = 0;
     if (oldAspectMetadata != null && oldTime != null) {
-      largestVersion = getNextVersion(urn, aspectName);
-      insertAspect(new DatastaxAspect(urn, aspectName, largestVersion, oldAspectMetadata, oldSystemMetadata, oldTime, oldActor, oldImpersonator));
+      // Save oldValue as nextVersion
+
+      Insert insert = insertInto("metadata_aspect_v2")
+              .value("urn", literal(oldDatastaxAspect.getUrn()))
+              .value("aspect", literal(oldDatastaxAspect.getAspect()))
+              .value("version", literal(oldDatastaxAspect.getVersion()))
+              .value("systemmetadata", literal(oldDatastaxAspect.getSystemMetadata()))
+              .value("metadata", literal(oldDatastaxAspect.getMetadata()))
+              .value("createdon", literal(oldDatastaxAspect.getCreatedOn().getTime()))
+              .value("createdfor", literal(oldDatastaxAspect.getCreatedFor()))
+              .value("entity", literal(entity))
+              .value("createdby", literal(oldDatastaxAspect.getCreatedBy()))
+              .ifNotExists();
+
+      batch = batch.addStatement(insert.build());
+
     }
 
     // Save newValue as the latest version (v0)
-    ResultSet rs = updateAspect(new DatastaxAspect(urn, aspectName, 0, newAspectMetadata, newSystemMetadata, newTime, newActor, newImpersonator),
-            new DatastaxAspect(urn, aspectName, 0, oldAspectMetadata, oldSystemMetadata, oldTime, oldActor, oldImpersonator));
+    DatastaxAspect newDatastaxAspect = new DatastaxAspect(urn, aspectName, 0, newAspectMetadata, newSystemMetadata, newTime, newActor, newImpersonator);
+
+    if (nextVersion == 0)  {
+      Insert insert = insertInto("metadata_aspect_v2")
+              .value("urn", literal(newDatastaxAspect.getUrn()))
+              .value("aspect", literal(newDatastaxAspect.getAspect()))
+              .value("version", literal(newDatastaxAspect.getVersion()))
+              .value("systemmetadata", literal(newDatastaxAspect.getSystemMetadata()))
+              .value("metadata", literal(newDatastaxAspect.getMetadata()))
+              .value("createdon", literal(newDatastaxAspect.getCreatedOn().getTime()))
+              .value("createdfor", literal(newDatastaxAspect.getCreatedFor()))
+              .value("entity", literal(entity))
+              .value("createdby", literal(newDatastaxAspect.getCreatedBy()))
+              .ifNotExists();
+
+      batch = batch.addStatement(insert.build());
+
+    } else {
+      UpdateWithAssignments uwa = update("metadata_aspect_v2")
+              .setColumn("metadata", literal(newDatastaxAspect.getMetadata()))
+              .setColumn("systemmetadata", literal(newDatastaxAspect.getSystemMetadata()))
+              .setColumn("createdon", literal(newDatastaxAspect.getCreatedOn().getTime()))
+              .setColumn("createdby", literal(newDatastaxAspect.getCreatedBy()))
+              .setColumn("createdfor", literal(newDatastaxAspect.getCreatedFor()));
+
+      Update u = uwa.whereColumn("urn").isEqualTo(literal(newDatastaxAspect.getUrn()))
+              .whereColumn("aspect").isEqualTo(literal(newDatastaxAspect.getAspect()))
+              .whereColumn("version").isEqualTo(literal(newDatastaxAspect.getVersion()))
+              .if_(
+                      Condition.column("metadata").isEqualTo(literal(oldDatastaxAspect.getMetadata())),
+                      Condition.column("systemmetadata").isEqualTo(literal(oldDatastaxAspect.getSystemMetadata())),
+                      Condition.column("createdon").isEqualTo(literal(oldDatastaxAspect.getCreatedOn() == null ? null : oldDatastaxAspect.getCreatedOn().toInstant())),
+                      Condition.column("createdby").isEqualTo(literal(oldDatastaxAspect.getCreatedBy())));
+
+      batch = batch.addStatement(u.build());
+    }
+
+    ResultSet rs = _cqlSession.execute(batch.build());
+    if (!rs.wasApplied()) {
+      throw new ConditionalWriteFailedException("Conditional entity ingestion failed");
+    }
 
     // Apply retention policy
-    applyRetention(urn, aspectName, getRetention(aspectName), largestVersion);
+    applyRetention(urn, aspectName, getRetention(aspectName), nextVersion);
 
-    return largestVersion;
+    return nextVersion;
   }
 
   private void applyRetention(
@@ -179,7 +223,6 @@ public class DatastaxAspectDao {
 
     if (retention instanceof TimeBasedRetention) {
       applyTimeBasedRetention(urn, aspectName, (TimeBasedRetention) retention, _clock.millis());
-      return;
     }
   }
 
@@ -242,22 +285,7 @@ public class DatastaxAspectDao {
     return result;
   }
 
-  protected void saveAspect(
-      @Nonnull final String urn,
-      @Nonnull final String aspectName,
-      @Nonnull final String aspectMetadata,
-      @Nonnull final String actor,
-      @Nullable final String impersonator,
-      @Nonnull final Timestamp timestamp,
-      @Nonnull final String systemMetadata,
-      final long version,
-      final boolean insert) {
-
-    saveAspect(new DatastaxAspect(urn, aspectName, version, aspectMetadata, systemMetadata, timestamp, actor, impersonator != null ? impersonator : null
-), insert);
-  }
-
-  private ResultSet insertAspect(DatastaxAspect datastaxAspect) {
+  public ResultSet condUpsertAspect(DatastaxAspect datastaxAspect, DatastaxAspect oldDatastaxAspect) {
 
     String entity;
 
@@ -267,42 +295,38 @@ public class DatastaxAspectDao {
       throw new RuntimeException(e);
     }
 
+    if (oldDatastaxAspect == null) {
       Insert ri = insertInto("metadata_aspect_v2")
-        .value("urn", literal(datastaxAspect.getUrn()))
-        .value("aspect", literal(datastaxAspect.getAspect()))
-        .value("version", literal(datastaxAspect.getVersion()))
-        .value("systemmetadata", literal(datastaxAspect.getSystemMetadata()))
-        .value("metadata", literal(datastaxAspect.getMetadata()))
-        .value("createdon", literal(datastaxAspect.getCreatedOn().getTime()))
-        .value("createdfor", literal(datastaxAspect.getCreatedFor()))
-        .value("entity", literal(entity))
-        .value("createdby", literal(datastaxAspect.getCreatedBy()))
-        .ifNotExists();
+              .value("urn", literal(datastaxAspect.getUrn()))
+              .value("aspect", literal(datastaxAspect.getAspect()))
+              .value("version", literal(datastaxAspect.getVersion()))
+              .value("systemmetadata", literal(datastaxAspect.getSystemMetadata()))
+              .value("metadata", literal(datastaxAspect.getMetadata()))
+              .value("createdon", literal(datastaxAspect.getCreatedOn().getTime()))
+              .value("createdfor", literal(datastaxAspect.getCreatedFor()))
+              .value("entity", literal(entity))
+              .value("createdby", literal(datastaxAspect.getCreatedBy()))
+              .ifNotExists();
       return _cqlSession.execute(ri.build());
-  }
+    } else {
+      Update u = update("metadata_aspect_v2")
+              .setColumn("metadata", literal(datastaxAspect.getMetadata()))
+              .setColumn("systemmetadata", literal(datastaxAspect.getSystemMetadata()))
+              .setColumn("createdon", literal(datastaxAspect.getCreatedOn() == null ? null : datastaxAspect.getCreatedOn().getTime()))
+              .setColumn("createdby", literal(datastaxAspect.getCreatedBy()))
+              .setColumn("entity", literal(entity))
+              .setColumn("createdfor", literal(datastaxAspect.getCreatedFor()))
+              .whereColumn("urn").isEqualTo(literal(datastaxAspect.getUrn()))
+              .whereColumn("aspect").isEqualTo(literal(datastaxAspect.getAspect()))
+              .whereColumn("version").isEqualTo(literal(datastaxAspect.getVersion()))
+              .if_(
+                      Condition.column("metadata").isEqualTo(literal(oldDatastaxAspect.getMetadata())),
+                      Condition.column("systemmetadata").isEqualTo(literal(oldDatastaxAspect.getSystemMetadata())),
+                      Condition.column("createdon").isEqualTo(literal(oldDatastaxAspect.getCreatedOn() == null ? null : oldDatastaxAspect.getCreatedOn().toInstant())),
+                      Condition.column("createdby").isEqualTo(literal(oldDatastaxAspect.getCreatedBy())));
 
-  public ResultSet updateAspect(DatastaxAspect datastaxAspect, DatastaxAspect oldDatastaxAspect) {
-
-    String entity;
-
-    try {
-      entity = (new Urn(datastaxAspect.getUrn())).getEntityType();
-    } catch (URISyntaxException e) {
-      throw new RuntimeException(e);
+      return _cqlSession.execute(u.build());
     }
-
-    Update u = update("metadata_aspect_v2")
-      .setColumn("metadata", literal(datastaxAspect.getMetadata()))
-      .setColumn("systemmetadata", literal(datastaxAspect.getSystemMetadata()))
-      .setColumn("createdon", literal(datastaxAspect.getCreatedOn() == null ? null : datastaxAspect.getCreatedOn().getTime()))
-      .setColumn("createdby", literal(datastaxAspect.getCreatedBy()))
-      .setColumn("entity", literal(entity))
-      .setColumn("createdfor", literal(datastaxAspect.getCreatedFor()))
-      .whereColumn("urn").isEqualTo(literal(datastaxAspect.getUrn()))
-      .whereColumn("aspect").isEqualTo(literal(datastaxAspect.getAspect()))
-      .whereColumn("version").isEqualTo(literal(datastaxAspect.getVersion()));
-
-    return _cqlSession.execute(u.build());
   }
 
   public void saveAspect(DatastaxAspect datastaxAspect, final boolean insert) {
@@ -346,6 +370,7 @@ public class DatastaxAspectDao {
 
   @Nonnull
   public Map<DatastaxAspect.PrimaryKey, DatastaxAspect> batchGet(@Nonnull final Set<DatastaxAspect.PrimaryKey> keys) {
+
     if (keys.isEmpty()) {
       return Collections.emptyMap();
     }
@@ -380,11 +405,10 @@ public class DatastaxAspectDao {
     private List<DatastaxAspect> batchGetOr(@Nonnull final ArrayList<DatastaxAspect.PrimaryKey> keys, int keysCount, int position) {
 
       final int end = Math.min(keys.size(), position + keysCount);
-      final int start = position;
 
-      final ArrayList<DatastaxAspect> aspects = new ArrayList<DatastaxAspect>();
+      final ArrayList<DatastaxAspect> aspects = new ArrayList<>();
 
-      for (int index = start; index < end; index++) {
+      for (int index = position; index < end; index++) {
         final DatastaxAspect.PrimaryKey key = keys.get(index);
 
         final DatastaxAspect datastaxAspect = getAspect(key.getUrn(), key.getAspect(), key.getVersion());
@@ -438,7 +462,7 @@ public class DatastaxAspectDao {
 
     final List<DatastaxAspect> aspects = page
       .getElements()
-      .stream().map(r -> toDatastaxAspect(r))
+      .stream().map(this::toDatastaxAspect)
       .collect(Collectors.toList());
 
     SimpleStatement ssCount = selectFrom("metadata_aspect_v2")
@@ -453,12 +477,12 @@ public class DatastaxAspectDao {
 
     final List<String> aspectMetadatas = aspects
             .stream()
-            .map(r -> r.getMetadata())
+            .map(DatastaxAspect::getMetadata)
             .collect(Collectors.toList());
 
     final ListResultMetadata listResultMetadata = toListResultMetadata(aspects
             .stream()
-            .map(r -> toExtraInfo(r))
+            .map(DatastaxAspectDao::toExtraInfo)
             .collect(Collectors.toList()));
 
     return toListResult(aspectMetadatas, listResultMetadata, start, pageNumber, pageSize, totalCount);
@@ -466,11 +490,11 @@ public class DatastaxAspectDao {
 
   private <T> ListResult<T> toListResult(
       @Nonnull final List<T> values,
-      @Nonnull final ListResultMetadata listResultMetadata,
+      final ListResultMetadata listResultMetadata,
       @Nonnull final Integer start,
       @Nonnull final Integer pageNumber,
       @Nonnull final Integer pageSize,
-      @Nonnull final long totalCount) {
+      final long totalCount) {
     final int numPages = (int) (totalCount / pageSize + (totalCount % pageSize == 0 ? 0 : 1));
     final boolean hasNext = pageNumber < numPages;
 
@@ -525,7 +549,6 @@ public class DatastaxAspectDao {
     return auditStamp;
   }
 
-  @Nullable
   public boolean deleteAspect(@Nonnull final DatastaxAspect aspect) {
       SimpleStatement ss = deleteFrom("metadata_aspect_v2")
       .whereColumn("urn").isEqualTo(literal(aspect.getUrn()))
@@ -537,7 +560,6 @@ public class DatastaxAspectDao {
     return rs.getExecutionInfo().getErrors().size() == 0;
   }
 
-  @Nullable
   public int deleteUrn(@Nonnull final String urn) {
       SimpleStatement ss = deleteFrom("metadata_aspect_v2")
       .whereColumn("urn").isEqualTo(literal(urn))
@@ -555,10 +577,10 @@ public class DatastaxAspectDao {
       .build();
 
     ResultSet rs = _cqlSession.execute(ss);
-    List<DatastaxAspect> das = rs.all().stream().map(r -> toDatastaxAspect(r)).collect(Collectors.toList());
+    List<DatastaxAspect> das = rs.all().stream().map(this::toDatastaxAspect).collect(Collectors.toList());
 
     if (das.size() == 0) {
-      return null;
+      return Optional.empty();
     }
 
     return das.stream().reduce((d1, d2) -> d1.getCreatedOn().before(d2.getCreatedOn()) ? d1 : d2);
@@ -569,12 +591,11 @@ public class DatastaxAspectDao {
             .all()
             .whereColumn("urn").isEqualTo(literal(urn))
             .whereColumn("aspect").isEqualTo(literal(aspectName))
-            .orderBy("version", ClusteringOrder.ASC)
             .build();
 
     ResultSet rs = _cqlSession.execute(ss);
 
-    return rs.all().stream().map(x -> toDatastaxAspect(x)).collect(Collectors.toList());
+    return rs.all().stream().map(this::toDatastaxAspect).collect(Collectors.toList());
   }
 
   public DatastaxAspect getAspect(String urn, String aspectName, long version) {
@@ -636,8 +657,14 @@ public class DatastaxAspectDao {
   }
 
   private DatastaxAspect toDatastaxAspect(Row r) {
-    return new DatastaxAspect(r.getString("urn"), r.getString("aspect"), r.getLong("version"), r.getString("metadata"),
-        r.getString("systemmetadata"), Timestamp.from(r.getInstant("createdon")), r.getString("createdby"),
-        r.getString("createdfor"));
+    return new DatastaxAspect(
+            r.getString("urn"),
+            r.getString("aspect"),
+            r.getLong("version"),
+            r.getString("metadata"),
+            r.getString("systemmetadata"),
+            r.getInstant("createdon") == null ? null : Timestamp.from(r.getInstant("createdon")),
+            r.getString("createdby"),
+            r.getString("createdfor"));
   }
 }

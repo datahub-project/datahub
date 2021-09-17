@@ -85,7 +85,7 @@ public class DatastaxEntityServiceTest {
 
   @BeforeMethod
   public void setupTest() {
-    _cassandraContainer = new CassandraContainer();
+    _cassandraContainer = new CassandraContainer(IMAGE_NAME);
     _cassandraContainer.start();
 
     // Setup
@@ -108,6 +108,7 @@ public class DatastaxEntityServiceTest {
                       + "createdfor varchar, \n"
                       + "entity varchar, \n"
                       + "PRIMARY KEY (urn,aspect,version));",
+//                      + "PRIMARY KEY (urn, version, aspect)) with clustering order by (version asc, aspect asc);",
               keyspaceName,
               tableName));
 
@@ -714,12 +715,12 @@ public class DatastaxEntityServiceTest {
   }
 
   @Nonnull
-  private RecordTemplate createCorpUserKey(Urn urn) throws Exception {
+  private RecordTemplate createCorpUserKey(Urn urn) {
     return EntityKeyUtils.convertUrnToEntityKey(urn, new CorpUserKey().schema());
   }
 
   @Nonnull
-  private CorpUserInfo createCorpUserInfo(String email) throws Exception {
+  private CorpUserInfo createCorpUserInfo(String email) {
     CorpUserInfo corpUserInfo = new CorpUserInfo();
     corpUserInfo.setEmail(email);
     corpUserInfo.setActive(true);
