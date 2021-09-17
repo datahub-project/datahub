@@ -27,6 +27,7 @@ import java.util.stream.IntStream;
 
 import static com.linkedin.metadata.dao.utils.QueryUtils.EMPTY_FILTER;
 import static com.linkedin.metadata.dao.utils.QueryUtils.newFilter;
+import static com.linkedin.metadata.dao.utils.QueryUtils.newRelationshipFilter;
 import static org.testng.Assert.*;
 
 /**
@@ -117,9 +118,9 @@ abstract public class GraphServiceTestBase {
   /**
    * Some relationship filters.
    */
-  protected static RelationshipFilter outgoingRelationships = createRelationshipFilter(RelationshipDirection.OUTGOING);
-  protected static RelationshipFilter incomingRelationships = createRelationshipFilter(RelationshipDirection.INCOMING);
-  protected static RelationshipFilter undirectedRelationships = createRelationshipFilter(RelationshipDirection.UNDIRECTED);
+  protected static RelationshipFilter outgoingRelationships = newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.OUTGOING);
+  protected static RelationshipFilter incomingRelationships = newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING);
+  protected static RelationshipFilter undirectedRelationships = newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.UNDIRECTED);
 
   /**
    * Any source and destination type value.
@@ -183,17 +184,6 @@ abstract public class GraphServiceTestBase {
     syncAfterWrite();
 
     return service;
-  }
-
-  protected static RelationshipFilter createRelationshipFilter(RelationshipDirection direction) {
-    return createRelationshipFilter(EMPTY_FILTER, direction);
-  }
-
-  protected static RelationshipFilter createRelationshipFilter(@Nonnull Filter filter,
-                                                               @Nonnull RelationshipDirection direction) {
-    return new RelationshipFilter()
-            .setCriteria(filter.getCriteria())
-            .setDirection(direction);
   }
 
   protected static @Nullable
