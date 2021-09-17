@@ -44,7 +44,7 @@ public class IngestDataPlatformsStep implements BootstrapStep {
           dataPlatforms.getNodeType()));
     }
 
-    // 2. For each JSON object, cast into a DataPlatformSnapshot object.
+    // 2. For each JSON object, ingest using ingestAspect()
     for (final JsonNode dataPlatform : dataPlatforms) {
       final Urn urn;
       try {
@@ -57,7 +57,7 @@ public class IngestDataPlatformsStep implements BootstrapStep {
           RecordUtils.toRecordTemplate(DataPlatformInfo.class, dataPlatform.get("aspect").toString());
 
       final AuditStamp aspectAuditStamp =
-          new AuditStamp().setActor(Urn.createFromString(Constants.UNKNOWN_ACTOR)).setTime(System.currentTimeMillis());
+          new AuditStamp().setActor(Urn.createFromString(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis());
 
       _entityService.ingestAspect(urn, PLATFORM_ASPECT_NAME, info, aspectAuditStamp);
     }
