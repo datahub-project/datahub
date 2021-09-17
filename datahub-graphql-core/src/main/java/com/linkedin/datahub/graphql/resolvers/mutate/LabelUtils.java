@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.mutate;
 
 import com.google.common.collect.ImmutableList;
 
+import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.GlossaryTermAssociation;
@@ -17,13 +18,17 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.authorization.ConjunctivePrivilegeGroup;
 import com.linkedin.datahub.graphql.authorization.DisjunctivePrivilegeGroup;
+import com.linkedin.datahub.graphql.generated.SubResourceType;
 import com.linkedin.entity.Entity;
+import com.linkedin.metadata.aspect.DatasetAspect;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.schema.EditableSchemaFieldInfo;
 import com.linkedin.schema.EditableSchemaFieldInfoArray;
 import com.linkedin.schema.EditableSchemaMetadata;
+import com.linkedin.schema.SchemaField;
+import com.linkedin.schema.SchemaMetadata;
 import java.net.URISyntaxException;
 import java.util.Optional;
 import javax.annotation.Nonnull;
@@ -39,8 +44,9 @@ public class LabelUtils {
   private LabelUtils() { }
 
   public static final String GLOSSARY_TERM_ASPECT_NAME = "glossaryTerms";
-  public static final String SCHEMA_ASPECT_NAME = "editableSchemaMetadata";
+  public static final String EDITABLE_SCHEMA_METADATA = "editableSchemaMetadata";
   public static final String TAGS_ASPECT_NAME = "globalTags";
+  public static final String SCHEMA_ASPECT_NAME = "schemaMetadata";
 
   public static void removeTermFromTarget(
       Urn labelUrn,
@@ -60,7 +66,7 @@ public class LabelUtils {
     } else {
       com.linkedin.schema.EditableSchemaMetadata editableSchemaMetadata =
           (com.linkedin.schema.EditableSchemaMetadata) getAspectFromEntity(
-              targetUrn.toString(), SCHEMA_ASPECT_NAME, entityService, new EditableSchemaMetadata());
+              targetUrn.toString(), EDITABLE_SCHEMA_METADATA, entityService, new EditableSchemaMetadata());
       EditableSchemaFieldInfo editableFieldInfo = getFieldInfoFromSchema(editableSchemaMetadata, subResource);
       if (!editableFieldInfo.hasGlossaryTerms()) {
         editableFieldInfo.setGlossaryTerms(new GlossaryTerms());
@@ -90,7 +96,7 @@ public class LabelUtils {
     } else {
       com.linkedin.schema.EditableSchemaMetadata editableSchemaMetadata =
           (com.linkedin.schema.EditableSchemaMetadata) getAspectFromEntity(
-              targetUrn.toString(), SCHEMA_ASPECT_NAME, entityService, new EditableSchemaMetadata());
+              targetUrn.toString(), EDITABLE_SCHEMA_METADATA, entityService, new EditableSchemaMetadata());
       EditableSchemaFieldInfo editableFieldInfo = getFieldInfoFromSchema(editableSchemaMetadata, subResource);
 
       if (!editableFieldInfo.hasGlobalTags()) {
@@ -120,7 +126,7 @@ public class LabelUtils {
     } else {
       com.linkedin.schema.EditableSchemaMetadata editableSchemaMetadata =
           (com.linkedin.schema.EditableSchemaMetadata) getAspectFromEntity(
-              targetUrn.toString(), SCHEMA_ASPECT_NAME, entityService, new EditableSchemaMetadata());
+              targetUrn.toString(), EDITABLE_SCHEMA_METADATA, entityService, new EditableSchemaMetadata());
       EditableSchemaFieldInfo editableFieldInfo = getFieldInfoFromSchema(editableSchemaMetadata, subResource);
 
       if (!editableFieldInfo.hasGlobalTags()) {
@@ -153,7 +159,7 @@ public class LabelUtils {
     } else {
       com.linkedin.schema.EditableSchemaMetadata editableSchemaMetadata =
           (com.linkedin.schema.EditableSchemaMetadata) getAspectFromEntity(
-              targetUrn.toString(), SCHEMA_ASPECT_NAME, entityService, new EditableSchemaMetadata());
+              targetUrn.toString(), EDITABLE_SCHEMA_METADATA, entityService, new EditableSchemaMetadata());
 
       EditableSchemaFieldInfo editableFieldInfo = getFieldInfoFromSchema(editableSchemaMetadata, subResource);
       if (!editableFieldInfo.hasGlossaryTerms()) {
@@ -329,5 +335,80 @@ public class LabelUtils {
         targetUrn.getEntityType(),
         targetUrn.toString(),
         orPrivilegeGroups);
+  }
+
+  public static Boolean validateInput(
+      Urn labelUrn,
+      Urn targetUrn,
+      String subResource,
+      SubResourceType subResourceType,
+      String labelEntityType,
+      EntityService entityService
+  ) {
+    if (!labelUrn.getEntityType().equals(labelEntityType)) {
+      throw new RuntimeException(String.format("Failed to update %s on %s. Was expecting a %s.", labelUrn, targetUrn, labelEntityType));
+    }
+
+    if (!targetUrn.getEntityType().equals("dataset")) {
+      throw new RuntimeException(String.format("Failed to update %s on %s. Subject is not a dataset.", labelUrn, targetUrn));
+    }
+
+    if (!entityService.exists(targetUrn)) {
+      throw new RuntimeException(String.format("Failed to update %s on %s. %s does not exist.", labelUrn, targetUrn, targetUrn));
+    }
+
+    if (!entityService.exists(labelUrn)) {
+      throw new RuntimeException(String.format("Failed to update %s on %s. %s does not exist.", labelUrn, targetUrn, labelUrn));
+    }
+
+    if ((subResource != null && subResource.length() > 0) || subResourceType != null) {
+      if (subResource == null || subResource.length() == 0) {
+        throw new RuntimeException(String.format("Failed to update %s on %s. SubResourceType (%s) provided by no subResource.", labelUrn, targetUrn, subResourceType));
+      }
+      if (subResourceType == null) {
+        throw new RuntimeException(String.format("Failed to update %s on %s. SubResource (%s) provided by no subResourceType.", labelUrn, targetUrn, subResource));
+      }
+      validateSubresourceExists(labelUrn, targetUrn, subResource, subResourceType, entityService);
+    }
+
+    return true;
+  }
+
+  public static Boolean validateSubresourceExists(
+      Urn labelUrn,
+      Urn targetUrn,
+      String subResource,
+      SubResourceType subResourceType,
+      EntityService entityService
+  ) {
+    if (subResourceType.equals(SubResourceType.FIELD_PATH)) {
+      Entity entity = entityService.getEntity(targetUrn, ImmutableSet.of(SCHEMA_ASPECT_NAME));
+      Optional<DatasetAspect> datasetAspect = entity.getValue()
+          .getDatasetSnapshot()
+          .getAspects()
+          .stream()
+          .filter(aspect -> aspect.isSchemaMetadata())
+          .findFirst();
+      if (!datasetAspect.isPresent()) {
+        throw new RuntimeException(String.format("Failed to update %s on %s & field %s. %s has no schema.", labelUrn, targetUrn, subResource, targetUrn));
+      }
+
+      SchemaMetadata schemaMetadata = datasetAspect.get().getSchemaMetadata();
+      Optional<SchemaField> fieldMatch =
+          schemaMetadata.getFields().stream().filter(field -> field.getFieldPath().equals(subResource)).findFirst();
+
+      if (!fieldMatch.isPresent()) {
+        throw new RuntimeException(String.format(
+            "Failed to update %s on %s & field %s. Field %s does not exist in the datasets schema.",
+            labelUrn, targetUrn, subResource, subResource));
+      }
+
+      return true;
+    }
+
+    throw new RuntimeException(String.format(
+        "Failed to update %s on %s. SubResourceType (%s) is not valid. Types supported: %s.",
+        labelUrn, targetUrn, subResource, SubResourceType.values()
+    ));
   }
 }

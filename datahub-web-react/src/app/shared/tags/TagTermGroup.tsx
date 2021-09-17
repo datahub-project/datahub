@@ -5,7 +5,7 @@ import styled from 'styled-components';
 import { BookOutlined, PlusOutlined } from '@ant-design/icons';
 
 import { useEntityRegistry } from '../../useEntityRegistry';
-import { EntityType, GlobalTags, GlossaryTerms } from '../../../types.generated';
+import { EntityType, GlobalTags, GlossaryTerms, SubResourceType } from '../../../types.generated';
 import AddTagTermModal from './AddTagTermModal';
 import { StyledTag } from '../../entity/shared/components/styled/StyledTag';
 import { EMPTY_MESSAGES } from '../../entity/shared/constants';
@@ -84,8 +84,9 @@ export default function TagTermGroup({
                         variables: {
                             input: {
                                 tagUrn: urnToRemove,
-                                targetUrn: entityUrn,
+                                resourceUrn: entityUrn,
                                 subResource: entitySubresource,
+                                subResourceType: entitySubresource ? SubResourceType.FieldPath : null,
                             },
                         },
                     })
@@ -120,8 +121,9 @@ export default function TagTermGroup({
                         variables: {
                             input: {
                                 termUrn: urnToRemove,
-                                targetUrn: entityUrn,
+                                resourceUrn: entityUrn,
                                 subResource: entitySubresource,
+                                subResourceType: entitySubresource ? SubResourceType.FieldPath : null,
                             },
                         },
                     })

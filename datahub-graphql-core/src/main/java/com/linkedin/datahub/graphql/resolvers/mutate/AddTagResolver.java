@@ -25,13 +25,21 @@ public class AddTagResolver implements DataFetcher<CompletableFuture<Boolean>> {
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
     final TagUpdateInput input = bindArgument(environment.getArgument("input"), TagUpdateInput.class);
     Urn tagUrn = Urn.createFromString(input.getTagUrn());
-    Urn targetUrn = Urn.createFromString(input.getTargetUrn());
+    Urn targetUrn = Urn.createFromString(input.getResourceUrn());
 
     if (!LabelUtils.isAuthorizedToUpdateTags(environment.getContext(), targetUrn, input.getSubResource())) {
       throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
     }
 
     return CompletableFuture.supplyAsync(() -> {
+      LabelUtils.validateInput(
+          tagUrn,
+          targetUrn,
+          input.getSubResource(),
+          input.getSubResourceType(),
+          "tag",
+          _entityService
+      );
       try {
 
         if (!tagUrn.getEntityType().equals("tag")) {
