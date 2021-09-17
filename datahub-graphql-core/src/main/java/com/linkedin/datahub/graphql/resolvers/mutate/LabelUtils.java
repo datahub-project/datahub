@@ -2,7 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.mutate;
 
 import com.google.common.collect.ImmutableList;
 
-import com.google.common.collect.ImmutableSet;
+
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.GlossaryTermAssociation;
@@ -20,7 +20,6 @@ import com.linkedin.datahub.graphql.authorization.ConjunctivePrivilegeGroup;
 import com.linkedin.datahub.graphql.authorization.DisjunctivePrivilegeGroup;
 import com.linkedin.datahub.graphql.generated.SubResourceType;
 import com.linkedin.entity.Entity;
-import com.linkedin.metadata.aspect.DatasetAspect;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.snapshot.Snapshot;
@@ -384,18 +383,12 @@ public class LabelUtils {
       EntityService entityService
   ) {
     if (subResourceType.equals(SubResourceType.FIELD_PATH)) {
-      Entity entity = entityService.getEntity(targetUrn, ImmutableSet.of(SCHEMA_ASPECT_NAME));
-      Optional<DatasetAspect> datasetAspect = entity.getValue()
-          .getDatasetSnapshot()
-          .getAspects()
-          .stream()
-          .filter(aspect -> aspect.isSchemaMetadata())
-          .findFirst();
-      if (!datasetAspect.isPresent()) {
+      SchemaMetadata schemaMetadata = (SchemaMetadata) entityService.getAspect(targetUrn, SCHEMA_ASPECT_NAME, 0);
+
+      if (schemaMetadata == null) {
         throw new RuntimeException(String.format("Failed to update %s on %s & field %s. %s has no schema.", labelUrn, targetUrn, subResource, targetUrn));
       }
 
-      SchemaMetadata schemaMetadata = datasetAspect.get().getSchemaMetadata();
       Optional<SchemaField> fieldMatch =
           schemaMetadata.getFields().stream().filter(field -> field.getFieldPath().equals(subResource)).findFirst();
 
