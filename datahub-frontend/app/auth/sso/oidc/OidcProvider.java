@@ -53,7 +53,7 @@ public class OidcProvider implements SsoProvider<OidcConfigs> {
     oidcConfiguration.setClientAuthenticationMethodAsString(_oidcConfigs.getClientAuthenticationMethod());
     oidcConfiguration.setScope(_oidcConfigs.getScope());
     _oidcConfigs.getResponseType().ifPresent(oidcConfiguration::setResponseType);
-    _oidcConfigs.getResponseMode().ifPresent(oidcConfiguration::setResponseType);
+    _oidcConfigs.getResponseMode().ifPresent(oidcConfiguration::setResponseMode);
     _oidcConfigs.getUseNonce().ifPresent(oidcConfiguration::setUseNonce);
     _oidcConfigs.getCustomParamResource()
         .ifPresent(value -> oidcConfiguration.setCustomParams(ImmutableMap.of("resource", value)));

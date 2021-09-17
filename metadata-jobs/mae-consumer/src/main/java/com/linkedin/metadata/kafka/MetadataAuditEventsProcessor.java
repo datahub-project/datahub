@@ -52,7 +52,8 @@ import org.springframework.kafka.annotation.EnableKafka;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 
-import static com.linkedin.metadata.dao.Neo4jUtil.createRelationshipFilter;
+import static com.linkedin.metadata.dao.utils.QueryUtils.newRelationshipFilter;
+import static com.linkedin.metadata.dao.Neo4jUtil.*;
 
 
 @Slf4j
@@ -213,7 +214,7 @@ public class MetadataAuditEventsProcessor {
     if (edgesToAdd.size() > 0) {
       new Thread(() -> {
         _graphService.removeEdgesFromNode(sourceUrn, new ArrayList<>(relationshipTypesBeingAdded),
-            createRelationshipFilter(new Filter().setCriteria(new CriterionArray()), RelationshipDirection.OUTGOING));
+            newRelationshipFilter(new Filter().setCriteria(new CriterionArray()), RelationshipDirection.OUTGOING));
         if (!delete) {
           edgesToAdd.forEach(edge -> _graphService.addEdge(edge));
         } else if (deleteEntity) {

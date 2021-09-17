@@ -111,6 +111,7 @@ Join our [slack workspace](https://slack.datahubproject.io) for discussions and 
 
 Here are the companies that have officially adopted DataHub. Please feel free to add yours to the list if we missed it.
 
+- [Banksalad](https://www.banksalad.com)
 - [DefinedCrowd](http://www.definedcrowd.com)
 - [Expedia Group](http://expedia.com)
 - [Experius](https://www.experius.nl)
