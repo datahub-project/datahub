@@ -6,6 +6,7 @@ import com.datastax.oss.driver.api.core.CqlSessionBuilder;
 import com.datastax.oss.driver.api.core.cql.ResultSet;
 import com.datastax.oss.driver.api.core.cql.Row;
 import com.datastax.oss.driver.api.core.cql.SimpleStatement;
+import com.datastax.oss.driver.api.core.metadata.schema.ClusteringOrder;
 import com.datastax.oss.driver.api.core.paging.OffsetPager;
 import com.datastax.oss.driver.api.core.paging.OffsetPager.Page;
 import com.datastax.oss.driver.api.querybuilder.insert.Insert;
@@ -14,6 +15,7 @@ import com.datastax.oss.driver.api.querybuilder.update.UpdateWithAssignments;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.dao.exception.ModelConversionException;
+import com.linkedin.metadata.dao.exception.RetryLimitReached;
 import com.linkedin.metadata.dao.retention.IndefiniteRetention;
 import com.linkedin.metadata.dao.retention.Retention;
 import com.linkedin.metadata.dao.retention.TimeBasedRetention;
@@ -32,6 +34,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.net.InetSocketAddress;
 import java.net.URISyntaxException;
@@ -214,6 +217,29 @@ public class DatastaxAspectDao {
   @Nonnull
   public Retention getRetention(@Nonnull final String aspectName) {
     return _aspectRetentionMap.getOrDefault(aspectName, INDEFINITE_RETENTION);
+  }
+
+  @Nonnull
+  public <T> T runInConditionalWithRetry(@Nonnull final Supplier<T> block, final int maxConditionalRetry) {
+    int retryCount = 0;
+    Exception lastException;
+
+    T result = null;
+    do {
+      try {
+        result = block.get();
+        lastException = null;
+        break;
+      } catch (ConditionalWriteFailedException exception) {
+        lastException = exception;
+      }
+    } while (++retryCount <= maxConditionalRetry);
+
+    if (lastException != null) {
+      throw new RetryLimitReached("Failed to add after " + maxConditionalRetry + " retries", lastException);
+    }
+
+    return result;
   }
 
   protected void saveAspect(
@@ -537,7 +563,20 @@ public class DatastaxAspectDao {
 
     return das.stream().reduce((d1, d2) -> d1.getCreatedOn().before(d2.getCreatedOn()) ? d1 : d2);
   }
-  
+
+  public List<DatastaxAspect> getAllAspects(String urn, String aspectName) {
+    SimpleStatement ss = selectFrom("metadata_aspect_v2")
+            .all()
+            .whereColumn("urn").isEqualTo(literal(urn))
+            .whereColumn("aspect").isEqualTo(literal(aspectName))
+            .orderBy("version", ClusteringOrder.ASC)
+            .build();
+
+    ResultSet rs = _cqlSession.execute(ss);
+
+    return rs.all().stream().map(x -> toDatastaxAspect(x)).collect(Collectors.toList());
+  }
+
   public DatastaxAspect getAspect(String urn, String aspectName, long version) {
     SimpleStatement ss = selectFrom("metadata_aspect_v2")
       .all()

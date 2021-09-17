@@ -11,10 +11,7 @@ import com.linkedin.metadata.aspect.Aspect;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.dao.exception.ModelConversionException;
 import com.linkedin.metadata.dao.utils.RecordUtils;
-import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.entity.ListResult;
-import com.linkedin.metadata.entity.RollbackResult;
-import com.linkedin.metadata.entity.RollbackRunResult;
+import com.linkedin.metadata.entity.*;
 import com.linkedin.metadata.event.EntityEventProducer;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
@@ -44,9 +41,9 @@ import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 
 import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.entity.ebean.EbeanUtils.parseSystemMetadata;
-import static com.linkedin.metadata.entity.ebean.EbeanUtils.toAspectRecord;
-import static com.linkedin.metadata.entity.ebean.EbeanUtils.toJsonAspect;
+import static com.linkedin.metadata.entity.EntityUtils.parseSystemMetadata;
+import static com.linkedin.metadata.entity.EntityUtils.toAspectRecord;
+import static com.linkedin.metadata.entity.EntityUtils.toJsonAspect;
 
 
 /**
@@ -245,7 +242,7 @@ public class EbeanEntityService extends EntityService {
       // 3. If there is no difference between existing and new, we just update
       // the lastObserved in system metadata. RunId should stay as the original runId
       if (oldValue != null && DataTemplateUtil.areEqual(oldValue, newValue)) {
-        SystemMetadata latestSystemMetadata = EbeanUtils.parseSystemMetadata(latest.getSystemMetadata());
+        SystemMetadata latestSystemMetadata = EntityUtils.parseSystemMetadata(latest.getSystemMetadata());
         latestSystemMetadata.setLastObserved(providedSystemMetadata.getLastObserved());
 
         latest.setSystemMetadata(RecordUtils.toJsonString(latestSystemMetadata));
@@ -253,7 +250,7 @@ public class EbeanEntityService extends EntityService {
         _entityDao.saveAspect(latest, false);
 
         return new UpdateAspectResult(urn, oldValue, oldValue,
-            EbeanUtils.parseSystemMetadata(latest.getSystemMetadata()), latestSystemMetadata,
+            EntityUtils.parseSystemMetadata(latest.getSystemMetadata()), latestSystemMetadata,
             MetadataAuditOperation.UPDATE);
       }
 
@@ -267,7 +264,7 @@ public class EbeanEntityService extends EntityService {
           new Timestamp(auditStamp.getTime()), toJsonAspect(providedSystemMetadata));
 
       return new UpdateAspectResult(urn, oldValue, newValue,
-          latest == null ? null : EbeanUtils.parseSystemMetadata(latest.getSystemMetadata()), providedSystemMetadata,
+          latest == null ? null : EntityUtils.parseSystemMetadata(latest.getSystemMetadata()), providedSystemMetadata,
           MetadataAuditOperation.UPDATE);
     }, maxTransactionRetry);
   }
@@ -295,10 +292,10 @@ public class EbeanEntityService extends EntityService {
           oldAspect == null ? null : toAspectRecord(urn, aspectName, oldAspect.getMetadata(), getEntityRegistry());
 
       SystemMetadata oldSystemMetadata =
-          oldAspect == null ? new SystemMetadata() : EbeanUtils.parseSystemMetadata(oldAspect.getSystemMetadata());
+          oldAspect == null ? new SystemMetadata() : EntityUtils.parseSystemMetadata(oldAspect.getSystemMetadata());
       // create a duplicate of the old system metadata to update and write back
       SystemMetadata newSystemMetadata =
-          oldAspect == null ? new SystemMetadata() : EbeanUtils.parseSystemMetadata(oldAspect.getSystemMetadata());
+          oldAspect == null ? new SystemMetadata() : EntityUtils.parseSystemMetadata(oldAspect.getSystemMetadata());
       newSystemMetadata.setLastObserved(System.currentTimeMillis());
 
       log.debug(String.format("Updating aspect with name %s, urn %s", aspectName, urn));
@@ -451,7 +448,7 @@ public class EbeanEntityService extends EntityService {
       }
 
       // 2. Compare the latest run id. If the run id does not match this run, ignore.
-      SystemMetadata latestSystemMetadata = EbeanUtils.parseSystemMetadata(latest.getSystemMetadata());
+      SystemMetadata latestSystemMetadata = EntityUtils.parseSystemMetadata(latest.getSystemMetadata());
       String latestMetadata = latest.getMetadata();
       if (!latestSystemMetadata.getRunId().equals(runId)) {
         return null;
