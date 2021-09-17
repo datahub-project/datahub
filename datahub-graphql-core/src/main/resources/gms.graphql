@@ -7,7 +7,7 @@ schema {
 }
 
 """
-Top-level GMS Entity
+A top-level Metadata Entity
 """
 interface Entity {
     """
@@ -21,13 +21,120 @@ interface Entity {
     type: EntityType!
 
     """
-    Edges extending from this entity.
+    List of relationships between the source Entity and some destination entities with a given type(s)
     """
-    relationships(types: [String!]!, direction: RelationshipDirection!, start: Int, count: Int): EntityRelationshipsResult
+    relationships(input: RelationshipsInput!): EntityRelationshipsResult
 }
 
 """
-Result storing relationship information associated with a particular entity.
+A top-level Metadata Entity Type
+"""
+enum EntityType {
+    """
+    The Dataset Entity
+    """
+    DATASET
+
+    """
+    The CorpUser Entity
+    """
+    CORP_USER
+
+    """
+    The CorpGroup Entity
+    """
+    CORP_GROUP
+
+    """
+    The DataPlatform Entity
+    """
+    DATA_PLATFORM
+
+    """
+    The Dashboard Entity
+    """
+    DASHBOARD
+
+    """
+    The Chart Entity
+    """
+    CHART
+
+    """
+    The ML Model Entity
+    """
+    MLMODEL
+
+    """
+    The MLModelGroup Entity
+    """
+    MLMODEL_GROUP
+
+    ""ML Feature Table Entity
+    """
+    MLFEATURE_TABLE
+
+    """
+    The ML Feature Entity
+    """
+    MLFEATURE
+
+    """
+    The ML Primary Key Entity
+    """
+    MLPRIMARY_KEY
+
+    """
+    The Data Flow (or Data Pipeline) Entity,
+    """
+    DATA_FLOW
+
+    """
+    The Data Job (or Data Task) Entity
+    """
+    DATA_JOB
+
+    """
+    The Tag Entity
+    """
+    TAG
+
+    """
+    The Glossary Term Entity
+    """
+    GLOSSARY_TERM
+
+}
+
+"""
+Input for the list relationships field of an Entity
+"""
+type RelationshipsInput {
+
+  """
+  The types of relationships to query for (representing an OR)
+  """
+  types: [String!]!
+
+  """
+  The direction of the relationship, either incoming or outgoing from the source entity
+  """
+  direction: RelationshipDirection!
+
+  """
+  The starting offset of the result set
+  """
+  start: Int
+
+  """
+  The number of results to be returned
+  """
+  count: Int
+
+}
+
+"""
+A list of relationship information associated with a source Entity
 """
 type EntityRelationshipsResult {
 
@@ -47,13 +154,13 @@ type EntityRelationshipsResult {
   total: Int
 
   """
-  Relationship edges in the result set
+  Relationships in the result set
   """
   relationships: [EntityRelationship!]!
 }
 
 """
-The second version of EntityRelationship model, where Entity can be any entity.
+A relationship between two entities.
 TODO - Migrate all entity relationships to this more generic model
 """
 type EntityRelationship {
@@ -82,18 +189,40 @@ type EntityRelationship {
 Direction between a source and destination node.
 """
 enum RelationshipDirection {
+  """
+  A directed edge pointing at the source Entity
+  """
   INCOMING,
+  """
+  A directed edge pointing at the destination Entity
+  """
   OUTGOING
 }
 
+"""
+A versioned aspect, or single group of related metadata, associated with an Entity & having a unique version
+"""
 interface Aspect {
-    aspectVersion: Long
+    """
+    The version of the aspect, where 0 represents the latest version
+    """
+    version: Long
 }
 
+"""
+An time series aspect, or a group of related metadata associated with an Entity & corresponding to a particular timestamp
+"""
 interface TimeSeriesAspect {
+    """
+    The timestamp associated with the time series aspect in milliseconds.
+    """
     timestampMillis: Long!
 }
 
+"""
+Deprecated! This model defines an entity with a set of predefined relationship types. Using 'relationships' field instead.
+"""
+@deprecated
 interface EntityWithRelationships implements Entity {
     """
     GMS Entity urn
@@ -104,8 +233,8 @@ interface EntityWithRelationships implements Entity {
     GMS Entity Type
     """
     type: EntityType!
-    """
 
+    """
     Entities upstream of the given entity
     """
     upstreamLineage: UpstreamEntityRelationships
@@ -122,188 +251,98 @@ interface EntityWithRelationships implements Entity {
 }
 
 """
-Top-level GMS Entity Type
+Types used for fetching DataHub Metadata.
 """
-enum EntityType {
-    """
-    The Dataset Entity
-    """
-    DATASET
-    """
-    The CorpUser Entity
-    """
-    CORP_USER
-    """
-    The CorpGroup Entity
-    """
-    CORP_GROUP
-    """
-    The DataPlatform Entity
-    """
-    DATA_PLATFORM
-    """
-    The Dashboard Entity
-    """
-    DASHBOARD
-    """
-    The Chart Entity
-    """
-    CHART
-    """
-    The Tag Entity
-    """
-    TAG
-    """
-    The MLModel Entity
-    """
-    MLMODEL
-    """
-    The MLModelGroup Entity
-    """
-    MLMODEL_GROUP
-    """
-    The MLFEATURETable Entity
-    """
-    MLFEATURE_TABLE
-    """
-    The MLFeature Entity
-    """
-    MLFEATURE
-    """
-    The MLPRIMARYKEY Entity
-    """
-    MLPRIMARY_KEY
-    """
-    The DATA_FLOW Entity
-    """
-    DATA_FLOW
-    """
-    The DATA_JOB Entity
-    """
-    DATA_JOB
-    """
-    The GlossaryTerm Entity
-    """
-    GLOSSARY_TERM
-}
-
 type Query {
 
     """
-    Fetch configurations for the DataHub UI.
-    """
-    appConfig: AppConfig
-
-    """
-    Fetch details associated with the logged in user.
-    """
-    me: AuthenticatedUser
-
-    """
-    Fetch a Dataset by primary key
-    """
-    dataset(urn: String!): Dataset
-
-    """
-    Fetch a CorpUser by primary key
+    Fetch a CorpUser, representing a DataHub platform user, by primary key (urn)
     """
     corpUser(urn: String!): CorpUser
 
     """
-    Fetch a CorpGroup by primary key
+    Fetch a CorpGroup, representing a DataHub platform group by primary key (urn)
     """
     corpGroup(urn: String!): CorpGroup
 
     """
-    Fetch a Dashboard by primary key
+    Fetch a Dataset by primary key (urn)
+    """
+    dataset(urn: String!): Dataset
+
+    """
+    Fetch a Dashboard by primary key (urn)
     """
     dashboard(urn: String!): Dashboard
 
     """
-    Fetch a Chart by primary key
+    Fetch a Chart by primary key (urn)
     """
     chart(urn: String!): Chart
 
     """
-    Fetch a Tag by primary key
-    """
-    tag(urn: String!): Tag
-
-    """
-    Fetch a MLModel by primary key
+    Fetch an ML Model by primary key (urn)
     """
     mlModel(urn: String!): MLModel
 
     """
-    Fetch a MLModel by primary key
+    Fetch an ML Model Group by primary key (urn)
     """
     mlModelGroup(urn: String!): MLModelGroup
 
     """
-    Fetch a MLFeature by primary key
+    Fetch a ML Feature by primary key (urn)
     """
     mlFeature(urn: String!): MLFeature
 
     """
-    Fetch a MLFeatureTable by primary key
+    Fetch a ML Feature Table by primary key (urn)
     """
     mlFeatureTable(urn: String!): MLFeatureTable
 
     """
-    Fetch a MLPrimaryKey by primary key
+    Fetch a ML Primary Key by primary key (urn)
     """
     mlPrimaryKey(urn: String!): MLPrimaryKey
 
     """
-    Fetch a DataFlow by primary key
+    Fetch a Data Flow (or Data Pipeline) by primary key (urn)
     """
     dataFlow(urn: String!): DataFlow
 
     """
-    Fetch a DataJob by primary key
+    Fetch a Data Job (or Data Task) by primary key (urn)
     """
     dataJob(urn: String!): DataJob
 
     """
-    Search DataHub entities
+    Fetch a Tag by primary key (urn)
     """
-    search(input: SearchInput!): SearchResults
+    tag(urn: String!): Tag
 
     """
-    Autocomplete a search query against specific entity
-    """
-    autoComplete(input: AutoCompleteInput!): AutoCompleteResults
-
-    """
-    Autocomplete a search query against DataHub entities
-    """
-    autoCompleteForMultiple(input: AutoCompleteMultipleInput!): AutoCompleteMultipleResults
-
-    """
-    Browse DataHub entities by path
-    """
-    browse(input: BrowseInput!): BrowseResults
-
-    """
-    Retrieve the browse path(s) corresponding to an entity
-    """
-    browsePaths(input: BrowsePathsInput!): [BrowsePath!]
-
-    """
-    Fetch a GlossaryTerm by primary key
+    Fetch a Glossary Term by primary key (urn)
     """
     glossaryTerm(urn: String!): GlossaryTerm
 
     """
-    List all DataHub Access Policies.
+    List all DataHub Access Policies
     """
     listPolicies(input: ListPoliciesInput!): ListPoliciesResult
 }
 
 type Mutation {
+    """
+    """
     updateDataset(input: DatasetUpdateInput!): Dataset
+    """
+    """
     updateChart(input: ChartUpdateInput!): Chart
+    """
+    """
     updateDashboard(input: DashboardUpdateInput!): Dashboard
+    """
+    """
     updateDataFlow(input: DataFlowUpdateInput!): DataFlow
     updateDataJob(input: DataJobUpdateInput!): DataJob
     updateTag(input: TagUpdate!): Tag
@@ -349,33 +388,6 @@ input TagUpdateInput {
     targetUrn: String!
     subResourceType: String
     subResource: String
-}
-
-type AppConfig {
-  analyticsConfig: AnalyticsConfig!
-  policiesConfig: PoliciesConfig!
-}
-
-type AnalyticsConfig {
-  enabled: Boolean!
-}
-
-type AuthenticatedUser {
-  corpUser: CorpUser!
-  platformPrivileges: PlatformPrivileges!
-}
-
-type PlatformPrivileges {
-
-  """
-  Whether the user should be able to view analytics.
-  """
-  viewAnalytics: Boolean!
-
-  """
-  Whether the user should be able to manage policies.
-  """
-  managePolicies: Boolean!
 }
 
 type AuditStamp {
@@ -482,18 +494,21 @@ type Dataset implements EntityWithRelationships & Entity {
     editableSchemaMetadata: EditableSchemaMetadata
 
     """
-    Status metadata of the dataset
+    Status of the dataset
     """
     status: Status
 
     """
+    Deprecated! Use 'relationships' field instead.
     Entities upstream of the given entity
     """
     upstreamLineage: UpstreamEntityRelationships
 
     """
+    Deprecated! Use 'relationships' field instead.
     Entities downstream of the given entity
     """
+    @deprecated
     downstreamLineage: DownstreamEntityRelationships
 
     """
@@ -1012,6 +1027,10 @@ type DataFlowEditableProperties {
     description: String
 }
 
+"""
+Deprecated! Use 'relationships' query instead.
+"""
+@deprecated
 type EntityRelationshipLegacy {
     """
     Entity that is related via lineage
@@ -1024,18 +1043,34 @@ type EntityRelationshipLegacy {
     created: AuditStamp
 }
 
+"""
+Deprecated! Use 'relationships' query instead.
+"""
+@deprecated
 type UpstreamEntityRelationships {
     entities: [EntityRelationshipLegacy]
 }
 
+"""
+Deprecated! Use 'relationships' query instead.
+"""
+@deprecated
 type DownstreamEntityRelationships {
     entities: [EntityRelationshipLegacy]
 }
 
+"""
+Deprecated! Use 'relationships' query instead.
+"""
+@deprecated
 type DataFlowDataJobsRelationships {
     entities: [EntityRelationshipLegacy]
 }
- 
+
+"""
+Deprecated! Use 'relationships' query instead.
+"""
+@deprecated
 type UpstreamLineage {
     """
     List of upstream datasets
@@ -1043,6 +1078,10 @@ type UpstreamLineage {
     upstreams: [RelatedDataset!]!
 }
 
+"""
+Deprecated! Use 'relationships' query instead.
+"""
+@deprecated
 type DownstreamLineage {
     """
     List of downstream datasets
@@ -1050,6 +1089,10 @@ type DownstreamLineage {
     downstreams: [RelatedDataset!]!
 }
 
+"""
+Deprecated! Use 'relationships' query instead.
+"""
+@deprecated
 type RelatedDataset {
     """
     The upstream dataset the lineage points to
@@ -1447,313 +1490,6 @@ type GlossaryTerms {
 
 type GlossaryTermAssociation {
     term: GlossaryTerm!
-}
-
-input SearchInput {
-    """
-    Entity type to be searched
-    """
-	type: EntityType!
-
-	"""
-	The query string
-	"""
-	query: String!
-
-	"""
-	The starting point of paginated results
-	"""
-	start: Int
-
-	"""
-	The number of elements included in the results
-	"""
-	count: Int
-
-	"""
-	Faceted filters applied to search results
-	"""
-	filters: [FacetFilterInput!]
-}
-
-input FacetFilterInput {
-    """
-    Name of field to filter by
-    """
-	field: String!
-
-	"""
-	Value of the field to filter by
-	"""
-	value: String!
-}
-
-type MatchedField {
-    """
-    Name of the field that matched
-    """
-    name: String!
-
-    """
-    Value of the field that matched
-    """
-    value: String!
-}
-
-type SearchResult {
-    """
-    Searched entity
-    """
-    entity: Entity!
-
-    """
-    Matched field names and their values
-    """
-    matchedFields: [MatchedField!]!
-}
-
-type SearchResults {
-    """
-    The starting point of paginated results
-    """
-    start: Int!
-
-    """
-    The number of elements included in the results
-    """
-    count: Int!
-
-    """
-    The total number of search results matching the query and filters
-    """
-    total: Int!
-
-    """
-    The search results
-    """
-    searchResults: [SearchResult!]!
-
-    """
-    Field aggregations used for faceted search
-    """
-    facets: [FacetMetadata!]
-}
-
-type FacetMetadata {
-    """
-    Name of a field present in the search entity
-    """
-    field: String!
-
-    """
-    Aggregated search result counts by value of the field
-    """
-    aggregations: [AggregationMetadata!]!
-}
-
-type AggregationMetadata {
-    """
-    A particular value of a facet field
-    """
-    value: String!
-
-    """
-    The number of search results containing the value
-    """
-    count: Long!
-}
-
-input AutoCompleteInput {
-    """
-    Entity type to be autocompleted against
-    """
-	type: EntityType
-
-	"""
-	The query string
-	"""
-	query: String!
-
-	"""
-	An optional field to autocomplete against
-	"""
-	field: String
-
-	"""
-	The maximum number of autocomplete results
-	"""
-	limit: Int
-
-	"""
-	Faceted filters applied to autocomplete results
-	"""
-	filters: [FacetFilterInput!]
-}
-
-input AutoCompleteMultipleInput {
-    """
-    Entity types to be autocompleted against.
-    Optional- if none supplied, all searchable types will be autocompleted against
-    """
-    types: [EntityType!]
-
-    """
-    The query string
-    """
-    query: String!
-
-    """
-    An optional field to autocomplete against
-    """
-    field: String
-
-    """
-    The maximum number of autocomplete results
-    """
-    limit: Int
-
-    """
-    Faceted filters applied to autocomplete results
-    """
-    filters: [FacetFilterInput!]
-}
-
-type AutoCompleteResultForEntity {
-    """
-    Entity type
-    """
-    type: EntityType!
-
-    """
-    The autocompletion results for specified entity type
-    """
-    suggestions: [String!]!
-}
-
-type AutoCompleteMultipleResults {
-    """
-    The query string
-    """
-    query: String!
-
-    """
-    The autocompletion results
-    """
-    suggestions: [AutoCompleteResultForEntity!]!
-}
-
-type AutoCompleteResults {
-	"""
-	The query string
-	"""
-	query: String!
-
-	"""
-	The autocompletion results
-	"""
-	suggestions: [String!]!
-}
-
-input BrowseInput {
-    """
-    The browse entity type
-    """
-	type: EntityType!
-
-	"""
-	The browse path.. Should this be an array?
-	"""
-	path: [String!]
-
-    """
-    The starting point of paginated results
-    """
-	start: Int
-
-    """
-    The number of elements included in the results
-    """
-	count: Int
-
-    """
-    Faceted filters applied to browse results
-    """
-	filters: [FacetFilterInput!]
-}
-
-type BrowseResults {
-    """
-    The browse results
-    """
-	entities: [Entity!]!
-
-	"""
-	The groups present at the provided browse path
-	"""
-	groups: [BrowseResultGroup!]!
-
-    """
-    The starting point of paginated results
-    """
-	start: Int!
-
-    """
-    The number of elements included in the results
-    """
-	count: Int!
-
-    """
-    The total number of browse results under the path with filters applied
-    """
-	total: Int!
-
-    """
-    Metadata containing resulting browse groups
-    """
-	metadata: BrowseResultMetadata!
-}
-
-type BrowseResultMetadata {
-    """
-    The provided path
-    """
-	path: [String!]!
-
-    """
-    The total number of entities under the provided browse path
-    """
-	totalNumEntities: Long!
-}
-
-type BrowseResultGroup {
-    """
-    The path name of a group of browse results
-    """
-  	name: String!
-
-  	"""
-  	The number of entities within the group
-  	"""
-  	count: Long!
-}
-
-input BrowsePathsInput {
-    """
-    The browse entity type
-    """
-	type: EntityType!
-
-	"""
-	The entity urn
-	"""
-	urn: String!
-}
-
-type BrowsePath {
-    """
-    The components of the browse path
-    """
-	path: [String!]!
 }
 
 input ChartUpdateInput {
@@ -3507,62 +3243,4 @@ type ListPoliciesResult {
   count: Int!
   total: Int!
   policies: [Policy!]!
-}
-
-type PoliciesConfig {
-
-  """
-  Whether the policies feature is enabled and should be displayed in the UI
-  """
-  enabled: Boolean!
-
-  """
-  A list of platform privileges to display
-  """
-  platformPrivileges: [Privilege!]!
-
-  """
-  A list of resource privileges to display
-  """
-  resourcePrivileges: [ResourcePrivileges!]!
-
-}
-
-type Privilege {
-  """
-  Standardized privilege type, serving as a unique identifier for a privilege e.g. EDIT_ENTITY
-  """
-  type: String!
-
-  """
-  The name to appear when displaying the privilege, e.g. Edit Entity
-  """
-  displayName: String
-
-  """
-  A description of the privilege to display.
-  """
-  description: String
-}
-
-type ResourcePrivileges {
-  """
-  Resource type associated with the Metadata Privilege.
-  """
-  resourceType: String!
-
-  """
-  The name to used for displaying the resourceType
-  """
-  resourceTypeDisplayName: String
-
-  """
-  An optional entity type to use when performing search and navigation to the entity.
-  """
-  entityType: EntityType
-
-  """
-  A list of privileges that are supported against this resource
-  """
-  privileges: [Privilege!]!
 }
