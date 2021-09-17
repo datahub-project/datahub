@@ -50,6 +50,10 @@ public class CacheableSearcher<K> {
         resultEntities.addAll(batchedResult.getEntities().subList(startInBatch, endInBatch));
         foundStart = true;
       }
+      // If current batch is smaller than the requested batch size, the next batch will return empty.
+      if (currentBatchSize < batchSize) {
+        break;
+      }
       resultsSoFar += currentBatchSize;
       batchId++;
     }

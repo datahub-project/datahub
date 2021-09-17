@@ -32,6 +32,7 @@ import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 
 
@@ -41,7 +42,6 @@ public class AllEntitiesSearchAggregator {
   private final EntitySearchService _entitySearchService;
   private final SearchRanker _searchRanker;
   private final CacheManager _cacheManager;
-  private final int _batchSize;
 
   private final EntitySearchServiceCache _entitySearchServiceCache;
 
@@ -49,6 +49,7 @@ public class AllEntitiesSearchAggregator {
 
   private static final List<String> FILTER_RANKING =
       ImmutableList.of("entity", "platform", "origin", "tags", "glossaryTerms");
+  private static final String NON_EMPTY_ENTITIES_CACHE_NAME = "nonEmptyEntities";
 
   public AllEntitiesSearchAggregator(EntityRegistry entityRegistry, EntitySearchService entitySearchService,
       SearchRanker searchRanker, CacheManager cacheManager, int batchSize) {
@@ -56,7 +57,6 @@ public class AllEntitiesSearchAggregator {
     _entitySearchService = entitySearchService;
     _searchRanker = searchRanker;
     _cacheManager = cacheManager;
-    _batchSize = batchSize;
     _entitySearchServiceCache = new EntitySearchServiceCache(cacheManager, entitySearchService, batchSize);
     _filtersToDisplayName = getFilterToDisplayName(entityRegistry);
   }
@@ -163,11 +163,20 @@ public class AllEntitiesSearchAggregator {
 
   @WithSpan
   private List<String> getNonEmptyEntities() {
-    return _entityRegistry.getEntitySpecs()
+    Cache.ValueWrapper cachedResult =
+        _cacheManager.getCache(NON_EMPTY_ENTITIES_CACHE_NAME).get(NON_EMPTY_ENTITIES_CACHE_NAME);
+
+    if (cachedResult != null) {
+      return (List<String>) cachedResult.get();
+    }
+
+    List<String> nonEmptyEntities = _entityRegistry.getEntitySpecs()
         .keySet()
         .stream()
         .filter(entity -> _entitySearchService.docCount(entity) > 0)
         .collect(Collectors.toList());
+    _cacheManager.getCache(NON_EMPTY_ENTITIES_CACHE_NAME).put(NON_EMPTY_ENTITIES_CACHE_NAME, nonEmptyEntities);
+    return nonEmptyEntities;
   }
 
   private List<AggregationMetadata> rankFilterGroups(Map<String, AggregationMetadata> aggregations) {
