@@ -15,7 +15,7 @@ query getAutoCompleteMultipleResults($input: AutoCompleteMultipleInput!) {
     }
 }
 
-query getSearchResults($input: SearchInput!) {
+query getSearchResults($input: SearchMultipleInput!) {
     search(input: $input) {
         start
         count
@@ -264,9 +264,29 @@ query getSearchResults($input: SearchInput!) {
         }
         facets {
             field
+            displayName
             aggregations {
                 value
                 count
+                entity {
+                    urn
+                    type
+                    ... on Tag {
+                        name
+                        description
+                    }
+                    ... on GlossaryTerm {
+                        name
+                    }
+                    ... on DataPlatform {
+                        name
+                        displayName
+                        info {
+                            displayName
+                            logoUrl
+                        }
+                    }
+                }
             }
         }
     }

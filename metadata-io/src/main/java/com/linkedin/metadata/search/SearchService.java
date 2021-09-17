@@ -2,47 +2,39 @@ package com.linkedin.metadata.search;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.browse.BrowseResult;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.Filter;
-import com.linkedin.metadata.query.SearchResult;
 import com.linkedin.metadata.query.SortCriterion;
+import com.linkedin.metadata.search.aggregator.AllEntitiesSearchAggregator;
+import com.linkedin.metadata.search.ranker.SearchRanker;
 import java.util.List;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.extern.slf4j.Slf4j;
 
 
-public interface SearchService {
+@Slf4j
+public class SearchService {
+  private final EntitySearchService _entitySearchService;
+  private final AllEntitiesSearchAggregator _aggregator;
+  private final SearchRanker _searchRanker;
 
-  void configure();
-
-  /**
-   * Clear all data within the service
-   */
-  void clear();
+  public SearchService(EntityRegistry entityRegistry, EntitySearchService entitySearchService,
+      SearchRanker searchRanker) {
+    _entitySearchService = entitySearchService;
+    _searchRanker = searchRanker;
+    _aggregator = new AllEntitiesSearchAggregator(entityRegistry, entitySearchService, searchRanker);
+  }
 
   /**
    * Get the number of documents corresponding to the entity
    *
    * @param entityName name of the entity
    */
-  long docCount(@Nonnull String entityName);
-
-  /**
-   * Updates or inserts the given search document.
-   *
-   * @param entityName name of the entity
-   * @param document the document to update / insert
-   * @param docId the ID of the document
-   */
-  void upsertDocument(@Nonnull String entityName, @Nonnull String document, @Nonnull String docId);
-
-  /**
-   * Deletes the document with the given document ID from the index.
-   *
-   * @param entityName name of the entity
-   * @param docId the ID of the document to delete
-   */
-  void deleteDocument(@Nonnull String entityName, @Nonnull String docId);
+  public long docCount(@Nonnull String entityName) {
+    return _entitySearchService.docCount(entityName);
+  }
 
   /**
    * Gets a list of documents that match given search request. The results are aggregated and filters are applied to the
@@ -57,8 +49,37 @@ public interface SearchService {
    * @return a {@link com.linkedin.metadata.dao.SearchResult} that contains a list of matched documents and related search result metadata
    */
   @Nonnull
-  SearchResult search(@Nonnull String entityName, @Nonnull String input, @Nullable Filter postFilters,
-      @Nullable SortCriterion sortCriterion, int from, int size);
+  public SearchResult search(@Nonnull String entityName, @Nonnull String input, @Nullable Filter postFilters,
+      @Nullable SortCriterion sortCriterion, int from, int size) {
+    SearchResult result = _entitySearchService.search(entityName, input, postFilters, sortCriterion, from, size);
+    try {
+      return result.copy().setEntities(new SearchEntityArray(_searchRanker.rank(result.getEntities())));
+    } catch (Exception e) {
+      log.error("Failed to rank: {}, execption - {}", result, e.toString());
+      throw new RuntimeException("Failed to rank " + result.toString());
+    }
+  }
+
+  /**
+   * Gets a list of documents that match given search request across multiple entities. The results are aggregated and filters are applied to the
+   * search hits and not the aggregation results.
+   *
+   * @param entities list of entities to search (If empty, searches across all entities)
+   * @param input the search input text
+   * @param postFilters the request map with fields and values as filters to be applied to search hits
+   * @param sortCriterion {@link SortCriterion} to be applied to search results
+   * @param from index to start the search from
+   * @param size the number of search hits to return
+   * @return a {@link com.linkedin.metadata.dao.SearchResult} that contains a list of matched documents and related search result metadata
+   */
+  @Nonnull
+  public SearchResult searchAcrossEntities(@Nonnull List<String> entities, @Nonnull String input,
+      @Nullable Filter postFilters, @Nullable SortCriterion sortCriterion, int from, int size) {
+    log.debug(String.format(
+        "Searching Search documents entities: %s, input: %s, postFilters: %s, sortCriterion: %s, from: %s, size: %s",
+        entities, input, postFilters, sortCriterion, from, size));
+    return _aggregator.search(entities, input, postFilters, sortCriterion, from, size);
+  }
 
   /**
    * Gets a list of documents after applying the input filters.
@@ -71,8 +92,10 @@ public interface SearchService {
    * @return a {@link com.linkedin.metadata.dao.SearchResult} that contains a list of filtered documents and related search result metadata
    */
   @Nonnull
-  SearchResult filter(@Nonnull String entityName, @Nullable Filter filters, @Nullable SortCriterion sortCriterion,
-      int from, int size);
+  public SearchResult filter(@Nonnull String entityName, @Nullable Filter filters,
+      @Nullable SortCriterion sortCriterion, int from, int size) {
+    return _entitySearchService.filter(entityName, filters, sortCriterion, from, size);
+  }
 
   /**
    * Returns a list of suggestions given type ahead query.
@@ -87,8 +110,10 @@ public interface SearchService {
    * @return A list of suggestions as string
    */
   @Nonnull
-  AutoCompleteResult autoComplete(@Nonnull String entityName, @Nonnull String query, @Nullable String field,
-      @Nullable Filter requestParams, int limit);
+  public AutoCompleteResult autoComplete(@Nonnull String entityName, @Nonnull String query, @Nullable String field,
+      @Nullable Filter requestParams, int limit) {
+    return _entitySearchService.autoComplete(entityName, query, field, requestParams, limit);
+  }
 
   /**
    * Gets a list of groups/entities that match given browse request.
@@ -101,8 +126,10 @@ public interface SearchService {
    * @return a {@link BrowseResult} that contains a list of groups/entities
    */
   @Nonnull
-  BrowseResult browse(@Nonnull String entityName, @Nonnull String path, @Nullable Filter requestParams, int from,
-      int size);
+  public BrowseResult browse(@Nonnull String entityName, @Nonnull String path, @Nullable Filter requestParams, int from,
+      int size) {
+    return _entitySearchService.browse(entityName, path, requestParams, from, size);
+  }
 
   /**
    * Gets a list of paths for a given urn.
@@ -112,5 +139,7 @@ public interface SearchService {
    * @return all paths related to a given urn
    */
   @Nonnull
-  List<String> getBrowsePaths(@Nonnull String entityName, @Nonnull Urn urn);
+  public List<String> getBrowsePaths(@Nonnull String entityName, @Nonnull Urn urn) {
+    return _entitySearchService.getBrowsePaths(entityName, urn);
+  }
 }

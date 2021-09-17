@@ -1323,7 +1323,7 @@ export const mocks = [
             query: GetSearchResultsDocument,
             variables: {
                 input: {
-                    type: 'DATASET',
+                    types: ['DATASET'],
                     query: 'test',
                     start: 0,
                     count: 10,
@@ -1366,14 +1366,16 @@ export const mocks = [
                     facets: [
                         {
                             field: 'origin',
-                            aggregations: [{ value: 'PROD', count: 3 }],
+                            displayName: 'origin',
+                            aggregations: [{ value: 'PROD', count: 3, entity: null }],
                         },
                         {
                             field: 'platform',
+                            displayName: 'platform',
                             aggregations: [
-                                { value: 'HDFS', count: 1 },
-                                { value: 'MySQL', count: 1 },
-                                { value: 'Kafka', count: 1 },
+                                { value: 'HDFS', count: 1, entity: null },
+                                { value: 'MySQL', count: 1, entity: null },
+                                { value: 'Kafka', count: 1, entity: null },
                             ],
                         },
                     ],
@@ -1386,7 +1388,7 @@ export const mocks = [
             query: GetSearchResultsDocument,
             variables: {
                 input: {
-                    type: 'DATASET',
+                    types: ['DATASET'],
                     query: 'test',
                     start: 0,
                     count: 10,
@@ -1419,19 +1421,22 @@ export const mocks = [
                     facets: [
                         {
                             field: 'origin',
+                            displayName: 'origin',
                             aggregations: [
                                 {
                                     value: 'PROD',
                                     count: 3,
+                                    entity: null,
                                 },
                             ],
                         },
                         {
                             field: 'platform',
+                            displayName: 'platform',
                             aggregations: [
-                                { value: 'hdfs', count: 1 },
-                                { value: 'mysql', count: 1 },
-                                { value: 'kafka', count: 1 },
+                                { value: 'hdfs', count: 1, entity: null },
+                                { value: 'mysql', count: 1, entity: null },
+                                { value: 'kafka', count: 1, entity: null },
                             ],
                         },
                     ],
@@ -1444,7 +1449,7 @@ export const mocks = [
             query: GetSearchResultsDocument,
             variables: {
                 input: {
-                    type: 'GLOSSARY_TERM',
+                    types: ['GLOSSARY_TERM'],
                     query: 'tags:"abc-sample-tag" OR fieldTags:"abc-sample-tag" OR editedFieldTags:"abc-sample-tag"',
                     start: 0,
                     count: 1,
@@ -1472,19 +1477,22 @@ export const mocks = [
                     facets: [
                         {
                             field: 'origin',
+                            displayName: 'origin',
                             aggregations: [
                                 {
                                     value: 'PROD',
                                     count: 3,
+                                    entity: null,
                                 },
                             ],
                         },
                         {
                             field: 'platform',
+                            displayName: 'platform',
                             aggregations: [
-                                { value: 'hdfs', count: 1 },
-                                { value: 'mysql', count: 1 },
-                                { value: 'kafka', count: 1 },
+                                { value: 'hdfs', count: 1, entity: null },
+                                { value: 'mysql', count: 1, entity: null },
+                                { value: 'kafka', count: 1, entity: null },
                             ],
                         },
                     ],
@@ -1523,14 +1531,18 @@ export const mocks = [
             query: GetSearchResultsDocument,
             variables: {
                 input: {
-                    type: 'DATASET',
+                    types: ['DATASET'],
                     query: 'test',
                     start: 0,
                     count: 10,
                     filters: [
                         {
                             field: 'platform',
-                            value: 'kafka,hdfs',
+                            value: 'kafka',
+                        },
+                        {
+                            field: 'platform',
+                            value: 'hdfs',
                         },
                     ],
                 },
@@ -1556,19 +1568,22 @@ export const mocks = [
                     facets: [
                         {
                             field: 'origin',
+                            displayName: 'origin',
                             aggregations: [
                                 {
                                     value: 'PROD',
                                     count: 3,
+                                    entity: null,
                                 },
                             ],
                         },
                         {
                             field: 'platform',
+                            displayName: 'platform',
                             aggregations: [
-                                { value: 'hdfs', count: 1 },
-                                { value: 'mysql', count: 1 },
-                                { value: 'kafka', count: 1 },
+                                { value: 'hdfs', count: 1, entity: null },
+                                { value: 'mysql', count: 1, entity: null },
+                                { value: 'kafka', count: 1, entity: null },
                             ],
                         },
                     ],
@@ -1581,7 +1596,7 @@ export const mocks = [
             query: GetSearchResultsDocument,
             variables: {
                 input: {
-                    type: 'USER',
+                    types: ['USER'],
                     query: 'Test',
                     start: 0,
                     count: 10,
@@ -1652,7 +1667,7 @@ export const mocks = [
             query: GetSearchResultsDocument,
             variables: {
                 input: {
-                    type: 'CORP_USER',
+                    types: ['CORP_USER'],
                     query: 'tags:"abc-sample-tag" OR fieldTags:"abc-sample-tag" OR editedFieldTags:"abc-sample-tag"',
                     start: 0,
                     count: 1,
@@ -1679,7 +1694,7 @@ export const mocks = [
             query: GetSearchResultsDocument,
             variables: {
                 input: {
-                    type: 'DATASET',
+                    types: ['DATASET'],
                     query: 'tags:"abc-sample-tag" OR fieldTags:"abc-sample-tag" OR editedFieldTags:"abc-sample-tag"',
                     start: 0,
                     count: 1,
@@ -1707,19 +1722,22 @@ export const mocks = [
                     facets: [
                         {
                             field: 'origin',
+                            displayName: 'origin',
                             aggregations: [
                                 {
                                     value: 'PROD',
                                     count: 3,
+                                    entity: null,
                                 },
                             ],
                         },
                         {
                             field: 'platform',
+                            displayName: 'platform',
                             aggregations: [
-                                { value: 'hdfs', count: 1 },
-                                { value: 'mysql', count: 1 },
-                                { value: 'kafka', count: 1 },
+                                { value: 'hdfs', count: 1, entity: null },
+                                { value: 'mysql', count: 1, entity: null },
+                                { value: 'kafka', count: 1, entity: null },
                             ],
                         },
                     ],
@@ -1732,7 +1750,7 @@ export const mocks = [
             query: GetSearchResultsDocument,
             variables: {
                 input: {
-                    type: 'DATASET',
+                    types: ['DATASET'],
                     query: '*',
                     start: 0,
                     count: 20,
@@ -1767,19 +1785,22 @@ export const mocks = [
                     facets: [
                         {
                             field: 'origin',
+                            displayName: 'origin',
                             aggregations: [
                                 {
                                     value: 'PROD',
                                     count: 3,
+                                    entity: null,
                                 },
                             ],
                         },
                         {
                             field: 'platform',
+                            displayName: 'platform',
                             aggregations: [
-                                { value: 'hdfs', count: 1 },
-                                { value: 'mysql', count: 1 },
-                                { value: 'kafka', count: 1 },
+                                { value: 'hdfs', count: 1, entity: null },
+                                { value: 'mysql', count: 1, entity: null },
+                                { value: 'kafka', count: 1, entity: null },
                             ],
                         },
                     ],
@@ -1792,7 +1813,7 @@ export const mocks = [
             query: GetSearchResultsDocument,
             variables: {
                 input: {
-                    type: 'DATA_FLOW',
+                    types: ['DATA_FLOW'],
                     query: 'Sample',
                     start: 0,
                     count: 10,
@@ -1820,19 +1841,26 @@ export const mocks = [
                     facets: [
                         {
                             field: 'origin',
+                            displayName: 'platform',
                             aggregations: [
                                 {
                                     value: 'PROD',
                                     count: 3,
+                                    entity: null,
                                 },
                             ],
                         },
                         {
                             field: 'platform',
+                            displayName: 'platform',
                             aggregations: [
-                                { value: 'hdfs', count: 1 },
-                                { value: 'mysql', count: 1 },
-                                { value: 'kafka', count: 1 },
+                                {
+                                    value: 'hdfs',
+                                    count: 1,
+                                    entity: null,
+                                },
+                                { value: 'mysql', count: 1, entity: null },
+                                { value: 'kafka', count: 1, entity: null },
                             ],
                         },
                     ],
@@ -1927,7 +1955,7 @@ export const mocks = [
             query: GetSearchResultsDocument,
             variables: {
                 input: {
-                    type: 'DATA_JOB',
+                    types: ['DATA_JOB'],
                     query: 'Sample',
                     start: 0,
                     count: 10,
@@ -1955,19 +1983,26 @@ export const mocks = [
                     facets: [
                         {
                             field: 'origin',
+                            displayName: 'platform',
                             aggregations: [
                                 {
                                     value: 'PROD',
                                     count: 3,
+                                    entity: null,
                                 },
                             ],
                         },
                         {
                             field: 'platform',
+                            displayName: 'platform',
                             aggregations: [
-                                { value: 'hdfs', count: 1 },
-                                { value: 'mysql', count: 1 },
-                                { value: 'kafka', count: 1 },
+                                {
+                                    value: 'hdfs',
+                                    count: 1,
+                                    entity: null,
+                                },
+                                { value: 'mysql', count: 1, entity: null },
+                                { value: 'kafka', count: 1, entity: null },
                             ],
                         },
                     ],

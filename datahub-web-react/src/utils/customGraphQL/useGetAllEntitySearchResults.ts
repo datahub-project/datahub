@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { QueryResult } from '@apollo/client';
-import { EntityType, Exact, SearchInput } from '../../types.generated';
+import { EntityType, Exact, SearchMultipleInput } from '../../types.generated';
 import { GetSearchResultsQuery, useGetSearchResultsQuery } from '../../graphql/search.generated';
 import { useEntityRegistry } from '../../app/useEntityRegistry';
 
@@ -8,24 +8,24 @@ type GetAllSearchResults<K> = Record<EntityType, K>;
 type AllEntityInput<T, K> = Pick<T, Exclude<keyof T, keyof K>> & K;
 
 export type GetAllEntitySearchResultsType = GetAllSearchResults<
-    QueryResult<GetSearchResultsQuery, Exact<{ input: SearchInput }>>
+    QueryResult<GetSearchResultsQuery, Exact<{ input: SearchMultipleInput }>>
 >;
 
 export function useGetAllEntitySearchResults(
-    input: AllEntityInput<SearchInput, { type?: EntityType }>,
+    input: AllEntityInput<SearchMultipleInput, { type?: EntityType }>,
 ): GetAllEntitySearchResultsType {
     const result: {
         [key in EntityType]: QueryResult<
             GetSearchResultsQuery,
             Exact<{
-                input: SearchInput;
+                input: SearchMultipleInput;
             }>
         >;
     } = {} as {
         [key in EntityType]: QueryResult<
             GetSearchResultsQuery,
             Exact<{
-                input: SearchInput;
+                input: SearchMultipleInput;
             }>
         >;
     };
@@ -39,7 +39,7 @@ export function useGetAllEntitySearchResults(
         result[type] = useGetSearchResultsQuery({
             variables: {
                 input: {
-                    type,
+                    types: [type],
                     ...input,
                 },
             },

@@ -200,7 +200,12 @@
           "values" : "string"
         },
         "doc" : "Custom property bag.",
-        "default" : { }
+        "default" : { },
+        "Searchable" : {
+          "/*" : {
+            "queryByDefault" : true
+          }
+        }
       } ]
     }, {
       "type" : "record",
@@ -334,7 +339,8 @@
       "optional" : true,
       "Searchable" : {
         "addToFilters" : true,
-        "fieldType" : "KEYWORD"
+        "fieldType" : "KEYWORD",
+        "filterNameOverride" : "Chart Type"
       }
     }, {
       "name" : "access",
@@ -353,7 +359,8 @@
       "optional" : true,
       "Searchable" : {
         "addToFilters" : true,
-        "fieldType" : "KEYWORD"
+        "fieldType" : "KEYWORD",
+        "filterNameOverride" : "Access Level"
       }
     }, {
       "name" : "lastRefreshed",
@@ -387,7 +394,9 @@
       "doc" : "Chart query type",
       "Searchable" : {
         "addToFilters" : true,
-        "fieldType" : "KEYWORD"
+        "fieldName" : "queryType",
+        "fieldType" : "KEYWORD",
+        "filterNameOverride" : "Query Type"
       }
     } ],
     "Aspect" : {
@@ -575,6 +584,29 @@
       }
     }
   }, {
+    "type" : "record",
+    "name" : "DataPlatformInstance",
+    "namespace" : "com.linkedin.common",
+    "doc" : "Tag aspect used for applying tags to an entity",
+    "fields" : [ {
+      "name" : "platform",
+      "type" : "Urn",
+      "doc" : "Data Platform",
+      "Searchable" : {
+        "addToFilters" : true,
+        "fieldType" : "URN",
+        "filterNameOverride" : "Platform"
+      }
+    }, {
+      "name" : "instance",
+      "type" : "string",
+      "doc" : "Instance of the data platform (e.g. db instance)",
+      "optional" : true
+    } ],
+    "Aspect" : {
+      "name" : "dataPlatformInstance"
+    }
+  }, {
     "type" : "typeref",
     "name" : "DataPlatformUrn",
     "namespace" : "com.linkedin.common",
@@ -664,8 +696,10 @@
             },
             "doc" : "Urn of the applied tag",
             "Searchable" : {
+              "addToFilters" : true,
               "fieldName" : "tags",
               "fieldType" : "URN_PARTIAL",
+              "filterNameOverride" : "Tags",
               "hasValuesFieldName" : "hasTags"
             }
           } ]
@@ -739,8 +773,10 @@
       },
       "doc" : "Urn of the applied glossary term",
       "Searchable" : {
+        "addToFilters" : true,
         "fieldName" : "glossaryTerms",
-        "fieldType" : "URN_PARTIAL"
+        "fieldType" : "URN_PARTIAL",
+        "filterNameOverride" : "Glossary Terms"
       }
     } ]
   }, "com.linkedin.common.GlossaryTermUrn", {
@@ -1035,7 +1071,8 @@
       "optional" : true,
       "Searchable" : {
         "addToFilters" : true,
-        "fieldType" : "KEYWORD"
+        "fieldType" : "KEYWORD",
+        "filterNameOverride" : "Access Level"
       }
     }, {
       "name" : "lastRefreshed",
@@ -1660,7 +1697,6 @@
         "type" : "string",
         "doc" : "The name of the dashboard tool such as looker, redash etc.",
         "Searchable" : {
-          "addToFilters" : true,
           "boostScore" : 4.0,
           "fieldName" : "tool",
           "fieldType" : "TEXT_PARTIAL"
@@ -1718,7 +1754,6 @@
         "type" : "string",
         "doc" : "The name of the dashboard tool such as looker, redash etc.",
         "Searchable" : {
-          "addToFilters" : true,
           "boostScore" : 4.0,
           "fieldName" : "tool",
           "fieldType" : "TEXT_PARTIAL"
@@ -2226,7 +2261,7 @@
               "Searchable" : {
                 "/terms/*/urn" : {
                   "boostScore" : 0.5,
-                  "fieldName" : "fieldGlossaryTerms",
+                  "fieldName" : "editedFieldGlossaryTerms",
                   "fieldType" : "URN_PARTIAL"
                 }
               }
@@ -2341,11 +2376,7 @@
       "fields" : [ {
         "name" : "platform",
         "type" : "com.linkedin.common.Urn",
-        "doc" : "Standardized platform urn for the model",
-        "Searchable" : {
-          "addToFilters" : true,
-          "fieldType" : "URN"
-        }
+        "doc" : "Standardized platform urn for the model"
       }, {
         "name" : "name",
         "type" : "string",
@@ -2929,7 +2960,7 @@
       "Aspect" : {
         "name" : "tagProperties"
       }
-    }, "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags", "com.linkedin.common.BrowsePaths" ]
+    }, "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags", "com.linkedin.common.BrowsePaths", "com.linkedin.common.DataPlatformInstance" ]
   }, "com.linkedin.metadata.aspect.EnvelopedAspect", {
     "type" : "record",
     "name" : "VersionedAspect",

@@ -5,7 +5,6 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.UnionTemplate;
 import com.linkedin.metadata.validator.AspectValidator;
 import com.linkedin.metadata.validator.DeltaValidator;
-import com.linkedin.metadata.validator.DocumentValidator;
 import com.linkedin.metadata.validator.EntityValidator;
 import com.linkedin.metadata.validator.RelationshipValidator;
 import com.linkedin.metadata.validator.SnapshotValidator;
@@ -38,15 +37,6 @@ public class ModelValidation {
 
     assertFalse("Failed to find any relationships", relationships.isEmpty());
     relationships.forEach(RelationshipValidator::validateRelationshipSchema);
-  }
-
-  @Test
-  public void validateDocuments() throws Exception {
-    List<? extends Class<? extends RecordTemplate>> documents =
-        getRecordTemplatesInPackage("com.linkedin.metadata.search", IGNORED_DOCUMENT_CLASSES);
-
-    assertFalse("Failed to find any relationships", documents.isEmpty());
-    documents.forEach(DocumentValidator::validateDocumentSchema);
   }
 
   @Test

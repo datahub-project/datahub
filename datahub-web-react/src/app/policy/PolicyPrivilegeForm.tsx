@@ -146,7 +146,7 @@ export default function PolicyPrivilegeForm({
                 search({
                     variables: {
                         input: {
-                            type: maybeEntityType,
+                            types: [maybeEntityType],
                             query: text,
                             start: 0,
                             count: 10,

@@ -34,7 +34,12 @@ public class EntityTypeResolver implements DataFetcher<CompletableFuture<Entity>
 
     @Override
     public CompletableFuture get(DataFetchingEnvironment environment) {
-        final String urn = _entityProvider.apply(environment).getUrn();
+        final Entity resolvedEntity = _entityProvider.apply(environment);
+        if (resolvedEntity == null) {
+            return CompletableFuture.completedFuture(null);
+        }
+
+        final String urn = resolvedEntity.getUrn();
         final Object javaObject = _entityProvider.apply(environment);
         final com.linkedin.datahub.graphql.types.EntityType<?> filteredEntity = Iterables.getOnlyElement(_entityTypes.stream()
                 .filter(entity -> javaObject.getClass().isAssignableFrom(entity.objectClass()))

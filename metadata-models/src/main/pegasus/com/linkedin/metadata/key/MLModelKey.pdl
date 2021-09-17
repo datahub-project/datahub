@@ -13,10 +13,6 @@ record MLModelKey {
   /**
   * Standardized platform urn for the model
   */
-  @Searchable = {
-    "fieldType": "URN",
-    "addToFilters": true
-  }
   platform: Urn
 
   /**
