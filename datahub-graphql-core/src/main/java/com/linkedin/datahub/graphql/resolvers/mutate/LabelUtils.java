@@ -386,7 +386,9 @@ public class LabelUtils {
       SchemaMetadata schemaMetadata = (SchemaMetadata) entityService.getAspect(targetUrn, SCHEMA_ASPECT_NAME, 0);
 
       if (schemaMetadata == null) {
-        throw new IllegalArgumentException(String.format("Failed to update %s on %s & field %s. %s has no schema.", labelUrn, targetUrn, subResource, targetUrn));
+        throw new IllegalArgumentException(
+            String.format("Failed to update %s on %s & field %s. %s has no schema.", labelUrn, targetUrn, subResource, targetUrn)
+        );
       }
 
       Optional<SchemaField> fieldMatch =
