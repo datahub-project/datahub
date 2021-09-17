@@ -330,9 +330,6 @@ class LookerDashboardSource(Source):
 
         return list(all_fields)
 
-    # def _get_views_from_look(self, look: LookWithQuery) -> List[str]:
-    #    return self._get_views_from_query(look.query)
-
     def _get_looker_dashboard_element(  # noqa: C901
         self, element: DashboardElement
     ) -> Optional[LookerDashboardElement]:
@@ -350,7 +347,7 @@ class LookerDashboardSource(Source):
                 # Get the explore from the view directly
                 explores = [element.query.view]
 
-            logger.info(
+            logger.debug(
                 "Element {}: Explores added: {}".format(element.title, explores)
             )
             for exp in explores:
