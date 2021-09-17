@@ -345,28 +345,28 @@ public class LabelUtils {
       EntityService entityService
   ) {
     if (!labelUrn.getEntityType().equals(labelEntityType)) {
-      throw new RuntimeException(String.format("Failed to update %s on %s. Was expecting a %s.", labelUrn, targetUrn, labelEntityType));
+      throw new IllegalArgumentException(String.format("Failed to update %s on %s. Was expecting a %s.", labelUrn, targetUrn, labelEntityType));
     }
 
     if (!targetUrn.getEntityType().equals("dataset")) {
-      throw new RuntimeException(String.format("Failed to update %s on %s. Subject is not a dataset.", labelUrn, targetUrn));
+      throw new IllegalArgumentException(String.format("Failed to update %s on %s. Subject is not a dataset.", labelUrn, targetUrn));
     }
 
     if (!entityService.exists(targetUrn)) {
-      throw new RuntimeException(String.format("Failed to update %s on %s. %s does not exist.", labelUrn, targetUrn, targetUrn));
+      throw new IllegalArgumentException(String.format("Failed to update %s on %s. %s does not exist.", labelUrn, targetUrn, targetUrn));
     }
 
     if (!entityService.exists(labelUrn)) {
-      throw new RuntimeException(String.format("Failed to update %s on %s. %s does not exist.", labelUrn, targetUrn, labelUrn));
+      throw new IllegalArgumentException(String.format("Failed to update %s on %s. %s does not exist.", labelUrn, targetUrn, labelUrn));
     }
 
     if ((subResource != null && subResource.length() > 0) || subResourceType != null) {
       if (subResource == null || subResource.length() == 0) {
-        throw new RuntimeException(String.format(
+        throw new IllegalArgumentException(String.format(
             "Failed to update %s on %s. SubResourceType (%s) provided without a subResource.", labelUrn, targetUrn, subResourceType));
       }
       if (subResourceType == null) {
-        throw new RuntimeException(String.format(
+        throw new IllegalArgumentException(String.format(
             "Failed to update %s on %s. SubResource (%s) provided without a subResourceType.", labelUrn, targetUrn, subResource));
       }
       validateSubresourceExists(labelUrn, targetUrn, subResource, subResourceType, entityService);
@@ -386,14 +386,14 @@ public class LabelUtils {
       SchemaMetadata schemaMetadata = (SchemaMetadata) entityService.getAspect(targetUrn, SCHEMA_ASPECT_NAME, 0);
 
       if (schemaMetadata == null) {
-        throw new RuntimeException(String.format("Failed to update %s on %s & field %s. %s has no schema.", labelUrn, targetUrn, subResource, targetUrn));
+        throw new IllegalArgumentException(String.format("Failed to update %s on %s & field %s. %s has no schema.", labelUrn, targetUrn, subResource, targetUrn));
       }
 
       Optional<SchemaField> fieldMatch =
           schemaMetadata.getFields().stream().filter(field -> field.getFieldPath().equals(subResource)).findFirst();
 
       if (!fieldMatch.isPresent()) {
-        throw new RuntimeException(String.format(
+        throw new IllegalArgumentException(String.format(
             "Failed to update %s on %s & field %s. Field %s does not exist in the datasets schema.",
             labelUrn, targetUrn, subResource, subResource));
       }
@@ -401,7 +401,7 @@ public class LabelUtils {
       return true;
     }
 
-    throw new RuntimeException(String.format(
+    throw new IllegalArgumentException(String.format(
         "Failed to update %s on %s. SubResourceType (%s) is not valid. Types supported: %s.",
         labelUrn, targetUrn, subResource, SubResourceType.values()
     ));
