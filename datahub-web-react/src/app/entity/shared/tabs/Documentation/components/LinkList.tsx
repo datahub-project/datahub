@@ -53,9 +53,11 @@ export const LinkList = () => {
                 variables: { input: { urn, institutionalMemory: { elements: newLinks } } },
             });
             message.success({ content: 'Link Deleted', duration: 2 });
-        } catch (e) {
+        } catch (e: unknown) {
             message.destroy();
-            message.error({ content: `Error deleting link: \n ${e.message || ''}`, duration: 2 });
+            if (e instanceof Error) {
+                message.error({ content: `Error deleting link: \n ${e.message || ''}`, duration: 2 });
+            }
         }
     };
 

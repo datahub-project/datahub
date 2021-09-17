@@ -277,7 +277,7 @@ type Query {
     """
     Autocomplete a search query against DataHub entities
     """
-    autoCompleteForAll(input: AutoCompleteInput!): AutoCompleteAllResults
+    autoCompleteForMultiple(input: AutoCompleteMultipleInput!): AutoCompleteMultipleResults
 
     """
     Browse DataHub entities by path
@@ -308,6 +308,22 @@ type Mutation {
     updateDataJob(input: DataJobUpdateInput!): DataJob
     updateTag(input: TagUpdate!): Tag
     """
+		Adds a tag to a given entity or subresource
+    """
+    addTag(input: TagUpdateInput!): Boolean
+    """
+		Remoes a tag from a given entity or subresource
+    """
+    removeTag(input: TagUpdateInput!): Boolean
+    """
+		Adds a term to a given entity or subresource
+    """
+    addTerm(input: TermUpdateInput!): Boolean
+    """
+		Removes a term from a given entity or subresource
+    """
+    removeTerm(input: TermUpdateInput!): Boolean
+    """
     Creates a policy and returns the resulting urn.
     """
     createPolicy(input: PolicyInput!): String
@@ -319,6 +335,20 @@ type Mutation {
     Removes an existing policy and returns the policy urn
     """
     deletePolicy(urn: String!): String
+}
+
+input TermUpdateInput {
+    termUrn: String!
+    targetUrn: String!
+    subResourceType: String
+    subResource: String
+}
+
+input TagUpdateInput {
+    tagUrn: String!
+    targetUrn: String!
+    subResourceType: String
+    subResource: String
 }
 
 type AppConfig {
@@ -929,6 +959,11 @@ type EditableSchemaFieldInfo {
     Tags associated with the field
     """
     globalTags: GlobalTags
+
+    """
+    Glossary terms associated with the field
+    """
+    glossaryTerms: GlossaryTerms
 }
 
 enum SchemaFieldDataType {
@@ -1555,6 +1590,34 @@ input AutoCompleteInput {
 	filters: [FacetFilterInput!]
 }
 
+input AutoCompleteMultipleInput {
+    """
+    Entity types to be autocompleted against.
+    Optional- if none supplied, all searchable types will be autocompleted against
+    """
+    types: [EntityType!]
+
+    """
+    The query string
+    """
+    query: String!
+
+    """
+    An optional field to autocomplete against
+    """
+    field: String
+
+    """
+    The maximum number of autocomplete results
+    """
+    limit: Int
+
+    """
+    Faceted filters applied to autocomplete results
+    """
+    filters: [FacetFilterInput!]
+}
+
 type AutoCompleteResultForEntity {
     """
     Entity type
@@ -1567,7 +1630,7 @@ type AutoCompleteResultForEntity {
     suggestions: [String!]!
 }
 
-type AutoCompleteAllResults {
+type AutoCompleteMultipleResults {
     """
     The query string
     """

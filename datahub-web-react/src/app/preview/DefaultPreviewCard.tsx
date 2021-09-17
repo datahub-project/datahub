@@ -125,7 +125,7 @@ export default function DefaultPreviewCard({
                             <EntityTitle>{name || ' '}</EntityTitle>
                         </Link>
                         <TagContainer>
-                            <TagTermGroup glossaryTerms={glossaryTerms} editableTags={tags} maxShow={3} />
+                            <TagTermGroup uneditableGlossaryTerms={glossaryTerms} uneditableTags={tags} maxShow={3} />
                         </TagContainer>
                     </TitleContainer>
                 </Link>
@@ -134,11 +134,11 @@ export default function DefaultPreviewCard({
                         <NoMarkdownViewer limit={200}>{description}</NoMarkdownViewer>
                     </DescriptionContainer>
                 )}
+                {snippet}
             </div>
             <AvatarContainer>
                 <AvatarsGroup owners={owners} entityRegistry={entityRegistry} maxCount={4} />
             </AvatarContainer>
-            {snippet}
         </PreviewContainer>
     );
 }

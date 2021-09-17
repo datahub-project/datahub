@@ -25,10 +25,11 @@ public class SearchQueryBuilderTest {
     assertEquals(keywordQuery.queryString(), "testQuery");
     assertEquals(keywordQuery.analyzer(), "custom_keyword");
     Map<String, Float> keywordFields = keywordQuery.fields();
-    assertEquals(keywordFields.size(), 7);
+    assertEquals(keywordFields.size(), 8);
     assertEquals(keywordFields.get("keyPart1").floatValue(), 10.0f);
     assertFalse(keywordFields.containsKey("keyPart3"));
     assertEquals(keywordFields.get("textFieldOverride").floatValue(), 1.0f);
+    assertEquals(keywordFields.get("customProperties").floatValue(), 1.0f);
     QueryStringQueryBuilder textQuery = (QueryStringQueryBuilder) shouldQueries.get(1);
     assertEquals(textQuery.queryString(), "testQuery");
     assertEquals(textQuery.analyzer(), "word_delimited");

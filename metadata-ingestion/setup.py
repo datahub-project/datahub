@@ -65,6 +65,11 @@ aws_common = {
     "boto3"
 }
 
+looker_common = {
+    # Looker Python SDK
+    "looker-sdk==21.6.0"
+}
+
 # Note: for all of these, framework_common will be added.
 plugins: Dict[str, Set[str]] = {
     # Sink plugins.
@@ -93,8 +98,8 @@ plugins: Dict[str, Set[str]] = {
     "kafka": kafka_common,
     "kafka-connect": sql_common | {"requests"},
     "ldap": {"python-ldap>=2.4"},
-    "looker": {"looker-sdk==21.6.0"},
-    "lookml": {"lkml>=1.1.0", "sql-metadata==2.2.1"},
+    "looker": looker_common,
+    "lookml": looker_common | {"lkml>=1.1.0", "sql-metadata==2.2.1"},
     "mongodb": {"pymongo>=3.11"},
     "mssql": sql_common | {"sqlalchemy-pytds>=0.3"},
     "mssql-odbc": sql_common | {"pyodbc"},

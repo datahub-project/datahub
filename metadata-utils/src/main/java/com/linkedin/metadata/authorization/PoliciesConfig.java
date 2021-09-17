@@ -50,6 +50,11 @@ public class PoliciesConfig {
       "Edit Tags",
       "The ability to add and remove tags to an asset.");
 
+  public static final Privilege EDIT_ENTITY_GLOSSARY_TERMS_PRIVILEGE = Privilege.of(
+      "EDIT_ENTITY_GLOSSARY_TERMS",
+      "Edit Glossary Terms",
+      "The ability to add and remove glossary terms to an asset.");
+
   public static final Privilege EDIT_ENTITY_OWNERS_PRIVILEGE = Privilege.of(
       "EDIT_ENTITY_OWNERS",
       "Edit Owners",
@@ -77,6 +82,7 @@ public class PoliciesConfig {
 
   public static final List<Privilege> COMMON_ENTITY_PRIVILEGES = ImmutableList.of(
       EDIT_ENTITY_TAGS_PRIVILEGE,
+      EDIT_ENTITY_GLOSSARY_TERMS_PRIVILEGE,
       EDIT_ENTITY_OWNERS_PRIVILEGE,
       EDIT_ENTITY_DOCS_PRIVILEGE,
       EDIT_ENTITY_DOC_LINKS_PRIVILEGE,
@@ -91,6 +97,12 @@ public class PoliciesConfig {
       "The ability to edit the column (field) tags associated with a dataset schema."
   );
 
+  public static final Privilege EDIT_DATASET_COL_GLOSSARY_TERMS_PRIVILEGE = Privilege.of(
+      "EDIT_DATASET_COL_GLOSSARY_TERMS",
+      "Edit Dataset Column Glossary Terms",
+      "The ability to edit the column (field) glossary terms associated with a dataset schema."
+  );
+
   public static final Privilege EDIT_DATASET_COL_DESCRIPTION_PRIVILEGE = Privilege.of(
       "EDIT_DATASET_COL_DESCRIPTION",
       "Edit Dataset Column Descriptions",
@@ -102,7 +114,7 @@ public class PoliciesConfig {
       "Datasets",
       "Datasets indexed by DataHub", Stream.of(
           COMMON_ENTITY_PRIVILEGES,
-          ImmutableList.of(EDIT_DATASET_COL_DESCRIPTION_PRIVILEGE, EDIT_DATASET_COL_TAGS_PRIVILEGE))
+          ImmutableList.of(EDIT_DATASET_COL_DESCRIPTION_PRIVILEGE, EDIT_DATASET_COL_TAGS_PRIVILEGE, EDIT_DATASET_COL_GLOSSARY_TERMS_PRIVILEGE))
           .flatMap(Collection::stream)
           .collect(Collectors.toList())
   );

@@ -1,5 +1,6 @@
 package com.linkedin.metadata.resources.lineage;
 
+import com.codahale.metrics.MetricRegistry;
 import com.linkedin.common.EntityRelationship;
 
 import com.linkedin.common.EntityRelationshipArray;
@@ -10,7 +11,7 @@ import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.query.CriterionArray;
 import com.linkedin.metadata.query.Filter;
 import com.linkedin.metadata.query.RelationshipDirection;
-import com.linkedin.metadata.restli.RestliUtils;
+import com.linkedin.metadata.restli.RestliUtil;
 import com.linkedin.parseq.Task;
 import com.linkedin.restli.common.HttpStatus;
 import com.linkedin.restli.server.UpdateResponse;
@@ -20,6 +21,7 @@ import com.linkedin.restli.server.annotations.RestLiSimpleResource;
 import com.linkedin.restli.server.annotations.RestMethod;
 import com.linkedin.restli.server.resources.SimpleResourceTemplate;
 
+import io.opentelemetry.extension.annotations.WithSpan;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.inject.Inject;
@@ -29,8 +31,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import static com.linkedin.metadata.dao.Neo4jUtil.*;
 import static com.linkedin.metadata.dao.utils.QueryUtils.newFilter;
+import static com.linkedin.metadata.dao.utils.QueryUtils.newRelationshipFilter;
 
 
 /**
@@ -62,7 +64,7 @@ public final class Relationships extends SimpleResourceTemplate<EntityRelationsh
 
         return _graphService.findRelatedEntities("", newFilter("urn", rawUrn),
             "", EMPTY_FILTER,
-            relationshipTypes, createRelationshipFilter(EMPTY_FILTER, direction),
+            relationshipTypes, newRelationshipFilter(EMPTY_FILTER, direction),
             start, count);
     }
 
@@ -78,6 +80,7 @@ public final class Relationships extends SimpleResourceTemplate<EntityRelationsh
 
     @Nonnull
     @RestMethod.Get
+    @WithSpan
     public Task<EntityRelationships> get(
             @QueryParam("urn") @Nonnull String rawUrn,
             @QueryParam("types") @Nonnull String[] relationshipTypesParam,
@@ -87,7 +90,7 @@ public final class Relationships extends SimpleResourceTemplate<EntityRelationsh
     ) {
         RelationshipDirection direction = RelationshipDirection.valueOf(rawDirection);
         final List<String> relationshipTypes = Arrays.asList(relationshipTypesParam);
-        return RestliUtils.toTask(() -> {
+        return RestliUtil.toTask(() -> {
 
             final RelatedEntitiesResult relatedEntitiesResult = getRelatedEntities(
                 rawUrn,
@@ -95,7 +98,6 @@ public final class Relationships extends SimpleResourceTemplate<EntityRelationsh
                 direction,
                 start,
                 count);
-
             final EntityRelationshipArray entityArray = new EntityRelationshipArray(
                     relatedEntitiesResult.getEntities().stream().map(
                         entity -> {
@@ -116,7 +118,7 @@ public final class Relationships extends SimpleResourceTemplate<EntityRelationsh
                 .setCount(relatedEntitiesResult.getCount())
                 .setTotal(relatedEntitiesResult.getTotal())
                 .setRelationships(entityArray);
-        });
+        }, MetricRegistry.name(this.getClass(), "getLineage"));
     }
 
     @Nonnull
