@@ -1,4 +1,4 @@
-# Extending the GQL type system to include Long type used for datesD
+# Extending the GQL type system to include Long type used for dates
 scalar Long
 
 schema {
