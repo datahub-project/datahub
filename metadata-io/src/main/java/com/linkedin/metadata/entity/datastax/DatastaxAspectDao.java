@@ -89,11 +89,11 @@ public class DatastaxAspectDao {
   }
 
   public long getMaxVersion(@Nonnull final String urn, @Nonnull final String aspectName) {
-    SimpleStatement ss = selectFrom("metadata_aspect_v2")
+    SimpleStatement ss = selectFrom(DatastaxAspect.TABLE_NAME)
       .all()
-      .whereColumn("urn")
+      .whereColumn(DatastaxAspect.URN_COLUMN)
       .isEqualTo(literal(urn))
-      .whereColumn("aspect")
+      .whereColumn(DatastaxAspect.ASPECT_COLUMN)
       .isEqualTo(literal(aspectName))
       .build();
 
@@ -106,8 +106,8 @@ public class DatastaxAspectDao {
   private long getMaxVersion(List<Row> rows) {
     long maxVersion = -1;
     for (Row r : rows) {
-      if (r.getLong("version") > maxVersion) {
-        maxVersion = r.getLong("version");
+      if (r.getLong(DatastaxAspect.VERSION_COLUMN) > maxVersion) {
+        maxVersion = r.getLong(DatastaxAspect.VERSION_COLUMN);
       }
     }
     return maxVersion;
@@ -142,16 +142,16 @@ public class DatastaxAspectDao {
     if (oldAspectMetadata != null && oldTime != null) {
       // Save oldValue as nextVersion
 
-      Insert insert = insertInto("metadata_aspect_v2")
-              .value("urn", literal(oldDatastaxAspect.getUrn()))
-              .value("aspect", literal(oldDatastaxAspect.getAspect()))
-              .value("version", literal(oldDatastaxAspect.getVersion()))
-              .value("systemmetadata", literal(oldDatastaxAspect.getSystemMetadata()))
-              .value("metadata", literal(oldDatastaxAspect.getMetadata()))
-              .value("createdon", literal(oldDatastaxAspect.getCreatedOn().getTime()))
-              .value("createdfor", literal(oldDatastaxAspect.getCreatedFor()))
-              .value("entity", literal(entity))
-              .value("createdby", literal(oldDatastaxAspect.getCreatedBy()))
+      Insert insert = insertInto(DatastaxAspect.TABLE_NAME)
+              .value(DatastaxAspect.URN_COLUMN, literal(oldDatastaxAspect.getUrn()))
+              .value(DatastaxAspect.ASPECT_COLUMN, literal(oldDatastaxAspect.getAspect()))
+              .value(DatastaxAspect.VERSION_COLUMN, literal(oldDatastaxAspect.getVersion()))
+              .value(DatastaxAspect.SYSTEM_METADATA_COLUMN, literal(oldDatastaxAspect.getSystemMetadata()))
+              .value(DatastaxAspect.METADATA_COLUMN, literal(oldDatastaxAspect.getMetadata()))
+              .value(DatastaxAspect.CREATED_ON_COLUMN, literal(oldDatastaxAspect.getCreatedOn().getTime()))
+              .value(DatastaxAspect.CREATED_FOR_COLUMN, literal(oldDatastaxAspect.getCreatedFor()))
+              .value(DatastaxAspect.ENTITY_COLUMN, literal(entity))
+              .value(DatastaxAspect.CREATED_BY_COLUMN, literal(oldDatastaxAspect.getCreatedBy()))
               .ifNotExists();
 
       batch = batch.addStatement(insert.build());
@@ -162,36 +162,36 @@ public class DatastaxAspectDao {
     DatastaxAspect newDatastaxAspect = new DatastaxAspect(urn, aspectName, 0, newAspectMetadata, newSystemMetadata, newTime, newActor, newImpersonator);
 
     if (nextVersion == 0)  {
-      Insert insert = insertInto("metadata_aspect_v2")
-              .value("urn", literal(newDatastaxAspect.getUrn()))
-              .value("aspect", literal(newDatastaxAspect.getAspect()))
-              .value("version", literal(newDatastaxAspect.getVersion()))
-              .value("systemmetadata", literal(newDatastaxAspect.getSystemMetadata()))
-              .value("metadata", literal(newDatastaxAspect.getMetadata()))
-              .value("createdon", literal(newDatastaxAspect.getCreatedOn().getTime()))
-              .value("createdfor", literal(newDatastaxAspect.getCreatedFor()))
-              .value("entity", literal(entity))
-              .value("createdby", literal(newDatastaxAspect.getCreatedBy()))
+      Insert insert = insertInto(DatastaxAspect.TABLE_NAME)
+              .value(DatastaxAspect.URN_COLUMN, literal(newDatastaxAspect.getUrn()))
+              .value(DatastaxAspect.ASPECT_COLUMN, literal(newDatastaxAspect.getAspect()))
+              .value(DatastaxAspect.VERSION_COLUMN, literal(newDatastaxAspect.getVersion()))
+              .value(DatastaxAspect.SYSTEM_METADATA_COLUMN, literal(newDatastaxAspect.getSystemMetadata()))
+              .value(DatastaxAspect.METADATA_COLUMN, literal(newDatastaxAspect.getMetadata()))
+              .value(DatastaxAspect.CREATED_ON_COLUMN, literal(newDatastaxAspect.getCreatedOn().getTime()))
+              .value(DatastaxAspect.CREATED_FOR_COLUMN, literal(newDatastaxAspect.getCreatedFor()))
+              .value(DatastaxAspect.ENTITY_COLUMN, literal(entity))
+              .value(DatastaxAspect.CREATED_BY_COLUMN, literal(newDatastaxAspect.getCreatedBy()))
               .ifNotExists();
 
       batch = batch.addStatement(insert.build());
 
     } else {
-      UpdateWithAssignments uwa = update("metadata_aspect_v2")
-              .setColumn("metadata", literal(newDatastaxAspect.getMetadata()))
-              .setColumn("systemmetadata", literal(newDatastaxAspect.getSystemMetadata()))
-              .setColumn("createdon", literal(newDatastaxAspect.getCreatedOn().getTime()))
-              .setColumn("createdby", literal(newDatastaxAspect.getCreatedBy()))
-              .setColumn("createdfor", literal(newDatastaxAspect.getCreatedFor()));
+      UpdateWithAssignments uwa = update(DatastaxAspect.TABLE_NAME)
+              .setColumn(DatastaxAspect.METADATA_COLUMN, literal(newDatastaxAspect.getMetadata()))
+              .setColumn(DatastaxAspect.SYSTEM_METADATA_COLUMN, literal(newDatastaxAspect.getSystemMetadata()))
+              .setColumn(DatastaxAspect.CREATED_ON_COLUMN, literal(newDatastaxAspect.getCreatedOn().getTime()))
+              .setColumn(DatastaxAspect.CREATED_BY_COLUMN, literal(newDatastaxAspect.getCreatedBy()))
+              .setColumn(DatastaxAspect.CREATED_FOR_COLUMN, literal(newDatastaxAspect.getCreatedFor()));
 
-      Update u = uwa.whereColumn("urn").isEqualTo(literal(newDatastaxAspect.getUrn()))
-              .whereColumn("aspect").isEqualTo(literal(newDatastaxAspect.getAspect()))
-              .whereColumn("version").isEqualTo(literal(newDatastaxAspect.getVersion()))
+      Update u = uwa.whereColumn(DatastaxAspect.URN_COLUMN).isEqualTo(literal(newDatastaxAspect.getUrn()))
+              .whereColumn(DatastaxAspect.ASPECT_COLUMN).isEqualTo(literal(newDatastaxAspect.getAspect()))
+              .whereColumn(DatastaxAspect.VERSION_COLUMN).isEqualTo(literal(newDatastaxAspect.getVersion()))
               .if_(
-                      Condition.column("metadata").isEqualTo(literal(oldDatastaxAspect.getMetadata())),
-                      Condition.column("systemmetadata").isEqualTo(literal(oldDatastaxAspect.getSystemMetadata())),
-                      Condition.column("createdon").isEqualTo(literal(oldDatastaxAspect.getCreatedOn() == null ? null : oldDatastaxAspect.getCreatedOn().toInstant())),
-                      Condition.column("createdby").isEqualTo(literal(oldDatastaxAspect.getCreatedBy())));
+                      Condition.column(DatastaxAspect.METADATA_COLUMN).isEqualTo(literal(oldDatastaxAspect.getMetadata())),
+                      Condition.column(DatastaxAspect.SYSTEM_METADATA_COLUMN).isEqualTo(literal(oldDatastaxAspect.getSystemMetadata())),
+                      Condition.column(DatastaxAspect.CREATED_ON_COLUMN).isEqualTo(literal(oldDatastaxAspect.getCreatedOn() == null ? null : oldDatastaxAspect.getCreatedOn().toInstant())),
+                      Condition.column(DatastaxAspect.CREATED_BY_COLUMN).isEqualTo(literal(oldDatastaxAspect.getCreatedBy())));
 
       batch = batch.addStatement(u.build());
     }
@@ -232,11 +232,11 @@ public class DatastaxAspectDao {
       @Nonnull final VersionBasedRetention retention,
       long largestVersion) {
 
-    SimpleStatement ss = deleteFrom("metadata_aspect_v2")
-      .whereColumn("urn").isEqualTo(literal(urn))
-      .whereColumn("aspect").isEqualTo(literal(aspectName))
-      .whereColumn("version").isNotEqualTo(literal(0))
-      .whereColumn("version").isLessThanOrEqualTo(literal(largestVersion - retention.getMaxVersionsToRetain() + 1))
+    SimpleStatement ss = deleteFrom(DatastaxAspect.TABLE_NAME)
+      .whereColumn(DatastaxAspect.URN_COLUMN).isEqualTo(literal(urn))
+      .whereColumn(DatastaxAspect.ASPECT_COLUMN).isEqualTo(literal(aspectName))
+      .whereColumn(DatastaxAspect.VERSION_COLUMN).isNotEqualTo(literal(0))
+      .whereColumn(DatastaxAspect.VERSION_COLUMN).isLessThanOrEqualTo(literal(largestVersion - retention.getMaxVersionsToRetain() + 1))
       .build();
 
     _cqlSession.execute(ss);
@@ -247,10 +247,10 @@ public class DatastaxAspectDao {
       @Nonnull final String aspectName,
       @Nonnull final TimeBasedRetention retention,
       long currentTime) {
-    SimpleStatement ss = deleteFrom("metadata_aspect_v2")
-      .whereColumn("urn").isEqualTo(literal(urn))
-      .whereColumn("aspect").isEqualTo(literal(aspectName))
-      .whereColumn("created_on").isLessThanOrEqualTo(literal(new Timestamp(currentTime - retention.getMaxAgeToRetain())))
+    SimpleStatement ss = deleteFrom(DatastaxAspect.TABLE_NAME)
+      .whereColumn(DatastaxAspect.URN_COLUMN).isEqualTo(literal(urn))
+      .whereColumn(DatastaxAspect.ASPECT_COLUMN).isEqualTo(literal(aspectName))
+      .whereColumn(DatastaxAspect.CREATED_ON_COLUMN).isLessThanOrEqualTo(literal(new Timestamp(currentTime - retention.getMaxAgeToRetain())))
       .build();
 
     _cqlSession.execute(ss);
@@ -296,34 +296,34 @@ public class DatastaxAspectDao {
     }
 
     if (oldDatastaxAspect == null) {
-      Insert ri = insertInto("metadata_aspect_v2")
-              .value("urn", literal(datastaxAspect.getUrn()))
-              .value("aspect", literal(datastaxAspect.getAspect()))
-              .value("version", literal(datastaxAspect.getVersion()))
-              .value("systemmetadata", literal(datastaxAspect.getSystemMetadata()))
-              .value("metadata", literal(datastaxAspect.getMetadata()))
-              .value("createdon", literal(datastaxAspect.getCreatedOn().getTime()))
-              .value("createdfor", literal(datastaxAspect.getCreatedFor()))
-              .value("entity", literal(entity))
-              .value("createdby", literal(datastaxAspect.getCreatedBy()))
+      Insert ri = insertInto(DatastaxAspect.TABLE_NAME)
+              .value(DatastaxAspect.URN_COLUMN, literal(datastaxAspect.getUrn()))
+              .value(DatastaxAspect.ASPECT_COLUMN, literal(datastaxAspect.getAspect()))
+              .value(DatastaxAspect.VERSION_COLUMN, literal(datastaxAspect.getVersion()))
+              .value(DatastaxAspect.SYSTEM_METADATA_COLUMN, literal(datastaxAspect.getSystemMetadata()))
+              .value(DatastaxAspect.METADATA_COLUMN, literal(datastaxAspect.getMetadata()))
+              .value(DatastaxAspect.CREATED_ON_COLUMN, literal(datastaxAspect.getCreatedOn().getTime()))
+              .value(DatastaxAspect.CREATED_FOR_COLUMN, literal(datastaxAspect.getCreatedFor()))
+              .value(DatastaxAspect.ENTITY_COLUMN, literal(entity))
+              .value(DatastaxAspect.CREATED_BY_COLUMN, literal(datastaxAspect.getCreatedBy()))
               .ifNotExists();
       return _cqlSession.execute(ri.build());
     } else {
-      Update u = update("metadata_aspect_v2")
-              .setColumn("metadata", literal(datastaxAspect.getMetadata()))
-              .setColumn("systemmetadata", literal(datastaxAspect.getSystemMetadata()))
-              .setColumn("createdon", literal(datastaxAspect.getCreatedOn() == null ? null : datastaxAspect.getCreatedOn().getTime()))
-              .setColumn("createdby", literal(datastaxAspect.getCreatedBy()))
-              .setColumn("entity", literal(entity))
-              .setColumn("createdfor", literal(datastaxAspect.getCreatedFor()))
-              .whereColumn("urn").isEqualTo(literal(datastaxAspect.getUrn()))
-              .whereColumn("aspect").isEqualTo(literal(datastaxAspect.getAspect()))
-              .whereColumn("version").isEqualTo(literal(datastaxAspect.getVersion()))
+      Update u = update(DatastaxAspect.TABLE_NAME)
+              .setColumn(DatastaxAspect.METADATA_COLUMN, literal(datastaxAspect.getMetadata()))
+              .setColumn(DatastaxAspect.SYSTEM_METADATA_COLUMN, literal(datastaxAspect.getSystemMetadata()))
+              .setColumn(DatastaxAspect.CREATED_ON_COLUMN, literal(datastaxAspect.getCreatedOn() == null ? null : datastaxAspect.getCreatedOn().getTime()))
+              .setColumn(DatastaxAspect.CREATED_BY_COLUMN, literal(datastaxAspect.getCreatedBy()))
+              .setColumn(DatastaxAspect.ENTITY_COLUMN, literal(entity))
+              .setColumn(DatastaxAspect.CREATED_FOR_COLUMN, literal(datastaxAspect.getCreatedFor()))
+              .whereColumn(DatastaxAspect.URN_COLUMN).isEqualTo(literal(datastaxAspect.getUrn()))
+              .whereColumn(DatastaxAspect.ASPECT_COLUMN).isEqualTo(literal(datastaxAspect.getAspect()))
+              .whereColumn(DatastaxAspect.VERSION_COLUMN).isEqualTo(literal(datastaxAspect.getVersion()))
               .if_(
-                      Condition.column("metadata").isEqualTo(literal(oldDatastaxAspect.getMetadata())),
-                      Condition.column("systemmetadata").isEqualTo(literal(oldDatastaxAspect.getSystemMetadata())),
-                      Condition.column("createdon").isEqualTo(literal(oldDatastaxAspect.getCreatedOn() == null ? null : oldDatastaxAspect.getCreatedOn().toInstant())),
-                      Condition.column("createdby").isEqualTo(literal(oldDatastaxAspect.getCreatedBy())));
+                      Condition.column(DatastaxAspect.METADATA_COLUMN).isEqualTo(literal(oldDatastaxAspect.getMetadata())),
+                      Condition.column(DatastaxAspect.SYSTEM_METADATA_COLUMN).isEqualTo(literal(oldDatastaxAspect.getSystemMetadata())),
+                      Condition.column(DatastaxAspect.CREATED_ON_COLUMN).isEqualTo(literal(oldDatastaxAspect.getCreatedOn() == null ? null : oldDatastaxAspect.getCreatedOn().toInstant())),
+                      Condition.column(DatastaxAspect.CREATED_BY_COLUMN).isEqualTo(literal(oldDatastaxAspect.getCreatedBy())));
 
       return _cqlSession.execute(u.build());
     }
@@ -340,29 +340,29 @@ public class DatastaxAspectDao {
     }
 
     if (insert) {
-      Insert ri = insertInto("metadata_aspect_v2")
-        .value("urn", literal(datastaxAspect.getUrn()))
-        .value("aspect", literal(datastaxAspect.getAspect()))
-        .value("version", literal(datastaxAspect.getVersion()))
-        .value("systemmetadata", literal(datastaxAspect.getSystemMetadata()))
-        .value("metadata", literal(datastaxAspect.getMetadata()))
-        .value("createdon", literal(datastaxAspect.getCreatedOn().getTime()))
-        .value("createdfor", literal(datastaxAspect.getCreatedFor()))
-        .value("entity", literal(entity))
-        .value("createdby", literal(datastaxAspect.getCreatedBy()));
+      Insert ri = insertInto(DatastaxAspect.TABLE_NAME)
+        .value(DatastaxAspect.URN_COLUMN, literal(datastaxAspect.getUrn()))
+        .value(DatastaxAspect.ASPECT_COLUMN, literal(datastaxAspect.getAspect()))
+        .value(DatastaxAspect.VERSION_COLUMN, literal(datastaxAspect.getVersion()))
+        .value(DatastaxAspect.SYSTEM_METADATA_COLUMN, literal(datastaxAspect.getSystemMetadata()))
+        .value(DatastaxAspect.METADATA_COLUMN, literal(datastaxAspect.getMetadata()))
+        .value(DatastaxAspect.CREATED_ON_COLUMN, literal(datastaxAspect.getCreatedOn().getTime()))
+        .value(DatastaxAspect.CREATED_FOR_COLUMN, literal(datastaxAspect.getCreatedFor()))
+        .value(DatastaxAspect.ENTITY_COLUMN, literal(entity))
+        .value(DatastaxAspect.CREATED_BY_COLUMN, literal(datastaxAspect.getCreatedBy()));
       _cqlSession.execute(ri.build());
     } else {
 
-      UpdateWithAssignments uwa = update("metadata_aspect_v2")
-        .setColumn("metadata", literal(datastaxAspect.getMetadata()))
-        .setColumn("systemmetadata", literal(datastaxAspect.getSystemMetadata()))
-        .setColumn("createdon", literal(datastaxAspect.getCreatedOn().getTime()))
-        .setColumn("createdby", literal(datastaxAspect.getCreatedBy()))
-        .setColumn("createdfor", literal(datastaxAspect.getCreatedFor()));
+      UpdateWithAssignments uwa = update(DatastaxAspect.TABLE_NAME)
+        .setColumn(DatastaxAspect.METADATA_COLUMN, literal(datastaxAspect.getMetadata()))
+        .setColumn(DatastaxAspect.SYSTEM_METADATA_COLUMN, literal(datastaxAspect.getSystemMetadata()))
+        .setColumn(DatastaxAspect.CREATED_ON_COLUMN, literal(datastaxAspect.getCreatedOn().getTime()))
+        .setColumn(DatastaxAspect.CREATED_BY_COLUMN, literal(datastaxAspect.getCreatedBy()))
+        .setColumn(DatastaxAspect.CREATED_FOR_COLUMN, literal(datastaxAspect.getCreatedFor()));
 
-      Update u = uwa.whereColumn("urn").isEqualTo(literal(datastaxAspect.getUrn()))
-        .whereColumn("aspect").isEqualTo(literal(datastaxAspect.getAspect()))
-        .whereColumn("version").isEqualTo(literal(datastaxAspect.getVersion()));
+      Update u = uwa.whereColumn(DatastaxAspect.URN_COLUMN).isEqualTo(literal(datastaxAspect.getUrn()))
+        .whereColumn(DatastaxAspect.ASPECT_COLUMN).isEqualTo(literal(datastaxAspect.getAspect()))
+        .whereColumn(DatastaxAspect.VERSION_COLUMN).isEqualTo(literal(datastaxAspect.getVersion()));
 
       _cqlSession.execute(u.build());
     }
@@ -446,11 +446,11 @@ public class DatastaxAspectDao {
 
     OffsetPager offsetPager = new OffsetPager(pageSize);
 
-    SimpleStatement ss = selectFrom("metadata_aspect_v2")
+    SimpleStatement ss = selectFrom(DatastaxAspect.TABLE_NAME)
       .all()
-      .whereColumn("aspect").isEqualTo(literal(aspectName))
-      .whereColumn("version").isEqualTo(literal(version))
-      .whereColumn("entity").isEqualTo(literal(entityName))
+      .whereColumn(DatastaxAspect.ASPECT_COLUMN).isEqualTo(literal(aspectName))
+      .whereColumn(DatastaxAspect.VERSION_COLUMN).isEqualTo(literal(version))
+      .whereColumn(DatastaxAspect.ENTITY_COLUMN).isEqualTo(literal(entityName))
       .allowFiltering()
       .build();
 
@@ -465,11 +465,11 @@ public class DatastaxAspectDao {
       .stream().map(this::toDatastaxAspect)
       .collect(Collectors.toList());
 
-    SimpleStatement ssCount = selectFrom("metadata_aspect_v2")
+    SimpleStatement ssCount = selectFrom(DatastaxAspect.TABLE_NAME)
       .countAll()
-      .whereColumn("aspect").isEqualTo(literal(aspectName))
-      .whereColumn("version").isEqualTo(literal(version))
-      .whereColumn("entity").isEqualTo(literal(entityName))
+      .whereColumn(DatastaxAspect.ASPECT_COLUMN).isEqualTo(literal(aspectName))
+      .whereColumn(DatastaxAspect.VERSION_COLUMN).isEqualTo(literal(version))
+      .whereColumn(DatastaxAspect.ENTITY_COLUMN).isEqualTo(literal(entityName))
       .allowFiltering()
       .build();
 
@@ -550,10 +550,10 @@ public class DatastaxAspectDao {
   }
 
   public boolean deleteAspect(@Nonnull final DatastaxAspect aspect) {
-      SimpleStatement ss = deleteFrom("metadata_aspect_v2")
-      .whereColumn("urn").isEqualTo(literal(aspect.getUrn()))
-      .whereColumn("aspect").isEqualTo(literal(aspect.getAspect()))
-      .whereColumn("version").isEqualTo(literal(aspect.getVersion()))
+      SimpleStatement ss = deleteFrom(DatastaxAspect.TABLE_NAME)
+      .whereColumn(DatastaxAspect.URN_COLUMN).isEqualTo(literal(aspect.getUrn()))
+      .whereColumn(DatastaxAspect.ASPECT_COLUMN).isEqualTo(literal(aspect.getAspect()))
+      .whereColumn(DatastaxAspect.VERSION_COLUMN).isEqualTo(literal(aspect.getVersion()))
         .build();
     ResultSet rs = _cqlSession.execute(ss);
 
@@ -561,8 +561,8 @@ public class DatastaxAspectDao {
   }
 
   public int deleteUrn(@Nonnull final String urn) {
-      SimpleStatement ss = deleteFrom("metadata_aspect_v2")
-      .whereColumn("urn").isEqualTo(literal(urn))
+      SimpleStatement ss = deleteFrom(DatastaxAspect.TABLE_NAME)
+      .whereColumn(DatastaxAspect.URN_COLUMN).isEqualTo(literal(urn))
         .build();
     ResultSet rs = _cqlSession.execute(ss);
     // https://stackoverflow.com/questions/28611459/how-to-know-affected-rows-in-cassandracql
@@ -571,9 +571,9 @@ public class DatastaxAspectDao {
 
   @Nullable
   public Optional<DatastaxAspect> getEarliestAspect(@Nonnull final String urn) {
-    SimpleStatement ss = selectFrom("metadata_aspect_v2")
+    SimpleStatement ss = selectFrom(DatastaxAspect.TABLE_NAME)
       .all()
-      .whereColumn("urn").isEqualTo(literal(urn))
+      .whereColumn(DatastaxAspect.URN_COLUMN).isEqualTo(literal(urn))
       .build();
 
     ResultSet rs = _cqlSession.execute(ss);
@@ -587,10 +587,10 @@ public class DatastaxAspectDao {
   }
 
   public List<DatastaxAspect> getAllAspects(String urn, String aspectName) {
-    SimpleStatement ss = selectFrom("metadata_aspect_v2")
+    SimpleStatement ss = selectFrom(DatastaxAspect.TABLE_NAME)
             .all()
-            .whereColumn("urn").isEqualTo(literal(urn))
-            .whereColumn("aspect").isEqualTo(literal(aspectName))
+            .whereColumn(DatastaxAspect.URN_COLUMN).isEqualTo(literal(urn))
+            .whereColumn(DatastaxAspect.ASPECT_COLUMN).isEqualTo(literal(aspectName))
             .build();
 
     ResultSet rs = _cqlSession.execute(ss);
@@ -599,11 +599,11 @@ public class DatastaxAspectDao {
   }
 
   public DatastaxAspect getAspect(String urn, String aspectName, long version) {
-    SimpleStatement ss = selectFrom("metadata_aspect_v2")
+    SimpleStatement ss = selectFrom(DatastaxAspect.TABLE_NAME)
       .all()
-      .whereColumn("urn").isEqualTo(literal(urn))
-      .whereColumn("aspect").isEqualTo(literal(aspectName))
-      .whereColumn("version").isEqualTo(literal(version))
+      .whereColumn(DatastaxAspect.URN_COLUMN).isEqualTo(literal(urn))
+      .whereColumn(DatastaxAspect.ASPECT_COLUMN).isEqualTo(literal(aspectName))
+      .whereColumn(DatastaxAspect.VERSION_COLUMN).isEqualTo(literal(version))
       .limit(1)
       .build();
 
@@ -626,10 +626,10 @@ public class DatastaxAspectDao {
 
     OffsetPager offsetPager = new OffsetPager(pageSize);
 
-    SimpleStatement ss = selectFrom("metadata_aspect_v2")
+    SimpleStatement ss = selectFrom(DatastaxAspect.TABLE_NAME)
             .all()
-            .whereColumn("aspect").isEqualTo(literal(aspectName))
-            .whereColumn("version").isEqualTo(literal(ASPECT_LATEST_VERSION))
+            .whereColumn(DatastaxAspect.ASPECT_COLUMN).isEqualTo(literal(aspectName))
+            .whereColumn(DatastaxAspect.VERSION_COLUMN).isEqualTo(literal(ASPECT_LATEST_VERSION))
             .allowFiltering()
             .build();
 
@@ -644,10 +644,10 @@ public class DatastaxAspectDao {
             .stream().map(r -> toDatastaxAspect(r).getUrn())
             .collect(Collectors.toList());
 
-    SimpleStatement ssCount = selectFrom("metadata_aspect_v2")
+    SimpleStatement ssCount = selectFrom(DatastaxAspect.TABLE_NAME)
             .countAll()
-            .whereColumn("aspect").isEqualTo(literal(aspectName))
-            .whereColumn("version").isEqualTo(literal(ASPECT_LATEST_VERSION))
+            .whereColumn(DatastaxAspect.ASPECT_COLUMN).isEqualTo(literal(aspectName))
+            .whereColumn(DatastaxAspect.VERSION_COLUMN).isEqualTo(literal(ASPECT_LATEST_VERSION))
             .allowFiltering()
             .build();
 
@@ -658,13 +658,13 @@ public class DatastaxAspectDao {
 
   private DatastaxAspect toDatastaxAspect(Row r) {
     return new DatastaxAspect(
-            r.getString("urn"),
-            r.getString("aspect"),
-            r.getLong("version"),
-            r.getString("metadata"),
-            r.getString("systemmetadata"),
-            r.getInstant("createdon") == null ? null : Timestamp.from(r.getInstant("createdon")),
-            r.getString("createdby"),
-            r.getString("createdfor"));
+            r.getString(DatastaxAspect.URN_COLUMN),
+            r.getString(DatastaxAspect.ASPECT_COLUMN),
+            r.getLong(DatastaxAspect.VERSION_COLUMN),
+            r.getString(DatastaxAspect.METADATA_COLUMN),
+            r.getString(DatastaxAspect.SYSTEM_METADATA_COLUMN),
+            r.getInstant(DatastaxAspect.CREATED_ON_COLUMN) == null ? null : Timestamp.from(r.getInstant(DatastaxAspect.CREATED_ON_COLUMN)),
+            r.getString(DatastaxAspect.CREATED_BY_COLUMN),
+            r.getString(DatastaxAspect.CREATED_FOR_COLUMN));
   }
 }

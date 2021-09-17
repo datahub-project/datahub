@@ -14,6 +14,19 @@ public class DatastaxAspect {
   private String createdBy;
   private String createdFor;
 
+  public static final String TABLE_NAME = "metadata_aspect_v2";
+
+  public static final String URN_COLUMN = "urn";
+  public static final String ASPECT_COLUMN = "aspect";
+  public static final String VERSION_COLUMN = "version";
+  public static final String METADATA_COLUMN = "metadata";
+  public static final String CREATED_ON_COLUMN = "createdon";
+  public static final String CREATED_BY_COLUMN = "createdby";
+  public static final String CREATED_FOR_COLUMN = "createdfor";
+  public static final String SYSTEM_METADATA_COLUMN = "systemmetadata";
+
+  public static final String ENTITY_COLUMN = "entity";
+
   public String toString() {
     return String.format("urn: %s, aspect: %s, version: %s, metadata: %s, createdon: %s, createdby: %s, createdfor: %s, systemmetadata: %s",
                          urn, aspect, version, metadata, createdOn, createdBy, createdFor, systemMetadata

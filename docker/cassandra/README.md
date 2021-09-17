@@ -1,5 +1,3 @@
 # Cassandra
 
-DataHub GMS can use Cassnadra as an alternate storage backend.
-
-[In Progress]
+DataHub GMS can use Cassandra as an alternate storage backend.

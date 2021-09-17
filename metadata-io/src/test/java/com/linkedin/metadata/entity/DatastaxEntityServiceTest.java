@@ -91,7 +91,7 @@ public class DatastaxEntityServiceTest {
     // Setup
     Cluster cluster = _cassandraContainer.getCluster();
     final String keyspaceName = "test";
-    final String tableName = "metadata_aspect_v2";
+    final String tableName = DatastaxAspect.TABLE_NAME;
 
     try (Session session = cluster.connect()) {
 
@@ -108,7 +108,6 @@ public class DatastaxEntityServiceTest {
                       + "createdfor varchar, \n"
                       + "entity varchar, \n"
                       + "PRIMARY KEY (urn,aspect,version));",
-//                      + "PRIMARY KEY (urn, version, aspect)) with clustering order by (version asc, aspect asc);",
               keyspaceName,
               tableName));
 
