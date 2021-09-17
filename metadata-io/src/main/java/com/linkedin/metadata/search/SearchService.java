@@ -1,17 +1,17 @@
 package com.linkedin.metadata.search;
 
-import com.linkedin.common.urn.Urn;
-import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.Filter;
 import com.linkedin.metadata.query.SortCriterion;
 import com.linkedin.metadata.search.aggregator.AllEntitiesSearchAggregator;
 import com.linkedin.metadata.search.ranker.SearchRanker;
+import com.linkedin.metadata.search.utils.AllEntitiesSearchAggregatorCache;
+import com.linkedin.metadata.search.utils.EntitySearchServiceCache;
 import java.util.List;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.CacheManager;
 
 
 @Slf4j
@@ -20,11 +20,17 @@ public class SearchService {
   private final AllEntitiesSearchAggregator _aggregator;
   private final SearchRanker _searchRanker;
 
+  private final EntitySearchServiceCache _entitySearchServiceCache;
+  private final AllEntitiesSearchAggregatorCache _allEntitiesSearchAggregatorCache;
+
   public SearchService(EntityRegistry entityRegistry, EntitySearchService entitySearchService,
-      SearchRanker searchRanker) {
+      SearchRanker searchRanker, CacheManager cacheManager, int batchSize) {
     _entitySearchService = entitySearchService;
     _searchRanker = searchRanker;
-    _aggregator = new AllEntitiesSearchAggregator(entityRegistry, entitySearchService, searchRanker);
+    _aggregator =
+        new AllEntitiesSearchAggregator(entityRegistry, entitySearchService, searchRanker, cacheManager, batchSize);
+    _entitySearchServiceCache = new EntitySearchServiceCache(cacheManager, entitySearchService, batchSize);
+    _allEntitiesSearchAggregatorCache = new AllEntitiesSearchAggregatorCache(cacheManager, _aggregator, batchSize);
   }
 
   /**
@@ -51,7 +57,8 @@ public class SearchService {
   @Nonnull
   public SearchResult search(@Nonnull String entityName, @Nonnull String input, @Nullable Filter postFilters,
       @Nullable SortCriterion sortCriterion, int from, int size) {
-    SearchResult result = _entitySearchService.search(entityName, input, postFilters, sortCriterion, from, size);
+    SearchResult result = _entitySearchServiceCache.getSearcher(entityName, input, postFilters, sortCriterion)
+        .getSearchResults(from, size);
     try {
       return result.copy().setEntities(new SearchEntityArray(_searchRanker.rank(result.getEntities())));
     } catch (Exception e) {
@@ -78,68 +85,7 @@ public class SearchService {
     log.debug(String.format(
         "Searching Search documents entities: %s, input: %s, postFilters: %s, sortCriterion: %s, from: %s, size: %s",
         entities, input, postFilters, sortCriterion, from, size));
-    return _aggregator.search(entities, input, postFilters, sortCriterion, from, size);
-  }
-
-  /**
-   * Gets a list of documents after applying the input filters.
-   *
-   * @param entityName name of the entity
-   * @param filters the request map with fields and values to be applied as filters to the search query
-   * @param sortCriterion {@link SortCriterion} to be applied to search results
-   * @param from index to start the search from
-   * @param size number of search hits to return
-   * @return a {@link com.linkedin.metadata.dao.SearchResult} that contains a list of filtered documents and related search result metadata
-   */
-  @Nonnull
-  public SearchResult filter(@Nonnull String entityName, @Nullable Filter filters,
-      @Nullable SortCriterion sortCriterion, int from, int size) {
-    return _entitySearchService.filter(entityName, filters, sortCriterion, from, size);
-  }
-
-  /**
-   * Returns a list of suggestions given type ahead query.
-   *
-   * <p>The advanced auto complete can take filters and provides suggestions based on filtered context.
-   *
-   * @param entityName name of the entity
-   * @param query the type ahead query text
-   * @param field the field name for the auto complete
-   * @param requestParams specify the field to auto complete and the input text
-   * @param limit the number of suggestions returned
-   * @return A list of suggestions as string
-   */
-  @Nonnull
-  public AutoCompleteResult autoComplete(@Nonnull String entityName, @Nonnull String query, @Nullable String field,
-      @Nullable Filter requestParams, int limit) {
-    return _entitySearchService.autoComplete(entityName, query, field, requestParams, limit);
-  }
-
-  /**
-   * Gets a list of groups/entities that match given browse request.
-   *
-   * @param entityName type of entity to query
-   * @param path the path to be browsed
-   * @param requestParams the request map with fields and values as filters
-   * @param from index of the first entity located in path
-   * @param size the max number of entities contained in the response
-   * @return a {@link BrowseResult} that contains a list of groups/entities
-   */
-  @Nonnull
-  public BrowseResult browse(@Nonnull String entityName, @Nonnull String path, @Nullable Filter requestParams, int from,
-      int size) {
-    return _entitySearchService.browse(entityName, path, requestParams, from, size);
-  }
-
-  /**
-   * Gets a list of paths for a given urn.
-   *
-   * @param entityName type of entity to query
-   * @param urn urn of the entity
-   * @return all paths related to a given urn
-   */
-  @Nonnull
-  public List<String> getBrowsePaths(@Nonnull String entityName, @Nonnull Urn urn) {
-    return _entitySearchService.getBrowsePaths(entityName, urn);
+    return _allEntitiesSearchAggregatorCache.getSearcher(entities, input, postFilters, sortCriterion)
+        .getSearchResults(from, size);
   }
 }

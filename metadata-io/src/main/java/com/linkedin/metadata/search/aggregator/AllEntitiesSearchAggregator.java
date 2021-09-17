@@ -15,25 +15,24 @@ import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.metadata.search.ranker.SearchRanker;
+import com.linkedin.metadata.search.utils.EntitySearchServiceCache;
 import com.linkedin.metadata.utils.SearchUtil;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.util.Pair;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.CacheManager;
 
 
 @Slf4j
@@ -41,6 +40,10 @@ public class AllEntitiesSearchAggregator {
   private final EntityRegistry _entityRegistry;
   private final EntitySearchService _entitySearchService;
   private final SearchRanker _searchRanker;
+  private final CacheManager _cacheManager;
+  private final int _batchSize;
+
+  private final EntitySearchServiceCache _entitySearchServiceCache;
 
   private final Map<String, String> _filtersToDisplayName;
 
@@ -48,10 +51,13 @@ public class AllEntitiesSearchAggregator {
       ImmutableList.of("entity", "platform", "origin", "tags", "glossaryTerms");
 
   public AllEntitiesSearchAggregator(EntityRegistry entityRegistry, EntitySearchService entitySearchService,
-      SearchRanker searchRanker) {
+      SearchRanker searchRanker, CacheManager cacheManager, int batchSize) {
     _entityRegistry = entityRegistry;
     _entitySearchService = entitySearchService;
     _searchRanker = searchRanker;
+    _cacheManager = cacheManager;
+    _batchSize = batchSize;
+    _entitySearchServiceCache = new EntitySearchServiceCache(cacheManager, entitySearchService, batchSize);
     _filtersToDisplayName = getFilterToDisplayName(entityRegistry);
   }
 
@@ -69,6 +75,9 @@ public class AllEntitiesSearchAggregator {
   @WithSpan
   public SearchResult search(@Nonnull List<String> entities, @Nonnull String input, @Nullable Filter postFilters,
       @Nullable SortCriterion sortCriterion, int from, int size) {
+    log.info(String.format(
+        "Searching Search documents across entities: %s, input: %s, postFilters: %s, sortCriterion: %s, from: %s, size: %s",
+        entities, input, postFilters, sortCriterion, from, size));
     List<String> nonEmptyEntities;
     List<String> lowercaseEntities = entities.stream().map(String::toLowerCase).collect(Collectors.toList());
     try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "getNonEmptyEntities").time()) {
@@ -81,7 +90,8 @@ public class AllEntitiesSearchAggregator {
     try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "searchEntities").time()) {
       searchResults = nonEmptyEntities.stream()
           .map(entity -> new Pair<>(entity,
-              _entitySearchService.search(entity, input, postFilters, sortCriterion, 0, 1000)))
+              _entitySearchServiceCache.getSearcher(entity, input, postFilters, sortCriterion)
+                  .getSearchResults(from, size)))
           .filter(pair -> pair.getValue().getNumEntities() > 0)
           .collect(Collectors.toMap(Pair::getKey, Pair::getValue));
     }
