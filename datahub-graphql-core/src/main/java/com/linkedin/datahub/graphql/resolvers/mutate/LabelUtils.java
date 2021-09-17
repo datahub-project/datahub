@@ -363,10 +363,12 @@ public class LabelUtils {
 
     if ((subResource != null && subResource.length() > 0) || subResourceType != null) {
       if (subResource == null || subResource.length() == 0) {
-        throw new RuntimeException(String.format("Failed to update %s on %s. SubResourceType (%s) provided without a subResource.", labelUrn, targetUrn, subResourceType));
+        throw new RuntimeException(String.format(
+            "Failed to update %s on %s. SubResourceType (%s) provided without a subResource.", labelUrn, targetUrn, subResourceType));
       }
       if (subResourceType == null) {
-        throw new RuntimeException(String.format("Failed to update %s on %s. SubResource (%s) provided without a subResourceType.", labelUrn, targetUrn, subResource));
+        throw new RuntimeException(String.format(
+            "Failed to update %s on %s. SubResource (%s) provided without a subResourceType.", labelUrn, targetUrn, subResource));
       }
       validateSubresourceExists(labelUrn, targetUrn, subResource, subResourceType, entityService);
     }
