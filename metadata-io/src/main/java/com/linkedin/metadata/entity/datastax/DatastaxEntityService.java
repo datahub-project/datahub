@@ -226,7 +226,7 @@ public class DatastaxEntityService extends EntityService {
 
       final DatastaxAspect latestUpdated = new DatastaxAspect(latest.getUrn(), latest.getAspect(),
           latest.getVersion(), latest.getMetadata(), RecordUtils.toJsonString(latestSystemMetadata), latest.getCreatedOn(),
-          latest.getCreatedBy(), latest.getCreatedfor());
+          latest.getCreatedBy(), latest.getCreatedFor());
 
       _entityDao.updateAspect(latestUpdated, latest);
 
@@ -238,7 +238,7 @@ public class DatastaxEntityService extends EntityService {
     log.debug(String.format("Ingesting aspect with name %s, urn %s", aspectName, urn));
 
     _entityDao.saveLatestAspect(urn.toString(), aspectName, latest == null ? null : EbeanUtils.toJsonAspect(oldValue),
-        latest == null ? null : latest.getCreatedBy(), latest == null ? null : latest.getCreatedfor(),
+        latest == null ? null : latest.getCreatedBy(), latest == null ? null : latest.getCreatedFor(),
         latest == null ? null : latest.getCreatedOn(), latest == null ? null : latest.getSystemMetadata(),
         EbeanUtils.toJsonAspect(newValue), auditStamp.getActor().toString(),
         auditStamp.hasImpersonator() ? auditStamp.getImpersonator().toString() : null,

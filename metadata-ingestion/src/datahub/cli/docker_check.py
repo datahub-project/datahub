@@ -11,7 +11,6 @@ REQUIRED_CONTAINERS = [
     "kafka-setup",
     "schema-registry",
     "broker",
-    "mysql",
     "zookeeper",
     # These two containers are not necessary - only helpful in debugging.
     # "kafka-topics-ui",

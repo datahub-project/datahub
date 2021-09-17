@@ -26,7 +26,7 @@ public class DatastaxAspectDaoFactory {
   @DependsOn({"gmsDatastaxServiceConfig"})
   @Nonnull
   protected DatastaxAspectDao createInstance() {
-    return daoServiceLayer == "datastax"
+    return daoServiceLayer.equals("datastax")
             ? new DatastaxAspectDao((Map<String, String>)applicationContext.getBean("gmsDatastaxServiceConfig"))
             : null;
   }

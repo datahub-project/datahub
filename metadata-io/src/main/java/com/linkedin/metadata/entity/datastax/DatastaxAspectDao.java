@@ -248,7 +248,7 @@ public class DatastaxAspectDao {
         .value("systemmetadata", literal(datastaxAspect.getSystemMetadata()))
         .value("metadata", literal(datastaxAspect.getMetadata()))
         .value("createdon", literal(datastaxAspect.getCreatedOn().getTime()))
-        .value("createdfor", literal(datastaxAspect.getCreatedfor()))
+        .value("createdfor", literal(datastaxAspect.getCreatedFor()))
         .value("entity", literal(entity))
         .value("createdby", literal(datastaxAspect.getCreatedBy()))
         .ifNotExists();
@@ -271,7 +271,7 @@ public class DatastaxAspectDao {
       .setColumn("createdon", literal(datastaxAspect.getCreatedOn() == null ? null : datastaxAspect.getCreatedOn().getTime()))
       .setColumn("createdby", literal(datastaxAspect.getCreatedBy()))
       .setColumn("entity", literal(entity))
-      .setColumn("createdfor", literal(datastaxAspect.getCreatedfor()))
+      .setColumn("createdfor", literal(datastaxAspect.getCreatedFor()))
       .whereColumn("urn").isEqualTo(literal(datastaxAspect.getUrn()))
       .whereColumn("aspect").isEqualTo(literal(datastaxAspect.getAspect()))
       .whereColumn("version").isEqualTo(literal(datastaxAspect.getVersion()));
@@ -297,7 +297,7 @@ public class DatastaxAspectDao {
         .value("systemmetadata", literal(datastaxAspect.getSystemMetadata()))
         .value("metadata", literal(datastaxAspect.getMetadata()))
         .value("createdon", literal(datastaxAspect.getCreatedOn().getTime()))
-        .value("createdfor", literal(datastaxAspect.getCreatedfor()))
+        .value("createdfor", literal(datastaxAspect.getCreatedFor()))
         .value("entity", literal(entity))
         .value("createdby", literal(datastaxAspect.getCreatedBy()));
       _cqlSession.execute(ri.build());
@@ -308,7 +308,7 @@ public class DatastaxAspectDao {
         .setColumn("systemmetadata", literal(datastaxAspect.getSystemMetadata()))
         .setColumn("createdon", literal(datastaxAspect.getCreatedOn().getTime()))
         .setColumn("createdby", literal(datastaxAspect.getCreatedBy()))
-        .setColumn("createdfor", literal(datastaxAspect.getCreatedfor()));
+        .setColumn("createdfor", literal(datastaxAspect.getCreatedFor()));
 
       Update u = uwa.whereColumn("urn").isEqualTo(literal(datastaxAspect.getUrn()))
         .whereColumn("aspect").isEqualTo(literal(datastaxAspect.getAspect()))
@@ -490,8 +490,8 @@ public class DatastaxAspectDao {
 
     try {
       auditStamp.setActor(new Urn(aspect.getCreatedBy()));
-      if (aspect.getCreatedfor() != null) {
-        auditStamp.setImpersonator(new Urn(aspect.getCreatedfor()));
+      if (aspect.getCreatedFor() != null) {
+        auditStamp.setImpersonator(new Urn(aspect.getCreatedFor()));
       }
     } catch (URISyntaxException e) {
       throw new RuntimeException(e);

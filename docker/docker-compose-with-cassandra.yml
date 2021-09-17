@@ -87,11 +87,36 @@ services:
     depends_on:
       - elasticsearch
 
+  cassandra:
+    container_name: cassandra
+    hostname: cassandra
+    image: cassandra:3.11
+    ports:
+      - '9042:9042'
+    healthcheck:
+      test: ["CMD", "cqlsh", "-u cassandra", "-p cassandra" ,"-e describe keyspaces"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+    volumes:
+      - cassandradata:/var/lib/cassandra
+
+  cassandra-load-keyspace:
+    container_name: cassandra-setup
+    image: cassandra:3.11
+    depends_on:
+      cassandra:
+        condition: service_healthy
+    volumes:
+      - ./cassandra/init.cql:/init.cql
+    command: /bin/bash -c "cqlsh cassandra -f /init.cql"
+
   datahub-gms:
     build:
         context: ../
         dockerfile: docker/datahub-gms/Dockerfile
     image: linkedin/datahub-gms:${DATAHUB_VERSION:-head}
+    env_file: ./datahub-gms/env/docker.cassandra.env
     hostname: datahub-gms
     container_name: datahub-gms
     ports:
@@ -99,7 +124,7 @@ services:
     depends_on:
       - elasticsearch-setup
       - kafka-setup
-      - cassandra-setup
+      - cassandra-load-keyspace
       - neo4j
 
   datahub-frontend-react:
@@ -120,6 +145,7 @@ networks:
     name: datahub_network
 
 volumes:
+  cassandradata:
   esdata:
   neo4jdata:
   zkdata:
