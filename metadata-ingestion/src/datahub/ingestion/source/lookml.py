@@ -368,9 +368,6 @@ class LookerView:
     id: LookerViewId
     absolute_file_path: str
     connection: LookerConnectionDefinition
-    # project_name: str
-    # model_name: str
-    # view_name: str
     sql_table_names: List[str]
     fields: List[ViewField]
     raw_file_content: str
@@ -663,15 +660,23 @@ class LookMLSource(Source):
         return sql_table_name.lower()
 
     def _construct_datalineage_urn(
-        self, sql_table_name: str, connection_def: LookerConnectionDefinition
+        self, sql_table_name: str, looker_view: LookerView
     ) -> str:
         logger.debug(f"sql_table_name={sql_table_name}")
+        connection_def: LookerConnectionDefinition = looker_view.connection
 
         # Check if table name matches cascading derived tables pattern
         # derived tables can be referred to using aliases that look like table_name.SQL_TABLE_NAME
         # See https://docs.looker.com/data-modeling/learning-lookml/derived-tables#syntax_for_referencing_a_derived_table
         if re.fullmatch(r"\w+\.SQL_TABLE_NAME", sql_table_name):
             sql_table_name = sql_table_name.lower().split(".")[0]
+            # upstream dataset is a looker view based on current view id's project and model
+            view_id = LookerViewId(
+                project_name=looker_view.id.project_name,
+                model_name=looker_view.id.model_name,
+                view_name=sql_table_name,
+            )
+            return view_id.get_urn(self.source_config)
 
         # Ensure sql_table_name is in canonical form (add in db, schema names)
         sql_table_name = self._generate_fully_qualified_name(
@@ -725,9 +730,7 @@ class LookMLSource(Source):
             sql_table_name = sql_table_name.replace('"', "").replace("`", "")
 
             upstream = UpstreamClass(
-                dataset=self._construct_datalineage_urn(
-                    sql_table_name, looker_view.connection
-                ),
+                dataset=self._construct_datalineage_urn(sql_table_name, looker_view),
                 type=DatasetLineageTypeClass.VIEW,
             )
             upstreams.append(upstream)
