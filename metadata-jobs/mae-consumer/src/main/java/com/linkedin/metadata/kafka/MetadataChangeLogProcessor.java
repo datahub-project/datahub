@@ -52,7 +52,8 @@ import org.springframework.kafka.annotation.EnableKafka;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 
-import static com.linkedin.metadata.dao.Neo4jUtil.createRelationshipFilter;
+import static com.linkedin.metadata.dao.utils.QueryUtils.newRelationshipFilter;
+import static com.linkedin.metadata.dao.Neo4jUtil.*;
 
 
 @Slf4j
@@ -126,7 +127,8 @@ public class MetadataChangeLogProcessor {
           GenericAspectUtils.deserializeAspect(event.getAspect().getValue(), event.getAspect().getContentType(),
               aspectSpec);
       if (aspectSpec.isTimeseries()) {
-        updateTemporalStats(event.getEntityType(), event.getAspectName(), urn, aspect, event.getSystemMetadata());
+        updateTimeseriesFields(event.getEntityType(), event.getAspectName(), urn, aspect, aspectSpec,
+            event.getSystemMetadata());
       } else {
         updateSearchService(entitySpec.getName(), urn, aspectSpec, aspect);
         updateGraphService(urn, aspectSpec, aspect);
@@ -158,7 +160,7 @@ public class MetadataChangeLogProcessor {
     if (edgesToAdd.size() > 0) {
       new Thread(() -> {
         _graphService.removeEdgesFromNode(urn, new ArrayList<>(relationshipTypesBeingAdded),
-            createRelationshipFilter(new Filter().setCriteria(new CriterionArray()), RelationshipDirection.OUTGOING));
+            newRelationshipFilter(new Filter().setCriteria(new CriterionArray()), RelationshipDirection.OUTGOING));
         edgesToAdd.forEach(edge -> _graphService.addEdge(edge));
       }).start();
     }
@@ -194,15 +196,17 @@ public class MetadataChangeLogProcessor {
   /**
    * Process snapshot and update timseries index
    */
-  private void updateTemporalStats(String entityType, String aspectName, Urn urn, RecordTemplate aspect,
-      SystemMetadata systemMetadata) {
-    JsonNode document;
+  private void updateTimeseriesFields(String entityType, String aspectName, Urn urn, RecordTemplate aspect,
+      AspectSpec aspectSpec, SystemMetadata systemMetadata) {
+    Map<String, JsonNode> documents;
     try {
-      document = TimeseriesAspectTransformer.transform(urn, aspect, systemMetadata);
+      documents = TimeseriesAspectTransformer.transform(urn, aspect, aspectSpec, systemMetadata);
     } catch (JsonProcessingException e) {
       log.error("Failed to generate timeseries document from aspect: {}", e.toString());
       return;
     }
-    _timeseriesAspectService.upsertDocument(entityType, aspectName, document);
+    documents.entrySet().forEach(document -> {
+      _timeseriesAspectService.upsertDocument(entityType, aspectName, document.getKey(), document.getValue());
+    });
   }
 }

@@ -62,7 +62,8 @@ class BusinessGlossarySourceConfig(ConfigModel):
 
 class BusinessGlossaryConfig(DefaultConfig):
     version: str
-    nodes: List[GlossaryNodeConfig]
+    nodes: Optional[List[GlossaryNodeConfig]]
+    terms: Optional[List[GlossaryTermConfig]]
 
     @validator("version")
     def version_must_be_1(cls, v):
@@ -106,14 +107,26 @@ def get_mces(
     path: List[str] = []
     root_owners = get_owners(glossary.owners)
 
-    for node in glossary.nodes:
-        events += get_mces_from_node(
-            node,
-            path + [node.name],
-            parentNode=None,
-            parentOwners=root_owners,
-            defaults=glossary,
-        )
+    if glossary.nodes:
+        for node in glossary.nodes:
+            events += get_mces_from_node(
+                node,
+                path + [node.name],
+                parentNode=None,
+                parentOwners=root_owners,
+                defaults=glossary,
+            )
+
+    if glossary.terms:
+        for term in glossary.terms:
+            events += get_mces_from_term(
+                term,
+                path + [term.name],
+                parentNode=None,
+                parentOwnership=root_owners,
+                defaults=glossary,
+            )
+
     return events
 
 
@@ -171,7 +184,7 @@ def get_mces_from_node(
 def get_mces_from_term(
     glossaryTerm: GlossaryTermConfig,
     path: List[str],
-    parentNode: str,
+    parentNode: Optional[str],
     parentOwnership: models.OwnershipClass,
     defaults: DefaultConfig,
 ) -> List[models.MetadataChangeEventClass]:
