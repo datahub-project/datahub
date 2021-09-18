@@ -7,6 +7,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+/**
+ * Provides a thread-safe Dgraph schema. Returned data structures are immutable.
+ */
 public class DgraphSchema {
     private final @Nonnull Set<String> fields;
     private final @Nonnull Map<String, Set<String>> types;
@@ -16,40 +19,40 @@ public class DgraphSchema {
         this.types = types;
     }
 
-    public boolean isEmpty() {
+    synchronized public boolean isEmpty() {
         return fields.isEmpty();
     }
 
-    public Set<String> getFields() {
-        // Make Set unmodifiable
-        return Collections.unmodifiableSet(fields);
+    synchronized public Set<String> getFields() {
+        // Provide an unmodifiable copy
+        return Collections.unmodifiableSet(new HashSet<>(fields));
     }
 
-    public Set<String> getFields(String typeName) {
-        // Make Set unmodifiable
-        return Collections.unmodifiableSet(types.getOrDefault(typeName, Collections.emptySet()));
+    synchronized public Set<String> getFields(String typeName) {
+        // Provide an unmodifiable copy
+        return Collections.unmodifiableSet(new HashSet<>(types.getOrDefault(typeName, Collections.emptySet())));
     }
 
-    public Map<String, Set<String>> getTypes() {
-        // make Map and contained sets unmodifiable
+    synchronized public Map<String, Set<String>> getTypes() {
+        // Provide an unmodifiable copy of the map and contained sets
         return Collections.unmodifiableMap(
-                types.entrySet().stream()
+                new HashSet<>(types.entrySet()).stream()
                         .collect(Collectors.toMap(
                                 Map.Entry::getKey,
-                                e -> Collections.unmodifiableSet(e.getValue())
+                                e -> Collections.unmodifiableSet(new HashSet<>(e.getValue()))
                         ))
         );
     }
 
-    public boolean hasType(String typeName) {
+    synchronized public boolean hasType(String typeName) {
         return types.containsKey(typeName);
     }
 
-    public boolean hasField(String fieldName) {
+    synchronized public boolean hasField(String fieldName) {
         return fields.contains(fieldName);
     }
 
-    public boolean hasField(String typeName, String fieldName) {
+    synchronized public boolean hasField(String typeName, String fieldName) {
         return types.getOrDefault(typeName, Collections.emptySet()).contains(fieldName);
     }
 
@@ -61,7 +64,7 @@ public class DgraphSchema {
         fields.add(fieldName);
     }
 
-    public void clear() {
+    synchronized public void clear() {
         types.clear();
         fields.clear();
     }

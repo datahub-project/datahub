@@ -150,7 +150,8 @@ public class DgraphGraphService implements GraphService {
 
         // add the relationship type to the schema
         // TODO: translate edge name to allowed dgraph uris
-        // TODO: cache the schema and only mutate if relationship is new
+        // TODO: move the schema modification into DgraphSchema and provide an atomic method
+        //       that adds the type and all fields if they do not exist
         String sourceEntityType = getDgraphType(edge.getSource());
         String relationshipType = edge.getRelationshipType();
         if (!get_schema().hasField(sourceEntityType, relationshipType)) {
