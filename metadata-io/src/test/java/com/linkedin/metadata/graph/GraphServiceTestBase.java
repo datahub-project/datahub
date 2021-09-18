@@ -1434,7 +1434,7 @@ abstract public class GraphServiceTestBase {
           }
       }).start());
 
-      assertTrue(finished.await(10, TimeUnit.SECONDS));
+      assertTrue(finished.await(60, TimeUnit.SECONDS));
       assertEquals(throwables.size(), 0);
   }
 
