@@ -16,7 +16,7 @@ export enum TabType {
     Ownership = 'Ownership',
     Groups = 'Groups',
 }
-const ENABLED_TAB_TYPES = [TabType.Ownership];
+const ENABLED_TAB_TYPES = [TabType.Ownership, TabType.Groups];
 
 /**
  * Responsible for reading & writing users.
@@ -64,7 +64,8 @@ export default function UserProfile() {
             {
                 name: TabType.Groups,
                 path: TabType.Groups.toLocaleLowerCase(),
-            }
+                content: <RelatedEntityResults searchResult={ownershipForDetails} />,
+            },
         ].filter((tab) => ENABLED_TAB_TYPES.includes(tab.name));
     };
 
