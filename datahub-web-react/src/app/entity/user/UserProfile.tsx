@@ -14,6 +14,7 @@ const messageStyle = { marginTop: '10%' };
 
 export enum TabType {
     Ownership = 'Ownership',
+    Groups = 'Groups',
 }
 const ENABLED_TAB_TYPES = [TabType.Ownership];
 
@@ -60,6 +61,10 @@ export default function UserProfile() {
                 path: TabType.Ownership.toLocaleLowerCase(),
                 content: <RelatedEntityResults searchResult={ownershipForDetails} />,
             },
+            {
+                name: TabType.Groups,
+                path: TabType.Groups.toLocaleLowerCase(),
+            }
         ].filter((tab) => ENABLED_TAB_TYPES.includes(tab.name));
     };
 
