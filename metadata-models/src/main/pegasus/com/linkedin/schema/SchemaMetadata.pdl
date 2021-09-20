@@ -56,5 +56,8 @@ record SchemaMetadata includes SchemaMetadataKey, ChangeAuditStamps {
   /**
    * Map captures all the references schema makes to external datasets. Map key is ForeignKeySpecName typeref.
    */
+  @deprecated = "Use foreignKeys instead."
   foreignKeysSpecs: optional map[string, ForeignKeySpec]
+
+  foreignKeys: optional array[ForeignKeyConstraint]
 }
