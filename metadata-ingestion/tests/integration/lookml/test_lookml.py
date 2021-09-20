@@ -104,7 +104,7 @@ def test_lookml_ingest_offline(pytestconfig, tmp_path, mock_time):
 
 @freeze_time(FROZEN_TIME)
 @pytest.mark.skipif(sys.version_info < (3, 7), reason="lkml requires Python 3.7+")
-def test_lookml_ingest_api(pytestconfig, tmp_path, mock_time):
+def test_lookml_ingest_api_bigquery(pytestconfig, tmp_path, mock_time):
     # test with BigQuery connection
     ingestion_test(
         pytestconfig,
@@ -114,6 +114,11 @@ def test_lookml_ingest_api(pytestconfig, tmp_path, mock_time):
             dialect_name="bigquery", host="project-foo", database="default-db"
         ),
     )
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.skipif(sys.version_info < (3, 7), reason="lkml requires Python 3.7+")
+def test_lookml_ingest_api_hive(pytestconfig, tmp_path, mock_time):
     # test with Hive connection
     ingestion_test(
         pytestconfig,

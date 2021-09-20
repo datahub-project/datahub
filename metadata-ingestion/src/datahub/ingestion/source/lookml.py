@@ -55,7 +55,6 @@ logger = logging.getLogger(__name__)
 def _get_bigquery_definition(
     looker_connection: DBConnection,
 ) -> Tuple[str, Optional[str], Optional[str]]:
-    logger.info(looker_connection)
     platform = "bigquery"
     # bigquery project ids are returned in the host field
     db = looker_connection.host
@@ -174,30 +173,22 @@ class LookMLSourceConfig(LookerCommonConfig):
 
 @dataclass
 class LookMLSourceReport(SourceReport):
-    models_scanned: int = 0
-    views_scanned: int = 0
-    explores_scanned: int = 0
-    filtered_models: List[str] = dataclass_field(default_factory=list)
-    filtered_views: List[str] = dataclass_field(default_factory=list)
-    filtered_explores: List[str] = dataclass_field(default_factory=list)
+    models_discovered: int = 0
+    models_dropped: List[str] = dataclass_field(default_factory=list)
+    views_discovered: int = 0
+    views_dropped: List[str] = dataclass_field(default_factory=list)
 
     def report_models_scanned(self) -> None:
-        self.models_scanned += 1
+        self.models_discovered += 1
 
     def report_views_scanned(self) -> None:
-        self.views_scanned += 1
-
-    def report_explores_scanned(self) -> None:
-        self.explores_scanned += 1
+        self.views_discovered += 1
 
     def report_models_dropped(self, model: str) -> None:
-        self.filtered_models.append(model)
+        self.models_dropped.append(model)
 
     def report_views_dropped(self, view: str) -> None:
-        self.filtered_views.append(view)
-
-    def report_explores_dropped(self, explore: str) -> None:
-        self.filtered_explores.append(explore)
+        self.views_dropped.append(view)
 
 
 @dataclass
@@ -214,11 +205,18 @@ class LookerModel:
         path: str,
         reporter: LookMLSourceReport,
     ) -> "LookerModel":
+        logger.debug(f"Loading model from {path}")
         connection = looker_model_dict["connection"]
         includes = looker_model_dict.get("includes", [])
         resolved_includes = LookerModel.resolve_includes(
-            includes, base_folder, path, reporter
+            includes,
+            base_folder,
+            path,
+            reporter,
+            seen_so_far=set(),
+            traversal_path=pathlib.Path(path).stem,
         )
+        logger.debug(f"{path} has resolved_includes: {resolved_includes}")
         explores = looker_model_dict.get("explores", [])
 
         return LookerModel(
@@ -230,7 +228,12 @@ class LookerModel:
 
     @staticmethod
     def resolve_includes(
-        includes: List[str], base_folder: str, path: str, reporter: LookMLSourceReport
+        includes: List[str],
+        base_folder: str,
+        path: str,
+        reporter: LookMLSourceReport,
+        seen_so_far: Set[str],
+        traversal_path: str = "",  # a cosmetic parameter to aid debugging
     ) -> List[str]:
         """Resolve ``include`` statements in LookML model files to a list of ``.lkml`` files.
 
@@ -255,18 +258,54 @@ class LookerModel:
                 # Need to handle a relative path.
                 glob_expr = str(pathlib.Path(path).parent / inc)
             # "**" matches an arbitrary number of directories in LookML
-            outputs = sorted(
-                glob.glob(glob_expr, recursive=True)
-                + glob.glob(f"{glob_expr}.lkml", recursive=True)
+            # we also resolve these paths to absolute paths so we can de-dup effectively later on
+            included_files = [
+                str(pathlib.Path(p).resolve())
+                for p in sorted(
+                    glob.glob(glob_expr, recursive=True)
+                    + glob.glob(f"{glob_expr}.lkml", recursive=True)
+                )
+            ]
+            logger.debug(
+                f"traversal_path={traversal_path}, included_files = {included_files}, seen_so_far: {seen_so_far}"
             )
-            if "*" not in inc and not outputs:
+            if "*" not in inc and not included_files:
                 reporter.report_failure(path, f"cannot resolve include {inc}")
-            elif not outputs:
+            elif not included_files:
                 reporter.report_failure(
                     path, f"did not resolve anything for wildcard include {inc}"
                 )
+            # only load files that we haven't seen so far
+            included_files = [x for x in included_files if x not in seen_so_far]
+            for included_file in included_files:
+                logger.debug(
+                    f"Will be loading {included_file}, traversed here via {traversal_path}"
+                )
+                try:
+                    with open(included_file, "r") as file:
+                        parsed = lkml.load(file)
+                        seen_so_far.add(included_file)
+                        if "includes" in parsed:  # we have more includes to resolve!
+                            resolved.extend(
+                                LookerModel.resolve_includes(
+                                    parsed["includes"],
+                                    base_folder,
+                                    included_file,
+                                    reporter,
+                                    seen_so_far,
+                                    traversal_path=traversal_path
+                                    + "."
+                                    + pathlib.Path(included_file).stem,
+                                )
+                            )
+                except Exception as e:
+                    reporter.report_warning(
+                        path, f"Failed to load {included_file} due to {e}"
+                    )
+                    # continue in this case, as it might be better to load and resolve whatever we can
+                    pass
 
-            resolved.extend(outputs)
+            resolved.extend(included_files)
         return resolved
 
 
@@ -279,24 +318,33 @@ class LookerViewFile:
     views: List[Dict]
     raw_file_content: str
 
-    @staticmethod
+    @classmethod
     def from_looker_dict(
+        cls,
         absolute_file_path: str,
         looker_view_file_dict: dict,
         base_folder: str,
         raw_file_content: str,
         reporter: LookMLSourceReport,
     ) -> "LookerViewFile":
+        logger.debug(f"Loading view file at {absolute_file_path}")
         includes = looker_view_file_dict.get("includes", [])
+        resolved_path = str(pathlib.Path(absolute_file_path).resolve())
+        seen_so_far = set()
+        seen_so_far.add(resolved_path)
         resolved_includes = LookerModel.resolve_includes(
-            includes, base_folder, absolute_file_path, reporter
+            includes,
+            base_folder,
+            absolute_file_path,
+            reporter,
+            seen_so_far=seen_so_far,
         )
-        logger.info(
+        logger.debug(
             f"resolved_includes for {absolute_file_path} is {resolved_includes}"
         )
         views = looker_view_file_dict.get("views", [])
 
-        return LookerViewFile(
+        return cls(
             absolute_file_path=absolute_file_path,
             connection=None,
             includes=includes,
@@ -323,7 +371,9 @@ class LookerViewFileLoader:
     def _load_viewfile(
         self, path: str, reporter: LookMLSourceReport
     ) -> Optional[LookerViewFile]:
-        if self.is_view_seen(path):
+        # always fully resolve paths to simplify de-dup
+        path = str(pathlib.Path(path).resolve())
+        if self.is_view_seen(str(path)):
             return self.viewfile_cache[path]
 
         try:
@@ -334,7 +384,7 @@ class LookerViewFileLoader:
             return None
         try:
             with open(path, "r") as file:
-                logger.info(f"Loading file {path}")
+                logger.debug(f"Loading viewfile {path}")
                 parsed = lkml.load(file)
                 looker_viewfile = LookerViewFile.from_looker_dict(
                     absolute_file_path=path,
@@ -607,7 +657,7 @@ class LookMLSource(Source):
 
     def _load_model(self, path: str) -> LookerModel:
         with open(path, "r") as file:
-            logger.info(f"Loading file {path}")
+            logger.debug(f"Loading model from file {path}")
             parsed = lkml.load(file)
             looker_model = LookerModel.from_looker_dict(
                 parsed, str(self.source_config.base_folder), path, self.reporter
@@ -845,6 +895,7 @@ class LookMLSource(Source):
             project_name = self.get_project_name(model_name)
 
             for include in model.resolved_includes:
+                logger.debug(f"Considering {include} for model {model_name}")
                 if include in processed_view_files:
                     logger.debug(f"view '{include}' already processed, skipping it")
                     continue
