@@ -14,9 +14,10 @@ RUN_TABLE_COLUMNS = ["urn", "aspect name", "created at"]
 
 @click.command()
 @click.option("--urn", required=True, type=str)
-def delete(urn: str) -> None:
+@click.option("-f", "--force", required=False, type=bool, default=False)
+def delete(urn: str, force: bool) -> None:
     """Delete a provided URN from datahub"""
-    if not cli_utils.should_skip_confirmtion():
+    if not force:
         click.confirm(
             "This will permanently delete data from DataHub. Do you want to continue?",
             abort=True,
