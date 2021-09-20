@@ -84,6 +84,7 @@ plugins: Dict[str, Set[str]] = {
     "azure-ad": set(),
     "bigquery": sql_common | {"pybigquery >= 0.6.0"},
     "bigquery-usage": {"google-cloud-logging", "cachetools"},
+    "usage-from-sql-table": {"sql-metadata"},
     "datahub-business-glossary": set(),
     "dbt": set(),
     "druid": sql_common | {"pydruid>=0.6.2"},
@@ -166,6 +167,7 @@ base_dev_requirements = {
         for plugin in [
             "bigquery",
             "bigquery-usage",
+            "usage-from-sql-table",
             "looker",
             "glue",
             "okta",
@@ -227,6 +229,7 @@ entry_points = {
         "azure-ad = datahub.ingestion.source.identity.azure_ad:AzureADSource",
         "bigquery = datahub.ingestion.source.sql.bigquery:BigQuerySource",
         "bigquery-usage = datahub.ingestion.source.usage.bigquery_usage:BigQueryUsageSource",
+        "usage-from-sql-table = datahub.ingestion.source.usage.usage_from_sql_table:UsageFromSqlTableSource",
         "dbt = datahub.ingestion.source.dbt:DBTSource",
         "druid = datahub.ingestion.source.sql.druid:DruidSource",
         "feast = datahub.ingestion.source.feast:FeastSource",

@@ -15,6 +15,7 @@ import datahub.emitter.mce_builder as builder
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.snowflake import BaseSnowflakeConfig
+from datahub.ingestion.source.usage.sql_usage_common import sql_compatibility_change
 from datahub.ingestion.source.usage.usage_common import (
     BaseUsageConfig,
     GenericAggregatedDataset,
@@ -148,13 +149,7 @@ class SnowflakeUsageSource(Source):
         results = engine.execute(query)
 
         for row in results:
-            # Make some minor type conversions.
-            if hasattr(row, "_asdict"):
-                # Compat with SQLAlchemy 1.3 and 1.4
-                # See https://docs.sqlalchemy.org/en/14/changelog/migration_14.html#rowproxy-is-no-longer-a-proxy-is-now-called-row-and-behaves-like-an-enhanced-named-tuple.
-                event_dict = row._asdict()
-            else:
-                event_dict = dict(row)
+            event_dict = sql_compatibility_change(row)
 
             # no use processing events that don't have a query text
             if event_dict["query_text"] is None:
