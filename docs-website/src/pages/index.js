@@ -175,12 +175,12 @@ const companyLogos = [
     image: pngFormatter(LogoWolt, clsx(styles.logo_image_square)),
   },
   {
-    name: "BankSalad",
-    image: pngFormatter(LogoBankSalad, clsx(styles.logo_image_square)),
-  },
-  {
     name: "DFDS",
     image: pngFormatter(LogoDfds, clsx(styles.logo_image_square)),
+  },
+  {
+    name: "BankSalad",
+    image: pngFormatter(LogoBankSalad, clsx(styles.logo_image_square)),
   },
   {
     name: "Uphold",
