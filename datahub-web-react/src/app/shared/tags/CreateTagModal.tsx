@@ -4,6 +4,7 @@ import styled from 'styled-components';
 
 import { useUpdateTagMutation } from '../../../graphql/tag.generated';
 import { useAddTagMutation } from '../../../graphql/mutations.generated';
+import { SubResourceType } from '../../../types.generated';
 
 type CreateTagModalProps = {
     visible: boolean;
@@ -51,8 +52,9 @@ export default function CreateTagModal({
                     variables: {
                         input: {
                             tagUrn,
-                            targetUrn: entityUrn,
+                            resourceUrn: entityUrn,
                             subResource: entitySubresource,
+                            subResourceType: entitySubresource ? SubResourceType.FieldPath : null,
                         },
                     },
                 }).finally(() => {
