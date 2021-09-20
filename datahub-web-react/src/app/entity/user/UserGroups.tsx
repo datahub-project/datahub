@@ -2,7 +2,7 @@ import { List, Pagination, Row, Space, Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 import { useGetGroupMembersLazyQuery } from '../../../graphql/group.generated';
-import { CorpUser, EntityRelationshipsResult, EntityType } from '../../../types.generated';
+import { CorpGroup, EntityRelationshipsResult, EntityType } from '../../../types.generated';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { PreviewType } from '../Entity';
 
@@ -30,38 +30,38 @@ const GroupList = styled(List)`
     }
 `;
 
-const MembersView = styled(Space)`
+const GroupsView = styled(Space)`
     width: 100%;
     margin-bottom: 32px;
     padding-top: 28px;
 `;
 
-export default function GroupMembers({ urn, initialRelationships, pageSize }: Props) {
+export default function UserGroups({ urn, initialRelationships, pageSize }: Props) {
     const [page, setPage] = useState(1);
     const entityRegistry = useEntityRegistry();
 
-    const [getMembers, { data: membersData }] = useGetGroupMembersLazyQuery();
+    const [getGroups, { data: groupsData }] = useGetGroupMembersLazyQuery();
 
-    const onChangeMembersPage = (newPage: number) => {
+    const onChangeGroupsPage = (newPage: number) => {
         setPage(newPage);
         const start = (newPage - 1) * pageSize;
-        getMembers({ variables: { urn, start, count: pageSize } });
+        getGroups({ variables: { urn, start, count: pageSize } });
     };
 
-    const relationships = membersData ? membersData.corpGroup?.relationships : initialRelationships;
+    const relationships = groupsData ? groupsData.corpGroup?.relationships : initialRelationships;
     const total = relationships?.total || 0;
-    const groupMembers = relationships?.relationships?.map((rel) => rel.entity as CorpUser) || [];
+    const userGroups = relationships?.relationships?.map((rel) => rel.entity as CorpGroup) || [];
 
     return (
-        <MembersView direction="vertical" size="middle">
+        <GroupsView direction="vertical" size="middle">
             <Typography.Title level={3}>Group Membership</Typography.Title>
             <Row justify="center">
                 <GroupList
-                    dataSource={groupMembers}
+                    dataSource={userGroups}
                     split={false}
                     renderItem={(item, _) => (
                         <List.Item>
-                            {entityRegistry.renderPreview(EntityType.CorpUser, PreviewType.PREVIEW, item)}
+                            {entityRegistry.renderPreview(EntityType.CorpGroup, PreviewType.PREVIEW, item)}
                         </List.Item>
                     )}
                     bordered
@@ -71,10 +71,10 @@ export default function GroupMembers({ urn, initialRelationships, pageSize }: Pr
                     pageSize={pageSize}
                     total={total}
                     showLessItems
-                    onChange={onChangeMembersPage}
+                    onChange={onChangeGroupsPage}
                     showSizeChanger={false}
                 />
             </Row>
-        </MembersView>
+        </GroupsView>
     );
 }

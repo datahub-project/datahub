@@ -1,4 +1,4 @@
-query getUser($urn: String!, $membersCount: Int!) {
+query getUser($urn: String!, $groupsCount: Int!) {
     corpUser(urn: $urn) {
         urn
         username
@@ -19,7 +19,7 @@ query getUser($urn: String!, $membersCount: Int!) {
         globalTags {
             ...globalTagsFields
         }
-        relationships(types: ["IsMemberOfGroup"], direction: OUTGOING, start: 0, count: $membersCount) {
+        relationships(types: ["IsMemberOfGroup"], direction: OUTGOING, start: 0, count: $groupsCount) {
             start
             count
             total
