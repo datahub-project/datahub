@@ -65,11 +65,15 @@ public class IngestPoliciesStep implements BootstrapStep {
 
       if (!info.isEditable()) {
         // If the Policy is not editable, always re-ingest.
+        log.info(String.format("Ingesting default policy with urn %s", urn));
         ingestPolicy(urn, info);
       } else {
-        // If the Policy is editable, only ingest on a clean boot up.
+        // If the Policy is editable (ie. an example policy), only ingest on a clean boot up.
         if (!hasDefaultPolicies) {
+          log.info(String.format("Ingesting default policy with urn %s", urn));
           ingestPolicy(urn, info);
+        } else {
+          log.info(String.format("Skipping ingestion of editable policy with urn %s", urn));
         }
       }
     }
