@@ -337,17 +337,21 @@ type Mutation {
     deletePolicy(urn: String!): String
 }
 
+enum SubResourceType {
+    FIELD_PATH
+}
+
 input TermUpdateInput {
     termUrn: String!
-    targetUrn: String!
-    subResourceType: String
+    resourceUrn: String!
+    subResourceType: SubResourceType
     subResource: String
 }
 
 input TagUpdateInput {
     tagUrn: String!
-    targetUrn: String!
-    subResourceType: String
+    resourceUrn: String!
+    subResourceType: SubResourceType
     subResource: String
 }
 
