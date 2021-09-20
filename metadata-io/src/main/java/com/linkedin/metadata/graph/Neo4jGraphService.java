@@ -114,7 +114,7 @@ public class Neo4jGraphService implements GraphService {
       matchTemplate = "MATCH (src%s %s)-[r%s %s]->(dest%s %s)";
     }
 
-    final String returnNodes = "RETURN dest, type(r)"; // Return both related entity and the relationship type.
+    final String returnNodes = String.format("RETURN dest%s, type(r)", destinationType); // Return both related entity and the relationship type.
     final String returnCount = "RETURN count(*)"; // For getting the total results.
 
     String relationshipTypeFilter = "";
