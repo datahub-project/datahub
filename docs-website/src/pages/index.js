@@ -26,6 +26,9 @@ import LogoThoughtworks from "./logos/Thoughtworks.png";
 import LogoViasat from "./logos/viasat.png";
 import LogoKlarna from "./logos/klarna.svg";
 import LogoWolt from "./logos/wolt.png";
+import LogoBankSalad from "./logos/banksalad.png";
+import LogoDfds from "./logos/dfds.png";
+import LogoUphold from "./logos/uphold.png";
 // logos for ingestion sources
 import LogoAirflow from "./logos/airflow.svg";
 import LogoAthena from "./logos/athena.png";
@@ -170,6 +173,18 @@ const companyLogos = [
   {
     name: "Wolt",
     image: pngFormatter(LogoWolt, clsx(styles.logo_image_square)),
+  },
+  {
+    name: "DFDS",
+    image: pngFormatter(LogoDfds, clsx(styles.logo_image_square)),
+  },
+  {
+    name: "BankSalad",
+    image: pngFormatter(LogoBankSalad, clsx(styles.logo_image_square)),
+  },
+  {
+    name: "Uphold",
+    image: pngFormatter(LogoUphold, clsx(styles.logo_image_square)),
   },
 ];
 
