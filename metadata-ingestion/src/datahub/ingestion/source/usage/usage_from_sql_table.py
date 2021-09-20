@@ -4,12 +4,12 @@ import logging
 from datetime import datetime, timezone
 from typing import Dict, Iterable, Optional
 
-from pydantic import BaseModel
 from sql_metadata import Parser
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 
 import datahub.emitter.mce_builder as builder
+from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.sql_generic import SQLAlchemyGenericConfig
@@ -23,18 +23,11 @@ from datahub.ingestion.source.usage.usage_common import (
 logger = logging.getLogger(__name__)
 
 
-class SqlFromTableEvent(BaseModel):
-    query_start_time: datetime
-    query_text: str
-
-    class Config:
-        extra = "allow"
-
-
 class UsageFromSqlTableConfig(BaseUsageConfig, SQLAlchemyGenericConfig):
     usage_query: str
     usage_platform_name: str
-    usage_table_prefix: Optional[str]
+    table_default_prefix: Optional[str]
+    table_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
 
     def get_sql_alchemy_url(self):
         return super().get_sql_alchemy_url()
@@ -86,10 +79,18 @@ class UsageFromSqlTableSource(Source):
                     table_parts = table.split(".")
                     if (
                         len(table_parts) == 1
-                        and self.config.usage_table_prefix is not None
+                        and self.config.table_default_prefix is not None
                     ):
-                        table = f"{self.config.usage_table_prefix}.{table}"
+                        table = f"{self.config.table_default_prefix}.{table}"
+                    
+                    if not self.config.table_pattern.allowed(table):
+                        continue
+
                     tables.append(table)
+                
+                if len(tables) == 0:
+                    continue
+
                 event_dict["tables"] = tables
 
                 event_dict["columns"] = parser.columns
