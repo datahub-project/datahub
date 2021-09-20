@@ -116,9 +116,6 @@ def get_columns(catalog_node: dict, manifest_node: dict) -> List[DBTColumn]:
 
     for key in raw_columns:
         raw_column = raw_columns[key]
-
-        print(raw_column)
-
         dbtCol = DBTColumn(
             name=raw_column["name"].lower(),
             comment=raw_column.get("comment", ""),
@@ -546,7 +543,7 @@ class DBTSource(Source):
                 **get_custom_properties(node),
                 **additional_custom_props_filtered,
             }
-            print(node.tags)
+
             dbt_properties = DatasetPropertiesClass(
                 description=description,
                 customProperties=custom_props,
