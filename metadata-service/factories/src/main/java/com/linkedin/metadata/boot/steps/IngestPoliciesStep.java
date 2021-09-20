@@ -77,6 +77,7 @@ public class IngestPoliciesStep implements BootstrapStep {
         }
       }
     }
+    log.info("Successfully ingested default access policies.");
   }
 
   private void ingestPolicy(final Urn urn, final DataHubPolicyInfo info) throws URISyntaxException {
@@ -102,7 +103,6 @@ public class IngestPoliciesStep implements BootstrapStep {
 
     _entityService.ingestProposal(proposal,
         new AuditStamp().setActor(Urn.createFromString("urn:li:corpuser:system")).setTime(System.currentTimeMillis()));
-    log.info("Successfully ingested default access policies.");
   }
 
   private boolean hasDefaultPolicies() throws URISyntaxException {
