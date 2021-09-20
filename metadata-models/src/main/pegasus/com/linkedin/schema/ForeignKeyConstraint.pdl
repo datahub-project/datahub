@@ -2,11 +2,17 @@ namespace com.linkedin.schema
 import com.linkedin.common.Urn
 
 /**
- * Description of a foreign key in a schema.
+ * Description of a foreign key constraint in a schema.
  */
 record ForeignKeyConstraint {
+  /**
+   * Name of the constraint, likely provided from the source
+   */
   name: string
 
+  /**
+   * Fields the constraint maps to on the foreign dataset
+   */
   @Relationship = {
     "/*": {
       "name": "ForeignKeyTo",
@@ -15,8 +21,14 @@ record ForeignKeyConstraint {
   }
   foreignFields: array[Urn]
 
+  /**
+   * Fields the constraint maps to on the source dataset
+   */
   sourceFields: array[Urn]
 
+  /**
+   * Reference to the foreign dataset for ease of lookup
+   */
   @Relationship = {
     "name": "ForeignKeyToDataset",
     "entityTypes": [ "dataset" ]

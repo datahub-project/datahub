@@ -59,5 +59,8 @@ record SchemaMetadata includes SchemaMetadataKey, ChangeAuditStamps {
   @deprecated = "Use foreignKeys instead."
   foreignKeysSpecs: optional map[string, ForeignKeySpec]
 
+  /**
+   * List of foreign key constraints for the schema
+   */
   foreignKeys: optional array[ForeignKeyConstraint]
 }
