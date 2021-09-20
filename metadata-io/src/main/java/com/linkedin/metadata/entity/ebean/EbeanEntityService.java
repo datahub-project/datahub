@@ -60,7 +60,7 @@ public class EbeanEntityService extends EntityService {
   private static final int DEFAULT_MAX_TRANSACTION_RETRY = 3;
 
   private final EbeanAspectDao _entityDao;
-  private final ChangeStreamProcessor _changeStreamProcessors;
+  private final ChangeStreamProcessor _changeStreamProcessor;
   private final JacksonDataTemplateCodec _dataTemplateCodec = new JacksonDataTemplateCodec();
   private Boolean _alwaysEmitAuditEvent = false;
 
@@ -68,7 +68,7 @@ public class EbeanEntityService extends EntityService {
       @Nonnull final EntityRegistry entityRegistry, @Nonnull final ChangeStreamProcessor changeStreamProcessor) {
     super(eventProducer, entityRegistry, changeStreamProcessor);
     _entityDao = entityDao;
-    _changeStreamProcessors = changeStreamProcessor;
+    _changeStreamProcessor = changeStreamProcessor;
   }
 
   @Override
@@ -195,64 +195,39 @@ public class EbeanEntityService extends EntityService {
   }
 
   // TODO: Move to EntityService
-  public ProcessChangeResult processIngestAspect(@Nonnull final Urn urn,
+  public RecordTemplate ingestAspect(@Nonnull final Urn urn,
       @Nonnull final String aspectName,
       @Nonnull final RecordTemplate newAspect,
       @Nonnull final AuditStamp auditStamp,
       @Nonnull final SystemMetadata systemMetadata) {
 
-    RecordTemplate latestAspect = getLatestAspect(urn, aspectName);
+    RecordTemplate previousAspect = getLatestAspect(urn, aspectName);
 
     // Run pre-processors
-    ProcessChangeResult result = _changeStreamProcessors.preProcess(aspectName,
-        latestAspect,
-        newAspect,
-        auditStamp,
-        systemMetadata);
+    ProcessChangeResult result = _changeStreamProcessor.preProcess(aspectName, previousAspect, newAspect);
 
     if (result.changeState == ChangeState.STOP_PROCESSING) {
-      return result;
+      return result.getAspect();
     }
 
     // Persist aspect
     UpdateAspectResult updateAspectResult = ingestAspectToLocalDB(urn, aspectName, newAspect, auditStamp, systemMetadata, 3);
 
-    if(result.changeState == ChangeState.SAVE_THEN_STOP){
-      return result;
+    if (result.changeState == ChangeState.SAVE_THEN_STOP) {
+      return result.getAspect();
     }
 
     // Run post-processors
-    result = _changeStreamProcessors.postProcess(aspectName,
-        latestAspect,
-        newAspect,
-        auditStamp,
-        systemMetadata);
+    result = _changeStreamProcessor.postProcess(aspectName, previousAspect, newAspect);
 
     // Emit a mae event
-
-    return result;
-  }
-
-  @Override
-  @Nonnull
-  public RecordTemplate ingestAspect(@Nonnull final Urn urn, @Nonnull final String aspectName,
-      @Nonnull final RecordTemplate newAspect, @Nonnull final AuditStamp auditStamp,
-      @Nonnull final SystemMetadata systemMetadata) {
-    log.debug("Invoked ingestAspect with urn: {}, aspectName: {}, newAspect: {}", urn, aspectName, newAspect);
-    UpdateAspectResult result = ingestAspectToLocalDB(urn, aspectName, newAspect, auditStamp, systemMetadata,
-        DEFAULT_MAX_TRANSACTION_RETRY);
-
-    final RecordTemplate oldValue = result.getOldValue();
-    final RecordTemplate updatedValue = result.getNewValue();
-
-    // 5. Produce MAE after a successful update
-    if (oldValue != updatedValue || _alwaysEmitAuditEvent) {
+    if (previousAspect != result.getAspect() || _alwaysEmitAuditEvent) {
       log.debug(String.format("Producing MetadataAuditEvent for ingested aspect %s, urn %s", aspectName, urn));
       if (aspectName == getKeyAspectName(urn)) {
-        produceMetadataAuditEventForKey(urn, result.getNewSystemMetadata());
+        produceMetadataAuditEventForKey(urn, updateAspectResult.getNewSystemMetadata());
       } else {
-        produceMetadataAuditEvent(urn, oldValue, updatedValue, result.getOldSystemMetadata(),
-            result.getNewSystemMetadata(), MetadataAuditOperation.UPDATE);
+        produceMetadataAuditEvent(urn, previousAspect, result.getAspect(), updateAspectResult.getOldSystemMetadata(),
+            updateAspectResult.getNewSystemMetadata(), MetadataAuditOperation.UPDATE);
       }
     } else {
       log.debug(
@@ -260,7 +235,7 @@ public class EbeanEntityService extends EntityService {
               aspectName, urn));
     }
 
-    return updatedValue;
+    return result.getAspect();
   }
 
   @Nonnull

@@ -18,8 +18,8 @@ import java.util.TreeSet;
  */
 public class ChangeStreamProcessor {
 
-  private final Comparator<ChangeProcessor> PROCESSOR_COMPARATOR = Comparator.comparing(p -> p.priority);
-  private final TreeSet<ChangeProcessor> EMPTY_SET = new TreeSet<>(PROCESSOR_COMPARATOR);
+  private final Comparator<ChangeProcessor> _processorComparator = Comparator.comparing(p -> p.PRIORITY);
+  private final TreeSet<ChangeProcessor> _emptySet = new TreeSet<>(_processorComparator);
   private final Map<String, SortedSet<ChangeProcessor>> _changeProcessors = new HashMap<>();
 
   public ChangeStreamProcessor() {
@@ -29,34 +29,24 @@ public class ChangeStreamProcessor {
     if (_changeProcessors.containsKey(aspectName)) {
       _changeProcessors.get(aspectName).add(processor);
     } else {
-      _changeProcessors.put(aspectName, new TreeSet<>(PROCESSOR_COMPARATOR));
+      _changeProcessors.put(aspectName, new TreeSet<>(_processorComparator));
     }
   }
 
-  public ProcessChangeResult preProcess(String aspectName,
-      RecordTemplate latestAspect,
-      RecordTemplate newAspect,
-      AuditStamp auditStamp,
-      SystemMetadata systemMetadata) {
-    return process(aspectName, latestAspect, newAspect, auditStamp, systemMetadata, ProcessType.PRE);
+  public ProcessChangeResult preProcess(String aspectName, RecordTemplate latestAspect, RecordTemplate newAspect) {
+    return process(aspectName, latestAspect, newAspect, ProcessType.PRE);
   }
 
-  public ProcessChangeResult postProcess(String aspectName,
-      RecordTemplate latestAspect,
-      RecordTemplate newAspect,
-      AuditStamp auditStamp,
-      SystemMetadata systemMetadata) {
-    return process(aspectName, latestAspect, newAspect, auditStamp, systemMetadata, ProcessType.POST);
+  public ProcessChangeResult postProcess(String aspectName, RecordTemplate latestAspect, RecordTemplate newAspect) {
+    return process(aspectName, latestAspect, newAspect, ProcessType.POST);
   }
 
   private ProcessChangeResult process(String aspectName,
       RecordTemplate latestAspect,
       RecordTemplate newAspect,
-      AuditStamp auditStamp,
-      SystemMetadata systemMetadata,
       ProcessType processType
   ) {
-    SortedSet<ChangeProcessor> changeProcessors = _changeProcessors.getOrDefault(aspectName, EMPTY_SET);
+    SortedSet<ChangeProcessor> changeProcessors = _changeProcessors.getOrDefault(aspectName, _emptySet);
 
     if (changeProcessors.isEmpty()) {
       return new ProcessChangeResult(newAspect, ChangeState.CONTINUE, new ArrayList<>());
@@ -67,9 +57,9 @@ public class ChangeStreamProcessor {
 
     for (ChangeProcessor processor : changeProcessors) {
       if (processType == ProcessType.PRE) {
-        result = processor.beforeChange(aspectName, latestAspect, result.getAspect(), auditStamp, systemMetadata);
+        result = processor.beforeChange(aspectName, latestAspect, result.getAspect());
       } else {
-        result = processor.afterChange(aspectName, latestAspect, result.getAspect(), auditStamp, systemMetadata);
+        result = processor.afterChange(aspectName, latestAspect, result.getAspect());
       }
       messages.addAll(result.getMessages());
       //TODO HANDLE CHANGE STATE

@@ -1,26 +1,22 @@
 package com.linkedin.metadata.changeprocessor;
 
 import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.events.metadata.ChangeType;
-import com.linkedin.metadata.aspect.Aspect;
+
+import java.util.ArrayList;
 
 public class BaseChangeProcessor implements ChangeProcessor {
 
   @Override
   public ProcessChangeResult beforeChange(String aspectName,
-      RecordTemplate latestAspect,
-      RecordTemplate modifiedAspect,
       RecordTemplate previousAspect,
       RecordTemplate newAspect) {
-    return null;
+    return new ProcessChangeResult(newAspect, ChangeState.CONTINUE, new ArrayList<>());
   }
 
   @Override
   public ProcessChangeResult afterChange(String aspectName,
-      RecordTemplate latestAspect,
-      RecordTemplate modifiedAspect,
       RecordTemplate previousAspect,
       RecordTemplate newAspect) {
-    return null;
+    return new ProcessChangeResult(newAspect,ChangeState.CONTINUE, new ArrayList<>());
   }
 }

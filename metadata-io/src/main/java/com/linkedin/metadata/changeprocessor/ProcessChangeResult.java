@@ -1,6 +1,8 @@
 package com.linkedin.metadata.changeprocessor;
 
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.metadata.aspect.Aspect;
+import com.linkedin.mxe.GenericAspect;
 
 import java.util.List;
 

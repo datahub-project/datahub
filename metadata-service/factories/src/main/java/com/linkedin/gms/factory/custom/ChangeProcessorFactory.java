@@ -27,6 +27,7 @@ public class ChangeProcessorFactory {
   public ChangeStreamProcessor createInstance() {
     try {
       ChangeStreamProcessor changeStreamProcessor = new ChangeStreamProcessor();
+      log.info("CREATE INSTANCE");
 
       if (customJarPath == null ) {
         log.debug("Not loading custom defined behaviour");
