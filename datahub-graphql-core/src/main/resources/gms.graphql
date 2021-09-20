@@ -7,16 +7,168 @@ schema {
 }
 
 """
+Root type used for fetching DataHub Metadata.
+Coming soon: listEntity queries for listing all entities of a given type.
+"""
+type Query {
+    """
+    Fetch a CorpUser, representing a DataHub platform user, by primary key (urn)
+    """
+    corpUser(urn: String!): CorpUser
+
+    """
+    Fetch a CorpGroup, representing a DataHub platform group by primary key (urn)
+    """
+    corpGroup(urn: String!): CorpGroup
+
+    """
+    Fetch a Dataset by primary key (urn)
+    """
+    dataset(urn: String!): Dataset
+
+    """
+    Fetch a Dashboard by primary key (urn)
+    """
+    dashboard(urn: String!): Dashboard
+
+    """
+    Fetch a Chart by primary key (urn)
+    """
+    chart(urn: String!): Chart
+
+    """
+    Fetch an ML Model by primary key (urn)
+    """
+    mlModel(urn: String!): MLModel
+
+    """
+    Fetch an ML Model Group by primary key (urn)
+    """
+    mlModelGroup(urn: String!): MLModelGroup
+
+    """
+    Fetch a ML Feature by primary key (urn)
+    """
+    mlFeature(urn: String!): MLFeature
+
+    """
+    Fetch a ML Feature Table by primary key (urn)
+    """
+    mlFeatureTable(urn: String!): MLFeatureTable
+
+    """
+    Fetch a ML Primary Key by primary key (urn)
+    """
+    mlPrimaryKey(urn: String!): MLPrimaryKey
+
+    """
+    Fetch a Data Flow (or Data Pipeline) by primary key (urn)
+    """
+    dataFlow(urn: String!): DataFlow
+
+    """
+    Fetch a Data Job (or Data Task) by primary key (urn)
+    """
+    dataJob(urn: String!): DataJob
+
+    """
+    Fetch a Tag by primary key (urn)
+    """
+    tag(urn: String!): Tag
+
+    """
+    Fetch a Glossary Term by primary key (urn)
+    """
+    glossaryTerm(urn: String!): GlossaryTerm
+
+    """
+    List all DataHub Access Policies
+    """
+    listPolicies(input: ListPoliciesInput!): ListPoliciesResult
+}
+
+"""
+Root type used for updating DataHub Metadata.
+Coming soon: createEntity, addOwner, removeOwner mutations.
+"""
+type Mutation {
+    """
+    Update the metadata about a particular Dataset
+    """
+    updateDataset(input: DatasetUpdateInput!): Dataset
+
+    """
+    Update the metadata about a particular Chart
+    """
+    updateChart(input: ChartUpdateInput!): Chart
+
+    """
+    Update the metadata about a particular Dashboard
+    """
+    updateDashboard(input: DashboardUpdateInput!): Dashboard
+
+    """
+    Update the metadata about a particular Data Flow (Pipeline)
+    """
+    updateDataFlow(input: DataFlowUpdateInput!): DataFlow
+
+    """
+    Update the metadata about a particular Data Job (Task)
+    """
+    updateDataJob(input: DataJobUpdateInput!): DataJob
+
+    """
+    Update the information about a particular Entity Tag
+    """
+    updateTag(input: TagUpdate!): Tag
+
+    """
+    Create a policy and returns the resulting urn.
+    """
+    createPolicy(input: PolicyInput!): String
+
+    """
+    Update an existing policy and returns the resulting urn
+    """
+    updatePolicy(urn: String!, input: PolicyInput!): String
+
+    """
+    Remove an existing policy and returns the policy urn
+    """
+    deletePolicy(urn: String!): String
+
+    """
+		Add a tag to a particular Entity or subresource
+    """
+    addTag(input: TagUpdateInput!): Boolean
+
+    """
+		Remove a tag from a particular Entity or subresource
+    """
+    removeTag(input: TagUpdateInput!): Boolean
+
+    """
+		Add a glossary term to a particular Entity or subresource
+    """
+    addTerm(input: TermUpdateInput!): Boolean
+
+    """
+		Remove a glossary term from a particular Entity or subresource
+    """
+    removeTerm(input: TermUpdateInput!): Boolean
+}
+
+"""
 A top-level Metadata Entity
 """
 interface Entity {
     """
-    GMS Entity urn
+    A primary key of the MetadatamEntity
     """
     urn: String!
 
     """
-    GMS Entity Type
+    A standard Entity Type
     """
     type: EntityType!
 
@@ -61,6 +213,26 @@ enum EntityType {
     CHART
 
     """
+    The Data Flow (or Data Pipeline) Entity,
+    """
+    DATA_FLOW
+
+    """
+    The Data Job (or Data Task) Entity
+    """
+    DATA_JOB
+
+    """
+    The Tag Entity
+    """
+    TAG
+
+    """
+    The Glossary Term Entity
+    """
+    GLOSSARY_TERM
+
+    """
     The ML Model Entity
     """
     MLMODEL
@@ -83,27 +255,6 @@ enum EntityType {
     The ML Primary Key Entity
     """
     MLPRIMARY_KEY
-
-    """
-    The Data Flow (or Data Pipeline) Entity,
-    """
-    DATA_FLOW
-
-    """
-    The Data Job (or Data Task) Entity
-    """
-    DATA_JOB
-
-    """
-    The Tag Entity
-    """
-    TAG
-
-    """
-    The Glossary Term Entity
-    """
-    GLOSSARY_TERM
-
 }
 
 """
@@ -210,7 +361,7 @@ interface Aspect {
 }
 
 """
-An time series aspect, or a group of related metadata associated with an Entity & corresponding to a particular timestamp
+A time series aspect, or a group of related metadata associated with an Entity & corresponding to a particular timestamp
 """
 interface TimeSeriesAspect {
     """
@@ -225,12 +376,12 @@ Deprecated! This model defines an entity with a set of predefined relationship t
 @deprecated
 interface EntityWithRelationships implements Entity {
     """
-    GMS Entity urn
+    A primary key (urn) associated with the Metadata Entity
     """
     urn: String!
 
     """
-    GMS Entity Type
+    A standard Entity Type
     """
     type: EntityType!
 
@@ -247,169 +398,21 @@ interface EntityWithRelationships implements Entity {
     """
     Edges extending from this entity.
     """
-    relationships(types: [String!]!, direction: RelationshipDirection!, start: Int, count: Int): EntityRelationshipsResult
+    relationships(input: RelationshipsInput!): EntityRelationshipsResult
 }
 
 """
-Types used for fetching DataHub Metadata.
+A Dataset entity, which encompasses Relational Tables, Document store collections,
+streaming topics, and other sets of data having an independent lifecycle
 """
-type Query {
-
-    """
-    Fetch a CorpUser, representing a DataHub platform user, by primary key (urn)
-    """
-    corpUser(urn: String!): CorpUser
-
-    """
-    Fetch a CorpGroup, representing a DataHub platform group by primary key (urn)
-    """
-    corpGroup(urn: String!): CorpGroup
-
-    """
-    Fetch a Dataset by primary key (urn)
-    """
-    dataset(urn: String!): Dataset
-
-    """
-    Fetch a Dashboard by primary key (urn)
-    """
-    dashboard(urn: String!): Dashboard
-
-    """
-    Fetch a Chart by primary key (urn)
-    """
-    chart(urn: String!): Chart
-
-    """
-    Fetch an ML Model by primary key (urn)
-    """
-    mlModel(urn: String!): MLModel
-
-    """
-    Fetch an ML Model Group by primary key (urn)
-    """
-    mlModelGroup(urn: String!): MLModelGroup
-
-    """
-    Fetch a ML Feature by primary key (urn)
-    """
-    mlFeature(urn: String!): MLFeature
-
-    """
-    Fetch a ML Feature Table by primary key (urn)
-    """
-    mlFeatureTable(urn: String!): MLFeatureTable
-
-    """
-    Fetch a ML Primary Key by primary key (urn)
-    """
-    mlPrimaryKey(urn: String!): MLPrimaryKey
-
-    """
-    Fetch a Data Flow (or Data Pipeline) by primary key (urn)
-    """
-    dataFlow(urn: String!): DataFlow
-
-    """
-    Fetch a Data Job (or Data Task) by primary key (urn)
-    """
-    dataJob(urn: String!): DataJob
-
-    """
-    Fetch a Tag by primary key (urn)
-    """
-    tag(urn: String!): Tag
-
-    """
-    Fetch a Glossary Term by primary key (urn)
-    """
-    glossaryTerm(urn: String!): GlossaryTerm
-
-    """
-    List all DataHub Access Policies
-    """
-    listPolicies(input: ListPoliciesInput!): ListPoliciesResult
-}
-
-type Mutation {
-    """
-    """
-    updateDataset(input: DatasetUpdateInput!): Dataset
-    """
-    """
-    updateChart(input: ChartUpdateInput!): Chart
-    """
-    """
-    updateDashboard(input: DashboardUpdateInput!): Dashboard
-    """
-    """
-    updateDataFlow(input: DataFlowUpdateInput!): DataFlow
-    updateDataJob(input: DataJobUpdateInput!): DataJob
-    updateTag(input: TagUpdate!): Tag
-    """
-		Adds a tag to a given entity or subresource
-    """
-    addTag(input: TagUpdateInput!): Boolean
-    """
-		Remoes a tag from a given entity or subresource
-    """
-    removeTag(input: TagUpdateInput!): Boolean
-    """
-		Adds a term to a given entity or subresource
-    """
-    addTerm(input: TermUpdateInput!): Boolean
-    """
-		Removes a term from a given entity or subresource
-    """
-    removeTerm(input: TermUpdateInput!): Boolean
-    """
-    Creates a policy and returns the resulting urn.
-    """
-    createPolicy(input: PolicyInput!): String
-    """
-    Updates an existing policy and returns the resulting urn
-    """
-    updatePolicy(urn: String!, input: PolicyInput!): String
-    """
-    Removes an existing policy and returns the policy urn
-    """
-    deletePolicy(urn: String!): String
-}
-
-input TermUpdateInput {
-    termUrn: String!
-    targetUrn: String!
-    subResourceType: String
-    subResource: String
-}
-
-input TagUpdateInput {
-    tagUrn: String!
-    targetUrn: String!
-    subResourceType: String
-    subResource: String
-}
-
-type AuditStamp {
-    """
-    When the audited action took place
-    """
-    time: Long!
-
-    """
-    Who performed the audited action
-    """
-    actor: String
-}
-
 type Dataset implements EntityWithRelationships & Entity {
     """
-    The unique Dataset URN
+    The primary key of the Dataset
     """
     urn: String!
 
     """
-    GMS Entity Type
+    The standard Entity Type
     """
     type: EntityType!
 
@@ -419,48 +422,54 @@ type Dataset implements EntityWithRelationships & Entity {
     platform: DataPlatform!
 
     """
-    Dataset native name
+    The Dataset display name
     """
     name: String!
 
     """
-    Fabric type where dataset belongs to or where it was generated
+    Deprecated! Use the properties field instead.
+    Environment in which the dataset belongs to or where it was generated
+    Note that this field will soon be deprecated in favor of a more standardized concept of Environment
     """
+    @deprecated
     origin: FabricType!
 
     """
-    Human readable description for dataset
+    Deprecated! Use the properties field instead.
+    Read-only technical description for dataset
     """
+    @deprecated
     description: String
 
     """
-    The native format for the data platform
+    Deprecated! Do not use this field.
+    The logical type of the dataset (Table, stream, etc)
     """
+    @deprecated
     platformNativeType: PlatformNativeType
 
     """
+    Deprecated! Use externalUrl instead.
     Native Dataset Uri. Uri should not include any environment specific properties
     """
+    @deprecated
     uri: String
 
     """
-    Tags used for searching dataset
+    An additional set of read-only properties
     """
-    tags: [String!]!
+    properties: DatasetProperties
 
     """
-    A list of platform-specific metadata tuples
-    """
-    properties: [StringMapEntry!]
-
-    """
-    A list of editable platform-specific metadata tuples
+    An additional set of of read-write properties
     """
     editableProperties: DatasetEditableProperties
 
     """
+    Deprecated! Use properties field instead.
     External URL associated with the Dataset
     """
+    @deprecated
     externalUrl: String
 
     """
@@ -469,9 +478,9 @@ type Dataset implements EntityWithRelationships & Entity {
     ownership: Ownership
 
     """
-    The dataset deprecation status
+    The deprecation status
     """
-    deprecation: DatasetDeprecation
+    deprecation: Deprecation
 
     """
     References to internal resources related to the dataset
@@ -484,7 +493,7 @@ type Dataset implements EntityWithRelationships & Entity {
     schema: Schema @deprecated(reason: "Use `schemaMetadata`")
 
     """
-    Schema metadata of the dataset
+    Schema metadata of the dataset, available by version number
     """
     schemaMetadata(version: Long): SchemaMetadata
 
@@ -494,7 +503,7 @@ type Dataset implements EntityWithRelationships & Entity {
     editableSchemaMetadata: EditableSchemaMetadata
 
     """
-    Status of the dataset
+    Status of the Dataset
     """
     status: Status
 
@@ -512,9 +521,16 @@ type Dataset implements EntityWithRelationships & Entity {
     downstreamLineage: DownstreamEntityRelationships
 
     """
+    Deprecated! Use tags field instead.
     The structured tags associated with the dataset
     """
+    @deprecated
     globalTags: GlobalTags
+
+    """
+    Tags used for searching dataset
+    """
+    tags: GlobalTags
 
     """
     The structured glossary terms associated with the dataset
@@ -535,12 +551,16 @@ type Dataset implements EntityWithRelationships & Entity {
     """
     Edges extending from this entity.
     """
-    relationships(types: [String!]!, direction: RelationshipDirection!, start: Int, count: Int): EntityRelationshipsResult
+    relationships(input: RelationshipsInput!): EntityRelationshipsResult
 }
 
+"""
+A Glossary Term, or a node in a Business Glossary representing a standardized domain
+data type.
+"""
 type GlossaryTerm implements Entity {
     """
-    Urn of the data platform
+    The primary key of the glossary term
     """
     urn: String!
 
@@ -550,12 +570,12 @@ type GlossaryTerm implements Entity {
     ownership: Ownership
 
     """
-    GMS Entity Type
+    A standard Entity Type
     """
     type: EntityType!
 
     """
-    Name of the data platform
+    Display name of the glossary term
     """
     name: String!
 
@@ -565,6 +585,12 @@ type GlossaryTerm implements Entity {
     hierarchicalName: String!
 
     """
+    Additional read-only properties associated with the Glossary Term
+    """
+    properties: GlossaryTermProperties
+
+    """
+    Deprecated! Use properties field instead.
     Details of the Glossary Term
     """
     glossaryTermInfo: GlossaryTermInfo!
@@ -572,12 +598,16 @@ type GlossaryTerm implements Entity {
     """
     Edges extending from this entity.
     """
-    relationships(types: [String!]!, direction: RelationshipDirection!, start: Int, count: Int): EntityRelationshipsResult
+    relationships(input: RelationshipsInput!): EntityRelationshipsResult
 }
 
+"""
+Deprecated! Use GlossaryTermProperties instead.
+Information about a glossary ter
+"""
 type GlossaryTermInfo {
     """
-    Name of the glossary term
+    Definition of the glossary term
     """
     definition: String!
 
@@ -607,7 +637,45 @@ type GlossaryTermInfo {
     rawSchema: String
 }
 
+"""
+Additional read-only properties about a Glossary Term
+"""
+type GlossaryTermProperties {
+    """
+    Definition of the glossary term
+    """
+    definition: String!
 
+    """
+    Term Source of the glossary term
+    """
+    termSource: String!
+
+    """
+    Source Ref of the glossary term
+    """
+    sourceRef: String
+
+    """
+    Source Url of the glossary term
+    """
+    sourceUrl: String
+
+    """
+    Properties of the glossary term
+    """
+    customProperties: [StringMapEntry!]
+
+    """
+    Schema definition of glossary term
+    """
+    rawSchema: String
+}
+
+"""
+A Data Platform represents a specific 3rd party Data System or Tool. Examples include
+warehouses like Snowflake, orchestrators like Airflow, and dashboarding tools like Looker.
+"""
 type DataPlatform implements Entity {
     """
     Urn of the data platform
@@ -615,7 +683,7 @@ type DataPlatform implements Entity {
     urn: String!
 
     """
-    GMS Entity Type
+    A standard Entity Type
     """
     type: EntityType!
 
@@ -625,24 +693,38 @@ type DataPlatform implements Entity {
     name: String!
 
     """
+    Additional read-only properties associated with a data platform
+    """
+    properties: DataPlatformProperties
+
+    """
+    Deprecated! Use info.displayName instead
     Display name of the data platform
     """
+    @deprecated
     displayName: String
 
     """
-    Metadata associated with a dataplatform
+    Deprecated! Use properties field instead.
+    Additional properties associated with a data platform
     """
+    @deprecated
     info: DataPlatformInfo
 
     """
     Edges extending from this entity.
     """
-    relationships(types: [String!]!, direction: RelationshipDirection!, start: Int, count: Int): EntityRelationshipsResult
+    relationships(input: RelationshipsInput!): EntityRelationshipsResult
 }
 
+"""
+Deprecated! Use DataPlatformProperties instead.
+Additional read-only information about a Data Platform
+"""
+@deprecated
 type DataPlatformInfo {
     """
-    The Platform Type
+    The platform category
     """
     type: PlatformType!
 
@@ -662,6 +744,34 @@ type DataPlatformInfo {
     logoUrl: String
 }
 
+"""
+Additional read-only properties about a Data Platform
+"""
+type DataPlatformProperties {
+    """
+    The platform category
+    """
+    type: PlatformType!
+
+    """
+    Display name associated with the platform
+    """
+    displayName: String
+
+    """
+    The delimiter in the dataset names on the data platform
+    """
+    datasetNameDelimiter: String!
+
+    """
+    A logo URL associated with the platform
+    """
+    logoUrl: String
+}
+
+"""
+The category of a specific Data Platform
+"""
 enum PlatformType {
     """
     Value for a file system
@@ -709,6 +819,11 @@ enum PlatformType {
     OTHERS
 }
 
+"""
+An environment identifier for a particular Entity, i.e. staging or production.
+Note that this model will soon be deprecated in favor of a more general purpose of notion
+of data environment
+"""
 enum FabricType {
     """
     Designates development fabrics
@@ -731,6 +846,9 @@ enum FabricType {
     CORP
 }
 
+"""
+The data type associated with an individual Machine Learning Feature
+"""
 enum MLFeatureDataType {
     USELESS
     NOMINAL
@@ -751,6 +869,12 @@ enum MLFeatureDataType {
     UNKNOWN
 }
 
+"""
+Deprecated! Use Deprecation instead.
+Information about Dataset deprecation status.
+Note that this model will soon be migrated to a more general purpose Entity status.
+"""
+@deprecated
 type DatasetDeprecation {
     """
     Whether the dataset has been deprecated by owner
@@ -773,6 +897,9 @@ type DatasetDeprecation {
     actor: String
 }
 
+"""
+Institutional memory metadata, meaning internal links and pointers related to an Entity
+"""
 type InstitutionalMemory {
     """
     List of records that represent the institutional memory (internal documentation) of an entity
@@ -780,6 +907,9 @@ type InstitutionalMemory {
     elements: [InstitutionalMemoryMetadata!]!
 }
 
+"""
+An institutional memory resource (link) about a particular Metadata Entity
+"""
 type InstitutionalMemoryMetadata {
     """
     Link to a document or wiki page or another internal resource
@@ -802,9 +932,16 @@ type InstitutionalMemoryMetadata {
     created: AuditStamp!
 }
 
+"""
+Metadata about a Dataset schema
+"""
 type SchemaMetadata implements Aspect {
+    """
+    The logical version of the schema metadata, where 0 represents the latest version
+    with otherwise monotonic ordering starting at 1
+    """
     aspectVersion: Long
-    createdAt: Long
+
     """
     Dataset this schema metadata is associated with
     """
@@ -839,16 +976,28 @@ type SchemaMetadata implements Aspect {
     The native schema in the datasets platform, schemaless if it was not provided
     """
     platformSchema: PlatformSchema
+
     """
     Client provided a list of fields from value schema
     """
     fields: [SchemaField!]!
+
     """
     Client provided list of fields that define primary keys to access record
     """
     primaryKeys: [String!]
+
+    """
+    The time at which the schema metadata information was created
+    """
+    createdAt: Long
 }
 
+"""
+Deprecated! Use SchemaMetadata instead.
+Metadata about a Dataset schema
+"""
+@deprecated
 type Schema {
     """
     Dataset this schema metadata is associated with
@@ -884,18 +1033,26 @@ type Schema {
     The native schema in the datasets platform, schemaless if it was not provided
     """
     platformSchema: PlatformSchema
+
     """
     Client provided a list of fields from value schema
     """
     fields: [SchemaField!]!
+
     """
     Client provided list of fields that define primary keys to access record
     """
     primaryKeys: [String!]
 }
 
+"""
+A type of Schema, either a table schema or a key-value schema
+"""
 union PlatformSchema = TableSchema | KeyValueSchema
 
+"""
+Information about a raw Table Schema
+"""
 type TableSchema {
     """
     Raw table schema
@@ -903,62 +1060,96 @@ type TableSchema {
     schema: String!
 }
 
+"""
+Information about a raw Key-Value Schema
+"""
 type KeyValueSchema {
     """
     Raw key schema
     """
     keySchema: String!
+
     """
     Raw value schema
     """
     valueSchema: String!
 }
 
+"""
+Information about an individual field in a Dataset schema
+"""
 type SchemaField {
     """
     Flattened name of the field computed from jsonPath field
     """
     fieldPath: String!
+
     """
     Flattened name of a field in JSON Path notation
     """
     jsonPath: String
+
     """
     Indicates if this field is optional or nullable
     """
     nullable: Boolean!
+
     """
     Description of the field
     """
     description: String
+
     """
     Platform independent field type of the field
     """
     type: SchemaFieldDataType!
+
     """
     The native type of the field in the datasets platform as declared by platform schema
     """
     nativeDataType: String
+
     """
     Whether the field references its own type recursively
     """
     recursive: Boolean!
+
+    """
+    Deprecated! Use tags field instead.
+    Tags associated with the field
+    """
+    @deprecated
+    globalTags: GlobalTags
+
     """
     Tags associated with the field
     """
-    globalTags: GlobalTags
+    tags: GlobalTags
+
     """
     Glossary terms associated with the field
     """
     glossaryTerms: GlossaryTerms
 
+    """
+    Whether the field is part of a key schema
+    """
     isPartOfKey: Boolean
 }
 
+"""
+Information about schema metadata that is editable via the UI
+"""
 type EditableSchemaMetadata {
+    """
+    Editable schema field metadata
+    """
     editableSchemaFieldInfo: [EditableSchemaFieldInfo!]!
 }
 
+"""
+Editable schema field metadata (descriptions, tags, etc)
+"""
 type EditableSchemaFieldInfo {
     """
     Flattened name of a field identifying the field the editable info is applied to
@@ -972,8 +1163,15 @@ type EditableSchemaFieldInfo {
 
     """
     Tags associated with the field
+    Deprecated! Use tags field instead.
     """
+    @deprecated
     globalTags: GlobalTags
+
+    """
+    Tags associated with the field
+    """
+    tags: GlobalTags
 
     """
     Glossary terms associated with the field
@@ -981,48 +1179,127 @@ type EditableSchemaFieldInfo {
     glossaryTerms: GlossaryTerms
 }
 
+"""
+The type associated with a single Dataset schema field
+"""
 enum SchemaFieldDataType {
+    """
+    A boolean type
+    """
     BOOLEAN
+
+    """
+    A fixed bytestring type
+    """
     FIXED
+
+    """
+    A string type
+    """
     STRING
+
+    """
+    A string of bytes
+    """
     BYTES
+
+    """
+    A number, including integers, floats, and doubles.
+    """
     NUMBER
+
+    """
+    A datestrings type
+    """
     DATE
+
+    """
+    A timestamp type
+    """
     TIME
+
+    """
+    An enum type
+    """
     ENUM
+
+    """
+    A null type
+    """
     NULL
+
+    """
+    A map collection type
+    """
     MAP
+
+    """
+    An array collection type
+    """
     ARRAY
+
+    """
+    An union type
+    """
     UNION
+
+    """
+    An complex struct type
+    """
     STRUCT
 }
+
+"""
+Dataset properties that are editable via the UI. This represents logical metadata,
+as opposed to technical metadata.
+"""
 type DatasetEditableProperties {
     """
-    Description
+    Description of the Dataset
     """
     description: String
 }
+
+"""
+Chart properties that are editable via the UI. This represents logical metadata,
+as opposed to technical metadata.
+"""
 type ChartEditableProperties {
     """
-    Description
+    Description of the Chart
     """
     description: String
 }
+
+"""
+Dashboard properties that are editable via the UI. This represents logical metadata,
+as opposed to technical metadata.
+"""
 type DashboardEditableProperties {
     """
-    Description
+    Description of the Dashboard
     """
     description: String
 }
+
+"""
+Data Job properties that are editable via the UI. This represents logical metadata,
+as opposed to technical metadata.
+"""
 type DataJobEditableProperties {
     """
-    Description
+    Description of the Data Job
     """
     description: String
 }
+
+"""
+Data Flow properties that are editable via the UI. This represents logical metadata,
+as opposed to technical metadata.
+"""
 type DataFlowEditableProperties {
     """
-    Description
+    Description of the Data Flow
     """
     description: String
 }
@@ -1098,31 +1375,42 @@ type RelatedDataset {
     The upstream dataset the lineage points to
     """
     dataset: Dataset!
+
     """
     The type of the lineage
     """
     type: DatasetLineageType!
+
     """
     When the lineage was created
     """
     created: AuditStamp!
 }
 
+"""
+Deprecated!
+The type of an edge between 2 Datasets
+"""
 enum DatasetLineageType {
     """
     Direct copy without modification
     """
     COPY
+
     """
     Transformed dataset
     """
     TRANSFORMED
+
     """
     Represents a view defined on the sources
     """
     VIEW
 }
 
+"""
+The status of a particular Metadata Entity
+"""
 type Status {
     """
     Whether the entity is removed or not
@@ -1130,6 +1418,10 @@ type Status {
     removed: Boolean!
 }
 
+"""
+Deprecated! Do not use this type.
+The logical type associated with an individual Dataset
+"""
 enum PlatformNativeType {
     """
     Table
@@ -1157,46 +1449,69 @@ enum PlatformNativeType {
     BUCKET
 }
 
+"""
+An entry in a string-string map represented as a tuple
+"""
 type StringMapEntry {
+    """
+    The key of the map entry
+    """
     key: String!
+
+    """
+    The value fo the map entry
+    """
     value: String
 }
 
+"""
+The origin of Ownership metadata associated with a Metadata Entity
+"""
 enum OwnershipSourceType {
     """
     Auditing system or audit logs
     """
     AUDIT
+
     """
     Database, e.g. GRANTS table
     """
     DATABASE
+
     """
     File system, e.g. file/directory owner
     """
     FILE_SYSTEM
+
     """
     Issue tracking system, e.g. Jira
     """
     ISSUE_TRACKING_SYSTEM
+
     """
     Manually provided by a user
     """
     MANUAL
+
     """
     Other ownership-like service, e.g. Nuage, ACL service etc
     """
     SERVICE
+
     """
     SCM system, e.g. GIT, SVN
     """
     SOURCE_CONTROL
+
     """
     Other sources
     """
     OTHER
 }
 
+"""
+Information about the source of Ownership metadata about a Metadata Entity
+"""
 type OwnershipSource {
     """
     The type of the source
@@ -1204,11 +1519,15 @@ type OwnershipSource {
     type: OwnershipSourceType!
 
     """
-    A reference URL for the source
+    An optional reference URL for the source
     """
     url: String
 }
 
+"""
+The type of the ownership relationship between a Person and a Metadata Entity
+Note that this field will soon become deprecated due to low usage!
+"""
 enum OwnershipType {
     """
     A person or group that is in charge of developing the code
@@ -1241,43 +1560,72 @@ enum OwnershipType {
     STAKEHOLDER
 }
 
+"""
+A DataHub User entity, which represents a Person on the Metadata Entity Graph
+"""
 type CorpUser implements Entity {
     """
-    The unique user URN
+    The primary key of the user
     """
     urn: String!
 
     """
-    GMS Entity Type
+    The standard Entity Type
     """
     type: EntityType!
 
     """
-    Username of the corp user
+    A username associated with the user. This uniquely identifies the user within DataHub.
     """
     username: String!
 
     """
-    Readable info about the corp user
+    Additional read-only properties about the corp user
     """
-    info: CorpUserInfo
+    properties: CorpUserProperties
 
     """
-    Writable info about the corp user
+    Read-write properties about the corp user
     """
-    editableInfo: CorpUserEditableInfo
+    editableProperties: CorpUserEditableProperties
 
     """
-    The structured tags associated with the user
+    The tags associated with the user
     """
-    globalTags: GlobalTags
+    tags: GlobalTags
 
     """
     Edges extending from this entity.
     """
-    relationships(types: [String!]!, direction: RelationshipDirection!, start: Int, count: Int): EntityRelationshipsResult
+    relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+    """
+    Deprecated! Use properties field instead.
+    Additional read-only info about the corp user
+    """
+    @deprecated
+    info: CorpUserInfo
+
+    """
+    Deprecated! Use editableProperties field instead.
+    Read-write info about the corp user
+    """
+    @deprecated
+    editableInfo: CorpUserEditableInfo
+
+    """
+    Deprecated! Use the tags field instead.
+    The structured tags associated with the user
+    """
+    @deprecated
+    globalTags: GlobalTags
 }
 
+"""
+Deprecated! Use CorpUserProperties instead.
+Additional read-only info about a user
+"""
+@deprecated
 type CorpUserInfo {
     """
     Whether the user is active
@@ -1335,6 +1683,71 @@ type CorpUserInfo {
     countryCode: String
 }
 
+"""
+Additional read-only properties about a user
+"""
+type CorpUserProperties {
+    """
+    Whether the user is active
+    """
+    active: Boolean!
+
+    """
+    Display name of the user
+    """
+    displayName: String
+
+    """
+    Email address of the user
+    """
+    email: String
+
+    """
+    Title of the user
+    """
+    title: String
+
+    """
+    Direct manager of the user
+    """
+    manager: CorpUser
+
+    """
+    department id the user belong to
+    """
+    departmentId: Long
+
+    """
+    department name this user belong to
+    """
+    departmentName: String
+
+    """
+    first name of the user
+    """
+    firstName: String
+
+    """
+    last name of the user
+    """
+    lastName: String
+
+    """
+    Common name of this user, format is firstName plus lastName
+    """
+    fullName: String
+
+    """
+    two uppercase letters country code
+    """
+    countryCode: String
+}
+
+"""
+Deprecated! Use CorpUserEditableProperties instead.
+Additional read-write info about a user
+"""
+@deprecated
 type CorpUserEditableInfo {
     """
     About me section of the user
@@ -1357,14 +1770,42 @@ type CorpUserEditableInfo {
     pictureLink: String
 }
 
+"""
+Additional read-write properties about a user
+"""
+type CorpUserEditableProperties {
+    """
+    About me section of the user
+    """
+    aboutMe: String
+
+    """
+    Teams that the user belongs to
+    """
+    teams: [String!]
+
+    """
+    Skills that the user possesses
+    """
+    skills: [String!]
+
+    """
+    A URL which points to a picture which user wants to set as a profile photo
+    """
+    pictureLink: String
+}
+
+"""
+A DataHub Group entity, which represents a Person on the Metadata Entity Graph
+"""
 type CorpGroup implements Entity {
     """
-    The unique user URN
+    The primary key of the group
     """
     urn: String!
 
     """
-    GMS Entity Type
+    A standard Entity Type
     """
     type: EntityType!
 
@@ -1374,18 +1815,29 @@ type CorpGroup implements Entity {
     name: String!
 
     """
-    Information of the corp group
+    Additional read-only properties about the group
     """
-    info: CorpGroupInfo
+    properties: CorpGroupProperties
 
     """
     Edges extending from this entity.
     """
-    relationships(types: [String!]!, direction: RelationshipDirection!, start: Int, count: Int): EntityRelationshipsResult
+    relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+    """
+    Deprecated! Use properties field instead.
+    Additional read-only info about the group
+    """
+    @deprecated
+    info: CorpGroupInfo
 }
 
+"""
+Deprecated! Use CorpUserProperties instead.
+Additional read-only info about a group
+"""
+@deprecated
 type CorpGroupInfo {
-
     """
     The name to display when rendering the group
     """
@@ -1402,23 +1854,50 @@ type CorpGroupInfo {
     email: String
 
     """
+    Deprecated! Use relationships field instead
     owners of this group
     """
+    @deprecated
     admins: [CorpUser!]
 
     """
+    Deprecated! Use relationships field instead
     List of ldap urn in this group.
     """
+    @deprecated
     members: [CorpUser!]
 
     """
-    List of groups in this group.
+    Deprecated! Use relationships field instead
+    List of groups urns in this group.
     """
+    @deprecated
     groups: [String!]
 }
 
+"""
+Additional read-only properties about a group
+"""
+type CorpGroupProperties {
+    """
+    The description provided for the group.
+    """
+    description: String
+
+    """
+    email of this group
+    """
+    email: String
+}
+
+"""
+An owner of a Metadata Entity, either a user or group.
+"""
 union OwnerType = CorpUser | CorpGroup
 
+"""
+An owner of a Metadata Entity
+"""
 type Owner {
     """
     Owner object
@@ -1436,6 +1915,9 @@ type Owner {
     source: OwnershipSource
 }
 
+"""
+Ownership information about a Metadata Entity
+"""
 type Ownership {
     """
     List of owners of the entity
@@ -1443,23 +1925,35 @@ type Ownership {
     owners: [Owner!]
 
     """
-      Audit stamp containing who last modified the record and when
+    Audit stamp containing who last modified the record and when
     """
     lastModified: AuditStamp!
 }
 
+"""
+A Tag Entity, which can be associated with other Metadata Entities and subresources
+"""
 type Tag implements Entity {
-    urn: String!
+
     """
-    GMS Entity Type
+    The primary key of the TAG
+    """
+    urn: String!
+
+    """
+    A standard Entity Type
     """
     type: EntityType!
+
+    """
+    The display name of the tag
+    """
     name: String!
 
     """
-    Description of the tag
+    Additional read-write properties about the Tag
     """
-    description: String
+    editableProperties: EditableTagProperties
 
     """
     Ownership metadata of the dataset
@@ -1467,34 +1961,75 @@ type Tag implements Entity {
     ownership: Ownership
 
     """
-    Edges extending from this entity.
+    Edges extending from this entity
     """
-    relationships(types: [String!]!, direction: RelationshipDirection!, start: Int, count: Int): EntityRelationshipsResult
+    relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+    """
+    Deprecated! Use editableProperties field instead.
+    Description of the tag
+    """
+    @deprecated
+    description: String
 }
 
+"""
+An edge between a Metadata Entity and a Tag. Modeled as a struct to permit
+additional attributes.
+TODO: Consider whether this query should be serviced by the relationships field
+"""
 type TagAssociation {
+    """
+    The tag itself
+    """
     tag: Tag!
 }
 
+"""
+Tags attached to a particular Metadata Entity
+"""
 type GlobalTags {
+    """
+    The set of tags attached to the Metadata Entity
+    """
     tags: [TagAssociation!]
 }
 
+"""
+The technical version associated with a given Metadata Entity.
+"""
 type VersionTag {
     versionTag: String
 }
 
+"""
+Glossary Terms attached to a particular Metadata Entity
+"""
 type GlossaryTerms {
+     """
+     The set of glossary terms attached to the Metadata Entity
+     """
     terms: [GlossaryTermAssociation!]
 }
 
+"""
+An edge between a Metadata Entity and a Glossary Term. Modeled as a struct to permit
+additional attributes.
+TODO: Consider whether this query should be serviced by the relationships field
+"""
 type GlossaryTermAssociation {
+    """
+    The glossary term itself
+    """
     term: GlossaryTerm!
 }
 
+"""
+Arguments provided to update a Chart Entity
+"""
 input ChartUpdateInput {
     """
-    The chart urn
+    The primary key of the Chart to be updated
     """
     urn: String!
 
@@ -1514,9 +2049,12 @@ input ChartUpdateInput {
     editableProperties: ChartEditablePropertiesUpdate
 }
 
+"""
+Arguments provided to update a Chart Entity
+"""
 input DashboardUpdateInput {
     """
-    The dashboard urn
+    The primary key of the Dashboard to be updated
     """
     urn: String!
 
@@ -1536,9 +2074,12 @@ input DashboardUpdateInput {
     editableProperties: DashboardEditablePropertiesUpdate
 }
 
+"""
+Arguments provided to update a Data Flow (Pipeline) Entity
+"""
 input DataFlowUpdateInput {
     """
-    The dataFlow urn
+    The primary key of the Data Flow (Pipeline) to be updated
     """
     urn: String!
 
@@ -1558,9 +2099,12 @@ input DataFlowUpdateInput {
     editableProperties: DataFlowEditablePropertiesUpdate
 }
 
+"""
+Arguments provided to update a Data Job (Task) Entity
+"""
 input DataJobUpdateInput {
     """
-    The dataJob urn
+    The primary key of the Data Job (Task) to be updated
     """
     urn: String!
 
@@ -1580,9 +2124,12 @@ input DataJobUpdateInput {
     editableProperties: DataJobEditablePropertiesUpdate
 }
 
+"""
+Arguments provided to update a Dataset Entity
+"""
 input DatasetUpdateInput {
     """
-    The dataset urn
+    The primary key of the Dataset to be updated
     """
     urn: String!
 
@@ -1617,10 +2164,19 @@ input DatasetUpdateInput {
     editableProperties: DatasetEditablePropertiesUpdate
 }
 
+"""
+Update to editable schema metadata of the dataset
+"""
 input EditableSchemaMetadataUpdate {
+    """
+    Update to writable schema field metadata
+    """
     editableSchemaFieldInfo: [EditableSchemaFieldInfoUpdate!]!
 }
 
+"""
+Update to writable schema field metadata
+"""
 input EditableSchemaFieldInfoUpdate {
     """
     Flattened name of a field identifying the field the editable info is applied to
@@ -1638,52 +2194,94 @@ input EditableSchemaFieldInfoUpdate {
     globalTags: GlobalTagsUpdate
 }
 
+"""
+Update to writable Dataset fields
+"""
 input DatasetEditablePropertiesUpdate {
     """
-    Description
+    Writable description (aka Documentation) for a Dataset
     """
     description: String!
 }
 
+"""
+Update to writable Chart fields
+"""
 input ChartEditablePropertiesUpdate {
     """
-    Description
+    Writable description (aka Documentation) for a Chart
     """
     description: String!
 }
 
+"""
+Update to writable Dashboard fields
+"""
 input DashboardEditablePropertiesUpdate {
     """
-    Description
+    Writable description (aka Documentation) for a Dashboard
     """
     description: String!
 }
 
+"""
+Update to writable Data Job fields
+"""
 input DataJobEditablePropertiesUpdate {
     """
-    Description
+    Writable description (aka Documentation) for a Data Job
     """
     description: String!
 }
 
+"""
+Update to writable Data Flow fields
+"""
 input DataFlowEditablePropertiesUpdate {
     """
-    Description
+    Writable description (aka Documentation) for a Data Flow
     """
     description: String!
 }
 
+"""
+Deprecated! Use addTag / removeTag mutation instead
+Update to the Tags associated with a Metadata Entity
+"""
+@deprecated
 input GlobalTagsUpdate {
+    """
+    The new set of tags
+    """
     tags: [TagAssociationUpdate!]
 }
 
+"""
+Deprecated! Use addTag / removeTag mutation instead.
+A tag update to be applied
+"""
+@deprecated
 input TagAssociationUpdate {
+    """
+    The tag being applied
+    """
     tag: TagUpdate!
 }
 
+"""
+Deprecated! Use addTag / removeTag mutations instead.
+An update for a particular Tag entity
+"""
+@deprecated
 input TagUpdate {
+    """
+    The primary key of the Tag
+    """
     urn: String!
 
+    """
+    The display name of a Tag
+    """
     name: String!
 
     """
@@ -1697,25 +2295,35 @@ input TagUpdate {
     ownership: OwnershipUpdate
 }
 
+"""
+An update for the ownership information for a Metadata Entity
+"""
 input OwnershipUpdate {
     """
-    The list of owners
+    The updated list of owners
     """
    owners: [OwnerUpdate!]!
 }
 
+"""
+An owner to add to a Metadata Entity
+TODO: Add a USER / GROUP actor enum.
+"""
 input OwnerUpdate {
     """
-    The owner URN, eg urn:li:corpuser:1
+    The owner URN, eg urn:li:corpuser:1 or urn:li:corpGroup:groupName
     """
     owner: String!
 
     """
-    The owner role type
+    The owner type
     """
     type: OwnershipType!
 }
 
+"""
+An update for the deprecation information for a Metadata Entity
+"""
 input DatasetDeprecationUpdate {
     """
     Whether the dataset is deprecated
@@ -1733,6 +2341,9 @@ input DatasetDeprecationUpdate {
     note: String!
 }
 
+"""
+An update for the institutional memory (links) information for a Metadata Entity
+"""
 input InstitutionalMemoryUpdate {
     """
     The individual references in the institutional memory
@@ -1740,6 +2351,10 @@ input InstitutionalMemoryUpdate {
     elements: [InstitutionalMemoryMetadataUpdate!]!
 }
 
+"""
+An institutional memory (link) to add to a Metadata Entity
+TODO: Add a USER / GROUP actor enum.
+"""
 input InstitutionalMemoryMetadataUpdate {
     """
     Link to a document or wiki page or another internal resource
@@ -1762,19 +2377,23 @@ input InstitutionalMemoryMetadataUpdate {
     createdAt: Long
 }
 
+"""
+A Dashboard Metadata Entity
+"""
 type Dashboard implements EntityWithRelationships & Entity {
     """
-    The unique dashboard URN
+    The primary key of the Dashboard
     """
     urn: String!
 
     """
-    GMS Entity Type
+    A standard Entity Type
     """
     type: EntityType!
 
     """
     The dashboard tool name
+    Note that this will soon be deprecated in favor of a standardized notion of Data Platform
     """
     tool: String!
 
@@ -1784,9 +2403,14 @@ type Dashboard implements EntityWithRelationships & Entity {
     dashboardId: String!
 
     """
-    Info about the dashboard
+    Additional read-only properties about the dashboard
     """
-    info: DashboardInfo
+    properties: DashboardProperties
+
+    """
+    Additional read-write properties about the dashboard
+    """
+    editableProperties: DashboardEditableProperties
 
     """
     Ownership metadata of the dashboard
@@ -1799,34 +2423,59 @@ type Dashboard implements EntityWithRelationships & Entity {
     status: Status
 
     """
-    The structured tags associated with the dashboard
+    The tags associated with the dashboard
     """
-    globalTags: GlobalTags
-
-    """
-    Entities upstream of the given entity
-    """
-    upstreamLineage: UpstreamEntityRelationships
-
-    """
-    Entities downstream of the given entity
-    """
-    downstreamLineage: DownstreamEntityRelationships
-
-    """
-    Editable properties
-    """
-    editableProperties: DashboardEditableProperties
+    tags: GlobalTags
 
     """
     Edges extending from this entity.
     """
-    relationships(types: [String!]!, direction: RelationshipDirection!, start: Int, count: Int): EntityRelationshipsResult
+    relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+    """
+    Deprecated! Use properties field instead.
+    Additional read-only information about the dashboard
+    """
+    @deprecated
+    info: DashboardInfo
+
+    """
+    Deprecated! Use editableProperties instead.
+    Additional read-write properties about the Dashboard
+    """
+    @deprecated
+    editableInfo: DashboardEditableProperties
+
+    """
+    Deprecated! Use tags field instead.
+    The structured tags associated with the dashboard
+    """
+    @deprecated
+    globalTags: GlobalTags
+
+    """
+    Deprecated! Use relationships field instead
+    Entities upstream of the given entity
+    """
+    @deprecated
+    upstreamLineage: UpstreamEntityRelationships
+
+    """
+    Deprecated! Use relationships field instead
+    Entities downstream of the given entity
+    """
+    @deprecated
+    downstreamLineage: DownstreamEntityRelationships
 }
 
+"""
+Deprecated! Use DashboardProperties instead.
+Additional read-only info about a Dashboard
+"""
+@deprecated
 type DashboardInfo {
     """
-    Name of the dashboard
+    Display of the dashboard
     """
     name: String!
 
@@ -1847,6 +2496,7 @@ type DashboardInfo {
 
     """
     Access level for the dashboard
+    Note that this will soon be deprecated for low usage.
     """
     access: AccessLevel
 
@@ -1876,31 +2526,79 @@ type DashboardInfo {
     deleted: AuditStamp
 }
 
-enum AccessLevel {
+"""
+Additional read-only properties about a Dashboard
+"""
+type DashboardProperties {
     """
-    Publicly available
+    Display of the dashboard
     """
-    PUBLIC
+    name: String!
 
     """
-    Restricted to a subset of viewers
+    Description of the dashboard
     """
-    PRIVATE
+    description: String
+
+    """
+    Charts that comprise the dashboard
+    """
+    charts: [Chart!]!
+
+    """
+    Native platform URL of the dashboard
+    """
+    externalUrl: String
+
+    """
+    Access level for the dashboard
+    Note that this will soon be deprecated for low usage.
+    """
+    access: AccessLevel
+
+    """
+    A list of platform-specific metadata tuples
+    """
+    customProperties: [StringMapEntry!]
+
+    """
+    The time when this dashboard last refreshed
+    """
+    lastRefreshed: Long
+
+    """
+    An AuditStamp corresponding to the creation of this dashboard
+    """
+    created: AuditStamp!
+
+    """
+    An AuditStamp corresponding to the modification of this dashboard
+    """
+    lastModified: AuditStamp!
+
+    """
+    An optional AuditStamp corresponding to the deletion of this dashboard
+    """
+    deleted: AuditStamp
 }
 
+"""
+A Chart Metadata Entity
+"""
 type Chart implements EntityWithRelationships & Entity {
     """
-    The unique user URN
+    The primary key of the Chart
     """
     urn: String!
 
     """
-    GMS Entity Type
+    A standard Entity Type
     """
     type: EntityType!
 
     """
     The chart tool name
+    Note that this field will soon be deprecated in favor a unified notion of Data Platform
     """
     tool: String!
 
@@ -1910,9 +2608,14 @@ type Chart implements EntityWithRelationships & Entity {
     chartId: String!
 
     """
-    Info about the chart
+    Additional read-only properties about the Chart
     """
-    info: ChartInfo
+    properties: ChartProperties
+
+    """
+    Additional read-write properties about the Chart
+    """
+    editableProperties: ChartEditableProperties
 
     """
     Info about the query which is used to render the chart
@@ -1930,34 +2633,59 @@ type Chart implements EntityWithRelationships & Entity {
     status: Status
 
     """
-    The structured tags associated with the chart
+    The tags associated with the chart
     """
-    globalTags: GlobalTags
-
-    """
-    Entities upstream of the given entity
-    """
-    upstreamLineage: UpstreamEntityRelationships
-
-    """
-    Entities downstream of the given entity
-    """
-    downstreamLineage: DownstreamEntityRelationships
-
-    """
-    Editable properties
-    """
-    editableProperties: ChartEditableProperties
+    tags: GlobalTags
 
     """
     Edges extending from this entity.
     """
-    relationships(types: [String!]!, direction: RelationshipDirection!, start: Int, count: Int): EntityRelationshipsResult
+    relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+    """
+    Deprecated! Use properties field instead.
+    Additional read-only information about the chart
+    """
+    @deprecated
+    info: ChartInfo
+
+    """
+    Deprecated! Use editableProperties field instead.
+    Additional read-write information about the Chart
+    """
+    @deprecated
+    editableInfo: ChartEditableProperties
+
+    """
+    Deprecated! Use tags instead.
+    The structured tags associated with the chart
+    """
+    @deprecated
+    globalTags: GlobalTags
+
+    """
+    Deprecated! Use relationships field instead.
+    Entities upstream of the given entity
+    """
+    @deprecated
+    upstreamLineage: UpstreamEntityRelationships
+
+    """
+    Deprecated! Use relationships field instead
+    Entities downstream of the given entity
+    """
+    @deprecated
+    downstreamLineage: DownstreamEntityRelationships
 }
 
+"""
+Deprecated! Use ChartProperties instead.
+Additional read-only information about the chart
+"""
+@deprecated
 type ChartInfo {
     """
-    Name of the chart
+    Display name of the chart
     """
     name: String!
 
@@ -2012,6 +2740,84 @@ type ChartInfo {
     deleted: AuditStamp
 }
 
+"""
+Additional read-only properties about the chart
+"""
+type ChartProperties {
+    """
+    Display name of the chart
+    """
+    name: String!
+
+    """
+    Description of the chart
+    """
+    description: String
+
+    """
+    Data sources for the chart
+    """
+    inputs: [Dataset!]
+
+    """
+    Native platform URL of the chart
+    """
+    externalUrl: String
+
+    """
+    Access level for the chart
+    """
+    type: ChartType
+
+    """
+    Access level for the chart
+    """
+    access: AccessLevel
+
+    """
+    A list of platform-specific metadata tuples
+    """
+    customProperties: [StringMapEntry!]
+
+    """
+    The time when this chart last refreshed
+    """
+    lastRefreshed: Long
+
+    """
+    An AuditStamp corresponding to the creation of this chart
+    """
+    created: AuditStamp!
+
+    """
+    An AuditStamp corresponding to the modification of this chart
+    """
+    lastModified: AuditStamp!
+
+    """
+    An optional AuditStamp corresponding to the deletion of this chart
+    """
+    deleted: AuditStamp
+}
+
+"""
+The access level for a Metadata Entity, either public or private.
+"""
+enum AccessLevel {
+    """
+    Publicly available
+    """
+    PUBLIC
+
+    """
+    Restricted to a subset of viewers
+    """
+    PRIVATE
+}
+
+"""
+The type of a Chart Entity
+"""
 enum ChartType {
     """
     Bar graph
@@ -2038,12 +2844,30 @@ enum ChartType {
     """
     TEXT
 
+    """
+    A line chart
+    """
     LINE
+
+    """
+    An area chart
+    """
     AREA
+
+    """
+    A histogram chart
+    """
     HISTOGRAM
+
+    """
+    A box plot chart
+    """
     BOX_PLOT
 }
 
+"""
+The query that was used to populate a Chart
+"""
 type ChartQuery {
     """
     Raw query to build a chart from input datasets
@@ -2056,6 +2880,9 @@ type ChartQuery {
     type: ChartQueryType!
 }
 
+"""
+The type of the Chart Query
+"""
 enum ChartQueryType {
     """
     Standard ANSI SQL
@@ -2068,19 +2895,621 @@ enum ChartQueryType {
     LOOKML
 }
 
-type MLModel implements EntityWithRelationships & Entity {
+
+"""
+A Data Flow Metadata Entity, representing an set of pipelined Data Job or Tasks required
+to produce an output Dataset. Also known as a Data Pipeline.
+"""
+type DataFlow implements Entity {
     """
-    The unique mlmodel URN
+    The primary key of a Data Flow
     """
     urn: String!
 
     """
-    GMS Entity Type
+    A standard Entity Type
     """
     type: EntityType!
 
     """
-    MLModel native name
+    Workflow orchestrator ex: Azkaban, Airflow
+    """
+    orchestrator: String!
+
+    """
+    Id of the flow
+    """
+    flowId: String!
+
+    """
+    Cluster of the flow
+    """
+    cluster: String!
+
+    """
+    Additional read-only properties about a Data flow
+    """
+    properties: DataFlowProperties
+
+    """
+    Additional read-write properties about a Data Flow
+    """
+    editableProperties: DataFlowEditableProperties
+
+    """
+    Ownership metadata of the flow
+    """
+    ownership: Ownership
+
+    """
+    The tags associated with the dataflow
+    """
+    tags: GlobalTags
+
+    """
+    Status metadata of the dataflow
+    """
+    status: Status
+
+    """
+    Edges extending from this entity.
+    """
+    relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+    """
+    Deprecated! Use properties field instead.
+    Additional read-only information about a Data flow
+    """
+    @deprecated
+    info: DataFlowInfo
+
+    """
+    Deprecated! Use tags field instead.
+    The structured tags associated with the dataflow
+    """
+    @deprecated
+    globalTags: GlobalTags
+
+    """
+    Deprecated! Use relationships field instead.
+    Data Jobs
+    """
+    @deprecated
+    dataJobs: DataFlowDataJobsRelationships
+}
+
+"""
+Deprecated! Use DataFlowProperties instead.
+Additional read-only properties about a Data Flow (Pipeline)
+"""
+@deprecated
+type DataFlowInfo {
+    """
+    Display name of the flow
+    """
+    name: String!
+
+    """
+    Description of the flow
+    """
+    description: String
+
+    """
+    Optional project/namespace associated with the flow
+    """
+    project: String
+
+    """
+    External URL associated with the DataFlow
+    """
+    externalUrl: String
+
+    """
+    A list of platform-specific metadata tuples
+    """
+    customProperties: [StringMapEntry!]
+}
+
+"""
+Additional read-only properties about a Data Flow (Pipeline)
+"""
+type DataFlowProperties {
+    """
+    Display name of the flow
+    """
+    name: String!
+
+    """
+    Description of the flow
+    """
+    description: String
+
+    """
+    Optional project/namespace associated with the flow
+    """
+    project: String
+
+    """
+    External URL associated with the DataFlow
+    """
+    externalUrl: String
+
+    """
+    A list of platform-specific metadata tuples
+    """
+    customProperties: [StringMapEntry!]
+}
+
+"""
+A Data Job Metadata Entity, representing an individual unit of computation or Task
+to produce an output Dataset. Always part of a parent Data Flow (Pipeline)
+"""
+type DataJob implements EntityWithRelationships & Entity {
+    """
+    The primary key of the Data Job
+    """
+    urn: String!
+
+    """
+    A standard Entity Type
+    """
+    type: EntityType!
+
+    """
+    The associated data flow
+    """
+    dataFlow: DataFlow
+
+    """
+    Id of the job
+    """
+    jobId: String!
+
+    """
+    Additional read-only properties associated with the Data Job.
+    """
+    properties: DataJobProperties
+
+    """
+    Additional read-write properties associated with the Data Job.
+    """
+    editableProperties: DataJobEditableProperties
+
+    """
+    Ownership metadata of the job
+    """
+    ownership: Ownership
+
+    """
+    Information about the inputs and outputs of a Data processing job
+    """
+    inputOutput: DataJobInputOutput
+
+    """
+    Status metadata of the DataJob
+    """
+    status: Status
+
+    """
+    Edges extending from this entity.
+    """
+    relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+    """
+    Deprecated! Use properties field instead.
+    Additional read-only information about a Data processing job
+    """
+    @deprecated
+    info: DataJobInfo
+
+    """
+    Deprecated! Use relationships field instead.
+    Entities upstream of the given entity
+    """
+    @deprecated
+    upstreamLineage: UpstreamEntityRelationships
+
+    """
+    Deprecated! Use relationships field instead.
+    Entities downstream of the given entity
+    """
+    @deprecated
+    downstreamLineage: DownstreamEntityRelationships
+
+    """
+    Deprecated! Use the tags field instead
+    The structured tags associated with the DataJob
+    """
+    @deprecated
+    globalTags: GlobalTags
+}
+
+"""
+Deprecated! Use DataJobProperties instead
+Additional read-only information about a Data Job (task)
+"""
+@deprecated
+type DataJobInfo {
+    """
+    Job display name
+    """
+    name: String!
+
+    """
+    Job description
+    """
+    description: String
+
+    """
+    External URL associated with the DataJob
+    """
+    externalUrl: String
+
+    """
+    A list of platform-specific metadata tuples
+    """
+    customProperties: [StringMapEntry!]
+}
+
+"""
+Additional read-only properties about a Data Job (task)
+"""
+type DataJobProperties {
+    """
+    Job display name
+    """
+    name: String!
+
+    """
+    Job description
+    """
+    description: String
+
+    """
+    External URL associated with the DataJob
+    """
+    externalUrl: String
+
+    """
+    A list of platform-specific metadata tuples
+    """
+    customProperties: [StringMapEntry!]
+}
+
+"""
+The lineage information for a DataJob.
+TODO: Rename this to align with other Lineage models.
+"""
+type DataJobInputOutput {
+    """
+    Deprecated! Use relationships field instead
+    Input datasets produced by the data job during processing
+    """
+    @deprecated
+    inputDatasets: [Dataset!]
+
+    """
+    Deprecated! Use relationships field instead.
+    Output datasets produced by the data job during processing
+    """
+    @deprecated
+    outputDatasets: [Dataset!]
+
+    """
+    Deprecated! Use relationships field instead.
+    Input datajobs that this data job depends on
+    """
+    @deprecated
+    inputDatajobs: [DataJob!]
+}
+
+"""
+Information about individual user usage of a Dataset
+"""
+type UserUsageCounts {
+    """
+    The user of the Dataset
+    """
+    user: CorpUser
+
+    """
+    The number of queries issued by the user
+    """
+    count: Int
+
+    """
+    The extracted user email. Note that this field will soon be deprecated and merged
+    with user.
+    """
+    userEmail: String
+}
+
+"""
+The result of a Dataset usage query
+"""
+type UsageQueryResult {
+    """
+    A set of relevant time windows for use in displaying usage statistics
+    """
+    buckets: [UsageAggregation]
+
+    """
+    A set of rolled up aggregations about the Dataset usage
+    """
+    aggregations: UsageQueryResultAggregations
+}
+
+"""
+A set of rolled up aggregations about the Dataset usage
+"""
+type UsageQueryResultAggregations {
+    """
+    The count of unique Dataset users within the queried time range
+    """
+    uniqueUserCount: Int
+
+    """
+    The specific per-user usage counts within the queried time range
+    """
+    users: [UserUsageCounts]
+
+    """
+    The specific per-field usage counts within the queried time range
+    """
+    fields: [FieldUsageCounts]
+
+    """
+    The total number of queries executed within the queried time range.
+    Note: This field will likely be deprecated in favor of a totalQueries field.
+    """
+    totalSqlQueries: Int
+}
+
+"""
+An aggregation of Dataset usage statistics
+"""
+type UsageAggregation {
+    """
+    The time window start time
+    """
+    bucket: Long
+
+    """
+    The time window span
+    """
+    duration: WindowDuration
+
+    """
+    The resource urn associated with the usage information, e.g. urn:li:dataset:x
+    """
+    resource: String
+
+    """
+    The rolled up usage metrics
+    """
+    metrics: UsageAggregationMetrics
+}
+
+type UsageAggregationMetrics {
+    uniqueUserCount: Int
+    users: [UserUsageCounts]
+    totalSqlQueries: Int
+    topSqlQueries: [String]
+    fields: [FieldUsageCounts]
+}
+
+"""
+The usage for a particular Dataset field
+"""
+type FieldUsageCounts {
+    """
+    The path of the field
+    """
+    fieldName: String
+
+    """
+    The count of usages
+    """
+    count: Int
+}
+
+"""
+The duration of a fixed window of time
+"""
+enum WindowDuration {
+    """
+    A one-day window
+    """
+    DAY
+
+    """
+    A one-week window
+    """
+    WEEK
+
+    """
+    A one-month window
+    """
+    MONTH
+
+    """
+    A one-year window
+    """
+    YEAR
+}
+
+"""
+A time range used in fetching Dataset Usage statistics
+"""
+enum TimeRange {
+    """
+    Last day
+    """
+    DAY
+
+    """
+    Last week
+    """
+    WEEK
+
+    """
+    Last month
+    """
+    MONTH
+
+    """
+    Last quarter
+    """
+    QUARTER
+
+    """
+    Last year
+    """
+    YEAR
+
+    """
+    All time
+    """
+    ALL
+}
+
+"""
+A Dataset Profile associated with a Dataset, containing profiling statistics about the
+Dataset
+"""
+type DatasetProfile implements TimeSeriesAspect {
+  """
+  The time at which the profile was reported
+  """
+  timestampMillis: Long!
+
+  """
+  An optional row count of the Dataset
+  """
+  rowCount: Long
+
+  """
+  An optional column count of the Dataset
+  """
+  columnCount: Long
+
+  """
+  An optional set of per-field statistics obtained in the profile
+  """
+  fieldProfiles: [DatasetFieldProfile!]
+
+  """
+  Information about the partition that was profiled
+  """
+  partitionSpec: PartitionSpec
+}
+
+"""
+An individual Dataset Field Profile
+"""
+type DatasetFieldProfile {
+  """
+  The standardized path of the field
+  """
+	fieldPath: String!
+
+  """
+  The unique value count for the field across the Dataset
+  """
+	uniqueCount: Long
+
+  """
+  The proportion of rows with unique values across the Dataset
+  """
+	uniqueProportion: Float
+
+  """
+  The number of null row values across the Dataset
+  """
+	nullCount: Long
+
+  """
+  The proportion of rows with null values across the Dataset
+  """
+	nullProportion: Float
+
+  """
+  The min value for the field
+  """
+	min: String
+
+  """
+  The max value for the field
+  """
+	max: String
+
+  """
+  The mean value for the field
+  """
+	mean: String
+
+  """
+  The median value for the field
+  """
+	median: String
+
+  """
+  The standard deviation for the field
+  """
+	stdev: String
+
+  """
+  A set of sample values for the field
+  """
+	sampleValues: [String!]
+}
+
+"""
+Information about the partition being profiled.
+"""
+type PartitionSpec {
+  """
+  The partition identifier
+  """
+  partition: String!
+
+  """
+  The optional time-window partition information
+  """
+  timePartition: TimeWindow
+}
+
+"""
+A time window with a finite start and end time
+"""
+type TimeWindow {
+  """
+  The start time of the time window
+  """
+  startTimeMillis: Long!
+
+  """
+  The end time of the time window
+  """
+  durationMillis: Long!
+}
+
+"""
+An ML Model Metadata Entity. Note that this entity is incubating.
+"""
+type MLModel implements EntityWithRelationships & Entity {
+    """
+    The primary key of the ML model
+    """
+    urn: String!
+
+    """
+    A standard Entity Type
+    """
+    type: EntityType!
+
+    """
+    ML model display name
     """
     name: String!
 
@@ -2098,15 +3527,18 @@ type MLModel implements EntityWithRelationships & Entity {
     Human readable description for mlmodel
     """
     description: String
-    """
-    Tags used for searching mlmodel
-    """
-    tags: [String!]!
-    """
 
-    gloablTags for mlmodel
     """
+    Deprecated! Use tags field instead
+    The standard tags for the ML Model
+    """
+    @deprecated
     globalTags: GlobalTags
+
+    """
+    The standard tags for the ML Model
+    """
+    tags: GlobalTags
 
     """
     Ownership metadata of the mlmodel
@@ -2114,8 +3546,10 @@ type MLModel implements EntityWithRelationships & Entity {
     ownership: Ownership
 
     """
-    ModelProperties metadata of the mlmodel
+    Deprecated! Use info instead.
+    Additional read-only information about the ML Model
     """
+    @deprecated
     properties: MLModelProperties
 
     """
@@ -2184,35 +3618,41 @@ type MLModel implements EntityWithRelationships & Entity {
     deprecation: Deprecation
 
     """
+    Deprecated! Use relationships field instead.
     Entities upstream of the given entity
     """
+    @deprecated
     upstreamLineage: UpstreamEntityRelationships
 
     """
+    Deprecated! Use relationships field instead.
     Entities downstream of the given entity
     """
+    @deprecated
     downstreamLineage: DownstreamEntityRelationships
 
     """
     Edges extending from this entity.
     """
-    relationships(types: [String!]!, direction: RelationshipDirection!, start: Int, count: Int): EntityRelationshipsResult
+    relationships(input: RelationshipsInput!): EntityRelationshipsResult
 }
 
+"""
+An ML Model Group Metadata Entity. Note that this entity is incubating.
+"""
 type MLModelGroup implements EntityWithRelationships & Entity {
-
     """
-    The unique mlmodel URN
+    The primary key of the ML Model Group
     """
     urn: String!
 
     """
-    GMS Entity Type
+    A standard Entity Type
     """
     type: EntityType!
 
     """
-    MLModelGroup name
+    The display name for the Entity
     """
     name: String!
 
@@ -2231,6 +3671,9 @@ type MLModelGroup implements EntityWithRelationships & Entity {
     """
     description: String
 
+    """
+    Additional read-only properties about the ML Model Group
+    """
     properties: MLModelGroupProperties
 
     """
@@ -2249,19 +3692,23 @@ type MLModelGroup implements EntityWithRelationships & Entity {
     deprecation: Deprecation
 
     """
+    Deprecated! Use relationships field instead.
     Entities upstream of the given entity
     """
+    @deprecated
     upstreamLineage: UpstreamEntityRelationships
 
     """
+    Deprecated! Use relationships field instead.
     Entities downstream of the given entity
     """
+    @deprecated
     downstreamLineage: DownstreamEntityRelationships
 
     """
     Edges extending from this entity.
     """
-    relationships(types: [String!]!, direction: RelationshipDirection!, start: Int, count: Int): EntityRelationshipsResult
+    relationships(input: RelationshipsInput!): EntityRelationshipsResult
 }
 
 type MLModelGroupProperties {
@@ -2273,20 +3720,23 @@ type MLModelGroupProperties {
     version: VersionTag
 }
 
+"""
+An ML Feature Metadata Entity. Note that this entity is incubating.
+"""
 type MLFeature implements Entity {
 
     """
-    The unique MLFeature URN
+    The primary key of the ML Feature
     """
     urn: String!
 
     """
-    GMS Entity Type
+    A standard Entity Type
     """
     type: EntityType!
 
     """
-    MLFeature name
+    The display name for the ML Feature
     """
     name: String!
 
@@ -2296,7 +3746,7 @@ type MLFeature implements Entity {
     featureNamespace: String!
 
     """
-    MLFeature description
+    The description about the ML Feature
     """
     description: String
 
@@ -2333,7 +3783,7 @@ type MLFeature implements Entity {
     """
     Edges extending from this entity.
     """
-    relationships(types: [String!]!, direction: RelationshipDirection!, start: Int, count: Int): EntityRelationshipsResult
+    relationships(input: RelationshipsInput!): EntityRelationshipsResult
 }
 
 type MLHyperParam {
@@ -2383,7 +3833,7 @@ type MLModelProperties {
 
 type MLFeatureProperties {
 
-description: String
+    description: String
 
     dataType: MLFeatureDataType
 
@@ -2392,20 +3842,22 @@ description: String
     sources: [Dataset]
 }
 
+"""
+An ML Primary Key Entity. Note that this entity is incubating.
+"""
 type MLPrimaryKey implements Entity {
-
     """
-    The unique MLPrimaryKey URN
+    The primary key of the ML Primary Key
     """
     urn: String!
 
     """
-    GMS Entity Type
+    A standard Entity Type
     """
     type: EntityType!
 
     """
-    MLPrimaryKey name
+    The display name
     """
     name: String!
 
@@ -2425,8 +3877,15 @@ type MLPrimaryKey implements Entity {
     dataType: MLFeatureDataType
 
     """
+    Additional read-only properties of the ML Primary Key
+    """
+    properties: MLPrimaryKeyProperties
+
+    """
+    Deprecated! Use properties field instead.
     MLPrimaryKeyProperties
     """
+    @deprecated
     primaryKeyProperties: MLPrimaryKeyProperties
 
     """
@@ -2452,7 +3911,7 @@ type MLPrimaryKey implements Entity {
     """
     Edges extending from this entity.
     """
-    relationships(types: [String!]!, direction: RelationshipDirection!, start: Int, count: Int): EntityRelationshipsResult
+    relationships(input: RelationshipsInput!): EntityRelationshipsResult
 }
 
 type MLPrimaryKeyProperties {
@@ -2466,20 +3925,22 @@ type MLPrimaryKeyProperties {
     sources: [Dataset]
 }
 
+"""
+An ML Feature Table Entity. Note that this entity is incubating.
+"""
 type MLFeatureTable implements Entity {
-
     """
-    The unique MLFeatureTable URN
+    The primary key of the ML Feature Table
     """
     urn: String!
 
     """
-    GMS Entity Type
+    A standard Entity Type
     """
     type: EntityType!
 
     """
-    MLFeatureTable name
+    The display name
     """
     name: String!
 
@@ -2499,8 +3960,15 @@ type MLFeatureTable implements Entity {
     ownership: Ownership
 
     """
+    Additional read-only properties associated witht the ML Feature Table
+    """
+    properties: MLFeatureTableProperties
+
+    """
+    Deprecated! Use properties field instead.
     ModelProperties metadata of the MLFeature
     """
+    @deprecated
     featureTableProperties: MLFeatureTableProperties
 
     """
@@ -2521,7 +3989,7 @@ type MLFeatureTable implements Entity {
     """
     Edges extending from this entity.
     """
-    relationships(types: [String!]!, direction: RelationshipDirection!, start: Int, count: Int): EntityRelationshipsResult
+    relationships(input: RelationshipsInput!): EntityRelationshipsResult
 }
 
 type MLFeatureTableProperties {
@@ -2557,7 +4025,6 @@ type BooleanBox {
 union HyperParameterValueType = StringBox | IntBox | FloatBox | BooleanBox
 
 type MLModelFactorPrompts {
-
     """
     What are foreseeable salient factors for which MLModel performance may vary, and how were these determined?
     """
@@ -2570,7 +4037,6 @@ type MLModelFactorPrompts {
 }
 
 type MLModelFactors {
-
     """
     Distinct categories with similar characteristics that are present in the evaluation data instances.
     """
@@ -2602,7 +4068,6 @@ type QuantitativeAnalyses {
 union ResultsType = StringBox
 
 type CaveatsAndRecommendations {
-
     """
     Caveats on using this MLModel
     """
@@ -2618,8 +4083,8 @@ type CaveatsAndRecommendations {
     """
     idealDatasetCharacteristics: [String!]
 }
-type CaveatDetails {
 
+type CaveatDetails {
     """
     Did the results suggest any further testing?
     """
@@ -2637,7 +4102,6 @@ type CaveatDetails {
 }
 
 type EthicalConsiderations {
-
     """
     Does the model use any sensitive data (e.g., protected classes)?
     """
@@ -2665,7 +4129,6 @@ type EthicalConsiderations {
 }
 
 type BaseData {
-
     """
     Dataset used for the Training/Evaluation of the MLModel
     """
@@ -2683,9 +4146,8 @@ type BaseData {
 }
 
 type Metrics {
-
     """
-    Measures of MLModel performance
+    Measures of ML Model performance
     """
     performanceMeasures: [String!]
 
@@ -2693,11 +4155,9 @@ type Metrics {
     Decision Thresholds used (if any)?
     """
     decisionThreshold: [String!]
-
 }
 
 type IntendedUse {
-
     """
     Primary Use cases for the model.
     """
@@ -2715,7 +4175,6 @@ type IntendedUse {
 }
 
 enum IntendedUserType {
-
     """
     Developed for Enterprise Users
     """
@@ -2740,7 +4199,6 @@ type SourceCode {
 }
 
 type SourceCodeUrl {
-
     """
     Source Code Url Types
     """
@@ -2753,7 +4211,6 @@ type SourceCodeUrl {
 }
 
 enum SourceCodeUrlType {
-
     """
     MLModel Source Code
     """
@@ -2771,7 +4228,6 @@ enum SourceCodeUrlType {
 }
 
 type Cost {
-
     """
     Type of Cost Code
     """
@@ -2784,7 +4240,6 @@ type Cost {
 }
 
 type CostValue {
-
     """
     Organizational Cost ID
     """
@@ -2797,13 +4252,15 @@ type CostValue {
 }
 
 enum CostType {
-
     """
     Org Cost Type to which the Cost of this entity should be attributed to
     """
     ORG_COST_TYPE
 }
 
+"""
+Information about Metadata Entity deprecation status.
+"""
 type Deprecation {
     """
     Whether the entity has been deprecated by owner
@@ -2826,421 +4283,52 @@ type Deprecation {
     actor: String
 }
 
-type DataFlow implements Entity {
+"""
+Input provided when updating the association between a Metadata Entity and a Glossary Term
+"""
+input TermUpdateInput {
     """
-    The unique flow URN
+    The primary key (urn) of the Glossary Term to add / remove
     """
-    urn: String!
+    termUrn: String!
 
     """
-    GMS Entity Type
+    The target Metadata Entity to add / remove the Glossary Term from
     """
-    type: EntityType!
+    targetUrn: String!
 
     """
-    Workflow orchestrator ex: Azkaban, Airflow
+    An optional type of a sub resource to attach the Glossary Term to
     """
-    orchestrator: String!
+    subResourceType: String
 
     """
-    Id of the flow
+    An optional sub resource identifier to attach the Glossary Term to
     """
-    flowId: String!
-
-    """
-    Cluster of the flow
-    """
-    cluster: String!
-
-    """
-    Information about a Data processing flow
-    """
-    info: DataFlowInfo
-
-    """
-    Ownership metadata of the flow
-    """
-    ownership: Ownership
-
-    """
-    The structured tags associated with the dataflow
-    """
-    globalTags: GlobalTags
-
-    """
-    Status metadata of the dataflow
-    """
-    status: Status
-
-    """
-    DataJobs
-    """
-    dataJobs: DataFlowDataJobsRelationships
-
-    """
-    Editable properties
-    """
-    editableProperties: DataFlowEditableProperties
-
-    """
-    Edges extending from this entity.
-    """
-    relationships(types: [String!]!, direction: RelationshipDirection!, start: Int, count: Int): EntityRelationshipsResult
+    subResource: String
 }
 
-type DataFlowInfo {
+"""
+Input provided when updating the association between a Metadata Entity and a Tag
+"""
+input TagUpdateInput {
     """
-    Name of the flow
+    The primary key (urn) of the Tag to add / remove
     """
-    name: String!
-
-    """
-    Description of the flow
-    """
-    description: String
+    tagUrn: String!
 
     """
-    Optional project/namespace associated with the flow
+    The target Metadata Entity to add / remove the Tag to
     """
-    project: String
-
-    """
-    External URL associated with the DataFlow
-    """
-    externalUrl: String
+    targetUrn: String!
 
     """
-    A list of platform-specific metadata tuples
+    An optional type of a sub resource to attach the Tag to
     """
-    customProperties: [StringMapEntry!]
-}
-
-type DataJob implements EntityWithRelationships & Entity {
-    """
-    The unique job URN
-    """
-    urn: String!
+    subResourceType: String
 
     """
-    GMS Entity Type
+    An optional sub resource identifier to attach the Tag to
     """
-    type: EntityType!
-
-    """
-    The associated data flow
-    """
-    dataFlow: DataFlow
-
-    """
-    Id of the job
-    """
-    jobId: String!
-
-    """
-    Information about a Data processing job
-    """
-    info: DataJobInfo
-
-    """
-    Ownership metadata of the job
-    """
-    ownership: Ownership
-
-    """
-    Information about the inputs and outputs of a Data processing job
-    """
-    inputOutput: DataJobInputOutput
-
-    """
-    Entities upstream of the given entity
-    """
-    upstreamLineage: UpstreamEntityRelationships
-
-    """
-    Entities downstream of the given entity
-    """
-    downstreamLineage: DownstreamEntityRelationships
-
-    """
-    The structured tags associated with the DataJob
-    """
-    globalTags: GlobalTags
-
-    """
-    Status metadata of the DataJob
-    """
-    status: Status
-
-    """
-    Editable properties
-    """
-    editableProperties: DataJobEditableProperties
-
-    """
-    Edges extending from this entity.
-    """
-    relationships(types: [String!]!, direction: RelationshipDirection!, start: Int, count: Int): EntityRelationshipsResult
-}
-
-type DataJobInfo {
-    """
-    Job name
-    """
-    name: String!
-
-    """
-    Job description
-    """
-    description: String
-
-    """
-    External URL associated with the DataJob
-    """
-    externalUrl: String
-
-    """
-    A list of platform-specific metadata tuples
-    """
-    customProperties: [StringMapEntry!]
-}
-
-type DataJobInputOutput {
-    """
-    Input datasets produced by the data job during processing
-    """
-    inputDatasets: [Dataset!]
-
-    """
-    Output datasets produced by the data job during processing
-    """
-    outputDatasets: [Dataset!]
-
-    """
-    Input datajobs that this data job depends on
-    """
-    inputDatajobs: [DataJob!]
-
-}
-
-type UserUsageCounts {
-    user: CorpUser
-    count: Int
-    userEmail: String
-}
-
-type UsageQueryResult {
-    buckets: [UsageAggregation]
-    aggregations: UsageQueryResultAggregations
-}
-
-type UsageQueryResultAggregations {
-    uniqueUserCount: Int
-    users: [UserUsageCounts]
-    fields: [FieldUsageCounts]
-    totalSqlQueries: Int
-}
-
-type UsageAggregationMetrics {
-    uniqueUserCount: Int
-    users: [UserUsageCounts]
-    totalSqlQueries: Int
-    topSqlQueries: [String]
-    fields: [FieldUsageCounts]
-}
-
-type UsageAggregation {
-    bucket: Long
-    duration: WindowDuration
-    resource: String
-    metrics: UsageAggregationMetrics
-}
-
-type FieldUsageCounts {
-    fieldName: String
-    count: Int
-}
-
-enum WindowDuration {
-    DAY
-    WEEK
-    MONTH
-    YEAR
-}
-
-enum TimeRange {
-    DAY
-    WEEK
-    MONTH
-    QUARTER
-    YEAR
-    ALL
-}
-
-type DatasetFieldProfile {
-	fieldPath: String!
-	uniqueCount: Long
-	uniqueProportion: Float
-	nullCount: Long
-	nullProportion: Float
-	min: String
-	max: String
-	mean: String
-	median: String
-	stdev: String
-	sampleValues: [String!]
-}
-
-type TimeWindow {
-  startTimeMillis: Long!
-  durationMillis: Long!
-}
-
-type PartitionSpec {
-  partition: String!
-  timePartition: TimeWindow
-}
-
-type DatasetProfile implements TimeSeriesAspect {
-  timestampMillis: Long!
-  rowCount: Long
-  columnCount: Long
-  fieldProfiles: [DatasetFieldProfile!]
-  partitionSpec: PartitionSpec
-}
-
-enum PolicyType {
-  METADATA
-  PLATFORM
-}
-
-enum PolicyState {
-  DRAFT
-  ACTIVE
-  INACTIVE
-}
-
-type Policy {
-  urn: String!
-  type: PolicyType!
-  name: String!
-  state: PolicyState!
-  description: String
-  resources: ResourceFilter
-  privileges: [String!]!
-  actors: ActorFilter!
-  editable: Boolean!
-}
-
-type ResourceFilter {
-  """
-  The type of the resource the policy should apply to. Not required because in the future we want to support
-  filtering by type OR by domain
-  """
-  type: String!
-
-  """
-  A list of specific resource urns to apply the filter to
-  """
-  resources: [String!]
-
-  """
-  Whether of not to apply the filter to all resources of the type
-  """
-  allResources: Boolean!
-}
-
-type ActorFilter {
-  """
-  A specific set of users to apply the policy to (disjunctive)
-  """
-  users: [String!]
-
-  """
-  A specific set of groups to apply the policy to (disjunctive)
-  """
-  groups: [String!]
-
-  """
-  Whether the filter should return true for owners of a particular resource.
-  Only applies to policies of type 'Metadata', which have a resource associated with them.
-  """
-  resourceOwners: Boolean!
-
-  """
-  Whether the filter should apply to all users.
-  """
-  allUsers: Boolean!
-
-  """
-  Whether the filter should apply to all groups.
-  """
-  allGroups: Boolean!
-}
-
-input PolicyInput {
-  type: PolicyType!
-  name: String!
-  state: PolicyState!
-  description: String
-  resources: ResourceFilterInput
-  privileges: [String!]!
-  actors: ActorFilterInput!
-}
-
-input ResourceFilterInput {
-  """
-  The type of the resource the policy should apply to. Not required because in the future we want to support
-  filtering by type OR by domain
-  """
-  type: String!
-
-  """
-  A list of specific resource urns to apply the filter to
-  """
-  resources: [String!]
-
-  """
-  Whether of not to apply the filter to all resources of the type
-  """
-  allResources: Boolean!
-}
-
-input ActorFilterInput {
-  """
-  A specific set of users to apply the policy to (disjunctive)
-  """
-  users: [String!]
-
-  """
-  A specific set of groups to apply the policy to (disjunctive)
-  """
-  groups: [String!]
-
-  """
-  Whether the filter should return true for owners of a particular resource.
-  Only applies to policies of type 'Metadata', which have a resource associated with them.
-  """
-  resourceOwners: Boolean!
-
-  """
-  Whether the filter should apply to all users.
-  """
-  allUsers: Boolean!
-
-  """
-  Whether the filter should apply to all groups.
-  """
-  allGroups: Boolean!
-}
-
-input ListPoliciesInput {
-  start: Int
-  count: Int
-}
-
-type ListPoliciesResult {
-  start: Int!
-  count: Int!
-  total: Int!
-  policies: [Policy!]!
+    subResource: String
 }
