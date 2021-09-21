@@ -111,7 +111,9 @@ Join our [slack workspace](https://slack.datahubproject.io) for discussions and 
 
 Here are the companies that have officially adopted DataHub. Please feel free to add yours to the list if we missed it.
 
+- [Banksalad](https://www.banksalad.com)
 - [DefinedCrowd](http://www.definedcrowd.com)
+- [DFDS](https://www.dfds.com/)
 - [Expedia Group](http://expedia.com)
 - [Experius](https://www.experius.nl)
 - [Geotab](https://www.geotab.com)
@@ -122,6 +124,7 @@ Here are the companies that have officially adopted DataHub. Please feel free to
 - [Shanghai HuaRui Bank](https://www.shrbank.com)
 - [ThoughtWorks](https://www.thoughtworks.com)
 - [TypeForm](http://typeform.com)
+- [Uphold](https://uphold.com)
 - [Viasat](https://viasat.com)
 - [Wolt](https://wolt.com)
 

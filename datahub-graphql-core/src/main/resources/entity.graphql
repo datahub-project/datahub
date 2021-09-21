@@ -3537,17 +3537,27 @@ input TermAssociationInput {
     """
     The target Metadata Entity to add or remove the Glossary Term from
     """
-    targetUrn: String!
+    resourceUrn: String!
 
     """
     An optional type of a sub resource to attach the Glossary Term to
     """
-    subResourceType: String
+    subResourceType: SubResourceType
 
     """
     An optional sub resource identifier to attach the Glossary Term to
     """
     subResource: String
+}
+
+"""
+A type of Metadata Entity sub resource
+"""
+enum SubResourceType {
+    """
+    A Dataset field or column
+    """
+    DATASET_FIELD
 }
 
 """
@@ -3562,12 +3572,12 @@ input TagAssociationInput {
     """
     The target Metadata Entity to add or remove the Tag to
     """
-    targetUrn: String!
+    resourceUrn: String!
 
     """
     An optional type of a sub resource to attach the Tag to
     """
-    subResourceType: String
+    subResourceType: SubResourceType
 
     """
     An optional sub resource identifier to attach the Tag to

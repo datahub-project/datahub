@@ -436,4 +436,6 @@ public abstract class EntityService {
   public abstract RollbackRunResult rollbackRun(List<AspectRowSummary> aspectRows, String runId);
 
   public abstract RollbackRunResult deleteUrn(Urn urn);
+
+  public abstract Boolean exists(Urn urn);
 }
