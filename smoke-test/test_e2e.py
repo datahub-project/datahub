@@ -811,7 +811,7 @@ def test_add_tag(frontend_session):
     assert res_data["data"]["dataset"]["globalTags"] == None
 
     add_json = {
-        "query": """mutation addTag($input: TagUpdateInput!) {\n
+        "query": """mutation addTag($input: TagAssociationInput!) {\n
             addTag(input: $input)
         }""",
         "variables": {
@@ -847,7 +847,7 @@ def test_add_tag(frontend_session):
     assert res_data["data"]["dataset"]["globalTags"] == {'tags': [{'tag': {'description': 'Indicates the dataset is no longer supported', 'name': 'Legacy', 'urn': 'urn:li:tag:Legacy'}}]}
 
     remove_json = {
-        "query": """mutation removeTag($input: TagUpdateInput!) {\n
+        "query": """mutation removeTag($input: TagAssociationInput!) {\n
             removeTag(input: $input)
         }""",
         "variables": {
@@ -924,7 +924,7 @@ def test_add_term(frontend_session):
     assert res_data["data"]["dataset"]["glossaryTerms"] == None
 
     add_json = {
-        "query": """mutation addTerm($input: TermUpdateInput!) {\n
+        "query": """mutation addTerm($input: TermAssociationInput!) {\n
             addTerm(input: $input)
         }""",
         "variables": {
@@ -960,7 +960,7 @@ def test_add_term(frontend_session):
     assert res_data["data"]["dataset"]["glossaryTerms"] == {'terms': [{'term': {'name': 'SavingAccount', 'urn': 'urn:li:glossaryTerm:SavingAccount'}}]}
 
     remove_json = {
-        "query": """mutation removeTerm($input: TermUpdateInput!) {\n
+        "query": """mutation removeTerm($input: TermAssociationInput!) {\n
             removeTerm(input: $input)
         }""",
         "variables": {
@@ -1074,7 +1074,7 @@ def test_add_tag_and_term_to_schemafield(frontend_session):
     assert res_data["data"]["dataset"]["editableSchemaMetadata"] == None
 
     add_json = {
-        "query": """mutation addTag($input: TagUpdateInput!) {\n
+        "query": """mutation addTag($input: TagAssociationInput!) {\n
             addTag(input: $input)
         }""",
         "variables": {
@@ -1112,7 +1112,7 @@ def test_add_tag_and_term_to_schemafield(frontend_session):
     assert res_data["data"]["dataset"]["editableSchemaMetadata"] == {'editableSchemaFieldInfo': [{'globalTags': {'tags': [{'tag': {'description': 'Indicates the dataset is no longer supported', 'name': 'Legacy', 'urn': 'urn:li:tag:Legacy'}}]}}]}
 
     remove_json = {
-        "query": """mutation removeTag($input: TagUpdateInput!) {\n
+        "query": """mutation removeTag($input: TagAssociationInput!) {\n
             removeTag(input: $input)
         }""",
         "variables": {
@@ -1150,7 +1150,7 @@ def test_add_tag_and_term_to_schemafield(frontend_session):
     assert res_data["data"]["dataset"]["editableSchemaMetadata"] == {'editableSchemaFieldInfo': [{'globalTags': {'tags': []}}]}
 
     add_json = {
-        "query": """mutation addTerm($input: TermUpdateInput!) {\n
+        "query": """mutation addTerm($input: TermAssociationInput!) {\n
             addTerm(input: $input)
         }""",
         "variables": {
@@ -1188,7 +1188,7 @@ def test_add_tag_and_term_to_schemafield(frontend_session):
     assert res_data["data"]["dataset"]["editableSchemaMetadata"] == {'editableSchemaFieldInfo': [{'glossaryTerms': {'terms': [{'term': {'name': 'SavingAccount', 'urn': 'urn:li:glossaryTerm:SavingAccount'}}]}}]}
 
     remove_json = {
-        "query": """mutation removeTerm($input: TermUpdateInput!) {\n
+        "query": """mutation removeTerm($input: TermAssociationInput!) {\n
             removeTerm(input: $input)
         }""",
         "variables": {
