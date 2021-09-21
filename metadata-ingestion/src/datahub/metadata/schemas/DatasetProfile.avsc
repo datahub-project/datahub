@@ -6,7 +6,93 @@
   "fields": [
     {
       "name": "timestampMillis",
-      "type": "long"
+      "type": "long",
+      "doc": "The event timestamp field as epoch at UTC in milli seconds."
+    },
+    {
+      "name": "eventGranularity",
+      "type": [
+        "null",
+        {
+          "type": "record",
+          "name": "TimeWindowSize",
+          "namespace": "com.linkedin.pegasus2avro.timeseries",
+          "doc": "Defines the size of a time window.",
+          "fields": [
+            {
+              "name": "unit",
+              "type": {
+                "type": "enum",
+                "name": "CalendarInterval",
+                "symbols": [
+                  "SECOND",
+                  "MINUTE",
+                  "HOUR",
+                  "DAY",
+                  "WEEK",
+                  "MONTH",
+                  "QUARTER",
+                  "YEAR"
+                ]
+              },
+              "doc": "Interval unit such as minute/hour/day etc."
+            },
+            {
+              "name": "multiple",
+              "type": "int",
+              "doc": "How many units. Defaults to 1.",
+              "default": 1
+            }
+          ]
+        }
+      ],
+      "doc": "Granularity of the event if applicable",
+      "default": null
+    },
+    {
+      "name": "partitionSpec",
+      "type": [
+        "null",
+        {
+          "type": "record",
+          "name": "PartitionSpec",
+          "namespace": "com.linkedin.pegasus2avro.timeseries",
+          "doc": "Defines how the data is partitioned",
+          "fields": [
+            {
+              "name": "partition",
+              "type": "string",
+              "doc": "String representation of the partition"
+            },
+            {
+              "name": "timePartition",
+              "type": [
+                "null",
+                {
+                  "type": "record",
+                  "name": "TimeWindow",
+                  "fields": [
+                    {
+                      "name": "startTimeMillis",
+                      "type": "long",
+                      "doc": "Start time as epoch at UTC."
+                    },
+                    {
+                      "name": "length",
+                      "type": "TimeWindowSize",
+                      "doc": "The length of the window."
+                    }
+                  ]
+                }
+              ],
+              "doc": "Time window of the partition if applicable",
+              "default": null
+            }
+          ]
+        }
+      ],
+      "doc": "The optional partition specification.",
+      "default": null
     },
     {
       "name": "rowCount",

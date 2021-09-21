@@ -8,7 +8,7 @@ import { useEntityRegistry } from '../../../useEntityRegistry';
 import { AvatarsGroup } from '../../../shared/avatar';
 import CompactContext from '../../../shared/CompactContext';
 import { capitalizeFirstLetter } from '../../../shared/capitalizeFirstLetter';
-import UpdatableDescription from '../../shared/UpdatableDescription';
+import UpdatableDescription from '../../shared/components/legacy/UpdatableDescription';
 import UsageFacepile from './UsageFacepile';
 
 export type Props = {

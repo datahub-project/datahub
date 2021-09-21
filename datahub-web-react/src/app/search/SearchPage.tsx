@@ -27,18 +27,26 @@ const StyledTabs = styled(Tabs)`
         }
         padding-top: 12px;
         margin-bottom: 16px;
+        .ant-tabs-tab-btn {
+            display: flex;
+            align-items: center;
+        }
+        .ant-tabs-tab .anticon {
+            margin-right: 8px;
+        }
     }
 `;
 
 const StyledTab = styled.span`
     &&& {
-        font-size: 20px;
+        font-size: 18px;
+        padding-bottom: 2px;
     }
 `;
 const StyledNumberInTab = styled.span`
     &&& {
         padding-left: 8px;
-        font-size: 20px;
+        font-size: 14px;
         color: gray;
     }
 `;
@@ -155,7 +163,7 @@ export const SearchPage = () => {
 
     return (
         <SearchablePage initialQuery={query} onSearch={onSearch}>
-            <Affix offsetTop={80}>
+            <Affix offsetTop={60}>
                 <StyledTabs
                     activeKey={activeType ? entityRegistry.getCollectionName(activeType) : ALL_ENTITIES_TAB_NAME}
                     size="large"
@@ -166,7 +174,7 @@ export const SearchPage = () => {
                         <Tabs.TabPane
                             tab={
                                 <>
-                                    {entityRegistry.getIcon(type, 16, IconStyleType.TAB_VIEW)}
+                                    {entityRegistry.getIcon(type, 12, IconStyleType.TAB_VIEW)}
                                     <StyledTab>{entityRegistry.getCollectionName(type)}</StyledTab>
                                     {resultCounts[type] ? (
                                         <StyledNumberInTab>{`${countFormatter(

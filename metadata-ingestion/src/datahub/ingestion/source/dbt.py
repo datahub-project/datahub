@@ -49,6 +49,7 @@ class DBTConfig(ConfigModel):
     env: str = DEFAULT_ENV
     target_platform: str
     load_schemas: bool
+    use_identifiers: bool = False
     node_type_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
 
 
@@ -105,9 +106,9 @@ def get_columns(catalog_node: dict, manifest_node: dict) -> List[DBTColumn]:
         raw_column = raw_columns[key]
 
         dbtCol = DBTColumn(
-            name=raw_column["name"],
+            name=raw_column["name"].lower(),
             comment=raw_column.get("comment", ""),
-            description=manifest_columns.get(key, {}).get("description", ""),
+            description=manifest_columns.get(key.lower(), {}).get("description", ""),
             data_type=raw_column["type"],
             index=raw_column["index"],
         )
@@ -119,7 +120,8 @@ def extract_dbt_entities(
     all_manifest_entities: Dict[str, Dict[str, Any]],
     all_catalog_entities: Dict[str, Dict[str, Any]],
     sources_results: List[Dict[str, Any]],
-    load_catalog: bool,
+    load_schemas: bool,
+    use_identifiers: bool,
     target_platform: str,
     environment: str,
     node_type_pattern: AllowDenyPattern,
@@ -136,7 +138,7 @@ def extract_dbt_entities(
 
         name = manifest_node["name"]
 
-        if "identifier" in manifest_node and not load_catalog:
+        if "identifier" in manifest_node and use_identifiers:
             name = manifest_node["identifier"]
 
         if manifest_node.get("alias") is not None:
@@ -160,7 +162,8 @@ def extract_dbt_entities(
             upstream_urns = get_upstreams(
                 manifest_node["depends_on"]["nodes"],
                 all_manifest_entities,
-                load_catalog,
+                load_schemas,
+                use_identifiers,
                 target_platform,
                 environment,
             )
@@ -205,7 +208,7 @@ def extract_dbt_entities(
 
         # overwrite columns from catalog
         if (
-            dbtNode.materialization != "ephemeral" and load_catalog
+            dbtNode.materialization != "ephemeral" and load_schemas
         ):  # we don't want columns if platform isn't 'dbt'
             logger.debug("Loading schema info")
             catalog_node = all_catalog_entities.get(key)
@@ -230,7 +233,8 @@ def loadManifestAndCatalog(
     manifest_path: str,
     catalog_path: str,
     sources_path: Optional[str],
-    load_catalog: bool,
+    load_schemas: bool,
+    use_identifiers: bool,
     target_platform: str,
     environment: str,
     node_type_pattern: AllowDenyPattern,
@@ -269,7 +273,8 @@ def loadManifestAndCatalog(
         all_manifest_entities,
         all_catalog_entities,
         sources_results,
-        load_catalog,
+        load_schemas,
+        use_identifiers,
         target_platform,
         environment,
         node_type_pattern,
@@ -310,7 +315,8 @@ def get_custom_properties(node: DBTNode) -> Dict[str, str]:
 def get_upstreams(
     upstreams: List[str],
     all_nodes: Dict[str, dict],
-    load_catalog: bool,
+    load_schemas: bool,
+    use_identifiers: bool,
     target_platform: str,
     environment: str,
 ) -> List[str]:
@@ -318,7 +324,7 @@ def get_upstreams(
 
     for upstream in upstreams:
 
-        if "identifier" in all_nodes[upstream] and not load_catalog:
+        if "identifier" in all_nodes[upstream] and use_identifiers:
             name = all_nodes[upstream]["identifier"]
         else:
             name = all_nodes[upstream]["name"]
@@ -401,7 +407,11 @@ def get_schema_metadata(
 
         description = None
 
-        if column.comment and column.description:
+        if (
+            column.comment
+            and column.description
+            and column.comment != column.description
+        ):
             description = f"{platform} comment: {column.comment}\n\ndbt model description: {column.description}"
         elif column.comment:
             description = column.comment
@@ -466,6 +476,7 @@ class DBTSource(Source):
             self.config.catalog_path,
             self.config.sources_path,
             self.config.load_schemas,
+            self.config.use_identifiers,
             self.config.target_platform,
             self.config.env,
             self.config.node_type_pattern,
@@ -494,7 +505,7 @@ class DBTSource(Source):
 
             description = None
 
-            if node.comment and node.description:
+            if node.comment and node.description and node.comment != node.description:
                 description = f"{self.config.target_platform} comment: {node.comment}\n\ndbt model description: {node.description}"
             elif node.comment:
                 description = node.comment

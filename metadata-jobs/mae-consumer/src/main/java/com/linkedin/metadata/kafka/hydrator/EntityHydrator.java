@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.Entity;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.r2.RemoteInvocationException;
 import java.net.URISyntaxException;
@@ -38,7 +39,7 @@ public class EntityHydrator {
     // Hydrate fields from snapshot
     Entity entity;
     try {
-      entity = (Entity) _entityClient.get(urnObj);
+      entity = (Entity) _entityClient.get(urnObj, Constants.SYSTEM_ACTOR);
     } catch (RemoteInvocationException e) {
       log.error("Error while calling GMS to hydrate entity for urn {}", urn);
       e.printStackTrace();

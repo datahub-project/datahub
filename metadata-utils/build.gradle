@@ -3,6 +3,8 @@ apply plugin: 'java'
 dependencies {
   compile externalDependency.avro_1_7
   compile externalDependency.commonsLang
+  compile externalDependency.dropwizardMetricsCore
+  compile externalDependency.dropwizardMetricsJmx
   compile externalDependency.elasticSearchRest
   compile externalDependency.gmaDaoApi
   compile externalDependency.gmaDaoApiDataTemplate
@@ -11,9 +13,10 @@ dependencies {
 
   compile spec.product.pegasus.restliClient
   compile spec.product.pegasus.restliCommon
+  compile spec.product.pegasus.restliServer
 
-  compile project(':entity-registry')
   compile project(':li-utils')
+  compile project(':entity-registry')
   compile project(':metadata-events:mxe-avro-1.7')
   compile project(':metadata-events:mxe-utils-avro-1.7')
 
@@ -21,5 +24,6 @@ dependencies {
 
   annotationProcessor externalDependency.lombok
 
+  testCompile project(':test-models')
   testCompile project(':metadata-testing:metadata-test-utils')
 }

@@ -1,0 +1,171 @@
+[
+  {
+    "auditHeader":null,
+    "entityType":"dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleHdfsDataset,PROD)",
+    "changeType":"UPSERT",
+    "aspectName":"datasetProfile",
+    "aspect":{
+      "value":"{\"timestampMillis\": 1629788400000, \"rowCount\": 3742, \"columnCount\": 5, \"fieldProfiles\": [{\"fieldPath\": \"shipment_info.date\", \"uniqueCount\": 3742, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"1626912000000\", \"1626912023232\", \"1626912000022\"]}, {\"fieldPath\": \"shipment_info.target\", \"uniqueCount\": 3742, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"This is a description for the shipment target Seattle.\"]}, {\"fieldPath\": \"destination\", \"uniqueCount\": 79, \"uniqueProportion\": 0.037, \"nullCount\": 0, \"nullProportion\": 0.0, \"distinctValueFrequencies\": [{\"value\": \"Seattle\", \"frequency\": 103}, {\"value\": \"Pittsburgh\", \"frequency\": 12}], \"sampleValues\": [\"Seattle\", \"Pittsburgh\", \"San Diego\"]}, {\"fieldPath\": \"geo_info.lat\", \"uniqueCount\": 3722, \"uniqueProportion\": 0.988208737864077669, \"nullCount\": 120, \"nullProportion\": 0.03, \"sampleValues\": [\"86.43\", \"87.02\"]}]}",
+      "contentType":"application/json"
+    },
+    "systemMetadata":null
+  },
+  {
+    "auditHeader":null,
+    "entityType":"dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleHdfsDataset,PROD)",
+
+    "changeType":"UPSERT",
+    "aspectName":"datasetProfile",
+    "aspect":{
+      "value":"{\"timestampMillis\": 1629702000000, \"rowCount\": 3742, \"columnCount\": 5, \"fieldProfiles\": [{\"fieldPath\": \"shipment_info.date\", \"uniqueCount\": 3742, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"1626912000000\", \"1626912023232\", \"1626912000022\"]}, {\"fieldPath\": \"shipment_info.target\", \"uniqueCount\": 3742, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"This is a description for the shipment target Seattle.\"]}, {\"fieldPath\": \"destination\", \"uniqueCount\": 79, \"uniqueProportion\": 0.037, \"nullCount\": 0, \"nullProportion\": 0.0, \"distinctValueFrequencies\": [{\"value\": \"Seattle\", \"frequency\": 103}, {\"value\": \"Pittsburgh\", \"frequency\": 12}], \"sampleValues\": [\"Seattle\", \"Pittsburgh\", \"San Diego\"]}, {\"fieldPath\": \"geo_info.lat\", \"uniqueCount\": 3722, \"uniqueProportion\": 0.988208737864077669, \"nullCount\": 120, \"nullProportion\": 0.03, \"sampleValues\": [\"86.43\", \"87.02\"]}]}",
+      "contentType":"application/json"
+    },
+    "systemMetadata":null
+  },
+  {
+    "auditHeader":null,
+    "entityType":"dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleHdfsDataset,PROD)",
+    "changeType":"UPSERT",
+    "aspectName":"datasetProfile",
+    "aspect":{
+      "value":"{\"timestampMillis\": 1629615600000, \"rowCount\": 3742, \"columnCount\": 5, \"fieldProfiles\": [{\"fieldPath\": \"shipment_info.date\", \"uniqueCount\": 3742, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"1626912000000\", \"1626912023232\", \"1626912000022\"]}, {\"fieldPath\": \"shipment_info.target\", \"uniqueCount\": 3742, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"This is a description for the shipment target Seattle.\"]}, {\"fieldPath\": \"destination\", \"uniqueCount\": 79, \"uniqueProportion\": 0.037, \"nullCount\": 0, \"nullProportion\": 0.0, \"distinctValueFrequencies\": [{\"value\": \"Seattle\", \"frequency\": 103}, {\"value\": \"Pittsburgh\", \"frequency\": 12}], \"sampleValues\": [\"Seattle\", \"Pittsburgh\", \"San Diego\"]}, {\"fieldPath\": \"geo_info.lat\", \"uniqueCount\": 3722, \"uniqueProportion\": 0.988208737864077669, \"nullCount\": 120, \"nullProportion\": 0.03, \"sampleValues\": [\"86.43\", \"87.02\"]}]}",
+      "contentType":"application/json"
+    },
+    "systemMetadata":null
+  },
+  {
+    "auditHeader":null,
+    "entityType":"dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleHdfsDataset,PROD)",
+    "changeType":"UPSERT",
+    "aspectName":"datasetProfile",
+    "aspect":{
+      "value":"{\"timestampMillis\": 1629529200000, \"rowCount\": 3742, \"columnCount\": 5, \"fieldProfiles\": [{\"fieldPath\": \"shipment_info.date\", \"uniqueCount\": 3742, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"1626912000000\", \"1626912023232\", \"1626912000022\"]}, {\"fieldPath\": \"shipment_info.target\", \"uniqueCount\": 3742, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"This is a description for the shipment target Seattle.\"]}, {\"fieldPath\": \"destination\", \"uniqueCount\": 79, \"uniqueProportion\": 0.037, \"nullCount\": 0, \"nullProportion\": 0.0, \"distinctValueFrequencies\": [{\"value\": \"Seattle\", \"frequency\": 103}, {\"value\": \"Pittsburgh\", \"frequency\": 12}], \"sampleValues\": [\"Seattle\", \"Pittsburgh\", \"San Diego\"]}, {\"fieldPath\": \"geo_info.lat\", \"uniqueCount\": 3722, \"uniqueProportion\": 0.988208737864077669, \"nullCount\": 120, \"nullProportion\": 0.03, \"sampleValues\": [\"86.43\", \"87.02\"]}]}",
+      "contentType":"application/json"
+    },
+    "systemMetadata":null
+  },
+  {
+    "auditHeader":null,
+    "entityType":"dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleHdfsDataset,PROD)",
+    "changeType":"UPSERT",
+    "aspectName":"datasetProfile",
+    "aspect":{
+      "value":"{\"timestampMillis\": 1629442800000, \"rowCount\": 3742, \"columnCount\": 5, \"fieldProfiles\": [{\"fieldPath\": \"shipment_info.date\", \"uniqueCount\": 3742, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"1626912000000\", \"1626912023232\", \"1626912000022\"]}, {\"fieldPath\": \"shipment_info.target\", \"uniqueCount\": 3742, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"This is a description for the shipment target Seattle.\"]}, {\"fieldPath\": \"destination\", \"uniqueCount\": 79, \"uniqueProportion\": 0.037, \"nullCount\": 0, \"nullProportion\": 0.0, \"distinctValueFrequencies\": [{\"value\": \"Seattle\", \"frequency\": 103}, {\"value\": \"Pittsburgh\", \"frequency\": 12}], \"sampleValues\": [\"Seattle\", \"Pittsburgh\", \"San Diego\"]}, {\"fieldPath\": \"geo_info.lat\", \"uniqueCount\": 3722, \"uniqueProportion\": 0.988208737864077669, \"nullCount\": 120, \"nullProportion\": 0.03, \"sampleValues\": [\"86.43\", \"87.02\"]}]}",
+      "contentType":"application/json"
+    },
+    "systemMetadata":null
+  },
+  {
+    "auditHeader":null,
+    "entityType":"dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleHdfsDataset,PROD)",
+    "changeType":"UPSERT",
+    "aspectName":"datasetProfile",
+    "aspect":{
+      "value":"{\"timestampMillis\": 1629356400000, \"rowCount\": 3742, \"columnCount\": 5, \"fieldProfiles\": [{\"fieldPath\": \"shipment_info.date\", \"uniqueCount\": 3742, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"1626912000000\", \"1626912023232\", \"1626912000022\"]}, {\"fieldPath\": \"shipment_info.target\", \"uniqueCount\": 3742, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"This is a description for the shipment target Seattle.\"]}, {\"fieldPath\": \"destination\", \"uniqueCount\": 79, \"uniqueProportion\": 0.037, \"nullCount\": 0, \"nullProportion\": 0.0, \"distinctValueFrequencies\": [{\"value\": \"Seattle\", \"frequency\": 103}, {\"value\": \"Pittsburgh\", \"frequency\": 12}], \"sampleValues\": [\"Seattle\", \"Pittsburgh\", \"San Diego\"]}, {\"fieldPath\": \"geo_info.lat\", \"uniqueCount\": 3722, \"uniqueProportion\": 0.988208737864077669, \"nullCount\": 120, \"nullProportion\": 0.03, \"sampleValues\": [\"86.43\", \"87.02\"]}]}",
+      "contentType":"application/json"
+    },
+    "systemMetadata":null
+  },
+  {
+    "auditHeader":null,
+    "entityType":"dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleHdfsDataset,PROD)",
+    "changeType":"UPSERT",
+    "aspectName":"datasetProfile",
+    "aspect":{
+      "value":"{\"timestampMillis\": 1629270000000, \"rowCount\": 3742, \"columnCount\": 5, \"fieldProfiles\": [{\"fieldPath\": \"shipment_info.date\", \"uniqueCount\": 3742, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"1626912000000\", \"1626912023232\", \"1626912000022\"]}, {\"fieldPath\": \"shipment_info.target\", \"uniqueCount\": 3742, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"This is a description for the shipment target Seattle.\"]}, {\"fieldPath\": \"destination\", \"uniqueCount\": 79, \"uniqueProportion\": 0.037, \"nullCount\": 0, \"nullProportion\": 0.0, \"distinctValueFrequencies\": [{\"value\": \"Seattle\", \"frequency\": 103}, {\"value\": \"Pittsburgh\", \"frequency\": 12}], \"sampleValues\": [\"Seattle\", \"Pittsburgh\", \"San Diego\"]}, {\"fieldPath\": \"geo_info.lat\", \"uniqueCount\": 3722, \"uniqueProportion\": 0.988208737864077669, \"nullCount\": 120, \"nullProportion\": 0.03, \"sampleValues\": [\"86.43\", \"87.02\"]}]}",
+      "contentType":"application/json"
+    },
+    "systemMetadata":null
+  },
+  {
+    "auditHeader":null,
+    "entityType":"dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleHdfsDataset,PROD)",
+    "changeType":"UPSERT",
+    "aspectName":"datasetProfile",
+    "aspect":{
+      "value":"{\"timestampMillis\": 1629183600000, \"rowCount\": 3742, \"columnCount\": 5, \"fieldProfiles\": [{\"fieldPath\": \"shipment_info.date\", \"uniqueCount\": 3742, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"1626912000000\", \"1626912023232\", \"1626912000022\"]}, {\"fieldPath\": \"shipment_info.target\", \"uniqueCount\": 3742, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"This is a description for the shipment target Seattle.\"]}, {\"fieldPath\": \"destination\", \"uniqueCount\": 79, \"uniqueProportion\": 0.037, \"nullCount\": 0, \"nullProportion\": 0.0, \"distinctValueFrequencies\": [{\"value\": \"Seattle\", \"frequency\": 103}, {\"value\": \"Pittsburgh\", \"frequency\": 12}], \"sampleValues\": [\"Seattle\", \"Pittsburgh\", \"San Diego\"]}, {\"fieldPath\": \"geo_info.lat\", \"uniqueCount\": 3722, \"uniqueProportion\": 0.988208737864077669, \"nullCount\": 120, \"nullProportion\": 0.03, \"sampleValues\": [\"86.43\", \"87.02\"]}]}",
+      "contentType":"application/json"
+    },
+    "systemMetadata":null
+  },
+  {
+    "auditHeader":null,
+    "entityType":"dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleHdfsDataset,PROD)",
+    "changeType":"UPSERT",
+    "aspectName":"datasetProfile",
+    "aspect":{
+      "value":"{\"timestampMillis\": 1629097200000, \"rowCount\": 3742, \"columnCount\": 5, \"fieldProfiles\": [{\"fieldPath\": \"shipment_info.date\", \"uniqueCount\": 3742, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"1626912000000\", \"1626912023232\", \"1626912000022\"]}, {\"fieldPath\": \"shipment_info.target\", \"uniqueCount\": 3742, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"This is a description for the shipment target Seattle.\"]}, {\"fieldPath\": \"destination\", \"uniqueCount\": 79, \"uniqueProportion\": 0.037, \"nullCount\": 0, \"nullProportion\": 0.0, \"distinctValueFrequencies\": [{\"value\": \"Seattle\", \"frequency\": 103}, {\"value\": \"Pittsburgh\", \"frequency\": 12}], \"sampleValues\": [\"Seattle\", \"Pittsburgh\", \"San Diego\"]}, {\"fieldPath\": \"geo_info.lat\", \"uniqueCount\": 3722, \"uniqueProportion\": 0.988208737864077669, \"nullCount\": 120, \"nullProportion\": 0.03, \"sampleValues\": [\"86.43\", \"87.02\"]}]}",
+      "contentType":"application/json"
+    },
+    "systemMetadata":null
+  },
+  {
+    "auditHeader":null,
+    "entityType":"dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleHdfsDataset,PROD)",
+    "changeType":"UPSERT",
+    "aspectName":"datasetProfile",
+    "aspect":{
+      "value":"{\"timestampMillis\": 1629010800000, \"rowCount\": 3742, \"columnCount\": 5, \"fieldProfiles\": [{\"fieldPath\": \"shipment_info.date\", \"uniqueCount\": 3742, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"1626912000000\", \"1626912023232\", \"1626912000022\"]}, {\"fieldPath\": \"shipment_info.target\", \"uniqueCount\": 3742, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"This is a description for the shipment target Seattle.\"]}, {\"fieldPath\": \"destination\", \"uniqueCount\": 79, \"uniqueProportion\": 0.037, \"nullCount\": 0, \"nullProportion\": 0.0, \"distinctValueFrequencies\": [{\"value\": \"Seattle\", \"frequency\": 103}, {\"value\": \"Pittsburgh\", \"frequency\": 12}], \"sampleValues\": [\"Seattle\", \"Pittsburgh\", \"San Diego\"]}, {\"fieldPath\": \"geo_info.lat\", \"uniqueCount\": 3722, \"uniqueProportion\": 0.988208737864077669, \"nullCount\": 120, \"nullProportion\": 0.03, \"sampleValues\": [\"86.43\", \"87.02\"]}]}",
+      "contentType":"application/json"
+    },
+    "systemMetadata":null
+  },
+  {
+    "auditHeader":null,
+    "entityType":"dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleHdfsDataset,PROD)",
+    "changeType":"UPSERT",
+    "aspectName":"datasetProfile",
+    "aspect":{
+      "value":"{\"timestampMillis\": 1628924400000, \"rowCount\": 3742, \"columnCount\": 5, \"fieldProfiles\": [{\"fieldPath\": \"shipment_info.date\", \"uniqueCount\": 3742, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"1626912000000\", \"1626912023232\", \"1626912000022\"]}, {\"fieldPath\": \"shipment_info.target\", \"uniqueCount\": 3742, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"This is a description for the shipment target Seattle.\"]}, {\"fieldPath\": \"destination\", \"uniqueCount\": 79, \"uniqueProportion\": 0.037, \"nullCount\": 0, \"nullProportion\": 0.0, \"distinctValueFrequencies\": [{\"value\": \"Seattle\", \"frequency\": 103}, {\"value\": \"Pittsburgh\", \"frequency\": 12}], \"sampleValues\": [\"Seattle\", \"Pittsburgh\", \"San Diego\"]}, {\"fieldPath\": \"geo_info.lat\", \"uniqueCount\": 3722, \"uniqueProportion\": 0.988208737864077669, \"nullCount\": 120, \"nullProportion\": 0.03, \"sampleValues\": [\"86.43\", \"87.02\"]}]}",
+      "contentType":"application/json"
+    },
+    "systemMetadata":null
+  },
+  {
+    "auditHeader":null,
+    "entityType":"dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleHdfsDataset,PROD)",
+    "changeType":"UPSERT",
+    "aspectName":"datasetProfile",
+    "aspect":{
+      "value":"{\"timestampMillis\": 1628838000000, \"rowCount\": 3742, \"columnCount\": 5, \"fieldProfiles\": [{\"fieldPath\": \"shipment_info.date\", \"uniqueCount\": 3742, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"1626912000000\", \"1626912023232\", \"1626912000022\"]}, {\"fieldPath\": \"shipment_info.target\", \"uniqueCount\": 3742, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"This is a description for the shipment target Seattle.\"]}, {\"fieldPath\": \"destination\", \"uniqueCount\": 79, \"uniqueProportion\": 0.037, \"nullCount\": 0, \"nullProportion\": 0.0, \"distinctValueFrequencies\": [{\"value\": \"Seattle\", \"frequency\": 103}, {\"value\": \"Pittsburgh\", \"frequency\": 12}], \"sampleValues\": [\"Seattle\", \"Pittsburgh\", \"San Diego\"]}, {\"fieldPath\": \"geo_info.lat\", \"uniqueCount\": 3722, \"uniqueProportion\": 0.988208737864077669, \"nullCount\": 120, \"nullProportion\": 0.03, \"sampleValues\": [\"86.43\", \"87.02\"]}]}",
+      "contentType":"application/json"
+    },
+    "systemMetadata":null
+  },
+  {
+    "auditHeader":null,
+    "entityType":"dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleHdfsDataset,PROD)",
+    "changeType":"UPSERT",
+    "aspectName":"datasetProfile",
+    "aspect":{
+      "value":"{\"timestampMillis\": 1628751600000, \"rowCount\": 3742, \"columnCount\": 5, \"fieldProfiles\": [{\"fieldPath\": \"shipment_info.date\", \"uniqueCount\": 3742, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"1626912000000\", \"1626912023232\", \"1626912000022\"]}, {\"fieldPath\": \"shipment_info.target\", \"uniqueCount\": 3742, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"This is a description for the shipment target Seattle.\"]}, {\"fieldPath\": \"destination\", \"uniqueCount\": 79, \"uniqueProportion\": 0.037, \"nullCount\": 0, \"nullProportion\": 0.0, \"distinctValueFrequencies\": [{\"value\": \"Seattle\", \"frequency\": 103}, {\"value\": \"Pittsburgh\", \"frequency\": 12}], \"sampleValues\": [\"Seattle\", \"Pittsburgh\", \"San Diego\"]}, {\"fieldPath\": \"geo_info.lat\", \"uniqueCount\": 3722, \"uniqueProportion\": 0.988208737864077669, \"nullCount\": 120, \"nullProportion\": 0.03, \"sampleValues\": [\"86.43\", \"87.02\"]}]}",
+      "contentType":"application/json"
+    },
+    "systemMetadata":null
+  },
+  {
+    "auditHeader":null,
+    "entityType":"dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleHdfsDataset,PROD)",
+    "changeType":"UPSERT",
+    "aspectName":"datasetProfile",
+    "aspect":{
+      "value":"{\"timestampMillis\": 1628665200000, \"rowCount\": 3742, \"columnCount\": 5, \"fieldProfiles\": [{\"fieldPath\": \"shipment_info.date\", \"uniqueCount\": 3742, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"1626912000000\", \"1626912023232\", \"1626912000022\"]}, {\"fieldPath\": \"shipment_info.target\", \"uniqueCount\": 3742, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"This is a description for the shipment target Seattle.\"]}, {\"fieldPath\": \"destination\", \"uniqueCount\": 79, \"uniqueProportion\": 0.037, \"nullCount\": 0, \"nullProportion\": 0.0, \"distinctValueFrequencies\": [{\"value\": \"Seattle\", \"frequency\": 103}, {\"value\": \"Pittsburgh\", \"frequency\": 12}], \"sampleValues\": [\"Seattle\", \"Pittsburgh\", \"San Diego\"]}, {\"fieldPath\": \"geo_info.lat\", \"uniqueCount\": 3722, \"uniqueProportion\": 0.988208737864077669, \"nullCount\": 120, \"nullProportion\": 0.03, \"sampleValues\": [\"86.43\", \"87.02\"]}]}",
+      "contentType":"application/json"
+    },
+    "systemMetadata":null
+  }
+]

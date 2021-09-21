@@ -1,5 +1,6 @@
 package com.linkedin.metadata.search.elasticsearch.query;
 
+import com.codahale.metrics.Timer;
 import com.linkedin.metadata.dao.exception.ESQueryException;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -10,6 +11,8 @@ import com.linkedin.metadata.query.SortCriterion;
 import com.linkedin.metadata.search.elasticsearch.query.request.AutocompleteRequestHandler;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchRequestHandler;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
+import io.opentelemetry.extension.annotations.WithSpan;
 import java.io.IOException;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -38,7 +41,7 @@ public class ESSearchDAO {
     EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
     CountRequest countRequest =
         new CountRequest(indexConvention.getIndexName(entitySpec)).query(QueryBuilders.matchAllQuery());
-    try {
+    try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "docCount").time()) {
       return client.count(countRequest, RequestOptions.DEFAULT).getCount();
     } catch (IOException e) {
       log.error("Count query failed:" + e.getMessage());
@@ -47,9 +50,10 @@ public class ESSearchDAO {
   }
 
   @Nonnull
+  @WithSpan
   private SearchResult executeAndExtract(@Nonnull EntitySpec entitySpec, @Nonnull SearchRequest searchRequest, int from,
       int size) {
-    try {
+    try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "esSearch").time()) {
       final SearchResponse searchResponse = client.search(searchRequest, RequestOptions.DEFAULT);
       // extract results, validated against document model as well
       return SearchRequestHandler.getBuilder(entitySpec).extractResult(searchResponse, from, size);
@@ -73,11 +77,13 @@ public class ESSearchDAO {
   @Nonnull
   public SearchResult search(@Nonnull String entityName, @Nonnull String input, @Nullable Filter postFilters,
       @Nullable SortCriterion sortCriterion, int from, int size) {
+    Timer.Context searchRequestTimer = MetricUtils.timer(this.getClass(), "searchRequest").time();
     EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
     // Step 1: construct the query
     final SearchRequest searchRequest =
         SearchRequestHandler.getBuilder(entitySpec).getSearchRequest(input, postFilters, sortCriterion, from, size);
     searchRequest.indices(indexConvention.getIndexName(entitySpec));
+    searchRequestTimer.stop();
     // Step 2: execute the query and extract results, validated against document model as well
     return executeAndExtract(entitySpec, searchRequest, from, size);
   }

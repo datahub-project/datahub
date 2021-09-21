@@ -1,10 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import Cookies from 'js-cookie';
+import { message } from 'antd';
 import { BrowserRouter as Router } from 'react-router-dom';
 import { ApolloClient, ApolloProvider, createHttpLink, InMemoryCache, ServerError } from '@apollo/client';
 import { onError } from '@apollo/client/link/error';
 import { ThemeProvider } from 'styled-components';
-
 import './App.less';
 import { Routes } from './app/Routes';
 import EntityRegistry from './app/entity/EntityRegistry';
@@ -34,7 +34,7 @@ import { MLModelGroupEntity } from './app/entity/mlModelGroup/MLModelGroupEntity
 */
 const httpLink = createHttpLink({ uri: '/api/v2/graphql' });
 
-const errorLink = onError(({ networkError }) => {
+const errorLink = onError(({ graphQLErrors, networkError }) => {
     if (networkError) {
         const serverError = networkError as ServerError;
         if (serverError.statusCode === 401) {
@@ -42,6 +42,14 @@ const errorLink = onError(({ networkError }) => {
             Cookies.remove(GlobalCfg.CLIENT_AUTH_COOKIE);
             window.location.replace(PageRoutes.AUTHENTICATE);
         }
+    }
+    if (graphQLErrors && graphQLErrors.length) {
+        const firstError = graphQLErrors[0];
+        const { extensions } = firstError;
+        console.log(firstError);
+        const errorCode = extensions && (extensions.code as number);
+        // Fallback in case the calling component does not handle.
+        message.error(`${firstError.message} (code ${errorCode})`, 3);
     }
 });
 

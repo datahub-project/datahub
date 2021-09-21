@@ -1,5 +1,6 @@
 package com.linkedin.metadata.timeseries.elastic;
 
+import com.codahale.metrics.Timer;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -9,14 +10,22 @@ import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.dao.exception.ESQueryException;
 import com.linkedin.metadata.dao.utils.ESUtils;
 import com.linkedin.metadata.dao.utils.RecordUtils;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.Condition;
 import com.linkedin.metadata.query.Criterion;
+import com.linkedin.metadata.query.Filter;
 import com.linkedin.metadata.search.elasticsearch.update.BulkListener;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.timeseries.elastic.indexbuilder.MappingsBuilder;
 import com.linkedin.metadata.timeseries.elastic.indexbuilder.TimeseriesAspectIndexBuilders;
+import com.linkedin.metadata.timeseries.elastic.query.ESAggregatedStatsDAO;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.SystemMetadata;
+import com.linkedin.timeseries.AggregationSpec;
+import com.linkedin.timeseries.GenericTable;
+import com.linkedin.timeseries.GroupingBucket;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
@@ -25,7 +34,6 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.codec.digest.DigestUtils;
 import org.elasticsearch.action.bulk.BackoffPolicy;
 import org.elasticsearch.action.bulk.BulkProcessor;
 import org.elasticsearch.action.index.IndexRequest;
@@ -49,31 +57,36 @@ import org.elasticsearch.search.sort.SortOrder;
 public class ElasticSearchTimeseriesAspectService implements TimeseriesAspectService {
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
   private static final String TIMESTAMP_FIELD = "timestampMillis";
+  private static final String EVENT_FIELD = "event";
 
   private final IndexConvention _indexConvention;
   private final BulkProcessor _bulkProcessor;
   private final TimeseriesAspectIndexBuilders _indexBuilders;
   private final RestHighLevelClient _searchClient;
+  private final ESAggregatedStatsDAO _esAggregatedStatsDAO;
 
   public ElasticSearchTimeseriesAspectService(@Nonnull RestHighLevelClient searchClient,
       @Nonnull IndexConvention indexConvention, @Nonnull TimeseriesAspectIndexBuilders indexBuilders,
-      int bulkRequestsLimit, int bulkFlushPeriod, int numRetries, long retryInterval) {
+      @Nonnull EntityRegistry entityRegistry, int bulkRequestsLimit, int bulkFlushPeriod, int numRetries,
+      long retryInterval) {
     _indexConvention = indexConvention;
     _indexBuilders = indexBuilders;
     _searchClient = searchClient;
     _bulkProcessor = BulkProcessor.builder(
-        (request, bulkListener) -> searchClient.bulkAsync(request, RequestOptions.DEFAULT, bulkListener),
-        BulkListener.getInstance())
+            (request, bulkListener) -> searchClient.bulkAsync(request, RequestOptions.DEFAULT, bulkListener),
+            BulkListener.getInstance())
         .setBulkActions(bulkRequestsLimit)
         .setFlushInterval(TimeValue.timeValueSeconds(bulkFlushPeriod))
         .setBackoffPolicy(BackoffPolicy.constantBackoff(TimeValue.timeValueSeconds(retryInterval), numRetries))
         .build();
+
+    _esAggregatedStatsDAO = new ESAggregatedStatsDAO(indexConvention, searchClient, entityRegistry);
   }
 
   private static EnvelopedAspect parseDocument(@Nonnull SearchHit doc) {
     Map<String, Object> docFields = doc.getSourceAsMap();
     EnvelopedAspect envelopedAspect = new EnvelopedAspect();
-    Object event = docFields.get("event");
+    Object event = docFields.get(EVENT_FIELD);
     GenericAspect genericAspect;
     try {
       genericAspect = new GenericAspect().setValue(
@@ -102,15 +115,9 @@ public class ElasticSearchTimeseriesAspectService implements TimeseriesAspectSer
   }
 
   @Override
-  public void upsertDocument(@Nonnull String entityName, @Nonnull String aspectName, @Nonnull JsonNode document) {
+  public void upsertDocument(@Nonnull String entityName, @Nonnull String aspectName, @Nonnull String docId,
+      @Nonnull JsonNode document) {
     String indexName = _indexConvention.getTimeseriesAspectIndexName(entityName, aspectName);
-    String docId;
-    try {
-      docId = toDocId(document);
-    } catch (JsonProcessingException e) {
-      log.error("Failed to get document ID for document: {}", document);
-      return;
-    }
     final IndexRequest indexRequest =
         new IndexRequest(indexName).id(docId).source(document.toString(), XContentType.JSON);
     final UpdateRequest updateRequest = new UpdateRequest(indexName, docId).doc(document.toString(), XContentType.JSON)
@@ -124,6 +131,8 @@ public class ElasticSearchTimeseriesAspectService implements TimeseriesAspectSer
       @Nonnull String aspectName, @Nullable Long startTimeMillis, @Nullable Long endTimeMillis, int limit) {
     final BoolQueryBuilder filterQueryBuilder = ESUtils.buildFilterQuery(null);
     filterQueryBuilder.must(QueryBuilders.matchQuery("urn", urn.toString()));
+    // NOTE: We are interested only in the un-exploded rows as only they carry the `event` payload.
+    filterQueryBuilder.mustNot(QueryBuilders.termQuery(MappingsBuilder.IS_EXPLODED_FIELD, true));
     if (startTimeMillis != null) {
       Criterion startTimeCriterion = new Criterion().setField(TIMESTAMP_FIELD)
           .setCondition(Condition.GREATER_THAN_OR_EQUAL_TO)
@@ -149,7 +158,7 @@ public class ElasticSearchTimeseriesAspectService implements TimeseriesAspectSer
 
     log.debug("Search request is: " + searchRequest);
     SearchHits hits;
-    try {
+    try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "esSearch").time()) {
       final SearchResponse searchResponse = _searchClient.search(searchRequest, RequestOptions.DEFAULT);
       hits = searchResponse.getHits();
     } catch (Exception e) {
@@ -161,7 +170,11 @@ public class ElasticSearchTimeseriesAspectService implements TimeseriesAspectSer
         .collect(Collectors.toList());
   }
 
-  private String toDocId(@Nonnull final JsonNode document) throws JsonProcessingException {
-    return DigestUtils.md5Hex(String.valueOf(document.hashCode()));
+  @Override
+  @Nonnull
+  public GenericTable getAggregatedStats(@Nonnull String entityName, @Nonnull String aspectName,
+      @Nonnull AggregationSpec[] aggregationSpecs, @Nullable Filter filter,
+      @Nullable GroupingBucket[] groupingBuckets) {
+    return _esAggregatedStatsDAO.getAggregatedStats(entityName, aspectName, aggregationSpecs, filter, groupingBuckets);
   }
 }

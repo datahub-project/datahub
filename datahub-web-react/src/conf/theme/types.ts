@@ -1,6 +1,6 @@
 export type Theme = {
     styles: {
-        'border-radius-base': string;
+        'primary-color'?: string;
         'layout-header-background': string;
         'layout-header-color': string;
         'layout-body-background': string;

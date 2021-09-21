@@ -1,9 +1,10 @@
 package com.linkedin.metadata.resources.entity;
 
+import com.codahale.metrics.MetricRegistry;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.RollbackRunResult;
-import com.linkedin.metadata.restli.RestliUtils;
+import com.linkedin.metadata.restli.RestliUtil;
 import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.run.AspectRowSummaryArray;
 import com.linkedin.metadata.run.IngestionRunSummaryArray;
@@ -15,6 +16,7 @@ import com.linkedin.restli.server.annotations.ActionParam;
 import com.linkedin.restli.server.annotations.Optional;
 import com.linkedin.restli.server.annotations.RestLiCollection;
 import com.linkedin.restli.server.resources.CollectionResourceTaskTemplate;
+import io.opentelemetry.extension.annotations.WithSpan;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import javax.annotation.Nonnull;
@@ -49,12 +51,13 @@ public class BatchIngestionRunResource extends CollectionResourceTaskTemplate<St
    */
   @Action(name = "rollback")
   @Nonnull
+  @WithSpan
   public Task<RollbackResponse> rollback(
       @ActionParam("runId") @Nonnull String runId,
       @ActionParam("dryRun") @Optional @Nullable Boolean dryRun
   ) {
     log.info("ROLLBACK RUN runId: {} dry run: {}", runId, dryRun);
-    return RestliUtils.toTask(() -> {
+    return RestliUtil.toTask(() -> {
       RollbackResponse response = new RollbackResponse();
       List<AspectRowSummary> aspectRowsToDelete;
       aspectRowsToDelete = _systemMetadataService.findByRunId(runId);
@@ -91,7 +94,7 @@ public class BatchIngestionRunResource extends CollectionResourceTaskTemplate<St
           new AspectRowSummaryArray(deletedRows.subList(0, Math.min(100, deletedRows.size())))
       );
       return response;
-    });
+    }, MetricRegistry.name(this.getClass(), "rollback"));
   }
 
   private String stringifyRowCount(int size) {
@@ -115,17 +118,15 @@ public class BatchIngestionRunResource extends CollectionResourceTaskTemplate<St
    */
   @Action(name = "list")
   @Nonnull
+  @WithSpan
   public Task<IngestionRunSummaryArray> list(
       @ActionParam("pageOffset") @Optional @Nullable Integer pageOffset,
       @ActionParam("pageSize") @Optional @Nullable Integer pageSize
   ) {
     log.info("LIST RUNS offset: {} size: {}", pageOffset, pageSize);
 
-    return RestliUtils.toTask(() ->
-      new IngestionRunSummaryArray(_systemMetadataService.listRuns(
-          pageOffset != null ? pageOffset : DEFAULT_OFFSET,
-          pageSize != null ? pageSize : DEFAULT_PAGE_SIZE
-      ))
-    );
+    return RestliUtil.toTask(() -> new IngestionRunSummaryArray(
+        _systemMetadataService.listRuns(pageOffset != null ? pageOffset : DEFAULT_OFFSET,
+            pageSize != null ? pageSize : DEFAULT_PAGE_SIZE)), MetricRegistry.name(this.getClass(), "list"));
   }
 }

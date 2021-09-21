@@ -102,7 +102,7 @@ public class SearchDocumentTransformer {
       return;
     }
 
-    if (isArray) {
+    if (isArray || valueType == DataSchema.Type.MAP) {
       ArrayNode arrayNode = JsonNodeFactory.instance.arrayNode();
       fieldValues.forEach(value -> getNodeForValue(valueType, value, fieldType).ifPresent(arrayNode::add));
       searchDocument.set(fieldName, arrayNode);

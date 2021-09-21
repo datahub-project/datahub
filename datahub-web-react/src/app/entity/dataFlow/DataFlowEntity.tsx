@@ -75,4 +75,8 @@ export class DataFlowEntity implements Entity<DataFlow> {
             />
         );
     };
+
+    displayName = (data: DataFlow) => {
+        return data.info?.name || data.urn;
+    };
 }
