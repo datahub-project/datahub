@@ -3,19 +3,15 @@ import dataclasses
 import json
 import logging
 from datetime import datetime, timezone
-from typing import Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional
 
 import pydantic
 import pydantic.dataclasses
 from pydantic import BaseModel
-from sqlalchemy import create_engine
-from sqlalchemy.engine import Engine
 
 import datahub.emitter.mce_builder as builder
-from datahub.ingestion.api.source import Source, SourceReport
-from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.snowflake import BaseSnowflakeConfig
-from datahub.ingestion.source.usage.sql_usage_common import sql_compatibility_change
+from datahub.ingestion.source.usage.sql_usage_common import SqlUsageSource
 from datahub.ingestion.source.usage.usage_common import (
     BaseUsageConfig,
     GenericAggregatedDataset,
@@ -111,24 +107,13 @@ class SnowflakeUsageConfig(BaseSnowflakeConfig, BaseUsageConfig):
 
 
 @dataclasses.dataclass
-class SnowflakeUsageSource(Source):
+class SnowflakeUsageSource(SqlUsageSource):
     config: SnowflakeUsageConfig
-    report: SourceReport = dataclasses.field(default_factory=SourceReport)
 
     @classmethod
     def create(cls, config_dict, ctx):
         config = SnowflakeUsageConfig.parse_obj(config_dict)
         return cls(ctx, config)
-
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        access_events = self._get_snowflake_history()
-        aggregated_info = self._aggregate_access_events(access_events)
-
-        for time_bucket in aggregated_info.values():
-            for aggregate in time_bucket.values():
-                wu = self._make_usage_stat(aggregate)
-                self.report.report_workunit(wu)
-                yield wu
 
     def _make_usage_query(self) -> str:
         return SNOWFLAKE_USAGE_SQL_TEMPLATE.format(
@@ -136,20 +121,14 @@ class SnowflakeUsageSource(Source):
             end_time_millis=int(self.config.end_time.timestamp() * 1000),
         )
 
-    def _make_sql_engine(self) -> Engine:
-        url = self.config.get_sql_alchemy_url()
-        logger.debug(f"sql_alchemy_url={url}")
-        engine = create_engine(url, **self.config.options)
-        return engine
-
-    def _get_snowflake_history(self) -> Iterable[SnowflakeJoinedAccessEvent]:
+    def get_history(self) -> Iterable:
         query = self._make_usage_query()
-        engine = self._make_sql_engine()
+        engine = self.make_sql_engine()
 
         results = engine.execute(query)
 
         for row in results:
-            event_dict = sql_compatibility_change(row)
+            event_dict = self.sql_compatibility_change(row)
 
             # no use processing events that don't have a query text
             if event_dict["query_text"] is None:
@@ -170,9 +149,9 @@ class SnowflakeUsageSource(Source):
                     "usage", f"Failed to parse usage line {event_dict}"
                 )
 
-    def _aggregate_access_events(
-        self, events: Iterable[SnowflakeJoinedAccessEvent]
-    ) -> Dict[datetime, Dict[SnowflakeTableRef, AggregatedDataset]]:
+    def aggregate_events(
+        self, events: Iterable
+    ) -> Dict[datetime, Dict[Any, GenericAggregatedDataset]]:
         datasets: Dict[
             datetime, Dict[SnowflakeTableRef, AggregatedDataset]
         ] = collections.defaultdict(dict)
@@ -197,17 +176,8 @@ class SnowflakeUsageSource(Source):
 
         return datasets
 
-    def _make_usage_stat(self, agg: AggregatedDataset) -> MetadataWorkUnit:
-        return agg.make_usage_workunit(
-            self.config.bucket_duration,
-            lambda resource: builder.make_dataset_urn(
-                "snowflake", resource.lower(), self.config.env
-            ),
-            self.config.top_n_queries,
-        )
+    def get_config(self):
+        return self.config
 
-    def get_report(self):
-        return self.report
-
-    def close(self):
-        pass
+    def get_platform(self):
+        return "snowflake"

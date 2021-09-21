@@ -2,18 +2,13 @@ import collections
 import dataclasses
 import logging
 from datetime import datetime, timezone
-from typing import Dict, Iterable, Optional
+from typing import Any, Dict, Iterable, Optional
 
 from sql_metadata import Parser
-from sqlalchemy import create_engine
-from sqlalchemy.engine import Engine
 
-import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern
-from datahub.ingestion.api.source import Source, SourceReport
-from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.sql_generic import SQLAlchemyGenericConfig
-from datahub.ingestion.source.usage.sql_usage_common import sql_compatibility_change
+from datahub.ingestion.source.usage.sql_usage_common import SqlUsageSource
 from datahub.ingestion.source.usage.usage_common import (
     BaseUsageConfig,
     GenericAggregatedDataset,
@@ -29,42 +24,22 @@ class UsageFromSqlTableConfig(BaseUsageConfig, SQLAlchemyGenericConfig):
     table_default_prefix: Optional[str]
     table_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
 
-    def get_sql_alchemy_url(self):
-        return super().get_sql_alchemy_url()
-
 
 @dataclasses.dataclass
-class UsageFromSqlTableSource(Source):
+class UsageFromSqlTableSource(SqlUsageSource):
     config: UsageFromSqlTableConfig
-    report: SourceReport = dataclasses.field(default_factory=SourceReport)
 
     @classmethod
     def create(cls, config_dict, ctx):
         config = UsageFromSqlTableConfig.parse_obj(config_dict)
         return cls(ctx, config)
 
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        events = self._get_history()
-        aggregated_info = self._aggregate_events(events)
-
-        for time_bucket in aggregated_info.values():
-            for aggregate in time_bucket.values():
-                wu = self._make_usage_stat(aggregate)
-                self.report.report_workunit(wu)
-                yield wu
-
-    def _make_sql_engine(self) -> Engine:
-        url = self.config.get_sql_alchemy_url()
-        logger.debug(f"sql_alchemy_url={url}")
-        engine = create_engine(url, **self.config.options)
-        return engine
-
-    def _get_history(self):
-        engine = self._make_sql_engine()
+    def get_history(self) -> Iterable:
+        engine = self.make_sql_engine()
         results = engine.execute(self.config.usage_query)
 
         for row in results:
-            event_dict = sql_compatibility_change(row)
+            event_dict = self.sql_compatibility_change(row)
 
             if event_dict["query_text"] is None:
                 continue
@@ -82,12 +57,12 @@ class UsageFromSqlTableSource(Source):
                         and self.config.table_default_prefix is not None
                     ):
                         table = f"{self.config.table_default_prefix}.{table}"
-                    
+
                     if not self.config.table_pattern.allowed(table):
                         continue
 
                     tables.append(table)
-                
+
                 if len(tables) == 0:
                     continue
 
@@ -106,7 +81,9 @@ class UsageFromSqlTableSource(Source):
 
             yield event_dict
 
-    def _aggregate_events(self, events: Iterable[Dict]) -> Dict[datetime, Dict]:
+    def aggregate_events(
+        self, events: Iterable
+    ) -> Dict[datetime, Dict[Any, GenericAggregatedDataset]]:
         datasets: Dict[datetime, Dict] = collections.defaultdict(dict)
 
         for event in events:
@@ -129,17 +106,8 @@ class UsageFromSqlTableSource(Source):
 
         return datasets
 
-    def _make_usage_stat(self, agg: GenericAggregatedDataset) -> MetadataWorkUnit:
-        return agg.make_usage_workunit(
-            self.config.bucket_duration,
-            lambda resource: builder.make_dataset_urn(
-                self.config.usage_platform_name, resource.lower(), self.config.env
-            ),
-            self.config.top_n_queries,
-        )
+    def get_config(self):
+        return self.config
 
-    def get_report(self):
-        return self.report
-
-    def close(self):
-        pass
+    def get_platform(self) -> str:
+        return self.config.usage_platform_name
