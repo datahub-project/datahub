@@ -1392,8 +1392,6 @@ def test_update_schemafield(frontend_session):
     response.raise_for_status()
     res_data = response.json()
 
-    print(res_data)
-
     assert res_data
     assert res_data["data"]
     assert res_data["data"]["updateDescription"] is True
