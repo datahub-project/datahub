@@ -66,11 +66,11 @@ class UsageFromSqlTableSource(SqlUsageSource):
 
         event_dict["columns"] = columns
 
-    def process_row(self, row) -> Dict:
+    def process_row(self, row):
         event_dict = self.sql_compatibility_change(row)
 
         if event_dict["query_text"] is None:
-            return
+            return None
 
         try:
             self.parse_query(event_dict)
@@ -78,11 +78,11 @@ class UsageFromSqlTableSource(SqlUsageSource):
             self.get_report().report_warning(
                 "usage", f"Failed to parse sql query id = {event_dict['query_id']}"
             )
-            return
+            return None
 
-        event_dict["query_start_time"] = (
-            event_dict["query_start_time"]
-        ).astimezone(tz=timezone.utc)
+        event_dict["query_start_time"] = (event_dict["query_start_time"]).astimezone(
+            tz=timezone.utc
+        )
 
         return event_dict
 
@@ -97,7 +97,6 @@ class UsageFromSqlTableSource(SqlUsageSource):
             if result is None:
                 continue
             yield result
-            
 
     def aggregate_events(
         self, events: Iterable
