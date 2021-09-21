@@ -2,20 +2,9 @@ package com.linkedin.datahub.graphql.resolvers.mutate;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.AuditStamp;
-import com.linkedin.common.GlobalTags;
-import com.linkedin.common.GlossaryTermAssociation;
-import com.linkedin.common.GlossaryTermAssociationArray;
-import com.linkedin.common.GlossaryTerms;
-import com.linkedin.common.TagAssociation;
-import com.linkedin.common.TagAssociationArray;
-import com.linkedin.common.urn.GlossaryTermUrn;
-import com.linkedin.common.urn.TagUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.authorization.ConjunctivePrivilegeGroup;
-import com.linkedin.datahub.graphql.authorization.DisjunctivePrivilegeGroup;
 import com.linkedin.datahub.graphql.generated.SubResourceType;
 import com.linkedin.entity.Entity;
 import com.linkedin.metadata.authorization.PoliciesConfig;
@@ -26,9 +15,7 @@ import com.linkedin.schema.EditableSchemaFieldInfoArray;
 import com.linkedin.schema.EditableSchemaMetadata;
 import com.linkedin.schema.SchemaField;
 import com.linkedin.schema.SchemaMetadata;
-import java.net.URISyntaxException;
 import java.util.Optional;
-import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
 

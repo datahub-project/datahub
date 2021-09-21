@@ -1,16 +1,8 @@
 package com.linkedin.datahub.graphql.resolvers.mutate;
 
 import com.google.common.collect.ImmutableList;
-import com.linkedin.common.GlobalTags;
-import com.linkedin.common.GlossaryTermAssociation;
-import com.linkedin.common.GlossaryTermAssociationArray;
-import com.linkedin.common.GlossaryTerms;
-import com.linkedin.common.TagAssociation;
-import com.linkedin.common.TagAssociationArray;
-import com.linkedin.common.urn.GlossaryTermUrn;
-import com.linkedin.common.urn.TagUrn;
+
 import com.linkedin.common.urn.Urn;
-import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.authorization.ConjunctivePrivilegeGroup;
@@ -20,7 +12,6 @@ import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.schema.EditableSchemaFieldInfo;
 import com.linkedin.schema.EditableSchemaMetadata;
-import java.net.URISyntaxException;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
