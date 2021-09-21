@@ -1,5 +1,4 @@
 import abc
-import dataclasses
 import logging
 from datetime import datetime
 from typing import Any, Dict, Iterable
@@ -16,8 +15,6 @@ logger = logging.getLogger(__name__)
 
 
 class SqlUsageSource(Source, abc.ABC):
-    report: SourceReport = dataclasses.field(default_factory=SourceReport)
-
     @abc.abstractmethod
     def get_config(self):
         pass
@@ -36,8 +33,9 @@ class SqlUsageSource(Source, abc.ABC):
     ) -> Dict[datetime, Dict[Any, GenericAggregatedDataset]]:
         pass
 
-    def get_report(self):
-        return self.report
+    @abc.abstractmethod
+    def get_report(self) -> SourceReport:
+        pass
 
     def sql_compatibility_change(self, row):
         # Make some minor type conversions.

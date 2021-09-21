@@ -7,6 +7,7 @@ from typing import Any, Dict, Iterable, Optional
 from sql_metadata import Parser
 
 from datahub.configuration.common import AllowDenyPattern
+from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.source.sql.sql_generic import SQLAlchemyGenericConfig
 from datahub.ingestion.source.usage.sql_usage_common import SqlUsageSource
 from datahub.ingestion.source.usage.usage_common import (
@@ -20,7 +21,6 @@ logger = logging.getLogger(__name__)
 
 class UsageFromSqlTableConfig(BaseUsageConfig, SQLAlchemyGenericConfig):
     usage_query: str
-    usage_platform_name: str
     table_default_prefix: Optional[str]
     table_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
 
@@ -28,58 +28,76 @@ class UsageFromSqlTableConfig(BaseUsageConfig, SQLAlchemyGenericConfig):
 @dataclasses.dataclass
 class UsageFromSqlTableSource(SqlUsageSource):
     config: UsageFromSqlTableConfig
+    report: SourceReport = dataclasses.field(default_factory=SourceReport)
 
     @classmethod
     def create(cls, config_dict, ctx):
         config = UsageFromSqlTableConfig.parse_obj(config_dict)
         return cls(ctx, config)
 
+    def parse_query(self, event_dict):
+        query_id = event_dict["query_id"]
+        query_text = event_dict["query_text"]
+        parser = Parser(query_text)
+
+        tables = []
+        for table in parser.tables:
+            table_parts = table.split(".")
+            if len(table_parts) == 1 and self.get_table_default_prefix() is not None:
+                table = f"{self.get_table_default_prefix()}.{table}"
+
+            if not self.config.table_pattern.allowed(table):
+                continue
+
+            tables.append(table.lower())
+
+        if len(tables) == 0:
+            logger.warn(f"No tables for query_id={query_id}")
+
+        event_dict["tables"] = tables
+
+        columns = []
+        for column_list in parser.columns_dict.values():
+            for column in column_list:
+                columns.append(column)
+
+        if len(columns) == 0:
+            logger.warn(f"No columns for query_id={query_id}")
+
+        event_dict["columns"] = columns
+
+    def process_row(self, row) -> Dict:
+        event_dict = self.sql_compatibility_change(row)
+
+        if event_dict["query_text"] is None:
+            return
+
+        try:
+            self.parse_query(event_dict)
+        except Exception:
+            self.get_report().report_warning(
+                "usage", f"Failed to parse sql query id = {event_dict['query_id']}"
+            )
+            return
+
+        event_dict["query_start_time"] = (
+            event_dict["query_start_time"]
+        ).astimezone(tz=timezone.utc)
+
+        return event_dict
+
     def get_history(self) -> Iterable:
+        query = self.config.usage_query
         engine = self.make_sql_engine()
-        results = engine.execute(self.config.usage_query)
+
+        results = engine.execute(query)
 
         for row in results:
-            event_dict = self.sql_compatibility_change(row)
-
-            if event_dict["query_text"] is None:
+            result = self.process_row(row)
+            if result is None:
                 continue
-
-            query_id = event_dict["query_id"]
-            query_text = event_dict["query_text"]
-            try:
-                parser = Parser(query_text)
-
-                tables = []
-                for table in parser.tables:
-                    table_parts = table.split(".")
-                    if (
-                        len(table_parts) == 1
-                        and self.config.table_default_prefix is not None
-                    ):
-                        table = f"{self.config.table_default_prefix}.{table}"
-
-                    if not self.config.table_pattern.allowed(table):
-                        continue
-
-                    tables.append(table)
-
-                if len(tables) == 0:
-                    continue
-
-                event_dict["tables"] = tables
-
-                event_dict["columns"] = parser.columns
-            except Exception:
-                self.report.report_warning(
-                    "usage", f"Failed to parse sql query id = {query_id}"
-                )
-                continue
-
-            event_dict["query_start_time"] = (
-                event_dict["query_start_time"]
-            ).astimezone(tz=timezone.utc)
-
-            yield event_dict
+            yield result
+            
 
     def aggregate_events(
         self, events: Iterable
@@ -110,4 +128,10 @@ class UsageFromSqlTableSource(SqlUsageSource):
         return self.config
 
     def get_platform(self) -> str:
-        return self.config.usage_platform_name
+        return self.config.platform
+
+    def get_report(self) -> SourceReport:
+        return self.report
+
+    def get_table_default_prefix(self) -> Optional[str]:
+        return self.get_config().table_default_prefix

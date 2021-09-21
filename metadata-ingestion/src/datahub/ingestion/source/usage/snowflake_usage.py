@@ -10,6 +10,7 @@ import pydantic.dataclasses
 from pydantic import BaseModel
 
 import datahub.emitter.mce_builder as builder
+from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.source.sql.snowflake import BaseSnowflakeConfig
 from datahub.ingestion.source.usage.sql_usage_common import SqlUsageSource
 from datahub.ingestion.source.usage.usage_common import (
@@ -109,6 +110,7 @@ class SnowflakeUsageConfig(BaseSnowflakeConfig, BaseUsageConfig):
 @dataclasses.dataclass
 class SnowflakeUsageSource(SqlUsageSource):
     config: SnowflakeUsageConfig
+    report: SourceReport = dataclasses.field(default_factory=SourceReport)
 
     @classmethod
     def create(cls, config_dict, ctx):
@@ -145,7 +147,7 @@ class SnowflakeUsageSource(SqlUsageSource):
                 event = SnowflakeJoinedAccessEvent(**event_dict)
                 yield event
             except Exception:
-                self.report.report_warning(
+                self.get_report().report_warning(
                     "usage", f"Failed to parse usage line {event_dict}"
                 )
 
@@ -153,7 +155,7 @@ class SnowflakeUsageSource(SqlUsageSource):
         self, events: Iterable
     ) -> Dict[datetime, Dict[Any, GenericAggregatedDataset]]:
         datasets: Dict[
-            datetime, Dict[SnowflakeTableRef, AggregatedDataset]
+            datetime, Dict[Any, AggregatedDataset]
         ] = collections.defaultdict(dict)
 
         for event in events:
@@ -181,3 +183,6 @@ class SnowflakeUsageSource(SqlUsageSource):
 
     def get_platform(self):
         return "snowflake"
+
+    def get_report(self) -> SourceReport:
+        return self.report
