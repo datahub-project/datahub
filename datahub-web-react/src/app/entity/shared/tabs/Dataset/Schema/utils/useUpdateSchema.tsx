@@ -30,7 +30,7 @@ export const useUpdateSchema = (
             entityType: EntityType.Dataset,
             entityUrn: urn,
         });
-        return updateEntity({ variables: { input: { urn, editableSchemaMetadata: update } } });
+        return updateEntity({ variables: { urn, input: { editableSchemaMetadata: update } } });
     };
 
     const updateSchema = (newFieldInfo: EditableSchemaFieldInfoUpdate, record?: EditableSchemaFieldInfo) => {

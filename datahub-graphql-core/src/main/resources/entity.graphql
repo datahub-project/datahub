@@ -265,7 +265,7 @@ enum EntityType {
 """
 Input for the list relationships field of an Entity
 """
-type RelationshipsInput {
+input RelationshipsInput {
   """
   The types of relationships to query, representing an OR
   """
@@ -2045,7 +2045,7 @@ input ChartUpdateInput {
     Deprecated, use tags field instead
     Update to global tags
     """
-    globalTags: GlobalTagsUpdate @deprecated
+    globalTags: GlobalTagsUpdate
 
     """
     Update to tags
@@ -2071,7 +2071,7 @@ input DashboardUpdateInput {
     Deprecated, use tags field instead
     Update to global tags
     """
-    globalTags: GlobalTagsUpdate @deprecated
+    globalTags: GlobalTagsUpdate
 
     """
     Update to tags
@@ -2097,7 +2097,7 @@ input DataFlowUpdateInput {
     Deprecated, use tags field instead
     Update to global tags
     """
-    globalTags: GlobalTagsUpdate @deprecated
+    globalTags: GlobalTagsUpdate
 
     """
     Update to tags
@@ -2123,7 +2123,7 @@ input DataJobUpdateInput {
     Deprecated, use tags field instead
     Update to global tags
     """
-    globalTags: GlobalTagsUpdate @deprecated
+    globalTags: GlobalTagsUpdate
 
     """
     Update to tags
@@ -2159,7 +2159,7 @@ input DatasetUpdateInput {
     Deprecated, use tags field instead
     Update to global tags
     """
-    globalTags: GlobalTagsUpdate @deprecated
+    globalTags: GlobalTagsUpdate
 
     """
     Update to tags
