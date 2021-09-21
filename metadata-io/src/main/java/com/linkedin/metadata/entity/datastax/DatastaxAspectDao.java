@@ -113,6 +113,45 @@ public class DatastaxAspectDao {
     return maxVersion;
   }
 
+  private Insert createCondInsertStatement(DatastaxAspect datastaxAspect) {
+
+    String entity;
+
+    try {
+      entity = (new Urn(datastaxAspect.getUrn())).getEntityType();
+    } catch (URISyntaxException e) {
+      throw new RuntimeException(e);
+    }
+
+    return insertInto(DatastaxAspect.TABLE_NAME)
+            .value(DatastaxAspect.URN_COLUMN, literal(datastaxAspect.getUrn()))
+            .value(DatastaxAspect.ASPECT_COLUMN, literal(datastaxAspect.getAspect()))
+            .value(DatastaxAspect.VERSION_COLUMN, literal(datastaxAspect.getVersion()))
+            .value(DatastaxAspect.SYSTEM_METADATA_COLUMN, literal(datastaxAspect.getSystemMetadata()))
+            .value(DatastaxAspect.METADATA_COLUMN, literal(datastaxAspect.getMetadata()))
+            .value(DatastaxAspect.CREATED_ON_COLUMN, literal(datastaxAspect.getCreatedOn().getTime()))
+            .value(DatastaxAspect.CREATED_FOR_COLUMN, literal(datastaxAspect.getCreatedFor()))
+            .value(DatastaxAspect.ENTITY_COLUMN, literal(entity))
+            .value(DatastaxAspect.CREATED_BY_COLUMN, literal(datastaxAspect.getCreatedBy()))
+            .ifNotExists();
+  }
+  private Update createCondUpdateStatement(DatastaxAspect newDatastaxAspect, DatastaxAspect oldDatastaxAspect) {
+    return update(DatastaxAspect.TABLE_NAME)
+            .setColumn(DatastaxAspect.METADATA_COLUMN, literal(newDatastaxAspect.getMetadata()))
+            .setColumn(DatastaxAspect.SYSTEM_METADATA_COLUMN, literal(newDatastaxAspect.getSystemMetadata()))
+            .setColumn(DatastaxAspect.CREATED_ON_COLUMN, literal(newDatastaxAspect.getCreatedOn().getTime()))
+            .setColumn(DatastaxAspect.CREATED_BY_COLUMN, literal(newDatastaxAspect.getCreatedBy()))
+            .setColumn(DatastaxAspect.CREATED_FOR_COLUMN, literal(newDatastaxAspect.getCreatedFor()))
+            .whereColumn(DatastaxAspect.URN_COLUMN).isEqualTo(literal(newDatastaxAspect.getUrn()))
+            .whereColumn(DatastaxAspect.ASPECT_COLUMN).isEqualTo(literal(newDatastaxAspect.getAspect()))
+            .whereColumn(DatastaxAspect.VERSION_COLUMN).isEqualTo(literal(newDatastaxAspect.getVersion()))
+            .if_(
+                    Condition.column(DatastaxAspect.METADATA_COLUMN).isEqualTo(literal(oldDatastaxAspect.getMetadata())),
+                    Condition.column(DatastaxAspect.SYSTEM_METADATA_COLUMN).isEqualTo(literal(oldDatastaxAspect.getSystemMetadata())),
+                    Condition.column(DatastaxAspect.CREATED_ON_COLUMN).isEqualTo(literal(oldDatastaxAspect.getCreatedOn() == null ? null : oldDatastaxAspect.getCreatedOn().toInstant())),
+                    Condition.column(DatastaxAspect.CREATED_BY_COLUMN).isEqualTo(literal(oldDatastaxAspect.getCreatedBy())));
+  }
+
   public long batchSaveLatestAspect(
           @Nonnull final String urn,
           @Nonnull final String aspectName,
@@ -128,72 +167,21 @@ public class DatastaxAspectDao {
           @Nullable final String newSystemMetadata,
           final int nextVersion
   ) {
-    String entity;
-
-    try {
-      entity = (new Urn(urn)).getEntityType();
-    } catch (URISyntaxException e) {
-      throw new RuntimeException(e);
-    }
-
     BatchStatementBuilder batch = BatchStatement.builder(BatchType.LOGGED);
     DatastaxAspect oldDatastaxAspect = new DatastaxAspect(urn, aspectName, nextVersion, oldAspectMetadata, oldSystemMetadata, oldTime, oldActor, oldImpersonator);
 
     if (oldAspectMetadata != null && oldTime != null) {
       // Save oldValue as nextVersion
-
-      Insert insert = insertInto(DatastaxAspect.TABLE_NAME)
-              .value(DatastaxAspect.URN_COLUMN, literal(oldDatastaxAspect.getUrn()))
-              .value(DatastaxAspect.ASPECT_COLUMN, literal(oldDatastaxAspect.getAspect()))
-              .value(DatastaxAspect.VERSION_COLUMN, literal(oldDatastaxAspect.getVersion()))
-              .value(DatastaxAspect.SYSTEM_METADATA_COLUMN, literal(oldDatastaxAspect.getSystemMetadata()))
-              .value(DatastaxAspect.METADATA_COLUMN, literal(oldDatastaxAspect.getMetadata()))
-              .value(DatastaxAspect.CREATED_ON_COLUMN, literal(oldDatastaxAspect.getCreatedOn().getTime()))
-              .value(DatastaxAspect.CREATED_FOR_COLUMN, literal(oldDatastaxAspect.getCreatedFor()))
-              .value(DatastaxAspect.ENTITY_COLUMN, literal(entity))
-              .value(DatastaxAspect.CREATED_BY_COLUMN, literal(oldDatastaxAspect.getCreatedBy()))
-              .ifNotExists();
-
-      batch = batch.addStatement(insert.build());
-
+      batch = batch.addStatement(createCondInsertStatement(oldDatastaxAspect).build());
     }
 
     // Save newValue as the latest version (v0)
     DatastaxAspect newDatastaxAspect = new DatastaxAspect(urn, aspectName, 0, newAspectMetadata, newSystemMetadata, newTime, newActor, newImpersonator);
 
     if (nextVersion == 0)  {
-      Insert insert = insertInto(DatastaxAspect.TABLE_NAME)
-              .value(DatastaxAspect.URN_COLUMN, literal(newDatastaxAspect.getUrn()))
-              .value(DatastaxAspect.ASPECT_COLUMN, literal(newDatastaxAspect.getAspect()))
-              .value(DatastaxAspect.VERSION_COLUMN, literal(newDatastaxAspect.getVersion()))
-              .value(DatastaxAspect.SYSTEM_METADATA_COLUMN, literal(newDatastaxAspect.getSystemMetadata()))
-              .value(DatastaxAspect.METADATA_COLUMN, literal(newDatastaxAspect.getMetadata()))
-              .value(DatastaxAspect.CREATED_ON_COLUMN, literal(newDatastaxAspect.getCreatedOn().getTime()))
-              .value(DatastaxAspect.CREATED_FOR_COLUMN, literal(newDatastaxAspect.getCreatedFor()))
-              .value(DatastaxAspect.ENTITY_COLUMN, literal(entity))
-              .value(DatastaxAspect.CREATED_BY_COLUMN, literal(newDatastaxAspect.getCreatedBy()))
-              .ifNotExists();
-
-      batch = batch.addStatement(insert.build());
-
+      batch = batch.addStatement(createCondInsertStatement(newDatastaxAspect).build());
     } else {
-      UpdateWithAssignments uwa = update(DatastaxAspect.TABLE_NAME)
-              .setColumn(DatastaxAspect.METADATA_COLUMN, literal(newDatastaxAspect.getMetadata()))
-              .setColumn(DatastaxAspect.SYSTEM_METADATA_COLUMN, literal(newDatastaxAspect.getSystemMetadata()))
-              .setColumn(DatastaxAspect.CREATED_ON_COLUMN, literal(newDatastaxAspect.getCreatedOn().getTime()))
-              .setColumn(DatastaxAspect.CREATED_BY_COLUMN, literal(newDatastaxAspect.getCreatedBy()))
-              .setColumn(DatastaxAspect.CREATED_FOR_COLUMN, literal(newDatastaxAspect.getCreatedFor()));
-
-      Update u = uwa.whereColumn(DatastaxAspect.URN_COLUMN).isEqualTo(literal(newDatastaxAspect.getUrn()))
-              .whereColumn(DatastaxAspect.ASPECT_COLUMN).isEqualTo(literal(newDatastaxAspect.getAspect()))
-              .whereColumn(DatastaxAspect.VERSION_COLUMN).isEqualTo(literal(newDatastaxAspect.getVersion()))
-              .if_(
-                      Condition.column(DatastaxAspect.METADATA_COLUMN).isEqualTo(literal(oldDatastaxAspect.getMetadata())),
-                      Condition.column(DatastaxAspect.SYSTEM_METADATA_COLUMN).isEqualTo(literal(oldDatastaxAspect.getSystemMetadata())),
-                      Condition.column(DatastaxAspect.CREATED_ON_COLUMN).isEqualTo(literal(oldDatastaxAspect.getCreatedOn() == null ? null : oldDatastaxAspect.getCreatedOn().toInstant())),
-                      Condition.column(DatastaxAspect.CREATED_BY_COLUMN).isEqualTo(literal(oldDatastaxAspect.getCreatedBy())));
-
-      batch = batch.addStatement(u.build());
+      batch = batch.addStatement(createCondUpdateStatement(newDatastaxAspect, oldDatastaxAspect).build());
     }
 
     ResultSet rs = _cqlSession.execute(batch.build());
@@ -296,18 +284,7 @@ public class DatastaxAspectDao {
     }
 
     if (oldDatastaxAspect == null) {
-      Insert ri = insertInto(DatastaxAspect.TABLE_NAME)
-              .value(DatastaxAspect.URN_COLUMN, literal(datastaxAspect.getUrn()))
-              .value(DatastaxAspect.ASPECT_COLUMN, literal(datastaxAspect.getAspect()))
-              .value(DatastaxAspect.VERSION_COLUMN, literal(datastaxAspect.getVersion()))
-              .value(DatastaxAspect.SYSTEM_METADATA_COLUMN, literal(datastaxAspect.getSystemMetadata()))
-              .value(DatastaxAspect.METADATA_COLUMN, literal(datastaxAspect.getMetadata()))
-              .value(DatastaxAspect.CREATED_ON_COLUMN, literal(datastaxAspect.getCreatedOn().getTime()))
-              .value(DatastaxAspect.CREATED_FOR_COLUMN, literal(datastaxAspect.getCreatedFor()))
-              .value(DatastaxAspect.ENTITY_COLUMN, literal(entity))
-              .value(DatastaxAspect.CREATED_BY_COLUMN, literal(datastaxAspect.getCreatedBy()))
-              .ifNotExists();
-      return _cqlSession.execute(ri.build());
+      return _cqlSession.execute(createCondInsertStatement(datastaxAspect).build());
     } else {
       Update u = update(DatastaxAspect.TABLE_NAME)
               .setColumn(DatastaxAspect.METADATA_COLUMN, literal(datastaxAspect.getMetadata()))
@@ -325,6 +302,7 @@ public class DatastaxAspectDao {
                       Condition.column(DatastaxAspect.CREATED_ON_COLUMN).isEqualTo(literal(oldDatastaxAspect.getCreatedOn() == null ? null : oldDatastaxAspect.getCreatedOn().toInstant())),
                       Condition.column(DatastaxAspect.CREATED_BY_COLUMN).isEqualTo(literal(oldDatastaxAspect.getCreatedBy())));
 
+      // TODO: check for wasApplied
       return _cqlSession.execute(u.build());
     }
   }
@@ -387,6 +365,7 @@ public class DatastaxAspectDao {
   @Nonnull
   private List<DatastaxAspect> batchGet(@Nonnull final Set<DatastaxAspect.PrimaryKey> keys, final int keysCount) {
 
+    // Can be optimised based on DB schema
     int position = 0;
 
     final int totalPageCount = QueryUtils.getTotalPageCount(keys.size(), keysCount);
@@ -420,7 +399,6 @@ public class DatastaxAspectDao {
       }
 
       return aspects;
-
     }
 
   public DatastaxAspect getAspect(DatastaxAspect.PrimaryKey pk) {
@@ -465,6 +443,8 @@ public class DatastaxAspectDao {
       .stream().map(this::toDatastaxAspect)
       .collect(Collectors.toList());
 
+    // TODO: address performance issue for getting total count
+    // https://www.datastax.com/blog/running-count-expensive-cassandra
     SimpleStatement ssCount = selectFrom(DatastaxAspect.TABLE_NAME)
       .countAll()
       .whereColumn(DatastaxAspect.ASPECT_COLUMN).isEqualTo(literal(aspectName))
@@ -565,6 +545,7 @@ public class DatastaxAspectDao {
       .whereColumn(DatastaxAspect.URN_COLUMN).isEqualTo(literal(urn))
         .build();
     ResultSet rs = _cqlSession.execute(ss);
+    // TODO: look into how to get around this for counts in Cassandra
     // https://stackoverflow.com/questions/28611459/how-to-know-affected-rows-in-cassandracql
     return rs.getExecutionInfo().getErrors().size() == 0 ? -1 : 0;
   }
@@ -644,6 +625,8 @@ public class DatastaxAspectDao {
             .stream().map(r -> toDatastaxAspect(r).getUrn())
             .collect(Collectors.toList());
 
+    // TODO: address performance issue for getting total count
+    // https://www.datastax.com/blog/running-count-expensive-cassandra
     SimpleStatement ssCount = selectFrom(DatastaxAspect.TABLE_NAME)
             .countAll()
             .whereColumn(DatastaxAspect.ASPECT_COLUMN).isEqualTo(literal(aspectName))

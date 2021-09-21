@@ -3,6 +3,7 @@ package com.linkedin.metadata.entity;
 import com.datastax.driver.core.Cluster;
 import com.datastax.driver.core.KeyspaceMetadata;
 import com.datastax.driver.core.Session;
+import com.google.common.base.Equivalence;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
@@ -375,26 +376,36 @@ public class DatastaxEntityServiceTest {
     assertEquals(batch1.getTotalPageCount(), 2);
     assertEquals(batch1.getValues().size(), 2);
 
-    // Order not guaranteed since we aren't sorting anymore
-    assertTrue(
-               DataTemplateUtil.areEqual(writeAspect1, batch1.getValues().get(0))
-               || DataTemplateUtil.areEqual(writeAspect2, batch1.getValues().get(0))
-               || DataTemplateUtil.areEqual(writeAspect3, batch1.getValues().get(0))
-               );
-
-    assertTrue(
-               DataTemplateUtil.areEqual(writeAspect1, batch1.getValues().get(1))
-               || DataTemplateUtil.areEqual(writeAspect2, batch1.getValues().get(1))
-               || DataTemplateUtil.areEqual(writeAspect3, batch1.getValues().get(1))
-               );
 
     ListResult<RecordTemplate> batch2 = _entityService.listLatestAspects(entityUrn1.getEntityType(), aspectName, 2, 2);
     assertEquals(1, batch2.getValues().size());
-    assertTrue(
-               DataTemplateUtil.areEqual(writeAspect1, batch2.getValues().get(0))
-               || DataTemplateUtil.areEqual(writeAspect2, batch2.getValues().get(0))
-               || DataTemplateUtil.areEqual(writeAspect3, batch2.getValues().get(0))
-               );
+
+    // https://stackoverflow.com/questions/14880450/java-hashset-with-a-custom-equality-criteria
+    Equivalence<RecordTemplate> recordTemplateEquivalence = new Equivalence<RecordTemplate>() {
+      @Override
+      protected boolean doEquivalent(RecordTemplate a, RecordTemplate b) {
+        return DataTemplateUtil.areEqual(a, b);
+      }
+
+      @Override
+      protected int doHash(RecordTemplate item) {
+        return item.hashCode();
+      }
+    };
+
+    Set<Equivalence.Wrapper<RecordTemplate>> expectedEntities = new HashSet<Equivalence.Wrapper<RecordTemplate>>() {{
+      add(recordTemplateEquivalence.wrap(writeAspect1));
+      add(recordTemplateEquivalence.wrap(writeAspect2));
+      add(recordTemplateEquivalence.wrap(writeAspect3));
+    }};
+
+    Set<Equivalence.Wrapper<RecordTemplate>> actualEntities = new HashSet<Equivalence.Wrapper<RecordTemplate>>() {{
+      add(recordTemplateEquivalence.wrap(batch1.getValues().get(0)));
+      add(recordTemplateEquivalence.wrap(batch1.getValues().get(1)));
+      add(recordTemplateEquivalence.wrap(batch2.getValues().get(0)));
+    }};
+
+    assertTrue(actualEntities.equals(expectedEntities));
   }
 
   @Test
