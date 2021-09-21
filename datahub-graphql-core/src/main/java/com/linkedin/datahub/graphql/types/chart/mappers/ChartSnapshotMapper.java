@@ -67,11 +67,14 @@ public class ChartSnapshotMapper implements ModelMapper<ChartSnapshot, Chart> {
         result.setDescription(info.getDescription());
         result.setName(info.getTitle());
         result.setLastRefreshed(info.getLastRefreshed());
-        result.setInputs(info.getInputs().stream().map(input -> {
-            final Dataset dataset = new Dataset();
-            dataset.setUrn(input.getDatasetUrn().toString());
-            return dataset;
-        }).collect(Collectors.toList()));
+
+        if (info.hasInputs()) {
+            result.setInputs(info.getInputs().stream().map(input -> {
+                final Dataset dataset = new Dataset();
+                dataset.setUrn(input.getDatasetUrn().toString());
+                return dataset;
+            }).collect(Collectors.toList()));
+        }
 
         if (info.hasAccess()) {
             result.setAccess(AccessLevel.valueOf(info.getAccess().toString()));
