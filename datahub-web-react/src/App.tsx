@@ -5,7 +5,6 @@ import { BrowserRouter as Router } from 'react-router-dom';
 import { ApolloClient, ApolloProvider, createHttpLink, InMemoryCache, ServerError } from '@apollo/client';
 import { onError } from '@apollo/client/link/error';
 import { ThemeProvider } from 'styled-components';
-import '@fontsource/manrope';
 
 import './App.less';
 import { Routes } from './app/Routes';
