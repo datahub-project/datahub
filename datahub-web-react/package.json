@@ -14,6 +14,7 @@
         "@craco/craco": "^6.1.1",
         "@cypress/webpack-preprocessor": "5.8.0",
         "@data-ui/xy-chart": "^0.0.84",
+        "@fontsource/manrope": "^4.5.0",
         "@miragejs/graphql": "^0.1.11",
         "@react-hook/window-size": "^3.0.7",
         "@testing-library/jest-dom": "^5.11.6",

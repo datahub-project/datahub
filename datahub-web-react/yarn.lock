@@ -1642,6 +1642,11 @@
     minimatch "^3.0.4"
     strip-json-comments "^3.1.1"
 
+"@fontsource/manrope@^4.5.0":
+  version "4.5.0"
+  resolved "https://registry.yarnpkg.com/@fontsource/manrope/-/manrope-4.5.0.tgz#3bf9d3b24f29051573af5e1c93cf045ac213147c"
+  integrity sha512-9t7ppN9PRut9nldJ8pvvixGx97NOyFbswhp9ssBkLjpIsYHpaRj3x9W0eqfflH008kg6UK0ywwpU1fu5y8J5xw==
+
 "@graphql-codegen/add@^2.0.2":
   version "2.0.2"
   resolved "https://registry.yarnpkg.com/@graphql-codegen/add/-/add-2.0.2.tgz#4acbb95be9ebb859a3cebfe7132fdf49ffe06dd8"
