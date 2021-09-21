@@ -40,6 +40,7 @@ dependencies {
   testCompile externalDependency.testContainers
   testCompile externalDependency.testContainersJunit
   testCompile externalDependency.testContainersElasticsearch
+  testCompile externalDependency.lombok
   testCompile project(':test-models')
 
   testAnnotationProcessor externalDependency.lombok

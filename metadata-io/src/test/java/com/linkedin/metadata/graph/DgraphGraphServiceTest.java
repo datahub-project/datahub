@@ -6,6 +6,8 @@ import io.dgraph.DgraphClient;
 import io.dgraph.DgraphGrpc;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
+import lombok.extern.slf4j.Slf4j;
+import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.AfterTest;
 import org.testng.annotations.BeforeMethod;
@@ -24,7 +26,7 @@ import static com.linkedin.metadata.dao.utils.QueryUtils.EMPTY_FILTER;
 import static com.linkedin.metadata.dao.utils.QueryUtils.newFilter;
 import static org.testng.Assert.assertEquals;
 
-
+@Slf4j
 public class DgraphGraphServiceTest extends GraphServiceTestBase {
 
     private ManagedChannel _channel;
@@ -35,6 +37,9 @@ public class DgraphGraphServiceTest extends GraphServiceTestBase {
     public void setup() {
         _container = new DgraphContainer(DgraphContainer.DEFAULT_IMAGE_NAME.withTag("v21.03.0"));
         _container.start();
+
+        Slf4jLogConsumer logConsumer = new Slf4jLogConsumer(log);
+        _container.followOutput(logConsumer);
     }
 
     @BeforeMethod
