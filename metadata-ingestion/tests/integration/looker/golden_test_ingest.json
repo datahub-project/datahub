@@ -139,7 +139,8 @@
                             }
                         ],
                         "primaryKeys": [],
-                        "foreignKeysSpecs": null
+                        "foreignKeysSpecs": null,
+                        "foreignKeys": null
                     }
                 }
             ]
