@@ -3,7 +3,13 @@ import { message, Button, Modal, Select, Typography } from 'antd';
 import styled from 'styled-components';
 
 import { useGetAutoCompleteMultipleResultsLazyQuery } from '../../../graphql/search.generated';
-import { GlobalTags, EntityType, AutoCompleteResultForEntity, GlossaryTerms } from '../../../types.generated';
+import {
+    GlobalTags,
+    EntityType,
+    AutoCompleteResultForEntity,
+    GlossaryTerms,
+    SubResourceType,
+} from '../../../types.generated';
 import CreateTagModal from './CreateTagModal';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { IconStyleType } from '../../entity/Entity';
@@ -148,16 +154,18 @@ export default function AddTagTermModal({
             urnToAdd = `urn:li:tag:${selectedName}`;
             input = {
                 tagUrn: urnToAdd,
-                targetUrn: entityUrn,
+                resourceUrn: entityUrn,
                 subResource: entitySubresource,
+                subResourceType: entitySubresource ? SubResourceType.FieldPath : null,
             };
         }
         if (selectedType === EntityType.GlossaryTerm) {
             urnToAdd = `urn:li:glossaryTerm:${selectedName}`;
             input = {
                 termUrn: urnToAdd,
-                targetUrn: entityUrn,
+                resourceUrn: entityUrn,
                 subResource: entitySubresource,
+                subResourceType: entitySubresource ? SubResourceType.FieldPath : null,
             };
         }
 

@@ -24,13 +24,21 @@ public class RemoveTermResolver implements DataFetcher<CompletableFuture<Boolean
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
     final TermUpdateInput input = bindArgument(environment.getArgument("input"), TermUpdateInput.class);
     Urn termUrn = Urn.createFromString(input.getTermUrn());
-    Urn targetUrn = Urn.createFromString(input.getTargetUrn());
+    Urn targetUrn = Urn.createFromString(input.getResourceUrn());
 
     if (!LabelUtils.isAuthorizedToUpdateTerms(environment.getContext(), targetUrn, input.getSubResource())) {
       throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
     }
 
     return CompletableFuture.supplyAsync(() -> {
+      LabelUtils.validateInput(
+          termUrn,
+          targetUrn,
+          input.getSubResource(),
+          input.getSubResourceType(),
+          "glossaryTerm",
+          _entityService
+      );
       try {
 
         if (!termUrn.getEntityType().equals("glossaryTerm")) {

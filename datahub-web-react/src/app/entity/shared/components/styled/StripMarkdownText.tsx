@@ -1,5 +1,5 @@
 import React from 'react';
-import removeMd from 'remove-markdown';
+import removeMd from '@tommoor/remove-markdown';
 import styled from 'styled-components';
 
 const RemoveMarkdownContainer = styled.div`
