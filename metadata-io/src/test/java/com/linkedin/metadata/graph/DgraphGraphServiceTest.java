@@ -7,12 +7,13 @@ import io.dgraph.DgraphGrpc;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import lombok.extern.slf4j.Slf4j;
-import org.testcontainers.containers.output.Slf4jLogConsumer;
+import org.testcontainers.containers.output.OutputFrame;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.AfterTest;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
+import scala.Console;
 
 import javax.annotation.Nonnull;
 import java.util.Arrays;
@@ -21,6 +22,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 
 import static com.linkedin.metadata.dao.utils.QueryUtils.EMPTY_FILTER;
 import static com.linkedin.metadata.dao.utils.QueryUtils.newFilter;
@@ -38,8 +40,13 @@ public class DgraphGraphServiceTest extends GraphServiceTestBase {
         _container = new DgraphContainer(DgraphContainer.DEFAULT_IMAGE_NAME.withTag("v21.03.0"));
         _container.start();
 
-        Slf4jLogConsumer logConsumer = new Slf4jLogConsumer(log);
-        _container.followOutput(logConsumer);
+        // use Slf4jLogConsumer instead: Slf4jLogConsumer logConsumer = new Slf4jLogConsumer(log);
+        _container.followOutput(new Consumer<OutputFrame>() {
+            @Override
+            public void accept(OutputFrame outputFrame) {
+                Console.print(outputFrame.getUtf8String());
+            }
+        });
     }
 
     @BeforeMethod
