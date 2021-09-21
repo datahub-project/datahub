@@ -10,12 +10,12 @@ import com.linkedin.common.Urn
 }
 record SchemaFieldKey {
   /**
-  * Dataset associated with the schema field
+  * Parent associated with the schema field
   */
   @Searchable = {
     "fieldType": "URN",
   }
-  dataset: Urn
+  container: Urn
 
   /**
   * fieldPath identifying the schema field
