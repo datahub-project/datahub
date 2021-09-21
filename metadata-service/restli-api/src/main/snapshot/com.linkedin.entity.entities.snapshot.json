@@ -4366,16 +4366,16 @@
                 "type" : "typeref",
                 "name" : "SchemaFieldAspect",
                 "namespace" : "com.linkedin.metadata.aspect",
-                "doc" : "A union of all supported metadata aspects for a Dataset",
+                "doc" : "A union of all supported metadata aspects for a SchemaField",
                 "ref" : [ {
                   "type" : "record",
                   "name" : "SchemaFieldKey",
                   "namespace" : "com.linkedin.metadata.key",
                   "doc" : "Key for a SchemaField",
                   "fields" : [ {
-                    "name" : "dataset",
+                    "name" : "container",
                     "type" : "com.linkedin.common.Urn",
-                    "doc" : "Dataset associated with the schema field",
+                    "doc" : "Parent associated with the schema field",
                     "Searchable" : {
                       "fieldType" : "URN"
                     }
