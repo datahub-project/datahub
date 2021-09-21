@@ -335,10 +335,22 @@ type Mutation {
     Removes an existing policy and returns the policy urn
     """
     deletePolicy(urn: String!): String
+
+    """
+    Updates the description of a schema field
+    """
+    updateDescription(input: DescriptionUpdateInput!): Boolean
 }
 
 enum SubResourceType {
     FIELD_PATH
+}
+
+input DescriptionUpdateInput {
+    description: String!
+    resourceUrn: String!
+    subResourceType: SubResourceType
+    subResource: String
 }
 
 input TermUpdateInput {

@@ -11,7 +11,6 @@ import { ANTD_GRAY } from '../../../constants';
 import { useBaseEntity, useEntityData } from '../../../EntityContext';
 
 import SchemaTable from './SchemaTable';
-import { useUpdateSchema } from './utils/useUpdateSchema';
 
 const NoSchema = styled(Empty)`
     color: ${ANTD_GRAY[6]};
@@ -45,8 +44,6 @@ export const SchemaTab = () => {
         return groupByFieldPath(schemaMetadata?.fields, { showKeySchema });
     }, [schemaMetadata, showKeySchema]);
 
-    const { onUpdateDescription, onUpdateTags } = useUpdateSchema(schemaMetadata, editableSchemaMetadata);
-
     return (
         <div>
             <SchemaHeader
@@ -66,8 +63,6 @@ export const SchemaTab = () => {
                     <SchemaTable
                         rows={rows}
                         editMode
-                        onUpdateDescription={onUpdateDescription}
-                        onUpdateTags={onUpdateTags}
                         editableSchemaMetadata={editableSchemaMetadata}
                         usageStats={usageStats}
                     />

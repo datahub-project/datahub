@@ -13,3 +13,7 @@ mutation removeTerm($input: TermUpdateInput!) {
 mutation addTerm($input: TermUpdateInput!) {
     addTerm(input: $input)
 }
+
+mutation updateDescription($input: DescriptionUpdateInput!) {
+    updateDescription(input: $input)
+}
