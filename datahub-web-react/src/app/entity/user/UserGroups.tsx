@@ -40,6 +40,7 @@ export default function UserGroups({ urn, initialRelationships, pageSize }: Prop
     const [page, setPage] = useState(1);
     const entityRegistry = useEntityRegistry();
 
+    // Need to update with group list call
     const [getGroups, { data: groupsData }] = useGetGroupMembersLazyQuery();
 
     const onChangeGroupsPage = (newPage: number) => {

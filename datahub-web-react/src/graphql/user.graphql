@@ -25,19 +25,14 @@ query getUser($urn: String!, $groupsCount: Int!) {
             total
             relationships {
                 entity {
-                    ... on CorpUser {
+                    ... on CorpGroup {
                         urn
-                        username
+                        type
+                        name
                         info {
-                            active
                             displayName
-                            title
-                            firstName
-                            lastName
-                            fullName
-                        }
-                        editableInfo {
-                            pictureLink
+                            description
+                            email
                         }
                     }
                 }
@@ -54,19 +49,14 @@ query getUserGroups($urn: String!, $start: Int!, $count: Int!) {
             total
             relationships {
                 entity {
-                    ... on CorpUser {
+                    ... on CorpGroup {
                         urn
-                        username
+                        type
+                        name
                         info {
-                            active
                             displayName
-                            title
-                            firstName
-                            lastName
-                            fullName
-                        }
-                        editableInfo {
-                            pictureLink
+                            description
+                            email
                         }
                     }
                 }
