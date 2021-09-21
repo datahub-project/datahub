@@ -65,7 +65,7 @@ public class EbeanEntityService extends EntityService {
   private Boolean _alwaysEmitAuditEvent = false;
 
   public EbeanEntityService(@Nonnull final EbeanAspectDao entityDao, @Nonnull final EntityEventProducer eventProducer,
-      @Nonnull final EntityRegistry entityRegistry, @Nonnull final ChangeStreamProcessor changeStreamProcessor) {
+                            @Nonnull final EntityRegistry entityRegistry, @Nonnull final ChangeStreamProcessor changeStreamProcessor) {
     super(eventProducer, entityRegistry, changeStreamProcessor);
     _entityDao = entityDao;
     _changeStreamProcessor = changeStreamProcessor;
@@ -74,7 +74,7 @@ public class EbeanEntityService extends EntityService {
   @Override
   @Nonnull
   public Map<Urn, List<RecordTemplate>> getLatestAspects(@Nonnull final Set<Urn> urns,
-      @Nonnull final Set<String> aspectNames) {
+                                                         @Nonnull final Set<String> aspectNames) {
 
     log.debug(String.format("Invoked getLatestAspects with urns: %s, aspectNames: %s", urns, aspectNames));
 
@@ -174,7 +174,7 @@ public class EbeanEntityService extends EntityService {
   @Override
   @Nonnull
   public ListResult<RecordTemplate> listLatestAspects(@Nonnull final String entityName,
-      @Nonnull final String aspectName, final int start, int count) {
+                                                      @Nonnull final String aspectName, final int start, int count) {
 
     log.debug(
         String.format("Invoked listLatestAspects with entityName: %s, aspectName: %s, start: %s, count: %s", entityName,
@@ -196,34 +196,54 @@ public class EbeanEntityService extends EntityService {
 
   // TODO: Move to EntityService
   public RecordTemplate ingestAspect(@Nonnull final Urn urn,
-      @Nonnull final String aspectName,
-      @Nonnull final RecordTemplate newAspect,
-      @Nonnull final AuditStamp auditStamp,
-      @Nonnull final SystemMetadata systemMetadata) {
-
+                                     @Nonnull final String entityName,
+                                     @Nonnull final String aspectName,
+                                     @Nonnull final RecordTemplate newAspect,
+                                     @Nonnull final AuditStamp auditStamp,
+                                     @Nonnull final SystemMetadata systemMetadata) {
+    // 1. Retrieve the previous (latest) version of the aspect
     RecordTemplate previousAspect = getLatestAspect(urn, aspectName);
 
-    // Run pre-processors
-    ProcessChangeResult result = _changeStreamProcessor.preProcess(aspectName, previousAspect, newAspect);
+    // 2. Run the registered pre-processors
+    ProcessChangeResult result = _changeStreamProcessor.runBeforeChangeProcessors(entityName, aspectName, previousAspect, newAspect);
 
+    // 3. The before change processors could ask to stop the processing of the aspect change here.
     if (result.changeState == ChangeState.STOP_PROCESSING) {
       return result.getAspect();
     }
 
-    // Persist aspect
+    // 4. Persist aspect to the data store
     UpdateAspectResult updateAspectResult = ingestAspectToLocalDB(urn, aspectName, newAspect, auditStamp, systemMetadata, 3);
 
+    // 5. The before change processors could ask to stop the processing after the aspect save but request to stop processing there.
     if (result.changeState == ChangeState.SAVE_THEN_STOP) {
       return result.getAspect();
     }
 
-    // Run post-processors
-    result = _changeStreamProcessor.postProcess(aspectName, previousAspect, newAspect);
+    // 6. Run the registered after change processors
+    result = _changeStreamProcessor.runAfterChangeProcessors(entityName, aspectName, previousAspect, newAspect);
 
-    // Emit a mae event
-    if (previousAspect != result.getAspect() || _alwaysEmitAuditEvent) {
+    // 7. Emit a mae event
+    emitMaeEvent(urn, aspectName, previousAspect, result, updateAspectResult);
+
+    return result.getAspect();
+  }
+
+  @Override
+  @Nonnull
+  public RecordTemplate updateAspect(@Nonnull final Urn urn, @Nonnull final String aspectName,
+                                     @Nonnull final RecordTemplate newValue, @Nonnull final AuditStamp auditStamp, @Nonnull final long version,
+                                     @Nonnull final boolean emitMae) {
+    log.debug(
+        String.format("Invoked updateAspect with urn: %s, aspectName: %s, newValue: %s, version: %s, emitMae: %s", urn,
+            aspectName, newValue, version, emitMae));
+    return updateAspect(urn, aspectName, newValue, auditStamp, version, emitMae, DEFAULT_MAX_TRANSACTION_RETRY);
+  }
+
+  private void emitMaeEvent(Urn urn, String aspectName, RecordTemplate previousAspect, ProcessChangeResult result, UpdateAspectResult updateAspectResult) {
+    if (!result.getAspect().equals(previousAspect) || _alwaysEmitAuditEvent) {
       log.debug(String.format("Producing MetadataAuditEvent for ingested aspect %s, urn %s", aspectName, urn));
-      if (aspectName == getKeyAspectName(urn)) {
+      if (aspectName.equals(getKeyAspectName(urn))) {
         produceMetadataAuditEventForKey(urn, updateAspectResult.getNewSystemMetadata());
       } else {
         produceMetadataAuditEvent(urn, previousAspect, result.getAspect(), updateAspectResult.getOldSystemMetadata(),
@@ -234,17 +254,15 @@ public class EbeanEntityService extends EntityService {
           String.format("Skipped producing MetadataAuditEvent for ingested aspect %s, urn %s. Aspect has not changed.",
               aspectName, urn));
     }
-
-    return result.getAspect();
   }
 
   @Nonnull
   private UpdateAspectResult ingestAspectToLocalDB(@Nonnull final Urn urn,
-      @Nonnull final String aspectName,
-      @Nonnull RecordTemplate newValue,
-      @Nonnull final AuditStamp auditStamp,
-      @Nonnull final SystemMetadata providedSystemMetadata,
-      final int maxTransactionRetry) {
+                                                   @Nonnull final String aspectName,
+                                                   @Nonnull RecordTemplate newValue,
+                                                   @Nonnull final AuditStamp auditStamp,
+                                                   @Nonnull final SystemMetadata providedSystemMetadata,
+                                                   final int maxTransactionRetry) {
 
     return _entityDao.runInTransactionWithRetry(() -> {
 
@@ -286,21 +304,10 @@ public class EbeanEntityService extends EntityService {
     }, maxTransactionRetry);
   }
 
-  @Override
-  @Nonnull
-  public RecordTemplate updateAspect(@Nonnull final Urn urn, @Nonnull final String aspectName,
-      @Nonnull final RecordTemplate newValue, @Nonnull final AuditStamp auditStamp, @Nonnull final long version,
-      @Nonnull final boolean emitMae) {
-    log.debug(
-        String.format("Invoked updateAspect with urn: %s, aspectName: %s, newValue: %s, version: %s, emitMae: %s", urn,
-            aspectName, newValue, version, emitMae));
-    return updateAspect(urn, aspectName, newValue, auditStamp, version, emitMae, DEFAULT_MAX_TRANSACTION_RETRY);
-  }
-
   @Nonnull
   private RecordTemplate updateAspect(@Nonnull final Urn urn, @Nonnull final String aspectName,
-      @Nonnull final RecordTemplate value, @Nonnull final AuditStamp auditStamp, @Nonnull final long version,
-      @Nonnull final boolean emitMae, final int maxTransactionRetry) {
+                                      @Nonnull final RecordTemplate value, @Nonnull final AuditStamp auditStamp, @Nonnull final long version,
+                                      @Nonnull final boolean emitMae, final int maxTransactionRetry) {
 
     final UpdateAspectResult result = _entityDao.runInTransactionWithRetry(() -> {
 

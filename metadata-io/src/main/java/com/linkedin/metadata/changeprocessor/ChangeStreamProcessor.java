@@ -1,8 +1,6 @@
 package com.linkedin.metadata.changeprocessor;
 
-import com.linkedin.common.AuditStamp;
 import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.mxe.SystemMetadata;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -14,39 +12,59 @@ import java.util.TreeSet;
 
 /**
  * Responsible for routing events to the correct registered change processors. Processors are registered based on the
- * entityName plus the aspectName they apply to. If none are supplied then the original change is returned.
+ * aspectName they apply to. If none are supplied then the proposed change is returned.
  */
 public class ChangeStreamProcessor {
 
   private final Comparator<ChangeProcessor> _processorComparator = Comparator.comparing(p -> p.PRIORITY);
   private final TreeSet<ChangeProcessor> _emptySet = new TreeSet<>(_processorComparator);
-  private final Map<String, SortedSet<ChangeProcessor>> _changeProcessors = new HashMap<>();
+  private final Map<String, SortedSet<ChangeProcessor>> _beforeChangeProcessors = new HashMap<>();
+  private final Map<String, SortedSet<ChangeProcessor>> _afterChangeProcessors = new HashMap<>();
 
-  public ChangeStreamProcessor() {
+  public void addBeforeChangeProcessor(String entityName, String aspectName, ChangeProcessor processor) {
+    addProcessor(entityName, aspectName, processor, _beforeChangeProcessors);
   }
 
-  public void registerProcessor(String aspectName, ChangeProcessor processor) {
-    if (_changeProcessors.containsKey(aspectName)) {
-      _changeProcessors.get(aspectName).add(processor);
+  public void addAfterChangeProcessor(String entityName, String aspectName, ChangeProcessor processor) {
+    addProcessor(entityName, aspectName, processor, _afterChangeProcessors);
+  }
+
+  public ProcessChangeResult runBeforeChangeProcessors(String entityName,
+                                                       String aspectName,
+                                                       RecordTemplate previousAspect,
+                                                       RecordTemplate newAspect) {
+    return process(entityName, aspectName, previousAspect, newAspect, _beforeChangeProcessors);
+  }
+
+  public ProcessChangeResult runAfterChangeProcessors(String entityName,
+                                                      String aspectName,
+                                                      RecordTemplate previousAspect,
+                                                      RecordTemplate newAspect) {
+    return process(entityName, aspectName, previousAspect, newAspect, _afterChangeProcessors);
+  }
+
+  private void addProcessor(String entityName,
+                            String aspectName,
+                            ChangeProcessor processor,
+                            Map<String, SortedSet<ChangeProcessor>> processorMap) {
+    String processorKey = (entityName + aspectName).toLowerCase();
+
+    if (processorMap.containsKey(processorKey)) {
+      processorMap.get(processorKey).add(processor);
     } else {
-      _changeProcessors.put(aspectName, new TreeSet<>(_processorComparator));
+      TreeSet<ChangeProcessor> processors = new TreeSet<>(_processorComparator);
+      processors.add(processor);
+      processorMap.put(processorKey, processors);
     }
   }
 
-  public ProcessChangeResult preProcess(String aspectName, RecordTemplate latestAspect, RecordTemplate newAspect) {
-    return process(aspectName, latestAspect, newAspect, ProcessType.PRE);
-  }
+  private ProcessChangeResult process(String entityName,
+                                      String aspectName,
+                                      RecordTemplate previousAspect,
+                                      RecordTemplate newAspect,
+                                      Map<String, SortedSet<ChangeProcessor>> processorMap) {
 
-  public ProcessChangeResult postProcess(String aspectName, RecordTemplate latestAspect, RecordTemplate newAspect) {
-    return process(aspectName, latestAspect, newAspect, ProcessType.POST);
-  }
-
-  private ProcessChangeResult process(String aspectName,
-      RecordTemplate latestAspect,
-      RecordTemplate newAspect,
-      ProcessType processType
-  ) {
-    SortedSet<ChangeProcessor> changeProcessors = _changeProcessors.getOrDefault(aspectName, _emptySet);
+    SortedSet<ChangeProcessor> changeProcessors = processorMap.getOrDefault(aspectName, _emptySet);
 
     if (changeProcessors.isEmpty()) {
       return new ProcessChangeResult(newAspect, ChangeState.CONTINUE, new ArrayList<>());
@@ -56,20 +74,10 @@ public class ChangeStreamProcessor {
     ProcessChangeResult result = new ProcessChangeResult(newAspect, ChangeState.CONTINUE, messages);
 
     for (ChangeProcessor processor : changeProcessors) {
-      if (processType == ProcessType.PRE) {
-        result = processor.beforeChange(aspectName, latestAspect, result.getAspect());
-      } else {
-        result = processor.afterChange(aspectName, latestAspect, result.getAspect());
-      }
+      result = processor.afterChange(entityName, aspectName, previousAspect, result.getAspect());
       messages.addAll(result.getMessages());
-      //TODO HANDLE CHANGE STATE
     }
 
     return new ProcessChangeResult(result.getAspect(), result.changeState, messages);
-  }
-
-  private enum ProcessType {
-    PRE,
-    POST
   }
 }

@@ -149,16 +149,16 @@ public abstract class EntityService {
    * @param systemMetadata
    * @return the {@link RecordTemplate} representation of the written aspect object
    */
-  public abstract RecordTemplate ingestAspect(@Nonnull final Urn urn, @Nonnull final String aspectName,
+  public abstract RecordTemplate ingestAspect(@Nonnull final Urn urn, @Nonnull final String entityName, @Nonnull final String aspectName,
       @Nonnull final RecordTemplate newValue, @Nonnull final AuditStamp auditStamp, SystemMetadata systemMetadata);
 
-  public RecordTemplate ingestAspect(@Nonnull final Urn urn, @Nonnull final String aspectName,
+  public RecordTemplate ingestAspect(@Nonnull final Urn urn, @Nonnull final String entityName, @Nonnull final String aspectName,
       @Nonnull final RecordTemplate newValue, @Nonnull final AuditStamp auditStamp) {
 
     SystemMetadata generatedSystemMetadata = new SystemMetadata();
     generatedSystemMetadata.setLastObserved(System.currentTimeMillis());
 
-    return ingestAspect(urn, aspectName, newValue, auditStamp, generatedSystemMetadata);
+    return ingestAspect(urn, entityName, aspectName, newValue, auditStamp, generatedSystemMetadata);
   }
 
   /**
@@ -309,10 +309,11 @@ public abstract class EntityService {
     if (getLatestAspect(urn, keyAspectName) == null) {
       aspectRecordsToIngest.add(buildKeyAspect(urn));
     }
+    String entityName = PegasusUtils.getEntityNameFromSchema(snapshotRecord.schema());
 
     aspectRecordsToIngest.forEach(aspect -> {
       final String aspectName = PegasusUtils.getAspectNameFromSchema(aspect.schema());
-      ingestAspect(urn, aspectName, aspect, auditStamp, systemMetadata);
+      ingestAspect(urn, entityName, aspectName, aspect, auditStamp, systemMetadata);
     });
   }
 

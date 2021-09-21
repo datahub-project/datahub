@@ -7,16 +7,18 @@ import java.util.ArrayList;
 public class BaseChangeProcessor implements ChangeProcessor {
 
   @Override
-  public ProcessChangeResult beforeChange(String aspectName,
-      RecordTemplate previousAspect,
-      RecordTemplate newAspect) {
+  public ProcessChangeResult beforeChange(String entityName,
+                                          String aspectName,
+                                          RecordTemplate previousAspect,
+                                          RecordTemplate newAspect) {
     return new ProcessChangeResult(newAspect, ChangeState.CONTINUE, new ArrayList<>());
   }
 
   @Override
-  public ProcessChangeResult afterChange(String aspectName,
-      RecordTemplate previousAspect,
-      RecordTemplate newAspect) {
-    return new ProcessChangeResult(newAspect,ChangeState.CONTINUE, new ArrayList<>());
+  public ProcessChangeResult afterChange(String entityName,
+                                         String aspectName,
+                                         RecordTemplate previousAspect,
+                                         RecordTemplate newAspect) {
+    return new ProcessChangeResult(newAspect, ChangeState.CONTINUE, new ArrayList<>());
   }
 }

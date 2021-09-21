@@ -17,6 +17,7 @@ import com.linkedin.metadata.aspect.Aspect;
 import com.linkedin.metadata.aspect.CorpUserAspect;
 import com.linkedin.metadata.aspect.CorpUserAspectArray;
 import com.linkedin.metadata.aspect.VersionedAspect;
+import com.linkedin.metadata.changeprocessor.ChangeProcessor;
 import com.linkedin.metadata.changeprocessor.ChangeState;
 import com.linkedin.metadata.changeprocessor.ChangeStreamProcessor;
 import com.linkedin.metadata.changeprocessor.ProcessChangeResult;
@@ -54,8 +55,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
@@ -74,7 +75,7 @@ public class EbeanEntityServiceTest {
   private EbeanAspectDao _aspectDao;
   private EbeanServer _server;
   private EntityEventProducer _mockProducer;
-  private ChangeStreamProcessor _mockChangeStreamProcessor;
+  private ChangeStreamProcessor _changeStreamProcessor;
 
   @Nonnull
   private static ServerConfig createTestingH2ServerConfig() {
@@ -93,6 +94,10 @@ public class EbeanEntityServiceTest {
     return serverConfig;
   }
 
+  private static ChangeStreamProcessor createChangeStreamProcessor() {
+    return new ChangeStreamProcessor();
+  }
+
   private static AuditStamp createTestAuditStamp() {
     try {
       return new AuditStamp().setTime(123L).setActor(Urn.createFromString("urn:li:principal:tester"));
@@ -105,10 +110,10 @@ public class EbeanEntityServiceTest {
   public void setupTest() {
     _server = EbeanServerFactory.create(createTestingH2ServerConfig());
     _mockProducer = mock(EntityEventProducer.class);
-    _mockChangeStreamProcessor = mock(ChangeStreamProcessor.class);
     _aspectDao = new EbeanAspectDao(_server);
+    _changeStreamProcessor = createChangeStreamProcessor();
     _aspectDao.setConnectionValidated(true);
-    _entityService = new EbeanEntityService(_aspectDao, _mockProducer, _testEntityRegistry, _mockChangeStreamProcessor);
+    _entityService = new EbeanEntityService(_aspectDao, _mockProducer, _testEntityRegistry, _changeStreamProcessor);
   }
 
   @Test
@@ -151,8 +156,6 @@ public class EbeanEntityServiceTest {
     metadata1.setLastObserved(1625792689);
     metadata1.setRunId("run-123");
 
-    when(_mockChangeStreamProcessor.preProcess(any(), any(),any())).thenReturn(new ProcessChangeResult(writeEntity, ChangeState.CONTINUE, new ArrayList<>()));
-    when(_mockChangeStreamProcessor.postProcess(any(), any(),any())).thenReturn(new ProcessChangeResult(writeEntity, ChangeState.CONTINUE, new ArrayList<>()));
     // 1. Ingest Entity
     _entityService.ingestEntity(writeEntity, TEST_AUDIT_STAMP, metadata1);
 
@@ -605,8 +608,13 @@ public class EbeanEntityServiceTest {
   }
 
   @Test
-  public void testInjestAspectWithCustomLogicShouldIgnoreUpdate() throws Exception {
-    _entityService = new EbeanEntityService(_aspectDao, _mockProducer, _testEntityRegistry, _mockChangeStreamProcessor);
+  public void testInjestAspectWithChangeProcessorShouldIgnoreUpdate() throws Exception {
+    ChangeProcessor changeProcessor = mock(ChangeProcessor.class);
+    when(changeProcessor.beforeChange(, any(), any(), any())).thenReturn(new ProcessChangeResult(null, ChangeState.STOP_PROCESSING, new ArrayList<>()));
+
+    _changeStreamProcessor.addBeforeChangeProcessor("corpUser", "corpUserInfo", changeProcessor);
+
+    _entityService = new EbeanEntityService(_aspectDao, _mockProducer, _testEntityRegistry, _changeStreamProcessor);
 
     Urn entityUrn = Urn.createFromString("urn:li:corpuser:test");
 
@@ -623,14 +631,29 @@ public class EbeanEntityServiceTest {
 
   @Test
   public void testInjestAspectWithCustomLogicShouldIgnoreUpdates() throws Exception {
-    _entityService = new EbeanEntityService(_aspectDao, _mockProducer, _testEntityRegistry, _mockChangeStreamProcessor);
-
     Urn entityUrn = Urn.createFromString("urn:li:corpuser:test");
 
-    // Ingest CorpUserInfo Aspect #1 with correct email address
     CorpUserInfo writeAspect1 = createCorpUserInfo("email@properemail.com");
     String aspectName = PegasusUtils.getAspectNameFromSchema(writeAspect1.schema());
     SystemMetadata metadata1 = new SystemMetadata();
+
+    CorpUserInfo writeAspect2 = createCorpUserInfo("disallowedEmail@test.com");
+    SystemMetadata metadata2 = new SystemMetadata();
+
+    // Setup a change processor to allow the initial change
+    ChangeProcessor changeProcessor = mock(ChangeProcessor.class);
+    when(changeProcessor.beforeChange(, aspectName, null, writeAspect1))
+        .thenReturn(new ProcessChangeResult(writeAspect1, ChangeState.CONTINUE, new ArrayList<>()));
+    when(changeProcessor.beforeChange(, aspectName, writeAspect1, writeAspect2))
+        .thenReturn(new ProcessChangeResult(writeAspect1, ChangeState.STOP_PROCESSING, new ArrayList<>()));
+    when(changeProcessor.afterChange(, any(), any(), any()))
+        .thenReturn(new ProcessChangeResult(writeAspect1, ChangeState.CONTINUE, new ArrayList<>()));
+
+    _changeStreamProcessor.addBeforeChangeProcessor("corpUserInfo", changeProcessor);
+
+    _entityService = new EbeanEntityService(_aspectDao, _mockProducer, _testEntityRegistry, _changeStreamProcessor);
+
+    // Ingest CorpUserInfo Aspect #1 with correct email address
     _entityService.ingestAspect(entityUrn, aspectName, writeAspect1, TEST_AUDIT_STAMP, metadata1);
     RecordTemplate readAspectOriginal = _entityService.getAspect(entityUrn, aspectName, 0);
 
@@ -638,11 +661,7 @@ public class EbeanEntityServiceTest {
     assertTrue(DataTemplateUtil.areEqual(writeAspect1, readAspectOriginal));
 
     // Ingest CorpUserInfo Aspect #2 with bad email address
-    CorpUserInfo writeAspect2 = createCorpUserInfo("disallowedEmail@test.com");
-    SystemMetadata metadata2 = new SystemMetadata();
-
     _entityService.ingestAspect(entityUrn, aspectName, writeAspect2, TEST_AUDIT_STAMP, metadata2);
-
     RecordTemplate readAspectOriginalUnchanged = _entityService.getAspect(entityUrn, aspectName, 0);
 
     // Should ignore updated aspect with disallowed email address
