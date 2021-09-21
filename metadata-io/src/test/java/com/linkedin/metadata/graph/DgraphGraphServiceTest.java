@@ -44,7 +44,11 @@ public class DgraphGraphServiceTest extends GraphServiceTestBase {
                 .usePlaintext()
                 .build();
 
-        _service = new DgraphGraphService(new DgraphClient(DgraphGrpc.newStub(_channel)));
+        DgraphGrpc.DgraphStub stub = DgraphGrpc.newStub(_channel)
+                .withDeadlineAfter(10, TimeUnit.SECONDS)
+                .withWaitForReady();
+
+        _service = new DgraphGraphService(new DgraphClient(stub));
     }
 
     @AfterMethod
