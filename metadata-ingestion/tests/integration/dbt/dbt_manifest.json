@@ -3344,7 +3344,7 @@
           "meta": {},
           "name": "first_name",
           "quote": null,
-          "tags": []
+          "tags": ["column_tag"]
         },
         "last_name": {
           "data_type": null,

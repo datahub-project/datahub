@@ -730,7 +730,13 @@
                                 },
                                 "nativeDataType": "text",
                                 "recursive": false,
-                                "globalTags": null,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:column_tag"
+                                        }
+                                    ]
+                                },
                                 "glossaryTerms": null,
                                 "isPartOfKey": false
                             },

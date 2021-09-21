@@ -39,11 +39,11 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 )
 from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
+    GlobalTagsClass,
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
-    GlobalTagsClass,
-    TagAssociationClass
+    TagAssociationClass,
 )
 
 logger = logging.getLogger(__name__)
@@ -93,7 +93,7 @@ class DBTNode:
     # see https://docs.getdbt.com/reference/artifacts/manifest-json
     catalog_type: Optional[str]
 
-    owner: str
+    owner: Optional[str]
 
     columns: List[DBTColumn] = field(default_factory=list)
     upstream_urns: List[str] = field(default_factory=list)
@@ -122,7 +122,7 @@ def get_columns(catalog_node: dict, manifest_node: dict) -> List[DBTColumn]:
             description=manifest_columns.get(key.lower(), {}).get("description", ""),
             data_type=raw_column["type"],
             index=raw_column["index"],
-            tags=raw_column.get("tags", [])
+            tags=manifest_columns.get(key.lower(), {}).get("tags", []),
         )
         columns.append(dbtCol)
     return columns
@@ -195,7 +195,7 @@ def extract_dbt_entities(
             catalog_type = all_catalog_entities[key]["metadata"]["type"]
 
         meta = manifest_node.get("meta", {})
-        owner = None
+        owner: Optional[str] = None
         if "owner" in meta:
             owner = meta["owner"]
 
@@ -222,7 +222,7 @@ def extract_dbt_entities(
             ),
             meta=manifest_node.get("meta", {}),
             tags=manifest_node.get("tags", []),
-            owner=owner
+            owner=owner,
         )
 
         # overwrite columns from catalog
@@ -440,7 +440,7 @@ def get_schema_metadata(
         globalTags = None
         if column.tags:
             globalTags = GlobalTagsClass(
-                tags=column.tags
+                tags=[TagAssociationClass(f"urn:li:tag:{tag}") for tag in column.tags]
             )
 
         field = SchemaField(
@@ -450,8 +450,7 @@ def get_schema_metadata(
             description=description,
             nullable=False,  # TODO: actually autodetect this
             recursive=False,
-            # globalTags=column.tags
-            globalTags=globalTags
+            globalTags=globalTags,
         )
 
         canonical_schema.append(field)
@@ -473,7 +472,7 @@ def get_schema_metadata(
         hash="",
         platformSchema=MySqlDDL(tableSchema=""),
         lastModified=last_modified,
-        fields=canonical_schema
+        fields=canonical_schema,
     )
 
 
@@ -525,10 +524,7 @@ class DBTSource(Source):
 
         for node in nodes:
 
-            dataset_snapshot = DatasetSnapshot(
-                urn=node.datahub_urn,
-                aspects=[]
-            )
+            dataset_snapshot = DatasetSnapshot(urn=node.datahub_urn, aspects=[])
 
             description = None
 
@@ -545,26 +541,31 @@ class DBTSource(Source):
             }
 
             dbt_properties = DatasetPropertiesClass(
-                description=description,
-                customProperties=custom_props,
-                tags=node.tags
+                description=description, customProperties=custom_props, tags=node.tags
             )
             dataset_snapshot.aspects.append(dbt_properties)
 
             if node.owner:
                 owners = [
-                        OwnerClass(
-                            owner=f"urn:li:corpuser:{node.owner}",
-                            type=OwnershipTypeClass.DATAOWNER,
-                        )
-                    ]
-                dataset_snapshot.aspects.append(OwnershipClass(
-                    owners=owners,
-                ))
+                    OwnerClass(
+                        owner=f"urn:li:corpuser:{node.owner}",
+                        type=OwnershipTypeClass.DATAOWNER,
+                    )
+                ]
+                dataset_snapshot.aspects.append(
+                    OwnershipClass(
+                        owners=owners,
+                    )
+                )
 
             if node.tags:
                 dataset_snapshot.aspects.append(
-                    GlobalTagsClass(tags = [TagAssociationClass(f"urn:li:tag:{tag}") for tag in node.tags])
+                    GlobalTagsClass(
+                        tags=[
+                            TagAssociationClass(f"urn:li:tag:{tag}")
+                            for tag in node.tags
+                        ]
+                    )
                 )
 
             upstreams = get_upstream_lineage(node.upstream_urns)

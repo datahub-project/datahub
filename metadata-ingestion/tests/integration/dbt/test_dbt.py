@@ -53,6 +53,7 @@ class DbtTestConfig:
             **sink_config_modifiers,
         )
 
+
 @pytest.mark.integration
 def test_dbt_ingest(pytestconfig, tmp_path, mock_time):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/dbt"
