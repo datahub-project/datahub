@@ -59,7 +59,7 @@ export default function GroupProfile() {
     }
 
     const groupMemberRelationships = data?.corpGroup?.relationships as EntityRelationshipsResult;
-    console.log(groupMemberRelationships);
+
     const getTabs = () => {
         return [
             {

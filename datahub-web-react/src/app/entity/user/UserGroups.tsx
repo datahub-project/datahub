@@ -1,7 +1,7 @@
 import { List, Pagination, Row, Space, Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { useGetGroupMembersLazyQuery } from '../../../graphql/group.generated';
+import { useGetUserGroupsLazyQuery } from '../../../graphql/user.generated';
 import { CorpGroup, EntityRelationshipsResult, EntityType } from '../../../types.generated';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { PreviewType } from '../Entity';
@@ -40,8 +40,7 @@ export default function UserGroups({ urn, initialRelationships, pageSize }: Prop
     const [page, setPage] = useState(1);
     const entityRegistry = useEntityRegistry();
 
-    // Need to update with group list call
-    const [getGroups, { data: groupsData }] = useGetGroupMembersLazyQuery();
+    const [getGroups, { data: groupsData }] = useGetUserGroupsLazyQuery();
 
     const onChangeGroupsPage = (newPage: number) => {
         setPage(newPage);
@@ -49,7 +48,7 @@ export default function UserGroups({ urn, initialRelationships, pageSize }: Prop
         getGroups({ variables: { urn, start, count: pageSize } });
     };
 
-    const relationships = groupsData ? groupsData.corpGroup?.relationships : initialRelationships;
+    const relationships = groupsData ? groupsData.corpUser?.relationships : initialRelationships;
     const total = relationships?.total || 0;
     const userGroups = relationships?.relationships?.map((rel) => rel.entity as CorpGroup) || [];
 
