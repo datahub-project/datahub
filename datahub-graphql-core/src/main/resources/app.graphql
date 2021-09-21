@@ -1,16 +1,14 @@
 # DataHub UI Application-Specific GraphQL Types
 
-"""
-Types used for fetching DataHub Metadata.
-"""
 extend type Query {
     """
-    Fetch details associated with the authenticated user (provided via auth cookie or header)
+    Fetch details associated with the authenticated user, provided via an auth cookie or header
     """
     me: AuthenticatedUser
 
     """
-    Fetch configurations (used by DataHub UI)
+    Fetch configurations
+    Used by DataHub UI
     """
     appConfig: AppConfig
 }
@@ -31,22 +29,23 @@ type AuthenticatedUser {
 }
 
 """
-The platform privileges that the currently authenticated user has.
+The platform privileges that the currently authenticated user has
 """
 type PlatformPrivileges {
   """
-  Whether the user should be able to view analytics.
+  Whether the user should be able to view analytics
   """
   viewAnalytics: Boolean!
 
   """
-  Whether the user should be able to manage policies.
+  Whether the user should be able to manage policies
   """
   managePolicies: Boolean!
 }
 
 """
-Config loaded at application boot time. This configuration dictates the behavior of the UI, such as which features are enabled or disabled.
+Config loaded at application boot time
+This configuration dictates the behavior of the UI, such as which features are enabled or disabled
 """
 type AppConfig {
   """
@@ -65,7 +64,7 @@ Configurations related to the Analytics Feature
 """
 type AnalyticsConfig {
   """
-  Whether the Analytics feature is enabled & should be displayed
+  Whether the Analytics feature is enabled and should be displayed
   """
   enabled: Boolean!
 }
@@ -95,27 +94,28 @@ An individual DataHub Access Privilege
 """
 type Privilege {
   """
-  Standardized privilege type, serving as a unique identifier for a privilege e.g. EDIT_ENTITY
+  Standardized privilege type, serving as a unique identifier for a privilege eg EDIT_ENTITY
   """
   type: String!
 
   """
-  The name to appear when displaying the privilege, e.g. Edit Entity
+  The name to appear when displaying the privilege, eg Edit Entity
   """
   displayName: String
 
   """
-  A description of the privilege to display.
+  A description of the privilege to display
   """
   description: String
 }
 
 """
-A privilege associated with a particular resource type. A resource is most commonly a DataHub Metadata Entity.
+A privilege associated with a particular resource type
+A resource is most commonly a DataHub Metadata Entity
 """
 type ResourcePrivileges {
   """
-  Resource type associated with the Access Privilege, e.g. 'dataset'
+  Resource type associated with the Access Privilege, eg dataset
   """
   resourceType: String!
 
@@ -125,7 +125,7 @@ type ResourcePrivileges {
   resourceTypeDisplayName: String
 
   """
-  An optional entity type to use when performing search and navigation to the entity.
+  An optional entity type to use when performing search and navigation to the entity
   """
   entityType: EntityType
 
@@ -133,142 +133,4 @@ type ResourcePrivileges {
   A list of privileges that are supported against this resource
   """
   privileges: [Privilege!]!
-}
-
-
-enum PolicyType {
-  METADATA
-  PLATFORM
-}
-
-enum PolicyState {
-  DRAFT
-  ACTIVE
-  INACTIVE
-}
-
-type Policy {
-  urn: String!
-  type: PolicyType!
-  name: String!
-  state: PolicyState!
-  description: String
-  resources: ResourceFilter
-  privileges: [String!]!
-  actors: ActorFilter!
-  editable: Boolean!
-}
-
-type ResourceFilter {
-  """
-  The type of the resource the policy should apply to. Not required because in the future we want to support
-  filtering by type OR by domain
-  """
-  type: String!
-
-  """
-  A list of specific resource urns to apply the filter to
-  """
-  resources: [String!]
-
-  """
-  Whether of not to apply the filter to all resources of the type
-  """
-  allResources: Boolean!
-}
-
-type ActorFilter {
-  """
-  A specific set of users to apply the policy to (disjunctive)
-  """
-  users: [String!]
-
-  """
-  A specific set of groups to apply the policy to (disjunctive)
-  """
-  groups: [String!]
-
-  """
-  Whether the filter should return true for owners of a particular resource.
-  Only applies to policies of type 'Metadata', which have a resource associated with them.
-  """
-  resourceOwners: Boolean!
-
-  """
-  Whether the filter should apply to all users.
-  """
-  allUsers: Boolean!
-
-  """
-  Whether the filter should apply to all groups.
-  """
-  allGroups: Boolean!
-}
-
-input PolicyInput {
-  type: PolicyType!
-  name: String!
-  state: PolicyState!
-  description: String
-  resources: ResourceFilterInput
-  privileges: [String!]!
-  actors: ActorFilterInput!
-}
-
-input ResourceFilterInput {
-  """
-  The type of the resource the policy should apply to. Not required because in the future we want to support
-  filtering by type OR by domain
-  """
-  type: String!
-
-  """
-  A list of specific resource urns to apply the filter to
-  """
-  resources: [String!]
-
-  """
-  Whether of not to apply the filter to all resources of the type
-  """
-  allResources: Boolean!
-}
-
-input ActorFilterInput {
-  """
-  A specific set of users to apply the policy to (disjunctive)
-  """
-  users: [String!]
-
-  """
-  A specific set of groups to apply the policy to (disjunctive)
-  """
-  groups: [String!]
-
-  """
-  Whether the filter should return true for owners of a particular resource.
-  Only applies to policies of type 'Metadata', which have a resource associated with them.
-  """
-  resourceOwners: Boolean!
-
-  """
-  Whether the filter should apply to all users.
-  """
-  allUsers: Boolean!
-
-  """
-  Whether the filter should apply to all groups.
-  """
-  allGroups: Boolean!
-}
-
-input ListPoliciesInput {
-  start: Int
-  count: Int
-}
-
-type ListPoliciesResult {
-  start: Int!
-  count: Int!
-  total: Int!
-  policies: [Policy!]!
 }

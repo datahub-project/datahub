@@ -9,6 +9,7 @@ import com.linkedin.datahub.graphql.generated.DataFlow;
 import com.linkedin.datahub.graphql.generated.DataJob;
 import com.linkedin.datahub.graphql.generated.DataJobInfo;
 import com.linkedin.datahub.graphql.generated.DataJobInputOutput;
+import com.linkedin.datahub.graphql.generated.DataJobProperties;
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.DataJobEditableProperties;
@@ -44,6 +45,7 @@ public class DataJobSnapshotMapper implements ModelMapper<DataJobSnapshot, DataJ
             if (aspect instanceof com.linkedin.datajob.DataJobInfo) {
                 com.linkedin.datajob.DataJobInfo info = com.linkedin.datajob.DataJobInfo.class.cast(aspect);
                 result.setInfo(mapDataJobInfo(info));
+                result.setProperties(mapDataJobInfoToProperties(info));
             } else if (aspect instanceof com.linkedin.datajob.DataJobInputOutput) {
                 com.linkedin.datajob.DataJobInputOutput inputOutput = com.linkedin.datajob.DataJobInputOutput.class.cast(aspect);
                 result.setInputOutput(mapDataJobInputOutput(inputOutput));
@@ -55,6 +57,7 @@ public class DataJobSnapshotMapper implements ModelMapper<DataJobSnapshot, DataJ
                 result.setStatus(StatusMapper.map(status));
             } else if (aspect instanceof GlobalTags) {
                 result.setGlobalTags(GlobalTagsMapper.map(GlobalTags.class.cast(aspect)));
+                result.setTags(GlobalTagsMapper.map(GlobalTags.class.cast(aspect)));
             } else if (aspect instanceof EditableDataJobProperties) {
                 final DataJobEditableProperties dataJobEditableProperties = new DataJobEditableProperties();
                 dataJobEditableProperties.setDescription(((EditableDataJobProperties) aspect).getDescription());
@@ -65,8 +68,27 @@ public class DataJobSnapshotMapper implements ModelMapper<DataJobSnapshot, DataJ
         return result;
     }
 
+    /**
+     * Maps GMS {@link com.linkedin.datajob.DataJobInfo} to deprecated GraphQL {@link DataJobInfo}
+     */
     private DataJobInfo mapDataJobInfo(final com.linkedin.datajob.DataJobInfo info) {
         final DataJobInfo result = new DataJobInfo();
+        result.setName(info.getName());
+        result.setDescription(info.getDescription());
+        if (info.hasExternalUrl()) {
+            result.setExternalUrl(info.getExternalUrl().toString());
+        }
+        if (info.hasCustomProperties()) {
+            result.setCustomProperties(StringMapMapper.map(info.getCustomProperties()));
+        }
+        return result;
+    }
+
+    /**
+     * Maps GMS {@link com.linkedin.datajob.DataJobInfo} to new GraphQL {@link DataJobProperties}
+     */
+    private DataJobProperties mapDataJobInfoToProperties(final com.linkedin.datajob.DataJobInfo info) {
+        final DataJobProperties result = new DataJobProperties();
         result.setName(info.getName());
         result.setDescription(info.getDescription());
         if (info.hasExternalUrl()) {

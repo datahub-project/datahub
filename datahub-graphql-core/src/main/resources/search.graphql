@@ -1,35 +1,33 @@
-"""
-Types used for fetching DataHub Metadata.
-"""
 extend type Query {
-    """
-    Full-Text search against a specific DataHub Entity Type
-    """
-    search(input: SearchInput!): SearchResults
+  """
+  Full text search against a specific DataHub Entity Type
+  """
+  search(input: SearchInput!): SearchResults
 
-    """
-    Autocomplete a search query against a specific DataHub Entity Type
-    """
-    autoComplete(input: AutoCompleteInput!): AutoCompleteResults
+  """
+  Autocomplete a search query against a specific DataHub Entity Type
+  """
+  autoComplete(input: AutoCompleteInput!): AutoCompleteResults
 
-    """
-    Autocomplete a search query against a specific set of DataHub Entity Types
-    """
-    autoCompleteForMultiple(input: AutoCompleteMultipleInput!): AutoCompleteMultipleResults
+  """
+  Autocomplete a search query against a specific set of DataHub Entity Types
+  """
+  autoCompleteForMultiple(input: AutoCompleteMultipleInput!): AutoCompleteMultipleResults
 
-    """
-    Hierarchically browse a specific type of DataHub Entity by path (used by Explore in UI)
-    """
-    browse(input: BrowseInput!): BrowseResults
+  """
+  Hierarchically browse a specific type of DataHub Entity by path
+  Used by explore in the UI
+  """
+  browse(input: BrowseInput!): BrowseResults
 
-    """
-    Retrieve the browse path(s) corresponding to an entity
-    """
-    browsePaths(input: BrowsePathsInput!): [BrowsePath!]
+  """
+  Retrieve the browse paths corresponding to an entity
+  """
+  browsePaths(input: BrowsePathsInput!): [BrowsePath!]
 }
 
 """
-Input arguments for a full-text search query
+Input arguments for a full text search query
 """
 input SearchInput {
   """
@@ -77,94 +75,94 @@ input FacetFilterInput {
 Results returned by issuing a search query
 """
 type SearchResults {
-    """
-	  The offset of the result set
-    """
-    start: Int!
+  """
+  The offset of the result set
+  """
+  start: Int!
 
-    """
-	  The number of entities included in the result set
-    """
-    count: Int!
+  """
+  The number of entities included in the result set
+  """
+  count: Int!
 
-    """
-    The total number of search results matching the query and filters
-    """
-    total: Int!
+  """
+  The total number of search results matching the query and filters
+  """
+  total: Int!
 
-    """
-    The search result entities
-    """
-    searchResults: [SearchResult!]!
+  """
+  The search result entities
+  """
+  searchResults: [SearchResult!]!
 
-    """
-    Candidate facet aggregations used for search filtering
-    """
-    facets: [FacetMetadata!]
+  """
+  Candidate facet aggregations used for search filtering
+  """
+  facets: [FacetMetadata!]
 }
 
 """
 An individual search result hit
 """
 type SearchResult {
-    """
-    The resolved DataHub Metadata Entity matching the search query
-    """
-    entity: Entity!
+  """
+  The resolved DataHub Metadata Entity matching the search query
+  """
+  entity: Entity!
 
-    """
-    Matched field hint
-    """
-    matchedFields: [MatchedField!]!
+  """
+  Matched field hint
+  """
+  matchedFields: [MatchedField!]!
 }
 
 """
 An overview of the field that was matched in the entity search document
 """
 type MatchedField {
-    """
-    Name of the field that matched
-    """
-    name: String!
+  """
+  Name of the field that matched
+  """
+  name: String!
 
-    """
-    Value of the field that matched
-    """
-    value: String!
+  """
+  Value of the field that matched
+  """
+  value: String!
 }
 
 """
 Contains valid fields to filter search results further on
 """
 type FacetMetadata {
-    """
-    Name of a field present in the search entity
-    """
-    field: String!
+  """
+  Name of a field present in the search entity
+  """
+  field: String!
 
-    """
-    Aggregated search result counts by value of the field
-    """
-    aggregations: [AggregationMetadata!]!
+  """
+  Aggregated search result counts by value of the field
+  """
+  aggregations: [AggregationMetadata!]!
 }
 
 """
-Information about the aggregation that can be used for filteirng, included the field value and number of results
+Information about the aggregation that can be used for filtering, included the field value and number of results
 """
 type AggregationMetadata {
-    """
-    A particular value of a facet field
-    """
-    value: String!
+  """
+  A particular value of a facet field
+  """
+  value: String!
 
-    """
-    The number of search results containing the value
-    """
-    count: Long!
+  """
+  The number of search results containing the value
+  """
+  count: Long!
 }
 
 """
-Input for performing an auto-completion query against a single Metadata Entity
+Input for performing an auto completion query against a single Metadata Entity
 """
 input AutoCompleteInput {
   """
@@ -194,68 +192,68 @@ input AutoCompleteInput {
 }
 
 """
-Input for performing an auto-completion query against a a set of Metadata Entities
+Input for performing an auto completion query against a a set of Metadata Entities
 """
 input AutoCompleteMultipleInput {
-    """
-    Entity types to be autocompleted against.
-    Optional- if none supplied, all searchable types will be autocompleted against
-    """
-    types: [EntityType!]
+  """
+  Entity types to be autocompleted against
+  Optional, if none supplied, all searchable types will be autocompleted against
+  """
+  types: [EntityType!]
 
-    """
-    The raw query string
-    """
-    query: String!
+  """
+  The raw query string
+  """
+  query: String!
 
-    """
-    An optional field to autocomplete against
-    """
-    field: String
+  """
+  An optional field to autocomplete against
+  """
+  field: String
 
-    """
-    The maximum number of autocomplete results
-    """
-    limit: Int
+  """
+  The maximum number of autocomplete results
+  """
+  limit: Int
 
-    """
-    Faceted filters applied to autocomplete results
-    """
-    filters: [FacetFilterInput!]
+  """
+  Faceted filters applied to autocomplete results
+  """
+  filters: [FacetFilterInput!]
 }
 
 """
 An individual auto complete result specific to an individual Metadata Entity Type
 """
 type AutoCompleteResultForEntity {
-    """
-    Entity type
-    """
-    type: EntityType!
+  """
+  Entity type
+  """
+  type: EntityType!
 
-    """
-    The autocompletion results for specified entity type
-    """
-    suggestions: [String!]!
+  """
+  The autocompletion results for specified entity type
+  """
+  suggestions: [String!]!
 }
 
 """
-The results returned on a multi-entity autocomplete query
+The results returned on a multi entity autocomplete query
 """
 type AutoCompleteMultipleResults {
-    """
-    The raw query string
-    """
-    query: String!
+  """
+  The raw query string
+  """
+  query: String!
 
-    """
-    The autocompletion suggestions
-    """
-    suggestions: [AutoCompleteResultForEntity!]!
+  """
+  The autocompletion suggestions
+  """
+  suggestions: [AutoCompleteResultForEntity!]!
 }
 
 """
-The results returned on a single-entity autocomplete query
+The results returned on a single entity autocomplete query
 """
 type AutoCompleteResults {
 	"""
@@ -270,6 +268,7 @@ type AutoCompleteResults {
 }
 
 """
+Input required for browse queries
 """
 input BrowseInput {
   """
@@ -278,30 +277,33 @@ input BrowseInput {
 	type: EntityType!
 
 	"""
-	The browse path.. Should this be an array?
+	The browse path
 	"""
 	path: [String!]
 
-    """
-    The starting point of paginated results
-    """
+  """
+  The starting point of paginated results
+  """
 	start: Int
 
-    """
-    The number of elements included in the results
-    """
+  """
+  The number of elements included in the results
+  """
 	count: Int
 
-    """
-    Faceted filters applied to browse results
-    """
+  """
+  Faceted filters applied to browse results
+  """
 	filters: [FacetFilterInput!]
 }
 
+"""
+The results of a browse path traversal query
+"""
 type BrowseResults {
-    """
-    The browse results
-    """
+  """
+  The browse results
+  """
 	entities: [Entity!]!
 
 	"""
@@ -309,66 +311,78 @@ type BrowseResults {
 	"""
 	groups: [BrowseResultGroup!]!
 
-    """
-    The starting point of paginated results
-    """
+  """
+  The starting point of paginated results
+  """
 	start: Int!
 
-    """
-    The number of elements included in the results
-    """
+  """
+  The number of elements included in the results
+  """
 	count: Int!
 
-    """
-    The total number of browse results under the path with filters applied
-    """
+  """
+  The total number of browse results under the path with filters applied
+  """
 	total: Int!
 
-    """
-    Metadata containing resulting browse groups
-    """
+  """
+  Metadata containing resulting browse groups
+  """
 	metadata: BrowseResultMetadata!
 }
 
+"""
+Metadata about the Browse Paths response
+"""
 type BrowseResultMetadata {
-    """
-    The provided path
-    """
+  """
+  The provided path
+  """
 	path: [String!]!
 
-    """
-    The total number of entities under the provided browse path
-    """
+  """
+  The total number of entities under the provided browse path
+  """
 	totalNumEntities: Long!
 }
 
+"""
+A group of Entities under a given browse path
+"""
 type BrowseResultGroup {
-    """
-    The path name of a group of browse results
-    """
-  	name: String!
+  """
+  The path name of a group of browse results
+  """
+  name: String!
 
-  	"""
-  	The number of entities within the group
-  	"""
-  	count: Long!
+  """
+  The number of entities within the group
+  """
+  count: Long!
 }
 
+"""
+Inputs for fetching the browse paths for a Metadata Entity
+"""
 input BrowsePathsInput {
-    """
-    The browse entity type
-    """
+  """
+  The browse entity type
+  """
 	type: EntityType!
 
-	"""
-	The entity urn
-	"""
+  """
+  The entity urn
+  """
 	urn: String!
 }
 
+"""
+A hierarchical entity path
+"""
 type BrowsePath {
     """
     The components of the browse path
     """
-	path: [String!]!
+    path: [String!]!
 }
