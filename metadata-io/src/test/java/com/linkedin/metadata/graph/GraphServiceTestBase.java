@@ -1426,11 +1426,11 @@ abstract public class GraphServiceTestBase {
                   }
 
                   operation.run();
-                  finished.countDown();
               } catch (Throwable t) {
                   t.printStackTrace();
                   throwables.add(t);
               }
+              finished.countDown();
           }
       }).start());
 
