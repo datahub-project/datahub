@@ -18,20 +18,12 @@ import com.linkedin.metadata.dao.retention.IndefiniteRetention;
 import com.linkedin.metadata.dao.retention.Retention;
 import com.linkedin.metadata.dao.retention.TimeBasedRetention;
 import com.linkedin.metadata.dao.retention.VersionBasedRetention;
-import com.linkedin.metadata.dao.utils.QueryUtils;
 import com.linkedin.metadata.entity.ListResult;
 import com.linkedin.metadata.query.ExtraInfo;
 import com.linkedin.metadata.query.ExtraInfoArray;
 import com.linkedin.metadata.query.ListResultMetadata;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.net.InetSocketAddress;
@@ -53,7 +45,6 @@ public class DatastaxAspectDao {
   private static final IndefiniteRetention INDEFINITE_RETENTION = new IndefiniteRetention();
   private final Map<String, Retention> _aspectRetentionMap = new HashMap<>();
   private final Clock _clock = Clock.systemUTC();
-  private int _queryKeysCount = 0; // 0 means no pagination on keys
 
   public DatastaxAspectDao(@Nonnull final Map<String, String> sessionConfig) {
 
@@ -346,60 +337,15 @@ public class DatastaxAspectDao {
     }
   }
 
+  // TODO: can further improve by running the sub queries in parallel
+  // TODO: look into supporting pagination
   @Nonnull
   public Map<DatastaxAspect.PrimaryKey, DatastaxAspect> batchGet(@Nonnull final Set<DatastaxAspect.PrimaryKey> keys) {
-
-    if (keys.isEmpty()) {
-      return Collections.emptyMap();
-    }
-
-    final List<DatastaxAspect> records;
-    if (_queryKeysCount == 0) {
-      records = batchGet(keys, keys.size());
-    } else {
-      records = batchGet(keys, _queryKeysCount);
-    }
-    return records.stream().collect(Collectors.toMap(DatastaxAspect::toPrimaryKey, record -> record));
+    return keys.stream()
+            .map(k -> getAspect(k))
+            .filter(Objects::nonNull)
+            .collect(Collectors.toMap(DatastaxAspect::toPrimaryKey, record -> record));
   }
-
-  @Nonnull
-  private List<DatastaxAspect> batchGet(@Nonnull final Set<DatastaxAspect.PrimaryKey> keys, final int keysCount) {
-
-    // Can be optimised based on DB schema
-    int position = 0;
-
-    final int totalPageCount = QueryUtils.getTotalPageCount(keys.size(), keysCount);
-    final List<DatastaxAspect> finalResult = batchGetOr(new ArrayList<>(keys), keysCount, position);
-
-    while (QueryUtils.hasMore(position, keysCount, totalPageCount)) {
-      position += keysCount;
-      final List<DatastaxAspect> oneStatementResult = batchGetOr(new ArrayList<>(keys), keysCount, position);
-      finalResult.addAll(oneStatementResult);
-    }
-
-    return finalResult;
-  }
-
-    @Nonnull
-    private List<DatastaxAspect> batchGetOr(@Nonnull final ArrayList<DatastaxAspect.PrimaryKey> keys, int keysCount, int position) {
-
-      final int end = Math.min(keys.size(), position + keysCount);
-
-      final ArrayList<DatastaxAspect> aspects = new ArrayList<>();
-
-      for (int index = position; index < end; index++) {
-        final DatastaxAspect.PrimaryKey key = keys.get(index);
-
-        final DatastaxAspect datastaxAspect = getAspect(key.getUrn(), key.getAspect(), key.getVersion());
-
-        if (datastaxAspect != null) {
-          aspects.add(datastaxAspect);
-        }
-
-      }
-
-      return aspects;
-    }
 
   public DatastaxAspect getAspect(DatastaxAspect.PrimaryKey pk) {
     return getAspect(pk.getUrn(), pk.getAspect(), pk.getVersion());
