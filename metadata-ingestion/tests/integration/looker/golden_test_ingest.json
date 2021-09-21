@@ -66,7 +66,6 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "looker.type": "explore",
                             "looker.explore.label": "My Explore View",
                             "looker.explore.file": "test_source_file.lkml"
                         },
@@ -153,6 +152,19 @@
         "runId": "looker-test",
         "properties": null
     }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,data.explore.my_view,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "value": "{\"typeNames\": [\"explore\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": null
 },
 {
     "auditHeader": null,

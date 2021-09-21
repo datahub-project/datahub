@@ -99,7 +99,7 @@ public class DatasetType implements SearchableEntityType<Dataset>, BrowsableEnti
             return gmsResults.stream()
                 .map(gmsDataset ->
                     gmsDataset == null ? null : DataFetcherResult.<Dataset>newResult()
-                        .data(DatasetSnapshotMapper.map(gmsDataset.getValue().getDatasetSnapshot()))
+                            .data(DatasetSnapshotMapper.map(gmsDataset.getValue().getDatasetSnapshot()))
                         .localContext(AspectExtractor.extractAspects(gmsDataset.getValue().getDatasetSnapshot()))
                         .build()
                 )

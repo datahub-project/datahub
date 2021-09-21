@@ -23,6 +23,7 @@ export default function constructFetchedNode(
             name: fetchedNode.name,
             urn: fetchedNode.urn,
             type: fetchedNode.type,
+            subtype: fetchedNode.subtype,
             icon: fetchedNode.icon,
             unexploredChildren:
                 fetchedNode?.[direction === Direction.Upstream ? 'upstreamChildren' : 'downstreamChildren']?.filter(

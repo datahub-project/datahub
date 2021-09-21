@@ -21,6 +21,7 @@ import { SidebarTagsSection } from '../shared/containers/profile/sidebar/Sidebar
 import { SidebarStatsSection } from '../shared/containers/profile/sidebar/Dataset/StatsSidebarSection';
 import StatsTab from '../shared/tabs/Dataset/Stats/StatsTab';
 import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
+import { capitalizeFirstLetter } from '../../shared/capitalizeFirstLetter';
 
 const MatchTag = styled(Tag)`
     &&& {
@@ -137,9 +138,11 @@ export class DatasetEntity implements Entity<Dataset> {
     );
 
     getOverrideProperties = (dataset: GetDatasetQuery): GenericEntityProperties => {
-        // TODO(@shirshanka): calcualte entityTypeOverride value and return it in the object below
+        // if dataset has subTypes filled out, pick the most specific subtype and return it
+        const subTypes = dataset?.dataset?.subTypes;
         return {
             externalUrl: dataset.dataset?.properties?.externalUrl,
+            entityTypeOverride: subTypes ? capitalizeFirstLetter(subTypes.typeNames?.[0]) : '',
         };
     };
 
@@ -149,6 +152,7 @@ export class DatasetEntity implements Entity<Dataset> {
                 urn={data.urn}
                 name={data.name}
                 origin={data.origin}
+                subtype={data.subTypes?.typeNames?.[0]}
                 description={data.editableProperties?.description || data.description}
                 platformName={data.platform.displayName || data.platform.name}
                 platformLogo={data.platform.info?.logoUrl}
@@ -171,6 +175,7 @@ export class DatasetEntity implements Entity<Dataset> {
                 platformLogo={data.platform.info?.logoUrl}
                 owners={data.ownership?.owners}
                 globalTags={data.globalTags}
+                subtype={data.subTypes?.typeNames?.[0]}
                 snippet={
                     // Add match highlights only if all the matched fields are in the FIELDS_TO_HIGHLIGHT
                     result.matchedFields.length > 0 &&
@@ -192,6 +197,7 @@ export class DatasetEntity implements Entity<Dataset> {
             urn: entity.urn,
             name: entity.name,
             type: EntityType.Dataset,
+            subtype: entity.subTypes?.typeNames?.[0] || undefined,
             upstreamChildren: getChildren({ entity, type: EntityType.Dataset }, Direction.Upstream).map(
                 (child) => child.entity.urn,
             ),

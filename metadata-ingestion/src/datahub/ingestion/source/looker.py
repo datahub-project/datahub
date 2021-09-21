@@ -15,6 +15,7 @@ from typing import (
     Sequence,
     Set,
     Tuple,
+    Union,
 )
 
 import looker_sdk
@@ -31,6 +32,7 @@ from looker_sdk.sdk.api31.models import (
 import datahub.emitter.mce_builder as builder
 from datahub.configuration import ConfigModel
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -50,7 +52,6 @@ from datahub.metadata.schema_classes import (
     ChartInfoClass,
     ChartTypeClass,
     DashboardInfoClass,
-    MetadataChangeEventClass,
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
@@ -530,20 +531,24 @@ class LookerDashboardSource(Source):
 
         return MetadataChangeEvent(proposedSnapshot=chart_snapshot)
 
-    def _make_explore_mces(self) -> List[MetadataChangeEvent]:
-        explore_mces: List[MetadataChangeEventClass] = []
+    def _make_explore_metadata_events(
+        self,
+    ) -> List[Union[MetadataChangeEvent, MetadataChangeProposalWrapper]]:
+        explore_events: List[
+            Union[MetadataChangeEvent, MetadataChangeProposalWrapper]
+        ] = []
         for (model, explore) in self.explore_set:
             logger.info("Will process model: {}, explore: {}".format(model, explore))
             looker_explore = LookerExplore.from_api(
                 model, explore, self.client, self.reporter
             )
             if looker_explore is not None:
-                explore_mce = looker_explore._to_mce(
+                events = looker_explore._to_metadata_events(
                     self.source_config, self.reporter, self.source_config.base_url
                 )
-                if explore_mce is not None:
-                    explore_mces.append(explore_mce)
-        return explore_mces
+                if events is not None:
+                    explore_events.extend(events)
+        return explore_events
 
     def _make_dashboard_and_chart_mces(
         self, looker_dashboard: LookerDashboard
@@ -744,15 +749,28 @@ class LookerDashboardSource(Source):
                 "Failed to extract owners emails for any dashboards. Please enable the see_users permission for your Looker API key",
             )
 
-        explore_mces = self._make_explore_mces()
-        for mce in explore_mces:
-            workunit = MetadataWorkUnit(
-                id=f"looker-{mce.proposedSnapshot.urn}", mce=mce
-            )
+        explore_events = self._make_explore_metadata_events()
+        for event in explore_events:
+            if isinstance(event, MetadataChangeEvent):
+                workunit = MetadataWorkUnit(
+                    id=f"looker-{event.proposedSnapshot.urn}", mce=event
+                )
+            elif isinstance(event, MetadataChangeProposalWrapper):
+                # We want to treat subtype aspects as optional, so allowing failures in this aspect to be treated as warnings rather than failures
+                workunit = MetadataWorkUnit(
+                    id=f"looker-{event.entityUrn}-{event.aspectName}",
+                    mcp=event,
+                    treat_errors_as_warnings=True
+                    if event.aspectName in ["subTypes"]
+                    else False,
+                )
+            else:
+                raise Exception("Unexpected type of event {}".format(event))
+
             self.reporter.report_workunit(workunit)
             yield workunit
 
-        if self.source_config.tag_measures_and_dimensions and explore_mces != []:
+        if self.source_config.tag_measures_and_dimensions and explore_events != []:
             # Emit tag MCEs for measures and dimensions if we produced any explores:
             for tag_mce in LookerUtil.get_tag_mces():
                 workunit = MetadataWorkUnit(
