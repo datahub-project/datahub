@@ -22,7 +22,7 @@ const ENABLED_TAB_TYPES = [TabType.Ownership, TabType.Charts, TabType.Properties
  * Responsible for reading & writing users.
  */
 export default function DashboardProfile({ urn }: { urn: string }) {
-    const { loading, error, data } = useGetDashboardQuery({ variables: { urn } });
+    const { loading, error, data, refetch } = useGetDashboardQuery({ variables: { urn } });
     const [updateDashboard] = useUpdateDashboardMutation({
         refetchQueries: () => ['getDashboard'],
         onError: (e) => {
@@ -82,17 +82,11 @@ export default function DashboardProfile({ urn }: { urn: string }) {
                     tags={
                         <TagTermGroup
                             editableTags={data.dashboard?.globalTags as GlobalTags}
-                            canAdd
+                            canAddTag
                             canRemove
-                            updateTags={(globalTags) => {
-                                analytics.event({
-                                    type: EventType.EntityActionEvent,
-                                    actionType: EntityActionType.UpdateTags,
-                                    entityType: EntityType.Dashboard,
-                                    entityUrn: urn,
-                                });
-                                return updateDashboard({ variables: { input: { urn, globalTags } } });
-                            }}
+                            entityUrn={urn}
+                            entityType={EntityType.Dashboard}
+                            refetch={refetch}
                         />
                     }
                     tabs={getTabs(data.dashboard as Dashboard)}

@@ -154,7 +154,12 @@
                           "values": "string"
                         },
                         "doc": "Custom property bag.",
-                        "default": {}
+                        "default": {},
+                        "Searchable": {
+                          "/*": {
+                            "queryByDefault": true
+                          }
+                        }
                       },
                       {
                         "name": "externalUrl",
@@ -1167,7 +1172,12 @@
                           "values": "string"
                         },
                         "doc": "Custom property bag.",
-                        "default": {}
+                        "default": {},
+                        "Searchable": {
+                          "/*": {
+                            "queryByDefault": true
+                          }
+                        }
                       },
                       {
                         "name": "externalUrl",
@@ -1398,7 +1408,12 @@
                           "values": "string"
                         },
                         "doc": "Custom property bag.",
-                        "default": {}
+                        "default": {},
+                        "Searchable": {
+                          "/*": {
+                            "queryByDefault": true
+                          }
+                        }
                       },
                       {
                         "name": "externalUrl",
@@ -1592,7 +1607,12 @@
                           "values": "string"
                         },
                         "doc": "Custom property bag.",
-                        "default": {}
+                        "default": {},
+                        "Searchable": {
+                          "/*": {
+                            "queryByDefault": true
+                          }
+                        }
                       },
                       {
                         "name": "externalUrl",
@@ -1952,7 +1972,12 @@
                           "values": "string"
                         },
                         "doc": "Custom property bag.",
-                        "default": {}
+                        "default": {},
+                        "Searchable": {
+                          "/*": {
+                            "queryByDefault": true
+                          }
+                        }
                       },
                       {
                         "name": "externalUrl",
@@ -2973,6 +2998,22 @@
                                     "fieldType": "URN_PARTIAL"
                                   }
                                 }
+                              },
+                              {
+                                "name": "glossaryTerms",
+                                "type": [
+                                  "null",
+                                  "com.linkedin.pegasus2avro.common.GlossaryTerms"
+                                ],
+                                "doc": "Glossary terms associated with the field",
+                                "default": null,
+                                "Searchable": {
+                                  "/terms/*/urn": {
+                                    "boostScore": 0.5,
+                                    "fieldName": "editedFieldGlossaryTerms",
+                                    "fieldType": "URN_PARTIAL"
+                                  }
+                                }
                               }
                             ]
                           }
@@ -3333,7 +3374,12 @@
                           "values": "string"
                         },
                         "doc": "Custom property bag.",
-                        "default": {}
+                        "default": {},
+                        "Searchable": {
+                          "/*": {
+                            "queryByDefault": true
+                          }
+                        }
                       },
                       {
                         "name": "externalUrl",
@@ -4579,7 +4625,12 @@
                           "values": "string"
                         },
                         "doc": "Custom property bag.",
-                        "default": {}
+                        "default": {},
+                        "Searchable": {
+                          "/*": {
+                            "queryByDefault": true
+                          }
+                        }
                       },
                       {
                         "name": "description",
@@ -4723,7 +4774,12 @@
                           "values": "string"
                         },
                         "doc": "Custom property bag.",
-                        "default": {}
+                        "default": {},
+                        "Searchable": {
+                          "/*": {
+                            "queryByDefault": true
+                          }
+                        }
                       },
                       {
                         "name": "externalUrl",
@@ -4893,7 +4949,12 @@
                           "values": "string"
                         },
                         "doc": "Custom property bag.",
-                        "default": {}
+                        "default": {},
+                        "Searchable": {
+                          "/*": {
+                            "queryByDefault": true
+                          }
+                        }
                       },
                       {
                         "name": "description",

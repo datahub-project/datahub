@@ -56,6 +56,9 @@ query getDataset($urn: String!) {
                 globalTags {
                     ...globalTagsFields
                 }
+                glossaryTerms {
+                    ...glossaryTerms
+                }
             }
         }
         deprecation {

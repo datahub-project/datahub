@@ -18,6 +18,7 @@ import com.linkedin.metadata.query.MatchedFieldArray;
 import com.linkedin.metadata.query.SearchResult;
 import com.linkedin.metadata.query.SearchResultMetadata;
 import com.linkedin.metadata.query.SortCriterion;
+import io.opentelemetry.extension.annotations.WithSpan;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -102,6 +103,7 @@ public class SearchRequestHandler {
    * @return a valid search request
    */
   @Nonnull
+  @WithSpan
   public SearchRequest getSearchRequest(@Nonnull String input, @Nullable Filter filter,
       @Nullable SortCriterion sortCriterion, int from, int size) {
     SearchRequest searchRequest = new SearchRequest();
@@ -115,7 +117,7 @@ public class SearchRequestHandler {
     BoolQueryBuilder filterQuery = ESUtils.buildFilterQuery(filter);
     // Filter out entities that are marked "removed"
     filterQuery.mustNot(QueryBuilders.matchQuery("removed", true));
-    searchSourceBuilder.postFilter(filterQuery);
+    searchSourceBuilder.query(QueryBuilders.boolQuery().must(getQuery(input)).must(filterQuery));
     getAggregations(filter).forEach(searchSourceBuilder::aggregation);
     searchSourceBuilder.highlighter(getHighlights());
     ESUtils.buildSortOrder(searchSourceBuilder, sortCriterion);
@@ -191,6 +193,7 @@ public class SearchRequestHandler {
     return highlightBuilder;
   }
 
+  @WithSpan
   public SearchResult extractResult(@Nonnull SearchResponse searchResponse, int from, int size) {
     int totalCount = (int) searchResponse.getHits().getTotalHits().value;
     List<Urn> resultList = getResults(searchResponse);

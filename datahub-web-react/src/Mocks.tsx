@@ -4,7 +4,7 @@ import { GetDataJobDocument } from './graphql/dataJob.generated';
 import { GetBrowsePathsDocument, GetBrowseResultsDocument } from './graphql/browse.generated';
 import {
     GetAutoCompleteResultsDocument,
-    GetAutoCompleteAllResultsDocument,
+    GetAutoCompleteMultipleResultsDocument,
     GetSearchResultsDocument,
     GetSearchResultsQuery,
 } from './graphql/search.generated';
@@ -1254,7 +1254,7 @@ export const mocks = [
     },
     {
         request: {
-            query: GetAutoCompleteAllResultsDocument,
+            query: GetAutoCompleteMultipleResultsDocument,
             variables: {
                 input: {
                     query: 't',
@@ -1263,7 +1263,7 @@ export const mocks = [
         },
         result: {
             data: {
-                autoCompleteForAll: {
+                autoCompleteForMultiple: {
                     query: 't',
                     suggestions: [
                         {
@@ -1277,7 +1277,7 @@ export const mocks = [
     },
     {
         request: {
-            query: GetAutoCompleteAllResultsDocument,
+            query: GetAutoCompleteMultipleResultsDocument,
             variables: {
                 input: {
                     query: 't',
@@ -1287,7 +1287,7 @@ export const mocks = [
         },
         result: {
             data: {
-                autoCompleteForAll: {
+                autoCompleteForMultiple: {
                     query: 't',
                     suggestions: [
                         {
@@ -1445,7 +1445,7 @@ export const mocks = [
             variables: {
                 input: {
                     type: 'GLOSSARY_TERM',
-                    query: 'tags:"abc-sample-tag"',
+                    query: 'tags:"abc-sample-tag" OR fieldTags:"abc-sample-tag" OR editedFieldTags:"abc-sample-tag"',
                     start: 0,
                     count: 1,
                     filters: [],
@@ -1653,7 +1653,7 @@ export const mocks = [
             variables: {
                 input: {
                     type: 'CORP_USER',
-                    query: 'tags:"abc-sample-tag"',
+                    query: 'tags:"abc-sample-tag" OR fieldTags:"abc-sample-tag" OR editedFieldTags:"abc-sample-tag"',
                     start: 0,
                     count: 1,
                     filters: [],
@@ -1680,7 +1680,7 @@ export const mocks = [
             variables: {
                 input: {
                     type: 'DATASET',
-                    query: 'tags:"abc-sample-tag"',
+                    query: 'tags:"abc-sample-tag" OR fieldTags:"abc-sample-tag" OR editedFieldTags:"abc-sample-tag"',
                     start: 0,
                     count: 1,
                     filters: [],

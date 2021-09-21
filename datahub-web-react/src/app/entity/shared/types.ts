@@ -28,8 +28,9 @@ export type EntityTab = {
 };
 
 export type EntitySidebarSection = {
-    component: React.FunctionComponent;
+    component: React.FunctionComponent<{ properties?: any }>;
     shouldHide?: (GenericEntityProperties, T) => boolean;
+    properties?: any;
 };
 
 export type GenericEntityProperties = {
@@ -81,4 +82,5 @@ export type EntityContextType = {
     baseEntity: any;
     updateEntity: UpdateEntityType<any>;
     routeToTab: (params: { tabName: string; tabParams?: Record<string, any>; method?: 'push' | 'replace' }) => void;
+    refetch: () => Promise<any>;
 };

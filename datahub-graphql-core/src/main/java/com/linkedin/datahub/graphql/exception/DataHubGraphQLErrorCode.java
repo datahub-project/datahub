@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.exception;
 
 public enum DataHubGraphQLErrorCode {
+  BAD_REQUEST(400),
   UNAUTHORIZED(403),
   SERVER_ERROR(500);
 

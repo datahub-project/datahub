@@ -5,6 +5,7 @@ import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import io.ebean.EbeanServer;
 import io.ebean.SqlQuery;
 import io.ebean.SqlRow;
+import java.util.List;
 
 
 public class AspectStorageValidationUtil {
@@ -27,8 +28,8 @@ public class AspectStorageValidationUtil {
             + "WHERE TABLE_NAME = 'metadata_aspect_v2'";
 
     final SqlQuery query = server.createSqlQuery(queryStr);
-    SqlRow row = query.findOne();
-    return row != null;
+    final List<SqlRow> rows = query.findList();
+    return rows.size() > 0;
   }
 
   public static boolean checkV1TableExists(EbeanServer server) {
@@ -37,7 +38,7 @@ public class AspectStorageValidationUtil {
             + "WHERE TABLE_NAME = 'metadata_aspect'";
 
     final SqlQuery query = server.createSqlQuery(queryStr);
-    SqlRow row = query.findOne();
-    return row != null;
+    final List<SqlRow> rows = query.findList();
+    return rows.size() > 0;
   }
 }

@@ -23,12 +23,7 @@ import com.linkedin.mxe.SystemMetadata;
 
 import java.net.URISyntaxException;
 import java.sql.Timestamp;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -483,6 +478,17 @@ public class DatastaxEntityService extends EntityService {
     }
 
     return new RollbackRunResult(removedAspects, rowsDeletedFromEntityDeletion);
+  }
+
+  @Override
+  public Boolean exists(Urn urn) {
+    final Set<String> aspectsToFetch = getEntityAspectNames(urn);
+    final List<DatastaxAspect.PrimaryKey> dbKeys = aspectsToFetch.stream()
+            .map(aspectName -> new DatastaxAspect.PrimaryKey(urn.toString(), aspectName, ASPECT_LATEST_VERSION))
+            .collect(Collectors.toList());
+
+    Map<DatastaxAspect.PrimaryKey, DatastaxAspect> aspects = _entityDao.batchGet(new HashSet(dbKeys));
+    return aspects.values().stream().anyMatch(aspect -> aspect != null);
   }
 
   @Override
