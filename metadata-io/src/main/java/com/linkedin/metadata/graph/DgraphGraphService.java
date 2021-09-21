@@ -270,7 +270,6 @@ public class DgraphGraphService implements GraphService {
                                         || t.getMessage().contains("Please retry")
                         )) {
                     try {
-                        System.err.println("retrying: " + t);
                         // wait 0.01s, 0.02s, 0.04s, 0.08s, ..., 10.24s
                         long time = (long) Math.pow(2, Math.min(retry, 10)) * 10;
                         TimeUnit.MILLISECONDS.sleep(time);
@@ -445,8 +444,6 @@ public class DgraphGraphService implements GraphService {
                 relationshipFilter,
                 offset, count
         );
-
-        System.out.println("Query: " + query);
 
         Request request = Request.newBuilder()
                 .setQuery(query)
