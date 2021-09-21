@@ -42,8 +42,8 @@ def test_process_row():
     row = {
         "query_id": "query-1",
         "query_text": "select col1 from table1, table2 where col2 is not null",
-        "query_start_time": datetime.datetime.fromisoformat(
-            "2021-09-14T12:30:00+05:30"
+        "query_start_time": datetime.datetime(
+            2021, 9, 14, 7, 0, tzinfo=datetime.timezone.utc
         ),
     }
     event_dict = get_simple_source().process_row(row)
