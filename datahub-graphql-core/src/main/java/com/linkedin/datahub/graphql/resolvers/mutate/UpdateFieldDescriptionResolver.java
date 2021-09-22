@@ -4,7 +4,7 @@ import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
-import com.linkedin.datahub.graphql.generated.TermUpdateInput;
+import com.linkedin.datahub.graphql.generated.DescriptionUpdateInput;
 import com.linkedin.metadata.entity.EntityService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -14,40 +14,39 @@ import lombok.extern.slf4j.Slf4j;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
+
 @Slf4j
 @RequiredArgsConstructor
-public class AddTermResolver implements DataFetcher<CompletableFuture<Boolean>> {
+public class UpdateFieldDescriptionResolver implements DataFetcher<CompletableFuture<Boolean>> {
   private final EntityService _entityService;
 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
-    final TermUpdateInput input = bindArgument(environment.getArgument("input"), TermUpdateInput.class);
-    Urn termUrn = Urn.createFromString(input.getTermUrn());
+    final DescriptionUpdateInput input = bindArgument(environment.getArgument("input"), DescriptionUpdateInput.class);
     Urn targetUrn = Urn.createFromString(input.getResourceUrn());
+    log.info("Updating description. input: {}", input.toString());
 
-    if (!LabelUtils.isAuthorizedToUpdateTerms(environment.getContext(), targetUrn, input.getSubResource())) {
+    if (!DescriptionUtils.isAuthorizedToUpdateFieldDescription(environment.getContext(), targetUrn)) {
       throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
     }
 
     return CompletableFuture.supplyAsync(() -> {
-      LabelUtils.validateInput(
-          termUrn,
+      if (input.getSubResourceType() == null) {
+        throw new IllegalArgumentException("Update description without subresource is not currently supported");
+      }
+
+      DescriptionUtils.validateFieldDescriptionInput(
           targetUrn,
           input.getSubResource(),
           input.getSubResourceType(),
-          "glossaryTerm",
           _entityService
       );
 
-      if (!targetUrn.getEntityType().equals("dataset")) {
-        throw new IllegalArgumentException(String.format("Failed to update %s on %s. Subject is not a dataset.", termUrn, targetUrn));
-      }
-
       try {
-        log.info("Adding Term. input: {}", input);
+
         Urn actor = CorpuserUrn.createFromString(((QueryContext) environment.getContext()).getActor());
-        LabelUtils.addTermToTarget(
-            termUrn,
+        DescriptionUtils.updateFieldDescription(
+            input.getDescription(),
             targetUrn,
             input.getSubResource(),
             actor,
