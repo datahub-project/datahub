@@ -1,19 +1,11 @@
 import React from 'react';
-import {
-    EditableSchemaFieldInfo,
-    EditableSchemaMetadata,
-    EntityType,
-    GlobalTags,
-    GlobalTagsUpdate,
-    SchemaField,
-} from '../../../../../../../types.generated';
+import { EditableSchemaMetadata, EntityType, GlobalTags, SchemaField } from '../../../../../../../types.generated';
 import TagTermGroup from '../../../../../../shared/tags/TagTermGroup';
 import { pathMatchesNewPath } from '../../../../../dataset/profile/schema/utils/utils';
 import { useEntityData, useRefetch } from '../../../../EntityContext';
 
 export default function useTagsAndTermsRenderer(
     editableSchemaMetadata: EditableSchemaMetadata | null | undefined,
-    onUpdateTags: (update: GlobalTagsUpdate, record?: EditableSchemaFieldInfo) => Promise<any>,
     tagHoveredIndex: string | undefined,
     setTagHoveredIndex: (index: string | undefined) => void,
     options: { showTags: boolean; showTerms: boolean },
