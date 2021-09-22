@@ -56,7 +56,6 @@ task yarnInstall(type: YarnTask) {
 }
 
 task generateGraphQLDocumentation(type: YarnTask, dependsOn: [yarnInstall, generateGraphQLSchema] ) {
-  outputs.cacheIf { true }
   args = ['docusaurus', 'docs:generate:graphql']
 }
 
