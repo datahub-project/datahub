@@ -53,8 +53,9 @@ As GraphQL:
     total
     searchResults {
       entity {
+         urn
+         type
          ...on Dataset {
-            urn
             name
          }
       }
@@ -77,8 +78,9 @@ curl --location --request POST 'http://localhost:8080/api/graphql' \
       \n    total
       \n    searchResults {
       \n      entity {
+      \n         urn
+      \n         type
       \n         ...on Dataset {
-      \n            urn
       \n            name
       \n         }
       \n      }
