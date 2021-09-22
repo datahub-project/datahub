@@ -127,8 +127,10 @@ def get_endpoints(sw_dict: dict) -> dict:  # noqa: C901
 
             if "description" in p_o["get"].keys():
                 desc = p_o["get"]["description"]
-            else:  # still testing
+            elif "summary" in p_o["get"].keys():
                 desc = p_o["get"]["summary"]
+            else:  # still testing
+                desc = ""
 
             try:
                 tags = p_o["get"]["tags"]
