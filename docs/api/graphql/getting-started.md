@@ -17,6 +17,7 @@ We'll reiterate a few important points before proceeding:
 
 The first thing you'll need to use the GraphQL API is a deployed instance of DataHub with some metadata ingested. Unsure how to do that? Check out the [Deployment Quickstart](../../../docs/quickstart.md).
 
+
 ## The DataHub GraphQL Endpoint 
 
 Today, DataHub's GraphQL endpoint is available for use in multiple places. The one you choose to use depends on your specific use case. 
@@ -33,6 +34,7 @@ that if a request does not have a valid PLAY_SESSION cookie obtained via logging
 you'd need to a) log into DataHub, b) extract the PLAY_SESSION cookie that is set on login, and c) provide this Cookie in your HTTP headers when
 calling the endpoint.
    
+
 ### Querying the Endpoint
 
 There are a few options when it comes to querying the GraphQL endpoint. The recommendation on which to use varies by use case.
@@ -61,6 +63,8 @@ This interface allows you to easily craft queries and mutations against real met
 check out [How to use GraphiQL](https://www.gatsbyjs.com/docs/how-to/querying-data/running-queries-with-graphiql/). 
 
 The same auth restrictions described in the section above apply to these endpoints as well. 
+
+> **Pro Tip**: We recommend you add a browser extension that will allow you to set custom HTTP headers (ie. `Cookies` or `X-DataHub-Actor`) if you plan to use GraphiQL for testing. We like [ModHeader](https://chrome.google.com/webstore/detail/modheader/idgpnmonknjnojddfkpgkljpfnnfcklj?hl=en) for Google Chrome.
 
 ## Where to go from here
 
