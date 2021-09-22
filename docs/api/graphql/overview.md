@@ -31,8 +31,8 @@ The Reference docs in the sidebar are generated from the DataHub GraphQL schema.
 validated against this schema. You can use these docs to understand data that is available for retrieval and operations 
 that may be performed using the API.
 
-- Available Operations: [Queries](../../../graphql/queries.md) (Reads) & [Mutations](../../../graphql/mutations.md) (Writes)
-- Schema Types: [Objects](../../../graphql/objects.md), [Input Objects](../../../graphql/inputObjects.md), [Interfaces](../../../graphql/interfaces.md), [Unions](../../../graphql/unions.md), [Enums](../../../graphql/enums.md), [Scalars](../../../graphql/scalars.md)
+- Available Operations: [Queries](/graphql/queries.md) (Reads) & [Mutations](/graphql/mutations.md) (Writes)
+- Schema Types: [Objects](/graphql/objects.md), [Input Objects](/graphql/inputObjects.md), [Interfaces](/graphql/interfaces.md), [Unions](/graphql/unions.md), [Enums](/graphql/enums.md), [Scalars](/graphql/scalars.md)
 
 ## On the Horizon
 
