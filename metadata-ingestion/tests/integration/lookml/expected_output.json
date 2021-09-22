@@ -163,7 +163,7 @@
                                 "globalTags": {
                                     "tags": [
                                         {
-                                            "tag": "urn:li:tag:Temporal"
+                                            "tag": "urn:li:tag:Measure"
                                         }
                                     ]
                                 },
@@ -339,7 +339,7 @@
                                 "globalTags": {
                                     "tags": [
                                         {
-                                            "tag": "urn:li:tag:Temporal"
+                                            "tag": "urn:li:tag:Measure"
                                         }
                                     ]
                                 },
@@ -614,7 +614,7 @@
                                 "globalTags": {
                                     "tags": [
                                         {
-                                            "tag": "urn:li:tag:Temporal"
+                                            "tag": "urn:li:tag:Measure"
                                         }
                                     ]
                                 },
