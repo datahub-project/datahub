@@ -4,8 +4,13 @@ import com.linkedin.metadata.query.RelationshipDirection;
 import com.linkedin.metadata.query.RelationshipFilter;
 import io.dgraph.DgraphClient;
 import io.dgraph.DgraphGrpc;
+import io.grpc.CallOptions;
+import io.grpc.Channel;
+import io.grpc.ClientCall;
+import io.grpc.ClientInterceptor;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
+import io.grpc.MethodDescriptor;
 import lombok.extern.slf4j.Slf4j;
 import org.testcontainers.containers.output.OutputFrame;
 import org.testng.annotations.AfterMethod;
@@ -56,10 +61,16 @@ public class DgraphGraphServiceTest extends GraphServiceTestBase {
                 .usePlaintext()
                 .build();
 
-        DgraphGrpc.DgraphStub stub = DgraphGrpc.newStub(_channel)
-                .withDeadlineAfter(10, TimeUnit.SECONDS)
-                .withWaitForReady();
+        // https://discuss.dgraph.io/t/dgraph-java-client-setting-deadlines-per-call/3056
+        ClientInterceptor timeoutInterceptor = new ClientInterceptor() {
+            @Override
+            public <REQ, RESP> ClientCall<REQ, RESP> interceptCall(
+                    MethodDescriptor<REQ, RESP> method, CallOptions callOptions, Channel next) {
+                return next.newCall(method, callOptions.withDeadlineAfter(10, TimeUnit.SECONDS));
+            }
+        };
 
+        DgraphGrpc.DgraphStub stub = DgraphGrpc.newStub(_channel).withInterceptors(timeoutInterceptor);
         _service = new DgraphGraphService(new DgraphClient(stub));
     }
 
