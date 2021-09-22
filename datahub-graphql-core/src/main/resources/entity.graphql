@@ -162,7 +162,7 @@ type Mutation {
     removeTerm(input: TermAssociationInput!): Boolean
 
     """
-    Updates the description of a schema field
+    Incubating. Updates the description of a resource. Currently only supports Dataset Schema Fields
     """
     updateDescription(input: DescriptionUpdateInput!): Boolean
 }
@@ -3590,7 +3590,7 @@ input TagAssociationInput {
 }
 
 """
-Input required to update a resource description
+Incubating. Updates the description of a resource. Currently supports DatasetField descriptions only
 """
 input DescriptionUpdateInput {
     """
