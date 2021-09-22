@@ -1,6 +1,6 @@
-# Querying Entities 
+# Querying Metadata Entities 
 
-### Learn how to fetch & update Entities in your Metadata Graph programmatically.
+### Learn how to fetch & update Entities in your Metadata Graph programmatically
 
 ## Queries: Reading an Entity 
 

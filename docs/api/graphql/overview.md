@@ -1,6 +1,6 @@
 # DataHub GraphQL API
 
-### DataHub provides a rich [GraphQL](https://graphql.org/) API for programmatically interacting with the Entities & Relationships comprising your organization's Metadata Graph. 
+### DataHub provides a rich [GraphQL](https://graphql.org/) API for programmatically interacting with the Entities & Relationships comprising your organization's Metadata Graph
 
 ## Getting Started
 

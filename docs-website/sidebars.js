@@ -98,8 +98,8 @@ module.exports = {
     ],
     "GraphQL API": [
       {
-        type: "doc",
         label: "Overview",
+        type: "doc",
         id: "docs/api/graphql/overview",
       },
       {
@@ -155,7 +155,7 @@ module.exports = {
           },
           {
             type: "doc",
-            label: "Querying DataHub Entities",
+            label: "Querying Metadata Entities",
             id: "docs/api/graphql/querying-entities",
           },
         ],
