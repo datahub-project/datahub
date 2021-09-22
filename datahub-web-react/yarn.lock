@@ -2638,6 +2638,11 @@
   dependencies:
     "@babel/runtime" "^7.12.5"
 
+"@tommoor/remove-markdown@^0.3.2":
+  version "0.3.2"
+  resolved "https://registry.yarnpkg.com/@tommoor/remove-markdown/-/remove-markdown-0.3.2.tgz#5288ddd0e26b6b173e76ebb31c94653b0dcff45d"
+  integrity sha512-awcc9hfLZqyyZHOGzAHbnjgZJpQGS1W1oZZ5GXOTTnbKVdKQ4OWYbrRWPUvXI2YAKJazrcS8rxPh67PX3rpGkQ==
+
 "@tootallnate/once@1":
   version "1.1.2"
   resolved "https://registry.yarnpkg.com/@tootallnate/once/-/once-1.1.2.tgz#ccb91445360179a04e7fe6aff78c00ffc1eeaf82"
@@ -14146,11 +14151,6 @@ remedial@^1.0.7:
   version "1.0.8"
   resolved "https://registry.yarnpkg.com/remedial/-/remedial-1.0.8.tgz#a5e4fd52a0e4956adbaf62da63a5a46a78c578a0"
   integrity sha512-/62tYiOe6DzS5BqVsNpH/nkGlX45C/Sp6V+NtiN6JQNS1Viay7cWkazmRkrQrdFj2eshDe96SIQNIoMxqhzBOg==
-
-remove-markdown@^0.3.0:
-  version "0.3.0"
-  resolved "https://registry.yarnpkg.com/remove-markdown/-/remove-markdown-0.3.0.tgz#5e4b667493a93579728f3d52ecc1db9ca505dc98"
-  integrity sha1-XktmdJOpNXlyjz1S7MHbnKUF3Jg=
 
 remove-trailing-separator@^1.0.1:
   version "1.1.0"

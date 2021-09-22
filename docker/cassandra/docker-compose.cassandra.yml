@@ -13,6 +13,8 @@ services:
       interval: 15s
       timeout: 10s
       retries: 10
+    volumes:
+      - cassandradata:/var/lib/cassandra
   cassandra-load-keyspace:
     container_name: cassandra-setup
     image: cassandra:3.11
@@ -20,5 +22,11 @@ services:
       cassandra:
         condition: service_healthy
     volumes:
-      - ./init.cql:/init.cql
+      - ./cassandra/init.cql:/init.cql
     command: /bin/bash -c "cqlsh cassandra -f /init.cql"
+  datahub-gms:
+    env_file: datahub-gms/env/docker.cassandra.env
+    depends_on:
+      - cassandra
+volumes:
+  cassandradata:

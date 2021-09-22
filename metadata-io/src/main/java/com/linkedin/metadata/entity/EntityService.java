@@ -323,7 +323,7 @@ public abstract class EntityService {
     });
   }
 
-  private Snapshot buildSnapshot(@Nonnull final Urn urn, @Nonnull final RecordTemplate aspectValue) {
+  public Snapshot buildSnapshot(@Nonnull final Urn urn, @Nonnull final RecordTemplate aspectValue) {
     // if the aspect value is the key, we do not need to include the key a second time
     if (PegasusUtils.getAspectNameFromSchema(aspectValue.schema()).equals(getKeyAspectName(urn))) {
       return toSnapshotUnion(toSnapshotRecord(urn, ImmutableList.of(toAspectUnion(urn, aspectValue))));
@@ -436,4 +436,6 @@ public abstract class EntityService {
   public abstract RollbackRunResult rollbackRun(List<AspectRowSummary> aspectRows, String runId);
 
   public abstract RollbackRunResult deleteUrn(Urn urn);
+
+  public abstract Boolean exists(Urn urn);
 }

@@ -10,7 +10,6 @@ import { SearchPage } from './search/SearchPage';
 import { AnalyticsPage } from './analyticsDashboard/components/AnalyticsPage';
 import { PoliciesPage } from './policy/PoliciesPage';
 import AppConfigProvider from '../AppConfigProvider';
-import { AdminConsole } from './AdminConsole';
 
 /**
  * Container for all views behind an authentication wall.
@@ -20,7 +19,6 @@ export const ProtectedRoutes = (): JSX.Element => {
     return (
         <AppConfigProvider>
             <Layout style={{ height: '100%', width: '100%' }}>
-                <AdminConsole />
                 <Layout>
                     <Switch>
                         <Route exact path="/" render={() => <HomePage />} />

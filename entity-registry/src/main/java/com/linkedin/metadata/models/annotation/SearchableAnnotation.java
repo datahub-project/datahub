@@ -104,6 +104,8 @@ public class SearchableAnnotation {
       case INT:
       case FLOAT:
         return FieldType.COUNT;
+      case MAP:
+        return FieldType.KEYWORD;
       default:
         return FieldType.TEXT;
     }

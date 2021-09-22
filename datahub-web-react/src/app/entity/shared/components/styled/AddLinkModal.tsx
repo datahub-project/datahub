@@ -37,7 +37,7 @@ export const AddLinkModal = ({ buttonProps }: { buttonProps?: Record<string, unk
             });
 
             newLinks.push({
-                author: user?.corpUser,
+                author: user?.corpUser.urn,
                 createdAt: Date.now(),
                 ...formData,
             });
@@ -47,9 +47,11 @@ export const AddLinkModal = ({ buttonProps }: { buttonProps?: Record<string, unk
                     variables: { input: { urn, institutionalMemory: { elements: newLinks } } },
                 });
                 message.success({ content: 'Link Added', duration: 2 });
-            } catch (e) {
+            } catch (e: unknown) {
                 message.destroy();
-                message.error({ content: `Failed to add link: \n ${e.message || ''}`, duration: 3 });
+                if (e instanceof Error) {
+                    message.error({ content: `Failed to add link: \n ${e.message || ''}`, duration: 3 });
+                }
             }
 
             handleClose();

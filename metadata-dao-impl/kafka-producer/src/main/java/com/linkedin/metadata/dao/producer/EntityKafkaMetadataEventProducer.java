@@ -14,6 +14,7 @@ import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.mxe.TopicConvention;
 import com.linkedin.mxe.TopicConventionImpl;
 import com.linkedin.mxe.Topics;
+import io.opentelemetry.extension.annotations.WithSpan;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Optional;
@@ -64,6 +65,7 @@ public class EntityKafkaMetadataEventProducer implements EntityEventProducer {
   }
 
   @Override
+  @WithSpan
   public void produceMetadataAuditEvent(@Nonnull Urn urn, @Nullable Snapshot oldSnapshot, @Nonnull Snapshot newSnapshot,
       @Nullable SystemMetadata oldSystemMetadata, @Nullable SystemMetadata newSystemMetadata,
       MetadataAuditOperation operation) {
@@ -114,6 +116,7 @@ public class EntityKafkaMetadataEventProducer implements EntityEventProducer {
   }
 
   @Override
+  @WithSpan
   public void produceMetadataChangeLog(@Nonnull final Urn urn, @Nonnull AspectSpec aspectSpec,
       @Nonnull final MetadataChangeLog metadataChangeLog) {
     GenericRecord record;

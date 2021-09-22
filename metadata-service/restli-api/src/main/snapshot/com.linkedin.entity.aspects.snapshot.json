@@ -2218,6 +2218,18 @@
                   "fieldType" : "URN_PARTIAL"
                 }
               }
+            }, {
+              "name" : "glossaryTerms",
+              "type" : "com.linkedin.common.GlossaryTerms",
+              "doc" : "Glossary terms associated with the field",
+              "optional" : true,
+              "Searchable" : {
+                "/terms/*/urn" : {
+                  "boostScore" : 0.5,
+                  "fieldName" : "fieldGlossaryTerms",
+                  "fieldType" : "URN_PARTIAL"
+                }
+              }
             } ]
           }
         },

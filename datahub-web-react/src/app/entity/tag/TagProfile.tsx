@@ -83,8 +83,11 @@ export default function TagProfile() {
     const entityRegistry = useEntityRegistry();
     const history = useHistory();
 
+    const entityAndSchemaQuery = `tags:"${data?.tag?.name}" OR fieldTags:"${data?.tag?.name}" OR editedFieldTags:"${data?.tag?.name}"`;
+    const entityQuery = `tags:"${data?.tag?.name}"`;
+
     const allSearchResultsByType = useGetAllEntitySearchResults({
-        query: `tags:"${data?.tag?.name}"`,
+        query: entityAndSchemaQuery,
         start: 0,
         count: 1,
         filters: [],
@@ -152,7 +155,10 @@ export default function TagProfile() {
                                                 onClick={() =>
                                                     navigateToSearchUrl({
                                                         type: type as EntityType,
-                                                        query: `tags:"${data?.tag?.name}"`,
+                                                        query:
+                                                            type === EntityType.Dataset
+                                                                ? entityAndSchemaQuery
+                                                                : entityQuery,
                                                         history,
                                                         entityRegistry,
                                                     })

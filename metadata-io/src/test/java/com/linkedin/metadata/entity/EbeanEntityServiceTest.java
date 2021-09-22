@@ -20,7 +20,6 @@ import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.entity.ebean.EbeanEntityService;
-import com.linkedin.metadata.entity.ebean.EbeanUtils;
 import com.linkedin.metadata.event.EntityEventProducer;
 import com.linkedin.metadata.key.CorpUserKey;
 import com.linkedin.metadata.utils.EntityKeyUtils;
@@ -251,8 +250,8 @@ public class EbeanEntityServiceTest {
     EbeanAspectV2 readEbean2 = _aspectDao.getAspect(entityUrn.toString(), aspectName, 0);
 
     assertTrue(DataTemplateUtil.areEqual(writeAspect2, readAspect2));
-    assertTrue(DataTemplateUtil.areEqual(EbeanUtils.parseSystemMetadata(readEbean2.getSystemMetadata()), metadata2));
-    assertTrue(DataTemplateUtil.areEqual(EbeanUtils.parseSystemMetadata(readEbean1.getSystemMetadata()), metadata1));
+    assertTrue(DataTemplateUtil.areEqual(EntityUtils.parseSystemMetadata(readEbean2.getSystemMetadata()), metadata2));
+    assertTrue(DataTemplateUtil.areEqual(EntityUtils.parseSystemMetadata(readEbean1.getSystemMetadata()), metadata1));
 
     verify(_mockProducer, times(1)).produceMetadataAuditEvent(Mockito.eq(entityUrn), Mockito.eq(null), Mockito.any(),
         Mockito.any(), Mockito.any(), Mockito.eq(MetadataAuditOperation.UPDATE));
@@ -293,14 +292,14 @@ public class EbeanEntityServiceTest {
     EbeanAspectV2 readEbean2 = _aspectDao.getAspect(entityUrn.toString(), aspectName, 0);
 
     assertTrue(DataTemplateUtil.areEqual(writeAspect2, readAspect2));
-    assertFalse(DataTemplateUtil.areEqual(EbeanUtils.parseSystemMetadata(readEbean2.getSystemMetadata()), metadata2));
-    assertFalse(DataTemplateUtil.areEqual(EbeanUtils.parseSystemMetadata(readEbean2.getSystemMetadata()), metadata1));
+    assertFalse(DataTemplateUtil.areEqual(EntityUtils.parseSystemMetadata(readEbean2.getSystemMetadata()), metadata2));
+    assertFalse(DataTemplateUtil.areEqual(EntityUtils.parseSystemMetadata(readEbean2.getSystemMetadata()), metadata1));
 
     SystemMetadata metadata3 = new SystemMetadata();
     metadata3.setLastObserved(1635792689);
     metadata3.setRunId("run-123");
 
-    assertTrue(DataTemplateUtil.areEqual(EbeanUtils.parseSystemMetadata(readEbean2.getSystemMetadata()), metadata3));
+    assertTrue(DataTemplateUtil.areEqual(EntityUtils.parseSystemMetadata(readEbean2.getSystemMetadata()), metadata3));
 
     verify(_mockProducer, times(1)).produceMetadataAuditEvent(Mockito.eq(entityUrn), Mockito.eq(null), Mockito.any(),
         Mockito.any(), Mockito.any(), Mockito.eq(MetadataAuditOperation.UPDATE));
@@ -352,7 +351,7 @@ public class EbeanEntityServiceTest {
   }
 
   @Test
-  public void testIngestTemporalAspect() throws Exception {
+  public void testIngestTimeseriesAspect() throws Exception {
     Urn entityUrn = Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:foo,bar,PROD)");
     DatasetProfile datasetProfile = new DatasetProfile();
     datasetProfile.setRowCount(1000);

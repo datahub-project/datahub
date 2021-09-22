@@ -9,14 +9,27 @@ public class DatastaxAspect {
   private String aspect;
   private long version;
   private String metadata;
-  private String systemmetadata;
-  private Timestamp createdon;
-  private String createdby;
-  private String createdfor;
+  private String systemMetadata;
+  private Timestamp createdOn;
+  private String createdBy;
+  private String createdFor;
+
+  public static final String TABLE_NAME = "metadata_aspect_v2";
+
+  public static final String URN_COLUMN = "urn";
+  public static final String ASPECT_COLUMN = "aspect";
+  public static final String VERSION_COLUMN = "version";
+  public static final String METADATA_COLUMN = "metadata";
+  public static final String CREATED_ON_COLUMN = "createdon";
+  public static final String CREATED_BY_COLUMN = "createdby";
+  public static final String CREATED_FOR_COLUMN = "createdfor";
+  public static final String SYSTEM_METADATA_COLUMN = "systemmetadata";
+
+  public static final String ENTITY_COLUMN = "entity";
 
   public String toString() {
     return String.format("urn: %s, aspect: %s, version: %s, metadata: %s, createdon: %s, createdby: %s, createdfor: %s, systemmetadata: %s",
-                         urn, aspect, version, metadata, createdon, createdby, createdfor, systemmetadata
+                         urn, aspect, version, metadata, createdOn, createdBy, createdFor, systemMetadata
                   );
   }
 
@@ -56,32 +69,35 @@ public class DatastaxAspect {
     }
   }
 
-  public DatastaxAspect() {
-  }
-
   public PrimaryKey toPrimaryKey() {
     return new PrimaryKey(this.urn, this.aspect, this.version);
   }
 
-  public DatastaxAspect(String _urn, String _aspect, long _version, String _metadata, String _systemmetadata, Timestamp _createdon, String _createdby, String _createdfor) {
-    urn = _urn;
-    aspect = _aspect;
-    version = _version;
-    metadata = _metadata;
-    systemmetadata = _systemmetadata;
-    createdon = _createdon;
-    createdby = _createdby;
-    createdfor = _createdfor;
+  public DatastaxAspect(String urn,
+                        String aspect,
+                        long version,
+                        String metadata,
+                        String systemMetadata,
+                        Timestamp createdOn,
+                        String createdBy,
+                        String createdFor) {
+    this.urn = urn;
+    this.aspect = aspect;
+    this.version = version;
+    this.metadata = metadata;
+    this.systemMetadata = systemMetadata;
+    this.createdOn = createdOn;
+    this.createdBy = createdBy;
+    this.createdFor = createdFor;
   }
 
-  public String getCreatedfor() {
-    return createdfor;
+  public String getCreatedFor() {
+    return createdFor;
   }
 
-  public void setCreatedfor(String createdfor) {
-    this.createdfor = createdfor;
+  public void setCreatedFor(String createdFor) {
+    this.createdFor = createdFor;
   }
-
 
   public String getAspect() {
     return aspect;
@@ -107,28 +123,28 @@ public class DatastaxAspect {
     this.metadata = metadata;
   }
 
-  public String getSystemmetadata() {
-    return systemmetadata;
+  public String getSystemMetadata() {
+    return systemMetadata;
   }
 
-  public void setSystemmetadata(String systemmetadata) {
-    this.systemmetadata = systemmetadata;
+  public void setSystemMetadata(String systemMetadata) {
+    this.systemMetadata = systemMetadata;
   }
 
-  public Timestamp getCreatedon() {
-    return createdon;
+  public Timestamp getCreatedOn() {
+    return createdOn;
   }
 
-  public void setCreatedon(Timestamp createdon) {
-    this.createdon = createdon;
+  public void setCreatedOn(Timestamp createdOn) {
+    this.createdOn = createdOn;
   }
 
-  public String getCreatedby() {
-    return createdby;
+  public String getCreatedBy() {
+    return createdBy;
   }
 
-  public void setCreatedby(String createdby) {
-    this.createdby = createdby;
+  public void setCreatedBy(String createdBy) {
+    this.createdBy = createdBy;
   }
 
   public String getUrn() {

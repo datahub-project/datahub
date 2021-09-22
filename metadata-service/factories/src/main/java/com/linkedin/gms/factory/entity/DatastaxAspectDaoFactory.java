@@ -3,7 +3,7 @@ package com.linkedin.gms.factory.entity;
 import com.linkedin.metadata.entity.datastax.DatastaxAspectDao;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -19,6 +19,7 @@ public class DatastaxAspectDaoFactory {
   ApplicationContext applicationContext;
 
   @Bean(name = "datastaxAspectDao")
+  @ConditionalOnProperty(name="DAO_SERVICE_LAYER", havingValue="datastax")
   @DependsOn({"gmsDatastaxServiceConfig"})
   @Nonnull
   protected DatastaxAspectDao createInstance() {

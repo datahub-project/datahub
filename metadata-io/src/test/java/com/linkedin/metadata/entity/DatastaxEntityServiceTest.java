@@ -3,6 +3,7 @@ package com.linkedin.metadata.entity;
 import com.datastax.driver.core.Cluster;
 import com.datastax.driver.core.KeyspaceMetadata;
 import com.datastax.driver.core.Session;
+import com.google.common.base.Equivalence;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
@@ -15,7 +16,9 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.dataset.DatasetProfile;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.identity.CorpUserInfo;
-import com.linkedin.metadata.PegasusUtils;
+import com.linkedin.metadata.query.ListUrnsResult;
+import com.linkedin.metadata.utils.EntityKeyUtils;
+import com.linkedin.metadata.utils.PegasusUtils;
 import com.linkedin.metadata.aspect.Aspect;
 import com.linkedin.metadata.aspect.CorpUserAspect;
 import com.linkedin.metadata.aspect.CorpUserAspectArray;
@@ -23,7 +26,6 @@ import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.entity.datastax.DatastaxAspect;
 import com.linkedin.metadata.entity.datastax.DatastaxAspectDao;
 import com.linkedin.metadata.entity.datastax.DatastaxEntityService;
-import com.linkedin.metadata.entity.ebean.EbeanUtils;
 import com.linkedin.metadata.event.EntityEventProducer;
 import com.linkedin.metadata.key.CorpUserKey;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
@@ -36,11 +38,8 @@ import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataAuditOperation;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+
+import java.util.*;
 import java.util.stream.Collectors;
 
 import javax.annotation.Nonnull;
@@ -87,19 +86,31 @@ public class DatastaxEntityServiceTest {
 
   @BeforeMethod
   public void setupTest() {
-    _cassandraContainer = new CassandraContainer();
+    _cassandraContainer = new CassandraContainer(IMAGE_NAME);
     _cassandraContainer.start();
 
     // Setup
     Cluster cluster = _cassandraContainer.getCluster();
     final String keyspaceName = "test";
-    final String tableName = "metadata_aspect_v2";
+    final String tableName = DatastaxAspect.TABLE_NAME;
 
-    try(Session session = cluster.connect()) {
+    try (Session session = cluster.connect()) {
 
-      session.execute(String.format("CREATE KEYSPACE IF NOT EXISTS %s WITH replication = \n" +
-                                    "{'class':'SimpleStrategy','replication_factor':'1'};", keyspaceName));
-      session.execute(String.format("create table %s.%s (urn varchar, aspect varchar, systemmetadata varchar, version bigint, metadata text, createdon timestamp, createdby varchar, createdfor varchar, entity varchar, PRIMARY KEY (urn,aspect,version));", keyspaceName, tableName));
+      session.execute(String.format("CREATE KEYSPACE IF NOT EXISTS %s WITH replication = \n"
+              + "{'class':'SimpleStrategy','replication_factor':'1'};", keyspaceName));
+      session.execute(
+              String.format("create table %s.%s (urn varchar, \n"
+                      + "aspect varchar, \n"
+                      + "systemmetadata varchar, \n"
+                      + "version bigint, \n"
+                      + "metadata text, \n"
+                      + "createdon timestamp, \n"
+                      + "createdby varchar, \n"
+                      + "createdfor varchar, \n"
+                      + "entity varchar, \n"
+                      + "PRIMARY KEY (urn,aspect,version));",
+              keyspaceName,
+              tableName));
 
       List<KeyspaceMetadata> keyspaces = session.getCluster().getMetadata().getKeyspaces();
                 List<KeyspaceMetadata> filteredKeyspaces = keyspaces
@@ -272,8 +283,8 @@ public class DatastaxEntityServiceTest {
     DatastaxAspect readEbean2 = _aspectDao.getAspect(entityUrn.toString(), aspectName, 0);
 
     assertTrue(DataTemplateUtil.areEqual(writeAspect2, readAspect2));
-    assertTrue(DataTemplateUtil.areEqual(EbeanUtils.parseSystemMetadata(readEbean2.getSystemmetadata()), metadata2));
-    assertTrue(DataTemplateUtil.areEqual(EbeanUtils.parseSystemMetadata(readEbean1.getSystemmetadata()), metadata1));
+    assertTrue(DataTemplateUtil.areEqual(EntityUtils.parseSystemMetadata(readEbean2.getSystemMetadata()), metadata2));
+    assertTrue(DataTemplateUtil.areEqual(EntityUtils.parseSystemMetadata(readEbean1.getSystemMetadata()), metadata1));
 
     verify(_mockProducer, times(1)).produceMetadataAuditEvent(Mockito.eq(entityUrn), Mockito.eq(null), Mockito.any(),
         Mockito.any(), Mockito.any(), Mockito.eq(MetadataAuditOperation.UPDATE));
@@ -314,14 +325,14 @@ public class DatastaxEntityServiceTest {
     DatastaxAspect readEbean2 = _aspectDao.getAspect(entityUrn.toString(), aspectName, 0);
 
     assertTrue(DataTemplateUtil.areEqual(writeAspect2, readAspect2));
-    assertFalse(DataTemplateUtil.areEqual(EbeanUtils.parseSystemMetadata(readEbean2.getSystemmetadata()), metadata2));
-    assertFalse(DataTemplateUtil.areEqual(EbeanUtils.parseSystemMetadata(readEbean2.getSystemmetadata()), metadata1));
+    assertFalse(DataTemplateUtil.areEqual(EntityUtils.parseSystemMetadata(readEbean2.getSystemMetadata()), metadata2));
+    assertFalse(DataTemplateUtil.areEqual(EntityUtils.parseSystemMetadata(readEbean2.getSystemMetadata()), metadata1));
 
     SystemMetadata metadata3 = new SystemMetadata();
     metadata3.setLastObserved(1635792689);
     metadata3.setRunId("run-123");
 
-    assertTrue(DataTemplateUtil.areEqual(EbeanUtils.parseSystemMetadata(readEbean2.getSystemmetadata()), metadata3));
+    assertTrue(DataTemplateUtil.areEqual(EntityUtils.parseSystemMetadata(readEbean2.getSystemMetadata()), metadata3));
 
     verify(_mockProducer, times(1)).produceMetadataAuditEvent(Mockito.eq(entityUrn), Mockito.eq(null), Mockito.any(),
         Mockito.any(), Mockito.any(), Mockito.eq(MetadataAuditOperation.UPDATE));
@@ -365,26 +376,36 @@ public class DatastaxEntityServiceTest {
     assertEquals(batch1.getTotalPageCount(), 2);
     assertEquals(batch1.getValues().size(), 2);
 
-    // Order not guaranteed since we aren't sorting anymore
-    assertTrue(
-               DataTemplateUtil.areEqual(writeAspect1, batch1.getValues().get(0)) || 
-               DataTemplateUtil.areEqual(writeAspect2, batch1.getValues().get(0)) || 
-               DataTemplateUtil.areEqual(writeAspect3, batch1.getValues().get(0))
-               );
-
-    assertTrue(
-               DataTemplateUtil.areEqual(writeAspect1, batch1.getValues().get(1)) ||
-               DataTemplateUtil.areEqual(writeAspect2, batch1.getValues().get(1)) ||
-               DataTemplateUtil.areEqual(writeAspect3, batch1.getValues().get(1))
-               );
 
     ListResult<RecordTemplate> batch2 = _entityService.listLatestAspects(entityUrn1.getEntityType(), aspectName, 2, 2);
     assertEquals(1, batch2.getValues().size());
-    assertTrue(
-               DataTemplateUtil.areEqual(writeAspect1, batch2.getValues().get(0)) ||
-               DataTemplateUtil.areEqual(writeAspect2, batch2.getValues().get(0)) ||
-               DataTemplateUtil.areEqual(writeAspect3, batch2.getValues().get(0))
-               );
+
+    // https://stackoverflow.com/questions/14880450/java-hashset-with-a-custom-equality-criteria
+    Equivalence<RecordTemplate> recordTemplateEquivalence = new Equivalence<RecordTemplate>() {
+      @Override
+      protected boolean doEquivalent(RecordTemplate a, RecordTemplate b) {
+        return DataTemplateUtil.areEqual(a, b);
+      }
+
+      @Override
+      protected int doHash(RecordTemplate item) {
+        return item.hashCode();
+      }
+    };
+
+    Set<Equivalence.Wrapper<RecordTemplate>> expectedEntities = new HashSet<Equivalence.Wrapper<RecordTemplate>>() {{
+      add(recordTemplateEquivalence.wrap(writeAspect1));
+      add(recordTemplateEquivalence.wrap(writeAspect2));
+      add(recordTemplateEquivalence.wrap(writeAspect3));
+    }};
+
+    Set<Equivalence.Wrapper<RecordTemplate>> actualEntities = new HashSet<Equivalence.Wrapper<RecordTemplate>>() {{
+      add(recordTemplateEquivalence.wrap(batch1.getValues().get(0)));
+      add(recordTemplateEquivalence.wrap(batch1.getValues().get(1)));
+      add(recordTemplateEquivalence.wrap(batch2.getValues().get(0)));
+    }};
+
+    assertTrue(actualEntities.equals(expectedEntities));
   }
 
   @Test
@@ -632,6 +653,57 @@ public class DatastaxEntityServiceTest {
     assertTrue(DataTemplateUtil.areEqual(null, deletedKeyAspect));
   }
 
+  @Test
+  public void testIngestListUrns() throws Exception {
+    Urn entityUrn1 = Urn.createFromString("urn:li:corpuser:test1");
+    Urn entityUrn2 = Urn.createFromString("urn:li:corpuser:test2");
+    Urn entityUrn3 = Urn.createFromString("urn:li:corpuser:test3");
+
+    SystemMetadata metadata1 = new SystemMetadata();
+    metadata1.setLastObserved(1625792689);
+    metadata1.setRunId("run-123");
+
+    String aspectName = PegasusUtils.getAspectNameFromSchema(new CorpUserKey().schema());
+
+    // Ingest CorpUserInfo Aspect #1
+    RecordTemplate writeAspect1 = createCorpUserKey(entityUrn1);
+    _entityService.ingestAspect(entityUrn1, aspectName, writeAspect1, TEST_AUDIT_STAMP, metadata1);
+
+    // Ingest CorpUserInfo Aspect #2
+    RecordTemplate writeAspect2 = createCorpUserKey(entityUrn2);
+    _entityService.ingestAspect(entityUrn2, aspectName, writeAspect2, TEST_AUDIT_STAMP, metadata1);
+
+    // Ingest CorpUserInfo Aspect #3
+    RecordTemplate writeAspect3 = createCorpUserKey(entityUrn3);
+    _entityService.ingestAspect(entityUrn3, aspectName, writeAspect3, TEST_AUDIT_STAMP, metadata1);
+
+    // List aspects urns
+    ListUrnsResult batch1 = _entityService.listUrns(entityUrn1.getEntityType(),  0, 2);
+
+    assertEquals(0, (int) batch1.getStart());
+    assertEquals(2, (int) batch1.getCount());
+    assertEquals(3, (int) batch1.getTotal());
+    assertEquals(2, batch1.getEntities().size());
+
+    final Set<String> urns = new HashSet<>();
+    urns.add(entityUrn1.toString());
+    urns.add(entityUrn2.toString());
+    urns.add(entityUrn3.toString());
+
+    urns.remove(batch1.getEntities().get(0).toString());
+    urns.remove(batch1.getEntities().get(1).toString());
+
+    ListUrnsResult batch2 = _entityService.listUrns(entityUrn1.getEntityType(),  2, 2);
+
+    assertEquals(2, (int) batch2.getStart());
+    assertEquals(1, (int) batch2.getCount());
+    assertEquals(3, (int) batch2.getTotal());
+    assertEquals(1, batch2.getEntities().size());
+    urns.remove(batch2.getEntities().get(0).toString());
+
+    assertEquals(0, urns.size());
+  }
+
   @AfterTest
   public void tearDown() {
     _cassandraContainer.stop();
@@ -653,7 +725,12 @@ public class DatastaxEntityServiceTest {
   }
 
   @Nonnull
-  private CorpUserInfo createCorpUserInfo(String email) throws Exception {
+  private RecordTemplate createCorpUserKey(Urn urn) {
+    return EntityKeyUtils.convertUrnToEntityKey(urn, new CorpUserKey().schema());
+  }
+
+  @Nonnull
+  private CorpUserInfo createCorpUserInfo(String email) {
     CorpUserInfo corpUserInfo = new CorpUserInfo();
     corpUserInfo.setEmail(email);
     corpUserInfo.setActive(true);

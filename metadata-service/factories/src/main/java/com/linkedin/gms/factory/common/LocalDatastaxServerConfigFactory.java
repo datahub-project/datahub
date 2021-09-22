@@ -31,7 +31,7 @@ public class LocalDatastaxServerConfigFactory {
   @Value("${DATASTAX_KEYSPACE:datahubpoc}")
   private String datastaxKeyspace;
 
-  @Value("${DATASTAX_USESSL:false}")
+  @Value("${DATASTAX_USE_SSL:false}")
   private String datastaxUseSsl;
 
   @Bean(name = "gmsDatastaxServiceConfig")
