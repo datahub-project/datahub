@@ -4373,7 +4373,7 @@
                   "namespace" : "com.linkedin.metadata.key",
                   "doc" : "Key for a SchemaField",
                   "fields" : [ {
-                    "name" : "container",
+                    "name" : "parent",
                     "type" : "com.linkedin.common.Urn",
                     "doc" : "Parent associated with the schema field",
                     "Searchable" : {
