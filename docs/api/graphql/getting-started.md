@@ -38,6 +38,7 @@ calling the endpoint.
 There are a few options when it comes to querying the GraphQL endpoint. The recommendation on which to use varies by use case.
 
 **Testing**: [Postman](https://learning.postman.com/docs/sending-requests/supported-api-frameworks/graphql/), GraphQL Explorer (described below), CURL
+
 **Production**: GraphQL [Client SDK](https://graphql.org/code/) for the language of your choice, or a basic HTTP client.
    
 > Important: The DataHub GraphQL endpoint only supports POST requests at this time. It does not support GET requests. If this is something
