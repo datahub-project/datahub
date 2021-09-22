@@ -15,7 +15,7 @@ record SchemaFieldKey {
   @Searchable = {
     "fieldType": "URN",
   }
-  container: Urn
+  parent: Urn
 
   /**
   * fieldPath identifying the schema field
