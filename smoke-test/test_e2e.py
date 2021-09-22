@@ -539,7 +539,7 @@ def test_frontend_list_policies(frontend_session):
 def test_frontend_update_policy(frontend_session):
 
     json = {
-        "query": """mutation updatePolicy($urn: String!, $input: PolicyInput!) {\n
+        "query": """mutation updatePolicy($urn: String!, $input: PolicyUpdateInput!) {\n
             updatePolicy(urn: $urn, input: $input) }""",
         "variables": {
             "urn": "urn:li:dataHubPolicy:7",
@@ -622,7 +622,7 @@ def test_frontend_create_policy(frontend_session):
 
     # Policy tests are not idempotent. If you rerun this test it will be wrong.
     json = {
-        "query": """mutation createPolicy($input: PolicyInput!) {\n
+        "query": """mutation createPolicy($input: PolicyUpdateInput!) {\n
             createPolicy(input: $input) }""",
         "variables": {
             "input": {
@@ -1082,7 +1082,7 @@ def test_add_tag_and_term_to_schemafield(frontend_session):
               "tagUrn": "urn:li:tag:Legacy",
               "resourceUrn": dataset_urn,
               "subResource": "[version=2.0].[type=boolean].field_bar",
-              "subResourceType": "FIELD_PATH"
+              "subResourceType": "DATASET_FIELD"
             }
         }
     }
@@ -1120,7 +1120,7 @@ def test_add_tag_and_term_to_schemafield(frontend_session):
               "tagUrn": "urn:li:tag:Legacy",
               "resourceUrn": dataset_urn,
               "subResource": "[version=2.0].[type=boolean].field_bar",
-              "subResourceType": "FIELD_PATH"
+              "subResourceType": "DATASET_FIELD"
             }
         }
     }
@@ -1158,7 +1158,7 @@ def test_add_tag_and_term_to_schemafield(frontend_session):
               "termUrn": "urn:li:glossaryTerm:SavingAccount",
               "resourceUrn": dataset_urn,
               "subResource": "[version=2.0].[type=boolean].field_bar",
-              "subResourceType": "FIELD_PATH"
+              "subResourceType": "DATASET_FIELD"
             }
         }
     }
@@ -1196,7 +1196,7 @@ def test_add_tag_and_term_to_schemafield(frontend_session):
               "termUrn": "urn:li:glossaryTerm:SavingAccount",
               "resourceUrn": dataset_urn,
               "subResource": "[version=2.0].[type=boolean].field_bar",
-              "subResourceType": "FIELD_PATH"
+              "subResourceType": "DATASET_FIELD"
             }
         }
     }
