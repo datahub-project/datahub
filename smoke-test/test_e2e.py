@@ -919,7 +919,7 @@ def test_add_tag_to_chart(frontend_session):
     assert res_data["data"]["chart"]["globalTags"] == None
 
     add_json = {
-        "query": """mutation addTag($input: TagUpdateInput!) {\n
+        "query": """mutation addTag($input: TagAssociationInput!) {\n
             addTag(input: $input)
         }""",
         "variables": {
@@ -955,7 +955,7 @@ def test_add_tag_to_chart(frontend_session):
     assert res_data["data"]["chart"]["globalTags"] == {'tags': [{'tag': {'description': 'Indicates the dataset is no longer supported', 'name': 'Legacy', 'urn': 'urn:li:tag:Legacy'}}]}
 
     remove_json = {
-        "query": """mutation removeTag($input: TagUpdateInput!) {\n
+        "query": """mutation removeTag($input: TagAssociationInput!) {\n
             removeTag(input: $input)
         }""",
         "variables": {
@@ -1369,7 +1369,7 @@ def test_update_schemafield(frontend_session):
               "description": "new description",
               "resourceUrn": dataset_urn,
               "subResource": "[version=2.0].[type=boolean].field_bar",
-              "subResourceType": "FIELD_PATH"
+              "subResourceType": "DATASET_FIELD"
             }
         }
     }
