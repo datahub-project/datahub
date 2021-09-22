@@ -885,7 +885,7 @@ def test_add_tag(frontend_session):
 
 @pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
 def test_add_tag_to_chart(frontend_session):
-    chart_urn = "urn:li:chart:(looker,baz1)"
+    chart_urn = "urn:li:chart:(looker,baz2)"
 
     chart_json = {
         "query": """query getChart($urn: String!) {\n
