@@ -1,5 +1,8 @@
 /genDocs
 
+# Generated GraphQL
+/graphql/combined.graphql
+
 # Dependencies
 /node_modules
 
