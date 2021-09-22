@@ -884,6 +884,113 @@ def test_add_tag(frontend_session):
 
 
 @pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
+def test_add_tag_to_chart(frontend_session):
+    chart_urn = "urn:li:chart:(looker,baz2)"
+
+    chart_json = {
+        "query": """query getChart($urn: String!) {\n
+            chart(urn: $urn) {\n
+                globalTags {\n
+                    tags {\n
+                        tag {\n
+                            urn\n
+                            name\n
+                            description\n
+                        }\n
+                    }\n
+                }\n
+            }\n
+        }""",
+        "variables": {
+            "urn": chart_urn
+        }
+    }
+
+    # Fetch tags
+    response = frontend_session.post(
+        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=chart_json
+    )
+    response.raise_for_status()
+    res_data = response.json()
+
+    assert res_data
+    assert res_data["data"]
+    assert res_data["data"]["chart"]
+    assert res_data["data"]["chart"]["globalTags"] == None
+
+    add_json = {
+        "query": """mutation addTag($input: TagUpdateInput!) {\n
+            addTag(input: $input)
+        }""",
+        "variables": {
+            "input": {
+              "tagUrn": "urn:li:tag:Legacy",
+              "resourceUrn": chart_urn,
+            }
+        }
+    }
+
+    response = frontend_session.post(
+        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=add_json
+    )
+    response.raise_for_status()
+    res_data = response.json()
+
+    print(res_data)
+
+    assert res_data
+    assert res_data["data"]
+    assert res_data["data"]["addTag"] is True
+
+    # Refetch the dataset
+    response = frontend_session.post(
+        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=chart_json
+    )
+    response.raise_for_status()
+    res_data = response.json()
+
+    assert res_data
+    assert res_data["data"]
+    assert res_data["data"]["chart"]
+    assert res_data["data"]["chart"]["globalTags"] == {'tags': [{'tag': {'description': 'Indicates the dataset is no longer supported', 'name': 'Legacy', 'urn': 'urn:li:tag:Legacy'}}]}
+
+    remove_json = {
+        "query": """mutation removeTag($input: TagUpdateInput!) {\n
+            removeTag(input: $input)
+        }""",
+        "variables": {
+            "input": {
+              "tagUrn": "urn:li:tag:Legacy",
+              "resourceUrn": chart_urn,
+            }
+        }
+    }
+
+    response = frontend_session.post(
+        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=remove_json
+    )
+    response.raise_for_status()
+    res_data = response.json()
+
+    print(res_data)
+
+    assert res_data
+    assert res_data["data"]
+    assert res_data["data"]["removeTag"] is True
+
+    # Refetch the dataset
+    response = frontend_session.post(
+        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=chart_json
+    )
+    response.raise_for_status()
+    res_data = response.json()
+
+    assert res_data
+    assert res_data["data"]
+    assert res_data["data"]["chart"]
+    assert res_data["data"]["chart"]["globalTags"] == {'tags': [] }
+
+@pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
 def test_add_term(frontend_session):
     platform = "urn:li:dataPlatform:kafka"
     dataset_name = (
@@ -996,7 +1103,7 @@ def test_add_term(frontend_session):
 
 
 @pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
-def test_add_tag_and_term_to_schemafield(frontend_session):
+def test_update_schemafield(frontend_session):
     platform = "urn:li:dataPlatform:kafka"
     dataset_name = (
         "SampleKafkaDataset"
@@ -1052,6 +1159,27 @@ def test_add_tag_and_term_to_schemafield(frontend_session):
                                 }\n
                             }\n
                         }\n
+                    }\n
+                }\n
+            }\n
+        }""",
+        "variables": {
+            "urn": dataset_urn
+        }
+    }
+
+    dataset_schema_json_description  = {
+        "query": """query getDataset($urn: String!) {\n
+            dataset(urn: $urn) {\n
+                urn\n
+                name\n
+                description\n
+                platform {\n
+                    urn\n
+                }\n
+                editableSchemaMetadata {\n
+                    editableSchemaFieldInfo {\n
+                      description\n
                     }\n
                 }\n
             }\n
@@ -1224,3 +1352,58 @@ def test_add_tag_and_term_to_schemafield(frontend_session):
     assert res_data["data"]
     assert res_data["data"]["dataset"]
     assert res_data["data"]["dataset"]["editableSchemaMetadata"] == {'editableSchemaFieldInfo': [{'glossaryTerms': {'terms': []}}]}
+
+    # dataset schema tags
+    response = frontend_session.post(
+        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=dataset_schema_json_tags
+    )
+    response.raise_for_status()
+    res_data = response.json()
+
+    update_description_json = {
+        "query": """mutation updateDescription($input: DescriptionUpdateInput!) {\n
+            updateDescription(input: $input)
+        }""",
+        "variables": {
+            "input": {
+              "description": "new description",
+              "resourceUrn": dataset_urn,
+              "subResource": "[version=2.0].[type=boolean].field_bar",
+              "subResourceType": "FIELD_PATH"
+            }
+        }
+    }
+
+    # fetch no description
+    response = frontend_session.post(
+        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=dataset_schema_json_description
+    )
+    response.raise_for_status()
+    res_data = response.json()
+
+    assert res_data
+    assert res_data["data"]
+    assert res_data["data"]["dataset"]
+    assert res_data["data"]["dataset"]["editableSchemaMetadata"] == {'editableSchemaFieldInfo': [{ 'description': None }]}
+
+    response = frontend_session.post(
+        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=update_description_json
+    )
+    response.raise_for_status()
+    res_data = response.json()
+
+    assert res_data
+    assert res_data["data"]
+    assert res_data["data"]["updateDescription"] is True
+
+    # Refetch the dataset
+    response = frontend_session.post(
+        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=dataset_schema_json_description
+    )
+    response.raise_for_status()
+    res_data = response.json()
+
+    assert res_data
+    assert res_data["data"]
+    assert res_data["data"]["dataset"]
+    assert res_data["data"]["dataset"]["editableSchemaMetadata"] == {'editableSchemaFieldInfo': [{'description': 'new description'}]}

@@ -38,6 +38,11 @@ public class AddTermResolver implements DataFetcher<CompletableFuture<Boolean>> 
           "glossaryTerm",
           _entityService
       );
+
+      if (!targetUrn.getEntityType().equals("dataset")) {
+        throw new IllegalArgumentException(String.format("Failed to update %s on %s. Subject is not a dataset.", termUrn, targetUrn));
+      }
+
       try {
         log.info("Adding Term. input: {}", input);
         Urn actor = CorpuserUrn.createFromString(((QueryContext) environment.getContext()).getActor());

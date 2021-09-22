@@ -160,6 +160,11 @@ type Mutation {
 		Remove a glossary term from a particular Entity or subresource
     """
     removeTerm(input: TermAssociationInput!): Boolean
+
+    """
+    Incubating. Updates the description of a resource. Currently only supports Dataset Schema Fields
+    """
+    updateDescription(input: DescriptionUpdateInput!): Boolean
 }
 
 """
@@ -285,7 +290,6 @@ input RelationshipsInput {
   The number of results to be returned
   """
   count: Int
-
 }
 
 """
@@ -3586,6 +3590,31 @@ input TagAssociationInput {
 }
 
 """
+Incubating. Updates the description of a resource. Currently supports DatasetField descriptions only
+"""
+input DescriptionUpdateInput {
+    """
+    The new description
+    """
+    description: String!
+
+    """
+    The primary key of the resource to attach the description to, eg dataset urn
+    """
+    resourceUrn: String!
+
+    """
+    An optional sub resource type
+    """
+    subResourceType: SubResourceType
+
+    """
+    A sub resource identitifer, eg dataset field path
+    """
+    subResource: String
+}
+
+"""
 Input provided when creating or updating an Access Policy
 """
 input PolicyUpdateInput {
@@ -4626,3 +4655,4 @@ enum CostType {
     """
     ORG_COST_TYPE
 }
+
