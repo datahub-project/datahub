@@ -1885,6 +1885,7 @@
           "type": "record",
           "name": "DatasetSnapshot",
           "namespace": "com.linkedin.pegasus2avro.metadata.snapshot",
+          "doc": "A metadata snapshot for a specific dataset entity.",
           "fields": [
             {
               "name": "urn",
@@ -2913,6 +2914,68 @@
                           }
                         ],
                         "doc": "Map captures all the references schema makes to external datasets. Map key is ForeignKeySpecName typeref.",
+                        "default": null,
+                        "deprecated": "Use foreignKeys instead."
+                      },
+                      {
+                        "name": "foreignKeys",
+                        "type": [
+                          "null",
+                          {
+                            "type": "array",
+                            "items": {
+                              "type": "record",
+                              "name": "ForeignKeyConstraint",
+                              "doc": "Description of a foreign key constraint in a schema.",
+                              "fields": [
+                                {
+                                  "name": "name",
+                                  "type": "string",
+                                  "doc": "Name of the constraint, likely provided from the source"
+                                },
+                                {
+                                  "name": "foreignFields",
+                                  "type": {
+                                    "type": "array",
+                                    "items": "string"
+                                  },
+                                  "doc": "Fields the constraint maps to on the foreign dataset",
+                                  "Relationship": {
+                                    "/*": {
+                                      "entityTypes": [
+                                        "schemaField"
+                                      ],
+                                      "name": "ForeignKeyTo"
+                                    }
+                                  }
+                                },
+                                {
+                                  "name": "sourceFields",
+                                  "type": {
+                                    "type": "array",
+                                    "items": "string"
+                                  },
+                                  "doc": "Fields the constraint maps to on the source dataset"
+                                },
+                                {
+                                  "name": "foreignDataset",
+                                  "type": "string",
+                                  "doc": "Reference to the foreign dataset for ease of lookup",
+                                  "Relationship": {
+                                    "entityTypes": [
+                                      "dataset"
+                                    ],
+                                    "name": "ForeignKeyToDataset"
+                                  },
+                                  "java": {
+                                    "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+                                  }
+                                }
+                              ]
+                            }
+                          }
+                        ],
+                        "doc": "List of foreign key constraints for the schema",
                         "default": null
                       }
                     ],
@@ -5541,6 +5604,65 @@
           "Entity": {
             "keyAspect": "dataHubPolicyKey",
             "name": "dataHubPolicy"
+          }
+        },
+        {
+          "type": "record",
+          "name": "SchemaFieldSnapshot",
+          "namespace": "com.linkedin.pegasus2avro.metadata.snapshot",
+          "doc": "A metadata snapshot for a specific schema field entity.",
+          "fields": [
+            {
+              "name": "urn",
+              "type": "string",
+              "doc": "URN for the entity the metadata snapshot is associated with.",
+              "java": {
+                "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+              }
+            },
+            {
+              "name": "aspects",
+              "type": {
+                "type": "array",
+                "items": [
+                  {
+                    "type": "record",
+                    "name": "SchemaFieldKey",
+                    "namespace": "com.linkedin.pegasus2avro.metadata.key",
+                    "doc": "Key for a SchemaField",
+                    "fields": [
+                      {
+                        "name": "dataset",
+                        "type": "string",
+                        "doc": "Dataset associated with the schema field",
+                        "Searchable": {
+                          "fieldType": "URN"
+                        },
+                        "java": {
+                          "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+                        }
+                      },
+                      {
+                        "name": "fieldPath",
+                        "type": "string",
+                        "doc": "fieldPath identifying the schema field",
+                        "Searchable": {
+                          "fieldType": "KEYWORD"
+                        }
+                      }
+                    ],
+                    "Aspect": {
+                      "name": "schemaFieldKey"
+                    }
+                  }
+                ]
+              },
+              "doc": "The list of metadata aspects associated with the dataset. Depending on the use case, this can either be all, or a selection, of supported aspects."
+            }
+          ],
+          "Entity": {
+            "keyAspect": "schemaFieldKey",
+            "name": "schemaField"
           }
         }
       ],

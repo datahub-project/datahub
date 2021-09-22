@@ -5102,6 +5102,53 @@ class MLPrimaryKeyKeyClass(DictWrapper):
         self._inner_dict['name'] = value
     
     
+class SchemaFieldKeyClass(DictWrapper):
+    """Key for a SchemaField"""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metadata.key.SchemaFieldKey")
+    def __init__(self,
+        dataset: str,
+        fieldPath: str,
+    ):
+        super().__init__()
+        
+        self.dataset = dataset
+        self.fieldPath = fieldPath
+    
+    @classmethod
+    def construct_with_defaults(cls) -> "SchemaFieldKeyClass":
+        self = cls.construct({})
+        self._restore_defaults()
+        
+        return self
+    
+    def _restore_defaults(self) -> None:
+        self.dataset = str()
+        self.fieldPath = str()
+    
+    
+    @property
+    def dataset(self) -> str:
+        """Getter: Dataset associated with the schema field"""
+        return self._inner_dict.get('dataset')  # type: ignore
+    
+    @dataset.setter
+    def dataset(self, value: str) -> None:
+        """Setter: Dataset associated with the schema field"""
+        self._inner_dict['dataset'] = value
+    
+    
+    @property
+    def fieldPath(self) -> str:
+        """Getter: fieldPath identifying the schema field"""
+        return self._inner_dict.get('fieldPath')  # type: ignore
+    
+    @fieldPath.setter
+    def fieldPath(self, value: str) -> None:
+        """Setter: fieldPath identifying the schema field"""
+        self._inner_dict['fieldPath'] = value
+    
+    
 class TagKeyClass(DictWrapper):
     """Key for a Tag"""
     
@@ -5559,7 +5606,7 @@ class DataProcessSnapshotClass(DictWrapper):
     
     
 class DatasetSnapshotClass(DictWrapper):
-    # No docs available.
+    """A metadata snapshot for a specific dataset entity."""
     
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot")
     def __init__(self,
@@ -5978,6 +6025,53 @@ class MLPrimaryKeySnapshotClass(DictWrapper):
     @aspects.setter
     def aspects(self, value: List[Union["MLPrimaryKeyKeyClass", "MLPrimaryKeyPropertiesClass", "OwnershipClass", "InstitutionalMemoryClass", "StatusClass", "DeprecationClass"]]) -> None:
         """Setter: The list of metadata aspects associated with the MLPrimaryKey. Depending on the use case, this can either be all, or a selection, of supported aspects."""
+        self._inner_dict['aspects'] = value
+    
+    
+class SchemaFieldSnapshotClass(DictWrapper):
+    """A metadata snapshot for a specific schema field entity."""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metadata.snapshot.SchemaFieldSnapshot")
+    def __init__(self,
+        urn: str,
+        aspects: List["SchemaFieldKeyClass"],
+    ):
+        super().__init__()
+        
+        self.urn = urn
+        self.aspects = aspects
+    
+    @classmethod
+    def construct_with_defaults(cls) -> "SchemaFieldSnapshotClass":
+        self = cls.construct({})
+        self._restore_defaults()
+        
+        return self
+    
+    def _restore_defaults(self) -> None:
+        self.urn = str()
+        self.aspects = list()
+    
+    
+    @property
+    def urn(self) -> str:
+        """Getter: URN for the entity the metadata snapshot is associated with."""
+        return self._inner_dict.get('urn')  # type: ignore
+    
+    @urn.setter
+    def urn(self, value: str) -> None:
+        """Setter: URN for the entity the metadata snapshot is associated with."""
+        self._inner_dict['urn'] = value
+    
+    
+    @property
+    def aspects(self) -> List["SchemaFieldKeyClass"]:
+        """Getter: The list of metadata aspects associated with the dataset. Depending on the use case, this can either be all, or a selection, of supported aspects."""
+        return self._inner_dict.get('aspects')  # type: ignore
+    
+    @aspects.setter
+    def aspects(self, value: List["SchemaFieldKeyClass"]) -> None:
+        """Setter: The list of metadata aspects associated with the dataset. Depending on the use case, this can either be all, or a selection, of supported aspects."""
         self._inner_dict['aspects'] = value
     
     
@@ -7635,7 +7729,7 @@ class MetadataChangeEventClass(DictWrapper):
     
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.mxe.MetadataChangeEvent")
     def __init__(self,
-        proposedSnapshot: Union["ChartSnapshotClass", "CorpGroupSnapshotClass", "CorpUserSnapshotClass", "DashboardSnapshotClass", "DataFlowSnapshotClass", "DataJobSnapshotClass", "DatasetSnapshotClass", "DataProcessSnapshotClass", "DataPlatformSnapshotClass", "MLModelSnapshotClass", "MLPrimaryKeySnapshotClass", "MLFeatureSnapshotClass", "MLFeatureTableSnapshotClass", "MLModelDeploymentSnapshotClass", "MLModelGroupSnapshotClass", "TagSnapshotClass", "GlossaryTermSnapshotClass", "GlossaryNodeSnapshotClass", "DataHubPolicySnapshotClass"],
+        proposedSnapshot: Union["ChartSnapshotClass", "CorpGroupSnapshotClass", "CorpUserSnapshotClass", "DashboardSnapshotClass", "DataFlowSnapshotClass", "DataJobSnapshotClass", "DatasetSnapshotClass", "DataProcessSnapshotClass", "DataPlatformSnapshotClass", "MLModelSnapshotClass", "MLPrimaryKeySnapshotClass", "MLFeatureSnapshotClass", "MLFeatureTableSnapshotClass", "MLModelDeploymentSnapshotClass", "MLModelGroupSnapshotClass", "TagSnapshotClass", "GlossaryTermSnapshotClass", "GlossaryNodeSnapshotClass", "DataHubPolicySnapshotClass", "SchemaFieldSnapshotClass"],
         auditHeader: Union[None, "KafkaAuditHeaderClass"]=None,
         proposedDelta: None=None,
         systemMetadata: Union[None, "SystemMetadataClass"]=None,
@@ -7673,12 +7767,12 @@ class MetadataChangeEventClass(DictWrapper):
     
     
     @property
-    def proposedSnapshot(self) -> Union["ChartSnapshotClass", "CorpGroupSnapshotClass", "CorpUserSnapshotClass", "DashboardSnapshotClass", "DataFlowSnapshotClass", "DataJobSnapshotClass", "DatasetSnapshotClass", "DataProcessSnapshotClass", "DataPlatformSnapshotClass", "MLModelSnapshotClass", "MLPrimaryKeySnapshotClass", "MLFeatureSnapshotClass", "MLFeatureTableSnapshotClass", "MLModelDeploymentSnapshotClass", "MLModelGroupSnapshotClass", "TagSnapshotClass", "GlossaryTermSnapshotClass", "GlossaryNodeSnapshotClass", "DataHubPolicySnapshotClass"]:
+    def proposedSnapshot(self) -> Union["ChartSnapshotClass", "CorpGroupSnapshotClass", "CorpUserSnapshotClass", "DashboardSnapshotClass", "DataFlowSnapshotClass", "DataJobSnapshotClass", "DatasetSnapshotClass", "DataProcessSnapshotClass", "DataPlatformSnapshotClass", "MLModelSnapshotClass", "MLPrimaryKeySnapshotClass", "MLFeatureSnapshotClass", "MLFeatureTableSnapshotClass", "MLModelDeploymentSnapshotClass", "MLModelGroupSnapshotClass", "TagSnapshotClass", "GlossaryTermSnapshotClass", "GlossaryNodeSnapshotClass", "DataHubPolicySnapshotClass", "SchemaFieldSnapshotClass"]:
         """Getter: Snapshot of the proposed metadata change. Include only the aspects affected by the change in the snapshot."""
         return self._inner_dict.get('proposedSnapshot')  # type: ignore
     
     @proposedSnapshot.setter
-    def proposedSnapshot(self, value: Union["ChartSnapshotClass", "CorpGroupSnapshotClass", "CorpUserSnapshotClass", "DashboardSnapshotClass", "DataFlowSnapshotClass", "DataJobSnapshotClass", "DatasetSnapshotClass", "DataProcessSnapshotClass", "DataPlatformSnapshotClass", "MLModelSnapshotClass", "MLPrimaryKeySnapshotClass", "MLFeatureSnapshotClass", "MLFeatureTableSnapshotClass", "MLModelDeploymentSnapshotClass", "MLModelGroupSnapshotClass", "TagSnapshotClass", "GlossaryTermSnapshotClass", "GlossaryNodeSnapshotClass", "DataHubPolicySnapshotClass"]) -> None:
+    def proposedSnapshot(self, value: Union["ChartSnapshotClass", "CorpGroupSnapshotClass", "CorpUserSnapshotClass", "DashboardSnapshotClass", "DataFlowSnapshotClass", "DataJobSnapshotClass", "DatasetSnapshotClass", "DataProcessSnapshotClass", "DataPlatformSnapshotClass", "MLModelSnapshotClass", "MLPrimaryKeySnapshotClass", "MLFeatureSnapshotClass", "MLFeatureTableSnapshotClass", "MLModelDeploymentSnapshotClass", "MLModelGroupSnapshotClass", "TagSnapshotClass", "GlossaryTermSnapshotClass", "GlossaryNodeSnapshotClass", "DataHubPolicySnapshotClass", "SchemaFieldSnapshotClass"]) -> None:
         """Setter: Snapshot of the proposed metadata change. Include only the aspects affected by the change in the snapshot."""
         self._inner_dict['proposedSnapshot'] = value
     
@@ -8655,6 +8749,81 @@ class FixedTypeClass(DictWrapper):
         pass
     
     
+class ForeignKeyConstraintClass(DictWrapper):
+    """Description of a foreign key constraint in a schema."""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.schema.ForeignKeyConstraint")
+    def __init__(self,
+        name: str,
+        foreignFields: List[str],
+        sourceFields: List[str],
+        foreignDataset: str,
+    ):
+        super().__init__()
+        
+        self.name = name
+        self.foreignFields = foreignFields
+        self.sourceFields = sourceFields
+        self.foreignDataset = foreignDataset
+    
+    @classmethod
+    def construct_with_defaults(cls) -> "ForeignKeyConstraintClass":
+        self = cls.construct({})
+        self._restore_defaults()
+        
+        return self
+    
+    def _restore_defaults(self) -> None:
+        self.name = str()
+        self.foreignFields = list()
+        self.sourceFields = list()
+        self.foreignDataset = str()
+    
+    
+    @property
+    def name(self) -> str:
+        """Getter: Name of the constraint, likely provided from the source"""
+        return self._inner_dict.get('name')  # type: ignore
+    
+    @name.setter
+    def name(self, value: str) -> None:
+        """Setter: Name of the constraint, likely provided from the source"""
+        self._inner_dict['name'] = value
+    
+    
+    @property
+    def foreignFields(self) -> List[str]:
+        """Getter: Fields the constraint maps to on the foreign dataset"""
+        return self._inner_dict.get('foreignFields')  # type: ignore
+    
+    @foreignFields.setter
+    def foreignFields(self, value: List[str]) -> None:
+        """Setter: Fields the constraint maps to on the foreign dataset"""
+        self._inner_dict['foreignFields'] = value
+    
+    
+    @property
+    def sourceFields(self) -> List[str]:
+        """Getter: Fields the constraint maps to on the source dataset"""
+        return self._inner_dict.get('sourceFields')  # type: ignore
+    
+    @sourceFields.setter
+    def sourceFields(self, value: List[str]) -> None:
+        """Setter: Fields the constraint maps to on the source dataset"""
+        self._inner_dict['sourceFields'] = value
+    
+    
+    @property
+    def foreignDataset(self) -> str:
+        """Getter: Reference to the foreign dataset for ease of lookup"""
+        return self._inner_dict.get('foreignDataset')  # type: ignore
+    
+    @foreignDataset.setter
+    def foreignDataset(self, value: str) -> None:
+        """Setter: Reference to the foreign dataset for ease of lookup"""
+        self._inner_dict['foreignDataset'] = value
+    
+    
 class ForeignKeySpecClass(DictWrapper):
     """Description of a foreign key in a schema."""
     
@@ -9278,6 +9447,7 @@ class SchemaMetadataClass(DictWrapper):
         cluster: Union[None, str]=None,
         primaryKeys: Union[None, List[str]]=None,
         foreignKeysSpecs: Union[None, Dict[str, "ForeignKeySpecClass"]]=None,
+        foreignKeys: Union[None, List["ForeignKeyConstraintClass"]]=None,
     ):
         super().__init__()
         
@@ -9302,6 +9472,7 @@ class SchemaMetadataClass(DictWrapper):
         self.fields = fields
         self.primaryKeys = primaryKeys
         self.foreignKeysSpecs = foreignKeysSpecs
+        self.foreignKeys = foreignKeys
     
     @classmethod
     def construct_with_defaults(cls) -> "SchemaMetadataClass":
@@ -9324,6 +9495,7 @@ class SchemaMetadataClass(DictWrapper):
         self.fields = list()
         self.primaryKeys = self.RECORD_SCHEMA.field_map["primaryKeys"].default
         self.foreignKeysSpecs = self.RECORD_SCHEMA.field_map["foreignKeysSpecs"].default
+        self.foreignKeys = self.RECORD_SCHEMA.field_map["foreignKeys"].default
     
     
     @property
@@ -9467,6 +9639,17 @@ class SchemaMetadataClass(DictWrapper):
     def foreignKeysSpecs(self, value: Union[None, Dict[str, "ForeignKeySpecClass"]]) -> None:
         """Setter: Map captures all the references schema makes to external datasets. Map key is ForeignKeySpecName typeref."""
         self._inner_dict['foreignKeysSpecs'] = value
+    
+    
+    @property
+    def foreignKeys(self) -> Union[None, List["ForeignKeyConstraintClass"]]:
+        """Getter: List of foreign key constraints for the schema"""
+        return self._inner_dict.get('foreignKeys')  # type: ignore
+    
+    @foreignKeys.setter
+    def foreignKeys(self, value: Union[None, List["ForeignKeyConstraintClass"]]) -> None:
+        """Setter: List of foreign key constraints for the schema"""
+        self._inner_dict['foreignKeys'] = value
     
     
 class SchemalessClass(DictWrapper):
@@ -10161,6 +10344,7 @@ __SCHEMA_TYPES = {
     'com.linkedin.pegasus2avro.metadata.key.MLModelGroupKey': MLModelGroupKeyClass,
     'com.linkedin.pegasus2avro.metadata.key.MLModelKey': MLModelKeyClass,
     'com.linkedin.pegasus2avro.metadata.key.MLPrimaryKeyKey': MLPrimaryKeyKeyClass,
+    'com.linkedin.pegasus2avro.metadata.key.SchemaFieldKey': SchemaFieldKeyClass,
     'com.linkedin.pegasus2avro.metadata.key.TagKey': TagKeyClass,
     'com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot': ChartSnapshotClass,
     'com.linkedin.pegasus2avro.metadata.snapshot.CorpGroupSnapshot': CorpGroupSnapshotClass,
@@ -10180,6 +10364,7 @@ __SCHEMA_TYPES = {
     'com.linkedin.pegasus2avro.metadata.snapshot.MLModelGroupSnapshot': MLModelGroupSnapshotClass,
     'com.linkedin.pegasus2avro.metadata.snapshot.MLModelSnapshot': MLModelSnapshotClass,
     'com.linkedin.pegasus2avro.metadata.snapshot.MLPrimaryKeySnapshot': MLPrimaryKeySnapshotClass,
+    'com.linkedin.pegasus2avro.metadata.snapshot.SchemaFieldSnapshot': SchemaFieldSnapshotClass,
     'com.linkedin.pegasus2avro.metadata.snapshot.TagSnapshot': TagSnapshotClass,
     'com.linkedin.pegasus2avro.ml.metadata.BaseData': BaseDataClass,
     'com.linkedin.pegasus2avro.ml.metadata.CaveatDetails': CaveatDetailsClass,
@@ -10223,6 +10408,7 @@ __SCHEMA_TYPES = {
     'com.linkedin.pegasus2avro.schema.EnumType': EnumTypeClass,
     'com.linkedin.pegasus2avro.schema.EspressoSchema': EspressoSchemaClass,
     'com.linkedin.pegasus2avro.schema.FixedType': FixedTypeClass,
+    'com.linkedin.pegasus2avro.schema.ForeignKeyConstraint': ForeignKeyConstraintClass,
     'com.linkedin.pegasus2avro.schema.ForeignKeySpec': ForeignKeySpecClass,
     'com.linkedin.pegasus2avro.schema.KafkaSchema': KafkaSchemaClass,
     'com.linkedin.pegasus2avro.schema.KeyValueSchema': KeyValueSchemaClass,
@@ -10339,6 +10525,7 @@ __SCHEMA_TYPES = {
     'MLModelGroupKey': MLModelGroupKeyClass,
     'MLModelKey': MLModelKeyClass,
     'MLPrimaryKeyKey': MLPrimaryKeyKeyClass,
+    'SchemaFieldKey': SchemaFieldKeyClass,
     'TagKey': TagKeyClass,
     'ChartSnapshot': ChartSnapshotClass,
     'CorpGroupSnapshot': CorpGroupSnapshotClass,
@@ -10358,6 +10545,7 @@ __SCHEMA_TYPES = {
     'MLModelGroupSnapshot': MLModelGroupSnapshotClass,
     'MLModelSnapshot': MLModelSnapshotClass,
     'MLPrimaryKeySnapshot': MLPrimaryKeySnapshotClass,
+    'SchemaFieldSnapshot': SchemaFieldSnapshotClass,
     'TagSnapshot': TagSnapshotClass,
     'BaseData': BaseDataClass,
     'CaveatDetails': CaveatDetailsClass,
@@ -10401,6 +10589,7 @@ __SCHEMA_TYPES = {
     'EnumType': EnumTypeClass,
     'EspressoSchema': EspressoSchemaClass,
     'FixedType': FixedTypeClass,
+    'ForeignKeyConstraint': ForeignKeyConstraintClass,
     'ForeignKeySpec': ForeignKeySpecClass,
     'KafkaSchema': KafkaSchemaClass,
     'KeyValueSchema': KeyValueSchemaClass,

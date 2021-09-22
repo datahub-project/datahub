@@ -172,7 +172,8 @@
                             }
                         ],
                         "primaryKeys": [],
-                        "foreignKeysSpecs": null
+                        "foreignKeysSpecs": null,
+                        "foreignKeys": null
                     }
                 },
                 {
@@ -348,7 +349,8 @@
                             }
                         ],
                         "primaryKeys": [],
-                        "foreignKeysSpecs": null
+                        "foreignKeysSpecs": null,
+                        "foreignKeys": null
                     }
                 },
                 {
@@ -432,7 +434,8 @@
                         },
                         "fields": [],
                         "primaryKeys": [],
-                        "foreignKeysSpecs": null
+                        "foreignKeysSpecs": null,
+                        "foreignKeys": null
                     }
                 },
                 {
@@ -516,7 +519,8 @@
                         },
                         "fields": [],
                         "primaryKeys": [],
-                        "foreignKeysSpecs": null
+                        "foreignKeysSpecs": null,
+                        "foreignKeys": null
                     }
                 },
                 {
@@ -623,7 +627,8 @@
                             }
                         ],
                         "primaryKeys": [],
-                        "foreignKeysSpecs": null
+                        "foreignKeysSpecs": null,
+                        "foreignKeys": null
                     }
                 },
                 {
@@ -707,7 +712,8 @@
                         },
                         "fields": [],
                         "primaryKeys": [],
-                        "foreignKeysSpecs": null
+                        "foreignKeysSpecs": null,
+                        "foreignKeys": null
                     }
                 },
                 {
@@ -791,7 +797,8 @@
                         },
                         "fields": [],
                         "primaryKeys": [],
-                        "foreignKeysSpecs": null
+                        "foreignKeysSpecs": null,
+                        "foreignKeys": null
                     }
                 },
                 {
