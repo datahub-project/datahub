@@ -449,6 +449,7 @@ public class DgraphGraphService implements GraphService {
                 .setQuery(query)
                 .build();
 
+        log.debug("Query: " + query);
         Response response = retry(() -> this._client.newReadOnlyTransaction().doRequest(request));
         String json = response.getJson().toStringUtf8();
         Map<String, Object> data = getDataFromResponseJson(json);
@@ -703,15 +704,19 @@ public class DgraphGraphService implements GraphService {
     }
 
     @Override
-    public void configure() {
-
-    }
+    public void configure() { }
 
     @Override
     public void clear() {
+        log.debug("dropping Dgraph data");
+
         Operation dropAll = Operation.newBuilder().setDropOp(Operation.DropOp.ALL).build();
         retry(() -> this._client.alter(dropAll));
+
+        // drop schema cache
         get_schema().clear();
+
+        // setup urn, type and key relationships
         getSchema(this._client);
     }
 }
