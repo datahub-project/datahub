@@ -1,8 +1,13 @@
 import React, { useMemo, useState } from 'react';
 import { ColumnsType } from 'antd/es/table';
 import styled from 'styled-components';
-import { EditableSchemaMetadata, SchemaField, UsageQueryResult } from '../../../../../../types.generated';
-import schemaTitleRenderer from '../../../../dataset/profile/schema/utils/schemaTitleRenderer';
+import {
+    EditableSchemaMetadata,
+    SchemaField,
+    SchemaMetadata,
+    UsageQueryResult,
+} from '../../../../../../types.generated';
+import useSchemaTitleRenderer from '../../../../dataset/profile/schema/utils/schemaTitleRenderer';
 import { ExtendedSchemaFields } from '../../../../dataset/profile/schema/utils/types';
 import useDescriptionRenderer from './utils/useDescriptionRenderer';
 import useUsageStatsRenderer from './utils/useUsageStatsRenderer';
@@ -21,24 +26,20 @@ const TableContainer = styled.div`
     }
 `;
 
-const defaultColumns = [
-    {
-        title: 'Field',
-        dataIndex: 'fieldPath',
-        key: 'fieldPath',
-        width: 250,
-        render: schemaTitleRenderer,
-        filtered: true,
-    },
-];
-
 export type Props = {
     rows: Array<ExtendedSchemaFields>;
+    schemaMetadata: SchemaMetadata | undefined | null;
     editableSchemaMetadata?: EditableSchemaMetadata | null;
     editMode?: boolean;
     usageStats?: UsageQueryResult | null;
 };
-export default function SchemaTable({ rows, editableSchemaMetadata, usageStats, editMode = true }: Props) {
+export default function SchemaTable({
+    rows,
+    schemaMetadata,
+    editableSchemaMetadata,
+    usageStats,
+    editMode = true,
+}: Props) {
     const hasUsageStats = useMemo(() => (usageStats?.aggregations?.fields?.length || 0) > 0, [usageStats]);
 
     const [tagHoveredIndex, setTagHoveredIndex] = useState<string | undefined>(undefined);
@@ -53,6 +54,7 @@ export default function SchemaTable({ rows, editableSchemaMetadata, usageStats, 
         showTags: false,
         showTerms: true,
     });
+    const schemaTitleRenderer = useSchemaTitleRenderer(schemaMetadata);
 
     const onTagTermCell = (record: SchemaField, rowIndex: number | undefined) => ({
         onMouseEnter: () => {
@@ -66,6 +68,15 @@ export default function SchemaTable({ rows, editableSchemaMetadata, usageStats, 
             }
         },
     });
+
+    const fieldColumn = {
+        title: 'Field',
+        dataIndex: 'fieldPath',
+        key: 'fieldPath',
+        width: 250,
+        render: schemaTitleRenderer,
+        filtered: true,
+    };
 
     const tagColumn = {
         width: 125,
@@ -100,7 +111,7 @@ export default function SchemaTable({ rows, editableSchemaMetadata, usageStats, 
         width: 300,
     };
 
-    let allColumns: ColumnsType<ExtendedSchemaFields> = [...defaultColumns, descriptionColumn, tagColumn, termColumn];
+    let allColumns: ColumnsType<ExtendedSchemaFields> = [fieldColumn, descriptionColumn, tagColumn, termColumn];
 
     if (hasUsageStats) {
         allColumns = [...allColumns, usageColumn];

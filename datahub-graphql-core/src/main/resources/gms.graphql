@@ -848,6 +848,15 @@ type SchemaMetadata implements Aspect {
     Client provided list of fields that define primary keys to access record
     """
     primaryKeys: [String!]
+
+    foreignKeys: [ForeignKeyConstraint]
+}
+
+type ForeignKeyConstraint {
+    name: String
+    foreignFields: [SchemaFieldEntity]
+    sourceFields: [SchemaFieldEntity]
+    foreignDataset: Dataset
 }
 
 type Schema {
@@ -913,6 +922,16 @@ type KeyValueSchema {
     Raw value schema
     """
     valueSchema: String!
+}
+
+"""
+Standalone schema field entity. Differs from the SchemaField struct because it is not directly nested inside a
+schema field
+"""
+type SchemaFieldEntity {
+    urn: String!
+    fieldPath: String!
+    parent: String!
 }
 
 type SchemaField {
