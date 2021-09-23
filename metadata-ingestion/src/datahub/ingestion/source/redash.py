@@ -7,6 +7,8 @@ from typing import Dict, Iterable, List, Optional, Type
 
 import dateutil.parser as dp
 from redash_toolbelt import Redash
+from requests.adapters import HTTPAdapter
+from requests.packages.urllib3.util.retry import Retry
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
@@ -251,6 +253,21 @@ class RedashSource(Source):
             }
         )
 
+        # Handling retry and backoff
+        retries = 3
+        backoff_factor = 10
+        status_forcelist = (500, 503, 502, 504)
+        retry = Retry(
+            total=retries,
+            read=retries,
+            connect=retries,
+            backoff_factor=backoff_factor,
+            status_forcelist=status_forcelist,
+        )
+        adapter = HTTPAdapter(max_retries=retry)
+        self.client.session.mount("http://", adapter)
+        self.client.session.mount("https://", adapter)
+
         self.api_page_limit = self.config.api_page_limit or math.inf
 
         self.parse_table_names_from_sql = self.config.parse_table_names_from_sql
@@ -351,13 +368,12 @@ class RedashSource(Source):
         data_source_syntax = data_source.get("syntax")
 
         if database_name:
-            dataset_urns = list()
-
             query = sql_query_data.get("query", "")
 
             # Getting table lineage from SQL parsing
             if self.parse_table_names_from_sql and data_source_syntax == "sql":
                 try:
+                    dataset_urns = list()
                     sql_table_names = self._get_sql_table_names(
                         query, self.sql_parser_path
                     )
@@ -371,12 +387,13 @@ class RedashSource(Source):
                     logger.error(e)
                     logger.error(query)
 
-            else:
-                dataset_urns.append(
-                    builder.make_dataset_urn(platform, database_name, self.config.env)
-                )
+                # make sure dataset_urns is not empty list
+                return dataset_urns if len(dataset_urns) > 0 else None
 
-            return dataset_urns
+            else:
+                return [
+                    builder.make_dataset_urn(platform, database_name, self.config.env)
+                ]
 
         return None
 
@@ -576,7 +593,7 @@ class RedashSource(Source):
             title=title,
             lastModified=last_modified,
             chartUrl=chart_url,
-            inputs=datasource_urns,
+            inputs=datasource_urns or None,
         )
         chart_snapshot.aspects.append(chart_info)
 
