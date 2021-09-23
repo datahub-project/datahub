@@ -5703,8 +5703,8 @@
                             "class": "com.linkedin.pegasus2avro.common.urn.Urn"
                           },
                           "type": "string",
-                          "name": "dataset",
-                          "doc": "Dataset associated with the schema field"
+                          "name": "parent",
+                          "doc": "Parent associated with the schema field"
                         },
                         {
                           "Searchable": {
