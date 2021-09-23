@@ -5,6 +5,7 @@ import { Content } from 'antd/lib/layout/layout';
 import { BrowseResultGroup, EntityType, Entity } from '../../types.generated';
 import BrowseResultCard from './BrowseResultCard';
 import { useEntityRegistry } from '../useEntityRegistry';
+import analytics, { EventType } from '../analytics';
 
 const EntityList = styled(List)`
     && {
@@ -43,6 +44,27 @@ export const BrowseResults = ({
     onChangePage,
 }: Props) => {
     const entityRegistry = useEntityRegistry();
+
+    const onGroupClick = (group: BrowseResultGroup) => {
+        analytics.event({
+            type: EventType.BrowseResultClickEvent,
+            browsePath: rootPath,
+            entityType: type,
+            resultType: 'Group',
+            groupName: group.name,
+        });
+    };
+
+    const onEntityClick = (entity: Entity) => {
+        analytics.event({
+            type: EventType.BrowseResultClickEvent,
+            browsePath: rootPath,
+            entityType: type,
+            resultType: 'Entity',
+            entityUrn: entity.urn,
+        });
+    };
+
     return (
         <div>
             <Content style={{ padding: '25px 100px' }}>
@@ -51,6 +73,7 @@ export const BrowseResults = ({
                     {groups.map((group) => (
                         <Col span={24} key={`${group.name}_key`}>
                             <BrowseResultCard
+                                onClick={() => onGroupClick(group)}
                                 name={group.name}
                                 count={group.count}
                                 url={`${rootPath}/${group.name}`}
@@ -64,7 +87,9 @@ export const BrowseResults = ({
                             split={false}
                             renderItem={(item, index) => (
                                 <>
-                                    <List.Item>{entityRegistry.renderBrowse(type, item)}</List.Item>
+                                    <List.Item onClick={() => onEntityClick(item as Entity)}>
+                                        {entityRegistry.renderBrowse(type, item)}
+                                    </List.Item>
                                     {index < entities.length - 1 && <Divider />}
                                 </>
                             )}

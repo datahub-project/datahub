@@ -41,12 +41,19 @@ class WriteCallback(metaclass=ABCMeta):
 
 
 class NoopWriteCallback(WriteCallback):
-    """Convenience class to support noop"""
+    """Convenience WriteCallback class to support noop"""
 
-    def on_success(self, re, sm):
+    def on_success(
+        self, record_envelope: RecordEnvelope, success_metadata: dict
+    ) -> None:
         pass
 
-    def on_failure(self, re, fe, fm):
+    def on_failure(
+        self,
+        record_envelope: RecordEnvelope,
+        failure_exception: Exception,
+        failure_metadata: dict,
+    ) -> None:
         pass
 
 

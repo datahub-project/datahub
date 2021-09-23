@@ -1,34 +1,17 @@
-import * as React from 'react';
+import React from 'react';
 import { List } from 'antd';
-import { useGetAllEntitySearchResults } from '../../utils/customGraphQL/useGetAllEntitySearchResults';
+import { GetAllEntitySearchResultsType } from '../../utils/customGraphQL/useGetAllEntitySearchResults';
 import { Message } from '../shared/Message';
 import { EntityGroupSearchResults } from './EntityGroupSearchResults';
 
 interface Props {
     query: string;
+    allSearchResultsByType: GetAllEntitySearchResultsType;
+    loading: boolean;
+    noResults: boolean;
 }
 
-const RESULTS_PER_GROUP = 3;
-
-export const AllEntitiesSearchResults = ({ query }: Props) => {
-    const allSearchResultsByType = useGetAllEntitySearchResults({
-        query,
-        start: 0,
-        count: RESULTS_PER_GROUP,
-        filters: null,
-    });
-
-    const loading = Object.keys(allSearchResultsByType).some((type) => {
-        return allSearchResultsByType[type].loading;
-    });
-
-    const noResults = Object.keys(allSearchResultsByType).every((type) => {
-        return (
-            !allSearchResultsByType[type].loading &&
-            allSearchResultsByType[type].data?.search?.searchResults.length === 0
-        );
-    });
-
+export const AllEntitiesSearchResults = ({ query, allSearchResultsByType, loading, noResults }: Props) => {
     const noResultsView = (
         <List
             style={{ margin: '28px 160px', boxShadow: '0px 0px 30px 0px rgb(234 234 234)' }}
@@ -44,7 +27,9 @@ export const AllEntitiesSearchResults = ({ query }: Props) => {
             {Object.keys(allSearchResultsByType).map((type: any) => {
                 const searchResults = allSearchResultsByType[type].data?.search?.searchResults;
                 if (searchResults && searchResults.length > 0) {
-                    return <EntityGroupSearchResults type={type} query={query} searchResults={searchResults} />;
+                    return (
+                        <EntityGroupSearchResults key={type} type={type} query={query} searchResults={searchResults} />
+                    );
                 }
                 return null;
             })}

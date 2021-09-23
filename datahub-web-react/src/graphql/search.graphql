@@ -5,6 +5,16 @@ query getAutoCompleteResults($input: AutoCompleteInput!) {
     }
 }
 
+query getAutoCompleteMultipleResults($input: AutoCompleteMultipleInput!) {
+    autoCompleteForMultiple(input: $input) {
+        query
+        suggestions {
+            type
+            suggestions
+        }
+    }
+}
+
 query getSearchResults($input: SearchInput!) {
     search(input: $input) {
         start
@@ -25,17 +35,24 @@ query getSearchResults($input: SearchInput!) {
                             logoUrl
                         }
                     }
+                    editableProperties {
+                        description
+                    }
                     platformNativeType
-                    tags
                     properties {
-                        key
-                        value
+                        customProperties {
+                            key
+                            value
+                        }
                     }
                     ownership {
                         ...ownershipFields
                     }
                     globalTags {
                         ...globalTagsFields
+                    }
+                    glossaryTerms {
+                        ...glossaryTerms
                     }
                 }
                 ... on CorpUser {
@@ -50,6 +67,36 @@ query getSearchResults($input: SearchInput!) {
                     }
                     editableInfo {
                         pictureLink
+                    }
+                }
+                ... on CorpGroup {
+                    name
+                    info {
+                        displayName
+                        description
+                    }
+                    relationships(input: { types: ["IsMemberOfGroup"], direction: INCOMING }) {
+                        relationships {
+                            type
+                            direction
+                            entity {
+                                urn
+                                type
+                                ... on CorpUser {
+                                    username
+                                    info {
+                                        active
+                                        displayName
+                                        title
+                                        firstName
+                                        lastName
+                                    }
+                                    editableInfo {
+                                        pictureLink
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
                 ... on Dashboard {
@@ -71,6 +118,9 @@ query getSearchResults($input: SearchInput!) {
                     }
                     globalTags {
                         ...globalTagsFields
+                    }
+                    editableProperties {
+                        description
                     }
                 }
                 ... on Chart {
@@ -94,6 +144,9 @@ query getSearchResults($input: SearchInput!) {
                     globalTags {
                         ...globalTagsFields
                     }
+                    editableProperties {
+                        description
+                    }
                 }
                 ... on DataFlow {
                     urn
@@ -111,6 +164,9 @@ query getSearchResults($input: SearchInput!) {
                     }
                     globalTags {
                         ...globalTagsFields
+                    }
+                    editableProperties {
+                        description
                     }
                 }
                 ... on DataJob {
@@ -137,6 +193,68 @@ query getSearchResults($input: SearchInput!) {
                     }
                     globalTags {
                         ...globalTagsFields
+                    }
+                    editableProperties {
+                        description
+                    }
+                }
+                ... on GlossaryTerm {
+                    name
+                    glossaryTermInfo {
+                        definition
+                        termSource
+                        sourceRef
+                        sourceUrl
+                        customProperties {
+                            key
+                            value
+                        }
+                    }
+                }
+                ... on MLFeatureTable {
+                    urn
+                    type
+                    name
+                    description
+                    featureTableProperties {
+                        description
+                        mlFeatures {
+                            urn
+                        }
+                        mlPrimaryKeys {
+                            urn
+                        }
+                    }
+                    ownership {
+                        ...ownershipFields
+                    }
+                }
+                ... on MLModel {
+                    name
+                    description
+                    origin
+                    ownership {
+                        ...ownershipFields
+                    }
+                    platform {
+                        name
+                        info {
+                            logoUrl
+                        }
+                    }
+                }
+                ... on MLModelGroup {
+                    name
+                    origin
+                    description
+                    ownership {
+                        ...ownershipFields
+                    }
+                    platform {
+                        name
+                        info {
+                            logoUrl
+                        }
                     }
                 }
             }

@@ -6,6 +6,10 @@ import com.linkedin.metadata.aspect.DatasetAspect
 /**
  * A metadata snapshot for a specific dataset entity.
  */
+@Entity = {
+  "name": "dataset",
+  "keyAspect": "datasetKey"
+}
 record DatasetSnapshot {
 
   /**

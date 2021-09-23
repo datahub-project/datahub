@@ -1,4 +1,4 @@
-# DataHub Metadata Ingestion
+# Metadata Ingestion
 
 ![Python version 3.6+](https://img.shields.io/badge/python-3.6%2B-blue)
 
@@ -14,12 +14,11 @@ Before running any metadata ingestion job, you should make sure that DataHub bac
 
 ### Install from PyPI
 
-The folks over at [Acryl](https://www.acryl.io/) maintain a PyPI package for DataHub metadata ingestion.
+The folks over at [Acryl Data](https://www.acryl.io/) maintain a PyPI package for DataHub metadata ingestion.
 
-```sh
+```shell
 # Requires Python 3.6+
 python3 -m pip install --upgrade pip wheel setuptools
-python3 -m pip uninstall datahub acryl-datahub || true  # sanity check - ok if it fails
 python3 -m pip install --upgrade acryl-datahub
 datahub version
 # If you see "command not found", try running this instead: python3 -m datahub version
@@ -29,40 +28,59 @@ If you run into an error, try checking the [_common setup issues_](./developing.
 
 #### Installing Plugins
 
-We use a plugin architecture so that you can install only the dependencies you actually need.
+We use a plugin architecture so that you can install only the dependencies you actually need. Click the plugin name to learn more about the specific source recipe and any FAQs!
 
-| Plugin Name   | Install Command                                            | Provides                   |
-| ------------- | ---------------------------------------------------------- | -------------------------- |
-| file          | _included by default_                                      | File source and sink       |
-| console       | _included by default_                                      | Console sink               |
-| athena        | `pip install 'acryl-datahub[athena]'`                      | AWS Athena source          |
-| bigquery      | `pip install 'acryl-datahub[bigquery]'`                    | BigQuery source            |
-| glue          | `pip install 'acryl-datahub[glue]'`                        | AWS Glue source            |
-| hive          | `pip install 'acryl-datahub[hive]'`                        | Hive source                |
-| mssql         | `pip install 'acryl-datahub[mssql]'`                       | SQL Server source          |
-| mysql         | `pip install 'acryl-datahub[mysql]'`                       | MySQL source               |
-| oracle        | `pip install 'acryl-datahub[oracle]'`                      | Oracle source              |
-| postgres      | `pip install 'acryl-datahub[postgres]'`                    | Postgres source            |
-| sqlalchemy    | `pip install 'acryl-datahub[sqlalchemy]'`                  | Generic SQLAlchemy source  |
-| snowflake     | `pip install 'acryl-datahub[snowflake]'`                   | Snowflake source           |
-| superset      | `pip install 'acryl-datahub[superset]'`                    | Supserset source           |
-| mongodb       | `pip install 'acryl-datahub[mongodb]'`                     | MongoDB source             |
-| ldap          | `pip install 'acryl-datahub[ldap]'` ([extra requirements]) | LDAP source                |
-| kafka         | `pip install 'acryl-datahub[kafka]'`                       | Kafka source               |
-| druid         | `pip install 'acryl-datahub[druid]'`                       | Druid Source               |
-| dbt           | _no additional dependencies_                               | DBT source                 |
-| datahub-rest  | `pip install 'acryl-datahub[datahub-rest]'`                | DataHub sink over REST API |
-| datahub-kafka | `pip install 'acryl-datahub[datahub-kafka]'`               | DataHub sink over Kafka    |
+Sources:
+
+| Plugin Name                                     | Install Command                                            | Provides                            |
+| ----------------------------------------------- | ---------------------------------------------------------- | ----------------------------------- |
+| [file](./source_docs/file.md)                   | _included by default_                                      | File source and sink                |
+| [athena](./source_docs/athena.md)               | `pip install 'acryl-datahub[athena]'`                      | AWS Athena source                   |
+| [bigquery](./source_docs/bigquery.md)           | `pip install 'acryl-datahub[bigquery]'`                    | BigQuery source                     |
+| [bigquery-usage](./source_docs/bigquery.md)     | `pip install 'acryl-datahub[bigquery-usage]'`              | BigQuery usage statistics source    |
+| [datahub-business-glossary](./source_docs/business_glossary.md)                     | _no additional dependencies_                               | Business Glossary File source                          |
+| [dbt](./source_docs/dbt.md)                     | _no additional dependencies_                               | dbt source                          |
+| [druid](./source_docs/druid.md)                 | `pip install 'acryl-datahub[druid]'`                       | Druid Source                        |
+| [feast](./source_docs/feast.md)                 | `pip install 'acryl-datahub[feast]'`                       | Feast source                        |
+| [glue](./source_docs/glue.md)                   | `pip install 'acryl-datahub[glue]'`                        | AWS Glue source                     |
+| [hive](./source_docs/hive.md)                   | `pip install 'acryl-datahub[hive]'`                        | Hive source                         |
+| [kafka](./source_docs/kafka.md)                 | `pip install 'acryl-datahub[kafka]'`                       | Kafka source                        |
+| [kafka-connect](./source_docs/kafka-connect.md) | `pip install 'acryl-datahub[kafka-connect]'`               | Kafka connect source                |
+| [ldap](./source_docs/ldap.md)                   | `pip install 'acryl-datahub[ldap]'` ([extra requirements]) | LDAP source                         |
+| [looker](./source_docs/looker.md)               | `pip install 'acryl-datahub[looker]'`                      | Looker source                       |
+| [lookml](./source_docs/lookml.md)               | `pip install 'acryl-datahub[lookml]'`                      | LookML source, requires Python 3.7+ |
+| [mongodb](./source_docs/mongodb.md)             | `pip install 'acryl-datahub[mongodb]'`                     | MongoDB source                      |
+| [mssql](./source_docs/mssql.md)                 | `pip install 'acryl-datahub[mssql]'`                       | SQL Server source                   |
+| [mysql](./source_docs/mysql.md)                 | `pip install 'acryl-datahub[mysql]'`                       | MySQL source                        |
+| [oracle](./source_docs/oracle.md)               | `pip install 'acryl-datahub[oracle]'`                      | Oracle source                       |
+| [postgres](./source_docs/postgres.md)           | `pip install 'acryl-datahub[postgres]'`                    | Postgres source                     |
+| [redash](./source_docs/redash.md)               | `pip install 'acryl-datahub[redash]'`                      | Redash source                       |
+| [redshift](./source_docs/redshift.md)           | `pip install 'acryl-datahub[redshift]'`                    | Redshift source                     |
+| [sagemaker](./source_docs/sagemaker.md)         | `pip install 'acryl-datahub[sagemaker]'`                   | AWS SageMaker source                |
+| [snowflake](./source_docs/snowflake.md)         | `pip install 'acryl-datahub[snowflake]'`                   | Snowflake source                    |
+| [snowflake-usage](./source_docs/snowflake.md)   | `pip install 'acryl-datahub[snowflake-usage]'`             | Snowflake usage statistics source   |
+| [sql-profiles](./source_docs/sql_profiles.md)   | `pip install 'acryl-datahub[sql-profiles]'`                | Data profiles for SQL-based systems |
+| [sqlalchemy](./source_docs/sqlalchemy.md)       | `pip install 'acryl-datahub[sqlalchemy]'`                  | Generic SQLAlchemy source           |
+| [superset](./source_docs/superset.md)           | `pip install 'acryl-datahub[superset]'`                    | Superset source                     |
+
+Sinks
+
+| Plugin Name                             | Install Command                              | Provides                   |
+| --------------------------------------- | -------------------------------------------- | -------------------------- |
+| [file](./sink_docs/file.md)             | _included by default_                        | File source and sink       |
+| [console](./sink_docs/console.md)       | _included by default_                        | Console sink               |
+| [datahub-rest](./sink_docs/datahub.md)  | `pip install 'acryl-datahub[datahub-rest]'`  | DataHub sink over REST API |
+| [datahub-kafka](./sink_docs/datahub.md) | `pip install 'acryl-datahub[datahub-kafka]'` | DataHub sink over Kafka    |
 
 These plugins can be mixed and matched as desired. For example:
 
-```sh
+```shell
 pip install 'acryl-datahub[bigquery,datahub-rest]'
 ```
 
 You can check the active plugins:
 
-```sh
+```shell
 datahub check plugins
 ```
 
@@ -70,7 +88,7 @@ datahub check plugins
 
 #### Basic Usage
 
-```sh
+```shell
 pip install 'acryl-datahub[datahub-rest]'  # install the required plugin
 datahub ingest -c ./examples/recipes/example_to_datahub_rest.yml
 ```
@@ -85,8 +103,9 @@ We have prebuilt images available on [Docker hub](https://hub.docker.com/r/linke
 
 _Limitation: the datahub_docker.sh convenience script assumes that the recipe and any input/output files are accessible in the current working directory or its subdirectories. Files outside the current working directory will not be found, and you'll need to invoke the Docker image directly._
 
-```sh
-./scripts/datahub_docker.sh ingest -c ./examples/recipes/example_to_datahub_rest.yml
+```shell
+# Assumes the DataHub repo is cloned locally.
+./metadata-ingestion/scripts/datahub_docker.sh ingest -c ./examples/recipes/example_to_datahub_rest.yml
 ```
 
 ### Install from source
@@ -125,440 +144,17 @@ https://docs.docker.com/compose/compose-file/compose-file-v2/#variable-substitut
 
 Running a recipe is quite easy.
 
-```sh
+```shell
 datahub ingest -c ./examples/recipes/mssql_to_datahub.yml
 ```
 
-A number of recipes are included in the examples/recipes directory.
-
-## Sources
-
-### Kafka Metadata `kafka`
-
-Extracts:
-
-- List of topics - from the Kafka broker
-- Schemas associated with each topic - from the schema registry
-
-```yml
-source:
-  type: "kafka"
-  config:
-    connection:
-      bootstrap: "broker:9092"
-      schema_registry_url: http://localhost:8081
-      consumer_config: {} # passed to https://docs.confluent.io/platform/current/clients/confluent-kafka-python/index.html#deserializingconsumer
-```
-
-### MySQL Metadata `mysql`
-
-Extracts:
-
-- List of databases and tables
-- Column types and schema associated with each table
-
-```yml
-source:
-  type: mysql
-  config:
-    username: root
-    password: example
-    database: dbname
-    host_port: localhost:3306
-    table_pattern:
-      deny:
-        # Note that the deny patterns take precedence over the allow patterns.
-        - "performance_schema"
-      allow:
-        - "schema1.table2"
-      # Although the 'table_pattern' enables you to skip everything from certain schemas,
-      # having another option to allow/deny on schema level is an optimization for the case when there is a large number
-      # of schemas that one wants to skip and you want to avoid the time to needlessly fetch those tables only to filter
-      # them out afterwards via the table_pattern.
-    schema_pattern:
-      deny:
-        - "garbage_schema"
-      allow:
-        - "schema1"
-```
-
-### Microsoft SQL Server Metadata `mssql`
-
-Extracts:
-
-- List of databases, schema, and tables
-- Column types associated with each table
-
-```yml
-source:
-  type: mssql
-  config:
-    username: user
-    password: pass
-    host_port: localhost:1433
-    database: DemoDatabase
-    table_pattern:
-      deny:
-        - "^.*\\.sys_.*" # deny all tables that start with sys_
-      allow:
-        - "schema1.table1"
-        - "schema1.table2"
-    options:
-      # Any options specified here will be passed to SQLAlchemy's create_engine as kwargs.
-      # See https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine for details.
-      # Many of these options are specific to the underlying database driver, so that library's
-      # documentation will be a good reference for what is supported. To find which dialect is likely
-      # in use, consult this table: https://docs.sqlalchemy.org/en/14/dialects/index.html.
-      charset: "utf8"
-```
-
-### Hive `hive`
-
-Extracts:
-
-- List of databases, schema, and tables
-- Column types associated with each table
-
-```yml
-source:
-  type: hive
-  config:
-    username: user
-    password: pass
-    host_port: localhost:10000
-    database: DemoDatabase
-    # table_pattern/schema_pattern is same as above
-    # options is same as above
-```
-
-### PostgreSQL `postgres`
-
-Extracts:
-
-- List of databases, schema, and tables
-- Column types associated with each table
-- Also supports PostGIS extensions
-
-```yml
-source:
-  type: postgres
-  config:
-    username: user
-    password: pass
-    host_port: localhost:5432
-    database: DemoDatabase
-    # table_pattern/schema_pattern is same as above
-    # options is same as above
-```
-
-### Snowflake `snowflake`
-
-Extracts:
-
-- List of databases, schema, and tables
-- Column types associated with each table
-
-```yml
-source:
-  type: snowflake
-  config:
-    username: user
-    password: pass
-    host_port: account_name
-    database: db_name
-    warehouse: "COMPUTE_WH" # optional
-    role: "sysadmin" # optional
-    # table_pattern/schema_pattern is same as above
-    # options is same as above
-```
-
-### Superset `superset`
-
-Extracts:
-
-- List of charts and dashboards
-
-```yml
-source:
-  type: superset
-  config:
-    username: user
-    password: pass
-    provider: db | ldap
-    connect_uri: http://localhost:8088
-```
-
-See documentation for superset's `/security/login` at  https://superset.apache.org/docs/rest-api for more details on superset's login api.
-
-### Oracle `oracle`
-
-Extracts:
-
-- List of databases, schema, and tables
-- Column types associated with each table
-
-```yml
-source:
-  type: oracle
-  config:
-    # For more details on authentication, see the documentation:
-    # https://docs.sqlalchemy.org/en/14/dialects/oracle.html#dialect-oracle-cx_oracle-connect and
-    # https://cx-oracle.readthedocs.io/en/latest/user_guide/connection_handling.html#connection-strings.
-    username: user
-    password: pass
-    host_port: localhost:5432
-    database: dbname
-    # table_pattern/schema_pattern is same as above
-    # options is same as above
-```
-
-### Google BigQuery `bigquery`
-
-Extracts:
-
-- List of databases, schema, and tables
-- Column types associated with each table
-
-```yml
-source:
-  type: bigquery
-  config:
-    project_id: project # optional - can autodetect from environment
-    options: # options is same as above
-      # See https://github.com/mxmzdlv/pybigquery#authentication for details.
-      credentials_path: "/path/to/keyfile.json" # optional
-    # table_pattern/schema_pattern is same as above
-```
-
-### AWS Athena `athena`
-
-Extracts:
-
-- List of databases and tables
-- Column types associated with each table
-
-```yml
-source:
-  type: athena
-  config:
-    username: aws_access_key_id # Optional. If not specified, credentials are picked up according to boto3 rules.
-    # See https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html
-    password: aws_secret_access_key # Optional.
-    database: database # Optional, defaults to "default"
-    aws_region: aws_region_name # i.e. "eu-west-1"
-    s3_staging_dir: s3_location # "s3://<bucket-name>/prefix/"
-    # The s3_staging_dir parameter is needed because Athena always writes query results to S3.
-    # See https://docs.aws.amazon.com/athena/latest/ug/querying.html
-    # However, the athena driver will transparently fetch these results as you would expect from any other sql client.
-    work_group: athena_workgroup # "primary"
-    # table_pattern/schema_pattern is same as above
-```
-
-### AWS Glue `glue`
-
-Extracts:
-
-- List of tables
-- Column types associated with each table
-- Table metadata, such as owner, description and parameters
-
-```yml
-source:
-  type: glue
-  config:
-    aws_region: aws_region_name # i.e. "eu-west-1"
-    env: environment used for the DatasetSnapshot URN, one of "DEV", "EI", "PROD" or "CORP". # Optional, defaults to "PROD".
-    database_pattern: # Optional, to filter databases scanned, same as schema_pattern above.
-    table_pattern: # Optional, to filter tables scanned, same as table_pattern above.
-    aws_access_key_id # Optional. If not specified, credentials are picked up according to boto3 rules.
-    # See https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html
-    aws_secret_access_key # Optional.
-    aws_session_token # Optional.
-```
-
-### Druid `druid`
-
-Extracts:
-
-- List of databases, schema, and tables
-- Column types associated with each table
-
-**Note** It is important to define a explicitly define deny schema pattern for internal druid databases (lookup & sys)
-if adding a schema pattern otherwise the crawler may crash before processing relevant databases.
-This deny pattern is defined by default but is overriden by user-submitted configurations
-
-```yml
-source:
-  type: druid
-  config:
-    # Point to broker address
-    host_port: localhost:8082
-    schema_pattern:
-      deny:
-        - "^(lookup|sys).*"
-    # options is same as above
-```
-
-### Other databases using SQLAlchemy `sqlalchemy`
-
-The `sqlalchemy` source is useful if we don't have a pre-built source for your chosen
-database system, but there is an [SQLAlchemy dialect](https://docs.sqlalchemy.org/en/14/dialects/)
-defined elsewhere. In order to use this, you must `pip install` the required dialect packages yourself.
-
-Extracts:
-
-- List of schemas and tables
-- Column types associated with each table
-
-```yml
-source:
-  type: sqlalchemy
-  config:
-    # See https://docs.sqlalchemy.org/en/14/core/engines.html#database-urls
-    connect_uri: "dialect+driver://username:password@host:port/database"
-    options: {} # same as above
-    schema_pattern: {} # same as above
-    table_pattern: {} # same as above
-```
-
-### MongoDB `mongodb`
-
-Extracts:
-
-- List of databases
-- List of collections in each database
-
-```yml
-source:
-  type: "mongodb"
-  config:
-    # For advanced configurations, see the MongoDB docs.
-    # https://pymongo.readthedocs.io/en/stable/examples/authentication.html
-    connect_uri: "mongodb://localhost"
-    username: admin
-    password: password
-    authMechanism: "DEFAULT"
-    options: {}
-    database_pattern: {}
-    collection_pattern: {}
-    # database_pattern/collection_pattern are similar to schema_pattern/table_pattern from above
-```
-
-### LDAP `ldap`
-
-Extracts:
-
-- List of people
-- Names, emails, titles, and manager information for each person
-
-```yml
-source:
-  type: "ldap"
-  config:
-    ldap_server: ldap://localhost
-    ldap_user: "cn=admin,dc=example,dc=org"
-    ldap_password: "admin"
-    base_dn: "dc=example,dc=org"
-    filter: "(objectClass=*)" # optional field
-```
-
-### File `file`
-
-Pulls metadata from a previously generated file. Note that the file sink
-can produce such files, and a number of samples are included in the
-[examples/mce_files](examples/mce_files) directory.
-
-```yml
-source:
-  type: file
-  filename: ./path/to/mce/file.json
-```
-
-### DBT `dbt`
-
-Pull metadata from DBT output files:
-
-- [dbt manifest file](https://docs.getdbt.com/reference/artifacts/manifest-json)
-  - This file contains model, source and lineage data.
-- [dbt catalog file](https://docs.getdbt.com/reference/artifacts/catalog-json)
-  - This file contains schema data.
-  - DBT does not record schema data for Ephemeral models, as such datahub will show Ephemeral models in the lineage, however there will be no associated schema for Ephemeral models
-
-```yml
-source:
-  type: "dbt"
-  config:
-    manifest_path: "./path/dbt/manifest_file.json"
-    catalog_path: "./path/dbt/catalog_file.json"
-```
-
-## Sinks
-
-### DataHub Rest `datahub-rest`
-
-Pushes metadata to DataHub using the GMA rest API. The advantage of the rest-based interface
-is that any errors can immediately be reported.
-
-```yml
-sink:
-  type: "datahub-rest"
-  config:
-    server: "http://localhost:8080"
-```
-
-### DataHub Kafka `datahub-kafka`
-
-Pushes metadata to DataHub by publishing messages to Kafka. The advantage of the Kafka-based
-interface is that it's asynchronous and can handle higher throughput. This requires the
-Datahub mce-consumer container to be running.
-
-```yml
-sink:
-  type: "datahub-kafka"
-  config:
-    connection:
-      bootstrap: "localhost:9092"
-      producer_config: {} # passed to https://docs.confluent.io/platform/current/clients/confluent-kafka-python/index.html#serializingproducer
-```
-
-### Console `console`
-
-Simply prints each metadata event to stdout. Useful for experimentation and debugging purposes.
-
-```yml
-sink:
-  type: "console"
-```
-
-### File `file`
-
-Outputs metadata to a file. This can be used to decouple metadata sourcing from the
-process of pushing it into DataHub, and is particularly useful for debugging purposes.
-Note that the file source can read files generated by this sink.
-
-```yml
-sink:
-  type: file
-  config:
-    filename: ./path/to/mce/file.json
-```
+A number of recipes are included in the [examples/recipes](./examples/recipes) directory. For full info and context on each source and sink, see the pages described in the [table of plugins](#installing-plugins).
 
 ## Transformations
 
-Beyond basic ingestion, sometimes there might exist a need to modify the source data before passing it on to the sink.
-Example use cases could be to add ownership information, add extra tags etc.
+If you'd like to modify data before it reaches the ingestion sinks – for instance, adding additional owners or tags – you can use a transformer to write your own module and integrate it with DataHub.
 
-In such a scenario, it is possible to configure a recipe with a list of transformers.
-
-```yml
-transformers:
-  - type: "fully-qualified-class-name-of-transformer"
-    config:
-      some_property: "some.value"
-```
-
-A transformer class needs to inherit from [`Transformer`](./src/datahub/ingestion/api/transform.py)
-At the moment there are no built-in transformers.
+Check out the [transformers guide](./transformers.md) for more info!
 
 ## Using as a library
 
@@ -567,46 +163,76 @@ In some cases, you might want to construct the MetadataChangeEvents yourself but
 - [DataHub emitter via REST](./src/datahub/emitter/rest_emitter.py) (same requirements as `datahub-rest`). Basic usage [example](./examples/library/lineage_emitter_rest.py).
 - [DataHub emitter via Kafka](./src/datahub/emitter/kafka_emitter.py) (same requirements as `datahub-kafka`). Basic usage [example](./examples/library/lineage_emitter_kafka.py).
 
-## Usage with Airflow
+## Lineage with Airflow
 
-There's a couple ways to integrate DataHub with Airflow.
+There's a couple ways to get lineage information from Airflow into DataHub.
 
-### Running ingestion on a schedule
+:::note
 
-Take a look at these sample DAGs:
+If you're simply looking to run ingestion on a schedule, take a look at these sample DAGs:
 
-- [`generic_recipe_sample_dag.py`](./examples/airflow/generic_recipe_sample_dag.py) - a simple Airflow DAG that picks up a DataHub ingestion recipe configuration and runs it.
-- [`mysql_sample_dag.py`](./examples/airflow/mysql_sample_dag.py) - an Airflow DAG that runs a MySQL metadata ingestion pipeline using an inlined configuration.
+- [`generic_recipe_sample_dag.py`](./src/datahub_provider/example_dags/generic_recipe_sample_dag.py) - reads a DataHub ingestion recipe file and runs it
+- [`mysql_sample_dag.py`](./src/datahub_provider/example_dags/mysql_sample_dag.py) - runs a MySQL metadata ingestion pipeline using an inlined configuration.
+
+:::
+
+### Using Datahub's Airflow lineage backend (recommended)
+
+:::caution
+
+The Airflow lineage backend is only supported in Airflow 1.10.15+ and 2.0.2+.
+
+:::
+
+### Running on Docker locally
+
+If you are looking to run Airflow and DataHub using docker locally, follow the guide [here](../docker/airflow/local_airflow.md). Otherwise proceed to follow the instructions below.
+
+### Setting up Airflow to use DataHub as Lineage Backend
+
+1. You need to install the required dependency in your airflow. See https://registry.astronomer.io/providers/datahub/modules/datahublineagebackend
+
+```shell
+  pip install acryl-datahub[airflow]
+```
+
+2. You must configure an Airflow hook for Datahub. We support both a Datahub REST hook and a Kafka-based hook, but you only need one.
+
+   ```shell
+   # For REST-based:
+   airflow connections add  --conn-type 'datahub_rest' 'datahub_rest_default' --conn-host 'http://localhost:8080'
+   # For Kafka-based (standard Kafka sink config can be passed via extras):
+   airflow connections add  --conn-type 'datahub_kafka' 'datahub_kafka_default' --conn-host 'broker:9092' --conn-extra '{}'
+   ```
+
+3. Add the following lines to your `airflow.cfg` file.
+   ```ini
+   [lineage]
+   backend = datahub_provider.lineage.datahub.DatahubLineageBackend
+   datahub_kwargs = {
+       "datahub_conn_id": "datahub_rest_default",
+       "capture_ownership_info": true,
+       "capture_tags_info": true,
+       "graceful_exceptions": true }
+   # The above indentation is important!
+   ```
+   **Configuration options:**
+   - `datahub_conn_id` (required): Usually `datahub_rest_default` or `datahub_kafka_default`, depending on what you named the connection in step 1.
+   - `capture_ownership_info` (defaults to true): If true, the owners field of the DAG will be capture as a DataHub corpuser.
+   - `capture_tags_info` (defaults to true): If true, the tags field of the DAG will be captured as DataHub tags.
+   - `graceful_exceptions` (defaults to true): If set to true, most runtime errors in the lineage backend will be suppressed and will not cause the overall task to fail. Note that configuration issues will still throw exceptions.
+4. Configure `inlets` and `outlets` for your Airflow operators. For reference, look at the sample DAG in [`lineage_backend_demo.py`](./src/datahub_provider/example_dags/lineage_backend_demo.py), or reference [`lineage_backend_taskflow_demo.py`](./src/datahub_provider/example_dags/lineage_backend_taskflow_demo.py) if you're using the [TaskFlow API](https://airflow.apache.org/docs/apache-airflow/stable/concepts/taskflow.html).
+5. [optional] Learn more about [Airflow lineage](https://airflow.apache.org/docs/apache-airflow/stable/lineage.html), including shorthand notation and some automation.
 
 ### Emitting lineage via a separate operator
 
 Take a look at this sample DAG:
 
-- [`lineage_emission_dag.py`](./examples/airflow/lineage_emission_dag.py) - emits lineage using the DatahubEmitterOperator.
+- [`lineage_emission_dag.py`](./src/datahub_provider/example_dags/lineage_emission_dag.py) - emits lineage using the DatahubEmitterOperator.
 
-In order to use this example, you must first configure the Datahub hook. Like in ingestion, we support a Datahub REST hook and a Kafka-based hook.
-
-```sh
-# For REST-based:
-airflow connections add  --conn-type 'datahub_rest' 'datahub_rest_default' --conn-host 'http://localhost:8080'
-# For Kafka-based (standard Kafka sink config can be passed via extras):
-airflow connections add  --conn-type 'datahub_kafka' 'datahub_kafka_default' --conn-host 'broker:9092' --conn-extra '{}'
-```
-
-### Using Datahub's Airflow lineage backend
-
-_Note: The Airflow lineage backend is only supported in Airflow 1.10.15+ and 2.0.2+._
-
-1. First, you must configure the Airflow hooks. See above for details.
-2. Add the following lines to your `airflow.cfg` file. You might need to
-   ```ini
-   [lineage]
-   backend = datahub.integrations.airflow.DatahubAirflowLineageBackend
-   datahub_conn_id = datahub_rest_default  # or datahub_kafka_default - whatever you named the connection in step 1
-   ```
-3. Configure `inlets` and `outlets` for your Airflow operators. For reference, look at the sample DAG in [`lineage_backend_demo.py`](./examples/airflow/lineage_backend_demo.py).
-4. [optional] Learn more about [Airflow lineage](https://airflow.apache.org/docs/apache-airflow/stable/lineage.html), including shorthand notation and some automation.
+In order to use this example, you must first configure the Datahub hook. Like in ingestion, we support a Datahub REST hook and a Kafka-based hook. See step 1 above for details.
 
 ## Developing
 
-See the [developing guide](./developing.md).
+See the guides on [developing](./developing.md), [adding a source](./adding-source.md) and [using transformers](./transformers.md).
+

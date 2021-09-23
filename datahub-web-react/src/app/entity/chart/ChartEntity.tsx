@@ -59,7 +59,7 @@ export class ChartEntity implements Entity<Chart> {
                 urn={data.urn}
                 platform={data.tool}
                 name={data.info?.name}
-                description={data.info?.description}
+                description={data.editableProperties?.description || data.info?.description}
                 access={data.info?.access}
                 owners={data.ownership?.owners}
                 tags={data?.globalTags || undefined}
@@ -85,5 +85,9 @@ export class ChartEntity implements Entity<Chart> {
             icon: getLogoFromPlatform(entity.tool),
             platform: entity.tool,
         };
+    };
+
+    displayName = (data: Chart) => {
+        return data.info?.name || data.urn;
     };
 }

@@ -1,0 +1,384 @@
+[
+    {
+        "auditHeader": null,
+        "proposedSnapshot": {
+            "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+                "urn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,bigquery-public-data.covid19_geotab_mobility_impact.us_border_wait_times,PROD)",
+                "aspects": [
+                    {
+                        "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                            "description": "This dataset shows hourly average border crossing duration for US-Canada and US-Mexico borders starting from 2020-03-16. Hourly trip volume is compared to average trip volume calculated between Feb.1st and Mar.15th, 2020 as a control group in each country. 테스트",
+                            "uri": null,
+                            "tags": [],
+                            "customProperties": {}
+                        }
+                    },
+                    {
+                        "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                            "schemaName": "bigquery-public-data.covid19_geotab_mobility_impact.us_border_wait_times",
+                            "platform": "urn:li:dataPlatform:bigquery",
+                            "version": 0,
+                            "created": {
+                                "time": 1616104630716,
+                                "actor": "urn:li:corpuser:etl",
+                                "impersonator": null
+                            },
+                            "lastModified": {
+                                "time": 1616104630716,
+                                "actor": "urn:li:corpuser:etl",
+                                "impersonator": null
+                            },
+                            "deleted": null,
+                            "dataset": null,
+                            "cluster": null,
+                            "hash": "",
+                            "platformSchema": {
+                                "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                    "tableSchema": ""
+                                }
+                            },
+                            "fields": [
+                                {
+                                    "fieldPath": "border_id",
+                                    "jsonPath": null,
+                                    "nullable": true,
+                                    "description": "Unique ID of the border crossing",
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.StringType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "String()",
+                                    "recursive": false,
+                                    "globalTags": null
+                                },
+                                {
+                                    "fieldPath": "port_name",
+                                    "jsonPath": null,
+                                    "nullable": true,
+                                    "description": "Port Name in Canada or Mexico",
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.StringType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "String()",
+                                    "recursive": false,
+                                    "globalTags": null
+                                },
+                                {
+                                    "fieldPath": "port_name_us",
+                                    "jsonPath": null,
+                                    "nullable": true,
+                                    "description": "Port Name in the US",
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.StringType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "String()",
+                                    "recursive": false,
+                                    "globalTags": null
+                                },
+                                {
+                                    "fieldPath": "trip_direction",
+                                    "jsonPath": null,
+                                    "nullable": true,
+                                    "description": "Direction of the trip",
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.StringType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "String()",
+                                    "recursive": false,
+                                    "globalTags": null
+                                },
+                                {
+                                    "fieldPath": "hour_local",
+                                    "jsonPath": null,
+                                    "nullable": true,
+                                    "description": "Local hour of the data",
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "Integer()",
+                                    "recursive": false,
+                                    "globalTags": null
+                                },
+                                {
+                                    "fieldPath": "date_local",
+                                    "jsonPath": null,
+                                    "nullable": true,
+                                    "description": "Local date of the data",
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.DateType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "DATE()",
+                                    "recursive": false,
+                                    "globalTags": null
+                                },
+                                {
+                                    "fieldPath": "day_type",
+                                    "jsonPath": null,
+                                    "nullable": true,
+                                    "description": "Weekday/Weekend indicator",
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.StringType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "String()",
+                                    "recursive": false,
+                                    "globalTags": null
+                                },
+                                {
+                                    "fieldPath": "date_utc",
+                                    "jsonPath": null,
+                                    "nullable": true,
+                                    "description": "UTC date of the data",
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.DateType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "DATE()",
+                                    "recursive": false,
+                                    "globalTags": null
+                                },
+                                {
+                                    "fieldPath": "hour_utc",
+                                    "jsonPath": null,
+                                    "nullable": true,
+                                    "description": "UTC hour of the data",
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "Integer()",
+                                    "recursive": false,
+                                    "globalTags": null
+                                },
+                                {
+                                    "fieldPath": "avg_crossing_duration",
+                                    "jsonPath": null,
+                                    "nullable": true,
+                                    "description": "Average border crossing times (in minutes)",
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "Float()",
+                                    "recursive": false,
+                                    "globalTags": null
+                                },
+                                {
+                                    "fieldPath": "aggregation_method",
+                                    "jsonPath": null,
+                                    "nullable": true,
+                                    "description": "Daily Average: the average is taken for the current LocalHour; Weekly Average: the average is taken for the full week prior to the current LocalDate; Monthly Average: the average is taken for the full month prior to the current LocalDate; Yearly Average: the average is taken for the full year prior to the LocalDate",
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.StringType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "String()",
+                                    "recursive": false,
+                                    "globalTags": null
+                                },
+                                {
+                                    "fieldPath": "percent_of_baseline_trip_volume",
+                                    "jsonPath": null,
+                                    "nullable": true,
+                                    "description": "Proportion of trips in this time interval as compared to Avg number of trips on the same hour of day in baseline period i.e 1st February 2020 - 15th March 2020. Data is only available for daily aggregation level with valid baseline number.",
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "Float()",
+                                    "recursive": false,
+                                    "globalTags": null
+                                },
+                                {
+                                    "fieldPath": "border_zone",
+                                    "jsonPath": null,
+                                    "nullable": true,
+                                    "description": "Polygon of the Port in Canada or Mexico",
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "NullType()",
+                                    "recursive": false,
+                                    "globalTags": null
+                                },
+                                {
+                                    "fieldPath": "province_code",
+                                    "jsonPath": null,
+                                    "nullable": true,
+                                    "description": "ISO 3166-2 Country-Province code in Canada or Mexico",
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.StringType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "String()",
+                                    "recursive": false,
+                                    "globalTags": null
+                                },
+                                {
+                                    "fieldPath": "border_zone_us",
+                                    "jsonPath": null,
+                                    "nullable": true,
+                                    "description": "Polygon of the Port in the US",
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "NullType()",
+                                    "recursive": false,
+                                    "globalTags": null
+                                },
+                                {
+                                    "fieldPath": "state_code_us",
+                                    "jsonPath": null,
+                                    "nullable": true,
+                                    "description": "ISO 3166-2 Country-State code for US",
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.StringType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "String()",
+                                    "recursive": false,
+                                    "globalTags": null
+                                },
+                                {
+                                    "fieldPath": "border_latitude",
+                                    "jsonPath": null,
+                                    "nullable": true,
+                                    "description": "Latitude of the border",
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "Float()",
+                                    "recursive": false,
+                                    "globalTags": null
+                                },
+                                {
+                                    "fieldPath": "border_longitude",
+                                    "jsonPath": null,
+                                    "nullable": true,
+                                    "description": "Longitude of the border",
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "Float()",
+                                    "recursive": false,
+                                    "globalTags": null
+                                },
+                                {
+                                    "fieldPath": "border_geohash",
+                                    "jsonPath": null,
+                                    "nullable": true,
+                                    "description": "Geohash of the Border Station with level of 7",
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.StringType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "String()",
+                                    "recursive": false,
+                                    "globalTags": null
+                                },
+                                {
+                                    "fieldPath": "version",
+                                    "jsonPath": null,
+                                    "nullable": true,
+                                    "description": "Version of the table",
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.StringType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "String()",
+                                    "recursive": false,
+                                    "globalTags": null
+                                }
+                            ],
+                            "primaryKeys": null,
+                            "foreignKeysSpecs": null
+                        }
+                    }
+                ]
+            }
+        },
+        "proposedDelta": null
+    },
+    {
+        "auditHeader": null,
+        "proposedSnapshot": {
+            "com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot": {
+                "urn": "urn:li:corpuser:Geotab",
+                "aspects": [
+                    {
+                        "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
+                            "active": true,
+                            "displayName": "Geotab",
+                            "email": "Geotab-demo@example.com",
+                            "title": null,
+                            "managerUrn": null,
+                            "departmentId": null,
+                            "departmentName": null,
+                            "firstName": null,
+                            "lastName": null,
+                            "fullName": "Geotab",
+                            "countryCode": null
+                        }
+                    }
+                ]
+            }
+        },
+        "proposedDelta": null
+    },
+    {
+        "auditHeader": null,
+        "proposedSnapshot": {
+            "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+                "urn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,bigquery-public-data.covid19_geotab_mobility_impact.us_border_wait_times,PROD)",
+                "aspects": [
+                    {
+                        "com.linkedin.pegasus2avro.common.Ownership": {
+                            "owners": [
+                                {
+                                    "owner": "urn:li:corpuser:Geotab",
+                                    "type": "DATAOWNER",
+                                    "source": null
+                                }
+                            ],
+                            "lastModified": {
+                                "time": 1616107219522,
+                                "actor": "urn:li:corpuser:datahub",
+                                "impersonator": null
+                            }
+                        }
+                    }
+                ]
+            }
+        },
+        "proposedDelta": null
+    }
+]

@@ -1,0 +1,23 @@
+namespace com.linkedin.common
+
+/**
+ * Business Term
+ */
+@java.class = "com.linkedin.common.urn.GlossaryTermUrn"
+@validate.`com.linkedin.common.validator.TypedUrnValidator` = {
+  "accessible" : true,
+  "owningTeam" : "urn:li:internalTeam:datahub",
+  "entityType" : "glossaryTerm",
+  "constructable" : true,
+  "namespace" : "li",
+  "name" : "GlossaryTerm",
+  "doc" : "business term",
+  "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
+  "fields" : [ {
+    "name" : "name",
+    "doc" : "The name of business term with hierarchy.",
+    "type" : "string"
+  } ],
+  "maxLength" : 56
+}
+typeref GlossaryTermUrn = string

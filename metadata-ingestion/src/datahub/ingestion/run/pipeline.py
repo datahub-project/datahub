@@ -1,9 +1,10 @@
+import datetime
 import logging
 import uuid
-from typing import Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional
 
 import click
-from pydantic import Field
+from pydantic import validator
 
 from datahub.configuration.common import (
     ConfigModel,
@@ -23,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 
 class SourceConfig(DynamicTypedConfig):
-    extractor: str = "mce"
+    extractor: str = "generic"
 
 
 class PipelineConfig(ConfigModel):
@@ -31,10 +32,26 @@ class PipelineConfig(ConfigModel):
     # simplify this configuration and validation.
     # See https://github.com/samuelcolvin/pydantic/pull/2336.
 
-    run_id: str = Field(default_factory=lambda: str(uuid.uuid1()))
     source: SourceConfig
     sink: DynamicTypedConfig
     transformers: Optional[List[DynamicTypedConfig]]
+    run_id: str = "__DEFAULT_RUN_ID"
+
+    @validator("run_id", pre=True, always=True)
+    def run_id_should_be_semantic(
+        cls, v: Optional[str], values: Dict[str, Any], **kwargs: Any
+    ) -> str:
+        if v == "__DEFAULT_RUN_ID":
+            if values["source"] is not None:
+                if values["source"].type is not None:
+                    source_type = values["source"].type
+                    current_time = datetime.datetime.now().strftime("%Y_%m_%d-%H_%M_%S")
+                    return f"{source_type}-{current_time}"
+
+            return str(uuid.uuid1())  # default run_id if we cannot infer a source type
+        else:
+            assert v is not None
+            return v
 
 
 class LoggingCallback(WriteCallback):
@@ -83,7 +100,7 @@ class Pipeline:
 
         self._configure_transforms()
 
-    def _configure_transforms(self):
+    def _configure_transforms(self) -> None:
         self.transformers = []
         if self.config.transformers is not None:
             for transformer in self.config.transformers:
@@ -102,7 +119,7 @@ class Pipeline:
         config = PipelineConfig.parse_obj(config_dict)
         return cls(config)
 
-    def run(self):
+    def run(self) -> None:
         callback = LoggingCallback()
         extractor: Extractor = self.extractor_class()
         for wu in self.source.get_workunits():
@@ -130,7 +147,7 @@ class Pipeline:
 
         return records
 
-    def raise_from_status(self, raise_warnings=False):
+    def raise_from_status(self, raise_warnings: bool = False) -> None:
         if self.source.get_report().failures:
             raise PipelineExecutionError(
                 "Source reported errors", self.source.get_report()
@@ -146,9 +163,9 @@ class Pipeline:
 
     def pretty_print_summary(self) -> int:
         click.echo()
-        click.secho("Source report:", bold=True)
+        click.secho(f"Source ({self.config.source.type}) report:", bold=True)
         click.echo(self.source.get_report().as_string())
-        click.secho("Sink report:", bold=True)
+        click.secho(f"Sink ({self.config.sink.type}) report:", bold=True)
         click.echo(self.sink.get_report().as_string())
         click.echo()
         if self.source.get_report().failures or self.sink.get_report().failures:

@@ -1,4 +1,4 @@
-import { EntityType, Schema, SchemaField, SchemaFieldDataType } from '../../../../../types.generated';
+import { EntityType, Schema, SchemaMetadata, SchemaField, SchemaFieldDataType } from '../../../../../types.generated';
 
 // Extending the schema type with an option for tags
 export type TaggedSchemaField = {
@@ -13,7 +13,7 @@ export type Tag = {
     descriptor?: boolean;
 };
 
-export const sampleSchema: Schema = {
+export const sampleSchema: SchemaMetadata | Schema | null = {
     name: 'MockSchema',
     platformUrn: 'mock:urn',
     version: 1,
@@ -86,8 +86,7 @@ export const sampleSchema: Schema = {
     ],
     platformSchema: {
         __typename: 'TableSchema',
-        schema:
-            '{ "type": "record", "name": "SampleHdfsSchema", "namespace": "com.linkedin.dataset", "doc": "Sample HDFS dataset", "fields": [ { "name": "field_foo", "type": [ "string" ] }, { "name": "field_bar", "type": [ "boolean" ] } ] }',
+        schema: '{ "type": "record", "name": "SampleHdfsSchema", "namespace": "com.linkedin.dataset", "doc": "Sample HDFS dataset", "fields": [ { "name": "field_foo", "type": [ "string" ] }, { "name": "field_bar", "type": [ "boolean" ] } ] }',
     },
 };
 
@@ -112,6 +111,22 @@ export const sampleSchemaWithTags: Schema = {
                             name: 'Legacy',
                             description: 'this is a legacy dataset',
                             type: EntityType.Tag,
+                        },
+                    },
+                ],
+            },
+            glossaryTerms: {
+                terms: [
+                    {
+                        term: {
+                            type: EntityType.GlossaryTerm,
+                            urn: 'urn:li:glossaryTerm:sample-glossary-term',
+                            name: 'sample-glossary-term',
+                            hierarchicalName: 'example.sample-glossary-term',
+                            glossaryTermInfo: {
+                                definition: 'sample definition',
+                                termSource: 'sample term source',
+                            },
                         },
                     },
                 ],

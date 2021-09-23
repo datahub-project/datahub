@@ -1,0 +1,15 @@
+namespace com.datahub.test
+
+/**
+ * Profile of test entity component
+ */
+record TestEntityComponentProfile {
+  key: string
+
+  @TimeseriesField = {}
+  stat: long
+
+  strStat: string
+
+  arrayStat: array[long]
+}

@@ -1,0 +1,40 @@
+query listPolicies($input: ListPoliciesInput!) {
+    listPolicies(input: $input) {
+        start
+        count
+        total
+        policies {
+            urn
+            type
+            name
+            description
+            state
+            resources {
+                type
+                allResources
+                resources
+            }
+            privileges
+            actors {
+                users
+                groups
+                allUsers
+                allGroups
+                resourceOwners
+            }
+            editable
+        }
+    }
+}
+
+mutation createPolicy($input: PolicyUpdateInput!) {
+    createPolicy(input: $input)
+}
+
+mutation updatePolicy($urn: String!, $input: PolicyUpdateInput!) {
+    updatePolicy(urn: $urn, input: $input)
+}
+
+mutation deletePolicy($urn: String!) {
+    deletePolicy(urn: $urn)
+}

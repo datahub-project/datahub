@@ -14,6 +14,10 @@ export enum PreviewType {
      * A generic preview shown within other entity pages, etc.
      */
     PREVIEW,
+    /**
+     * A tiny search preview for text-box search.
+     */
+    MINI_SEARCH,
 }
 
 export enum IconStyleType {
@@ -78,6 +82,11 @@ export interface Entity<T> {
     getCollectionName: () => string;
 
     /**
+     * Returns the singular name of the entity used when referring to an individual
+     */
+    getEntityName?: () => string;
+
+    /**
      * Renders the 'profile' of the entity on an entity details page.
      */
     renderProfile: (urn: string) => JSX.Element;
@@ -96,4 +105,9 @@ export interface Entity<T> {
      * Constructs config to add entity to lineage viz
      */
     getLineageVizConfig?: (entity: T) => FetchedEntity;
+
+    /**
+     * Returns a display name for the entity
+     */
+    displayName: (data: T) => string;
 }

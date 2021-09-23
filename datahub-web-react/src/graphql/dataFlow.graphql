@@ -14,6 +14,9 @@ fragment dataFlowFields on DataFlow {
             value
         }
     }
+    editableProperties {
+        description
+    }
     ownership {
         ...ownershipFields
     }
@@ -25,11 +28,59 @@ fragment dataFlowFields on DataFlow {
 query getDataFlow($urn: String!) {
     dataFlow(urn: $urn) {
         ...dataFlowFields
+        dataJobs {
+            entities {
+                entity {
+                    urn
+                    type
+                    ... on DataJob {
+                        urn
+                        type
+                        jobId
+                        ownership {
+                            ...ownershipFields
+                        }
+                        info {
+                            name
+                            description
+                            externalUrl
+                            customProperties {
+                                key
+                                value
+                            }
+                        }
+                        editableProperties {
+                            description
+                        }
+                        globalTags {
+                            ...globalTagsFields
+                        }
+                        inputOutput {
+                            inputDatajobs {
+                                urn
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
-mutation updateDataFlow($input: DataFlowUpdateInput!) {
-    updateDataFlow(input: $input) {
+mutation updateDataFlow($urn: String!, $input: DataFlowUpdateInput!) {
+    updateDataFlow(urn: $urn, input: $input) {
         ...dataFlowFields
+        dataJobs {
+            entities {
+                entity {
+                    urn
+                    type
+                    ... on DataJob {
+                        ...dataJobFields
+                        ...shallowLineageFields
+                    }
+                }
+            }
+        }
     }
 }

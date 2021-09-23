@@ -1,0 +1,5 @@
+namespace com.linkedin.metadata.run
+
+record IngestionRunSummaryList {
+  ingestionRunSummaries: array[IngestionRunSummary]
+}

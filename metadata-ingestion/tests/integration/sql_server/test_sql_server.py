@@ -6,10 +6,11 @@ from click.testing import CliRunner
 
 from datahub.entrypoints import datahub
 from tests.test_helpers import fs_helpers, mce_helpers
+from tests.test_helpers.click_helpers import assert_result_ok
 from tests.test_helpers.docker_helpers import wait_for_port
 
 
-@pytest.mark.slow
+@pytest.mark.integration
 def test_mssql_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/sql_server"
 
@@ -35,12 +36,11 @@ def test_mssql_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
         runner = CliRunner()
         with fs_helpers.isolated_filesystem(tmp_path):
             result = runner.invoke(datahub, ["ingest", "-c", f"{config_file}"])
-            assert result.exit_code == 0
+            assert_result_ok(result)
 
-            output = mce_helpers.load_json_file("mssql_mces.json")
-
-        # Verify the output.
-        golden = mce_helpers.load_json_file(
-            str(test_resources_dir / "mssql_mce_golden.json")
-        )
-        mce_helpers.assert_mces_equal(output, golden)
+            # Verify the output.
+            mce_helpers.check_golden_file(
+                pytestconfig,
+                output_path="./mssql_mces.json",
+                golden_path=test_resources_dir / "mssql_mces_golden.json",
+            )

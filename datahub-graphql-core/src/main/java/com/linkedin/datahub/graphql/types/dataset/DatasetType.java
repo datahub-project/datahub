@@ -1,12 +1,17 @@
 package com.linkedin.datahub.graphql.types.dataset;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.DatasetUrn;
-import com.linkedin.data.template.SetMode;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.authorization.ConjunctivePrivilegeGroup;
+import com.linkedin.datahub.graphql.authorization.DisjunctivePrivilegeGroup;
+import com.linkedin.metadata.authorization.PoliciesConfig;
+import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.DatasetUpdateInput;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.types.BrowsableEntityType;
@@ -18,19 +23,24 @@ import com.linkedin.datahub.graphql.generated.BrowseResults;
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.SearchResults;
+import com.linkedin.datahub.graphql.types.dataset.mappers.DatasetUpdateInputSnapshotMapper;
+import com.linkedin.datahub.graphql.types.dataset.mappers.DatasetSnapshotMapper;
 import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowsePathsMapper;
-import com.linkedin.datahub.graphql.types.mappers.BrowseResultMetadataMapper;
-import com.linkedin.datahub.graphql.types.dataset.mappers.DatasetMapper;
-import com.linkedin.datahub.graphql.types.dataset.mappers.DatasetUpdateInputMapper;
-import com.linkedin.datahub.graphql.types.mappers.SearchResultsMapper;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
-import com.linkedin.dataset.client.Datasets;
+import com.linkedin.datahub.graphql.types.mappers.BrowseResultMapper;
+import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
+import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.Entity;
+import com.linkedin.metadata.extractor.AspectExtractor;
+import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
-import com.linkedin.metadata.query.BrowseResult;
+import com.linkedin.metadata.query.SearchResult;
+import com.linkedin.metadata.snapshot.DatasetSnapshot;
+import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.r2.RemoteInvocationException;
-import com.linkedin.restli.common.CollectionResponse;
 
+import graphql.execution.DataFetcherResult;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
@@ -45,11 +55,11 @@ import static com.linkedin.datahub.graphql.Constants.BROWSE_PATH_DELIMITER;
 public class DatasetType implements SearchableEntityType<Dataset>, BrowsableEntityType<Dataset>, MutableType<DatasetUpdateInput> {
 
     private static final Set<String> FACET_FIELDS = ImmutableSet.of("origin", "platform");
-    private static final String DEFAULT_AUTO_COMPLETE_FIELD = "name";
+    private static final String ENTITY_NAME = "dataset";
 
-    private final Datasets _datasetsClient;
+    private final EntityClient _datasetsClient;
 
-    public DatasetType(final Datasets datasetsClient) {
+    public DatasetType(final EntityClient datasetsClient) {
         _datasetsClient = datasetsClient;
     }
 
@@ -69,25 +79,31 @@ public class DatasetType implements SearchableEntityType<Dataset>, BrowsableEnti
     }
 
     @Override
-    public List<Dataset> batchLoad(final List<String> urns, final QueryContext context) {
+    public List<DataFetcherResult<Dataset>> batchLoad(final List<String> urns, final QueryContext context) {
 
         final List<DatasetUrn> datasetUrns = urns.stream()
                 .map(DatasetUtils::getDatasetUrn)
                 .collect(Collectors.toList());
 
         try {
-            final Map<DatasetUrn, com.linkedin.dataset.Dataset> datasetMap = _datasetsClient.batchGet(datasetUrns
+            final Map<Urn, Entity> datasetMap = _datasetsClient.batchGet(datasetUrns
                     .stream()
                     .filter(Objects::nonNull)
-                    .collect(Collectors.toSet()));
+                    .collect(Collectors.toSet()),
+                context.getActor());
 
-            final List<com.linkedin.dataset.Dataset> gmsResults = new ArrayList<>();
+            final List<Entity> gmsResults = new ArrayList<>();
             for (DatasetUrn urn : datasetUrns) {
                 gmsResults.add(datasetMap.getOrDefault(urn, null));
             }
             return gmsResults.stream()
-                    .map(gmsDataset -> gmsDataset == null ? null : DatasetMapper.map(gmsDataset))
-                    .collect(Collectors.toList());
+                .map(gmsDataset ->
+                    gmsDataset == null ? null : DataFetcherResult.<Dataset>newResult()
+                        .data(DatasetSnapshotMapper.map(gmsDataset.getValue().getDatasetSnapshot()))
+                        .localContext(AspectExtractor.extractAspects(gmsDataset.getValue().getDatasetSnapshot()))
+                        .build()
+                )
+                .collect(Collectors.toList());
         } catch (Exception e) {
             throw new RuntimeException("Failed to batch load Datasets", e);
         }
@@ -100,8 +116,8 @@ public class DatasetType implements SearchableEntityType<Dataset>, BrowsableEnti
                                 int count,
                                 @Nonnull final QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
-        final CollectionResponse<com.linkedin.dataset.Dataset> searchResult = _datasetsClient.search(query, facetFilters, start, count);
-        return SearchResultsMapper.map(searchResult, DatasetMapper::map);
+        final SearchResult searchResult = _datasetsClient.search(ENTITY_NAME, query, facetFilters, start, count, context.getActor());
+        return UrnSearchResultsMapper.map(searchResult);
     }
 
     @Override
@@ -111,8 +127,7 @@ public class DatasetType implements SearchableEntityType<Dataset>, BrowsableEnti
                                             int limit,
                                             @Nonnull final QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
-        field = field != null ? field : DEFAULT_AUTO_COMPLETE_FIELD;
-        final AutoCompleteResult result = _datasetsClient.autoComplete(query, field, facetFilters, limit);
+        final AutoCompleteResult result = _datasetsClient.autoComplete(ENTITY_NAME, query, facetFilters, limit, context.getActor());
         return AutoCompleteResultsMapper.map(result);
     }
 
@@ -125,60 +140,86 @@ public class DatasetType implements SearchableEntityType<Dataset>, BrowsableEnti
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
         final String pathStr = path.size() > 0 ? BROWSE_PATH_DELIMITER + String.join(BROWSE_PATH_DELIMITER, path) : "";
         final BrowseResult result = _datasetsClient.browse(
+                "dataset",
                 pathStr,
                 facetFilters,
                 start,
-                count);
-        final List<String> urns = result.getEntities().stream().map(entity -> entity.getUrn().toString()).collect(Collectors.toList());
-        final List<Dataset> datasets = batchLoad(urns, context);
-        final BrowseResults browseResults = new BrowseResults();
-        browseResults.setStart(result.getFrom());
-        browseResults.setCount(result.getPageSize());
-        browseResults.setTotal(result.getNumEntities());
-        browseResults.setMetadata(BrowseResultMetadataMapper.map(result.getMetadata()));
-        browseResults.setEntities(datasets.stream()
-                .map(dataset -> (com.linkedin.datahub.graphql.generated.Entity) dataset)
-                .collect(Collectors.toList()));
-        return browseResults;
+                count,
+            context.getActor());
+        return BrowseResultMapper.map(result);
     }
 
     @Override
     public List<BrowsePath> browsePaths(@Nonnull String urn, @Nonnull final QueryContext context) throws Exception {
-        final StringArray result = _datasetsClient.getBrowsePaths(DatasetUtils.getDatasetUrn(urn));
+        final StringArray result = _datasetsClient.getBrowsePaths(DatasetUtils.getDatasetUrn(urn), context.getActor());
         return BrowsePathsMapper.map(result);
     }
 
     @Override
-    public Dataset update(@Nonnull DatasetUpdateInput input, @Nonnull QueryContext context) throws Exception {
-        // TODO: Verify that updater is owner.
-        final CorpuserUrn actor = CorpuserUrn.createFromString(context.getActor());
-        final com.linkedin.dataset.Dataset partialDataset = DatasetUpdateInputMapper.map(input, actor);
+    public Dataset update(@Nonnull String urn, @Nonnull DatasetUpdateInput input, @Nonnull QueryContext context) throws Exception {
+        if (isAuthorized(urn, input, context)) {
+            final CorpuserUrn actor = CorpuserUrn.createFromString(context.getActor());
+            final DatasetSnapshot datasetSnapshot = DatasetUpdateInputSnapshotMapper.map(input, actor);
+            datasetSnapshot.setUrn(DatasetUrn.createFromString(urn));
+            final Snapshot snapshot = Snapshot.create(datasetSnapshot);
 
-        // TODO: Migrate inner mappers to InputModelMappers & remove
-        // Create Audit Stamp
-        final AuditStamp auditStamp = new AuditStamp();
-        auditStamp.setActor(actor, SetMode.IGNORE_NULL);
-        auditStamp.setTime(System.currentTimeMillis());
-
-        if (partialDataset.hasDeprecation()) {
-            partialDataset.getDeprecation().setActor(actor, SetMode.IGNORE_NULL);
-        }
-
-        if (partialDataset.hasEditableSchemaMetadata()) {
-            partialDataset.getEditableSchemaMetadata().setLastModified(auditStamp);
-            if (!partialDataset.getEditableSchemaMetadata().hasCreated()) {
-                partialDataset.getEditableSchemaMetadata().setCreated(auditStamp);
+            try {
+                Entity entity = new Entity();
+                entity.setValue(snapshot);
+                _datasetsClient.update(entity, context.getActor());
+            } catch (RemoteInvocationException e) {
+                throw new RuntimeException(String.format("Failed to write entity with urn %s", urn), e);
             }
+
+            return load(urn, context).getData();
+        }
+        throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
+    }
+
+    private boolean isAuthorized(@Nonnull String urn, @Nonnull DatasetUpdateInput update, @Nonnull QueryContext context) {
+        // Decide whether the current principal should be allowed to update the Dataset.
+        final DisjunctivePrivilegeGroup orPrivilegeGroups = getAuthorizedPrivileges(update);
+        return AuthorizationUtils.isAuthorized(
+            context.getAuthorizer(),
+            context.getActor(),
+            PoliciesConfig.DATASET_PRIVILEGES.getResourceType(),
+            urn,
+            orPrivilegeGroups);
+    }
+
+    private DisjunctivePrivilegeGroup getAuthorizedPrivileges(final DatasetUpdateInput updateInput) {
+
+        final ConjunctivePrivilegeGroup allPrivilegesGroup = new ConjunctivePrivilegeGroup(ImmutableList.of(
+            PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType()
+        ));
+
+        List<String> specificPrivileges = new ArrayList<>();
+        if (updateInput.getInstitutionalMemory() != null) {
+            specificPrivileges.add(PoliciesConfig.EDIT_ENTITY_DOC_LINKS_PRIVILEGE.getType());
+        }
+        if (updateInput.getOwnership() != null) {
+            specificPrivileges.add(PoliciesConfig.EDIT_ENTITY_OWNERS_PRIVILEGE.getType());
+        }
+        if (updateInput.getDeprecation() != null) {
+            specificPrivileges.add(PoliciesConfig.EDIT_ENTITY_STATUS_PRIVILEGE.getType());
+        }
+        if (updateInput.getEditableProperties() != null) {
+            specificPrivileges.add(PoliciesConfig.EDIT_ENTITY_DOCS_PRIVILEGE.getType());
+        }
+        if (updateInput.getGlobalTags() != null) {
+            specificPrivileges.add(PoliciesConfig.EDIT_ENTITY_TAGS_PRIVILEGE.getType());
+        }
+        if (updateInput.getEditableSchemaMetadata() != null) {
+            specificPrivileges.add(PoliciesConfig.EDIT_DATASET_COL_TAGS_PRIVILEGE.getType());
+            specificPrivileges.add(PoliciesConfig.EDIT_DATASET_COL_DESCRIPTION_PRIVILEGE.getType());
         }
 
-        partialDataset.setLastModified(auditStamp);
+        final ConjunctivePrivilegeGroup specificPrivilegeGroup = new ConjunctivePrivilegeGroup(specificPrivileges);
 
-        try {
-            _datasetsClient.update(DatasetUtils.getDatasetUrn(input.getUrn()), partialDataset);
-        } catch (RemoteInvocationException e) {
-            throw new RuntimeException(String.format("Failed to write entity with urn %s", input.getUrn()), e);
-        }
-
-        return load(input.getUrn(), context);
+        // If you either have all entity privileges, or have the specific privileges required, you are authorized.
+        return new DisjunctivePrivilegeGroup(ImmutableList.of(
+            allPrivilegesGroup,
+            specificPrivilegeGroup
+        ));
     }
 }

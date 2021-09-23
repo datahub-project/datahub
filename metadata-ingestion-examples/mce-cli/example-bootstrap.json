@@ -101,6 +101,15 @@
                       "type": {
                         "com.linkedin.schema.StringType": {}
                       }
+                    },
+                    "glossaryTerms": {
+                      "terms": [{
+                        "urn": "urn:li:glossaryTerm:instruments.FinancialInstrument_v1"
+                      }],
+                      "auditStamp": {
+                        "time": 1581407189000,
+                        "actor": "urn:li:corpuser:jdoe"
+                      }
                     }
                   },
                   {
@@ -114,6 +123,17 @@
                     }
                   }
                 ]
+              }
+            },
+            {
+              "com.linkedin.common.GlossaryTerms": {
+                "terms": [{
+                  "urn": "urn:li:glossaryTerm:instruments.FinancialInstrument_v1"
+                }],
+                "auditStamp": {
+                  "time": 1581407189000,
+                  "actor": "urn:li:corpuser:jdoe"
+                }
               }
             }
           ]
@@ -507,6 +527,69 @@
                 ],
                 "lastModified": {
                   "time": 1581407389000,
+                  "actor": "urn:li:corpuser:jdoe"
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "proposedSnapshot": {
+        "com.linkedin.metadata.snapshot.GlossaryTermSnapshot": {
+          "urn": "urn:li:glossaryTerm:instruments.FinancialInstrument_v1",
+          "aspects": [
+            {
+              "com.linkedin.glossary.GlossaryTermInfo": {
+                "definition": "written contract that gives rise to both a financial asset of one entity and a financial liability of another entity",
+                "parentNode": "urn:li:glossaryNode:instruments",
+                "sourceRef": "FIBO",
+                "termSource": "EXTERNAL",
+                "sourceUrl": "https://spec.edmcouncil.org/fibo/ontology/FBC/FinancialInstruments/FinancialInstruments/FinancialInstrument",
+                "customProperties": {
+                  "FQDN": "common.instruments.FinancialInstrument"
+                }
+              }
+            },
+            {
+              "com.linkedin.common.Ownership": {
+                "owners": [
+                  {
+                    "owner": "urn:li:corpuser:jdoe",
+                    "type": "DATAOWNER"
+                  }
+                ],
+                "lastModified": {
+                  "time": 1581407189000,
+                  "actor": "urn:li:corpuser:jdoe"
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "proposedSnapshot": {
+        "com.linkedin.metadata.snapshot.GlossaryNodeSnapshot": {
+          "urn": "urn:li:glossaryNode:instruments",
+          "aspects": [
+            {
+              "com.linkedin.glossary.GlossaryNodeInfo": {
+                "definition": "Financial Instruments"
+              }
+            },
+            {
+              "com.linkedin.common.Ownership": {
+                "owners": [
+                  {
+                    "owner": "urn:li:corpuser:jdoe",
+                    "type": "DATAOWNER"
+                  }
+                ],
+                "lastModified": {
+                  "time": 1581407189000,
                   "actor": "urn:li:corpuser:jdoe"
                 }
               }

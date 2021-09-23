@@ -8,5 +8,21 @@ record EntityRelationships {
   /**
    * List of related entities
    */
-  entities: array[EntityRelationship]
+  relationships: array[EntityRelationship]
+
+  /**
+   * The start of the result set
+   */
+   start: int
+
+  /**
+   * The start of the result set
+   */
+   count: int
+
+  /**
+   * Total number of edges found.
+   */
+   total: int
+
 }

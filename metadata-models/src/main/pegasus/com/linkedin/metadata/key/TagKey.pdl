@@ -1,0 +1,19 @@
+namespace com.linkedin.metadata.key
+
+/**
+ * Key for a Tag
+ */
+@Aspect = {
+  "name": "tagKey"
+}
+record TagKey {
+  /**
+  * The unique tag name
+  */
+  @Searchable = {
+    "fieldType": "TEXT_PARTIAL",
+    "enableAutocomplete": true,
+    "boostScore": 10.0
+  }
+  name: string
+}

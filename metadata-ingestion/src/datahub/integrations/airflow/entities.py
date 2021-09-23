@@ -1,24 +1,8 @@
-import attr
+import warnings
 
-import datahub.emitter.mce_builder as builder
+from datahub_provider.entities import Dataset, _Entity  # noqa: F401
 
-
-class _Entity:
-    def set_context(self, context):
-        # Required for compat with Airflow 1.10.x
-        pass
-
-    def as_dict(self):
-        # Required for compat with Airflow 1.10.x
-        return attr.asdict(self)
-
-
-@attr.s(auto_attribs=True, str=True)
-class Dataset(_Entity):
-    platform: str
-    name: str
-    env: str = builder.DEFAULT_ENV
-
-    @property
-    def urn(self):
-        return builder.make_dataset_urn(self.platform, self.name, self.env)
+warnings.warn(
+    "importing from datahub.integrations.airflow.* is deprecated; "
+    "use datahub_provider.{hooks,operators,lineage}.datahub instead"
+)

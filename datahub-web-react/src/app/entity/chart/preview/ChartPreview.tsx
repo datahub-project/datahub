@@ -27,7 +27,7 @@ export const ChartPreview = ({
 
     return (
         <DefaultPreviewCard
-            url={`/${entityRegistry.getPathName(EntityType.Chart)}/${urn}`}
+            url={entityRegistry.getEntityUrl(EntityType.Chart, urn)}
             name={name || ''}
             description={description || ''}
             type="Chart"
@@ -35,15 +35,7 @@ export const ChartPreview = ({
             platform={capitalizedPlatform}
             qualifier={access}
             tags={tags}
-            owners={
-                owners?.map((owner) => {
-                    return {
-                        urn: owner.owner.urn,
-                        name: owner.owner.info?.fullName || '',
-                        photoUrl: owner.owner.editableInfo?.pictureLink || '',
-                    };
-                }) || []
-            }
+            owners={owners}
         />
     );
 };

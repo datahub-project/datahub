@@ -70,7 +70,7 @@ export class DashboardEntity implements Entity<Dashboard> {
                 urn={data.urn}
                 platform={data.tool}
                 name={data.info?.name}
-                description={data.info?.description}
+                description={data.editableProperties?.description || data.info?.description}
                 access={data.info?.access}
                 tags={data.globalTags || undefined}
                 owners={data.ownership?.owners}
@@ -92,5 +92,9 @@ export class DashboardEntity implements Entity<Dashboard> {
             icon: getLogoFromPlatform(entity.tool),
             platform: entity.tool,
         };
+    };
+
+    displayName = (data: Dashboard) => {
+        return data.info?.name || data.urn;
     };
 }

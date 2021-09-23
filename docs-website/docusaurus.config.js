@@ -1,6 +1,6 @@
 module.exports = {
   title: "DataHub",
-  tagline: "A Generalized Metadata Search & Discovery Tool",
+  tagline: "A Metadata Platform for the Modern Data Stack",
   url: "https://datahubproject.io",
   baseUrl: "/",
   onBrokenLinks: "throw",
@@ -24,19 +24,25 @@ module.exports = {
           position: "right",
         },
         {
-          href: "https://slack.datahubproject.io",
-          label: "Slack",
+          to: "docs/demo",
+          label: "Demo",
           position: "right",
         },
         {
-          to: "docs/demo",
-          label: "Demo",
+          href: "https://slack.datahubproject.io",
+          label: "Slack",
           position: "right",
         },
         {
           href: "https://github.com/linkedin/datahub",
           label: "GitHub",
           position: "right",
+        },
+        {
+          to: "docs/saas",
+          label: "SaaS",
+          position: "right",
+          className: "navbar-saas-button button button--primary",
         },
       ],
     },
@@ -109,10 +115,11 @@ module.exports = {
       ],
       copyright: `Copyright © 2015-${new Date().getFullYear()} DataHub Project Authors.`,
     },
-    // prism: {
-    //   theme: require('prism-react-renderer/themes/github'),
-    //   darkTheme: require('prism-react-renderer/themes/dracula'),
-    // },
+    prism: {
+      //   theme: require('prism-react-renderer/themes/github'),
+      //   darkTheme: require('prism-react-renderer/themes/dracula'),
+      additionalLanguages: ["ini"],
+    },
     gtag: {
       trackingID: "G-2G54RXWD4D",
     },
@@ -145,6 +152,13 @@ module.exports = {
   ],
   plugins: [
     "@docusaurus/plugin-ideal-image",
+    [
+      "docusaurus-graphql-plugin",
+      {
+        schema: "./graphql/combined.graphql",
+        routeBasePath: "/docs/graphql",
+      },
+    ]
     // '@docusaurus/plugin-google-gtag',
     // [
     //   require.resolve("@easyops-cn/docusaurus-search-local"),

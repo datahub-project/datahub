@@ -1,7 +1,6 @@
 import pytest
 from click.testing import CliRunner
 
-import datahub as datahub_metadata
 from datahub.configuration.common import ConfigurationError
 from datahub.entrypoints import datahub
 from datahub.ingestion.api.registry import Registry
@@ -10,13 +9,7 @@ from datahub.ingestion.extractor.extractor_registry import extractor_registry
 from datahub.ingestion.sink.console import ConsoleSink
 from datahub.ingestion.sink.sink_registry import sink_registry
 from datahub.ingestion.source.source_registry import source_registry
-
-
-def test_datahub_version():
-    # Simply importing pkg_resources checks for unsatisfied dependencies.
-    import pkg_resources
-
-    assert pkg_resources.get_distribution(datahub_metadata.__package_name__).version
+from tests.test_helpers.click_helpers import assert_result_ok
 
 
 @pytest.mark.parametrize(
@@ -35,7 +28,7 @@ def test_list_all() -> None:
     # This just verifies that it runs without error.
     runner = CliRunner()
     result = runner.invoke(datahub, ["check", "plugins", "--verbose"])
-    assert result.exit_code == 0
+    assert_result_ok(result)
     assert len(result.output.splitlines()) > 20
 
 
@@ -43,7 +36,7 @@ def test_registry():
     # Make a mini sink registry.
     fake_registry = Registry[Sink]()
     fake_registry.register("console", ConsoleSink)
-    fake_registry.register_disabled("disabled", ImportError("disabled sink"))
+    fake_registry.register_disabled("disabled", ModuleNotFoundError("disabled sink"))
 
     class DummyClass:
         pass

@@ -6,9 +6,10 @@ import dateutil.parser as dp
 import requests
 
 from datahub.configuration.common import ConfigModel
+from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
-from datahub.ingestion.source.metadata_common import MetadataWorkUnit
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
     AuditStamp,
     ChangeAuditStamps,
@@ -52,7 +53,7 @@ def get_platform_from_sqlalchemy_uri(sqlalchemy_uri: str) -> str:
     if sqlalchemy_uri.startswith("mysql"):
         return "mysql"
     if sqlalchemy_uri.startswith("mongodb"):
-        return "mongo"
+        return "mongodb"
     if sqlalchemy_uri.startswith("hive"):
         return "hive"
     return "external"
@@ -83,6 +84,7 @@ class SupersetConfig(ConfigModel):
     password: Optional[str] = None
     provider: str = "db"
     options: dict = {}
+    env: str = DEFAULT_ENV
 
 
 def get_metric_name(metric):
@@ -110,7 +112,6 @@ def get_filter_name(filter_obj):
 class SupersetSource(Source):
     config: SupersetConfig
     report: SourceReport
-    env = "PROD"
     platform = "superset"
 
     def __hash__(self):
@@ -181,7 +182,7 @@ class SupersetSource(Source):
                 f"urn:li:dataset:("
                 f"{platform_urn},{database_name + '.' if database_name else ''}"
                 f"{schema_name + '.' if schema_name else ''}"
-                f"{table_name},{self.env})"
+                f"{table_name},{self.config.env})"
             )
             return dataset_urn
         return None
@@ -195,7 +196,7 @@ class SupersetSource(Source):
 
         modified_actor = f"urn:li:corpuser:{(dashboard_data.get('changed_by') or {}).get('username', 'unknown')}"
         modified_ts = int(
-            dp.parse(dashboard_data.get("changed_on_utc", "now")).timestamp()
+            dp.parse(dashboard_data.get("changed_on_utc", "now")).timestamp() * 1000
         )
         title = dashboard_data.get("dashboard_title", "")
         # note: the API does not currently supply created_by usernames due to a bug, but we are required to
@@ -262,7 +263,9 @@ class SupersetSource(Source):
         )
 
         modified_actor = f"urn:li:corpuser:{(chart_data.get('changed_by') or {}).get('username', 'unknown')}"
-        modified_ts = int(dp.parse(chart_data.get("changed_on_utc", "now")).timestamp())
+        modified_ts = int(
+            dp.parse(chart_data.get("changed_on_utc", "now")).timestamp() * 1000
+        )
         title = chart_data.get("slice_name", "")
 
         # note: the API does not currently supply created_by usernames due to a bug, but we are required to

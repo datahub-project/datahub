@@ -1,21 +1,17 @@
 import React from 'react';
-import { Alert } from 'antd';
-import {
-    useGetDataJobQuery,
-    GetDataJobDocument,
-    useUpdateDataJobMutation,
-} from '../../../../graphql/dataJob.generated';
-import { EntityProfile } from '../../../shared/EntityProfile';
+import { Alert, message } from 'antd';
+import { useGetDataJobQuery, useUpdateDataJobMutation } from '../../../../graphql/dataJob.generated';
+import { LegacyEntityProfile } from '../../../shared/LegacyEntityProfile';
 import { DataJob, EntityType, GlobalTags } from '../../../../types.generated';
 import DataJobHeader from './DataJobHeader';
 import { Message } from '../../../shared/Message';
-import TagGroup from '../../../shared/tags/TagGroup';
-import { Properties as PropertiesView } from '../../shared/Properties';
-import { Ownership as OwnershipView } from '../../shared/Ownership';
+import TagTermGroup from '../../../shared/tags/TagTermGroup';
+import { Properties as PropertiesView } from '../../shared/components/legacy/Properties';
+import { Ownership as OwnershipView } from '../../shared/components/legacy/Ownership';
 import { useEntityRegistry } from '../../../useEntityRegistry';
+import analytics, { EventType, EntityActionType } from '../../../analytics';
 
 export enum TabType {
-    // Tasks = 'Tasks',
     Ownership = 'Ownership',
     Properties = 'Properties',
 }
@@ -27,19 +23,12 @@ const ENABLED_TAB_TYPES = [TabType.Ownership, TabType.Properties];
  */
 export const DataJobProfile = ({ urn }: { urn: string }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
-    const { loading, error, data } = useGetDataJobQuery({ variables: { urn } });
+    const { loading, error, data, refetch } = useGetDataJobQuery({ variables: { urn } });
     const [updateDataJob] = useUpdateDataJobMutation({
-        update(cache, { data: newDataJob }) {
-            cache.modify({
-                fields: {
-                    dataJob() {
-                        cache.writeQuery({
-                            query: GetDataJobDocument,
-                            data: { dataJob: { ...newDataJob?.updateDataJob } },
-                        });
-                    },
-                },
-            });
+        refetchQueries: () => ['getDataJob'],
+        onError: (e) => {
+            message.destroy();
+            message.error({ content: `Failed to update: \n ${e.message || ''}`, duration: 3 });
         },
     });
 
@@ -47,7 +36,7 @@ export const DataJobProfile = ({ urn }: { urn: string }): JSX.Element => {
         return <Alert type="error" message={error?.message || 'Entity failed to load'} />;
     }
 
-    const getHeader = (dataJob: DataJob) => <DataJobHeader dataJob={dataJob} />;
+    const getHeader = (dataJob: DataJob) => <DataJobHeader dataJob={dataJob} updateDataJob={updateDataJob} />;
 
     const getTabs = ({ ownership, info }: DataJob) => {
         return [
@@ -59,7 +48,13 @@ export const DataJobProfile = ({ urn }: { urn: string }): JSX.Element => {
                         owners={(ownership && ownership.owners) || []}
                         lastModifiedAt={(ownership && ownership.lastModified?.time) || 0}
                         updateOwnership={(update) => {
-                            updateDataJob({ variables: { input: { urn, ownership: update } } });
+                            analytics.event({
+                                type: EventType.EntityActionEvent,
+                                actionType: EntityActionType.UpdateOwnership,
+                                entityType: EntityType.DataJob,
+                                entityUrn: urn,
+                            });
+                            return updateDataJob({ variables: { urn, input: { ownership: update } } });
                         }}
                     />
                 ),
@@ -76,19 +71,29 @@ export const DataJobProfile = ({ urn }: { urn: string }): JSX.Element => {
         <>
             {loading && <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />}
             {data && data.dataJob && (
-                <EntityProfile
+                <LegacyEntityProfile
                     tags={
-                        <TagGroup
+                        <TagTermGroup
                             editableTags={data.dataJob?.globalTags as GlobalTags}
-                            canAdd
+                            canAddTag
+                            entityUrn={urn}
+                            refetch={refetch}
+                            entityType={EntityType.DataJob}
                             canRemove
-                            updateTags={(globalTags) => updateDataJob({ variables: { input: { urn, globalTags } } })}
                         />
                     }
                     titleLink={`/${entityRegistry.getPathName(EntityType.DataJob)}/${urn}`}
                     title={data.dataJob.info?.name || ''}
                     tabs={getTabs(data.dataJob as DataJob)}
                     header={getHeader(data.dataJob as DataJob)}
+                    onTabChange={(tab: string) => {
+                        analytics.event({
+                            type: EventType.EntitySectionViewEvent,
+                            entityType: EntityType.DataJob,
+                            entityUrn: urn,
+                            section: tab,
+                        });
+                    }}
                 />
             )}
         </>

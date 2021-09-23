@@ -7,6 +7,7 @@ import { TransformMatrix } from '@vx/zoom/lib/types';
 import { NodeData, Direction, EntitySelectParams, TreeProps } from './types';
 import LineageEntityNode from './LineageEntityNode';
 import adjustVXTreeLayout from './utils/adjustVXTreeLayout';
+import { ANTD_GRAY } from '../entity/shared/constants';
 
 type Props = {
     tree: HierarchyPointNode<NodeData>;
@@ -38,7 +39,7 @@ function findMin(arr) {
 
     for (let i = 0; i < n - 1; i++) {
         const m = arr[i + 1] - arr[i];
-        if (m < min && m > 0) {
+        if ((m < min && m > 0) || min === 0) {
             min = m;
         }
     }
@@ -110,7 +111,7 @@ export default function LineageTreeNodeAndEdgeRenderer({
                 return (
                     <LinkHorizontal
                         data={link}
-                        stroke="black"
+                        stroke={ANTD_GRAY[6]}
                         strokeWidth="1"
                         fill="none"
                         key={`edge-${link.source.data.urn}-${link.target.data.urn}-${direction}`}

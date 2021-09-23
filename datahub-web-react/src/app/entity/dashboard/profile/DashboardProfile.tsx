@@ -1,18 +1,15 @@
-import { Alert } from 'antd';
+import { Alert, message } from 'antd';
 import React from 'react';
-import {
-    GetDashboardDocument,
-    useGetDashboardQuery,
-    useUpdateDashboardMutation,
-} from '../../../../graphql/dashboard.generated';
-import { Dashboard, GlobalTags } from '../../../../types.generated';
-import { Ownership as OwnershipView } from '../../shared/Ownership';
-import { EntityProfile } from '../../../shared/EntityProfile';
+import { useGetDashboardQuery, useUpdateDashboardMutation } from '../../../../graphql/dashboard.generated';
+import { Dashboard, EntityType, GlobalTags } from '../../../../types.generated';
+import { Ownership as OwnershipView } from '../../shared/components/legacy/Ownership';
+import { LegacyEntityProfile } from '../../../shared/LegacyEntityProfile';
 import DashboardHeader from './DashboardHeader';
 import DashboardCharts from './DashboardCharts';
 import { Message } from '../../../shared/Message';
-import TagGroup from '../../../shared/tags/TagGroup';
-import { Properties as PropertiesView } from '../../shared/Properties';
+import TagTermGroup from '../../../shared/tags/TagTermGroup';
+import { Properties as PropertiesView } from '../../shared/components/legacy/Properties';
+import analytics, { EventType, EntityActionType } from '../../../analytics';
 
 export enum TabType {
     Ownership = 'Ownership',
@@ -25,19 +22,12 @@ const ENABLED_TAB_TYPES = [TabType.Ownership, TabType.Charts, TabType.Properties
  * Responsible for reading & writing users.
  */
 export default function DashboardProfile({ urn }: { urn: string }) {
-    const { loading, error, data } = useGetDashboardQuery({ variables: { urn } });
+    const { loading, error, data, refetch } = useGetDashboardQuery({ variables: { urn } });
     const [updateDashboard] = useUpdateDashboardMutation({
-        update(cache, { data: newDashboard }) {
-            cache.modify({
-                fields: {
-                    dashboard() {
-                        cache.writeQuery({
-                            query: GetDashboardDocument,
-                            data: { dashboard: { ...newDashboard?.updateDashboard } },
-                        });
-                    },
-                },
-            });
+        refetchQueries: () => ['getDashboard'],
+        onError: (e) => {
+            message.destroy();
+            message.error({ content: `Failed to update: \n ${e.message || ''}`, duration: 3 });
         },
     });
 
@@ -46,13 +36,7 @@ export default function DashboardProfile({ urn }: { urn: string }) {
     }
 
     const getHeader = (dashboard: Dashboard) => (
-        <DashboardHeader
-            description={dashboard.info?.description}
-            platform={dashboard.tool}
-            ownership={dashboard.ownership}
-            lastModified={dashboard.info?.lastModified}
-            externalUrl={dashboard.info?.externalUrl}
-        />
+        <DashboardHeader dashboard={dashboard} updateDashboard={updateDashboard} />
     );
 
     const getTabs = ({ ownership, info }: Dashboard) => {
@@ -64,9 +48,15 @@ export default function DashboardProfile({ urn }: { urn: string }) {
                     <OwnershipView
                         owners={(ownership && ownership.owners) || []}
                         lastModifiedAt={(ownership && ownership.lastModified.time) || 0}
-                        updateOwnership={(update) =>
-                            updateDashboard({ variables: { input: { urn, ownership: update } } })
-                        }
+                        updateOwnership={(update) => {
+                            analytics.event({
+                                type: EventType.EntityActionEvent,
+                                actionType: EntityActionType.UpdateOwnership,
+                                entityType: EntityType.Dashboard,
+                                entityUrn: urn,
+                            });
+                            return updateDashboard({ variables: { urn, input: { ownership: update } } });
+                        }}
                     />
                 ),
             },
@@ -87,18 +77,28 @@ export default function DashboardProfile({ urn }: { urn: string }) {
         <>
             {loading && <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />}
             {data && data.dashboard && (
-                <EntityProfile
+                <LegacyEntityProfile
                     title={data.dashboard.info?.name || ''}
                     tags={
-                        <TagGroup
+                        <TagTermGroup
                             editableTags={data.dashboard?.globalTags as GlobalTags}
-                            canAdd
+                            canAddTag
                             canRemove
-                            updateTags={(globalTags) => updateDashboard({ variables: { input: { urn, globalTags } } })}
+                            entityUrn={urn}
+                            entityType={EntityType.Dashboard}
+                            refetch={refetch}
                         />
                     }
                     tabs={getTabs(data.dashboard as Dashboard)}
                     header={getHeader(data.dashboard as Dashboard)}
+                    onTabChange={(tab: string) => {
+                        analytics.event({
+                            type: EventType.EntitySectionViewEvent,
+                            entityType: EntityType.Dashboard,
+                            entityUrn: urn,
+                            section: tab,
+                        });
+                    }}
                 />
             )}
         </>

@@ -19,7 +19,6 @@ query getChart($urn: String!) {
                     }
                 }
                 platformNativeType
-                tags
                 ownership {
                     ...ownershipFields
                 }
@@ -61,11 +60,14 @@ query getChart($urn: String!) {
         upstreamLineage {
             ...upstreamRelationshipFields
         }
+        editableProperties {
+            description
+        }
     }
 }
 
-mutation updateChart($input: ChartUpdateInput!) {
-    updateChart(input: $input) {
+mutation updateChart($urn: String!, $input: ChartUpdateInput!) {
+    updateChart(urn: $urn, input: $input) {
         urn
         type
         tool
@@ -85,7 +87,6 @@ mutation updateChart($input: ChartUpdateInput!) {
                     }
                 }
                 platformNativeType
-                tags
                 ownership {
                     ...ownershipFields
                 }
@@ -114,6 +115,9 @@ mutation updateChart($input: ChartUpdateInput!) {
         query {
             rawQuery
             type
+        }
+        editableProperties {
+            description
         }
         ownership {
             ...ownershipFields

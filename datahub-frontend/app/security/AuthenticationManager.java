@@ -31,8 +31,8 @@ public class AuthenticationManager {
   }
 
   private static class WHZCallbackHandler implements CallbackHandler {
-    private String password = null;
-    private String username = null;
+    private String password;
+    private String username;
 
     private WHZCallbackHandler(@Nonnull String username, @Nonnull String password) {
       this.username = username;

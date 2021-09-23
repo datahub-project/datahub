@@ -1,0 +1,43 @@
+query isAnalyticsEnabled {
+    isAnalyticsEnabled
+}
+
+query getAnalyticsCharts {
+    getAnalyticsCharts {
+        title
+        charts {
+            ... on TimeSeriesChart {
+                title
+                lines {
+                    name
+                    data {
+                        x
+                        y
+                    }
+                }
+                dateRange {
+                    start
+                    end
+                }
+                interval
+            }
+            ... on BarChart {
+                title
+                bars {
+                    name
+                    segments {
+                        label
+                        value
+                    }
+                }
+            }
+            ... on TableChart {
+                title
+                columns
+                rows {
+                    values
+                }
+            }
+        }
+    }
+}

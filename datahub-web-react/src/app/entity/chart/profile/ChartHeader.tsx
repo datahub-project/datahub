@@ -1,57 +1,64 @@
-import { Avatar, Button, Divider, Row, Space, Typography } from 'antd';
+import { Button, Divider, Row, Space, Typography } from 'antd';
 import React from 'react';
-import { AuditStamp, ChartType, EntityType, Ownership } from '../../../../types.generated';
+import { FetchResult, MutationFunctionOptions } from '@apollo/client';
+import { EntityType, Chart } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
-import CustomAvatar from '../../../shared/avatar/CustomAvatar';
+import { AvatarsGroup } from '../../../shared/avatar';
 import { capitalizeFirstLetter } from '../../../shared/capitalizeFirstLetter';
+import UpdatableDescription from '../../shared/components/legacy/UpdatableDescription';
+import analytics, { EventType, EntityActionType } from '../../../analytics';
 
 const styles = {
     content: { width: '100%' },
 };
 
 export type Props = {
-    platform: string;
-    description?: string | null;
-    ownership?: Ownership | null;
-    lastModified?: AuditStamp;
-    externalUrl?: string | null;
-    chartType?: ChartType | null;
+    chart: Chart;
+    updateChart: (options?: MutationFunctionOptions<any, any> | undefined) => Promise<FetchResult>;
 };
 
-export default function ChartHeader({ platform, description, ownership, externalUrl, lastModified, chartType }: Props) {
+export default function ChartHeader({
+    chart: { urn, type, info, tool, ownership, editableProperties },
+    updateChart,
+}: Props) {
     const entityRegistry = useEntityRegistry();
+
+    const openExternalUrl = () => {
+        analytics.event({
+            type: EventType.EntityActionEvent,
+            actionType: EntityActionType.ClickExternalUrl,
+            entityType: EntityType.Chart,
+            entityUrn: urn,
+        });
+        window.open(info?.externalUrl || undefined, '_blank');
+    };
 
     return (
         <Space direction="vertical" size={15} style={styles.content}>
             <Row justify="space-between">
                 <Space split={<Divider type="vertical" />}>
                     <Typography.Text strong type="secondary">
-                        {chartType ? `${capitalizeFirstLetter(chartType.toLowerCase())} ` : ''}Chart
+                        {info?.type ? `${capitalizeFirstLetter(info?.type.toLowerCase())} ` : ''}Chart
                     </Typography.Text>
                     <Typography.Text strong type="secondary">
-                        {capitalizeFirstLetter(platform.toLowerCase())}
+                        {capitalizeFirstLetter(tool.toLowerCase())}
                     </Typography.Text>
-                    {externalUrl && (
-                        <Button onClick={() => window.open(externalUrl || undefined, '_blank')}>
-                            View in {capitalizeFirstLetter(platform)}
-                        </Button>
+                    {info?.externalUrl && (
+                        <Button onClick={openExternalUrl}>View in {capitalizeFirstLetter(tool)}</Button>
                     )}
                 </Space>
             </Row>
-            <Typography.Paragraph>{description}</Typography.Paragraph>
-            <Avatar.Group maxCount={6} size="large">
-                {ownership?.owners?.map((owner: any) => (
-                    <CustomAvatar
-                        key={owner.owner.urn}
-                        name={owner.owner.info?.fullName}
-                        url={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${owner.owner.urn}`}
-                        photoUrl={owner.owner.editableInfo?.pictureLink}
-                    />
-                ))}
-            </Avatar.Group>
-            {lastModified && (
+            <UpdatableDescription
+                updateEntity={updateChart}
+                updatedDescription={editableProperties?.description}
+                originalDescription={info?.description}
+                entityType={type}
+                urn={urn}
+            />
+            <AvatarsGroup owners={ownership?.owners} entityRegistry={entityRegistry} size="large" />
+            {!!info?.lastModified?.time && (
                 <Typography.Text type="secondary">
-                    Last modified at {new Date(lastModified.time).toLocaleDateString('en-US')}
+                    Last modified at {new Date(info?.lastModified.time).toLocaleDateString('en-US')}
                 </Typography.Text>
             )}
         </Space>

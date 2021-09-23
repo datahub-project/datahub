@@ -1,0 +1,44 @@
+namespace com.linkedin.dataset
+
+/**
+ * Stats corresponding to fields in a dataset
+ */
+record DatasetFieldProfile {
+	fieldPath: string
+
+	uniqueCount: optional long
+
+	uniqueProportion: optional float
+
+	nullCount: optional long
+
+	nullProportion: optional float
+
+	min: optional string
+
+	max: optional string
+
+	mean: optional string
+
+	median: optional string
+
+	stdev: optional string
+
+  quantiles: optional array[record Quantile {
+    quantile: string
+    value: string
+  }]
+
+  distinctValueFrequencies: optional array[record ValueFrequency {
+    value: string
+    frequency: long
+  }]
+
+  // (k bin boundaries, k-1 frequencies); first+last frequency values are tail weights
+  histogram: optional record Histogram {
+    boundaries: array[string]
+    heights: array[float]
+  }
+
+	sampleValues: optional array[string]
+}

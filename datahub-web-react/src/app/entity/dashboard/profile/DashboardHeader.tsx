@@ -1,25 +1,39 @@
-import { Avatar, Button, Divider, Row, Space, Typography } from 'antd';
+import { Button, Divider, Row, Space, Typography } from 'antd';
 import React from 'react';
-import { AuditStamp, EntityType, Ownership } from '../../../../types.generated';
+import { FetchResult, MutationFunctionOptions } from '@apollo/client';
+import { EntityType, Dashboard } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
-import CustomAvatar from '../../../shared/avatar/CustomAvatar';
 import { capitalizeFirstLetter } from '../../../shared/capitalizeFirstLetter';
+import { AvatarsGroup } from '../../../shared/avatar';
+import UpdatableDescription from '../../shared/components/legacy/UpdatableDescription';
+import analytics, { EventType, EntityActionType } from '../../../analytics';
 
 const styles = {
     content: { width: '100%' },
 };
 
 export type Props = {
-    platform: string;
-    description?: string | null;
-    ownership?: Ownership | null;
-    lastModified?: AuditStamp;
-    externalUrl?: string | null;
+    dashboard: Dashboard;
+    updateDashboard: (options?: MutationFunctionOptions<any, any> | undefined) => Promise<FetchResult>;
 };
 
-export default function DashboardHeader({ platform, description, ownership, externalUrl, lastModified }: Props) {
+export default function DashboardHeader({
+    dashboard: { urn, type, info, tool, ownership, editableProperties },
+    updateDashboard,
+}: Props) {
     const entityRegistry = useEntityRegistry();
-    const capitalizedPlatform = capitalizeFirstLetter(platform);
+    const capitalizedPlatform = capitalizeFirstLetter(tool);
+
+    const openExternalUrl = () => {
+        analytics.event({
+            type: EventType.EntityActionEvent,
+            actionType: EntityActionType.ClickExternalUrl,
+            entityType: EntityType.Dashboard,
+            entityUrn: urn,
+        });
+        window.open(info?.externalUrl || undefined, '_blank');
+    };
+
     return (
         <Space direction="vertical" size={16} style={styles.content}>
             <Row justify="space-between">
@@ -28,28 +42,23 @@ export default function DashboardHeader({ platform, description, ownership, exte
                     <Typography.Text strong type="secondary">
                         {capitalizedPlatform}
                     </Typography.Text>
-                    {externalUrl && (
-                        <Button onClick={() => window.open(externalUrl || undefined, '_blank')}>
-                            View in {capitalizedPlatform}
-                        </Button>
-                    )}
+                    {!!info?.externalUrl && <Button onClick={openExternalUrl}>View in {capitalizedPlatform}</Button>}
                 </Space>
             </Row>
-            <Typography.Paragraph>{description}</Typography.Paragraph>
-            <Avatar.Group maxCount={6} size="large">
-                {ownership?.owners?.map((owner: any) => (
-                    <CustomAvatar
-                        key={owner.owner.urn}
-                        name={owner.owner.info?.fullName}
-                        url={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${owner.owner.urn}`}
-                        photoUrl={owner.owner.editableInfo?.pictureLink}
-                    />
-                ))}
-            </Avatar.Group>
-            {lastModified && (
+            <UpdatableDescription
+                updateEntity={updateDashboard}
+                updatedDescription={editableProperties?.description}
+                originalDescription={info?.description}
+                entityType={type}
+                urn={urn}
+            />
+            <AvatarsGroup owners={ownership?.owners} entityRegistry={entityRegistry} size="large" />
+            {info?.lastModified?.time ? (
                 <Typography.Text type="secondary">
-                    Last modified at {new Date(lastModified.time).toLocaleDateString('en-US')}
+                    Last modified at {new Date(info?.lastModified.time).toLocaleDateString('en-US')}
                 </Typography.Text>
+            ) : (
+                ''
             )}
         </Space>
     );

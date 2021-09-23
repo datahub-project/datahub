@@ -1,7 +1,11 @@
 const fs = require("fs");
 
-function list_ids_in_directory(directory) {
-  const files = fs.readdirSync(`../${directory}`);
+function list_ids_in_directory(directory, hardcoded_labels) {
+  if (hardcoded_labels === undefined) {
+    hardcoded_labels = {};
+  }
+
+  const files = fs.readdirSync(`../${directory}`).sort();
   let ids = [];
   for (const name of files) {
     if (fs.lstatSync(`../${directory}/${name}`).isDirectory()) {
@@ -10,15 +14,26 @@ function list_ids_in_directory(directory) {
       ids = ids.concat(inner_ids);
     } else {
       if (name.endsWith(".md")) {
-        const id = `${directory}/${name}`.replace(/\.md$/, "");
-        ids.push(id);
+        const slug = name.replace(/\.md$/, "");
+        let id = `${directory}/${slug}`;
+        if (id.match(/\/\d+-.+/)) {
+          id = id.replace(/\/\d+-/, "/");
+        }
+
+        if (id in hardcoded_labels) {
+          label = hardcoded_labels[id];
+          ids.push({ type: "doc", id, label });
+        } else {
+          ids.push({ type: "doc", id });
+        }
       }
     }
   }
-  ids.sort();
   return ids;
 }
 
+// note: to handle errors where you don't want a markdown file in the sidebar, add it as a comment.
+// this will fix errors like `Error: File not accounted for in sidebar: ...`
 module.exports = {
   // users
   // architects
@@ -29,17 +44,20 @@ module.exports = {
   overviewSidebar: {
     DataHub: [
       "README",
-      "docs/faq",
+      // "docs/faq", // hide from sidebar: out of date
       "docs/features",
       "docs/roadmap",
       "docs/CONTRIBUTING",
       "docs/demo",
+      "docs/saas",
+      "releases",
     ],
     "Getting Started": [
       // Serves as user guides.
       "docs/quickstart",
       "docs/debugging",
       "metadata-ingestion/README",
+      "docs/policies",
     ],
     Architecture: [
       "docs/architecture/architecture",
@@ -47,55 +65,151 @@ module.exports = {
       //"docs/what/gma",
       "docs/architecture/metadata-serving",
       //"docs/what/gms",
-      "datahub-web-react/README",
+    ],
+    "Metadata Ingestion": [
+      // add a custom label since the default is 'Metadata Ingestion'
+      // note that we also have to add the path to this file in sidebarsjs_hardcoded_titles in generateDocsDir.ts
+      {
+        type: "doc",
+        label: "Quickstart",
+        id: "metadata-ingestion/README",
+      },
+      {
+        Sources: list_ids_in_directory("metadata-ingestion/source_docs", {
+          "metadata-ingestion/source_docs/s3": "S3",
+        }),
+      },
+      {
+        Sinks: list_ids_in_directory("metadata-ingestion/sink_docs"),
+      },
     ],
     "Metadata Modeling": [
+      "docs/modeling/metadata-model",
+      "docs/modeling/extending-the-metadata-model",
       // TODO: change the titles of these, removing the "What is..." portion from the sidebar"
-      "docs/what/entity",
-      "docs/what/aspect",
-      "docs/what/urn",
-      "docs/what/relationship",
-      "docs/what/search-document",
-      "docs/what/snapshot",
-      "docs/what/delta",
-      "docs/what/mxe",
+      // "docs/what/entity",
+      // "docs/what/aspect",
+      // "docs/what/urn",
+      // "docs/what/relationship",
+      // "docs/what/search-document",
+      // "docs/what/snapshot",
+      // "docs/what/delta",
+      // "docs/what/mxe",
+    ],
+    "GraphQL API": [
+      {
+        label: "Overview",
+        type: "doc",
+        id: "docs/api/graphql/overview",
+      },
+      {
+        Reference: [
+          {
+            type: "doc",
+            label: "Queries",
+            id: "graphql/queries",
+          },
+          {
+            type: "doc",
+            label: "Mutations",
+            id: "graphql/mutations",
+          },
+          {
+            type: "doc",
+            label: "Objects",
+            id: "graphql/objects",
+          },
+          {
+            type: "doc",
+            label: "Inputs",
+            id: "graphql/inputObjects",
+          },
+          {
+            type: "doc",
+            label: "Interfaces",
+            id: "graphql/interfaces",
+          },
+          {
+            type: "doc",
+            label: "Unions",
+            id: "graphql/unions",
+          },
+          {
+            type: "doc",
+            label: "Enums",
+            id: "graphql/enums",
+          },
+          {
+            type: "doc",
+            label: "Scalars",
+            id: "graphql/scalars",
+          },
+        ],
+      },
+      {
+        Guides: [
+          {
+            type: "doc",
+            label: "Getting Started",
+            id: "docs/api/graphql/getting-started",
+          },
+          {
+            type: "doc",
+            label: "Querying Metadata Entities",
+            id: "docs/api/graphql/querying-entities",
+          },
+        ],
+      },
     ],
     "Developer Guides": [
       // TODO: the titles of these should not be in question form in the sidebar
       "docs/developers",
       "docs/docker/development",
-      "metadata-ingestion/README",
-      "docs/what/graph",
-      "docs/what/search-index",
-      "docs/how/add-new-aspect",
-      "docs/how/build-metadata-service",
-      "docs/how/customize-elasticsearch-query-template",
-      "docs/how/entity-onboarding",
-      "docs/how/graph-onboarding",
-      "docs/how/metadata-modelling",
-      "docs/demo/graph-onboarding",
-      "docs/how/search-onboarding",
-      "docs/how/search-over-new-field",
-      "docs/how/configure-oidc-react",
-      "docs/how/sso/configure-oidc-react-google",
-      "docs/how/sso/configure-oidc-react-okta",
+      "metadata-ingestion/adding-source",
+      {
+        type: "doc",
+        label: "Ingesting files from S3",
+        id: "metadata-ingestion/source_docs/s3",
+      },
+      //"metadata-ingestion/examples/transforms/README"
+      "metadata-ingestion/transformers",
+      //"docs/what/graph",
+      //"docs/what/search-index",
+      //"docs/how/add-new-aspect",
+      //"docs/how/build-metadata-service",
+      //"docs/how/graph-onboarding",
+      //"docs/demo/graph-onboarding",
+      "docs/how/auth/jaas",
+      "docs/how/auth/sso/configure-oidc-react",
+      "docs/how/auth/sso/configure-oidc-react-google",
+      "docs/how/auth/sso/configure-oidc-react-okta",
+      "docs/how/restore-indices",
+      "docs/how/extract-container-logs",
+      "docs/how/delete-metadata",
+      "datahub-web-react/src/app/analytics/README",
+      "metadata-ingestion/developing",
+      "docker/airflow/local_airflow",
     ],
     Components: [
       "datahub-web-react/README",
       "datahub-frontend/README",
       "datahub-graphql-core/README",
-      "gms/README",
+      "metadata-service/README",
       "datahub-gms-graphql-service/README",
       // "metadata-jobs/README",
       "metadata-jobs/mae-consumer-job/README",
       "metadata-jobs/mce-consumer-job/README",
-      "metadata-ingestion/developing",
     ],
     "Advanced Guides": [
+      "docs/advanced/no-code-modeling",
       "docs/advanced/aspect-versioning",
       "docs/advanced/es-7-upgrade",
       "docs/advanced/high-cardinality",
-      "docs/how/scsi-onboarding-guide",
+      "docs/advanced/no-code-upgrade",
+      "docs/how/migrating-graph-service-implementation",
+      "docs/advanced/mcp-mcl",
+      "docs/advanced/field-path-spec-v2",
+      "docs/advanced/monitoring",
       // WIP "docs/advanced/backfilling",
       // WIP "docs/advanced/derived-aspects",
       // WIP "docs/advanced/entity-hierarchy",
@@ -105,7 +219,11 @@ module.exports = {
     Deployment: [
       "docs/how/kafka-config",
       "docker/README",
-      "datahub-kubernetes/README",
+      "docs/deploy/kubernetes",
+      "docker/datahub-upgrade/README",
+      "docs/deploy/aws",
+      "docs/deploy/gcp",
+      "docs/deploy/confluent-cloud",
       // Purposely not including the following:
       // - "docker/datahub-frontend/README",
       // - "docker/datahub-gms-graphql-service/README",
@@ -120,6 +238,7 @@ module.exports = {
       // - "docker/mysql/README",
       // - "docker/neo4j/README",
       // - "docker/postgres/README",
+      // - "perf-test/README",
     ],
     Community: [
       "docs/slack",

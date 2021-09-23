@@ -7,6 +7,9 @@ import com.linkedin.dataset.SchemaFieldPath
 /**
  * SchemaMetadata to describe metadata related to store schema
  */
+@Aspect = {
+  "name": "schemaMetadata"
+}
 record SchemaMetadata includes SchemaMetadataKey, ChangeAuditStamps {
 
   /**
@@ -53,5 +56,11 @@ record SchemaMetadata includes SchemaMetadataKey, ChangeAuditStamps {
   /**
    * Map captures all the references schema makes to external datasets. Map key is ForeignKeySpecName typeref.
    */
+  @deprecated = "Use foreignKeys instead."
   foreignKeysSpecs: optional map[string, ForeignKeySpec]
+
+  /**
+   * List of foreign key constraints for the schema
+   */
+  foreignKeys: optional array[ForeignKeyConstraint]
 }

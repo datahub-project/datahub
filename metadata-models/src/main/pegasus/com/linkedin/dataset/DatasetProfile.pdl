@@ -1,0 +1,18 @@
+namespace com.linkedin.dataset
+
+import com.linkedin.timeseries.TimeseriesAspectBase
+
+/**
+ * Stats corresponding to datasets
+ */
+@Aspect = {
+  "name": "datasetProfile",
+  "type": "timeseries",
+}
+record DatasetProfile includes TimeseriesAspectBase {
+	rowCount: optional long
+
+	columnCount: optional long
+
+	fieldProfiles: optional array[DatasetFieldProfile]
+}

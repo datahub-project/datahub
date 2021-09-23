@@ -4,7 +4,7 @@ services:
     build:
       context: ../
       dockerfile: docker/datahub-gms-graphql-service/Dockerfile
-    image: linkedin/datahub-gms-graphql-service:${DATAHUB_VERSION:-latest}
+    image: linkedin/datahub-gms-graphql-service:${DATAHUB_VERSION:-head}
     env_file: datahub-gms-graphql-service/env/docker.env
     hostname: datahub-gms-graphql-service
     container_name: datahub-gms-graphql-service

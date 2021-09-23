@@ -14,14 +14,14 @@ from airflow.utils.dates import days_ago
 
 try:
     from airflow.operators.dummy import DummyOperator
-except ImportError:
+except ModuleNotFoundError:
     from airflow.operators.dummy_operator import DummyOperator
 
 import datahub.emitter.mce_builder as builder
-from datahub.integrations.airflow.entities import Dataset
-from datahub.integrations.airflow.get_provider_info import get_provider_info
-from datahub.integrations.airflow.hooks import DatahubKafkaHook, DatahubRestHook
-from datahub.integrations.airflow.operators import DatahubEmitterOperator
+from datahub_provider import get_provider_info
+from datahub_provider.entities import Dataset
+from datahub_provider.hooks.datahub import DatahubKafkaHook, DatahubRestHook
+from datahub_provider.operators.datahub import DatahubEmitterOperator
 
 lineage_mce = builder.make_lineage_mce(
     [
@@ -37,6 +37,13 @@ datahub_rest_connection_config = Connection(
     host="http://test_host:8080/",
     extra=None,
 )
+datahub_rest_connection_config_with_timeout = Connection(
+    conn_id="datahub_rest_test",
+    conn_type="datahub_rest",
+    host="http://test_host:8080/",
+    extra=json.dumps({"timeout_sec": 5}),
+)
+
 datahub_kafka_connection_config = Connection(
     conn_id="datahub_kafka_test",
     conn_type="datahub_kafka",
@@ -61,10 +68,23 @@ def test_airflow_provider_info():
 
 
 def test_dags_load_with_no_errors(pytestconfig):
-    airflow_examples_folder = pytestconfig.rootpath / "examples/airflow"
+    airflow_examples_folder = (
+        pytestconfig.rootpath / "src/datahub_provider/example_dags"
+    )
 
     dag_bag = DagBag(dag_folder=str(airflow_examples_folder), include_examples=False)
-    assert dag_bag.import_errors == {}
+
+    import_errors = dag_bag.import_errors
+    if airflow.version.version.startswith("1"):
+        # The TaskFlow API is new in Airflow 2.x, so we don't expect that demo DAG
+        # to work on earlier versions.
+        import_errors = {
+            dag_filename: dag_errors
+            for dag_filename, dag_errors in import_errors.items()
+            if "taskflow" not in dag_filename
+        }
+
+    assert import_errors == {}
     assert len(dag_bag.dag_ids) > 0
 
 
@@ -73,23 +93,36 @@ def patch_airflow_connection(conn: Connection) -> Iterator[Connection]:
     # The return type should really by ContextManager, but mypy doesn't like that.
     # See https://stackoverflow.com/questions/49733699/python-type-hints-and-context-managers#comment106444758_58349659.
     with mock.patch(
-        "datahub.integrations.airflow.hooks.BaseHook.get_connection", return_value=conn
+        "datahub_provider.hooks.datahub.BaseHook.get_connection", return_value=conn
     ):
         yield conn
 
 
-@mock.patch("datahub.integrations.airflow.hooks.DatahubRestEmitter", autospec=True)
+@mock.patch("datahub.emitter.rest_emitter.DatahubRestEmitter", autospec=True)
 def test_datahub_rest_hook(mock_emitter):
     with patch_airflow_connection(datahub_rest_connection_config) as config:
         hook = DatahubRestHook(config.conn_id)
         hook.emit_mces([lineage_mce])
 
-        mock_emitter.assert_called_once_with(config.host, None)
+        mock_emitter.assert_called_once_with(config.host, None, None)
         instance = mock_emitter.return_value
         instance.emit_mce.assert_called_with(lineage_mce)
 
 
-@mock.patch("datahub.integrations.airflow.hooks.DatahubKafkaEmitter", autospec=True)
+@mock.patch("datahub.emitter.rest_emitter.DatahubRestEmitter", autospec=True)
+def test_datahub_rest_hook_with_timeout(mock_emitter):
+    with patch_airflow_connection(
+        datahub_rest_connection_config_with_timeout
+    ) as config:
+        hook = DatahubRestHook(config.conn_id)
+        hook.emit_mces([lineage_mce])
+
+        mock_emitter.assert_called_once_with(config.host, None, 5)
+        instance = mock_emitter.return_value
+        instance.emit_mce.assert_called_with(lineage_mce)
+
+
+@mock.patch("datahub.emitter.kafka_emitter.DatahubKafkaEmitter", autospec=True)
 def test_datahub_kafka_hook(mock_emitter):
     with patch_airflow_connection(datahub_kafka_connection_config) as config:
         hook = DatahubKafkaHook(config.conn_id)
@@ -101,7 +134,7 @@ def test_datahub_kafka_hook(mock_emitter):
         instance.flush.assert_called_once()
 
 
-@mock.patch("datahub.integrations.airflow.operators.DatahubRestHook.emit_mces")
+@mock.patch("datahub_provider.hooks.datahub.DatahubRestHook.emit_mces")
 def test_datahub_lineage_operator(mock_emit):
     with patch_airflow_connection(datahub_rest_connection_config) as config:
         task = DatahubEmitterOperator(
@@ -138,7 +171,7 @@ def test_hook_airflow_ui(hook):
 
 
 @pytest.mark.parametrize(
-    "inlets,outlets",
+    ["inlets", "outlets"],
     [
         (
             # Airflow 1.10.x uses a dictionary structure for inlets and outlets.
@@ -158,18 +191,30 @@ def test_hook_airflow_ui(hook):
             ),
         ),
     ],
+    ids=[
+        "airflow-1-10-x-decl",
+        "airflow-2-x-decl",
+    ],
 )
-@mock.patch("datahub.integrations.airflow.operators.DatahubRestHook.emit_mces")
+@mock.patch("datahub_provider.hooks.datahub.DatahubRestHook.emit_mces")
 def test_lineage_backend(mock_emit, inlets, outlets):
     DEFAULT_DATE = days_ago(2)
 
+    # Using autospec on xcom_pull and xcom_push methods fails on Python 3.6.
     with mock.patch.dict(
         os.environ,
         {
-            "AIRFLOW__LINEAGE__BACKEND": "datahub.integrations.airflow.DatahubAirflowLineageBackend",
+            "AIRFLOW__LINEAGE__BACKEND": "datahub_provider.lineage.datahub.DatahubLineageBackend",
             "AIRFLOW__LINEAGE__DATAHUB_CONN_ID": datahub_rest_connection_config.conn_id,
+            "AIRFLOW__LINEAGE__DATAHUB_KWARGS": json.dumps(
+                {"graceful_exceptions": False}
+            ),
         },
-    ), patch_airflow_connection(datahub_rest_connection_config):
+    ), mock.patch("airflow.models.BaseOperator.xcom_pull"), mock.patch(
+        "airflow.models.BaseOperator.xcom_push"
+    ), patch_airflow_connection(
+        datahub_rest_connection_config
+    ):
         func = mock.Mock()
         func.__name__ = "foo"
 
@@ -177,15 +222,21 @@ def test_lineage_backend(mock_emit, inlets, outlets):
 
         with dag:
             op1 = DummyOperator(
-                task_id="task1",
+                task_id="task1_upstream",
                 inlets=inlets,
                 outlets=outlets,
             )
+            op2 = DummyOperator(
+                task_id="task2",
+                inlets=inlets,
+                outlets=outlets,
+            )
+            op1 >> op2
 
-        ti = TI(task=op1, execution_date=DEFAULT_DATE)
+        ti = TI(task=op2, execution_date=DEFAULT_DATE)
         ctx1 = {
             "dag": dag,
-            "task": op1,
+            "task": op2,
             "ti": ti,
             "task_instance": ti,
             "execution_date": DEFAULT_DATE,
@@ -193,16 +244,16 @@ def test_lineage_backend(mock_emit, inlets, outlets):
         }
 
         prep = prepare_lineage(func)
-        prep(op1, ctx1)
+        prep(op2, ctx1)
         post = apply_lineage(func)
-        post(op1, ctx1)
+        post(op2, ctx1)
 
         # Verify that the inlets and outlets are registered and recognized by Airflow correctly,
         # or that our lineage backend forces it to.
-        assert len(op1.inlets) == 1
-        assert len(op1.outlets) == 1
-        assert all(map(lambda let: isinstance(let, Dataset), op1.inlets))
-        assert all(map(lambda let: isinstance(let, Dataset), op1.outlets))
+        assert len(op2.inlets) == 1
+        assert len(op2.outlets) == 1
+        assert all(map(lambda let: isinstance(let, Dataset), op2.inlets))
+        assert all(map(lambda let: isinstance(let, Dataset), op2.outlets))
 
         # Check that the right things were emitted.
         mock_emit.assert_called_once()

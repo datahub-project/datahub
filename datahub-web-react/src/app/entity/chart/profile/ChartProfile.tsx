@@ -1,15 +1,16 @@
-import { Alert } from 'antd';
+import { Alert, message } from 'antd';
 import React from 'react';
-import { Chart, GlobalTags } from '../../../../types.generated';
-import { Ownership as OwnershipView } from '../../shared/Ownership';
-import { EntityProfile } from '../../../shared/EntityProfile';
+import { Chart, EntityType, GlobalTags } from '../../../../types.generated';
+import { Ownership as OwnershipView } from '../../shared/components/legacy/Ownership';
+import { LegacyEntityProfile } from '../../../shared/LegacyEntityProfile';
 import ChartHeader from './ChartHeader';
-import { GetChartDocument, useGetChartQuery, useUpdateChartMutation } from '../../../../graphql/chart.generated';
+import { useGetChartQuery, useUpdateChartMutation } from '../../../../graphql/chart.generated';
 import ChartSources from './ChartSources';
 import ChartDashboards from './ChartDashboards';
 import { Message } from '../../../shared/Message';
-import TagGroup from '../../../shared/tags/TagGroup';
-import { Properties as PropertiesView } from '../../shared/Properties';
+import TagTermGroup from '../../../shared/tags/TagTermGroup';
+import { Properties as PropertiesView } from '../../shared/components/legacy/Properties';
+import analytics, { EventType, EntityActionType } from '../../../analytics';
 
 export enum TabType {
     Ownership = 'Ownership',
@@ -21,19 +22,12 @@ export enum TabType {
 const ENABLED_TAB_TYPES = [TabType.Ownership, TabType.Sources, TabType.Properties, TabType.Dashboards];
 
 export default function ChartProfile({ urn }: { urn: string }) {
-    const { loading, error, data } = useGetChartQuery({ variables: { urn } });
+    const { loading, error, data, refetch } = useGetChartQuery({ variables: { urn } });
     const [updateChart] = useUpdateChartMutation({
-        update(cache, { data: newChart }) {
-            cache.modify({
-                fields: {
-                    chart() {
-                        cache.writeQuery({
-                            query: GetChartDocument,
-                            data: { chart: { ...newChart?.updateChart } },
-                        });
-                    },
-                },
-            });
+        refetchQueries: () => ['getChart'],
+        onError: (e) => {
+            message.destroy();
+            message.error({ content: `Failed to update: \n ${e.message || ''}`, duration: 3 });
         },
     });
 
@@ -41,16 +35,7 @@ export default function ChartProfile({ urn }: { urn: string }) {
         return <Alert type="error" message={error?.message || `Entity failed to load for urn ${urn}`} />;
     }
 
-    const getHeader = (chart: Chart) => (
-        <ChartHeader
-            description={chart.info?.description}
-            platform={chart.tool}
-            ownership={chart.ownership}
-            lastModified={chart.info?.lastModified}
-            externalUrl={chart.info?.externalUrl}
-            chartType={chart.info?.type}
-        />
-    );
+    const getHeader = (chart: Chart) => <ChartHeader chart={chart} updateChart={updateChart} />;
 
     const getTabs = ({ ownership, info, downstreamLineage }: Chart) => {
         return [
@@ -71,7 +56,15 @@ export default function ChartProfile({ urn }: { urn: string }) {
                     <OwnershipView
                         owners={(ownership && ownership.owners) || []}
                         lastModifiedAt={(ownership && ownership.lastModified.time) || 0}
-                        updateOwnership={(update) => updateChart({ variables: { input: { urn, ownership: update } } })}
+                        updateOwnership={(update) => {
+                            analytics.event({
+                                type: EventType.EntityActionEvent,
+                                actionType: EntityActionType.UpdateOwnership,
+                                entityType: EntityType.Chart,
+                                entityUrn: urn,
+                            });
+                            return updateChart({ variables: { urn, input: { ownership: update } } });
+                        }}
                     />
                 ),
             },
@@ -87,18 +80,28 @@ export default function ChartProfile({ urn }: { urn: string }) {
         <>
             {loading && <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />}
             {data && data.chart && (
-                <EntityProfile
+                <LegacyEntityProfile
                     tags={
-                        <TagGroup
+                        <TagTermGroup
                             editableTags={data.chart?.globalTags as GlobalTags}
-                            canAdd
+                            canAddTag
                             canRemove
-                            updateTags={(globalTags) => updateChart({ variables: { input: { urn, globalTags } } })}
+                            entityUrn={urn}
+                            entityType={EntityType.Chart}
+                            refetch={refetch}
                         />
                     }
                     title={data.chart.info?.name || ''}
                     tabs={getTabs(data.chart as Chart)}
                     header={getHeader(data.chart as Chart)}
+                    onTabChange={(tab: string) => {
+                        analytics.event({
+                            type: EventType.EntitySectionViewEvent,
+                            entityType: EntityType.Chart,
+                            entityUrn: urn,
+                            section: tab,
+                        });
+                    }}
                 />
             )}
         </>

@@ -5,6 +5,9 @@ import com.linkedin.common.DatasetUrn
 /**
  * All referenced datasets would ideally point to any set of documents that provide visibility into the source and composition of the dataset.
  */
+@Aspect = {
+  "name": "mlModelEvaluationData"
+}
 record EvaluationData {
 
     /**

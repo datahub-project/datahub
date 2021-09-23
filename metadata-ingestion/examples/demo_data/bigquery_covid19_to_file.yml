@@ -11,7 +11,7 @@ source:
       - "bigquery-public-data\\.covid19.*"
       deny:
       # Except for tables that end with an underscore.
-      - ".*_$"
+      - ".*_\$" # also escapes the variable expansion on $
 
 sink:
   type: "file"

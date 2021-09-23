@@ -1,45 +1,33 @@
 import React from 'react';
-import { Alert } from 'antd';
-import {
-    GetDataFlowDocument,
-    useGetDataFlowQuery,
-    useUpdateDataFlowMutation,
-} from '../../../../graphql/dataFlow.generated';
-import { EntityProfile } from '../../../shared/EntityProfile';
+import { Alert, message } from 'antd';
+import { useGetDataFlowQuery, useUpdateDataFlowMutation } from '../../../../graphql/dataFlow.generated';
+import { LegacyEntityProfile } from '../../../shared/LegacyEntityProfile';
 import { DataFlow, EntityType, GlobalTags } from '../../../../types.generated';
 import DataFlowHeader from './DataFlowHeader';
+import { DataFlowDataJobs } from './DataFlowDataJobs';
 import { Message } from '../../../shared/Message';
-import TagGroup from '../../../shared/tags/TagGroup';
-import { Properties as PropertiesView } from '../../shared/Properties';
-import { Ownership as OwnershipView } from '../../shared/Ownership';
+import TagTermGroup from '../../../shared/tags/TagTermGroup';
+import { Properties as PropertiesView } from '../../shared/components/legacy/Properties';
+import { Ownership as OwnershipView } from '../../shared/components/legacy/Ownership';
 import { useEntityRegistry } from '../../../useEntityRegistry';
-
-export enum TabType {
-    // Tasks = 'Tasks',
-    Ownership = 'Ownership',
-    Properties = 'Properties',
-}
-
-const ENABLED_TAB_TYPES = [TabType.Ownership, TabType.Properties];
+import analytics, { EventType, EntityActionType } from '../../../analytics';
 
 /**
  * Responsible for display the DataFlow Page
  */
 export const DataFlowProfile = ({ urn }: { urn: string }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
-    const { loading, error, data } = useGetDataFlowQuery({ variables: { urn } });
+    const TabType = {
+        Task: entityRegistry.getCollectionName(EntityType.DataJob),
+        Ownership: 'Ownership',
+        Properties: 'Properties',
+    };
+    const { loading, error, data, refetch } = useGetDataFlowQuery({ variables: { urn } });
     const [updateDataFlow] = useUpdateDataFlowMutation({
-        update(cache, { data: newDataFlow }) {
-            cache.modify({
-                fields: {
-                    dataFlow() {
-                        cache.writeQuery({
-                            query: GetDataFlowDocument,
-                            data: { dataFlow: { ...newDataFlow?.updateDataFlow } },
-                        });
-                    },
-                },
-            });
+        refetchQueries: () => ['getDataFlow'],
+        onError: (e) => {
+            message.destroy();
+            message.error({ content: `Failed to update: \n ${e.message || ''}`, duration: 3 });
         },
     });
 
@@ -47,9 +35,9 @@ export const DataFlowProfile = ({ urn }: { urn: string }): JSX.Element => {
         return <Alert type="error" message={error?.message || 'Entity failed to load'} />;
     }
 
-    const getHeader = (dataFlow: DataFlow) => <DataFlowHeader dataFlow={dataFlow} />;
+    const getHeader = (dataFlow: DataFlow) => <DataFlowHeader dataFlow={dataFlow} updateDataFlow={updateDataFlow} />;
 
-    const getTabs = ({ ownership, info }: DataFlow) => {
+    const getTabs = ({ ownership, info, dataJobs }: DataFlow) => {
         return [
             {
                 name: TabType.Ownership,
@@ -59,7 +47,13 @@ export const DataFlowProfile = ({ urn }: { urn: string }): JSX.Element => {
                         owners={(ownership && ownership.owners) || []}
                         lastModifiedAt={(ownership && ownership.lastModified?.time) || 0}
                         updateOwnership={(update) => {
-                            updateDataFlow({ variables: { input: { urn, ownership: update } } });
+                            analytics.event({
+                                type: EventType.EntityActionEvent,
+                                actionType: EntityActionType.UpdateOwnership,
+                                entityType: EntityType.DataFlow,
+                                entityUrn: urn,
+                            });
+                            return updateDataFlow({ variables: { urn, input: { ownership: update } } });
                         }}
                     />
                 ),
@@ -69,26 +63,41 @@ export const DataFlowProfile = ({ urn }: { urn: string }): JSX.Element => {
                 path: TabType.Properties.toLowerCase(),
                 content: <PropertiesView properties={info?.customProperties || []} />,
             },
-        ].filter((tab) => ENABLED_TAB_TYPES.includes(tab.name));
+            {
+                name: TabType.Task,
+                path: TabType.Task.toLowerCase(),
+                content: <DataFlowDataJobs dataJobs={dataJobs?.entities} />,
+            },
+        ];
     };
 
     return (
         <>
             {loading && <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />}
             {data && data.dataFlow && (
-                <EntityProfile
+                <LegacyEntityProfile
                     tags={
-                        <TagGroup
+                        <TagTermGroup
                             editableTags={data.dataFlow?.globalTags as GlobalTags}
-                            canAdd
+                            canAddTag
                             canRemove
-                            updateTags={(globalTags) => updateDataFlow({ variables: { input: { urn, globalTags } } })}
+                            entityUrn={urn}
+                            entityType={EntityType.DataFlow}
+                            refetch={refetch}
                         />
                     }
                     titleLink={`/${entityRegistry.getPathName(EntityType.DataFlow)}/${urn}`}
                     title={data.dataFlow.info?.name || ''}
                     tabs={getTabs(data.dataFlow)}
-                    header={getHeader(data.dataFlow as DataFlow)}
+                    header={getHeader(data.dataFlow)}
+                    onTabChange={(tab: string) => {
+                        analytics.event({
+                            type: EventType.EntitySectionViewEvent,
+                            entityType: EntityType.DataFlow,
+                            entityUrn: urn,
+                            section: tab,
+                        });
+                    }}
                 />
             )}
         </>

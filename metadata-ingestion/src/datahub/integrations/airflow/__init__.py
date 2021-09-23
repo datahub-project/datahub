@@ -1,7 +1,14 @@
+import warnings
+
 try:
-    from datahub.integrations.airflow.lineage_backend import (
-        DatahubAirflowLineageBackend,
+    from datahub_provider.lineage.datahub import (
+        DatahubLineageBackend as DatahubAirflowLineageBackend,
     )
-except ImportError:
-    # Compat for Airflow 2.x.
+except ModuleNotFoundError:
+    # Compat for older versions of Airflow.
     pass
+
+warnings.warn(
+    "importing from datahub.integrations.airflow.* is deprecated; "
+    "use datahub_provider.{hooks,operators,lineage}.datahub instead"
+)

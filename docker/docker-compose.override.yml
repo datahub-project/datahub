@@ -14,6 +14,17 @@ services:
       - ./mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
       - mysqldata:/var/lib/mysql
 
+  mysql-setup:
+    build:
+      context: ../
+      dockerfile: docker/mysql-setup/Dockerfile
+    image: acryldata/datahub-mysql-setup:head
+    env_file: mysql-setup/env/docker.env
+    hostname: mysql-setup
+    container_name: mysql-setup
+    depends_on:
+      - mysql
+
   datahub-gms:
     env_file: datahub-gms/env/docker.env
     depends_on:

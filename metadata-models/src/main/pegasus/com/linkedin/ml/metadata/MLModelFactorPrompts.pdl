@@ -3,6 +3,9 @@ namespace com.linkedin.ml.metadata
 /**
  * Prompts which affect the performance of the MLModel
  */
+@Aspect = {
+  "name": "mlModelFactorPrompts"
+}
 record MLModelFactorPrompts {
 
   /**

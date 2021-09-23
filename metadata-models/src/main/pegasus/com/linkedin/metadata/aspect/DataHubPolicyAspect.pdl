@@ -1,0 +1,12 @@
+namespace com.linkedin.metadata.aspect
+
+import com.linkedin.metadata.key.DataHubPolicyKey
+import com.linkedin.policy.DataHubPolicyInfo
+
+/**
+ * A union of all supported metadata aspects for a DataHub access policy.
+ */
+typeref DataHubPolicyAspect = union[
+    DataHubPolicyKey,
+    DataHubPolicyInfo
+]

@@ -51,7 +51,7 @@ export class DataFlowEntity implements Entity<DataFlow> {
             <Preview
                 urn={data.urn}
                 name={data.info?.name || ''}
-                description={data.info?.description}
+                description={data.editableProperties?.description || data.info?.description}
                 platformName={platformName}
                 platformLogo={getLogoFromPlatform(data.orchestrator)}
                 owners={data.ownership?.owners}
@@ -67,12 +67,16 @@ export class DataFlowEntity implements Entity<DataFlow> {
             <Preview
                 urn={data.urn}
                 name={data.info?.name || ''}
-                description={data.info?.description || ''}
+                description={data.editableProperties?.description || data.info?.description || ''}
                 platformName={platformName}
                 platformLogo={getLogoFromPlatform(data.orchestrator)}
                 owners={data.ownership?.owners}
                 globalTags={data.globalTags}
             />
         );
+    };
+
+    displayName = (data: DataFlow) => {
+        return data.info?.name || data.urn;
     };
 }

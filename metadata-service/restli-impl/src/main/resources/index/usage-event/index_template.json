@@ -1,0 +1,29 @@
+{
+  "index_patterns": ["*PREFIXdatahub_usage_event*"],
+  "data_stream": { },
+  "priority": 500,
+  "template": {
+    "mappings": {
+      "properties": {
+        "@timestamp": {
+          "type": "date"
+        },
+        "type": {
+          "type": "keyword"
+        },
+        "timestamp": {
+          "type": "date"
+        },
+        "userAgent": {
+          "type": "keyword"
+        },
+        "browserId": {
+          "type": "keyword"
+        }
+      }
+    },
+    "settings": {
+      "index.lifecycle.name": "PREFIXdatahub_usage_event_policy"
+    }
+  }
+}

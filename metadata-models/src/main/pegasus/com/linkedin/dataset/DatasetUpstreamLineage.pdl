@@ -3,6 +3,9 @@ namespace com.linkedin.dataset
 /**
  * Fine Grained upstream lineage for fields in a dataset
  */
+@Aspect = {
+  "name": "datasetUpstreamLineage"
+}
 record DatasetUpstreamLineage {
   /**
    * Upstream to downstream field level lineage mappings

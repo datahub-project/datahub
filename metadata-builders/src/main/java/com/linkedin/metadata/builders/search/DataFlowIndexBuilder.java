@@ -22,7 +22,7 @@ public class DataFlowIndexBuilder extends BaseIndexBuilder<DataFlowDocument> {
   }
 
   @Nonnull
-  private static String buildBrowsePath(@Nonnull DataFlowUrn urn) {
+  public static String buildBrowsePath(@Nonnull DataFlowUrn urn) {
     return ("/" + urn.getOrchestratorEntity() + "/" + urn.getClusterEntity() + "/" + urn.getFlowIdEntity())
         .toLowerCase();
   }

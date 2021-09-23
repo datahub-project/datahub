@@ -19,7 +19,6 @@ query getBrowseResults($input: BrowseInput!) {
                         logoUrl
                     }
                 }
-                tags
                 ownership {
                     ...ownershipFields
                 }
@@ -46,6 +45,22 @@ query getBrowseResults($input: BrowseInput!) {
                 }
                 globalTags {
                     ...globalTagsFields
+                }
+            }
+            ... on GlossaryTerm {
+                name
+                ownership {
+                    ...ownershipFields
+                }
+                glossaryTermInfo {
+                    definition
+                    termSource
+                    sourceRef
+                    sourceUrl
+                    customProperties {
+                        key
+                        value
+                    }
                 }
             }
             ... on Chart {
@@ -88,16 +103,71 @@ query getBrowseResults($input: BrowseInput!) {
                     ...globalTagsFields
                 }
             }
+            ... on MLFeatureTable {
+                urn
+                type
+                name
+                description
+                featureTableProperties {
+                    description
+                    mlFeatures {
+                        urn
+                    }
+                    mlPrimaryKeys {
+                        urn
+                    }
+                }
+                ownership {
+                    ...ownershipFields
+                }
+                platform {
+                    name
+                    info {
+                        logoUrl
+                    }
+                }
+            }
+            ... on MLModel {
+                name
+                origin
+                description
+                ownership {
+                    ...ownershipFields
+                }
+                globalTags {
+                    ...globalTagsFields
+                }
+                platform {
+                    name
+                    info {
+                        logoUrl
+                    }
+                }
+            }
+            ... on MLModelGroup {
+                name
+                origin
+                description
+                ownership {
+                    ...ownershipFields
+                }
+                platform {
+                    name
+                    info {
+                        logoUrl
+                    }
+                }
+            }
+        }
+        groups {
+            name
+            count
         }
         start
         count
         total
         metadata {
             path
-            groups {
-                name
-                count
-            }
             totalNumEntities
         }
     }

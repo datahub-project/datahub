@@ -1,0 +1,78 @@
+namespace com.datahub.test
+
+import com.linkedin.common.Urn
+import com.linkedin.common.CustomProperties
+
+/**
+ * Info associated with a Test Entity
+ */
+@Aspect = {
+  "name": "testEntityInfo"
+}
+record TestEntityInfo includes CustomProperties {
+
+  @Searchable = {
+    "fieldName": "textFieldOverride",
+    "fieldType": "TEXT",
+    "addToFilters": true
+  }
+  textField: optional string
+
+  @Searchable = {
+   "/*": {
+    "fieldType": "TEXT_PARTIAL"
+   }
+  }
+  textArrayField: optional array[string]
+
+  @Relationship = {
+    "name": "foreignKey",
+    "entityTypes": []
+  }
+  @Searchable = {
+    "fieldType": "URN"
+  }
+  foreignKey: optional Urn
+
+  @Relationship = {
+    "/*": {
+      "name": "foreignKeyArray",
+      "entityTypes": []
+    }
+  }
+  foreignKeyArray: optional array[Urn]
+
+  nestedRecordField: optional record SimpleNestedRecord1 {
+    @Searchable = {
+      "fieldType": "COUNT"
+    }
+    nestedIntegerField: optional int
+
+    @Relationship = {
+      "name": "nestedForeignKey",
+      "entityTypes": []
+    }
+    @Searchable = {
+      "fieldType": "URN_PARTIAL"
+    }
+    nestedForeignKey: optional Urn
+  }
+
+  nestedRecordArrayField: optional array[record SimpleNestedRecord2 {
+    @Searchable = {
+     "fieldType": "TEXT"
+    }
+    nestedArrayStringField: optional string
+
+    @Relationship = {
+      "name": "nestedArrayForeignKey",
+      "entityTypes": []
+    }
+    nestedArrayForeignKey: optional Urn
+
+    @Searchable = {
+      "/*": {}
+    }
+    nestedArrayArrayField: optional array[string]
+  }]
+}

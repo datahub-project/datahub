@@ -27,22 +27,14 @@ export const DashboardPreview = ({
 
     return (
         <DefaultPreviewCard
-            url={`/${entityRegistry.getPathName(EntityType.Dashboard)}/${urn}`}
+            url={entityRegistry.getEntityUrl(EntityType.Dashboard, urn)}
             name={name || ''}
             description={description || ''}
             type="Dashboard"
             logoUrl={getLogoFromPlatform(platform) || ''}
             platform={capitalizedPlatform}
             qualifier={access}
-            owners={
-                owners?.map((owner) => {
-                    return {
-                        urn: owner.owner.urn,
-                        name: owner.owner.info?.fullName || '',
-                        photoUrl: owner.owner.editableInfo?.pictureLink || '',
-                    };
-                }) || []
-            }
+            owners={owners}
             tags={tags}
         />
     );

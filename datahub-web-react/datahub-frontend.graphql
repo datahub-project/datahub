@@ -238,11 +238,58 @@ type CorpUser {
     editableInfo: CorpUserEditableInfo
 }
 
+type CorpGroup implements Entity {
+    """
+    The unique user URN
+    """
+    urn: String!
+
+    """
+    GMS Entity Type
+    """
+    type: EntityType!
+
+    """
+    group name e.g. wherehows-dev, ask_metadata
+    """
+    name: String
+
+    """
+    Information of the corp group
+    """
+    info: CorpGroupInfo
+}
+
+
+type CorpGroupInfo {
+    """
+    email of this group
+    """
+    email: String!
+
+    """
+    owners of this group
+    """
+    admins: [String!]!
+
+    """
+    List of ldap urn in this group.
+    """
+    members: [String!]!
+
+    """
+    List of groups in this group.
+    """
+    groups: [String!]!
+}
+
 enum EntityType {
     DATASET
     USER
     DATA_FLOW
     DATA_JOB
+    CORP_USER
+    CORP_GROUP
 }
 
 # Search Input

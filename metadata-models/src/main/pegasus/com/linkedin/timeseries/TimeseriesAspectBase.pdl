@@ -1,0 +1,18 @@
+namespace com.linkedin.timeseries
+
+record TimeseriesAspectBase {
+  /**
+   * The event timestamp field as epoch at UTC in milli seconds.
+   */
+  timestampMillis: long
+
+  /**
+   * Granularity of the event if applicable
+   */
+  eventGranularity: optional TimeWindowSize
+
+  /**
+   * The optional partition specification.
+   */
+  partitionSpec: optional PartitionSpec
+}

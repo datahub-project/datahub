@@ -10,7 +10,6 @@ import com.linkedin.metadata.validator.EntityValidator;
 import com.linkedin.metadata.validator.RelationshipValidator;
 import com.linkedin.metadata.validator.SnapshotValidator;
 import java.io.IOException;
-import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -67,7 +66,6 @@ public class ModelValidation {
 
     assertFalse("Failed to find any snapshots", snapshots.isEmpty());
     snapshots.forEach(SnapshotValidator::validateSnapshotSchema);
-    SnapshotValidator.validateUniqueUrn((Collection<Class<? extends RecordTemplate>>) snapshots);
   }
 
   @Test

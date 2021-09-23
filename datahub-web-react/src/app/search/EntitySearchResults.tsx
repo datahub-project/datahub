@@ -1,16 +1,18 @@
 import React, { useState, useEffect } from 'react';
+import { QueryResult } from '@apollo/client';
 import { FilterOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
 import { Alert, Button, Card, Divider, Drawer, List, Pagination, Row, Typography } from 'antd';
 import { ListProps } from 'antd/lib/list';
 import { SearchCfg } from '../../conf';
-import { useGetSearchResultsQuery } from '../../graphql/search.generated';
-import { EntityType, FacetFilterInput, SearchResult } from '../../types.generated';
+import { useGetSearchResultsQuery, GetSearchResultsQuery } from '../../graphql/search.generated';
+import { EntityType, FacetFilterInput, SearchResult, Exact, SearchInput } from '../../types.generated';
 import { IconStyleType } from '../entity/Entity';
 import { Message } from '../shared/Message';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { SearchFilters } from './SearchFilters';
 import { filtersToGraphqlParams } from './utils/filtersToGraphqlParams';
+import analytics, { EventType } from '../analytics';
 
 const styles = {
     loading: { marginTop: '10%' },
@@ -25,7 +27,7 @@ const ResultList = styled(List)`
     &&& {
         width: 100%;
         border-color: ${(props) => props.theme.styles['border-color-base']};
-        margin-top: 12px;
+        margin-top: 8px;
         padding: 16px 32px;
         box-shadow: ${(props) => props.theme.styles['box-shadow']};
     }
@@ -37,6 +39,10 @@ const ApplyButton = styled(Button)`
     }
 `;
 
+const ThinDivider = styled(Divider)`
+    margin: 12px;
+`;
+
 interface Props {
     type: EntityType;
     query: string;
@@ -44,9 +50,18 @@ interface Props {
     filters: Array<FacetFilterInput>;
     onChangeFilters: (filters: Array<FacetFilterInput>) => void;
     onChangePage: (page: number) => void;
+    searchResult: QueryResult<GetSearchResultsQuery, Exact<{ input: SearchInput }>>;
 }
 
-export const EntitySearchResults = ({ type, query, page, filters, onChangeFilters, onChangePage }: Props) => {
+export const EntitySearchResults = ({
+    type,
+    query,
+    page,
+    filters,
+    onChangeFilters,
+    onChangePage,
+    searchResult,
+}: Props) => {
     const [isEditingFilters, setIsEditingFilters] = useState(false);
     const [selectedFilters, setSelectedFilters] = useState(filters);
     useEffect(() => {
@@ -68,10 +83,21 @@ export const EntitySearchResults = ({ type, query, page, filters, onChangeFilter
 
     const results = data?.search?.searchResults || [];
     const pageStart = data?.search?.start || 0;
-    const pageSize = data?.search?.count || 0;
+    const pageSize = data?.search?.count || searchResult.data?.search?.count || 0;
     const totalResults = data?.search?.total || 0;
-    const lastResultIndex =
-        pageStart * pageSize + pageSize > totalResults ? totalResults : pageStart * pageSize + pageSize;
+    const lastResultIndex = pageStart + pageSize > totalResults ? totalResults : pageStart + pageSize; // ToDo: need to confirm if fixes pagination issue
+
+    useEffect(() => {
+        if (!loading && !error) {
+            analytics.event({
+                type: EventType.SearchResultsViewEvent,
+                page,
+                query,
+                entityTypeFilter: type,
+                total: totalResults,
+            });
+        }
+    }, [page, query, totalResults, type, loading, error, data]);
 
     const onFilterSelect = (selected: boolean, field: string, value: string) => {
         const newFilters = selected
@@ -92,6 +118,18 @@ export const EntitySearchResults = ({ type, query, page, filters, onChangeFilter
     const onCloseEditFilters = () => {
         setIsEditingFilters(false);
         setSelectedFilters(filters);
+    };
+
+    const onResultClick = (result: SearchResult, index: number) => {
+        analytics.event({
+            type: EventType.SearchResultClickEvent,
+            query,
+            entityUrn: result.entity.urn,
+            entityType: result.entity.type,
+            entityTypeFilter: type,
+            index,
+            total: totalResults,
+        });
     };
 
     if (error || (!loading && !error && !data)) {
@@ -122,7 +160,7 @@ export const EntitySearchResults = ({ type, query, page, filters, onChangeFilter
             <Typography.Paragraph style={styles.resultSummary}>
                 Showing{' '}
                 <b>
-                    {(page - 1) * pageSize} - {lastResultIndex}
+                    {lastResultIndex > 0 ? (page - 1) * pageSize + 1 : 0} - {lastResultIndex}
                 </b>{' '}
                 of <b>{totalResults}</b> results
             </Typography.Paragraph>
@@ -134,10 +172,12 @@ export const EntitySearchResults = ({ type, query, page, filters, onChangeFilter
                 }
                 dataSource={results}
                 split={false}
-                renderItem={(searchResult, index) => (
+                renderItem={(item, index) => (
                     <>
-                        <List.Item>{entityRegistry.renderSearchResult(type, searchResult)}</List.Item>
-                        {index < results.length - 1 && <Divider />}
+                        <List.Item onClick={() => onResultClick(item, index)}>
+                            {entityRegistry.renderSearchResult(type, item)}
+                        </List.Item>
+                        {index < results.length - 1 && <ThinDivider />}
                     </>
                 )}
                 bordered

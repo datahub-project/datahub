@@ -3,6 +3,9 @@ namespace com.linkedin.ml.metadata
 /**
  * This section is intended to demonstrate the ethical considerations that went into MLModel development, surfacing ethical challenges and solutions to stakeholders.
  */
+@Aspect = {
+  "name": "mlModelEthicalConsiderations"
+}
 record EthicalConsiderations {
 
   /**

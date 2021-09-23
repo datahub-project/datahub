@@ -3,6 +3,9 @@ namespace com.linkedin.common
 /**
  * Institutional memory of an entity. This is a way to link to relevant documentation and provide description of the documentation. Institutional or tribal knowledge is very important for users to leverage the entity.
  */
+@Aspect = {
+  "name": "institutionalMemory"
+}
 record InstitutionalMemory {
 
   /**

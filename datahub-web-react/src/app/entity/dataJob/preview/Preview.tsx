@@ -27,23 +27,16 @@ export const Preview = ({
     const capitalizedPlatform = capitalizeFirstLetter(platformName);
     return (
         <DefaultPreviewCard
-            url={`/${entityRegistry.getPathName(EntityType.DataJob)}/${urn}`}
+            url={entityRegistry.getEntityUrl(EntityType.DataJob, urn)}
             name={name}
             description={description || ''}
             type="Data Task"
             platform={capitalizedPlatform}
             logoUrl={platformLogo || ''}
-            owners={
-                owners?.map((owner) => {
-                    return {
-                        urn: owner.owner.urn,
-                        name: owner.owner.info?.fullName || '',
-                        photoUrl: owner.owner.editableInfo?.pictureLink || '',
-                    };
-                }) || []
-            }
+            owners={owners}
             tags={globalTags || undefined}
             snippet={snippet}
+            dataTestID="datajob-item-preview"
         />
     );
 };

@@ -1,0 +1,152 @@
+[
+{
+    "auditHeader": null,
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.CorpGroupSnapshot": {
+            "urn": "urn:li:corpGroup:simpons-group",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.identity.CorpGroupInfo": {
+                        "displayName": null,
+                        "email": "simpons-group",
+                        "admins": [],
+                        "members": [],
+                        "groups": [],
+                        "description": null
+                    }
+                }
+            ]
+        }
+    },
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "ldap-test",
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot": {
+            "urn": "urn:li:corpuser:bsimpson",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
+                        "active": true,
+                        "displayName": "Bart Simpson",
+                        "email": "bsimpson",
+                        "title": "Mr. Boss",
+                        "managerUrn": null,
+                        "departmentId": null,
+                        "departmentName": null,
+                        "firstName": "Bart",
+                        "lastName": "Simpson",
+                        "fullName": "Bart Simpson",
+                        "countryCode": null
+                    }
+                }
+            ]
+        }
+    },
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "ldap-test",
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot": {
+            "urn": "urn:li:corpuser:hsimpson",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
+                        "active": true,
+                        "displayName": "Homer Simpson",
+                        "email": "hsimpson",
+                        "title": "Mr. Everything",
+                        "managerUrn": "urn:li:corpuser:bsimpson",
+                        "departmentId": null,
+                        "departmentName": "1001",
+                        "firstName": "Homer",
+                        "lastName": "Simpson",
+                        "fullName": "Homer Simpson",
+                        "countryCode": null
+                    }
+                }
+            ]
+        }
+    },
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "ldap-test",
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot": {
+            "urn": "urn:li:corpuser:lsimpson",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
+                        "active": true,
+                        "displayName": "Lisa Simpson",
+                        "email": "lsimpson",
+                        "title": null,
+                        "managerUrn": null,
+                        "departmentId": null,
+                        "departmentName": null,
+                        "firstName": "Lisa",
+                        "lastName": "Simpson",
+                        "fullName": "Lisa Simpson",
+                        "countryCode": null
+                    }
+                }
+            ]
+        }
+    },
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "ldap-test",
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot": {
+            "urn": "urn:li:corpuser:msimpson",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
+                        "active": true,
+                        "displayName": "Maggie Simpson",
+                        "email": "msimpson",
+                        "title": null,
+                        "managerUrn": null,
+                        "departmentId": null,
+                        "departmentName": null,
+                        "firstName": "Maggie",
+                        "lastName": "Simpson",
+                        "fullName": "Maggie Simpson",
+                        "countryCode": null
+                    }
+                }
+            ]
+        }
+    },
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "ldap-test",
+        "properties": null
+    }
+}
+]

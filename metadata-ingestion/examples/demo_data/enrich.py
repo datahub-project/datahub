@@ -193,7 +193,13 @@ if __name__ == "__main__":
         if not directive.drop
     }
 
-    assert all(dataset.proposedSnapshot.urn in all_dataset_urns for dataset in datasets)
+    missing_dataset_directives = [
+        dataset.proposedSnapshot.urn
+        for dataset in datasets
+        if dataset.proposedSnapshot.urn not in all_dataset_urns
+    ]
+    assert not missing_dataset_directives
+
     filtered_dataset_mces = [
         dataset for dataset in datasets if dataset.proposedSnapshot.urn in allowed_urns
     ]

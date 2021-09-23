@@ -27,21 +27,13 @@ export const Preview = ({
     const capitalizedPlatform = capitalizeFirstLetter(platformName);
     return (
         <DefaultPreviewCard
-            url={`/${entityRegistry.getPathName(EntityType.DataFlow)}/${urn}`}
+            url={entityRegistry.getEntityUrl(EntityType.DataFlow, urn)}
             name={name}
             description={description || ''}
             type="Data Pipeline"
             platform={capitalizedPlatform}
             logoUrl={platformLogo || ''}
-            owners={
-                owners?.map((owner) => {
-                    return {
-                        urn: owner.owner.urn,
-                        name: owner.owner.info?.fullName || '',
-                        photoUrl: owner.owner.editableInfo?.pictureLink || '',
-                    };
-                }) || []
-            }
+            owners={owners}
             tags={globalTags || undefined}
             snippet={snippet}
         />

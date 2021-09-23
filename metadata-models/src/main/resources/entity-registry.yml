@@ -1,0 +1,10 @@
+entities:
+  - name: dataset
+    keyAspect: datasetKey
+    aspects:
+      - datasetProfile
+      - datasetUsageStatistics
+  - name: dataHubPolicy
+    keyAspect: dataHubPolicyKey
+    aspects:
+      - dataHubPolicyInfo

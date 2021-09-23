@@ -6,6 +6,8 @@ import styled from 'styled-components';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { IconStyleType } from '../entity/Entity';
 import { NodeData, Direction } from './types';
+import { ANTD_GRAY } from '../entity/shared/constants';
+import { capitalizeFirstLetter } from '../shared/capitalizeFirstLetter';
 
 function truncate(input, length) {
     if (!input) return '';
@@ -15,11 +17,22 @@ function truncate(input, length) {
     return input;
 }
 
+function getLastTokenOfTitle(title: string): string {
+    const lastToken = title?.split('.').slice(-1)[0];
+
+    // if the last token does not contain any content, the string should not be tokenized on `.`
+    if (lastToken.replace(/\s/g, '').length === 0) {
+        return title;
+    }
+
+    return lastToken;
+}
+
 export const width = 212;
 export const height = 80;
-const iconWidth = 42;
-const iconHeight = 42;
-const iconX = -width / 2 + 8;
+const iconWidth = 32;
+const iconHeight = 32;
+const iconX = -width / 2 + 22;
 const iconY = -iconHeight / 2;
 const centerX = -width / 2;
 const centerY = -height / 2;
@@ -96,9 +109,9 @@ export default function LineageEntityNode({
                         r="20"
                     />
                     <g
-                        fill="grey"
+                        fill={ANTD_GRAY[6]}
                         transform={`translate(${
-                            direction === Direction.Upstream ? centerX - 32 : width / 2 - 10
+                            direction === Direction.Upstream ? centerX - 52 : width / 2 + 10
                         } -21.5) scale(0.04 0.04)`}
                     >
                         <path d="M512 64C264.6 64 64 264.6 64 512s200.6 448 448 448 448-200.6 448-448S759.4 64 512 64zm192 472c0 4.4-3.6 8-8 8H544v152c0 4.4-3.6 8-8 8h-48c-4.4 0-8-3.6-8-8V544H328c-4.4 0-8-3.6-8-8v-48c0-4.4 3.6-8 8-8h152V328c0-4.4 3.6-8 8-8h48c4.4 0 8 3.6 8 8v152h152c4.4 0 8 3.6 8 8v48z" />
@@ -125,17 +138,13 @@ export default function LineageEntityNode({
                     fill="white"
                     stroke={
                         // eslint-disable-next-line no-nested-ternary
-                        isSelected
-                            ? 'rgba(142, 175, 240, 0.79)'
-                            : isHovered
-                            ? 'rgba(142, 175, 240, 0.79)'
-                            : 'rgba(192, 190, 190, 0.25)'
+                        isSelected ? '#1890FF' : isHovered ? '#1890FF' : 'rgba(192, 190, 190, 0.25)'
                     }
                     strokeWidth={isCenterNode ? 2 : 1}
                     strokeOpacity={1}
                     rx={5}
                     // eslint-disable-next-line react/style-prop-object
-                    style={{ filter: 'url(#shadow1)' }}
+                    style={{ filter: isSelected ? 'url(#shadow1-selected)' : 'url(#shadow1)' }}
                 />
                 {node.data.icon ? (
                     <image href={node.data.icon} height={iconHeight} width={iconWidth} x={iconX} y={iconY} />
@@ -160,23 +169,29 @@ export default function LineageEntityNode({
                         dy="-1em"
                         x={textX}
                         fontSize={8}
-                        fontFamily="Helvetica Neue"
+                        fontFamily="Manrope"
                         fontWeight="bold"
                         textAnchor="start"
-                        fill="#686868"
+                        fill="#8C8C8C"
                     >
-                        {truncate(node.data.type?.split('.').slice(-1)[0], 16)} |{' '}
-                        {truncate(node.data.platform?.toUpperCase(), 16)}
+                        <tspan>{truncate(capitalizeFirstLetter(node.data.platform), 16)}</tspan>
+                        <tspan dx=".25em" dy="2px" fill="#dadada" fontSize={12} fontWeight="normal">
+                            {' '}
+                            |{' '}
+                        </tspan>
+                        <tspan dx=".25em" dy="-2px">
+                            {truncate(capitalizeFirstLetter(node.data.type?.split('.').slice(-1)[0]), 16)}
+                        </tspan>
                     </text>
                     <text
                         dy="1em"
                         x={textX}
-                        fontSize={16}
-                        fontFamily="Arial"
+                        fontSize={14}
+                        fontFamily="Manrope"
                         textAnchor="start"
-                        fill={isCenterNode ? '#304D85' : 'black'}
+                        fill={isCenterNode ? '#1890FF' : 'black'}
                     >
-                        {truncate(node.data.name?.split('.').slice(-1)[0], 16)}
+                        {truncate(getLastTokenOfTitle(node.data.name), 16)}
                     </text>
                 </Group>
                 {unexploredHiddenChildren && isHovered ? (

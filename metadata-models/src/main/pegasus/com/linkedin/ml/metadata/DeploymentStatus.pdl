@@ -1,0 +1,47 @@
+namespace com.linkedin.ml.metadata
+
+/**
+ * Model endpoint statuses
+ */
+enum DeploymentStatus {
+
+  /**
+   * Deployments out of service.
+   */
+  OUT_OF_SERVICE
+
+  /**
+   * Deployments being created.
+   */
+  CREATING
+
+  /**
+   * Deployments being updated.
+   */
+  UPDATING
+
+  /**
+   * Deployments being reverted to a previous version.
+   */
+  ROLLING_BACK
+
+  /**
+   * Deployments that are active.
+   */
+  IN_SERVICE
+
+  /**
+   * Deployments being deleted.
+   */
+  DELETING
+
+  /**
+   * Deployments with an error state.
+   */
+  FAILED
+
+  /**
+   * Deployments with unknown/unmappable state.
+   */
+   UNKNOWN
+}

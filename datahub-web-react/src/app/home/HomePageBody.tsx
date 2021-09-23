@@ -9,12 +9,14 @@ const Title = styled(Typography.Text)`
     && {
         margin: 0px 0px 0px 120px;
         font-size: 32px;
-        color: ${(props) => props.theme.styles['homepage-background-upper-fade']};
+        color: ${(props) =>
+            props.theme.styles['homepage-text-color'] || props.theme.styles['homepage-background-upper-fade']};
     }
 `;
 
 const EntityGridRow = styled(Row)`
     padding: 40px 100px;
+    margin: 0 !important;
 `;
 
 const BodyContainer = styled.div`
@@ -23,6 +25,7 @@ const BodyContainer = styled.div`
 
 export const HomePageBody = () => {
     const entityRegistry = useEntityRegistry();
+
     return (
         <BodyContainer>
             <Title>

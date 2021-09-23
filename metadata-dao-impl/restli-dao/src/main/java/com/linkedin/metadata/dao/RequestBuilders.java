@@ -29,6 +29,8 @@ public class RequestBuilders {
           add(new DatasetActionRequestBuilder());
           add(new MLModelActionRequestBuilder());
           add(new TagActionRequestBuilder());
+          add(new GlossaryTermActionRequestBuilder());
+          add(new GlossaryNodeActionRequestBuilder());
         }
       });
 

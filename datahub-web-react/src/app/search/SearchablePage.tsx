@@ -1,21 +1,27 @@
 import React from 'react';
-import { Layout } from 'antd';
 import { useHistory } from 'react-router';
 import { useTheme } from 'styled-components';
 
 import { SearchHeader } from './SearchHeader';
 import { useEntityRegistry } from '../useEntityRegistry';
-import { useGetAutoCompleteResultsLazyQuery } from '../../graphql/search.generated';
+import { EntityType } from '../../types.generated';
+import { useGetAutoCompleteMultipleResultsLazyQuery } from '../../graphql/search.generated';
 import { navigateToSearchUrl } from './utils/navigateToSearchUrl';
 import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
+import analytics, { EventType } from '../analytics';
 
 const styles = {
-    children: { marginTop: 80 },
+    children: {
+        flex: '1',
+        marginTop: 60,
+        display: 'flex',
+        flexDirection: 'column' as const,
+    },
 };
 
 interface Props extends React.PropsWithChildren<any> {
     initialQuery?: string;
-    onSearch?: (query: string) => void;
+    onSearch?: (query: string, type?: EntityType) => void;
     onAutoComplete?: (query: string) => void;
 }
 
@@ -33,11 +39,22 @@ export const SearchablePage = ({ initialQuery, onSearch, onAutoComplete, childre
     const entityRegistry = useEntityRegistry();
     const themeConfig = useTheme();
 
-    const { data: userData } = useGetAuthenticatedUser();
-    const [getAutoCompleteResults, { data: suggestionsData }] = useGetAutoCompleteResultsLazyQuery();
+    const [getAutoCompleteResults, { data: suggestionsData }] = useGetAutoCompleteMultipleResultsLazyQuery();
+    const user = useGetAuthenticatedUser()?.corpUser;
 
-    const search = (query: string) => {
+    const search = (query: string, type?: EntityType) => {
+        if (!query || query.trim().length === 0) {
+            return;
+        }
+        analytics.event({
+            type: EventType.SearchEvent,
+            query,
+            pageNumber: 1,
+            originPath: window.location.pathname,
+        });
+
         navigateToSearchUrl({
+            type,
             query,
             history,
             entityRegistry,
@@ -48,7 +65,6 @@ export const SearchablePage = ({ initialQuery, onSearch, onAutoComplete, childre
         getAutoCompleteResults({
             variables: {
                 input: {
-                    type: entityRegistry.getDefaultSearchEntityType(),
                     query,
                 },
             },
@@ -56,20 +72,24 @@ export const SearchablePage = ({ initialQuery, onSearch, onAutoComplete, childre
     };
 
     return (
-        <Layout>
+        <>
             <SearchHeader
                 initialQuery={initialQuery as string}
                 placeholderText={themeConfig.content.search.searchbarMessage}
                 suggestions={
-                    (suggestionsData && suggestionsData?.autoComplete && suggestionsData.autoComplete.suggestions) || []
+                    (suggestionsData &&
+                        suggestionsData?.autoCompleteForMultiple &&
+                        suggestionsData.autoCompleteForMultiple.suggestions) ||
+                    []
                 }
                 onSearch={onSearch || search}
                 onQueryChange={onAutoComplete || autoComplete}
-                authenticatedUserUrn={userData?.corpUser?.urn || ''}
-                authenticatedUserPictureLink={userData?.corpUser?.editableInfo?.pictureLink}
+                authenticatedUserUrn={user?.urn || ''}
+                authenticatedUserPictureLink={user?.editableInfo?.pictureLink}
+                entityRegistry={entityRegistry}
             />
             <div style={styles.children}>{children}</div>
-        </Layout>
+        </>
     );
 };
 

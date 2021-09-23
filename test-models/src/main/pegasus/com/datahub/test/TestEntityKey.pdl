@@ -1,0 +1,44 @@
+namespace com.datahub.test
+
+import com.linkedin.common.Urn
+
+/**
+ * Key for Test Entity entity
+ */
+@Aspect = {
+ "name": "testEntityKey"
+}
+record TestEntityKey {
+
+  /**
+   * Key part 1
+   */
+  @Searchable = {
+    "fieldName": "keyPart1",
+    "fieldType": "TEXT",
+    "enableAutocomplete": true,
+    "boostScore": 10.0
+  }
+  keyPart1: string
+
+  /**
+   * Key part 2
+   */
+  @Relationship = {
+    "name": "keyForeignKey",
+    "entityTypes": []
+  }
+  keyPart2: Urn
+
+  /**
+   * Key part 3
+   */
+  @Searchable = {
+   "fieldName": "keyPart3",
+   "fieldType": "KEYWORD"
+  }
+  keyPart3: enum KeyPartEnum {
+    VALUE_1
+    VALUE_2
+  }
+}
