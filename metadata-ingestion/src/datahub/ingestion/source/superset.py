@@ -206,7 +206,7 @@ class SupersetSource(Source):
             created=AuditStamp(time=modified_ts, actor=modified_actor),
             lastModified=AuditStamp(time=modified_ts, actor=modified_actor),
         )
-        dashboard_url = f"{self.config.connect_uri[:-1]}{dashboard_data.get('url', '')}"
+        dashboard_url = f"{self.config.connect_uri}{dashboard_data.get('url', '')}"
 
         chart_urns = []
         raw_position_data = dashboard_data.get("position_json", "{}")
@@ -276,7 +276,7 @@ class SupersetSource(Source):
             lastModified=AuditStamp(time=modified_ts, actor=modified_actor),
         )
         chart_type = chart_type_from_viz_type.get(chart_data.get("viz_type", ""))
-        chart_url = f"{self.config.connect_uri[:-1]}{chart_data.get('url', '')}"
+        chart_url = f"{self.config.connect_uri}{chart_data.get('url', '')}"
 
         datasource_id = chart_data.get("datasource_id")
         datasource_urn = self.get_datasource_urn_from_id(datasource_id)
