@@ -9,8 +9,8 @@ query getTag($urn: String!) {
     }
 }
 
-mutation updateTag($input: TagUpdate!) {
-    updateTag(input: $input) {
+mutation updateTag($urn: String!, $input: TagUpdateInput!) {
+    updateTag(urn: $urn, input: $input) {
         urn
         name
         description

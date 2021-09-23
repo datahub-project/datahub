@@ -4,7 +4,7 @@ query getGlossaryTerm($urn: String!, $start: Int, $count: Int) {
         type
         name
         hierarchicalName
-        isRelatedTerms: relationships(types: ["IsA"], direction: OUTGOING, start: $start, count: $count) {
+        isRelatedTerms: relationships(input: { types: ["IsA"], direction: OUTGOING, start: $start, count: $count }) {
             start
             count
             total
@@ -16,7 +16,7 @@ query getGlossaryTerm($urn: String!, $start: Int, $count: Int) {
                 }
             }
         }
-        hasRelatedTerms: relationships(types: ["HasA"], direction: OUTGOING, start: $start, count: $count) {
+        hasRelatedTerms: relationships(input: { types: ["HasA"], direction: OUTGOING, start: $start, count: $count }) {
             start
             count
             total

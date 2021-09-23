@@ -4,8 +4,8 @@ import com.datahub.metadata.authorization.AuthorizationManager;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
-import com.linkedin.datahub.graphql.generated.PolicyInput;
-import com.linkedin.datahub.graphql.resolvers.policy.mappers.PolicyInputInfoMapper;
+import com.linkedin.datahub.graphql.generated.PolicyUpdateInput;
+import com.linkedin.datahub.graphql.resolvers.policy.mappers.PolicyUpdateInputInfoMapper;
 import com.linkedin.entity.client.AspectClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.key.DataHubPolicyKey;
@@ -38,7 +38,7 @@ public class UpsertPolicyResolver implements DataFetcher<CompletableFuture<Strin
     if (PolicyAuthUtils.canManagePolicies(context)) {
 
       final Optional<String> policyUrn = Optional.ofNullable(environment.getArgument("urn"));
-      final PolicyInput input = bindArgument(environment.getArgument("input"), PolicyInput.class);
+      final PolicyUpdateInput input = bindArgument(environment.getArgument("input"), PolicyUpdateInput.class);
 
       // Finally, create the MetadataChangeProposal.
       final MetadataChangeProposal proposal = new MetadataChangeProposal();
@@ -59,7 +59,7 @@ public class UpsertPolicyResolver implements DataFetcher<CompletableFuture<Strin
       }
 
       // Create the policy info.
-      final DataHubPolicyInfo info = PolicyInputInfoMapper.map(input);
+      final DataHubPolicyInfo info = PolicyUpdateInputInfoMapper.map(input);
       proposal.setEntityType(POLICY_ENTITY_NAME);
       proposal.setAspectName(POLICY_INFO_ASPECT_NAME);
       proposal.setAspect(GenericAspectUtils.serializeAspect(info));

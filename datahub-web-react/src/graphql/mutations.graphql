@@ -1,16 +1,16 @@
-mutation removeTag($input: TagUpdateInput!) {
+mutation removeTag($input: TagAssociationInput!) {
     removeTag(input: $input)
 }
 
-mutation addTag($input: TagUpdateInput!) {
+mutation addTag($input: TagAssociationInput!) {
     addTag(input: $input)
 }
 
-mutation removeTerm($input: TermUpdateInput!) {
+mutation removeTerm($input: TermAssociationInput!) {
     removeTerm(input: $input)
 }
 
-mutation addTerm($input: TermUpdateInput!) {
+mutation addTerm($input: TermAssociationInput!) {
     addTerm(input: $input)
 }
 

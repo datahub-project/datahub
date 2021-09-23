@@ -5,6 +5,7 @@ import com.linkedin.common.EntityRelationships;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityRelationshipsResult;
+import com.linkedin.datahub.graphql.generated.RelationshipsInput;
 import com.linkedin.datahub.graphql.types.common.mappers.AuditStampMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.lineage.client.RelationshipClient;
@@ -17,6 +18,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
+import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
 /**
  * GraphQL Resolver responsible for fetching relationships between entities in the DataHub graph.
@@ -31,13 +33,15 @@ public class EntityRelationshipsResultResolver implements DataFetcher<Completabl
 
   @Override
   public CompletableFuture<EntityRelationshipsResult> get(DataFetchingEnvironment environment) {
-      final QueryContext context = (QueryContext) environment.getContext();
+      final QueryContext context = environment.getContext();
       final String urn = ((Entity) environment.getSource()).getUrn();
-      final List<String> relationshipTypes = environment.getArgument("types");
-      final String relationshipDirection = environment.getArgument("direction");
-      final Integer start = environment.getArgument("start"); // Optional!
-      final Integer count = environment.getArgument("count"); // Optional!
-      final RelationshipDirection resolvedDirection = RelationshipDirection.valueOf(relationshipDirection);
+      final RelationshipsInput input = bindArgument(environment.getArgument("input"), RelationshipsInput.class);
+
+      final List<String> relationshipTypes = input.getTypes();
+      final com.linkedin.datahub.graphql.generated.RelationshipDirection relationshipDirection = input.getDirection();
+      final Integer start = input.getStart(); // Optional!
+      final Integer count = input.getCount(); // Optional!
+      final RelationshipDirection resolvedDirection = RelationshipDirection.valueOf(relationshipDirection.toString());
       return CompletableFuture.supplyAsync(() -> mapEntityRelationships(
             fetchEntityRelationships(
               urn,

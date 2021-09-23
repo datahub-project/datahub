@@ -36,8 +36,8 @@ type Props<T, U> = {
         }>
     >;
     useUpdateQuery: (
-        baseOptions?: MutationHookOptions<U, { input: GenericEntityUpdate }> | undefined,
-    ) => MutationTuple<U, { input: GenericEntityUpdate }>;
+        baseOptions?: MutationHookOptions<U, { urn: string; input: GenericEntityUpdate }> | undefined,
+    ) => MutationTuple<U, { urn: string; input: GenericEntityUpdate }>;
     getOverrideProperties: (T) => GenericEntityProperties;
     tabs: EntityTab[];
     sidebarSections: EntitySidebarSection[];
