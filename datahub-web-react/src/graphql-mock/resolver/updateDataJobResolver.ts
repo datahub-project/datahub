@@ -7,8 +7,8 @@ type UpdateDataJob = {
 };
 
 export const updateDataJobResolver = {
-    updateDataJob({ variables: { input } }): UpdateDataJob {
-        const { urn, ownership, globalTags }: DataJobUpdateInput = input;
+    updateDataJob({ variables: { urn, input } }): UpdateDataJob {
+        const { ownership, globalTags }: DataJobUpdateInput = input;
         const dataJob = findDataJobByURN(urn);
 
         if (ownership) {

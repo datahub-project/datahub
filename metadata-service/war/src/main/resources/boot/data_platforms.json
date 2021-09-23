@@ -275,5 +275,15 @@
       "type": "OTHERS",
       "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/redashlogo.png"
     }
+  },
+  {
+    "urn": "urn:li:dataPlatform:athena",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "athena",
+      "displayName": "AWS Athena",
+      "type": "RELATIONAL_DB",
+      "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/awsathenalogo.png"
+    }
   }
 ]

@@ -54,7 +54,7 @@ export const DataJobProfile = ({ urn }: { urn: string }): JSX.Element => {
                                 entityType: EntityType.DataJob,
                                 entityUrn: urn,
                             });
-                            return updateDataJob({ variables: { input: { urn, ownership: update } } });
+                            return updateDataJob({ variables: { urn, input: { ownership: update } } });
                         }}
                     />
                 ),

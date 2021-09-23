@@ -1,5 +1,5 @@
 import * as faker from 'faker';
-import { EntityType, Ownership, OwnershipType, Tag, TagUpdate } from '../../types.generated';
+import { EntityType, Ownership, OwnershipType, Tag, TagUpdateInput } from '../../types.generated';
 import { getActor } from '../helper';
 import { findUserByURN } from './searchResult/userSearchResult';
 
@@ -22,7 +22,7 @@ export const generateTag = (ownership?: Ownership): Tag => {
     return tag;
 };
 
-export const createTag = ({ name, urn, description }: TagUpdate): Tag => {
+export const createTag = ({ name, urn, description }: TagUpdateInput): Tag => {
     const user = findUserByURN(getActor());
     const tag: Tag = {
         urn,

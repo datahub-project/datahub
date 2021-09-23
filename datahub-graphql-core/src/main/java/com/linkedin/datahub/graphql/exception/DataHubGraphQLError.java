@@ -34,6 +34,7 @@ public class DataHubGraphQLError implements GraphQLError {
   private Map<String, Object> buildExtensions(DataHubGraphQLErrorCode errorCode) {
     final Map<String, Object> extensions = new LinkedHashMap<>();
     extensions.put("code", errorCode.getCode());
+    extensions.put("type", errorCode.toString());
     return extensions;
   }
 

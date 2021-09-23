@@ -328,7 +328,7 @@ class LookerUtil:
 
     DIMENSION_TAG_URN = "urn:li:tag:Dimension"
     TEMPORAL_TAG_URN = "urn:li:tag:Temporal"
-    MEASURE_TAG_URN = "urn:li:tag:Temporal"
+    MEASURE_TAG_URN = "urn:li:tag:Measure"
 
     type_to_tag_map: Dict[ViewFieldType, List[str]] = {
         ViewFieldType.DIMENSION: [DIMENSION_TAG_URN],

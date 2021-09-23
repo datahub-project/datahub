@@ -161,27 +161,6 @@
             }
           },
           {
-            "com.linkedin.pegasus2avro.schema.EditableSchemaMetadata": {
-              "created": {
-                "time": 1581407189000,
-                "actor": "urn:li:corpuser:jdoe",
-                "impersonator": null
-              },
-              "lastModified": {
-                "time": 1581407189000,
-                "actor": "urn:li:corpuser:jdoe",
-                "impersonator": null
-              },
-              "deleted": null,
-              "editableSchemaFieldInfo": [
-                {
-                  "fieldPath": "field_foo",
-                  "globalTags": { "tags": [{ "tag": "urn:li:tag:Legacy" }] }
-                }
-              ]
-            }
-          },
-          {
             "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
               "schemaName": "SampleKafkaSchema",
               "platform": "urn:li:dataPlatform:kafka",
@@ -258,22 +237,6 @@
               "primaryKeys": null,
               "foreignKeysSpecs": null
             }
-          },
-					{
-              "com.linkedin.pegasus2avro.common.GlossaryTerms": {
-                  "terms": [{
-                          "urn": "urn:li:glossaryTerm:SavingAccount"
-                      },
-                      {
-                          "urn": "urn:li:glossaryTerm:CustomerAccount"
-                      }
-                  ],
-                  "auditStamp": {
-                      "time": 1626098142774,
-                      "actor": "urn:li:corpuser:datahub",
-                      "impersonator": null
-                  }
-              }
           }
         ]
       }
@@ -338,6 +301,27 @@
                     "actor": "urn:li:corpuser:jdoe",
                     "impersonator": null
                   }
+                }
+              ]
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.schema.EditableSchemaMetadata": {
+              "created": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe",
+                "impersonator": null
+              },
+              "lastModified": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe",
+                "impersonator": null
+              },
+              "deleted": null,
+              "editableSchemaFieldInfo": [
+                {
+                  "fieldPath": "shipment_info",
+                  "globalTags": { "tags": [{ "tag": "urn:li:tag:Legacy" }] }
                 }
               ]
             }

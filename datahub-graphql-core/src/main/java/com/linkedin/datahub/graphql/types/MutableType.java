@@ -21,8 +21,9 @@ public interface MutableType<I> {
     /**
      * Update an entity by urn
      *
+     * @param urn
      * @param input input type
      * @param context the {@link QueryContext} corresponding to the request.
      */
-    <T> T update(@Nonnull final I input, @Nonnull final QueryContext context) throws Exception;
+    <T> T update(@Nonnull final String urn, @Nonnull final I input, @Nonnull final QueryContext context) throws Exception;
 }

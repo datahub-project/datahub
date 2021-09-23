@@ -63,7 +63,7 @@ export default function ChartProfile({ urn }: { urn: string }) {
                                 entityType: EntityType.Chart,
                                 entityUrn: urn,
                             });
-                            return updateChart({ variables: { input: { urn, ownership: update } } });
+                            return updateChart({ variables: { urn, input: { ownership: update } } });
                         }}
                     />
                 ),
