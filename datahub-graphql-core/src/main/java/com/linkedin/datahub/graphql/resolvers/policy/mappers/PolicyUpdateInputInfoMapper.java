@@ -4,7 +4,7 @@ import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.generated.ActorFilterInput;
-import com.linkedin.datahub.graphql.generated.PolicyInput;
+import com.linkedin.datahub.graphql.generated.PolicyUpdateInput;
 import com.linkedin.datahub.graphql.generated.ResourceFilterInput;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.policy.DataHubActorFilter;
@@ -15,18 +15,18 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 
 /**
- * Maps GraphQL {@link PolicyInput} to DataHub backend {@link DataHubPolicyInfo}.
+ * Maps GraphQL {@link PolicyUpdateInput} to DataHub backend {@link DataHubPolicyInfo}.
  */
-public class PolicyInputInfoMapper implements ModelMapper<PolicyInput, DataHubPolicyInfo> {
+public class PolicyUpdateInputInfoMapper implements ModelMapper<PolicyUpdateInput, DataHubPolicyInfo> {
 
-  public static final PolicyInputInfoMapper INSTANCE = new PolicyInputInfoMapper();
+  public static final PolicyUpdateInputInfoMapper INSTANCE = new PolicyUpdateInputInfoMapper();
 
-  public static DataHubPolicyInfo map(@Nonnull final PolicyInput policyInput) {
+  public static DataHubPolicyInfo map(@Nonnull final PolicyUpdateInput policyInput) {
     return INSTANCE.apply(policyInput);
   }
 
   @Override
-  public DataHubPolicyInfo apply(@Nonnull final PolicyInput policyInput) {
+  public DataHubPolicyInfo apply(@Nonnull final PolicyUpdateInput policyInput) {
     final DataHubPolicyInfo result = new DataHubPolicyInfo();
     result.setDescription(policyInput.getDescription());
     result.setType(policyInput.getType().toString());

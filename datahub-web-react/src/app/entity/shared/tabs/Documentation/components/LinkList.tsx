@@ -50,7 +50,7 @@ export const LinkList = () => {
 
         try {
             await updateEntity({
-                variables: { input: { urn, institutionalMemory: { elements: newLinks } } },
+                variables: { urn, input: { institutionalMemory: { elements: newLinks } } },
             });
             message.success({ content: 'Link Deleted', duration: 2 });
         } catch (e: unknown) {

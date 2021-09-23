@@ -156,7 +156,7 @@ export default function AddTagTermModal({
                 tagUrn: urnToAdd,
                 resourceUrn: entityUrn,
                 subResource: entitySubresource,
-                subResourceType: entitySubresource ? SubResourceType.FieldPath : null,
+                subResourceType: entitySubresource ? SubResourceType.DatasetField : null,
             };
         }
         if (selectedType === EntityType.GlossaryTerm) {
@@ -165,7 +165,7 @@ export default function AddTagTermModal({
                 termUrn: urnToAdd,
                 resourceUrn: entityUrn,
                 subResource: entitySubresource,
-                subResourceType: entitySubresource ? SubResourceType.FieldPath : null,
+                subResourceType: entitySubresource ? SubResourceType.DatasetField : null,
             };
         }
 
