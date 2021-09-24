@@ -1091,14 +1091,10 @@
               "foreignKeys": [{
                 "name": "user session",
                 "foreignFields": [
-                  "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD),user_id)",
-                  "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD),browser_id)",
-                  "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD),session_id)"
+                  "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD),user_id)"
                 ],
                 "sourceFields": [
-                  "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD),user_id)",
-                  "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD),browser_id)",
-                  "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD),session_id)"
+                  "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD),user_id)"
                 ],
                 "foreignDataset": "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)"
               }]
