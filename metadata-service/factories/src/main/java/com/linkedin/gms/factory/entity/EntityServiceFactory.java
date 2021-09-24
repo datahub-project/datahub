@@ -31,7 +31,6 @@ public class EntityServiceFactory {
   @Nonnull
   protected EntityService createDatastaxInstance() {
 
-    System.out.println("creating datastax");
     final EntityKafkaMetadataEventProducer producer =
             new EntityKafkaMetadataEventProducer(applicationContext.getBean(Producer.class),
                     applicationContext.getBean(TopicConvention.class));
@@ -45,7 +44,6 @@ public class EntityServiceFactory {
   @Nonnull
   protected EntityService createEbeanInstance() {
 
-    System.out.println("creating ebean");
     final EntityKafkaMetadataEventProducer producer =
         new EntityKafkaMetadataEventProducer(applicationContext.getBean(Producer.class),
             applicationContext.getBean(TopicConvention.class));
