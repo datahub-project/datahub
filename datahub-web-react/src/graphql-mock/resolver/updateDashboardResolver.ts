@@ -7,8 +7,8 @@ type UpdateDashboard = {
 };
 
 export const updateDashboardResolver = {
-    updateDashboard({ variables: { input } }): UpdateDashboard {
-        const { urn, ownership, globalTags }: DashboardUpdateInput = input;
+    updateDashboard({ variables: { urn, input } }): UpdateDashboard {
+        const { ownership, globalTags }: DashboardUpdateInput = input;
         const dashboard = findDashboardByURN(urn);
 
         if (ownership) {

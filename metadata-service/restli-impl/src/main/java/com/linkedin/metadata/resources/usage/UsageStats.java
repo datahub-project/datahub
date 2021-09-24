@@ -196,7 +196,9 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
     // Sum aggregation on userCounts.count
     AggregationSpec sumUserCountsCountAggSpec =
         new AggregationSpec().setAggregationType(AggregationType.SUM).setFieldPath("userCounts.count");
-    AggregationSpec[] aggregationSpecs = new AggregationSpec[]{sumUserCountsCountAggSpec};
+    AggregationSpec latestUserEmailAggSpec =
+        new AggregationSpec().setAggregationType(AggregationType.LATEST).setFieldPath("userCounts.userEmail");
+    AggregationSpec[] aggregationSpecs = new AggregationSpec[]{sumUserCountsCountAggSpec, latestUserEmailAggSpec};
 
     // String grouping bucket on userCounts.user
     GroupingBucket userGroupingBucket =
@@ -222,6 +224,9 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
         } catch (NumberFormatException e) {
           throw new IllegalArgumentException("Failed to convert user usage count from ES to int", e);
         }
+      }
+      if (!row.get(2).equals(ES_NULL_VALUE)) {
+        userUsageCount.setUserEmail(row.get(2));
       }
       userUsageCounts.add(userUsageCount);
     }

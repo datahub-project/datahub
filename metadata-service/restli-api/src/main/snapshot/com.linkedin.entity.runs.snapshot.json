@@ -58,7 +58,12 @@
           "values" : "string"
         },
         "doc" : "Custom property bag.",
-        "default" : { }
+        "default" : { },
+        "Searchable" : {
+          "/*" : {
+            "queryByDefault" : true
+          }
+        }
       } ]
     }, {
       "type" : "record",
@@ -2018,6 +2023,52 @@
           }
         },
         "doc" : "Map captures all the references schema makes to external datasets. Map key is ForeignKeySpecName typeref.",
+        "optional" : true,
+        "deprecated" : "Use foreignKeys instead."
+      }, {
+        "name" : "foreignKeys",
+        "type" : {
+          "type" : "array",
+          "items" : {
+            "type" : "record",
+            "name" : "ForeignKeyConstraint",
+            "doc" : "Description of a foreign key constraint in a schema.",
+            "fields" : [ {
+              "name" : "name",
+              "type" : "string",
+              "doc" : "Name of the constraint, likely provided from the source"
+            }, {
+              "name" : "foreignFields",
+              "type" : {
+                "type" : "array",
+                "items" : "com.linkedin.common.Urn"
+              },
+              "doc" : "Fields the constraint maps to on the foreign dataset",
+              "Relationship" : {
+                "/*" : {
+                  "entityTypes" : [ "schemaField" ],
+                  "name" : "ForeignKeyTo"
+                }
+              }
+            }, {
+              "name" : "sourceFields",
+              "type" : {
+                "type" : "array",
+                "items" : "com.linkedin.common.Urn"
+              },
+              "doc" : "Fields the constraint maps to on the source dataset"
+            }, {
+              "name" : "foreignDataset",
+              "type" : "com.linkedin.common.Urn",
+              "doc" : "Reference to the foreign dataset for ease of lookup",
+              "Relationship" : {
+                "entityTypes" : [ "dataset" ],
+                "name" : "ForeignKeyToDataset"
+              }
+            } ]
+          }
+        },
+        "doc" : "List of foreign key constraints for the schema",
         "optional" : true
       } ],
       "Aspect" : {
@@ -2071,7 +2122,7 @@
               "Searchable" : {
                 "/terms/*/urn" : {
                   "boostScore" : 0.5,
-                  "fieldName" : "fieldGlossaryTerms",
+                  "fieldName" : "editedFieldGlossaryTerms",
                   "fieldType" : "URN_PARTIAL"
                 }
               }
@@ -2843,7 +2894,7 @@
       "name" : "aspectsAffected",
       "type" : "long"
     } ]
-  }, "com.linkedin.ml.metadata.BaseData", "com.linkedin.ml.metadata.CaveatDetails", "com.linkedin.ml.metadata.CaveatsAndRecommendations", "com.linkedin.ml.metadata.EthicalConsiderations", "com.linkedin.ml.metadata.EvaluationData", "com.linkedin.ml.metadata.HyperParameterValueType", "com.linkedin.ml.metadata.IntendedUse", "com.linkedin.ml.metadata.IntendedUserType", "com.linkedin.ml.metadata.MLFeatureProperties", "com.linkedin.ml.metadata.MLHyperParam", "com.linkedin.ml.metadata.MLMetric", "com.linkedin.ml.metadata.MLModelFactorPrompts", "com.linkedin.ml.metadata.MLModelFactors", "com.linkedin.ml.metadata.MLModelProperties", "com.linkedin.ml.metadata.Metrics", "com.linkedin.ml.metadata.QuantitativeAnalyses", "com.linkedin.ml.metadata.ResultsType", "com.linkedin.ml.metadata.SourceCode", "com.linkedin.ml.metadata.SourceCodeUrl", "com.linkedin.ml.metadata.SourceCodeUrlType", "com.linkedin.ml.metadata.TrainingData", "com.linkedin.schema.ArrayType", "com.linkedin.schema.BinaryJsonSchema", "com.linkedin.schema.BooleanType", "com.linkedin.schema.BytesType", "com.linkedin.schema.DatasetFieldForeignKey", "com.linkedin.schema.DateType", "com.linkedin.schema.EditableSchemaFieldInfo", "com.linkedin.schema.EditableSchemaMetadata", "com.linkedin.schema.EnumType", "com.linkedin.schema.EspressoSchema", "com.linkedin.schema.FixedType", "com.linkedin.schema.ForeignKeySpec", "com.linkedin.schema.KafkaSchema", "com.linkedin.schema.KeyValueSchema", "com.linkedin.schema.MapType", "com.linkedin.schema.MySqlDDL", "com.linkedin.schema.NullType", "com.linkedin.schema.NumberType", "com.linkedin.schema.OracleDDL", "com.linkedin.schema.OrcSchema", "com.linkedin.schema.OtherSchema", "com.linkedin.schema.PrestoDDL", "com.linkedin.schema.RecordType", "com.linkedin.schema.SchemaField", "com.linkedin.schema.SchemaFieldDataType", "com.linkedin.schema.SchemaMetadata", "com.linkedin.schema.SchemaMetadataKey", "com.linkedin.schema.Schemaless", "com.linkedin.schema.StringType", "com.linkedin.schema.TimeType", "com.linkedin.schema.UnionType", "com.linkedin.schema.UrnForeignKey", "com.linkedin.tag.TagProperties" ],
+  }, "com.linkedin.ml.metadata.BaseData", "com.linkedin.ml.metadata.CaveatDetails", "com.linkedin.ml.metadata.CaveatsAndRecommendations", "com.linkedin.ml.metadata.EthicalConsiderations", "com.linkedin.ml.metadata.EvaluationData", "com.linkedin.ml.metadata.HyperParameterValueType", "com.linkedin.ml.metadata.IntendedUse", "com.linkedin.ml.metadata.IntendedUserType", "com.linkedin.ml.metadata.MLFeatureProperties", "com.linkedin.ml.metadata.MLHyperParam", "com.linkedin.ml.metadata.MLMetric", "com.linkedin.ml.metadata.MLModelFactorPrompts", "com.linkedin.ml.metadata.MLModelFactors", "com.linkedin.ml.metadata.MLModelProperties", "com.linkedin.ml.metadata.Metrics", "com.linkedin.ml.metadata.QuantitativeAnalyses", "com.linkedin.ml.metadata.ResultsType", "com.linkedin.ml.metadata.SourceCode", "com.linkedin.ml.metadata.SourceCodeUrl", "com.linkedin.ml.metadata.SourceCodeUrlType", "com.linkedin.ml.metadata.TrainingData", "com.linkedin.schema.ArrayType", "com.linkedin.schema.BinaryJsonSchema", "com.linkedin.schema.BooleanType", "com.linkedin.schema.BytesType", "com.linkedin.schema.DatasetFieldForeignKey", "com.linkedin.schema.DateType", "com.linkedin.schema.EditableSchemaFieldInfo", "com.linkedin.schema.EditableSchemaMetadata", "com.linkedin.schema.EnumType", "com.linkedin.schema.EspressoSchema", "com.linkedin.schema.FixedType", "com.linkedin.schema.ForeignKeyConstraint", "com.linkedin.schema.ForeignKeySpec", "com.linkedin.schema.KafkaSchema", "com.linkedin.schema.KeyValueSchema", "com.linkedin.schema.MapType", "com.linkedin.schema.MySqlDDL", "com.linkedin.schema.NullType", "com.linkedin.schema.NumberType", "com.linkedin.schema.OracleDDL", "com.linkedin.schema.OrcSchema", "com.linkedin.schema.OtherSchema", "com.linkedin.schema.PrestoDDL", "com.linkedin.schema.RecordType", "com.linkedin.schema.SchemaField", "com.linkedin.schema.SchemaFieldDataType", "com.linkedin.schema.SchemaMetadata", "com.linkedin.schema.SchemaMetadataKey", "com.linkedin.schema.Schemaless", "com.linkedin.schema.StringType", "com.linkedin.schema.TimeType", "com.linkedin.schema.UnionType", "com.linkedin.schema.UrnForeignKey", "com.linkedin.tag.TagProperties" ],
   "schema" : {
     "name" : "runs",
     "namespace" : "com.linkedin.entity",
