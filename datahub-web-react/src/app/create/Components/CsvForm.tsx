@@ -136,6 +136,7 @@ export const CsvForm = () => {
                                                 <Option value="date-time">Datetime</Option>
                                                 <Option value="date">Date</Option>
                                                 <Option value="time">Time</Option>
+                                                <Option value="bytes">Bytes</Option>
                                             </Select>
                                         </Form.Item>
                                         <Form.Item
