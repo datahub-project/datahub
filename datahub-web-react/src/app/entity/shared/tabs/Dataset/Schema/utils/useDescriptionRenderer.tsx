@@ -16,24 +16,26 @@ export default function useDescriptionRenderer(editableSchemaMetadata: EditableS
         );
 
         return (
-            <DescriptionField
-                description={relevantEditableFieldInfo?.description || description}
-                original={record.description}
-                isEdited={!!relevantEditableFieldInfo?.description}
-                onUpdate={(updatedDescription) =>
-                    updateDescription({
-                        variables: {
-                            input: {
-                                description: updatedDescription,
-                                resourceUrn: urn,
-                                subResource: record.fieldPath,
-                                subResourceType: SubResourceType.FieldPath,
+            <>
+                <DescriptionField
+                    description={relevantEditableFieldInfo?.description || description}
+                    original={record.description}
+                    isEdited={!!relevantEditableFieldInfo?.description}
+                    onUpdate={(updatedDescription) =>
+                        updateDescription({
+                            variables: {
+                                input: {
+                                    description: updatedDescription,
+                                    resourceUrn: urn,
+                                    subResource: record.fieldPath,
+                                    subResourceType: SubResourceType.FieldPath,
+                                },
                             },
-                        },
-                    }).then(refetch)
-                }
-                editable
-            />
+                        }).then(refetch)
+                    }
+                    editable
+                />
+            </>
         );
     };
 }

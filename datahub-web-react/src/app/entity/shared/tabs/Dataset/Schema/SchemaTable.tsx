@@ -1,8 +1,11 @@
 import React, { useMemo, useState } from 'react';
 import { ColumnsType } from 'antd/es/table';
 import styled from 'styled-components';
+import {} from 'antd';
+
 import {
     EditableSchemaMetadata,
+    ForeignKeyConstraint,
     SchemaField,
     SchemaMetadata,
     UsageQueryResult,
@@ -14,6 +17,8 @@ import useUsageStatsRenderer from './utils/useUsageStatsRenderer';
 import useTagsAndTermsRenderer from './utils/useTagsAndTermsRenderer';
 import ExpandIcon from './components/ExpandIcon';
 import { StyledTable } from '../../../components/styled/StyledTable';
+import { SchemaRow } from './components/SchemaRow';
+import { FkContext } from './utils/selectedFkContext';
 
 const TableContainer = styled.div`
     &&& .ant-table-tbody > tr > .ant-table-cell-with-append {
@@ -23,6 +28,9 @@ const TableContainer = styled.div`
 
     &&& .ant-table-tbody > tr > .ant-table-cell {
         border-right: none;
+    }
+    &&& .open-fk-row > td {
+        vertical-align: top;
     }
 `;
 
@@ -39,10 +47,12 @@ export default function SchemaTable({
     editableSchemaMetadata,
     usageStats,
     editMode = true,
-}: Props) {
+}: Props): JSX.Element {
     const hasUsageStats = useMemo(() => (usageStats?.aggregations?.fields?.length || 0) > 0, [usageStats]);
 
     const [tagHoveredIndex, setTagHoveredIndex] = useState<string | undefined>(undefined);
+    const [selectedFkFieldPath, setSelectedFkFieldPath] =
+        useState<null | { fieldPath: string; constraint?: ForeignKeyConstraint | null }>(null);
 
     const descriptionRender = useDescriptionRenderer(editableSchemaMetadata);
     const usageStatsRenderer = useUsageStatsRenderer(usageStats);
@@ -54,7 +64,7 @@ export default function SchemaTable({
         showTags: false,
         showTerms: true,
     });
-    const schemaTitleRenderer = useSchemaTitleRenderer(schemaMetadata);
+    const schemaTitleRenderer = useSchemaTitleRenderer(schemaMetadata, setSelectedFkFieldPath);
 
     const onTagTermCell = (record: SchemaField, rowIndex: number | undefined) => ({
         onMouseEnter: () => {
@@ -118,19 +128,29 @@ export default function SchemaTable({
     }
 
     return (
-        <TableContainer>
-            <StyledTable
-                columns={allColumns}
-                dataSource={rows}
-                rowKey="fieldPath"
-                expandable={{
-                    defaultExpandAllRows: false,
-                    expandRowByClick: false,
-                    expandIcon: ExpandIcon,
-                    indentSize: 0,
-                }}
-                pagination={false}
-            />
-        </TableContainer>
+        <FkContext.Provider value={selectedFkFieldPath}>
+            <TableContainer>
+                <StyledTable
+                    rowClassName={(record) =>
+                        record.fieldPath === selectedFkFieldPath?.fieldPath ? 'open-fk-row' : ''
+                    }
+                    columns={allColumns}
+                    dataSource={rows}
+                    rowKey="fieldPath"
+                    components={{
+                        body: {
+                            row: SchemaRow,
+                        },
+                    }}
+                    expandable={{
+                        defaultExpandAllRows: false,
+                        expandRowByClick: false,
+                        expandIcon: ExpandIcon,
+                        indentSize: 0,
+                    }}
+                    pagination={false}
+                />
+            </TableContainer>
+        </FkContext.Provider>
     );
 }

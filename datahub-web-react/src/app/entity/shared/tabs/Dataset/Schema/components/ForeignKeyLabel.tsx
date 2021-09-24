@@ -26,14 +26,22 @@ const ForeignKeyBadge = styled(Badge)<{ highlight: boolean }>`
 
 type Props = {
     highlight: boolean;
+    fieldPath: string;
     constraint?: ForeignKeyConstraint | null;
-    setActiveConstraint: (newActiveConstraint: string | null) => void;
+    setHighlightedConstraint: (newActiveConstraint: string | null) => void;
+    onClick: (params: { fieldPath: string; constraint?: ForeignKeyConstraint | null }) => void;
 };
 
 const zip = (a, b) =>
     Array.from(Array(Math.max(b.length, a.length)), (_, i) => ({ source: a[i]?.fieldPath, foreign: b[i]?.fieldPath }));
 
-export default function ForeignKeyLabel({ constraint, highlight, setActiveConstraint }: Props) {
+export default function ForeignKeyLabel({
+    fieldPath,
+    constraint,
+    highlight,
+    setHighlightedConstraint,
+    onClick,
+}: Props) {
     const [showModal, setShowModal] = useState(false);
     const baseEntity = useBaseEntity<GetDatasetQuery>();
     const entityRegistry = useEntityRegistry();
@@ -69,9 +77,9 @@ export default function ForeignKeyLabel({ constraint, highlight, setActiveConstr
                 role="button"
                 tabIndex={0}
                 onKeyPress={(e) => (e.key === 'Enter' ? setShowModal(true) : null)}
-                onClick={() => setShowModal(!showModal)}
-                onMouseEnter={() => setActiveConstraint(constraint?.name || null)}
-                onMouseLeave={() => setActiveConstraint(null)}
+                onClick={() => onClick({ fieldPath, constraint })}
+                onMouseEnter={() => setHighlightedConstraint(constraint?.name || null)}
+                onMouseLeave={() => setHighlightedConstraint(null)}
             >
                 <ForeignKeyBadge highlight={highlight} count="Foreign Key" />
             </span>
