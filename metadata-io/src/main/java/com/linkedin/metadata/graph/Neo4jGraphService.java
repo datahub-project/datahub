@@ -1,5 +1,6 @@
 package com.linkedin.metadata.graph;
 
+import com.codahale.metrics.Timer;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.dao.exception.RetryLimitReached;
@@ -9,6 +10,7 @@ import com.linkedin.metadata.query.CriterionArray;
 import com.linkedin.metadata.query.Filter;
 import com.linkedin.metadata.query.RelationshipDirection;
 import com.linkedin.metadata.query.RelationshipFilter;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -112,7 +114,7 @@ public class Neo4jGraphService implements GraphService {
       matchTemplate = "MATCH (src%s %s)-[r%s %s]->(dest%s %s)";
     }
 
-    final String returnNodes = "RETURN dest, type(r)"; // Return both related entity and the relationship type.
+    final String returnNodes = String.format("RETURN dest%s, type(r)", destinationType); // Return both related entity and the relationship type.
     final String returnCount = "RETURN count(*)"; // For getting the total results.
 
     String relationshipTypeFilter = "";
@@ -279,7 +281,9 @@ public class Neo4jGraphService implements GraphService {
   @Nonnull
   private Result runQuery(@Nonnull Statement statement) {
     log.debug(String.format("Running Neo4j query %s", statement.toString()));
-    return _driver.session(_sessionConfig).run(statement.getCommandText(), statement.getParams());
+    try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "runQuery").time()) {
+      return _driver.session(_sessionConfig).run(statement.getCommandText(), statement.getParams());
+    }
   }
 
   // Returns "key:value" String, if value is not primitive, then use toString() and double quote it

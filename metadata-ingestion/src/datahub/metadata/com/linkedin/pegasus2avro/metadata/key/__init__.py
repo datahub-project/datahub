@@ -9,6 +9,7 @@ from ......schema_classes import CorpGroupKeyClass
 from ......schema_classes import CorpUserKeyClass
 from ......schema_classes import DashboardKeyClass
 from ......schema_classes import DataFlowKeyClass
+from ......schema_classes import DataHubPolicyKeyClass
 from ......schema_classes import DataJobKeyClass
 from ......schema_classes import DataPlatformKeyClass
 from ......schema_classes import DataProcessKeyClass
@@ -29,6 +30,7 @@ CorpGroupKey = CorpGroupKeyClass
 CorpUserKey = CorpUserKeyClass
 DashboardKey = DashboardKeyClass
 DataFlowKey = DataFlowKeyClass
+DataHubPolicyKey = DataHubPolicyKeyClass
 DataJobKey = DataJobKeyClass
 DataPlatformKey = DataPlatformKeyClass
 DataProcessKey = DataProcessKeyClass

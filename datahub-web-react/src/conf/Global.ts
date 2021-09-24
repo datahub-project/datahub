@@ -15,6 +15,7 @@ export enum PageRoutes {
     ASSETS = '/assets',
     ANALYTICS = '/analytics',
     ADHOC = '/adhoc/',
+    POLICIES = '/policies',
 }
 
 /**

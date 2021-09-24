@@ -30,7 +30,7 @@ export const CsvForm = () => {
     };
     const onFinish = (values) => {
         console.log('Received values of form:', values);
-        const finalValue = { ...values, ...fileType, dataset_owner: user?.username };
+        const finalValue = { ...values, ...fileType, dataset_owner: user?.corpUser?.username };
         console.log('Received finalValue:', finalValue);
         // POST request using axios with error handling
         axios

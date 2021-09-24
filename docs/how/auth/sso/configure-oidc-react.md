@@ -79,7 +79,7 @@ datahub-frontend:
   ...
   extraEnvs:
     - name: AUTH_OIDC_ENABLED
-      value: true
+      value: "true"
     - name: AUTH_OIDC_CLIENT_ID
       value: your-client-id
     - name: AUTH_OIDC_CLIENT_SECRET

@@ -90,7 +90,12 @@ export const JsonForm = () => {
     };
     const onFinish = (values) => {
         const flattenFields = flattenSchema(schema);
-        const data = { ...values, fields: flattenFields, dataset_owner: user?.username, dataset_type: 'json' };
+        const data = {
+            ...values,
+            fields: flattenFields,
+            dataset_owner: user?.corpUser?.username,
+            dataset_type: 'json',
+        };
         console.log('Received data:', data);
         // POST request using axios with error handling
         axios

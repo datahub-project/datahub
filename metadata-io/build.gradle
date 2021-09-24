@@ -27,6 +27,7 @@ dependencies {
   compile externalDependency.gmaElasticsearchDao
   compile externalDependency.ebean
   enhance externalDependency.ebeanAgent
+  compile externalDependency.opentelemetryAnnotations
 
   annotationProcessor externalDependency.lombok
 

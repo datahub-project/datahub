@@ -57,7 +57,11 @@ transformers:
         - "urn:li:corpuser:username1"
         - "urn:li:corpuser:username2"
         - "urn:li:corpGroup:groupname"
+      ownership_type: "PRODUCER"
 ```
+
+Note `ownership_type` is an optional field with `DATAOWNER` as default value.
+
 ### Setting ownership by dataset urn pattern
 
 Let’s suppose we’d like to append a series of users who we know to own different dataset from a data source but aren't detected during normal ingestion. To do so, we can use the `pattern_add_dataset_ownership` module that’s included in the ingestion framework. it match pattern with `urn` of dataset and assign the respective owners
@@ -72,7 +76,10 @@ transformers:
         rules:
           ".*example1.*": ["urn:li:corpuser:username1"]
           ".*example2.*": ["urn:li:corpuser:username2"]
+      ownership_type: "DEVELOPER"
 ```
+
+Note `ownership_type` is an optional field with `DATAOWNER` as default value.
 
 If you'd like to add more complex logic for assigning ownership, you can use the more generic `add_dataset_ownership` transformer, which calls a user-provided function to determine the ownership of each dataset.
 

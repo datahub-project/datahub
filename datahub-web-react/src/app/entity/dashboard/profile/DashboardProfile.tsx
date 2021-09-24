@@ -1,14 +1,14 @@
-import { Alert } from 'antd';
+import { Alert, message } from 'antd';
 import React from 'react';
 import { useGetDashboardQuery, useUpdateDashboardMutation } from '../../../../graphql/dashboard.generated';
 import { Dashboard, EntityType, GlobalTags } from '../../../../types.generated';
-import { Ownership as OwnershipView } from '../../shared/Ownership';
-import { EntityProfile } from '../../../shared/EntityProfile';
+import { Ownership as OwnershipView } from '../../shared/components/legacy/Ownership';
+import { LegacyEntityProfile } from '../../../shared/LegacyEntityProfile';
 import DashboardHeader from './DashboardHeader';
 import DashboardCharts from './DashboardCharts';
 import { Message } from '../../../shared/Message';
 import TagTermGroup from '../../../shared/tags/TagTermGroup';
-import { Properties as PropertiesView } from '../../shared/Properties';
+import { Properties as PropertiesView } from '../../shared/components/legacy/Properties';
 import analytics, { EventType, EntityActionType } from '../../../analytics';
 
 export enum TabType {
@@ -22,9 +22,13 @@ const ENABLED_TAB_TYPES = [TabType.Ownership, TabType.Charts, TabType.Properties
  * Responsible for reading & writing users.
  */
 export default function DashboardProfile({ urn }: { urn: string }) {
-    const { loading, error, data } = useGetDashboardQuery({ variables: { urn } });
+    const { loading, error, data, refetch } = useGetDashboardQuery({ variables: { urn } });
     const [updateDashboard] = useUpdateDashboardMutation({
         refetchQueries: () => ['getDashboard'],
+        onError: (e) => {
+            message.destroy();
+            message.error({ content: `Failed to update: \n ${e.message || ''}`, duration: 3 });
+        },
     });
 
     if (error || (!loading && !error && !data)) {
@@ -73,22 +77,16 @@ export default function DashboardProfile({ urn }: { urn: string }) {
         <>
             {loading && <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />}
             {data && data.dashboard && (
-                <EntityProfile
+                <LegacyEntityProfile
                     title={data.dashboard.info?.name || ''}
                     tags={
                         <TagTermGroup
                             editableTags={data.dashboard?.globalTags as GlobalTags}
-                            canAdd
+                            canAddTag
                             canRemove
-                            updateTags={(globalTags) => {
-                                analytics.event({
-                                    type: EventType.EntityActionEvent,
-                                    actionType: EntityActionType.UpdateTags,
-                                    entityType: EntityType.Dashboard,
-                                    entityUrn: urn,
-                                });
-                                return updateDashboard({ variables: { input: { urn, globalTags } } });
-                            }}
+                            entityUrn={urn}
+                            entityType={EntityType.Dashboard}
+                            refetch={refetch}
                         />
                     }
                     tabs={getTabs(data.dashboard as Dashboard)}

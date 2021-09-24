@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.load;
 
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.TimeSeriesAspect;
 import com.linkedin.entity.client.AspectClient;
@@ -45,6 +46,7 @@ public class TimeSeriesAspectResolver implements DataFetcher<CompletableFuture<L
   public CompletableFuture<List<TimeSeriesAspect>> get(DataFetchingEnvironment environment) {
     return CompletableFuture.supplyAsync(() -> {
 
+      final QueryContext context = environment.getContext();
       // Fetch the urn, assuming the parent has an urn field.
       // todo: what if the parent urn isn't projected?
       final String urn = ((Entity) environment.getSource()).getUrn();
@@ -57,7 +59,7 @@ public class TimeSeriesAspectResolver implements DataFetcher<CompletableFuture<L
         // Step 1: Get aspects.
         List<EnvelopedAspect> aspects =
             _client.getTimeseriesAspectValues(urn, _entityName, _aspectName, maybeStartTimeMillis, maybeEndTimeMillis,
-                maybeLimit);
+                maybeLimit, context.getActor());
 
         // Step 2: Bind profiles into GraphQL strong types.
         return aspects.stream().map(_aspectMapper::apply).collect(Collectors.toList());

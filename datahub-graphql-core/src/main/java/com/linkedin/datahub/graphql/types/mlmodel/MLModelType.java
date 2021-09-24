@@ -68,7 +68,8 @@ public class MLModelType implements SearchableEntityType<MLModel>, BrowsableEnti
             final Map<Urn, Entity> mlModelMap = _mlModelsClient.batchGet(mlModelUrns
                 .stream()
                 .filter(Objects::nonNull)
-                .collect(Collectors.toSet()));
+                .collect(Collectors.toSet()),
+            context.getActor());
 
             final List<Entity> gmsResults = mlModelUrns.stream()
                 .map(modelUrn -> mlModelMap.getOrDefault(modelUrn, null)).collect(Collectors.toList());
@@ -92,7 +93,7 @@ public class MLModelType implements SearchableEntityType<MLModel>, BrowsableEnti
                                 int count,
                                 @Nonnull final QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
-        final SearchResult searchResult = _mlModelsClient.search("mlModel", query, facetFilters, start, count);
+        final SearchResult searchResult = _mlModelsClient.search("mlModel", query, facetFilters, start, count, context.getActor());
         return UrnSearchResultsMapper.map(searchResult);
     }
 
@@ -103,7 +104,7 @@ public class MLModelType implements SearchableEntityType<MLModel>, BrowsableEnti
                                             int limit,
                                             @Nonnull final QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
-        final AutoCompleteResult result = _mlModelsClient.autoComplete("mlModel", query, facetFilters, limit);
+        final AutoCompleteResult result = _mlModelsClient.autoComplete("mlModel", query, facetFilters, limit, context.getActor());
         return AutoCompleteResultsMapper.map(result);
     }
 
@@ -120,13 +121,14 @@ public class MLModelType implements SearchableEntityType<MLModel>, BrowsableEnti
                 pathStr,
                 facetFilters,
                 start,
-                count);
+                count,
+            context.getActor());
         return BrowseResultMapper.map(result);
     }
 
     @Override
     public List<BrowsePath> browsePaths(@Nonnull String urn, @Nonnull final QueryContext context) throws Exception {
-        final StringArray result = _mlModelsClient.getBrowsePaths(MLModelUtils.getMLModelUrn(urn));
+        final StringArray result = _mlModelsClient.getBrowsePaths(MLModelUtils.getMLModelUrn(urn), context.getActor());
         return BrowsePathsMapper.map(result);
     }
 }

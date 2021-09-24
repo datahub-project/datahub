@@ -9,6 +9,7 @@ import styles from './login.module.css';
 import { Message } from '../shared/Message';
 import { isLoggedInVar } from './checkAuthStatus';
 import analytics, { EventType } from '../analytics';
+import { useAppConfig } from '../useAppConfig';
 
 type FormValues = {
     username: string;
@@ -24,29 +25,35 @@ export const LogIn: React.VFC<LogInProps> = () => {
     const themeConfig = useTheme();
     const [loading, setLoading] = useState(false);
 
-    const handleLogin = useCallback((values: FormValues) => {
-        setLoading(true);
-        const requestOptions = {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username: values.username, password: values.password }),
-        };
-        fetch('/logIn', requestOptions)
-            .then(async (response) => {
-                if (!response.ok) {
-                    const data = await response.json();
-                    const error = (data && data.message) || response.status;
-                    return Promise.reject(error);
-                }
-                isLoggedInVar(true);
-                analytics.event({ type: EventType.LogInEvent });
-                return Promise.resolve();
-            })
-            .catch((error) => {
-                message.error(`Failed to log in! ${error}`);
-            })
-            .finally(() => setLoading(false));
-    }, []);
+    const { refreshContext } = useAppConfig();
+
+    const handleLogin = useCallback(
+        (values: FormValues) => {
+            setLoading(true);
+            const requestOptions = {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: values.username, password: values.password }),
+            };
+            fetch('/logIn', requestOptions)
+                .then(async (response) => {
+                    if (!response.ok) {
+                        const data = await response.json();
+                        const error = (data && data.message) || response.status;
+                        return Promise.reject(error);
+                    }
+                    isLoggedInVar(true);
+                    refreshContext();
+                    analytics.event({ type: EventType.LogInEvent });
+                    return Promise.resolve();
+                })
+                .catch((error) => {
+                    message.error(`Failed to log in! ${error}`);
+                })
+                .finally(() => setLoading(false));
+        },
+        [refreshContext],
+    );
 
     if (isLoggedIn) {
         const params = QueryString.parse(location.search);

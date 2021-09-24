@@ -1,5 +1,6 @@
 package com.linkedin.metadata.resources.lineage;
 
+import com.codahale.metrics.MetricRegistry;
 import com.linkedin.common.EntityRelationship;
 import com.linkedin.common.EntityRelationshipArray;
 import com.linkedin.common.EntityRelationships;
@@ -8,28 +9,27 @@ import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.query.CriterionArray;
 import com.linkedin.metadata.query.Filter;
 import com.linkedin.metadata.query.RelationshipDirection;
-import com.linkedin.metadata.restli.RestliUtils;
+import com.linkedin.metadata.restli.RestliUtil;
 import com.linkedin.parseq.Task;
 import com.linkedin.restli.server.annotations.Optional;
+import com.linkedin.restli.server.annotations.QueryParam;
 import com.linkedin.restli.server.annotations.RestLiSimpleResource;
 import com.linkedin.restli.server.annotations.RestMethod;
 import com.linkedin.restli.server.resources.SimpleResourceTemplate;
-
-import java.util.Arrays;
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
-import javax.inject.Inject;
-import javax.inject.Named;
-import com.linkedin.restli.server.annotations.QueryParam;
-
+import io.opentelemetry.extension.annotations.WithSpan;
 import java.net.URISyntaxException;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import javax.inject.Inject;
+import javax.inject.Named;
 
-import static com.linkedin.metadata.dao.Neo4jUtil.createRelationshipFilter;
 import static com.linkedin.metadata.dao.utils.QueryUtils.newFilter;
+import static com.linkedin.metadata.dao.utils.QueryUtils.newRelationshipFilter;
 
 
 /**
@@ -71,7 +71,7 @@ public final class Lineage extends SimpleResourceTemplate<EntityRelationships> {
         return
             _graphService.findRelatedEntities("", newFilter("urn", rawUrn),
                 "", EMPTY_FILTER,
-                relationshipTypes, createRelationshipFilter(EMPTY_FILTER, direction),
+                relationshipTypes, newRelationshipFilter(EMPTY_FILTER, direction),
                 0, MAX_DOWNSTREAM_CNT)
                 .getEntities().stream().map(
                 entity -> {
@@ -87,26 +87,23 @@ public final class Lineage extends SimpleResourceTemplate<EntityRelationships> {
 
     @Nonnull
     @RestMethod.Get
+    @WithSpan
     public Task<EntityRelationships> get(
         @QueryParam("urn") @Nonnull String rawUrn,
         @QueryParam("direction") @Optional @Nullable String rawDirection
     ) throws URISyntaxException {
         RelationshipDirection direction = RelationshipDirection.valueOf(rawDirection);
-        return RestliUtils.toTask(() -> {
+        return RestliUtil.toTask(() -> {
             final List<Urn> downstreamOfEntities = getRelatedEntities(rawUrn, LINEAGE_RELATIONSHIP_TYPES, direction);
             downstreamOfEntities.addAll(
                 getRelatedEntities(rawUrn, INVERSE_LINEAGE_RELATIONSHIP_TYPES, getOppositeDirection(direction)));
 
-            final EntityRelationshipArray entityArray = new EntityRelationshipArray(
-                    Stream.of(downstreamOfEntities).flatMap(Collection::stream)
-                        .map(entity -> {
-                            return new EntityRelationship()
-                                    .setEntity(entity);
-                        })
-                        .collect(Collectors.toList())
-                );
+            final EntityRelationshipArray entityArray =
+                new EntityRelationshipArray(Stream.of(downstreamOfEntities).flatMap(Collection::stream).map(entity -> {
+                    return new EntityRelationship().setEntity(entity);
+                }).collect(Collectors.toList()));
 
             return new EntityRelationships().setRelationships(entityArray);
-        });
+        }, MetricRegistry.name(this.getClass(), "get"));
     }
 }

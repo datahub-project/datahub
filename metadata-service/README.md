@@ -2,8 +2,7 @@
 DataHub Metadata Service is a service written in Java consisting of multiple servlets: 
 
 1. A public GraphQL API for fetching and mutating objects on the metadata graph. 
-2. A general-purpose Rest.li API for ingesting the underlying storage models composing the Metadata graph. 
-
+2. A general-purpose Rest.li API for ingesting the underlying storage models composing the Metadata graph.
 
 ## Pre-requisites
 * You need to have [JDK8](https://www.oracle.com/java/technologies/jdk8-downloads.html) 
@@ -41,6 +40,48 @@ To run with debug logs printed to console, use
 
 ## API Documentation
 
+The Metadata Service hosts 2 distinct APIs: 
+
+1. [GraphQL](https://graphql.org/) API
+2. [Rest.li](https://linkedin.github.io/rest.li/) API
+
+The **GraphQL API** serves as the primary public API for the platform. It can be used to fetch and update metadata programatically in the
+language of your choice.
+
+The **Rest.li** API represents the underlying persistence layer, and exposes the raw PDL models used in storage. 
+Under the hood, it powers the GraphQL API. Aside from that, it is also used for system-specific ingestion of metadata, being used by
+the Metadata Ingestion Framework for pushing metadata into DataHub directly. For all intents and purposes, the Rest.li API is considered system-internal, 
+meaning DataHub components are the only ones to consume this API directly. 
+
+When in doubt, opt to build on top of the friendlier GraphQL API. 
+
+### GraphQL API
+
+DataHub Metadata Service exposes a [GraphQL](https://graphql.org/) endpoint serving as the public API for DataHub metadata.
+
+#### Exploring the GraphQL API
+
+To access GraphiQL, a browser-based exploration & documentation tool, simply navigate to either
+
+- `localhost:8080/api/graphiql` (`metadata-service`)
+- `localhost:9002/api/graphiql` (`datahub-frontend-react`)
+
+after you've deployed your instance of DataHub.
+
+Note that the version of the API available via the `datahub-frontend-react` container is protected by Cookie-based
+Authentication, whereas the API living at the `metadata-service` is not behind any Authentication by default.
+
+In the coming weeks and months, we will be continuing to build out and improve the GraphQL API. Do note that it is still
+subject to frequent change, so please plan for this as you build on top of it.
+
+##### Language Support
+To issue a GraphQL query programmatically, you can make use of a GraphQL client library. For a full list, see
+[GraphQL Code Libraries, Tools, & Services](https://graphql.org/code/).
+
+Questions, concerns, feedback? Something you'd like to see added to the GraphQL API? Let us know on Slack! 
+
+### Rest.li API
+
 You can access basic documentation on the API endpoints by opening the `/restli/docs` endpoint in the browser.
 ```
 python -c "import webbrowser; webbrowser.open('http://localhost:8080/restli/docs', new=2)"
@@ -48,13 +89,13 @@ python -c "import webbrowser; webbrowser.open('http://localhost:8080/restli/docs
 
 *Please note that because DataHub is in a period of rapid development, the APIs below are subject to change. 
 
-## Sample API Calls
+#### Sample API Calls
 
-### Ingesting Entities 
+#### Ingesting Entities 
 
 The Entity Snapshot Ingest endpoints allow you to ingest multiple aspects about a particular entity at the same time. 
 
-#### Create a user
+##### Create a user
 
 ```
 curl 'http://localhost:8080/entities?action=ingest' -X POST --data '{
@@ -78,7 +119,7 @@ curl 'http://localhost:8080/entities?action=ingest' -X POST --data '{
 }'
 ```
 
-#### Create a group
+##### Create a group
 
 ```
 curl 'http://localhost:8080/entities?action=ingest' -X POST --data '{
@@ -109,7 +150,7 @@ curl 'http://localhost:8080/entities?action=ingest' -X POST --data '{
 }'
 ```
 
-#### Create a dataset
+##### Create a dataset
 ```
 curl 'http://localhost:8080/entities?action=ingest' -X POST --data '{
    "entity":{
@@ -187,7 +228,7 @@ curl 'http://localhost:8080/entities?action=ingest' -X POST --data '{
 }'
 ```
 
-#### Create a chart
+##### Create a chart
 ```
 curl 'http://localhost:8080/entities?action=ingest' -X POST --data '{
    "entity":{
@@ -223,7 +264,7 @@ curl 'http://localhost:8080/entities?action=ingest' -X POST --data '{
 }'
 ```
 
-#### Create a dashboard
+##### Create a dashboard
 ```
 curl 'http://localhost:8080/entities?action=ingest' -X POST --data '{
    "entity":{
@@ -258,7 +299,7 @@ curl 'http://localhost:8080/entities?action=ingest' -X POST --data '{
 }'
 ```
 
-#### Create Tags 
+##### Create Tags 
 
 To create a new tag called "Engineering", we can use the following curl. 
 
@@ -341,7 +382,7 @@ curl 'http://localhost:8080/entities?action=ingest' -X POST --data '{
 ```
 
 
-#### Soft Deleting an Entity
+##### Soft Deleting an Entity
 
 DataHub uses a special "Status" aspect associated with each entity to represent the lifecycle state of an Entity.
 To soft delete an entire Entity, such that it no longer appears in the UI, you can use the special "Status" aspect.
@@ -393,7 +434,7 @@ To issue a hard delete, or undo a particular ingestion run, you can use the [Dat
 *Note that soft deletes are coming soon to the DataHub CLI. 
 
 
-### Retrieving Entities
+#### Retrieving Entities
 
 The Entity Snapshot Get APIs allow to retrieve the latest version of each aspect associated with an Entity. 
 
@@ -404,7 +445,7 @@ issue a query of the following form:
 curl  'http://localhost:8080/entities/<url-encoded-entity-urn>'
 ```
 
-#### Get a CorpUser
+##### Get a CorpUser
 
 ```
 curl 'http://localhost:8080/entities/urn%3Ali%3Acorpuser%3Afbar'
@@ -439,7 +480,7 @@ curl 'http://localhost:8080/entities/urn%3Ali%3Acorpuser%3Afbar'
 ```
 
 
-#### Get a CorpGroup
+##### Get a CorpGroup
 
 ```
 curl 'http://localhost:8080/entities/urn%3Ali%3AcorpGroup%3Adev'
@@ -475,7 +516,7 @@ curl 'http://localhost:8080/entities/urn%3Ali%3AcorpGroup%3Adev'
 }
 ```
 
-#### Get a Dataset
+##### Get a Dataset
 ```
 curl 'http://localhost:8080/entities/urn%3Ali%3Adataset%3A(urn%3Ali%3AdataPlatform%3Afoo,bar,PROD)'
 
@@ -581,7 +622,7 @@ curl 'http://localhost:8080/entities/urn%3Ali%3Adataset%3A(urn%3Ali%3AdataPlatfo
 }
 ```
 
-#### Get a Chart
+##### Get a Chart
 ```
 curl 'http://localhost:8080/entities/urn%3Ali%3Achart%3A(looker,baz1)'
 
@@ -630,7 +671,7 @@ curl 'http://localhost:8080/entities/urn%3Ali%3Achart%3A(looker,baz1)'
 }
 ```
 
-#### Get a Dashboard
+##### Get a Dashboard
 ```
 curl 'http://localhost:8080/entities/urn%3Ali%3Adashboard%3A(looker,foo)'
 
@@ -651,7 +692,7 @@ curl 'http://localhost:8080/entities/urn%3Ali%3Adashboard%3A(looker,foo)'
 }
 ```
 
-#### Get a GlossaryTerm
+##### Get a GlossaryTerm
 ```
 curl 'http://localhost:8080/entities/urn%3Ali%3AglossaryTerm%3A(instruments,instruments.FinancialInstrument_v1)'
 {
@@ -684,7 +725,7 @@ curl 'http://localhost:8080/entities/urn%3Ali%3AglossaryTerm%3A(instruments,inst
 }
 ```
 
-#### Browse an Entity
+##### Browse an Entity
 
 To browse (explore) for an Entity of a particular type (e.g. dataset, chart, etc), you can use the following query format:
 
@@ -731,7 +772,7 @@ curl -X POST 'http://localhost:8080/entities?action=browse' \
 }
 ```
 
-#### Search an Entity
+##### Search an Entity
 
 To search for an Entity of a particular type (e.g. dataset, chart, etc), you can use the following query format: 
 
@@ -793,11 +834,11 @@ curl -X POST 'http://localhost:8080/entities?action=search' \
 }
 ```
 
-##### Exact Match Search
+###### Exact Match Search
 
 You can use colon search for exact match searching on particular @Searchable fields of an Entity. 
 
-##### Example: Find assets by Tag 
+###### Example: Find assets by Tag 
 
 For example, to fetch all Datasets having a particular tag (Engineering), we can use the following query:
 
@@ -851,7 +892,7 @@ curl -X POST 'http://localhost:8080/entities?action=search' \
 }
 ```
 
-##### Filtering
+###### Filtering
 
 In addition to performing full-text search, you can also filter explicitly against fields marked as @Searchable in the corresponding aspect PDLs.
 
@@ -923,7 +964,7 @@ where valid conditions include
 *Note that the search API only includes data corresponding to the latest snapshots of a particular Entity.
 
 
-#### Autocomplete against fields of an entity 
+##### Autocomplete against fields of an entity 
 
 To autocomplete a query for a particular entity type, you can use a query of the following form: 
 
@@ -990,7 +1031,7 @@ curl -X POST 'http://localhost:8080/entities?action=autocomplete' \
 *Note that the autocomplete API only includes data corresponding to the latest snapshots of a particular Entity.
 
 
-#### Get a Versioned Aspect
+##### Get a Versioned Aspect
 
 In addition to fetching the set of latest Snapshot aspects for an entity, we also support doing a point lookup of an entity at a particular version.
 
@@ -1052,11 +1093,11 @@ Keep in mind that versions increase monotonically *after* version 0, which repre
 
 Note that this API will soon be deprecated and replaced by the V2 Aspect API, discussed below. 
 
-#### Get a range of Versioned Aspects
+##### Get a range of Versioned Aspects
 
 *Coming Soon*! 
 
-#### Get a range of Timeseries Aspects 
+##### Get a range of Timeseries Aspects 
 
 With the introduction of Timeseries Aspects, we've introduced a new API for fetching a series of aspects falling into a particular time range. For this, you'll
 use the `/aspects` endpoint. The V2 APIs are unique in that they return a new type of payload: an "Enveloped Aspect". This is essentially a serialized aspect along with
@@ -1116,7 +1157,7 @@ You'll notice that in this API (V2), we return a generic serialized aspect strin
 
 This is part of an initiative to move from MCE + MAE to MetadataChangeProposal and MetadataChangeLog. For more information, see [this doc](../docs/advanced/mcp-mcl.md). 
 
-#### Get Relationships (Edges)
+##### Get Relationships (Edges)
 
 To get relationships between entities, you can use the `/relationships` API. Do do so, you must provide the following inputs:
 

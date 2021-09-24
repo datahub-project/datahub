@@ -1,19 +1,21 @@
 package com.linkedin.metadata.search.elasticsearch.query;
 
+import com.codahale.metrics.Timer;
 import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.metadata.dao.exception.ESQueryException;
-import com.linkedin.metadata.dao.utils.ESUtils;
-import com.linkedin.metadata.dao.utils.SearchUtils;
-import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.browse.BrowseResultEntity;
 import com.linkedin.metadata.browse.BrowseResultEntityArray;
 import com.linkedin.metadata.browse.BrowseResultGroup;
 import com.linkedin.metadata.browse.BrowseResultGroupArray;
 import com.linkedin.metadata.browse.BrowseResultMetadata;
+import com.linkedin.metadata.dao.exception.ESQueryException;
+import com.linkedin.metadata.dao.utils.ESUtils;
+import com.linkedin.metadata.dao.utils.SearchUtils;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.Filter;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -85,8 +87,11 @@ public class ESBrowseDAO {
     try {
       final String indexName = indexConvention.getIndexName(entityRegistry.getEntitySpec(entityName));
 
-      final SearchResponse groupsResponse =
-          client.search(constructGroupsSearchRequest(indexName, path, requestMap), RequestOptions.DEFAULT);
+      final SearchResponse groupsResponse;
+      try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "esGroupSearch").time()) {
+        groupsResponse =
+            client.search(constructGroupsSearchRequest(indexName, path, requestMap), RequestOptions.DEFAULT);
+      }
       final BrowseGroupsResult browseGroupsResult = extractGroupsResponse(groupsResponse, path, from, size);
       final int numGroups = browseGroupsResult.getTotalGroups();
 
@@ -96,9 +101,12 @@ public class ESBrowseDAO {
       // if numGroups <= from, we should only return entities
       int entityFrom = Math.max(from - numGroups, 0);
       int entitySize = Math.min(Math.max(from + size - numGroups, 0), size);
-      final SearchResponse entitiesResponse =
-          client.search(constructEntitiesSearchRequest(indexName, path, requestMap, entityFrom, entitySize),
-              RequestOptions.DEFAULT);
+      final SearchResponse entitiesResponse;
+      try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "esEntitiesSearch").time()) {
+        entitiesResponse =
+            client.search(constructEntitiesSearchRequest(indexName, path, requestMap, entityFrom, entitySize),
+                RequestOptions.DEFAULT);
+      }
       final int numEntities = (int) entitiesResponse.getHits().getTotalHits().value;
       final List<BrowseResultEntity> browseResultEntityList = extractEntitiesResponse(entitiesResponse, path);
 

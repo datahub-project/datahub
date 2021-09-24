@@ -8,13 +8,12 @@ import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { navigateToSearchUrl } from '../search/utils/navigateToSearchUrl';
 import { SearchBar } from '../search/SearchBar';
-import { GetSearchResultsQuery, useGetAutoCompleteAllResultsLazyQuery } from '../../graphql/search.generated';
-import { useIsAnalyticsEnabledQuery } from '../../graphql/analytics.generated';
+import { GetSearchResultsQuery, useGetAutoCompleteMultipleResultsLazyQuery } from '../../graphql/search.generated';
 import { useGetAllEntitySearchResults } from '../../utils/customGraphQL/useGetAllEntitySearchResults';
 import { EntityType } from '../../types.generated';
 import analytics, { EventType } from '../analytics';
-import AnalyticsLink from '../search/AnalyticsLink';
 import AdhocLink from '../create/AdhocLink';
+import { AdminHeaderLinks } from '../shared/admin/AdminHeaderLinks';
 
 const Background = styled.div`
     width: 100%;
@@ -27,17 +26,26 @@ const Background = styled.div`
 
 const WelcomeText = styled(Typography.Text)`
     font-size: 16px;
-    color: ${(props) => props.theme.styles['homepage-background-lower-fade']};
+    color: ${(props) =>
+        props.theme.styles['homepage-text-color'] || props.theme.styles['homepage-background-lower-fade']};
 `;
 
 const SubHeaderText = styled(Typography.Text)`
     font-size: 20px;
-    color: ${(props) => props.theme.styles['homepage-background-lower-fade']};
+    color: ${(props) =>
+        props.theme.styles['homepage-text-color'] || props.theme.styles['homepage-background-lower-fade']};
+`;
+
+const SubHeaderLabelText = styled(Typography.Text)`
+    font-size: 12px;
+    color: ${(props) =>
+        props.theme.styles['homepage-text-color'] || props.theme.styles['homepage-background-lower-fade']};
 `;
 
 const SubHeaderTextNoResults = styled(Typography.Text)`
     font-size: 20px;
-    color: ${(props) => props.theme.styles['homepage-background-lower-fade']};
+    color: ${(props) =>
+        props.theme.styles['homepage-text-color'] || props.theme.styles['homepage-background-lower-fade']};
     margin-bottom: 108px;
 `;
 
@@ -47,12 +55,12 @@ const styles = {
     logoImage: { width: 140 },
     searchBox: { width: 540, margin: '40px 0px' },
     subtitle: { marginTop: '28px', color: '#FFFFFF', fontSize: 12 },
-    subHeaderLabel: { marginTop: '-16px', color: '#FFFFFF', fontSize: 12 },
 };
 
 const CarouselElement = styled.div`
     height: 120px;
-    color: #fff;
+    color: ${(props) =>
+        props.theme.styles['homepage-text-color'] || props.theme.styles['homepage-background-lower-fade']};
     line-height: 120px;
     text-align: center;
 `;
@@ -60,6 +68,17 @@ const CarouselElement = styled.div`
 const CarouselContainer = styled.div`
     margin-top: -24px;
     padding-bottom: 40px;
+    .ant-carousel .slick-dots li button {
+        opacity: 0.4;
+        background-color: ${(props) =>
+            props.theme.styles['homepage-text-color'] || props.theme.styles['homepage-background-lower-fade']};
+    }
+
+    .ant-carousel .slick-dots li.slick-active button {
+        opacity: 1;
+        background-color: ${(props) =>
+            props.theme.styles['homepage-text-color'] || props.theme.styles['homepage-background-lower-fade']};
+    }
 `;
 
 const HeaderContainer = styled.div`
@@ -77,6 +96,10 @@ const NavGroup = styled.div`
 
 const SuggestionsContainer = styled.div`
     height: 140px;
+`;
+
+const SearchBarContainer = styled.div`
+    text-align: center;
 `;
 
 function getSuggestionFieldsFromResult(result: GetSearchResultsQuery | undefined): string[] {
@@ -115,12 +138,9 @@ function sortRandom() {
 export const HomePageHeader = () => {
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
-    const user = useGetAuthenticatedUser();
-    const [getAutoCompleteResultsForAll, { data: suggestionsData }] = useGetAutoCompleteAllResultsLazyQuery();
+    const [getAutoCompleteResultsForMultiple, { data: suggestionsData }] = useGetAutoCompleteMultipleResultsLazyQuery();
+    const user = useGetAuthenticatedUser()?.corpUser;
     const themeConfig = useTheme();
-
-    const { data } = useIsAnalyticsEnabledQuery({ fetchPolicy: 'no-cache' });
-    const isAnalyticsEnabled = (data && data.isAnalyticsEnabled) || false;
 
     const onSearch = (query: string, type?: EntityType) => {
         if (!query || query.trim().length === 0) {
@@ -142,7 +162,7 @@ export const HomePageHeader = () => {
 
     const onAutoComplete = (query: string) => {
         if (query && query !== '') {
-            getAutoCompleteResultsForAll({
+            getAutoCompleteResultsForMultiple({
                 variables: {
                     input: {
                         query,
@@ -194,7 +214,7 @@ export const HomePageHeader = () => {
                 </WelcomeText>
                 <NavGroup>
                     <AdhocLink />
-                    {isAnalyticsEnabled && <AnalyticsLink />}
+                    <AdminHeaderLinks />
                     <ManageAccount
                         urn={user?.urn || ''}
                         pictureLink={user?.editableInfo?.pictureLink || ''}
@@ -207,14 +227,16 @@ export const HomePageHeader = () => {
                 {!!themeConfig.content.subtitle && (
                     <Typography.Text style={styles.subtitle}>{themeConfig.content.subtitle}</Typography.Text>
                 )}
-                <SearchBar
-                    placeholderText={themeConfig.content.search.searchbarMessage}
-                    suggestions={suggestionsData?.autoCompleteForAll?.suggestions || []}
-                    onSearch={onSearch}
-                    onQueryChange={onAutoComplete}
-                    autoCompleteStyle={styles.searchBox}
-                    entityRegistry={entityRegistry}
-                />
+                <SearchBarContainer>
+                    <SearchBar
+                        placeholderText={themeConfig.content.search.searchbarMessage}
+                        suggestions={suggestionsData?.autoCompleteForMultiple?.suggestions || []}
+                        onSearch={onSearch}
+                        onQueryChange={onAutoComplete}
+                        autoCompleteStyle={styles.searchBox}
+                        entityRegistry={entityRegistry}
+                    />
+                </SearchBarContainer>
             </HeaderContainer>
             <SuggestionsContainer>
                 <HeaderContainer>
@@ -222,7 +244,7 @@ export const HomePageHeader = () => {
                         <SubHeaderTextNoResults>{themeConfig.content.homepage.homepageMessage}</SubHeaderTextNoResults>
                     )}
                     {suggestionsToShow.length > 0 && !suggestionsLoading && (
-                        <Typography.Text style={styles.subHeaderLabel}>Try searching for...</Typography.Text>
+                        <SubHeaderLabelText>Try searching for...</SubHeaderLabelText>
                     )}
                 </HeaderContainer>
                 {suggestionsToShow.length > 0 && !suggestionsLoading && (

@@ -5,8 +5,8 @@ query getAutoCompleteResults($input: AutoCompleteInput!) {
     }
 }
 
-query getAutoCompleteAllResults($input: AutoCompleteInput!) {
-    autoCompleteForAll(input: $input) {
+query getAutoCompleteMultipleResults($input: AutoCompleteMultipleInput!) {
+    autoCompleteForMultiple(input: $input) {
         query
         suggestions {
             type

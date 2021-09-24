@@ -116,6 +116,19 @@
         "optional" : true
       } ]
     }, {
+      "name" : "listUrns",
+      "parameters" : [ {
+        "name" : "entity",
+        "type" : "string"
+      }, {
+        "name" : "start",
+        "type" : "int"
+      }, {
+        "name" : "count",
+        "type" : "int"
+      } ],
+      "returns" : "com.linkedin.metadata.query.ListUrnsResult"
+    }, {
       "name" : "search",
       "parameters" : [ {
         "name" : "entity",

@@ -1,9 +1,9 @@
 import React from 'react';
 import { Alert } from 'antd';
-import { EntityProfile } from '../../../shared/EntityProfile';
+import { LegacyEntityProfile } from '../../../shared/LegacyEntityProfile';
 import { EntityType, MlModelGroup } from '../../../../types.generated';
 import { Message } from '../../../shared/Message';
-import { Ownership as OwnershipView } from '../../shared/Ownership';
+import { Ownership as OwnershipView } from '../../shared/components/legacy/Ownership';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import analytics, { EventType } from '../../../analytics';
 import { useGetMlModelGroupQuery } from '../../../../graphql/mlModelGroup.generated';
@@ -51,7 +51,7 @@ export const MLModelGroupProfile = ({ urn }: { urn: string }): JSX.Element => {
         <>
             {loading && <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />}
             {data && data.mlModelGroup && (
-                <EntityProfile
+                <LegacyEntityProfile
                     titleLink={`/${entityRegistry.getPathName(EntityType.MlmodelGroup)}/${urn}`}
                     title={data.mlModelGroup?.name || ''}
                     tabs={getTabs(data.mlModelGroup as MlModelGroup)}

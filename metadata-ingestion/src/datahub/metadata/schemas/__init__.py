@@ -26,4 +26,8 @@ def getUsageAggregationSchema() -> str:
 @functools.lru_cache(maxsize=None)
 def getDatasetProfileSchema() -> str:
     return _load_schema("DatasetProfile")
+
+@functools.lru_cache(maxsize=None)
+def getDatasetUsageStatisticsSchema() -> str:
+    return _load_schema("DatasetUsageStatistics")
 # fmt: on

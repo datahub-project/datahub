@@ -161,27 +161,6 @@
             }
           },
           {
-            "com.linkedin.pegasus2avro.schema.EditableSchemaMetadata": {
-              "created": {
-                "time": 1581407189000,
-                "actor": "urn:li:corpuser:jdoe",
-                "impersonator": null
-              },
-              "lastModified": {
-                "time": 1581407189000,
-                "actor": "urn:li:corpuser:jdoe",
-                "impersonator": null
-              },
-              "deleted": null,
-              "editableSchemaFieldInfo": [
-                {
-                  "fieldPath": "field_foo",
-                  "globalTags": { "tags": [{ "tag": "urn:li:tag:Legacy" }] }
-                }
-              ]
-            }
-          },
-          {
             "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
               "schemaName": "SampleKafkaSchema",
               "platform": "urn:li:dataPlatform:kafka",
@@ -322,6 +301,27 @@
                     "actor": "urn:li:corpuser:jdoe",
                     "impersonator": null
                   }
+                }
+              ]
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.schema.EditableSchemaMetadata": {
+              "created": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe",
+                "impersonator": null
+              },
+              "lastModified": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe",
+                "impersonator": null
+              },
+              "deleted": null,
+              "editableSchemaFieldInfo": [
+                {
+                  "fieldPath": "shipment_info",
+                  "globalTags": { "tags": [{ "tag": "urn:li:tag:Legacy" }] }
                 }
               ]
             }
@@ -600,6 +600,16 @@
         "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,logging_events,PROD)",
         "aspects": [
           {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "description": "table where each row represents a single log event",
+              "uri": null,
+              "tags": [],
+              "customProperties": {
+                "encoding": "utf-8"
+              }
+            }
+          },
+          {
             "com.linkedin.pegasus2avro.common.Ownership": {
               "owners": [
                 {
@@ -719,6 +729,18 @@
                   },
                   "nativeDataType": "boolean",
                   "recursive": false
+                },
+                {
+                  "fieldPath": "browser",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                  },
+                  "nativeDataType": "string",
+                  "recursive": false
                 }
               ],
               "primaryKeys": null,
@@ -736,6 +758,16 @@
       "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
         "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)",
         "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "description": "table containing all the users created on a single day",
+              "uri": null,
+              "tags": [],
+              "customProperties": {
+                "encoding": "utf-8"
+              }
+            }
+          },
           {
             "com.linkedin.pegasus2avro.common.Ownership": {
               "owners": [
@@ -858,6 +890,16 @@
       "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
         "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD)",
         "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "description": "table containing all the users deleted on a single day",
+              "uri": null,
+              "tags": [],
+              "customProperties": {
+                "encoding": "utf-8"
+              }
+            }
+          },
           {
             "com.linkedin.pegasus2avro.common.Ownership": {
               "owners": [
@@ -2689,5 +2731,136 @@
       }
     },
     "proposedDelta": null
-  }
+  },
+	{
+		"auditHeader": null,
+		"proposedSnapshot": {
+          "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryTermSnapshot": {
+            "urn": "urn:li:glossaryTerm:CustomerAccount",
+            "aspects": [
+              {
+                "com.linkedin.pegasus2avro.glossary.GlossaryTermInfo": {
+                  "definition": "account that represents an identified, named collection of balances and cumulative totals used to summarize customer transaction-related activity over a designated period of time",
+                  "parentNode": "urn:li:glossaryNode:ClientsAndAccounts",
+                  "sourceRef": "FIBO",
+                  "termSource": "EXTERNAL",
+                  "sourceUrl": "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/CustomerAccount",
+                  "customProperties": {
+                    "FQDN": "CustomerAccount"
+                  }
+                }
+              },
+              {
+                "com.linkedin.pegasus2avro.common.Ownership": {
+                  "owners": [{
+                    "owner": "urn:li:corpuser:jdoe",
+                    "type": "DATAOWNER"
+                  }],
+                  "lastModified": {
+                    "time": 1581407189000,
+                    "actor": "urn:li:corpuser:jdoe"
+                  }
+                }
+              }
+            ]
+          }
+        },
+      "proposedDelta": null
+	},
+	{
+      "auditHeader": null,
+      "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryTermSnapshot": {
+          "urn": "urn:li:glossaryTerm:SavingAccount",
+          "aspects": [
+            {
+              "com.linkedin.pegasus2avro.glossary.GlossaryTermInfo": {
+                "definition": "a product provided to consumers and businesses by a bank or similar depository institution such as a checking account, savings account, certificate of deposit, debit or pre-paid card, or credit card",
+                "parentNode": "urn:li:glossaryNode:ClientsAndAccounts",
+                "sourceRef": "FIBO",
+                "termSource": "EXTERNAL",
+                "sourceUrl": "https://spec.edmcouncil.org/fibo/ontology/FBC/FunctionalEntities/FinancialServicesEntities/BankingProduct",
+                "customProperties": {
+                  "FQDN": "SavingAccount"
+                }
+              }
+            },
+            {
+              "com.linkedin.pegasus2avro.common.Ownership": {
+                "owners": [{
+                  "owner": "urn:li:corpuser:jdoe",
+                  "type": "DATAOWNER"
+                }],
+                "lastModified": {
+                  "time": 1581407189000,
+                  "actor": "urn:li:corpuser:jdoe"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "proposedDelta": null
+	},
+	{
+      "auditHeader": null,
+      "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryTermSnapshot": {
+          "urn": "urn:li:glossaryTerm:AccountBalance",
+          "aspects": [{
+            "com.linkedin.pegasus2avro.glossary.GlossaryTermInfo": {
+              "definition": "amount of money available or owed",
+              "parentNode": "urn:li:glossaryNode:ClientsAndAccounts",
+              "sourceRef": "FIBO",
+              "termSource": "EXTERNAL",
+              "sourceUrl": "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/Balance",
+              "customProperties": {
+                "FQDN": "AccountBalance"
+              }
+            }
+          },
+            {
+              "com.linkedin.pegasus2avro.common.Ownership": {
+                "owners": [{
+                  "owner": "urn:li:corpuser:jdoe",
+                  "type": "DATAOWNER"
+                }],
+                "lastModified": {
+                  "time": 1581407189000,
+                  "actor": "urn:li:corpuser:jdoe"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "proposedDelta": null
+	},
+	{
+      "auditHeader": null,
+      "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryNodeSnapshot": {
+          "urn": "urn:li:glossaryNode:ClientsAndAccounts",
+          "aspects": [{
+            "com.linkedin.pegasus2avro.glossary.GlossaryNodeInfo": {
+              "definition": "Provides basic concepts such as account, account holder, account provider, relationship manager that are commonly used by financial services providers to describe customers and to determine counterparty identities"
+            }
+          },
+            {
+              "com.linkedin.pegasus2avro.common.Ownership": {
+                "owners": [{
+                  "owner": "urn:li:corpuser:jdoe",
+                  "type": "DATAOWNER"
+                }],
+                "lastModified": {
+                  "time": 1581407189000,
+                  "actor": "urn:li:corpuser:jdoe"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "proposedDelta": null
+    }
 ]

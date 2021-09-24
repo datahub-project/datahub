@@ -15,6 +15,15 @@ will allow you to customize the datahub instance you are communicating with.
 
 _Note: Provide your GMS instance's host when the prompt asks you for the DataHub host._
 
+Alternatively, you can set the following env variables if you don't want to use a config file
+```
+DATAHUB_SKIP_CONFIG=True
+DATAHUB_GMS_HOST=http://localhost:8080
+DATAHUB_GMS_TOKEN=
+```
+
+The env variables take precendence over what is in the config.
+
 ## Delete By Urn
 
 To delete all the data related to a single entity, run

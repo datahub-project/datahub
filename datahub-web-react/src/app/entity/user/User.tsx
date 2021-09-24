@@ -56,4 +56,8 @@ export class UserEntity implements Entity<CorpUser> {
     renderSearch = (result: SearchResult) => {
         return this.renderPreview(PreviewType.SEARCH, result.entity as CorpUser);
     };
+
+    displayName = (data: CorpUser) => {
+        return data.info?.displayName || data.info?.fullName || data.username;
+    };
 }

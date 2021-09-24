@@ -5,7 +5,7 @@ import { MlFeatureTable } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import CompactContext from '../../../shared/CompactContext';
 import { AvatarsGroup } from '../../../shared/avatar';
-import MarkdownViewer from '../../shared/MarkdownViewer';
+import MarkdownViewer from '../../shared/components/legacy/MarkdownViewer';
 
 const HeaderInfoItem = styled.div`
     display: inline-block;

@@ -1,15 +1,15 @@
-import { Alert } from 'antd';
+import { Alert, message } from 'antd';
 import React from 'react';
 import { Chart, EntityType, GlobalTags } from '../../../../types.generated';
-import { Ownership as OwnershipView } from '../../shared/Ownership';
-import { EntityProfile } from '../../../shared/EntityProfile';
+import { Ownership as OwnershipView } from '../../shared/components/legacy/Ownership';
+import { LegacyEntityProfile } from '../../../shared/LegacyEntityProfile';
 import ChartHeader from './ChartHeader';
 import { useGetChartQuery, useUpdateChartMutation } from '../../../../graphql/chart.generated';
 import ChartSources from './ChartSources';
 import ChartDashboards from './ChartDashboards';
 import { Message } from '../../../shared/Message';
 import TagTermGroup from '../../../shared/tags/TagTermGroup';
-import { Properties as PropertiesView } from '../../shared/Properties';
+import { Properties as PropertiesView } from '../../shared/components/legacy/Properties';
 import analytics, { EventType, EntityActionType } from '../../../analytics';
 
 export enum TabType {
@@ -22,9 +22,13 @@ export enum TabType {
 const ENABLED_TAB_TYPES = [TabType.Ownership, TabType.Sources, TabType.Properties, TabType.Dashboards];
 
 export default function ChartProfile({ urn }: { urn: string }) {
-    const { loading, error, data } = useGetChartQuery({ variables: { urn } });
+    const { loading, error, data, refetch } = useGetChartQuery({ variables: { urn } });
     const [updateChart] = useUpdateChartMutation({
         refetchQueries: () => ['getChart'],
+        onError: (e) => {
+            message.destroy();
+            message.error({ content: `Failed to update: \n ${e.message || ''}`, duration: 3 });
+        },
     });
 
     if (error || (!loading && !error && !data)) {
@@ -76,21 +80,15 @@ export default function ChartProfile({ urn }: { urn: string }) {
         <>
             {loading && <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />}
             {data && data.chart && (
-                <EntityProfile
+                <LegacyEntityProfile
                     tags={
                         <TagTermGroup
                             editableTags={data.chart?.globalTags as GlobalTags}
-                            canAdd
+                            canAddTag
                             canRemove
-                            updateTags={(globalTags) => {
-                                analytics.event({
-                                    type: EventType.EntityActionEvent,
-                                    actionType: EntityActionType.UpdateTags,
-                                    entityType: EntityType.Chart,
-                                    entityUrn: urn,
-                                });
-                                return updateChart({ variables: { input: { urn, globalTags } } });
-                            }}
+                            entityUrn={urn}
+                            entityType={EntityType.Chart}
+                            refetch={refetch}
                         />
                     }
                     title={data.chart.info?.name || ''}
