@@ -57,6 +57,7 @@ public class IngestDataPlatformsStep implements UpgradeStep {
         _entityService.ingestAspect(
             entry.getKey(),
             PegasusUtils.getAspectNameFromSchema(entry.getValue().schema()),
+            PegasusUtils.getEntityNameFromSchema(entry.getValue().schema()),
             entry.getValue(),
             auditStamp
         );

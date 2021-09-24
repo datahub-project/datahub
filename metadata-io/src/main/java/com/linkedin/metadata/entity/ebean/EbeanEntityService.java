@@ -44,7 +44,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -201,12 +200,20 @@ public class EbeanEntityService extends EntityService {
   }
 
   // TODO: Move to EntityService
+  @Override
+  @Nonnull
+  @WithSpan
   public RecordTemplate ingestAspect(@Nonnull final Urn urn,
                                      @Nonnull final String entityName,
                                      @Nonnull final String aspectName,
                                      @Nonnull final RecordTemplate newAspect,
                                      @Nonnull final AuditStamp auditStamp,
                                      @Nonnull final SystemMetadata systemMetadata) {
+    log.debug("Invoked ingestAspect with urn: {}, aspectName: {}, newValue: {}", urn, aspectName, newAspect);
+    Timer.Context ingestToLocalDBTimer = MetricUtils.timer(this.getClass(), "ingestAspectToLocalDB").time();
+
+    log.info("I MADE IT HERE");
+
     // 1. Retrieve the previous (latest) version of the aspect
     RecordTemplate previousAspect = getLatestAspect(urn, aspectName);
 
@@ -228,47 +235,12 @@ public class EbeanEntityService extends EntityService {
 
     // 6. Run the registered after change processors
     result = _changeStreamProcessor.runAfterChangeProcessors(entityName, aspectName, previousAspect, newAspect);
+    ingestToLocalDBTimer.stop();
 
     // 7. Emit a mae event
     emitMaeEvent(urn, aspectName, previousAspect, result, updateAspectResult);
 
     return result.getAspect();
-  }
-
-  @Override
-  @Nonnull
-  @WithSpan
-  public RecordTemplate ingestAspect(@Nonnull final Urn urn, @Nonnull final String aspectName,
-      @Nonnull final RecordTemplate newValue, @Nonnull final AuditStamp auditStamp,
-      @Nonnull final SystemMetadata systemMetadata) {
-
-    log.debug("Invoked ingestAspect with urn: {}, aspectName: {}, newValue: {}", urn, aspectName, newValue);
-    Timer.Context ingestToLocalDBTimer = MetricUtils.timer(this.getClass(), "ingestAspectToLocalDB").time();
-    UpdateAspectResult result = ingestAspectToLocalDB(urn, aspectName, ignored -> newValue, auditStamp, systemMetadata,
-        DEFAULT_MAX_TRANSACTION_RETRY);
-    ingestToLocalDBTimer.stop();
-
-    final RecordTemplate oldValue = result.getOldValue();
-    final RecordTemplate updatedValue = result.getNewValue();
-
-    // 5. Produce MAE after a successful update
-    if (oldValue != updatedValue || _alwaysEmitAuditEvent) {
-      log.debug(String.format("Producing MetadataAuditEvent for ingested aspect %s, urn %s", aspectName, urn));
-      Timer.Context produceMAETimer = MetricUtils.timer(this.getClass(), "produceMAE").time();
-      if (aspectName.equals(getKeyAspectName(urn))) {
-        produceMetadataAuditEventForKey(urn, result.getNewSystemMetadata());
-      } else {
-        produceMetadataAuditEvent(urn, oldValue, updatedValue, result.getOldSystemMetadata(),
-            result.getNewSystemMetadata(), MetadataAuditOperation.UPDATE);
-      }
-      produceMAETimer.stop();
-    } else {
-      log.debug(
-          String.format("Skipped producing MetadataAuditEvent for ingested aspect %s, urn %s. Aspect has not changed.",
-              aspectName, urn));
-    }
-
-    return updatedValue;
   }
 
   @Nonnull
@@ -440,7 +412,7 @@ public class EbeanEntityService extends EntityService {
     if (!aspectSpec.isTimeseries()) {
       Timer.Context ingestToLocalDBTimer = MetricUtils.timer(this.getClass(), "ingestProposalToLocalDB").time();
       UpdateAspectResult result =
-          ingestAspectToLocalDB(entityUrn, metadataChangeProposal.getAspectName(), ignored -> aspect, auditStamp,
+          ingestAspectToLocalDB(entityUrn, metadataChangeProposal.getAspectName(), aspect, auditStamp,
               systemMetadata, DEFAULT_MAX_TRANSACTION_RETRY);
       ingestToLocalDBTimer.stop();
       oldAspect = result.oldValue;
@@ -475,6 +447,7 @@ public class EbeanEntityService extends EntityService {
           String.format("Skipped producing MetadataAuditEvent for ingested aspect %s, urn %s. Aspect has not changed.",
               metadataChangeProposal.getAspectName(), entityUrn));
     }
+    return entityUrn;
   }
 
 
@@ -651,7 +624,24 @@ public class EbeanEntityService extends EntityService {
     return result;
   }
 
-  @Value
+  private void emitMaeEvent(Urn urn, String aspectName, RecordTemplate previousAspect, ProcessChangeResult result, UpdateAspectResult updateAspectResult) {
+    if (!result.getAspect().equals(previousAspect) || _alwaysEmitAuditEvent) {
+      log.debug(String.format("Producing MetadataAuditEvent for ingested aspect %s, urn %s", aspectName, urn));
+      if (aspectName.equals(getKeyAspectName(urn))) {
+        produceMetadataAuditEventForKey(urn, updateAspectResult.getNewSystemMetadata());
+      } else {
+        produceMetadataAuditEvent(urn, previousAspect, result.getAspect(), updateAspectResult.getOldSystemMetadata(),
+                updateAspectResult.getNewSystemMetadata(), MetadataAuditOperation.UPDATE);
+      }
+    } else {
+      log.debug(
+              String.format("Skipped producing MetadataAuditEvent for ingested aspect %s, urn %s. Aspect has not changed.",
+                      aspectName, urn));
+    }
+  }
+
+
+    @Value
   private static class UpdateAspectResult {
     Urn urn;
     RecordTemplate oldValue;

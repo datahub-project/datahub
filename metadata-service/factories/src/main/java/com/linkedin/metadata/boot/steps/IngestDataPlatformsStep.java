@@ -22,44 +22,45 @@ import org.springframework.core.io.ClassPathResource;
 @RequiredArgsConstructor
 public class IngestDataPlatformsStep implements BootstrapStep {
 
-  private static final String PLATFORM_ASPECT_NAME = "dataPlatformInfo";
+    private static final String PLATFORM_ASPECT_NAME = "dataPlatformInfo";
 
-  private final EntityService _entityService;
+    private final EntityService _entityService;
 
-  @Override
-  public String name() {
-    return "IngestDataPlatformsStep";
-  }
-
-  @Override
-  public void execute() throws IOException, URISyntaxException {
-
-    final ObjectMapper mapper = new ObjectMapper();
-
-    // 1. Read from the file into JSON.
-    final JsonNode dataPlatforms = mapper.readTree(new ClassPathResource("./boot/data_platforms.json").getFile());
-
-    if (!dataPlatforms.isArray()) {
-      throw new RuntimeException(String.format("Found malformed data platforms file, expected an Array but found %s",
-          dataPlatforms.getNodeType()));
+    @Override
+    public String name() {
+        return "IngestDataPlatformsStep";
     }
 
-    // 2. For each JSON object, cast into a DataPlatformSnapshot object.
-    for (final JsonNode dataPlatform : dataPlatforms) {
-      final Urn urn;
-      try {
-        urn = Urn.createFromString(dataPlatform.get("urn").asText());
-      } catch (URISyntaxException e) {
-        log.error("Malformed urn: {}", dataPlatform.get("urn").asText());
-        throw new RuntimeException("Malformed urn", e);
-      }
-      final DataPlatformInfo info =
-          RecordUtils.toRecordTemplate(DataPlatformInfo.class, dataPlatform.get("aspect").toString());
+    @Override
+    public void execute() throws IOException, URISyntaxException {
 
-      final AuditStamp aspectAuditStamp =
-          new AuditStamp().setActor(Urn.createFromString(Constants.UNKNOWN_ACTOR)).setTime(System.currentTimeMillis());
+        final ObjectMapper mapper = new ObjectMapper();
 
-      _entityService.ingestAspect(urn, PLATFORM_ASPECT_NAME, info, aspectAuditStamp);
+        // 1. Read from the file into JSON.
+        final JsonNode dataPlatforms = mapper.readTree(new ClassPathResource("./boot/data_platforms.json").getFile());
+
+        if (!dataPlatforms.isArray()) {
+            throw new RuntimeException(String.format("Found malformed data platforms file, expected an Array but found %s",
+                    dataPlatforms.getNodeType()));
+        }
+
+        // 2. For each JSON object, cast into a DataPlatformSnapshot object.
+        for (final JsonNode dataPlatform : dataPlatforms) {
+            final Urn urn;
+            try {
+                urn = Urn.createFromString(dataPlatform.get("urn").asText());
+            } catch (URISyntaxException e) {
+                log.error("Malformed urn: {}", dataPlatform.get("urn").asText());
+                throw new RuntimeException("Malformed urn", e);
+            }
+            final DataPlatformInfo info =
+                    RecordUtils.toRecordTemplate(DataPlatformInfo.class, dataPlatform.get("aspect").toString());
+
+            final AuditStamp aspectAuditStamp =
+                    new AuditStamp().setActor(Urn.createFromString(Constants.UNKNOWN_ACTOR)).setTime(System.currentTimeMillis());
+
+            // Todo get entityName
+            _entityService.ingestAspect(urn, "dataPlatform", PLATFORM_ASPECT_NAME, info, aspectAuditStamp);
+        }
     }
-  }
 }

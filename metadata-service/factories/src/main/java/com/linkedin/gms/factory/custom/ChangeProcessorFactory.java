@@ -1,9 +1,9 @@
 package com.linkedin.gms.factory.custom;
 
-import com.linkedin.metadata.changeprocessor.AspectScope;
 import com.linkedin.metadata.changeprocessor.ChangeProcessor;
+import com.linkedin.metadata.changeprocessor.ChangeProcessorScope;
+import com.linkedin.metadata.changeprocessor.ChangeProcessorType;
 import com.linkedin.metadata.changeprocessor.ChangeStreamProcessor;
-import com.linkedin.util.Pair;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
@@ -12,55 +12,70 @@ import javax.annotation.Nullable;
 import java.io.File;
 import java.net.URL;
 import java.net.URLClassLoader;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.ServiceLoader;
+
+class Program{
+
+  public static void main(String[] args){
+
+    ChangeProcessorFactory changeProcessorFactory = new ChangeProcessorFactory();
+
+    changeProcessorFactory.createInstance();
+
+  }
+}
 
 @Configuration
 @Slf4j
 public class ChangeProcessorFactory {
 
-  @Value("${CUSTOM_JAR_PATH:#{null}}")
+  //TODO revert back to #{null}
+  @Value("${CUSTOM_JAR_PATH:/Users/matthew/IdeaProjects/ResourceRegistryStateMachine/build/libs/ResourceRegistryStateMachine-1.0-SNAPSHOT.jar}")
   private String customJarPath;
 
   @Nullable
   public ChangeStreamProcessor createInstance() {
+    customJarPath = "/Users/matthew/IdeaProjects/ResourceRegistryStateMachine/build/libs/ResourceRegistryStateMachine-1.0-SNAPSHOT.jar";
+    log.info("CUSTOM JAR PATH SET " + customJarPath);
     try {
-      ChangeStreamProcessor changeStreamProcessor = new ChangeStreamProcessor();
-      log.info("CREATE INSTANCE");
-
-      if (customJarPath == null ) {
+      if (customJarPath == null) {
         log.debug("Not loading custom defined behaviour");
-        return changeStreamProcessor;
+        return new ChangeStreamProcessor();
       }
-
-      List<Pair<String, ChangeProcessor>> changeProcessors = buildChangeProcessors(customJarPath);
-
-      for (Pair<String, ChangeProcessor> processor : changeProcessors) {
-        changeStreamProcessor.registerProcessor(processor.getKey(), processor.getValue());
-      }
-
-      return changeStreamProcessor;
+      return createChangeStreamProcessor(customJarPath);
     } catch (Exception ex) {
       log.error("Failed to load custom defined behaviour {}", customJarPath);
       return null;
     }
   }
 
-  private List<Pair<String, ChangeProcessor>> buildChangeProcessors(String jarUrl) throws Exception {
+  private ChangeStreamProcessor createChangeStreamProcessor(String jarUrl) throws Exception {
+    ChangeStreamProcessor changeStreamProcessor = new ChangeStreamProcessor();
+
     URL url = (new File(jarUrl).toURI().toURL());
     URLClassLoader classLoader = new URLClassLoader(new URL[]{url});
     ServiceLoader<ChangeProcessor> serviceLoader = ServiceLoader.load(ChangeProcessor.class, classLoader);
-
-    List<Pair<String, ChangeProcessor>> changeProcessors = new ArrayList<>();
+    int processorCount = 0;
 
     for (ChangeProcessor changeProcessor : serviceLoader) {
-      String[] aspectNames = changeProcessor.getClass().getAnnotation(AspectScope.class).aspectNames();
-      for (String aspectName : aspectNames) {
-        changeProcessors.add(new Pair(aspectName, changeProcessor));
+      ChangeProcessorScope annotation = changeProcessor.getClass().getAnnotation(ChangeProcessorScope.class);
+      for (String entityAspect : annotation.entityAspectNames()) {
+
+        String[] keys = entityAspect.split(":");
+        String entityName = keys[0];
+        String aspectName = keys[1];
+
+        if (annotation.processorType() == ChangeProcessorType.BEFORE) {
+          changeStreamProcessor.addBeforeChangeProcessor(entityName, aspectName, changeProcessor);
+        } else {
+          changeStreamProcessor.addAfterChangeProcessor(entityName, aspectName, changeProcessor);
+        }
+        processorCount += 1;
       }
     }
 
-    return changeProcessors;
+    log.info("Successfully loaded {} processors", processorCount);
+
+    return changeStreamProcessor;
   }
 }

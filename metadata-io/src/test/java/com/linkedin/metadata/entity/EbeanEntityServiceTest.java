@@ -12,7 +12,6 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.dataset.DatasetProfile;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.identity.CorpUserInfo;
-import com.linkedin.metadata.utils.PegasusUtils;
 import com.linkedin.metadata.aspect.Aspect;
 import com.linkedin.metadata.aspect.CorpUserAspect;
 import com.linkedin.metadata.aspect.CorpUserAspectArray;
@@ -27,7 +26,6 @@ import com.linkedin.metadata.entity.ebean.EbeanEntityService;
 import com.linkedin.metadata.entity.ebean.EbeanUtils;
 import com.linkedin.metadata.event.EntityEventProducer;
 import com.linkedin.metadata.key.CorpUserKey;
-import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.MergedEntityRegistry;
@@ -35,6 +33,8 @@ import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.snapshot.CorpUserSnapshot;
 import com.linkedin.metadata.snapshot.Snapshot;
+import com.linkedin.metadata.utils.EntityKeyUtils;
+import com.linkedin.metadata.utils.PegasusUtils;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataAuditOperation;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -52,20 +52,10 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import javax.annotation.Nonnull;
-import org.mockito.Mockito;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
 
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-import static org.mockito.Mockito.verifyNoMoreInteractions;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNull;
-import static org.testng.Assert.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
+import static org.testng.Assert.*;
 
 
 public class EbeanEntityServiceTest {
@@ -80,6 +70,7 @@ public class EbeanEntityServiceTest {
   private EbeanAspectDao _aspectDao;
   private EbeanServer _server;
   private EntityEventProducer _mockProducer;
+  private ChangeStreamProcessor _changeStreamProcessor;
 
   @Nonnull
   private static ServerConfig createTestingH2ServerConfig() {
@@ -106,265 +97,265 @@ public class EbeanEntityServiceTest {
     }
   }
 
-    @BeforeMethod
-    public void setupTest() {
-        _server = EbeanServerFactory.create(createTestingH2ServerConfig());
-        _mockProducer = mock(EntityEventProducer.class);
-        _aspectDao = new EbeanAspectDao(_server);
-        _changeStreamProcessor = createChangeStreamProcessor();
-        _aspectDao.setConnectionValidated(true);
-        _entityService = new EbeanEntityService(_aspectDao, _mockProducer, _testEntityRegistry, _changeStreamProcessor);
-    }
+  @BeforeMethod
+  public void setupTest() {
+    _server = EbeanServerFactory.create(createTestingH2ServerConfig());
+    _mockProducer = mock(EntityEventProducer.class);
+    _aspectDao = new EbeanAspectDao(_server);
+    _changeStreamProcessor = new ChangeStreamProcessor();
+    _aspectDao.setConnectionValidated(true);
+    _entityService = new EbeanEntityService(_aspectDao, _mockProducer, _testEntityRegistry, _changeStreamProcessor);
+  }
 
-    @Test
-    public void testIngestGetEntity() throws Exception {
-        // Test Writing a CorpUser Entity
-        Urn entityUrn = Urn.createFromString("urn:li:corpuser:test");
-        com.linkedin.entity.Entity writeEntity = createCorpUserEntity(entityUrn, "tester@test.com");
+  @Test
+  public void testIngestGetEntity() throws Exception {
+    // Test Writing a CorpUser Entity
+    Urn entityUrn = Urn.createFromString("urn:li:corpuser:test");
+    com.linkedin.entity.Entity writeEntity = createCorpUserEntity(entityUrn, "tester@test.com");
 
-        SystemMetadata metadata1 = new SystemMetadata();
-        metadata1.setLastObserved(1625792689);
-        metadata1.setRunId("run-123");
+    SystemMetadata metadata1 = new SystemMetadata();
+    metadata1.setLastObserved(1625792689);
+    metadata1.setRunId("run-123");
 
-        // 1. Ingest Entity
-        _entityService.ingestEntity(writeEntity, TEST_AUDIT_STAMP, metadata1);
+    // 1. Ingest Entity
+    _entityService.ingestEntity(writeEntity, TEST_AUDIT_STAMP, metadata1);
 
-        // 2. Retrieve Entity
-        com.linkedin.entity.Entity readEntity = _entityService.getEntity(entityUrn, Collections.emptySet());
+    // 2. Retrieve Entity
+    com.linkedin.entity.Entity readEntity = _entityService.getEntity(entityUrn, Collections.emptySet());
 
-        // 3. Compare Entity Objects
-        assertEquals(2, readEntity.getValue().getCorpUserSnapshot().getAspects().size()); // Key + Info aspect.
-        assertTrue(DataTemplateUtil.areEqual(writeEntity.getValue().getCorpUserSnapshot().getAspects().get(0),
-                readEntity.getValue().getCorpUserSnapshot().getAspects().get(1)));
-        CorpUserKey expectedKey = new CorpUserKey();
-        expectedKey.setUsername("test");
-        assertTrue(DataTemplateUtil.areEqual(expectedKey,
-                readEntity.getValue().getCorpUserSnapshot().getAspects().get(0).getCorpUserKey())); // Key + Info aspect.
+    // 3. Compare Entity Objects
+    assertEquals(2, readEntity.getValue().getCorpUserSnapshot().getAspects().size()); // Key + Info aspect.
+    assertTrue(DataTemplateUtil.areEqual(writeEntity.getValue().getCorpUserSnapshot().getAspects().get(0),
+        readEntity.getValue().getCorpUserSnapshot().getAspects().get(1)));
+    CorpUserKey expectedKey = new CorpUserKey();
+    expectedKey.setUsername("test");
+    assertTrue(DataTemplateUtil.areEqual(expectedKey,
+        readEntity.getValue().getCorpUserSnapshot().getAspects().get(0).getCorpUserKey())); // Key + Info aspect.
 
-        verify(_mockProducer, times(2)).produceMetadataAuditEvent(Mockito.eq(entityUrn), Mockito.eq(null), any(),
-                any(), any(), Mockito.eq(MetadataAuditOperation.UPDATE));
-        verifyNoMoreInteractions(_mockProducer);
-    }
+    verify(_mockProducer, times(2)).produceMetadataAuditEvent(Mockito.eq(entityUrn), Mockito.eq(null), any(),
+        any(), any(), Mockito.eq(MetadataAuditOperation.UPDATE));
+    verifyNoMoreInteractions(_mockProducer);
+  }
 
-    @Test
-    public void testAddKey() throws Exception {
-        // Test Writing a CorpUser Key
-        Urn entityUrn = Urn.createFromString("urn:li:corpuser:test");
-        com.linkedin.entity.Entity writeEntity = createCorpUserEntity(entityUrn, "tester@test.com");
+  @Test
+  public void testAddKey() throws Exception {
+    // Test Writing a CorpUser Key
+    Urn entityUrn = Urn.createFromString("urn:li:corpuser:test");
+    com.linkedin.entity.Entity writeEntity = createCorpUserEntity(entityUrn, "tester@test.com");
 
-        SystemMetadata metadata1 = new SystemMetadata();
-        metadata1.setLastObserved(1625792689);
-        metadata1.setRunId("run-123");
+    SystemMetadata metadata1 = new SystemMetadata();
+    metadata1.setLastObserved(1625792689);
+    metadata1.setRunId("run-123");
 
-        // 1. Ingest Entity
-        _entityService.ingestEntity(writeEntity, TEST_AUDIT_STAMP, metadata1);
+    // 1. Ingest Entity
+    _entityService.ingestEntity(writeEntity, TEST_AUDIT_STAMP, metadata1);
 
-        // 2. Retrieve Entity
-        com.linkedin.entity.Entity readEntity = _entityService.getEntity(entityUrn, Collections.emptySet());
+    // 2. Retrieve Entity
+    com.linkedin.entity.Entity readEntity = _entityService.getEntity(entityUrn, Collections.emptySet());
 
-        // 3. Compare Entity Objects
-        assertEquals(2, readEntity.getValue().getCorpUserSnapshot().getAspects().size()); // Key + Info aspect.
-        assertTrue(DataTemplateUtil.areEqual(writeEntity.getValue().getCorpUserSnapshot().getAspects().get(0),
-                readEntity.getValue().getCorpUserSnapshot().getAspects().get(1)));
-        CorpUserKey expectedKey = new CorpUserKey();
-        expectedKey.setUsername("test");
-        assertTrue(DataTemplateUtil.areEqual(expectedKey,
-                readEntity.getValue().getCorpUserSnapshot().getAspects().get(0).getCorpUserKey())); // Key + Info aspect.
+    // 3. Compare Entity Objects
+    assertEquals(2, readEntity.getValue().getCorpUserSnapshot().getAspects().size()); // Key + Info aspect.
+    assertTrue(DataTemplateUtil.areEqual(writeEntity.getValue().getCorpUserSnapshot().getAspects().get(0),
+        readEntity.getValue().getCorpUserSnapshot().getAspects().get(1)));
+    CorpUserKey expectedKey = new CorpUserKey();
+    expectedKey.setUsername("test");
+    assertTrue(DataTemplateUtil.areEqual(expectedKey,
+        readEntity.getValue().getCorpUserSnapshot().getAspects().get(0).getCorpUserKey())); // Key + Info aspect.
 
-        verify(_mockProducer, times(2)).produceMetadataAuditEvent(Mockito.eq(entityUrn), Mockito.eq(null), any(),
-                any(), any(), Mockito.eq(MetadataAuditOperation.UPDATE));
-        verifyNoMoreInteractions(_mockProducer);
-    }
+    verify(_mockProducer, times(2)).produceMetadataAuditEvent(Mockito.eq(entityUrn), Mockito.eq(null), any(),
+        any(), any(), Mockito.eq(MetadataAuditOperation.UPDATE));
+    verifyNoMoreInteractions(_mockProducer);
+  }
 
-    @Test
-    public void testIngestGetEntities() throws Exception {
-        // Test Writing a CorpUser Entity
-        Urn entityUrn1 = Urn.createFromString("urn:li:corpuser:tester1");
-        com.linkedin.entity.Entity writeEntity1 = createCorpUserEntity(entityUrn1, "tester@test.com");
+  @Test
+  public void testIngestGetEntities() throws Exception {
+    // Test Writing a CorpUser Entity
+    Urn entityUrn1 = Urn.createFromString("urn:li:corpuser:tester1");
+    com.linkedin.entity.Entity writeEntity1 = createCorpUserEntity(entityUrn1, "tester@test.com");
 
-        Urn entityUrn2 = Urn.createFromString("urn:li:corpuser:tester2");
-        com.linkedin.entity.Entity writeEntity2 = createCorpUserEntity(entityUrn2, "tester2@test.com");
+    Urn entityUrn2 = Urn.createFromString("urn:li:corpuser:tester2");
+    com.linkedin.entity.Entity writeEntity2 = createCorpUserEntity(entityUrn2, "tester2@test.com");
 
-        SystemMetadata metadata1 = new SystemMetadata();
-        metadata1.setLastObserved(1625792689);
-        metadata1.setRunId("run-123");
+    SystemMetadata metadata1 = new SystemMetadata();
+    metadata1.setLastObserved(1625792689);
+    metadata1.setRunId("run-123");
 
-        SystemMetadata metadata2 = new SystemMetadata();
-        metadata2.setLastObserved(1625792690);
-        metadata2.setRunId("run-123");
+    SystemMetadata metadata2 = new SystemMetadata();
+    metadata2.setLastObserved(1625792690);
+    metadata2.setRunId("run-123");
 
-        // 1. Ingest Entities
-        _entityService.ingestEntities(ImmutableList.of(writeEntity1, writeEntity2), TEST_AUDIT_STAMP,
-                ImmutableList.of(metadata1, metadata2));
+    // 1. Ingest Entities
+    _entityService.ingestEntities(ImmutableList.of(writeEntity1, writeEntity2), TEST_AUDIT_STAMP,
+        ImmutableList.of(metadata1, metadata2));
 
-        // 2. Retrieve Entities
-        Map<Urn, com.linkedin.entity.Entity> readEntities =
-                _entityService.getEntities(ImmutableSet.of(entityUrn1, entityUrn2), Collections.emptySet());
+    // 2. Retrieve Entities
+    Map<Urn, com.linkedin.entity.Entity> readEntities =
+        _entityService.getEntities(ImmutableSet.of(entityUrn1, entityUrn2), Collections.emptySet());
 
-        // 3. Compare Entity Objects
+    // 3. Compare Entity Objects
 
-        // Entity 1
-        com.linkedin.entity.Entity readEntity1 = readEntities.get(entityUrn1);
-        assertEquals(2, readEntity1.getValue().getCorpUserSnapshot().getAspects().size()); // Key + Info aspect.
-        assertTrue(DataTemplateUtil.areEqual(writeEntity1.getValue().getCorpUserSnapshot().getAspects().get(0),
-                readEntity1.getValue().getCorpUserSnapshot().getAspects().get(1)));
-        CorpUserKey expectedKey1 = new CorpUserKey();
-        expectedKey1.setUsername("tester1");
-        assertTrue(DataTemplateUtil.areEqual(expectedKey1,
-                readEntity1.getValue().getCorpUserSnapshot().getAspects().get(0).getCorpUserKey())); // Key + Info aspect.
+    // Entity 1
+    com.linkedin.entity.Entity readEntity1 = readEntities.get(entityUrn1);
+    assertEquals(2, readEntity1.getValue().getCorpUserSnapshot().getAspects().size()); // Key + Info aspect.
+    assertTrue(DataTemplateUtil.areEqual(writeEntity1.getValue().getCorpUserSnapshot().getAspects().get(0),
+        readEntity1.getValue().getCorpUserSnapshot().getAspects().get(1)));
+    CorpUserKey expectedKey1 = new CorpUserKey();
+    expectedKey1.setUsername("tester1");
+    assertTrue(DataTemplateUtil.areEqual(expectedKey1,
+        readEntity1.getValue().getCorpUserSnapshot().getAspects().get(0).getCorpUserKey())); // Key + Info aspect.
 
-        // Entity 2
-        com.linkedin.entity.Entity readEntity2 = readEntities.get(entityUrn2);
-        assertEquals(2, readEntity2.getValue().getCorpUserSnapshot().getAspects().size()); // Key + Info aspect.
-        assertTrue(DataTemplateUtil.areEqual(writeEntity2.getValue().getCorpUserSnapshot().getAspects().get(0),
-                readEntity2.getValue().getCorpUserSnapshot().getAspects().get(1)));
-        CorpUserKey expectedKey2 = new CorpUserKey();
-        expectedKey2.setUsername("tester2");
-        assertTrue(DataTemplateUtil.areEqual(expectedKey2,
-                readEntity2.getValue().getCorpUserSnapshot().getAspects().get(0).getCorpUserKey())); // Key + Info aspect.
+    // Entity 2
+    com.linkedin.entity.Entity readEntity2 = readEntities.get(entityUrn2);
+    assertEquals(2, readEntity2.getValue().getCorpUserSnapshot().getAspects().size()); // Key + Info aspect.
+    assertTrue(DataTemplateUtil.areEqual(writeEntity2.getValue().getCorpUserSnapshot().getAspects().get(0),
+        readEntity2.getValue().getCorpUserSnapshot().getAspects().get(1)));
+    CorpUserKey expectedKey2 = new CorpUserKey();
+    expectedKey2.setUsername("tester2");
+    assertTrue(DataTemplateUtil.areEqual(expectedKey2,
+        readEntity2.getValue().getCorpUserSnapshot().getAspects().get(0).getCorpUserKey())); // Key + Info aspect.
 
-        verify(_mockProducer, times(2)).produceMetadataAuditEvent(Mockito.eq(entityUrn1), Mockito.eq(null), any(),
-                any(), any(), Mockito.eq(MetadataAuditOperation.UPDATE));
+    verify(_mockProducer, times(2)).produceMetadataAuditEvent(Mockito.eq(entityUrn1), Mockito.eq(null), any(),
+        any(), any(), Mockito.eq(MetadataAuditOperation.UPDATE));
 
-        verify(_mockProducer, times(2)).produceMetadataAuditEvent(Mockito.eq(entityUrn2), Mockito.eq(null), any(),
-                any(), any(), Mockito.eq(MetadataAuditOperation.UPDATE));
+    verify(_mockProducer, times(2)).produceMetadataAuditEvent(Mockito.eq(entityUrn2), Mockito.eq(null), any(),
+        any(), any(), Mockito.eq(MetadataAuditOperation.UPDATE));
 
-        verifyNoMoreInteractions(_mockProducer);
-    }
+    verifyNoMoreInteractions(_mockProducer);
+  }
 
-    @Test
-    public void testIngestGetLatestAspect() throws Exception {
-        Urn entityUrn = Urn.createFromString("urn:li:corpuser:test");
+  @Test
+  public void testIngestGetLatestAspect() throws Exception {
+    Urn entityUrn = Urn.createFromString("urn:li:corpuser:test");
 
-        // Ingest CorpUserInfo Aspect #1
-        CorpUserInfo writeAspect1 = createCorpUserInfo("email@test.com");
-        String aspectName = PegasusUtils.getAspectNameFromSchema(writeAspect1.schema());
-        String entityName = "corpUser";
+    // Ingest CorpUserInfo Aspect #1
+    CorpUserInfo writeAspect1 = createCorpUserInfo("email@test.com");
+    String aspectName = PegasusUtils.getAspectNameFromSchema(writeAspect1.schema());
+    String entityName = "corpUser";
 
-        SystemMetadata metadata1 = new SystemMetadata();
-        metadata1.setLastObserved(1625792689);
-        metadata1.setRunId("run-123");
+    SystemMetadata metadata1 = new SystemMetadata();
+    metadata1.setLastObserved(1625792689);
+    metadata1.setRunId("run-123");
 
-        SystemMetadata metadata2 = new SystemMetadata();
-        metadata2.setLastObserved(1635792689);
-        metadata2.setRunId("run-456");
+    SystemMetadata metadata2 = new SystemMetadata();
+    metadata2.setLastObserved(1635792689);
+    metadata2.setRunId("run-456");
 
-        // Validate retrieval of CorpUserInfo Aspect #1
-        _entityService.ingestAspect(entityUrn, entityName, aspectName, writeAspect1, TEST_AUDIT_STAMP, metadata1);
-        RecordTemplate readAspect1 = _entityService.getLatestAspect(entityUrn, aspectName);
-        assertTrue(DataTemplateUtil.areEqual(writeAspect1, readAspect1));
+    // Validate retrieval of CorpUserInfo Aspect #1
+    _entityService.ingestAspect(entityUrn, entityName, aspectName, writeAspect1, TEST_AUDIT_STAMP, metadata1);
+    RecordTemplate readAspect1 = _entityService.getLatestAspect(entityUrn, aspectName);
+    assertTrue(DataTemplateUtil.areEqual(writeAspect1, readAspect1));
 
-        // Ingest CorpUserInfo Aspect #2
-        CorpUserInfo writeAspect2 = createCorpUserInfo("email2@test.com");
+    // Ingest CorpUserInfo Aspect #2
+    CorpUserInfo writeAspect2 = createCorpUserInfo("email2@test.com");
 
-        // Validate retrieval of CorpUserInfo Aspect #2
-        _entityService.ingestAspect(entityUrn, entityName, aspectName, writeAspect2, TEST_AUDIT_STAMP, metadata2);
-        RecordTemplate readAspect2 = _entityService.getLatestAspect(entityUrn, aspectName);
-        EbeanAspectV2 readEbean1 = _aspectDao.getAspect(entityUrn.toString(), aspectName, 1);
-        EbeanAspectV2 readEbean2 = _aspectDao.getAspect(entityUrn.toString(), aspectName, 0);
+    // Validate retrieval of CorpUserInfo Aspect #2
+    _entityService.ingestAspect(entityUrn, entityName, aspectName, writeAspect2, TEST_AUDIT_STAMP, metadata2);
+    RecordTemplate readAspect2 = _entityService.getLatestAspect(entityUrn, aspectName);
+    EbeanAspectV2 readEbean1 = _aspectDao.getAspect(entityUrn.toString(), aspectName, 1);
+    EbeanAspectV2 readEbean2 = _aspectDao.getAspect(entityUrn.toString(), aspectName, 0);
 
-        assertTrue(DataTemplateUtil.areEqual(writeAspect2, readAspect2));
-        assertTrue(DataTemplateUtil.areEqual(EbeanUtils.parseSystemMetadata(readEbean2.getSystemMetadata()), metadata2));
-        assertTrue(DataTemplateUtil.areEqual(EbeanUtils.parseSystemMetadata(readEbean1.getSystemMetadata()), metadata1));
+    assertTrue(DataTemplateUtil.areEqual(writeAspect2, readAspect2));
+    assertTrue(DataTemplateUtil.areEqual(EbeanUtils.parseSystemMetadata(readEbean2.getSystemMetadata()), metadata2));
+    assertTrue(DataTemplateUtil.areEqual(EbeanUtils.parseSystemMetadata(readEbean1.getSystemMetadata()), metadata1));
 
-        verify(_mockProducer, times(1)).produceMetadataAuditEvent(Mockito.eq(entityUrn), Mockito.eq(null), any(),
-                any(), any(), Mockito.eq(MetadataAuditOperation.UPDATE));
+    verify(_mockProducer, times(1)).produceMetadataAuditEvent(Mockito.eq(entityUrn), Mockito.eq(null), any(),
+        any(), any(), Mockito.eq(MetadataAuditOperation.UPDATE));
 
-        verify(_mockProducer, times(1)).produceMetadataAuditEvent(Mockito.eq(entityUrn), Mockito.notNull(), any(),
-                any(), any(), Mockito.eq(MetadataAuditOperation.UPDATE));
+    verify(_mockProducer, times(1)).produceMetadataAuditEvent(Mockito.eq(entityUrn), Mockito.notNull(), any(),
+        any(), any(), Mockito.eq(MetadataAuditOperation.UPDATE));
 
-        verifyNoMoreInteractions(_mockProducer);
-    }
+    verifyNoMoreInteractions(_mockProducer);
+  }
 
-    @Test
-    public void testIngestSameAspect() throws Exception {
-        Urn entityUrn = Urn.createFromString("urn:li:corpuser:test");
+  @Test
+  public void testIngestSameAspect() throws Exception {
+    Urn entityUrn = Urn.createFromString("urn:li:corpuser:test");
 
-        // Ingest CorpUserInfo Aspect #1
-        CorpUserInfo writeAspect1 = createCorpUserInfo("email@test.com");
-        String aspectName = PegasusUtils.getAspectNameFromSchema(writeAspect1.schema());
-        String entityName = "corpUser";
+    // Ingest CorpUserInfo Aspect #1
+    CorpUserInfo writeAspect1 = createCorpUserInfo("email@test.com");
+    String aspectName = PegasusUtils.getAspectNameFromSchema(writeAspect1.schema());
+    String entityName = "corpUser";
 
-        SystemMetadata metadata1 = new SystemMetadata();
-        metadata1.setLastObserved(1625792689);
-        metadata1.setRunId("run-123");
+    SystemMetadata metadata1 = new SystemMetadata();
+    metadata1.setLastObserved(1625792689);
+    metadata1.setRunId("run-123");
 
-        SystemMetadata metadata2 = new SystemMetadata();
-        metadata2.setLastObserved(1635792689);
-        metadata2.setRunId("run-456");
+    SystemMetadata metadata2 = new SystemMetadata();
+    metadata2.setLastObserved(1635792689);
+    metadata2.setRunId("run-456");
 
-        // Validate retrieval of CorpUserInfo Aspect #1
-        _entityService.ingestAspect(entityUrn, entityName, aspectName, writeAspect1, TEST_AUDIT_STAMP, metadata1);
-        RecordTemplate readAspect1 = _entityService.getLatestAspect(entityUrn, aspectName);
-        assertTrue(DataTemplateUtil.areEqual(writeAspect1, readAspect1));
+    // Validate retrieval of CorpUserInfo Aspect #1
+    _entityService.ingestAspect(entityUrn, entityName, aspectName, writeAspect1, TEST_AUDIT_STAMP, metadata1);
+    RecordTemplate readAspect1 = _entityService.getLatestAspect(entityUrn, aspectName);
+    assertTrue(DataTemplateUtil.areEqual(writeAspect1, readAspect1));
 
-        // Ingest CorpUserInfo Aspect #2
-        CorpUserInfo writeAspect2 = createCorpUserInfo("email@test.com");
+    // Ingest CorpUserInfo Aspect #2
+    CorpUserInfo writeAspect2 = createCorpUserInfo("email@test.com");
 
-        // Validate retrieval of CorpUserInfo Aspect #2
-        _entityService.ingestAspect(entityUrn, entityName, aspectName, writeAspect2, TEST_AUDIT_STAMP, metadata2);
-        RecordTemplate readAspect2 = _entityService.getLatestAspect(entityUrn, aspectName);
-        EbeanAspectV2 readEbean2 = _aspectDao.getAspect(entityUrn.toString(), aspectName, 0);
+    // Validate retrieval of CorpUserInfo Aspect #2
+    _entityService.ingestAspect(entityUrn, entityName, aspectName, writeAspect2, TEST_AUDIT_STAMP, metadata2);
+    RecordTemplate readAspect2 = _entityService.getLatestAspect(entityUrn, aspectName);
+    EbeanAspectV2 readEbean2 = _aspectDao.getAspect(entityUrn.toString(), aspectName, 0);
 
-        assertTrue(DataTemplateUtil.areEqual(writeAspect2, readAspect2));
-        assertFalse(DataTemplateUtil.areEqual(EbeanUtils.parseSystemMetadata(readEbean2.getSystemMetadata()), metadata2));
-        assertFalse(DataTemplateUtil.areEqual(EbeanUtils.parseSystemMetadata(readEbean2.getSystemMetadata()), metadata1));
+    assertTrue(DataTemplateUtil.areEqual(writeAspect2, readAspect2));
+    assertFalse(DataTemplateUtil.areEqual(EbeanUtils.parseSystemMetadata(readEbean2.getSystemMetadata()), metadata2));
+    assertFalse(DataTemplateUtil.areEqual(EbeanUtils.parseSystemMetadata(readEbean2.getSystemMetadata()), metadata1));
 
-        SystemMetadata metadata3 = new SystemMetadata();
-        metadata3.setLastObserved(1635792689);
-        metadata3.setRunId("run-123");
+    SystemMetadata metadata3 = new SystemMetadata();
+    metadata3.setLastObserved(1635792689);
+    metadata3.setRunId("run-123");
 
-        assertTrue(DataTemplateUtil.areEqual(EbeanUtils.parseSystemMetadata(readEbean2.getSystemMetadata()), metadata3));
+    assertTrue(DataTemplateUtil.areEqual(EbeanUtils.parseSystemMetadata(readEbean2.getSystemMetadata()), metadata3));
 
-        verify(_mockProducer, times(1)).produceMetadataAuditEvent(Mockito.eq(entityUrn), Mockito.eq(null), any(),
-                any(), any(), Mockito.eq(MetadataAuditOperation.UPDATE));
+    verify(_mockProducer, times(1)).produceMetadataAuditEvent(Mockito.eq(entityUrn), Mockito.eq(null), any(),
+        any(), any(), Mockito.eq(MetadataAuditOperation.UPDATE));
 
-        verify(_mockProducer, times(0)).produceMetadataAuditEvent(Mockito.eq(entityUrn), Mockito.notNull(), any(),
-                any(), any(), Mockito.eq(MetadataAuditOperation.UPDATE));
+    verify(_mockProducer, times(0)).produceMetadataAuditEvent(Mockito.eq(entityUrn), Mockito.notNull(), any(),
+        any(), any(), Mockito.eq(MetadataAuditOperation.UPDATE));
 
-        verifyNoMoreInteractions(_mockProducer);
-    }
+    verifyNoMoreInteractions(_mockProducer);
+  }
 
-    @Test
-    public void testIngestListLatestAspects() throws Exception {
-        Urn entityUrn1 = Urn.createFromString("urn:li:corpuser:test1");
-        Urn entityUrn2 = Urn.createFromString("urn:li:corpuser:test2");
-        Urn entityUrn3 = Urn.createFromString("urn:li:corpuser:test3");
+  @Test
+  public void testIngestListLatestAspects() throws Exception {
+    Urn entityUrn1 = Urn.createFromString("urn:li:corpuser:test1");
+    Urn entityUrn2 = Urn.createFromString("urn:li:corpuser:test2");
+    Urn entityUrn3 = Urn.createFromString("urn:li:corpuser:test3");
 
-        SystemMetadata metadata1 = new SystemMetadata();
-        metadata1.setLastObserved(1625792689);
-        metadata1.setRunId("run-123");
+    SystemMetadata metadata1 = new SystemMetadata();
+    metadata1.setLastObserved(1625792689);
+    metadata1.setRunId("run-123");
 
-        String aspectName = PegasusUtils.getAspectNameFromSchema(new CorpUserInfo().schema());
-        String entityName = "corpUser";
+    String aspectName = PegasusUtils.getAspectNameFromSchema(new CorpUserInfo().schema());
+    String entityName = "corpUser";
 
-        // Ingest CorpUserInfo Aspect #1
-        CorpUserInfo writeAspect1 = createCorpUserInfo("email@test.com");
-        _entityService.ingestAspect(entityUrn1, entityName, aspectName, writeAspect1, TEST_AUDIT_STAMP, metadata1);
+    // Ingest CorpUserInfo Aspect #1
+    CorpUserInfo writeAspect1 = createCorpUserInfo("email@test.com");
+    _entityService.ingestAspect(entityUrn1, entityName, aspectName, writeAspect1, TEST_AUDIT_STAMP, metadata1);
 
-        // Ingest CorpUserInfo Aspect #2
-        CorpUserInfo writeAspect2 = createCorpUserInfo("email2@test.com");
-        _entityService.ingestAspect(entityUrn2, entityName, aspectName, writeAspect2, TEST_AUDIT_STAMP, metadata1);
+    // Ingest CorpUserInfo Aspect #2
+    CorpUserInfo writeAspect2 = createCorpUserInfo("email2@test.com");
+    _entityService.ingestAspect(entityUrn2, entityName, aspectName, writeAspect2, TEST_AUDIT_STAMP, metadata1);
 
-        // Ingest CorpUserInfo Aspect #3
-        CorpUserInfo writeAspect3 = createCorpUserInfo("email3@test.com");
-        _entityService.ingestAspect(entityUrn3, entityName, aspectName, writeAspect3, TEST_AUDIT_STAMP, metadata1);
+    // Ingest CorpUserInfo Aspect #3
+    CorpUserInfo writeAspect3 = createCorpUserInfo("email3@test.com");
+    _entityService.ingestAspect(entityUrn3, entityName, aspectName, writeAspect3, TEST_AUDIT_STAMP, metadata1);
 
-        // List aspects
-        ListResult<RecordTemplate> batch1 = _entityService.listLatestAspects(entityUrn1.getEntityType(), aspectName, 0, 2);
+    // List aspects
+    ListResult<RecordTemplate> batch1 = _entityService.listLatestAspects(entityUrn1.getEntityType(), aspectName, 0, 2);
 
-        assertEquals(2, batch1.getNextStart());
-        assertEquals(2, batch1.getPageSize());
-        assertEquals(3, batch1.getTotalCount());
-        assertEquals(2, batch1.getTotalPageCount());
-        assertEquals(2, batch1.getValues().size());
-        assertTrue(DataTemplateUtil.areEqual(writeAspect1, batch1.getValues().get(0)));
-        assertTrue(DataTemplateUtil.areEqual(writeAspect2, batch1.getValues().get(1)));
+    assertEquals(2, batch1.getNextStart());
+    assertEquals(2, batch1.getPageSize());
+    assertEquals(3, batch1.getTotalCount());
+    assertEquals(2, batch1.getTotalPageCount());
+    assertEquals(2, batch1.getValues().size());
+    assertTrue(DataTemplateUtil.areEqual(writeAspect1, batch1.getValues().get(0)));
+    assertTrue(DataTemplateUtil.areEqual(writeAspect2, batch1.getValues().get(1)));
 
-        ListResult<RecordTemplate> batch2 = _entityService.listLatestAspects(entityUrn1.getEntityType(), aspectName, 2, 2);
-        assertEquals(1, batch2.getValues().size());
-        assertTrue(DataTemplateUtil.areEqual(writeAspect3, batch2.getValues().get(0)));
-    }
+    ListResult<RecordTemplate> batch2 = _entityService.listLatestAspects(entityUrn1.getEntityType(), aspectName, 2, 2);
+    assertEquals(1, batch2.getValues().size());
+    assertTrue(DataTemplateUtil.areEqual(writeAspect3, batch2.getValues().get(0)));
+  }
 
   @Test
   public void testIngestTimeseriesAspect() throws Exception {
@@ -386,232 +377,232 @@ public class EbeanEntityServiceTest {
     _entityService.ingestProposal(gmce, TEST_AUDIT_STAMP);
   }
 
-    @Test
-    public void testUpdateGetAspect() throws Exception {
-        // Test Writing a CorpUser Entity
-        Urn entityUrn = Urn.createFromString("urn:li:corpuser:test");
+  @Test
+  public void testUpdateGetAspect() throws Exception {
+    // Test Writing a CorpUser Entity
+    Urn entityUrn = Urn.createFromString("urn:li:corpuser:test");
 
-        String aspectName = PegasusUtils.getAspectNameFromSchema(new CorpUserInfo().schema());
+    String aspectName = PegasusUtils.getAspectNameFromSchema(new CorpUserInfo().schema());
 
-        // Ingest CorpUserInfo Aspect #1
-        CorpUserInfo writeAspect = createCorpUserInfo("email@test.com");
+    // Ingest CorpUserInfo Aspect #1
+    CorpUserInfo writeAspect = createCorpUserInfo("email@test.com");
 
-        // Validate retrieval of CorpUserInfo Aspect #1
-        _entityService.updateAspect(entityUrn, aspectName, writeAspect, TEST_AUDIT_STAMP, 1, true);
-        RecordTemplate readAspect1 = _entityService.getAspect(entityUrn, aspectName, 1);
-        assertTrue(DataTemplateUtil.areEqual(writeAspect, readAspect1));
-        verify(_mockProducer, times(1)).produceMetadataAuditEvent(Mockito.eq(entityUrn), Mockito.eq(null), any(),
-                any(), any(), Mockito.eq(MetadataAuditOperation.UPDATE));
-        // Ingest CorpUserInfo Aspect #2
-        writeAspect.setEmail("newemail@test.com");
+    // Validate retrieval of CorpUserInfo Aspect #1
+    _entityService.updateAspect(entityUrn, aspectName, writeAspect, TEST_AUDIT_STAMP, 1, true);
+    RecordTemplate readAspect1 = _entityService.getAspect(entityUrn, aspectName, 1);
+    assertTrue(DataTemplateUtil.areEqual(writeAspect, readAspect1));
+    verify(_mockProducer, times(1)).produceMetadataAuditEvent(Mockito.eq(entityUrn), Mockito.eq(null), any(),
+        any(), any(), Mockito.eq(MetadataAuditOperation.UPDATE));
+    // Ingest CorpUserInfo Aspect #2
+    writeAspect.setEmail("newemail@test.com");
 
-        // Validate retrieval of CorpUserInfo Aspect #2
-        _entityService.updateAspect(entityUrn, aspectName, writeAspect, TEST_AUDIT_STAMP, 1, false);
-        RecordTemplate readAspect2 = _entityService.getAspect(entityUrn, aspectName, 1);
-        assertTrue(DataTemplateUtil.areEqual(writeAspect, readAspect2));
-        verifyNoMoreInteractions(_mockProducer);
-    }
+    // Validate retrieval of CorpUserInfo Aspect #2
+    _entityService.updateAspect(entityUrn, aspectName, writeAspect, TEST_AUDIT_STAMP, 1, false);
+    RecordTemplate readAspect2 = _entityService.getAspect(entityUrn, aspectName, 1);
+    assertTrue(DataTemplateUtil.areEqual(writeAspect, readAspect2));
+    verifyNoMoreInteractions(_mockProducer);
+  }
 
-    @Test
-    public void testGetAspectAtVersion() throws Exception {
-        // Test Writing a CorpUser Entity
-        Urn entityUrn = Urn.createFromString("urn:li:corpuser:test");
+  @Test
+  public void testGetAspectAtVersion() throws Exception {
+    // Test Writing a CorpUser Entity
+    Urn entityUrn = Urn.createFromString("urn:li:corpuser:test");
 
-        String aspectName = PegasusUtils.getAspectNameFromSchema(new CorpUserInfo().schema());
+    String aspectName = PegasusUtils.getAspectNameFromSchema(new CorpUserInfo().schema());
 
-        // Ingest CorpUserInfo Aspect #1
-        CorpUserInfo writeAspect = createCorpUserInfo("email@test.com");
+    // Ingest CorpUserInfo Aspect #1
+    CorpUserInfo writeAspect = createCorpUserInfo("email@test.com");
 
-        // Validate retrieval of CorpUserInfo Aspect #1
-        _entityService.updateAspect(entityUrn, aspectName, writeAspect, TEST_AUDIT_STAMP, 1, true);
+    // Validate retrieval of CorpUserInfo Aspect #1
+    _entityService.updateAspect(entityUrn, aspectName, writeAspect, TEST_AUDIT_STAMP, 1, true);
 
-        VersionedAspect writtenVersionedAspect = new VersionedAspect();
-        writtenVersionedAspect.setAspect(Aspect.create(writeAspect));
-        writtenVersionedAspect.setVersion(1);
+    VersionedAspect writtenVersionedAspect = new VersionedAspect();
+    writtenVersionedAspect.setAspect(Aspect.create(writeAspect));
+    writtenVersionedAspect.setVersion(1);
 
-        VersionedAspect readAspect1 = _entityService.getVersionedAspect(entityUrn, aspectName, 1);
-        assertTrue(DataTemplateUtil.areEqual(writtenVersionedAspect, readAspect1));
-        verify(_mockProducer, times(1)).produceMetadataAuditEvent(Mockito.eq(entityUrn), Mockito.eq(null), any(),
-                any(), any(), Mockito.eq(MetadataAuditOperation.UPDATE));
+    VersionedAspect readAspect1 = _entityService.getVersionedAspect(entityUrn, aspectName, 1);
+    assertTrue(DataTemplateUtil.areEqual(writtenVersionedAspect, readAspect1));
+    verify(_mockProducer, times(1)).produceMetadataAuditEvent(Mockito.eq(entityUrn), Mockito.eq(null), any(),
+        any(), any(), Mockito.eq(MetadataAuditOperation.UPDATE));
 
-        VersionedAspect readAspect2 = _entityService.getVersionedAspect(entityUrn, aspectName, -1);
-        assertTrue(DataTemplateUtil.areEqual(writtenVersionedAspect, readAspect2));
+    VersionedAspect readAspect2 = _entityService.getVersionedAspect(entityUrn, aspectName, -1);
+    assertTrue(DataTemplateUtil.areEqual(writtenVersionedAspect, readAspect2));
 
-        VersionedAspect readAspectVersion0 = _entityService.getVersionedAspect(entityUrn, aspectName, 0);
-        assertFalse(DataTemplateUtil.areEqual(writtenVersionedAspect, readAspectVersion0));
+    VersionedAspect readAspectVersion0 = _entityService.getVersionedAspect(entityUrn, aspectName, 0);
+    assertFalse(DataTemplateUtil.areEqual(writtenVersionedAspect, readAspectVersion0));
 
-        verifyNoMoreInteractions(_mockProducer);
-    }
+    verifyNoMoreInteractions(_mockProducer);
+  }
 
-    @Test
-    public void testRollbackAspect() throws Exception {
-        Urn entityUrn1 = Urn.createFromString("urn:li:corpuser:test1");
-        Urn entityUrn2 = Urn.createFromString("urn:li:corpuser:test2");
-        Urn entityUrn3 = Urn.createFromString("urn:li:corpuser:test3");
+  @Test
+  public void testRollbackAspect() throws Exception {
+    Urn entityUrn1 = Urn.createFromString("urn:li:corpuser:test1");
+    Urn entityUrn2 = Urn.createFromString("urn:li:corpuser:test2");
+    Urn entityUrn3 = Urn.createFromString("urn:li:corpuser:test3");
 
-        SystemMetadata metadata1 = new SystemMetadata();
-        metadata1.setLastObserved(1625792689);
-        metadata1.setRunId("run-123");
+    SystemMetadata metadata1 = new SystemMetadata();
+    metadata1.setLastObserved(1625792689);
+    metadata1.setRunId("run-123");
 
-        SystemMetadata metadata2 = new SystemMetadata();
-        metadata2.setLastObserved(1635792689);
-        metadata2.setRunId("run-456");
+    SystemMetadata metadata2 = new SystemMetadata();
+    metadata2.setLastObserved(1635792689);
+    metadata2.setRunId("run-456");
 
-        String aspectName = PegasusUtils.getAspectNameFromSchema(new CorpUserInfo().schema());
-        String entityName = "corpUser";
+    String aspectName = PegasusUtils.getAspectNameFromSchema(new CorpUserInfo().schema());
+    String entityName = "corpUser";
 
-        // Ingest CorpUserInfo Aspect #1
-        CorpUserInfo writeAspect1 = createCorpUserInfo("email@test.com");
-        _entityService.ingestAspect(entityUrn1, entityName, aspectName, writeAspect1, TEST_AUDIT_STAMP, metadata1);
+    // Ingest CorpUserInfo Aspect #1
+    CorpUserInfo writeAspect1 = createCorpUserInfo("email@test.com");
+    _entityService.ingestAspect(entityUrn1, entityName, aspectName, writeAspect1, TEST_AUDIT_STAMP, metadata1);
 
-        // Ingest CorpUserInfo Aspect #2
-        CorpUserInfo writeAspect2 = createCorpUserInfo("email2@test.com");
-        _entityService.ingestAspect(entityUrn2, entityName, aspectName, writeAspect2, TEST_AUDIT_STAMP, metadata1);
+    // Ingest CorpUserInfo Aspect #2
+    CorpUserInfo writeAspect2 = createCorpUserInfo("email2@test.com");
+    _entityService.ingestAspect(entityUrn2, entityName, aspectName, writeAspect2, TEST_AUDIT_STAMP, metadata1);
 
-        // Ingest CorpUserInfo Aspect #3
-        CorpUserInfo writeAspect3 = createCorpUserInfo("email3@test.com");
-        _entityService.ingestAspect(entityUrn3, entityName, aspectName, writeAspect3, TEST_AUDIT_STAMP, metadata1);
+    // Ingest CorpUserInfo Aspect #3
+    CorpUserInfo writeAspect3 = createCorpUserInfo("email3@test.com");
+    _entityService.ingestAspect(entityUrn3, entityName, aspectName, writeAspect3, TEST_AUDIT_STAMP, metadata1);
 
-        // Ingest CorpUserInfo Aspect #1 Overwrite
-        CorpUserInfo writeAspect1Overwrite = createCorpUserInfo("email1.overwrite@test.com");
-        _entityService.ingestAspect(entityUrn1, entityName, aspectName, writeAspect1Overwrite, TEST_AUDIT_STAMP, metadata2);
+    // Ingest CorpUserInfo Aspect #1 Overwrite
+    CorpUserInfo writeAspect1Overwrite = createCorpUserInfo("email1.overwrite@test.com");
+    _entityService.ingestAspect(entityUrn1, entityName, aspectName, writeAspect1Overwrite, TEST_AUDIT_STAMP, metadata2);
 
-        // this should no-op since this run has been overwritten
-        AspectRowSummary rollbackOverwrittenAspect = new AspectRowSummary();
-        rollbackOverwrittenAspect.setRunId("run-123");
-        rollbackOverwrittenAspect.setAspectName(aspectName);
-        rollbackOverwrittenAspect.setUrn(entityUrn1.toString());
+    // this should no-op since this run has been overwritten
+    AspectRowSummary rollbackOverwrittenAspect = new AspectRowSummary();
+    rollbackOverwrittenAspect.setRunId("run-123");
+    rollbackOverwrittenAspect.setAspectName(aspectName);
+    rollbackOverwrittenAspect.setUrn(entityUrn1.toString());
 
-        _entityService.rollbackRun(ImmutableList.of(rollbackOverwrittenAspect), "run-123");
+    _entityService.rollbackRun(ImmutableList.of(rollbackOverwrittenAspect), "run-123");
 
-        // assert nothing was deleted
-        RecordTemplate readAspectOriginal = _entityService.getAspect(entityUrn1, aspectName, 1);
-        assertTrue(DataTemplateUtil.areEqual(writeAspect1, readAspectOriginal));
+    // assert nothing was deleted
+    RecordTemplate readAspectOriginal = _entityService.getAspect(entityUrn1, aspectName, 1);
+    assertTrue(DataTemplateUtil.areEqual(writeAspect1, readAspectOriginal));
 
-        RecordTemplate readAspectOverwrite = _entityService.getAspect(entityUrn1, aspectName, 0);
-        assertTrue(DataTemplateUtil.areEqual(writeAspect1Overwrite, readAspectOverwrite));
+    RecordTemplate readAspectOverwrite = _entityService.getAspect(entityUrn1, aspectName, 0);
+    assertTrue(DataTemplateUtil.areEqual(writeAspect1Overwrite, readAspectOverwrite));
 
-        // this should delete the most recent aspect
-        AspectRowSummary rollbackRecentAspect = new AspectRowSummary();
-        rollbackRecentAspect.setRunId("run-456");
-        rollbackRecentAspect.setAspectName(aspectName);
-        rollbackRecentAspect.setUrn(entityUrn1.toString());
+    // this should delete the most recent aspect
+    AspectRowSummary rollbackRecentAspect = new AspectRowSummary();
+    rollbackRecentAspect.setRunId("run-456");
+    rollbackRecentAspect.setAspectName(aspectName);
+    rollbackRecentAspect.setUrn(entityUrn1.toString());
 
-        _entityService.rollbackRun(ImmutableList.of(rollbackOverwrittenAspect), "run-456");
+    _entityService.rollbackRun(ImmutableList.of(rollbackOverwrittenAspect), "run-456");
 
-        // assert the new most recent aspect is the original one
-        RecordTemplate readNewRecentAspect = _entityService.getAspect(entityUrn1, aspectName, 0);
-        assertTrue(DataTemplateUtil.areEqual(writeAspect1, readNewRecentAspect));
-    }
+    // assert the new most recent aspect is the original one
+    RecordTemplate readNewRecentAspect = _entityService.getAspect(entityUrn1, aspectName, 0);
+    assertTrue(DataTemplateUtil.areEqual(writeAspect1, readNewRecentAspect));
+  }
 
-    @Test
-    public void testRollbackKey() throws Exception {
-        Urn entityUrn1 = Urn.createFromString("urn:li:corpuser:test1");
+  @Test
+  public void testRollbackKey() throws Exception {
+    Urn entityUrn1 = Urn.createFromString("urn:li:corpuser:test1");
 
-        SystemMetadata metadata1 = new SystemMetadata();
-        metadata1.setLastObserved(1625792689);
-        metadata1.setRunId("run-123");
+    SystemMetadata metadata1 = new SystemMetadata();
+    metadata1.setLastObserved(1625792689);
+    metadata1.setRunId("run-123");
 
-        SystemMetadata metadata2 = new SystemMetadata();
-        metadata2.setLastObserved(1635792689);
-        metadata2.setRunId("run-456");
+    SystemMetadata metadata2 = new SystemMetadata();
+    metadata2.setLastObserved(1635792689);
+    metadata2.setRunId("run-456");
 
-        String aspectName = PegasusUtils.getAspectNameFromSchema(new CorpUserInfo().schema());
-        String keyAspectName = _entityService.getKeyAspectName(entityUrn1);
-        String entityName = "corpUser";
+    String aspectName = PegasusUtils.getAspectNameFromSchema(new CorpUserInfo().schema());
+    String keyAspectName = _entityService.getKeyAspectName(entityUrn1);
+    String entityName = "corpUser";
 
-        // Ingest CorpUserInfo Aspect #1
-        CorpUserInfo writeAspect1 = createCorpUserInfo("email@test.com");
-        _entityService.ingestAspect(entityUrn1, entityName, aspectName, writeAspect1, TEST_AUDIT_STAMP, metadata1);
+    // Ingest CorpUserInfo Aspect #1
+    CorpUserInfo writeAspect1 = createCorpUserInfo("email@test.com");
+    _entityService.ingestAspect(entityUrn1, entityName, aspectName, writeAspect1, TEST_AUDIT_STAMP, metadata1);
 
-        RecordTemplate writeKey1 = _entityService.buildKeyAspect(entityUrn1);
-        _entityService.ingestAspect(entityUrn1, entityName, keyAspectName, writeKey1, TEST_AUDIT_STAMP, metadata1);
+    RecordTemplate writeKey1 = _entityService.buildKeyAspect(entityUrn1);
+    _entityService.ingestAspect(entityUrn1, entityName, keyAspectName, writeKey1, TEST_AUDIT_STAMP, metadata1);
 
-        // Ingest CorpUserInfo Aspect #1 Overwrite
-        CorpUserInfo writeAspect1Overwrite = createCorpUserInfo("email1.overwrite@test.com");
-        _entityService.ingestAspect(entityUrn1, entityName, aspectName, writeAspect1Overwrite, TEST_AUDIT_STAMP, metadata2);
+    // Ingest CorpUserInfo Aspect #1 Overwrite
+    CorpUserInfo writeAspect1Overwrite = createCorpUserInfo("email1.overwrite@test.com");
+    _entityService.ingestAspect(entityUrn1, entityName, aspectName, writeAspect1Overwrite, TEST_AUDIT_STAMP, metadata2);
 
-        // this should no-op since the key should have been written in the furst run
-        AspectRowSummary rollbackKeyWithWrongRunId = new AspectRowSummary();
-        rollbackKeyWithWrongRunId.setRunId("run-456");
-        rollbackKeyWithWrongRunId.setAspectName("CorpUserKey");
-        rollbackKeyWithWrongRunId.setUrn(entityUrn1.toString());
+    // this should no-op since the key should have been written in the furst run
+    AspectRowSummary rollbackKeyWithWrongRunId = new AspectRowSummary();
+    rollbackKeyWithWrongRunId.setRunId("run-456");
+    rollbackKeyWithWrongRunId.setAspectName("CorpUserKey");
+    rollbackKeyWithWrongRunId.setUrn(entityUrn1.toString());
 
-        _entityService.rollbackRun(ImmutableList.of(rollbackKeyWithWrongRunId), "run-456");
+    _entityService.rollbackRun(ImmutableList.of(rollbackKeyWithWrongRunId), "run-456");
 
-        // assert nothing was deleted
-        RecordTemplate readAspectOriginal = _entityService.getAspect(entityUrn1, aspectName, 1);
-        assertTrue(DataTemplateUtil.areEqual(writeAspect1, readAspectOriginal));
+    // assert nothing was deleted
+    RecordTemplate readAspectOriginal = _entityService.getAspect(entityUrn1, aspectName, 1);
+    assertTrue(DataTemplateUtil.areEqual(writeAspect1, readAspectOriginal));
 
-        RecordTemplate readAspectOverwrite = _entityService.getAspect(entityUrn1, aspectName, 0);
-        assertTrue(DataTemplateUtil.areEqual(writeAspect1Overwrite, readAspectOverwrite));
+    RecordTemplate readAspectOverwrite = _entityService.getAspect(entityUrn1, aspectName, 0);
+    assertTrue(DataTemplateUtil.areEqual(writeAspect1Overwrite, readAspectOverwrite));
 
-        // this should delete the most recent aspect
-        AspectRowSummary rollbackKeyWithCorrectRunId = new AspectRowSummary();
-        rollbackKeyWithCorrectRunId.setRunId("run-123");
-        rollbackKeyWithCorrectRunId.setAspectName("corpUserKey");
-        rollbackKeyWithCorrectRunId.setUrn(entityUrn1.toString());
+    // this should delete the most recent aspect
+    AspectRowSummary rollbackKeyWithCorrectRunId = new AspectRowSummary();
+    rollbackKeyWithCorrectRunId.setRunId("run-123");
+    rollbackKeyWithCorrectRunId.setAspectName("corpUserKey");
+    rollbackKeyWithCorrectRunId.setUrn(entityUrn1.toString());
 
-        _entityService.rollbackRun(ImmutableList.of(rollbackKeyWithCorrectRunId), "run-123");
+    _entityService.rollbackRun(ImmutableList.of(rollbackKeyWithCorrectRunId), "run-123");
 
-        // assert the new most recent aspect is null
-        RecordTemplate readNewRecentAspect = _entityService.getAspect(entityUrn1, aspectName, 0);
-        assertTrue(DataTemplateUtil.areEqual(null, readNewRecentAspect));
-    }
+    // assert the new most recent aspect is null
+    RecordTemplate readNewRecentAspect = _entityService.getAspect(entityUrn1, aspectName, 0);
+    assertTrue(DataTemplateUtil.areEqual(null, readNewRecentAspect));
+  }
 
-    @Test
-    public void testRollbackUrn() throws Exception {
-        Urn entityUrn1 = Urn.createFromString("urn:li:corpuser:test1");
-        Urn entityUrn2 = Urn.createFromString("urn:li:corpuser:test2");
-        Urn entityUrn3 = Urn.createFromString("urn:li:corpuser:test3");
+  @Test
+  public void testRollbackUrn() throws Exception {
+    Urn entityUrn1 = Urn.createFromString("urn:li:corpuser:test1");
+    Urn entityUrn2 = Urn.createFromString("urn:li:corpuser:test2");
+    Urn entityUrn3 = Urn.createFromString("urn:li:corpuser:test3");
 
-        SystemMetadata metadata1 = new SystemMetadata();
-        metadata1.setLastObserved(1625792689);
-        metadata1.setRunId("run-123");
+    SystemMetadata metadata1 = new SystemMetadata();
+    metadata1.setLastObserved(1625792689);
+    metadata1.setRunId("run-123");
 
-        SystemMetadata metadata2 = new SystemMetadata();
-        metadata2.setLastObserved(1635792689);
-        metadata2.setRunId("run-456");
+    SystemMetadata metadata2 = new SystemMetadata();
+    metadata2.setLastObserved(1635792689);
+    metadata2.setRunId("run-456");
 
-        String aspectName = PegasusUtils.getAspectNameFromSchema(new CorpUserInfo().schema());
-        String entityName = "corpUser";
-        String keyAspectName = _entityService.getKeyAspectName(entityUrn1);
+    String aspectName = PegasusUtils.getAspectNameFromSchema(new CorpUserInfo().schema());
+    String entityName = "corpUser";
+    String keyAspectName = _entityService.getKeyAspectName(entityUrn1);
 
-        // Ingest CorpUserInfo Aspect #1
-        CorpUserInfo writeAspect1 = createCorpUserInfo("email@test.com");
-        _entityService.ingestAspect(entityUrn1, entityName, aspectName, writeAspect1, TEST_AUDIT_STAMP, metadata1);
+    // Ingest CorpUserInfo Aspect #1
+    CorpUserInfo writeAspect1 = createCorpUserInfo("email@test.com");
+    _entityService.ingestAspect(entityUrn1, entityName, aspectName, writeAspect1, TEST_AUDIT_STAMP, metadata1);
 
-        RecordTemplate writeKey1 = _entityService.buildKeyAspect(entityUrn1);
-        _entityService.ingestAspect(entityUrn1, entityName, keyAspectName, writeKey1, TEST_AUDIT_STAMP, metadata1);
+    RecordTemplate writeKey1 = _entityService.buildKeyAspect(entityUrn1);
+    _entityService.ingestAspect(entityUrn1, entityName, keyAspectName, writeKey1, TEST_AUDIT_STAMP, metadata1);
 
-        // Ingest CorpUserInfo Aspect #2
-        CorpUserInfo writeAspect2 = createCorpUserInfo("email2@test.com");
-        _entityService.ingestAspect(entityUrn2, entityName, aspectName, writeAspect2, TEST_AUDIT_STAMP, metadata1);
+    // Ingest CorpUserInfo Aspect #2
+    CorpUserInfo writeAspect2 = createCorpUserInfo("email2@test.com");
+    _entityService.ingestAspect(entityUrn2, entityName, aspectName, writeAspect2, TEST_AUDIT_STAMP, metadata1);
 
-        // Ingest CorpUserInfo Aspect #3
-        CorpUserInfo writeAspect3 = createCorpUserInfo("email3@test.com");
-        _entityService.ingestAspect(entityUrn3, entityName, aspectName, writeAspect3, TEST_AUDIT_STAMP, metadata1);
+    // Ingest CorpUserInfo Aspect #3
+    CorpUserInfo writeAspect3 = createCorpUserInfo("email3@test.com");
+    _entityService.ingestAspect(entityUrn3, entityName, aspectName, writeAspect3, TEST_AUDIT_STAMP, metadata1);
 
-        // Ingest CorpUserInfo Aspect #1 Overwrite
-        CorpUserInfo writeAspect1Overwrite = createCorpUserInfo("email1.overwrite@test.com");
-        _entityService.ingestAspect(entityUrn1, entityName, aspectName, writeAspect1Overwrite, TEST_AUDIT_STAMP, metadata2);
+    // Ingest CorpUserInfo Aspect #1 Overwrite
+    CorpUserInfo writeAspect1Overwrite = createCorpUserInfo("email1.overwrite@test.com");
+    _entityService.ingestAspect(entityUrn1, entityName, aspectName, writeAspect1Overwrite, TEST_AUDIT_STAMP, metadata2);
 
-        // this should no-op since the key should have been written in the furst run
-        AspectRowSummary rollbackKeyWithWrongRunId = new AspectRowSummary();
-        rollbackKeyWithWrongRunId.setRunId("run-456");
-        rollbackKeyWithWrongRunId.setAspectName("CorpUserKey");
-        rollbackKeyWithWrongRunId.setUrn(entityUrn1.toString());
+    // this should no-op since the key should have been written in the furst run
+    AspectRowSummary rollbackKeyWithWrongRunId = new AspectRowSummary();
+    rollbackKeyWithWrongRunId.setRunId("run-456");
+    rollbackKeyWithWrongRunId.setAspectName("CorpUserKey");
+    rollbackKeyWithWrongRunId.setUrn(entityUrn1.toString());
 
-        // this should delete all related aspects
-        _entityService.deleteUrn(Urn.createFromString("urn:li:corpuser:test1"));
+    // this should delete all related aspects
+    _entityService.deleteUrn(Urn.createFromString("urn:li:corpuser:test1"));
 
-        // assert the new most recent aspect is null
-        RecordTemplate readNewRecentAspect = _entityService.getAspect(entityUrn1, aspectName, 0);
-        assertTrue(DataTemplateUtil.areEqual(null, readNewRecentAspect));
+    // assert the new most recent aspect is null
+    RecordTemplate readNewRecentAspect = _entityService.getAspect(entityUrn1, aspectName, 0);
+    assertTrue(DataTemplateUtil.areEqual(null, readNewRecentAspect));
 
-        RecordTemplate deletedKeyAspect = _entityService.getAspect(entityUrn1, "corpUserKey", 0);
-        assertTrue(DataTemplateUtil.areEqual(null, deletedKeyAspect));
-    }
+    RecordTemplate deletedKeyAspect = _entityService.getAspect(entityUrn1, "corpUserKey", 0);
+    assertTrue(DataTemplateUtil.areEqual(null, deletedKeyAspect));
+  }
 
   @Test
   public void testIngestListUrns() throws Exception {
@@ -624,21 +615,22 @@ public class EbeanEntityServiceTest {
     metadata1.setRunId("run-123");
 
     String aspectName = PegasusUtils.getAspectNameFromSchema(new CorpUserKey().schema());
+    String entityName = "corpUser";
 
     // Ingest CorpUserInfo Aspect #1
     RecordTemplate writeAspect1 = createCorpUserKey(entityUrn1);
-    _entityService.ingestAspect(entityUrn1, aspectName, writeAspect1, TEST_AUDIT_STAMP, metadata1);
+    _entityService.ingestAspect(entityUrn1, entityName, aspectName, writeAspect1, TEST_AUDIT_STAMP, metadata1);
 
     // Ingest CorpUserInfo Aspect #2
     RecordTemplate writeAspect2 = createCorpUserKey(entityUrn2);
-    _entityService.ingestAspect(entityUrn2, aspectName, writeAspect2, TEST_AUDIT_STAMP, metadata1);
+    _entityService.ingestAspect(entityUrn2, entityName, aspectName, writeAspect2, TEST_AUDIT_STAMP, metadata1);
 
     // Ingest CorpUserInfo Aspect #3
     RecordTemplate writeAspect3 = createCorpUserKey(entityUrn3);
-    _entityService.ingestAspect(entityUrn3, aspectName, writeAspect3, TEST_AUDIT_STAMP, metadata1);
+    _entityService.ingestAspect(entityUrn3, entityName, aspectName, writeAspect3, TEST_AUDIT_STAMP, metadata1);
 
     // List aspects urns
-    ListUrnsResult batch1 = _entityService.listUrns(entityUrn1.getEntityType(),  0, 2);
+    ListUrnsResult batch1 = _entityService.listUrns(entityUrn1.getEntityType(), 0, 2);
 
     assertEquals(0, (int) batch1.getStart());
     assertEquals(2, (int) batch1.getCount());
@@ -647,7 +639,7 @@ public class EbeanEntityServiceTest {
     assertEquals(entityUrn1.toString(), batch1.getEntities().get(0).toString());
     assertEquals(entityUrn2.toString(), batch1.getEntities().get(1).toString());
 
-    ListUrnsResult batch2 = _entityService.listUrns(entityUrn1.getEntityType(),  2, 2);
+    ListUrnsResult batch2 = _entityService.listUrns(entityUrn1.getEntityType(), 2, 2);
 
     assertEquals(2, (int) batch2.getStart());
     assertEquals(1, (int) batch2.getCount());
@@ -670,82 +662,68 @@ public class EbeanEntityServiceTest {
     entity.setValue(snapshot);
     return entity;
   }
-    @Test
-    public void testInjestAspectWithChangeProcessorShouldIgnoreUpdate() throws Exception {
-        ChangeProcessor changeProcessor = mock(ChangeProcessor.class);
-        when(changeProcessor.process(any(), any(), any(), any())).thenReturn(new ProcessChangeResult(null, ChangeState.STOP_PROCESSING, new ArrayList<>()));
-        String entityName = "corpUser";
 
-        _changeStreamProcessor.addBeforeChangeProcessor(entityName, "corpUserInfo", changeProcessor);
+  @Test
+  public void testInjestAspectWithChangeProcessorShouldIgnoreUpdate() throws Exception {
+    ChangeProcessor changeProcessor = mock(ChangeProcessor.class);
+    when(changeProcessor.process(any(), any(), any(), any())).thenReturn(new ProcessChangeResult(null, ChangeState.STOP_PROCESSING, new ArrayList<>()));
+    String entityName = "corpUser";
 
-        _entityService = new EbeanEntityService(_aspectDao, _mockProducer, _testEntityRegistry, _changeStreamProcessor);
+    _changeStreamProcessor.addBeforeChangeProcessor(entityName, "corpUserInfo", changeProcessor);
 
-        Urn entityUrn = Urn.createFromString("urn:li:corpuser:test");
+    _entityService = new EbeanEntityService(_aspectDao, _mockProducer, _testEntityRegistry, _changeStreamProcessor);
 
-        // Ingest CorpUserInfo Aspect with bad email address
-        CorpUserInfo writeAspect1 = createCorpUserInfo("email@test.com");
-        String aspectName = PegasusUtils.getAspectNameFromSchema(writeAspect1.schema());
-        SystemMetadata metadata1 = new SystemMetadata();
-        _entityService.ingestAspect(entityUrn, entityName, aspectName, writeAspect1, TEST_AUDIT_STAMP, metadata1);
-        RecordTemplate readAspectOriginal = _entityService.getAspect(entityUrn, aspectName, 0);
+    Urn entityUrn = Urn.createFromString("urn:li:corpuser:test");
 
-        // Should ignore updated aspect with disallowed email address
-        assertNull(readAspectOriginal);
-    }
+    // Ingest CorpUserInfo Aspect with bad email address
+    CorpUserInfo writeAspect1 = createCorpUserInfo("email@test.com");
+    String aspectName = PegasusUtils.getAspectNameFromSchema(writeAspect1.schema());
+    SystemMetadata metadata1 = new SystemMetadata();
+    _entityService.ingestAspect(entityUrn, entityName, aspectName, writeAspect1, TEST_AUDIT_STAMP, metadata1);
+    RecordTemplate readAspectOriginal = _entityService.getAspect(entityUrn, aspectName, 0);
 
-    @Test
-    public void testInjestAspectWithCustomLogicShouldIgnoreUpdates() throws Exception {
-        Urn entityUrn = Urn.createFromString("urn:li:corpuser:test");
+    // Should ignore updated aspect with disallowed email address
+    assertNull(readAspectOriginal);
+  }
 
-        CorpUserInfo writeAspect1 = createCorpUserInfo("email@properemail.com");
-        String aspectName = PegasusUtils.getAspectNameFromSchema(writeAspect1.schema());
-        String entityName = "corpUser";
-        SystemMetadata metadata1 = new SystemMetadata();
+  @Test
+  public void testInjestAspectWithCustomLogicShouldIgnoreUpdates() throws Exception {
+    Urn entityUrn = Urn.createFromString("urn:li:corpuser:test");
 
-        CorpUserInfo writeAspect2 = createCorpUserInfo("disallowedEmail@test.com");
-        SystemMetadata metadata2 = new SystemMetadata();
+    CorpUserInfo writeAspect1 = createCorpUserInfo("email@properemail.com");
+    String aspectName = PegasusUtils.getAspectNameFromSchema(writeAspect1.schema());
+    String entityName = "corpUser";
+    SystemMetadata metadata1 = new SystemMetadata();
 
-        // Setup a change processor to allow the initial change
-        ChangeProcessor changeProcessor = mock(ChangeProcessor.class);
-        when(changeProcessor.process(entityName, aspectName, null, writeAspect1))
-                .thenReturn(new ProcessChangeResult(writeAspect1, ChangeState.CONTINUE, new ArrayList<>()));
+    CorpUserInfo writeAspect2 = createCorpUserInfo("disallowedEmail@test.com");
+    SystemMetadata metadata2 = new SystemMetadata();
 
-        when(changeProcessor.process(entityName, aspectName, writeAspect1, writeAspect2))
-                .thenReturn(new ProcessChangeResult(writeAspect1, ChangeState.STOP_PROCESSING, new ArrayList<>()));
+    // Setup a change processor to allow the initial change
+    ChangeProcessor changeProcessor = mock(ChangeProcessor.class);
+    when(changeProcessor.process(entityName, aspectName, null, writeAspect1))
+        .thenReturn(new ProcessChangeResult(writeAspect1, ChangeState.CONTINUE, new ArrayList<>()));
 
-        _changeStreamProcessor.addBeforeChangeProcessor(entityName, "corpUserInfo", changeProcessor);
+    when(changeProcessor.process(entityName, aspectName, writeAspect1, writeAspect2))
+        .thenReturn(new ProcessChangeResult(writeAspect1, ChangeState.STOP_PROCESSING, new ArrayList<>()));
 
-        _entityService = new EbeanEntityService(_aspectDao, _mockProducer, _testEntityRegistry, _changeStreamProcessor);
+    _changeStreamProcessor.addBeforeChangeProcessor(entityName, "corpUserInfo", changeProcessor);
 
-        // Ingest CorpUserInfo Aspect #1 with correct email address
-        _entityService.ingestAspect(entityUrn, entityName, aspectName, writeAspect1, TEST_AUDIT_STAMP, metadata1);
-        RecordTemplate readAspectOriginal = _entityService.getAspect(entityUrn, aspectName, 0);
+    _entityService = new EbeanEntityService(_aspectDao, _mockProducer, _testEntityRegistry, _changeStreamProcessor);
 
-        // Shouldn't ignore correct email address
-        assertTrue(DataTemplateUtil.areEqual(writeAspect1, readAspectOriginal));
+    // Ingest CorpUserInfo Aspect #1 with correct email address
+    _entityService.ingestAspect(entityUrn, entityName, aspectName, writeAspect1, TEST_AUDIT_STAMP, metadata1);
+    RecordTemplate readAspectOriginal = _entityService.getAspect(entityUrn, aspectName, 0);
 
-        // Ingest CorpUserInfo Aspect #2 with bad email address
-        _entityService.ingestAspect(entityUrn, entityName, aspectName, writeAspect2, TEST_AUDIT_STAMP, metadata2);
-        RecordTemplate readAspectOriginalUnchanged = _entityService.getAspect(entityUrn, aspectName, 0);
+    // Shouldn't ignore correct email address
+    assertTrue(DataTemplateUtil.areEqual(writeAspect1, readAspectOriginal));
 
-        // Should ignore updated aspect with disallowed email address
-        assertTrue(DataTemplateUtil.areEqual(writeAspect1, readAspectOriginalUnchanged));
-    }
+    // Ingest CorpUserInfo Aspect #2 with bad email address
+    _entityService.ingestAspect(entityUrn, entityName, aspectName, writeAspect2, TEST_AUDIT_STAMP, metadata2);
+    RecordTemplate readAspectOriginalUnchanged = _entityService.getAspect(entityUrn, aspectName, 0);
 
-    @Nonnull
-    private com.linkedin.entity.Entity createCorpUserEntity(Urn entityUrn, String email) throws Exception {
-        CorpuserUrn corpuserUrn = CorpuserUrn.createFromUrn(entityUrn);
-        com.linkedin.entity.Entity entity = new com.linkedin.entity.Entity();
-        Snapshot snapshot = new Snapshot();
-        CorpUserSnapshot corpUserSnapshot = new CorpUserSnapshot();
-        List<CorpUserAspect> userAspects = new ArrayList<>();
-        userAspects.add(CorpUserAspect.create(createCorpUserInfo(email)));
-        corpUserSnapshot.setAspects(new CorpUserAspectArray(userAspects));
-        corpUserSnapshot.setUrn(corpuserUrn);
-        snapshot.setCorpUserSnapshot(corpUserSnapshot);
-        entity.setValue(snapshot);
-        return entity;
-    }
+    // Should ignore updated aspect with disallowed email address
+    assertTrue(DataTemplateUtil.areEqual(writeAspect1, readAspectOriginalUnchanged));
+  }
 
   @Nonnull
   private RecordTemplate createCorpUserKey(Urn urn) throws Exception {
