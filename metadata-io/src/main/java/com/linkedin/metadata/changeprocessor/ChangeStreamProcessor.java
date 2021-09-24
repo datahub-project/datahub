@@ -64,7 +64,8 @@ public class ChangeStreamProcessor {
                                       RecordTemplate newAspect,
                                       Map<String, SortedSet<ChangeProcessor>> processorMap) {
 
-    SortedSet<ChangeProcessor> changeProcessors = processorMap.getOrDefault(aspectName, _emptySet);
+    String processorKey = (entityName + aspectName).toLowerCase();
+    SortedSet<ChangeProcessor> changeProcessors = processorMap.getOrDefault(processorKey, _emptySet);
 
     if (changeProcessors.isEmpty()) {
       return new ProcessChangeResult(newAspect, ChangeState.CONTINUE, new ArrayList<>());
@@ -74,7 +75,7 @@ public class ChangeStreamProcessor {
     ProcessChangeResult result = new ProcessChangeResult(newAspect, ChangeState.CONTINUE, messages);
 
     for (ChangeProcessor processor : changeProcessors) {
-      result = processor.afterChange(entityName, aspectName, previousAspect, result.getAspect());
+      result = processor.process(entityName, aspectName, previousAspect, result.getAspect());
       messages.addAll(result.getMessages());
     }
 
