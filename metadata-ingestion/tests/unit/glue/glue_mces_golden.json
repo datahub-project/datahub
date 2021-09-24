@@ -192,10 +192,27 @@
                   "globalTags": null,
                   "glossaryTerms": null,
                   "isPartOfKey": false
+                },
+                {
+                  "fieldPath": "year",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": null,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                  },
+                  "nativeDataType": "string",
+                  "recursive": false,
+                  "globalTags": null,
+                  "glossaryTerms": null,
+                  "isPartOfKey": false
                 }
               ],
               "primaryKeys": null,
-              "foreignKeysSpecs": null
+              "foreignKeysSpecs": null,
+              "foreignKeys": null
             }
           }
         ]
@@ -305,7 +322,8 @@
                 }
               ],
               "primaryKeys": null,
-              "foreignKeysSpecs": null
+              "foreignKeysSpecs": null,
+              "foreignKeys": null
             }
           }
         ]
@@ -458,10 +476,27 @@
                   "globalTags": null,
                   "glossaryTerms": null,
                   "isPartOfKey": false
+                },
+                {
+                  "fieldPath": "year",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": null,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                  },
+                  "nativeDataType": "string",
+                  "recursive": false,
+                  "globalTags": null,
+                  "glossaryTerms": null,
+                  "isPartOfKey": false
                 }
               ],
               "primaryKeys": null,
-              "foreignKeysSpecs": null
+              "foreignKeysSpecs": null,
+              "foreignKeys": null
             }
           }
         ]

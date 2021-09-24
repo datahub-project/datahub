@@ -9,7 +9,8 @@ const Title = styled(Typography.Text)`
     && {
         margin: 0px 0px 0px 120px;
         font-size: 32px;
-        color: ${(props) => props.theme.styles['homepage-background-upper-fade']};
+        color: ${(props) =>
+            props.theme.styles['homepage-text-color'] || props.theme.styles['homepage-background-upper-fade']};
     }
 `;
 

@@ -1,5 +1,5 @@
-mutation updateDataset($input: DatasetUpdateInput!) {
-    updateDataset(input: $input) {
+mutation updateDataset($urn: String!, $input: DatasetUpdateInput!) {
+    updateDataset(urn: $urn, input: $input) {
         ...nonRecursiveDatasetFields
         downstreamLineage {
             ...downstreamRelationshipFields
@@ -55,6 +55,9 @@ query getDataset($urn: String!) {
                 description
                 globalTags {
                     ...globalTagsFields
+                }
+                glossaryTerms {
+                    ...glossaryTerms
                 }
             }
         }

@@ -9,6 +9,7 @@ from ......schema_classes import CorpGroupKeyClass
 from ......schema_classes import CorpUserKeyClass
 from ......schema_classes import DashboardKeyClass
 from ......schema_classes import DataFlowKeyClass
+from ......schema_classes import DataHubPolicyKeyClass
 from ......schema_classes import DataJobKeyClass
 from ......schema_classes import DataPlatformKeyClass
 from ......schema_classes import DataProcessKeyClass
@@ -21,6 +22,7 @@ from ......schema_classes import MLModelDeploymentKeyClass
 from ......schema_classes import MLModelGroupKeyClass
 from ......schema_classes import MLModelKeyClass
 from ......schema_classes import MLPrimaryKeyKeyClass
+from ......schema_classes import SchemaFieldKeyClass
 from ......schema_classes import TagKeyClass
 
 
@@ -29,6 +31,7 @@ CorpGroupKey = CorpGroupKeyClass
 CorpUserKey = CorpUserKeyClass
 DashboardKey = DashboardKeyClass
 DataFlowKey = DataFlowKeyClass
+DataHubPolicyKey = DataHubPolicyKeyClass
 DataJobKey = DataJobKeyClass
 DataPlatformKey = DataPlatformKeyClass
 DataProcessKey = DataProcessKeyClass
@@ -41,5 +44,6 @@ MLModelDeploymentKey = MLModelDeploymentKeyClass
 MLModelGroupKey = MLModelGroupKeyClass
 MLModelKey = MLModelKeyClass
 MLPrimaryKeyKey = MLPrimaryKeyKeyClass
+SchemaFieldKey = SchemaFieldKeyClass
 TagKey = TagKeyClass
 # fmt: on

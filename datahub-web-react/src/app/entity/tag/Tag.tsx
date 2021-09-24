@@ -42,6 +42,8 @@ export class TagEntity implements Entity<Tag> {
 
     getCollectionName: () => string = () => 'Tags';
 
+    getEntityName: () => string = () => 'Tag';
+
     renderProfile: (urn: string) => JSX.Element = (_) => <TagProfile />;
 
     renderPreview = (_: PreviewType, data: Tag) => (
@@ -54,5 +56,9 @@ export class TagEntity implements Entity<Tag> {
 
     renderSearch = (result: SearchResult) => {
         return this.renderPreview(PreviewType.SEARCH, result.entity as Tag);
+    };
+
+    displayName = (data: Tag) => {
+        return data.name;
     };
 }

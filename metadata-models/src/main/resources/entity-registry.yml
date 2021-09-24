@@ -3,3 +3,8 @@ entities:
     keyAspect: datasetKey
     aspects:
       - datasetProfile
+      - datasetUsageStatistics
+  - name: dataHubPolicy
+    keyAspect: dataHubPolicyKey
+    aspects:
+      - dataHubPolicyInfo

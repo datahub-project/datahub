@@ -65,6 +65,11 @@ aws_common = {
     "boto3"
 }
 
+looker_common = {
+    # Looker Python SDK
+    "looker-sdk==21.6.0"
+}
+
 # Note: for all of these, framework_common will be added.
 plugins: Dict[str, Set[str]] = {
     # Sink plugins.
@@ -76,9 +81,10 @@ plugins: Dict[str, Set[str]] = {
     },
     # Source plugins
     "athena": sql_common | {"PyAthena[SQLAlchemy]"},
-    "azure": set(),
+    "azure-ad": set(),
     "bigquery": sql_common | {"pybigquery >= 0.6.0"},
     "bigquery-usage": {"google-cloud-logging", "cachetools"},
+    "datahub-business-glossary": set(),
     "dbt": set(),
     "druid": sql_common | {"pydruid>=0.6.2"},
     "feast": {"docker"},
@@ -92,8 +98,8 @@ plugins: Dict[str, Set[str]] = {
     "kafka": kafka_common,
     "kafka-connect": sql_common | {"requests"},
     "ldap": {"python-ldap>=2.4"},
-    "looker": {"looker-sdk==21.6.0"},
-    "lookml": {"lkml>=1.1.0", "sql-metadata==2.2.1"},
+    "looker": looker_common,
+    "lookml": looker_common | {"lkml>=1.1.0", "sql-metadata==2.2.1"},
     "mongodb": {"pymongo>=3.11"},
     "mssql": sql_common | {"sqlalchemy-pytds>=0.3"},
     "mssql-odbc": sql_common | {"pyodbc"},
@@ -103,6 +109,8 @@ plugins: Dict[str, Set[str]] = {
     "postgres": sql_common | {"psycopg2-binary", "GeoAlchemy2"},
     "redash": {"redash-toolbelt"},
     "redshift": sql_common | {"sqlalchemy-redshift", "psycopg2-binary", "GeoAlchemy2"},
+    "redshift-usage": sql_common
+    | {"sqlalchemy-redshift", "psycopg2-binary", "GeoAlchemy2"},
     "sagemaker": aws_common,
     "snowflake": sql_common | {"snowflake-sqlalchemy<=1.2.4"},
     "snowflake-usage": sql_common | {"snowflake-sqlalchemy<=1.2.4"},
@@ -169,6 +177,8 @@ base_dev_requirements = {
             "datahub-kafka",
             "datahub-rest",
             "redash",
+            "redshift",
+            "redshift-usage"
             # airflow is added below
         ]
         for dependency in plugins[plugin]
@@ -218,7 +228,7 @@ entry_points = {
         "file = datahub.ingestion.source.file:GenericFileSource",
         "sqlalchemy = datahub.ingestion.source.sql.sql_generic:SQLAlchemyGenericSource",
         "athena = datahub.ingestion.source.sql.athena:AthenaSource",
-        "azure = datahub.ingestion.source.identity.azure:AzureSource",
+        "azure-ad = datahub.ingestion.source.identity.azure_ad:AzureADSource",
         "bigquery = datahub.ingestion.source.sql.bigquery:BigQuerySource",
         "bigquery-usage = datahub.ingestion.source.usage.bigquery_usage:BigQueryUsageSource",
         "dbt = datahub.ingestion.source.dbt:DBTSource",
@@ -232,6 +242,7 @@ entry_points = {
         "ldap = datahub.ingestion.source.ldap:LDAPSource",
         "looker = datahub.ingestion.source.looker:LookerDashboardSource",
         "lookml = datahub.ingestion.source.lookml:LookMLSource",
+        "datahub-business-glossary = datahub.ingestion.source.metadata.business_glossary:BusinessGlossaryFileSource",
         "mongodb = datahub.ingestion.source.mongodb:MongoDBSource",
         "mssql = datahub.ingestion.source.sql.mssql:SQLServerSource",
         "mysql = datahub.ingestion.source.sql.mysql:MySQLSource",
@@ -240,6 +251,7 @@ entry_points = {
         "postgres = datahub.ingestion.source.sql.postgres:PostgresSource",
         "redash = datahub.ingestion.source.redash:RedashSource",
         "redshift = datahub.ingestion.source.sql.redshift:RedshiftSource",
+        "redshift-usage = datahub.ingestion.source.usage.redshift_usage:RedshiftUsageSource",
         "snowflake = datahub.ingestion.source.sql.snowflake:SnowflakeSource",
         "snowflake-usage = datahub.ingestion.source.usage.snowflake_usage:SnowflakeUsageSource",
         "superset = datahub.ingestion.source.superset:SupersetSource",

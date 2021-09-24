@@ -37,7 +37,6 @@ public class TagSnapshotMapper implements ModelMapper<TagSnapshot, Tag> {
                 if (TagProperties.class.cast(aspect).hasDescription()) {
                     result.setDescription(TagProperties.class.cast(aspect).getDescription());
                 }
-                result.setName(TagProperties.class.cast(aspect).getName());
             } else if (aspect instanceof Ownership) {
                 result.setOwnership(OwnershipMapper.map((Ownership) aspect));
             }

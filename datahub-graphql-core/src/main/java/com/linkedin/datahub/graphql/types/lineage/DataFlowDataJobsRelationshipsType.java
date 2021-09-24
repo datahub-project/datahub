@@ -34,7 +34,13 @@ public class DataFlowDataJobsRelationshipsType implements LoadableType<DataFlowD
             return keys.stream().map(urn -> {
                 try {
                     com.linkedin.common.EntityRelationships relationships =
-                            _relationshipClientClient.getRelationships(urn, _direction, ImmutableList.of("IsPartOf"), null, null);
+                            _relationshipClientClient.getRelationships(
+                                urn,
+                                _direction,
+                                ImmutableList.of("IsPartOf"),
+                                null,
+                                null,
+                                context.getActor());
                     return DataFetcherResult.<DataFlowDataJobsRelationships>newResult().data(DataFlowDataJobsRelationshipsMapper.map(relationships)).build();
                 } catch (RemoteInvocationException | URISyntaxException e) {
                     throw new RuntimeException(String.format("Failed to batch load DataJobs for DataFlow %s", urn), e);

@@ -1,0 +1,51 @@
+namespace com.linkedin.policy
+
+/**
+ * Information about a DataHub (UI) access policy.
+ */
+@Aspect = {
+  "name": "dataHubPolicyInfo"
+}
+record DataHubPolicyInfo {
+
+  /**
+   * Display name of the Policy
+   */
+  displayName: string
+
+  /**
+   * Description of the Policy
+   */
+  description: string
+
+  /**
+   * The type of policy
+   */
+  type: string
+
+  /**
+   * The state of policy, ACTIVE or INACTIVE
+   */
+  state: string
+
+  /**
+   * The resource that the policy applies to. Not required for some 'Platform' privileges.
+   */
+  resources: optional DataHubResourceFilter
+
+  /**
+   * The privileges that the policy grants.
+   */
+  privileges: array[string]
+
+  /**
+   * The actors that the policy applies to.
+   */
+  actors: DataHubActorFilter
+
+  /**
+   * Whether the policy should be editable via the UI
+   */
+  editable: boolean = true
+
+}

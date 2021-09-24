@@ -1,7 +1,7 @@
 """Convenience functions for creating MCEs"""
 import logging
 import time
-from typing import List, Optional, Type, TypeVar, get_type_hints
+from typing import List, Optional, Type, TypeVar, cast, get_type_hints
 
 import typing_inspect
 from avrogen.dict_wrapper import DictWrapper
@@ -10,6 +10,7 @@ from datahub.metadata.schema_classes import (
     DatasetLineageTypeClass,
     DatasetSnapshotClass,
     MetadataChangeEventClass,
+    OwnershipTypeClass,
     UpstreamClass,
     UpstreamLineageClass,
 )
@@ -45,6 +46,10 @@ def make_dataset_urn(platform: str, name: str, env: str = DEFAULT_ENV) -> str:
 
 def make_user_urn(username: str) -> str:
     return f"urn:li:corpuser:{username}"
+
+
+def make_group_urn(groupname: str) -> str:
+    return f"urn:li:corpGroup:{groupname}"
 
 
 def make_tag_urn(tag: str) -> str:
@@ -110,6 +115,24 @@ def make_ml_model_group_urn(platform: str, group_name: str, env: str) -> str:
     return (
         f"urn:li:mlModelGroup:({make_data_platform_urn(platform)},{group_name},{env})"
     )
+
+
+def is_valid_ownership_type(ownership_type: Optional[str]) -> bool:
+    return ownership_type is not None and ownership_type in [
+        OwnershipTypeClass.DEVELOPER,
+        OwnershipTypeClass.DATAOWNER,
+        OwnershipTypeClass.DELEGATE,
+        OwnershipTypeClass.PRODUCER,
+        OwnershipTypeClass.CONSUMER,
+        OwnershipTypeClass.STAKEHOLDER,
+    ]
+
+
+def validate_ownership_type(ownership_type: Optional[str]) -> str:
+    if is_valid_ownership_type(ownership_type):
+        return cast(str, ownership_type)
+    else:
+        raise ValueError(f"Unexpected ownership type: {ownership_type}")
 
 
 def make_lineage_mce(

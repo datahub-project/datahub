@@ -3,7 +3,6 @@ package com.linkedin.datahub.graphql.types.datajob.mappers;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.TagAssociationArray;
-import com.linkedin.common.urn.DataJobUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.generated.DataJobUpdateInput;
@@ -15,7 +14,6 @@ import com.linkedin.datajob.EditableDataJobProperties;
 import com.linkedin.metadata.aspect.DataJobAspect;
 import com.linkedin.metadata.aspect.DataJobAspectArray;
 import com.linkedin.metadata.snapshot.DataJobSnapshot;
-import java.net.URISyntaxException;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 
@@ -39,27 +37,29 @@ public class DataJobUpdateInputSnapshotMapper implements InputModelMapper<DataJo
         auditStamp.setActor(actor, SetMode.IGNORE_NULL);
         auditStamp.setTime(System.currentTimeMillis());
 
-        try {
-            result.setUrn(DataJobUrn.createFromString(dataJobUpdateInput.getUrn()));
-        } catch (URISyntaxException e) {
-            throw new IllegalArgumentException(
-                String.format("Failed to validate provided urn with value %s", dataJobUpdateInput.getUrn()));
-        }
-
         final DataJobAspectArray aspects = new DataJobAspectArray();
 
         if (dataJobUpdateInput.getOwnership() != null) {
             aspects.add(DataJobAspect.create(OwnershipUpdateMapper.map(dataJobUpdateInput.getOwnership(), actor)));
         }
 
-        if (dataJobUpdateInput.getGlobalTags() != null) {
+        if (dataJobUpdateInput.getTags() != null || dataJobUpdateInput.getGlobalTags() != null) {
             final GlobalTags globalTags = new GlobalTags();
-            globalTags.setTags(
+            if (dataJobUpdateInput.getGlobalTags() != null) {
+                globalTags.setTags(
                     new TagAssociationArray(
-                            dataJobUpdateInput.getGlobalTags().getTags().stream().map(TagAssociationUpdateMapper::map
-                            ).collect(Collectors.toList())
+                        dataJobUpdateInput.getGlobalTags().getTags().stream().map(TagAssociationUpdateMapper::map
+                        ).collect(Collectors.toList())
                     )
-            );
+                );
+            } else {
+                globalTags.setTags(
+                    new TagAssociationArray(
+                        dataJobUpdateInput.getTags().getTags().stream().map(TagAssociationUpdateMapper::map
+                        ).collect(Collectors.toList())
+                    )
+                );
+            }
             aspects.add(DataJobAspect.create(globalTags));
         }
 

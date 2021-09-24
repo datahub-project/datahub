@@ -1,0 +1,27 @@
+namespace com.linkedin.metadata.key
+
+import com.linkedin.common.Urn
+
+/**
+ * Key for a SchemaField
+ */
+@Aspect = {
+  "name": "schemaFieldKey"
+}
+record SchemaFieldKey {
+  /**
+  * Parent associated with the schema field
+  */
+  @Searchable = {
+    "fieldType": "URN",
+  }
+  parent: Urn
+
+  /**
+  * fieldPath identifying the schema field
+  */
+  @Searchable = {
+    "fieldType": "KEYWORD",
+  }
+  fieldPath: string
+}

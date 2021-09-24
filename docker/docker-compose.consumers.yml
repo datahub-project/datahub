@@ -1,6 +1,11 @@
 # Service definitions for standalone Kafka consumer containers.
 version: '3.8'
 services:
+  datahub-gms:
+    environment:
+      - MAE_CONSUMER_ENABLED=false
+      - MCE_CONSUMER_ENABLED=false
+
   datahub-mae-consumer:
     build:
       context: ../
@@ -29,8 +34,3 @@ services:
     depends_on:
       - kafka-setup
       - datahub-gms
-
-  datahub-gms:
-    environment:
-      - MAE_CONSUMER_ENABLED=false
-      - MCE_CONSUMER_ENABLED=false

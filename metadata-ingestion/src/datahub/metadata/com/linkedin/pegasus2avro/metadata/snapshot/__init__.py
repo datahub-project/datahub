@@ -9,6 +9,7 @@ from ......schema_classes import CorpGroupSnapshotClass
 from ......schema_classes import CorpUserSnapshotClass
 from ......schema_classes import DashboardSnapshotClass
 from ......schema_classes import DataFlowSnapshotClass
+from ......schema_classes import DataHubPolicySnapshotClass
 from ......schema_classes import DataJobSnapshotClass
 from ......schema_classes import DataPlatformSnapshotClass
 from ......schema_classes import DataProcessSnapshotClass
@@ -21,6 +22,7 @@ from ......schema_classes import MLModelDeploymentSnapshotClass
 from ......schema_classes import MLModelGroupSnapshotClass
 from ......schema_classes import MLModelSnapshotClass
 from ......schema_classes import MLPrimaryKeySnapshotClass
+from ......schema_classes import SchemaFieldSnapshotClass
 from ......schema_classes import TagSnapshotClass
 
 
@@ -29,6 +31,7 @@ CorpGroupSnapshot = CorpGroupSnapshotClass
 CorpUserSnapshot = CorpUserSnapshotClass
 DashboardSnapshot = DashboardSnapshotClass
 DataFlowSnapshot = DataFlowSnapshotClass
+DataHubPolicySnapshot = DataHubPolicySnapshotClass
 DataJobSnapshot = DataJobSnapshotClass
 DataPlatformSnapshot = DataPlatformSnapshotClass
 DataProcessSnapshot = DataProcessSnapshotClass
@@ -41,5 +44,6 @@ MLModelDeploymentSnapshot = MLModelDeploymentSnapshotClass
 MLModelGroupSnapshot = MLModelGroupSnapshotClass
 MLModelSnapshot = MLModelSnapshotClass
 MLPrimaryKeySnapshot = MLPrimaryKeySnapshotClass
+SchemaFieldSnapshot = SchemaFieldSnapshotClass
 TagSnapshot = TagSnapshotClass
 # fmt: on

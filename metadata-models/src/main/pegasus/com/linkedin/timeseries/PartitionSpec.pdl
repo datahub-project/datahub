@@ -1,0 +1,16 @@
+namespace com.linkedin.timeseries
+
+/**
+ * Defines how the data is partitioned
+ */
+record PartitionSpec {
+  /**
+   * String representation of the partition
+   */
+  partition: string
+
+  /**
+   * Time window of the partition if applicable
+   */
+  timePartition: optional TimeWindow
+}

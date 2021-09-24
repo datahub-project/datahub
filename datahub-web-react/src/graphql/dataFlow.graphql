@@ -34,8 +34,32 @@ query getDataFlow($urn: String!) {
                     urn
                     type
                     ... on DataJob {
-                        ...dataJobFields
-                        ...shallowLineageFields
+                        urn
+                        type
+                        jobId
+                        ownership {
+                            ...ownershipFields
+                        }
+                        info {
+                            name
+                            description
+                            externalUrl
+                            customProperties {
+                                key
+                                value
+                            }
+                        }
+                        editableProperties {
+                            description
+                        }
+                        globalTags {
+                            ...globalTagsFields
+                        }
+                        inputOutput {
+                            inputDatajobs {
+                                urn
+                            }
+                        }
                     }
                 }
             }
@@ -43,8 +67,8 @@ query getDataFlow($urn: String!) {
     }
 }
 
-mutation updateDataFlow($input: DataFlowUpdateInput!) {
-    updateDataFlow(input: $input) {
+mutation updateDataFlow($urn: String!, $input: DataFlowUpdateInput!) {
+    updateDataFlow(urn: $urn, input: $input) {
         ...dataFlowFields
         dataJobs {
             entities {

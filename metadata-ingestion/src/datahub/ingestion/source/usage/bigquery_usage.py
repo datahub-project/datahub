@@ -14,7 +14,7 @@ from google.cloud.logging_v2.client import Client as GCPLoggingClient
 import datahub.emitter.mce_builder as builder
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
-from datahub.ingestion.api.workunit import UsageStatsWorkUnit
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.usage.usage_common import (
     BaseUsageConfig,
     GenericAggregatedDataset,
@@ -266,7 +266,7 @@ class BigQueryUsageSource(Source):
         config = BigQueryUsageConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
-    def get_workunits(self) -> Iterable[UsageStatsWorkUnit]:
+    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         clients = self._make_bigquery_clients()
         bigquery_log_entries = self._get_bigquery_log_entries(clients)
         parsed_events = self._parse_bigquery_log_entries(bigquery_log_entries)
@@ -423,7 +423,7 @@ class BigQueryUsageSource(Source):
 
         return datasets
 
-    def _make_usage_stat(self, agg: AggregatedDataset) -> UsageStatsWorkUnit:
+    def _make_usage_stat(self, agg: AggregatedDataset) -> MetadataWorkUnit:
         return agg.make_usage_workunit(
             self.config.bucket_duration,
             lambda resource: _table_ref_to_urn(resource, self.config.env),
