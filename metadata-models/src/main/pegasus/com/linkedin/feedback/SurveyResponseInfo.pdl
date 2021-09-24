@@ -1,0 +1,31 @@
+namespace com.linkedin.feedback
+import com.linkedin.common.Time
+
+/*
+ * Response object for each response to a question in the user experience survey
+ */
+@Aspect = {
+  "name": "surveyResponseInfo"
+}
+
+record SurveyResponseInfo {
+    /*
+     * Date when SurveyResponseInfo was created
+     */
+    createdAt: optional Time,
+
+    /*
+     * users response to a question
+     */
+    responseText: string,
+
+    /*
+     * question asked to user
+     */
+    questionText: string,
+
+    /*
+     * user's id, should be specifically formatted in the future - cookie named user from js
+     */
+    user: string,
+}

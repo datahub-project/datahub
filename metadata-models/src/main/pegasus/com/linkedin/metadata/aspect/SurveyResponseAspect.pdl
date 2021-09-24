@@ -1,0 +1,12 @@
+namespace com.linkedin.metadata.aspect
+
+import com.linkedin.metadata.key.SurveyResponseKey
+import com.linkedin.feedback.SurveyResponseInfo
+
+/**
+ * A union of all supported metadata aspects for a SurveyResponse
+ */
+typeref SurveyResponseAspect = union[
+  SurveyResponseKey,
+  SurveyResponseInfo
+]

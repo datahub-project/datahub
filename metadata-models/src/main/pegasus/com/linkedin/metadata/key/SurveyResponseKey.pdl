@@ -1,0 +1,14 @@
+namespace com.linkedin.metadata.key
+
+/**
+ * Key for a Chart
+ */
+@Aspect = {
+  "name": "surveyResponseKey"
+}
+record SurveyResponseKey {
+  /**
+  * Unique id for the survey response. This id should be globally unique for a survey response'
+  */
+  id: string
+}
