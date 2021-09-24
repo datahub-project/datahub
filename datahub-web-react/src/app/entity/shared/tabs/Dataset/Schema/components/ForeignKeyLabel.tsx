@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useContext, useState } from 'react';
 import { Badge, Table } from 'antd';
 import styled from 'styled-components';
 import { green } from '@ant-design/colors';
@@ -10,6 +10,7 @@ import { EntityType, ForeignKeyConstraint } from '../../../../../../../types.gen
 import { useBaseEntity } from '../../../../EntityContext';
 import { GetDatasetQuery } from '../../../../../../../graphql/dataset.generated';
 import { useEntityRegistry } from '../../../../../../useEntityRegistry';
+import { FkContext } from '../utils/selectedFkContext';
 
 const ForeignKeyBadge = styled(Badge)<{ highlight: boolean }>`
     margin-left: 4px;
@@ -29,7 +30,7 @@ type Props = {
     fieldPath: string;
     constraint?: ForeignKeyConstraint | null;
     setHighlightedConstraint: (newActiveConstraint: string | null) => void;
-    onClick: (params: { fieldPath: string; constraint?: ForeignKeyConstraint | null }) => void;
+    onClick: (params: { fieldPath: string; constraint?: ForeignKeyConstraint | null } | null) => void;
 };
 
 const zip = (a, b) =>
@@ -42,6 +43,7 @@ export default function ForeignKeyLabel({
     setHighlightedConstraint,
     onClick,
 }: Props) {
+    const selectedFk = useContext(FkContext);
     const [showModal, setShowModal] = useState(false);
     const baseEntity = useBaseEntity<GetDatasetQuery>();
     const entityRegistry = useEntityRegistry();
@@ -77,11 +79,17 @@ export default function ForeignKeyLabel({
                 role="button"
                 tabIndex={0}
                 onKeyPress={(e) => (e.key === 'Enter' ? setShowModal(true) : null)}
-                onClick={() => onClick({ fieldPath, constraint })}
+                onClick={() => {
+                    if (selectedFk?.fieldPath === fieldPath && selectedFk?.constraint?.name === constraint?.name) {
+                        onClick(null);
+                    } else {
+                        onClick({ fieldPath, constraint });
+                    }
+                }}
                 onMouseEnter={() => setHighlightedConstraint(constraint?.name || null)}
                 onMouseLeave={() => setHighlightedConstraint(null)}
             >
-                <ForeignKeyBadge highlight={highlight} count="Foreign Key" />
+                <ForeignKeyBadge highlight={highlight || selectedFk?.fieldPath === fieldPath} count="Foreign Key" />
             </span>
         </>
     );

@@ -31,7 +31,7 @@ const FieldPathText = styled(Typography.Text)`
 // ex: [type=MetadataAuditEvent].[type=union]oldSnapshot.[type=CorpUserSnapshot].[type=array]aspects.[type=union].[type=CorpUserInfo].[type=boolean]active
 export default function useSchemaTitleRenderer(
     schemaMetadata: SchemaMetadata | undefined | null,
-    setSelectedFkFieldPath: (params: { fieldPath: string; constraint?: ForeignKeyConstraint | null }) => void,
+    setSelectedFkFieldPath: (params: { fieldPath: string; constraint?: ForeignKeyConstraint | null } | null) => void,
 ) {
     const [highlightedConstraint, setHighlightedConstraint] = useState<string | null>(null);
 

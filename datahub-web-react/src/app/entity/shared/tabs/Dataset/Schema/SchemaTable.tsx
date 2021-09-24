@@ -30,6 +30,7 @@ const TableContainer = styled.div`
         border-right: none;
     }
     &&& .open-fk-row > td {
+        padding-bottom: 600px;
         vertical-align: top;
     }
 `;
