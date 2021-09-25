@@ -1,3 +1,4 @@
+import { dataset3 } from '../../../../../Mocks';
 import { EntityType, Schema, SchemaMetadata, SchemaField, SchemaFieldDataType } from '../../../../../types.generated';
 
 // Extending the schema type with an option for tags
@@ -191,7 +192,28 @@ export const sampleSchemaWithTags: Schema = {
     ],
 };
 
-export const sampleSchemaWithPkFk: Schema = {
+export const sampleSchemaWithPkFk: SchemaMetadata = {
+    primaryKeys: ['name'],
+    foreignKeys: [
+        {
+            name: 'constraint',
+            sourceFields: [
+                {
+                    urn: 'datasetUrn',
+                    parent: 'dataset',
+                    fieldPath: 'shipping_address',
+                },
+            ],
+            foreignFields: [
+                {
+                    urn: dataset3.urn,
+                    parent: dataset3.name,
+                    fieldPath: 'address',
+                },
+            ],
+            foreignDataset: dataset3,
+        },
+    ],
     name: 'MockSchema',
     platformUrn: 'mock:urn',
     version: 1,
