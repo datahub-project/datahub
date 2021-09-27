@@ -51,6 +51,7 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_IMPORTED_TAGS_PREFIX = "dbt:"
 
+
 class DBTConfig(ConfigModel):
     manifest_path: str
     catalog_path: str
@@ -109,11 +110,14 @@ class DBTNode:
         fields = tuple("{}={}".format(k, v) for k, v in self.__dict__.items())
         return self.__class__.__name__ + str(tuple(sorted(fields))).replace("'", "")
 
+
 def generate_tag_name(tag: str) -> str:
     return DEFAULT_IMPORTED_TAGS_PREFIX + tag
 
+
 def generate_tags_with_prefix(tags: List[str]) -> List[str]:
-    return [ generate_tag_name(tag) for tag in tags ]
+    return [generate_tag_name(tag) for tag in tags]
+
 
 def get_columns(catalog_node: dict, manifest_node: dict) -> List[DBTColumn]:
     columns = []
