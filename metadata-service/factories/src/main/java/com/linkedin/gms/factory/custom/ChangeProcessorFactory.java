@@ -35,7 +35,7 @@ public class ChangeProcessorFactory {
 
   @Nullable
   public ChangeStreamProcessor createInstance() {
-    customJarPath = "/Users/matthew/IdeaProjects/ResourceRegistryStateMachine/build/libs/ResourceRegistryStateMachine-1.0-SNAPSHOT.jar";
+    customJarPath = "/Users/labuser/Documents/source/matthewc/build/libs/matthewc-1.0-SNAPSHOT.jar";
     log.info("CUSTOM JAR PATH SET " + customJarPath);
     try {
       if (customJarPath == null) {
@@ -51,9 +51,10 @@ public class ChangeProcessorFactory {
 
   private ChangeStreamProcessor createChangeStreamProcessor(String jarUrl) throws Exception {
     ChangeStreamProcessor changeStreamProcessor = new ChangeStreamProcessor();
+    System.out.println("CLASSPATH " + System.getProperties().get("java.class.path"));
 
     URL url = (new File(jarUrl).toURI().toURL());
-    URLClassLoader classLoader = new URLClassLoader(new URL[]{url});
+    URLClassLoader classLoader = new URLClassLoader(new URL[]{url}, Thread.currentThread().getContextClassLoader());
     ServiceLoader<ChangeProcessor> serviceLoader = ServiceLoader.load(ChangeProcessor.class, classLoader);
     int processorCount = 0;
 
