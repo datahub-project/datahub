@@ -272,8 +272,8 @@ class AzureADSource(Source):
         group_name = self._map_azure_ad_group_to_group_name(azure_ad_group)
         if not group_name:
             return None
-        # URL encode the group name to deal with potential spaces
-        url_encoded_group_name = urllib.parse.quote(group_name)
+        # decode the group name to deal with URL encoding, and replace spaces with '_'
+        url_encoded_group_name = urllib.parse.unquote(group_name).replace(' ', '_')
         return self._make_corp_group_urn(url_encoded_group_name)
 
     def _map_azure_ad_group_to_group_name(self, azure_ad_group):
