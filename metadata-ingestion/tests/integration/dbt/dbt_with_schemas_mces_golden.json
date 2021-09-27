@@ -21,7 +21,7 @@
                         "description": null,
                         "uri": null,
                         "tags": [
-                            "test_tag"
+                            "dbt:test_tag"
                         ]
                     }
                 },
@@ -45,7 +45,7 @@
                     "com.linkedin.pegasus2avro.common.GlobalTags": {
                         "tags": [
                             {
-                                "tag": "urn:li:tag:test_tag"
+                                "tag": "urn:li:tag:dbt:test_tag"
                             }
                         ]
                     }
@@ -733,7 +733,7 @@
                                 "globalTags": {
                                     "tags": [
                                         {
-                                            "tag": "urn:li:tag:column_tag"
+                                            "tag": "urn:li:tag:dbt:column_tag"
                                         }
                                     ]
                                 },

@@ -49,6 +49,8 @@ from datahub.metadata.schema_classes import (
 logger = logging.getLogger(__name__)
 
 
+DEFAULT_IMPORTED_TAGS_PREFIX = "dbt:"
+
 class DBTConfig(ConfigModel):
     manifest_path: str
     catalog_path: str
@@ -58,6 +60,7 @@ class DBTConfig(ConfigModel):
     load_schemas: bool
     use_identifiers: bool = False
     node_type_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
+    imported_tags_prefix: str = DEFAULT_IMPORTED_TAGS_PREFIX
 
 
 @dataclass
@@ -106,6 +109,11 @@ class DBTNode:
         fields = tuple("{}={}".format(k, v) for k, v in self.__dict__.items())
         return self.__class__.__name__ + str(tuple(sorted(fields))).replace("'", "")
 
+def generate_tag_name(tag: str) -> str:
+    return DEFAULT_IMPORTED_TAGS_PREFIX + tag
+
+def generate_tags_with_prefix(tags: List[str]) -> List[str]:
+    return [ generate_tag_name(tag) for tag in tags ]
 
 def get_columns(catalog_node: dict, manifest_node: dict) -> List[DBTColumn]:
     columns = []
@@ -116,13 +124,16 @@ def get_columns(catalog_node: dict, manifest_node: dict) -> List[DBTColumn]:
 
     for key in raw_columns:
         raw_column = raw_columns[key]
+        tags = manifest_columns.get(key.lower(), {}).get("tags", [])
+        tags_with_prefix = generate_tags_with_prefix(tags)
+
         dbtCol = DBTColumn(
             name=raw_column["name"].lower(),
             comment=raw_column.get("comment", ""),
             description=manifest_columns.get(key.lower(), {}).get("description", ""),
             data_type=raw_column["type"],
             index=raw_column["index"],
-            tags=manifest_columns.get(key.lower(), {}).get("tags", []),
+            tags=tags_with_prefix,
         )
         columns.append(dbtCol)
     return columns
@@ -189,16 +200,14 @@ def extract_dbt_entities(
                 key,
                 f"Entity {key} ({name}) is in manifest but missing from catalog",
             )
-
         else:
-
             catalog_type = all_catalog_entities[key]["metadata"]["type"]
 
         meta = manifest_node.get("meta", {})
-        owner: Optional[str] = None
-        if "owner" in meta:
-            owner = meta["owner"]
+        owner = meta.get("owner")
 
+        tags = manifest_node.get("tags", [])
+        tags_with_prefix = generate_tags_with_prefix(tags)
         dbtNode = DBTNode(
             dbt_name=key,
             database=manifest_node["database"],
@@ -221,7 +230,7 @@ def extract_dbt_entities(
                 environment,
             ),
             meta=manifest_node.get("meta", {}),
-            tags=manifest_node.get("tags", []),
+            tags=tags_with_prefix,
             owner=owner,
         )
 
