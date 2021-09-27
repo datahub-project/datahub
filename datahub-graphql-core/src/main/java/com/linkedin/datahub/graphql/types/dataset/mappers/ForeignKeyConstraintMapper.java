@@ -9,6 +9,8 @@ import java.util.stream.Collectors;
 
 
 public class ForeignKeyConstraintMapper {
+  private ForeignKeyConstraintMapper() { }
+
   public static ForeignKeyConstraint map(com.linkedin.schema.ForeignKeyConstraint constraint) {
     ForeignKeyConstraint result = new ForeignKeyConstraint();
     result.setName(constraint.getName());

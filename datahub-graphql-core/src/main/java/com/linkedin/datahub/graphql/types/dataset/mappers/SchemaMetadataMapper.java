@@ -2,7 +2,6 @@ package com.linkedin.datahub.graphql.types.dataset.mappers;
 
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.metadata.aspect.VersionedAspect;
-import com.linkedin.schema.ForeignKeyConstraint;
 import com.linkedin.schema.SchemaMetadata;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
