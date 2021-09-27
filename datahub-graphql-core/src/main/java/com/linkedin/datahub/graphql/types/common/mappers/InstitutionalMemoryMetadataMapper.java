@@ -18,7 +18,8 @@ public class InstitutionalMemoryMetadataMapper implements ModelMapper<com.linked
     public InstitutionalMemoryMetadata apply(@Nonnull final com.linkedin.common.InstitutionalMemoryMetadata input) {
         final InstitutionalMemoryMetadata result = new InstitutionalMemoryMetadata();
         result.setUrl(input.getUrl().toString());
-        result.setDescription(input.getDescription());
+        result.setDescription(input.getDescription()); // deprecated field
+        result.setLabel(input.getDescription());
         result.setAuthor(getAuthor(input.getCreateStamp().getActor().toString()));
         result.setCreated(AuditStampMapper.map(input.getCreateStamp()));
         return result;

@@ -23,6 +23,23 @@ fragment dataFlowFields on DataFlow {
     globalTags {
         ...globalTagsFields
     }
+    institutionalMemory {
+        elements {
+            url
+            author {
+                urn
+                username
+            }
+            label
+            created {
+                time
+                actor
+            }
+        }
+    }
+    glossaryTerms {
+        ...glossaryTerms
+    }
 }
 
 query getDataFlow($urn: String!) {

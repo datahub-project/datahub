@@ -93,7 +93,7 @@ export const SidebarAboutSection = () => {
                     {(links || []).map((link) => (
                         <LinkButton type="link" href={link.url} target="_blank" rel="noreferrer">
                             <LinkOutlined />
-                            {link.description}
+                            {link.description || link.label}
                         </LinkButton>
                     ))}
                     <AddLinkModal buttonProps={{ type: 'text' }} />

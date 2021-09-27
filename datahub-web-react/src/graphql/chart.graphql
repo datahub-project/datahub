@@ -63,6 +63,23 @@ query getChart($urn: String!) {
         editableProperties {
             description
         }
+        institutionalMemory {
+            elements {
+                url
+                author {
+                    urn
+                    username
+                }
+                label
+                created {
+                    time
+                    actor
+                }
+            }
+        }
+        glossaryTerms {
+            ...glossaryTerms
+        }
     }
 }
 

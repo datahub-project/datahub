@@ -237,6 +237,23 @@ fragment dataJobFields on DataJob {
     globalTags {
         ...globalTagsFields
     }
+    institutionalMemory {
+        elements {
+            url
+            author {
+                urn
+                username
+            }
+            label
+            created {
+                time
+                actor
+            }
+        }
+    }
+    glossaryTerms {
+        ...glossaryTerms
+    }
 }
 
 fragment dashboardFields on Dashboard {
@@ -281,6 +298,23 @@ fragment dashboardFields on Dashboard {
     }
     globalTags {
         ...globalTagsFields
+    }
+    institutionalMemory {
+        elements {
+            url
+            author {
+                urn
+                username
+            }
+            label
+            created {
+                time
+                actor
+            }
+        }
+    }
+    glossaryTerms {
+        ...glossaryTerms
     }
 }
 

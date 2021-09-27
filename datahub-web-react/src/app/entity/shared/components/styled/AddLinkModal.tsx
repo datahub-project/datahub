@@ -2,15 +2,18 @@ import React, { useState } from 'react';
 import { message, Modal, Button, Form, Input } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 import { useGetAuthenticatedUser } from '../../../../useGetAuthenticatedUser';
+import { useEntityData } from '../../EntityContext';
+import { useAddLinkMutation } from '../../../../../graphql/mutations.generated';
 
-import { GenericEntityUpdate } from '../../types';
-import { useEntityData, useEntityUpdate } from '../../EntityContext';
+type AddLinkProps = {
+    buttonProps?: Record<string, unknown>;
+};
 
-export const AddLinkModal = ({ buttonProps }: { buttonProps?: Record<string, unknown> }) => {
+export const AddLinkModal = ({ buttonProps }: AddLinkProps) => {
     const [isModalVisible, setIsModalVisible] = useState(false);
     const user = useGetAuthenticatedUser();
     const { urn, entityData } = useEntityData();
-    const updateEntity = useEntityUpdate<GenericEntityUpdate>();
+    const [addLinkMutation] = useAddLinkMutation();
 
     const [form] = Form.useForm();
 
@@ -43,8 +46,8 @@ export const AddLinkModal = ({ buttonProps }: { buttonProps?: Record<string, unk
             });
 
             try {
-                await updateEntity({
-                    variables: { urn, input: { institutionalMemory: { elements: newLinks } } },
+                await addLinkMutation({
+                    variables: { input: { linkUrl: formData.url, label: formData.label, resourceUrn: urn } },
                 });
                 message.success({ content: 'Link Added', duration: 2 });
             } catch (e: unknown) {
@@ -97,7 +100,7 @@ export const AddLinkModal = ({ buttonProps }: { buttonProps?: Record<string, unk
                         <Input placeholder="https://" autoFocus />
                     </Form.Item>
                     <Form.Item
-                        name="description"
+                        name="label"
                         label="Label"
                         rules={[
                             {

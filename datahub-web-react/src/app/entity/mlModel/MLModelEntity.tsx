@@ -42,6 +42,8 @@ export class MLModelEntity implements Entity<MlModel> {
 
     getPathName = () => 'mlModels';
 
+    getSingularName = () => 'ML Model';
+
     getCollectionName = () => 'ML Models';
 
     renderProfile = (urn: string) => <MLModelProfile urn={urn} />;

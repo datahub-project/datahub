@@ -1743,7 +1743,7 @@
                   "Aspect" : {
                     "name" : "chartKey"
                   }
-                }, "com.linkedin.chart.ChartInfo", "com.linkedin.chart.ChartQuery", "com.linkedin.chart.EditableChartProperties", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags", "com.linkedin.common.BrowsePaths" ]
+                }, "com.linkedin.chart.ChartInfo", "com.linkedin.chart.ChartQuery", "com.linkedin.chart.EditableChartProperties", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags", "com.linkedin.common.BrowsePaths", "com.linkedin.common.GlossaryTerms", "com.linkedin.common.InstitutionalMemory" ]
               }
             },
             "doc" : "The list of metadata aspects associated with the chart. Depending on the use case, this can either be all, or a selection, of supported aspects."
@@ -2108,7 +2108,7 @@
                   "Aspect" : {
                     "name" : "dashboardKey"
                   }
-                }, "com.linkedin.dashboard.DashboardInfo", "com.linkedin.dashboard.EditableDashboardProperties", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags", "com.linkedin.common.BrowsePaths" ]
+                }, "com.linkedin.dashboard.DashboardInfo", "com.linkedin.dashboard.EditableDashboardProperties", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags", "com.linkedin.common.BrowsePaths", "com.linkedin.common.GlossaryTerms", "com.linkedin.common.InstitutionalMemory" ]
               }
             },
             "doc" : "The list of metadata aspects associated with the dashboard. Depending on the use case, this can either be all, or a selection, of supported aspects."
@@ -2165,7 +2165,7 @@
                   "Aspect" : {
                     "name" : "dataFlowKey"
                   }
-                }, "com.linkedin.datajob.DataFlowInfo", "com.linkedin.datajob.EditableDataFlowProperties", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags", "com.linkedin.common.BrowsePaths" ]
+                }, "com.linkedin.datajob.DataFlowInfo", "com.linkedin.datajob.EditableDataFlowProperties", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags", "com.linkedin.common.BrowsePaths", "com.linkedin.common.GlossaryTerms", "com.linkedin.common.InstitutionalMemory" ]
               }
             },
             "doc" : "The list of metadata aspects associated with the data flow. Depending on the use case, this can either be all, or a selection, of supported aspects."
@@ -2221,7 +2221,7 @@
                   "Aspect" : {
                     "name" : "dataJobKey"
                   }
-                }, "com.linkedin.datajob.DataJobInfo", "com.linkedin.datajob.DataJobInputOutput", "com.linkedin.datajob.EditableDataJobProperties", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags", "com.linkedin.common.BrowsePaths" ]
+                }, "com.linkedin.datajob.DataJobInfo", "com.linkedin.datajob.DataJobInputOutput", "com.linkedin.datajob.EditableDataJobProperties", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags", "com.linkedin.common.BrowsePaths", "com.linkedin.common.GlossaryTerms", "com.linkedin.common.InstitutionalMemory" ]
               }
             },
             "doc" : "The list of metadata aspects associated with the data job. Depending on the use case, this can either be all, or a selection, of supported aspects."

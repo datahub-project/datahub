@@ -57,14 +57,26 @@ export default function UpdateDescriptionModal({ title, description, original, o
                         <MarkDownHelpLink href="https://joplinapp.org/markdown" target="_blank" type="secondary">
                             markdown supported
                         </MarkDownHelpLink>
-                        <MDEditor value={updatedDesc} onChange={(v) => setDesc(v || '')} preview="live" height={400} />
+                        <MDEditor
+                            style={{ fontWeight: 400 }}
+                            value={updatedDesc}
+                            onChange={(v) => setDesc(v || '')}
+                            preview="live"
+                            height={400}
+                        />
                     </Form.Item>
                 ) : (
                     <Form.Item>
                         <MarkDownHelpLink href="https://joplinapp.org/markdown" target="_blank" type="secondary">
                             markdown supported
                         </MarkDownHelpLink>
-                        <MDEditor value={updatedDesc} onChange={(v) => setDesc(v || '')} preview="live" height={400} />
+                        <MDEditor
+                            style={{ fontWeight: 400 }}
+                            value={updatedDesc}
+                            onChange={(v) => setDesc(v || '')}
+                            preview="live"
+                            height={400}
+                        />
                     </Form.Item>
                 )}
                 {!isAddDesc && description && original && (

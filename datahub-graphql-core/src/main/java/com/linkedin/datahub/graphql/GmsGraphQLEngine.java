@@ -43,9 +43,13 @@ import com.linkedin.datahub.graphql.resolvers.load.LoadableTypeBatchResolver;
 import com.linkedin.datahub.graphql.resolvers.load.EntityRelationshipsResultResolver;
 import com.linkedin.datahub.graphql.resolvers.load.TimeSeriesAspectResolver;
 import com.linkedin.datahub.graphql.resolvers.load.UsageTypeResolver;
+import com.linkedin.datahub.graphql.resolvers.mutate.AddLinkResolver;
+import com.linkedin.datahub.graphql.resolvers.mutate.AddOwnerResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.AddTagResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.AddTermResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.MutableTypeResolver;
+import com.linkedin.datahub.graphql.resolvers.mutate.RemoveLinkResolver;
+import com.linkedin.datahub.graphql.resolvers.mutate.RemoveOwnerResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.RemoveTagResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.RemoveTermResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.UpdateFieldDescriptionResolver;
@@ -418,6 +422,10 @@ public class GmsGraphQLEngine {
             .dataFetcher("updatePolicy", new UpsertPolicyResolver(GmsClientFactory.getAspectsClient()))
             .dataFetcher("deletePolicy", new DeletePolicyResolver(GmsClientFactory.getEntitiesClient()))
             .dataFetcher("updateDescription", new AuthenticatedResolver<>(new UpdateFieldDescriptionResolver(entityService)))
+            .dataFetcher("addOwner", new AddOwnerResolver(entityService))
+            .dataFetcher("removeOwner", new RemoveOwnerResolver(entityService))
+            .dataFetcher("addLink", new AddLinkResolver(entityService))
+            .dataFetcher("removeLink", new RemoveLinkResolver(entityService))
         );
     }
 

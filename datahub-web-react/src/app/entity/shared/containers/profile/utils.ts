@@ -15,10 +15,11 @@ export function getDataForEntityType<T>({
     entityType: EntityType;
     getOverrideProperties: (T) => GenericEntityProperties;
 }): GenericEntityProperties | null {
+    console.log(entityType);
     if (!data) {
         return null;
     }
-    const entityData = data[entityType.toLowerCase()];
+    const entityData = data[Object.keys(data)[0]];
     let modifiedEntityData = entityData;
     // Bring 'customProperties' field to the root level.
     if (entityData.properties?.customProperties) {

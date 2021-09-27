@@ -4,8 +4,8 @@ import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
-import com.linkedin.datahub.graphql.generated.TermAssociationInput;
-import com.linkedin.datahub.graphql.resolvers.mutate.util.LabelUtils;
+import com.linkedin.datahub.graphql.generated.RemoveLinkInput;
+import com.linkedin.datahub.graphql.resolvers.mutate.util.LinkUtils;
 import com.linkedin.metadata.entity.EntityService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -15,49 +15,44 @@ import lombok.extern.slf4j.Slf4j;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
+
 @Slf4j
 @RequiredArgsConstructor
-public class AddTermResolver implements DataFetcher<CompletableFuture<Boolean>> {
+public class RemoveLinkResolver implements DataFetcher<CompletableFuture<Boolean>> {
+
   private final EntityService _entityService;
 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
-    final TermAssociationInput input = bindArgument(environment.getArgument("input"), TermAssociationInput.class);
-    Urn termUrn = Urn.createFromString(input.getTermUrn());
+    final RemoveLinkInput input = bindArgument(environment.getArgument("input"), RemoveLinkInput.class);
+
+    String linkUrl = input.getLinkUrl();
     Urn targetUrn = Urn.createFromString(input.getResourceUrn());
 
-    if (!LabelUtils.isAuthorizedToUpdateTerms(environment.getContext(), targetUrn, input.getSubResource())) {
+    if (!LinkUtils.isAuthorizedToUpdateLinks(environment.getContext(), targetUrn)) {
       throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
     }
 
     return CompletableFuture.supplyAsync(() -> {
-      LabelUtils.validateInput(
-          termUrn,
+      LinkUtils.validateAddRemoveInput(
+          linkUrl,
           targetUrn,
-          input.getSubResource(),
-          input.getSubResourceType(),
-          "glossaryTerm",
           _entityService
       );
-
-      if (!targetUrn.getEntityType().equals("dataset")) {
-        throw new IllegalArgumentException(String.format("Failed to update %s on %s. Subject is not a dataset.", termUrn, targetUrn));
-      }
-
       try {
-        log.info("Adding Term. input: {}", input);
+        log.debug("Removing Link input: {}", input);
+
         Urn actor = CorpuserUrn.createFromString(((QueryContext) environment.getContext()).getActor());
-        LabelUtils.addTermToTarget(
-            termUrn,
+        LinkUtils.removeLink(
+            linkUrl,
             targetUrn,
-            input.getSubResource(),
             actor,
             _entityService
         );
         return true;
       } catch (Exception e) {
-        log.error("Failed to perform update against input {}, {}", input.toString(), e.getMessage());
-        throw new RuntimeException(String.format("Failed to perform update against input %s", input.toString()), e);
+        log.error("Failed to remove link from resource with input {}, {}", input.toString(), e.getMessage());
+        throw new RuntimeException(String.format("Failed to remove link from resource with input  %s", input.toString()), e);
       }
     });
   }
