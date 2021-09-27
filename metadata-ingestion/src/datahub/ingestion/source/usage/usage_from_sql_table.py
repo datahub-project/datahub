@@ -1,6 +1,7 @@
 import collections
 import dataclasses
 import logging
+import traceback
 from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, Optional
 
@@ -35,36 +36,48 @@ class UsageFromSqlTableSource(SqlUsageSource):
         config = UsageFromSqlTableConfig.parse_obj(config_dict)
         return cls(ctx, config)
 
-    def parse_query(self, event_dict):
-        query_id = event_dict["query_id"]
-        query_text = event_dict["query_text"]
-        parser = Parser(query_text)
+    def _get_columns(self, parser, query_id):
+        columns = set()
 
+        if parser.columns_dict is None:
+            return columns
+
+        for column_list in parser.columns_dict.values():
+            for column in column_list:
+                if type(column) == list:
+                    logger.warn(f"query_id={query_id} {column} of list type")
+                else:
+                    columns.add(column)
+
+        return columns
+
+    def _get_tables(self, parser, query_id):
         tables = []
+        total_count = 0
+
         for table in parser.tables:
+            total_count += 1
             table_parts = table.split(".")
             if len(table_parts) == 1 and self.get_table_default_prefix() is not None:
                 table = f"{self.get_table_default_prefix()}.{table}"
 
             if not self.config.table_pattern.allowed(table):
                 continue
-
             tables.append(table.lower())
 
-        if len(tables) == 0:
-            logger.warn(f"No tables for query_id={query_id}")
+        if total_count == 0:
+            logger.warn(f"query_id={query_id} no tables found")
 
-        event_dict["tables"] = tables
+        return tables
 
-        columns = []
-        for column_list in parser.columns_dict.values():
-            for column in column_list:
-                columns.append(column)
 
-        if len(columns) == 0:
-            logger.warn(f"No columns for query_id={query_id}")
+    def parse_query(self, event_dict):
+        query_id = event_dict["query_id"]
+        query_text = event_dict["query_text"]
+        parser = Parser(query_text)
 
-        event_dict["columns"] = columns
+        event_dict["tables"] = self._get_tables(parser, query_id)
+        event_dict["columns"] = list(self._get_columns(parser, query_id))
 
     def process_row(self, row):
         event_dict = self.sql_compatibility_change(row)
@@ -72,11 +85,14 @@ class UsageFromSqlTableSource(SqlUsageSource):
         if event_dict["query_text"] is None:
             return None
 
+        query_id = None
         try:
+            query_id = event_dict["query_id"]
             self.parse_query(event_dict)
         except Exception:
+            logger.warn(f"query={query_id} {traceback.format_exc()}")
             self.get_report().report_warning(
-                "usage", f"Failed to parse sql query id = {event_dict['query_id']}"
+                "usage", f"Failed to parse sql query_id={query_id}"
             )
             return None
 
