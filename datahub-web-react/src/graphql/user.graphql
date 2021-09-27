@@ -1,4 +1,4 @@
-query getUser($urn: String!) {
+query getUser($urn: String!, $groupsCount: Int!) {
     corpUser(urn: $urn) {
         urn
         username
@@ -18,6 +18,49 @@ query getUser($urn: String!) {
         }
         globalTags {
             ...globalTagsFields
+        }
+        relationships(types: ["IsMemberOfGroup"], direction: OUTGOING, start: 0, count: $groupsCount) {
+            start
+            count
+            total
+            relationships {
+                entity {
+                    ... on CorpGroup {
+                        urn
+                        type
+                        name
+                        info {
+                            displayName
+                            description
+                            email
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+query getUserGroups($urn: String!, $start: Int!, $count: Int!) {
+    corpUser(urn: $urn) {
+        relationships(types: ["IsMemberOfGroup"], direction: OUTGOING, start: $start, count: $count) {
+            start
+            count
+            total
+            relationships {
+                entity {
+                    ... on CorpGroup {
+                        urn
+                        type
+                        name
+                        info {
+                            displayName
+                            description
+                            email
+                        }
+                    }
+                }
+            }
         }
     }
 }
