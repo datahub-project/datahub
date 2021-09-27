@@ -48,19 +48,14 @@ public class IngestDataPlatformsStep implements UpgradeStep {
       for (final Map.Entry<DataPlatformUrn, DataPlatformInfo> entry : urnToInfo.entrySet()) {
         AuditStamp auditStamp;
         try {
-          auditStamp = new AuditStamp().setActor(Urn.createFromString("urn:li:principal:system")).setTime(
-              Clock.systemUTC().millis());
+          auditStamp = new AuditStamp().setActor(Urn.createFromString("urn:li:principal:system"))
+              .setTime(Clock.systemUTC().millis());
         } catch (URISyntaxException e) {
           throw new RuntimeException("Failed to create Actor Urn");
         }
 
-        _entityService.ingestAspect(
-            entry.getKey(),
-            PegasusUtils.getEntityNameFromSchema(entry.getValue().schema()),
-            PegasusUtils.getAspectNameFromSchema(entry.getValue().schema()),
-            entry.getValue(),
-            auditStamp
-        );
+        _entityService.ingestAspect(entry.getKey(), PegasusUtils.getEntityNameFromSchema(entry.getValue().schema()),
+            PegasusUtils.getAspectNameFromSchema(entry.getValue().schema()), entry.getValue(), auditStamp);
       }
 
       context.report().addLine(String.format("Successfully ingested %s DataPlatforms.", urnToInfo.keySet().size()));

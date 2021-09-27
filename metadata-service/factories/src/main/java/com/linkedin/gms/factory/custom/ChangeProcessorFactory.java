@@ -14,45 +14,30 @@ import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.ServiceLoader;
 
-class Program{
-
-  public static void main(String[] args){
-
-    ChangeProcessorFactory changeProcessorFactory = new ChangeProcessorFactory();
-
-    changeProcessorFactory.createInstance();
-
-  }
-}
 
 @Configuration
 @Slf4j
 public class ChangeProcessorFactory {
 
-  //TODO revert back to #{null}
-  @Value("${CUSTOM_JAR_PATH:/Users/matthew/IdeaProjects/ResourceRegistryStateMachine/build/libs/ResourceRegistryStateMachine-1.0-SNAPSHOT.jar}")
-  private String customJarPath;
+  @Value("${PROCESSOR_JAR_PATH:#{null}}")
+  private String _processorJarPath;
 
   @Nullable
   public ChangeStreamProcessor createInstance() {
-    customJarPath = "/Users/labuser/Documents/source/matthewc/build/libs/matthewc-1.0-SNAPSHOT.jar";
-    log.info("CUSTOM JAR PATH SET " + customJarPath);
     try {
-      if (customJarPath == null) {
+      if (_processorJarPath == null) {
         log.debug("Not loading custom defined behaviour");
         return new ChangeStreamProcessor();
       }
-      return createChangeStreamProcessor(customJarPath);
+      return createChangeStreamProcessor(_processorJarPath);
     } catch (Exception ex) {
-      log.error("Failed to load custom defined behaviour {}", customJarPath);
+      log.error("Failed to load custom defined behaviour {}", _processorJarPath);
       return null;
     }
   }
 
   private ChangeStreamProcessor createChangeStreamProcessor(String jarUrl) throws Exception {
     ChangeStreamProcessor changeStreamProcessor = new ChangeStreamProcessor();
-    System.out.println("CLASSPATH " + System.getProperties().get("java.class.path"));
-
     URL url = (new File(jarUrl).toURI().toURL());
     URLClassLoader classLoader = new URLClassLoader(new URL[]{url}, Thread.currentThread().getContextClassLoader());
     ServiceLoader<ChangeProcessor> serviceLoader = ServiceLoader.load(ChangeProcessor.class, classLoader);
