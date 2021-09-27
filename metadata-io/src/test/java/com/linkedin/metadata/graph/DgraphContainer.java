@@ -80,6 +80,8 @@ public class DgraphContainer extends GenericContainer<DgraphContainer> {
 
         dockerImageName.assertCompatibleWith(DEFAULT_IMAGE_NAME);
 
+        WaitStrategy waitForLeader = new LogMessageWaitStrategy()
+            .withRegEx(".* Got Zero leader: .*\n");
         WaitStrategy waitForCluster = new LogMessageWaitStrategy()
             .withRegEx(".* Server is ready\n");
         WaitStrategy waitForHttp = new HttpWaitStrategy()
@@ -87,6 +89,7 @@ public class DgraphContainer extends GenericContainer<DgraphContainer> {
             .forStatusCodeMatching(response -> response == HTTP_OK);
 
         this.waitStrategy = new WaitAllStrategy()
+            .withStrategy(waitForLeader)
             .withStrategy(waitForCluster)
             .withStrategy(waitForHttp)
             .withStartupTimeout(startupTimeout);
