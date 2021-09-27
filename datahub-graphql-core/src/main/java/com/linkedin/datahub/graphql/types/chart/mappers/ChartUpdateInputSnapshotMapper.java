@@ -3,7 +3,6 @@ package com.linkedin.datahub.graphql.types.chart.mappers;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.TagAssociationArray;
-import com.linkedin.common.urn.ChartUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.chart.EditableChartProperties;
 import com.linkedin.data.template.SetMode;
@@ -16,7 +15,6 @@ import com.linkedin.metadata.aspect.ChartAspectArray;
 import com.linkedin.metadata.snapshot.ChartSnapshot;
 
 import javax.annotation.Nonnull;
-import java.net.URISyntaxException;
 import java.util.stream.Collectors;
 
 public class ChartUpdateInputSnapshotMapper implements InputModelMapper<ChartUpdateInput, ChartSnapshot, Urn> {
@@ -35,11 +33,6 @@ public class ChartUpdateInputSnapshotMapper implements InputModelMapper<ChartUpd
         final AuditStamp auditStamp = new AuditStamp();
         auditStamp.setActor(actor, SetMode.IGNORE_NULL);
         auditStamp.setTime(System.currentTimeMillis());
-        try {
-            result.setUrn(ChartUrn.createFromString(chartUpdateInput.getUrn()));
-        } catch (URISyntaxException e) {
-            throw new IllegalArgumentException(String.format("Failed to validate provided urn with value %s", chartUpdateInput.getUrn()));
-        }
 
         final ChartAspectArray aspects = new ChartAspectArray();
 
@@ -47,15 +40,27 @@ public class ChartUpdateInputSnapshotMapper implements InputModelMapper<ChartUpd
             aspects.add(ChartAspect.create(OwnershipUpdateMapper.map(chartUpdateInput.getOwnership(), actor)));
         }
 
-        if (chartUpdateInput.getGlobalTags() != null) {
+        if (chartUpdateInput.getTags() != null || chartUpdateInput.getGlobalTags() != null) {
             final GlobalTags globalTags = new GlobalTags();
-            globalTags.setTags(
+            if (chartUpdateInput.getGlobalTags() != null) {
+                globalTags.setTags(
                     new TagAssociationArray(
-                            chartUpdateInput.getGlobalTags().getTags().stream().map(
-                                    element -> TagAssociationUpdateMapper.map(element)
-                            ).collect(Collectors.toList())
+                        chartUpdateInput.getGlobalTags().getTags().stream().map(
+                            element -> TagAssociationUpdateMapper.map(element)
+                        ).collect(Collectors.toList())
                     )
-            );
+                );
+            }
+            // Tags overrides global tags if provided
+            if (chartUpdateInput.getTags() != null) {
+                globalTags.setTags(
+                    new TagAssociationArray(
+                        chartUpdateInput.getTags().getTags().stream().map(
+                            element -> TagAssociationUpdateMapper.map(element)
+                        ).collect(Collectors.toList())
+                    )
+                );
+            }
             aspects.add(ChartAspect.create(globalTags));
         }
 

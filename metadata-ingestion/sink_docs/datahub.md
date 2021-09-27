@@ -36,6 +36,8 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | -------- | -------- | ------- | ---------------------------- |
 | `server` | ✅       |         | URL of DataHub GMS endpoint. |
 | `timeout_sec` |     | 30      | Per-HTTP request timeout.    |
+| `token` |     |       | Bearer token used for authentication.    |
+| `extra_headers` |     |       | Extra headers which will be added to the request.    |
 
 ## DataHub Kafka
 

@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass
-from typing import Optional, Union
+from typing import Dict, Optional, Union
 
 from datahub.configuration.common import ConfigModel, OperationalError
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -22,6 +22,7 @@ class DatahubRestSinkConfig(ConfigModel):
     server: str = "http://localhost:8080"
     token: Optional[str]
     timeout_sec: Optional[int]
+    extra_headers: Optional[Dict[str, str]]
 
 
 @dataclass
@@ -39,6 +40,7 @@ class DatahubRestSink(Sink):
             self.config.token,
             connect_timeout_sec=self.config.timeout_sec,  # reuse timeout_sec for connect timeout
             read_timeout_sec=self.config.timeout_sec,
+            extra_headers=self.config.extra_headers,
         )
         self.emitter.test_connection()
 

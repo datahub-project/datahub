@@ -97,7 +97,7 @@ public class MutationUtils {
       SubResourceType subResourceType,
       EntityService entityService
   ) {
-    if (subResourceType.equals(SubResourceType.FIELD_PATH)) {
+    if (subResourceType.equals(SubResourceType.DATASET_FIELD)) {
       SchemaMetadata schemaMetadata = (SchemaMetadata) entityService.getAspect(targetUrn, SCHEMA_ASPECT_NAME, 0);
 
       if (schemaMetadata == null) {
