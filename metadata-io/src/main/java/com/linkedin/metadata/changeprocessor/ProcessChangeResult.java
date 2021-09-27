@@ -4,6 +4,7 @@ import com.linkedin.data.template.RecordTemplate;
 
 import java.util.List;
 
+
 public class ProcessChangeResult {
   public final ChangeState changeState;
   private final RecordTemplate aspect;

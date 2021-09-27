@@ -1,6 +1,7 @@
 package com.linkedin.metadata.changeprocessor;
 
 import com.linkedin.data.template.RecordTemplate;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -10,10 +11,12 @@ import java.util.Map;
 import java.util.SortedSet;
 import java.util.TreeSet;
 
+
 /**
  * Responsible for routing events to the correct registered change processors. Processors are registered based on the
  * aspectName they apply to. If none are supplied then the proposed change is returned.
  */
+@Slf4j
 public class ChangeStreamProcessor {
 
   private final Comparator<ChangeProcessor> _processorComparator = Comparator.comparing(p -> p.PRIORITY);
@@ -29,24 +32,18 @@ public class ChangeStreamProcessor {
     addProcessor(entityName, aspectName, processor, _afterChangeProcessors);
   }
 
-  public ProcessChangeResult runBeforeChangeProcessors(String entityName,
-                                                       String aspectName,
-                                                       RecordTemplate previousAspect,
-                                                       RecordTemplate newAspect) {
+  public ProcessChangeResult runBeforeChangeProcessors(String entityName, String aspectName,
+      RecordTemplate previousAspect, RecordTemplate newAspect) {
     return process(entityName, aspectName, previousAspect, newAspect, _beforeChangeProcessors);
   }
 
-  public ProcessChangeResult runAfterChangeProcessors(String entityName,
-                                                      String aspectName,
-                                                      RecordTemplate previousAspect,
-                                                      RecordTemplate newAspect) {
+  public ProcessChangeResult runAfterChangeProcessors(String entityName, String aspectName,
+      RecordTemplate previousAspect, RecordTemplate newAspect) {
     return process(entityName, aspectName, previousAspect, newAspect, _afterChangeProcessors);
   }
 
-  private void addProcessor(String entityName,
-                            String aspectName,
-                            ChangeProcessor processor,
-                            Map<String, SortedSet<ChangeProcessor>> processorMap) {
+  private void addProcessor(String entityName, String aspectName, ChangeProcessor processor,
+      Map<String, SortedSet<ChangeProcessor>> processorMap) {
     String processorKey = (entityName + aspectName).toLowerCase();
 
     if (processorMap.containsKey(processorKey)) {
@@ -58,11 +55,8 @@ public class ChangeStreamProcessor {
     }
   }
 
-  private ProcessChangeResult process(String entityName,
-                                      String aspectName,
-                                      RecordTemplate previousAspect,
-                                      RecordTemplate newAspect,
-                                      Map<String, SortedSet<ChangeProcessor>> processorMap) {
+  private ProcessChangeResult process(String entityName, String aspectName, RecordTemplate previousAspect,
+      RecordTemplate newAspect, Map<String, SortedSet<ChangeProcessor>> processorMap) {
 
     String processorKey = (entityName + aspectName).toLowerCase();
     SortedSet<ChangeProcessor> changeProcessors = processorMap.getOrDefault(processorKey, _emptySet);
