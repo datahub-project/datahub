@@ -12,7 +12,7 @@ services:
     volumes: 
       # Most of the config is embedded inside the sample recipe file.
       - ./sample_recipe.yml:/sample_recipe.yml:ro
-      - ../../metadata-ingestion/examples/mce_files/demo-profiles.json:/bootstrap_mce.json:ro
+      - ../../metadata-ingestion/examples/mce_files/bootstrap_mce.json:/bootstrap_mce.json:ro
 
 networks:
   default:

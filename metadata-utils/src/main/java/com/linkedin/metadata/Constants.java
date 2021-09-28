@@ -20,6 +20,7 @@ public class Constants {
    * Aspects
    */
   public static final String OWNERSHIP_ASPECT_NAME = "ownership";
+  public static final String INSTITUTIONAL_MEMORY_ASPECT_NAME = "institutionalMemory";
 
   private Constants() { }
 }

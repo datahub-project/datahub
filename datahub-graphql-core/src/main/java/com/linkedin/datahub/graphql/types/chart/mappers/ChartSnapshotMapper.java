@@ -11,7 +11,9 @@ import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.ChartEditableProperties;
 import com.linkedin.datahub.graphql.types.common.mappers.AuditStampMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StringMapMapper;
+import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
@@ -57,8 +59,10 @@ public class ChartSnapshotMapper implements ModelMapper<ChartSnapshot, Chart> {
                 final ChartEditableProperties chartEditableProperties = new ChartEditableProperties();
                 chartEditableProperties.setDescription(aspect.getEditableChartProperties().getDescription());
                 result.setEditableProperties(chartEditableProperties);
-            } else {
-                // throw new RuntimeException(String.format("Unrecognized aspect %s returned", aspect.toString()));
+            } else if (aspect.isInstitutionalMemory()) {
+                result.setInstitutionalMemory(InstitutionalMemoryMapper.map(aspect.getInstitutionalMemory()));
+            } else if (aspect.isGlossaryTerms()) {
+                result.setGlossaryTerms(GlossaryTermsMapper.map(aspect.getGlossaryTerms()));
             }
         }
 

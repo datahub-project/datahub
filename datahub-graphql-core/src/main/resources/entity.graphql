@@ -162,6 +162,26 @@ type Mutation {
     removeTerm(input: TermAssociationInput!): Boolean
 
     """
+    Add an owner to a particular Entity
+    """
+    addOwner(input: AddOwnerInput!): Boolean
+
+    """
+    Remove an owner from a particular Entity
+    """
+    removeOwner(input: RemoveOwnerInput!): Boolean
+
+    """
+    Add a link, or institutional memory, from a particular Entity
+    """
+    addLink(input: AddLinkInput!): Boolean
+
+    """
+    Remove a link, or institutional memory, from a particular Entity
+    """
+    removeLink(input: RemoveLinkInput!): Boolean
+
+    """
     Incubating. Updates the description of a resource. Currently only supports Dataset Schema Fields
     """
     updateDescription(input: DescriptionUpdateInput!): Boolean
@@ -939,9 +959,9 @@ type InstitutionalMemoryMetadata {
     url: String!
 
     """
-    Description of the resource
+    Label associated with the URL
     """
-    description: String!
+    label: String!
 
     """
     The author of this metadata
@@ -952,6 +972,12 @@ type InstitutionalMemoryMetadata {
     An AuditStamp corresponding to the creation of this resource
     """
     created: AuditStamp!
+
+    """
+    Deprecated, use label instead
+    Description of the resource
+    """
+    description: String! @deprecated
 }
 
 """
@@ -2442,6 +2468,16 @@ type Dashboard implements EntityWithRelationships & Entity {
     tags: GlobalTags
 
     """
+    References to internal resources related to the dashboard
+    """
+    institutionalMemory: InstitutionalMemory
+
+    """
+    The structured glossary terms associated with the dashboard
+    """
+    glossaryTerms: GlossaryTerms
+
+    """
     Edges extending from this entity
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
@@ -2640,6 +2676,16 @@ type Chart implements EntityWithRelationships & Entity {
     The tags associated with the chart
     """
     tags: GlobalTags
+
+    """
+    References to internal resources related to the dashboard
+    """
+    institutionalMemory: InstitutionalMemory
+
+    """
+    The structured glossary terms associated with the dashboard
+    """
+    glossaryTerms: GlossaryTerms
 
     """
     Edges extending from this entity
@@ -2946,6 +2992,16 @@ type DataFlow implements Entity {
     status: Status
 
     """
+    References to internal resources related to the dashboard
+    """
+    institutionalMemory: InstitutionalMemory
+
+    """
+    The structured glossary terms associated with the dashboard
+    """
+    glossaryTerms: GlossaryTerms
+
+    """
     Edges extending from this entity
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
@@ -3080,6 +3136,16 @@ type DataJob implements EntityWithRelationships & Entity {
     Status metadata of the DataJob
     """
     status: Status
+
+    """
+    References to internal resources related to the dashboard
+    """
+    institutionalMemory: InstitutionalMemory
+
+    """
+    The structured glossary terms associated with the dashboard
+    """
+    glossaryTerms: GlossaryTerms
 
     """
     Edges extending from this entity
@@ -3587,6 +3653,91 @@ input TagAssociationInput {
     An optional sub resource identifier to attach the Tag to
     """
     subResource: String
+}
+
+"""
+Entities that are able to own other entities
+"""
+enum OwnerEntityType {
+  """
+  A corp user owner
+  """
+  CORP_USER,
+
+  """
+  A corp group owner
+  """
+  CORP_GROUP
+}
+
+"""
+Input provided when adding the association between a Metadata Entity and an user or group owner
+"""
+input AddOwnerInput {
+    """
+    The primary key of the Owner to add or remove
+    """
+    ownerUrn: String!
+
+    """
+    The owner type, either a user or group
+    """
+    ownerEntityType: OwnerEntityType!
+
+    """
+    The urn of the resource or entity to attach or remove the owner from, for example a dataset urn
+    """
+    resourceUrn: String!
+}
+
+"""
+Input provided when removing the association between a Metadata Entity and an user or group owner
+"""
+input RemoveOwnerInput {
+    """
+    The primary key of the Owner to add or remove
+    """
+    ownerUrn: String!
+
+    """
+    The urn of the resource or entity to attach or remove the owner from, for example a dataset urn
+    """
+    resourceUrn: String!
+}
+
+"""
+Input provided when adding the association between a Metadata Entity and a Link
+"""
+input AddLinkInput {
+    """
+    The url of the link to add or remove
+    """
+    linkUrl: String!
+
+    """
+    A label to attach to the link
+    """
+    label: String!
+
+    """
+    The urn of the resource or entity to attach the link to, for example a dataset urn
+    """
+    resourceUrn: String!
+}
+
+"""
+Input provided when removing the association between a Metadata Entity and a Link
+"""
+input RemoveLinkInput {
+    """
+    The url of the link to add or remove, which uniquely identifies the Link
+    """
+    linkUrl: String!
+
+    """
+    The urn of the resource or entity to attach the link to, for example a dataset urn
+    """
+    resourceUrn: String!
 }
 
 """
