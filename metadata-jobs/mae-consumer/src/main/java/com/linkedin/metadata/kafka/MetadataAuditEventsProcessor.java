@@ -73,10 +73,11 @@ public class MetadataAuditEventsProcessor {
   public MetadataAuditEventsProcessor(GraphService graphService, EntitySearchService entitySearchService,
       SystemMetadataService systemMetadataService) {
     _graphService = graphService;
+    _entitySearchService = entitySearchService;
     _systemMetadataService = systemMetadataService;
 
     _graphService.configure();
-    _entitySearchService = entitySearchService;
+    _entitySearchService.configure();
     _systemMetadataService.configure();
   }
 
