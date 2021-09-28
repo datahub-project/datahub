@@ -62,7 +62,7 @@ export const EntityHeader = () => {
 
     const platformName = capitalizeFirstLetter(entityData?.platform?.name);
     const platformLogoUrl = entityData?.platform?.info?.logoUrl;
-    const entityTypeCased = entityRegistry.getSingularName(entityType);
+    const entityTypeCased = entityRegistry.getEntityName(entityType);
     const entityPath = useEntityPath(entityType, urn);
     const externalUrl = entityData?.externalUrl || undefined;
     const hasExternalUrl = !!externalUrl;

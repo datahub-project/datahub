@@ -40,7 +40,7 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
 
     getPathName = () => 'featureTables';
 
-    getSingularName = () => 'Feature Table';
+    getEntityName = () => 'Feature Table';
 
     getCollectionName = () => 'Feature Tables';
 

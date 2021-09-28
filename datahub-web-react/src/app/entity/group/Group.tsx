@@ -41,7 +41,7 @@ export class GroupEntity implements Entity<CorpGroup> {
 
     getPathName: () => string = () => 'group';
 
-    getSingularName = () => 'Group';
+    getEntityName = () => 'Group';
 
     getCollectionName: () => string = () => 'Groups';
 

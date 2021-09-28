@@ -40,7 +40,7 @@ export class MLPrimaryKeyEntity implements Entity<MlPrimaryKey> {
 
     getPathName = () => 'mlPrimaryKeys';
 
-    getSingularName = () => 'ML Primary Key';
+    getEntityName = () => 'ML Primary Key';
 
     getCollectionName = () => 'ML Primary Keys';
 

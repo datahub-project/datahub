@@ -40,7 +40,7 @@ export class UserEntity implements Entity<CorpUser> {
 
     getPathName: () => string = () => 'user';
 
-    getSingularName = () => 'User';
+    getEntityName = () => 'User';
 
     getCollectionName: () => string = () => 'Users';
 

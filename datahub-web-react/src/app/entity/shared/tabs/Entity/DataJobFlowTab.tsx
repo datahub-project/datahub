@@ -9,6 +9,6 @@ export const DataJobFlowTab = () => {
     const dataJob = entity && entity.dataJob;
     const dataFlows = dataJob?.parentFlow?.relationships.map((relationship) => relationship.entity);
     const entityRegistry = useEntityRegistry();
-    const title = `Part of ${entityRegistry.getSingularName(EntityType.DataFlow)}`;
+    const title = `Part of ${entityRegistry.getEntityName(EntityType.DataFlow)}`;
     return <EntityList title={title} type={EntityType.DataFlow} entities={dataFlows || []} />;
 };

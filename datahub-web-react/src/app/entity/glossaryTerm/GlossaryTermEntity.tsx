@@ -40,8 +40,6 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
 
     getPathName = () => 'glossary';
 
-    getSingularName = () => 'Glossary Term';
-
     getCollectionName = () => 'Glossary Terms';
 
     getEntityName = () => 'Glossary Term';

@@ -58,11 +58,6 @@ export default class EntityRegistry {
         return entity.icon(fontSize, styleType);
     }
 
-    getSingularName(type: EntityType): string {
-        const entity = validatedGet(type, this.entityTypeToEntity);
-        return entity.getSingularName();
-    }
-
     getCollectionName(type: EntityType): string {
         const entity = validatedGet(type, this.entityTypeToEntity);
         return entity.getCollectionName();

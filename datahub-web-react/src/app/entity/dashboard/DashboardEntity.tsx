@@ -72,7 +72,7 @@ export class DashboardEntity implements Entity<Dashboard> {
 
     getPathName = () => 'dashboard';
 
-    getSingularName = () => 'Dashboard';
+    getEntityName = () => 'Dashboard';
 
     getCollectionName = () => 'Dashboards';
 

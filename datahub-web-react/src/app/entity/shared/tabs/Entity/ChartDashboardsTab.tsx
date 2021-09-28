@@ -12,7 +12,7 @@ export const ChartDashboardsTab = () => {
     const totalDashboards = chart?.dashboards?.total || 0;
     const title = `Found in ${totalDashboards} ${
         totalDashboards === 1
-            ? entityRegistry.getSingularName(EntityType.Dashboard)
+            ? entityRegistry.getEntityName(EntityType.Dashboard)
             : entityRegistry.getCollectionName(EntityType.Dashboard)
     }`;
     return <EntityList title={title} type={EntityType.Dashboard} entities={dashboards || []} />;

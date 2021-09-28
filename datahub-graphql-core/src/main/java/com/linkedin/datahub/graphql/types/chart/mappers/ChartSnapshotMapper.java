@@ -63,8 +63,6 @@ public class ChartSnapshotMapper implements ModelMapper<ChartSnapshot, Chart> {
                 result.setInstitutionalMemory(InstitutionalMemoryMapper.map(aspect.getInstitutionalMemory()));
             } else if (aspect.isGlossaryTerms()) {
                 result.setGlossaryTerms(GlossaryTermsMapper.map(aspect.getGlossaryTerms()));
-            } else {
-                // throw new RuntimeException(String.format("Unrecognized aspect %s returned", aspect.toString()));
             }
         }
 
