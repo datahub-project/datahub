@@ -4420,7 +4420,7 @@
                   "type" : "record",
                   "name" : "SurveyResponseKey",
                   "namespace" : "com.linkedin.metadata.key",
-                  "doc" : "Key for a Chart",
+                  "doc" : "Key for a SurveyResponse",
                   "fields" : [ {
                     "name" : "id",
                     "type" : "string",
@@ -4444,7 +4444,7 @@
                     "type" : "string"
                   }, {
                     "name" : "user",
-                    "type" : "string"
+                    "type" : "com.linkedin.common.Urn"
                   } ],
                   "Aspect" : {
                     "name" : "surveyResponseInfo"

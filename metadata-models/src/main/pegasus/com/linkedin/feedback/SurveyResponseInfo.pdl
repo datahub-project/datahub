@@ -1,5 +1,6 @@
 namespace com.linkedin.feedback
 import com.linkedin.common.Time
+import com.linkedin.common.Urn
 
 /*
  * Response object for each response to a question in the user experience survey
@@ -27,5 +28,5 @@ record SurveyResponseInfo {
     /*
      * user's id
      */
-    user: string,
+    user: Urn,
 }
