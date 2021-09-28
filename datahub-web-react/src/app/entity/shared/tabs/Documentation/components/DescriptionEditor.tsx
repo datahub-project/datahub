@@ -21,7 +21,7 @@ export const DescriptionEditor = ({ onComplete }: { onComplete?: () => void }) =
         message.loading({ content: 'Saving...' });
         try {
             await updateEntity({
-                variables: { input: { urn, editableProperties: { description: updatedDescription || '' } } },
+                variables: { urn, input: { editableProperties: { description: updatedDescription || '' } } },
             });
             message.destroy();
             analytics.event({

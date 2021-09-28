@@ -45,50 +45,64 @@ public class IngestPoliciesStep implements BootstrapStep {
     final ObjectMapper mapper = new ObjectMapper();
 
     // 0. Execute preflight check to see whether we need to ingest policies
-    if (!hasDefaultPolicies()) {
+    log.info("Ingesting default access policies...");
 
-      log.info("Ingesting default access policies...");
+    // Whether we are at clean boot or not.
+    final boolean hasDefaultPolicies = hasDefaultPolicies();
 
-      // 1. Read from the file into JSON.
-      final JsonNode policiesObj = mapper.readTree(new ClassPathResource("./boot/policies.json").getFile());
+    // 1. Read from the file into JSON.
+    final JsonNode policiesObj = mapper.readTree(new ClassPathResource("./boot/policies.json").getFile());
 
-      if (!policiesObj.isArray()) {
-        throw new RuntimeException(String.format("Found malformed policies file, expected an Array but found %s", policiesObj.getNodeType()));
-      }
-
-      // 2. For each JSON object, cast into a DataHub Policy Info object.
-      for (Iterator<JsonNode> it = policiesObj.iterator(); it.hasNext(); ) {
-        final JsonNode policyObj = it.next();
-        final DataHubPolicyInfo info = RecordUtils.toRecordTemplate(DataHubPolicyInfo.class, policyObj.get("info").toString());
-        final Urn urn = Urn.createFromString(policyObj.get("urn").asText());
-
-        // 3. Write key & aspect
-        final MetadataChangeProposal keyAspectProposal = new MetadataChangeProposal();
-        final AspectSpec keyAspectSpec = _entityService.getKeyAspectSpec(urn);
-        GenericAspect aspect = GenericAspectUtils.serializeAspect(EntityKeyUtils.convertUrnToEntityKey(urn, keyAspectSpec.getPegasusSchema()));
-        keyAspectProposal.setAspect(aspect);
-        keyAspectProposal.setAspectName(keyAspectSpec.getName());
-        keyAspectProposal.setEntityType(POLICY_ENTITY_NAME);
-        keyAspectProposal.setChangeType(ChangeType.UPSERT);
-        keyAspectProposal.setEntityUrn(urn);
-
-        _entityService.ingestProposal(keyAspectProposal,
-            new AuditStamp().setActor(Urn.createFromString("urn:li:corpuser:system")).setTime(System.currentTimeMillis()));
-
-        final MetadataChangeProposal proposal = new MetadataChangeProposal();
-        proposal.setEntityUrn(urn);
-        proposal.setEntityType(POLICY_ENTITY_NAME);
-        proposal.setAspectName(POLICY_INFO_ASPECT_NAME);
-        proposal.setAspect(GenericAspectUtils.serializeAspect(info));
-        proposal.setChangeType(ChangeType.UPSERT);
-
-        _entityService.ingestProposal(proposal,
-            new AuditStamp().setActor(Urn.createFromString("urn:li:corpuser:system")).setTime(System.currentTimeMillis()));
-        log.info("Successfully ingested default access policies.");
-      }
-    } else {
-      log.info("Skipping IngestPoliciesStep, default policies already exist.");
+    if (!policiesObj.isArray()) {
+      throw new RuntimeException(String.format("Found malformed policies file, expected an Array but found %s", policiesObj.getNodeType()));
     }
+
+    // 2. For each JSON object, cast into a DataHub Policy Info object.
+    for (Iterator<JsonNode> it = policiesObj.iterator(); it.hasNext(); ) {
+      final JsonNode policyObj = it.next();
+      final DataHubPolicyInfo info = RecordUtils.toRecordTemplate(DataHubPolicyInfo.class, policyObj.get("info").toString());
+      final Urn urn = Urn.createFromString(policyObj.get("urn").asText());
+
+      if (!info.isEditable()) {
+        // If the Policy is not editable, always re-ingest.
+        log.info(String.format("Ingesting default policy with urn %s", urn));
+        ingestPolicy(urn, info);
+      } else {
+        // If the Policy is editable (ie. an example policy), only ingest on a clean boot up.
+        if (!hasDefaultPolicies) {
+          log.info(String.format("Ingesting default policy with urn %s", urn));
+          ingestPolicy(urn, info);
+        } else {
+          log.info(String.format("Skipping ingestion of editable policy with urn %s", urn));
+        }
+      }
+    }
+    log.info("Successfully ingested default access policies.");
+  }
+
+  private void ingestPolicy(final Urn urn, final DataHubPolicyInfo info) throws URISyntaxException {
+    // 3. Write key & aspect
+    final MetadataChangeProposal keyAspectProposal = new MetadataChangeProposal();
+    final AspectSpec keyAspectSpec = _entityService.getKeyAspectSpec(urn);
+    GenericAspect aspect = GenericAspectUtils.serializeAspect(EntityKeyUtils.convertUrnToEntityKey(urn, keyAspectSpec.getPegasusSchema()));
+    keyAspectProposal.setAspect(aspect);
+    keyAspectProposal.setAspectName(keyAspectSpec.getName());
+    keyAspectProposal.setEntityType(POLICY_ENTITY_NAME);
+    keyAspectProposal.setChangeType(ChangeType.UPSERT);
+    keyAspectProposal.setEntityUrn(urn);
+
+    _entityService.ingestProposal(keyAspectProposal,
+        new AuditStamp().setActor(Urn.createFromString("urn:li:corpuser:system")).setTime(System.currentTimeMillis()));
+
+    final MetadataChangeProposal proposal = new MetadataChangeProposal();
+    proposal.setEntityUrn(urn);
+    proposal.setEntityType(POLICY_ENTITY_NAME);
+    proposal.setAspectName(POLICY_INFO_ASPECT_NAME);
+    proposal.setAspect(GenericAspectUtils.serializeAspect(info));
+    proposal.setChangeType(ChangeType.UPSERT);
+
+    _entityService.ingestProposal(proposal,
+        new AuditStamp().setActor(Urn.createFromString("urn:li:corpuser:system")).setTime(System.currentTimeMillis()));
   }
 
   private boolean hasDefaultPolicies() throws URISyntaxException {

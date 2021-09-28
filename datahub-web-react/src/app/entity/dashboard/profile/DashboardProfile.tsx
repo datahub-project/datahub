@@ -55,7 +55,7 @@ export default function DashboardProfile({ urn }: { urn: string }) {
                                 entityType: EntityType.Dashboard,
                                 entityUrn: urn,
                             });
-                            return updateDashboard({ variables: { input: { urn, ownership: update } } });
+                            return updateDashboard({ variables: { urn, input: { ownership: update } } });
                         }}
                     />
                 ),

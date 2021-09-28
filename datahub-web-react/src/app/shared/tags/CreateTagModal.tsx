@@ -4,6 +4,7 @@ import styled from 'styled-components';
 
 import { useUpdateTagMutation } from '../../../graphql/tag.generated';
 import { useAddTagMutation } from '../../../graphql/mutations.generated';
+import { SubResourceType } from '../../../types.generated';
 
 type CreateTagModalProps = {
     visible: boolean;
@@ -38,6 +39,7 @@ export default function CreateTagModal({
         const tagUrn = `urn:li:tag:${tagName}`;
         updateTagMutation({
             variables: {
+                urn: tagUrn,
                 input: {
                     urn: tagUrn,
                     name: tagName,
@@ -51,8 +53,9 @@ export default function CreateTagModal({
                     variables: {
                         input: {
                             tagUrn,
-                            targetUrn: entityUrn,
+                            resourceUrn: entityUrn,
                             subResource: entitySubresource,
+                            subResourceType: entitySubresource ? SubResourceType.DatasetField : null,
                         },
                     },
                 }).finally(() => {

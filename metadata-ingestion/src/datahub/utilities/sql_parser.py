@@ -18,6 +18,9 @@ class SQLParser(metaclass=ABCMeta):
 
 class DefaultSQLParser(SQLParser):
     def __init__(self, sql_query: str) -> None:
+        # MetadataSQLParser makes mistakes on lateral flatten queries, use the prefix
+        if "lateral flatten" in sql_query:
+            sql_query = sql_query[: sql_query.find("lateral flatten")]
         self._parser = MetadataSQLParser(sql_query)
 
     def get_tables(self) -> List[str]:

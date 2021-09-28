@@ -24,7 +24,7 @@ export const SidebarOwnerSection = () => {
             entityType: EntityType.Dataset,
             entityUrn: urn,
         });
-        updateEntity({ variables: { input: { urn, ownership: update } } })
+        updateEntity({ variables: { urn, input: { ownership: update } } })
             .then(() => message.success({ content: 'Updated!', duration: 2 }))
             .catch((e) => {
                 message.destroy();

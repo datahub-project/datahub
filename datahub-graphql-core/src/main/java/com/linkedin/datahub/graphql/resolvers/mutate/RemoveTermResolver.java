@@ -4,7 +4,7 @@ import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
-import com.linkedin.datahub.graphql.generated.TermUpdateInput;
+import com.linkedin.datahub.graphql.generated.TermAssociationInput;
 import com.linkedin.metadata.entity.EntityService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -22,15 +22,27 @@ public class RemoveTermResolver implements DataFetcher<CompletableFuture<Boolean
 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
-    final TermUpdateInput input = bindArgument(environment.getArgument("input"), TermUpdateInput.class);
+    final TermAssociationInput input = bindArgument(environment.getArgument("input"), TermAssociationInput.class);
     Urn termUrn = Urn.createFromString(input.getTermUrn());
-    Urn targetUrn = Urn.createFromString(input.getTargetUrn());
+    Urn targetUrn = Urn.createFromString(input.getResourceUrn());
 
     if (!LabelUtils.isAuthorizedToUpdateTerms(environment.getContext(), targetUrn, input.getSubResource())) {
       throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
     }
 
     return CompletableFuture.supplyAsync(() -> {
+      LabelUtils.validateInput(
+          termUrn,
+          targetUrn,
+          input.getSubResource(),
+          input.getSubResourceType(),
+          "glossaryTerm",
+          _entityService
+      );
+      if (!targetUrn.getEntityType().equals("dataset")) {
+        throw new IllegalArgumentException(String.format("Failed to update %s on %s. Subject is not a dataset.", termUrn, targetUrn));
+      }
+
       try {
 
         if (!termUrn.getEntityType().equals("glossaryTerm")) {

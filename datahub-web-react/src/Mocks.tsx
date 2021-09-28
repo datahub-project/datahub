@@ -254,10 +254,12 @@ export const dataset3 = {
     platformNativeType: 'STREAM',
     name: 'Yet Another Dataset',
     origin: 'PROD',
-    tags: ['Trusted'],
     description: 'This and here we have yet another Dataset (YAN). Are there more?',
     uri: 'www.google.com',
-    properties: [{ key: 'propertyAKey', value: 'propertyAValue' }],
+    properties: {
+        origin: 'PROD',
+        customProperties: [{ key: 'propertyAKey', value: 'propertyAValue' }],
+    },
     editableProperties: null,
     created: {
         time: 0,
