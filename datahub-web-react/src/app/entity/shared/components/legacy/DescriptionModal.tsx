@@ -29,7 +29,7 @@ type Props = {
 };
 
 export default function UpdateDescriptionModal({ title, description, original, onClose, onSubmit, isAddDesc }: Props) {
-    const [updatedDesc, setDesc] = useState(description || original);
+    const [updatedDesc, setDesc] = useState(description || original || '');
 
     return (
         <Modal
@@ -37,15 +37,11 @@ export default function UpdateDescriptionModal({ title, description, original, o
             visible
             width={900}
             onCancel={onClose}
-            okButtonProps={{ disabled: !updatedDesc || updatedDesc.length === 0 }}
             okText={isAddDesc ? 'Submit' : 'Update'}
             footer={
                 <>
                     <Button onClick={onClose}>Cancel</Button>
-                    <Button
-                        onClick={() => onSubmit(updatedDesc || null)}
-                        disabled={updatedDesc === description || !updatedDesc}
-                    >
+                    <Button onClick={() => onSubmit(updatedDesc)} disabled={updatedDesc === description}>
                         Update
                     </Button>
                 </>

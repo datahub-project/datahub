@@ -9,9 +9,10 @@ import { LdapFormItem } from './LdapFormItem';
 type Props = {
     visible: boolean;
     onClose: () => void;
+    refetch?: () => Promise<any>;
 };
 
-export const AddOwnerModal = ({ visible, onClose }: Props) => {
+export const AddOwnerModal = ({ visible, onClose, refetch }: Props) => {
     const [form] = Form.useForm();
     const { urn } = useEntityData();
 
@@ -46,6 +47,7 @@ export const AddOwnerModal = ({ visible, onClose }: Props) => {
                 message.error({ content: `Failed to add owner: \n ${e.message || ''}`, duration: 3 });
             }
         }
+        refetch?.();
         onClose();
     };
 

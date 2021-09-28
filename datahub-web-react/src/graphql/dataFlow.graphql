@@ -45,26 +45,27 @@ fragment dataFlowFields on DataFlow {
 query getDataFlow($urn: String!) {
     dataFlow(urn: $urn) {
         ...dataFlowFields
-        dataJobs {
-            entities {
+        childJobs: relationships(input: { types: ["IsPartOf"], direction: INCOMING, start: 0, count: 100 }) {
+            start
+            count
+            total
+            relationships {
                 entity {
-                    urn
-                    type
                     ... on DataJob {
                         urn
                         type
                         jobId
+                        dataFlow {
+                            urn
+                            type
+                            orchestrator
+                        }
                         ownership {
                             ...ownershipFields
                         }
                         info {
                             name
                             description
-                            externalUrl
-                            customProperties {
-                                key
-                                value
-                            }
                         }
                         editableProperties {
                             description
@@ -72,10 +73,8 @@ query getDataFlow($urn: String!) {
                         globalTags {
                             ...globalTagsFields
                         }
-                        inputOutput {
-                            inputDatajobs {
-                                urn
-                            }
+                        glossaryTerms {
+                            ...glossaryTerms
                         }
                     }
                 }
@@ -87,17 +86,5 @@ query getDataFlow($urn: String!) {
 mutation updateDataFlow($urn: String!, $input: DataFlowUpdateInput!) {
     updateDataFlow(urn: $urn, input: $input) {
         ...dataFlowFields
-        dataJobs {
-            entities {
-                entity {
-                    urn
-                    type
-                    ... on DataJob {
-                        ...dataJobFields
-                        ...shallowLineageFields
-                    }
-                }
-            }
-        }
     }
 }

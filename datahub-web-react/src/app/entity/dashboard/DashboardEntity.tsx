@@ -14,7 +14,7 @@ import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Owners
 import { SidebarAboutSection } from '../shared/containers/profile/sidebar/SidebarAboutSection';
 import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
 import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
-import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
+import { DashboardChartsTab } from '../shared/tabs/Entity/DashboardChartsTab';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
 import { GenericEntityProperties } from '../shared/types';
 import { DashboardPreview } from './preview/DashboardPreview';
@@ -94,10 +94,8 @@ export class DashboardEntity implements Entity<Dashboard> {
                 },
                 {
                     name: 'Charts',
-                    component: LineageTab,
-                    shouldHide: (_, dashboard: GetDashboardQuery) =>
-                        (dashboard?.dashboard?.upstreamLineage?.entities?.length || 0) === 0 &&
-                        (dashboard?.dashboard?.downstreamLineage?.entities?.length || 0) === 0,
+                    component: DashboardChartsTab,
+                    shouldHide: (_, dashboard: GetDashboardQuery) => dashboard?.dashboard?.charts?.total === 0,
                 },
             ]}
             sidebarSections={[
@@ -150,6 +148,7 @@ export class DashboardEntity implements Entity<Dashboard> {
                 access={data.info?.access}
                 tags={data.globalTags || undefined}
                 owners={data.ownership?.owners}
+                glossaryTerms={data?.glossaryTerms}
             />
         );
     };

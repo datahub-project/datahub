@@ -8,13 +8,14 @@ import { getLogoFromPlatform } from '../../shared/getLogoFromPlatform';
 import { ChartPreview } from './preview/ChartPreview';
 import { GetChartQuery, useGetChartQuery, useUpdateChartMutation } from '../../../graphql/chart.generated';
 import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
-import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
 import { SidebarAboutSection } from '../shared/containers/profile/sidebar/SidebarAboutSection';
 import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
 import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/SidebarOwnerSection';
 import { GenericEntityProperties } from '../shared/types';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
+import { ChartInputsTab } from '../shared/tabs/Entity/ChartInputsTab';
+import { ChartDashboardsTab } from '../shared/tabs/Entity/ChartDashboardsTab';
 
 /**
  * Definition of the DataHub Chart entity.
@@ -79,10 +80,13 @@ export class ChartEntity implements Entity<Chart> {
                 },
                 {
                     name: 'Inputs',
-                    component: LineageTab,
-                    shouldHide: (_, chart: GetChartQuery) =>
-                        (chart?.chart?.upstreamLineage?.entities?.length || 0) === 0 &&
-                        (chart?.chart?.downstreamLineage?.entities?.length || 0) === 0,
+                    component: ChartInputsTab,
+                    shouldHide: (_, chart: GetChartQuery) => (chart?.chart?.inputs?.total || 0) === 0,
+                },
+                {
+                    name: 'Dashboards',
+                    component: ChartDashboardsTab,
+                    shouldHide: (_, chart: GetChartQuery) => (chart?.chart?.dashboards?.total || 0) === 0,
                 },
             ]}
             sidebarSections={[
@@ -135,6 +139,7 @@ export class ChartEntity implements Entity<Chart> {
                 access={data.info?.access}
                 owners={data.ownership?.owners}
                 tags={data?.globalTags || undefined}
+                glossaryTerms={data?.glossaryTerms}
             />
         );
     };

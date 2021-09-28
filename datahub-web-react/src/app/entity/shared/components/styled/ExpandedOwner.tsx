@@ -11,6 +11,7 @@ import { useEntityRegistry } from '../../../../useEntityRegistry';
 type Props = {
     entityUrn: string;
     owner: Owner;
+    refetch?: () => Promise<any>;
 };
 
 const OwnerTag = styled(Tag)`
@@ -21,7 +22,7 @@ const OwnerTag = styled(Tag)`
     align-items: center;
 `;
 
-export const ExpandedOwner = ({ entityUrn, owner }: Props) => {
+export const ExpandedOwner = ({ entityUrn, owner, refetch }: Props) => {
     const entityRegistry = useEntityRegistry();
     const [removeOwnerMutation] = useRemoveOwnerMutation();
 
@@ -52,6 +53,7 @@ export const ExpandedOwner = ({ entityUrn, owner }: Props) => {
                 message.error({ content: `Failed to remove owner: \n ${e.message || ''}`, duration: 3 });
             }
         }
+        refetch?.();
     };
 
     const onClose = (e) => {

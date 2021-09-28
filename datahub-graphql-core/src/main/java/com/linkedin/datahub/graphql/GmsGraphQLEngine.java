@@ -315,6 +315,7 @@ public class GmsGraphQLEngine {
         configureTypeExtensions(builder);
         configureTagAssociationResolver(builder);
         configureDataJobResolvers(builder);
+        configureDataFlowResolvers(builder);
         configureMLFeatureTableResolvers(builder);
         configureGlossaryRelationshipResolvers(builder);
         configureAnalyticsResolvers(builder);
@@ -692,13 +693,6 @@ public class GmsGraphQLEngine {
                                 (env) -> ((Entity) env.getSource()).getUrn()))
                 )
             )
-            .type("DataFlow", typeWiring -> typeWiring
-                    .dataFetcher("dataJobs", new AuthenticatedResolver<>(
-                            new LoadableTypeResolver<>(dataFlowDataJobsRelationshipType,
-                                    (env) -> ((Entity) env.getSource()).getUrn())
-                            )
-                    )
-            )
             .type("DataJobInputOutput", typeWiring -> typeWiring
                 .dataFetcher("inputDatasets", new AuthenticatedResolver<>(
                     new LoadableTypeBatchResolver<>(datasetType,
@@ -718,6 +712,23 @@ public class GmsGraphQLEngine {
                             .map(DataJob::getUrn)
                             .collect(Collectors.toList())))
                 )
+            );
+    }
+
+    /**
+     * Configures resolvers responsible for resolving the {@link com.linkedin.datahub.graphql.generated.DataFlow} type.
+     */
+    private void configureDataFlowResolvers(final RuntimeWiring.Builder builder) {
+        builder
+            .type("DataFlow", typeWiring -> typeWiring
+                .dataFetcher("dataJobs", new AuthenticatedResolver<>(
+                        new LoadableTypeResolver<>(dataFlowDataJobsRelationshipType,
+                            (env) -> ((Entity) env.getSource()).getUrn())
+                    )
+                )
+                .dataFetcher("relationships", new AuthenticatedResolver<>(
+                    new EntityRelationshipsResultResolver(GmsClientFactory.getRelationshipsClient())
+                ))
             );
     }
 

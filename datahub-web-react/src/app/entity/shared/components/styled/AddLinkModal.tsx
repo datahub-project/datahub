@@ -7,12 +7,13 @@ import { useAddLinkMutation } from '../../../../../graphql/mutations.generated';
 
 type AddLinkProps = {
     buttonProps?: Record<string, unknown>;
+    refetch?: () => Promise<any>;
 };
 
-export const AddLinkModal = ({ buttonProps }: AddLinkProps) => {
+export const AddLinkModal = ({ buttonProps, refetch }: AddLinkProps) => {
     const [isModalVisible, setIsModalVisible] = useState(false);
     const user = useGetAuthenticatedUser();
-    const { urn, entityData } = useEntityData();
+    const { urn } = useEntityData();
     const [addLinkMutation] = useAddLinkMutation();
 
     const [form] = Form.useForm();
@@ -28,23 +29,6 @@ export const AddLinkModal = ({ buttonProps }: AddLinkProps) => {
 
     const handleAdd = async (formData: any) => {
         if (user?.corpUser.urn) {
-            const links = entityData?.institutionalMemory?.elements || [];
-
-            const newLinks = links.map((link) => {
-                return {
-                    author: link.author.urn,
-                    url: link.url,
-                    description: link.description,
-                    createdAt: link.created.time,
-                };
-            });
-
-            newLinks.push({
-                author: user?.corpUser.urn,
-                createdAt: Date.now(),
-                ...formData,
-            });
-
             try {
                 await addLinkMutation({
                     variables: { input: { linkUrl: formData.url, label: formData.label, resourceUrn: urn } },
@@ -56,7 +40,7 @@ export const AddLinkModal = ({ buttonProps }: AddLinkProps) => {
                     message.error({ content: `Failed to add link: \n ${e.message || ''}`, duration: 3 });
                 }
             }
-
+            refetch?.();
             handleClose();
         } else {
             message.error({ content: `Error adding link: no user`, duration: 2 });

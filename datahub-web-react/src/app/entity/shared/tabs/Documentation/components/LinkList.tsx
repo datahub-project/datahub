@@ -28,7 +28,11 @@ const ListOffsetIcon = styled.span`
     margin-right: 6px;
 `;
 
-export const LinkList = () => {
+type LinkListProps = {
+    refetch?: () => Promise<any>;
+};
+
+export const LinkList = ({ refetch }: LinkListProps) => {
     const { urn, entityData } = useEntityData();
     const entityRegistry = useEntityRegistry();
     const [removeLinkMutation] = useRemoveLinkMutation();
@@ -46,6 +50,7 @@ export const LinkList = () => {
                 message.error({ content: `Error removing link: \n ${e.message || ''}`, duration: 2 });
             }
         }
+        refetch?.();
     };
 
     return entityData ? (

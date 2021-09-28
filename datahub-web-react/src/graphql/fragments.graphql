@@ -264,21 +264,6 @@ fragment dashboardFields on Dashboard {
     info {
         name
         description
-        charts {
-            urn
-            tool
-            type
-            info {
-                name
-                description
-                inputs {
-                    urn
-                }
-            }
-            ownership {
-                ...ownershipFields
-            }
-        }
         customProperties {
             key
             value
