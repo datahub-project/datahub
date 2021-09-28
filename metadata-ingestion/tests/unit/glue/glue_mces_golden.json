@@ -211,7 +211,8 @@
                 }
               ],
               "primaryKeys": null,
-              "foreignKeysSpecs": null
+              "foreignKeysSpecs": null,
+              "foreignKeys": null
             }
           }
         ]
@@ -321,7 +322,8 @@
                 }
               ],
               "primaryKeys": null,
-              "foreignKeysSpecs": null
+              "foreignKeysSpecs": null,
+              "foreignKeys": null
             }
           }
         ]
@@ -493,7 +495,8 @@
                 }
               ],
               "primaryKeys": null,
-              "foreignKeysSpecs": null
+              "foreignKeysSpecs": null,
+              "foreignKeys": null
             }
           }
         ]

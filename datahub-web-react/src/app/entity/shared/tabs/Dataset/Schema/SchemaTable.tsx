@@ -1,13 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { ColumnsType } from 'antd/es/table';
 import styled from 'styled-components';
-import {
-    EditableSchemaMetadata,
-    SchemaField,
-    GlobalTagsUpdate,
-    EditableSchemaFieldInfo,
-    UsageQueryResult,
-} from '../../../../../../types.generated';
+import { EditableSchemaMetadata, SchemaField, UsageQueryResult } from '../../../../../../types.generated';
 import schemaTitleRenderer from '../../../../dataset/profile/schema/utils/schemaTitleRenderer';
 import { ExtendedSchemaFields } from '../../../../dataset/profile/schema/utils/types';
 import useDescriptionRenderer from './utils/useDescriptionRenderer';
@@ -40,43 +34,25 @@ const defaultColumns = [
 
 export type Props = {
     rows: Array<ExtendedSchemaFields>;
-    onUpdateDescription: (
-        updatedDescription: string,
-        record?: EditableSchemaFieldInfo | ExtendedSchemaFields,
-    ) => Promise<any>;
-    onUpdateTags: (update: GlobalTagsUpdate, record?: EditableSchemaFieldInfo) => Promise<any>;
     editableSchemaMetadata?: EditableSchemaMetadata | null;
     editMode?: boolean;
     usageStats?: UsageQueryResult | null;
 };
-export default function SchemaTable({
-    rows,
-    onUpdateDescription,
-    onUpdateTags,
-    editableSchemaMetadata,
-    usageStats,
-    editMode = true,
-}: Props) {
+export default function SchemaTable({ rows, editableSchemaMetadata, usageStats, editMode = true }: Props) {
     const hasUsageStats = useMemo(() => (usageStats?.aggregations?.fields?.length || 0) > 0, [usageStats]);
 
     const [tagHoveredIndex, setTagHoveredIndex] = useState<string | undefined>(undefined);
 
-    const descriptionRender = useDescriptionRenderer(editableSchemaMetadata, onUpdateDescription);
+    const descriptionRender = useDescriptionRenderer(editableSchemaMetadata);
     const usageStatsRenderer = useUsageStatsRenderer(usageStats);
-    const tagRenderer = useTagsAndTermsRenderer(
-        editableSchemaMetadata,
-        onUpdateTags,
-        tagHoveredIndex,
-        setTagHoveredIndex,
-        { showTags: true, showTerms: false },
-    );
-    const termRenderer = useTagsAndTermsRenderer(
-        editableSchemaMetadata,
-        onUpdateTags,
-        tagHoveredIndex,
-        setTagHoveredIndex,
-        { showTags: false, showTerms: true },
-    );
+    const tagRenderer = useTagsAndTermsRenderer(editableSchemaMetadata, tagHoveredIndex, setTagHoveredIndex, {
+        showTags: true,
+        showTerms: false,
+    });
+    const termRenderer = useTagsAndTermsRenderer(editableSchemaMetadata, tagHoveredIndex, setTagHoveredIndex, {
+        showTags: false,
+        showTerms: true,
+    });
 
     const onTagTermCell = (record: SchemaField, rowIndex: number | undefined) => ({
         onMouseEnter: () => {

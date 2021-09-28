@@ -19,7 +19,6 @@ query getBrowseResults($input: BrowseInput!) {
                         logoUrl
                     }
                 }
-                tags
                 ownership {
                     ...ownershipFields
                 }
@@ -132,7 +131,6 @@ query getBrowseResults($input: BrowseInput!) {
                 name
                 origin
                 description
-                tags
                 ownership {
                     ...ownershipFields
                 }

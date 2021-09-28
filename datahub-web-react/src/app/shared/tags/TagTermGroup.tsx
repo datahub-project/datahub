@@ -86,7 +86,7 @@ export default function TagTermGroup({
                                 tagUrn: urnToRemove,
                                 resourceUrn: entityUrn,
                                 subResource: entitySubresource,
-                                subResourceType: entitySubresource ? SubResourceType.FieldPath : null,
+                                subResourceType: entitySubresource ? SubResourceType.DatasetField : null,
                             },
                         },
                     })
@@ -123,7 +123,7 @@ export default function TagTermGroup({
                                 termUrn: urnToRemove,
                                 resourceUrn: entityUrn,
                                 subResource: entitySubresource,
-                                subResourceType: entitySubresource ? SubResourceType.FieldPath : null,
+                                subResourceType: entitySubresource ? SubResourceType.DatasetField : null,
                             },
                         },
                     })
