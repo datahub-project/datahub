@@ -1,7 +1,7 @@
 namespace com.linkedin.metadata.key
 
 /**
- * Key for a Chart
+ * Key for a SurveyResponse
  */
 @Aspect = {
   "name": "surveyResponseKey"
