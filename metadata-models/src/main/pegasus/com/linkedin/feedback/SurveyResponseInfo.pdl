@@ -12,7 +12,7 @@ record SurveyResponseInfo {
     /*
      * Date when SurveyResponseInfo was created
      */
-    createdAt: optional Time,
+    createdAt: Time,
 
     /*
      * users response to a question

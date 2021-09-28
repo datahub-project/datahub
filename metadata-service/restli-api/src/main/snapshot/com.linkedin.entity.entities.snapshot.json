@@ -4435,8 +4435,7 @@
                   "namespace" : "com.linkedin.feedback",
                   "fields" : [ {
                     "name" : "createdAt",
-                    "type" : "com.linkedin.common.Time",
-                    "optional" : true
+                    "type" : "com.linkedin.common.Time"
                   }, {
                     "name" : "responseText",
                     "type" : "string"
