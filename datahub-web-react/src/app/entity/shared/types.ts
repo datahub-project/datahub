@@ -7,7 +7,6 @@ import {
     DownstreamEntityRelationships,
     EditableSchemaMetadata,
     EditableSchemaMetadataUpdate,
-    EntityRelationshipsResult,
     EntityType,
     GlobalTags,
     GlobalTagsUpdate,
@@ -53,8 +52,6 @@ export type GenericEntityProperties = {
     /** Dataset specific- TODO, migrate these out */
     editableSchemaMetadata?: Maybe<EditableSchemaMetadata>;
     editableProperties?: Maybe<DatasetEditableProperties>;
-    /** Dashboard specific- TODO, migrate these out */
-    charts?: Maybe<EntityRelationshipsResult>;
 };
 
 export type GenericEntityUpdate = {
