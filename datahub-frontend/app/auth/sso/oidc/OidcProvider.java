@@ -1,6 +1,7 @@
 package auth.sso.oidc;
 
 import auth.sso.SsoProvider;
+import auth.sso.oidc.custom.CustomOidcClient;
 import com.google.common.collect.ImmutableMap;
 import org.pac4j.core.client.Client;
 import org.pac4j.core.http.callback.PathParameterCallbackUrlResolver;
@@ -58,8 +59,7 @@ public class OidcProvider implements SsoProvider<OidcConfigs> {
     _oidcConfigs.getCustomParamResource()
         .ifPresent(value -> oidcConfiguration.setCustomParams(ImmutableMap.of("resource", value)));
 
-    final org.pac4j.oidc.client.OidcClient<OidcProfile, OidcConfiguration> oidcClient =
-        new org.pac4j.oidc.client.OidcClient<>(oidcConfiguration);
+    final CustomOidcClient oidcClient = new CustomOidcClient(oidcConfiguration);
     oidcClient.setName(OIDC_CLIENT_NAME);
     oidcClient.setCallbackUrl(_oidcConfigs.getAuthBaseUrl() + _oidcConfigs.getAuthBaseCallbackPath());
     oidcClient.setCallbackUrlResolver(new PathParameterCallbackUrlResolver());
