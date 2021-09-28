@@ -3,7 +3,7 @@ import json
 import logging
 import shlex
 from json.decoder import JSONDecodeError
-from typing import List, Optional, Union
+from typing import Dict, List, Optional, Union
 
 import requests
 from requests.exceptions import HTTPError, RequestException
@@ -56,6 +56,7 @@ class DatahubRestEmitter:
         token: Optional[str] = None,
         connect_timeout_sec: Optional[float] = None,
         read_timeout_sec: Optional[float] = None,
+        extra_headers: Optional[Dict[str, str]] = None,
     ):
         if ":9002" in gms_server:
             logger.warning(
@@ -73,6 +74,9 @@ class DatahubRestEmitter:
         )
         if token:
             self._session.headers.update({"Authorization": f"Bearer {token}"})
+
+        if extra_headers:
+            self._session.headers.update(extra_headers)
 
         if connect_timeout_sec:
             self._connect_timeout_sec = connect_timeout_sec

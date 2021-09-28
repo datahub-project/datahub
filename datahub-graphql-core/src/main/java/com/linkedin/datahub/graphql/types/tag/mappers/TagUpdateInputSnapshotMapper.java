@@ -10,7 +10,7 @@ import com.linkedin.common.OwnershipType;
 import com.linkedin.common.urn.TagUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.SetMode;
-import com.linkedin.datahub.graphql.generated.TagUpdate;
+import com.linkedin.datahub.graphql.generated.TagUpdateInput;
 import com.linkedin.datahub.graphql.types.mappers.InputModelMapper;
 import com.linkedin.metadata.aspect.TagAspect;
 import com.linkedin.metadata.aspect.TagAspectArray;
@@ -19,19 +19,19 @@ import com.linkedin.metadata.snapshot.TagSnapshot;
 import com.linkedin.tag.TagProperties;
 import javax.annotation.Nonnull;
 
-public class TagUpdateSnapshotMapper implements InputModelMapper<TagUpdate, TagSnapshot, Urn> {
+public class TagUpdateInputSnapshotMapper implements InputModelMapper<TagUpdateInput, TagSnapshot, Urn> {
 
-  public static final TagUpdateSnapshotMapper INSTANCE = new TagUpdateSnapshotMapper();
+  public static final TagUpdateInputSnapshotMapper INSTANCE = new TagUpdateInputSnapshotMapper();
 
   public static TagSnapshot map(
-      @Nonnull final TagUpdate tagUpdate,
+      @Nonnull final TagUpdateInput tagUpdate,
       @Nonnull final Urn actor) {
     return INSTANCE.apply(tagUpdate, actor);
   }
 
   @Override
   public TagSnapshot apply(
-      @Nonnull final TagUpdate tagUpdate,
+      @Nonnull final TagUpdateInput tagUpdate,
       @Nonnull final Urn actor) {
     final TagSnapshot result = new TagSnapshot();
     result.setUrn((new TagUrn(tagUpdate.getName())));
