@@ -1409,7 +1409,7 @@ def test_update_schemafield(frontend_session):
     assert res_data["data"]["dataset"]["editableSchemaMetadata"] == {'editableSchemaFieldInfo': [{'description': 'new description'}]}
 
 @pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
-def test_ingest_with_survey_response():
+def test_ingest_and_get_survey_response():
     response = requests.post(
         f"{GMS_ENDPOINT}/entities?action=ingest",
         headers=restli_default_headers,
@@ -1419,7 +1419,7 @@ def test_ingest_with_survey_response():
               'value':
                 {'com.linkedin.metadata.snapshot.SurveyResponseSnapshot':
                   {'urn': 'urn:li:surveyresponse:1', 'aspects':
-                    [{'com.linkedin.feedback.SurveyResponseInfo': {'responseText': 'I love it!', 'questionText': 'what do you think of DataHub', 'user': '765765' }}]
+                    [{'com.linkedin.feedback.SurveyResponseInfo': {'createdAt':349, 'responseText': 'I love it!', 'questionText': 'What do you think of DataHub?', 'user': 'urn:li:corpuser:datahub' }}]
                    }
                   }
                 }
@@ -1427,8 +1427,6 @@ def test_ingest_with_survey_response():
     )
     response.raise_for_status()
 
-@pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
-def test_get_survey_response():
     urn = f"urn:li:surveyresponse:1"
     response = requests.get(
         f"{GMS_ENDPOINT}/entities/{urllib.parse.quote(urn)}",
