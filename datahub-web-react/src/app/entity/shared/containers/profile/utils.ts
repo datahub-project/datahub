@@ -15,7 +15,6 @@ export function getDataForEntityType<T>({
     entityType: EntityType;
     getOverrideProperties: (T) => GenericEntityProperties;
 }): GenericEntityProperties | null {
-    console.log(entityType);
     if (!data) {
         return null;
     }
