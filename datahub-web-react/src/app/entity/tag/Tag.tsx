@@ -40,6 +40,8 @@ export class TagEntity implements Entity<Tag> {
 
     getPathName: () => string = () => 'tag';
 
+    getSingularName = () => 'Tag';
+
     getCollectionName: () => string = () => 'Tags';
 
     getEntityName: () => string = () => 'Tag';

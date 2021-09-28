@@ -1,4 +1,4 @@
-package com.linkedin.datahub.graphql.resolvers.mutate;
+package com.linkedin.datahub.graphql.resolvers.mutate.util;
 
 import com.google.common.collect.ImmutableList;
 
@@ -17,6 +17,7 @@ import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.authorization.ConjunctivePrivilegeGroup;
 import com.linkedin.datahub.graphql.authorization.DisjunctivePrivilegeGroup;
 import com.linkedin.datahub.graphql.generated.SubResourceType;
+import com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.schema.EditableSchemaFieldInfo;

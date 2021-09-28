@@ -77,6 +77,11 @@ export interface Entity<T> {
     getPathName: () => string;
 
     /**
+     * Returns the singular name of the entity used when displaying entity cards e.g. 'Dataset'.
+     */
+    getSingularName: () => string;
+
+    /**
      * Returns the plural name of the entity used when displaying collections (search, browse results), e.g. 'Datasets'.
      */
     getCollectionName: () => string;

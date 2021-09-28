@@ -237,6 +237,23 @@ fragment dataJobFields on DataJob {
     globalTags {
         ...globalTagsFields
     }
+    institutionalMemory {
+        elements {
+            url
+            author {
+                urn
+                username
+            }
+            label
+            created {
+                time
+                actor
+            }
+        }
+    }
+    glossaryTerms {
+        ...glossaryTerms
+    }
 }
 
 fragment dashboardFields on Dashboard {
@@ -247,21 +264,6 @@ fragment dashboardFields on Dashboard {
     info {
         name
         description
-        charts {
-            urn
-            tool
-            type
-            info {
-                name
-                description
-                inputs {
-                    urn
-                }
-            }
-            ownership {
-                ...ownershipFields
-            }
-        }
         customProperties {
             key
             value
@@ -281,6 +283,23 @@ fragment dashboardFields on Dashboard {
     }
     globalTags {
         ...globalTagsFields
+    }
+    institutionalMemory {
+        elements {
+            url
+            author {
+                urn
+                username
+            }
+            label
+            created {
+                time
+                actor
+            }
+        }
+    }
+    glossaryTerms {
+        ...glossaryTerms
     }
 }
 
