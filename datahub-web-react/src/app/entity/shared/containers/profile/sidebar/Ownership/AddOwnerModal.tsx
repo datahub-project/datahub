@@ -1,18 +1,23 @@
-import { Button, Form, Modal, Select } from 'antd';
+import { Button, Form, message, Modal, Select } from 'antd';
 import React, { useEffect } from 'react';
-import { EntityType, Maybe, Owner, OwnershipType, OwnershipUpdate } from '../../../../../../../types.generated';
+import { useAddOwnerMutation } from '../../../../../../../graphql/mutations.generated';
+import { EntityType, OwnerEntityType, OwnershipType } from '../../../../../../../types.generated';
 import { capitalizeFirstLetter } from '../../../../../../shared/capitalizeFirstLetter';
+import { useEntityData } from '../../../../EntityContext';
 import { LdapFormItem } from './LdapFormItem';
 
 type Props = {
     visible: boolean;
     onClose: () => void;
-    updateOwnership: (update: OwnershipUpdate) => void;
-    owners: Maybe<Owner[]> | undefined;
+    refetch?: () => Promise<any>;
 };
 
-export const AddOwnerModal = ({ visible, onClose, owners, updateOwnership }: Props) => {
+export const AddOwnerModal = ({ visible, onClose, refetch }: Props) => {
     const [form] = Form.useForm();
+    const { urn } = useEntityData();
+
+    const [addOwnerMutation] = useAddOwnerMutation();
+
     useEffect(() => {
         form.setFieldsValue({
             ldap: '',
@@ -22,21 +27,27 @@ export const AddOwnerModal = ({ visible, onClose, owners, updateOwnership }: Pro
     }, [form]);
 
     const onOk = async () => {
-        if (updateOwnership) {
-            const row = await form.validateFields();
-            const updatedOwners =
-                owners?.map((owner) => {
-                    return {
-                        owner: owner.owner.urn,
-                        type: owner.type,
-                    };
-                }) || [];
-            updatedOwners.push({
-                owner: `urn:li:${row.type === EntityType.CorpGroup ? 'corpGroup' : 'corpuser'}:${row.ldap}`,
-                type: row.role,
+        const row = await form.validateFields();
+        try {
+            const ownerEntityType =
+                row.type === EntityType.CorpGroup ? OwnerEntityType.CorpGroup : OwnerEntityType.CorpUser;
+            await addOwnerMutation({
+                variables: {
+                    input: {
+                        ownerUrn: `urn:li:${row.type === EntityType.CorpGroup ? 'corpGroup' : 'corpuser'}:${row.ldap}`,
+                        resourceUrn: urn,
+                        ownerEntityType,
+                    },
+                },
             });
-            updateOwnership({ owners: updatedOwners });
+            message.success({ content: 'Owner Added', duration: 2 });
+        } catch (e: unknown) {
+            message.destroy();
+            if (e instanceof Error) {
+                message.error({ content: `Failed to add owner: \n ${e.message || ''}`, duration: 3 });
+            }
         }
+        refetch?.();
         onClose();
     };
 
