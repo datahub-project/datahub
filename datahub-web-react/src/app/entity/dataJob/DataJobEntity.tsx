@@ -52,7 +52,7 @@ export class DataJobEntity implements Entity<DataJob> {
 
     getPathName = () => 'tasks';
 
-    getSingularName = () => 'Task';
+    getEntityName = () => 'Task';
 
     getCollectionName = () => 'Tasks';
 

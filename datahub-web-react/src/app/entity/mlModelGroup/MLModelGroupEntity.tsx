@@ -42,7 +42,7 @@ export class MLModelGroupEntity implements Entity<MlModelGroup> {
 
     getPathName = () => 'mlModelGroup';
 
-    getSingularName = () => 'ML Group';
+    getEntityName = () => 'ML Group';
 
     getCollectionName = () => 'ML Groups';
 

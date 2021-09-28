@@ -49,7 +49,7 @@ export class DataFlowEntity implements Entity<DataFlow> {
 
     getPathName = () => 'pipelines';
 
-    getSingularName = () => 'Pipeline';
+    getEntityName = () => 'Pipeline';
 
     getCollectionName = () => 'Pipelines';
 

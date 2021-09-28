@@ -12,7 +12,7 @@ export const ChartInputsTab = () => {
     const totalInputs = chart?.inputs?.total || 0;
     const title = `Found ${totalInputs} input ${
         totalInputs === 1
-            ? entityRegistry.getSingularName(EntityType.Dataset)
+            ? entityRegistry.getEntityName(EntityType.Dataset)
             : entityRegistry.getCollectionName(EntityType.Dataset)
     }`;
     return <EntityList title={title} type={EntityType.Dataset} entities={inputs || []} />;

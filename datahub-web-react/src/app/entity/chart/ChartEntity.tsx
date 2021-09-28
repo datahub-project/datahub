@@ -58,7 +58,7 @@ export class ChartEntity implements Entity<Chart> {
 
     getPathName = () => 'chart';
 
-    getSingularName = () => 'Chart';
+    getEntityName = () => 'Chart';
 
     getCollectionName = () => 'Charts';
 

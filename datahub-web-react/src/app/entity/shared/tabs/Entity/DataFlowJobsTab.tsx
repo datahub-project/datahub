@@ -12,7 +12,7 @@ export const DataFlowJobsTab = () => {
     const totalJobs = dataFlow?.childJobs?.total || 0;
     const title = `Contains ${totalJobs} ${
         totalJobs === 1
-            ? entityRegistry.getSingularName(EntityType.DataJob)
+            ? entityRegistry.getEntityName(EntityType.DataJob)
             : entityRegistry.getCollectionName(EntityType.DataJob)
     }`;
     return <EntityList title={title} type={EntityType.DataJob} entities={dataJobs || []} />;

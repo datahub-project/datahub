@@ -65,8 +65,6 @@ public class DashboardSnapshotMapper implements ModelMapper<DashboardSnapshot, D
                 result.setInstitutionalMemory(InstitutionalMemoryMapper.map((InstitutionalMemory) aspect));
             } else if (aspect instanceof GlossaryTerms) {
                 result.setGlossaryTerms(GlossaryTermsMapper.map((GlossaryTerms) aspect));
-            } else {
-                // throw new RuntimeException(String.format("Unrecognized aspect %s returned", aspect.toString()));
             }
         });
         return result;

@@ -12,7 +12,7 @@ export const DashboardChartsTab = () => {
     const totalCharts = dashboard?.charts?.total || 0;
     const title = `Contains ${totalCharts} ${
         totalCharts === 1
-            ? entityRegistry.getSingularName(EntityType.Chart)
+            ? entityRegistry.getEntityName(EntityType.Chart)
             : entityRegistry.getCollectionName(EntityType.Chart)
     }`;
     return <EntityList title={title} type={EntityType.Chart} entities={charts || []} />;

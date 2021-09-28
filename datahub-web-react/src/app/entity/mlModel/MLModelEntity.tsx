@@ -42,7 +42,7 @@ export class MLModelEntity implements Entity<MlModel> {
 
     getPathName = () => 'mlModels';
 
-    getSingularName = () => 'ML Model';
+    getEntityName = () => 'ML Model';
 
     getCollectionName = () => 'ML Models';
 

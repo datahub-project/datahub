@@ -25,6 +25,10 @@ const StyledList = styled(List)`
     }
 ` as typeof List;
 
+const StyledListItem = styled(List.Item)`
+    padding-top: 20px;
+`;
+
 type EntityListProps = {
     type: EntityType;
     entities: Array<any>;
@@ -39,9 +43,7 @@ export const EntityList = ({ type, entities, title }: EntityListProps) => {
             dataSource={entities}
             header={title || `${entities.length || 0} ${entityRegistry.getCollectionName(type)}`}
             renderItem={(item) => (
-                <List.Item style={{ paddingTop: '20px' }}>
-                    {entityRegistry.renderPreview(type, PreviewType.PREVIEW, item)}
-                </List.Item>
+                <StyledListItem>{entityRegistry.renderPreview(type, PreviewType.PREVIEW, item)}</StyledListItem>
             )}
         />
     );
