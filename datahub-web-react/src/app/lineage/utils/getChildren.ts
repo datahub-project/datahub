@@ -1,5 +1,5 @@
 import { Direction, EntityAndType } from '../types';
-import { EntityType } from '../../../types.generated';
+import { EntityRelationshipsResult, EntityType, RelationshipDirection } from '../../../types.generated';
 
 export default function getChildren(entityAndType: EntityAndType, direction: Direction | null): Array<EntityAndType> {
     if (direction === Direction.Upstream) {
@@ -71,4 +71,48 @@ export default function getChildren(entityAndType: EntityAndType, direction: Dir
     }
 
     return [];
+}
+
+export function getChildrenFromRelationships({
+    forwardRelationshipTypes,
+    inverseRelationshipTypes,
+    incomingRelationships,
+    outgoingRelationships,
+    direction,
+}: {
+    forwardRelationshipTypes: string[];
+    inverseRelationshipTypes: string[];
+    incomingRelationships: EntityRelationshipsResult | null | undefined;
+    outgoingRelationships: EntityRelationshipsResult | null | undefined;
+    direction: RelationshipDirection;
+}) {
+    const selectedFilters = [
+        ...(incomingRelationships?.relationships || []).filter((relationship) => {
+            if (forwardRelationshipTypes.indexOf(relationship.type) >= 0) {
+                if (direction === relationship.direction) {
+                    return true;
+                }
+            }
+            if (inverseRelationshipTypes.indexOf(relationship.type) >= 0) {
+                if (direction !== relationship.direction) {
+                    return true;
+                }
+            }
+            return false;
+        }),
+
+        ...(outgoingRelationships?.relationships || []).filter((relationship) => {
+            if (forwardRelationshipTypes.indexOf(relationship.type) >= 0) {
+                if (direction !== relationship.direction) {
+                    return true;
+                }
+            }
+            if (inverseRelationshipTypes.indexOf(relationship.type) >= 0) {
+                if (direction === relationship.direction) {
+                    return true;
+                }
+            }
+            return false;
+        }),
+    ];
 }
