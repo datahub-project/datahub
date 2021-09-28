@@ -39,10 +39,11 @@ query getSearchResults($input: SearchInput!) {
                         description
                     }
                     platformNativeType
-                    tags
                     properties {
-                        key
-                        value
+                        customProperties {
+                            key
+                            value
+                        }
                     }
                     ownership {
                         ...ownershipFields
@@ -74,7 +75,7 @@ query getSearchResults($input: SearchInput!) {
                         displayName
                         description
                     }
-                    relationships(types: ["IsMemberOfGroup"], direction: INCOMING) {
+                    relationships(input: { types: ["IsMemberOfGroup"], direction: INCOMING }) {
                         relationships {
                             type
                             direction

@@ -152,6 +152,13 @@ module.exports = {
   ],
   plugins: [
     "@docusaurus/plugin-ideal-image",
+    [
+      "docusaurus-graphql-plugin",
+      {
+        schema: "./graphql/combined.graphql",
+        routeBasePath: "/docs/graphql",
+      },
+    ]
     // '@docusaurus/plugin-google-gtag',
     // [
     //   require.resolve("@easyops-cn/docusaurus-search-local"),
