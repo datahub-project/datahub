@@ -12,7 +12,7 @@ import { SidebarAboutSection } from '../shared/containers/profile/sidebar/Sideba
 import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
 import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/SidebarOwnerSection';
 import { GenericEntityProperties } from '../shared/types';
-import { DataFlowJobs } from '../shared/tabs/Entity/DataFlowJobs';
+import { DataFlowJobsTab } from '../shared/tabs/Entity/DataFlowJobsTab';
 
 /**
  * Definition of the DataHub DataFlow entity.
@@ -71,7 +71,7 @@ export class DataFlowEntity implements Entity<DataFlow> {
                 },
                 {
                     name: 'Tasks',
-                    component: DataFlowJobs,
+                    component: DataFlowJobsTab,
                 },
             ]}
             sidebarSections={[

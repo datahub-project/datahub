@@ -15,7 +15,7 @@ import { SidebarAboutSection } from '../shared/containers/profile/sidebar/Sideba
 import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
 import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/SidebarOwnerSection';
 import { GenericEntityProperties } from '../shared/types';
-import { DataJobFlow } from '../shared/tabs/Entity/DataJobFlow';
+import { DataJobFlowTab } from '../shared/tabs/Entity/DataJobFlowTab';
 
 /**
  * Definition of the DataHub DataJob entity.
@@ -74,7 +74,7 @@ export class DataJobEntity implements Entity<DataJob> {
                 },
                 {
                     name: 'Pipeline',
-                    component: DataJobFlow,
+                    component: DataJobFlowTab,
                 },
                 {
                     name: 'Lineage',
