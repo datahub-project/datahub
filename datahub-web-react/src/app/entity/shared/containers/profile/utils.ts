@@ -8,7 +8,6 @@ import { EntityTab, GenericEntityProperties } from '../../types';
 
 export function getDataForEntityType<T>({
     data,
-    entityType,
     getOverrideProperties,
 }: {
     data: T;
