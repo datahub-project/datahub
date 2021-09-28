@@ -1,12 +1,6 @@
 mutation updateDataset($urn: String!, $input: DatasetUpdateInput!) {
     updateDataset(urn: $urn, input: $input) {
         ...nonRecursiveDatasetFields
-        downstreamLineage {
-            ...downstreamRelationshipFields
-        }
-        upstreamLineage {
-            ...upstreamRelationshipFields
-        }
     }
 }
 
@@ -36,13 +30,63 @@ query getDataProfiles($urn: String!, $limit: Int, $startTime: Long, $endTime: Lo
 
 query getDataset($urn: String!) {
     dataset(urn: $urn) {
+        incoming: relationships(
+            input: { types: ["DownstreamOf", "Consumes", "Produces"], direction: INCOMING, start: 0, count: 100 }
+        ) {
+            start
+            count
+            total
+            relationships {
+                type
+                direction
+                entity {
+                    ... on CorpUser {
+                        urn
+                        username
+                        info {
+                            active
+                            displayName
+                            title
+                            firstName
+                            lastName
+                            fullName
+                        }
+                        editableInfo {
+                            pictureLink
+                        }
+                    }
+                }
+            }
+        }
+        outgoing: relationships(
+            input: { types: ["DownstreamOf", "Consumes", "Produces"], direction: OUTGOING, start: 0, count: 100 }
+        ) {
+            start
+            count
+            total
+            relationships {
+                type
+                direction
+                entity {
+                    ... on CorpUser {
+                        urn
+                        username
+                        info {
+                            active
+                            displayName
+                            title
+                            firstName
+                            lastName
+                            fullName
+                        }
+                        editableInfo {
+                            pictureLink
+                        }
+                    }
+                }
+            }
+        }
         ...nonRecursiveDatasetFields
-        downstreamLineage {
-            ...downstreamRelationshipFields
-        }
-        upstreamLineage {
-            ...upstreamRelationshipFields
-        }
         schemaMetadata(version: 0) {
             ...schemaMetadataFields
         }

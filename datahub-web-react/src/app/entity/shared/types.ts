@@ -39,8 +39,6 @@ export type GenericEntityProperties = {
     description?: Maybe<string>;
     globalTags?: Maybe<GlobalTags>;
     glossaryTerms?: Maybe<GlossaryTerms>;
-    upstreamLineage?: Maybe<UpstreamEntityRelationships>;
-    downstreamLineage?: Maybe<DownstreamEntityRelationships>;
     ownership?: Maybe<Ownership>;
     platform?: Maybe<DataPlatform>;
     customProperties?: Maybe<StringMapEntry[]>;
