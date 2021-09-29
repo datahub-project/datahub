@@ -1,0 +1,26 @@
+run_id: trino-test
+
+source:
+  type: trino
+  config:
+    # Coordinates
+    host_port: localhost:5300
+    database: postgresqldb
+
+    # Credentials
+    username: foo
+    
+    schema_pattern:
+      allow:
+        - "^librarydb"
+    
+    profile_pattern:
+      allow:
+        - "^librarydb.*"   
+    profiling:
+      enabled: True
+
+sink:
+  type: file
+  config:
+    filename: "./trino_mces.json"

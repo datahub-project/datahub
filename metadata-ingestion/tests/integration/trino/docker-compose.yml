@@ -1,0 +1,21 @@
+services:
+  
+  testtrino:
+    image: trinodb/trino
+    container_name: "testtrino"
+    ports:
+      - 5300:8080
+    volumes:
+      - ./setup/etc:/etc/trino
+    depends_on:
+      - "trinodb_postgres"
+  
+  trinodb_postgres:
+    image: postgres:alpine
+    container_name: "trinodb_postgres"
+    environment:
+      POSTGRES_PASSWORD: datahub
+    volumes:  
+      - ./setup/setup.sql:/docker-entrypoint-initdb.d/setup.sql
+    ports:
+      - "5432:5432"
