@@ -76,6 +76,7 @@ export const AddOwnerModal = ({ visible, onClose, refetch }: Props) => {
                 message.error({ content: `Failed to add owner: \n ${e.message || ''}`, duration: 3 });
             }
         }
+        setSelectedActor(undefined);
         refetch?.();
         onClose();
     };
