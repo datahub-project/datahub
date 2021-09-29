@@ -86,7 +86,7 @@ export function getChildrenFromRelationships({
     outgoingRelationships: EntityRelationshipsResult | null | undefined;
     direction: RelationshipDirection;
 }) {
-    const selectedFilters = [
+    return [
         ...(incomingRelationships?.relationships || []).filter((relationship) => {
             if (forwardRelationshipTypes.indexOf(relationship.type) >= 0) {
                 if (direction === relationship.direction) {

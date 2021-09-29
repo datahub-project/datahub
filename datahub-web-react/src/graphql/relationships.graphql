@@ -1,0 +1,84 @@
+fragment relationshipFields on Entity {
+    urn
+    type
+    ... on DataJob {
+        ...dataJobFields
+        editableProperties {
+            description
+        }
+    }
+    ... on Dashboard {
+        ...dashboardFields
+        editableProperties {
+            description
+        }
+    }
+    ... on Chart {
+        tool
+        chartId
+        info {
+            name
+            description
+            inputs {
+                urn
+            }
+        }
+        editableProperties {
+            description
+        }
+        ownership {
+            ...ownershipFields
+        }
+    }
+    ... on Dataset {
+        name
+        description
+        editableProperties {
+            description
+        }
+        platform {
+            name
+            info {
+                logoUrl
+            }
+        }
+        ownership {
+            ...ownershipFields
+        }
+        ...datasetRelationshipsLeaf
+    }
+    ... on MLModelGroup {
+        urn
+        type
+        name
+        description
+        origin
+        platform {
+            name
+            info {
+                displayName
+                logoUrl
+            }
+        }
+        ownership {
+            ...ownershipFields
+        }
+    }
+    ... on MLModel {
+        urn
+        type
+        name
+        description
+        origin
+        platform {
+            name
+            info {
+                displayName
+                logoUrl
+            }
+        }
+        ownership {
+            ...ownershipFields
+        }
+    }
+}

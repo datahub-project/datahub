@@ -82,3 +82,7 @@ export type EntityContextType = {
     routeToTab: (params: { tabName: string; tabParams?: Record<string, any>; method?: 'push' | 'replace' }) => void;
     refetch: () => Promise<any>;
 };
+
+export type RequiredAndNotNull<T> = {
+    [P in keyof T]-?: Exclude<T[P], null | undefined>;
+};

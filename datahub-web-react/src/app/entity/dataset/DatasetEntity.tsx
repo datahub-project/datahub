@@ -2,15 +2,15 @@ import * as React from 'react';
 import { DatabaseFilled, DatabaseOutlined } from '@ant-design/icons';
 import { Tag, Typography } from 'antd';
 import styled from 'styled-components';
-import { Dataset, EntityType, SearchResult } from '../../../types.generated';
+import { Dataset, EntityType, RelationshipDirection, SearchResult } from '../../../types.generated';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
 import { Preview } from './preview/Preview';
 import { FIELDS_TO_HIGHLIGHT } from './search/highlights';
 import { Direction } from '../../lineage/types';
-import getChildren from '../../lineage/utils/getChildren';
+import getChildren, { getChildrenFromRelationships } from '../../lineage/utils/getChildren';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
 import { GetDatasetQuery, useGetDatasetQuery, useUpdateDatasetMutation } from '../../../graphql/dataset.generated';
-import { GenericEntityProperties } from '../shared/types';
+import { GenericEntityProperties, RequiredAndNotNull } from '../shared/types';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
 import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
 import { SchemaTab } from '../shared/tabs/Dataset/Schema/SchemaTab';
@@ -196,18 +196,26 @@ export class DatasetEntity implements Entity<Dataset> {
 
     getLineageVizConfig = (entity: Dataset) => {
         return {
-            urn: entity.urn,
-            name: entity.name,
+            urn: entity?.urn,
+            name: entity?.name,
             type: EntityType.Dataset,
             subtype: entity.subTypes?.typeNames?.[0] || undefined,
-            upstreamChildren: getChildren({ entity, type: EntityType.Dataset }, Direction.Upstream).map(
-                (child) => child.entity.urn,
-            ),
-            downstreamChildren: getChildren({ entity, type: EntityType.Dataset }, Direction.Downstream).map(
-                (child) => child.entity.urn,
-            ),
-            icon: entity.platform.info?.logoUrl || undefined,
-            platform: entity.platform.name,
+            upstreamChildren: getChildrenFromRelationships({
+                forwardRelationshipTypes: FORWARD_RELATIONSHIPS,
+                inverseRelationshipTypes: INVERSE_RELATIONSHIPS,
+                incomingRelationships: entity?.['incoming'],
+                outgoingRelationships: entity?.['outgoing'],
+                direction: RelationshipDirection.Incoming,
+            }).map((relationship) => relationship.entity.urn),
+            downstream: getChildrenFromRelationships({
+                forwardRelationshipTypes: FORWARD_RELATIONSHIPS,
+                inverseRelationshipTypes: INVERSE_RELATIONSHIPS,
+                incomingRelationships: entity?.['incoming'],
+                outgoingRelationships: entity?.['outgoing'],
+                direction: RelationshipDirection.Outgoing,
+            }).map((relationship) => relationship.entity.urn),
+            icon: entity?.platform.info?.logoUrl || undefined,
+            platform: entity?.platform.name,
         };
     };
 

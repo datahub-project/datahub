@@ -1,9 +1,3 @@
-mutation updateDataset($urn: String!, $input: DatasetUpdateInput!) {
-    updateDataset(urn: $urn, input: $input) {
-        ...nonRecursiveDatasetFields
-    }
-}
-
 query getDataProfiles($urn: String!, $limit: Int, $startTime: Long, $endTime: Long) {
     dataset(urn: $urn) {
         urn
@@ -30,62 +24,7 @@ query getDataProfiles($urn: String!, $limit: Int, $startTime: Long, $endTime: Lo
 
 query getDataset($urn: String!) {
     dataset(urn: $urn) {
-        incoming: relationships(
-            input: { types: ["DownstreamOf", "Consumes", "Produces"], direction: INCOMING, start: 0, count: 100 }
-        ) {
-            start
-            count
-            total
-            relationships {
-                type
-                direction
-                entity {
-                    ... on CorpUser {
-                        urn
-                        username
-                        info {
-                            active
-                            displayName
-                            title
-                            firstName
-                            lastName
-                            fullName
-                        }
-                        editableInfo {
-                            pictureLink
-                        }
-                    }
-                }
-            }
-        }
-        outgoing: relationships(
-            input: { types: ["DownstreamOf", "Consumes", "Produces"], direction: OUTGOING, start: 0, count: 100 }
-        ) {
-            start
-            count
-            total
-            relationships {
-                type
-                direction
-                entity {
-                    ... on CorpUser {
-                        urn
-                        username
-                        info {
-                            active
-                            displayName
-                            title
-                            firstName
-                            lastName
-                            fullName
-                        }
-                        editableInfo {
-                            pictureLink
-                        }
-                    }
-                }
-            }
-        }
+        ...datasetRelationships
         ...nonRecursiveDatasetFields
         schemaMetadata(version: 0) {
             ...schemaMetadataFields
@@ -166,30 +105,69 @@ query getDataset($urn: String!) {
                 sampleValues
             }
         }
+        ...datasetRelationships
     }
 }
 
-query getDatasetSchemaVersions($urn: String!, $version1: Long, $version2: Long) {
-    dataset(urn: $urn) {
-        urn
-        name
-        type
-        origin
-        description
-        uri
-        schemaMetadata(version: $version1) {
-            ...schemaMetadataFields
+fragment datasetRelationshipsFull on Dataset {
+    incoming: relationships(
+        input: { types: ["DownstreamOf", "Consumes", "Produces"], direction: INCOMING, start: 0, count: 100 }
+    ) {
+        start
+        count
+        total
+        relationships {
+            type
+            direction
+            entity {
+                ...relationshipFields
+            }
         }
-        previousSchemaMetadata: schemaMetadata(version: $version2) {
-            ...schemaMetadataFields
+    }
+    outgoing: relationships(
+        input: { types: ["DownstreamOf", "Consumes", "Produces"], direction: OUTGOING, start: 0, count: 100 }
+    ) {
+        start
+        count
+        total
+        relationships {
+            type
+            direction
+            entity {
+                ...relationshipFields
+            }
         }
-        editableSchemaMetadata {
-            editableSchemaFieldInfo {
-                fieldPath
-                description
-                globalTags {
-                    ...globalTagsFields
-                }
+    }
+}
+
+fragment datasetRelationshipsLeaf on Dataset {
+    incoming: relationships(
+        input: { types: ["DownstreamOf", "Consumes", "Produces"], direction: INCOMING, start: 0, count: 100 }
+    ) {
+        start
+        count
+        total
+        relationships {
+            type
+            direction
+            entity {
+                urn
+                type
+            }
+        }
+    }
+    outgoing: relationships(
+        input: { types: ["DownstreamOf", "Consumes", "Produces"], direction: OUTGOING, start: 0, count: 100 }
+    ) {
+        start
+        count
+        total
+        relationships {
+            type
+            direction
+            entity {
+                urn
+                type
             }
         }
     }
