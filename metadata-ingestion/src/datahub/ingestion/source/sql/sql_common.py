@@ -31,6 +31,7 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.metadata.com.linkedin.pegasus2avro.dataset import UpstreamLineage
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
@@ -126,6 +127,8 @@ class SQLAlchemyConfig(ConfigModel):
 
     include_views: Optional[bool] = True
     include_tables: Optional[bool] = True
+
+    include_table_lineage: Optional[bool] = True
 
     profiling: GEProfilingConfig = GEProfilingConfig()
 
@@ -337,6 +340,13 @@ class SQLAlchemySource(Source):
         else:
             return f"{schema}.{entity}"
 
+    def get_upstream_lineage(
+        self, dataset_name: str, custom_properties: Dict[str, str]
+    ) -> Optional[UpstreamLineage]:
+        # This is meant for sub-classes such as snowflake, to override.
+        # SQL Alchemy does not provide any table level lineage info.
+        return None
+
     def loop_tables(
         self,
         inspector: Inspector,
@@ -380,6 +390,11 @@ class SQLAlchemySource(Source):
                 urn=f"urn:li:dataset:(urn:li:dataPlatform:{self.platform},{dataset_name},{self.config.env})",
                 aspects=[],
             )
+            if self.config.include_table_lineage:
+                lineage = self.get_upstream_lineage(dataset_name, properties)
+                if lineage is not None:
+                    dataset_snapshot.aspects.append(lineage)
+
             if description is not None or properties:
                 dataset_properties = DatasetPropertiesClass(
                     description=description,
