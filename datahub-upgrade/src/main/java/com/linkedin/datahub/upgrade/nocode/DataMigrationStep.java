@@ -8,6 +8,7 @@ import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.utils.PegasusUtils;
 import com.linkedin.metadata.dao.utils.RecordUtils;
 import com.linkedin.metadata.entity.EntityService;
@@ -147,7 +148,7 @@ public class DataMigrationStep implements UpgradeStep {
               browsePaths = BrowsePathUtils.buildBrowsePath(urn);
 
               final AuditStamp browsePathsStamp = new AuditStamp();
-              browsePathsStamp.setActor(Urn.createFromString("urn:li:principal:system"));
+              browsePathsStamp.setActor(Urn.createFromString(Constants.SYSTEM_ACTOR));
               browsePathsStamp.setTime(System.currentTimeMillis());
 
               _entityService.ingestAspect(urn, entityName, BROWSE_PATHS_ASPECT_NAME, browsePaths, browsePathsStamp);

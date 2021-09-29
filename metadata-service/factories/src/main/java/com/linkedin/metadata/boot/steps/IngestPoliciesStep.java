@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.dao.utils.RecordUtils;
@@ -92,7 +93,7 @@ public class IngestPoliciesStep implements BootstrapStep {
     keyAspectProposal.setEntityUrn(urn);
 
     _entityService.ingestProposal(keyAspectProposal,
-        new AuditStamp().setActor(Urn.createFromString("urn:li:corpuser:system")).setTime(System.currentTimeMillis()));
+        new AuditStamp().setActor(Urn.createFromString(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis()));
 
     final MetadataChangeProposal proposal = new MetadataChangeProposal();
     proposal.setEntityUrn(urn);
@@ -102,7 +103,7 @@ public class IngestPoliciesStep implements BootstrapStep {
     proposal.setChangeType(ChangeType.UPSERT);
 
     _entityService.ingestProposal(proposal,
-        new AuditStamp().setActor(Urn.createFromString("urn:li:corpuser:system")).setTime(System.currentTimeMillis()));
+        new AuditStamp().setActor(Urn.createFromString(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis()));
   }
 
   private boolean hasDefaultPolicies() throws URISyntaxException {
