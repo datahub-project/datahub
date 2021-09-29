@@ -3,11 +3,11 @@
         "auditHeader": null,
         "proposedSnapshot": {
             "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-                "urn": "urn:li:dataset:(urn:li:dataPlatform:trino,librarydb.book,PROD)",
+                "urn": "urn:li:dataset:(urn:li:dataPlatform:trino,library_catalog.librarydb.book,PROD)",
                 "aspects": [
                     {
                         "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-                            "schemaName": "librarydb.book",
+                            "schemaName": "library_catalog.librarydb.book",
                             "platform": "urn:li:dataPlatform:trino",
                             "version": 0,
                             "created": {
@@ -114,11 +114,11 @@
         "auditHeader": null,
         "proposedSnapshot": {
             "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-                "urn": "urn:li:dataset:(urn:li:dataPlatform:trino,librarydb.issue_history,PROD)",
+                "urn": "urn:li:dataset:(urn:li:dataPlatform:trino,library_catalog.librarydb.issue_history,PROD)",
                 "aspects": [
                     {
                         "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-                            "schemaName": "librarydb.issue_history",
+                            "schemaName": "library_catalog.librarydb.issue_history",
                             "platform": "urn:li:dataPlatform:trino",
                             "version": 0,
                             "created": {
@@ -225,11 +225,11 @@
         "auditHeader": null,
         "proposedSnapshot": {
             "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-                "urn": "urn:li:dataset:(urn:li:dataPlatform:trino,librarydb.member,PROD)",
+                "urn": "urn:li:dataset:(urn:li:dataPlatform:trino,library_catalog.librarydb.member,PROD)",
                 "aspects": [
                     {
                         "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-                            "schemaName": "librarydb.member",
+                            "schemaName": "library_catalog.librarydb.member",
                             "platform": "urn:li:dataPlatform:trino",
                             "version": 0,
                             "created": {
@@ -304,11 +304,11 @@
         "auditHeader": null,
         "proposedSnapshot": {
             "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-                "urn": "urn:li:dataset:(urn:li:dataPlatform:trino,librarydb.book_in_circulation,PROD)",
+                "urn": "urn:li:dataset:(urn:li:dataPlatform:trino,library_catalog.librarydb.book_in_circulation,PROD)",
                 "aspects": [
                     {
                         "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-                            "schemaName": "librarydb.book_in_circulation",
+                            "schemaName": "library_catalog.librarydb.book_in_circulation",
                             "platform": "urn:li:dataPlatform:trino",
                             "version": 0,
                             "created": {
@@ -446,7 +446,7 @@
     {
         "auditHeader": null,
         "entityType": "dataset",
-        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,librarydb.book,PROD)",
+        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,library_catalog.librarydb.book,PROD)",
         "entityKeyAspect": null,
         "changeType": "UPSERT",
         "aspectName": "datasetProfile",
@@ -459,7 +459,7 @@
     {
         "auditHeader": null,
         "entityType": "dataset",
-        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,librarydb.issue_history,PROD)",
+        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,library_catalog.librarydb.issue_history,PROD)",
         "entityKeyAspect": null,
         "changeType": "UPSERT",
         "aspectName": "datasetProfile",
@@ -472,7 +472,7 @@
     {
         "auditHeader": null,
         "entityType": "dataset",
-        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,librarydb.member,PROD)",
+        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,library_catalog.librarydb.member,PROD)",
         "entityKeyAspect": null,
         "changeType": "UPSERT",
         "aspectName": "datasetProfile",
@@ -485,7 +485,7 @@
     {
         "auditHeader": null,
         "entityType": "dataset",
-        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,librarydb.book_in_circulation,PROD)",
+        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,library_catalog.librarydb.book_in_circulation,PROD)",
         "entityKeyAspect": null,
         "changeType": "UPSERT",
         "aspectName": "datasetProfile",

@@ -6,6 +6,7 @@ source:
     # Coordinates
     host_port: localhost:5300
     database: postgresqldb
+    database_alias: library_catalog
 
     # Credentials
     username: foo
@@ -16,7 +17,7 @@ source:
     
     profile_pattern:
       allow:
-        - "^librarydb.*"   
+        - "library_catalog.librarydb.*"   
     profiling:
       enabled: True
 

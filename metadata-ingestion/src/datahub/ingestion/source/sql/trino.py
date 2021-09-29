@@ -16,6 +16,14 @@ class TrinoConfig(BasicSQLAlchemyConfig):
     # defaults
     scheme = "trino"
 
+    def get_identifier(self: BasicSQLAlchemyConfig, schema: str, table: str) -> str:
+        regular = f"{schema}.{table}"
+        if self.database_alias:
+            return f"{self.database_alias}.{regular}"
+        if self.database:
+            return f"{self.database}.{regular}"
+        return regular
+
 
 class TrinoSource(SQLAlchemySource):
     def __init__(self, config, ctx):
