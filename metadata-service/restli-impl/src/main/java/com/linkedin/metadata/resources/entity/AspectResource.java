@@ -129,7 +129,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
   @WithSpan
   public Task<String> ingestProposal(@ActionParam(PARAM_PROPOSAL) @Nonnull MetadataChangeProposal metadataChangeProposal)
       throws URISyntaxException {
-    log.info("INGEST PROPOSAL proposal: {}", metadataChangeProposal);
+    log.debug("INGEST PROPOSAL proposal: {}", metadataChangeProposal);
 
     // TODO: Use the actor present in the IC.
     final AuditStamp auditStamp = new AuditStamp().setTime(_clock.millis()).setActor(Urn.createFromString(
