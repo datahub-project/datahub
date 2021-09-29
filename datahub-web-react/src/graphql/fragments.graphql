@@ -482,6 +482,40 @@ fragment schemaMetadataFields on SchemaMetadata {
         }
     }
     primaryKeys
+    foreignKeys {
+        name
+        sourceFields {
+            fieldPath
+        }
+        foreignFields {
+            fieldPath
+        }
+        foreignDataset {
+            urn
+            name
+            type
+            origin
+            description
+            uri
+            platform {
+                name
+                info {
+                    displayName
+                    logoUrl
+                }
+            }
+            platformNativeType
+            ownership {
+                ...ownershipFields
+            }
+            globalTags {
+                ...globalTagsFields
+            }
+            glossaryTerms {
+                ...glossaryTerms
+            }
+        }
+    }
 }
 
 fragment nonRecursiveMLModel on MLModel {
