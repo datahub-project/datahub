@@ -1,10 +1,13 @@
-import { Button, Form, message, Modal, Select } from 'antd';
-import React, { useEffect } from 'react';
+import { Button, Form, message, Modal, Select, Tag, Typography } from 'antd';
+import React, { useRef, useState } from 'react';
+import styled from 'styled-components';
+import { Link } from 'react-router-dom';
 import { useAddOwnerMutation } from '../../../../../../../graphql/mutations.generated';
-import { EntityType, OwnerEntityType, OwnershipType } from '../../../../../../../types.generated';
-import { capitalizeFirstLetter } from '../../../../../../shared/capitalizeFirstLetter';
+import { useGetSearchResultsLazyQuery } from '../../../../../../../graphql/search.generated';
+import { CorpUser, EntityType, OwnerEntityType, SearchResult } from '../../../../../../../types.generated';
+import { useEntityRegistry } from '../../../../../../useEntityRegistry';
 import { useEntityData } from '../../../../EntityContext';
-import { LdapFormItem } from './LdapFormItem';
+import { CustomAvatar } from '../../../../../../shared/avatar';
 
 type Props = {
     visible: boolean;
@@ -12,29 +15,55 @@ type Props = {
     refetch?: () => Promise<any>;
 };
 
-export const AddOwnerModal = ({ visible, onClose, refetch }: Props) => {
-    const [form] = Form.useForm();
-    const { urn } = useEntityData();
+const SearchResultContainer = styled.div`
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px;
+`;
 
+const SearchResultContent = styled.div`
+    display: flex;
+    justify-content: start;
+    align-items: center;
+`;
+
+const SearchResultDisplayName = styled.div`
+    margin-left: 12px;
+`;
+
+type SelectedActor = {
+    displayName: string;
+    type: EntityType;
+    urn: string;
+};
+
+export const AddOwnerModal = ({ visible, onClose, refetch }: Props) => {
+    const entityRegistry = useEntityRegistry();
+    const { urn } = useEntityData();
+    const [selectedActor, setSelectedActor] = useState<SelectedActor | undefined>(undefined);
+    const [userSearch, { data: userSearchData }] = useGetSearchResultsLazyQuery();
+    const [groupSearch, { data: groupSearchData }] = useGetSearchResultsLazyQuery();
     const [addOwnerMutation] = useAddOwnerMutation();
 
-    useEffect(() => {
-        form.setFieldsValue({
-            ldap: '',
-            role: OwnershipType.Stakeholder,
-            type: EntityType.CorpUser,
-        });
-    }, [form]);
+    // User and group dropdown search results!
+    const userSearchResults = userSearchData?.search?.searchResults || [];
+    const groupSearchResults = groupSearchData?.search?.searchResults || [];
+    const combinedSearchResults = [...userSearchResults, ...groupSearchResults];
+
+    const inputEl = useRef(null);
 
     const onOk = async () => {
-        const row = await form.validateFields();
+        if (!selectedActor) {
+            return;
+        }
         try {
             const ownerEntityType =
-                row.type === EntityType.CorpGroup ? OwnerEntityType.CorpGroup : OwnerEntityType.CorpUser;
+                selectedActor.type === EntityType.CorpGroup ? OwnerEntityType.CorpGroup : OwnerEntityType.CorpUser;
             await addOwnerMutation({
                 variables: {
                     input: {
-                        ownerUrn: `urn:li:${row.type === EntityType.CorpGroup ? 'corpGroup' : 'corpuser'}:${row.ldap}`,
+                        ownerUrn: selectedActor.urn,
                         resourceUrn: urn,
                         ownerEntityType,
                     },
@@ -47,9 +76,94 @@ export const AddOwnerModal = ({ visible, onClose, refetch }: Props) => {
                 message.error({ content: `Failed to add owner: \n ${e.message || ''}`, duration: 3 });
             }
         }
+        setSelectedActor(undefined);
         refetch?.();
         onClose();
     };
+
+    // When a user search result is selected, set the urn as the selected urn.
+    const onSelectActor = (newUrn: string) => {
+        if (inputEl && inputEl.current) {
+            (inputEl.current as any).blur();
+        }
+        const filteredActors = combinedSearchResults
+            .filter((result) => result.entity.urn === newUrn)
+            .map((result) => result.entity);
+        if (filteredActors.length) {
+            const actor = filteredActors[0];
+            setSelectedActor({
+                displayName: entityRegistry.getDisplayName(actor.type, actor),
+                type: actor.type,
+                urn: actor.urn,
+            });
+        }
+    };
+
+    // When a user search result is selected, set the urn as the selected urn.
+    const onDeselectActor = (_: string) => {
+        setSelectedActor(undefined);
+    };
+
+    // Invokes the search API as the user types
+    const handleSearch = (type: EntityType, text: string, searchQuery: any) => {
+        if (text.length > 2) {
+            searchQuery({
+                variables: {
+                    input: {
+                        type,
+                        query: text,
+                        start: 0,
+                        count: 5,
+                    },
+                },
+            });
+        }
+    };
+
+    // Invokes the user search API for both users and groups.
+    // TODO: replace with multi entity search.
+    const handleActorSearch = (text: string) => {
+        handleSearch(EntityType.CorpUser, text, userSearch);
+        handleSearch(EntityType.CorpGroup, text, groupSearch);
+    };
+
+    // Renders a search result in the select dropdown.
+    const renderSearchResult = (result: SearchResult) => {
+        const avatarUrl =
+            result.entity.type === EntityType.CorpUser
+                ? (result.entity as CorpUser).editableProperties?.pictureLink || undefined
+                : undefined;
+        const displayName = entityRegistry.getDisplayName(result.entity.type, result.entity);
+        return (
+            <SearchResultContainer>
+                <SearchResultContent>
+                    <CustomAvatar
+                        size={32}
+                        name={displayName}
+                        photoUrl={avatarUrl}
+                        isGroup={result.entity.type === EntityType.CorpGroup}
+                    />
+                    <SearchResultDisplayName>
+                        <div>
+                            <Typography.Text type="secondary">
+                                {entityRegistry.getEntityName(result.entity.type)}
+                            </Typography.Text>
+                        </div>
+                        <div>{displayName}</div>
+                    </SearchResultDisplayName>
+                </SearchResultContent>
+                <Link
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    to={() => `/${entityRegistry.getPathName(result.entity.type)}/${result.entity.urn}`}
+                >
+                    View
+                </Link>{' '}
+            </SearchResultContainer>
+        );
+    };
+
+    const selectValue = (selectedActor && [selectedActor.displayName]) || [];
 
     return (
         <Modal
@@ -61,46 +175,26 @@ export const AddOwnerModal = ({ visible, onClose, refetch }: Props) => {
                     <Button onClick={onClose} type="text">
                         Cancel
                     </Button>
-                    <Button onClick={onOk}>Add</Button>
+                    <Button disabled={selectedActor === undefined} onClick={onOk}>
+                        Add
+                    </Button>
                 </>
             }
         >
-            <Form form={form} component={false}>
-                <LdapFormItem form={form} />
-                <Form.Item
-                    name="type"
-                    rules={[
-                        {
-                            required: true,
-                            type: 'string',
-                            message: `Please select a type!`,
-                        },
-                    ]}
-                >
-                    <Select placeholder="Select a type" defaultValue={EntityType.CorpUser}>
-                        <Select.Option value={EntityType.CorpUser} key={EntityType.CorpUser}>
-                            User
-                        </Select.Option>
-                        <Select.Option value={EntityType.CorpGroup} key={EntityType.CorpGroup}>
-                            Group
-                        </Select.Option>
-                    </Select>
-                </Form.Item>
-                <Form.Item
-                    name="role"
-                    rules={[
-                        {
-                            required: true,
-                            type: 'string',
-                            message: `Please select a role!`,
-                        },
-                    ]}
-                >
-                    <Select placeholder="Select a role">
-                        {Object.values(OwnershipType).map((value) => (
-                            <Select.Option value={value} key={value}>
-                                {capitalizeFirstLetter(value)}
-                            </Select.Option>
+            <Form component={false}>
+                <Form.Item>
+                    <Select
+                        value={selectValue}
+                        mode="multiple"
+                        ref={inputEl}
+                        placeholder="Search for users or groups..."
+                        onSelect={(actorUrn: any) => onSelectActor(actorUrn)}
+                        onDeselect={(actorUrn: any) => onDeselectActor(actorUrn)}
+                        onSearch={handleActorSearch}
+                        tagRender={(tagProps) => <Tag>{tagProps.value}</Tag>}
+                    >
+                        {combinedSearchResults?.map((result) => (
+                            <Select.Option value={result.entity.urn}>{renderSearchResult(result)}</Select.Option>
                         ))}
                     </Select>
                 </Form.Item>
