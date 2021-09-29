@@ -1036,9 +1036,39 @@ type SchemaMetadata implements Aspect {
     primaryKeys: [String!]
 
     """
+    Client provided list of foreign key constraints
+    """
+    foreignKeys: [ForeignKeyConstraint]
+
+    """
     The time at which the schema metadata information was created
     """
     createdAt: Long
+}
+
+"""
+Metadata around a foreign key constraint between two datasets
+"""
+type ForeignKeyConstraint {
+    """
+    The human-readable name of the constraint
+    """
+    name: String
+
+    """
+    List of fields in the foreign dataset
+    """
+    foreignFields: [SchemaFieldEntity]
+
+    """
+    List of fields in this dataset
+    """
+    sourceFields: [SchemaFieldEntity]
+
+    """
+    The foreign dataset for easy reference
+    """
+    foreignDataset: Dataset
 }
 
 """
@@ -1120,6 +1150,27 @@ type KeyValueSchema {
     Raw value schema
     """
     valueSchema: String!
+}
+
+"""
+Standalone schema field entity. Differs from the SchemaField struct because it is not directly nested inside a
+schema field
+"""
+type SchemaFieldEntity {
+    """
+    Primary key of the schema field
+    """
+    urn: String!
+
+    """
+    Field path identifying the field in its dataset
+    """
+    fieldPath: String!
+
+    """
+    The primary key of the field's parent.
+    """
+    parent: String!
 }
 
 """
@@ -4806,4 +4857,3 @@ enum CostType {
     """
     ORG_COST_TYPE
 }
-

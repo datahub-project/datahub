@@ -17,6 +17,7 @@ import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityRelationship;
 import com.linkedin.datahub.graphql.generated.EntityRelationshipLegacy;
+import com.linkedin.datahub.graphql.generated.ForeignKeyConstraint;
 import com.linkedin.datahub.graphql.generated.MLModelProperties;
 import com.linkedin.datahub.graphql.generated.RelatedDataset;
 import com.linkedin.datahub.graphql.generated.SearchResult;
@@ -510,6 +511,12 @@ public class GmsGraphQLEngine {
                             new LoadableTypeResolver<>(datasetType,
                                     (env) -> ((RelatedDataset) env.getSource()).getDataset().getUrn()))
                     )
+            )
+            .type("ForeignKeyConstraint", typeWiring -> typeWiring
+                .dataFetcher("foreignDataset", new AuthenticatedResolver<>(
+                    new LoadableTypeResolver<>(datasetType,
+                        (env) -> ((ForeignKeyConstraint) env.getSource()).getForeignDataset().getUrn()))
+                )
             )
             .type("InstitutionalMemoryMetadata", typeWiring -> typeWiring
                 .dataFetcher("author", new AuthenticatedResolver<>(
