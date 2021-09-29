@@ -106,7 +106,6 @@ export const AddOwnerModal = ({ visible, onClose, refetch }: Props) => {
 
     // Invokes the search API as the user types
     const handleSearch = (type: EntityType, text: string, searchQuery: any) => {
-        console.log(text);
         if (text.length > 2) {
             searchQuery({
                 variables: {
