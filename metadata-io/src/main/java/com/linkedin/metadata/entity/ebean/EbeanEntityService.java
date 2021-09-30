@@ -2,13 +2,17 @@ package com.linkedin.metadata.entity.ebean;
 
 import com.codahale.metrics.Timer;
 
+import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.template.DataTemplateUtil;
 import com.linkedin.data.template.JacksonDataTemplateCodec;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.Aspect;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.dao.exception.ModelConversionException;
@@ -34,6 +38,7 @@ import io.opentelemetry.extension.annotations.WithSpan;
 import java.net.URISyntaxException;
 import java.sql.Timestamp;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -50,6 +55,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.entity.ebean.EbeanUtils.*;
+import static com.linkedin.metadata.utils.PegasusUtils.*;
 
 
 /**
@@ -140,6 +146,61 @@ public class EbeanEntityService extends EntityService {
     final Optional<EbeanAspectV2> maybeAspect = Optional.ofNullable(_entityDao.getAspect(primaryKey));
     return maybeAspect.map(
         ebeanAspect -> toAspectRecord(urn, aspectName, ebeanAspect.getMetadata(), getEntityRegistry())).orElse(null);
+  }
+
+  @Override
+  public List<EnvelopedAspect> getLatestEnvelopedAspects(
+      @Nonnull String entityName,
+      @Nonnull Urn urn,
+      @Nonnull Set<String> aspectNames) throws Exception {
+    return getLatestEnvelopedAspects(entityName, ImmutableSet.of(urn), aspectNames).getOrDefault(urn,
+        Collections.emptyList());
+  }
+
+  @Override
+  public Map<Urn, List<EnvelopedAspect>> getLatestEnvelopedAspects(
+      @Nonnull String entityName,
+      @Nonnull Set<Urn> urns,
+      @Nonnull Set<String> aspectNames) throws Exception {
+
+    final Set<EbeanAspectV2.PrimaryKey> dbKeys = urns.stream().map(urn -> aspectNames.stream()
+        .map(aspectName -> new EbeanAspectV2.PrimaryKey(urn.toString(), aspectName, ASPECT_LATEST_VERSION))
+        .collect(Collectors.toList())).flatMap(List::stream).collect(Collectors.toSet());
+    final Map<EbeanAspectV2.PrimaryKey, EnvelopedAspect> envelopedAspectMap = getEnvelopedAspects(dbKeys);
+
+    final Map<String, List<EnvelopedAspect>> urnToAspects = new HashMap<>();
+    for (final EbeanAspectV2.PrimaryKey currKey : dbKeys) {
+      final EnvelopedAspect currAspect = envelopedAspectMap.get(currKey);
+      final List<EnvelopedAspect> urnAspects = urnToAspects.getOrDefault(currKey.getUrn(), getKeyAspectList(currKey.getUrn()));
+      if (currAspect != null) {
+        urnAspects.add(currAspect);
+      }
+      urnToAspects.put(currKey.getUrn(), urnAspects);
+    }
+
+    final Map<Urn, List<EnvelopedAspect>> result = new HashMap<>();
+    for (String key : urnToAspects.keySet()) {
+      result.put(Urn.createFromString(key), urnToAspects.get(key));
+    }
+    return result;
+  }
+
+  @Override
+  public EnvelopedAspect getEnvelopedAspect(
+      @Nonnull String entityName,
+      @Nonnull Urn urn,
+      @Nonnull String aspectName,
+      long version) throws Exception {
+    log.debug(String.format("Invoked getEnvelopedAspect with entityName: %s, urn: %s, aspectName: %s, version: %s",
+        entityName,
+        urn,
+        aspectName,
+        version));
+
+    version = calculateVersionNumber(urn, aspectName, version);
+
+    final EbeanAspectV2.PrimaryKey primaryKey = new EbeanAspectV2.PrimaryKey(urn.toString(), aspectName, version);
+    return getEnvelopedAspects(ImmutableSet.of(primaryKey)).get(primaryKey);
   }
 
   @Override
@@ -618,5 +679,54 @@ public class EbeanEntityService extends EntityService {
     SystemMetadata oldSystemMetadata;
     SystemMetadata newSystemMetadata;
     MetadataAuditOperation operation;
+  }
+
+  private Map<EbeanAspectV2.PrimaryKey, EnvelopedAspect> getEnvelopedAspects(final Set<EbeanAspectV2.PrimaryKey> dbKeys) throws Exception {
+    final Map<EbeanAspectV2.PrimaryKey, EnvelopedAspect> result = new HashMap<>();
+    final Map<EbeanAspectV2.PrimaryKey, EbeanAspectV2> dbEntries = _entityDao.batchGet(dbKeys);
+    for (EbeanAspectV2.PrimaryKey currKey : dbKeys) {
+
+      final EbeanAspectV2 currAspectEntry = dbEntries.get(currKey);
+
+      if (currAspectEntry == null) {
+        // No aspect found.
+        result.put(currKey, null);
+      } else {
+        // Aspect found. Now turn it into an EnvelopedAspect
+        final com.linkedin.entity.Aspect aspect = RecordUtils.toRecordTemplate(com.linkedin.entity.Aspect.class, currAspectEntry
+            .getMetadata());
+        final EnvelopedAspect envelopedAspect = new EnvelopedAspect();
+        envelopedAspect.setName(currAspectEntry.getKey().getAspect());
+        envelopedAspect.setVersion(currAspectEntry.getKey().getVersion());
+        envelopedAspect.setValue(aspect);
+        envelopedAspect.setCreated(new AuditStamp()
+            .setActor(Urn.createFromString(currAspectEntry.getCreatedBy()))
+            .setTime(currAspectEntry.getCreatedOn().getTime())
+        );
+        result.put(currKey, envelopedAspect);
+      }
+    }
+    return result;
+  }
+
+  private List<EnvelopedAspect> getKeyAspectList(final String urnStr) throws Exception {
+    final Urn urn = Urn.createFromString(urnStr);
+    final EntitySpec spec = getEntityRegistry().getEntitySpec(urnToEntityName(urn));
+    final AspectSpec keySpec = spec.getKeyAspectSpec();
+    final RecordDataSchema keySchema = keySpec.getPegasusSchema();
+    final com.linkedin.entity.Aspect aspect = new com.linkedin.entity.Aspect(EntityKeyUtils.convertUrnToEntityKey(urn, keySchema).data());
+
+    final EnvelopedAspect envelopedAspect = new EnvelopedAspect();
+    envelopedAspect.setName(keySpec.getName());
+    envelopedAspect.setVersion(0L);
+    envelopedAspect.setValue(aspect);
+    envelopedAspect.setCreated(new AuditStamp()
+        .setActor(Urn.createFromString(SYSTEM_ACTOR))
+        .setTime(System.currentTimeMillis())
+    );
+
+    final List<EnvelopedAspect> result = new ArrayList<>();
+    result.add(envelopedAspect);
+    return result;
   }
 }

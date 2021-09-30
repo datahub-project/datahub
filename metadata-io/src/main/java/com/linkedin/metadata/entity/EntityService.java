@@ -9,6 +9,7 @@ import com.linkedin.data.schema.TyperefDataSchema;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.UnionTemplate;
 import com.linkedin.entity.Entity;
+import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.metadata.utils.PegasusUtils;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.dao.exception.ModelConversionException;
@@ -98,7 +99,8 @@ public abstract class EntityService {
    * @param aspectNames aspects to fetch for each urn in urns set
    * @return a map of provided {@link Urn} to a List containing the requested aspects.
    */
-  protected abstract Map<Urn, List<RecordTemplate>> getLatestAspects(@Nonnull final Set<Urn> urns,
+  public abstract Map<Urn, List<RecordTemplate>> getLatestAspects(
+      @Nonnull final Set<Urn> urns,
       @Nonnull final Set<String> aspectNames);
 
   /**
@@ -114,6 +116,25 @@ public abstract class EntityService {
    */
   public abstract RecordTemplate getAspect(@Nonnull final Urn urn, @Nonnull final String aspectName, long version);
 
+  public abstract Map<Urn, List<EnvelopedAspect>> getLatestEnvelopedAspects(
+      @Nonnull final String entityName,
+      @Nonnull final Set<Urn> urns,
+      @Nonnull final Set<String> aspectNames) throws Exception;
+
+  public abstract List<EnvelopedAspect> getLatestEnvelopedAspects(
+      @Nonnull final String entityName,
+      @Nonnull final Urn urn,
+      @Nonnull final Set<String> aspectNames) throws Exception;
+
+  public abstract EnvelopedAspect getEnvelopedAspect(
+      @Nonnull final String entityName,
+      @Nonnull final Urn urn,
+      @Nonnull final String aspectName,
+      long version) throws Exception;
+
+  /**
+   * Deprecated! Use {{@link #getEnvelopedAspect(String, Urn, String, long)}} instead.
+   */
   public abstract VersionedAspect getVersionedAspect(@Nonnull final Urn urn, @Nonnull final String aspectName,
       long version);
 
@@ -293,7 +314,8 @@ public abstract class EntityService {
   }
 
   @Nonnull
-  protected Map<Urn, List<UnionTemplate>> getLatestAspectUnions(@Nonnull final Set<Urn> urns,
+  protected Map<Urn, List<UnionTemplate>> getLatestAspectUnions(
+      @Nonnull final Set<Urn> urns,
       @Nonnull final Set<String> aspectNames) {
     return getLatestAspects(urns, aspectNames).entrySet()
         .stream()
@@ -425,7 +447,7 @@ public abstract class EntityService {
     return getEntityAspectNames(urnToEntityName(entityUrn));
   }
 
-  protected Set<String> getEntityAspectNames(final String entityName) {
+  public Set<String> getEntityAspectNames(final String entityName) {
     return _entityToValidAspects.get(entityName);
   }
 

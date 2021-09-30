@@ -2834,7 +2834,8 @@
                   "Aspect" : {
                     "name" : "dataProcessKey"
                   }
-                }, "com.linkedin.common.Ownership", "com.linkedin.dataprocess.DataProcessInfo", "com.linkedin.common.Status" ]
+                }, "com.linkedin.common.Ownership", "com.linkedin.dataprocess.DataProcessInfo", "com.linkedin.common.Status" ],
+                "deprecated" : "Use DataJob instead."
               }
             },
             "doc" : "The list of metadata aspects associated with the data process. Depending on the use case, this can either be all, or a selection, of supported aspects."
@@ -2842,7 +2843,8 @@
           "Entity" : {
             "keyAspect" : "dataProcessKey",
             "name" : "dataProcess"
-          }
+          },
+          "deprecated" : "Use DataJob instead."
         }, {
           "type" : "record",
           "name" : "DataPlatformSnapshot",

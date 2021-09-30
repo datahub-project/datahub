@@ -1,4 +1,4 @@
-namespace com.linkedin.common
+namespace com.linkedin.entity
 
 /**
  * The type of a DataHub aspect
