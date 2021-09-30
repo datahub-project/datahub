@@ -19,7 +19,7 @@ query getUser($urn: String!, $groupsCount: Int!) {
         globalTags {
             ...globalTagsFields
         }
-        relationships(types: ["IsMemberOfGroup"], direction: OUTGOING, start: 0, count: $groupsCount) {
+        relationships(input: { types: ["IsMemberOfGroup"], direction: OUTGOING, start: 0, count: $groupsCount }) {
             start
             count
             total
@@ -43,7 +43,7 @@ query getUser($urn: String!, $groupsCount: Int!) {
 
 query getUserGroups($urn: String!, $start: Int!, $count: Int!) {
     corpUser(urn: $urn) {
-        relationships(types: ["IsMemberOfGroup"], direction: OUTGOING, start: $start, count: $count) {
+        relationships(input: { types: ["IsMemberOfGroup"], direction: OUTGOING, start: $start, count: $count }) {
             start
             count
             total

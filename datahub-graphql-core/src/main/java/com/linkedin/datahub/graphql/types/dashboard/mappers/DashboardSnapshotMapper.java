@@ -1,6 +1,8 @@
 package com.linkedin.datahub.graphql.types.dashboard.mappers;
 
 import com.linkedin.common.GlobalTags;
+import com.linkedin.common.GlossaryTerms;
+import com.linkedin.common.InstitutionalMemory;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.Status;
 import com.linkedin.dashboard.EditableDashboardProperties;
@@ -12,9 +14,11 @@ import com.linkedin.datahub.graphql.generated.DashboardProperties;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.DashboardEditableProperties;
 import com.linkedin.datahub.graphql.types.common.mappers.AuditStampMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StringMapMapper;
+import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
 import com.linkedin.metadata.dao.utils.ModelUtils;
@@ -57,6 +61,10 @@ public class DashboardSnapshotMapper implements ModelMapper<DashboardSnapshot, D
                 final DashboardEditableProperties dashboardEditableProperties = new DashboardEditableProperties();
                 dashboardEditableProperties.setDescription(((EditableDashboardProperties) aspect).getDescription());
                 result.setEditableProperties(dashboardEditableProperties);
+            } else if (aspect instanceof InstitutionalMemory) {
+                result.setInstitutionalMemory(InstitutionalMemoryMapper.map((InstitutionalMemory) aspect));
+            } else if (aspect instanceof GlossaryTerms) {
+                result.setGlossaryTerms(GlossaryTermsMapper.map((GlossaryTerms) aspect));
             }
         });
         return result;

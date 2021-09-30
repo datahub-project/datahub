@@ -182,7 +182,10 @@ export default function AddTagTermModal({
         })
             .then(({ errors }) => {
                 if (!errors) {
-                    message.success({ content: 'Added!', duration: 2 });
+                    message.success({
+                        content: `Added ${selectedType === EntityType.GlossaryTerm ? 'Term' : 'Tag'}!`,
+                        duration: 2,
+                    });
                 }
             })
             .catch((e) => {

@@ -119,6 +119,9 @@ query getSearchResults($input: SearchInput!) {
                     globalTags {
                         ...globalTagsFields
                     }
+                    glossaryTerms {
+                        ...glossaryTerms
+                    }
                     editableProperties {
                         description
                     }
@@ -144,6 +147,9 @@ query getSearchResults($input: SearchInput!) {
                     globalTags {
                         ...globalTagsFields
                     }
+                    glossaryTerms {
+                        ...glossaryTerms
+                    }
                     editableProperties {
                         description
                     }
@@ -165,6 +171,9 @@ query getSearchResults($input: SearchInput!) {
                     globalTags {
                         ...globalTagsFields
                     }
+                    glossaryTerms {
+                        ...glossaryTerms
+                    }
                     editableProperties {
                         description
                     }
@@ -179,20 +188,15 @@ query getSearchResults($input: SearchInput!) {
                     ownership {
                         ...ownershipFields
                     }
-                    inputOutput {
-                        inputDatasets {
-                            ...nonRecursiveDatasetFields
-                        }
-                        outputDatasets {
-                            ...nonRecursiveDatasetFields
-                        }
-                    }
                     info {
                         name
                         description
                     }
                     globalTags {
                         ...globalTagsFields
+                    }
+                    glossaryTerms {
+                        ...glossaryTerms
                     }
                     editableProperties {
                         description

@@ -129,14 +129,12 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
     };
 
     // Invokes the user search API as the user types
-    const handleUserSearch = (event: any) => {
-        const text = event.target.value as string;
+    const handleUserSearch = (text: string) => {
         return handleSearch(EntityType.CorpUser, text, userSearch);
     };
 
     // Invokes the group search API as the user types
-    const handleGroupSearch = (event: any) => {
-        const text = event.target.value as string;
+    const handleGroupSearch = (text: string) => {
         return handleSearch(EntityType.CorpGroup, text, groupSearch);
     };
 
@@ -194,7 +192,7 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
                     placeholder="Search for users..."
                     onSelect={(asset: any) => onSelectUserActor(asset)}
                     onDeselect={(asset: any) => onDeselectUserActor(asset)}
-                    onInputKeyDown={handleUserSearch}
+                    onSearch={handleUserSearch}
                     tagRender={(tagProps) => (
                         <Tag closable={tagProps.closable} onClose={tagProps.onClose}>
                             {tagProps.value}
@@ -218,7 +216,7 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
                     placeholder="Search for groups..."
                     onSelect={(asset: any) => onSelectGroupActor(asset)}
                     onDeselect={(asset: any) => onDeselectGroupActor(asset)}
-                    onInputKeyDown={handleGroupSearch}
+                    onSearch={handleGroupSearch}
                     tagRender={(tagProps) => (
                         <Tag closable={tagProps.closable} onClose={tagProps.onClose}>
                             {tagProps.value}

@@ -3,6 +3,8 @@ package com.linkedin.datahub.graphql.types.datajob.mappers;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.GlobalTags;
 
+import com.linkedin.common.GlossaryTerms;
+import com.linkedin.common.InstitutionalMemory;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.Status;
 import com.linkedin.datahub.graphql.generated.DataFlow;
@@ -13,9 +15,11 @@ import com.linkedin.datahub.graphql.generated.DataJobProperties;
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.DataJobEditableProperties;
+import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StringMapMapper;
+import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
 import com.linkedin.datajob.EditableDataJobProperties;
@@ -62,6 +66,10 @@ public class DataJobSnapshotMapper implements ModelMapper<DataJobSnapshot, DataJ
                 final DataJobEditableProperties dataJobEditableProperties = new DataJobEditableProperties();
                 dataJobEditableProperties.setDescription(((EditableDataJobProperties) aspect).getDescription());
                 result.setEditableProperties(dataJobEditableProperties);
+            } else if (aspect instanceof InstitutionalMemory) {
+                result.setInstitutionalMemory(InstitutionalMemoryMapper.map((InstitutionalMemory) aspect));
+            } else if (aspect instanceof GlossaryTerms) {
+                result.setGlossaryTerms(GlossaryTermsMapper.map((GlossaryTerms) aspect));
             }
         });
 
