@@ -168,6 +168,9 @@ public class DgraphGraphService implements GraphService {
             schema.add(String.format("type <%s> {\n%s\n}", sourceEntityType, type));
             log.debug("Adding to schema: " + schema);
             Operation setSchema = Operation.newBuilder().setSchema(schema.toString()).setRunInBackground(true).build();
+            synchronized (System.out) {
+                System.out.printf(System.currentTimeMillis() + ": creating predicate %s to %s: %s%n", relationshipType, sourceEntityType, schema);
+            }
             retry(() -> this._client.alter(setSchema));
 
             // now that the schema has been updated on dgraph we can cache this new type / field
@@ -232,7 +235,19 @@ public class DgraphGraphService implements GraphService {
                 .build();
 
         // run the request
+        synchronized (System.out) {
+            System.out.printf(System.currentTimeMillis() + ": Adding Edge source: %s, destination: %s, type: %s%n",
+                    edge.getSource(),
+                    edge.getDestination(),
+                    edge.getRelationshipType());
+        }
         retry(() -> this._client.newTransaction().doRequest(request));
+        synchronized (System.out) {
+            System.out.printf(System.currentTimeMillis() + ": Added  Edge source: %s, destination: %s, type: %s%n",
+                    edge.getSource(),
+                    edge.getDestination(),
+                    edge.getRelationshipType());
+        }
     }
 
     private void retry(Runnable func) {
@@ -272,6 +287,9 @@ public class DgraphGraphService implements GraphService {
                     try {
                         // wait 0.01s, 0.02s, 0.04s, 0.08s, ..., 10.24s
                         long time = (long) Math.pow(2, Math.min(retry, 10)) * 10;
+                        synchronized (System.out) {
+                            System.out.printf(System.currentTimeMillis() + ": retrying in %d ms%n", time);
+                        }
                         TimeUnit.MILLISECONDS.sleep(time);
                         retry++;
                     } catch (InterruptedException e2) {
@@ -281,6 +299,10 @@ public class DgraphGraphService implements GraphService {
                 }
 
                 // throw unexpected exceptions
+                synchronized (System.out) {
+                    System.out.printf(System.currentTimeMillis() + ": %s%n", e.getMessage());
+                }
+
                 throw e;
             }
         }
@@ -615,7 +637,9 @@ public class DgraphGraphService implements GraphService {
                 .setCommitNow(true)
                 .build();
 
+        System.out.printf(System.currentTimeMillis() + ": removing node %s%n", urn);
         retry(() -> this._client.newTransaction().doRequest(request));
+        System.out.printf(System.currentTimeMillis() + ": removed  node %s%n", urn);
     }
 
     @Override
@@ -665,7 +689,9 @@ public class DgraphGraphService implements GraphService {
                 .setCommitNow(true)
                 .build();
 
+        System.out.printf(System.currentTimeMillis() + ": removing outgoing edges from node %s%n", urn);
         retry(() -> this._client.newTransaction().doRequest(request));
+        System.out.printf(System.currentTimeMillis() + ": removed  outgoing edges from node %s%n", urn);
     }
 
     private void removeIncomingEdgesFromNode(@Nonnull Urn urn,
@@ -700,7 +726,9 @@ public class DgraphGraphService implements GraphService {
                 .setCommitNow(true)
                 .build();
 
+        System.out.printf(System.currentTimeMillis() + ": removing incoming edges from node %s%n", urn);
         retry(() -> this._client.newTransaction().doRequest(request));
+        System.out.printf(System.currentTimeMillis() + ": removed incoming edges from node %s%n", urn);
     }
 
     @Override

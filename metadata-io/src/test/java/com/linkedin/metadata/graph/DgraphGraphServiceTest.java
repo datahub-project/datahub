@@ -21,6 +21,7 @@ import org.testng.annotations.Test;
 import scala.Console;
 
 import javax.annotation.Nonnull;
+import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -55,7 +56,9 @@ public class DgraphGraphServiceTest extends GraphServiceTestBase {
     }
 
     @BeforeMethod
-    public void connect() {
+    public void connect(Method method) {
+        System.out.println(System.currentTimeMillis() + ": Running test " + method.getName());
+
         _channel = ManagedChannelBuilder
                 .forAddress(_container.getHost(), _container.getGrpcPort())
                 .usePlaintext()
