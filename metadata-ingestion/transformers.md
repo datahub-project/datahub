@@ -140,6 +140,18 @@ transformers:
 ```
 This will add 2 browse paths like `/mysql/marketing_db/sales/orders` and `/data_warehouse/sales/orders` for a table `sales.orders` in `mysql` database instance.
 
+Default behaviour of the transform is to add new browse paths, you can optionally set `full_overwrite: True` so 
+the transform becomes a _set_ operation instead of an _append_.
+```yaml
+transformers:
+  - type: "set_dataset_browse_path"
+    config:
+      full_overwrite: True
+      path_templates:
+        - /ENV/PLATFORM/DATASET_PARTS/
+```
+In thi case, the resulting dataset will have only 1 browse path, the one from the transform.
+
 Note that whatever browse paths you send via this will overwrite the browse paths present in the UI.
 ## Writing a custom transformer from scratch
 
