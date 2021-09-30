@@ -267,7 +267,7 @@ class AzureADSource(Source):
                     f"Response content: {str(response.content)}"
                 )
                 logger.error(error_str)
-                self.report.report_failure("_get_azure_ad_data", error_str)
+                self.report.report_failure("_get_azure_ad_data_", error_str)
                 continue
 
     def _map_azure_ad_groups(self, azure_ad_groups):
