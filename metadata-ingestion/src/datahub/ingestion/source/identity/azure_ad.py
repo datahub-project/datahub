@@ -54,11 +54,7 @@ class AzureADConfig(ConfigModel):
     ingest_groups: bool = True
     ingest_group_membership: bool = True
 
-    # Optional: slelect only subset of users
-    # groups_filter: Optional[str]
-    # users_filter: Optional[str]
     ingest_groups_users: bool = True
-
     users_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
     groups_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
 
@@ -72,11 +68,6 @@ class AzureADSourceReport(SourceReport):
 
 
 # Source that extracts Azure AD users, groups and group memberships using Microsoft Graph REST API
-#
-# Validated against load:
-# - user count: 1000
-# - group count: 100
-# - group membership edges: 1000 (1 per user)
 
 
 class AzureADSource(Source):
