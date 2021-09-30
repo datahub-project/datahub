@@ -96,7 +96,6 @@ source:
     users_pattern:
       allow:
         - ".*"
-    ingest_group_membership: True
 
 sink:
   # sink configs

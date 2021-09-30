@@ -149,9 +149,6 @@ class AzureADSource(Source):
                     continue
                 # Extract and map users for each group
                 for azure_ad_group_users in self._get_azure_ad_group_users(azure_ad_group):
-                    # azure_ad_group_users = next(
-                    #     self._get_azure_ad_group_users(azure_ad_group)
-                    # )
                     # if group doesn't have any members, continue
                     if not azure_ad_group_users:
                         continue
@@ -221,18 +218,18 @@ class AzureADSource(Source):
     def close(self) -> None:
         pass
 
-    def _get_azure_ad_groups(self) -> Iterable[tuple[List, bool]]:
+    def _get_azure_ad_groups(self) -> Iterable[List]:
         yield from self._get_azure_ad_data(kind='/groups')
 
-    def _get_azure_ad_users(self) -> Iterable[tuple[List, bool]]:
+    def _get_azure_ad_users(self) -> Iterable[List]:
         yield from self._get_azure_ad_data(kind="/users")
 
-    def _get_azure_ad_group_users(self, azure_ad_group: dict) -> Iterable[tuple[List, bool]]:
+    def _get_azure_ad_group_users(self, azure_ad_group: dict) -> Iterable[List]:
         group_id = azure_ad_group.get("id")
         kind = f'/groups/{group_id}/members'
         yield from self._get_azure_ad_data(kind=kind)
 
-    def _get_azure_ad_data(self, kind: str) -> Iterable[tuple[List, bool]]:
+    def _get_azure_ad_data(self, kind: str) -> Iterable[List]:
         headers = {"Authorization": "Bearer {}".format(self.token)}
         #           'ConsistencyLevel': 'eventual'}
         url = self.config.graph_url + kind
@@ -270,7 +267,7 @@ class AzureADSource(Source):
                             self.config.azure_ad_response_to_groupname_regex,
                         )
             if not self.config.groups_pattern.allowed(group_name):
-                # self.report.report_filtered(f"{corp_group_urn}")
+                self.report.report_filtered(f"{corp_group_urn}")
                 continue
             self.selected_azure_ad_groups.append(azure_ad_group)
             corp_group_snapshot = CorpGroupSnapshot(
