@@ -65,7 +65,11 @@ export const JsonForm = () => {
                                 const previousItem = previous as string;
                                 const currentItem = current as string;
                                 if (previousItem === 'properties') {
-                                    fieldName = fieldName.concat('.', currentItem);
+                                    if (fieldName === '') {
+                                        fieldName = fieldName.concat(currentItem);
+                                    } else {
+                                        fieldName = fieldName.concat('.', currentItem);
+                                    }
                                 }
                                 return current;
                             });
@@ -89,6 +93,7 @@ export const JsonForm = () => {
         return fields;
     };
     const onFinish = (values) => {
+        console.log(schema);
         const flattenFields = flattenSchema(schema);
         const data = {
             ...values,

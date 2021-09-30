@@ -74,7 +74,11 @@ export const CsvForm = () => {
             <Form
                 {...layout}
                 form={form}
-                initialValues={{ fields: [{ field_description: '' }], hasHeader: 'no', headerLine: 1 }}
+                initialValues={{
+                    fields: [{ field_description: '', field_type: 'string' }],
+                    hasHeader: 'no',
+                    headerLine: 1,
+                }}
                 name="dynamic_form_item"
                 onFinish={onFinish}
             >
@@ -126,8 +130,13 @@ export const CsvForm = () => {
                                         >
                                             <Select showSearch style={{ width: 150 }} placeholder="Select field type">
                                                 <Option value="num">Number</Option>
+                                                <Option value="double">Double</Option>
                                                 <Option value="string">String</Option>
                                                 <Option value="bool">Boolean</Option>
+                                                <Option value="date-time">Datetime</Option>
+                                                <Option value="date">Date</Option>
+                                                <Option value="time">Time</Option>
+                                                <Option value="bytes">Bytes</Option>
                                             </Select>
                                         </Form.Item>
                                         <Form.Item
@@ -154,7 +163,7 @@ export const CsvForm = () => {
                                 <Form.Item>
                                     <Button
                                         type="dashed"
-                                        onClick={() => add({ field_description: '' })}
+                                        onClick={() => add({ field_description: '', field_type: 'string' })}
                                         block
                                         icon={<PlusOutlined />}
                                     >

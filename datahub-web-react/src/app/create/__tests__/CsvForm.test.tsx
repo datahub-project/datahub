@@ -76,12 +76,12 @@ describe('CsvForm', () => {
         // click the button to add new field
         fireEvent.click(addFieldButton);
         // assert to 2 fields
-        expect(screen.getAllByText('Select field type').length).toBe(2);
+        expect(screen.getAllByText('String').length).toBe(2);
 
         // remove one field
         const removeIcon = screen.getAllByTestId('delete-icon');
         userEvent.click(removeIcon[1]);
         // assert to 1 field
-        expect(screen.getAllByText('Select field type').length).toBe(1);
+        expect(screen.getAllByText('String').length).toBe(1);
     });
 });

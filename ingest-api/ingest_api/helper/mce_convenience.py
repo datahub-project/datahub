@@ -158,7 +158,7 @@ def make_schema_mce(
             "boolean": BooleanTypeClass(),
             "string": StringTypeClass(),
             "bool": BooleanTypeClass(),
-            "byte": BytesTypeClass(),
+            "bytes": BytesTypeClass(),
             "number": NumberTypeClass(),
             "num": NumberTypeClass(),
             "integer": NumberTypeClass(),
@@ -171,6 +171,8 @@ def make_schema_mce(
             "union": UnionTypeClass(),
             "map": MapTypeClass(),
             "fixed": FixedTypeClass(),
+            "double":NumberTypeClass(),
+            "date-time":TimeTypeClass(),
         }.get(item["field_type"])
 
     mce = SchemaMetadataClass(
