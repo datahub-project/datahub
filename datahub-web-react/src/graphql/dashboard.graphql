@@ -10,6 +10,33 @@ query getDashboard($urn: String!) {
         upstreamLineage {
             ...upstreamRelationshipFields
         }
+        charts: relationships(input: { types: ["Contains"], direction: OUTGOING, start: 0, count: 100 }) {
+            start
+            count
+            total
+            relationships {
+                entity {
+                    ... on Chart {
+                        urn
+                        type
+                        tool
+                        info {
+                            name
+                            description
+                        }
+                        ownership {
+                            ...ownershipFields
+                        }
+                        globalTags {
+                            ...globalTagsFields
+                        }
+                        glossaryTerms {
+                            ...glossaryTerms
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
