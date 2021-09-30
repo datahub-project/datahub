@@ -57,7 +57,7 @@ class AzureADConfig(ConfigModel):
     # Optional: slelect only subset of users
     # groups_filter: Optional[str]
     # users_filter: Optional[str]
-    ingest_groups_users: bool = False
+    ingest_groups_users: bool = True
 
     users_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
     groups_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
@@ -118,10 +118,15 @@ class AzureADSource(Source):
     azure_ad_groups_users: list = []
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        # Create MetadataWorkUnits for CorpGroups
+        # for future developers: The actual logic of this ingestion wants to be executed, in order:
+        # 1) the groups
+        # 2) the groups' memberships
+        # 3) the users
 
+        # Create MetadataWorkUnits for CorpGroups
         if self.config.ingest_groups:
-            for azure_ad_groups, continue_looping in self._get_azure_ad_groups():
+            # 1) the groups
+            for azure_ad_groups in self._get_azure_ad_groups():
                 logger.info('Processing another groups batch...')
                 datahub_corp_group_snapshots = self._map_azure_ad_groups(azure_ad_groups)
                 for datahub_corp_group_snapshot in datahub_corp_group_snapshots:
@@ -129,13 +134,11 @@ class AzureADSource(Source):
                     wu = MetadataWorkUnit(id=datahub_corp_group_snapshot.urn, mce=mce)
                     self.report.report_workunit(wu)
                     yield wu
-                if continue_looping is False:
-                    break
 
         # Populate GroupMembership Aspects for CorpUsers
         datahub_corp_user_urn_to_group_membership: Dict[str, GroupMembershipClass] = {}
         if self.config.ingest_group_membership and len(self.selected_azure_ad_groups) > 0:
-            # Fetch membership for each group
+            # 2) the groups' membership
             for azure_ad_group in self.selected_azure_ad_groups:
                 datahub_corp_group_urn = self._map_azure_ad_group_to_urn(azure_ad_group)
                 if not datahub_corp_group_urn:
@@ -145,7 +148,7 @@ class AzureADSource(Source):
                     self.report.report_failure("azure_ad_group_mapping", error_str)
                     continue
                 # Extract and map users for each group
-                for azure_ad_group_users, continue_looping in self._get_azure_ad_group_users(azure_ad_group):
+                for azure_ad_group_users in self._get_azure_ad_group_users(azure_ad_group):
                     # azure_ad_group_users = next(
                     #     self._get_azure_ad_group_users(azure_ad_group)
                     # )
@@ -175,10 +178,9 @@ class AzureADSource(Source):
                             datahub_corp_user_urn_to_group_membership[
                                 datahub_corp_user_urn
                             ] = GroupMembershipClass(groups=[datahub_corp_group_urn])
-                    if continue_looping is False:
-                        break
 
-        if self.config.ingest_groups_users:
+        if self.config.ingest_groups_users and self.config.ingest_group_membership and not self.config.ingest_users:
+            # 3) the users
             # getting infos about the users belonging to the found groups
             datahub_corp_user_snapshots = self._map_azure_ad_users(self.azure_ad_groups_users)
             yield from self.ingest_ad_users(datahub_corp_user_snapshots,
@@ -186,14 +188,12 @@ class AzureADSource(Source):
 
         # Create MetadatWorkUnits for CorpUsers
         if self.config.ingest_users:
-            for azure_ad_users, continue_looping in self._get_azure_ad_users():
+            # 3) the users
+            for azure_ad_users in self._get_azure_ad_users():
                 # azure_ad_users = next(self._get_azure_ad_users())
                 datahub_corp_user_snapshots = self._map_azure_ad_users(azure_ad_users)
                 yield from self.ingest_ad_users(datahub_corp_user_snapshots,
                                                 datahub_corp_user_urn_to_group_membership)
-
-                if continue_looping is False:
-                    break
 
     def ingest_ad_users(self, datahub_corp_user_snapshots: Generator[CorpUserSnapshot, Any, None],
                         datahub_corp_user_urn_to_group_membership: dict) -> Generator[MetadataWorkUnit, Any, None]:
@@ -233,8 +233,8 @@ class AzureADSource(Source):
         yield from self._get_azure_ad_data(kind=kind)
 
     def _get_azure_ad_data(self, kind: str) -> Iterable[tuple[List, bool]]:
-        headers = {"Authorization": "Bearer {}".format(self.token),
-                   'ConsistencyLevel': 'eventual'}
+        headers = {"Authorization": "Bearer {}".format(self.token)}
+        #           'ConsistencyLevel': 'eventual'}
         url = self.config.graph_url + kind
         while True:
             if not url:
@@ -247,8 +247,7 @@ class AzureADSource(Source):
                 except KeyError:
                     # no more data will follow
                     url = False
-                    yield json_data["value"], False
-                yield json_data["value"], True
+                yield json_data["value"]
             else:
                 error_str = f"Response status code: {str(response.status_code)}. " \
                             f"Response content: {str(response.content)}"
