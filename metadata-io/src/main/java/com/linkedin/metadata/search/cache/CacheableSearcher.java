@@ -1,9 +1,8 @@
-package com.linkedin.metadata.search.utils;
+package com.linkedin.metadata.search.cache;
 
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
-import com.linkedin.metadata.search.SearchResultMetadata;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Function;
@@ -14,14 +13,16 @@ import org.springframework.cache.Cache;
 
 
 /**
- * Utility for searching in batches and caching the results.
+ * Wrapper class to allow searching in batches and caching the results.
  */
 @RequiredArgsConstructor
 public class CacheableSearcher<K> {
   @Nonnull
   private final Cache cache;
   private final int batchSize;
+  // Function that executes search and retrieves the search result given the query batch (from, size)
   private final Function<QuerySize, SearchResult> searcher;
+  // Function that generates the cache key given the query batch (from, size)
   private final Function<QuerySize, K> cacheKeyGenerator;
 
   @Value
@@ -30,18 +31,23 @@ public class CacheableSearcher<K> {
     int size;
   }
 
+  /**
+   * Get search results corresponding to the input "from" and "size"
+   * It goes through batches, starting from the beginning, until we get enough results to return
+   * This let's us have batches that return a variable number of results (we have no idea which batch the "from" "size" page corresponds to)
+   */
   public SearchResult getSearchResults(int from, int size) {
     int resultsSoFar = 0;
     int batchId = 0;
     boolean foundStart = false;
     List<SearchEntity> resultEntities = new ArrayList<>();
-    SearchResult batchedResult = null;
-    while (resultsSoFar < from + size) {
+    SearchResult batchedResult;
+    // Use do-while to make sure we run at least one batch to fetch metadata
+    do {
       batchedResult = getBatch(batchId);
       int currentBatchSize = batchedResult.getEntities().size();
-      // If the number of results is less than "from", should return empty
       // If the number of results in this batch is 0, no need to continue
-      if (batchedResult.getNumEntities() < from || currentBatchSize == 0) {
+      if (currentBatchSize == 0) {
         break;
       }
       if (resultsSoFar + currentBatchSize > from) {
@@ -56,12 +62,12 @@ public class CacheableSearcher<K> {
       }
       resultsSoFar += currentBatchSize;
       batchId++;
-    }
+    } while (resultsSoFar < from + size);
     return new SearchResult().setEntities(new SearchEntityArray(resultEntities))
-        .setMetadata(batchedResult == null ? new SearchResultMetadata() : batchedResult.getMetadata())
+        .setMetadata(batchedResult.getMetadata())
         .setFrom(from)
         .setPageSize(size)
-        .setNumEntities(batchedResult == null ? 0 : batchedResult.getNumEntities());
+        .setNumEntities(batchedResult.getNumEntities());
   }
 
   private QuerySize getBatchQuerySize(int batchId) {

@@ -1,4 +1,4 @@
-package com.linkedin.metadata.search.utils;
+package com.linkedin.metadata.search.cache;
 
 import com.linkedin.metadata.query.Filter;
 import com.linkedin.metadata.query.SortCriterion;
@@ -7,7 +7,6 @@ import java.util.List;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
-import org.javatuples.Quartet;
 import org.javatuples.Quintet;
 import org.springframework.cache.CacheManager;
 
