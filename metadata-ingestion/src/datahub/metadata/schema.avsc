@@ -686,6 +686,94 @@
                         }
                       ],
                       "doc": "Shared aspect containing Browse Paths to be indexed for an entity."
+                    },
+                    {
+                      "type": "record",
+                      "Aspect": {
+                        "name": "glossaryTerms"
+                      },
+                      "name": "GlossaryTerms",
+                      "namespace": "com.linkedin.pegasus2avro.common",
+                      "fields": [
+                        {
+                          "type": {
+                            "type": "array",
+                            "items": {
+                              "type": "record",
+                              "name": "GlossaryTermAssociation",
+                              "namespace": "com.linkedin.pegasus2avro.common",
+                              "fields": [
+                                {
+                                  "Searchable": {
+                                    "fieldName": "glossaryTerms",
+                                    "fieldType": "URN_PARTIAL"
+                                  },
+                                  "java": {
+                                    "class": "com.linkedin.pegasus2avro.common.urn.GlossaryTermUrn"
+                                  },
+                                  "type": "string",
+                                  "name": "urn",
+                                  "doc": "Urn of the applied glossary term"
+                                }
+                              ],
+                              "doc": "Properties of an applied glossary term."
+                            }
+                          },
+                          "name": "terms",
+                          "doc": "The related business terms"
+                        },
+                        {
+                          "type": "com.linkedin.pegasus2avro.common.AuditStamp",
+                          "name": "auditStamp",
+                          "doc": "Audit stamp containing who reported the related business term"
+                        }
+                      ],
+                      "doc": "Related business terms information"
+                    },
+                    {
+                      "type": "record",
+                      "Aspect": {
+                        "name": "institutionalMemory"
+                      },
+                      "name": "InstitutionalMemory",
+                      "namespace": "com.linkedin.pegasus2avro.common",
+                      "fields": [
+                        {
+                          "type": {
+                            "type": "array",
+                            "items": {
+                              "type": "record",
+                              "name": "InstitutionalMemoryMetadata",
+                              "namespace": "com.linkedin.pegasus2avro.common",
+                              "fields": [
+                                {
+                                  "java": {
+                                    "class": "com.linkedin.pegasus2avro.common.url.Url",
+                                    "coercerClass": "com.linkedin.pegasus2avro.common.url.UrlCoercer"
+                                  },
+                                  "type": "string",
+                                  "name": "url",
+                                  "doc": "Link to an engineering design document or a wiki page."
+                                },
+                                {
+                                  "type": "string",
+                                  "name": "description",
+                                  "doc": "Description of the link."
+                                },
+                                {
+                                  "type": "com.linkedin.pegasus2avro.common.AuditStamp",
+                                  "name": "createStamp",
+                                  "doc": "Audit stamp associated with creation of this record"
+                                }
+                              ],
+                              "doc": "Metadata corresponding to a record of institutional memory."
+                            }
+                          },
+                          "name": "elements",
+                          "doc": "List of records that represent institutional memory of an entity. Each record consists of a link, description, creator and timestamps associated with that record."
+                        }
+                      ],
+                      "doc": "Institutional memory of an entity. This is a way to link to relevant documentation and provide description of the documentation. Institutional or tribal knowledge is very important for users to leverage the entity."
                     }
                   ]
                 },
@@ -1340,7 +1428,9 @@
                     "com.linkedin.pegasus2avro.common.Ownership",
                     "com.linkedin.pegasus2avro.common.Status",
                     "com.linkedin.pegasus2avro.common.GlobalTags",
-                    "com.linkedin.pegasus2avro.common.BrowsePaths"
+                    "com.linkedin.pegasus2avro.common.BrowsePaths",
+                    "com.linkedin.pegasus2avro.common.GlossaryTerms",
+                    "com.linkedin.pegasus2avro.common.InstitutionalMemory"
                   ]
                 },
                 "name": "aspects",
@@ -1536,7 +1626,9 @@
                     "com.linkedin.pegasus2avro.common.Ownership",
                     "com.linkedin.pegasus2avro.common.Status",
                     "com.linkedin.pegasus2avro.common.GlobalTags",
-                    "com.linkedin.pegasus2avro.common.BrowsePaths"
+                    "com.linkedin.pegasus2avro.common.BrowsePaths",
+                    "com.linkedin.pegasus2avro.common.GlossaryTerms",
+                    "com.linkedin.pegasus2avro.common.InstitutionalMemory"
                   ]
                 },
                 "name": "aspects",
@@ -1882,7 +1974,9 @@
                     "com.linkedin.pegasus2avro.common.Ownership",
                     "com.linkedin.pegasus2avro.common.Status",
                     "com.linkedin.pegasus2avro.common.GlobalTags",
-                    "com.linkedin.pegasus2avro.common.BrowsePaths"
+                    "com.linkedin.pegasus2avro.common.BrowsePaths",
+                    "com.linkedin.pegasus2avro.common.GlossaryTerms",
+                    "com.linkedin.pegasus2avro.common.InstitutionalMemory"
                   ]
                 },
                 "name": "aspects",
@@ -2303,51 +2397,7 @@
                       ],
                       "doc": "Upstream lineage of a dataset"
                     },
-                    {
-                      "type": "record",
-                      "Aspect": {
-                        "name": "institutionalMemory"
-                      },
-                      "name": "InstitutionalMemory",
-                      "namespace": "com.linkedin.pegasus2avro.common",
-                      "fields": [
-                        {
-                          "type": {
-                            "type": "array",
-                            "items": {
-                              "type": "record",
-                              "name": "InstitutionalMemoryMetadata",
-                              "namespace": "com.linkedin.pegasus2avro.common",
-                              "fields": [
-                                {
-                                  "java": {
-                                    "class": "com.linkedin.pegasus2avro.common.url.Url",
-                                    "coercerClass": "com.linkedin.pegasus2avro.common.url.UrlCoercer"
-                                  },
-                                  "type": "string",
-                                  "name": "url",
-                                  "doc": "Link to an engineering design document or a wiki page."
-                                },
-                                {
-                                  "type": "string",
-                                  "name": "description",
-                                  "doc": "Description of the link."
-                                },
-                                {
-                                  "type": "com.linkedin.pegasus2avro.common.AuditStamp",
-                                  "name": "createStamp",
-                                  "doc": "Audit stamp associated with creation of this record"
-                                }
-                              ],
-                              "doc": "Metadata corresponding to a record of institutional memory."
-                            }
-                          },
-                          "name": "elements",
-                          "doc": "List of records that represent institutional memory of an entity. Each record consists of a link, description, creator and timestamps associated with that record."
-                        }
-                      ],
-                      "doc": "Institutional memory of an entity. This is a way to link to relevant documentation and provide description of the documentation. Institutional or tribal knowledge is very important for users to leverage the entity."
-                    },
+                    "com.linkedin.pegasus2avro.common.InstitutionalMemory",
                     "com.linkedin.pegasus2avro.common.Ownership",
                     "com.linkedin.pegasus2avro.common.Status",
                     {
@@ -2823,49 +2873,7 @@
                                   },
                                   "type": [
                                     "null",
-                                    {
-                                      "type": "record",
-                                      "Aspect": {
-                                        "name": "glossaryTerms"
-                                      },
-                                      "name": "GlossaryTerms",
-                                      "namespace": "com.linkedin.pegasus2avro.common",
-                                      "fields": [
-                                        {
-                                          "type": {
-                                            "type": "array",
-                                            "items": {
-                                              "type": "record",
-                                              "name": "GlossaryTermAssociation",
-                                              "namespace": "com.linkedin.pegasus2avro.common",
-                                              "fields": [
-                                                {
-                                                  "Searchable": {
-                                                    "fieldName": "glossaryTerms",
-                                                    "fieldType": "URN_PARTIAL"
-                                                  },
-                                                  "java": {
-                                                    "class": "com.linkedin.pegasus2avro.common.urn.GlossaryTermUrn"
-                                                  },
-                                                  "type": "string",
-                                                  "name": "urn",
-                                                  "doc": "Urn of the applied glossary term"
-                                                }
-                                              ],
-                                              "doc": "Properties of an applied glossary term."
-                                            }
-                                          },
-                                          "name": "terms",
-                                          "doc": "The related business terms"
-                                        },
-                                        {
-                                          "type": "com.linkedin.pegasus2avro.common.AuditStamp",
-                                          "name": "auditStamp",
-                                          "doc": "Audit stamp containing who reported the related business term"
-                                        }
-                                      ],
-                                      "doc": "Related business terms information"
-                                    }
+                                    "com.linkedin.pegasus2avro.common.GlossaryTerms"
                                   ],
                                   "name": "glossaryTerms",
                                   "default": null,
@@ -3152,6 +3160,7 @@
               "keyAspect": "dataProcessKey",
               "name": "dataProcess"
             },
+            "deprecated": "Use DataJob instead.",
             "name": "DataProcessSnapshot",
             "namespace": "com.linkedin.pegasus2avro.metadata.snapshot",
             "fields": [
