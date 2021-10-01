@@ -61,53 +61,5 @@ query getGroupMembers($urn: String!, $start: Int!, $count: Int!) {
                 }
             }
         }
-        otherMembers: relationships(input: { types: ["isOwner"], direction: INCOMING, start: $start, count: $count }) {
-            start
-            count
-            total
-            relationships {
-                entity {
-                    ... on CorpUser {
-                        urn
-                        username
-                        info {
-                            active
-                            displayName
-                            title
-                            firstName
-                            lastName
-                            fullName
-                        }
-                        editableInfo {
-                            pictureLink
-                        }
-                    }
-                }
-            }
-        }
-        andMore: relationships(input: { types: ["DownstreamOf"], direction: INCOMING, start: $start, count: $count }) {
-            start
-            count
-            total
-            relationships {
-                entity {
-                    ... on CorpUser {
-                        urn
-                        username
-                        info {
-                            active
-                            displayName
-                            title
-                            firstName
-                            lastName
-                            fullName
-                        }
-                        editableInfo {
-                            pictureLink
-                        }
-                    }
-                }
-            }
-        }
     }
 }

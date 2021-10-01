@@ -101,7 +101,7 @@ export class DatasetEntity implements Entity<Dataset> {
                     name: 'Lineage',
                     component: LineageTab,
                     shouldHide: (_, dataset: GetDatasetQuery) =>
-                        (dataset?.dataset?.incoming?.count || 0) > 0 || (dataset?.dataset?.outgoing?.count || 0) > 0,
+                        !((dataset?.dataset?.incoming?.count || 0) > 0 || (dataset?.dataset?.outgoing?.count || 0) > 0),
                 },
                 {
                     name: 'Queries',
