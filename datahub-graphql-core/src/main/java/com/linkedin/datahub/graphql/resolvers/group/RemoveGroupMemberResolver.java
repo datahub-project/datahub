@@ -43,22 +43,23 @@ public class RemoveGroupMemberResolver implements DataFetcher<CompletableFuture<
               context.getActor());
 
           if (gmsAspect == null) {
-            // Nothing to do, as the user is not in the group. Short circuit.
-            return true;
+            // Nothing to do, as the user is not in the group. Return false as the user was
+            return false;
           }
 
-          GroupMembership groupMembership = gmsAspect.getAspect().getGroupMembership();
-          groupMembership.getGroups().remove(Urn.createFromString(groupUrnStr));
-
-          // Finally, create the MetadataChangeProposal.
-          final MetadataChangeProposal proposal = new MetadataChangeProposal();
-          proposal.setEntityUrn(Urn.createFromString(userUrnStr));
-          proposal.setEntityType(Constants.CORP_USER_ENTITY_NAME);
-          proposal.setAspectName(Constants.GROUP_MEMBERSHIP_ASPECT_NAME);
-          proposal.setAspect(GenericAspectUtils.serializeAspect(groupMembership));
-          proposal.setChangeType(ChangeType.UPSERT);
-          _aspectClient.ingestProposal(proposal, context.getActor());
-          return true;
+          final GroupMembership groupMembership = gmsAspect.getAspect().getGroupMembership();
+          if (groupMembership.getGroups().remove(Urn.createFromString(groupUrnStr))) {
+            // Finally, create the MetadataChangeProposal.
+            final MetadataChangeProposal proposal = new MetadataChangeProposal();
+            proposal.setEntityUrn(Urn.createFromString(userUrnStr));
+            proposal.setEntityType(Constants.CORP_USER_ENTITY_NAME);
+            proposal.setAspectName(Constants.GROUP_MEMBERSHIP_ASPECT_NAME);
+            proposal.setAspect(GenericAspectUtils.serializeAspect(groupMembership));
+            proposal.setChangeType(ChangeType.UPSERT);
+            _aspectClient.ingestProposal(proposal, context.getActor());
+            return true;
+          }
+          return false;
         } catch (Exception e) {
           throw new RuntimeException("Failed to remove member from group", e);
         }

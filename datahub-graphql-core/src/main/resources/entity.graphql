@@ -196,12 +196,12 @@ type Mutation {
     updateDescription(input: DescriptionUpdateInput!): Boolean
 
     """
-    Remove a user altogether
+    Remove a user
     """
     removeUser(urn: String!): Boolean
 
     """
-    Remove a group altogether
+    Remove a group
     """
     removeGroup(urn: String!): Boolean
 
