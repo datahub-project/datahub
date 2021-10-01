@@ -4655,4 +4655,3 @@ enum CostType {
     """
     ORG_COST_TYPE
 }
-

@@ -348,7 +348,7 @@ public class GmsGraphQLEngine {
             .dataFetcher("me", new AuthenticatedResolver<>(
                     new MeResolver(GmsClientFactory.getEntitiesClient())))
             .dataFetcher("search", new AuthenticatedResolver<>(
-                    new SearchForMultipleResolver(GmsClientFactory.getEntitiesClient())))
+                    new SearchResolver(GmsClientFactory.getEntitiesClient())))
             .dataFetcher("searchForMultiple", new AuthenticatedResolver<>(
                     new SearchForMultipleResolver(GmsClientFactory.getEntitiesClient())))
             .dataFetcher("autoComplete", new AuthenticatedResolver<>(
