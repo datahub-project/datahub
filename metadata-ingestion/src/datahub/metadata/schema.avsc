@@ -127,7 +127,6 @@
                       "fields": [
                         {
                           "Searchable": {
-                            "addToFilters": true,
                             "boostScore": 4.0,
                             "fieldName": "tool",
                             "fieldType": "TEXT_PARTIAL"
@@ -305,7 +304,8 @@
                         {
                           "Searchable": {
                             "addToFilters": true,
-                            "fieldType": "KEYWORD"
+                            "fieldType": "KEYWORD",
+                            "filterNameOverride": "Chart Type"
                           },
                           "type": [
                             "null",
@@ -341,7 +341,8 @@
                         {
                           "Searchable": {
                             "addToFilters": true,
-                            "fieldType": "KEYWORD"
+                            "fieldType": "KEYWORD",
+                            "filterNameOverride": "Access Level"
                           },
                           "type": [
                             "null",
@@ -392,7 +393,9 @@
                         {
                           "Searchable": {
                             "addToFilters": true,
-                            "fieldType": "KEYWORD"
+                            "fieldName": "queryType",
+                            "fieldType": "KEYWORD",
+                            "filterNameOverride": "Query Type"
                           },
                           "type": {
                             "type": "enum",
@@ -641,8 +644,10 @@
                               "fields": [
                                 {
                                   "Searchable": {
+                                    "addToFilters": true,
                                     "fieldName": "tags",
                                     "fieldType": "URN_PARTIAL",
+                                    "filterNameOverride": "Tags",
                                     "hasValuesFieldName": "hasTags"
                                   },
                                   "java": {
@@ -705,8 +710,10 @@
                               "fields": [
                                 {
                                   "Searchable": {
+                                    "addToFilters": true,
                                     "fieldName": "glossaryTerms",
-                                    "fieldType": "URN_PARTIAL"
+                                    "fieldType": "URN_PARTIAL",
+                                    "filterNameOverride": "Glossary Terms"
                                   },
                                   "java": {
                                     "class": "com.linkedin.pegasus2avro.common.urn.GlossaryTermUrn"
@@ -774,6 +781,39 @@
                         }
                       ],
                       "doc": "Institutional memory of an entity. This is a way to link to relevant documentation and provide description of the documentation. Institutional or tribal knowledge is very important for users to leverage the entity."
+                    },
+                    {
+                      "type": "record",
+                      "Aspect": {
+                        "name": "dataPlatformInstance"
+                      },
+                      "name": "DataPlatformInstance",
+                      "namespace": "com.linkedin.pegasus2avro.common",
+                      "fields": [
+                        {
+                          "Searchable": {
+                            "addToFilters": true,
+                            "fieldType": "URN",
+                            "filterNameOverride": "Platform"
+                          },
+                          "java": {
+                            "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+                          },
+                          "type": "string",
+                          "name": "platform",
+                          "doc": "Data Platform"
+                        },
+                        {
+                          "type": [
+                            "null",
+                            "string"
+                          ],
+                          "name": "instance",
+                          "default": null,
+                          "doc": "Instance of the data platform (e.g. db instance)"
+                        }
+                      ],
+                      "doc": "Tag aspect used for applying tags to an entity"
                     }
                   ]
                 },
@@ -1241,7 +1281,6 @@
                       "fields": [
                         {
                           "Searchable": {
-                            "addToFilters": true,
                             "boostScore": 4.0,
                             "fieldName": "tool",
                             "fieldType": "TEXT_PARTIAL"
@@ -1350,7 +1389,8 @@
                         {
                           "Searchable": {
                             "addToFilters": true,
-                            "fieldType": "KEYWORD"
+                            "fieldType": "KEYWORD",
+                            "filterNameOverride": "Access Level"
                           },
                           "type": [
                             "null",
@@ -1430,7 +1470,8 @@
                     "com.linkedin.pegasus2avro.common.GlobalTags",
                     "com.linkedin.pegasus2avro.common.BrowsePaths",
                     "com.linkedin.pegasus2avro.common.GlossaryTerms",
-                    "com.linkedin.pegasus2avro.common.InstitutionalMemory"
+                    "com.linkedin.pegasus2avro.common.InstitutionalMemory",
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance"
                   ]
                 },
                 "name": "aspects",
@@ -1628,7 +1669,8 @@
                     "com.linkedin.pegasus2avro.common.GlobalTags",
                     "com.linkedin.pegasus2avro.common.BrowsePaths",
                     "com.linkedin.pegasus2avro.common.GlossaryTerms",
-                    "com.linkedin.pegasus2avro.common.InstitutionalMemory"
+                    "com.linkedin.pegasus2avro.common.InstitutionalMemory",
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance"
                   ]
                 },
                 "name": "aspects",
@@ -1976,7 +2018,8 @@
                     "com.linkedin.pegasus2avro.common.GlobalTags",
                     "com.linkedin.pegasus2avro.common.BrowsePaths",
                     "com.linkedin.pegasus2avro.common.GlossaryTerms",
-                    "com.linkedin.pegasus2avro.common.InstitutionalMemory"
+                    "com.linkedin.pegasus2avro.common.InstitutionalMemory",
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance"
                   ]
                 },
                 "name": "aspects",
@@ -2015,10 +2058,6 @@
                       "namespace": "com.linkedin.pegasus2avro.metadata.key",
                       "fields": [
                         {
-                          "Searchable": {
-                            "addToFilters": true,
-                            "fieldType": "URN"
-                          },
                           "java": {
                             "class": "com.linkedin.pegasus2avro.common.urn.Urn"
                           },
@@ -2040,6 +2079,7 @@
                           "Searchable": {
                             "addToFilters": true,
                             "fieldType": "TEXT_PARTIAL",
+                            "filterNameOverride": "Fabric Type",
                             "queryByDefault": false
                           },
                           "type": {
@@ -3145,7 +3185,8 @@
                     },
                     "com.linkedin.pegasus2avro.common.GlobalTags",
                     "com.linkedin.pegasus2avro.common.GlossaryTerms",
-                    "com.linkedin.pegasus2avro.common.BrowsePaths"
+                    "com.linkedin.pegasus2avro.common.BrowsePaths",
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance"
                   ]
                 },
                 "name": "aspects",
@@ -3447,10 +3488,6 @@
                       "namespace": "com.linkedin.pegasus2avro.metadata.key",
                       "fields": [
                         {
-                          "Searchable": {
-                            "addToFilters": true,
-                            "fieldType": "URN"
-                          },
                           "java": {
                             "class": "com.linkedin.pegasus2avro.common.urn.Urn"
                           },
@@ -4396,7 +4433,9 @@
                       ],
                       "doc": "Deprecation status of an entity"
                     },
-                    "com.linkedin.pegasus2avro.common.BrowsePaths"
+                    "com.linkedin.pegasus2avro.common.BrowsePaths",
+                    "com.linkedin.pegasus2avro.common.GlobalTags",
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance"
                   ]
                 },
                 "name": "aspects",
@@ -4437,7 +4476,8 @@
                         {
                           "Searchable": {
                             "addToFilters": true,
-                            "fieldType": "TEXT_PARTIAL"
+                            "fieldType": "TEXT_PARTIAL",
+                            "filterNameOverride": "Namespace"
                           },
                           "type": "string",
                           "name": "featureNamespace",
@@ -4556,7 +4596,9 @@
                     "com.linkedin.pegasus2avro.common.Ownership",
                     "com.linkedin.pegasus2avro.common.InstitutionalMemory",
                     "com.linkedin.pegasus2avro.common.Status",
-                    "com.linkedin.pegasus2avro.common.Deprecation"
+                    "com.linkedin.pegasus2avro.common.Deprecation",
+                    "com.linkedin.pegasus2avro.common.GlobalTags",
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance"
                   ]
                 },
                 "name": "aspects",
@@ -4676,7 +4718,9 @@
                     "com.linkedin.pegasus2avro.common.InstitutionalMemory",
                     "com.linkedin.pegasus2avro.common.Status",
                     "com.linkedin.pegasus2avro.common.Deprecation",
-                    "com.linkedin.pegasus2avro.common.BrowsePaths"
+                    "com.linkedin.pegasus2avro.common.BrowsePaths",
+                    "com.linkedin.pegasus2avro.common.GlobalTags",
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance"
                   ]
                 },
                 "name": "aspects",
@@ -4719,10 +4763,6 @@
                               "dataPlatform"
                             ],
                             "name": "SourcePlatform"
-                          },
-                          "Searchable": {
-                            "addToFilters": true,
-                            "fieldType": "URN"
                           },
                           "java": {
                             "class": "com.linkedin.pegasus2avro.common.urn.Urn"
@@ -4822,7 +4862,9 @@
                     "com.linkedin.pegasus2avro.common.InstitutionalMemory",
                     "com.linkedin.pegasus2avro.common.Status",
                     "com.linkedin.pegasus2avro.common.Deprecation",
-                    "com.linkedin.pegasus2avro.common.BrowsePaths"
+                    "com.linkedin.pegasus2avro.common.BrowsePaths",
+                    "com.linkedin.pegasus2avro.common.GlobalTags",
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance"
                   ]
                 },
                 "name": "aspects",
@@ -4860,10 +4902,6 @@
                       "namespace": "com.linkedin.pegasus2avro.metadata.key",
                       "fields": [
                         {
-                          "Searchable": {
-                            "addToFilters": true,
-                            "fieldType": "URN"
-                          },
                           "java": {
                             "class": "com.linkedin.pegasus2avro.common.urn.Urn"
                           },
@@ -4998,7 +5036,9 @@
                     },
                     "com.linkedin.pegasus2avro.common.Ownership",
                     "com.linkedin.pegasus2avro.common.Status",
-                    "com.linkedin.pegasus2avro.common.Deprecation"
+                    "com.linkedin.pegasus2avro.common.Deprecation",
+                    "com.linkedin.pegasus2avro.common.GlobalTags",
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance"
                   ]
                 },
                 "name": "aspects",
@@ -5036,10 +5076,6 @@
                       "namespace": "com.linkedin.pegasus2avro.metadata.key",
                       "fields": [
                         {
-                          "Searchable": {
-                            "addToFilters": true,
-                            "fieldType": "URN"
-                          },
                           "java": {
                             "class": "com.linkedin.pegasus2avro.common.urn.Urn"
                           },
@@ -5128,7 +5164,9 @@
                     "com.linkedin.pegasus2avro.common.Ownership",
                     "com.linkedin.pegasus2avro.common.Status",
                     "com.linkedin.pegasus2avro.common.Deprecation",
-                    "com.linkedin.pegasus2avro.common.BrowsePaths"
+                    "com.linkedin.pegasus2avro.common.BrowsePaths",
+                    "com.linkedin.pegasus2avro.common.GlobalTags",
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance"
                   ]
                 },
                 "name": "aspects",
@@ -6058,6 +6096,7 @@
   "com.linkedin.pegasus2avro.chart.EditableChartProperties",
   "com.linkedin.pegasus2avro.common.BrowsePaths",
   "com.linkedin.pegasus2avro.common.Cost",
+  "com.linkedin.pegasus2avro.common.DataPlatformInstance",
   "com.linkedin.pegasus2avro.common.Deprecation",
   "com.linkedin.pegasus2avro.common.GlobalTags",
   "com.linkedin.pegasus2avro.common.GlossaryTerms",
