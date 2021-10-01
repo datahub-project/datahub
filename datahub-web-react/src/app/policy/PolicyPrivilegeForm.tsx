@@ -138,10 +138,9 @@ export default function PolicyPrivilegeForm({
     };
 
     // Handle resource search, if the resource type has an associated EntityType mapping.
-    const handleSearch = (event: any) => {
+    const handleSearch = (text: string) => {
         const maybeEntityType = mapResourceTypeToEntityType(resources.type, resourcePrivileges);
         if (maybeEntityType) {
-            const text = event.target.value as string;
             if (text.length > 2) {
                 search({
                     variables: {
@@ -205,7 +204,7 @@ export default function PolicyPrivilegeForm({
                         placeholder={`Search for ${selectedResourceDisplayName}...`}
                         onSelect={(asset: any) => onSelectResource(asset)}
                         onDeselect={(asset: any) => onDeselectResource(asset)}
-                        onInputKeyDown={handleSearch}
+                        onSearch={handleSearch}
                         tagRender={(tagProps) => (
                             <Tag closable={tagProps.closable} onClose={tagProps.onClose}>
                                 {tagProps.value}

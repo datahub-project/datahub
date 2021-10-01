@@ -22,7 +22,7 @@ const ENABLED_TAB_TYPES = [TabType.Members, TabType.Ownership];
 const MEMBER_PAGE_SIZE = 20;
 
 /**
- * Responsible for reading & writing users.
+ * Responsible for reading & writing groups.
  */
 export default function GroupProfile() {
     const { urn } = useUserParams();

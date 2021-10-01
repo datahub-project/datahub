@@ -6,6 +6,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.TagAssociationInput;
+import com.linkedin.datahub.graphql.resolvers.mutate.util.LabelUtils;
 import com.linkedin.metadata.entity.EntityService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;

@@ -9,6 +9,8 @@ import com.linkedin.common.Status
 import com.linkedin.common.GlobalTags
 import com.linkedin.common.BrowsePaths
 import com.linkedin.common.DataPlatformInstance
+import com.linkedin.common.GlossaryTerms
+import com.linkedin.common.InstitutionalMemory
 
 /**
  * A union of all supported metadata aspects for a Chart
@@ -22,5 +24,7 @@ typeref ChartAspect = union[
   Status,
   GlobalTags,
   BrowsePaths,
+  GlossaryTerms,
+  InstitutionalMemory,
   DataPlatformInstance
 ]

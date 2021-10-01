@@ -24,6 +24,7 @@ import io.ebean.Query;
 import io.ebean.RawSql;
 import io.ebean.RawSqlBuilder;
 import io.ebean.Transaction;
+import io.ebean.annotation.TxIsolation;
 import io.ebean.config.ServerConfig;
 import java.net.URISyntaxException;
 import java.sql.Timestamp;
@@ -471,7 +472,7 @@ public class EbeanAspectDao {
 
     T result = null;
     do {
-      try (Transaction transaction = _server.beginTransaction()) {
+      try (Transaction transaction = _server.beginTransaction(TxIsolation.REPEATABLE_READ)) {
         result = block.get();
         transaction.commit();
         lastException = null;

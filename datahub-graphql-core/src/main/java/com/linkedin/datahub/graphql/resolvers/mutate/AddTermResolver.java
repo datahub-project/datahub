@@ -5,6 +5,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.TermAssociationInput;
+import com.linkedin.datahub.graphql.resolvers.mutate.util.LabelUtils;
 import com.linkedin.metadata.entity.EntityService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -38,10 +39,6 @@ public class AddTermResolver implements DataFetcher<CompletableFuture<Boolean>> 
           "glossaryTerm",
           _entityService
       );
-
-      if (!targetUrn.getEntityType().equals("dataset")) {
-        throw new IllegalArgumentException(String.format("Failed to update %s on %s. Subject is not a dataset.", termUrn, targetUrn));
-      }
 
       try {
         log.info("Adding Term. input: {}", input);
