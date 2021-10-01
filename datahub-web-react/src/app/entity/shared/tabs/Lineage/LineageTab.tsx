@@ -4,12 +4,12 @@ import { useHistory } from 'react-router';
 import styled from 'styled-components';
 import { PartitionOutlined } from '@ant-design/icons';
 
-import { useEntityData } from '../../EntityContext';
+import { useBaseEntity, useEntityData, useLineageMetadata } from '../../EntityContext';
 import TabToolbar from '../../components/styled/TabToolbar';
 import { getEntityPath } from '../../containers/profile/utils';
 import { useEntityRegistry } from '../../../../useEntityRegistry';
 import { PreviewType } from '../../../Entity';
-import { EntityType } from '../../../../../types.generated';
+import { EntityRelationshipsResult, EntityType } from '../../../../../types.generated';
 
 const LineageList = styled(List)`
     padding-left: 40px;
@@ -32,20 +32,35 @@ const LineageList = styled(List)`
 ` as typeof List;
 
 export const LineageTab = () => {
-    const { urn, entityType, entityData } = useEntityData();
+    const { urn, entityType } = useEntityData();
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
+    const lineageMetadata = useLineageMetadata();
+    const baseEntity = useBaseEntity<{ incoming?: EntityRelationshipsResult; outgoing?: EntityRelationshipsResult }>();
 
     const routeToLineage = useCallback(() => {
         history.push(getEntityPath(entityType, urn, entityRegistry, true));
     }, [history, entityType, urn, entityRegistry]);
 
-    const upstreamEntities = entityData?.upstreamLineage?.entities?.map(
-        (entityRelationship) => entityRelationship?.entity,
-    );
-    const downstreamEntities = entityData?.downstreamLineage?.entities?.map(
-        (entityRelationship) => entityRelationship?.entity,
-    );
+    const relatedEntities = [
+        ...(baseEntity?.incoming?.relationships || []),
+        ...(baseEntity?.outgoing?.relationships || []),
+    ];
+
+    const upstreamEntities = relatedEntities
+        .filter((relatedEntity) => (lineageMetadata?.upstreamChildren?.indexOf(relatedEntity.entity.urn) || -1) >= 0)
+        .map((result) => result.entity);
+
+    const downstreamEntities = relatedEntities
+        .filter((relatedEntity) => (lineageMetadata?.downstreamChildren?.indexOf(relatedEntity.entity.urn) || -1) >= 0)
+        .map((result) => result.entity);
+
+    console.log({
+        downstreamEntities,
+        upstreamEntities,
+        lineageMetadata,
+        baseEntity,
+    });
 
     return (
         <>

@@ -85,6 +85,6 @@ query getDataFlow($urn: String!) {
 
 mutation updateDataFlow($urn: String!, $input: DataFlowUpdateInput!) {
     updateDataFlow(urn: $urn, input: $input) {
-        ...dataFlowFields
+        urn
     }
 }

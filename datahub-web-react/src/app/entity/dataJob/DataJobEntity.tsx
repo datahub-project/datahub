@@ -80,8 +80,8 @@ export class DataJobEntity implements Entity<DataJob> {
                     name: 'Lineage',
                     component: LineageTab,
                     shouldHide: (_, dataJob: GetDataJobQuery) =>
-                        (dataJob?.dataJob?.upstreamLineage?.entities?.length || 0) === 0 &&
-                        (dataJob?.dataJob?.downstreamLineage?.entities?.length || 0) === 0,
+                        (dataJob?.dataJob?.incoming?.count || 0) === 0 &&
+                        (dataJob?.dataJob?.outgoing?.count || 0) === 0,
                 },
             ]}
             sidebarSections={[

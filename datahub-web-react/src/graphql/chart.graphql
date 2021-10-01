@@ -32,12 +32,6 @@ query getChart($urn: String!) {
         globalTags {
             ...globalTagsFields
         }
-        downstreamLineage {
-            ...downstreamRelationshipFields
-        }
-        upstreamLineage {
-            ...upstreamRelationshipFields
-        }
         editableProperties {
             description
         }
@@ -59,74 +53,16 @@ query getChart($urn: String!) {
             ...glossaryTerms
         }
         inputs: relationships(input: { types: ["Consumes"], direction: OUTGOING, start: 0, count: 100 }) {
-            start
-            count
-            total
-            relationships {
-                entity {
-                    ... on Dataset {
-                        urn
-                        type
-                        name
-                        origin
-                        description
-                        platform {
-                            name
-                            info {
-                                logoUrl
-                            }
-                        }
-                        editableProperties {
-                            description
-                        }
-                        ownership {
-                            ...ownershipFields
-                        }
-                        globalTags {
-                            ...globalTagsFields
-                        }
-                        glossaryTerms {
-                            ...glossaryTerms
-                        }
-                    }
-                }
-            }
+            ...fullRelationshipResults
         }
         dashboards: relationships(input: { types: ["Contains"], direction: INCOMING, start: 0, count: 100 }) {
-            start
-            count
-            total
-            relationships {
-                entity {
-                    ... on Dashboard {
-                        urn
-                        type
-                        tool
-                        dashboardId
-                        info {
-                            name
-                            description
-                            externalUrl
-                            access
-                            lastModified {
-                                time
-                            }
-                        }
-                        ownership {
-                            ...ownershipFields
-                        }
-                        globalTags {
-                            ...globalTagsFields
-                        }
-                        glossaryTerms {
-                            ...glossaryTerms
-                        }
-                        editableProperties {
-                            description
-                        }
-                    }
-                }
-            }
+            ...fullRelationshipResults
         }
+    }
+}
+
+mutation updateChart($urn: String!, $input: ChartUpdateInput!) {
+    updateChart(urn: $urn, input: $input) {
+        urn
     }
 }

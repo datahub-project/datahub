@@ -6,11 +6,10 @@ import { Dataset, EntityType, RelationshipDirection, SearchResult } from '../../
 import { Entity, IconStyleType, PreviewType } from '../Entity';
 import { Preview } from './preview/Preview';
 import { FIELDS_TO_HIGHLIGHT } from './search/highlights';
-import { Direction } from '../../lineage/types';
-import getChildren, { getChildrenFromRelationships } from '../../lineage/utils/getChildren';
+import { getChildrenFromRelationships } from '../../lineage/utils/getChildren';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
 import { GetDatasetQuery, useGetDatasetQuery, useUpdateDatasetMutation } from '../../../graphql/dataset.generated';
-import { GenericEntityProperties, RequiredAndNotNull } from '../shared/types';
+import { GenericEntityProperties } from '../shared/types';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
 import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
 import { SchemaTab } from '../shared/tabs/Dataset/Schema/SchemaTab';
@@ -102,7 +101,7 @@ export class DatasetEntity implements Entity<Dataset> {
                     name: 'Lineage',
                     component: LineageTab,
                     shouldHide: (_, dataset: GetDatasetQuery) =>
-                        (dataset?.dataset?.incoming?.count || 0) > 0 || (dataset.dataset?.outgoing?.count || 0) > 0,
+                        (dataset?.dataset?.incoming?.count || 0) > 0 || (dataset?.dataset?.outgoing?.count || 0) > 0,
                 },
                 {
                     name: 'Queries',
@@ -203,23 +202,27 @@ export class DatasetEntity implements Entity<Dataset> {
             upstreamChildren: getChildrenFromRelationships({
                 forwardRelationshipTypes: FORWARD_RELATIONSHIPS,
                 inverseRelationshipTypes: INVERSE_RELATIONSHIPS,
+                // eslint-disable-next-line @typescript-eslint/dot-notation
                 incomingRelationships: entity?.['incoming'],
+                // eslint-disable-next-line @typescript-eslint/dot-notation
                 outgoingRelationships: entity?.['outgoing'],
                 direction: RelationshipDirection.Incoming,
             }).map((relationship) => relationship.entity.urn),
             downstream: getChildrenFromRelationships({
                 forwardRelationshipTypes: FORWARD_RELATIONSHIPS,
                 inverseRelationshipTypes: INVERSE_RELATIONSHIPS,
+                // eslint-disable-next-line @typescript-eslint/dot-notation
                 incomingRelationships: entity?.['incoming'],
+                // eslint-disable-next-line @typescript-eslint/dot-notation
                 outgoingRelationships: entity?.['outgoing'],
                 direction: RelationshipDirection.Outgoing,
             }).map((relationship) => relationship.entity.urn),
-            icon: entity?.platform.info?.logoUrl || undefined,
-            platform: entity?.platform.name,
+            icon: entity?.platform?.info?.logoUrl || undefined,
+            platform: entity?.platform?.name,
         };
     };
 
     displayName = (data: Dataset) => {
-        return data.name;
+        return data?.name;
     };
 }

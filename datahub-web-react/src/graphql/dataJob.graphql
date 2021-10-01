@@ -1,56 +1,24 @@
 query getDataJob($urn: String!) {
     dataJob(urn: $urn) {
         ...dataJobFields
-        downstreamLineage {
-            ...downstreamRelationshipFields
-        }
-        upstreamLineage {
-            ...upstreamRelationshipFields
-        }
         parentFlow: relationships(input: { types: ["IsPartOf"], direction: OUTGOING, start: 0, count: 1 }) {
-            start
-            count
-            total
-            relationships {
-                entity {
-                    ... on DataFlow {
-                        urn
-                        type
-                        orchestrator
-                        flowId
-                        cluster
-                        info {
-                            name
-                            description
-                            project
-                        }
-                        ownership {
-                            ...ownershipFields
-                        }
-                        globalTags {
-                            ...globalTagsFields
-                        }
-                        glossaryTerms {
-                            ...glossaryTerms
-                        }
-                        editableProperties {
-                            description
-                        }
-                    }
-                }
-            }
+            ...fullRelationshipResults
+        }
+        incoming: relationships(
+            input: { types: ["DownstreamOf", "Consumes", "Produces"], direction: INCOMING, start: 0, count: 100 }
+        ) {
+            ...fullRelationshipResults
+        }
+        outgoing: relationships(
+            input: { types: ["DownstreamOf", "Consumes", "Produces"], direction: OUTGOING, start: 0, count: 100 }
+        ) {
+            ...fullRelationshipResults
         }
     }
 }
 
 mutation updateDataJob($urn: String!, $input: DataJobUpdateInput!) {
     updateDataJob(urn: $urn, input: $input) {
-        ...dataJobFields
-        downstreamLineage {
-            ...downstreamRelationshipFields
-        }
-        upstreamLineage {
-            ...upstreamRelationshipFields
-        }
+        urn
     }
 }
