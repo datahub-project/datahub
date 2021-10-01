@@ -2,7 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.mutate;
 
 import com.google.common.collect.ImmutableList;
 
-import com.linkedin.common.AuditStamp;
+
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.GlossaryTermAssociation;
 import com.linkedin.common.GlossaryTermAssociationArray;
@@ -12,22 +12,20 @@ import com.linkedin.common.TagAssociationArray;
 import com.linkedin.common.urn.GlossaryTermUrn;
 import com.linkedin.common.urn.TagUrn;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.authorization.ConjunctivePrivilegeGroup;
 import com.linkedin.datahub.graphql.authorization.DisjunctivePrivilegeGroup;
-import com.linkedin.entity.Entity;
+import com.linkedin.datahub.graphql.generated.SubResourceType;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.schema.EditableSchemaFieldInfo;
-import com.linkedin.schema.EditableSchemaFieldInfoArray;
 import com.linkedin.schema.EditableSchemaMetadata;
 import java.net.URISyntaxException;
-import java.util.Optional;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
+
+import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
 
 
 @Slf4j
@@ -39,7 +37,7 @@ public class LabelUtils {
   private LabelUtils() { }
 
   public static final String GLOSSARY_TERM_ASPECT_NAME = "glossaryTerms";
-  public static final String SCHEMA_ASPECT_NAME = "editableSchemaMetadata";
+  public static final String EDITABLE_SCHEMA_METADATA = "editableSchemaMetadata";
   public static final String TAGS_ASPECT_NAME = "globalTags";
 
   public static void removeTermFromTarget(
@@ -51,7 +49,7 @@ public class LabelUtils {
   ) {
     if (subResource == null || subResource.equals("")) {
       com.linkedin.common.GlossaryTerms terms =
-          (com.linkedin.common.GlossaryTerms) getAspectFromEntity(
+          (com.linkedin.common.GlossaryTerms) MutationUtils.getAspectFromEntity(
               targetUrn.toString(), GLOSSARY_TERM_ASPECT_NAME, entityService, new GlossaryTerms());
       terms.setAuditStamp(getAuditStamp(actor));
 
@@ -60,7 +58,7 @@ public class LabelUtils {
     } else {
       com.linkedin.schema.EditableSchemaMetadata editableSchemaMetadata =
           (com.linkedin.schema.EditableSchemaMetadata) getAspectFromEntity(
-              targetUrn.toString(), SCHEMA_ASPECT_NAME, entityService, new EditableSchemaMetadata());
+              targetUrn.toString(), EDITABLE_SCHEMA_METADATA, entityService, new EditableSchemaMetadata());
       EditableSchemaFieldInfo editableFieldInfo = getFieldInfoFromSchema(editableSchemaMetadata, subResource);
       if (!editableFieldInfo.hasGlossaryTerms()) {
         editableFieldInfo.setGlossaryTerms(new GlossaryTerms());
@@ -90,7 +88,7 @@ public class LabelUtils {
     } else {
       com.linkedin.schema.EditableSchemaMetadata editableSchemaMetadata =
           (com.linkedin.schema.EditableSchemaMetadata) getAspectFromEntity(
-              targetUrn.toString(), SCHEMA_ASPECT_NAME, entityService, new EditableSchemaMetadata());
+              targetUrn.toString(), EDITABLE_SCHEMA_METADATA, entityService, new EditableSchemaMetadata());
       EditableSchemaFieldInfo editableFieldInfo = getFieldInfoFromSchema(editableSchemaMetadata, subResource);
 
       if (!editableFieldInfo.hasGlobalTags()) {
@@ -120,7 +118,7 @@ public class LabelUtils {
     } else {
       com.linkedin.schema.EditableSchemaMetadata editableSchemaMetadata =
           (com.linkedin.schema.EditableSchemaMetadata) getAspectFromEntity(
-              targetUrn.toString(), SCHEMA_ASPECT_NAME, entityService, new EditableSchemaMetadata());
+              targetUrn.toString(), EDITABLE_SCHEMA_METADATA, entityService, new EditableSchemaMetadata());
       EditableSchemaFieldInfo editableFieldInfo = getFieldInfoFromSchema(editableSchemaMetadata, subResource);
 
       if (!editableFieldInfo.hasGlobalTags()) {
@@ -153,7 +151,7 @@ public class LabelUtils {
     } else {
       com.linkedin.schema.EditableSchemaMetadata editableSchemaMetadata =
           (com.linkedin.schema.EditableSchemaMetadata) getAspectFromEntity(
-              targetUrn.toString(), SCHEMA_ASPECT_NAME, entityService, new EditableSchemaMetadata());
+              targetUrn.toString(), EDITABLE_SCHEMA_METADATA, entityService, new EditableSchemaMetadata());
 
       EditableSchemaFieldInfo editableFieldInfo = getFieldInfoFromSchema(editableSchemaMetadata, subResource);
       if (!editableFieldInfo.hasGlossaryTerms()) {
@@ -164,30 +162,6 @@ public class LabelUtils {
 
       addTermIfNotExistsToEntity(editableFieldInfo.getGlossaryTerms(), labelUrn);
       persistAspect(targetUrn, editableSchemaMetadata, actor, entityService);
-    }
-  }
-
-  private static EditableSchemaFieldInfo getFieldInfoFromSchema(
-      EditableSchemaMetadata editableSchemaMetadata,
-      String fieldPath
-  ) {
-    if (!editableSchemaMetadata.hasEditableSchemaFieldInfo()) {
-      editableSchemaMetadata.setEditableSchemaFieldInfo(new EditableSchemaFieldInfoArray());
-    }
-    EditableSchemaFieldInfoArray editableSchemaMetadataArray =
-        editableSchemaMetadata.getEditableSchemaFieldInfo();
-    Optional<EditableSchemaFieldInfo> fieldMetadata = editableSchemaMetadataArray
-            .stream()
-            .filter(fieldInfo -> fieldInfo.getFieldPath().equals(fieldPath))
-            .findFirst();
-
-    if (fieldMetadata.isPresent()) {
-      return fieldMetadata.get();
-    } else {
-      EditableSchemaFieldInfo newFieldInfo = new EditableSchemaFieldInfo();
-      newFieldInfo.setFieldPath(fieldPath);
-      editableSchemaMetadataArray.add(newFieldInfo);
-      return newFieldInfo;
     }
   }
 
@@ -246,47 +220,6 @@ public class LabelUtils {
     TagAssociation newAssociation = new TagAssociation();
     newAssociation.setTag(TagUrn.createFromUrn(tagUrn));
     tagAssociationArray.add(newAssociation);
-
-    return;
-  }
-
-  private static void persistAspect(Urn urn, RecordTemplate aspect, Urn actor, EntityService entityService) {
-    Snapshot updatedSnapshot = entityService.buildSnapshot(urn, aspect);
-    Entity entityToPersist = new Entity();
-    entityToPersist.setValue(updatedSnapshot);
-    entityService.ingestEntity(entityToPersist, getAuditStamp(actor));
-  }
-
-  private static RecordTemplate getAspectFromEntity(String entityUrn, String aspectName, EntityService entityService, RecordTemplate defaultValue) {
-    try {
-      RecordTemplate aspect = entityService.getAspect(
-          Urn.createFromString(entityUrn),
-          aspectName,
-          0
-      );
-
-      if (aspect == null) {
-        return defaultValue;
-      }
-
-      return aspect;
-    } catch (Exception e) {
-      log.error(
-          "Error constructing aspect from entity. Entity: {} aspect: {}. Error: {}",
-          entityUrn,
-          aspectName,
-          e.toString()
-      );
-      e.printStackTrace();
-      return null;
-    }
-  }
-
-  private static AuditStamp getAuditStamp(Urn actor) {
-    AuditStamp auditStamp = new AuditStamp();
-    auditStamp.setTime(System.currentTimeMillis());
-    auditStamp.setActor(actor);
-    return auditStamp;
   }
 
   public static boolean isAuthorizedToUpdateTags(@Nonnull QueryContext context, Urn targetUrn, String subResource) {
@@ -329,5 +262,40 @@ public class LabelUtils {
         targetUrn.getEntityType(),
         targetUrn.toString(),
         orPrivilegeGroups);
+  }
+
+  public static Boolean validateInput(
+      Urn labelUrn,
+      Urn targetUrn,
+      String subResource,
+      SubResourceType subResourceType,
+      String labelEntityType,
+      EntityService entityService
+  ) {
+    if (!labelUrn.getEntityType().equals(labelEntityType)) {
+      throw new IllegalArgumentException(String.format("Failed to update %s on %s. Was expecting a %s.", labelUrn, targetUrn, labelEntityType));
+    }
+
+    if (!entityService.exists(targetUrn)) {
+      throw new IllegalArgumentException(String.format("Failed to update %s on %s. %s does not exist.", labelUrn, targetUrn, targetUrn));
+    }
+
+    if (!entityService.exists(labelUrn)) {
+      throw new IllegalArgumentException(String.format("Failed to update %s on %s. %s does not exist.", labelUrn, targetUrn, labelUrn));
+    }
+
+    if ((subResource != null && subResource.length() > 0) || subResourceType != null) {
+      if (subResource == null || subResource.length() == 0) {
+        throw new IllegalArgumentException(String.format(
+            "Failed to update %s on %s. SubResourceType (%s) provided without a subResource.", labelUrn, targetUrn, subResourceType));
+      }
+      if (subResourceType == null) {
+        throw new IllegalArgumentException(String.format(
+            "Failed to update %s on %s. SubResource (%s) provided without a subResourceType.", labelUrn, targetUrn, subResource));
+      }
+      validateSubresourceExists(targetUrn, subResource, subResourceType, entityService);
+    }
+
+    return true;
   }
 }

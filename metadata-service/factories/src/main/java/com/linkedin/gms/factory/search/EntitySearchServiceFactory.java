@@ -1,7 +1,6 @@
 package com.linkedin.gms.factory.search;
 
 import com.linkedin.metadata.search.EntitySearchService;
-import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;

@@ -4,7 +4,7 @@ import com.linkedin.datahub.upgrade.restoreindices.RestoreIndices;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
-import com.linkedin.metadata.search.SearchService;
+import com.linkedin.metadata.search.EntitySearchService;
 import io.ebean.EbeanServerFactory;
 import io.ebean.config.ServerConfig;
 import javax.annotation.Nonnull;
@@ -28,7 +28,7 @@ public class RestoreIndicesConfig {
   public RestoreIndices createInstance() {
     final ServerConfig serverConfig = applicationContext.getBean(ServerConfig.class);
     final EntityService entityService = applicationContext.getBean(EntityService.class);
-    final SearchService searchService = applicationContext.getBean(SearchService.class);
+    final EntitySearchService entitySearchService = applicationContext.getBean(EntitySearchService.class);
     final GraphService graphService = applicationContext.getBean(GraphService.class);
 
     if (!serverConfig.getPackages().contains(EBEAN_MODEL_PACKAGE)) {
@@ -36,6 +36,6 @@ public class RestoreIndicesConfig {
     }
 
     return new RestoreIndices(EbeanServerFactory.create(serverConfig), entityService,
-        SnapshotEntityRegistry.getInstance(), searchService, graphService);
+        SnapshotEntityRegistry.getInstance(), entitySearchService, graphService);
   }
 }

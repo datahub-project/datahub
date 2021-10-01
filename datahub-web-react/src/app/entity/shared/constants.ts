@@ -26,6 +26,10 @@ export const EMPTY_MESSAGES = {
         title: 'No tags added yet',
         description: 'Tag entities to help make them more discoverable and call out their most important attributes.',
     },
+    terms: {
+        title: 'No terms added yet',
+        description: 'Apply glossary terms to entities to classify their data.',
+    },
     owners: {
         title: 'No owners added yet',
         description:

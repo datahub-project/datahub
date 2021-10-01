@@ -5,10 +5,10 @@ import com.linkedin.data.template.DoubleMap;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.features.FeatureExtractor;
 import com.linkedin.metadata.search.features.Features;
+import com.linkedin.metadata.utils.ConcurrencyUtils;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import lombok.Value;
 
@@ -33,11 +33,8 @@ public abstract class SearchRanker {
   private List<Features> getFeatures(List<SearchEntity> originalList) {
     List<Features> originalFeatures =
         originalList.stream().map(SearchEntity::getFeatures).map(Features::from).collect(Collectors.toList());
-    List<CompletableFuture<List<Features>>> extractedFeatures = getFeatureExtractors().stream()
-        .map(extractor -> CompletableFuture.supplyAsync(() -> extractor.extractFeatures(originalList)))
-        .collect(Collectors.toList());
-    CompletableFuture.allOf(extractedFeatures.toArray(new CompletableFuture[0])).join();
-    return extractedFeatures.stream().map(CompletableFuture::join).reduce(originalFeatures, Features::merge);
+    return ConcurrencyUtils.transformAndCollectAsync(getFeatureExtractors(),
+        extractor -> extractor.extractFeatures(originalList)).stream().reduce(originalFeatures, Features::merge);
   }
 
   private SearchEntity updateFeatures(SearchEntity originalEntity, Features features) {

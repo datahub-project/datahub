@@ -49,6 +49,7 @@ import com.linkedin.datahub.graphql.resolvers.mutate.AddTermResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.MutableTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.RemoveTagResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.RemoveTermResolver;
+import com.linkedin.datahub.graphql.resolvers.mutate.UpdateFieldDescriptionResolver;
 import com.linkedin.datahub.graphql.resolvers.policy.DeletePolicyResolver;
 import com.linkedin.datahub.graphql.resolvers.policy.ListPoliciesResolver;
 import com.linkedin.datahub.graphql.resolvers.config.AppConfigResolver;
@@ -238,7 +239,7 @@ public class GmsGraphQLEngine {
             .collect(Collectors.toList());
     }
 
-    public static String schema() {
+    public static String entitySchema() {
         String defaultSchemaString;
         try {
             InputStream is = Thread.currentThread().getContextClassLoader().getResourceAsStream(GMS_SCHEMA_FILE);
@@ -246,6 +247,30 @@ public class GmsGraphQLEngine {
             is.close();
         } catch (IOException e) {
             throw new RuntimeException("Failed to find GraphQL Schema with name " + GMS_SCHEMA_FILE, e);
+        }
+        return defaultSchemaString;
+    }
+
+    public static String searchSchema() {
+        String defaultSchemaString;
+        try {
+            InputStream is = Thread.currentThread().getContextClassLoader().getResourceAsStream(SEARCH_SCHEMA_FILE);
+            defaultSchemaString = IOUtils.toString(is, StandardCharsets.UTF_8);
+            is.close();
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to find GraphQL Schema with name " + SEARCH_SCHEMA_FILE, e);
+        }
+        return defaultSchemaString;
+    }
+
+    public static String appSchema() {
+        String defaultSchemaString;
+        try {
+            InputStream is = Thread.currentThread().getContextClassLoader().getResourceAsStream(APP_SCHEMA_FILE);
+            defaultSchemaString = IOUtils.toString(is, StandardCharsets.UTF_8);
+            is.close();
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to find GraphQL Schema with name " + APP_SCHEMA_FILE, e);
         }
         return defaultSchemaString;
     }
@@ -295,7 +320,9 @@ public class GmsGraphQLEngine {
 
     public GraphQLEngine.Builder builder() {
         return GraphQLEngine.builder()
-            .addSchema(schema())
+            .addSchema(entitySchema())
+            .addSchema(searchSchema())
+            .addSchema(appSchema())
             .addSchema(analyticsSchema())
             .addDataLoaders(loaderSuppliers(loadableTypes))
             .addDataLoader("Aspect", (context) -> createAspectLoader(context))
@@ -394,6 +421,7 @@ public class GmsGraphQLEngine {
             .dataFetcher("createPolicy", new UpsertPolicyResolver(GmsClientFactory.getAspectsClient()))
             .dataFetcher("updatePolicy", new UpsertPolicyResolver(GmsClientFactory.getAspectsClient()))
             .dataFetcher("deletePolicy", new DeletePolicyResolver(GmsClientFactory.getEntitiesClient()))
+            .dataFetcher("updateDescription", new AuthenticatedResolver<>(new UpdateFieldDescriptionResolver(entityService)))
         );
     }
 

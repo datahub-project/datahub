@@ -1,6 +1,5 @@
 package com.linkedin.datahub.graphql.resolvers.search;
 
-import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.ValidationException;
 import com.linkedin.datahub.graphql.generated.SearchInput;
 import com.linkedin.datahub.graphql.generated.SearchResults;

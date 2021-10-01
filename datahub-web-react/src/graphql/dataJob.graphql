@@ -10,8 +10,8 @@ query getDataJob($urn: String!) {
     }
 }
 
-mutation updateDataJob($input: DataJobUpdateInput!) {
-    updateDataJob(input: $input) {
+mutation updateDataJob($urn: String!, $input: DataJobUpdateInput!) {
+    updateDataJob(urn: $urn, input: $input) {
         ...dataJobFields
         downstreamLineage {
             ...downstreamRelationshipFields

@@ -83,7 +83,7 @@ class GenericAggregatedDataset(Generic[ResourceType]):
             ],
             userCounts=[
                 DatasetUserUsageCountsClass(
-                    user=builder.UNKNOWN_USER,
+                    user=builder.make_user_urn(user_email.split("@")[0]),
                     count=count,
                     userEmail=user_email,
                 )
