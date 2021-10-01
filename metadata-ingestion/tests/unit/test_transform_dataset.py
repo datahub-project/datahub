@@ -243,7 +243,7 @@ def test_add_dataset_browse_paths():
             "path_templates": [
                 "/xyz",
             ],
-            "full_overwrite": True,
+            "replace_existing": True,
         },
         PipelineContext(run_id="test"),
     )
