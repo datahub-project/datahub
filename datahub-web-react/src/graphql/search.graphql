@@ -15,7 +15,7 @@ query getAutoCompleteMultipleResults($input: AutoCompleteMultipleInput!) {
     }
 }
 
-query getSearchResults($input: SearchInput!) {
+query getSearchResults($input: SearchMultipleInput!) {
     search(input: $input) {
         start
         count
