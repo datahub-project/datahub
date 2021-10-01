@@ -31,6 +31,7 @@ const WelcomeText = styled(Typography.Text)`
 
 const SubHeaderText = styled(Typography.Text)`
     font-size: 20px;
+    font-weight: 500;
     color: ${(props) =>
         props.theme.styles['homepage-text-color'] || props.theme.styles['homepage-background-lower-fade']};
 `;
