@@ -110,7 +110,7 @@ public class MetadataChangeLogProcessor {
         return;
       }
 
-      Urn urn = EntityKeyUtils.getUrnFromLog(event);
+      Urn urn = EntityKeyUtils.getUrnFromLog(event, entitySpec.getKeyAspectSpec());
 
       if (!event.hasAspectName() || !event.hasAspect()) {
         log.error("Aspect or aspect name is missing");
