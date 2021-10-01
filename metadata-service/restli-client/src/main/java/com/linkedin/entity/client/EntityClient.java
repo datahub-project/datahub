@@ -14,12 +14,14 @@ import com.linkedin.entity.EntitiesDoGetTotalEntityCountRequestBuilder;
 import com.linkedin.entity.EntitiesDoIngestRequestBuilder;
 import com.linkedin.entity.EntitiesDoListUrnsRequestBuilder;
 import com.linkedin.entity.EntitiesDoSearchRequestBuilder;
+import com.linkedin.entity.EntitiesDoListRequestBuilder;
 import com.linkedin.entity.EntitiesDoSetWritableRequestBuilder;
 import com.linkedin.entity.EntitiesRequestBuilders;
 import com.linkedin.entity.Entity;
 import com.linkedin.entity.EntityArray;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
+import com.linkedin.metadata.query.ListResult;
 import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.query.SearchResult;
 import com.linkedin.mxe.SystemMetadata;
@@ -198,13 +200,13 @@ public class EntityClient extends BaseClient {
     }
 
     /**
-     * Searches for datasets matching to a given query and filters
+     * Searches for entities matching to a given query and filters
      *
      * @param input search query
      * @param requestFilters search filters
      * @param start start offset for search results
      * @param count max number of search results requested
-     * @return Snapshot key
+     * @return a set of search results
      * @throws RemoteInvocationException
      */
     @Nonnull
@@ -220,6 +222,33 @@ public class EntityClient extends BaseClient {
         final EntitiesDoSearchRequestBuilder requestBuilder = ENTITIES_REQUEST_BUILDERS.actionSearch()
             .entityParam(entity)
             .inputParam(input)
+            .filterParam(newFilter(requestFilters))
+            .startParam(start)
+            .countParam(count);
+
+        return sendClientRequest(requestBuilder, actor).getEntity();
+    }
+
+    /**
+     * Filters for entities matching to a given query and filters
+     *
+     * @param requestFilters search filters
+     * @param start start offset for search results
+     * @param count max number of search results requested
+     * @return a set of list results
+     * @throws RemoteInvocationException
+     */
+    @Nonnull
+    public ListResult list(
+        @Nonnull String entity,
+        @Nullable Map<String, String> requestFilters,
+        int start,
+        int count,
+        @Nonnull String actor)
+        throws RemoteInvocationException {
+
+        final EntitiesDoListRequestBuilder requestBuilder = ENTITIES_REQUEST_BUILDERS.actionList()
+            .entityParam(entity)
             .filterParam(newFilter(requestFilters))
             .startParam(start)
             .countParam(count);

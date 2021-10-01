@@ -89,6 +89,15 @@ type Query {
     """
     mlPrimaryKey(urn: String!): MLPrimaryKey
 
+    """
+    List all DataHub Users
+    """
+    listUsers(input: ListUsersInput!): ListUsersResult
+
+    """
+    List all DataHub Groups
+    """
+    listGroups(input: ListGroupsInput!): ListGroupsResult
 }
 
 """
@@ -185,6 +194,31 @@ type Mutation {
     Incubating. Updates the description of a resource. Currently only supports Dataset Schema Fields
     """
     updateDescription(input: DescriptionUpdateInput!): Boolean
+
+    """
+    Remove a user altogether
+    """
+    removeUser(urn: String!): Boolean
+
+    """
+    Remove a group altogether
+    """
+    removeGroup(urn: String!): Boolean
+
+    """
+    Add a member to a group
+    """
+    addGroupMember(groupUrn: String!, userUrn: String!): Boolean
+
+    """
+    Remove a member from a group
+    """
+    removeGroupMember(groupUrn: String!, userUrn: String!): Boolean
+
+    """
+    Create a new group. Returns the urn of the newly created group
+    """
+    createGroup(input: CreateGroupInput!): String
 }
 
 """
@@ -1650,6 +1684,26 @@ enum OwnershipType {
 }
 
 """
+The state of a CorpUser
+"""
+enum CorpUserStatus {
+  """
+  A User that has been provisioned, but has not yet logged in
+  """
+  PROVISIONED
+
+  """
+  A User that has been provisioned and logged in
+  """
+  ACTIVE
+
+  """
+  A User that is deactivated, and no longer allowed to log in
+  """
+  DEACTIVATED
+}
+
+"""
 A DataHub User entity, which represents a Person on the Metadata Entity Graph
 """
 type CorpUser implements Entity {
@@ -1678,6 +1732,11 @@ type CorpUser implements Entity {
     Read write properties about the corp user
     """
     editableProperties: CorpUserEditableProperties
+
+    """
+    The status of the user
+    """
+    status: CorpUserStatus
 
     """
     The tags associated with the user
@@ -4086,6 +4145,86 @@ type ListPoliciesResult {
 }
 
 """
+Input required when listing DataHub Users
+"""
+input ListUsersInput {
+  """
+  The starting offset of the result set returned
+  """
+  start: Int
+
+  """
+  The maximum number of Policies to be returned in the result set
+  """
+  count: Int
+}
+
+"""
+The result obtained when listing DataHub Users
+"""
+type ListUsersResult {
+  """
+  The starting offset of the result set returned
+  """
+  start: Int!
+
+  """
+  The number of Policies in the returned result set
+  """
+  count: Int!
+
+  """
+  The total number of Policies in the result set
+  """
+  total: Int!
+
+  """
+  The users themselves
+  """
+  users: [CorpUser!]!
+}
+
+"""
+Input required when listing DataHub Groups
+"""
+input ListGroupsInput {
+  """
+  The starting offset of the result set returned
+  """
+  start: Int
+
+  """
+  The maximum number of Policies to be returned in the result set
+  """
+  count: Int
+}
+
+"""
+The result obtained when listing DataHub Groups
+"""
+type ListGroupsResult {
+  """
+  The starting offset of the result set returned
+  """
+  start: Int!
+
+  """
+  The number of Policies in the returned result set
+  """
+  count: Int!
+
+  """
+  The total number of Policies in the result set
+  """
+  total: Int!
+
+  """
+  The groups themselves
+  """
+  groups: [CorpGroup!]!
+}
+
+"""
 A time stamp along with an optional actor
 """
 type AuditStamp {
@@ -4098,6 +4237,21 @@ type AuditStamp {
     Who performed the audited action
     """
     actor: String
+}
+
+"""
+Input for creating a new group
+"""
+input CreateGroupInput {
+  """
+  The display name of the group
+  """
+  name: String!
+
+  """
+  The description of the group
+  """
+  description: String
 }
 
 """
@@ -4857,3 +5011,4 @@ enum CostType {
     """
     ORG_COST_TYPE
 }
+

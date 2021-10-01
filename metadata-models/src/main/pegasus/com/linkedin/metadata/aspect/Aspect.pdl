@@ -12,6 +12,7 @@ import com.linkedin.identity.CorpGroupInfo
 import com.linkedin.metadata.key.CorpUserKey
 import com.linkedin.identity.CorpUserEditableInfo
 import com.linkedin.identity.CorpUserInfo
+import com.linkedin.identity.GroupMembership
 import com.linkedin.metadata.key.DashboardKey
 import com.linkedin.dashboard.DashboardInfo
 import com.linkedin.metadata.key.DataFlowKey
@@ -76,6 +77,7 @@ typeref Aspect = union[
     GlossaryNodeKey,
     GlossaryTermInfo,
     GlossaryTermKey,
+    GroupMembership,
     MLFeatureKey,
     MLFeatureProperties,
     MLModelKey,

@@ -21,6 +21,8 @@ public class Constants {
    */
   public static final String OWNERSHIP_ASPECT_NAME = "ownership";
   public static final String INSTITUTIONAL_MEMORY_ASPECT_NAME = "institutionalMemory";
+  public static final String CORP_GROUP_INFO_ASPECT_NAME = "corpGroupInfo";
+  public static final String GROUP_MEMBERSHIP_ASPECT_NAME = "groupMembership";
 
   private Constants() { }
 }

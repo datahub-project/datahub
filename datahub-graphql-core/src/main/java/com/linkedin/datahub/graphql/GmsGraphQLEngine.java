@@ -37,6 +37,11 @@ import com.linkedin.datahub.graphql.generated.MLFeatureProperties;
 import com.linkedin.datahub.graphql.generated.MLPrimaryKey;
 import com.linkedin.datahub.graphql.generated.MLPrimaryKeyProperties;
 import com.linkedin.datahub.graphql.resolvers.MeResolver;
+import com.linkedin.datahub.graphql.resolvers.group.AddGroupMemberResolver;
+import com.linkedin.datahub.graphql.resolvers.group.CreateGroupResolver;
+import com.linkedin.datahub.graphql.resolvers.group.ListGroupsResolver;
+import com.linkedin.datahub.graphql.resolvers.group.RemoveGroupMemberResolver;
+import com.linkedin.datahub.graphql.resolvers.group.RemoveGroupResolver;
 import com.linkedin.datahub.graphql.resolvers.load.AspectResolver;
 import com.linkedin.datahub.graphql.resolvers.load.EntityTypeBatchResolver;
 import com.linkedin.datahub.graphql.resolvers.load.EntityTypeResolver;
@@ -62,6 +67,8 @@ import com.linkedin.datahub.graphql.resolvers.type.AspectInterfaceTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.type.HyperParameterValueTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.type.ResultsTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.type.TimeSeriesAspectInterfaceTypeResolver;
+import com.linkedin.datahub.graphql.resolvers.user.ListUsersResolver;
+import com.linkedin.datahub.graphql.resolvers.user.RemoveUserResolver;
 import com.linkedin.datahub.graphql.types.BrowsableEntityType;
 import com.linkedin.datahub.graphql.types.EntityType;
 import com.linkedin.datahub.graphql.types.LoadableType;
@@ -405,6 +412,10 @@ public class GmsGraphQLEngine {
                             (env) -> env.getArgument(URN_FIELD_NAME))))
             .dataFetcher("listPolicies",
                 new ListPoliciesResolver(GmsClientFactory.getEntitiesClient()))
+            .dataFetcher("listUsers",
+                new ListUsersResolver(GmsClientFactory.getEntitiesClient()))
+            .dataFetcher("listGroups",
+                new ListGroupsResolver(GmsClientFactory.getEntitiesClient()))
         );
     }
 
@@ -428,6 +439,11 @@ public class GmsGraphQLEngine {
             .dataFetcher("removeOwner", new RemoveOwnerResolver(entityService))
             .dataFetcher("addLink", new AddLinkResolver(entityService))
             .dataFetcher("removeLink", new RemoveLinkResolver(entityService))
+            .dataFetcher("addGroupMember", new AddGroupMemberResolver(GmsClientFactory.getAspectsClient()))
+            .dataFetcher("removeGroupMember", new RemoveGroupMemberResolver(GmsClientFactory.getAspectsClient()))
+            .dataFetcher("createGroup", new CreateGroupResolver(GmsClientFactory.getAspectsClient()))
+            .dataFetcher("removeUser", new RemoveUserResolver(GmsClientFactory.getEntitiesClient()))
+            .dataFetcher("removeGroup", new RemoveGroupResolver(GmsClientFactory.getEntitiesClient()))
         );
     }
 
