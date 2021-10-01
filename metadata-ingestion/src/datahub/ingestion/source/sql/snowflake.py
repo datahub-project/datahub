@@ -13,7 +13,8 @@ from sqlalchemy.sql import text
 from sqlalchemy.sql.elements import quoted_name
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.ingestion.source.sql.sql_common import (
     RecordTypeClass,
     SQLAlchemyConfig,
@@ -36,7 +37,7 @@ register_custom_type(custom_types.VARIANT, RecordTypeClass)
 logger: logging.Logger = logging.getLogger(__name__)
 
 
-class BaseSnowflakeConfig(ConfigModel):
+class BaseSnowflakeConfig(BaseTimeWindowConfig):
     # Note: this config model is also used by the snowflake-usage source.
 
     scheme = "snowflake"
@@ -123,26 +124,34 @@ class SnowflakeSource(SQLAlchemySource):
         logger.debug(f"sql_alchemy_url={url}")
         engine = create_engine(url, **self.config.options)
         query: str = """
-with table_lineage_history as (
-select
-        r.value:"objectId" as upstream_table_id,
-        r.value:"objectName" as upstream_table_name,
-        r.value:"objectDomain" as upstream_table_domain,
-        r.value:"columns" as upstream_table_columns,
-        w.value:"objectId" as downstream_table_id,
-        w.value:"objectName" as downstream_table_name,
-        w.value:"objectDomain" as downstream_table_domain,
-        w.value:"columns" as downstream_table_columns,
-        t.query_start_time as query_start_time
-    from
-        (select * from snowflake.account_usage.access_history) t,
+WITH table_lineage_history AS (
+    SELECT
+        r.value:"objectId" AS upstream_table_id,
+        r.value:"objectName" AS upstream_table_name,
+        r.value:"objectDomain" AS upstream_table_domain,
+        r.value:"columns" AS upstream_table_columns,
+        w.value:"objectId" AS downstream_table_id,
+        w.value:"objectName" AS downstream_table_name,
+        w.value:"objectDomain" AS downstream_table_domain,
+        w.value:"columns" AS downstream_table_columns,
+        t.query_start_time AS query_start_time
+    FROM
+        (SELECT * from snowflake.account_usage.access_history) t,
         lateral flatten(input => t.BASE_OBJECTS_ACCESSED) r,
         lateral flatten(input => t.OBJECTS_MODIFIED) w
-    where r.value:"objectId" IS NOT NULL AND w.value:"objectId" IS NOT NULL)
-select upstream_table_name, downstream_table_name, upstream_table_columns, downstream_table_columns from table_lineage_history
-where upstream_table_domain = 'Table' and downstream_table_domain = 'Table'
+    WHERE r.value:"objectId" IS NOT NULL
+    AND w.value:"objectId" IS NOT NULL
+    AND w.value:"objectName" NOT LIKE '%.GE_TMP_%'
+    AND t.query_start_time >= to_timestamp_ltz({start_time_millis}, 3)
+    AND t.query_start_time < to_timestamp_ltz({end_time_millis}, 3))
+SELECT upstream_table_name, downstream_table_name, upstream_table_columns, downstream_table_columns
+FROM table_lineage_history
+WHERE upstream_table_domain = 'Table' and downstream_table_domain = 'Table'
 QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_id, upstream_table_id, query_start_time ORDER BY downstream_table_id, upstream_table_id, query_start_time DESC) = 1
-        """
+        """.format(
+            start_time_millis=int(self.config.start_time.timestamp() * 1000),
+            end_time_millis=int(self.config.end_time.timestamp() * 1000),
+        )
         self._lineage_map = {}
         for db_row in engine.execute(query):
             key: str = db_row[1].lower().replace('"', "")
@@ -151,7 +160,7 @@ QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_id, upstream_table_id, 
             self._lineage_map[key].append(
                 (db_row[0].lower().replace('"', ""), db_row[2])
             )
-            logger.info(f"Lineage[{key}]:{self._lineage_map[key]}")
+            logger.debug(f"Lineage[{key}]:{self._lineage_map[key]}")
 
     def get_upstream_lineage(
         self, dataset_name: str, custom_properties: Dict[str, str]
@@ -161,7 +170,7 @@ QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_id, upstream_table_id, 
         assert self._lineage_map is not None
         lineage = self._lineage_map.get(f"{dataset_name}", None)
         if lineage is None:
-            logger.info(f"No lineage found for {dataset_name}")
+            logger.debug(f"No lineage found for {dataset_name}")
             return None
         upstreams: List[UpstreamClass] = []
         upstream_columns: List[str] = []
@@ -179,7 +188,7 @@ QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_id, upstream_table_id, 
                     f"{upstream_entry[0].lower()}.{e['columnId']}_{e['columnName'].lower()}"
                 )
         custom_properties["upstream_columns"] = "; ".join(upstream_columns)
-        logger.info(
+        logger.debug(
             f"upstream_columns[{dataset_name}]:{custom_properties['upstream_columns']}"
         )
         return UpstreamLineage(upstreams=upstreams)
