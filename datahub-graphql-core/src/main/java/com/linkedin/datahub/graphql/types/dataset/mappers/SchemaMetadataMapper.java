@@ -33,6 +33,11 @@ public class SchemaMetadataMapper implements ModelMapper<VersionedAspect, com.li
         result.setFields(input.getFields().stream().map(SchemaFieldMapper::map).collect(Collectors.toList()));
         result.setPlatformSchema(PlatformSchemaMapper.map(input.getPlatformSchema()));
         result.setAspectVersion(inputWithMetadata.getVersion());
+        if (input.hasForeignKeys()) {
+            result.setForeignKeys(input.getForeignKeys().stream().map(foreignKeyConstraint -> ForeignKeyConstraintMapper.map(
+                foreignKeyConstraint
+            )).collect(Collectors.toList()));
+        }
         return result;
     }
 }

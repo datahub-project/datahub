@@ -44,6 +44,10 @@ def getCostSchema() -> str:
     return _load_schema("Cost")
 
 @functools.lru_cache(maxsize=None)
+def getDataPlatformInstanceSchema() -> str:
+    return _load_schema("DataPlatformInstance")
+
+@functools.lru_cache(maxsize=None)
 def getDeprecationSchema() -> str:
     return _load_schema("Deprecation")
 

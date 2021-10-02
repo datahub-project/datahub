@@ -10,10 +10,7 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.EnvelopedAspectArray;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.models.AspectSpec;
-import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.restli.RestliUtil;
-import com.linkedin.metadata.search.utils.BrowsePathUtils;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericAspectUtils;
@@ -41,7 +38,6 @@ import javax.inject.Inject;
 import javax.inject.Named;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.metadata.Constants.ASPECT_LATEST_VERSION;
 import static com.linkedin.metadata.resources.ResourceUtils.validateOrWarn;
 import static com.linkedin.metadata.restli.RestliConstants.PARAM_LIMIT;
 import static com.linkedin.metadata.restli.RestliConstants.PARAM_URN;

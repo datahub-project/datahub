@@ -12,6 +12,7 @@ from .....schema_classes import CostClass
 from .....schema_classes import CostCostClass
 from .....schema_classes import CostCostDiscriminatorClass
 from .....schema_classes import CostTypeClass
+from .....schema_classes import DataPlatformInstanceClass
 from .....schema_classes import DeprecationClass
 from .....schema_classes import FabricTypeClass
 from .....schema_classes import GlobalTagsClass
@@ -39,6 +40,7 @@ Cost = CostClass
 CostCost = CostCostClass
 CostCostDiscriminator = CostCostDiscriminatorClass
 CostType = CostTypeClass
+DataPlatformInstance = DataPlatformInstanceClass
 Deprecation = DeprecationClass
 FabricType = FabricTypeClass
 GlobalTags = GlobalTagsClass
