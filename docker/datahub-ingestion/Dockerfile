@@ -11,6 +11,7 @@ RUN apt-get update && apt-get install -y \
         python3-ldap \
         libldap2-dev \
         libsasl2-dev \
+        libsasl2-modules \
         ldap-utils \
     && python -m pip install --upgrade pip wheel setuptools==57.5.0
 
