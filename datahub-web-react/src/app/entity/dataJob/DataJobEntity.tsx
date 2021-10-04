@@ -164,12 +164,8 @@ export class DataJobEntity implements Entity<DataJob> {
             urn: entity?.urn,
             name: entity?.info?.name || '',
             type: EntityType.DataJob,
-            upstreamChildren: getChildren({ entity, type: EntityType.DataJob }, Direction.Upstream).map(
-                (child) => child.entity.urn,
-            ),
-            downstreamChildren: getChildren({ entity, type: EntityType.DataJob }, Direction.Downstream).map(
-                (child) => child.entity.urn,
-            ),
+            upstreamChildren: getChildren({ entity, type: EntityType.DataJob }, Direction.Upstream),
+            downstreamChildren: getChildren({ entity, type: EntityType.DataJob }, Direction.Downstream),
             icon: getLogoFromPlatform(entity.dataFlow?.orchestrator || ''),
             platform: entity?.dataFlow?.orchestrator || '',
         };

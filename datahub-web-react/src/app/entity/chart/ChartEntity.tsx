@@ -153,12 +153,8 @@ export class ChartEntity implements Entity<Chart> {
             urn: entity.urn,
             name: entity.info?.name || '',
             type: EntityType.Chart,
-            upstreamChildren: getChildren({ entity, type: EntityType.Chart }, Direction.Upstream).map(
-                (child) => child.entity.urn,
-            ),
-            downstreamChildren: getChildren({ entity, type: EntityType.Chart }, Direction.Downstream).map(
-                (child) => child.entity.urn,
-            ),
+            upstreamChildren: getChildren({ entity, type: EntityType.Chart }, Direction.Upstream),
+            downstreamChildren: getChildren({ entity, type: EntityType.Chart }, Direction.Downstream),
             icon: getLogoFromPlatform(entity.tool),
             platform: entity.tool,
         };

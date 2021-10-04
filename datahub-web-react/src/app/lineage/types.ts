@@ -29,8 +29,8 @@ export type FetchedEntity = {
     subtype?: string;
     icon?: string;
     // children?: Array<string>;
-    upstreamChildren?: Array<string>;
-    downstreamChildren?: Array<string>;
+    upstreamChildren?: Array<EntityAndType>;
+    downstreamChildren?: Array<EntityAndType>;
     fullyFetched?: boolean;
     platform?: string;
 };
