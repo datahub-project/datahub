@@ -234,8 +234,13 @@ public class SearchRequestHandler {
     return _defaultQueryFieldNames.stream().filter(matchedField::startsWith).findFirst();
   }
 
+  private double hasOwners(@Nonnull SearchHit searchHit) {
+    return ((Boolean) searchHit.getSourceAsMap().getOrDefault("hasOwners", false)) ? 1 : 0;
+  }
+
   private Map<String, Double> extractFeatures(@Nonnull SearchHit searchHit) {
-    return ImmutableMap.of(Features.Name.ELASTICSEARCH_SCORE.toString(), (double) searchHit.getScore());
+    return ImmutableMap.of(Features.Name.ELASTICSEARCH_SCORE.toString(), (double) searchHit.getScore(),
+        Features.Name.HAS_OWNERS.toString(), hasOwners(searchHit));
   }
 
   private SearchEntity getResult(@Nonnull SearchHit hit) {

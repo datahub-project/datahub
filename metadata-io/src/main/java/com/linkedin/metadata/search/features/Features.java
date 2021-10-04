@@ -16,7 +16,7 @@ public class Features {
   Map<Name, Double> numericFeatures;
 
   public enum Name {
-    ELASTICSEARCH_SCORE, NUM_ENTITIES_PER_TYPE, RANK_WITHIN_TYPE, QUERY_COUNT;
+    ELASTICSEARCH_SCORE, NUM_ENTITIES_PER_TYPE, RANK_WITHIN_TYPE, QUERY_COUNT, OUT_DEGREE, HAS_OWNERS;
   }
 
   public Double getNumericFeature(Name featureName, double defaultValue) {
