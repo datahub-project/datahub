@@ -21,7 +21,7 @@ docker info | grep Memory
 mkdir -p airflow_install
 cd airflow_install
 # Download docker-compose
-curl -L 'https://raw.githubusercontent.com/acryldata/datahub-fork/airflow-local-docker/docker/airflow/docker-compose.yaml?token=AAG5J3NA2ZJRVLS3XB3C3RTBG7BAM' -o docker-compose.yaml
+curl -L 'https://raw.githubusercontent.com/linkedin/datahub/master/docker/airflow/docker-compose.yaml' -o docker-compose.yaml
 # Create dags directory
 mkdir -p dags
 # Download a sample DAG
