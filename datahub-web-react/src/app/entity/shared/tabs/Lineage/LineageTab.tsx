@@ -36,26 +36,28 @@ export const LineageTab = () => {
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
     const lineageMetadata = useLineageMetadata();
-    const baseEntity = useBaseEntity<{ incoming?: EntityRelationshipsResult; outgoing?: EntityRelationshipsResult }>();
+    const baseEntity =
+        useBaseEntity<{ dataset: { incoming?: EntityRelationshipsResult; outgoing?: EntityRelationshipsResult } }>();
 
     const routeToLineage = useCallback(() => {
         history.push(getEntityPath(entityType, urn, entityRegistry, true));
     }, [history, entityType, urn, entityRegistry]);
 
     const relatedEntities = [
-        ...(baseEntity?.incoming?.relationships || []),
-        ...(baseEntity?.outgoing?.relationships || []),
+        ...(baseEntity?.dataset?.incoming?.relationships || []),
+        ...(baseEntity?.dataset?.outgoing?.relationships || []),
     ];
 
     const upstreamEntities = relatedEntities
-        .filter((relatedEntity) => (lineageMetadata?.upstreamChildren?.indexOf(relatedEntity.entity.urn) || -1) >= 0)
+        .filter((relatedEntity) => lineageMetadata?.upstreamChildren?.indexOf(relatedEntity.entity.urn) !== -1)
         .map((result) => result.entity);
 
     const downstreamEntities = relatedEntities
-        .filter((relatedEntity) => (lineageMetadata?.downstreamChildren?.indexOf(relatedEntity.entity.urn) || -1) >= 0)
+        .filter((relatedEntity) => lineageMetadata?.downstreamChildren?.indexOf(relatedEntity.entity.urn) !== -1)
         .map((result) => result.entity);
 
     console.log({
+        relatedEntities,
         downstreamEntities,
         upstreamEntities,
         lineageMetadata,

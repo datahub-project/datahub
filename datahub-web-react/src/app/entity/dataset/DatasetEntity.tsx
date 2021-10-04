@@ -30,7 +30,7 @@ const MatchTag = styled(Tag)`
 `;
 
 const FORWARD_RELATIONSHIPS = ['DownstreamOf', 'Consumes'];
-const INVERSE_RELATIONSHIPS = ['Consumes'];
+const INVERSE_RELATIONSHIPS = ['Produces'];
 
 /**
  * Definition of the DataHub Dataset entity.
@@ -199,7 +199,7 @@ export class DatasetEntity implements Entity<Dataset> {
             name: entity?.name,
             type: EntityType.Dataset,
             subtype: entity.subTypes?.typeNames?.[0] || undefined,
-            upstreamChildren: getChildrenFromRelationships({
+            downstreamChildren: getChildrenFromRelationships({
                 forwardRelationshipTypes: FORWARD_RELATIONSHIPS,
                 inverseRelationshipTypes: INVERSE_RELATIONSHIPS,
                 // eslint-disable-next-line @typescript-eslint/dot-notation
@@ -208,7 +208,7 @@ export class DatasetEntity implements Entity<Dataset> {
                 outgoingRelationships: entity?.['outgoing'],
                 direction: RelationshipDirection.Incoming,
             }).map((relationship) => relationship.entity.urn),
-            downstream: getChildrenFromRelationships({
+            upstreamChildren: getChildrenFromRelationships({
                 forwardRelationshipTypes: FORWARD_RELATIONSHIPS,
                 inverseRelationshipTypes: INVERSE_RELATIONSHIPS,
                 // eslint-disable-next-line @typescript-eslint/dot-notation

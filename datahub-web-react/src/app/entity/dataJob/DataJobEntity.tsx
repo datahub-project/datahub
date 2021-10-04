@@ -161,8 +161,8 @@ export class DataJobEntity implements Entity<DataJob> {
 
     getLineageVizConfig = (entity: DataJob) => {
         return {
-            urn: entity.urn,
-            name: entity.info?.name || '',
+            urn: entity?.urn,
+            name: entity?.info?.name || '',
             type: EntityType.DataJob,
             upstreamChildren: getChildren({ entity, type: EntityType.DataJob }, Direction.Upstream).map(
                 (child) => child.entity.urn,
@@ -171,7 +171,7 @@ export class DataJobEntity implements Entity<DataJob> {
                 (child) => child.entity.urn,
             ),
             icon: getLogoFromPlatform(entity.dataFlow?.orchestrator || ''),
-            platform: entity.dataFlow?.orchestrator || '',
+            platform: entity?.dataFlow?.orchestrator || '',
         };
     };
 

@@ -103,12 +103,12 @@ export function getChildrenFromRelationships({
 
         ...(outgoingRelationships?.relationships || []).filter((relationship) => {
             if (forwardRelationshipTypes.indexOf(relationship.type) >= 0) {
-                if (direction !== relationship.direction) {
+                if (direction === relationship.direction) {
                     return true;
                 }
             }
             if (inverseRelationshipTypes.indexOf(relationship.type) >= 0) {
-                if (direction === relationship.direction) {
+                if (direction !== relationship.direction) {
                     return true;
                 }
             }

@@ -476,6 +476,9 @@ public class GmsGraphQLEngine {
     private void configureDatasetResolvers(final RuntimeWiring.Builder builder) {
         builder
             .type("Dataset", typeWiring -> typeWiring
+                .dataFetcher("relationships", new AuthenticatedResolver<>(
+                    new EntityRelationshipsResultResolver(GmsClientFactory.getRelationshipsClient())
+                ))
                 .dataFetcher("platform", new AuthenticatedResolver<>(
                         new LoadableTypeResolver<>(dataPlatformType,
                                 (env) -> ((Dataset) env.getSource()).getPlatform().getUrn()))

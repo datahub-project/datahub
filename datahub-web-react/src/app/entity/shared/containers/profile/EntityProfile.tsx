@@ -119,13 +119,20 @@ export const EntityProfile = <T, U>({
     );
 
     const { loading, error, data, refetch } = useEntityQuery({ variables: { urn } });
+    console.log({
+        loading,
+        data,
+        error,
+    });
 
     const [updateEntity] = useUpdateQuery({
         onCompleted: () => refetch(),
     });
 
     const entityData = getDataForEntityType({ data, entityType, getOverrideProperties });
-    const lineageMetadata = entityRegistry.getLineageVizConfig(entityType, data);
+
+    console.log({ entityDataFromProfile: entityData });
+    const lineageMetadata = entityData ? entityRegistry.getLineageVizConfig(entityType, entityData) : undefined;
 
     if (isCompact) {
         return (
