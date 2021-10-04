@@ -1,7 +1,6 @@
 import EntityRegistry from '../../entity/EntityRegistry';
 import { Direction, EntityAndType, FetchedEntities, NodeData } from '../types';
 import constructFetchedNode from './constructFetchedNode';
-import getChildren from './getChildren';
 
 export default function constructTree(
     entityAndType: EntityAndType | null | undefined,
@@ -9,6 +8,7 @@ export default function constructTree(
     direction: Direction,
     entityRegistry: EntityRegistry,
 ): NodeData {
+    console.log('construct tree', entityAndType);
     if (!entityAndType?.entity) return { name: 'loading...', children: [] };
     const constructedNodes = {};
 
@@ -23,7 +23,16 @@ export default function constructTree(
         platform: fetchedEntity?.platform,
         unexploredChildren: 0,
     };
-    root.children = getChildren(entityAndType, direction)
+    const lineageConfig = entityRegistry.getLineageVizConfig(entityAndType.type, entityAndType.entity);
+    let children: EntityAndType[] = [];
+    if (direction === Direction.Upstream) {
+        children = lineageConfig?.upstreamChildren || [];
+    }
+    if (direction === Direction.Downstream) {
+        children = lineageConfig?.downstreamChildren || [];
+    }
+
+    root.children = children
         .map((child) => {
             if (child.entity.urn === root.urn) {
                 return null;

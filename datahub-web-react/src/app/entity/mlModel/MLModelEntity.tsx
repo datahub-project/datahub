@@ -62,12 +62,8 @@ export class MLModelEntity implements Entity<MlModel> {
             urn: entity.urn,
             name: entity.name,
             type: EntityType.Mlmodel,
-            upstreamChildren: getChildren({ entity, type: EntityType.Mlmodel }, Direction.Upstream).map(
-                (child) => child.entity.urn,
-            ),
-            downstreamChildren: getChildren({ entity, type: EntityType.Mlmodel }, Direction.Downstream).map(
-                (child) => child.entity.urn,
-            ),
+            upstreamChildren: getChildren({ entity, type: EntityType.Mlmodel }, Direction.Upstream),
+            downstreamChildren: getChildren({ entity, type: EntityType.Mlmodel }, Direction.Downstream),
             icon: entity.platform.info?.logoUrl || undefined,
             platform: entity.platform.name,
         };

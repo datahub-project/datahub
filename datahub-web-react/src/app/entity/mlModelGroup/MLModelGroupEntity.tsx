@@ -62,12 +62,8 @@ export class MLModelGroupEntity implements Entity<MlModelGroup> {
             urn: entity.urn,
             name: entity.name,
             type: EntityType.MlmodelGroup,
-            upstreamChildren: getChildren({ entity, type: EntityType.MlmodelGroup }, Direction.Upstream).map(
-                (child) => child.entity.urn,
-            ),
-            downstreamChildren: getChildren({ entity, type: EntityType.MlmodelGroup }, Direction.Downstream).map(
-                (child) => child.entity.urn,
-            ),
+            upstreamChildren: getChildren({ entity, type: EntityType.MlmodelGroup }, Direction.Upstream),
+            downstreamChildren: getChildren({ entity, type: EntityType.MlmodelGroup }, Direction.Downstream),
             icon: entity.platform.info?.logoUrl || undefined,
             platform: entity.platform.name,
         };

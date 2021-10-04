@@ -151,12 +151,8 @@ export class DashboardEntity implements Entity<Dashboard> {
             urn: entity.urn,
             name: entity.info?.name || '',
             type: EntityType.Dashboard,
-            upstreamChildren: getChildren({ entity, type: EntityType.Dashboard }, Direction.Upstream).map(
-                (child) => child.entity.urn,
-            ),
-            downstreamChildren: getChildren({ entity, type: EntityType.Dashboard }, Direction.Downstream).map(
-                (child) => child.entity.urn,
-            ),
+            upstreamChildren: getChildren({ entity, type: EntityType.Dashboard }, Direction.Upstream),
+            downstreamChildren: getChildren({ entity, type: EntityType.Dashboard }, Direction.Downstream),
             icon: getLogoFromPlatform(entity.tool),
             platform: entity.tool,
         };

@@ -61,6 +61,8 @@ export default function LineageVizInsideZoom({
     const yMax = height - margin?.top - margin?.bottom;
     const xMax = (width - margin?.left - margin?.right) / 2;
 
+    console.log('started constructing trees');
+
     const downstreamData = useMemo(
         () => hierarchy(constructTree(entityAndType, fetchedEntities, Direction.Downstream, entityRegistry)),
         [entityAndType, fetchedEntities, entityRegistry],
@@ -69,6 +71,8 @@ export default function LineageVizInsideZoom({
         () => hierarchy(constructTree(entityAndType, fetchedEntities, Direction.Upstream, entityRegistry)),
         [entityAndType, fetchedEntities, entityRegistry],
     );
+
+    console.log('finished constructing trees');
 
     useEffect(() => {
         zoom.setTransformMatrix({ ...zoom.transformMatrix, translateY: 0, translateX: width / 2 });

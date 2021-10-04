@@ -58,6 +58,8 @@ export default function LineageTree({
         }
     }, [data.height, xCanvasScale, setXCanvasScale]);
 
+    console.log('rendering tree');
+
     // The <Tree /> component takes in the data we've prepared and lays out each node by providing it an x & y coordinate.
     // However, we need to make a few adjustments to the layout before rendering
     // TODO(gabe-lyons): Abstract the interior of <Tree />'s render into its own FC to further optimize
