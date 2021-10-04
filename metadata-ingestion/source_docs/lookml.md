@@ -57,6 +57,9 @@ source:
     #     platform: bigquery # snowflake, hive, etc
     #     default_db: DEFAULT_DATABASE. # the default database configured for this connection
     #     default_schema: DEFAULT_SCHEMA # the default schema configured for this connection
+    
+    github_info:
+       repo: org/repo-name
           
     
 sink:
@@ -90,6 +93,10 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `env`                                          |          | `"PROD"`   | Environment to use in namespace when constructing URNs.                 |
 | `parse_table_names_from_sql`                   |          | `False`    | See note below.                                                         |
 | `tag_measures_and_dimensions`   |          | `True`    | When enabled, attaches tags to measures, dimensions and dimension groups to make them more discoverable. When disabled, adds this information to the description of the column. |
+| `github_info`                   |          | Empty.    | When provided, will annotate views with github urls. See config variables below. | 
+| `github_info.repo`              |  ✅   if providing `github_info`        |    |  Your github repository in `org/repo` form. e.g. `linkedin/datahub` | 
+| `github_info.branch`            |          | `main` | The default branch in your repo that you want urls to point to. Typically `main` or `master` |  
+| `github_info.base_url`          |          | `https://github.com` | The base url for your github coordinates | 
 | `sql_parser`                                   |          | `datahub.utilities.sql_parser.DefaultSQLParser`    | See note below.                                                         |
 
 Note! The integration can use an SQL parser to try to parse the tables the views depends on. This parsing is disabled by default, 

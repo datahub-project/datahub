@@ -538,7 +538,9 @@ class LookerDashboardSource(Source):
                 model, explore, self.client, self.reporter
             )
             if looker_explore is not None:
-                explore_mce = looker_explore._to_mce(self.source_config, self.reporter)
+                explore_mce = looker_explore._to_mce(
+                    self.source_config, self.reporter, self.source_config.base_url
+                )
                 if explore_mce is not None:
                     explore_mces.append(explore_mce)
         return explore_mces
