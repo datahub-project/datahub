@@ -34,9 +34,9 @@ def assert_mces_equal(
         golden, output, exclude_regex_paths=ignore_paths, ignore_order=True
     )
     if diff:
-        pprint(golden)
+        pprint.pprint(golden)
         print("..............................")
-        pprint(output)
+        pprint.pprint(output)
         assert not diff, f"MCEs differ\n{pprint.pformat(diff)}"
 
 
