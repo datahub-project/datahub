@@ -30,13 +30,8 @@ def assert_mces_equal(
     output: object, golden: object, ignore_paths: Optional[List[str]] = None
 ) -> None:
     # This method assumes we're given a list of MCE json objects.
-    diff = deepdiff.DeepDiff(
-        golden, output, exclude_regex_paths=ignore_paths, ignore_order=True
-    )
+    diff = deepdiff.DeepDiff(golden, output, exclude_regex_paths=ignore_paths)
     if diff:
-        pprint.pprint(golden)
-        print("..............................")
-        pprint.pprint(output)
         assert not diff, f"MCEs differ\n{pprint.pformat(diff)}"
 
 
