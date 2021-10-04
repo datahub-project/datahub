@@ -39,6 +39,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     BytesTypeClass,
     DateTypeClass,
     EnumTypeClass,
+    ForeignKeyConstraint,
     MySqlDDL,
     NullTypeClass,
     NumberTypeClass,
@@ -239,9 +240,15 @@ def get_column_type(
 
 
 def get_schema_metadata(
-    sql_report: SQLSourceReport, dataset_name: str, platform: str, columns: List[dict]
+    sql_report: SQLSourceReport,
+    dataset_name: str,
+    platform: str,
+    columns: List[dict],
+    pk_constraints: dict = None,
+    foreign_keys: List[ForeignKeyConstraint] = None,
 ) -> SchemaMetadata:
     canonical_schema: List[SchemaField] = []
+
     for column in columns:
         field = SchemaField(
             fieldPath=column["name"],
@@ -251,6 +258,12 @@ def get_schema_metadata(
             nullable=column["nullable"],
             recursive=False,
         )
+        if (
+            pk_constraints is not None
+            and isinstance(pk_constraints, dict)  # some dialects (hive) return list
+            and column["name"] in pk_constraints.get("constrained_columns", [])
+        ):
+            field.isPartOfKey = True
         canonical_schema.append(field)
 
     schema_metadata = SchemaMetadata(
@@ -261,6 +274,9 @@ def get_schema_metadata(
         platformSchema=MySqlDDL(tableSchema=""),
         fields=canonical_schema,
     )
+    if foreign_keys is not None and foreign_keys != []:
+        schema_metadata.foreignKeys = foreign_keys
+
     return schema_metadata
 
 
@@ -337,6 +353,27 @@ class SQLAlchemySource(Source):
         else:
             return f"{schema}.{entity}"
 
+    def get_foreign_key_metadata(self, datasetUrn, fk_dict, inspector):
+        referred_dataset_name = self.get_identifier(
+            schema=fk_dict["referred_schema"],
+            entity=fk_dict["referred_table"],
+            inspector=inspector,
+        )
+
+        source_fields = [
+            f"urn:li:schemaField:({datasetUrn}, {f})"
+            for f in fk_dict["constrained_columns"]
+        ]
+        foreign_dataset = f"urn:li:dataset:(urn:li:dataPlatform:{self.platform},{referred_dataset_name},{self.config.env})"
+        foreign_fields = [
+            f"urn:li:schemaField:({foreign_dataset}, {f})"
+            for f in fk_dict["referred_columns"]
+        ]
+
+        return ForeignKeyConstraint(
+            fk_dict["name"], foreign_fields, source_fields, foreign_dataset
+        )
+
     def loop_tables(
         self,
         inspector: Inspector,
@@ -373,21 +410,39 @@ class SQLAlchemySource(Source):
                 # The "properties" field is a non-standard addition to SQLAlchemy's interface.
                 properties = table_info.get("properties", {})
 
-            # TODO: capture inspector.get_pk_constraint
-            # TODO: capture inspector.get_sorted_table_and_fkc_names
-
+            datasetUrn = f"urn:li:dataset:(urn:li:dataPlatform:{self.platform},{dataset_name},{self.config.env})"
             dataset_snapshot = DatasetSnapshot(
-                urn=f"urn:li:dataset:(urn:li:dataPlatform:{self.platform},{dataset_name},{self.config.env})",
+                urn=datasetUrn,
                 aspects=[],
             )
+
             if description is not None or properties:
                 dataset_properties = DatasetPropertiesClass(
                     description=description,
                     customProperties=properties,
                 )
                 dataset_snapshot.aspects.append(dataset_properties)
+
+            pk_constraints: dict = inspector.get_pk_constraint(table, schema)
+            try:
+                foreign_keys = [
+                    self.get_foreign_key_metadata(datasetUrn, fk_rec, inspector)
+                    for fk_rec in inspector.get_foreign_keys(table, schema)
+                ]
+            except KeyError:
+                # certain databases like MySQL cause issues due to lower-case/upper-case irregularities
+                logger.debug(
+                    f"{datasetUrn}: failure in foreign key extraction... skipping"
+                )
+                foreign_keys = []
+
             schema_metadata = get_schema_metadata(
-                self.report, dataset_name, self.platform, columns
+                self.report,
+                dataset_name,
+                self.platform,
+                columns,
+                pk_constraints,
+                foreign_keys,
             )
             dataset_snapshot.aspects.append(schema_metadata)
 

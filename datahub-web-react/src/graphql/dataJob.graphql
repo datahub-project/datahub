@@ -7,6 +7,39 @@ query getDataJob($urn: String!) {
         upstreamLineage {
             ...upstreamRelationshipFields
         }
+        parentFlow: relationships(input: { types: ["IsPartOf"], direction: OUTGOING, start: 0, count: 1 }) {
+            start
+            count
+            total
+            relationships {
+                entity {
+                    ... on DataFlow {
+                        urn
+                        type
+                        orchestrator
+                        flowId
+                        cluster
+                        info {
+                            name
+                            description
+                            project
+                        }
+                        ownership {
+                            ...ownershipFields
+                        }
+                        globalTags {
+                            ...globalTagsFields
+                        }
+                        glossaryTerms {
+                            ...glossaryTerms
+                        }
+                        editableProperties {
+                            description
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 

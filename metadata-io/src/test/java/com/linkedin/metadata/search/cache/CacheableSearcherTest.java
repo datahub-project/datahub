@@ -35,7 +35,7 @@ public class CacheableSearcherTest {
   @Test
   public void testCacheableSearcherWithFixedNumResults() {
     CacheableSearcher<Integer> fixedBatchSearcher =
-        new CacheableSearcher<>(cacheManager.getCache("emptySearcher"), 10, qs -> getSearchResult(qs, 10),
+        new CacheableSearcher<>(cacheManager.getCache("fixedBatchSearcher"), 10, qs -> getSearchResult(qs, 10),
             CacheableSearcher.QuerySize::getFrom);
 
     SearchResult result = fixedBatchSearcher.getSearchResults(0, 0);
@@ -58,7 +58,7 @@ public class CacheableSearcherTest {
   @Test
   public void testCacheableSearcherWithVariableNumResults() {
     CacheableSearcher<Integer> variableBatchSearcher =
-        new CacheableSearcher<>(cacheManager.getCache("emptySearcher"), 10,
+        new CacheableSearcher<>(cacheManager.getCache("variableBatchSearcher"), 10,
             qs -> getSearchResult(qs, qs.getFrom() + qs.getSize()), CacheableSearcher.QuerySize::getFrom);
 
     SearchResult result = variableBatchSearcher.getSearchResults(0, 0);

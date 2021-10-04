@@ -42,7 +42,8 @@ public class SearchForMultipleResolver implements DataFetcher<CompletableFuture<
   public CompletableFuture<SearchResults> get(DataFetchingEnvironment environment) {
     final SearchMultipleInput input = bindArgument(environment.getArgument("input"), SearchMultipleInput.class);
 
-    List<EntityType> entityTypes = (input.getTypes() == null || input.getTypes().isEmpty()) ? SEARCHABLE_ENTITY_TYPES: input.getTypes();
+    List<EntityType> entityTypes =
+        (input.getTypes() == null || input.getTypes().isEmpty()) ? SEARCHABLE_ENTITY_TYPES : input.getTypes();
     List<String> entityNames = entityTypes.stream().map(EntityTypeMapper::getName).collect(Collectors.toList());
 
     // escape forward slash since it is a reserved character in Elasticsearch

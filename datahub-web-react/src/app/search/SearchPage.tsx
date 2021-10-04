@@ -10,7 +10,7 @@ import useFilters from './utils/useFilters';
 import { navigateToSearchUrl } from './utils/navigateToSearchUrl';
 import { SearchResults } from './SearchResults';
 import analytics, { EventType } from '../analytics';
-import { useGetSearchResultsQuery } from '../../graphql/search.generated';
+import { useGetSearchResultsForMultipleQuery } from '../../graphql/search.generated';
 import { SearchCfg } from '../../conf';
 import { ENTITY_FILTER_NAME } from './utils/constants';
 
@@ -39,7 +39,7 @@ export const SearchPage = () => {
         .filter((filter) => filter.field === ENTITY_FILTER_NAME)
         .map((filter) => filter.value.toUpperCase() as EntityType);
 
-    const { data, loading, error } = useGetSearchResultsQuery({
+    const { data, loading, error } = useGetSearchResultsForMultipleQuery({
         variables: {
             input: {
                 types: entityFilters,
@@ -56,7 +56,7 @@ export const SearchPage = () => {
             analytics.event({
                 type: EventType.SearchResultsViewEvent,
                 query,
-                total: data?.search?.count || 0,
+                total: data?.searchForMultiple?.count || 0,
             });
         }
     }, [query, data, loading]);
@@ -91,8 +91,8 @@ export const SearchPage = () => {
             <SearchResults
                 page={page}
                 query={query}
-                searchResponse={data?.search}
-                filters={data?.search?.facets}
+                searchResponse={data?.searchForMultiple}
+                filters={data?.searchForMultiple?.facets}
                 selectedFilters={filters}
                 loading={loading}
                 onChangeFilters={onChangeFilters}

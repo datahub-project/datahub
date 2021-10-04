@@ -39,7 +39,7 @@ export function useGetAllEntitySearchResults(
         result[type] = useGetSearchResultsQuery({
             variables: {
                 input: {
-                    types: [type],
+                    type,
                     ...input,
                 },
             },

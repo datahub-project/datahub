@@ -876,7 +876,17 @@
                 }
               ],
               "primaryKeys": null,
-              "foreignKeysSpecs": null
+              "foreignKeysSpecs": null,
+              "foreignKeys": [{
+                "name": "user id",
+                "foreignFields": [
+                  "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD),user_id)"
+                ],
+                "sourceFields": [
+                  "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD),user_id)"
+                ],
+                "foreignDataset": "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD)"
+              }]
             }
           }
         ]
@@ -986,21 +996,6 @@
               },
               "fields": [
                 {
-                  "fieldPath": "user_id",
-                  "jsonPath": null,
-                  "nullable": false,
-                  "description": {
-                    "string": "Id of the user deleted"
-                  },
-                  "type": {
-                    "type": {
-                      "com.linkedin.pegasus2avro.schema.BooleanType": {}
-                    }
-                  },
-                  "nativeDataType": "varchar(100)",
-                  "recursive": false
-                },
-                {
                   "fieldPath": "user_name",
                   "jsonPath": null,
                   "nullable": false,
@@ -1009,15 +1004,100 @@
                   },
                   "type": {
                     "type": {
-                      "com.linkedin.pegasus2avro.schema.BooleanType": {}
+                      "com.linkedin.pegasus2avro.schema.StringType": {}
                     }
                   },
-                  "nativeDataType": "boolean",
+                  "nativeDataType": "varchar(100)",
+                  "recursive": false
+                },
+                {
+                  "fieldPath": "timestamp",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": {
+                    "string": "Timestamp user was deleted at"
+                  },
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                  },
+                  "nativeDataType": "long",
+                  "recursive": false
+                },
+                {
+                  "fieldPath": "user_id",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": {
+                    "string": "Id of the user deleted"
+                  },
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                  },
+                  "nativeDataType": "varchar(100)",
+                  "recursive": false
+                },
+                {
+                  "fieldPath": "browser_id",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": {
+                    "string": "Cookie attached to identify the browser"
+                  },
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                  },
+                  "nativeDataType": "varchar(100)",
+                  "recursive": false
+                },
+                {
+                  "fieldPath": "session_id",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": {
+                    "string": "Cookie attached to identify the session"
+                  },
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                  },
+                  "nativeDataType": "varchar(100)",
+                  "recursive": false
+                },
+                {
+                  "fieldPath": "deletion_reason",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": {
+                    "string": "Why the user chose to deactivate"
+                  },
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                  },
+                  "nativeDataType": "varchar(100)",
                   "recursive": false
                 }
               ],
-              "primaryKeys": null,
-              "foreignKeysSpecs": null
+              "primaryKeys": ["user_name"],
+              "foreignKeysSpecs": null,
+              "foreignKeys": [{
+                "name": "user session",
+                "foreignFields": [
+                  "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD),user_id)"
+                ],
+                "sourceFields": [
+                  "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD),user_id)"
+                ],
+                "foreignDataset": "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)"
+              }]
             }
           }
         ]

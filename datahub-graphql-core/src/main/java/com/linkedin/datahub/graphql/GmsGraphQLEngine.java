@@ -18,6 +18,7 @@ import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityRelationship;
 import com.linkedin.datahub.graphql.generated.EntityRelationshipLegacy;
+import com.linkedin.datahub.graphql.generated.ForeignKeyConstraint;
 import com.linkedin.datahub.graphql.generated.MLModelProperties;
 import com.linkedin.datahub.graphql.generated.RelatedDataset;
 import com.linkedin.datahub.graphql.generated.SearchResult;
@@ -44,9 +45,13 @@ import com.linkedin.datahub.graphql.resolvers.load.LoadableTypeBatchResolver;
 import com.linkedin.datahub.graphql.resolvers.load.EntityRelationshipsResultResolver;
 import com.linkedin.datahub.graphql.resolvers.load.TimeSeriesAspectResolver;
 import com.linkedin.datahub.graphql.resolvers.load.UsageTypeResolver;
+import com.linkedin.datahub.graphql.resolvers.mutate.AddLinkResolver;
+import com.linkedin.datahub.graphql.resolvers.mutate.AddOwnerResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.AddTagResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.AddTermResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.MutableTypeResolver;
+import com.linkedin.datahub.graphql.resolvers.mutate.RemoveLinkResolver;
+import com.linkedin.datahub.graphql.resolvers.mutate.RemoveOwnerResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.RemoveTagResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.RemoveTermResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.UpdateFieldDescriptionResolver;
@@ -116,8 +121,6 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import static com.linkedin.datahub.graphql.Constants.*;
 import static graphql.Scalars.GraphQLLong;
@@ -313,6 +316,7 @@ public class GmsGraphQLEngine {
         configureTypeExtensions(builder);
         configureTagAssociationResolver(builder);
         configureDataJobResolvers(builder);
+        configureDataFlowResolvers(builder);
         configureMLFeatureTableResolvers(builder);
         configureGlossaryRelationshipResolvers(builder);
         configureAnalyticsResolvers(builder);
@@ -348,7 +352,7 @@ public class GmsGraphQLEngine {
             .dataFetcher("me", new AuthenticatedResolver<>(
                     new MeResolver(GmsClientFactory.getEntitiesClient())))
             .dataFetcher("search", new AuthenticatedResolver<>(
-                    new SearchForMultipleResolver(GmsClientFactory.getEntitiesClient())))
+                    new SearchResolver(GmsClientFactory.getEntitiesClient())))
             .dataFetcher("searchForMultiple", new AuthenticatedResolver<>(
                     new SearchForMultipleResolver(GmsClientFactory.getEntitiesClient())))
             .dataFetcher("autoComplete", new AuthenticatedResolver<>(
@@ -422,6 +426,10 @@ public class GmsGraphQLEngine {
             .dataFetcher("updatePolicy", new UpsertPolicyResolver(GmsClientFactory.getAspectsClient()))
             .dataFetcher("deletePolicy", new DeletePolicyResolver(GmsClientFactory.getEntitiesClient()))
             .dataFetcher("updateDescription", new AuthenticatedResolver<>(new UpdateFieldDescriptionResolver(entityService)))
+            .dataFetcher("addOwner", new AddOwnerResolver(entityService))
+            .dataFetcher("removeOwner", new RemoveOwnerResolver(entityService))
+            .dataFetcher("addLink", new AddLinkResolver(entityService))
+            .dataFetcher("removeLink", new RemoveLinkResolver(entityService))
         );
     }
 
@@ -512,6 +520,12 @@ public class GmsGraphQLEngine {
                             new LoadableTypeResolver<>(datasetType,
                                     (env) -> ((RelatedDataset) env.getSource()).getDataset().getUrn()))
                     )
+            )
+            .type("ForeignKeyConstraint", typeWiring -> typeWiring
+                .dataFetcher("foreignDataset", new AuthenticatedResolver<>(
+                    new LoadableTypeResolver<>(datasetType,
+                        (env) -> ((ForeignKeyConstraint) env.getSource()).getForeignDataset().getUrn()))
+                )
             )
             .type("InstitutionalMemoryMetadata", typeWiring -> typeWiring
                 .dataFetcher("author", new AuthenticatedResolver<>(
@@ -695,13 +709,6 @@ public class GmsGraphQLEngine {
                                 (env) -> ((Entity) env.getSource()).getUrn()))
                 )
             )
-            .type("DataFlow", typeWiring -> typeWiring
-                    .dataFetcher("dataJobs", new AuthenticatedResolver<>(
-                            new LoadableTypeResolver<>(dataFlowDataJobsRelationshipType,
-                                    (env) -> ((Entity) env.getSource()).getUrn())
-                            )
-                    )
-            )
             .type("DataJobInputOutput", typeWiring -> typeWiring
                 .dataFetcher("inputDatasets", new AuthenticatedResolver<>(
                     new LoadableTypeBatchResolver<>(datasetType,
@@ -721,6 +728,23 @@ public class GmsGraphQLEngine {
                             .map(DataJob::getUrn)
                             .collect(Collectors.toList())))
                 )
+            );
+    }
+
+    /**
+     * Configures resolvers responsible for resolving the {@link com.linkedin.datahub.graphql.generated.DataFlow} type.
+     */
+    private void configureDataFlowResolvers(final RuntimeWiring.Builder builder) {
+        builder
+            .type("DataFlow", typeWiring -> typeWiring
+                .dataFetcher("dataJobs", new AuthenticatedResolver<>(
+                        new LoadableTypeResolver<>(dataFlowDataJobsRelationshipType,
+                            (env) -> ((Entity) env.getSource()).getUrn())
+                    )
+                )
+                .dataFetcher("relationships", new AuthenticatedResolver<>(
+                    new EntityRelationshipsResultResolver(GmsClientFactory.getRelationshipsClient())
+                ))
             );
     }
 
