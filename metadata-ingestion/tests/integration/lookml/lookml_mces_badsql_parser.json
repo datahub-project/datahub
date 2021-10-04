@@ -18,21 +18,6 @@
                     }
                 },
                 {
-                    "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
-                        "upstreams": [
-                            {
-                                "auditStamp": {
-                                    "time": 0,
-                                    "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null
-                                },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,default_db.default_schema.my_table,PROD)",
-                                "type": "VIEW"
-                            }
-                        ]
-                    }
-                },
-                {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
                         "schemaName": "my_view",
                         "platform": "urn:li:dataPlatform:looker",
@@ -217,21 +202,6 @@
                     }
                 },
                 {
-                    "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
-                        "upstreams": [
-                            {
-                                "auditStamp": {
-                                    "time": 0,
-                                    "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null
-                                },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.my_view,PROD)",
-                                "type": "VIEW"
-                            }
-                        ]
-                    }
-                },
-                {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
                         "schemaName": "my_derived_view",
                         "platform": "urn:li:dataPlatform:looker",
@@ -391,106 +361,6 @@
                 {
                     "com.linkedin.pegasus2avro.common.Status": {
                         "removed": false
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
-                        "upstreams": [
-                            {
-                                "auditStamp": {
-                                    "time": 0,
-                                    "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null
-                                },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,default_db.default_schema.fragment_derived_view,PROD)",
-                                "type": "VIEW"
-                            }
-                        ]
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-                        "schemaName": "fragment_derived_view",
-                        "platform": "urn:li:dataPlatform:looker",
-                        "version": 0,
-                        "created": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
-                        },
-                        "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
-                        },
-                        "deleted": null,
-                        "dataset": null,
-                        "cluster": null,
-                        "hash": "",
-                        "platformSchema": {
-                            "com.linkedin.pegasus2avro.schema.OtherSchema": {
-                                "rawSchema": ""
-                            }
-                        },
-                        "fields": [
-                            {
-                                "fieldPath": "date",
-                                "jsonPath": null,
-                                "nullable": false,
-                                "description": "",
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
-                                    }
-                                },
-                                "nativeDataType": "unknown",
-                                "recursive": false,
-                                "globalTags": {
-                                    "tags": []
-                                },
-                                "glossaryTerms": null,
-                                "isPartOfKey": false
-                            },
-                            {
-                                "fieldPath": "aliased_platform",
-                                "jsonPath": null,
-                                "nullable": false,
-                                "description": "",
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
-                                    }
-                                },
-                                "nativeDataType": "unknown",
-                                "recursive": false,
-                                "globalTags": {
-                                    "tags": []
-                                },
-                                "glossaryTerms": null,
-                                "isPartOfKey": false
-                            },
-                            {
-                                "fieldPath": "country",
-                                "jsonPath": null,
-                                "nullable": false,
-                                "description": "",
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
-                                    }
-                                },
-                                "nativeDataType": "unknown",
-                                "recursive": false,
-                                "globalTags": {
-                                    "tags": []
-                                },
-                                "glossaryTerms": null,
-                                "isPartOfKey": false
-                            }
-                        ],
-                        "primaryKeys": [],
-                        "foreignKeysSpecs": null,
-                        "foreignKeys": null
                     }
                 },
                 {
