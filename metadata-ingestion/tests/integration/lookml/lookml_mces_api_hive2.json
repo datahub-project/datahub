@@ -379,6 +379,186 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.fragment_derived_view,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.BrowsePaths": {
+                        "paths": [
+                            "/prod/looker/lkml_samples/views/fragment_derived_view"
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+                        "upstreams": [
+                            {
+                                "auditStamp": {
+                                    "time": 0,
+                                    "actor": "urn:li:corpuser:unknown",
+                                    "impersonator": null
+                                },
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,default-hive-db.fragment_derived_view,PROD)",
+                                "type": "VIEW"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "fragment_derived_view",
+                        "platform": "urn:li:dataPlatform:looker",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown",
+                            "impersonator": null
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown",
+                            "impersonator": null
+                        },
+                        "deleted": null,
+                        "dataset": null,
+                        "cluster": null,
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.OtherSchema": {
+                                "rawSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "date",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                    }
+                                },
+                                "nativeDataType": "unknown",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": []
+                                },
+                                "glossaryTerms": null,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "aliased_platform",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                    }
+                                },
+                                "nativeDataType": "unknown",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": []
+                                },
+                                "glossaryTerms": null,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "country",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                    }
+                                },
+                                "nativeDataType": "unknown",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": []
+                                },
+                                "glossaryTerms": null,
+                                "isPartOfKey": false
+                            }
+                        ],
+                        "primaryKeys": [],
+                        "foreignKeysSpecs": null,
+                        "foreignKeys": null
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {
+                            "looker.file.content": "view: fragment_derived_view \n{ derived_table: \n  { \n    sql: date DATE encode ZSTD, \n         platform VARCHAR(20) encode ZSTD AS aliased_platform, \n         country VARCHAR(20) encode ZSTD\n         ;; \n  } \n}\n",
+                            "looker.file.path": "/fragment_derived.view.lkml"
+                        },
+                        "externalUrl": null,
+                        "description": null,
+                        "uri": null,
+                        "tags": []
+                    }
+                }
+            ]
+        }
+    },
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.customer_facts,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.BrowsePaths": {
+                        "paths": [
+                            "/prod/looker/lkml_samples/views/customer_facts"
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {
+                            "looker.file.content": "view: customer_facts {\n  derived_table: {\nsql:\n      SELECT\n        customer_id,\n        SUM(sale_price) AS lifetime_spend\n      FROM\n        order\n      WHERE\n        {% condition order_region %} order.region {% endcondition %}\n      GROUP BY 1\n    ;;\n    }\n}\n",
+                            "looker.file.path": "/liquid.view.lkml"
+                        },
+                        "externalUrl": null,
+                        "description": null,
+                        "uri": null,
+                        "tags": []
+                    }
+                }
+            ]
+        }
+    },
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.include_able_view,PROD)",
             "aspects": [
                 {
@@ -406,36 +586,6 @@
                                 "type": "VIEW"
                             }
                         ]
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-                        "schemaName": "include_able_view",
-                        "platform": "urn:li:dataPlatform:looker",
-                        "version": 0,
-                        "created": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
-                        },
-                        "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
-                        },
-                        "deleted": null,
-                        "dataset": null,
-                        "cluster": null,
-                        "hash": "",
-                        "platformSchema": {
-                            "com.linkedin.pegasus2avro.schema.OtherSchema": {
-                                "rawSchema": ""
-                            }
-                        },
-                        "fields": [],
-                        "primaryKeys": [],
-                        "foreignKeysSpecs": null,
-                        "foreignKeys": null
                     }
                 },
                 {
@@ -491,36 +641,6 @@
                                 "type": "VIEW"
                             }
                         ]
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-                        "schemaName": "looker_events",
-                        "platform": "urn:li:dataPlatform:looker",
-                        "version": 0,
-                        "created": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
-                        },
-                        "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
-                        },
-                        "deleted": null,
-                        "dataset": null,
-                        "cluster": null,
-                        "hash": "",
-                        "platformSchema": {
-                            "com.linkedin.pegasus2avro.schema.OtherSchema": {
-                                "rawSchema": ""
-                            }
-                        },
-                        "fields": [],
-                        "primaryKeys": [],
-                        "foreignKeysSpecs": null,
-                        "foreignKeys": null
                     }
                 },
                 {
@@ -687,36 +807,6 @@
                     }
                 },
                 {
-                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-                        "schemaName": "autodetect_sql_name_based_on_view_name",
-                        "platform": "urn:li:dataPlatform:looker",
-                        "version": 0,
-                        "created": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
-                        },
-                        "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
-                        },
-                        "deleted": null,
-                        "dataset": null,
-                        "cluster": null,
-                        "hash": "",
-                        "platformSchema": {
-                            "com.linkedin.pegasus2avro.schema.OtherSchema": {
-                                "rawSchema": ""
-                            }
-                        },
-                        "fields": [],
-                        "primaryKeys": [],
-                        "foreignKeysSpecs": null,
-                        "foreignKeys": null
-                    }
-                },
-                {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
                             "looker.file.content": "include: \"/included_view_file.view\"\n\nview: looker_events {\n  sql_table_name: looker_schema.events ;;\n}\n\nview: extending_looker_events {\n  extends: [looker_events]\n\n  measure: additional_measure {\n    type: count\n  }\n}\n\nview: autodetect_sql_name_based_on_view_name {}\n\nview: test_include_external_view {\n  extends: [include_able_view]\n}\n",
@@ -769,36 +859,6 @@
                                 "type": "VIEW"
                             }
                         ]
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-                        "schemaName": "test_include_external_view",
-                        "platform": "urn:li:dataPlatform:looker",
-                        "version": 0,
-                        "created": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
-                        },
-                        "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
-                        },
-                        "deleted": null,
-                        "dataset": null,
-                        "cluster": null,
-                        "hash": "",
-                        "platformSchema": {
-                            "com.linkedin.pegasus2avro.schema.OtherSchema": {
-                                "rawSchema": ""
-                            }
-                        },
-                        "fields": [],
-                        "primaryKeys": [],
-                        "foreignKeysSpecs": null,
-                        "foreignKeys": null
                     }
                 },
                 {

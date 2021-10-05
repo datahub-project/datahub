@@ -549,7 +549,7 @@ type Dataset implements EntityWithRelationships & Entity {
     platformNativeType: PlatformNativeType @deprecated
 
     """
-    Deprecated, use externalUrl instead
+    Deprecated, use properties instead
     Native Dataset Uri
     Uri should not include any environment specific properties
     """

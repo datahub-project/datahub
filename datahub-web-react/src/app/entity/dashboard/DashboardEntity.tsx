@@ -8,6 +8,7 @@ import {
 import { Dashboard, EntityType, PlatformType, SearchResult } from '../../../types.generated';
 import { Direction } from '../../lineage/types';
 import { getLogoFromPlatform } from '../../shared/getLogoFromPlatform';
+import getChildren from '../../lineage/utils/getChildren';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
 import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/SidebarOwnerSection';
@@ -18,18 +19,6 @@ import { DashboardChartsTab } from '../shared/tabs/Entity/DashboardChartsTab';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
 import { GenericEntityProperties } from '../shared/types';
 import { DashboardPreview } from './preview/DashboardPreview';
-
-export default function getChildren(entity: Dashboard, direction: Direction | null): Array<string> {
-    if (direction === Direction.Upstream) {
-        return entity.info?.charts.map((chart) => chart.urn) || [];
-    }
-
-    if (direction === Direction.Downstream) {
-        return [];
-    }
-
-    return [];
-}
 
 /**
  * Definition of the DataHub Dashboard entity.
@@ -162,8 +151,12 @@ export class DashboardEntity implements Entity<Dashboard> {
             urn: entity.urn,
             name: entity.info?.name || '',
             type: EntityType.Dashboard,
-            upstreamChildren: getChildren(entity, Direction.Upstream),
-            downstreamChildren: getChildren(entity, Direction.Downstream),
+            upstreamChildren: getChildren({ entity, type: EntityType.Dashboard }, Direction.Upstream).map(
+                (child) => child.entity.urn,
+            ),
+            downstreamChildren: getChildren({ entity, type: EntityType.Dashboard }, Direction.Downstream).map(
+                (child) => child.entity.urn,
+            ),
             icon: getLogoFromPlatform(entity.tool),
             platform: entity.tool,
         };

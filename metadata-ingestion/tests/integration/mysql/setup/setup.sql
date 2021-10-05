@@ -74,6 +74,20 @@ CREATE TABLE IF NOT EXISTS `northwind`.`customers` (
 ENGINE = InnoDB
 DEFAULT CHARACTER SET = utf8;
 
+CREATE TABLE IF NOT EXISTS `northwind`.`orders` (
+  `id` INT(11) NOT NULL AUTO_INCREMENT,
+  `description` VARCHAR(50) NULL DEFAULT NULL,
+  `customer_id` INT(11) NOT NULL,
+  PRIMARY KEY (`id`),
+  CONSTRAINT `fk_order_customer`
+    FOREIGN KEY (`customer_id`)
+    REFERENCES `northwind`.`customers`(`id`)
+    ON DELETE NO ACTION
+    ON UPDATE NO ACTION
+)
+ENGINE = InnoDB
+DEFAULT CHARACTER SET = utf8;
+
 -- Now, the actual sample data.
 
 USE `northwind`;
@@ -103,6 +117,7 @@ CREATE TABLE IF NOT EXISTS `test_cases`.`test_empty` (
   `dummy` VARCHAR(50) NULL DEFAULT NULL)
 ENGINE = InnoDB
 DEFAULT CHARACTER SET = utf8;
+
 
 
 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS;
