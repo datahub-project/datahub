@@ -8,7 +8,6 @@ export default function constructTree(
     direction: Direction,
     entityRegistry: EntityRegistry,
 ): NodeData {
-    console.log('construct tree', entityAndType);
     if (!entityAndType?.entity) return { name: 'loading...', children: [] };
     const constructedNodes = {};
 
@@ -34,7 +33,6 @@ export default function constructTree(
 
     root.children = children
         .map((child) => {
-            console.log('for child', child.entity.urn);
             if (child.entity.urn === root.urn) {
                 return null;
             }
@@ -43,6 +41,5 @@ export default function constructTree(
             ]);
         })
         ?.filter(Boolean) as Array<NodeData>;
-    console.log('done constructing tree');
     return root;
 }

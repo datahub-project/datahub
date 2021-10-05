@@ -86,7 +86,8 @@ export default function LineageEntityNode({
                         };
                         return (
                             <LinkHorizontal
-                                key={`node-${_}-${direction}`}
+                                // eslint-disable-next-line  react/no-array-index-key
+                                key={`link-${index}-${direction}`}
                                 data={link}
                                 stroke={`url(#gradient-${direction})`}
                                 strokeWidth="1"

@@ -26,7 +26,10 @@ export default function adjustVXTreeLayout({
             nodesByUrn[descendent.data.urn] = [descendent];
         } else if (descendent.data.urn) {
             const existing = nodesByUrn[descendent.data.urn];
-            if (descendent.height < Math.max(...existing.map((nodeByUrn) => nodeByUrn.height))) {
+            if (
+                descendent.height < Math.max(...existing.map((nodeByUrn) => nodeByUrn.height)) &&
+                descendent.depth <= Math.max(...existing.map((nodeByUrn) => nodeByUrn.depth))
+            ) {
                 // eslint-disable-next-line  no-param-reassign
                 descendent.x = existing[0].x;
                 // eslint-disable-next-line  no-param-reassign

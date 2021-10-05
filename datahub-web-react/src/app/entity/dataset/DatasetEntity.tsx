@@ -199,27 +199,19 @@ export class DatasetEntity implements Entity<Dataset> {
             type: EntityType.Dataset,
             subtype: entity.subTypes?.typeNames?.[0] || undefined,
             downstreamChildren: getChildrenFromRelationships({
-                forwardRelationshipTypes: FORWARD_RELATIONSHIPS,
-                inverseRelationshipTypes: INVERSE_RELATIONSHIPS,
                 // eslint-disable-next-line @typescript-eslint/dot-notation
                 incomingRelationships: entity?.['incoming'],
                 // eslint-disable-next-line @typescript-eslint/dot-notation
                 outgoingRelationships: entity?.['outgoing'],
                 direction: RelationshipDirection.Incoming,
-            }).map(
-                (relationship) => ({ entity: relationship.entity, type: relationship.entity.type } as EntityAndType),
-            ),
+            }),
             upstreamChildren: getChildrenFromRelationships({
-                forwardRelationshipTypes: FORWARD_RELATIONSHIPS,
-                inverseRelationshipTypes: INVERSE_RELATIONSHIPS,
                 // eslint-disable-next-line @typescript-eslint/dot-notation
                 incomingRelationships: entity?.['incoming'],
                 // eslint-disable-next-line @typescript-eslint/dot-notation
                 outgoingRelationships: entity?.['outgoing'],
                 direction: RelationshipDirection.Outgoing,
-            }).map(
-                (relationship) => ({ entity: relationship.entity, type: relationship.entity.type } as EntityAndType),
-            ),
+            }),
             icon: entity?.platform?.info?.logoUrl || undefined,
             platform: entity?.platform?.name,
         };

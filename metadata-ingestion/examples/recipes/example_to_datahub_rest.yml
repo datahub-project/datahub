@@ -2,7 +2,7 @@
 source:
   type: "file"
   config:
-    filename: "./examples/mce_files/bootstrap_mce.json"
+    filename: "/Users/gabe/acryl/datahub-fork/datahub-web-react/src/app/lineage/dev/complicated_lineage_mces.json"
 
 # see https://datahubproject.io/docs/metadata-ingestion/sink_docs/datahub for complete documentation
 sink:
