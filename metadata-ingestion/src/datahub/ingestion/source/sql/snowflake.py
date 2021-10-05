@@ -1,6 +1,7 @@
 import json
 import logging
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
+from collections import defaultdict
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
 
 import pydantic
 
@@ -99,7 +100,7 @@ class SnowflakeSource(SQLAlchemySource):
 
     def __init__(self, config, ctx):
         super().__init__(config, ctx, "snowflake")
-        self._lineage_map: Optional[Dict[str, List[Tuple[str, str]]]] = None
+        self._lineage_map: Optional[Dict[str, List[Tuple[str, str, str]]]] = None
 
     @classmethod
     def create(cls, config_dict, ctx):
@@ -159,13 +160,13 @@ QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_id, upstream_table_id, 
             start_time_millis=int(self.config.start_time.timestamp() * 1000),
             end_time_millis=int(self.config.end_time.timestamp() * 1000),
         )
-        self._lineage_map = {}
+        self._lineage_map = defaultdict(list)
         for db_row in engine.execute(query):
+            # key is the down-stream table name
             key: str = db_row[1].lower().replace('"', "")
-            if key not in self._lineage_map:
-                self._lineage_map[key] = []
             self._lineage_map[key].append(
-                (db_row[0].lower().replace('"', ""), db_row[2])
+                # (<upstream_table_name>, <json_list_of_upstream_columns>, <json_list_of_downstream_columns>)
+                (db_row[0].lower().replace('"', ""), db_row[2], db_row[3])
             )
             logger.debug(f"Lineage[{key}]:{self._lineage_map[key]}")
 
@@ -185,24 +186,36 @@ QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_id, upstream_table_id, 
         if lineage is None:
             logger.debug(f"No lineage found for {dataset_name}")
             return None
-        upstreams: List[UpstreamClass] = []
-        upstream_columns: List[str] = []
-        for upstream_entry in lineage:
-            upstream = UpstreamClass(
+        upstream_tables: List[UpstreamClass] = []
+        upstream_column_lineage: Dict[str, Set[str]] = defaultdict(set)
+        for lineage_entry in lineage:
+            # Update the table-lineage
+            upstream_table_name = lineage_entry[0]
+            upstream_table = UpstreamClass(
                 dataset=builder.make_dataset_urn(
-                    self.platform, upstream_entry[0].lower(), self.config.env
+                    self.platform, upstream_table_name, self.config.env
                 ),
                 type=DatasetLineageTypeClass.COPY,
             )
-            upstreams.append(upstream)
-            columns_obj = json.loads(upstream_entry[1])
-            for e in columns_obj:
-                upstream_columns.append(
-                    f"{upstream_entry[0].lower()}.{e['columnId']}_{e['columnName'].lower()}"
-                )
-        logger.debug(f"upstream_columns[{dataset_name}]:{upstream_columns}")
-        return UpstreamLineage(upstreams=upstreams), {
-            "upstream_columns": "; ".join(upstream_columns)
+            upstream_tables.append(upstream_table)
+            # Update column-lineage for each down-stream column.
+            for ds_column_name in [
+                d["columnName"].lower() for d in json.loads(lineage_entry[2])
+            ]:
+                for us_column_name in [
+                    f"{upstream_table_name}.{u['columnName'].lower()}"
+                    for u in json.loads(lineage_entry[1])
+                ]:
+                    upstream_column_lineage[ds_column_name].add(us_column_name)
+
+        logger.debug(f"upstream_columns[{dataset_name}]:{upstream_column_lineage}")
+        return UpstreamLineage(upstreams=upstream_tables), {
+            "column_lineage": "; ".join(
+                [
+                    f"{k}:{json.dumps(list(v))}"
+                    for k, v in upstream_column_lineage.items()
+                ]
+            )
         }
 
     # Override the base class method.
