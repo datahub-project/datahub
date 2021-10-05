@@ -1,10 +1,9 @@
 import { Tabs, Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { ActionRequestAssignee, AssigneeType, CorpGroup } from '../../types.generated';
 import { SearchablePage } from '../search/SearchablePage';
-import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
-import { ActionRequestsGroupTab } from './ActionRequestsGroupTab';
+import { GroupList } from './group/GroupList';
+import { UserList } from './user/UserList';
 
 const PageContainer = styled.div`
     padding-top: 40px;
@@ -34,19 +33,21 @@ const Tab = styled(Tabs.TabPane)`
     line-height: 22px;
 `;
 
-const TABS = {
-    USERS: 'Users', // List Users
-    GROUPS: 'Groups', // List Groups
-};
+const ListContainer = styled.div``;
+
+enum TabType {
+    Users = 'Users',
+    Groups = 'Groups',
+}
 
 export const ManageIdentitiesPage = () => {
     /**
      * Determines which view should be visible: users or groups list.
      */
-    const [selectedTab, setSelectedTab] = useState<string>('Users');
+    const [selectedTab, setSelectedTab] = useState<TabType>(TabType.Users);
 
     const onClickTab = (newTab: string) => {
-        setSelectedTab(newTab);
+        setSelectedTab(TabType[newTab]);
     };
 
     return (
@@ -55,15 +56,14 @@ export const ManageIdentitiesPage = () => {
                 <PageHeaderContainer>
                     <PageTitle level={2}>Manage Users & Groups</PageTitle>
                     <Typography.Paragraph type="secondary">
-                        View your users, groups, and take administrative action.
+                        View your DataHub users & groups. Take administrative actions.
                     </Typography.Paragraph>
                 </PageHeaderContainer>
                 <StyledTabs activeKey={selectedTab} size="large" onTabClick={(tab: string) => onClickTab(tab)}>
-                    {Object.keys(TABS).map((key) => (
-                        <Tab key={TABS[key]} tab={TABS[key]} />
-                    ))}
+                    <Tab key={TabType.Users} tab={TabType.Users} />
+                    <Tab key={TabType.Groups} tab={TabType.Groups} />
                 </StyledTabs>
-                {activeActionRequestGroupTabView}
+                <ListContainer>{selectedTab === TabType.Users ? <UserList /> : <GroupList />}</ListContainer>
             </PageContainer>
         </SearchablePage>
     );

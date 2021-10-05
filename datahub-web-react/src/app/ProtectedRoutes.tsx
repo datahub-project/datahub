@@ -10,6 +10,7 @@ import { SearchPage } from './search/SearchPage';
 import { AnalyticsPage } from './analyticsDashboard/components/AnalyticsPage';
 import { PoliciesPage } from './policy/PoliciesPage';
 import AppConfigProvider from '../AppConfigProvider';
+import { ManageIdentitiesPage } from './identity/ManageIdentitiesPage';
 
 /**
  * Container for all views behind an authentication wall.
