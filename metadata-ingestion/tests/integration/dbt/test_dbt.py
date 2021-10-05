@@ -1,6 +1,8 @@
 from os import PathLike
 from typing import Any, Dict, Optional, Union
 
+import pytest
+
 from datahub.ingestion.run.pipeline import Pipeline
 from tests.test_helpers import mce_helpers
 
@@ -52,6 +54,7 @@ class DbtTestConfig:
         )
 
 
+@pytest.mark.integration
 def test_dbt_ingest(pytestconfig, tmp_path, mock_time):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/dbt"
 
