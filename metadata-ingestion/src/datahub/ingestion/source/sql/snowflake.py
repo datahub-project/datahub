@@ -158,14 +158,17 @@ QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name, upstream_table_na
             end_time_millis=int(self.config.end_time.timestamp() * 1000),
         )
         self._lineage_map = defaultdict(list)
-        for db_row in engine.execute(query):
-            # key is the down-stream table name
-            key: str = db_row[1].lower().replace('"', "")
-            self._lineage_map[key].append(
-                # (<upstream_table_name>, <json_list_of_upstream_columns>, <json_list_of_downstream_columns>)
-                (db_row[0].lower().replace('"', ""), db_row[2], db_row[3])
-            )
-            logger.debug(f"Lineage[{key}]:{self._lineage_map[key]}")
+        try:
+            for db_row in engine.execute(query):
+                # key is the down-stream table name
+                key: str = db_row[1].lower().replace('"', "")
+                self._lineage_map[key].append(
+                    # (<upstream_table_name>, <json_list_of_upstream_columns>, <json_list_of_downstream_columns>)
+                    (db_row[0].lower().replace('"', ""), db_row[2], db_row[3])
+                )
+                logger.debug(f"Lineage[{key}]:{self._lineage_map[key]}")
+        except Exception as e:
+            logger.warning(f"Failed to query snowflake for lineage with exception {e}.")
 
     def _get_upstream_lineage_info(
         self, dataset_urn: str
