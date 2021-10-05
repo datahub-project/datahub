@@ -22,6 +22,7 @@ import StatsTab from '../shared/tabs/Dataset/Stats/StatsTab';
 import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
 import { capitalizeFirstLetter } from '../../shared/capitalizeFirstLetter';
 import { EntityAndType } from '../../lineage/types';
+import { FORWARD_RELATIONSHIPS, INVERSE_RELATIONSHIPS } from '../../lineage/constants';
 
 const MatchTag = styled(Tag)`
     &&& {
@@ -29,9 +30,6 @@ const MatchTag = styled(Tag)`
         margin-top: 10px;
     }
 `;
-
-const FORWARD_RELATIONSHIPS = ['DownstreamOf', 'Consumes'];
-const INVERSE_RELATIONSHIPS = ['Produces'];
 
 /**
  * Definition of the DataHub Dataset entity.

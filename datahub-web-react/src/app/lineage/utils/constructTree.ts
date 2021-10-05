@@ -34,6 +34,7 @@ export default function constructTree(
 
     root.children = children
         .map((child) => {
+            console.log('for child', child.entity.urn);
             if (child.entity.urn === root.urn) {
                 return null;
             }
@@ -42,5 +43,6 @@ export default function constructTree(
             ]);
         })
         ?.filter(Boolean) as Array<NodeData>;
+    console.log('done constructing tree');
     return root;
 }

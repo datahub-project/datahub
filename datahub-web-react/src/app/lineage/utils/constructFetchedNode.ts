@@ -7,6 +7,7 @@ export default function constructFetchedNode(
     constructedNodes: { [x: string]: NodeData },
     constructionPath: string[],
 ) {
+    console.log('constructFetchedNode', urn);
     if (constructionPath.indexOf(urn) >= 0) {
         return null;
     }
@@ -15,7 +16,11 @@ export default function constructFetchedNode(
     const fetchedNode = fetchedEntities[urn];
 
     if (constructedNodes[urn]) {
-        return constructedNodes[urn];
+        // return constructedNodes[urn];
+        return {
+            ...constructedNodes[urn],
+            children: [],
+        };
     }
 
     if (fetchedNode && !constructedNodes[urn]) {

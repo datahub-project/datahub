@@ -1,10 +1,10 @@
 import * as React from 'react';
 import { ConsoleSqlOutlined } from '@ant-design/icons';
-import { DataJob, EntityType, PlatformType, SearchResult } from '../../../types.generated';
+import { DataJob, EntityType, PlatformType, RelationshipDirection, SearchResult } from '../../../types.generated';
 import { Preview } from './preview/Preview';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
-import getChildren from '../../lineage/utils/getChildren';
-import { Direction } from '../../lineage/types';
+import { getChildrenFromRelationships } from '../../lineage/utils/getChildren';
+import { EntityAndType } from '../../lineage/types';
 import { getLogoFromPlatform } from '../../shared/getLogoFromPlatform';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
 import { GetDataJobQuery, useGetDataJobQuery, useUpdateDataJobMutation } from '../../../graphql/dataJob.generated';
@@ -16,6 +16,7 @@ import { SidebarTagsSection } from '../shared/containers/profile/sidebar/Sidebar
 import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/SidebarOwnerSection';
 import { GenericEntityProperties } from '../shared/types';
 import { DataJobFlowTab } from '../shared/tabs/Entity/DataJobFlowTab';
+import { FORWARD_RELATIONSHIPS, INVERSE_RELATIONSHIPS } from '../../lineage/constants';
 
 /**
  * Definition of the DataHub DataJob entity.
@@ -164,8 +165,28 @@ export class DataJobEntity implements Entity<DataJob> {
             urn: entity?.urn,
             name: entity?.info?.name || '',
             type: EntityType.DataJob,
-            upstreamChildren: getChildren({ entity, type: EntityType.DataJob }, Direction.Upstream),
-            downstreamChildren: getChildren({ entity, type: EntityType.DataJob }, Direction.Downstream),
+            downstreamChildren: getChildrenFromRelationships({
+                forwardRelationshipTypes: FORWARD_RELATIONSHIPS,
+                inverseRelationshipTypes: INVERSE_RELATIONSHIPS,
+                // eslint-disable-next-line @typescript-eslint/dot-notation
+                incomingRelationships: entity?.['incoming'],
+                // eslint-disable-next-line @typescript-eslint/dot-notation
+                outgoingRelationships: entity?.['outgoing'],
+                direction: RelationshipDirection.Incoming,
+            }).map(
+                (relationship) => ({ entity: relationship.entity, type: relationship.entity.type } as EntityAndType),
+            ),
+            upstreamChildren: getChildrenFromRelationships({
+                forwardRelationshipTypes: FORWARD_RELATIONSHIPS,
+                inverseRelationshipTypes: INVERSE_RELATIONSHIPS,
+                // eslint-disable-next-line @typescript-eslint/dot-notation
+                incomingRelationships: entity?.['incoming'],
+                // eslint-disable-next-line @typescript-eslint/dot-notation
+                outgoingRelationships: entity?.['outgoing'],
+                direction: RelationshipDirection.Outgoing,
+            }).map(
+                (relationship) => ({ entity: relationship.entity, type: relationship.entity.type } as EntityAndType),
+            ),
             icon: getLogoFromPlatform(entity.dataFlow?.orchestrator || ''),
             platform: entity?.dataFlow?.orchestrator || '',
         };

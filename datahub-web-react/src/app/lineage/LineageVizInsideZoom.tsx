@@ -63,10 +63,14 @@ export default function LineageVizInsideZoom({
 
     console.log('started constructing trees');
 
+    console.log('started constructing downstream tree');
+
     const downstreamData = useMemo(
         () => hierarchy(constructTree(entityAndType, fetchedEntities, Direction.Downstream, entityRegistry)),
         [entityAndType, fetchedEntities, entityRegistry],
     );
+
+    console.log('started constructing upstream tree');
     const upstreamData = useMemo(
         () => hierarchy(constructTree(entityAndType, fetchedEntities, Direction.Upstream, entityRegistry)),
         [entityAndType, fetchedEntities, entityRegistry],
