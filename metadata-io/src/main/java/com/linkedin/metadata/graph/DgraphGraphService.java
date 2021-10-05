@@ -43,25 +43,30 @@ import java.util.stream.Stream;
 @Slf4j
 public class DgraphGraphService implements GraphService {
 
-    private final @Nonnull DgraphClient _client;
+    private final @Nonnull DgraphExecutor _dgraph;
+
+    private static final String URN_RELATIONSHIP_TYPE = "urn";
+    private static final String TYPE_RELATIONSHIP_TYPE = "type";
+    private static final String KEY_RELATIONSHIP_TYPE = "key";
+
 
     @Getter(lazy = true)
     // we want to defer initialization of schema (accessing Dgraph server) to the first time accessing _schema
-    private final DgraphSchema _schema = getSchema(_client);
+    private final DgraphSchema _schema = getSchema();
 
     public DgraphGraphService(@Nonnull DgraphClient client) {
-        this._client = client;
+        this._dgraph = new DgraphExecutor(client);
     }
 
-    protected static @Nonnull DgraphSchema getSchema(@Nonnull DgraphClient client) {
+    protected @Nonnull DgraphSchema getSchema() {
         DgraphSchema schema = null;
 
         int attempt = 1;
         while (true) {
-            Response response = client.newReadOnlyTransaction().doRequest(
+            Response response = _dgraph.execute(dgraphClient -> dgraphClient.newReadOnlyTransaction().doRequest(
                     Request.newBuilder().setQuery("schema { predicate }").build()
-            );
-            schema = getSchema(response.getJson().toStringUtf8());
+            ));
+            schema = getSchema(response.getJson().toStringUtf8(), _dgraph);
             if (schema != null) {
                 break;
             }
@@ -89,13 +94,20 @@ public class DgraphGraphService implements GraphService {
                             + "<key>: string @index(hash) .\n"
                     )
                     .build();
-            client.alter(setSchema);
+            _dgraph.execute(dgraphClient -> {
+                dgraphClient.alter(setSchema);
+                return null;
+            });
         }
 
         return schema;
     }
 
     protected static DgraphSchema getSchema(@Nonnull String json) {
+        return getSchema(json, null);
+    }
+
+    protected static DgraphSchema getSchema(@Nonnull String json, DgraphExecutor dgraph) {
         Map<String, Object> data = getDataFromResponseJson(json);
 
         Object schemaObj = data.get("schema");
@@ -158,7 +170,7 @@ public class DgraphGraphService implements GraphService {
             return Stream.of(Pair.of(typeName, fields));
         }).filter(t -> !t.getKey().startsWith("dgraph.")).collect(Collectors.toMap(Pair::getKey, Pair::getValue));
 
-        return new DgraphSchema(fieldNames, typeFields);
+        return new DgraphSchema(fieldNames, typeFields, dgraph);
     }
 
     @Override
@@ -170,41 +182,9 @@ public class DgraphGraphService implements GraphService {
 
         // add the relationship type to the schema
         // TODO: translate edge name to allowed dgraph uris
-        // TODO: move the schema modification into DgraphSchema and provide an atomic method
-        //       that adds the type and all fields if they do not exist
         String sourceEntityType = getDgraphType(edge.getSource());
         String relationshipType = edge.getRelationshipType();
-        if (!get_schema().hasField(sourceEntityType, relationshipType)) {
-            StringJoiner schema = new StringJoiner("\n");
-
-            // is the field known at all?
-            if (!get_schema().hasField(relationshipType)) {
-                schema.add(String.format("<%s>: [uid] @reverse .", relationshipType));
-            }
-
-            // update the schema on the Dgraph cluster
-            StringJoiner type = new StringJoiner("\n  ");
-            get_schema().getFields(sourceEntityType).stream().map(t -> "<" + t + ">").forEach(type::add);
-            schema.add(String.format("type <%s> {\n%s\n}", sourceEntityType, type));
-            log.debug("Adding to schema: " + schema);
-            Operation setSchema = Operation.newBuilder().setSchema(schema.toString()).setRunInBackground(true).build();
-            synchronized (System.out) {
-                System.out.printf(System.currentTimeMillis() + ": creating predicate %s to %s: %s%n", relationshipType, sourceEntityType, schema);
-            }
-            retry(() -> this._client.alter(setSchema));
-
-            // now that the schema has been updated on dgraph we can cache this new type / field
-
-            // is the type known at all?
-            if (!get_schema().hasType(sourceEntityType)) {
-                get_schema().addField(sourceEntityType, "urn");
-                get_schema().addField(sourceEntityType, "type");
-                get_schema().addField(sourceEntityType, "key");
-            }
-
-            // add this new field
-            this.get_schema().addField(sourceEntityType, relationshipType);
-        }
+        get_schema().ensureField(sourceEntityType, relationshipType, URN_RELATIONSHIP_TYPE, TYPE_RELATIONSHIP_TYPE, KEY_RELATIONSHIP_TYPE);
 
         // lookup the source and destination nodes
         // TODO: add escape for string values
@@ -261,7 +241,7 @@ public class DgraphGraphService implements GraphService {
                     edge.getDestination(),
                     edge.getRelationshipType());
         }
-        retry(() -> this._client.newTransaction().doRequest(request));
+        _dgraph.execute(client -> client.newTransaction().doRequest(request));
         synchronized (System.out) {
             System.out.printf(System.currentTimeMillis() + ": Added  Edge source: %s, destination: %s, type: %s%n",
                     edge.getSource(),
@@ -495,7 +475,7 @@ public class DgraphGraphService implements GraphService {
                 .build();
 
         log.debug("Query: " + query);
-        Response response = retry(() -> this._client.newReadOnlyTransaction().doRequest(request));
+        Response response = _dgraph.execute(client -> client.newReadOnlyTransaction().doRequest(request));
         String json = response.getJson().toStringUtf8();
         Map<String, Object> data = getDataFromResponseJson(json);
 
@@ -661,7 +641,7 @@ public class DgraphGraphService implements GraphService {
                 .build();
 
         System.out.printf(System.currentTimeMillis() + ": removing node %s%n", urn);
-        retry(() -> this._client.newTransaction().doRequest(request));
+        _dgraph.execute(client -> client.newTransaction().doRequest(request));
         System.out.printf(System.currentTimeMillis() + ": removed  node %s%n", urn);
     }
 
@@ -713,7 +693,7 @@ public class DgraphGraphService implements GraphService {
                 .build();
 
         System.out.printf(System.currentTimeMillis() + ": removing outgoing edges from node %s%n", urn);
-        retry(() -> this._client.newTransaction().doRequest(request));
+        _dgraph.execute(client -> client.newTransaction().doRequest(request));
         System.out.printf(System.currentTimeMillis() + ": removed  outgoing edges from node %s%n", urn);
     }
 
@@ -750,7 +730,7 @@ public class DgraphGraphService implements GraphService {
                 .build();
 
         System.out.printf(System.currentTimeMillis() + ": removing incoming edges from node %s%n", urn);
-        retry(() -> this._client.newTransaction().doRequest(request));
+        _dgraph.execute(client -> client.newTransaction().doRequest(request));
         System.out.printf(System.currentTimeMillis() + ": removed incoming edges from node %s%n", urn);
     }
 
@@ -762,12 +742,15 @@ public class DgraphGraphService implements GraphService {
         log.debug("dropping Dgraph data");
 
         Operation dropAll = Operation.newBuilder().setDropOp(Operation.DropOp.ALL).build();
-        retry(() -> this._client.alter(dropAll));
+        _dgraph.execute(client -> {
+            client.alter(dropAll);
+            return null;
+        });
 
         // drop schema cache
         get_schema().clear();
 
         // setup urn, type and key relationships
-        getSchema(this._client);
+        getSchema();
     }
 }

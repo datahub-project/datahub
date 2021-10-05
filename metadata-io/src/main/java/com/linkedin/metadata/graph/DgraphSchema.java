@@ -1,22 +1,34 @@
 package com.linkedin.metadata.graph;
 
+import io.dgraph.DgraphProto;
+import lombok.extern.slf4j.Slf4j;
+
 import javax.annotation.Nonnull;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.StringJoiner;
 import java.util.stream.Collectors;
 
 /**
  * Provides a thread-safe Dgraph schema. Returned data structures are immutable.
  */
+@Slf4j
 public class DgraphSchema {
     private final @Nonnull Set<String> fields;
     private final @Nonnull Map<String, Set<String>> types;
+    private final DgraphExecutor dgraph;
 
     public DgraphSchema(@Nonnull Set<String> fields, @Nonnull Map<String, Set<String>> types) {
+        this(fields, types, null);
+    }
+
+    public DgraphSchema(@Nonnull Set<String> fields, @Nonnull Map<String, Set<String>> types, DgraphExecutor dgraph) {
         this.fields = fields;
         this.types = types;
+        this.dgraph = dgraph;
     }
 
     synchronized public boolean isEmpty() {
@@ -56,7 +68,42 @@ public class DgraphSchema {
         return types.getOrDefault(typeName, Collections.emptySet()).contains(fieldName);
     }
 
-    synchronized public void addField(String typeName, String fieldName) {
+    synchronized public void ensureField(String typeName, String fieldName, String... existingFieldNames) {
+        // quickly check if the field is known for this type
+        if (hasField(typeName, fieldName)) {
+            return;
+        }
+
+        // add type and field to schema
+        StringJoiner schema = new StringJoiner("\n");
+
+        if (!fields.contains(fieldName)) {
+            schema.add(String.format("<%s>: [uid] @reverse .", fieldName));
+        }
+
+        // update the schema on the Dgraph cluster
+        Set<String> allTypesFields = new HashSet<>(Arrays.asList(existingFieldNames));
+        allTypesFields.addAll(types.getOrDefault(typeName, Collections.emptySet()));
+        allTypesFields.add(fieldName);
+
+        if (dgraph != null) {
+            StringJoiner type = new StringJoiner("\n  ");
+            allTypesFields.stream().map(t -> "<" + t + ">").forEach(type::add);
+            schema.add(String.format("type <%s> {\n  %s\n}", typeName, type));
+            log.debug("Adding to schema: " + schema);
+            DgraphProto.Operation setSchema = DgraphProto.Operation.newBuilder().setSchema(schema.toString()).setRunInBackground(true).build();
+            synchronized (System.out) {
+                System.out.printf(System.currentTimeMillis() + ": adding predicate %s to %s: %s%n", fieldName, typeName, schema);
+            }
+
+            dgraph.execute(dgraphClient -> {
+                dgraphClient.alter(setSchema);
+                return null;
+            });
+        }
+
+        // now that the schema has been updated on dgraph we can cache this new type / field
+        // ensure type and fields of type exist
         if (!types.containsKey(typeName)) {
             types.put(typeName, new HashSet<>());
         }

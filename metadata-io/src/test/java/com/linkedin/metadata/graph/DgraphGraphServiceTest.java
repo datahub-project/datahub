@@ -154,7 +154,7 @@ public class DgraphGraphServiceTest extends GraphServiceTestBase {
         assertEquals(schema.getFields("ns:typeTwo"), new HashSet<>(Arrays.asList("PredTwo")));
         assertEquals(schema.getFields("ns:unknown"), Collections.emptySet());
 
-        schema.addField("newType", "newField");
+        schema.ensureField("newType", "newField");
         assertEquals(schema.getFields(), new HashSet<>(Arrays.asList("PredOne", "PredTwo", "newField")));
         assertEquals(schema.getTypes(), new HashMap<String, Set<String>>() {{
             put("ns:typeOne", new HashSet<>(Arrays.asList("PredOne", "PredTwo")));
@@ -162,7 +162,7 @@ public class DgraphGraphServiceTest extends GraphServiceTestBase {
             put("newType", new HashSet<>(Arrays.asList("newField")));
         }});
 
-        schema.addField("ns:typeOne", "otherField");
+        schema.ensureField("ns:typeOne", "otherField");
         assertEquals(schema.getFields(), new HashSet<>(Arrays.asList("PredOne", "PredTwo", "newField", "otherField")));
         assertEquals(schema.getTypes(), new HashMap<String, Set<String>>() {{
             put("ns:typeOne", new HashSet<>(Arrays.asList("PredOne", "PredTwo", "otherField")));
@@ -170,7 +170,7 @@ public class DgraphGraphServiceTest extends GraphServiceTestBase {
             put("newType", new HashSet<>(Arrays.asList("newField")));
         }});
 
-        schema.addField("ns:typeTwo", "PredTwo");
+        schema.ensureField("ns:typeTwo", "PredTwo");
         assertEquals(schema.getFields(), new HashSet<>(Arrays.asList("PredOne", "PredTwo", "newField", "otherField")));
         assertEquals(schema.getTypes(), new HashMap<String, Set<String>>() {{
             put("ns:typeOne", new HashSet<>(Arrays.asList("PredOne", "PredTwo", "otherField")));
@@ -217,8 +217,13 @@ public class DgraphGraphServiceTest extends GraphServiceTestBase {
                 + "  }");
         assertNull(schemaWithNonListSchema, "Should be null if schema field is not a list");
 
-        DgraphSchema schemaWithoutSchema = DgraphGraphService.getSchema("{ }");
+        DgraphSchema schemaWithoutSchema = DgraphGraphService.getSchema("{ }", null);
         assertNull(schemaWithoutSchema, "Should be null if no schema field exists");
+    }
+
+    @Test
+    public void testGetSchemaDgraph() {
+        // TODO: test that dgraph schema gets altered
     }
 
     @Test
