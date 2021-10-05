@@ -33,6 +33,7 @@ export const ProtectedRoutes = (): JSX.Element => {
                         <Route path={PageRoutes.BROWSE_RESULTS} render={() => <BrowseResultsPage />} />
                         <Route path={PageRoutes.ANALYTICS} render={() => <AnalyticsPage />} />
                         <Route path={PageRoutes.POLICIES} render={() => <PoliciesPage />} />
+                        <Route path={PageRoutes.IDENTITIES} render={() => <ManageIdentitiesPage />} />
                     </Switch>
                 </Layout>
             </Layout>
