@@ -303,6 +303,8 @@ public class DgraphGraphService implements GraphService {
                         || t instanceof StatusRuntimeException && (
                                 t.getMessage().contains("operation opIndexing is already running")
                                         || t.getMessage().contains("Please retry")
+                                        || t.getMessage().contains("DEADLINE_EXCEEDED:")
+                                        || t.getMessage().contains("context deadline exceeded")
                         )) {
                     try {
                         // wait 0.01s, 0.02s, 0.04s, 0.08s, ..., 10.24s
