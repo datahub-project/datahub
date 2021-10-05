@@ -686,6 +686,94 @@
                         }
                       ],
                       "doc": "Shared aspect containing Browse Paths to be indexed for an entity."
+                    },
+                    {
+                      "type": "record",
+                      "Aspect": {
+                        "name": "glossaryTerms"
+                      },
+                      "name": "GlossaryTerms",
+                      "namespace": "com.linkedin.pegasus2avro.common",
+                      "fields": [
+                        {
+                          "type": {
+                            "type": "array",
+                            "items": {
+                              "type": "record",
+                              "name": "GlossaryTermAssociation",
+                              "namespace": "com.linkedin.pegasus2avro.common",
+                              "fields": [
+                                {
+                                  "Searchable": {
+                                    "fieldName": "glossaryTerms",
+                                    "fieldType": "URN_PARTIAL"
+                                  },
+                                  "java": {
+                                    "class": "com.linkedin.pegasus2avro.common.urn.GlossaryTermUrn"
+                                  },
+                                  "type": "string",
+                                  "name": "urn",
+                                  "doc": "Urn of the applied glossary term"
+                                }
+                              ],
+                              "doc": "Properties of an applied glossary term."
+                            }
+                          },
+                          "name": "terms",
+                          "doc": "The related business terms"
+                        },
+                        {
+                          "type": "com.linkedin.pegasus2avro.common.AuditStamp",
+                          "name": "auditStamp",
+                          "doc": "Audit stamp containing who reported the related business term"
+                        }
+                      ],
+                      "doc": "Related business terms information"
+                    },
+                    {
+                      "type": "record",
+                      "Aspect": {
+                        "name": "institutionalMemory"
+                      },
+                      "name": "InstitutionalMemory",
+                      "namespace": "com.linkedin.pegasus2avro.common",
+                      "fields": [
+                        {
+                          "type": {
+                            "type": "array",
+                            "items": {
+                              "type": "record",
+                              "name": "InstitutionalMemoryMetadata",
+                              "namespace": "com.linkedin.pegasus2avro.common",
+                              "fields": [
+                                {
+                                  "java": {
+                                    "class": "com.linkedin.pegasus2avro.common.url.Url",
+                                    "coercerClass": "com.linkedin.pegasus2avro.common.url.UrlCoercer"
+                                  },
+                                  "type": "string",
+                                  "name": "url",
+                                  "doc": "Link to an engineering design document or a wiki page."
+                                },
+                                {
+                                  "type": "string",
+                                  "name": "description",
+                                  "doc": "Description of the link."
+                                },
+                                {
+                                  "type": "com.linkedin.pegasus2avro.common.AuditStamp",
+                                  "name": "createStamp",
+                                  "doc": "Audit stamp associated with creation of this record"
+                                }
+                              ],
+                              "doc": "Metadata corresponding to a record of institutional memory."
+                            }
+                          },
+                          "name": "elements",
+                          "doc": "List of records that represent institutional memory of an entity. Each record consists of a link, description, creator and timestamps associated with that record."
+                        }
+                      ],
+                      "doc": "Institutional memory of an entity. This is a way to link to relevant documentation and provide description of the documentation. Institutional or tribal knowledge is very important for users to leverage the entity."
                     }
                   ]
                 },
@@ -1340,7 +1428,9 @@
                     "com.linkedin.pegasus2avro.common.Ownership",
                     "com.linkedin.pegasus2avro.common.Status",
                     "com.linkedin.pegasus2avro.common.GlobalTags",
-                    "com.linkedin.pegasus2avro.common.BrowsePaths"
+                    "com.linkedin.pegasus2avro.common.BrowsePaths",
+                    "com.linkedin.pegasus2avro.common.GlossaryTerms",
+                    "com.linkedin.pegasus2avro.common.InstitutionalMemory"
                   ]
                 },
                 "name": "aspects",
@@ -1536,7 +1626,9 @@
                     "com.linkedin.pegasus2avro.common.Ownership",
                     "com.linkedin.pegasus2avro.common.Status",
                     "com.linkedin.pegasus2avro.common.GlobalTags",
-                    "com.linkedin.pegasus2avro.common.BrowsePaths"
+                    "com.linkedin.pegasus2avro.common.BrowsePaths",
+                    "com.linkedin.pegasus2avro.common.GlossaryTerms",
+                    "com.linkedin.pegasus2avro.common.InstitutionalMemory"
                   ]
                 },
                 "name": "aspects",
@@ -1882,7 +1974,9 @@
                     "com.linkedin.pegasus2avro.common.Ownership",
                     "com.linkedin.pegasus2avro.common.Status",
                     "com.linkedin.pegasus2avro.common.GlobalTags",
-                    "com.linkedin.pegasus2avro.common.BrowsePaths"
+                    "com.linkedin.pegasus2avro.common.BrowsePaths",
+                    "com.linkedin.pegasus2avro.common.GlossaryTerms",
+                    "com.linkedin.pegasus2avro.common.InstitutionalMemory"
                   ]
                 },
                 "name": "aspects",
@@ -2303,51 +2397,7 @@
                       ],
                       "doc": "Upstream lineage of a dataset"
                     },
-                    {
-                      "type": "record",
-                      "Aspect": {
-                        "name": "institutionalMemory"
-                      },
-                      "name": "InstitutionalMemory",
-                      "namespace": "com.linkedin.pegasus2avro.common",
-                      "fields": [
-                        {
-                          "type": {
-                            "type": "array",
-                            "items": {
-                              "type": "record",
-                              "name": "InstitutionalMemoryMetadata",
-                              "namespace": "com.linkedin.pegasus2avro.common",
-                              "fields": [
-                                {
-                                  "java": {
-                                    "class": "com.linkedin.pegasus2avro.common.url.Url",
-                                    "coercerClass": "com.linkedin.pegasus2avro.common.url.UrlCoercer"
-                                  },
-                                  "type": "string",
-                                  "name": "url",
-                                  "doc": "Link to an engineering design document or a wiki page."
-                                },
-                                {
-                                  "type": "string",
-                                  "name": "description",
-                                  "doc": "Description of the link."
-                                },
-                                {
-                                  "type": "com.linkedin.pegasus2avro.common.AuditStamp",
-                                  "name": "createStamp",
-                                  "doc": "Audit stamp associated with creation of this record"
-                                }
-                              ],
-                              "doc": "Metadata corresponding to a record of institutional memory."
-                            }
-                          },
-                          "name": "elements",
-                          "doc": "List of records that represent institutional memory of an entity. Each record consists of a link, description, creator and timestamps associated with that record."
-                        }
-                      ],
-                      "doc": "Institutional memory of an entity. This is a way to link to relevant documentation and provide description of the documentation. Institutional or tribal knowledge is very important for users to leverage the entity."
-                    },
+                    "com.linkedin.pegasus2avro.common.InstitutionalMemory",
                     "com.linkedin.pegasus2avro.common.Ownership",
                     "com.linkedin.pegasus2avro.common.Status",
                     {
@@ -2823,49 +2873,7 @@
                                   },
                                   "type": [
                                     "null",
-                                    {
-                                      "type": "record",
-                                      "Aspect": {
-                                        "name": "glossaryTerms"
-                                      },
-                                      "name": "GlossaryTerms",
-                                      "namespace": "com.linkedin.pegasus2avro.common",
-                                      "fields": [
-                                        {
-                                          "type": {
-                                            "type": "array",
-                                            "items": {
-                                              "type": "record",
-                                              "name": "GlossaryTermAssociation",
-                                              "namespace": "com.linkedin.pegasus2avro.common",
-                                              "fields": [
-                                                {
-                                                  "Searchable": {
-                                                    "fieldName": "glossaryTerms",
-                                                    "fieldType": "URN_PARTIAL"
-                                                  },
-                                                  "java": {
-                                                    "class": "com.linkedin.pegasus2avro.common.urn.GlossaryTermUrn"
-                                                  },
-                                                  "type": "string",
-                                                  "name": "urn",
-                                                  "doc": "Urn of the applied glossary term"
-                                                }
-                                              ],
-                                              "doc": "Properties of an applied glossary term."
-                                            }
-                                          },
-                                          "name": "terms",
-                                          "doc": "The related business terms"
-                                        },
-                                        {
-                                          "type": "com.linkedin.pegasus2avro.common.AuditStamp",
-                                          "name": "auditStamp",
-                                          "doc": "Audit stamp containing who reported the related business term"
-                                        }
-                                      ],
-                                      "doc": "Related business terms information"
-                                    }
+                                    "com.linkedin.pegasus2avro.common.GlossaryTerms"
                                   ],
                                   "name": "glossaryTerms",
                                   "default": null,
@@ -2897,6 +2905,7 @@
                           "doc": "Client provided list of fields that define primary keys to access record. Field order defines hierarchical espresso keys. Empty lists indicates absence of primary key access patter. Value is a SchemaField@fieldPath."
                         },
                         {
+                          "deprecated": "Use foreignKeys instead.",
                           "type": [
                             "null",
                             {
@@ -2962,6 +2971,68 @@
                           "name": "foreignKeysSpecs",
                           "default": null,
                           "doc": "Map captures all the references schema makes to external datasets. Map key is ForeignKeySpecName typeref."
+                        },
+                        {
+                          "type": [
+                            "null",
+                            {
+                              "type": "array",
+                              "items": {
+                                "type": "record",
+                                "name": "ForeignKeyConstraint",
+                                "namespace": "com.linkedin.pegasus2avro.schema",
+                                "fields": [
+                                  {
+                                    "type": "string",
+                                    "name": "name",
+                                    "doc": "Name of the constraint, likely provided from the source"
+                                  },
+                                  {
+                                    "Relationship": {
+                                      "/*": {
+                                        "entityTypes": [
+                                          "schemaField"
+                                        ],
+                                        "name": "ForeignKeyTo"
+                                      }
+                                    },
+                                    "type": {
+                                      "type": "array",
+                                      "items": "string"
+                                    },
+                                    "name": "foreignFields",
+                                    "doc": "Fields the constraint maps to on the foreign dataset"
+                                  },
+                                  {
+                                    "type": {
+                                      "type": "array",
+                                      "items": "string"
+                                    },
+                                    "name": "sourceFields",
+                                    "doc": "Fields the constraint maps to on the source dataset"
+                                  },
+                                  {
+                                    "Relationship": {
+                                      "entityTypes": [
+                                        "dataset"
+                                      ],
+                                      "name": "ForeignKeyToDataset"
+                                    },
+                                    "java": {
+                                      "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+                                    },
+                                    "type": "string",
+                                    "name": "foreignDataset",
+                                    "doc": "Reference to the foreign dataset for ease of lookup"
+                                  }
+                                ],
+                                "doc": "Description of a foreign key constraint in a schema."
+                              }
+                            }
+                          ],
+                          "name": "foreignKeys",
+                          "default": null,
+                          "doc": "List of foreign key constraints for the schema"
                         }
                       ],
                       "doc": "SchemaMetadata to describe metadata related to store schema"
@@ -3080,7 +3151,8 @@
                 "name": "aspects",
                 "doc": "The list of metadata aspects associated with the dataset. Depending on the use case, this can either be all, or a selection, of supported aspects."
               }
-            ]
+            ],
+            "doc": "A metadata snapshot for a specific dataset entity."
           },
           {
             "type": "record",
@@ -3088,6 +3160,7 @@
               "keyAspect": "dataProcessKey",
               "name": "dataProcess"
             },
+            "deprecated": "Use DataJob instead.",
             "name": "DataProcessSnapshot",
             "namespace": "com.linkedin.pegasus2avro.metadata.snapshot",
             "fields": [
@@ -5601,6 +5674,65 @@
               }
             ],
             "doc": "A metadata snapshot for DataHub Access Policy data."
+          },
+          {
+            "type": "record",
+            "Entity": {
+              "keyAspect": "schemaFieldKey",
+              "name": "schemaField"
+            },
+            "name": "SchemaFieldSnapshot",
+            "namespace": "com.linkedin.pegasus2avro.metadata.snapshot",
+            "fields": [
+              {
+                "java": {
+                  "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+                },
+                "type": "string",
+                "name": "urn",
+                "doc": "URN for the entity the metadata snapshot is associated with."
+              },
+              {
+                "type": {
+                  "type": "array",
+                  "items": [
+                    {
+                      "type": "record",
+                      "Aspect": {
+                        "name": "schemaFieldKey"
+                      },
+                      "name": "SchemaFieldKey",
+                      "namespace": "com.linkedin.pegasus2avro.metadata.key",
+                      "fields": [
+                        {
+                          "Searchable": {
+                            "fieldType": "URN"
+                          },
+                          "java": {
+                            "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+                          },
+                          "type": "string",
+                          "name": "parent",
+                          "doc": "Parent associated with the schema field"
+                        },
+                        {
+                          "Searchable": {
+                            "fieldType": "KEYWORD"
+                          },
+                          "type": "string",
+                          "name": "fieldPath",
+                          "doc": "fieldPath identifying the schema field"
+                        }
+                      ],
+                      "doc": "Key for a SchemaField"
+                    }
+                  ]
+                },
+                "name": "aspects",
+                "doc": "The list of metadata aspects associated with the dataset. Depending on the use case, this can either be all, or a selection, of supported aspects."
+              }
+            ],
+            "doc": "A metadata snapshot for a specific schema field entity."
           }
         ],
         "name": "proposedSnapshot",
@@ -5921,6 +6053,27 @@
     ],
     "doc": "Usage data for a given resource, rolled up into a bucket."
   },
+  "com.linkedin.pegasus2avro.chart.ChartInfo",
+  "com.linkedin.pegasus2avro.chart.ChartQuery",
+  "com.linkedin.pegasus2avro.chart.EditableChartProperties",
+  "com.linkedin.pegasus2avro.common.BrowsePaths",
+  "com.linkedin.pegasus2avro.common.Cost",
+  "com.linkedin.pegasus2avro.common.Deprecation",
+  "com.linkedin.pegasus2avro.common.GlobalTags",
+  "com.linkedin.pegasus2avro.common.GlossaryTerms",
+  "com.linkedin.pegasus2avro.common.InstitutionalMemory",
+  "com.linkedin.pegasus2avro.common.Ownership",
+  "com.linkedin.pegasus2avro.common.Status",
+  "com.linkedin.pegasus2avro.dashboard.DashboardInfo",
+  "com.linkedin.pegasus2avro.dashboard.EditableDashboardProperties",
+  "com.linkedin.pegasus2avro.datajob.DataFlowInfo",
+  "com.linkedin.pegasus2avro.datajob.DataJobInfo",
+  "com.linkedin.pegasus2avro.datajob.DataJobInputOutput",
+  "com.linkedin.pegasus2avro.datajob.EditableDataFlowProperties",
+  "com.linkedin.pegasus2avro.datajob.EditableDataJobProperties",
+  "com.linkedin.pegasus2avro.dataplatform.DataPlatformInfo",
+  "com.linkedin.pegasus2avro.dataprocess.DataProcessInfo",
+  "com.linkedin.pegasus2avro.dataset.DatasetDeprecation",
   {
     "type": "record",
     "Aspect": {
@@ -6224,6 +6377,8 @@
     ],
     "doc": "Stats corresponding to datasets"
   },
+  "com.linkedin.pegasus2avro.dataset.DatasetProperties",
+  "com.linkedin.pegasus2avro.dataset.DatasetUpstreamLineage",
   {
     "type": "record",
     "Aspect": {
@@ -6370,5 +6525,55 @@
       }
     ],
     "doc": "Stats corresponding to dataset's usage."
-  }
+  },
+  "com.linkedin.pegasus2avro.dataset.EditableDatasetProperties",
+  "com.linkedin.pegasus2avro.dataset.UpstreamLineage",
+  "com.linkedin.pegasus2avro.glossary.GlossaryNodeInfo",
+  "com.linkedin.pegasus2avro.glossary.GlossaryRelatedTerms",
+  "com.linkedin.pegasus2avro.glossary.GlossaryTermInfo",
+  "com.linkedin.pegasus2avro.identity.CorpGroupInfo",
+  "com.linkedin.pegasus2avro.identity.CorpUserEditableInfo",
+  "com.linkedin.pegasus2avro.identity.CorpUserInfo",
+  "com.linkedin.pegasus2avro.identity.GroupMembership",
+  "com.linkedin.pegasus2avro.metadata.key.ChartKey",
+  "com.linkedin.pegasus2avro.metadata.key.CorpGroupKey",
+  "com.linkedin.pegasus2avro.metadata.key.CorpUserKey",
+  "com.linkedin.pegasus2avro.metadata.key.DashboardKey",
+  "com.linkedin.pegasus2avro.metadata.key.DataFlowKey",
+  "com.linkedin.pegasus2avro.metadata.key.DataHubPolicyKey",
+  "com.linkedin.pegasus2avro.metadata.key.DataJobKey",
+  "com.linkedin.pegasus2avro.metadata.key.DataPlatformKey",
+  "com.linkedin.pegasus2avro.metadata.key.DataProcessKey",
+  "com.linkedin.pegasus2avro.metadata.key.DatasetKey",
+  "com.linkedin.pegasus2avro.metadata.key.GlossaryNodeKey",
+  "com.linkedin.pegasus2avro.metadata.key.GlossaryTermKey",
+  "com.linkedin.pegasus2avro.metadata.key.MLFeatureKey",
+  "com.linkedin.pegasus2avro.metadata.key.MLFeatureTableKey",
+  "com.linkedin.pegasus2avro.metadata.key.MLModelDeploymentKey",
+  "com.linkedin.pegasus2avro.metadata.key.MLModelGroupKey",
+  "com.linkedin.pegasus2avro.metadata.key.MLModelKey",
+  "com.linkedin.pegasus2avro.metadata.key.MLPrimaryKeyKey",
+  "com.linkedin.pegasus2avro.metadata.key.SchemaFieldKey",
+  "com.linkedin.pegasus2avro.metadata.key.TagKey",
+  "com.linkedin.pegasus2avro.ml.metadata.CaveatsAndRecommendations",
+  "com.linkedin.pegasus2avro.ml.metadata.EthicalConsiderations",
+  "com.linkedin.pegasus2avro.ml.metadata.EvaluationData",
+  "com.linkedin.pegasus2avro.ml.metadata.IntendedUse",
+  "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties",
+  "com.linkedin.pegasus2avro.ml.metadata.MLFeatureTableProperties",
+  "com.linkedin.pegasus2avro.ml.metadata.MLHyperParam",
+  "com.linkedin.pegasus2avro.ml.metadata.MLMetric",
+  "com.linkedin.pegasus2avro.ml.metadata.MLModelDeploymentProperties",
+  "com.linkedin.pegasus2avro.ml.metadata.MLModelFactorPrompts",
+  "com.linkedin.pegasus2avro.ml.metadata.MLModelGroupProperties",
+  "com.linkedin.pegasus2avro.ml.metadata.MLModelProperties",
+  "com.linkedin.pegasus2avro.ml.metadata.MLPrimaryKeyProperties",
+  "com.linkedin.pegasus2avro.ml.metadata.Metrics",
+  "com.linkedin.pegasus2avro.ml.metadata.QuantitativeAnalyses",
+  "com.linkedin.pegasus2avro.ml.metadata.SourceCode",
+  "com.linkedin.pegasus2avro.ml.metadata.TrainingData",
+  "com.linkedin.pegasus2avro.policy.DataHubPolicyInfo",
+  "com.linkedin.pegasus2avro.schema.EditableSchemaMetadata",
+  "com.linkedin.pegasus2avro.schema.SchemaMetadata",
+  "com.linkedin.pegasus2avro.tag.TagProperties"
 ]

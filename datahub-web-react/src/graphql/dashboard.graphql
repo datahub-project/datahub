@@ -10,11 +10,38 @@ query getDashboard($urn: String!) {
         upstreamLineage {
             ...upstreamRelationshipFields
         }
+        charts: relationships(input: { types: ["Contains"], direction: OUTGOING, start: 0, count: 100 }) {
+            start
+            count
+            total
+            relationships {
+                entity {
+                    ... on Chart {
+                        urn
+                        type
+                        tool
+                        info {
+                            name
+                            description
+                        }
+                        ownership {
+                            ...ownershipFields
+                        }
+                        globalTags {
+                            ...globalTagsFields
+                        }
+                        glossaryTerms {
+                            ...glossaryTerms
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
-mutation updateDashboard($input: DashboardUpdateInput!) {
-    updateDashboard(input: $input) {
+mutation updateDashboard($urn: String!, $input: DashboardUpdateInput!) {
+    updateDashboard(urn: $urn, input: $input) {
         ...dashboardFields
         editableProperties {
             description

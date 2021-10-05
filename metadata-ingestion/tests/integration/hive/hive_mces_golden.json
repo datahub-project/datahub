@@ -10,7 +10,7 @@
                         "customProperties": {
                             "Database:": "db1",
                             "Owner:": "root",
-                            "CreateTime:": "Mon Aug 09 22:20:40 UTC 2021",
+                            "CreateTime:": "Fri Oct 01 05:17:59 UTC 2021",
                             "LastAccessTime:": "UNKNOWN",
                             "Retention:": "0",
                             "Location:": "hdfs://namenode:8020/user/hive/warehouse/db1.db/_test_table_underscore",
@@ -20,7 +20,7 @@
                             "Table Parameters: numRows": "0",
                             "Table Parameters: rawDataSize": "0",
                             "Table Parameters: totalSize": "0",
-                            "Table Parameters: transient_lastDdlTime": "1628547640",
+                            "Table Parameters: transient_lastDdlTime": "1633065479",
                             "SerDe Library:": "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe",
                             "InputFormat:": "org.apache.hadoop.mapred.TextInputFormat",
                             "OutputFormat:": "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat",
@@ -95,7 +95,8 @@
                             }
                         ],
                         "primaryKeys": null,
-                        "foreignKeysSpecs": null
+                        "foreignKeysSpecs": null,
+                        "foreignKeys": null
                     }
                 }
             ]
@@ -119,7 +120,7 @@
                         "customProperties": {
                             "Database:": "db1",
                             "Owner:": "root",
-                            "CreateTime:": "Mon Aug 09 22:20:41 UTC 2021",
+                            "CreateTime:": "Fri Oct 01 05:17:59 UTC 2021",
                             "LastAccessTime:": "UNKNOWN",
                             "Retention:": "0",
                             "Location:": "hdfs://namenode:8020/user/hive/warehouse/db1.db/array_struct_test",
@@ -129,7 +130,7 @@
                             "Table Parameters: numRows": "1",
                             "Table Parameters: rawDataSize": "32",
                             "Table Parameters: totalSize": "33",
-                            "Table Parameters: transient_lastDdlTime": "1628547648",
+                            "Table Parameters: transient_lastDdlTime": "1633065482",
                             "SerDe Library:": "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe",
                             "InputFormat:": "org.apache.hadoop.mapred.TextInputFormat",
                             "OutputFormat:": "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat",
@@ -204,7 +205,8 @@
                             }
                         ],
                         "primaryKeys": null,
-                        "foreignKeysSpecs": null
+                        "foreignKeysSpecs": null,
+                        "foreignKeys": null
                     }
                 }
             ]
@@ -228,7 +230,7 @@
                         "customProperties": {
                             "Database:": "db1",
                             "Owner:": "root",
-                            "CreateTime:": "Mon Aug 09 22:20:35 UTC 2021",
+                            "CreateTime:": "Fri Oct 01 05:17:56 UTC 2021",
                             "LastAccessTime:": "UNKNOWN",
                             "Retention:": "0",
                             "Location:": "hdfs://namenode:8020/user/hive/warehouse/db1.db/pokes",
@@ -237,7 +239,7 @@
                             "Table Parameters: numRows": "0",
                             "Table Parameters: rawDataSize": "0",
                             "Table Parameters: totalSize": "5812",
-                            "Table Parameters: transient_lastDdlTime": "1628547638",
+                            "Table Parameters: transient_lastDdlTime": "1633065477",
                             "SerDe Library:": "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe",
                             "InputFormat:": "org.apache.hadoop.mapred.TextInputFormat",
                             "OutputFormat:": "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat",
@@ -312,7 +314,8 @@
                             }
                         ],
                         "primaryKeys": null,
-                        "foreignKeysSpecs": null
+                        "foreignKeysSpecs": null,
+                        "foreignKeys": null
                     }
                 }
             ]
@@ -336,7 +339,7 @@
                         "customProperties": {
                             "Database:": "db1",
                             "Owner:": "root",
-                            "CreateTime:": "Mon Aug 09 22:20:40 UTC 2021",
+                            "CreateTime:": "Fri Oct 01 05:17:59 UTC 2021",
                             "LastAccessTime:": "UNKNOWN",
                             "Retention:": "0",
                             "Location:": "hdfs://namenode:8020/user/hive/warehouse/db1.db/struct_test",
@@ -346,7 +349,7 @@
                             "Table Parameters: numRows": "0",
                             "Table Parameters: rawDataSize": "0",
                             "Table Parameters: totalSize": "0",
-                            "Table Parameters: transient_lastDdlTime": "1628547640",
+                            "Table Parameters: transient_lastDdlTime": "1633065479",
                             "SerDe Library:": "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe",
                             "InputFormat:": "org.apache.hadoop.mapred.TextInputFormat",
                             "OutputFormat:": "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat",
@@ -421,7 +424,8 @@
                             }
                         ],
                         "primaryKeys": null,
-                        "foreignKeysSpecs": null
+                        "foreignKeysSpecs": null,
+                        "foreignKeys": null
                     }
                 }
             ]

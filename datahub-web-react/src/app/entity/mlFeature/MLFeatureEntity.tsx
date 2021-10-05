@@ -40,6 +40,8 @@ export class MLFeatureEntity implements Entity<MlFeature> {
 
     getPathName = () => 'features';
 
+    getEntityName = () => 'Feature';
+
     getCollectionName = () => 'Features';
 
     renderProfile = (urn: string) => <MLFeatureProfile urn={urn} />;

@@ -8,7 +8,6 @@ import { EntityTab, GenericEntityProperties } from '../../types';
 
 export function getDataForEntityType<T>({
     data,
-    entityType,
     getOverrideProperties,
 }: {
     data: T;
@@ -18,8 +17,18 @@ export function getDataForEntityType<T>({
     if (!data) {
         return null;
     }
+    const entityData = data[Object.keys(data)[0]];
+    let modifiedEntityData = entityData;
+    // Bring 'customProperties' field to the root level.
+    if (entityData.properties?.customProperties) {
+        const customProperties = entityData.properties?.customProperties;
+        modifiedEntityData = {
+            ...entityData,
+            customProperties,
+        };
+    }
     return {
-        ...data[entityType.toLowerCase()],
+        ...modifiedEntityData,
         ...getOverrideProperties(data),
     };
 }

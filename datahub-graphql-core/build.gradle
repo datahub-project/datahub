@@ -22,7 +22,12 @@ dependencies {
 
 graphqlCodegen {
     // For options: https://github.com/kobylynskyi/graphql-java-codegen/blob/master/docs/codegen-options.md
-    graphqlSchemaPaths = ["$projectDir/src/main/resources/gms.graphql".toString(), "$projectDir/src/main/resources/analytics.graphql".toString()]
+    graphqlSchemaPaths = [
+        "$projectDir/src/main/resources/entity.graphql".toString(),
+        "$projectDir/src/main/resources/app.graphql".toString(),
+        "$projectDir/src/main/resources/search.graphql".toString(),
+        "$projectDir/src/main/resources/analytics.graphql".toString(),
+    ]
     outputDir = new File("$projectDir/src/mainGeneratedGraphQL/java")
     packageName = "com.linkedin.datahub.graphql.generated"
     generateApis = true

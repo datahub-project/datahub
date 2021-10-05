@@ -36,8 +36,8 @@ type Props<T, U> = {
         }>
     >;
     useUpdateQuery: (
-        baseOptions?: MutationHookOptions<U, { input: GenericEntityUpdate }> | undefined,
-    ) => MutationTuple<U, { input: GenericEntityUpdate }>;
+        baseOptions?: MutationHookOptions<U, { urn: string; input: GenericEntityUpdate }> | undefined,
+    ) => MutationTuple<U, { urn: string; input: GenericEntityUpdate }>;
     getOverrideProperties: (T) => GenericEntityProperties;
     tabs: EntityTab[];
     sidebarSections: EntitySidebarSection[];
@@ -85,9 +85,6 @@ const TabContent = styled.div`
     overflow: auto;
 `;
 
-// TODO(Gabe): Refactor this to generate dynamically
-const QUERY_NAME = 'getDataset';
-
 /**
  * Container for display of the Entity Page
  */
@@ -124,7 +121,7 @@ export const EntityProfile = <T, U>({
     const { loading, error, data, refetch } = useEntityQuery({ variables: { urn } });
 
     const [updateEntity] = useUpdateQuery({
-        refetchQueries: () => [QUERY_NAME],
+        onCompleted: () => refetch(),
     });
 
     const entityData = getDataForEntityType({ data, entityType, getOverrideProperties });

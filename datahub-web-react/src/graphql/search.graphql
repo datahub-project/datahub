@@ -39,10 +39,11 @@ query getSearchResults($input: SearchInput!) {
                         description
                     }
                     platformNativeType
-                    tags
                     properties {
-                        key
-                        value
+                        customProperties {
+                            key
+                            value
+                        }
                     }
                     ownership {
                         ...ownershipFields
@@ -74,7 +75,7 @@ query getSearchResults($input: SearchInput!) {
                         displayName
                         description
                     }
-                    relationships(types: ["IsMemberOfGroup"], direction: INCOMING) {
+                    relationships(input: { types: ["IsMemberOfGroup"], direction: INCOMING }) {
                         relationships {
                             type
                             direction
@@ -118,6 +119,9 @@ query getSearchResults($input: SearchInput!) {
                     globalTags {
                         ...globalTagsFields
                     }
+                    glossaryTerms {
+                        ...glossaryTerms
+                    }
                     editableProperties {
                         description
                     }
@@ -143,6 +147,9 @@ query getSearchResults($input: SearchInput!) {
                     globalTags {
                         ...globalTagsFields
                     }
+                    glossaryTerms {
+                        ...glossaryTerms
+                    }
                     editableProperties {
                         description
                     }
@@ -164,6 +171,9 @@ query getSearchResults($input: SearchInput!) {
                     globalTags {
                         ...globalTagsFields
                     }
+                    glossaryTerms {
+                        ...glossaryTerms
+                    }
                     editableProperties {
                         description
                     }
@@ -178,20 +188,15 @@ query getSearchResults($input: SearchInput!) {
                     ownership {
                         ...ownershipFields
                     }
-                    inputOutput {
-                        inputDatasets {
-                            ...nonRecursiveDatasetFields
-                        }
-                        outputDatasets {
-                            ...nonRecursiveDatasetFields
-                        }
-                    }
                     info {
                         name
                         description
                     }
                     globalTags {
                         ...globalTagsFields
+                    }
+                    glossaryTerms {
+                        ...glossaryTerms
                     }
                     editableProperties {
                         description

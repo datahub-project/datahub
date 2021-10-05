@@ -8,10 +8,11 @@ import StyledMDEditor from '../../../components/styled/StyledMDEditor';
 import TabToolbar from '../../../components/styled/TabToolbar';
 
 import { GenericEntityUpdate } from '../../../types';
-import { useEntityData, useEntityUpdate } from '../../../EntityContext';
+import { useEntityData, useEntityUpdate, useRefetch } from '../../../EntityContext';
 
 export const DescriptionEditor = ({ onComplete }: { onComplete?: () => void }) => {
     const { urn, entityType, entityData } = useEntityData();
+    const refetch = useRefetch();
     const updateEntity = useEntityUpdate<GenericEntityUpdate>();
 
     const description = entityData?.editableProperties?.description || entityData?.description || '';
@@ -21,7 +22,7 @@ export const DescriptionEditor = ({ onComplete }: { onComplete?: () => void }) =
         message.loading({ content: 'Saving...' });
         try {
             await updateEntity({
-                variables: { input: { urn, editableProperties: { description: updatedDescription || '' } } },
+                variables: { urn, input: { editableProperties: { description: updatedDescription || '' } } },
             });
             message.destroy();
             analytics.event({
@@ -38,6 +39,7 @@ export const DescriptionEditor = ({ onComplete }: { onComplete?: () => void }) =
                 message.error({ content: `Failed to update description: \n ${e.message || ''}`, duration: 2 });
             }
         }
+        refetch?.();
     };
 
     return entityData ? (

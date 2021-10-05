@@ -195,6 +195,7 @@ class ViewFieldType(Enum):
     DIMENSION = "Dimension"
     DIMENSION_GROUP = "Dimension Group"
     MEASURE = "Measure"
+    UNKNOWN = "Unknown"
 
 
 @dataclass
@@ -272,6 +273,7 @@ class LookerUtil:
         "running_total": NumberTypeClass,
         "sum": NumberTypeClass,
         "sum_distinct": NumberTypeClass,
+        "unknown": NullTypeClass,
     }
 
     @staticmethod
@@ -311,7 +313,9 @@ class LookerUtil:
         schema_name: str,
         view_fields: List[ViewField],
         reporter: SourceReport,
-    ) -> SchemaMetadataClass:
+    ) -> Optional[SchemaMetadataClass]:
+        if view_fields == []:
+            return None
         fields, primary_keys = LookerUtil._get_fields_and_primary_keys(
             view_fields=view_fields, reporter=reporter
         )
@@ -328,7 +332,7 @@ class LookerUtil:
 
     DIMENSION_TAG_URN = "urn:li:tag:Dimension"
     TEMPORAL_TAG_URN = "urn:li:tag:Temporal"
-    MEASURE_TAG_URN = "urn:li:tag:Temporal"
+    MEASURE_TAG_URN = "urn:li:tag:Measure"
 
     type_to_tag_map: Dict[ViewFieldType, List[str]] = {
         ViewFieldType.DIMENSION: [DIMENSION_TAG_URN],
@@ -337,6 +341,7 @@ class LookerUtil:
             TEMPORAL_TAG_URN,
         ],
         ViewFieldType.MEASURE: [MEASURE_TAG_URN],
+        ViewFieldType.UNKNOWN: [],
     }
 
     tag_definitions: Dict[str, TagPropertiesClass] = {
@@ -385,7 +390,7 @@ class LookerUtil:
         else:
             reporter.report_warning(
                 "lookml",
-                "Failed to map view field type {field_type}. Won't emit tags for it",
+                f"Failed to map view field type {field_type}. Won't emit tags for it",
             )
             return None
 
@@ -418,6 +423,7 @@ class LookerUtil:
                 )
                 if tag_measures_and_dimensions is True
                 else None,
+                isPartOfKey=field.is_primary_key,
             )
             fields.append(schema_field)
             if field.is_primary_key:
@@ -485,6 +491,13 @@ class LookerExplore:
             explore = client.lookml_model_explore(model, explore_name)
             views = set()
             if explore.joins is not None and explore.joins != []:
+                if explore.view_name is not None and explore.view_name != explore.name:
+                    # explore is renaming the view name, we will need to swap references to explore.name with explore.view_name
+                    aliased_explore = True
+                    views.add(explore.view_name)
+                else:
+                    aliased_explore = False
+
                 for e_join in [
                     e for e in explore.joins if e.dependent_fields is not None
                 ]:
@@ -492,6 +505,9 @@ class LookerExplore:
                     for field_name in e_join.dependent_fields:
                         try:
                             view_name = LookerUtil._extract_view_from_field(field_name)
+                            if (view_name == explore.name) and aliased_explore:
+                                assert explore.view_name is not None
+                                view_name = explore.view_name
                             views.add(view_name)
                         except AssertionError:
                             reporter.report_warning(
@@ -655,7 +671,8 @@ class LookerExplore:
                 view_fields=self.fields,
                 reporter=reporter,
             )
-            dataset_snapshot.aspects.append(schema_metadata)
+            if schema_metadata is not None:
+                dataset_snapshot.aspects.append(schema_metadata)
 
         mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
         return mce

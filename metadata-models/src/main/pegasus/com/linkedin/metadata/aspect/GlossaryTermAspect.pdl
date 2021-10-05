@@ -10,4 +10,4 @@ import com.linkedin.glossary.GlossaryRelatedTerms
 /**
  * A union of all supported metadata aspects for a CorpUser
  */
-typeref GlossaryTermAspect = union[GlossaryTermKey, GlossaryTermInfo, Ownership, Status,BrowsePaths, GlossaryRelatedTerms]
+typeref GlossaryTermAspect = union[GlossaryTermKey, GlossaryTermInfo, Ownership, Status, BrowsePaths, GlossaryRelatedTerms]
