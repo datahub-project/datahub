@@ -157,13 +157,12 @@ public class MetadataChangeLogProcessor {
         }
       }
     }
-    if (edgesToAdd.size() > 0) {
-      new Thread(() -> {
-        _graphService.removeEdgesFromNode(urn, new ArrayList<>(relationshipTypesBeingAdded),
-            newRelationshipFilter(new Filter().setCriteria(new CriterionArray()), RelationshipDirection.OUTGOING));
-        edgesToAdd.forEach(edge -> _graphService.addEdge(edge));
-      }).start();
-    }
+    log.info(String.format("Here's the relationship types found %s", relationshipTypesBeingAdded));
+    new Thread(() -> {
+      _graphService.removeEdgesFromNode(urn, new ArrayList<>(relationshipTypesBeingAdded),
+          newRelationshipFilter(new Filter().setCriteria(new CriterionArray()), RelationshipDirection.OUTGOING));
+      edgesToAdd.forEach(edge -> _graphService.addEdge(edge));
+    }).start();
   }
 
   /**

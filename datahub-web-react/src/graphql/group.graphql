@@ -111,3 +111,21 @@ query getGroupMembers($urn: String!, $start: Int!, $count: Int!) {
         }
     }
 }
+
+query listGroups($input: ListGroupsInput!) {
+    listGroups(input: $input) {
+        start
+        count
+        total
+        groups {
+            urn
+            type
+            name
+            info {
+                displayName
+                description
+                email
+            }
+        }
+    }
+}

@@ -5,6 +5,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.AnalyticsConfig;
 import com.linkedin.datahub.graphql.generated.AppConfig;
 import com.linkedin.datahub.graphql.generated.EntityType;
+import com.linkedin.datahub.graphql.generated.IdentityManagementConfig;
 import com.linkedin.datahub.graphql.generated.PoliciesConfig;
 import com.linkedin.datahub.graphql.generated.Privilege;
 import com.linkedin.datahub.graphql.generated.ResourcePrivileges;
@@ -53,6 +54,9 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
 
     appConfig.setAnalyticsConfig(analyticsConfig);
     appConfig.setPoliciesConfig(policiesConfig);
+
+    final IdentityManagementConfig identityManagementConfig = new IdentityManagementConfig();
+    identityManagementConfig.setEnabled(true); // Identity Management always enabled. TODO: Understand if there's a case where this should change.
 
     return CompletableFuture.completedFuture(appConfig);
   }
