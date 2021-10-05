@@ -134,11 +134,9 @@ class SnowflakeSource(SQLAlchemySource):
         query: str = """
 WITH table_lineage_history AS (
     SELECT
-        r.value:"objectId" AS upstream_table_id,
         r.value:"objectName" AS upstream_table_name,
         r.value:"objectDomain" AS upstream_table_domain,
         r.value:"columns" AS upstream_table_columns,
-        w.value:"objectId" AS downstream_table_id,
         w.value:"objectName" AS downstream_table_name,
         w.value:"objectDomain" AS downstream_table_domain,
         w.value:"columns" AS downstream_table_columns,
@@ -155,8 +153,7 @@ WITH table_lineage_history AS (
 SELECT upstream_table_name, downstream_table_name, upstream_table_columns, downstream_table_columns
 FROM table_lineage_history
 WHERE upstream_table_domain = 'Table' and downstream_table_domain = 'Table'
-QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_id, upstream_table_id, query_start_time ORDER BY downstream_table_id, upstream_table_id, query_start_time DESC) = 1
-        """.format(
+QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name, upstream_table_name ORDER BY query_start_time DESC) = 1        """.format(
             start_time_millis=int(self.config.start_time.timestamp() * 1000),
             end_time_millis=int(self.config.end_time.timestamp() * 1000),
         )
