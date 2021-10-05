@@ -54,10 +54,32 @@ public class DgraphGraphService implements GraphService {
     }
 
     protected static @Nonnull DgraphSchema getSchema(@Nonnull DgraphClient client) {
-        Response response = client.newReadOnlyTransaction().doRequest(
-                Request.newBuilder().setQuery("schema { predicate }").build()
-        );
-        DgraphSchema schema = getSchema(response.getJson().toStringUtf8());
+        DgraphSchema schema = null;
+
+        int attempt = 1;
+        while (true) {
+            Response response = client.newReadOnlyTransaction().doRequest(
+                    Request.newBuilder().setQuery("schema { predicate }").build()
+            );
+            schema = getSchema(response.getJson().toStringUtf8());
+            if (schema != null) {
+                break;
+            }
+
+            if (attempt <= 10) {
+                try {
+                    synchronized (System.out) {
+                        System.out.println(System.currentTimeMillis() + ": schema not available yet, waiting 10s");
+                    }
+                    TimeUnit.SECONDS.sleep(10);
+                    attempt++;
+                } catch (InterruptedException e2) {
+                    // ignore interruption
+                }
+            } else {
+                throw new RuntimeException("Failed to obtain schema from dgraph");
+            }
+        }
 
         if (schema.isEmpty()) {
             Operation setSchema = Operation.newBuilder()
@@ -73,14 +95,13 @@ public class DgraphGraphService implements GraphService {
         return schema;
     }
 
-    protected static @Nonnull DgraphSchema getSchema(@Nonnull String json) {
+    protected static DgraphSchema getSchema(@Nonnull String json) {
         Map<String, Object> data = getDataFromResponseJson(json);
 
         Object schemaObj = data.get("schema");
         if (!(schemaObj instanceof List<?>)) {
-            throw new IllegalArgumentException(
-                    "The result from Dgraph did not contain a 'schema' field, or that field is not a List"
-            );
+            log.info("The result from Dgraph did not contain a 'schema' field, or that field is not a List");
+            return null;
         }
 
         List<?> schemaList = (List<?>) schemaObj;
@@ -100,9 +121,8 @@ public class DgraphGraphService implements GraphService {
 
         Object typesObj = data.get("types");
         if (!(typesObj instanceof List<?>)) {
-            throw new IllegalArgumentException(
-                    "The result from Dgraph did not contain a 'types' field, or that field is not a List"
-            );
+            log.info("The result from Dgraph did not contain a 'types' field, or that field is not a List");
+            return null;
         }
 
         List<?> types = (List<?>) typesObj;
@@ -295,6 +315,7 @@ public class DgraphGraphService implements GraphService {
                     } catch (InterruptedException e2) {
                         // ignore interruption
                     }
+
                     continue;
                 }
 
