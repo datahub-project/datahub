@@ -16,7 +16,7 @@ public class UsageFeatureFactory {
   @Autowired
   private TimeseriesAspectService timeseriesAspectService;
 
-  @Bean
+  @Bean(name = "usageFeature")
   @Nonnull
   protected UsageFeature getInstance() {
     return new UsageFeature(timeseriesAspectService);

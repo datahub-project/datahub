@@ -38,7 +38,7 @@ public class GraphBasedFeature implements FeatureExtractor {
 
   private int getOutDegree(Urn urn) {
     RelatedEntitiesResult graphResult =
-        _graphService.findRelatedEntities("", newFilter("urn", urn.toString()), "", EMPTY_FILTER,
+        _graphService.findRelatedEntities("", EMPTY_FILTER, "", newFilter("urn", urn.toString()),
             Collections.emptyList(), newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.OUTGOING), 0, 1000);
     return graphResult.getCount();
   }

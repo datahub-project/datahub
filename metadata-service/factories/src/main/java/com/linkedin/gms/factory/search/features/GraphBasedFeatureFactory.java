@@ -19,7 +19,7 @@ public class GraphBasedFeatureFactory {
   @Autowired
   private GraphService graphService;
 
-  @Bean
+  @Bean(name = "graphBasedFeature")
   @Nonnull
   protected GraphBasedFeature getInstance() {
     return new GraphBasedFeature(graphService);
