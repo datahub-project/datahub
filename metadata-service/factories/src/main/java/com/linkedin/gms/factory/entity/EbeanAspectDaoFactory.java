@@ -20,7 +20,7 @@ public class EbeanAspectDaoFactory {
 
   @Bean(name = "ebeanAspectDao")
   @DependsOn({"gmsEbeanServiceConfig"})
-  @ConditionalOnProperty(name="DAO_SERVICE_LAYER", havingValue="ebean", matchIfMissing = true)
+  @ConditionalOnProperty(name = "DAO_SERVICE_LAYER", havingValue = "ebean", matchIfMissing = true)
   @Nonnull
   protected EbeanAspectDao createInstance() {
     return new EbeanAspectDao(applicationContext.getBean(ServerConfig.class));

@@ -19,10 +19,10 @@ public class DatastaxAspectDaoFactory {
   ApplicationContext applicationContext;
 
   @Bean(name = "datastaxAspectDao")
-  @ConditionalOnProperty(name="DAO_SERVICE_LAYER", havingValue="datastax")
+  @ConditionalOnProperty(name = "DAO_SERVICE_LAYER", havingValue = "datastax")
   @DependsOn({"gmsDatastaxServiceConfig"})
   @Nonnull
   protected DatastaxAspectDao createInstance() {
-    return new DatastaxAspectDao((Map<String, String>)applicationContext.getBean("gmsDatastaxServiceConfig"));
+    return new DatastaxAspectDao((Map<String, String>) applicationContext.getBean("gmsDatastaxServiceConfig"));
   }
 }
