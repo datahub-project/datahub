@@ -7,9 +7,11 @@ import java.lang.annotation.RetentionPolicy;
 @Retention(RetentionPolicy.RUNTIME)
 public @interface ChangeProcessorScope {
   /**
-   * The list of entity-aspect pairs that applies to this processor (case insensitive). Must be in the form
-   * "entityName:aspectName" e.g. "corpUser:corpUserInfo
-   * @return A string array of all the applicable entity aspect pairs
+   * The list of entity-aspect pairs that applies to this processor (case-insensitive). Must be in the form
+   * For a specific aspect on a specific entity: "entityName/aspectName", e.g. "corpUser/corpUserInfo
+   * For all aspects on an entity: "entityName/*", e.g. "corpUser/*"
+   * For all aspects on all entities: "**\/*"
+   * @return A string array of all the applicable entity aspect paths
    */
   String[] entityAspectNames();
 

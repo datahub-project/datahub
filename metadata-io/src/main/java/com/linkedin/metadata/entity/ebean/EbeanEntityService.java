@@ -216,13 +216,13 @@ public class EbeanEntityService extends EntityService {
 
     // 2. Run the registered pre-processors
     ProcessChangeResult result =
-        _changeStreamProcessor.runBeforeChangeProcessors(entityName, aspectName, previousAspect, newAspect);
+        _changeStreamProcessor.processBeforeChange(entityName, aspectName, previousAspect, newAspect);
 
     // 3. The before change processors could ask to stop the processing of the aspect change here.
-    if (result.changeState == ChangeState.STOP_PROCESSING) {
+    if (result.changeState == ChangeState.FAILURE) {
       log.info("Ignoring aspect for urn: {}, entityName: {}, aspectName: {}, newValue:{}. Reason: {}", urn, entityName,
-          aspectName, newAspect, String.join(",", result.getMessages()));
-      return result.getAspect();
+          aspectName, result.aspect, result.message);
+      return result.aspect;
     }
 
     // 4. Persist aspect to the data store
@@ -230,21 +230,21 @@ public class EbeanEntityService extends EntityService {
         ingestAspectToLocalDB(urn, aspectName, newAspect, auditStamp, systemMetadata, 3);
 
     // 5. The before change processors could ask to stop the processing after the aspect save but request to stop processing there.
-    if (result.changeState == ChangeState.SAVE_THEN_STOP) {
+    if (result.changeState == ChangeState.BLOCKER) {
       log.info(
           "Saved aspect but stopped processing for urn: {}, entityName: {}, aspectName: {}, newValue:{}. Reason: {}",
-          urn, entityName, aspectName, newAspect, String.join(",", result.getMessages()));
-      return result.getAspect();
+          urn, entityName, aspectName, result.aspect, result.message);
+      return result.aspect;
     }
 
     // 6. Run the registered after change processors
-    result = _changeStreamProcessor.runAfterChangeProcessors(entityName, aspectName, previousAspect, newAspect);
+    result = _changeStreamProcessor.processAfterChange(entityName, aspectName, previousAspect, newAspect);
     ingestToLocalDBTimer.stop();
 
     // 7. Emit a mae event
     emitMaeEvent(urn, aspectName, previousAspect, result, updateAspectResult);
 
-    return result.getAspect();
+    return result.aspect;
   }
 
   @Nonnull
@@ -626,12 +626,12 @@ public class EbeanEntityService extends EntityService {
 
   private void emitMaeEvent(Urn urn, String aspectName, RecordTemplate previousAspect, ProcessChangeResult result,
       UpdateAspectResult updateAspectResult) {
-    if (!result.getAspect().equals(previousAspect) || _alwaysEmitAuditEvent) {
+    if (!result.aspect.equals(previousAspect) || _alwaysEmitAuditEvent) {
       log.debug(String.format("Producing MetadataAuditEvent for ingested aspect %s, urn %s", aspectName, urn));
       if (aspectName.equals(getKeyAspectName(urn))) {
         produceMetadataAuditEventForKey(urn, updateAspectResult.getNewSystemMetadata());
       } else {
-        produceMetadataAuditEvent(urn, previousAspect, result.getAspect(), updateAspectResult.getOldSystemMetadata(),
+        produceMetadataAuditEvent(urn, previousAspect, result.aspect, updateAspectResult.getOldSystemMetadata(),
             updateAspectResult.getNewSystemMetadata(), MetadataAuditOperation.UPDATE);
       }
     } else {

@@ -2,29 +2,48 @@ package com.linkedin.metadata.changeprocessor;
 
 import com.linkedin.data.template.RecordTemplate;
 
-import java.util.List;
+import java.util.Objects;
+import javax.annotation.Nonnull;
 
 
 public class ProcessChangeResult {
   public final ChangeState changeState;
-  private final RecordTemplate aspect;
-  private final List<String> messages;
+  public final RecordTemplate aspect;
+  public final String message;
 
-  public ProcessChangeResult(RecordTemplate aspect, ChangeState changeState, List<String> messages) {
+  private ProcessChangeResult(RecordTemplate aspect, ChangeState changeState, String message) {
     this.aspect = aspect;
-    this.messages = messages;
+    this.message = message;
     this.changeState = changeState;
   }
 
-  public List<String> getMessages() {
-    return messages;
+  public static ProcessChangeResult success(@Nonnull RecordTemplate aspect) {
+    return new ProcessChangeResult(aspect, ChangeState.SUCCESS, null);
   }
 
-  public RecordTemplate getAspect() {
-    return aspect;
+  public static ProcessChangeResult failure(String message) {
+    return new ProcessChangeResult(null, ChangeState.FAILURE, message);
   }
 
-  public ChangeState getChangeState() {
-    return changeState;
+  public static ProcessChangeResult blocker(@Nonnull RecordTemplate aspect,  String message){
+    return new ProcessChangeResult(aspect, ChangeState.BLOCKER, message);
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (o == null || getClass() != o.getClass()) {
+      return false;
+    }
+    ProcessChangeResult that = (ProcessChangeResult) o;
+    return changeState == that.changeState && Objects.equals(aspect, that.aspect) && Objects.equals(message,
+        that.message);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(changeState, aspect, message);
   }
 }

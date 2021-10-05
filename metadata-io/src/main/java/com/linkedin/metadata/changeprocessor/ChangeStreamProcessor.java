@@ -1,12 +1,11 @@
 package com.linkedin.metadata.changeprocessor;
 
 import com.linkedin.data.template.RecordTemplate;
+import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
-import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.SortedSet;
 import java.util.TreeSet;
@@ -19,8 +18,7 @@ import java.util.TreeSet;
 @Slf4j
 public class ChangeStreamProcessor {
 
-  private final Comparator<ChangeProcessor> _processorComparator = Comparator.comparing(p -> p.PRIORITY);
-  private final TreeSet<ChangeProcessor> _emptySet = new TreeSet<>(_processorComparator);
+  private final Comparator<ChangeProcessor> _processorComparator = Comparator.comparing(ChangeProcessor::getPriority);
   private final Map<String, SortedSet<ChangeProcessor>> _beforeChangeProcessors = new HashMap<>();
   private final Map<String, SortedSet<ChangeProcessor>> _afterChangeProcessors = new HashMap<>();
 
@@ -32,19 +30,19 @@ public class ChangeStreamProcessor {
     addProcessor(entityName, aspectName, processor, _afterChangeProcessors);
   }
 
-  public ProcessChangeResult runBeforeChangeProcessors(String entityName, String aspectName,
-      RecordTemplate previousAspect, RecordTemplate newAspect) {
+  public ProcessChangeResult processBeforeChange(String entityName, String aspectName, RecordTemplate previousAspect,
+      RecordTemplate newAspect) {
     return process(entityName, aspectName, previousAspect, newAspect, _beforeChangeProcessors);
   }
 
-  public ProcessChangeResult runAfterChangeProcessors(String entityName, String aspectName,
-      RecordTemplate previousAspect, RecordTemplate newAspect) {
+  public ProcessChangeResult processAfterChange(String entityName, String aspectName, RecordTemplate previousAspect,
+      RecordTemplate newAspect) {
     return process(entityName, aspectName, previousAspect, newAspect, _afterChangeProcessors);
   }
 
   private void addProcessor(String entityName, String aspectName, ChangeProcessor processor,
       Map<String, SortedSet<ChangeProcessor>> processorMap) {
-    String processorKey = (entityName + aspectName).toLowerCase();
+    String processorKey = (entityName + "/" + aspectName).toLowerCase();
 
     if (processorMap.containsKey(processorKey)) {
       processorMap.get(processorKey).add(processor);
@@ -55,24 +53,56 @@ public class ChangeStreamProcessor {
     }
   }
 
+  @Nonnull
   private ProcessChangeResult process(String entityName, String aspectName, RecordTemplate previousAspect,
       RecordTemplate newAspect, Map<String, SortedSet<ChangeProcessor>> processorMap) {
 
-    String processorKey = (entityName + aspectName).toLowerCase();
-    SortedSet<ChangeProcessor> changeProcessors = processorMap.getOrDefault(processorKey, _emptySet);
+    SortedSet<ChangeProcessor> processors =
+        getChangeProcessors(entityName.toLowerCase(), aspectName.toLowerCase(), processorMap);
 
-    if (changeProcessors.isEmpty()) {
-      return new ProcessChangeResult(newAspect, ChangeState.CONTINUE, new ArrayList<>());
+    if (processors.isEmpty()) {
+      return ProcessChangeResult.success(newAspect);
     }
 
-    List<String> messages = new ArrayList<>();
-    ProcessChangeResult result = new ProcessChangeResult(newAspect, ChangeState.CONTINUE, messages);
+    RecordTemplate modifiedAspect = newAspect;
+    ProcessChangeResult processedResult = ProcessChangeResult.success(newAspect);
 
-    for (ChangeProcessor processor : changeProcessors) {
-      result = processor.process(entityName, aspectName, previousAspect, result.getAspect());
-      messages.addAll(result.getMessages());
+    for (ChangeProcessor processor : processors) {
+      processedResult = processor.process(entityName, aspectName, previousAspect, modifiedAspect);
+      modifiedAspect = processedResult.aspect;
+
+      switch (processedResult.changeState) {
+        case BLOCKER:
+        case FAILURE:
+          break;
+        default:
+      }
     }
 
-    return new ProcessChangeResult(result.getAspect(), result.changeState, messages);
+    return processedResult;
+  }
+
+  private SortedSet<ChangeProcessor> getChangeProcessors(String entityName, String aspectName,
+      Map<String, SortedSet<ChangeProcessor>> processorMap) {
+
+    // 1. Get all processors that apply to all entities/aspects
+    SortedSet<ChangeProcessor> allEntityAspectProcessors =
+        processorMap.getOrDefault("*/*", new TreeSet<>(_processorComparator));
+
+    // 2. Get entity specific processors
+    SortedSet<ChangeProcessor> entityProcessors =
+        processorMap.getOrDefault(entityName + "/*", new TreeSet<>(_processorComparator));
+
+    // 3. Get aspect specific processors
+    SortedSet<ChangeProcessor> aspectProcessors =
+        processorMap.getOrDefault(entityName + "/" + aspectName, new TreeSet<>(_processorComparator));
+
+    // 4. Combine all processors sorting by priority
+    TreeSet<ChangeProcessor> processors = new TreeSet<>(_processorComparator);
+    processors.addAll(allEntityAspectProcessors);
+    processors.addAll(entityProcessors);
+    processors.addAll(aspectProcessors);
+
+    return processors;
   }
 }

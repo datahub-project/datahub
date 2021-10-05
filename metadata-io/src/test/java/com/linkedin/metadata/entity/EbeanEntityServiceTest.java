@@ -666,8 +666,8 @@ public class EbeanEntityServiceTest {
   @Test
   public void testInjestAspectWithChangeProcessorShouldIgnoreUpdate() throws Exception {
     ChangeProcessor changeProcessor = mock(ChangeProcessor.class);
-    when(changeProcessor.process(any(), any(), any(), any())).thenReturn(
-        new ProcessChangeResult(null, ChangeState.STOP_PROCESSING, new ArrayList<>()));
+
+    when(changeProcessor.process(any(), any(), any(), any())).thenReturn(ProcessChangeResult.failure("Fail"));
     String entityName = "corpUser";
 
     _changeStreamProcessor.addBeforeChangeProcessor(entityName, "corpUserInfo", changeProcessor);
@@ -702,10 +702,10 @@ public class EbeanEntityServiceTest {
     // Setup a change processor to allow the initial change
     ChangeProcessor changeProcessor = mock(ChangeProcessor.class);
     when(changeProcessor.process(entityName, aspectName, null, writeAspect1)).thenReturn(
-        new ProcessChangeResult(writeAspect1, ChangeState.CONTINUE, new ArrayList<>()));
+        ProcessChangeResult.success(writeAspect1));
 
     when(changeProcessor.process(entityName, aspectName, writeAspect1, writeAspect2)).thenReturn(
-        new ProcessChangeResult(writeAspect1, ChangeState.STOP_PROCESSING, new ArrayList<>()));
+        ProcessChangeResult.failure("Fail"));
 
     _changeStreamProcessor.addBeforeChangeProcessor(entityName, "corpUserInfo", changeProcessor);
 
@@ -727,12 +727,12 @@ public class EbeanEntityServiceTest {
   }
 
   @Nonnull
-  private RecordTemplate createCorpUserKey(Urn urn) throws Exception {
+  private RecordTemplate createCorpUserKey(Urn urn) {
     return EntityKeyUtils.convertUrnToEntityKey(urn, new CorpUserKey().schema());
   }
 
   @Nonnull
-  private CorpUserInfo createCorpUserInfo(String email) throws Exception {
+  private CorpUserInfo createCorpUserInfo(String email) {
     CorpUserInfo corpUserInfo = new CorpUserInfo();
     corpUserInfo.setEmail(email);
     corpUserInfo.setActive(true);
