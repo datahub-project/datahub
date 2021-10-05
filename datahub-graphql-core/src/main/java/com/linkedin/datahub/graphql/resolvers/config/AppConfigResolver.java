@@ -52,11 +52,12 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
         .collect(Collectors.toList())
     );
 
-    appConfig.setAnalyticsConfig(analyticsConfig);
-    appConfig.setPoliciesConfig(policiesConfig);
-
     final IdentityManagementConfig identityManagementConfig = new IdentityManagementConfig();
     identityManagementConfig.setEnabled(true); // Identity Management always enabled. TODO: Understand if there's a case where this should change.
+
+    appConfig.setAnalyticsConfig(analyticsConfig);
+    appConfig.setPoliciesConfig(policiesConfig);
+    appConfig.setIdentityManagementConfig(identityManagementConfig);
 
     return CompletableFuture.completedFuture(appConfig);
   }

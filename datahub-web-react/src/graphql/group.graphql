@@ -129,3 +129,7 @@ query listGroups($input: ListGroupsInput!) {
         }
     }
 }
+
+mutation removeGroup($urn: String!) {
+    removeGroup(urn: $urn)
+}

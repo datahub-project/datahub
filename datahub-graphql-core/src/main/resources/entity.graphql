@@ -196,12 +196,17 @@ type Mutation {
     updateDescription(input: DescriptionUpdateInput!): Boolean
 
     """
-    Remove a user
+    Remove a user. Requires Manage Users & Groups Platform Privilege
     """
     removeUser(urn: String!): Boolean
 
     """
-    Remove a group
+    Change the status of a user. Requires Manage Users & Groups Platform Privilege
+    """
+    updateUserStatus(urn: String!, status: CorpUserStatus!): String
+
+    """
+    Remove a group. Requires Manage Users & Groups Platform Privilege
     """
     removeGroup(urn: String!): Boolean
 
@@ -216,7 +221,7 @@ type Mutation {
     removeGroupMember(groupUrn: String!, userUrn: String!): Boolean
 
     """
-    Create a new group. Returns the urn of the newly created group
+    Create a new group. Returns the urn of the newly created group. Requires Manage Users & Groups Platform Privilege
     """
     createGroup(input: CreateGroupInput!): String
 }

@@ -90,3 +90,11 @@ query listUsers($input: ListUsersInput!) {
         }
     }
 }
+
+mutation removeUser($urn: String!) {
+    removeUser(urn: $urn)
+}
+
+mutation updateUserStatus($urn: String!, $status: CorpUserStatus!) {
+    updateUserStatus(urn: $urn, status: $status)
+}
