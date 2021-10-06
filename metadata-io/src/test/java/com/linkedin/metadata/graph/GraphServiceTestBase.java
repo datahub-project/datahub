@@ -1301,7 +1301,7 @@ abstract public class GraphServiceTestBase {
       // too many edges may cause too many threads throwing
       // java.util.concurrent.RejectedExecutionException: Thread limit exceeded replacing blocked worker
       int nodes = 5;
-      int relationshipTypes = 5;
+      int relationshipTypes = 3;
       List<String> allRelationships = IntStream.range(1, relationshipTypes + 1).mapToObj(id -> "relationship" + id).collect(Collectors.toList());
       List<Edge> edges = getFullyConnectedGraph(nodes, allRelationships);
 
@@ -1332,8 +1332,8 @@ abstract public class GraphServiceTestBase {
   public void testConcurrentRemoveEdgesFromNode() throws Exception {
     final GraphService service = getGraphService();
 
-    int nodes = 10;
-    int relationshipTypes = 5;
+    int nodes = 5;
+    int relationshipTypes = 3;
     List<String> allRelationships = IntStream.range(1, relationshipTypes + 1).mapToObj(id -> "relationship" + id).collect(Collectors.toList());
     List<Edge> edges = getFullyConnectedGraph(nodes, allRelationships);
 
@@ -1376,8 +1376,8 @@ abstract public class GraphServiceTestBase {
 
     // too many edges may cause too many threads throwing
     // java.util.concurrent.RejectedExecutionException: Thread limit exceeded replacing blocked worker
-    int nodes = 10;
-    int relationshipTypes = 5;
+    int nodes = 5;
+    int relationshipTypes = 3;
     List<String> allRelationships = IntStream.range(1, relationshipTypes + 1).mapToObj(id -> "relationship" + id).collect(Collectors.toList());
     List<Edge> edges = getFullyConnectedGraph(nodes, allRelationships);
 
