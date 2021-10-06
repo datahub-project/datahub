@@ -7,8 +7,8 @@ type UpdateDataFlow = {
 };
 
 export const updateDataFlowResolver = {
-    updateDataFlow({ variables: { input } }): UpdateDataFlow {
-        const { globalTags, urn, ownership }: DataFlowUpdateInput = input;
+    updateDataFlow({ variables: { urn, input } }): UpdateDataFlow {
+        const { globalTags, ownership }: DataFlowUpdateInput = input;
         const dataFlow = findDataFlowByURN(urn);
 
         if (ownership) {

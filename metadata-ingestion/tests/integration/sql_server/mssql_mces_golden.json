@@ -64,7 +64,8 @@
                             }
                         ],
                         "primaryKeys": null,
-                        "foreignKeysSpecs": null
+                        "foreignKeysSpecs": null,
+                        "foreignKeys": null
                     }
                 }
             ]
@@ -142,7 +143,209 @@
                             }
                         ],
                         "primaryKeys": null,
-                        "foreignKeysSpecs": null
+                        "foreignKeysSpecs": null,
+                        "foreignKeys": null
+                    }
+                }
+            ]
+        }
+    },
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-test",
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:mssql,DemoData.Foo.Persons,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "DemoData.Foo.Persons",
+                        "platform": "urn:li:dataPlatform:mssql",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown",
+                            "impersonator": null
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown",
+                            "impersonator": null
+                        },
+                        "deleted": null,
+                        "dataset": null,
+                        "cluster": null,
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                "tableSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "ID",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "INTEGER()",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": true
+                            },
+                            {
+                                "fieldPath": "LastName",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "VARCHAR(length=255, collation='SQL_Latin1_General_CP1_CI_AS')",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "FirstName",
+                                "jsonPath": null,
+                                "nullable": true,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "VARCHAR(length=255, collation='SQL_Latin1_General_CP1_CI_AS')",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Age",
+                                "jsonPath": null,
+                                "nullable": true,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "INTEGER()",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false
+                            }
+                        ],
+                        "primaryKeys": null,
+                        "foreignKeysSpecs": null,
+                        "foreignKeys": null
+                    }
+                }
+            ]
+        }
+    },
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-test",
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:mssql,DemoData.Foo.SalesReason,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "DemoData.Foo.SalesReason",
+                        "platform": "urn:li:dataPlatform:mssql",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown",
+                            "impersonator": null
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown",
+                            "impersonator": null
+                        },
+                        "deleted": null,
+                        "dataset": null,
+                        "cluster": null,
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                "tableSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "TempID",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "INTEGER()",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": true
+                            },
+                            {
+                                "fieldPath": "Name",
+                                "jsonPath": null,
+                                "nullable": true,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "NVARCHAR(length=50)",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false
+                            }
+                        ],
+                        "primaryKeys": null,
+                        "foreignKeysSpecs": null,
+                        "foreignKeys": [
+                            {
+                                "name": "FK_TempSales_SalesReason",
+                                "foreignFields": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,DemoData.Foo.Persons,PROD), ID)"
+                                ],
+                                "sourceFields": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,DemoData.Foo.SalesReason,PROD), TempID)"
+                                ],
+                                "foreignDataset": "urn:li:dataset:(urn:li:dataPlatform:mssql,DemoData.Foo.Persons,PROD)"
+                            }
+                        ]
                     }
                 }
             ]

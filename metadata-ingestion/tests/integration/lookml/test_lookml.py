@@ -8,6 +8,7 @@ import pytest
 from freezegun import freeze_time
 from looker_sdk.sdk.api31.models import DBConnection
 
+from datahub.configuration.common import PipelineExecutionError
 from datahub.ingestion.run.pipeline import Pipeline
 from tests.test_helpers import mce_helpers
 
@@ -179,3 +180,52 @@ def ingestion_test(
             output_path=tmp_path / mce_out_file,
             golden_path=test_resources_dir / mce_out_file,
         )
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.skipif(sys.version_info < (3, 7), reason="lkml requires Python 3.7+")
+def test_lookml_bad_sql_parser(pytestconfig, tmp_path, mock_time):
+    """Incorrect specification of sql parser should not fail ingestion"""
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/lookml"
+    mce_out = "lookml_mces_badsql_parser.json"
+    pipeline = Pipeline.create(
+        {
+            "run_id": "lookml-test",
+            "source": {
+                "type": "lookml",
+                "config": {
+                    "base_folder": str(test_resources_dir / "lkml_samples"),
+                    "connection_to_platform_map": {
+                        "my_connection": {
+                            "platform": "snowflake",
+                            "default_db": "default_db",
+                            "default_schema": "default_schema",
+                        }
+                    },
+                    "parse_table_names_from_sql": True,
+                    "project_name": "lkml_samples",
+                    "sql_parser": "bad.sql.Parser",
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": f"{tmp_path}/{mce_out}",
+                },
+            },
+        }
+    )
+    pipeline.run()
+    pipeline.pretty_print_summary()
+    pipeline.raise_from_status(raise_warnings=False)
+    try:
+        pipeline.raise_from_status(raise_warnings=True)
+        assert False, "Pipeline should have generated warnings"
+    except PipelineExecutionError:
+        pass
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=tmp_path / mce_out,
+        golden_path=test_resources_dir / mce_out,
+    )

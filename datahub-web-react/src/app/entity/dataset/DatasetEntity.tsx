@@ -70,6 +70,8 @@ export class DatasetEntity implements Entity<Dataset> {
 
     getPathName = () => 'dataset';
 
+    getEntityName = () => 'Dataset';
+
     getCollectionName = () => 'Datasets';
 
     renderProfile = (urn: string) => (

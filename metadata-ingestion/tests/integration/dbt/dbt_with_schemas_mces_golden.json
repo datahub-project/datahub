@@ -8,6 +8,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
+                            "owner": "@alice",
                             "node_type": "model",
                             "materialization": "ephemeral",
                             "dbt_file_path": "models/transform/customer_details.sql",
@@ -19,7 +20,34 @@
                         "externalUrl": null,
                         "description": null,
                         "uri": null,
-                        "tags": []
+                        "tags": [
+                            "dbt:test_tag"
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [
+                            {
+                                "owner": "urn:li:corpuser:@alice",
+                                "type": "DATAOWNER",
+                                "source": null
+                            }
+                        ],
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown",
+                            "impersonator": null
+                        }
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:dbt:test_tag"
+                            }
+                        ]
                     }
                 },
                 {
@@ -81,7 +109,8 @@
                         },
                         "fields": [],
                         "primaryKeys": null,
-                        "foreignKeysSpecs": null
+                        "foreignKeysSpecs": null,
+                        "foreignKeys": null
                     }
                 }
             ]
@@ -233,7 +262,8 @@
                             }
                         ],
                         "primaryKeys": null,
-                        "foreignKeysSpecs": null
+                        "foreignKeysSpecs": null,
+                        "foreignKeys": null
                     }
                 }
             ]
@@ -462,7 +492,8 @@
                             }
                         ],
                         "primaryKeys": null,
-                        "foreignKeysSpecs": null
+                        "foreignKeysSpecs": null,
+                        "foreignKeys": null
                     }
                 }
             ]
@@ -589,7 +620,8 @@
                             }
                         ],
                         "primaryKeys": null,
-                        "foreignKeysSpecs": null
+                        "foreignKeysSpecs": null,
+                        "foreignKeys": null
                     }
                 }
             ]
@@ -626,6 +658,22 @@
                         "description": "postgres comment: Actors table \u2013 from postgres\n\ndbt model description: description for actor table from dbt",
                         "uri": null,
                         "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [
+                            {
+                                "owner": "urn:li:corpuser:@alice",
+                                "type": "DATAOWNER",
+                                "source": null
+                            }
+                        ],
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown",
+                            "impersonator": null
+                        }
                     }
                 },
                 {
@@ -686,7 +734,13 @@
                                 },
                                 "nativeDataType": "text",
                                 "recursive": false,
-                                "globalTags": null,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:dbt:column_tag"
+                                        }
+                                    ]
+                                },
                                 "glossaryTerms": null,
                                 "isPartOfKey": false
                             },
@@ -724,7 +778,8 @@
                             }
                         ],
                         "primaryKeys": null,
-                        "foreignKeysSpecs": null
+                        "foreignKeysSpecs": null,
+                        "foreignKeys": null
                     }
                 }
             ]
@@ -920,7 +975,8 @@
                             }
                         ],
                         "primaryKeys": null,
-                        "foreignKeysSpecs": null
+                        "foreignKeysSpecs": null,
+                        "foreignKeys": null
                     }
                 }
             ]
@@ -1036,7 +1092,8 @@
                             }
                         ],
                         "primaryKeys": null,
-                        "foreignKeysSpecs": null
+                        "foreignKeysSpecs": null,
+                        "foreignKeys": null
                     }
                 }
             ]
@@ -1168,7 +1225,8 @@
                             }
                         ],
                         "primaryKeys": null,
-                        "foreignKeysSpecs": null
+                        "foreignKeysSpecs": null,
+                        "foreignKeys": null
                     }
                 }
             ]
@@ -1205,6 +1263,22 @@
                         "description": null,
                         "uri": null,
                         "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [
+                            {
+                                "owner": "urn:li:corpuser:@bob",
+                                "type": "DATAOWNER",
+                                "source": null
+                            }
+                        ],
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown",
+                            "impersonator": null
+                        }
                     }
                 },
                 {
@@ -1287,7 +1361,8 @@
                             }
                         ],
                         "primaryKeys": null,
-                        "foreignKeysSpecs": null
+                        "foreignKeysSpecs": null,
+                        "foreignKeys": null
                     }
                 }
             ]
@@ -1515,7 +1590,8 @@
                             }
                         ],
                         "primaryKeys": null,
-                        "foreignKeysSpecs": null
+                        "foreignKeysSpecs": null,
+                        "foreignKeys": null
                     }
                 }
             ]
@@ -1679,7 +1755,8 @@
                             }
                         ],
                         "primaryKeys": null,
-                        "foreignKeysSpecs": null
+                        "foreignKeysSpecs": null,
+                        "foreignKeys": null
                     }
                 }
             ]
@@ -1717,6 +1794,22 @@
                         "description": null,
                         "uri": null,
                         "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [
+                            {
+                                "owner": "urn:li:corpuser:@charles",
+                                "type": "DATAOWNER",
+                                "source": null
+                            }
+                        ],
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown",
+                            "impersonator": null
+                        }
                     }
                 },
                 {
@@ -1847,7 +1940,8 @@
                             }
                         ],
                         "primaryKeys": null,
-                        "foreignKeysSpecs": null
+                        "foreignKeysSpecs": null,
+                        "foreignKeys": null
                     }
                 }
             ]
@@ -2011,7 +2105,8 @@
                             }
                         ],
                         "primaryKeys": null,
-                        "foreignKeysSpecs": null
+                        "foreignKeysSpecs": null,
+                        "foreignKeys": null
                     }
                 }
             ]
@@ -2175,7 +2270,8 @@
                             }
                         ],
                         "primaryKeys": null,
-                        "foreignKeysSpecs": null
+                        "foreignKeysSpecs": null,
+                        "foreignKeys": null
                     }
                 }
             ]
@@ -2339,7 +2435,8 @@
                             }
                         ],
                         "primaryKeys": null,
-                        "foreignKeysSpecs": null
+                        "foreignKeysSpecs": null,
+                        "foreignKeys": null
                     }
                 }
             ]
@@ -2503,7 +2600,8 @@
                             }
                         ],
                         "primaryKeys": null,
-                        "foreignKeysSpecs": null
+                        "foreignKeysSpecs": null,
+                        "foreignKeys": null
                     }
                 }
             ]
