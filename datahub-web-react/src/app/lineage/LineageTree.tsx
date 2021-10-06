@@ -18,6 +18,8 @@ type LineageTreeProps = {
     onEntityCenter: (EntitySelectParams) => void;
     onLineageExpand: (LineageExpandParams) => void;
     selectedEntity?: EntitySelectParams;
+    hoveredEntity?: EntitySelectParams;
+    setHoveredEntity: (EntitySelectParams) => void;
     margin: TreeProps['margin'];
     direction: Direction;
 };
@@ -32,9 +34,10 @@ export default function LineageTree({
     onEntityCenter,
     onLineageExpand,
     selectedEntity,
+    hoveredEntity,
+    setHoveredEntity,
     direction,
 }: LineageTreeProps) {
-    const [hoveredEntity, setHoveredEntity] = useState<EntitySelectParams | undefined>(undefined);
     const [xCanvasScale, setXCanvasScale] = useState(1);
     const [yCanvasScale, setYCanvasScale] = useState(1);
 

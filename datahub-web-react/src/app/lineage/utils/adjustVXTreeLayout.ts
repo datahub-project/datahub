@@ -13,6 +13,7 @@ export default function adjustVXTreeLayout({
     const nodesByUrn: { [x: string]: HierarchyPointNode<NodeData>[] } = {};
     // adjust node's positions
     tree.descendants().forEach((descendent) => {
+        console.log(descendent);
         // first, we need to flip the position of nodes who are going upstream
         // eslint-disable-next-line  no-param-reassign
         if (direction === Direction.Upstream) {

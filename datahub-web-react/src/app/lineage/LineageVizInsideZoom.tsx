@@ -1,4 +1,4 @@
-import React, { SVGProps, useEffect, useMemo } from 'react';
+import React, { SVGProps, useEffect, useMemo, useState } from 'react';
 import { hierarchy } from '@vx/hierarchy';
 import { PlusOutlined, MinusOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
@@ -57,6 +57,8 @@ export default function LineageVizInsideZoom({
     width,
     height,
 }: Props) {
+    const [hoveredEntity, setHoveredEntity] = useState<EntitySelectParams | undefined>(undefined);
+
     const entityRegistry = useEntityRegistry();
     const yMax = height - margin?.top - margin?.bottom;
     const xMax = (width - margin?.left - margin?.right) / 2;
@@ -159,6 +161,8 @@ export default function LineageVizInsideZoom({
                     canvasWidth={xMax}
                     margin={margin}
                     selectedEntity={selectedEntity}
+                    hoveredEntity={hoveredEntity}
+                    setHoveredEntity={setHoveredEntity}
                     direction={Direction.Upstream}
                 />
                 <LineageTree
@@ -171,6 +175,8 @@ export default function LineageVizInsideZoom({
                     canvasWidth={xMax}
                     margin={margin}
                     selectedEntity={selectedEntity}
+                    hoveredEntity={hoveredEntity}
+                    setHoveredEntity={setHoveredEntity}
                     direction={Direction.Downstream}
                 />
             </RootSvg>
