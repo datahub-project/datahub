@@ -32,6 +32,7 @@ import com.linkedin.datahub.graphql.types.mappers.BrowseResultMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.Entity;
+import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.extractor.AspectExtractor;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
@@ -41,6 +42,7 @@ import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.r2.RemoteInvocationException;
 
 import graphql.execution.DataFetcherResult;
+import java.util.Collections;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
@@ -58,9 +60,11 @@ public class DatasetType implements SearchableEntityType<Dataset>, BrowsableEnti
     private static final String ENTITY_NAME = "dataset";
 
     private final EntityClient _datasetsClient;
+    private final EntityService _entityService;
 
-    public DatasetType(final EntityClient datasetsClient) {
+    public DatasetType(final EntityClient datasetsClient, final EntityService entityService) {
         _datasetsClient = datasetsClient;
+        _entityService = entityService;
     }
 
     @Override
@@ -86,11 +90,10 @@ public class DatasetType implements SearchableEntityType<Dataset>, BrowsableEnti
                 .collect(Collectors.toList());
 
         try {
-            final Map<Urn, Entity> datasetMap = _datasetsClient.batchGet(datasetUrns
+            final Map<Urn, Entity> datasetMap = _entityService.getEntities(datasetUrns
                     .stream()
                     .filter(Objects::nonNull)
-                    .collect(Collectors.toSet()),
-                context.getActor());
+                    .collect(Collectors.toSet()), Collections.emptySet());
 
             final List<Entity> gmsResults = new ArrayList<>();
             for (DatasetUrn urn : datasetUrns) {

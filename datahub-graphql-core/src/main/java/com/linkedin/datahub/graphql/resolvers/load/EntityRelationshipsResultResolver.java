@@ -1,7 +1,9 @@
 package com.linkedin.datahub.graphql.resolvers.load;
 
 import com.linkedin.common.EntityRelationship;
+import com.linkedin.common.EntityRelationshipArray;
 import com.linkedin.common.EntityRelationships;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityRelationshipsResult;
@@ -9,6 +11,8 @@ import com.linkedin.datahub.graphql.generated.RelationshipsInput;
 import com.linkedin.datahub.graphql.types.common.mappers.AuditStampMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.lineage.client.RelationshipClient;
+import com.linkedin.metadata.graph.GraphService;
+import com.linkedin.metadata.graph.RelatedEntitiesResult;
 import com.linkedin.metadata.query.RelationshipDirection;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetcher;
@@ -17,24 +21,64 @@ import java.net.URISyntaxException;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
+import static com.linkedin.metadata.dao.utils.QueryUtils.*;
+
 
 /**
  * GraphQL Resolver responsible for fetching relationships between entities in the DataHub graph.
  */
 public class EntityRelationshipsResultResolver implements DataFetcher<CompletableFuture<EntityRelationshipsResult>> {
 
-  private final RelationshipClient _client;
+  private static final Integer MAX_DOWNSTREAM_CNT = 100;
+  private final GraphService _graphService;
 
-  public EntityRelationshipsResultResolver(final RelationshipClient client) {
-    _client = client;
+  public EntityRelationshipsResultResolver(final GraphService graphService) {
+    _graphService = graphService;
+  }
+
+  private EntityRelationships getRelatedEntities(
+      String rawUrn,
+      List<String> relationshipTypes,
+      RelationshipDirection direction,
+      @Nullable Integer start,
+      @Nullable Integer count) {
+
+    start = start == null ? 0 : start;
+    count = count == null ? MAX_DOWNSTREAM_CNT : count;
+
+    RelatedEntitiesResult relatedEntitiesResult =
+        _graphService.findRelatedEntities("", newFilter("urn", rawUrn), "", EMPTY_FILTER, relationshipTypes,
+            newRelationshipFilter(EMPTY_FILTER, direction), start, count);
+
+    final EntityRelationshipArray entityArray = new EntityRelationshipArray(
+        relatedEntitiesResult.getEntities().stream().map(
+            entity -> {
+              try {
+                return new EntityRelationship()
+                    .setEntity(Urn.createFromString(entity.getUrn()))
+                    .setType(entity.getRelationshipType());
+              } catch (URISyntaxException e) {
+                throw new RuntimeException(
+                    String.format("Failed to convert urnStr %s found in the Graph to an Urn object", entity.getUrn()));
+              }
+            }
+        ).collect(Collectors.toList())
+    );
+
+    return new EntityRelationships()
+        .setStart(relatedEntitiesResult.getStart())
+        .setCount(relatedEntitiesResult.getCount())
+        .setTotal(relatedEntitiesResult.getTotal())
+        .setRelationships(entityArray);
   }
 
   @Override
   public CompletableFuture<EntityRelationshipsResult> get(DataFetchingEnvironment environment) {
-      final QueryContext context = environment.getContext();
-      final String urn = ((Entity) environment.getSource()).getUrn();
+    final QueryContext context = environment.getContext();
+    final String urn = ((Entity) environment.getSource()).getUrn();
       final RelationshipsInput input = bindArgument(environment.getArgument("input"), RelationshipsInput.class);
 
       final List<String> relationshipTypes = input.getTypes();
@@ -62,11 +106,8 @@ public class EntityRelationshipsResultResolver implements DataFetcher<Completabl
       final Integer start,
       final Integer count,
       final String actor) {
-    try {
-      return _client.getRelationships(urn, direction, types, start, count, actor);
-    } catch (RemoteInvocationException | URISyntaxException e) {
-      throw new RuntimeException("Failed to retrieve aspects from GMS", e);
-    }
+
+      return getRelatedEntities(urn, types, direction, start, count);
   }
 
   private EntityRelationshipsResult mapEntityRelationships(
