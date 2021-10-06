@@ -198,7 +198,7 @@ QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name, upstream_table_na
                 dataset=builder.make_dataset_urn(
                     self.platform, upstream_table_name, self.config.env
                 ),
-                type=DatasetLineageTypeClass.COPY,
+                type=DatasetLineageTypeClass.TRANSFORMED,
             )
             upstream_tables.append(upstream_table)
             # Update column-lineage for each down-stream column.
