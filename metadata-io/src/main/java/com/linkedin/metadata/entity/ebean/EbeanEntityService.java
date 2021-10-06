@@ -103,7 +103,7 @@ public class EbeanEntityService extends EntityService {
     });
 
     Map<EbeanAspectV2.PrimaryKey, EbeanAspectV2> batchGetResults = new HashMap<>();
-    Iterators.partition(dbKeys.iterator(), 800).forEachRemaining(
+    Iterators.partition(dbKeys.iterator(), 500).forEachRemaining(
         batch -> batchGetResults.putAll(_entityDao.batchGet(ImmutableSet.copyOf(batch)))
     );
 
