@@ -6,27 +6,29 @@ import java.util.Objects;
 import javax.annotation.Nonnull;
 
 
-public class ProcessChangeResult {
+public class ChangeResult {
   public final ChangeState changeState;
   public final RecordTemplate aspect;
   public final String message;
 
-  private ProcessChangeResult(RecordTemplate aspect, ChangeState changeState, String message) {
+  private ChangeResult(RecordTemplate aspect, ChangeState changeState, String message) {
     this.aspect = aspect;
     this.message = message;
     this.changeState = changeState;
   }
 
-  public static ProcessChangeResult success(@Nonnull RecordTemplate aspect) {
-    return new ProcessChangeResult(aspect, ChangeState.SUCCESS, null);
+  /**
+   * The change should be allowed to continue passing on the modified aspect
+   */
+  public static ChangeResult success(@Nonnull RecordTemplate aspect) {
+    return new ChangeResult(aspect, ChangeState.SUCCESS, null);
   }
 
-  public static ProcessChangeResult failure(String message) {
-    return new ProcessChangeResult(null, ChangeState.FAILURE, message);
-  }
-
-  public static ProcessChangeResult blocker(@Nonnull RecordTemplate aspect,  String message){
-    return new ProcessChangeResult(aspect, ChangeState.BLOCKER, message);
+  /**
+   * The change should not be allowed to proceed
+   */
+  public static ChangeResult failure(String message) {
+    return new ChangeResult(null, ChangeState.FAILURE, message);
   }
 
   @Override
@@ -37,7 +39,7 @@ public class ProcessChangeResult {
     if (o == null || getClass() != o.getClass()) {
       return false;
     }
-    ProcessChangeResult that = (ProcessChangeResult) o;
+    ChangeResult that = (ChangeResult) o;
     return changeState == that.changeState && Objects.equals(aspect, that.aspect) && Objects.equals(message,
         that.message);
   }

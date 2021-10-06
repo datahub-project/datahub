@@ -47,14 +47,14 @@ public class ChangeProcessorFactory {
       ChangeProcessorScope annotation = changeProcessor.getClass().getAnnotation(ChangeProcessorScope.class);
       for (String entityAspect : annotation.entityAspectNames()) {
 
-        String[] keys = entityAspect.split(":");
+        String[] keys = entityAspect.split("/");
         String entityName = keys[0];
         String aspectName = keys[1];
 
-        if (annotation.processorType() == ChangeProcessorType.BEFORE) {
-          changeStreamProcessor.addBeforeChangeProcessor(entityName, aspectName, changeProcessor);
+        if (annotation.processorType() == ChangeProcessorType.PRE) {
+          changeStreamProcessor.registerPreProcessor(entityName, aspectName, changeProcessor);
         } else {
-          changeStreamProcessor.addAfterChangeProcessor(entityName, aspectName, changeProcessor);
+          changeStreamProcessor.registerPostProcessor(entityName, aspectName, changeProcessor);
         }
         processorCount += 1;
       }

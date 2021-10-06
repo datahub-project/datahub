@@ -22,7 +22,9 @@ import org.springframework.core.io.ClassPathResource;
 @RequiredArgsConstructor
 public class IngestDataPlatformsStep implements BootstrapStep {
 
+  private static final String PLATFORM_ENTITY_NAME = "dataPlatform";
   private static final String PLATFORM_ASPECT_NAME = "dataPlatformInfo";
+
 
   private final EntityService _entityService;
 
@@ -59,7 +61,7 @@ public class IngestDataPlatformsStep implements BootstrapStep {
       final AuditStamp aspectAuditStamp =
           new AuditStamp().setActor(Urn.createFromString(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis());
 
-        _entityService.ingestAspect(urn, "dataPlatform", PLATFORM_ASPECT_NAME, info, aspectAuditStamp);
+        _entityService.ingestAspect(urn, PLATFORM_ENTITY_NAME, PLATFORM_ASPECT_NAME, info, aspectAuditStamp);
       }
     }
 }

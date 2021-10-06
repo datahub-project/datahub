@@ -13,34 +13,34 @@ import java.util.TreeSet;
 
 /**
  * Responsible for routing events to the correct registered change processors. Processors are registered based on the
- * aspectName they apply to. If none are supplied then the proposed change is returned.
+ * entity/aspect they apply to. If none are supplied then the proposed change is returned.
  */
 @Slf4j
 public class ChangeStreamProcessor {
 
   private final Comparator<ChangeProcessor> _processorComparator = Comparator.comparing(ChangeProcessor::getPriority);
-  private final Map<String, SortedSet<ChangeProcessor>> _beforeChangeProcessors = new HashMap<>();
-  private final Map<String, SortedSet<ChangeProcessor>> _afterChangeProcessors = new HashMap<>();
+  private final Map<String, SortedSet<ChangeProcessor>> _preProcessors = new HashMap<>();
+  private final Map<String, SortedSet<ChangeProcessor>> _postProcessors = new HashMap<>();
 
-  public void addBeforeChangeProcessor(String entityName, String aspectName, ChangeProcessor processor) {
-    addProcessor(entityName, aspectName, processor, _beforeChangeProcessors);
+  public void registerPreProcessor(String entityName, String aspectName, ChangeProcessor processor) {
+    registerProcessor(entityName, aspectName, processor, _preProcessors);
   }
 
-  public void addAfterChangeProcessor(String entityName, String aspectName, ChangeProcessor processor) {
-    addProcessor(entityName, aspectName, processor, _afterChangeProcessors);
+  public void registerPostProcessor(String entityName, String aspectName, ChangeProcessor processor) {
+    registerProcessor(entityName, aspectName, processor, _postProcessors);
   }
 
-  public ProcessChangeResult processBeforeChange(String entityName, String aspectName, RecordTemplate previousAspect,
+  public ChangeResult preProcessChange(String entityName, String aspectName, RecordTemplate previousAspect,
       RecordTemplate newAspect) {
-    return process(entityName, aspectName, previousAspect, newAspect, _beforeChangeProcessors);
+    return process(entityName, aspectName, previousAspect, newAspect, _preProcessors);
   }
 
-  public ProcessChangeResult processAfterChange(String entityName, String aspectName, RecordTemplate previousAspect,
+  public ChangeResult postProcessChange(String entityName, String aspectName, RecordTemplate previousAspect,
       RecordTemplate newAspect) {
-    return process(entityName, aspectName, previousAspect, newAspect, _afterChangeProcessors);
+    return process(entityName, aspectName, previousAspect, newAspect, _postProcessors);
   }
 
-  private void addProcessor(String entityName, String aspectName, ChangeProcessor processor,
+  private void registerProcessor(String entityName, String aspectName, ChangeProcessor processor,
       Map<String, SortedSet<ChangeProcessor>> processorMap) {
     String processorKey = (entityName + "/" + aspectName).toLowerCase();
 
@@ -54,35 +54,33 @@ public class ChangeStreamProcessor {
   }
 
   @Nonnull
-  private ProcessChangeResult process(String entityName, String aspectName, RecordTemplate previousAspect,
+  private ChangeResult process(String entityName, String aspectName, RecordTemplate previousAspect,
       RecordTemplate newAspect, Map<String, SortedSet<ChangeProcessor>> processorMap) {
 
     SortedSet<ChangeProcessor> processors =
-        getChangeProcessors(entityName.toLowerCase(), aspectName.toLowerCase(), processorMap);
+        getProcessors(entityName.toLowerCase(), aspectName.toLowerCase(), processorMap);
 
     if (processors.isEmpty()) {
-      return ProcessChangeResult.success(newAspect);
+      return ChangeResult.success(newAspect);
     }
 
     RecordTemplate modifiedAspect = newAspect;
-    ProcessChangeResult processedResult = ProcessChangeResult.success(newAspect);
+    ChangeResult processedResult = ChangeResult.success(newAspect);
 
     for (ChangeProcessor processor : processors) {
       processedResult = processor.process(entityName, aspectName, previousAspect, modifiedAspect);
       modifiedAspect = processedResult.aspect;
 
-      switch (processedResult.changeState) {
-        case BLOCKER:
-        case FAILURE:
-          break;
-        default:
+      if (processedResult.changeState == ChangeState.FAILURE) {
+        // If failure condition found stop processing
+        break;
       }
     }
 
     return processedResult;
   }
 
-  private SortedSet<ChangeProcessor> getChangeProcessors(String entityName, String aspectName,
+  private SortedSet<ChangeProcessor> getProcessors(String entityName, String aspectName,
       Map<String, SortedSet<ChangeProcessor>> processorMap) {
 
     // 1. Get all processors that apply to all entities/aspects

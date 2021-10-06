@@ -5,21 +5,14 @@ import javax.annotation.Nonnull;
 
 
 public interface ChangeProcessor {
-  /**
-   * Given a proposed change to an aspect on an entity run some
-   * @param entityName
-   * @param aspectName
-   * @param previousAspect
-   * @param newAspect
-   * @return
-   */
   @Nonnull
-  ProcessChangeResult process(String entityName, String aspectName, RecordTemplate previousAspect,
-      RecordTemplate newAspect);
+  ChangeResult process(String entityName, String aspectName, RecordTemplate previousAspect, RecordTemplate newAspect);
 
-  default Integer getPriority(){
+  /**
+   * The order in which processors are run on the change. 0 is the highest priority and will be run first.
+   * @return priority of the processor
+   */
+  default Integer getPriority() {
     return 0;
   }
 }
-
-

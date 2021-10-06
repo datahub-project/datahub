@@ -17,9 +17,8 @@ import com.linkedin.metadata.aspect.CorpUserAspect;
 import com.linkedin.metadata.aspect.CorpUserAspectArray;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.changeprocessor.ChangeProcessor;
-import com.linkedin.metadata.changeprocessor.ChangeState;
 import com.linkedin.metadata.changeprocessor.ChangeStreamProcessor;
-import com.linkedin.metadata.changeprocessor.ProcessChangeResult;
+import com.linkedin.metadata.changeprocessor.ChangeResult;
 import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.entity.ebean.EbeanEntityService;
@@ -667,10 +666,10 @@ public class EbeanEntityServiceTest {
   public void testInjestAspectWithChangeProcessorShouldIgnoreUpdate() throws Exception {
     ChangeProcessor changeProcessor = mock(ChangeProcessor.class);
 
-    when(changeProcessor.process(any(), any(), any(), any())).thenReturn(ProcessChangeResult.failure("Fail"));
+    when(changeProcessor.process(any(), any(), any(), any())).thenReturn(ChangeResult.failure("Fail"));
     String entityName = "corpUser";
 
-    _changeStreamProcessor.addBeforeChangeProcessor(entityName, "corpUserInfo", changeProcessor);
+    _changeStreamProcessor.registerPreProcessor(entityName, "corpUserInfo", changeProcessor);
 
     _entityService = new EbeanEntityService(_aspectDao, _mockProducer, _testEntityRegistry, _changeStreamProcessor);
 
@@ -702,12 +701,12 @@ public class EbeanEntityServiceTest {
     // Setup a change processor to allow the initial change
     ChangeProcessor changeProcessor = mock(ChangeProcessor.class);
     when(changeProcessor.process(entityName, aspectName, null, writeAspect1)).thenReturn(
-        ProcessChangeResult.success(writeAspect1));
+        ChangeResult.success(writeAspect1));
 
     when(changeProcessor.process(entityName, aspectName, writeAspect1, writeAspect2)).thenReturn(
-        ProcessChangeResult.failure("Fail"));
+        ChangeResult.failure("Fail"));
 
-    _changeStreamProcessor.addBeforeChangeProcessor(entityName, "corpUserInfo", changeProcessor);
+    _changeStreamProcessor.registerPreProcessor(entityName, "corpUserInfo", changeProcessor);
 
     _entityService = new EbeanEntityService(_aspectDao, _mockProducer, _testEntityRegistry, _changeStreamProcessor);
 
