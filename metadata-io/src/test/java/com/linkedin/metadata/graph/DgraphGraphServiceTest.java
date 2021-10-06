@@ -78,7 +78,7 @@ public class DgraphGraphServiceTest extends GraphServiceTestBase {
             @Override
             public <REQ, RESP> ClientCall<REQ, RESP> interceptCall(
                     MethodDescriptor<REQ, RESP> method, CallOptions callOptions, Channel next) {
-                return next.newCall(method, callOptions.withDeadlineAfter(10, TimeUnit.SECONDS));
+                return next.newCall(method, callOptions.withDeadlineAfter(30, TimeUnit.SECONDS));
             }
         };
 
