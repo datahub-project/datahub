@@ -1,7 +1,7 @@
 import json
 import logging
 from collections import defaultdict
-from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 import pydantic
 
@@ -168,7 +168,10 @@ QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name, upstream_table_na
                 )
                 logger.debug(f"Lineage[{key}]:{self._lineage_map[key]}")
         except Exception as e:
-            logger.warning(f"Failed to query snowflake for lineage with exception {e}.")
+            logger.warning(
+                f"Extracting lineage from Snowflake failed."
+                f"Please check your premissions. Continuing...\nError was {e}."
+            )
 
     def _get_upstream_lineage_info(
         self, dataset_urn: str
@@ -187,7 +190,7 @@ QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name, upstream_table_na
             logger.debug(f"No lineage found for {dataset_name}")
             return None
         upstream_tables: List[UpstreamClass] = []
-        upstream_column_lineage: Dict[str, Set[str]] = defaultdict(set)
+        column_lineage: Dict[str, str] = {}
         for lineage_entry in lineage:
             # Update the table-lineage
             upstream_table_name = lineage_entry[0]
@@ -199,24 +202,26 @@ QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name, upstream_table_na
             )
             upstream_tables.append(upstream_table)
             # Update column-lineage for each down-stream column.
-            for ds_column_name in [
+            upstream_columns = [
+                d["columnName"].lower() for d in json.loads(lineage_entry[1])
+            ]
+            downstream_columns = [
                 d["columnName"].lower() for d in json.loads(lineage_entry[2])
-            ]:
-                for us_column_name in [
-                    f"{upstream_table_name}.{u['columnName'].lower()}"
-                    for u in json.loads(lineage_entry[1])
-                ]:
-                    upstream_column_lineage[ds_column_name].add(us_column_name)
-
-        logger.debug(f"upstream_columns[{dataset_name}]:{upstream_column_lineage}")
-        return UpstreamLineage(upstreams=upstream_tables), {
-            "column_lineage": "; ".join(
-                [
-                    f"{k}:{json.dumps(list(v))}"
-                    for k, v in upstream_column_lineage.items()
-                ]
+            ]
+            upstream_column_str = (
+                f"{upstream_table_name}({', '.join(sorted(upstream_columns))})"
             )
-        }
+            downstream_column_str = (
+                f"{dataset_name}({', '.join(sorted(downstream_columns))})"
+            )
+            column_lineage_key = f"column_lineage[{upstream_table_name}]"
+            column_lineage_value = (
+                f"{{{upstream_column_str} -> {downstream_column_str}}}"
+            )
+            column_lineage[column_lineage_key] = column_lineage_value
+            logger.debug(f"{column_lineage_key}:{column_lineage_value}")
+
+        return UpstreamLineage(upstreams=upstream_tables), column_lineage
 
     # Override the base class method.
     def get_workunits(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
@@ -229,6 +234,7 @@ QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name, upstream_table_na
             ):
                 dataset_snapshot: DatasetSnapshot = wu.metadata.proposedSnapshot
                 assert dataset_snapshot
+                # Join the workunit stream from super with the lineage info using the urn.
                 lineage_info = self._get_upstream_lineage_info(dataset_snapshot.urn)
                 if lineage_info is not None:
                     # Emit the lineage work unit
@@ -246,7 +252,9 @@ QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name, upstream_table_na
                     )
                     self.report.report_workunit(lineage_wu)
                     yield lineage_wu
-                    # Update the super's workunit to include the column-lineage in the custom properties.
+
+                    # Update the super's workunit to include the column-lineage in the custom properties. We need to follow
+                    # the RCU semantics for both the aspects & customProperties in order to preserve the changes made by super.
                     aspects = dataset_snapshot.aspects
                     if aspects is None:
                         aspects = []
