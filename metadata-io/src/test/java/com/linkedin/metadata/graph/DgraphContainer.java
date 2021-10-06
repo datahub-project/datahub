@@ -50,32 +50,12 @@ public class DgraphContainer extends GenericContainer<DgraphContainer> {
     private final Map<String, String> alphaArguments = new HashMap<>();
 
     /**
-     * Creates a DgraphContainer using a specific docker image and a startup timeout of 1 minute.
-     *
-     * @param dockerImageName The docker image to use.
-     */
-    public DgraphContainer(String dockerImageName) {
-        this(DockerImageName.parse(dockerImageName), Duration.ofMinutes(1));
-    }
-
-    /**
-     * Creates a DgraphContainer using a specific docker image and a startup timeout of 1 minute.
-     *
-     * @param dockerImageName The docker image to use.
-     */
-    public DgraphContainer(@NonNull final DockerImageName dockerImageName) {
-        this(dockerImageName, Duration.ofMinutes(1));
-    }
-
-    /**
      * Creates a DgraphContainer using a specific docker image. Connect the container
      * to another DgraphContainer to form a cluster via `peerAlias`.
      *
      * @param dockerImageName The docker image to use.
-     * @param startupTimeout Timeout for the container startup.
      */
-    public DgraphContainer(@NonNull final DockerImageName dockerImageName,
-                           @NonNull Duration startupTimeout) {
+    public DgraphContainer(@NonNull final DockerImageName dockerImageName) {
         super(dockerImageName);
 
         dockerImageName.assertCompatibleWith(DEFAULT_IMAGE_NAME);
@@ -92,7 +72,7 @@ public class DgraphContainer extends GenericContainer<DgraphContainer> {
             .withStrategy(waitForLeader)
             .withStrategy(waitForCluster)
             .withStrategy(waitForHttp)
-            .withStartupTimeout(startupTimeout);
+            .withStartupTimeout(Duration.ofMinutes(1));
 
         if (dockerImageName.getVersionPart().compareTo("v21.03.0") < 0) {
             withAlphaArgument("whitelist", "0.0.0.0/0");

@@ -22,6 +22,7 @@ import scala.Console;
 
 import javax.annotation.Nonnull;
 import java.lang.reflect.Method;
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -44,7 +45,9 @@ public class DgraphGraphServiceTest extends GraphServiceTestBase {
 
     @BeforeTest
     public void setup() {
-        _container = new DgraphContainer(DgraphContainer.DEFAULT_IMAGE_NAME.withTag("v21.03.0"));
+        _container = new DgraphContainer(DgraphContainer.DEFAULT_IMAGE_NAME.withTag("v21.03.0"))
+                .withStartupTimeout(Duration.ofMinutes(1))
+                .withStartupAttempts(3);
         _container.start();
 
         // use Slf4jLogConsumer instead: Slf4jLogConsumer logConsumer = new Slf4jLogConsumer(log);
