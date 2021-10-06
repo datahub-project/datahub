@@ -34,6 +34,7 @@ export default function LineageTree({
     selectedEntity,
     direction,
 }: LineageTreeProps) {
+    const [hoveredEntity, setHoveredEntity] = useState<EntitySelectParams | undefined>(undefined);
     const [xCanvasScale, setXCanvasScale] = useState(1);
     const [yCanvasScale, setYCanvasScale] = useState(1);
 
@@ -75,6 +76,8 @@ export default function LineageTree({
                     onEntityCenter={onEntityCenter}
                     onLineageExpand={onLineageExpand}
                     selectedEntity={selectedEntity}
+                    hoveredEntity={hoveredEntity}
+                    setHoveredEntity={setHoveredEntity}
                     direction={direction}
                     debouncedSetYCanvasScale={debouncedSetYCanvasScale}
                     yCanvasScale={yCanvasScale}

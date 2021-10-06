@@ -2,7 +2,7 @@
 source:
   type: "file"
   config:
-    filename: "/Users/gabe/acryl/experimental/sdas/metadata-datagen/mce.json"
+    filename: "./examples/mce_files/bootstrap_mce.json"
 
 # see https://datahubproject.io/docs/metadata-ingestion/sink_docs/datahub for complete documentation
 sink:

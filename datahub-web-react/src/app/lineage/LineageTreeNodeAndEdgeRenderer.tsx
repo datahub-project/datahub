@@ -1,5 +1,5 @@
 import { HierarchyPointNode } from '@vx/hierarchy/lib/types';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { Group } from '@vx/group';
 import { LinkHorizontal } from '@vx/shape';
 import { TransformMatrix } from '@vx/zoom/lib/types';
@@ -19,6 +19,8 @@ type Props = {
     onEntityCenter: (EntitySelectParams) => void;
     onLineageExpand: (LineageExpandParams) => void;
     selectedEntity?: EntitySelectParams;
+    hoveredEntity?: EntitySelectParams;
+    setHoveredEntity: (EntitySelectParams) => void;
     margin: TreeProps['margin'];
     direction: Direction;
     debouncedSetYCanvasScale: (number) => void;
@@ -68,13 +70,13 @@ export default function LineageTreeNodeAndEdgeRenderer({
     onEntityCenter,
     onLineageExpand,
     selectedEntity,
+    hoveredEntity,
+    setHoveredEntity,
     direction,
     debouncedSetYCanvasScale,
     yCanvasScale,
     xCanvasScale,
 }: Props) {
-    const [hoveredEntity, setHoveredEntity] = useState<EntitySelectParams | undefined>(undefined);
-
     const { nodesToRender, edgesToRender, nodesByUrn } = useMemo(() => {
         return adjustVXTreeLayout({ tree, direction });
         // eslint-disable-next-line react-hooks/exhaustive-deps
