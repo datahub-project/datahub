@@ -80,8 +80,13 @@ public class DgraphGraphServiceTest extends GraphServiceTestBase {
 
     @AfterMethod
     public void disconnect() throws InterruptedException {
-        _channel.shutdownNow();
-        _channel.awaitTermination(10, TimeUnit.SECONDS);
+        try {
+            _channel.shutdownNow();
+            _channel.awaitTermination(10, TimeUnit.SECONDS);
+        } finally {
+            _channel = null;
+            _service = null;
+        }
     }
 
     @AfterTest
