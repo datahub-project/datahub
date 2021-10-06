@@ -1443,6 +1443,7 @@ abstract public class GraphServiceTestBase {
       }).start());
 
       assertTrue(finished.await(getTestConcurrentOpTimeout().toMillis(), TimeUnit.MILLISECONDS));
+      throwables.forEach(throwable -> System.out.printf(System.currentTimeMillis() + ": exception occurred: %s%n", throwable));
       assertEquals(throwables.size(), 0);
   }
 

@@ -44,7 +44,7 @@ public class DgraphExecutor {
                         // wait 0.01s, 0.02s, 0.04s, 0.08s, ..., 10.24s
                         long time = (long) Math.pow(2, Math.min(retry, 10)) * 10;
                         synchronized (System.out) {
-                            System.out.printf(System.currentTimeMillis() + ": retrying in %d ms due to %s%n", time, e.getMessage());
+                            System.out.printf(System.currentTimeMillis() + ": retrying in %d ms due to %s%n", time, t.getMessage());
                         }
                         TimeUnit.MILLISECONDS.sleep(time);
                         retry++;
@@ -57,7 +57,7 @@ public class DgraphExecutor {
 
                 // throw unexpected exceptions
                 synchronized (System.out) {
-                    System.out.printf(System.currentTimeMillis() + ": un-retried exception: %s%n", e.getMessage());
+                    System.out.printf(System.currentTimeMillis() + ": un-retried exception: %s%n", t.getMessage());
                 }
 
                 throw e;
