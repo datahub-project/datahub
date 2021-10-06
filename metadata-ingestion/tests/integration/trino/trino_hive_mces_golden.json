@@ -7,7 +7,16 @@
                 "aspects": [
                     {
                         "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-                            "customProperties": {},
+                            "customProperties": {
+                                "column_stats_accurate": "{\"BASIC_STATS\":\"true\"}",
+                                "comment": "This table has array of structs",
+                                "another.comment": "This table has no partitions",                                
+                                "numfiles": "4",
+                                "numrows": "1",
+                                "rawdatasize": "32",
+                                "totalsize": "138",
+                                "transient_lastddltime": "1633434492"
+                            },
                             "externalUrl": null,
                             "description": "This table has array of structs",
                             "uri": null,
@@ -43,7 +52,7 @@
                                     "fieldPath": "property_id",
                                     "jsonPath": null,
                                     "nullable": true,
-                                    "description": null,
+                                    "description": "id of property",
                                     "type": {
                                         "type": {
                                             "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -59,7 +68,7 @@
                                     "fieldPath": "service",
                                     "jsonPath": null,
                                     "nullable": true,
-                                    "description": null,
+                                    "description": "service types and providers",
                                     "type": {
                                         "type": {
                                             "com.linkedin.pegasus2avro.schema.ArrayType": {
@@ -95,6 +104,17 @@
             "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
                 "urn": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.pokes,PROD)",
                 "aspects": [
+                    {
+                        "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                            "customProperties": {
+                                "transient_lastddltime": "1633435441"
+                            },
+                            "externalUrl": null,
+                            "description": null,
+                            "uri": null,
+                            "tags": []
+                        }
+                    },
                     {
                         "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
                             "schemaName": "hivedb.db1.pokes",
@@ -151,6 +171,22 @@
                                     "globalTags": null,
                                     "glossaryTerms": null,
                                     "isPartOfKey": false
+                                },
+                                {
+                                    "fieldPath": "baz",
+                                    "jsonPath": null,
+                                    "nullable": true,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.StringType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "VARCHAR()",
+                                    "recursive": false,
+                                    "globalTags": null,
+                                    "glossaryTerms": null,
+                                    "isPartOfKey": false
                                 }
                             ],
                             "primaryKeys": null,
@@ -174,6 +210,22 @@
             "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
                 "urn": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.struct_test,PROD)",
                 "aspects": [
+                    {
+                        "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                            "customProperties": {
+                                "column_stats_accurate": "{\"BASIC_STATS\":\"true\"}",
+                                "numfiles": "0",
+                                "numrows": "0",
+                                "rawdatasize": "0",
+                                "totalsize": "0",
+                                "transient_lastddltime": "1633434486"
+                            },
+                            "externalUrl": null,
+                            "description": null,
+                            "uri": null,
+                            "tags": []
+                        }
+                    },
                     {
                         "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
                             "schemaName": "hivedb.db1.struct_test",
@@ -252,7 +304,20 @@
         "proposedSnapshot": {
             "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
                 "urn": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.struct_test_view_materialized,PROD)",
-                "aspects": [                    
+                "aspects": [ 
+                    {
+                        "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                            "customProperties": {
+                                "numfiles": "0",
+                                "totalsize": "0",
+                                "transient_lastddltime": "1633434491"
+                            },
+                            "externalUrl": null,
+                            "description": null,
+                            "uri": null,
+                            "tags": []
+                        }
+                    },                   
                     {
                         "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
                             "schemaName": "hivedb.db1.struct_test_view_materialized",
@@ -332,6 +397,22 @@
             "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
                 "urn": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1._test_table_underscore,PROD)",
                 "aspects": [
+                    {
+                        "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                            "customProperties": {
+                                "column_stats_accurate": "{\"BASIC_STATS\":\"true\"}",
+                                "numfiles": "0",
+                                "numrows": "0",
+                                "rawdatasize": "0",
+                                "totalsize": "0",
+                                "transient_lastddltime": "1633434486"
+                            },
+                            "externalUrl": null,
+                            "description": null,
+                            "uri": null,
+                            "tags": []
+                        }
+                    },
                     {
                         "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
                             "schemaName": "hivedb.db1._test_table_underscore",
@@ -414,6 +495,7 @@
                     {
                         "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                             "customProperties": {
+                                "transient_lastddltime": "1633434492",
                                 "view_definition": "SELECT \"property_id\", \"service\"\nFROM \"db1\".\"array_struct_test\"",
                                 "is_view": "True"
                             },

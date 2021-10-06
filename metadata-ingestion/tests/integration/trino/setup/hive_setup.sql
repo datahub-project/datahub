@@ -1,8 +1,8 @@
 CREATE DATABASE IF NOT EXISTS db1;
 CREATE DATABASE IF NOT EXISTS db2;
 -- Setup a "pokes" example table.
-CREATE TABLE IF NOT EXISTS db1.pokes (foo INT, bar STRING);
-LOAD DATA LOCAL INPATH '/opt/hive/examples/files/kv1.txt' OVERWRITE INTO TABLE db1.pokes;
+CREATE TABLE IF NOT EXISTS db1.pokes (foo INT, bar STRING) PARTITIONED BY (baz STRING);
+LOAD DATA LOCAL INPATH '/opt/hive/examples/files/kv1.txt' OVERWRITE INTO TABLE db1.pokes PARTITION (baz='dummy');
 
 CREATE TABLE IF NOT EXISTS db2.pokes (foo INT, bar STRING);
 LOAD DATA LOCAL INPATH '/opt/hive/examples/files/kv1.txt' OVERWRITE INTO TABLE db2.pokes;
@@ -23,13 +23,12 @@ CREATE TABLE IF NOT EXISTS db1.struct_test
 
 CREATE TABLE IF NOT EXISTS db1.array_struct_test
 (
- property_id INT,
+ property_id INT COMMENT 'id of property',
  service array<STRUCT<
                 type: STRING
                ,provider: ARRAY<INT>
-               >>
- --,ratings array<INT>
-);
+               >> COMMENT 'service types and providers'
+)  TBLPROPERTIES ('comment' = 'This table has array of structs', 'another.comment' = 'This table has no partitions');;
 
 WITH
 test_data as (
@@ -43,7 +42,5 @@ select * from test_data;
 
 CREATE MATERIALIZED VIEW db1.struct_test_view_materialized as select * from db1.struct_test;
 CREATE VIEW db1.array_struct_test_view as select * from db1.array_struct_test;
-
-ALTER TABLE db1.array_struct_test SET TBLPROPERTIES ('comment' = 'This table has array of structs');
 
 

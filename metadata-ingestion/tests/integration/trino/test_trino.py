@@ -72,7 +72,11 @@ def test_trino_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
                 pytestconfig,
                 output_path="trino_hive_mces.json",
                 golden_path=test_resources_dir / "trino_hive_mces_golden.json",
+                ignore_paths=[
+                    r"root\[\d+\]\['proposedSnapshot'\]\['com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot'\]\['aspects'\]\[\d+\]\['com.linkedin.pegasus2avro.dataset.DatasetProperties'\]\['customProperties'\]\['transient_lastddltime'\]",
+                    r"root\[\d+\]\['proposedSnapshot'\]\['com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot'\]\['aspects'\]\[\d+\]\['com.linkedin.pegasus2avro.dataset.DatasetProperties'\]\['customProperties'\]\['numfiles'\]",
+                    r"root\[\d+\]\['proposedSnapshot'\]\['com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot'\]\['aspects'\]\[\d+\]\['com.linkedin.pegasus2avro.dataset.DatasetProperties'\]\['customProperties'\]\['totalsize'\]",
+                ],
             )
 
             # Limitation 3 - Limited DatasetProperties available in Trino than in direct hive source - https://trino.io/docs/current/connector/hive.html#table-properties.
-            # Out of limited properties available in trino, only "comment" property is passed on by sqlalchemy dialect as description in customProperties - https://github.com/dungdm93/sqlalchemy-trino/blob/v0.4.0/sqlalchemy_trino/dialect.py#L215
