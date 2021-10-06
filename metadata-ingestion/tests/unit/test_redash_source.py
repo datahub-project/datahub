@@ -2,7 +2,11 @@ from typing import Any, Dict
 from unittest.mock import patch
 
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.redash import RedashConfig, RedashSource
+from datahub.ingestion.source.redash import (
+    RedashConfig,
+    RedashSource,
+    get_full_qualified_name,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
     AuditStamp,
     ChangeAuditStamps,
@@ -358,7 +362,7 @@ mock_chart_response: Dict[str, Any] = {
     "is_archived": False,
     "updated_at": "2021-08-13T19:10:04.396Z",
     "is_favorite": True,
-    "query": "SELECT\nmarried AS stage1, pet as stage2, happy as stage3, freq as value\nFROM (\nSELECT 'Yes' AS married,'Yes' AS pet,'Yes' AS happy,5 AS freq\nUNION ALL SELECT 'Yes' AS married,'Yes' AS pet,'Yes' AS happy,4 AS freq\nUNION ALL SELECT 'Yes' AS married,'No' AS pet,'Yes' AS happy,3 AS freq\nUNION ALL SELECT 'No' AS married,'Yes' AS pet,'Yes' AS happy,2 AS freq\nUNION ALL SELECT 'No' AS married,'No' AS pet,'No' AS happy,1 AS freq\n) t",
+    "query": "SELECT\n name,\n SUM(quantity * list_price * (1 - discount)) AS total,\n YEAR(order_date) as order_year\n FROM\n `orders` o\n INNER JOIN `order_items` i ON i.order_id = o.order_id\nINNER JOIN `staffs` s ON s.staff_id = o.staff_id\nGROUP BY\nname,\nyear(order_date)",
     "id": 4,
     "description": None,
     "tags": [],
@@ -466,6 +470,7 @@ def redash_source() -> RedashSource:
         config=RedashConfig(
             connect_uri="http://localhost:5000",
             api_key="REDASH_API_KEY",
+            parse_table_names_from_sql=False,
         ),
     )
 
@@ -563,3 +568,134 @@ def test_get_unknown_viz_chart_snapshot(mocked_data_source):
 
 
 # TODO: Getting table lineage from SQL parsing test
+
+
+def test_get_full_qualified_name():
+    test_sql_table_names = [
+        {
+            "platform": "postgres",
+            "database_name": "postgres_db",
+            "table_name": "orders",
+            "full_qualified_table_name": "postgres_db.public.orders",
+        },
+        {
+            "platform": "postgres",
+            "database_name": "postgres_db",
+            "table_name": "schema.orders",
+            "full_qualified_table_name": "postgres_db.schema.orders",
+        },
+        {
+            "platform": "postgres",
+            "database_name": "postgres_db",
+            "table_name": "other_db.schema.orders",
+            "full_qualified_table_name": "other_db.schema.orders",
+        },
+        {
+            "platform": "mysql",
+            "database_name": "mysql_db",
+            "table_name": "orders",
+            "full_qualified_table_name": "mysql_db.orders",
+        },
+        {
+            "platform": "mysql",
+            "database_name": "mysql_db",
+            "table_name": "other_schema.orders",
+            "full_qualified_table_name": "other_schema.orders",
+        },
+        {
+            "platform": "bigquery",
+            "database_name": "projectId",
+            "table_name": "dataset.table",
+            "full_qualified_table_name": "projectId.dataset.table",
+        },
+        {
+            "platform": "bigquery",
+            "database_name": "projectId",
+            "table_name": "projectIdOther.dataset2.table",
+            "full_qualified_table_name": "projectIdOther.dataset2.table",
+        },
+        {
+            "platform": "mssql",
+            "database_name": "AdventureWork",
+            "table_name": "dbo.Sale Order",
+            "full_qualified_table_name": "AdventureWork.dbo.Sale Order",
+        },
+        {
+            "platform": "mssql",
+            "database_name": "AdventureWork",
+            "table_name": "SaleOrder",
+            "full_qualified_table_name": "AdventureWork.dbo.SaleOrder",
+        },
+        {
+            "platform": "mssql",
+            "database_name": "AdventureWork",
+            "table_name": "OtherDB.dbo.Sale Order",
+            "full_qualified_table_name": "OtherDB.dbo.Sale Order",
+        },
+    ]
+
+    expected = list()
+    result = list()
+
+    for sql_table_name in test_sql_table_names:
+        platform = sql_table_name["platform"]
+        database_name = sql_table_name["database_name"]
+        table_name = sql_table_name["table_name"]
+
+        expected.append(sql_table_name["full_qualified_table_name"])
+
+        result.append(
+            get_full_qualified_name(
+                platform=platform, database_name=database_name, table_name=table_name
+            )
+        )
+
+    assert expected == result
+
+
+def redash_source_parse_table_names_from_sql() -> RedashSource:
+    return RedashSource(
+        ctx=PipelineContext(run_id="redash-source-test"),
+        config=RedashConfig(
+            connect_uri="http://localhost:5000",
+            api_key="REDASH_API_KEY",
+            parse_table_names_from_sql=True,
+        ),
+    )
+
+
+@patch("datahub.ingestion.source.redash.RedashSource._get_chart_data_source")
+def test_get_chart_snapshot_parse_table_names_from_sql(mocked_data_source):
+    mocked_data_source.return_value = mock_mysql_data_source_response
+    expected = ChartSnapshot(
+        urn="urn:li:chart:(redash,10)",
+        aspects=[
+            ChartInfoClass(
+                customProperties={},
+                externalUrl=None,
+                title="My Query Chart",
+                description="",
+                lastModified=ChangeAuditStamps(
+                    created=AuditStamp(
+                        time=1628882022544, actor="urn:li:corpuser:unknown"
+                    ),
+                    lastModified=AuditStamp(
+                        time=1628882022544, actor="urn:li:corpuser:unknown"
+                    ),
+                ),
+                chartUrl="http://localhost:5000/queries/4#10",
+                inputs=[
+                    "urn:li:dataset:(urn:li:dataPlatform:mysql,Rfam.orders,PROD)",
+                    "urn:li:dataset:(urn:li:dataPlatform:mysql,Rfam.order_items,PROD)",
+                    "urn:li:dataset:(urn:li:dataPlatform:mysql,Rfam.staffs,PROD)",
+                ],
+                type="PIE",
+            )
+        ],
+    )
+    viz_data = mock_chart_response.get("visualizations", [])[2]
+    result = redash_source_parse_table_names_from_sql()._get_chart_snapshot(
+        mock_chart_response, viz_data
+    )
+
+    assert result == expected
