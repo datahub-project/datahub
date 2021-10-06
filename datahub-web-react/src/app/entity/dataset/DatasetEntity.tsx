@@ -136,9 +136,11 @@ export class DatasetEntity implements Entity<Dataset> {
         />
     );
 
-    getOverrideProperties = (_: GetDatasetQuery): GenericEntityProperties => {
+    getOverrideProperties = (dataset: GetDatasetQuery): GenericEntityProperties => {
         // TODO(@shirshanka): calcualte entityTypeOverride value and return it in the object below
-        return {};
+        return {
+            externalUrl: dataset.dataset?.properties?.externalUrl,
+        };
     };
 
     renderPreview = (_: PreviewType, data: Dataset) => {
