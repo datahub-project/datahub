@@ -111,6 +111,7 @@ fragment nonRecursiveDatasetFields on Dataset {
             key
             value
         }
+        externalUrl
     }
     editableProperties {
         description

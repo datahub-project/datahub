@@ -855,15 +855,24 @@ class LookMLSource(Source):
             return None
 
     def _get_custom_properties(self, looker_view: LookerView) -> DatasetPropertiesClass:
+        file_path = str(pathlib.Path(looker_view.absolute_file_path).resolve()).replace(
+            str(self.source_config.base_folder.resolve()), ""
+        )
+
         custom_properties = {
             "looker.file.content": looker_view.raw_file_content[
                 0:512000
             ],  # grab a limited slice of characters from the file
-            "looker.file.path": str(
-                pathlib.Path(looker_view.absolute_file_path).resolve()
-            ).replace(str(self.source_config.base_folder.resolve()), ""),
+            "looker.file.path": file_path,
         }
         dataset_props = DatasetPropertiesClass(customProperties=custom_properties)
+
+        if self.source_config.github_info is not None:
+            github_file_url = self.source_config.github_info.get_url_for_file_path(
+                file_path
+            )
+            dataset_props.externalUrl = github_file_url
+
         return dataset_props
 
     def _build_dataset_mce(self, looker_view: LookerView) -> MetadataChangeEvent:

@@ -67,9 +67,10 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
                             "looker.type": "explore",
-                            "looker.explore.label": "My Explore View"
+                            "looker.explore.label": "My Explore View",
+                            "looker.explore.file": "test_source_file.lkml"
                         },
-                        "externalUrl": null,
+                        "externalUrl": "https://looker.company.com/explore/data/my_view",
                         "description": "lorem ipsum",
                         "uri": null,
                         "tags": []
