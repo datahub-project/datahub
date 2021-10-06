@@ -111,7 +111,11 @@ export default function LineageTreeNodeAndEdgeRenderer({
                 return (
                     <LinkHorizontal
                         data={link}
-                        stroke={ANTD_GRAY[6]}
+                        stroke={
+                            link.source.data.urn === hoveredEntity?.urn || link.target.data.urn === hoveredEntity?.urn
+                                ? '#1890FF'
+                                : ANTD_GRAY[6]
+                        }
                         strokeWidth="1"
                         fill="none"
                         key={`edge-${link.source.data.urn}-${link.target.data.urn}-${direction}`}

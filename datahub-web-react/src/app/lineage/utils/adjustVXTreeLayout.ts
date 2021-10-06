@@ -52,18 +52,36 @@ export default function adjustVXTreeLayout({
         data: { ...descendentToCopy.data },
     }));
 
-    const edgesToReturn = tree.links().map((linkToCopy) => ({
-        target: {
-            x: linkToCopy.target.x,
-            y: linkToCopy.target.y + (direction === Direction.Upstream ? 0 : -(nodeWidth / 2)),
-            data: { ...linkToCopy.target.data },
-        },
-        source: {
-            x: linkToCopy.source.x,
-            y: linkToCopy.source.y + (direction === Direction.Upstream ? -(nodeWidth / 2) : 0),
-            data: { ...linkToCopy.source.data },
-        },
-    }));
+    const edgesToReturn = tree.links().map((linkToCopy) => {
+        if (linkToCopy.target.y === linkToCopy.source.y) {
+            const sourceHigher = linkToCopy.source.x > linkToCopy.target.x;
+
+            return {
+                target: {
+                    x: linkToCopy.target.x + (sourceHigher ? 40 : 0),
+                    y: linkToCopy.target.y,
+                    data: { ...linkToCopy.target.data },
+                },
+                source: {
+                    x: linkToCopy.source.x - (sourceHigher ? 0 : 40),
+                    y: linkToCopy.source.y,
+                    data: { ...linkToCopy.source.data },
+                },
+            };
+        }
+        return {
+            target: {
+                x: linkToCopy.target.x,
+                y: linkToCopy.target.y + (direction === Direction.Upstream ? nodeWidth / 2 - 10 : -(nodeWidth / 2)),
+                data: { ...linkToCopy.target.data },
+            },
+            source: {
+                x: linkToCopy.source.x,
+                y: linkToCopy.source.y + (direction === Direction.Upstream ? -(nodeWidth / 2) : nodeWidth / 2 - 10),
+                data: { ...linkToCopy.source.data },
+            },
+        };
+    });
 
     return { nodesToRender: nodesToReturn, edgesToRender: edgesToReturn, nodesByUrn };
 }
