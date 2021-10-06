@@ -18,7 +18,7 @@ The reporter interface enables the source to report statistics, warnings, failur
 
 The core for the source is the `get_workunits` method, which produces a stream of MCE objects. The [file source](./src/datahub/ingestion/source/file.py) is a good and simple example.
 
-The MetadataChangeEventClass is defined in the [metadata models](./src/datahub/metadata/schema_classes.py). There are also some [convenience methods](./src/datahub/emitter/mce_builder.py) for commonly used operations.
+The MetadataChangeEventClass is defined in the metadata models which are generated under `metadata-ingestion/src/datahub/metadata/schema_classes.py`. There are also some [convenience methods](./src/datahub/emitter/mce_builder.py) for commonly used operations.
 
 ### 4. Set up the dependencies
 
