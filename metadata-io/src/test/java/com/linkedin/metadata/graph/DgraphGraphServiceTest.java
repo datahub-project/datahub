@@ -43,6 +43,11 @@ public class DgraphGraphServiceTest extends GraphServiceTestBase {
     private DgraphGraphService _service;
     private DgraphContainer _container;
 
+    @Override
+    protected Duration getTestConcurrentOpTimeout() {
+        return Duration.ofMinutes(5);
+    }
+
     @BeforeTest
     public void setup() {
         _container = new DgraphContainer(DgraphContainer.DEFAULT_IMAGE_NAME.withTag("v21.03.0"))

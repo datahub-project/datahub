@@ -11,6 +11,7 @@ import org.testng.annotations.Test;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.net.URISyntaxException;
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -126,6 +127,13 @@ abstract public class GraphServiceTestBase {
    * Any source and destination type value.
    */
   protected static @Nullable String anyType = null;
+
+  /**
+   * Timeout used to test concurrent ops in doTestConcurrentOp.
+   */
+  protected Duration getTestConcurrentOpTimeout() {
+      return Duration.ofMinutes(1);
+  }
 
   @Test
   public void testStaticUrns() {
@@ -1434,7 +1442,7 @@ abstract public class GraphServiceTestBase {
           }
       }).start());
 
-      assertTrue(finished.await(60, TimeUnit.SECONDS));
+      assertTrue(finished.await(getTestConcurrentOpTimeout().toMillis(), TimeUnit.MILLISECONDS));
       assertEquals(throwables.size(), 0);
   }
 
