@@ -1,6 +1,7 @@
 import React from 'react';
 import { Typography, Row, Col } from 'antd';
 import styled from 'styled-components';
+import { Survey } from '../survey/Survey';
 
 import { useEntityRegistry } from '../useEntityRegistry';
 import { BrowseEntityCard } from '../search/BrowseEntityCard';
@@ -38,6 +39,7 @@ export const HomePageBody = () => {
                     </Col>
                 ))}
             </EntityGridRow>
+            <Survey />
         </BodyContainer>
     );
 };
