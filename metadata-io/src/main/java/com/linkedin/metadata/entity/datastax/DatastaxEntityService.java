@@ -23,7 +23,13 @@ import com.linkedin.mxe.SystemMetadata;
 
 import java.net.URISyntaxException;
 import java.sql.Timestamp;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -205,7 +211,7 @@ public class DatastaxEntityService extends EntityService {
 
   private int getNextVersion(List<DatastaxAspect> aspectVersions) {
     int maxVersion = -1;
-    for (DatastaxAspect da : aspectVersions ) {
+    for (DatastaxAspect da : aspectVersions) {
       int version  = (int) da.getVersion();
       if (version > maxVersion) {
         maxVersion = version;
