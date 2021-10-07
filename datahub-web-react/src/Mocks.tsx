@@ -7,6 +7,8 @@ import {
     GetAutoCompleteMultipleResultsDocument,
     GetSearchResultsDocument,
     GetSearchResultsQuery,
+    GetSearchResultsForMultipleDocument,
+    GetSearchResultsForMultipleQuery,
 } from './graphql/search.generated';
 import { GetUserDocument } from './graphql/user.generated';
 import {
@@ -1371,14 +1373,16 @@ export const mocks = [
                     facets: [
                         {
                             field: 'origin',
-                            aggregations: [{ value: 'PROD', count: 3 }],
+                            displayName: 'origin',
+                            aggregations: [{ value: 'PROD', count: 3, entity: null }],
                         },
                         {
                             field: 'platform',
+                            displayName: 'platform',
                             aggregations: [
-                                { value: 'HDFS', count: 1 },
-                                { value: 'MySQL', count: 1 },
-                                { value: 'Kafka', count: 1 },
+                                { value: 'HDFS', count: 1, entity: null },
+                                { value: 'MySQL', count: 1, entity: null },
+                                { value: 'Kafka', count: 1, entity: null },
                             ],
                         },
                     ],
@@ -1424,19 +1428,22 @@ export const mocks = [
                     facets: [
                         {
                             field: 'origin',
+                            displayName: 'origin',
                             aggregations: [
                                 {
                                     value: 'PROD',
                                     count: 3,
+                                    entity: null,
                                 },
                             ],
                         },
                         {
                             field: 'platform',
+                            displayName: 'platform',
                             aggregations: [
-                                { value: 'hdfs', count: 1 },
-                                { value: 'mysql', count: 1 },
-                                { value: 'kafka', count: 1 },
+                                { value: 'hdfs', count: 1, entity: null },
+                                { value: 'mysql', count: 1, entity: null },
+                                { value: 'kafka', count: 1, entity: null },
                             ],
                         },
                     ],
@@ -1477,19 +1484,22 @@ export const mocks = [
                     facets: [
                         {
                             field: 'origin',
+                            displayName: 'origin',
                             aggregations: [
                                 {
                                     value: 'PROD',
                                     count: 3,
+                                    entity: null,
                                 },
                             ],
                         },
                         {
                             field: 'platform',
+                            displayName: 'platform',
                             aggregations: [
-                                { value: 'hdfs', count: 1 },
-                                { value: 'mysql', count: 1 },
-                                { value: 'kafka', count: 1 },
+                                { value: 'hdfs', count: 1, entity: null },
+                                { value: 'mysql', count: 1, entity: null },
+                                { value: 'kafka', count: 1, entity: null },
                             ],
                         },
                     ],
@@ -1535,7 +1545,11 @@ export const mocks = [
                     filters: [
                         {
                             field: 'platform',
-                            value: 'kafka,hdfs',
+                            value: 'kafka',
+                        },
+                        {
+                            field: 'platform',
+                            value: 'hdfs',
                         },
                     ],
                 },
@@ -1561,19 +1575,22 @@ export const mocks = [
                     facets: [
                         {
                             field: 'origin',
+                            displayName: 'origin',
                             aggregations: [
                                 {
                                     value: 'PROD',
                                     count: 3,
+                                    entity: null,
                                 },
                             ],
                         },
                         {
                             field: 'platform',
+                            displayName: 'platform',
                             aggregations: [
-                                { value: 'hdfs', count: 1 },
-                                { value: 'mysql', count: 1 },
-                                { value: 'kafka', count: 1 },
+                                { value: 'hdfs', count: 1, entity: null },
+                                { value: 'mysql', count: 1, entity: null },
+                                { value: 'kafka', count: 1, entity: null },
                             ],
                         },
                     ],
@@ -1712,19 +1729,22 @@ export const mocks = [
                     facets: [
                         {
                             field: 'origin',
+                            displayName: 'origin',
                             aggregations: [
                                 {
                                     value: 'PROD',
                                     count: 3,
+                                    entity: null,
                                 },
                             ],
                         },
                         {
                             field: 'platform',
+                            displayName: 'platform',
                             aggregations: [
-                                { value: 'hdfs', count: 1 },
-                                { value: 'mysql', count: 1 },
-                                { value: 'kafka', count: 1 },
+                                { value: 'hdfs', count: 1, entity: null },
+                                { value: 'mysql', count: 1, entity: null },
+                                { value: 'kafka', count: 1, entity: null },
                             ],
                         },
                     ],
@@ -1772,19 +1792,22 @@ export const mocks = [
                     facets: [
                         {
                             field: 'origin',
+                            displayName: 'origin',
                             aggregations: [
                                 {
                                     value: 'PROD',
                                     count: 3,
+                                    entity: null,
                                 },
                             ],
                         },
                         {
                             field: 'platform',
+                            displayName: 'platform',
                             aggregations: [
-                                { value: 'hdfs', count: 1 },
-                                { value: 'mysql', count: 1 },
-                                { value: 'kafka', count: 1 },
+                                { value: 'hdfs', count: 1, entity: null },
+                                { value: 'mysql', count: 1, entity: null },
+                                { value: 'kafka', count: 1, entity: null },
                             ],
                         },
                     ],
@@ -1825,19 +1848,26 @@ export const mocks = [
                     facets: [
                         {
                             field: 'origin',
+                            displayName: 'platform',
                             aggregations: [
                                 {
                                     value: 'PROD',
                                     count: 3,
+                                    entity: null,
                                 },
                             ],
                         },
                         {
                             field: 'platform',
+                            displayName: 'platform',
                             aggregations: [
-                                { value: 'hdfs', count: 1 },
-                                { value: 'mysql', count: 1 },
-                                { value: 'kafka', count: 1 },
+                                {
+                                    value: 'hdfs',
+                                    count: 1,
+                                    entity: null,
+                                },
+                                { value: 'mysql', count: 1, entity: null },
+                                { value: 'kafka', count: 1, entity: null },
                             ],
                         },
                     ],
@@ -1960,19 +1990,26 @@ export const mocks = [
                     facets: [
                         {
                             field: 'origin',
+                            displayName: 'platform',
                             aggregations: [
                                 {
                                     value: 'PROD',
                                     count: 3,
+                                    entity: null,
                                 },
                             ],
                         },
                         {
                             field: 'platform',
+                            displayName: 'platform',
                             aggregations: [
-                                { value: 'hdfs', count: 1 },
-                                { value: 'mysql', count: 1 },
-                                { value: 'kafka', count: 1 },
+                                {
+                                    value: 'hdfs',
+                                    count: 1,
+                                    entity: null,
+                                },
+                                { value: 'mysql', count: 1, entity: null },
+                                { value: 'kafka', count: 1, entity: null },
                             ],
                         },
                     ],
@@ -1991,6 +2028,416 @@ export const mocks = [
             data: {
                 tag: { ...sampleTag },
             },
+        },
+    },
+    {
+        request: {
+            query: GetSearchResultsForMultipleDocument,
+            variables: {
+                input: {
+                    types: ['DATASET'],
+                    query: 'test',
+                    start: 0,
+                    count: 10,
+                    filters: [
+                        {
+                            field: 'platform',
+                            value: 'kafka',
+                        },
+                    ],
+                },
+            },
+        },
+        result: {
+            data: {
+                __typename: 'Query',
+                searchAcrossEntities: {
+                    __typename: 'SearchResults',
+                    start: 0,
+                    count: 1,
+                    total: 1,
+                    searchResults: [
+                        {
+                            entity: {
+                                __typename: 'Dataset',
+                                ...dataset3,
+                            },
+                            matchedFields: [],
+                        },
+                    ],
+                    facets: [
+                        {
+                            field: 'origin',
+                            displayName: 'origin',
+                            aggregations: [
+                                {
+                                    value: 'PROD',
+                                    count: 3,
+                                    entity: null,
+                                },
+                            ],
+                        },
+                        {
+                            field: 'platform',
+                            displayName: 'platform',
+                            aggregations: [
+                                { value: 'hdfs', count: 1, entity: null },
+                                { value: 'mysql', count: 1, entity: null },
+                                { value: 'kafka', count: 1, entity: null },
+                            ],
+                        },
+                    ],
+                },
+            } as GetSearchResultsForMultipleQuery,
+        },
+    },
+    {
+        request: {
+            query: GetSearchResultsForMultipleDocument,
+            variables: {
+                input: {
+                    types: ['DATASET'],
+                    query: 'test',
+                    start: 0,
+                    count: 10,
+                    filters: [
+                        {
+                            field: 'platform',
+                            value: 'kafka',
+                        },
+                    ],
+                },
+            },
+        },
+        result: {
+            data: {
+                __typename: 'Query',
+                searchAcrossEntities: {
+                    __typename: 'SearchResults',
+                    start: 0,
+                    count: 1,
+                    total: 1,
+                    searchResults: [
+                        {
+                            entity: {
+                                __typename: 'Dataset',
+                                ...dataset3,
+                            },
+                            matchedFields: [],
+                        },
+                    ],
+                    facets: [],
+                },
+            } as GetSearchResultsForMultipleQuery,
+        },
+    },
+    {
+        request: {
+            query: GetSearchResultsForMultipleDocument,
+            variables: {
+                input: {
+                    types: ['DATA_JOB'],
+                    query: 'Sample',
+                    start: 0,
+                    count: 10,
+                    filters: [],
+                },
+            },
+        },
+        result: {
+            data: {
+                __typename: 'Query',
+                searchAcrossEntities: {
+                    __typename: 'SearchResults',
+                    start: 0,
+                    count: 1,
+                    total: 1,
+                    searchResults: [
+                        {
+                            entity: {
+                                __typename: 'DataJob',
+                                ...dataJob1,
+                            },
+                            matchedFields: [],
+                        },
+                    ],
+                    facets: [
+                        {
+                            field: 'origin',
+                            displayName: 'platform',
+                            aggregations: [
+                                {
+                                    value: 'PROD',
+                                    count: 3,
+                                    entity: null,
+                                },
+                            ],
+                        },
+                        {
+                            field: 'platform',
+                            displayName: 'platform',
+                            aggregations: [
+                                {
+                                    value: 'hdfs',
+                                    count: 1,
+                                    entity: null,
+                                },
+                                { value: 'mysql', count: 1, entity: null },
+                                { value: 'kafka', count: 1, entity: null },
+                            ],
+                        },
+                    ],
+                },
+            } as GetSearchResultsForMultipleQuery,
+        },
+    },
+    {
+        request: {
+            query: GetSearchResultsForMultipleDocument,
+            variables: {
+                input: {
+                    types: ['DATASET'],
+                    query: 'tags:"abc-sample-tag" OR fieldTags:"abc-sample-tag" OR editedFieldTags:"abc-sample-tag"',
+                    start: 0,
+                    count: 1,
+                    filters: [],
+                },
+            },
+        },
+        result: {
+            data: {
+                __typename: 'Query',
+                searchAcrossEntities: {
+                    __typename: 'SearchResults',
+                    start: 0,
+                    count: 1,
+                    total: 1,
+                    searchResults: [
+                        {
+                            entity: {
+                                __typename: 'Dataset',
+                                ...dataset3,
+                            },
+                            matchedFields: [],
+                        },
+                    ],
+                    facets: [
+                        {
+                            field: 'origin',
+                            displayName: 'origin',
+                            aggregations: [
+                                {
+                                    value: 'PROD',
+                                    count: 3,
+                                    entity: null,
+                                },
+                            ],
+                        },
+                        {
+                            field: 'platform',
+                            displayName: 'platform',
+                            aggregations: [
+                                { value: 'hdfs', count: 1, entity: null },
+                                { value: 'mysql', count: 1, entity: null },
+                                { value: 'kafka', count: 1, entity: null },
+                            ],
+                        },
+                    ],
+                },
+            } as GetSearchResultsForMultipleQuery,
+        },
+    },
+    {
+        request: {
+            query: GetSearchResultsForMultipleDocument,
+            variables: {
+                input: {
+                    types: ['DATASET'],
+                    query: '*',
+                    start: 0,
+                    count: 20,
+                    filters: [],
+                },
+            },
+        },
+        result: {
+            data: {
+                __typename: 'Query',
+                searchAcrossEntities: {
+                    __typename: 'SearchResults',
+                    start: 0,
+                    count: 1,
+                    total: 1,
+                    searchResults: [
+                        {
+                            entity: {
+                                __typename: 'Dataset',
+                                ...dataset3,
+                            },
+                            matchedFields: [],
+                        },
+                        {
+                            entity: {
+                                __typename: 'Dataset',
+                                ...dataset4,
+                            },
+                            matchedFields: [],
+                        },
+                    ],
+                    facets: [
+                        {
+                            field: 'origin',
+                            displayName: 'origin',
+                            aggregations: [
+                                {
+                                    value: 'PROD',
+                                    count: 3,
+                                    entity: null,
+                                },
+                            ],
+                        },
+                        {
+                            field: 'platform',
+                            displayName: 'platform',
+                            aggregations: [
+                                { value: 'hdfs', count: 1, entity: null },
+                                { value: 'mysql', count: 1, entity: null },
+                                { value: 'kafka', count: 1, entity: null },
+                            ],
+                        },
+                    ],
+                },
+            } as GetSearchResultsForMultipleQuery,
+        },
+    },
+    {
+        request: {
+            query: GetSearchResultsForMultipleDocument,
+            variables: {
+                input: {
+                    types: ['DATASET'],
+                    query: 'test',
+                    start: 0,
+                    count: 10,
+                    filters: [
+                        {
+                            field: 'platform',
+                            value: 'kafka',
+                        },
+                        {
+                            field: 'platform',
+                            value: 'hdfs',
+                        },
+                    ],
+                },
+            },
+        },
+        result: {
+            data: {
+                __typename: 'Query',
+                searchAcrossEntities: {
+                    __typename: 'SearchResults',
+                    start: 0,
+                    count: 1,
+                    total: 1,
+                    searchResults: [
+                        {
+                            entity: {
+                                __typename: 'Dataset',
+                                ...dataset3,
+                            },
+                            matchedFields: [],
+                        },
+                    ],
+                    facets: [
+                        {
+                            field: 'origin',
+                            displayName: 'origin',
+                            aggregations: [
+                                {
+                                    value: 'PROD',
+                                    count: 3,
+                                    entity: null,
+                                },
+                            ],
+                        },
+                        {
+                            field: 'platform',
+                            displayName: 'platform',
+                            aggregations: [
+                                { value: 'hdfs', count: 1, entity: null },
+                                { value: 'mysql', count: 1, entity: null },
+                                { value: 'kafka', count: 1, entity: null },
+                            ],
+                        },
+                    ],
+                },
+            } as GetSearchResultsForMultipleQuery,
+        },
+    },
+    {
+        request: {
+            query: GetSearchResultsForMultipleDocument,
+            variables: {
+                input: {
+                    types: ['DATASET'],
+                    query: 'test',
+                    start: 0,
+                    count: 10,
+                    filters: [
+                        {
+                            field: 'platform',
+                            value: 'kafka',
+                        },
+                        {
+                            field: 'platform',
+                            value: 'hdfs',
+                        },
+                    ],
+                },
+            },
+        },
+        result: {
+            data: {
+                __typename: 'Query',
+                searchAcrossEntities: {
+                    __typename: 'SearchResults',
+                    start: 0,
+                    count: 1,
+                    total: 1,
+                    searchResults: [
+                        {
+                            entity: {
+                                __typename: 'Dataset',
+                                ...dataset3,
+                            },
+                            matchedFields: [],
+                        },
+                    ],
+                    facets: [
+                        {
+                            field: 'origin',
+                            displayName: 'origin',
+                            aggregations: [
+                                {
+                                    value: 'PROD',
+                                    count: 3,
+                                    entity: null,
+                                },
+                            ],
+                        },
+                        {
+                            field: 'platform',
+                            displayName: 'platform',
+                            aggregations: [
+                                { value: 'hdfs', count: 1, entity: null },
+                                { value: 'mysql', count: 1, entity: null },
+                                { value: 'kafka', count: 1, entity: null },
+                            ],
+                        },
+                    ],
+                },
+            } as GetSearchResultsForMultipleQuery,
         },
     },
 ];

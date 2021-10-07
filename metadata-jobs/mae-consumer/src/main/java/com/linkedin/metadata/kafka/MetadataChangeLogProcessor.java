@@ -9,7 +9,7 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.gms.factory.common.GraphServiceFactory;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
-import com.linkedin.gms.factory.search.SearchServiceFactory;
+import com.linkedin.gms.factory.search.EntitySearchServiceFactory;
 import com.linkedin.gms.factory.timeseries.TimeseriesAspectServiceFactory;
 import com.linkedin.metadata.EventUtils;
 import com.linkedin.metadata.extractor.FieldExtractor;
@@ -17,17 +17,17 @@ import com.linkedin.metadata.graph.Edge;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.kafka.config.MetadataChangeLogProcessorCondition;
 import com.linkedin.metadata.models.AspectSpec;
-import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.RelationshipFieldSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.CriterionArray;
 import com.linkedin.metadata.query.Filter;
 import com.linkedin.metadata.query.RelationshipDirection;
-import com.linkedin.metadata.search.SearchService;
+import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.timeseries.transformer.TimeseriesAspectTransformer;
+import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericAspectUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeLog;
@@ -59,24 +59,23 @@ import static com.linkedin.metadata.dao.Neo4jUtil.*;
 @Slf4j
 @Component
 @Conditional(MetadataChangeLogProcessorCondition.class)
-@Import({GraphServiceFactory.class, SearchServiceFactory.class, TimeseriesAspectServiceFactory.class,
+@Import({GraphServiceFactory.class, EntitySearchServiceFactory.class, TimeseriesAspectServiceFactory.class,
     EntityRegistryFactory.class})
 @EnableKafka
 public class MetadataChangeLogProcessor {
 
   private final GraphService _graphService;
-  private final SearchService _searchService;
+  private final EntitySearchService _entitySearchService;
   private final TimeseriesAspectService _timeseriesAspectService;
   private final EntityRegistry _entityRegistry;
 
-  private final Histogram kafkaLagStats =
-      MetricUtils.get().histogram(MetricRegistry.name(this.getClass(), "kafkaLag"));
+  private final Histogram kafkaLagStats = MetricUtils.get().histogram(MetricRegistry.name(this.getClass(), "kafkaLag"));
 
   @Autowired
-  public MetadataChangeLogProcessor(GraphService graphService, SearchService searchService,
+  public MetadataChangeLogProcessor(GraphService graphService, EntitySearchService entitySearchService,
       TimeseriesAspectService timeseriesAspectService, EntityRegistry entityRegistry) {
     _graphService = graphService;
-    _searchService = searchService;
+    _entitySearchService = entitySearchService;
     _timeseriesAspectService = timeseriesAspectService;
     _entityRegistry = entityRegistry;
 
@@ -190,7 +189,7 @@ public class MetadataChangeLogProcessor {
       return;
     }
 
-    _searchService.upsertDocument(entityName, searchDocument.get(), docId);
+    _entitySearchService.upsertDocument(entityName, searchDocument.get(), docId);
   }
 
   /**

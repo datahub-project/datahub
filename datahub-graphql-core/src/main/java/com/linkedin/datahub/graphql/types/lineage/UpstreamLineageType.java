@@ -15,6 +15,7 @@ import java.util.stream.Collectors;
 
 public class UpstreamLineageType implements LoadableType<UpstreamEntityRelationships> {
 
+
     private final Lineages _lineageClient;
     private final RelationshipDirection _direction = RelationshipDirection.OUTGOING;
 
