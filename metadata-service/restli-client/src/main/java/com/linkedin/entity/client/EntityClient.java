@@ -246,7 +246,8 @@ public class EntityClient extends BaseClient {
         @Nullable Map<String, String> requestFilters,
         int start,
         int count,
-        @Nonnull String actor) {
+        @Nonnull String actor)
+        throws RemoteInvocationException {
         final EntitiesDoListRequestBuilder requestBuilder = ENTITIES_REQUEST_BUILDERS.actionList()
             .entityParam(entity)
             .filterParam(newFilter(requestFilters))
