@@ -58,8 +58,13 @@ class DBTConfig(ConfigModel):
     load_schemas: bool
     use_identifiers: bool = False
     node_type_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
+<<<<<<< Updated upstream
     tag_prefix: str = "dbt:"
 
+=======
+    dataset_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
+    imported_tags_prefix: str = DEFAULT_IMPORTED_TAGS_PREFIX
+>>>>>>> Stashed changes
 
 @dataclass
 class DBTColumn:
@@ -120,9 +125,6 @@ def get_columns(
     for key in raw_columns:
         raw_column = raw_columns[key]
 
-        tags = manifest_columns.get(key.lower(), {}).get("tags", [])
-        tags = [tag_prefix + tag for tag in tags]
-
         dbtCol = DBTColumn(
             name=raw_column["name"].lower(),
             comment=raw_column.get("comment", ""),
@@ -141,11 +143,12 @@ def extract_dbt_entities(
     sources_results: List[Dict[str, Any]],
     load_schemas: bool,
     use_identifiers: bool,
-    tag_prefix: str,
     target_platform: str,
     environment: str,
     node_type_pattern: AllowDenyPattern,
     report: SourceReport,
+    imported_tag_prefix: str,
+    dataset_pattern: AllowDenyPattern,
 ) -> List[DBTNode]:
 
     sources_by_id = {x["unique_id"]: x for x in sources_results}
@@ -172,6 +175,7 @@ def extract_dbt_entities(
             "comment"
         ):
             comment = all_catalog_entities[key]["metadata"]["comment"]
+
 
         materialization = None
         upstream_urns = []
@@ -204,16 +208,16 @@ def extract_dbt_entities(
         owner = meta.get("owner")
 
         tags = manifest_node.get("tags", [])
-        tags = [tag_prefix + tag for tag in tags]
+        tags_with_prefix = generate_tags_with_prefix(tags, imported_tag_prefix)
 
         dbtNode = DBTNode(
             dbt_name=key,
             database=manifest_node["database"],
             schema=manifest_node["schema"],
+            name=name,
             dbt_file_path=manifest_node["original_file_path"],
             node_type=manifest_node["resource_type"],
             max_loaded_at=sources_by_id.get(key, {}).get("max_loaded_at"),
-            name=name,
             comment=comment,
             description=manifest_node.get("description", ""),
             upstream_urns=upstream_urns,
@@ -261,11 +265,12 @@ def loadManifestAndCatalog(
     sources_path: Optional[str],
     load_schemas: bool,
     use_identifiers: bool,
-    tag_prefix: str,
     target_platform: str,
     environment: str,
     node_type_pattern: AllowDenyPattern,
     report: SourceReport,
+    imported_tag_prefix: str,
+    dataset_pattern: AllowDenyPattern,
 ) -> Tuple[List[DBTNode], Optional[str], Optional[str], Optional[str], Optional[str]]:
     with open(manifest_path, "r") as manifest:
         dbt_manifest_json = json.load(manifest)
@@ -302,11 +307,12 @@ def loadManifestAndCatalog(
         sources_results,
         load_schemas,
         use_identifiers,
-        tag_prefix,
         target_platform,
         environment,
         node_type_pattern,
         report,
+        imported_tag_prefix,
+        dataset_pattern,
     )
 
     return nodes, manifest_schema, manifest_version, catalog_schema, catalog_version
@@ -315,7 +321,6 @@ def loadManifestAndCatalog(
 def get_urn_from_dbtNode(
     database: str, schema: str, name: str, target_platform: str, env: str
 ) -> str:
-
     db_fqn = f"{database}.{schema}.{name}".replace('"', "")
     return f"urn:li:dataset:(urn:li:dataPlatform:{target_platform},{db_fqn},{env})"
 
@@ -351,7 +356,6 @@ def get_upstreams(
     upstream_urns = []
 
     for upstream in upstreams:
-
         if "identifier" in all_nodes[upstream] and use_identifiers:
             name = all_nodes[upstream]["identifier"]
         else:
@@ -512,11 +516,12 @@ class DBTSource(Source):
             self.config.sources_path,
             self.config.load_schemas,
             self.config.use_identifiers,
-            self.config.tag_prefix,
             self.config.target_platform,
             self.config.env,
             self.config.node_type_pattern,
             self.report,
+            self.config.imported_tags_prefix,
+            self.config.dataset_pattern,
         )
 
         additional_custom_props = {
