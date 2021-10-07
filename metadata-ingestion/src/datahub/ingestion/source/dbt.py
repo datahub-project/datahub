@@ -48,10 +48,6 @@ from datahub.metadata.schema_classes import (
 
 logger = logging.getLogger(__name__)
 
-
-DEFAULT_IMPORTED_TAGS_PREFIX = "dbt:"
-
-
 class DBTConfig(ConfigModel):
     manifest_path: str
     catalog_path: str
@@ -61,9 +57,8 @@ class DBTConfig(ConfigModel):
     load_schemas: bool
     use_identifiers: bool = False
     node_type_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
+    tag_prefix: str = "dbt:"
     model_name_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
-    imported_tags_prefix: str = DEFAULT_IMPORTED_TAGS_PREFIX
-
 
 @dataclass
 class DBTColumn:
@@ -111,17 +106,8 @@ class DBTNode:
         fields = tuple("{}={}".format(k, v) for k, v in self.__dict__.items())
         return self.__class__.__name__ + str(tuple(sorted(fields))).replace("'", "")
 
-
-def generate_tag_name(tag: str, imported_tag_prefix: str) -> str:
-    return imported_tag_prefix + tag
-
-
-def generate_tags_with_prefix(tags: List[str], imported_tag_prefix: str) -> List[str]:
-    return [generate_tag_name(tag, imported_tag_prefix) for tag in tags]
-
-
 def get_columns(
-    catalog_node: dict, manifest_node: dict, imported_tag_prefix: str
+    catalog_node: dict, manifest_node: dict, tag_prefix: str
 ) -> List[DBTColumn]:
     columns = []
 
@@ -133,7 +119,7 @@ def get_columns(
         raw_column = raw_columns[key]
 
         tags = manifest_columns.get(key.lower(), {}).get("tags", [])
-        tags_with_prefix = generate_tags_with_prefix(tags, imported_tag_prefix)
+        tags = [tag_prefix + tag for tag in tags]
 
         dbtCol = DBTColumn(
             name=raw_column["name"].lower(),
@@ -141,7 +127,7 @@ def get_columns(
             description=manifest_columns.get(key.lower(), {}).get("description", ""),
             data_type=raw_column["type"],
             index=raw_column["index"],
-            tags=tags_with_prefix,
+            tags=tags,
         )
         columns.append(dbtCol)
     return columns
@@ -153,11 +139,11 @@ def extract_dbt_entities(
     sources_results: List[Dict[str, Any]],
     load_schemas: bool,
     use_identifiers: bool,
+    tag_prefix: str,
     target_platform: str,
     environment: str,
     node_type_pattern: AllowDenyPattern,
     report: SourceReport,
-    imported_tag_prefix: str,
     model_name_pattern: AllowDenyPattern,
 ) -> List[DBTNode]:
 
@@ -222,7 +208,7 @@ def extract_dbt_entities(
             owner = manifest_node.get("config", {}).get("meta", {}).get("owner")
 
         tags = manifest_node.get("tags", [])
-        tags_with_prefix = generate_tags_with_prefix(tags, imported_tag_prefix)
+        tags = [tag_prefix + tag for tag in tags]
 
         dbtNode = DBTNode(
             dbt_name=key,
@@ -246,7 +232,7 @@ def extract_dbt_entities(
                 environment,
             ),
             meta=manifest_node.get("meta", {}),
-            tags=tags_with_prefix,
+            tags=tags,
             owner=owner,
         )
 
@@ -264,7 +250,7 @@ def extract_dbt_entities(
                 )
             else:
                 dbtNode.columns = get_columns(
-                    catalog_node, manifest_node, imported_tag_prefix
+                    catalog_node, manifest_node, tag_prefix
                 )
 
         else:
@@ -281,11 +267,11 @@ def loadManifestAndCatalog(
     sources_path: Optional[str],
     load_schemas: bool,
     use_identifiers: bool,
+    tag_prefix: str,
     target_platform: str,
     environment: str,
     node_type_pattern: AllowDenyPattern,
     report: SourceReport,
-    imported_tag_prefix: str,
     model_name_pattern: AllowDenyPattern,
 ) -> Tuple[List[DBTNode], Optional[str], Optional[str], Optional[str], Optional[str]]:
     with open(manifest_path, "r") as manifest:
@@ -323,11 +309,11 @@ def loadManifestAndCatalog(
         sources_results,
         load_schemas,
         use_identifiers,
+        tag_prefix,
         target_platform,
         environment,
         node_type_pattern,
         report,
-        imported_tag_prefix,
         model_name_pattern,
     )
 
@@ -536,11 +522,11 @@ class DBTSource(Source):
             self.config.sources_path,
             self.config.load_schemas,
             self.config.use_identifiers,
+            self.config.tag_prefix,
             self.config.target_platform,
             self.config.env,
             self.config.node_type_pattern,
             self.report,
-            self.config.imported_tags_prefix,
             self.config.model_name_pattern,
         )
 
