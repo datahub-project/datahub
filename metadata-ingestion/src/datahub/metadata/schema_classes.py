@@ -1417,6 +1417,42 @@ class StatusClass(DictWrapper):
         self._inner_dict['removed'] = value
     
     
+class SubTypesClass(DictWrapper):
+    """Sub Types. Use this aspect to specialize a generic Entity
+    e.g. Making a Dataset also be a View or also be a LookerExplore"""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.common.SubTypes")
+    def __init__(self,
+        typeNames: List[str],
+    ):
+        super().__init__()
+        
+        self.typeNames = typeNames
+    
+    @classmethod
+    def construct_with_defaults(cls) -> "SubTypesClass":
+        self = cls.construct({})
+        self._restore_defaults()
+        
+        return self
+    
+    def _restore_defaults(self) -> None:
+        self.typeNames = list()
+    
+    
+    @property
+    def typeNames(self) -> List[str]:
+        """Getter: The names of the specific types.
+    """
+        return self._inner_dict.get('typeNames')  # type: ignore
+    
+    @typeNames.setter
+    def typeNames(self, value: List[str]) -> None:
+        """Setter: The names of the specific types.
+    """
+        self._inner_dict['typeNames'] = value
+    
+    
 class TagAssociationClass(DictWrapper):
     """Properties of an applied tag. For now, just an Urn. In the future we can extend this with other properties, e.g.
     propagation parameters."""
@@ -10332,6 +10368,7 @@ __SCHEMA_TYPES = {
     'com.linkedin.pegasus2avro.common.OwnershipSourceType': OwnershipSourceTypeClass,
     'com.linkedin.pegasus2avro.common.OwnershipType': OwnershipTypeClass,
     'com.linkedin.pegasus2avro.common.Status': StatusClass,
+    'com.linkedin.pegasus2avro.common.SubTypes': SubTypesClass,
     'com.linkedin.pegasus2avro.common.TagAssociation': TagAssociationClass,
     'com.linkedin.pegasus2avro.common.VersionTag': VersionTagClass,
     'com.linkedin.pegasus2avro.common.WindowDuration': WindowDurationClass,
@@ -10514,6 +10551,7 @@ __SCHEMA_TYPES = {
     'OwnershipSourceType': OwnershipSourceTypeClass,
     'OwnershipType': OwnershipTypeClass,
     'Status': StatusClass,
+    'SubTypes': SubTypesClass,
     'TagAssociation': TagAssociationClass,
     'VersionTag': VersionTagClass,
     'WindowDuration': WindowDurationClass,

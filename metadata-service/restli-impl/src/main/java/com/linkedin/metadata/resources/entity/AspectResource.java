@@ -11,15 +11,16 @@ import com.linkedin.metadata.aspect.EnvelopedAspectArray;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.models.AspectSpec;
-import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.restli.RestliUtil;
 import com.linkedin.metadata.search.utils.BrowsePathUtils;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericAspectUtils;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.parseq.Task;
+import com.linkedin.restli.internal.server.methods.AnyRecord;
 import com.linkedin.restli.server.annotations.Action;
 import com.linkedin.restli.server.annotations.ActionParam;
 import com.linkedin.restli.server.annotations.Optional;
@@ -40,7 +41,6 @@ import javax.inject.Named;
 import lombok.extern.slf4j.Slf4j;
 
 import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.resources.ResourceUtils.*;
 import static com.linkedin.metadata.restli.RestliConstants.*;
 
 /**
@@ -76,7 +76,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
   @RestMethod.Get
   @Nonnull
   @WithSpan
-  public Task<VersionedAspect> get(
+  public Task<AnyRecord> get(
       @Nonnull String urnStr,
       @QueryParam("aspect") @Optional @Nullable String aspectName,
       @QueryParam("version") @Optional @Nullable Long version) throws URISyntaxException {
@@ -86,10 +86,8 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
       final VersionedAspect aspect = _entityService.getVersionedAspect(urn, aspectName, version);
       if (aspect == null) {
         throw RestliUtil.resourceNotFoundException();
-      } else {
-        validateOrWarn(aspect);
       }
-      return aspect;
+      return new AnyRecord(aspect.data());
     }, MetricRegistry.name(this.getClass(), "get"));
   }
 
@@ -127,13 +125,15 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
   @Action(name = ACTION_INGEST_PROPOSAL)
   @Nonnull
   @WithSpan
-  public Task<String> ingestProposal(@ActionParam(PARAM_PROPOSAL) @Nonnull MetadataChangeProposal metadataChangeProposal)
-      throws URISyntaxException {
+  public Task<String> ingestProposal(
+      @ActionParam(PARAM_PROPOSAL) @Nonnull MetadataChangeProposal metadataChangeProposal) throws URISyntaxException {
+
+
     log.info("INGEST PROPOSAL proposal: {}", metadataChangeProposal);
 
     // TODO: Use the actor present in the IC.
-    final AuditStamp auditStamp = new AuditStamp().setTime(_clock.millis()).setActor(Urn.createFromString(
-        Constants.UNKNOWN_ACTOR));
+    final AuditStamp auditStamp =
+        new AuditStamp().setTime(_clock.millis()).setActor(Urn.createFromString(Constants.UNKNOWN_ACTOR));
     final List<MetadataChangeProposal> additionalChanges = getAdditionalChanges(metadataChangeProposal);
 
     return RestliUtil.toTask(() -> {

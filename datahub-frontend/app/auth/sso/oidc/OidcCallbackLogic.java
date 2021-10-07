@@ -162,8 +162,7 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
 
     final Optional<String> mappedUserName = extractRegexGroup(
         oidcConfigs.getUserNameClaimRegex(),
-        (String) profile.getAttribute(oidcConfigs.getUserNameClaim())
-    );
+        userNameClaim);
 
     return mappedUserName.orElseThrow(() ->
         new RuntimeException(String.format("Failed to extract DataHub username from username claim %s using regex %s. Profile: %s",
@@ -194,7 +193,7 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
     userInfo.setFirstName(firstName, SetMode.IGNORE_NULL);
     userInfo.setLastName(lastName, SetMode.IGNORE_NULL);
     userInfo.setFullName(String.format("%s %s", firstName, lastName), SetMode.IGNORE_NULL);
-    userInfo.setEmail(email);
+    userInfo.setEmail(email, SetMode.IGNORE_NULL);
     // If there is a display name, use it. Otherwise fall back to full name.
     userInfo.setDisplayName(displayName == null ? userInfo.getFullName() : displayName, SetMode.IGNORE_NULL);
 

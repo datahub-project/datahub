@@ -13,6 +13,7 @@ from datahub.metadata.schema_classes import (
 
 class AddDatasetBrowsePathConfig(ConfigModel):
     path_templates: List[str]
+    replace_existing: bool = False
 
 
 class AddDatasetBrowsePathTransformer(DatasetTransformer):
@@ -49,6 +50,10 @@ class AddDatasetBrowsePathTransformer(DatasetTransformer):
                 paths=[],
             ),
         )
+
+        if self.config.replace_existing:
+            browse_paths.paths = []
+
         for template in self.config.path_templates:
             browse_path = (
                 template.replace("PLATFORM", platform)

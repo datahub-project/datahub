@@ -588,7 +588,7 @@ type Dataset implements EntityWithRelationships & Entity {
     platformNativeType: PlatformNativeType @deprecated
 
     """
-    Deprecated, use externalUrl instead
+    Deprecated, use properties instead
     Native Dataset Uri
     Uri should not include any environment specific properties
     """
@@ -611,6 +611,11 @@ type Dataset implements EntityWithRelationships & Entity {
     The structured tags associated with the dataset
     """
     globalTags: GlobalTags @deprecated
+
+    """
+    Sub Types that this entity implements
+    """
+    subTypes: SubTypes
 }
 
 """
@@ -638,6 +643,7 @@ type DatasetProperties {
     """
     externalUrl: String
 }
+
 
 """
 A Glossary Term, or a node in a Business Glossary representing a standardized domain
@@ -5042,3 +5048,9 @@ enum CostType {
     ORG_COST_TYPE
 }
 
+type SubTypes {
+   """
+    The sub-types that this entity implements. e.g. Datasets that are views will implement the "view" subtype
+   """
+   typeNames: [String!]
+}

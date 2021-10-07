@@ -68,6 +68,10 @@ def getStatusSchema() -> str:
     return _load_schema("Status")
 
 @functools.lru_cache(maxsize=None)
+def getSubTypesSchema() -> str:
+    return _load_schema("SubTypes")
+
+@functools.lru_cache(maxsize=None)
 def getDashboardInfoSchema() -> str:
     return _load_schema("DashboardInfo")
 

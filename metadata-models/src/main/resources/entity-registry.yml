@@ -2,6 +2,7 @@ entities:
   - name: dataset
     keyAspect: datasetKey
     aspects:
+      - subTypes
       - datasetProfile
       - datasetUsageStatistics
   - name: dataHubPolicy
@@ -14,4 +15,3 @@ entities:
       - corpUserInfo
       - corpUserEditableInfo
       - corpUserStatus
-      - groupMembership
