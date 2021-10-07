@@ -1703,27 +1703,6 @@
       "name" : "corpUserStatus"
     }
   }, {
-    "type" : "record",
-    "name" : "GroupMembership",
-    "namespace" : "com.linkedin.identity",
-    "doc" : "Carries information about the CorpGroups a user is in.",
-    "fields" : [ {
-      "name" : "groups",
-      "type" : {
-        "type" : "array",
-        "items" : "com.linkedin.common.Urn"
-      },
-      "Relationship" : {
-        "/*" : {
-          "entityTypes" : [ "corpGroup" ],
-          "name" : "IsMemberOfGroup"
-        }
-      }
-    } ],
-    "Aspect" : {
-      "name" : "groupMembership"
-    }
-  }, {
     "type" : "typeref",
     "name" : "Aspect",
     "namespace" : "com.linkedin.metadata.aspect",
@@ -2392,7 +2371,7 @@
       "Aspect" : {
         "name" : "glossaryTermKey"
       }
-    }, "com.linkedin.identity.GroupMembership", {
+    }, {
       "type" : "record",
       "name" : "MLFeatureKey",
       "namespace" : "com.linkedin.metadata.key",
@@ -2478,7 +2457,9 @@
         "type" : "com.linkedin.common.FabricType",
         "doc" : "Fabric type where model belongs to or where it was generated",
         "Searchable" : {
+          "addToFilters" : true,
           "fieldType" : "TEXT_PARTIAL",
+          "filterNameOverride" : "Environment",
           "queryByDefault" : false
         }
       } ],
