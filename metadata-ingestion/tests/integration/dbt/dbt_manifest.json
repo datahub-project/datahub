@@ -3125,7 +3125,7 @@
       "root_path": "/some-path/sample-dbt",
       "schema": "dbt_postgres",
       "sources": [],
-      "tags": [],
+      "tags": ["test_tag"],
       "unique_id": "model.sample_dbt.monthly_billing_with_cust",
       "unrendered_config": {
         "alias": "an-aliased-view-for-monthly-billing",

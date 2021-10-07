@@ -49,6 +49,9 @@ from datahub.metadata.schema_classes import (
 logger = logging.getLogger(__name__)
 
 
+DEFAULT_IMPORTED_TAGS_PREFIX = "dbt:"
+
+
 class DBTConfig(ConfigModel):
     manifest_path: str
     catalog_path: str
@@ -58,13 +61,8 @@ class DBTConfig(ConfigModel):
     load_schemas: bool
     use_identifiers: bool = False
     node_type_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
-<<<<<<< Updated upstream
-    tag_prefix: str = "dbt:"
-
-=======
     dataset_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
     imported_tags_prefix: str = DEFAULT_IMPORTED_TAGS_PREFIX
->>>>>>> Stashed changes
 
 @dataclass
 class DBTColumn:
@@ -112,9 +110,14 @@ class DBTNode:
         fields = tuple("{}={}".format(k, v) for k, v in self.__dict__.items())
         return self.__class__.__name__ + str(tuple(sorted(fields))).replace("'", "")
 
+def generate_tag_name(tag: str, imported_tag_prefix: str) -> str:
+    return imported_tag_prefix + tag
+
+def generate_tags_with_prefix(tags: List[str], imported_tag_prefix: str) -> List[str]:
+    return [generate_tag_name(tag, imported_tag_prefix) for tag in tags]
 
 def get_columns(
-    catalog_node: dict, manifest_node: dict, tag_prefix: str
+    catalog_node: dict, manifest_node: dict, imported_tag_prefix: str
 ) -> List[DBTColumn]:
     columns = []
 
@@ -124,6 +127,9 @@ def get_columns(
 
     for key in raw_columns:
         raw_column = raw_columns[key]
+        
+        tags = manifest_columns.get(key.lower(), {}).get("tags", [])
+        tags_with_prefix = generate_tags_with_prefix(tags, imported_tag_prefix)
 
         dbtCol = DBTColumn(
             name=raw_column["name"].lower(),
@@ -131,7 +137,7 @@ def get_columns(
             description=manifest_columns.get(key.lower(), {}).get("description", ""),
             data_type=raw_column["type"],
             index=raw_column["index"],
-            tags=tags,
+            tags=tags_with_prefix,
         )
         columns.append(dbtCol)
     return columns
@@ -205,7 +211,7 @@ def extract_dbt_entities(
             catalog_type = all_catalog_entities[key]["metadata"]["type"]
 
         meta = manifest_node.get("meta", {})
-        owner = meta.get("owner")
+        owner = manifest_node.get("config", {}).get("meta", {}).get("owner")
 
         tags = manifest_node.get("tags", [])
         tags_with_prefix = generate_tags_with_prefix(tags, imported_tag_prefix)
@@ -232,7 +238,7 @@ def extract_dbt_entities(
                 environment,
             ),
             meta=manifest_node.get("meta", {}),
-            tags=tags,
+            tags=tags_with_prefix,
             owner=owner,
         )
 
@@ -249,7 +255,7 @@ def extract_dbt_entities(
                     f"Entity {dbtNode.dbt_name} is in manifest but missing from catalog",
                 )
             else:
-                dbtNode.columns = get_columns(catalog_node, manifest_node, tag_prefix)
+                dbtNode.columns = get_columns(catalog_node, manifest_node, imported_tag_prefix)
 
         else:
             dbtNode.columns = []

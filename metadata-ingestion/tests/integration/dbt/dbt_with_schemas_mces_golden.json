@@ -20,9 +20,7 @@
                         "externalUrl": null,
                         "description": null,
                         "uri": null,
-                        "tags": [
-                            "dbt:test_tag"
-                        ]
+                        "tags": []
                     }
                 },
                 {
@@ -144,7 +142,7 @@
                         "externalUrl": null,
                         "description": null,
                         "uri": null,
-                        "tags": []
+                        "tags": [ "dbt:test_tag" ]
                     }
                 },
                 {
