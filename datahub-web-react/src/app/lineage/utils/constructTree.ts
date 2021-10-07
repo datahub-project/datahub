@@ -18,6 +18,7 @@ export default function constructTree(
         name: fetchedEntity?.name || '',
         urn: fetchedEntity?.urn,
         type: fetchedEntity?.type,
+        subtype: fetchedEntity?.subtype,
         icon: fetchedEntity?.icon,
         platform: fetchedEntity?.platform,
         unexploredChildren: 0,

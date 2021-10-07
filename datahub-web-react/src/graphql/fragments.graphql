@@ -160,6 +160,9 @@ fragment nonRecursiveDatasetFields on Dataset {
     glossaryTerms {
         ...glossaryTerms
     }
+    subTypes {
+        typeNames
+    }
 }
 
 fragment nonRecursiveDataFlowFields on DataFlow {
@@ -581,3 +584,4 @@ fragment nonRecursiveMLModelGroupFields on MLModelGroup {
         ...ownershipFields
     }
 }
+

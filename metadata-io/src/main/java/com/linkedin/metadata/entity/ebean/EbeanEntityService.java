@@ -366,7 +366,7 @@ public class EbeanEntityService extends EntityService {
 
     if (aspectSpec == null) {
       throw new RuntimeException(
-          String.format("Unknown aspect {} for entity {}", metadataChangeProposal.getAspectName(),
+          String.format("Unknown aspect %s for entity %s", metadataChangeProposal.getAspectName(),
               metadataChangeProposal.getEntityType()));
     }
 
