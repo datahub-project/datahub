@@ -67,15 +67,15 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `target_platform`         | ✅       |          | The platform that dbt is loading onto.                                                                                                                |
 | `load_schemas`            | ✅       |          | Whether to load database schemas. If set to `False`, table schema details (e.g. columns) will not be ingested.                                        |
 | `use_identifiers`         |         | `False`   | Whether to use model identifiers instead of names, if defined (if not, default to names)                                                             |
-| `tag_prefix`              |         | `dbt:`    | Prefix added to tags during ingestion. |
 | `node_type_pattern.allow` |          |          | List of regex patterns for dbt nodes to include in ingestion.                                                                                                  |
 | `node_type_pattern.deny`  |          |          | List of regex patterns for dbt nodes to exclude from ingestion.                                                                                                |
 | `node_type_pattern.ignoreCase`  |          | `True` | Whether to ignore case sensitivity during pattern matching.                                                                                                                                  |
 | `model_name_pattern.allow` |          |          | List of regex patterns for dbt model names to include in ingestion.                                                                                                  |
 | `model_name_pattern.deny`  |          |          | List of regex patterns for dbt model names to exclude from ingestion.                                                                                                |
 | `model_name_pattern.ignoreCase`  |          | `True` | Whether to ignore case sensitivity during pattern matching.                                                   
-| `imported_tags_prefix`  |          | `dbt:` | Prefix used for tags created from DBT. Set to empty string if you don't want any prefix                                                   
-                                                                                   |
+| `imported_tags_prefix`  |          | `dbt:` | Prefix used for tags created from DBT. Set to empty string if you don't want any prefix                                          |
+
+
 ## Compatibility
 
 Coming soon!
