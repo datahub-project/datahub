@@ -259,6 +259,7 @@ export const dataset3 = {
     properties: {
         origin: 'PROD',
         customProperties: [{ key: 'propertyAKey', value: 'propertyAValue' }],
+        externalUrl: 'https://data.hub',
     },
     editableProperties: null,
     created: {
@@ -405,6 +406,7 @@ export const dataset3 = {
             ],
         },
     ],
+    subTypes: null,
 } as Dataset;
 
 export const dataset4 = {

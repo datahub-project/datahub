@@ -13,7 +13,11 @@ import com.linkedin.metadata.aspect.Aspect;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.dao.exception.ModelConversionException;
 import com.linkedin.metadata.dao.utils.RecordUtils;
-import com.linkedin.metadata.entity.*;
+import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.EntityUtils;
+import com.linkedin.metadata.entity.ListResult;
+import com.linkedin.metadata.entity.RollbackResult;
+import com.linkedin.metadata.entity.RollbackRunResult;
 import com.linkedin.metadata.event.EntityEventProducer;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
@@ -362,7 +366,7 @@ public class EbeanEntityService extends EntityService {
 
     if (aspectSpec == null) {
       throw new RuntimeException(
-          String.format("Unknown aspect {} for entity {}", metadataChangeProposal.getAspectName(),
+          String.format("Unknown aspect %s for entity %s", metadataChangeProposal.getAspectName(),
               metadataChangeProposal.getEntityType()));
     }
 

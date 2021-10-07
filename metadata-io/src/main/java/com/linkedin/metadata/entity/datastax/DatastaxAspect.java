@@ -1,10 +1,12 @@
 package com.linkedin.metadata.entity.datastax;
 
+import com.linkedin.metadata.entity.EntityAspect;
+
 import java.sql.Timestamp;
 
 // Dumb object for now
 
-public class DatastaxAspect {
+public class DatastaxAspect implements EntityAspect {
   private String urn;
   private String aspect;
   private long version;

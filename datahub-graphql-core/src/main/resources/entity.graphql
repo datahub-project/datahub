@@ -572,6 +572,11 @@ type Dataset implements EntityWithRelationships & Entity {
     The structured tags associated with the dataset
     """
     globalTags: GlobalTags @deprecated
+
+    """
+    Sub Types that this entity implements
+    """
+    subTypes: SubTypes
 }
 
 """
@@ -599,6 +604,7 @@ type DatasetProperties {
     """
     externalUrl: String
 }
+
 
 """
 A Glossary Term, or a node in a Business Glossary representing a standardized domain
@@ -4856,4 +4862,11 @@ enum CostType {
     Org Cost Type to which the Cost of this entity should be attributed to
     """
     ORG_COST_TYPE
+}
+
+type SubTypes {
+   """
+    The sub-types that this entity implements. e.g. Datasets that are views will implement the "view" subtype
+   """
+   typeNames: [String!]
 }

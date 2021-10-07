@@ -1,12 +1,16 @@
+import importlib
 import logging
 import math
 import sys
 from dataclasses import dataclass, field
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional, Type
 
 import dateutil.parser as dp
 from redash_toolbelt import Redash
+from requests.adapters import HTTPAdapter
+from requests.packages.urllib3.util.retry import Retry
 
+import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.api.common import PipelineContext
@@ -26,6 +30,7 @@ from datahub.metadata.schema_classes import (
     ChartTypeClass,
     DashboardInfoClass,
 )
+from datahub.utilities.sql_parser import SQLParser
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -109,6 +114,96 @@ VISUALIZATION_TYPE_MAP = {
 }
 
 
+@dataclass
+class QualifiedNameParser:
+    split_char: str
+    names: List
+    default_schema: Optional[str] = None
+
+    def get_segments(self, table_name: str) -> Dict:
+        segments = table_name.split(self.split_char)
+        segments.reverse()
+        self.segments_dict = dict(zip(list(reversed(self.names)), segments))
+        return self.segments_dict
+
+    def get_full_qualified_name(self, database_name: str, table_name: str) -> str:
+        self.get_segments(table_name)
+        _database_name = self.segments_dict.get("database_name") or database_name
+        _schema_name = self.segments_dict.get("schema_name") or self.default_schema
+        _table_name = self.segments_dict.get("table_name")
+
+        return f"{_database_name}{self.split_char}{_schema_name}{self.split_char}{_table_name}"
+
+
+@dataclass
+class PostgresQualifiedNameParser(QualifiedNameParser):
+    split_char: str = "."
+    names: List = field(
+        default_factory=lambda: ["database_name", "schema_name", "table_name"]
+    )
+    default_schema: Optional[str] = "public"
+
+
+@dataclass
+class MssqlQualifiedNameParser(QualifiedNameParser):
+    split_char: str = "."
+    names: List = field(
+        default_factory=lambda: ["database_name", "schema_name", "table_name"]
+    )
+    default_schema: Optional[str] = "dbo"
+
+
+@dataclass
+class MysqlQualifiedNameParser(QualifiedNameParser):
+    split_char: str = "."
+    names: List = field(default_factory=lambda: ["database_name", "table_name"])
+
+    def get_full_qualified_name(self, database_name: str, table_name: str) -> str:
+        self.get_segments(table_name)
+        _database_name = self.segments_dict.get("database_name") or database_name
+        _table_name = self.segments_dict.get("table_name")
+
+        return f"{_database_name}{self.split_char}{_table_name}"
+
+
+@dataclass
+class BigqueryQualifiedNameParser(QualifiedNameParser):
+    split_char: str = "."
+    names: List = field(
+        default_factory=lambda: ["database_name", "schema_name", "table_name"]
+    )
+
+    def get_full_qualified_name(self, database_name: str, table_name: str) -> str:
+        self.get_segments(table_name)
+        _database_name = self.segments_dict.get("database_name") or database_name
+        _schema_name = self.segments_dict.get("schema_name")
+        _table_name = self.segments_dict.get("table_name")
+
+        return f"{_database_name}{self.split_char}{_schema_name}{self.split_char}{_table_name}"
+
+
+def get_full_qualified_name(platform: str, database_name: str, table_name: str) -> str:
+    if platform == "postgres":
+        full_qualified_name = PostgresQualifiedNameParser().get_full_qualified_name(
+            database_name, table_name
+        )
+    elif platform == "mysql":
+        full_qualified_name = MysqlQualifiedNameParser().get_full_qualified_name(
+            database_name, table_name
+        )
+    elif platform == "mssql":
+        full_qualified_name = MssqlQualifiedNameParser().get_full_qualified_name(
+            database_name, table_name
+        )
+    elif platform == "bigquery":
+        full_qualified_name = BigqueryQualifiedNameParser().get_full_qualified_name(
+            database_name, table_name
+        )
+    else:
+        full_qualified_name = f"{database_name}.{table_name}"
+    return full_qualified_name
+
+
 class RedashConfig(ConfigModel):
     # See the Redash API for details
     # https://redash.io/help/user-guide/integrations-and-api/api
@@ -121,7 +216,8 @@ class RedashConfig(ConfigModel):
     chart_patterns: AllowDenyPattern = AllowDenyPattern.allow_all()
     skip_draft: bool = True
     api_page_limit: int = sys.maxsize
-    # parse_table_names_from_sql: bool = False  # TODO: _get_upstream_lineage from SQL
+    parse_table_names_from_sql: bool = False
+    sql_parser: str = "datahub.utilities.sql_parser.DefaultSQLParser"
 
 
 @dataclass
@@ -157,7 +253,29 @@ class RedashSource(Source):
             }
         )
 
+        # Handling retry and backoff
+        retries = 3
+        backoff_factor = 10
+        status_forcelist = (500, 503, 502, 504)
+        retry = Retry(
+            total=retries,
+            read=retries,
+            connect=retries,
+            backoff_factor=backoff_factor,
+            status_forcelist=status_forcelist,
+        )
+        adapter = HTTPAdapter(max_retries=retry)
+        self.client.session.mount("http://", adapter)
+        self.client.session.mount("https://", adapter)
+
         self.api_page_limit = self.config.api_page_limit or math.inf
+
+        self.parse_table_names_from_sql = self.config.parse_table_names_from_sql
+        self.sql_parser_path = self.config.sql_parser
+
+        logger.info(
+            f"Running Redash ingestion with parse_table_names_from_sql={self.parse_table_names_from_sql}"
+        )
 
     def test_connection(self) -> None:
         test_response = self.client._get(f"{self.config.connect_uri}/api")
@@ -172,38 +290,111 @@ class RedashSource(Source):
         config = RedashConfig.parse_obj(config_dict)
         return cls(ctx, config)
 
+    @classmethod
+    def _import_sql_parser_cls(cls, sql_parser_path: str) -> Type[SQLParser]:
+        assert "." in sql_parser_path, "sql_parser-path must contain a ."
+        module_name, cls_name = sql_parser_path.rsplit(".", 1)
+        import sys
+
+        logger.debug(sys.path)
+        parser_cls = getattr(importlib.import_module(module_name), cls_name)
+        if not issubclass(parser_cls, SQLParser):
+            raise ValueError(f"must be derived from {SQLParser}; got {parser_cls}")
+
+        return parser_cls
+
+    @classmethod
+    def _get_sql_table_names(cls, sql: str, sql_parser_path: str) -> List[str]:
+        parser_cls = cls._import_sql_parser_cls(sql_parser_path)
+
+        sql_table_names: List[str] = parser_cls(sql).get_tables()
+
+        # Remove quotes from table names
+        sql_table_names = [t.replace('"', "") for t in sql_table_names]
+        sql_table_names = [t.replace("`", "") for t in sql_table_names]
+
+        return sql_table_names
+
     def _get_chart_data_source(self, data_source_id: int = None) -> Dict:
         url = f"/api/data_sources/{data_source_id}"
         resp = self.client._get(url).json()
         logger.debug(resp)
         return resp
 
-    def _get_datasource_urn_from_data_source(self, data_source: Dict) -> Optional[str]:
+    def _get_platform_based_on_datasource(self, data_source: Dict) -> str:
         data_source_type = data_source.get("type")
-        data_source_name = data_source.get("name")
-        data_source_options = data_source.get("options", {})
-
         if data_source_type:
             map = REDASH_DATA_SOURCE_TO_DATAHUB_MAP.get(
                 data_source_type, {"platform": DEFAULT_DATA_SOURCE_PLATFORM}
             )
-            platform = map.get("platform")
-            platform_urn = f"urn:li:dataPlatform:{platform}"
+            platform = map.get("platform", DEFAULT_DATA_SOURCE_PLATFORM)
+            return platform
+        return DEFAULT_DATA_SOURCE_PLATFORM
 
-            db_name_key = map.get("db_name_key", "db")
-            db_name = data_source_options.get(db_name_key, DEFAULT_DATA_BASE_NAME)
+    def _get_database_name_based_on_datasource(
+        self, data_source: Dict
+    ) -> Optional[str]:
+        data_source_type = data_source.get("type", "external")
+        data_source_name = data_source.get("name")
+        data_source_options = data_source.get("options", {})
 
-            # Redash Query Results
-            if data_source_type == "results":
-                dataset_urn = f"urn:li:dataset:({platform_urn},{data_source_name},{self.config.env})"
-                return dataset_urn
+        if data_source_type == "results":
+            database_name = data_source_name
+        else:
+            map = REDASH_DATA_SOURCE_TO_DATAHUB_MAP.get(
+                data_source_type, {"platform": DEFAULT_DATA_SOURCE_PLATFORM}
+            )
 
-            # Other Redash supported data source as in REDASH_DATA_SOURCE_TO_DATAHUB_MAP
-            if db_name:
-                dataset_urn = (
-                    f"urn:li:dataset:({platform_urn},{db_name},{self.config.env})"
-                )
-                return dataset_urn
+            database_name_key = map.get("db_name_key", "db")
+            database_name = data_source_options.get(
+                database_name_key, DEFAULT_DATA_BASE_NAME
+            )
+
+        return database_name
+
+    def _construct_datalineage_urn(
+        self, platform: str, database_name: str, sql_table_name: str
+    ) -> str:
+        full_dataset_name = get_full_qualified_name(
+            platform, database_name, sql_table_name
+        )
+        return builder.make_dataset_urn(platform, full_dataset_name, self.config.env)
+
+    def _get_datasource_urns(
+        self, data_source: Dict, sql_query_data: Dict = {}
+    ) -> Optional[List[str]]:
+        platform = self._get_platform_based_on_datasource(data_source)
+        database_name = self._get_database_name_based_on_datasource(data_source)
+        data_source_syntax = data_source.get("syntax")
+
+        if database_name:
+            query = sql_query_data.get("query", "")
+
+            # Getting table lineage from SQL parsing
+            if self.parse_table_names_from_sql and data_source_syntax == "sql":
+                try:
+                    dataset_urns = list()
+                    sql_table_names = self._get_sql_table_names(
+                        query, self.sql_parser_path
+                    )
+                    for sql_table_name in sql_table_names:
+                        dataset_urns.append(
+                            self._construct_datalineage_urn(
+                                platform, database_name, sql_table_name
+                            )
+                        )
+                except Exception as e:
+                    logger.error(e)
+                    logger.error(query)
+
+                # make sure dataset_urns is not empty list
+                return dataset_urns if len(dataset_urns) > 0 else None
+
+            else:
+                return [
+                    builder.make_dataset_urn(platform, database_name, self.config.env)
+                ]
+
         return None
 
     def _get_dashboard_description_from_widgets(
@@ -287,23 +478,25 @@ class RedashSource(Source):
         return dashboard_snapshot
 
     def _emit_dashboard_mces(self) -> Iterable[MetadataWorkUnit]:
-        current_dashboards_page = 0
+        current_dashboards_page = 1
         skip_draft = self.config.skip_draft
 
-        # we will set total dashboards to the actual number after we get the response
-        total_dashboards = PAGE_SIZE
+        # Get total number of dashboards to calculate maximum page number
+        dashboards_response = self.client.dashboards(1, PAGE_SIZE)
+        total_dashboards = dashboards_response["count"]
+        max_page = total_dashboards // PAGE_SIZE
 
         while (
-            current_dashboards_page * PAGE_SIZE <= total_dashboards
-            and current_dashboards_page < self.api_page_limit
+            current_dashboards_page <= max_page
+            and current_dashboards_page <= self.api_page_limit
         ):
             dashboards_response = self.client.dashboards(
-                page=current_dashboards_page + 1, page_size=PAGE_SIZE
+                page=current_dashboards_page, page_size=PAGE_SIZE
             )
-            total_dashboards = dashboards_response.get("count") or 0
-            current_dashboards_page += 1
 
             logger.info(f"/api/dashboards on page {current_dashboards_page}")
+
+            current_dashboards_page += 1
 
             for dashboard_response in dashboards_response["results"]:
 
@@ -386,12 +579,9 @@ class RedashSource(Source):
         data_source = self._get_chart_data_source(data_source_id)
         data_source_type = data_source.get("type")
 
-        # TODO: Getting table lineage from SQL parsing
-        # Currently we only get database level source from `data_source_id` which returns database name or Bigquery's projectId
-        # query = query_data.get("query", "")
-        datasource_urn = self._get_datasource_urn_from_data_source(data_source)
+        datasource_urns = self._get_datasource_urns(data_source, query_data)
 
-        if not datasource_urn:
+        if datasource_urns is None:
             self.report.report_warning(
                 key=f"redash-chart-{viz_id}",
                 reason=f"data_source_type={data_source_type} not yet implemented. Setting inputs to None",
@@ -403,34 +593,33 @@ class RedashSource(Source):
             title=title,
             lastModified=last_modified,
             chartUrl=chart_url,
-            inputs=[
-                datasource_urn,
-            ]
-            if datasource_urn
-            else None,
+            inputs=datasource_urns or None,
         )
         chart_snapshot.aspects.append(chart_info)
 
         return chart_snapshot
 
     def _emit_chart_mces(self) -> Iterable[MetadataWorkUnit]:
-        current_queries_page = 0
+        current_queries_page = 1
         skip_draft = self.config.skip_draft
 
-        # we will set total charts to the actual number after we get the response
-        total_queries = PAGE_SIZE
+        # Get total number of queries to calculate maximum page number
+        _queries_response = self.client.queries(1, PAGE_SIZE)
+        total_queries = _queries_response["count"]
+        max_page = total_queries // PAGE_SIZE
 
         while (
-            current_queries_page * PAGE_SIZE <= total_queries
-            and current_queries_page < self.api_page_limit
+            current_queries_page <= max_page
+            and current_queries_page <= self.api_page_limit
         ):
             queries_response = self.client.queries(
-                page=current_queries_page + 1, page_size=PAGE_SIZE
+                page=current_queries_page, page_size=PAGE_SIZE
             )
-            current_queries_page += 1
+
             logger.info(f"/api/queries on page {current_queries_page}")
 
-            total_queries = queries_response["count"]
+            current_queries_page += 1
+
             for query_response in queries_response["results"]:
 
                 chart_name = query_response["name"]

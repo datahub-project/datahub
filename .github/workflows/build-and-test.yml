@@ -63,6 +63,7 @@ jobs:
         run: ./metadata-ingestion/scripts/install_deps.sh
       - name: Run metadata-ingestion tests
         run: ./gradlew :metadata-ingestion:build :metadata-ingestion:check
+
   metadata-ingestion-by-version:
     runs-on: ubuntu-latest
     strategy:
@@ -75,6 +76,8 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh && python -m pip install --upgrade pip && pip install tox tox-gh-actions
+      - name: Codegen
+        run: ./gradlew :metadata-ingestion:codegen
       - name: Run tox tests
         run: cd metadata-ingestion && tox
 
