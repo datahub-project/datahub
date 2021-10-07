@@ -16,9 +16,12 @@ public class Features {
   Map<Name, Double> numericFeatures;
 
   public enum Name {
-    SEARCH_BACKEND_SCORE, // Score returned by search backend
-    NUM_ENTITIES_PER_TYPE, // Number of entities per entity type
-    RANK_WITHIN_TYPE; // Rank within the entity type
+    SEARCH_BACKEND_SCORE,
+    NUM_ENTITIES_PER_TYPE,
+    RANK_WITHIN_TYPE,
+    QUERY_COUNT,
+    OUT_DEGREE,
+    HAS_OWNERS
   }
 
   public Double getNumericFeature(Name featureName, double defaultValue) {

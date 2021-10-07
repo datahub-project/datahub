@@ -59,7 +59,7 @@ public class ElasticSearchService implements EntitySearchService {
   @Override
   public SearchResult search(@Nonnull String entityName, @Nonnull String input, @Nullable Filter postFilters,
       @Nullable SortCriterion sortCriterion, int from, int size) {
-    log.debug(String.format(
+    log.info(String.format(
         "Searching Search documents entityName: %s, input: %s, postFilters: %s, sortCriterion: %s, from: %s, size: %s",
         entityName, input, postFilters, sortCriterion, from, size));
     return esSearchDAO.search(entityName, input, postFilters, sortCriterion, from, size);
