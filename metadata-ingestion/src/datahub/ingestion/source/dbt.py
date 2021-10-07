@@ -48,6 +48,7 @@ from datahub.metadata.schema_classes import (
 
 logger = logging.getLogger(__name__)
 
+
 class DBTConfig(ConfigModel):
     manifest_path: str
     catalog_path: str
@@ -59,6 +60,7 @@ class DBTConfig(ConfigModel):
     node_type_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
     tag_prefix: str = "dbt:"
     model_name_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
+
 
 @dataclass
 class DBTColumn:
@@ -105,6 +107,7 @@ class DBTNode:
     def __repr__(self):
         fields = tuple("{}={}".format(k, v) for k, v in self.__dict__.items())
         return self.__class__.__name__ + str(tuple(sorted(fields))).replace("'", "")
+
 
 def get_columns(
     catalog_node: dict, manifest_node: dict, tag_prefix: str
@@ -249,9 +252,7 @@ def extract_dbt_entities(
                     f"Entity {dbtNode.dbt_name} is in manifest but missing from catalog",
                 )
             else:
-                dbtNode.columns = get_columns(
-                    catalog_node, manifest_node, tag_prefix
-                )
+                dbtNode.columns = get_columns(catalog_node, manifest_node, tag_prefix)
 
         else:
             dbtNode.columns = []
