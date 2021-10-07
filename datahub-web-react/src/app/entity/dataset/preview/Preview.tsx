@@ -15,6 +15,7 @@ export const Preview = ({
     globalTags,
     snippet,
     glossaryTerms,
+    subtype,
 }: {
     urn: string;
     name: string;
@@ -26,6 +27,7 @@ export const Preview = ({
     globalTags?: GlobalTags | null;
     snippet?: React.ReactNode | null;
     glossaryTerms?: GlossaryTerms | null;
+    subtype?: string | null;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     const capitalPlatformName = capitalizeFirstLetter(platformName);
@@ -34,7 +36,7 @@ export const Preview = ({
             url={entityRegistry.getEntityUrl(EntityType.Dataset, urn)}
             name={name || ''}
             description={description || ''}
-            type="Dataset"
+            type={capitalizeFirstLetter(subtype) || 'Dataset'}
             logoUrl={platformLogo || ''}
             platform={capitalPlatformName}
             qualifier={origin}

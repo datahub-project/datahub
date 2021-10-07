@@ -54,6 +54,9 @@ query getSearchResults($input: SearchInput!) {
                     glossaryTerms {
                         ...glossaryTerms
                     }
+                    subTypes {
+                        typeNames
+                    }
                 }
                 ... on CorpUser {
                     username
