@@ -211,14 +211,14 @@ type Mutation {
     removeGroup(urn: String!): Boolean
 
     """
-    Add a member to a group
+    Add members to a group
     """
-    addGroupMembers(groupUrn: String!, userUrns: [String!]!): Boolean
+    addGroupMembers(input: AddGroupMembersInput!): Boolean
 
     """
-    Remove a member from a group
+    Remove members from a group
     """
-    removeGroupMembers(groupUrn: String!, userUrns: [String!]!): Boolean
+    removeGroupMembers(input: RemoveGroupMembersInput!): Boolean
 
     """
     Create a new group. Returns the urn of the newly created group. Requires Manage Users & Groups Platform Privilege
@@ -2013,6 +2013,11 @@ type CorpGroupInfo {
 Additional read only properties about a group
 """
 type CorpGroupProperties {
+    """
+    display name of this group
+    """
+    displayName: String
+
     """
     The description provided for the group
     """
@@ -3908,6 +3913,36 @@ input PolicyUpdateInput {
   The set of actors that the Policy privileges are granted to
   """
   actors: ActorFilterInput!
+}
+
+"""
+Input required to add members to a DataHub group
+"""
+input AddGroupMembersInput {
+  """
+  The group to add members to
+  """
+  groupUrn: String!
+
+  """
+  The members to add to the group
+  """
+  userUrns: [String!]!
+}
+
+"""
+Input required to remove members from a DataHub group
+"""
+input RemoveGroupMembersInput {
+  """
+  The group to remove members from
+  """
+  groupUrn: String!
+
+  """
+  The members to remove from the group
+  """
+  userUrns: [String!]!
 }
 
 """

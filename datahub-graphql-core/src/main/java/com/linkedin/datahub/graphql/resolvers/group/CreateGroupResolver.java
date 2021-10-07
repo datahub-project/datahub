@@ -13,11 +13,9 @@ import com.linkedin.metadata.utils.GenericAspectUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
-import java.net.URLEncoder;
 import java.util.concurrent.CompletableFuture;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
-import static org.apache.commons.codec.CharEncoding.*;
 
 
 // Currently, this resolver will override the group details, but not group membership, if a group with the same name already exists.
@@ -40,15 +38,9 @@ public class CreateGroupResolver implements DataFetcher<CompletableFuture<String
       return CompletableFuture.supplyAsync(() -> {
         try {
           // First, check if the group already exists.
-          // Create new group
-          final String urlEncodedGroupName = URLEncoder.encode(input.getName(), UTF_8);
-
           // Create the Group key.
           final CorpGroupKey key = new CorpGroupKey();
-          key.setName(urlEncodedGroupName);
-
-          // Check if the key exists. TODO: Add AnyRecord existence check on GMS side.
-          // final Boolean exists = _entityClient.keyExists(key);
+          key.setName(input.getName());
 
           // Create the Group info.
           final CorpGroupInfo info = new CorpGroupInfo();

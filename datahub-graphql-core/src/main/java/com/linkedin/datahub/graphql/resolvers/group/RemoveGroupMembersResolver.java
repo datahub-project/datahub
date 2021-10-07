@@ -4,6 +4,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
+import com.linkedin.datahub.graphql.generated.RemoveGroupMembersInput;
 import com.linkedin.entity.client.AspectClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.identity.GroupMembership;
@@ -17,8 +18,9 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
+import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
-// Open Questions: Should we verify the user exists? Should we verify the group exists?
+
 public class RemoveGroupMembersResolver implements DataFetcher<CompletableFuture<Boolean>> {
 
   private final AspectClient _aspectClient;
@@ -33,8 +35,9 @@ public class RemoveGroupMembersResolver implements DataFetcher<CompletableFuture
     final QueryContext context = environment.getContext();
 
     if (AuthorizationUtils.canManageUsersAndGroups(context)) {
-      final String groupUrnStr = environment.getArgument("groupUrn");
-      final List<String> userUrnStrs = environment.getArgument("userUrns");
+      final RemoveGroupMembersInput input = bindArgument(environment.getArgument("input"), RemoveGroupMembersInput.class);
+      final String groupUrnStr = input.getGroupUrn();
+      final List<String> userUrnStrs = input.getUserUrns();
 
       List<CompletableFuture<?>> removeGroupMemberFutures = userUrnStrs.stream().map(userUrnStr -> CompletableFuture.supplyAsync(() -> {
         try {

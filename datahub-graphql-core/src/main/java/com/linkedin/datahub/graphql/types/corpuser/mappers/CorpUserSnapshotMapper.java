@@ -36,7 +36,7 @@ public class CorpUserSnapshotMapper implements ModelMapper<CorpUserSnapshot, Cor
 
         ModelUtils.getAspectsFromSnapshot(corpUser).forEach(aspect -> {
             if (aspect instanceof CorpUserInfo) {
-                // TODO Support properties.
+                result.setProperties(CorpUserPropertiesMapper.map(CorpUserInfo.class.cast(aspect)));
                 result.setInfo(CorpUserInfoMapper.map(CorpUserInfo.class.cast(aspect)));
             } else if (aspect instanceof CorpUserEditableInfo) {
                 result.setEditableInfo(CorpUserEditableInfoMapper.map(CorpUserEditableInfo.class.cast(aspect)));
