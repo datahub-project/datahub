@@ -17,6 +17,7 @@ import com.linkedin.metadata.utils.GenericAspectUtils;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.parseq.Task;
+import com.linkedin.restli.internal.server.methods.AnyRecord;
 import com.linkedin.restli.server.annotations.Action;
 import com.linkedin.restli.server.annotations.ActionParam;
 import com.linkedin.restli.server.annotations.Optional;
@@ -38,7 +39,6 @@ import javax.inject.Inject;
 import javax.inject.Named;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.metadata.resources.ResourceUtils.validateOrWarn;
 import static com.linkedin.metadata.restli.RestliConstants.PARAM_LIMIT;
 import static com.linkedin.metadata.restli.RestliConstants.PARAM_URN;
 
@@ -76,7 +76,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
   @RestMethod.Get
   @Nonnull
   @WithSpan
-  public Task<VersionedAspect> get(@Nonnull String urnStr, @QueryParam("aspect") @Optional @Nullable String aspectName,
+  public Task<AnyRecord> get(@Nonnull String urnStr, @QueryParam("aspect") @Optional @Nullable String aspectName,
       @QueryParam("version") @Optional @Nullable Long version) throws URISyntaxException {
     log.info("GET ASPECT urn: {} aspect: {} version: {}", urnStr, aspectName, version);
     final Urn urn = Urn.createFromString(urnStr);
@@ -84,10 +84,8 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
       final VersionedAspect aspect = _entityService.getVersionedAspect(urn, aspectName, version);
       if (aspect == null) {
         throw RestliUtil.resourceNotFoundException();
-      } else {
-        validateOrWarn(aspect);
       }
-      return aspect;
+      return new AnyRecord(aspect.data());
     }, MetricRegistry.name(this.getClass(), "get"));
   }
 
@@ -127,6 +125,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
   @WithSpan
   public Task<String> ingestProposal(
       @ActionParam(PARAM_PROPOSAL) @Nonnull MetadataChangeProposal metadataChangeProposal) throws URISyntaxException {
+
     log.info("INGEST PROPOSAL proposal: {}", metadataChangeProposal);
 
     // TODO: Use the actor present in the IC.
@@ -174,5 +173,4 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
     }
     return null;
   }
-
 }

@@ -30,6 +30,40 @@ fragment searchResults on SearchResults {
                 uri
                 platform {
                     name
+                    origin
+                    description
+                    uri
+                    platform {
+                        name
+                        info {
+                            logoUrl
+                        }
+                    }
+                    editableProperties {
+                        description
+                    }
+                    platformNativeType
+                    properties {
+                        customProperties {
+                            key
+                            value
+                        }
+                    }
+                    ownership {
+                        ...ownershipFields
+                    }
+                    globalTags {
+                        ...globalTagsFields
+                    }
+                    glossaryTerms {
+                        ...glossaryTerms
+                    }
+                    subTypes {
+                        typeNames
+                    }
+                }
+                ... on CorpUser {
+                    username
                     info {
                         logoUrl
                     }

@@ -1,21 +1,28 @@
 package com.linkedin.entity.client;
 
 import com.linkedin.common.client.BaseClient;
+import com.linkedin.data.DataMap;
+import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.AspectsDoGetTimeseriesAspectValuesRequestBuilder;
 import com.linkedin.entity.AspectsDoIngestProposalRequestBuilder;
 import com.linkedin.entity.AspectsGetRequestBuilder;
 import com.linkedin.entity.AspectsRequestBuilders;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.aspect.VersionedAspect;
+import com.linkedin.metadata.dao.utils.RecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.restli.client.Client;
 import com.linkedin.restli.client.Response;
+import com.linkedin.restli.client.RestLiResponseException;
+import lombok.extern.slf4j.Slf4j;
+
 import java.util.List;
+import java.util.Optional;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-
+@Slf4j
 public class AspectClient extends BaseClient {
 
   private static final AspectsRequestBuilders ASPECTS_REQUEST_BUILDERS = new AspectsRequestBuilders();
@@ -99,4 +106,38 @@ public class AspectClient extends BaseClient {
             .proposalParam(metadataChangeProposal);
     return sendClientRequest(requestBuilder, actor);
   }
+
+  public <T extends RecordTemplate> Optional<T> getVersionedAspect(
+          @Nonnull String urn,
+          @Nonnull String aspect,
+          @Nonnull Long version,
+          @Nonnull String actor,
+          @Nonnull Class<T> aspectClass)
+          throws RemoteInvocationException {
+
+    AspectsGetRequestBuilder requestBuilder =
+            ASPECTS_REQUEST_BUILDERS.get().id(urn).aspectParam(aspect).versionParam(version);
+
+    try {
+      VersionedAspect entity = sendClientRequest(requestBuilder, actor).getEntity();
+      if (entity.hasAspect()) {
+        DataMap rawAspect = ((DataMap) entity.data().get("aspect"));
+        if (rawAspect.containsKey(aspectClass.getCanonicalName())) {
+          DataMap aspectDataMap = rawAspect.getDataMap(aspectClass.getCanonicalName());
+          return Optional.of(RecordUtils.toRecordTemplate(aspectClass, aspectDataMap));
+        }
+      }
+    } catch (RestLiResponseException e) {
+      if (e.getStatus() == 404) {
+        log.debug("Could not find aspect {} for entity {}", aspect, urn);
+        return Optional.empty();
+      } else {
+        // re-throw other exceptions
+        throw e;
+      }
+    }
+
+    return Optional.empty();
+  }
+
 }
