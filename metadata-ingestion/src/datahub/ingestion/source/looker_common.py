@@ -2,7 +2,7 @@ import logging
 import re
 from dataclasses import dataclass
 from enum import Enum
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Dict, Iterable, List, Optional, Tuple, Union
 
 from looker_sdk.error import SDKError
 from looker_sdk.sdk.api31.methods import Looker31SDK
@@ -12,6 +12,7 @@ import datahub.emitter.mce_builder as builder
 from datahub.configuration import ConfigModel
 from datahub.configuration.common import ConfigurationError
 from datahub.configuration.github import GitHubInfo
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.source.sql.sql_types import (
     POSTGRES_TYPES_MAP,
@@ -41,6 +42,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 )
 from datahub.metadata.schema_classes import (
     BrowsePathsClass,
+    ChangeTypeClass,
     DatasetPropertiesClass,
     EnumTypeClass,
     GlobalTagsClass,
@@ -49,6 +51,7 @@ from datahub.metadata.schema_classes import (
     OwnershipTypeClass,
     SchemaMetadataClass,
     StatusClass,
+    SubTypesClass,
     TagAssociationClass,
     TagPropertiesClass,
     TagSnapshotClass,
@@ -626,9 +629,9 @@ class LookerExplore:
             base_url = m.group(1)
         return f"{base_url}/explore/{self.model_name}/{self.name}"
 
-    def _to_mce(  # noqa: C901
+    def _to_metadata_events(  # noqa: C901
         self, config: LookerCommonConfig, reporter: SourceReport, base_url: str
-    ) -> Optional[MetadataChangeEvent]:
+    ) -> Optional[List[Union[MetadataChangeEvent, MetadataChangeProposalWrapper]]]:
         # We only generate MCE-s for explores that contain from clauses and do NOT contain joins
         # All other explores (passthrough explores and joins) end in correct resolution of lineage, and don't need additional nodes in the graph.
 
@@ -640,7 +643,7 @@ class LookerExplore:
         dataset_snapshot.aspects.append(browse_paths)
         dataset_snapshot.aspects.append(StatusClass(removed=False))
 
-        custom_properties = {"looker.type": "explore"}
+        custom_properties = {}
         if self.label is not None:
             custom_properties["looker.explore.label"] = str(self.label)
         if self.source_file is not None:
@@ -678,4 +681,12 @@ class LookerExplore:
                 dataset_snapshot.aspects.append(schema_metadata)
 
         mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-        return mce
+        mcp = MetadataChangeProposalWrapper(
+            entityType="dataset",
+            changeType=ChangeTypeClass.UPSERT,
+            entityUrn=dataset_snapshot.urn,
+            aspectName="subTypes",
+            aspect=SubTypesClass(typeNames=["explore"]),
+        )
+
+        return [mce, mcp]

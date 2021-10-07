@@ -493,6 +493,9 @@ public class GmsGraphQLEngine {
                 .dataFetcher("schemaMetadata", new AuthenticatedResolver<>(
                     new AspectResolver())
                 )
+               .dataFetcher("subTypes", new AuthenticatedResolver(new SubTypesResolver(GmsClientFactory.getAspectsClient(),
+                           "dataset",
+                       "subTypes")))
             )
             .type("Owner", typeWiring -> typeWiring
                     .dataFetcher("owner", new AuthenticatedResolver<>(
