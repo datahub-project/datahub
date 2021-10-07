@@ -2,6 +2,7 @@ entities:
   - name: dataset
     keyAspect: datasetKey
     aspects:
+      - subTypes
       - datasetProfile
       - datasetUsageStatistics
   - name: dataHubPolicy

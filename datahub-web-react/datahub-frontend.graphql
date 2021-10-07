@@ -168,6 +168,10 @@ type PropertyTuple {
     value: String
 }
 
+type SubTypes {
+    typeNames: [String!]
+}
+
 type Dataset {
     urn: String!
 
@@ -192,6 +196,8 @@ type Dataset {
     modifiedTime: Long!
 
     ownership: Ownership
+
+    subTypes: SubTypes
 }
 
 type CorpUserInfo {

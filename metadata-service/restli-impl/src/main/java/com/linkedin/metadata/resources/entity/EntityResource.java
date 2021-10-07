@@ -26,6 +26,7 @@ import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.parseq.Task;
 import com.linkedin.restli.common.HttpStatus;
+import com.linkedin.restli.internal.server.methods.AnyRecord;
 import com.linkedin.restli.server.annotations.Action;
 import com.linkedin.restli.server.annotations.ActionParam;
 import com.linkedin.restli.server.annotations.Optional;
@@ -51,7 +52,6 @@ import javax.inject.Named;
 import lombok.extern.slf4j.Slf4j;
 
 import static com.linkedin.metadata.resources.ResourceUtils.validateOrThrow;
-import static com.linkedin.metadata.resources.ResourceUtils.validateOrWarn;
 import static com.linkedin.metadata.restli.RestliConstants.ACTION_AUTOCOMPLETE;
 import static com.linkedin.metadata.restli.RestliConstants.ACTION_BROWSE;
 import static com.linkedin.metadata.restli.RestliConstants.ACTION_GET_BROWSE_PATHS;
@@ -101,7 +101,8 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   @RestMethod.Get
   @Nonnull
   @WithSpan
-  public Task<Entity> get(@Nonnull String urnStr, @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames)
+  public Task<AnyRecord> get(@Nonnull String urnStr,
+                             @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames)
       throws URISyntaxException {
     log.info("GET {}", urnStr);
     final Urn urn = Urn.createFromString(urnStr);
@@ -111,18 +112,16 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       final Entity entity = _entityService.getEntity(urn, projectedAspects);
       if (entity == null) {
         throw RestliUtil.resourceNotFoundException();
-      } else {
-        validateOrWarn(entity);
       }
-      return entity;
+      return new AnyRecord(entity.data());
     }, MetricRegistry.name(this.getClass(), "get"));
   }
 
   @RestMethod.BatchGet
   @Nonnull
   @WithSpan
-  public Task<Map<String, Entity>> batchGet(@Nonnull Set<String> urnStrs,
-      @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) throws URISyntaxException {
+  public Task<Map<String, AnyRecord>> batchGet(@Nonnull Set<String> urnStrs,
+                                         @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) throws URISyntaxException {
     log.info("BATCH GET {}", urnStrs.toString());
     final Set<Urn> urns = new HashSet<>();
     for (final String urnStr : urnStrs) {
@@ -134,8 +133,8 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       return _entityService.getEntities(urns, projectedAspects)
           .entrySet()
           .stream()
-          .peek(entry -> validateOrWarn(entry.getValue()))
-          .collect(Collectors.toMap(entry -> entry.getKey().toString(), Map.Entry::getValue));
+          .collect(Collectors.toMap(entry -> entry.getKey().toString(),
+                  entry -> new AnyRecord(entry.getValue().data())));
     }, MetricRegistry.name(this.getClass(), "batchGet"));
   }
 

@@ -28,6 +28,9 @@ query getBrowseResults($input: BrowseInput!) {
                 glossaryTerms {
                     ...glossaryTerms
                 }
+                subTypes {
+                    typeNames
+                }
             }
             ... on Dashboard {
                 urn
