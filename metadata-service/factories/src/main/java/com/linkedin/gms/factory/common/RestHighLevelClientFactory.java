@@ -3,6 +3,7 @@ package com.linkedin.gms.factory.common;
 import javax.annotation.Nonnull;
 import javax.net.ssl.SSLContext;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.http.HttpHost;
 import org.apache.http.conn.ssl.NoopHostnameVerifier;
 import org.apache.http.impl.nio.reactor.IOReactorConfig;
@@ -47,6 +48,9 @@ public class RestHighLevelClientFactory {
   @Value("${ELASTICSEARCH_USE_SSL:false}")
   private boolean useSSL;
 
+  @Value("${ELASTICSEARCH_PATH_PREFIX:#{null}}")
+  private String pathPrefix;
+
   @Autowired
   @Qualifier("elasticSearchSSLContext")
   private SSLContext sslContext;
@@ -57,21 +61,25 @@ public class RestHighLevelClientFactory {
     RestClientBuilder restClientBuilder;
 
     if (useSSL) {
-      restClientBuilder = loadRestHttpsClient(host, port, threadCount, connectionRequestTimeout, sslContext, username,
+      restClientBuilder = loadRestHttpsClient(host, port, pathPrefix, threadCount, connectionRequestTimeout, sslContext, username,
           password);
     } else {
-      restClientBuilder = loadRestHttpClient(host, port, threadCount, connectionRequestTimeout);
+      restClientBuilder = loadRestHttpClient(host, port, pathPrefix, threadCount, connectionRequestTimeout);
     }
 
     return new RestHighLevelClient(restClientBuilder);
   }
 
   @Nonnull
-  private static RestClientBuilder loadRestHttpClient(@Nonnull String host, int port, int threadCount,
+  private static RestClientBuilder loadRestHttpClient(@Nonnull String host, int port, String pathPrefix, int threadCount,
       int connectionRequestTimeout) {
     RestClientBuilder builder = RestClient.builder(new HttpHost(host, port, "http"))
         .setHttpClientConfigCallback(httpAsyncClientBuilder -> httpAsyncClientBuilder
             .setDefaultIOReactorConfig(IOReactorConfig.custom().setIoThreadCount(threadCount).build()));
+
+    if (!StringUtils.isEmpty(pathPrefix)) {
+      builder.setPathPrefix(pathPrefix);
+    }
 
     builder.setRequestConfigCallback(
         requestConfigBuilder -> requestConfigBuilder.setConnectionRequestTimeout(connectionRequestTimeout));
@@ -80,10 +88,15 @@ public class RestHighLevelClientFactory {
   }
 
   @Nonnull
-  private static RestClientBuilder loadRestHttpsClient(@Nonnull String host, int port, int threadCount,
+  private static RestClientBuilder loadRestHttpsClient(@Nonnull String host, int port, String pathPrefix, int threadCount,
       int connectionRequestTimeout, @Nonnull SSLContext sslContext, String username, String password) {
 
     final RestClientBuilder builder = RestClient.builder(new HttpHost(host, port, "https"));
+
+    if (!StringUtils.isEmpty(pathPrefix)) {
+      builder.setPathPrefix(pathPrefix);
+    }
+
     builder.setHttpClientConfigCallback(new RestClientBuilder.HttpClientConfigCallback() {
       public HttpAsyncClientBuilder customizeHttpClient(HttpAsyncClientBuilder httpAsyncClientBuilder) {
         httpAsyncClientBuilder.setSSLContext(sslContext).setSSLHostnameVerifier(new NoopHostnameVerifier())

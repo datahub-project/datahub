@@ -61,6 +61,7 @@ export const SchemaTab = () => {
             ) : rows && rows.length > 0 ? (
                 <>
                     <SchemaTable
+                        schemaMetadata={schemaMetadata}
                         rows={rows}
                         editMode
                         editableSchemaMetadata={editableSchemaMetadata}

@@ -160,7 +160,6 @@ export default function TagProfile() {
                                                                 ? entityAndSchemaQuery
                                                                 : entityQuery,
                                                         history,
-                                                        entityRegistry,
                                                     })
                                                 }
                                             >

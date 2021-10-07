@@ -24,6 +24,9 @@ class DatahubBasicLineageConfig(ConfigModel):
     # DataHub hook connection ID.
     datahub_conn_id: str
 
+    # Cluster to associate with the pipelines and tasks. Defaults to "prod".
+    cluster: str = builder.DEFAULT_FLOW_CLUSTER
+
     # If true, the owners field of the DAG will be capture as a DataHub corpuser.
     capture_ownership_info: bool = True
 
@@ -58,7 +61,7 @@ def send_lineage_to_datahub(
     # task_instance: "TaskInstance" = context["task_instance"]
     # TODO: capture raw sql from db operators
 
-    flow_urn = builder.make_data_flow_urn("airflow", dag.dag_id)
+    flow_urn = builder.make_data_flow_urn("airflow", dag.dag_id, config.cluster)
     job_urn = builder.make_data_job_urn_with_flow(flow_urn, task.task_id)
 
     base_url = conf.get("webserver", "base_url")

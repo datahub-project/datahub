@@ -10,6 +10,7 @@ import com.linkedin.metadata.aspect.DataProcessAspect
   "name": "dataProcess",
   "keyAspect": "dataProcessKey"
 }
+@deprecated = "Use DataJob instead."
 record DataProcessSnapshot {
 
   /**
