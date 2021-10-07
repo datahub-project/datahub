@@ -238,6 +238,24 @@ def test_add_dataset_browse_paths():
         "/prod/bigquery/bar/example1/",
     ]
 
+    transformer = AddDatasetBrowsePathTransformer.create(
+        {
+            "path_templates": [
+                "/xyz",
+            ],
+            "replace_existing": True,
+        },
+        PipelineContext(run_id="test"),
+    )
+    transformed = list(transformer.transform([RecordEnvelope(dataset, metadata={})]))
+    browse_path_aspect = builder.get_aspect_if_available(
+        transformed[0].record, models.BrowsePathsClass
+    )
+    assert browse_path_aspect
+    assert browse_path_aspect.paths == [
+        "/xyz",
+    ]
+
 
 def test_simple_dataset_tags_transformation(mock_time):
     dataset_mce = make_generic_dataset()

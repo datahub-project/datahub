@@ -20,7 +20,6 @@ import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
 import com.linkedin.dataset.DatasetDeprecation;
 import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.dataset.EditableDatasetProperties;
-import com.linkedin.metadata.dao.utils.ModelUtils;
 import com.linkedin.metadata.snapshot.DatasetSnapshot;
 import com.linkedin.schema.EditableSchemaMetadata;
 import com.linkedin.schema.SchemaMetadata;
@@ -52,7 +51,7 @@ public class DatasetSnapshotMapper implements ModelMapper<DatasetSnapshot, Datas
         partialPlatform.setUrn(dataset.getUrn().getPlatformEntity().toString());
         result.setPlatform(partialPlatform);
 
-        ModelUtils.getAspectsFromSnapshot(dataset).forEach(aspect -> {
+        NewModelUtils.getAspectsFromSnapshot(dataset).forEach(aspect -> {
             if (aspect instanceof DatasetProperties) {
                 final DatasetProperties gmsProperties = (DatasetProperties) aspect;
                 final com.linkedin.datahub.graphql.generated.DatasetProperties properties = new com.linkedin.datahub.graphql.generated.DatasetProperties();

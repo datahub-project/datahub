@@ -62,6 +62,7 @@ Sources:
 | [sql-profiles](./source_docs/sql_profiles.md)   | `pip install 'acryl-datahub[sql-profiles]'`                | Data profiles for SQL-based systems |
 | [sqlalchemy](./source_docs/sqlalchemy.md)       | `pip install 'acryl-datahub[sqlalchemy]'`                  | Generic SQLAlchemy source           |
 | [superset](./source_docs/superset.md)           | `pip install 'acryl-datahub[superset]'`                    | Superset source                     |
+| [trino](./source_docs/trino.md)                 | `pip install 'acryl-datahub[trino]`                        | Trino source                     |
 
 Sinks
 
@@ -211,6 +212,7 @@ If you are looking to run Airflow and DataHub using docker locally, follow the g
    backend = datahub_provider.lineage.datahub.DatahubLineageBackend
    datahub_kwargs = {
        "datahub_conn_id": "datahub_rest_default",
+       "cluster": "prod",
        "capture_ownership_info": true,
        "capture_tags_info": true,
        "graceful_exceptions": true }
@@ -218,6 +220,7 @@ If you are looking to run Airflow and DataHub using docker locally, follow the g
    ```
    **Configuration options:**
    - `datahub_conn_id` (required): Usually `datahub_rest_default` or `datahub_kafka_default`, depending on what you named the connection in step 1.
+   - `cluster` (defaults to "prod"): The "cluster" to associate Airflow DAGs and tasks with.
    - `capture_ownership_info` (defaults to true): If true, the owners field of the DAG will be capture as a DataHub corpuser.
    - `capture_tags_info` (defaults to true): If true, the tags field of the DAG will be captured as DataHub tags.
    - `graceful_exceptions` (defaults to true): If set to true, most runtime errors in the lineage backend will be suppressed and will not cause the overall task to fail. Note that configuration issues will still throw exceptions.

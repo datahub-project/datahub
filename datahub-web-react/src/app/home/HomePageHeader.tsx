@@ -37,6 +37,7 @@ const HeaderTitle = styled(Typography.Title)`
 
 const SubHeaderText = styled(Typography.Text)`
     font-size: 20px;
+    font-weight: 500;
     color: ${(props) =>
         props.theme.styles['homepage-text-color'] || props.theme.styles['homepage-background-lower-fade']};
 `;
@@ -161,7 +162,6 @@ export const HomePageHeader = () => {
             type,
             query,
             history,
-            entityRegistry,
         });
     };
 
@@ -265,7 +265,6 @@ export const HomePageHeader = () => {
                                                     type: undefined,
                                                     query: suggestion,
                                                     history,
-                                                    entityRegistry,
                                                 })
                                             }
                                         >

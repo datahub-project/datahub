@@ -97,6 +97,7 @@ export const updateEntityLink = ({ entity, institutionalMemory }: UpdateEntityLi
             __typename: 'InstitutionalMemoryMetadata',
             url: e.url,
             description: e.description as string,
+            label: e.description as string,
             author: { urn: e.author, username: '', type: EntityType.CorpUser },
             created: { time: Date.now(), actor: getActor(), __typename: 'AuditStamp' },
         };

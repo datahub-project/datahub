@@ -68,8 +68,7 @@ public class MappingsBuilder {
         subFields.put("ngram", ImmutableMap.of("type", "text", "analyzer", "partial_urn_component"));
       }
       if (addToFilters) {
-        // Add keyword subfield with fielddata set to true for aggregation queries
-        subFields.put("keyword", ImmutableMap.of("type", "text", "analyzer", "urn_component", "fielddata", true));
+        subFields.put("keyword", ImmutableMap.of("type", "keyword"));
       }
       if (!subFields.isEmpty()) {
         mappingForField.put("fields", subFields);

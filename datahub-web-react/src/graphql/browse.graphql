@@ -25,6 +25,12 @@ query getBrowseResults($input: BrowseInput!) {
                 globalTags {
                     ...globalTagsFields
                 }
+                glossaryTerms {
+                    ...glossaryTerms
+                }
+                subTypes {
+                    typeNames
+                }
             }
             ... on Dashboard {
                 urn
@@ -45,6 +51,9 @@ query getBrowseResults($input: BrowseInput!) {
                 }
                 globalTags {
                     ...globalTagsFields
+                }
+                glossaryTerms {
+                    ...glossaryTerms
                 }
             }
             ... on GlossaryTerm {
@@ -84,6 +93,9 @@ query getBrowseResults($input: BrowseInput!) {
                 globalTags {
                     ...globalTagsFields
                 }
+                glossaryTerms {
+                    ...glossaryTerms
+                }
             }
             ... on DataFlow {
                 urn
@@ -101,6 +113,9 @@ query getBrowseResults($input: BrowseInput!) {
                 }
                 globalTags {
                     ...globalTagsFields
+                }
+                glossaryTerms {
+                    ...glossaryTerms
                 }
             }
             ... on MLFeatureTable {
