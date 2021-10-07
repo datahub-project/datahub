@@ -48,15 +48,23 @@ public class EntityKeyUtils {
   }
 
   @Nonnull
-  public static Urn getUrnFromLog(MetadataChangeLog metadataChangeLog) {
-    if (metadataChangeLog.hasEntityUrn() && metadataChangeLog.hasEntityKeyAspect()) {
-      throw new IllegalArgumentException("Urn and keyAspect cannot both be set");
-    }
+  public static Urn getUrnFromLog(MetadataChangeLog metadataChangeLog, AspectSpec keyAspectSpec) {
     if (metadataChangeLog.hasEntityUrn()) {
-      return metadataChangeLog.getEntityUrn();
+      Urn urn = metadataChangeLog.getEntityUrn();
+      // Validate Urn
+      try {
+        EntityKeyUtils.convertUrnToEntityKey(urn, keyAspectSpec.getPegasusSchema());
+      } catch (RuntimeException re) {
+        throw new RuntimeException(String.format("Failed to validate entity URN %s", urn), re);
+      }
+      return urn;
     }
     if (metadataChangeLog.hasEntityKeyAspect()) {
-      throw new UnsupportedOperationException("Identifying entity with key aspect is not yet supported");
+      RecordTemplate keyAspectRecord = GenericAspectUtils.deserializeAspect(
+          metadataChangeLog.getEntityKeyAspect().getValue(),
+          metadataChangeLog.getEntityKeyAspect().getContentType(),
+          keyAspectSpec);
+      return EntityKeyUtils.convertEntityKeyToUrn(keyAspectRecord, metadataChangeLog.getEntityType());
     }
     throw new IllegalArgumentException("One of urn and keyAspect must be set");
   }
