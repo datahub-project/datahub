@@ -407,9 +407,9 @@ def test_frontend_search_across_entities(frontend_session, query, min_expected_r
 
     assert res_data
     assert res_data["data"]
-    assert res_data["data"]["search"]
-    assert res_data["data"]["search"]["total"] >= min_expected_results
-    assert len(res_data["data"]["search"]["searchResults"]) >= min_expected_results
+    assert res_data["data"]["searchAcrossEntities"]
+    assert res_data["data"]["searchAcrossEntities"]["total"] >= min_expected_results
+    assert len(res_data["data"]["searchAcrossEntities"]["searchResults"]) >= min_expected_results
 
 
 @pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
