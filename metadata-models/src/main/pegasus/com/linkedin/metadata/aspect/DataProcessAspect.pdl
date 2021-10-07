@@ -4,6 +4,7 @@ import com.linkedin.metadata.key.DataProcessKey
 import com.linkedin.dataprocess.DataProcessInfo
 import com.linkedin.common.Ownership
 import com.linkedin.common.Status
+import com.linkedin.common.DataPlatformInstance
 
 /**
  * A union of all supported metadata aspects for a data process
