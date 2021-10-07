@@ -25,6 +25,15 @@
               },
               "countryCode": null
             }
+          },
+          {
+            "com.linkedin.pegasus2avro.identity.CorpUserStatus": {
+              "status": "ACTIVE",
+              "lastModified": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:__datahub_system"
+              }
+            }
           }
         ]
       }

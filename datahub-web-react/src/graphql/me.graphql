@@ -21,6 +21,7 @@ query getMe {
         platformPrivileges {
             viewAnalytics
             managePolicies
+            manageIdentities
         }
     }
 }

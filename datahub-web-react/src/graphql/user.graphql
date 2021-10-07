@@ -64,3 +64,38 @@ query getUserGroups($urn: String!, $start: Int!, $count: Int!) {
         }
     }
 }
+
+query listUsers($input: ListUsersInput!) {
+    listUsers(input: $input) {
+        start
+        count
+        total
+        users {
+            urn
+            username
+            info {
+                active
+                displayName
+                title
+                firstName
+                lastName
+                fullName
+                email
+            }
+            editableInfo {
+                pictureLink
+                teams
+                skills
+            }
+            status
+        }
+    }
+}
+
+mutation removeUser($urn: String!) {
+    removeUser(urn: $urn)
+}
+
+mutation updateUserStatus($urn: String!, $status: CorpUserStatus!) {
+    updateUserStatus(urn: $urn, status: $status)
+}

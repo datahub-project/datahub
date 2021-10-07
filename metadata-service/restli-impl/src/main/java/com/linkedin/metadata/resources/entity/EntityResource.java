@@ -2,6 +2,7 @@ package com.linkedin.metadata.resources.entity;
 
 import com.codahale.metrics.MetricRegistry;
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.LongMap;
 import com.linkedin.data.template.StringArray;
@@ -12,11 +13,13 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.RollbackRunResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.Filter;
+import com.linkedin.metadata.query.ListResult;
 import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.query.SortCriterion;
 import com.linkedin.metadata.restli.RestliUtil;
 import com.linkedin.metadata.run.DeleteEntityResponse;
 import com.linkedin.metadata.search.EntitySearchService;
+import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.mxe.SystemMetadata;
@@ -73,6 +76,7 @@ import static com.linkedin.metadata.utils.PegasusUtils.urnToEntityName;
 public class EntityResource extends CollectionResourceTaskTemplate<String, Entity> {
 
   private static final String ACTION_SEARCH = "search";
+  private static final String ACTION_LIST = "list";
   private static final String ACTION_SEARCH_ACROSS_ENTITIES = "searchAcrossEntities";
   private static final String ACTION_BATCH_INGEST = "batchIngest";
   private static final String ACTION_LIST_URNS = "listUrns";
@@ -233,6 +237,21 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
         "searchAcrossEntities");
   }
 
+  @Action(name = ACTION_LIST)
+  @Nonnull
+  @WithSpan
+  public Task<ListResult> list(
+      @ActionParam(PARAM_ENTITY) @Nonnull String entityName,
+      @ActionParam(PARAM_FILTER) @Optional @Nullable Filter filter,
+      @ActionParam(PARAM_SORT) @Optional @Nullable SortCriterion sortCriterion,
+      @ActionParam(PARAM_START) int start,
+      @ActionParam(PARAM_COUNT) int count) {
+
+    log.info("GET LIST RESULTS for {} with filter {}", entityName, filter);
+    return RestliUtil.toTask(() -> toListResult(_entitySearchService.filter(entityName, filter, sortCriterion, start, count)),
+        MetricRegistry.name(this.getClass(), "filter"));
+  }
+
   @Action(name = ACTION_AUTOCOMPLETE)
   @Nonnull
   @WithSpan
@@ -324,5 +343,21 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       @ActionParam(PARAM_START) int start, @ActionParam(PARAM_COUNT) int count) throws URISyntaxException {
     log.info("LIST URNS for {} with start {} and count {}", entityName, start, count);
     return RestliUtil.toTask(() -> _entityService.listUrns(entityName, start, count), "listUrns");
+  }
+
+  private ListResult toListResult(final SearchResult searchResult) {
+    if (searchResult == null) {
+      return null;
+    }
+    final ListResult listResult = new ListResult();
+    listResult.setStart(searchResult.getFrom());
+    listResult.setCount(searchResult.getPageSize());
+    listResult.setTotal(searchResult.getNumEntities());
+    listResult.setEntities(new UrnArray(
+      searchResult.getEntities()
+        .stream()
+        .map(SearchEntity::getEntity)
+        .collect(Collectors.toList())));
+    return listResult;
   }
 }

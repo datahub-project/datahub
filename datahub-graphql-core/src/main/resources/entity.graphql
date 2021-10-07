@@ -89,6 +89,15 @@ type Query {
     """
     mlPrimaryKey(urn: String!): MLPrimaryKey
 
+    """
+    List all DataHub Users
+    """
+    listUsers(input: ListUsersInput!): ListUsersResult
+
+    """
+    List all DataHub Groups
+    """
+    listGroups(input: ListGroupsInput!): ListGroupsResult
 }
 
 """
@@ -185,6 +194,36 @@ type Mutation {
     Incubating. Updates the description of a resource. Currently only supports Dataset Schema Fields
     """
     updateDescription(input: DescriptionUpdateInput!): Boolean
+
+    """
+    Remove a user. Requires Manage Users & Groups Platform Privilege
+    """
+    removeUser(urn: String!): Boolean
+
+    """
+    Change the status of a user. Requires Manage Users & Groups Platform Privilege
+    """
+    updateUserStatus(urn: String!, status: CorpUserStatus!): String
+
+    """
+    Remove a group. Requires Manage Users & Groups Platform Privilege
+    """
+    removeGroup(urn: String!): Boolean
+
+    """
+    Add members to a group
+    """
+    addGroupMembers(input: AddGroupMembersInput!): Boolean
+
+    """
+    Remove members from a group
+    """
+    removeGroupMembers(input: RemoveGroupMembersInput!): Boolean
+
+    """
+    Create a new group. Returns the urn of the newly created group. Requires Manage Users & Groups Platform Privilege
+    """
+    createGroup(input: CreateGroupInput!): String
 }
 
 """
@@ -1656,6 +1695,16 @@ enum OwnershipType {
 }
 
 """
+The state of a CorpUser
+"""
+enum CorpUserStatus {
+  """
+  A User that has been provisioned and logged in
+  """
+  ACTIVE
+}
+
+"""
 A DataHub User entity, which represents a Person on the Metadata Entity Graph
 """
 type CorpUser implements Entity {
@@ -1684,6 +1733,11 @@ type CorpUser implements Entity {
     Read write properties about the corp user
     """
     editableProperties: CorpUserEditableProperties
+
+    """
+    The status of the user
+    """
+    status: CorpUserStatus
 
     """
     The tags associated with the user
@@ -1965,6 +2019,11 @@ type CorpGroupInfo {
 Additional read only properties about a group
 """
 type CorpGroupProperties {
+    """
+    display name of this group
+    """
+    displayName: String
+
     """
     The description provided for the group
     """
@@ -3863,6 +3922,36 @@ input PolicyUpdateInput {
 }
 
 """
+Input required to add members to a DataHub group
+"""
+input AddGroupMembersInput {
+  """
+  The group to add members to
+  """
+  groupUrn: String!
+
+  """
+  The members to add to the group
+  """
+  userUrns: [String!]!
+}
+
+"""
+Input required to remove members from a DataHub group
+"""
+input RemoveGroupMembersInput {
+  """
+  The group to remove members from
+  """
+  groupUrn: String!
+
+  """
+  The members to remove from the group
+  """
+  userUrns: [String!]!
+}
+
+"""
 The type of the Access Policy
 """
 enum PolicyType {
@@ -4092,6 +4181,86 @@ type ListPoliciesResult {
 }
 
 """
+Input required when listing DataHub Users
+"""
+input ListUsersInput {
+  """
+  The starting offset of the result set returned
+  """
+  start: Int
+
+  """
+  The maximum number of Policies to be returned in the result set
+  """
+  count: Int
+}
+
+"""
+The result obtained when listing DataHub Users
+"""
+type ListUsersResult {
+  """
+  The starting offset of the result set returned
+  """
+  start: Int!
+
+  """
+  The number of Policies in the returned result set
+  """
+  count: Int!
+
+  """
+  The total number of Policies in the result set
+  """
+  total: Int!
+
+  """
+  The users themselves
+  """
+  users: [CorpUser!]!
+}
+
+"""
+Input required when listing DataHub Groups
+"""
+input ListGroupsInput {
+  """
+  The starting offset of the result set returned
+  """
+  start: Int
+
+  """
+  The maximum number of Policies to be returned in the result set
+  """
+  count: Int
+}
+
+"""
+The result obtained when listing DataHub Groups
+"""
+type ListGroupsResult {
+  """
+  The starting offset of the result set returned
+  """
+  start: Int!
+
+  """
+  The number of Policies in the returned result set
+  """
+  count: Int!
+
+  """
+  The total number of Policies in the result set
+  """
+  total: Int!
+
+  """
+  The groups themselves
+  """
+  groups: [CorpGroup!]!
+}
+
+"""
 A time stamp along with an optional actor
 """
 type AuditStamp {
@@ -4104,6 +4273,21 @@ type AuditStamp {
     Who performed the audited action
     """
     actor: String
+}
+
+"""
+Input for creating a new group
+"""
+input CreateGroupInput {
+  """
+  The display name of the group
+  """
+  name: String!
+
+  """
+  The description of the group
+  """
+  description: String
 }
 
 """

@@ -13,7 +13,7 @@ import com.linkedin.common.EmailAddress
 record CorpUserInfo {
 
   /**
-   * Whether the corpUser is active, ref: https://iwww.corp.linkedin.com/wiki/cf/display/GTSD/Accessing+Active+Directory+via+LDAP+tools
+   * Deprecated! Use CorpUserStatus instead. Whether the corpUser is active, ref: https://iwww.corp.linkedin.com/wiki/cf/display/GTSD/Accessing+Active+Directory+via+LDAP+tools
    */
   @Searchable = {
     "fieldType": "BOOLEAN",

@@ -9,3 +9,9 @@ entities:
     keyAspect: dataHubPolicyKey
     aspects:
       - dataHubPolicyInfo
+  - name: corpuser
+    keyAspect: corpUserKey
+    aspects:
+      - corpUserInfo
+      - corpUserEditableInfo
+      - corpUserStatus

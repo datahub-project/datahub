@@ -1,0 +1,29 @@
+namespace com.linkedin.metadata.query
+
+import com.linkedin.common.Urn
+
+/**
+ * The model for the result of a list query
+ */
+record ListResult {
+
+  /**
+   * A list of entities returned in the list
+   */
+  entities: array[Urn]
+
+  /**
+   * Offset of the first entity in the result
+   */
+  start: int
+
+  /**
+   * Size of each page in the result
+   */
+  count: int
+
+  /**
+   * The total number of entities directly under searched path
+   */
+  total: int
+}
