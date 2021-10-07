@@ -61,7 +61,7 @@ class DBTConfig(ConfigModel):
     load_schemas: bool
     use_identifiers: bool = False
     node_type_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
-    dataset_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
+    model_name_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
     imported_tags_prefix: str = DEFAULT_IMPORTED_TAGS_PREFIX
 
 @dataclass
@@ -154,7 +154,7 @@ def extract_dbt_entities(
     node_type_pattern: AllowDenyPattern,
     report: SourceReport,
     imported_tag_prefix: str,
-    dataset_pattern: AllowDenyPattern,
+    model_name_pattern: AllowDenyPattern,
 ) -> List[DBTNode]:
 
     sources_by_id = {x["unique_id"]: x for x in sources_results}
@@ -164,14 +164,19 @@ def extract_dbt_entities(
         # check if node pattern allowed based on config file
         if not node_type_pattern.allowed(manifest_node["resource_type"]):
             continue
-
+    
         name = manifest_node["name"]
-
         if "identifier" in manifest_node and use_identifiers:
             name = manifest_node["identifier"]
 
         if manifest_node.get("alias") is not None:
             name = manifest_node["alias"]
+
+        database = manifest_node["database"]
+        schema = manifest_node["schema"]
+
+        if not model_name_pattern.allowed(key):
+            continue
 
         # initialize comment to "" for consistency with descriptions
         # (since dbt null/undefined descriptions as "")
@@ -211,7 +216,10 @@ def extract_dbt_entities(
             catalog_type = all_catalog_entities[key]["metadata"]["type"]
 
         meta = manifest_node.get("meta", {})
-        owner = manifest_node.get("config", {}).get("meta", {}).get("owner")
+        
+        owner = meta.get("owner") # manifest_node.get("config", {}).get("meta", {}).get("owner")
+        if owner is None:
+            owner = manifest_node.get('config', {}).get('meta', {}).get('owner')
 
         tags = manifest_node.get("tags", [])
         tags_with_prefix = generate_tags_with_prefix(tags, imported_tag_prefix)
@@ -276,7 +284,7 @@ def loadManifestAndCatalog(
     node_type_pattern: AllowDenyPattern,
     report: SourceReport,
     imported_tag_prefix: str,
-    dataset_pattern: AllowDenyPattern,
+    model_name_pattern: AllowDenyPattern,
 ) -> Tuple[List[DBTNode], Optional[str], Optional[str], Optional[str], Optional[str]]:
     with open(manifest_path, "r") as manifest:
         dbt_manifest_json = json.load(manifest)
@@ -318,16 +326,19 @@ def loadManifestAndCatalog(
         node_type_pattern,
         report,
         imported_tag_prefix,
-        dataset_pattern,
+        model_name_pattern,
     )
 
     return nodes, manifest_schema, manifest_version, catalog_schema, catalog_version
 
 
+def get_db_fqn(database: str, schema: str, name: str) -> str:
+    return f"{database}.{schema}.{name}".replace('"', "")
+
 def get_urn_from_dbtNode(
     database: str, schema: str, name: str, target_platform: str, env: str
 ) -> str:
-    db_fqn = f"{database}.{schema}.{name}".replace('"', "")
+    db_fqn = get_db_fqn(database, schema, name)
     return f"urn:li:dataset:(urn:li:dataPlatform:{target_platform},{db_fqn},{env})"
 
 
@@ -527,7 +538,7 @@ class DBTSource(Source):
             self.config.node_type_pattern,
             self.report,
             self.config.imported_tags_prefix,
-            self.config.dataset_pattern,
+            self.config.model_name_pattern,
         )
 
         additional_custom_props = {

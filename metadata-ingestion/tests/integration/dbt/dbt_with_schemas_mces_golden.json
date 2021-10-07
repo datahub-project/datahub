@@ -8,7 +8,6 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "owner": "@alice",
                             "node_type": "model",
                             "materialization": "ephemeral",
                             "dbt_file_path": "models/transform/customer_details.sql",
@@ -20,14 +19,16 @@
                         "externalUrl": null,
                         "description": null,
                         "uri": null,
-                        "tags": []
+                        "tags": [
+                            "dbt:test_tag"
+                        ]
                     }
                 },
                 {
                     "com.linkedin.pegasus2avro.common.Ownership": {
                         "owners": [
                             {
-                                "owner": "urn:li:corpuser:@alice",
+                                "owner": "urn:li:corpuser:@alice2",
                                 "type": "DATAOWNER",
                                 "source": null
                             }
@@ -142,7 +143,7 @@
                         "externalUrl": null,
                         "description": null,
                         "uri": null,
-                        "tags": [ "dbt:test_tag" ]
+                        "tags": []
                     }
                 },
                 {
@@ -642,8 +643,8 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
                             "model_maturity": "in dev",
-                            "owner": "@alice",
                             "some_other_property": "test 1",
+                            "owner": "@alice1",
                             "node_type": "source",
                             "dbt_file_path": "models/base.yml",
                             "catalog_type": "BASE TABLE",
@@ -662,7 +663,7 @@
                     "com.linkedin.pegasus2avro.common.Ownership": {
                         "owners": [
                             {
-                                "owner": "urn:li:corpuser:@alice",
+                                "owner": "urn:li:corpuser:@alice1",
                                 "type": "DATAOWNER",
                                 "source": null
                             }

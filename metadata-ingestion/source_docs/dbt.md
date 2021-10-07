@@ -71,7 +71,11 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `node_type_pattern.allow` |          |          | List of regex patterns for dbt nodes to include in ingestion.                                                                                                  |
 | `node_type_pattern.deny`  |          |          | List of regex patterns for dbt nodes to exclude from ingestion.                                                                                                |
 | `node_type_pattern.ignoreCase`  |          | `True` | Whether to ignore case sensitivity during pattern matching.                                                                                                                                  |
-
+| `model_name_pattern.allow` |          |          | List of regex patterns for dbt model names to include in ingestion.                                                                                                  |
+| `model_name_pattern.deny`  |          |          | List of regex patterns for dbt model names to exclude from ingestion.                                                                                                |
+| `model_name_pattern.ignoreCase`  |          | `True` | Whether to ignore case sensitivity during pattern matching.                                                   
+| `imported_tags_prefix`  |          | `dbt:` | Prefix used for tags created from DBT. Set to empty string if you don't want any prefix                                                   
+                                                                                   |
 ## Compatibility
 
 Coming soon!
