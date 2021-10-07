@@ -239,7 +239,7 @@ public class SearchRequestHandler {
   }
 
   private Map<String, Double> extractFeatures(@Nonnull SearchHit searchHit) {
-    return ImmutableMap.of(Features.Name.ELASTICSEARCH_SCORE.toString(), (double) searchHit.getScore(),
+    return ImmutableMap.of(Features.Name.SEARCH_BACKEND_SCORE.toString(), (double) searchHit.getScore(),
         Features.Name.HAS_OWNERS.toString(), hasOwners(searchHit));
   }
 

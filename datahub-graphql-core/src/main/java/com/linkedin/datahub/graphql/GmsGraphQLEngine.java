@@ -59,7 +59,7 @@ import com.linkedin.datahub.graphql.resolvers.policy.DeletePolicyResolver;
 import com.linkedin.datahub.graphql.resolvers.policy.ListPoliciesResolver;
 import com.linkedin.datahub.graphql.resolvers.config.AppConfigResolver;
 import com.linkedin.datahub.graphql.resolvers.policy.UpsertPolicyResolver;
-import com.linkedin.datahub.graphql.resolvers.search.SearchForMultipleResolver;
+import com.linkedin.datahub.graphql.resolvers.search.SearchAcrossEntitiesResolver;
 import com.linkedin.datahub.graphql.resolvers.type.AspectInterfaceTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.type.HyperParameterValueTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.type.ResultsTypeResolver;
@@ -353,8 +353,8 @@ public class GmsGraphQLEngine {
                     new MeResolver(GmsClientFactory.getEntitiesClient())))
             .dataFetcher("search", new AuthenticatedResolver<>(
                     new SearchResolver(GmsClientFactory.getEntitiesClient())))
-            .dataFetcher("searchForMultiple", new AuthenticatedResolver<>(
-                    new SearchForMultipleResolver(GmsClientFactory.getEntitiesClient())))
+            .dataFetcher("searchAcrossEntities",
+                new SearchAcrossEntitiesResolver(GmsClientFactory.getEntitiesClient()))
             .dataFetcher("autoComplete", new AuthenticatedResolver<>(
                     new AutoCompleteResolver(searchableTypes)))
             .dataFetcher("autoCompleteForMultiple", new AuthenticatedResolver<>(
@@ -443,11 +443,9 @@ public class GmsGraphQLEngine {
                 )
             )
             .type("AggregationMetadata", typeWiring -> typeWiring
-                .dataFetcher("entity", new AuthenticatedResolver<>(
-                    new EntityTypeResolver(
-                        entityTypes.stream().collect(Collectors.toList()),
-                        (env) -> ((AggregationMetadata) env.getSource()).getEntity()))
-                )
+                .dataFetcher("entity", new EntityTypeResolver(
+                    entityTypes.stream().collect(Collectors.toList()),
+                    (env) -> ((AggregationMetadata) env.getSource()).getEntity()))
             )
             .type("BrowseResults", typeWiring -> typeWiring
                 .dataFetcher("entities", new AuthenticatedResolver<>(
@@ -502,6 +500,9 @@ public class GmsGraphQLEngine {
                 .dataFetcher("schemaMetadata", new AuthenticatedResolver<>(
                     new AspectResolver())
                 )
+               .dataFetcher("subTypes", new AuthenticatedResolver(new SubTypesResolver(GmsClientFactory.getAspectsClient(),
+                           "dataset",
+                       "subTypes")))
             )
             .type("Owner", typeWiring -> typeWiring
                     .dataFetcher("owner", new AuthenticatedResolver<>(

@@ -556,7 +556,7 @@ class GlueSource(Source):
                 )
                 fields.append(schema_field)
 
-            partition_keys = table["PartitionKeys"]
+            partition_keys = table.get("PartitionKeys", [])
             for partition_key in partition_keys:
                 schema_field = SchemaField(
                     fieldPath=partition_key["Name"],

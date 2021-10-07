@@ -21,12 +21,12 @@ public class CacheableSearcher<K> {
   private final Cache cache;
   private final int batchSize;
   // Function that executes search and retrieves the search result given the query batch (from, size)
-  private final Function<QuerySize, SearchResult> searcher;
+  private final Function<QueryPagination, SearchResult> searcher;
   // Function that generates the cache key given the query batch (from, size)
-  private final Function<QuerySize, K> cacheKeyGenerator;
+  private final Function<QueryPagination, K> cacheKeyGenerator;
 
   @Value
-  public static class QuerySize {
+  public static class QueryPagination {
     int from;
     int size;
   }
@@ -70,12 +70,12 @@ public class CacheableSearcher<K> {
         .setNumEntities(batchedResult.getNumEntities());
   }
 
-  private QuerySize getBatchQuerySize(int batchId) {
-    return new QuerySize(batchId * batchSize, batchSize);
+  private QueryPagination getBatchQuerySize(int batchId) {
+    return new QueryPagination(batchId * batchSize, batchSize);
   }
 
   private SearchResult getBatch(int batchId) {
-    QuerySize batch = getBatchQuerySize(batchId);
+    QueryPagination batch = getBatchQuerySize(batchId);
     K cacheKey = cacheKeyGenerator.apply(batch);
     SearchResult result = cache.get(cacheKey, SearchResult.class);
     if (result == null) {

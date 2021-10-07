@@ -56,7 +56,7 @@ export const SearchPage = () => {
             analytics.event({
                 type: EventType.SearchResultsViewEvent,
                 query,
-                total: data?.searchForMultiple?.count || 0,
+                total: data?.searchAcrossEntities?.count || 0,
             });
         }
     }, [query, data, loading]);
@@ -91,8 +91,8 @@ export const SearchPage = () => {
             <SearchResults
                 page={page}
                 query={query}
-                searchResponse={data?.searchForMultiple}
-                filters={data?.searchForMultiple?.facets}
+                searchResponse={data?.searchAcrossEntities}
+                filters={data?.searchAcrossEntities?.facets}
                 selectedFilters={filters}
                 loading={loading}
                 onChangeFilters={onChangeFilters}

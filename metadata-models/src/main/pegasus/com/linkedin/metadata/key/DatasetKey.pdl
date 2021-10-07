@@ -31,7 +31,7 @@ record DatasetKey {
   @Searchable = {
     "fieldType": "TEXT_PARTIAL",
     "addToFilters": true,
-    "filterNameOverride": "Fabric Type",
+    "filterNameOverride": "Environment",
     "queryByDefault": false
   }
   origin: FabricType

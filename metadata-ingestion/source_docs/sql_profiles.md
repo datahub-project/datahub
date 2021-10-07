@@ -42,6 +42,7 @@ Supported SQL sources:
 - [Redshift](./redshift.md)
 - [Snowflake](./snowflake.md)
 - [Generic SQLAlchemy source](./sqlalchemy.md)
+- [Trino](./trino.md)
 
 ## Quickstart recipe
 

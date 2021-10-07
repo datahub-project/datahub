@@ -21,13 +21,18 @@ const PreviewImage = styled.img`
     margin-right: 4px;
 `;
 
+const MAX_COUNT_VAL = 10000;
+
+// SearchFilterLabel renders custom labels for entity, tag, term & data platform filters. All other filters use the default behavior.
 export const SearchFilterLabel = ({ aggregation, field }: Props) => {
     const entityRegistry = useEntityRegistry();
+    const countText = aggregation.count === MAX_COUNT_VAL ? '10000+' : aggregation.count;
 
     if (field === ENTITY_FILTER_NAME) {
+        const entityType = aggregation.value.toUpperCase() as EntityType;
         return (
             <span>
-                {entityRegistry.getCollectionName(aggregation.value.toUpperCase() as EntityType)} ({aggregation.count})
+                {entityType ? entityRegistry.getCollectionName(entityType) : aggregation.value} ({countText})
             </span>
         );
     }
@@ -36,7 +41,7 @@ export const SearchFilterLabel = ({ aggregation, field }: Props) => {
         const tag = aggregation.entity as TagType;
         return (
             <>
-                <StyledTag $colorHash={tag.urn}>{tag.name}</StyledTag>({aggregation.count})
+                <StyledTag $colorHash={tag.urn}>{tag.name}</StyledTag>({countText})
             </>
         );
     }
@@ -49,7 +54,7 @@ export const SearchFilterLabel = ({ aggregation, field }: Props) => {
                     {term.name}
                     <BookOutlined style={{ marginLeft: '2%' }} />
                 </Tag>
-                ({aggregation.count})
+                ({countText})
             </>
         );
     }
@@ -60,7 +65,7 @@ export const SearchFilterLabel = ({ aggregation, field }: Props) => {
             <>
                 {!!platform.info?.logoUrl && <PreviewImage src={platform.info?.logoUrl} alt={platform.name} />}
                 <span>
-                    {platform.info?.displayName || platform.name} ({aggregation.count})
+                    {platform.info?.displayName || platform.name} ({countText})
                 </span>
             </>
         );
@@ -68,7 +73,7 @@ export const SearchFilterLabel = ({ aggregation, field }: Props) => {
 
     return (
         <>
-            {aggregation.value} ({aggregation.count})
+            {aggregation.value} ({countText})
         </>
     );
 };

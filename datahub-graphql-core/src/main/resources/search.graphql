@@ -7,7 +7,7 @@ extend type Query {
   """
   Search DataHub entities
   """
-  searchForMultiple(input: SearchMultipleInput!): SearchResults
+  searchAcrossEntities(input: SearchAcrossEntitiesInput!): SearchResults
 
   """
   Autocomplete a search query against a specific DataHub Entity Type
@@ -64,9 +64,9 @@ input SearchInput {
 """
 Input arguments for a full text search query across entities
 """
-input SearchMultipleInput {
+input SearchAcrossEntitiesInput {
   """
-  Entity types to be searched. Search all entity if empty
+  Entity types to be searched. If this is not provided, all entities will be searched.
   """
 	types: [EntityType!]
 

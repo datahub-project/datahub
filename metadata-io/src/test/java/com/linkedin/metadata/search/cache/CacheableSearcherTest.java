@@ -26,7 +26,7 @@ public class CacheableSearcherTest {
   public void testCacheableSearcherWhenEmpty() {
     CacheableSearcher<Integer> emptySearcher =
         new CacheableSearcher<>(cacheManager.getCache("emptySearcher"), 10, this::getEmptySearchResult,
-            CacheableSearcher.QuerySize::getFrom);
+            CacheableSearcher.QueryPagination::getFrom);
     assertTrue(emptySearcher.getSearchResults(0, 0).getEntities().isEmpty());
     assertTrue(emptySearcher.getSearchResults(0, 10).getEntities().isEmpty());
     assertTrue(emptySearcher.getSearchResults(5, 10).getEntities().isEmpty());
@@ -36,7 +36,7 @@ public class CacheableSearcherTest {
   public void testCacheableSearcherWithFixedNumResults() {
     CacheableSearcher<Integer> fixedBatchSearcher =
         new CacheableSearcher<>(cacheManager.getCache("fixedBatchSearcher"), 10, qs -> getSearchResult(qs, 10),
-            CacheableSearcher.QuerySize::getFrom);
+            CacheableSearcher.QueryPagination::getFrom);
 
     SearchResult result = fixedBatchSearcher.getSearchResults(0, 0);
     assertTrue(result.getEntities().isEmpty());
@@ -59,7 +59,7 @@ public class CacheableSearcherTest {
   public void testCacheableSearcherWithVariableNumResults() {
     CacheableSearcher<Integer> variableBatchSearcher =
         new CacheableSearcher<>(cacheManager.getCache("variableBatchSearcher"), 10,
-            qs -> getSearchResult(qs, qs.getFrom() + qs.getSize()), CacheableSearcher.QuerySize::getFrom);
+            qs -> getSearchResult(qs, qs.getFrom() + qs.getSize()), CacheableSearcher.QueryPagination::getFrom);
 
     SearchResult result = variableBatchSearcher.getSearchResults(0, 0);
     assertTrue(result.getEntities().isEmpty());
@@ -85,11 +85,11 @@ public class CacheableSearcherTest {
             getUrns(0, 40).stream(), getUrns(0, 5).stream()).collect(Collectors.toList()));
   }
 
-  private SearchResult getEmptySearchResult(CacheableSearcher.QuerySize querySize) {
+  private SearchResult getEmptySearchResult(CacheableSearcher.QueryPagination queryPagination) {
     return new SearchResult().setEntities(new SearchEntityArray())
         .setNumEntities(0)
-        .setFrom(querySize.getFrom())
-        .setPageSize(querySize.getSize())
+        .setFrom(queryPagination.getFrom())
+        .setPageSize(queryPagination.getSize())
         .setMetadata(new SearchResultMetadata().setAggregations(new AggregationMetadataArray()));
   }
 
@@ -99,14 +99,14 @@ public class CacheableSearcherTest {
         .collect(Collectors.toList());
   }
 
-  private SearchResult getSearchResult(CacheableSearcher.QuerySize querySize, int batchSize) {
-    assert (batchSize <= querySize.getSize());
+  private SearchResult getSearchResult(CacheableSearcher.QueryPagination queryPagination, int batchSize) {
+    assert (batchSize <= queryPagination.getSize());
     List<SearchEntity> entities =
         getUrns(0, batchSize).stream().map(urn -> new SearchEntity().setEntity(urn)).collect(Collectors.toList());
     return new SearchResult().setEntities(new SearchEntityArray(entities))
         .setNumEntities(1000)
-        .setFrom(querySize.getFrom())
-        .setPageSize(querySize.getSize())
+        .setFrom(queryPagination.getFrom())
+        .setPageSize(queryPagination.getSize())
         .setMetadata(new SearchResultMetadata().setAggregations(new AggregationMetadataArray()));
   }
 }

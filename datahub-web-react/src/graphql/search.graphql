@@ -53,6 +53,9 @@ fragment searchResults on SearchResults {
                 glossaryTerms {
                     ...glossaryTerms
                 }
+                subTypes {
+                    typeNames
+                }
             }
             ... on CorpUser {
                 username
@@ -118,6 +121,9 @@ fragment searchResults on SearchResults {
                 globalTags {
                     ...globalTagsFields
                 }
+                glossaryTerms {
+                    ...glossaryTerms
+                }
                 editableProperties {
                     description
                 }
@@ -143,6 +149,9 @@ fragment searchResults on SearchResults {
                 globalTags {
                     ...globalTagsFields
                 }
+                glossaryTerms {
+                    ...glossaryTerms
+                }
                 editableProperties {
                     description
                 }
@@ -164,6 +173,9 @@ fragment searchResults on SearchResults {
                 globalTags {
                     ...globalTagsFields
                 }
+                glossaryTerms {
+                    ...glossaryTerms
+                }
                 editableProperties {
                     description
                 }
@@ -178,20 +190,15 @@ fragment searchResults on SearchResults {
                 ownership {
                     ...ownershipFields
                 }
-                inputOutput {
-                    inputDatasets {
-                        ...nonRecursiveDatasetFields
-                    }
-                    outputDatasets {
-                        ...nonRecursiveDatasetFields
-                    }
-                }
                 info {
                     name
                     description
                 }
                 globalTags {
                     ...globalTagsFields
+                }
+                glossaryTerms {
+                    ...glossaryTerms
                 }
                 editableProperties {
                     description
@@ -297,8 +304,8 @@ query getSearchResults($input: SearchInput!) {
     }
 }
 
-query getSearchResultsForMultiple($input: SearchMultipleInput!) {
-    searchForMultiple(input: $input) {
+query getSearchResultsForMultiple($input: SearchAcrossEntitiesInput!) {
+    searchAcrossEntities(input: $input) {
         ...searchResults
     }
 }

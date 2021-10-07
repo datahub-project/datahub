@@ -7,6 +7,9 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 
 
+/**
+ * This class is for mapping between friendly GraphQL EntityType Enum to the Metadata Service Storage Entities
+ */
 public class EntityTypeMapper {
 
   private static final Map<EntityType, String> ENTITY_TYPE_TO_NAME =
@@ -17,14 +20,14 @@ public class EntityTypeMapper {
           .put(EntityType.DASHBOARD, "dashboard")
           .put(EntityType.CHART, "chart")
           .put(EntityType.TAG, "tag")
+          .put(EntityType.DATA_FLOW, "dataFlow")
+          .put(EntityType.DATA_JOB, "dataJob")
+          .put(EntityType.GLOSSARY_TERM, "glossaryTerm")
           .put(EntityType.MLMODEL, "mlModel")
           .put(EntityType.MLMODEL_GROUP, "mlModelGroup")
           .put(EntityType.MLFEATURE_TABLE, "mlFeatureTable")
           .put(EntityType.MLFEATURE, "mlFeature")
           .put(EntityType.MLPRIMARY_KEY, "mlPrimaryKey")
-          .put(EntityType.DATA_FLOW, "dataFlow")
-          .put(EntityType.DATA_JOB, "dataJob")
-          .put(EntityType.GLOSSARY_TERM, "glossaryTerm")
           .build();
 
   private static final Map<String, EntityType> ENTITY_NAME_TO_TYPE =

@@ -11,13 +11,13 @@ from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 
 import datahub.emitter.mce_builder as builder
+from datahub.configuration.time_window_config import get_time_bucket
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.redshift import RedshiftConfig
 from datahub.ingestion.source.usage.usage_common import (
     BaseUsageConfig,
     GenericAggregatedDataset,
-    get_time_bucket,
 )
 
 logger = logging.getLogger(__name__)

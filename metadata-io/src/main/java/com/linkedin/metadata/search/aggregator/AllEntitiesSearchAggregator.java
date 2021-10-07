@@ -15,8 +15,8 @@ import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;
-import com.linkedin.metadata.search.ranker.SearchRanker;
 import com.linkedin.metadata.search.cache.EntitySearchServiceCache;
+import com.linkedin.metadata.search.ranker.SearchRanker;
 import com.linkedin.metadata.utils.ConcurrencyUtils;
 import com.linkedin.metadata.utils.SearchUtil;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
@@ -47,8 +47,6 @@ public class AllEntitiesSearchAggregator {
 
   private final EntitySearchServiceCache _entitySearchServiceCache;
 
-  private final Map<String, String> _filtersToDisplayName;
-
   private static final List<String> FILTER_RANKING =
       ImmutableList.of("entity", "platform", "origin", "tags", "glossaryTerms");
   private static final String NON_EMPTY_ENTITIES_CACHE_NAME = "nonEmptyEntities";
@@ -60,28 +58,6 @@ public class AllEntitiesSearchAggregator {
     _searchRanker = searchRanker;
     _cacheManager = cacheManager;
     _entitySearchServiceCache = new EntitySearchServiceCache(cacheManager, entitySearchService, batchSize);
-    _filtersToDisplayName = getFilterToDisplayName(entityRegistry);
-  }
-
-  private static Map<String, String> getFilterToDisplayName(EntityRegistry entityRegistry) {
-    return entityRegistry.getEntitySpecs()
-        .values()
-        .stream()
-        .flatMap(spec -> spec.getSearchableFieldSpecs().stream())
-        .filter(spec -> spec.getSearchableAnnotation().isAddToFilters())
-        .collect(Collectors.toMap(spec -> spec.getSearchableAnnotation().getFieldName(),
-            spec -> spec.getSearchableAnnotation().getFilterName(), (a, b) -> a));
-  }
-
-  @SneakyThrows
-  @VisibleForTesting
-  static AggregationMetadata merge(AggregationMetadata one, AggregationMetadata two) {
-    Map<String, Long> mergedMap =
-        Stream.concat(one.getAggregations().entrySet().stream(), two.getAggregations().entrySet().stream())
-            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, Long::sum));
-    return one.clone()
-        .setAggregations(new LongMap(mergedMap))
-        .setFilterValues(new FilterValueArray(SearchUtil.convertToFilters(mergedMap)));
   }
 
   @Nonnull
@@ -91,6 +67,8 @@ public class AllEntitiesSearchAggregator {
     log.info(String.format(
         "Searching Search documents across entities: %s, input: %s, postFilters: %s, sortCriterion: %s, from: %s, size: %s",
         entities, input, postFilters, sortCriterion, queryFrom, querySize));
+
+    // 1. Get entities to query for (Do not query entities without a single document)
     List<String> nonEmptyEntities;
     List<String> lowercaseEntities = entities.stream().map(String::toLowerCase).collect(Collectors.toList());
     try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "getNonEmptyEntities").time()) {
@@ -99,16 +77,10 @@ public class AllEntitiesSearchAggregator {
     if (!entities.isEmpty()) {
       nonEmptyEntities = nonEmptyEntities.stream().filter(lowercaseEntities::contains).collect(Collectors.toList());
     }
-    Map<String, SearchResult> searchResults;
-    // Query the entity search service for all entities asynchronously
-    try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "searchEntities").time()) {
-      searchResults = ConcurrencyUtils.transformAndCollectAsync(nonEmptyEntities, entity -> new Pair<>(entity,
-          _entitySearchServiceCache.getSearcher(entity, input, postFilters, sortCriterion)
-              .getSearchResults(queryFrom, querySize)))
-          .stream()
-          .filter(pair -> pair.getValue().getNumEntities() > 0)
-          .collect(Collectors.toMap(Pair::getKey, Pair::getValue));
-    }
+
+    // 2. Get search results for each entity
+    Map<String, SearchResult> searchResults =
+        getSearchResultsForEachEntity(nonEmptyEntities, input, postFilters, sortCriterion, queryFrom, querySize);
 
     if (searchResults.isEmpty()) {
       return getEmptySearchResult(queryFrom, querySize);
@@ -116,7 +88,7 @@ public class AllEntitiesSearchAggregator {
 
     Timer.Context postProcessTimer = MetricUtils.timer(this.getClass(), "postProcessTimer").time();
 
-    // Start combining results from all entities
+    // 3. Combine search results from all entities
     int numEntities = 0;
     List<SearchEntity> matchedResults = new ArrayList<>();
     Map<String, AggregationMetadata> aggregations = new HashMap<>();
@@ -125,7 +97,7 @@ public class AllEntitiesSearchAggregator {
         .stream()
         .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().getNumEntities().longValue()));
     aggregations.put("entity", new AggregationMetadata().setName("entity")
-        .setDisplayName("Entity Type")
+        .setDisplayName("Type")
         .setAggregations(new LongMap(numResultsPerEntity))
         .setFilterValues(new FilterValueArray(SearchUtil.convertToFilters(numResultsPerEntity))));
 
@@ -143,6 +115,7 @@ public class AllEntitiesSearchAggregator {
       });
     }
 
+    // 4. Rank results across entities
     List<SearchEntity> rankedResult = _searchRanker.rank(matchedResults);
     SearchResultMetadata finalMetadata =
         new SearchResultMetadata().setAggregations(new AggregationMetadataArray(rankFilterGroups(aggregations)));
@@ -179,6 +152,33 @@ public class AllEntitiesSearchAggregator {
         .collect(Collectors.toList());
     _cacheManager.getCache(NON_EMPTY_ENTITIES_CACHE_NAME).put(NON_EMPTY_ENTITIES_CACHE_NAME, nonEmptyEntities);
     return nonEmptyEntities;
+  }
+
+  @WithSpan
+  private Map<String, SearchResult> getSearchResultsForEachEntity(@Nonnull List<String> entities, @Nonnull String input,
+      @Nullable Filter postFilters, @Nullable SortCriterion sortCriterion, int queryFrom, int querySize) {
+    Map<String, SearchResult> searchResults;
+    // Query the entity search service for all entities asynchronously
+    try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "searchEntities").time()) {
+      searchResults = ConcurrencyUtils.transformAndCollectAsync(entities, entity -> new Pair<>(entity,
+          _entitySearchServiceCache.getSearcher(entity, input, postFilters, sortCriterion)
+              .getSearchResults(queryFrom, querySize)))
+          .stream()
+          .filter(pair -> pair.getValue().getNumEntities() > 0)
+          .collect(Collectors.toMap(Pair::getKey, Pair::getValue));
+    }
+    return searchResults;
+  }
+
+  @SneakyThrows
+  @VisibleForTesting
+  static AggregationMetadata merge(AggregationMetadata one, AggregationMetadata two) {
+    Map<String, Long> mergedMap =
+        Stream.concat(one.getAggregations().entrySet().stream(), two.getAggregations().entrySet().stream())
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, Long::sum));
+    return one.clone()
+        .setAggregations(new LongMap(mergedMap))
+        .setFilterValues(new FilterValueArray(SearchUtil.convertToFilters(mergedMap)));
   }
 
   private List<AggregationMetadata> rankFilterGroups(Map<String, AggregationMetadata> aggregations) {

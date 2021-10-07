@@ -26,6 +26,8 @@ This plugin pulls metadata from dbt's artifact files:
   - Load schemas from dbt catalog file, not necessary when the underlying data platform already has this data.
 - use_identifiers:
   - Use model [identifier](https://docs.getdbt.com/reference/resource-properties/identifier) instead of model name if defined (if not, default to model name).
+- tag_prefix:
+  - Prefix added to tags during ingestion.
 - node_type_pattern:
   - Use this filter to exclude and include node types using allow or deny method
 
@@ -65,6 +67,7 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `target_platform`         | ✅       |          | The platform that dbt is loading onto.                                                                                                                |
 | `load_schemas`            | ✅       |          | Whether to load database schemas. If set to `False`, table schema details (e.g. columns) will not be ingested.                                        |
 | `use_identifiers`         |         | `False`   | Whether to use model identifiers instead of names, if defined (if not, default to names)                                                             |
+| `tag_prefix`              |         | `dbt:`    | Prefix added to tags during ingestion. |
 | `node_type_pattern.allow` |          |          | List of regex patterns for dbt nodes to include in ingestion.                                                                                                  |
 | `node_type_pattern.deny`  |          |          | List of regex patterns for dbt nodes to exclude from ingestion.                                                                                                |
 | `node_type_pattern.ignoreCase`  |          | `True` | Whether to ignore case sensitivity during pattern matching.                                                                                                                                  |
