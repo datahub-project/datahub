@@ -12,10 +12,6 @@ record MLFeatureTableKey {
   /**
   * Data platform urn associated with the feature table
   */
-  @Searchable = {
-    "fieldType": "URN",
-    "addToFilters": true
-  }
   @Relationship = {
     "name": "SourcePlatform",
     "entityTypes": [ "dataPlatform" ]

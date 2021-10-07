@@ -30,10 +30,16 @@ export const dashboardSearchResult: SearchResults = {
     facets: [
         {
             field: 'tool',
+            displayName: 'tool',
             aggregations: [{ value: 'superset', count: 1, __typename: 'AggregationMetadata' }],
             __typename: 'FacetMetadata',
         },
-        { field: 'access', aggregations: [], __typename: 'FacetMetadata' },
+        {
+            field: 'access',
+            displayName: 'access',
+            aggregations: [],
+            __typename: 'FacetMetadata',
+        },
     ],
     __typename: 'SearchResults',
 };
