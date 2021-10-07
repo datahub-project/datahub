@@ -4,6 +4,7 @@ import com.google.common.annotations.VisibleForTesting;
 
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.AspectStorageValidationUtil;
 import com.linkedin.metadata.entity.ListResult;
 import com.linkedin.metadata.dao.exception.ModelConversionException;
@@ -47,7 +48,7 @@ import lombok.extern.slf4j.Slf4j;
 import static com.linkedin.metadata.Constants.*;
 
 @Slf4j
-public class EbeanAspectDao {
+public class EbeanAspectDao implements AspectDao {
 
   public static final String EBEAN_MODEL_PACKAGE = EbeanAspectV2.class.getPackage().getName();
   private static final IndefiniteRetention INDEFINITE_RETENTION = new IndefiniteRetention();

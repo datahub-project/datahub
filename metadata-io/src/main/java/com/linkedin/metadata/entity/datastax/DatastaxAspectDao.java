@@ -22,6 +22,7 @@ import com.linkedin.metadata.dao.retention.IndefiniteRetention;
 import com.linkedin.metadata.dao.retention.Retention;
 import com.linkedin.metadata.dao.retention.TimeBasedRetention;
 import com.linkedin.metadata.dao.retention.VersionBasedRetention;
+import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.ListResult;
 import com.linkedin.metadata.query.ExtraInfo;
 import com.linkedin.metadata.query.ExtraInfoArray;
@@ -55,7 +56,7 @@ import static com.datastax.oss.driver.api.querybuilder.QueryBuilder.update;
 import static com.linkedin.metadata.Constants.*;
 
 @Slf4j
-public class DatastaxAspectDao {
+public class DatastaxAspectDao implements AspectDao {
   protected final CqlSession _cqlSession;
   private static final IndefiniteRetention INDEFINITE_RETENTION = new IndefiniteRetention();
   private final Map<String, Retention> _aspectRetentionMap = new HashMap<>();
