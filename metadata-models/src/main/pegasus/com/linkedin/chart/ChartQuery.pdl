@@ -17,8 +17,10 @@ record ChartQuery {
    * Chart query type
    */
   @Searchable = {
+    "fieldName": "queryType",
     "fieldType": "KEYWORD",
-    "addToFilters": true
+    "addToFilters": true,
+    "filterNameOverride": "Query Type"
   }
   type: ChartQueryType
 }

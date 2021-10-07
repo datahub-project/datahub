@@ -5,6 +5,11 @@ extend type Query {
   search(input: SearchInput!): SearchResults
 
   """
+  Search DataHub entities
+  """
+  searchAcrossEntities(input: SearchAcrossEntitiesInput!): SearchResults
+
+  """
   Autocomplete a search query against a specific DataHub Entity Type
   """
   autoComplete(input: AutoCompleteInput!): AutoCompleteResults
@@ -52,6 +57,36 @@ input SearchInput {
 
 	"""
 	Facet filters to apply to search results
+	"""
+	filters: [FacetFilterInput!]
+}
+
+"""
+Input arguments for a full text search query across entities
+"""
+input SearchAcrossEntitiesInput {
+  """
+  Entity types to be searched. If this is not provided, all entities will be searched.
+  """
+	types: [EntityType!]
+
+	"""
+	The query string
+	"""
+	query: String!
+
+	"""
+	The starting point of paginated results
+	"""
+	start: Int
+
+	"""
+	The number of elements included in the results
+	"""
+	count: Int
+
+	"""
+	Faceted filters applied to search results
 	"""
 	filters: [FacetFilterInput!]
 }
@@ -141,6 +176,11 @@ type FacetMetadata {
   field: String!
 
   """
+  Display name of the field
+  """
+  displayName: String
+
+  """
   Aggregated search result counts by value of the field
   """
   aggregations: [AggregationMetadata!]!
@@ -159,6 +199,11 @@ type AggregationMetadata {
   The number of search results containing the value
   """
   count: Long!
+
+  """
+  Entity corresponding to the facet field
+  """
+  entity: Entity
 }
 
 """

@@ -75,6 +75,17 @@ public class EbeanAspectV2 extends Model {
   protected PrimaryKey key;
 
   @NonNull
+  @Column(name = URN_COLUMN, length = 500, nullable = false)
+  private String urn;
+
+  @NonNull
+  @Column(name = ASPECT_COLUMN, length = 200, nullable = false)
+  private String aspect;
+
+  @Column(name = VERSION_COLUMN, nullable = false)
+  private long version;
+
+  @NonNull
   @Lob
   @Column(name = METADATA_COLUMN, nullable = false)
   protected String metadata;
@@ -92,4 +103,10 @@ public class EbeanAspectV2 extends Model {
 
   @Column(name = SYSTEM_METADATA_COLUMN, nullable = true)
   protected String systemMetadata;
+
+  public EbeanAspectV2(String urn, String aspect, long version, String metadata, Timestamp createdOn, String createdBy,
+      String createdFor, String systemMetadata) {
+    this(new PrimaryKey(urn, aspect, version), urn, aspect, version, metadata, createdOn, createdBy, createdFor,
+        systemMetadata);
+  }
 }

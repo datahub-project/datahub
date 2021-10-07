@@ -189,6 +189,36 @@ def test_gms_search_dataset(query, min_expected_results):
     assert len(res_data["value"]["entities"]) >= min_expected_results
 
 
+@pytest.mark.parametrize(
+    "query,min_expected_results",
+    [
+        ("covid", 1),
+        ("sample", 3),
+    ],
+)
+@pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
+def test_gms_search_across_entities(query, min_expected_results):
+
+    json = {
+            "input": f"{query}",
+            "entities": [],
+            "start": 0,
+            "count": 10
+    }
+    print(json)
+    response = requests.post(
+        f"{GMS_ENDPOINT}/entities?action=searchAcrossEntities",
+        headers=restli_default_headers,
+        json=json
+    )
+    response.raise_for_status()
+    res_data = response.json()
+
+    assert res_data["value"]
+    assert res_data["value"]["numEntities"] >= min_expected_results
+    assert len(res_data["value"]["entities"]) >= min_expected_results
+
+
 @pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
 def test_gms_usage_fetch():
     response = requests.post(
@@ -331,6 +361,55 @@ def test_frontend_search_datasets(frontend_session, query, min_expected_results)
     assert res_data["data"]["search"]
     assert res_data["data"]["search"]["total"] >= min_expected_results
     assert len(res_data["data"]["search"]["searchResults"]) >= min_expected_results
+
+
+@pytest.mark.parametrize(
+    "query,min_expected_results",
+    [
+        ("covid", 1),
+        ("sample", 3),
+    ],
+)
+@pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
+def test_frontend_search_across_entities(frontend_session, query, min_expected_results):
+
+    json = {
+        "query": """query searchAcrossEntities($input: SearchAcrossEntitiesInput!) {\n
+            searchAcrossEntities(input: $input) {\n
+                start\n
+                count\n
+                total\n 
+                searchResults {\n
+                    entity {\n
+                        ... on Dataset {\n
+                            urn\n
+                            name\n
+                        }\n
+                    }\n
+                }\n
+            }\n
+        }""",
+        "variables": {
+            "input": {
+                "types": [],
+                "query": f"{query}",
+                "start": 0,
+                "count": 10
+            }
+        }
+    }
+
+    response = frontend_session.post(
+        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json
+    )
+    response.raise_for_status()
+    res_data = response.json()
+
+    assert res_data
+    assert res_data["data"]
+    assert res_data["data"]["searchAcrossEntities"]
+    assert res_data["data"]["searchAcrossEntities"]["total"] >= min_expected_results
+    assert len(res_data["data"]["searchAcrossEntities"]["searchResults"]) >= min_expected_results
 
 
 @pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])

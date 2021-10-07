@@ -38,11 +38,10 @@ public class ParquetEbeanAspectBackupIterator implements EbeanAspectBackupIterat
   }
 
   private EbeanAspectV2 convertRecord(GenericRecord record) {
-    EbeanAspectV2.PrimaryKey key =
-        new EbeanAspectV2.PrimaryKey(record.get("urn").toString(), record.get("aspect").toString(),
-            (Long) record.get("version"));
-    return new EbeanAspectV2(key, record.get("metadata").toString(),
+    return new EbeanAspectV2(record.get("urn").toString(), record.get("aspect").toString(),
+        (Long) record.get("version"), record.get("metadata").toString(),
         Timestamp.from(Instant.ofEpochMilli((Long) record.get("createdon") / 1000)), record.get("createdby").toString(),
-        Optional.ofNullable(record.get("createdfor")).map(Object::toString).orElse(null), record.get("systemMetadata").toString());
+        Optional.ofNullable(record.get("createdfor")).map(Object::toString).orElse(null),
+        record.get("systemMetadata").toString());
   }
 }
