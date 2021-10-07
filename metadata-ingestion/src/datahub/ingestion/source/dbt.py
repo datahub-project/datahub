@@ -64,6 +64,7 @@ class DBTConfig(ConfigModel):
     model_name_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
     imported_tags_prefix: str = DEFAULT_IMPORTED_TAGS_PREFIX
 
+
 @dataclass
 class DBTColumn:
     name: str
@@ -110,11 +111,14 @@ class DBTNode:
         fields = tuple("{}={}".format(k, v) for k, v in self.__dict__.items())
         return self.__class__.__name__ + str(tuple(sorted(fields))).replace("'", "")
 
+
 def generate_tag_name(tag: str, imported_tag_prefix: str) -> str:
     return imported_tag_prefix + tag
 
+
 def generate_tags_with_prefix(tags: List[str], imported_tag_prefix: str) -> List[str]:
     return [generate_tag_name(tag, imported_tag_prefix) for tag in tags]
+
 
 def get_columns(
     catalog_node: dict, manifest_node: dict, imported_tag_prefix: str
@@ -127,7 +131,7 @@ def get_columns(
 
     for key in raw_columns:
         raw_column = raw_columns[key]
-        
+
         tags = manifest_columns.get(key.lower(), {}).get("tags", [])
         tags_with_prefix = generate_tags_with_prefix(tags, imported_tag_prefix)
 
@@ -164,16 +168,13 @@ def extract_dbt_entities(
         # check if node pattern allowed based on config file
         if not node_type_pattern.allowed(manifest_node["resource_type"]):
             continue
-    
+
         name = manifest_node["name"]
         if "identifier" in manifest_node and use_identifiers:
             name = manifest_node["identifier"]
 
         if manifest_node.get("alias") is not None:
             name = manifest_node["alias"]
-
-        database = manifest_node["database"]
-        schema = manifest_node["schema"]
 
         if not model_name_pattern.allowed(key):
             continue
@@ -186,7 +187,6 @@ def extract_dbt_entities(
             "comment"
         ):
             comment = all_catalog_entities[key]["metadata"]["comment"]
-
 
         materialization = None
         upstream_urns = []
@@ -216,10 +216,12 @@ def extract_dbt_entities(
             catalog_type = all_catalog_entities[key]["metadata"]["type"]
 
         meta = manifest_node.get("meta", {})
-        
-        owner = meta.get("owner") # manifest_node.get("config", {}).get("meta", {}).get("owner")
+
+        owner = meta.get(
+            "owner"
+        )  # manifest_node.get("config", {}).get("meta", {}).get("owner")
         if owner is None:
-            owner = manifest_node.get('config', {}).get('meta', {}).get('owner')
+            owner = manifest_node.get("config", {}).get("meta", {}).get("owner")
 
         tags = manifest_node.get("tags", [])
         tags_with_prefix = generate_tags_with_prefix(tags, imported_tag_prefix)
@@ -263,7 +265,9 @@ def extract_dbt_entities(
                     f"Entity {dbtNode.dbt_name} is in manifest but missing from catalog",
                 )
             else:
-                dbtNode.columns = get_columns(catalog_node, manifest_node, imported_tag_prefix)
+                dbtNode.columns = get_columns(
+                    catalog_node, manifest_node, imported_tag_prefix
+                )
 
         else:
             dbtNode.columns = []
@@ -334,6 +338,7 @@ def loadManifestAndCatalog(
 
 def get_db_fqn(database: str, schema: str, name: str) -> str:
     return f"{database}.{schema}.{name}".replace('"', "")
+
 
 def get_urn_from_dbtNode(
     database: str, schema: str, name: str, target_platform: str, env: str
