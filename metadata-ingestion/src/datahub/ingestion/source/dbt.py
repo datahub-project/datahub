@@ -219,7 +219,7 @@ def extract_dbt_entities(
 
         owner = meta.get(
             "owner"
-        )  # manifest_node.get("config", {}).get("meta", {}).get("owner")
+        )
         if owner is None:
             owner = manifest_node.get("config", {}).get("meta", {}).get("owner")
 
