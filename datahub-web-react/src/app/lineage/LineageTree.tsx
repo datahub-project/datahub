@@ -6,6 +6,7 @@ import { TransformMatrix } from '@vx/zoom/lib/types';
 
 import { NodeData, Direction, EntitySelectParams, TreeProps } from './types';
 import LineageTreeNodeAndEdgeRenderer from './LineageTreeNodeAndEdgeRenderer';
+import generateTree from './utils/generateTree';
 
 type LineageTreeProps = {
     data: HierarchyNode<NodeData>;
@@ -62,7 +63,8 @@ export default function LineageTree({
         }
     }, [data.height, xCanvasScale, setXCanvasScale]);
 
-    console.log('rendering tree');
+    const generatedTree = generateTree(data, []);
+    console.log(generatedTree);
 
     // The <Tree /> component takes in the data we've prepared and lays out each node by providing it an x & y coordinate.
     // However, we need to make a few adjustments to the layout before rendering
