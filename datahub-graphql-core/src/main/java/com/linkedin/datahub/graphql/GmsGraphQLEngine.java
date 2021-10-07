@@ -37,10 +37,10 @@ import com.linkedin.datahub.graphql.generated.MLFeatureProperties;
 import com.linkedin.datahub.graphql.generated.MLPrimaryKey;
 import com.linkedin.datahub.graphql.generated.MLPrimaryKeyProperties;
 import com.linkedin.datahub.graphql.resolvers.MeResolver;
-import com.linkedin.datahub.graphql.resolvers.group.AddGroupMemberResolver;
+import com.linkedin.datahub.graphql.resolvers.group.AddGroupMembersResolver;
 import com.linkedin.datahub.graphql.resolvers.group.CreateGroupResolver;
 import com.linkedin.datahub.graphql.resolvers.group.ListGroupsResolver;
-import com.linkedin.datahub.graphql.resolvers.group.RemoveGroupMemberResolver;
+import com.linkedin.datahub.graphql.resolvers.group.RemoveGroupMembersResolver;
 import com.linkedin.datahub.graphql.resolvers.group.RemoveGroupResolver;
 import com.linkedin.datahub.graphql.resolvers.group.UpdateUserStatusResolver;
 import com.linkedin.datahub.graphql.resolvers.load.AspectResolver;
@@ -440,8 +440,8 @@ public class GmsGraphQLEngine {
             .dataFetcher("removeOwner", new RemoveOwnerResolver(entityService))
             .dataFetcher("addLink", new AddLinkResolver(entityService))
             .dataFetcher("removeLink", new RemoveLinkResolver(entityService))
-            .dataFetcher("addGroupMember", new AddGroupMemberResolver(GmsClientFactory.getAspectsClient()))
-            .dataFetcher("removeGroupMember", new RemoveGroupMemberResolver(GmsClientFactory.getAspectsClient()))
+            .dataFetcher("addGroupMembers", new AddGroupMembersResolver(GmsClientFactory.getAspectsClient()))
+            .dataFetcher("removeGroupMembers", new RemoveGroupMembersResolver(GmsClientFactory.getAspectsClient()))
             .dataFetcher("createGroup", new CreateGroupResolver(GmsClientFactory.getAspectsClient()))
             .dataFetcher("removeUser", new RemoveUserResolver(GmsClientFactory.getEntitiesClient()))
             .dataFetcher("removeGroup", new RemoveGroupResolver(GmsClientFactory.getEntitiesClient()))

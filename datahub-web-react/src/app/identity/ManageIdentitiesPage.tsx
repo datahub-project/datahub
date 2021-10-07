@@ -6,7 +6,7 @@ import { GroupList } from './group/GroupList';
 import { UserList } from './user/UserList';
 
 const PageContainer = styled.div`
-    padding-top: 40px;
+    padding-top: 20px;
 `;
 
 const PageHeaderContainer = styled.div`
@@ -54,7 +54,7 @@ export const ManageIdentitiesPage = () => {
         <SearchablePage>
             <PageContainer>
                 <PageHeaderContainer>
-                    <PageTitle level={2}>Manage Users & Groups</PageTitle>
+                    <PageTitle level={3}>Manage Users & Groups</PageTitle>
                     <Typography.Paragraph type="secondary">
                         View your DataHub users & groups. Take administrative actions.
                     </Typography.Paragraph>

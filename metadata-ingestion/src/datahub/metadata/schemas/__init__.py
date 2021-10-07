@@ -156,6 +156,10 @@ def getCorpUserInfoSchema() -> str:
     return _load_schema("CorpUserInfo")
 
 @functools.lru_cache(maxsize=None)
+def getCorpUserStatusSchema() -> str:
+    return _load_schema("CorpUserStatus")
+
+@functools.lru_cache(maxsize=None)
 def getGroupMembershipSchema() -> str:
     return _load_schema("GroupMembership")
 

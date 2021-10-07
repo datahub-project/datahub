@@ -1,6 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Button, List, message, Modal, Typography } from 'antd';
+import { Button, List, message, Modal, Tag, Typography } from 'antd';
 import { Link } from 'react-router-dom';
 import { DeleteOutlined } from '@ant-design/icons';
 import { CorpGroup, EntityType } from '../../../types.generated';
@@ -68,7 +68,7 @@ export default function GroupListItem({ group, onDelete }: Props) {
                 <Link to={entityRegistry.getEntityUrl(EntityType.CorpGroup, group.urn)}>
                     <GroupHeaderContainer>
                         <CustomAvatar size={32} name={displayName} />
-                        <div style={{ marginLeft: 16 }}>
+                        <div style={{ marginLeft: 16, marginRight: 16 }}>
                             <div>
                                 <Typography.Text>{displayName}</Typography.Text>
                             </div>
@@ -76,6 +76,7 @@ export default function GroupListItem({ group, onDelete }: Props) {
                                 <Typography.Text type="secondary">{group.properties?.description}</Typography.Text>
                             </div>
                         </div>
+                        <Tag>{(group as any).memberCount?.total || 0} members</Tag>
                     </GroupHeaderContainer>
                 </Link>
                 <div>

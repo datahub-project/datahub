@@ -16,7 +16,7 @@ public class AuthorizationUtils {
   public static boolean canManageUsersAndGroups(@Nonnull QueryContext context) {
     final Authorizer authorizer = context.getAuthorizer();
     final String actor = context.getActor();
-    final ConjunctivePrivilegeGroup andGroup = new ConjunctivePrivilegeGroup(ImmutableList.of(PoliciesConfig.MANAGE_POLICIES_PRIVILEGE.getType()));
+    final ConjunctivePrivilegeGroup andGroup = new ConjunctivePrivilegeGroup(ImmutableList.of(PoliciesConfig.MANAGE_USERS_AND_GROUPS_PRIVILEGE.getType()));
     return isAuthorized(authorizer, actor, new DisjunctivePrivilegeGroup(ImmutableList.of(andGroup)));
   }
 

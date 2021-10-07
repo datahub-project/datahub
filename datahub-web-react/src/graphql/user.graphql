@@ -87,6 +87,7 @@ query listUsers($input: ListUsersInput!) {
                 teams
                 skills
             }
+            status
         }
     }
 }

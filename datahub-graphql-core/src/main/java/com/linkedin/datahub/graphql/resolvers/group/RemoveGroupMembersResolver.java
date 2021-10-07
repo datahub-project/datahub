@@ -13,14 +13,17 @@ import com.linkedin.metadata.utils.GenericAspectUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
+
 
 // Open Questions: Should we verify the user exists? Should we verify the group exists?
-public class RemoveGroupMemberResolver implements DataFetcher<CompletableFuture<Boolean>> {
+public class RemoveGroupMembersResolver implements DataFetcher<CompletableFuture<Boolean>> {
 
   private final AspectClient _aspectClient;
 
-  public RemoveGroupMemberResolver(final AspectClient aspectClient) {
+  public RemoveGroupMembersResolver(final AspectClient aspectClient) {
     _aspectClient = aspectClient;
   }
 
@@ -31,9 +34,9 @@ public class RemoveGroupMemberResolver implements DataFetcher<CompletableFuture<
 
     if (AuthorizationUtils.canManageUsersAndGroups(context)) {
       final String groupUrnStr = environment.getArgument("groupUrn");
-      final String userUrnStr = environment.getArgument("userUrn");
+      final List<String> userUrnStrs = environment.getArgument("userUrns");
 
-      return CompletableFuture.supplyAsync(() -> {
+      List<CompletableFuture<?>> removeGroupMemberFutures = userUrnStrs.stream().map(userUrnStr -> CompletableFuture.supplyAsync(() -> {
         try {
           // First, fetch user's group membership aspect.
           final VersionedAspect gmsAspect = _aspectClient.getAspectOrNull(
@@ -63,7 +66,8 @@ public class RemoveGroupMemberResolver implements DataFetcher<CompletableFuture<
         } catch (Exception e) {
           throw new RuntimeException("Failed to remove member from group", e);
         }
-      });
+      })).collect(Collectors.toList());
+      return CompletableFuture.allOf(removeGroupMemberFutures.toArray(new CompletableFuture[0])).thenApply(ignored -> Boolean.TRUE);
     }
     throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
   }

@@ -1908,7 +1908,7 @@
                   "fields" : [ {
                     "name" : "active",
                     "type" : "boolean",
-                    "doc" : "Whether the corpUser is active, ref: https://iwww.corp.linkedin.com/wiki/cf/display/GTSD/Accessing+Active+Directory+via+LDAP+tools",
+                    "doc" : "Deprecated! Use CorpUserStatus instead. Whether the corpUser is active, ref: https://iwww.corp.linkedin.com/wiki/cf/display/GTSD/Accessing+Active+Directory+via+LDAP+tools",
                     "Searchable" : {
                       "fieldType" : "BOOLEAN",
                       "weightsPerFieldValue" : {

@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
-import { Empty, List, message, Pagination } from 'antd';
+import { Button, Empty, List, message, Pagination } from 'antd';
 import styled from 'styled-components';
+import { UsergroupAddOutlined } from '@ant-design/icons';
 import { CorpGroup } from '../../../types.generated';
 import { Message } from '../../shared/Message';
 import { useListGroupsQuery } from '../../../graphql/group.generated';
 import GroupListItem from './GroupListItem';
+import TabToolbar from '../../entity/shared/components/styled/TabToolbar';
+import CreateGroupModal from './CreateGroupModal';
 
 const GroupContainer = styled.div``;
 
@@ -12,7 +15,6 @@ const GroupStyledList = styled(List)`
     &&& {
         width: 100%;
         border-color: ${(props) => props.theme.styles['border-color-base']};
-        box-shadow: ${(props) => props.theme.styles['box-shadow']};
     }
 `;
 
@@ -25,6 +27,7 @@ const DEFAULT_PAGE_SIZE = 25;
 
 export const GroupList = () => {
     const [page, setPage] = useState(1);
+    const [isCreatingGroup, setIsCreatingGroup] = useState(false);
     const [removedUrns, setRemovedUrns] = useState<string[]>([]);
 
     // Policy list paging.
@@ -63,6 +66,13 @@ export const GroupList = () => {
             {!data && loading && <Message type="loading" content="Loading groups..." />}
             {error && message.error('Failed to load groups :(')}
             <GroupContainer>
+                <TabToolbar>
+                    <div>
+                        <Button type="text" onClick={() => setIsCreatingGroup(true)}>
+                            <UsergroupAddOutlined /> Create group
+                        </Button>
+                    </div>
+                </TabToolbar>
                 <GroupStyledList
                     bordered
                     locale={{
@@ -84,6 +94,16 @@ export const GroupList = () => {
                         showSizeChanger={false}
                     />
                 </GroupPaginationContainer>
+                <CreateGroupModal
+                    visible={isCreatingGroup}
+                    onClose={() => setIsCreatingGroup(false)}
+                    onCreate={() => {
+                        // Hack to deal with eventual consistency.
+                        setTimeout(function () {
+                            refetch?.();
+                        }, 2000);
+                    }}
+                />
             </GroupContainer>
         </>
     );

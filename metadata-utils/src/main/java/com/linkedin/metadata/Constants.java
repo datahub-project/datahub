@@ -23,6 +23,12 @@ public class Constants {
   public static final String INSTITUTIONAL_MEMORY_ASPECT_NAME = "institutionalMemory";
   public static final String CORP_GROUP_INFO_ASPECT_NAME = "corpGroupInfo";
   public static final String GROUP_MEMBERSHIP_ASPECT_NAME = "groupMembership";
+  public static final String CORP_USER_STATUS_ASPECT_NAME = "corpUserStatus";
+
+  /**
+   * User Status
+   */
+  public static final String CORP_USER_STATUS_ACTIVE = "ACTIVE";
 
   private Constants() { }
 }

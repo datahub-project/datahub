@@ -126,10 +126,25 @@ query listGroups($input: ListGroupsInput!) {
                 description
                 email
             }
+            memberCount: relationships(input: { types: ["IsMemberOfGroup"], direction: INCOMING, start: 0, count: 1 }) {
+                total
+            }
         }
     }
 }
 
+mutation addGroupMembers($groupUrn: String!, $userUrns: [String!]!) {
+    addGroupMembers(groupUrn: $groupUrn, userUrns: $userUrns)
+}
+
+mutation removeGroupMembers($groupUrn: String!, $userUrns: [String!]!) {
+    removeGroupMembers(groupUrn: $groupUrn, userUrns: $userUrns)
+}
+
 mutation removeGroup($urn: String!) {
     removeGroup(urn: $urn)
+}
+
+mutation createGroup($input: CreateGroupInput!) {
+    createGroup(input: $input)
 }

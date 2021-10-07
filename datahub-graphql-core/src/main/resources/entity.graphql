@@ -213,12 +213,12 @@ type Mutation {
     """
     Add a member to a group
     """
-    addGroupMember(groupUrn: String!, userUrn: String!): Boolean
+    addGroupMembers(groupUrn: String!, userUrns: [String!]!): Boolean
 
     """
     Remove a member from a group
     """
-    removeGroupMember(groupUrn: String!, userUrn: String!): Boolean
+    removeGroupMembers(groupUrn: String!, userUrns: [String!]!): Boolean
 
     """
     Create a new group. Returns the urn of the newly created group. Requires Manage Users & Groups Platform Privilege
@@ -1693,19 +1693,9 @@ The state of a CorpUser
 """
 enum CorpUserStatus {
   """
-  A User that has been provisioned, but has not yet logged in
-  """
-  PROVISIONED
-
-  """
   A User that has been provisioned and logged in
   """
   ACTIVE
-
-  """
-  A User that is deactivated, and no longer allowed to log in
-  """
-  DEACTIVATED
 }
 
 """
