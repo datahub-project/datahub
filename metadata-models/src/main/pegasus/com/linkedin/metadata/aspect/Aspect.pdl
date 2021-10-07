@@ -63,6 +63,7 @@ typeref Aspect = union[
   CorpUserEditableInfo,
   CorpUserInfo,
   CorpUserStatus,
+  GroupMembership,
   DashboardKey,
   DashboardInfo,
   DataFlowKey,

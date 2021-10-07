@@ -1548,6 +1548,27 @@
       "name" : "corpUserStatus"
     }
   }, {
+    "type" : "record",
+    "name" : "GroupMembership",
+    "namespace" : "com.linkedin.identity",
+    "doc" : "Carries information about the CorpGroups a user is in.",
+    "fields" : [ {
+      "name" : "groups",
+      "type" : {
+        "type" : "array",
+        "items" : "com.linkedin.common.Urn"
+      },
+      "Relationship" : {
+        "/*" : {
+          "entityTypes" : [ "corpGroup" ],
+          "name" : "IsMemberOfGroup"
+        }
+      }
+    } ],
+    "Aspect" : {
+      "name" : "groupMembership"
+    }
+  }, {
     "type" : "typeref",
     "name" : "Aspect",
     "namespace" : "com.linkedin.metadata.aspect",
@@ -1609,7 +1630,7 @@
       "Aspect" : {
         "name" : "corpUserKey"
       }
-    }, "com.linkedin.identity.CorpUserEditableInfo", "com.linkedin.identity.CorpUserInfo", "com.linkedin.identity.CorpUserStatus", {
+    }, "com.linkedin.identity.CorpUserEditableInfo", "com.linkedin.identity.CorpUserInfo", "com.linkedin.identity.CorpUserStatus", "com.linkedin.identity.GroupMembership", {
       "type" : "record",
       "name" : "DashboardKey",
       "namespace" : "com.linkedin.metadata.key",
