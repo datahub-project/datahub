@@ -967,7 +967,7 @@
                       {
                         "name": "active",
                         "type": "boolean",
-                        "doc": "Whether the corpUser is active, ref: https://iwww.corp.linkedin.com/wiki/cf/display/GTSD/Accessing+Active+Directory+via+LDAP+tools",
+                        "doc": "Deprecated! Use CorpUserStatus instead. Whether the corpUser is active, ref: https://iwww.corp.linkedin.com/wiki/cf/display/GTSD/Accessing+Active+Directory+via+LDAP+tools",
                         "Searchable": {
                           "fieldType": "BOOLEAN",
                           "weightsPerFieldValue": {
@@ -1159,6 +1159,30 @@
                         "com.linkedin.pegasus2avro.common.CorpuserUrn"
                       ],
                       "name": "corpUserEditableInfo"
+                    }
+                  },
+                  {
+                    "type": "record",
+                    "name": "CorpUserStatus",
+                    "namespace": "com.linkedin.pegasus2avro.identity",
+                    "doc": "The status of the user, e.g. provisioned, active, suspended, etc.",
+                    "fields": [
+                      {
+                        "name": "status",
+                        "type": "string",
+                        "doc": "Status of the user, e.g. PROVISIONED / ACTIVE / SUSPENDED",
+                        "Searchable": {
+                          "fieldType": "KEYWORD"
+                        }
+                      },
+                      {
+                        "name": "lastModified",
+                        "type": "com.linkedin.pegasus2avro.common.AuditStamp",
+                        "doc": "Audit stamp containing who last modified the status and when."
+                      }
+                    ],
+                    "Aspect": {
+                      "name": "corpUserStatus"
                     }
                   },
                   {

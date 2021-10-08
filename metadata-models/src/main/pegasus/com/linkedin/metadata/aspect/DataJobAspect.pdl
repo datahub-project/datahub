@@ -8,6 +8,7 @@ import com.linkedin.common.Ownership
 import com.linkedin.common.Status
 import com.linkedin.common.GlobalTags
 import com.linkedin.common.BrowsePaths
+import com.linkedin.common.DataPlatformInstance
 import com.linkedin.common.GlossaryTerms
 import com.linkedin.common.InstitutionalMemory
 
@@ -15,14 +16,15 @@ import com.linkedin.common.InstitutionalMemory
  * A union of all supported metadata aspects for a Data job
  */
 typeref DataJobAspect = union[
-    DataJobKey,
-    DataJobInfo,
-    DataJobInputOutput,
-    EditableDataJobProperties,
-    Ownership,
-    Status,
-    GlobalTags,
-    BrowsePaths,
-    GlossaryTerms,
-    InstitutionalMemory
+  DataJobKey,
+  DataJobInfo,
+  DataJobInputOutput,
+  EditableDataJobProperties,
+  Ownership,
+  Status,
+  GlobalTags,
+  BrowsePaths,
+  GlossaryTerms,
+  InstitutionalMemory,
+  DataPlatformInstance
 ]

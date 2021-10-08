@@ -49,9 +49,6 @@ from datahub.metadata.schema_classes import (
 logger = logging.getLogger(__name__)
 
 
-DEFAULT_IMPORTED_TAGS_PREFIX = "dbt:"
-
-
 class DBTConfig(ConfigModel):
     manifest_path: str
     catalog_path: str
@@ -61,7 +58,7 @@ class DBTConfig(ConfigModel):
     load_schemas: bool
     use_identifiers: bool = False
     node_type_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
-    imported_tags_prefix: str = DEFAULT_IMPORTED_TAGS_PREFIX
+    tag_prefix: str = "dbt:"
 
 
 @dataclass
@@ -111,15 +108,9 @@ class DBTNode:
         return self.__class__.__name__ + str(tuple(sorted(fields))).replace("'", "")
 
 
-def generate_tag_name(tag: str) -> str:
-    return DEFAULT_IMPORTED_TAGS_PREFIX + tag
-
-
-def generate_tags_with_prefix(tags: List[str]) -> List[str]:
-    return [generate_tag_name(tag) for tag in tags]
-
-
-def get_columns(catalog_node: dict, manifest_node: dict) -> List[DBTColumn]:
+def get_columns(
+    catalog_node: dict, manifest_node: dict, tag_prefix: str
+) -> List[DBTColumn]:
     columns = []
 
     manifest_columns = manifest_node.get("columns", {})
@@ -128,8 +119,9 @@ def get_columns(catalog_node: dict, manifest_node: dict) -> List[DBTColumn]:
 
     for key in raw_columns:
         raw_column = raw_columns[key]
+
         tags = manifest_columns.get(key.lower(), {}).get("tags", [])
-        tags_with_prefix = generate_tags_with_prefix(tags)
+        tags = [tag_prefix + tag for tag in tags]
 
         dbtCol = DBTColumn(
             name=raw_column["name"].lower(),
@@ -137,7 +129,7 @@ def get_columns(catalog_node: dict, manifest_node: dict) -> List[DBTColumn]:
             description=manifest_columns.get(key.lower(), {}).get("description", ""),
             data_type=raw_column["type"],
             index=raw_column["index"],
-            tags=tags_with_prefix,
+            tags=tags,
         )
         columns.append(dbtCol)
     return columns
@@ -149,6 +141,7 @@ def extract_dbt_entities(
     sources_results: List[Dict[str, Any]],
     load_schemas: bool,
     use_identifiers: bool,
+    tag_prefix: str,
     target_platform: str,
     environment: str,
     node_type_pattern: AllowDenyPattern,
@@ -211,7 +204,8 @@ def extract_dbt_entities(
         owner = meta.get("owner")
 
         tags = manifest_node.get("tags", [])
-        tags_with_prefix = generate_tags_with_prefix(tags)
+        tags = [tag_prefix + tag for tag in tags]
+
         dbtNode = DBTNode(
             dbt_name=key,
             database=manifest_node["database"],
@@ -234,7 +228,7 @@ def extract_dbt_entities(
                 environment,
             ),
             meta=manifest_node.get("meta", {}),
-            tags=tags_with_prefix,
+            tags=tags,
             owner=owner,
         )
 
@@ -251,7 +245,7 @@ def extract_dbt_entities(
                     f"Entity {dbtNode.dbt_name} is in manifest but missing from catalog",
                 )
             else:
-                dbtNode.columns = get_columns(catalog_node, manifest_node)
+                dbtNode.columns = get_columns(catalog_node, manifest_node, tag_prefix)
 
         else:
             dbtNode.columns = []
@@ -267,6 +261,7 @@ def loadManifestAndCatalog(
     sources_path: Optional[str],
     load_schemas: bool,
     use_identifiers: bool,
+    tag_prefix: str,
     target_platform: str,
     environment: str,
     node_type_pattern: AllowDenyPattern,
@@ -307,6 +302,7 @@ def loadManifestAndCatalog(
         sources_results,
         load_schemas,
         use_identifiers,
+        tag_prefix,
         target_platform,
         environment,
         node_type_pattern,
@@ -516,6 +512,7 @@ class DBTSource(Source):
             self.config.sources_path,
             self.config.load_schemas,
             self.config.use_identifiers,
+            self.config.tag_prefix,
             self.config.target_platform,
             self.config.env,
             self.config.node_type_pattern,

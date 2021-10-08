@@ -68,6 +68,10 @@ def getStatusSchema() -> str:
     return _load_schema("Status")
 
 @functools.lru_cache(maxsize=None)
+def getSubTypesSchema() -> str:
+    return _load_schema("SubTypes")
+
+@functools.lru_cache(maxsize=None)
 def getDashboardInfoSchema() -> str:
     return _load_schema("DashboardInfo")
 
@@ -154,6 +158,10 @@ def getCorpUserEditableInfoSchema() -> str:
 @functools.lru_cache(maxsize=None)
 def getCorpUserInfoSchema() -> str:
     return _load_schema("CorpUserInfo")
+
+@functools.lru_cache(maxsize=None)
+def getCorpUserStatusSchema() -> str:
+    return _load_schema("CorpUserStatus")
 
 @functools.lru_cache(maxsize=None)
 def getGroupMembershipSchema() -> str:
