@@ -41,6 +41,11 @@ type PlatformPrivileges {
   Whether the user should be able to manage policies
   """
   managePolicies: Boolean!
+
+  """
+  Whether the user should be able to view metadata proposals.
+  """
+  viewMetadataProposals: Boolean!
 }
 
 """
@@ -57,6 +62,8 @@ type AppConfig {
   Configurations related to the Policies Feature
   """
   policiesConfig: PoliciesConfig!
+
+  actionRequestsConfig: ActionRequestsConfig!
 }
 
 """

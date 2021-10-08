@@ -122,6 +122,40 @@ query getDataset($urn: String!) {
                 sampleValues
             }
         }
+        termProposals: proposals(type: TERM_ASSOCIATION) {
+            urn
+            type
+            status
+            result
+            subResourceType
+            subResource
+            params {
+                glossaryTermProposal {
+                    glossaryTerm {
+                        urn
+                        type
+                        name
+                    }
+                }
+            }
+        }
+        tagProposals: proposals(type: TAG_ASSOCIATION) {
+            urn
+            type
+            status
+            result
+            subResourceType
+            subResource
+            params {
+                tagProposal {
+                    tag {
+                        urn
+                        type
+                        name
+                    }
+                }
+            }
+        }
     }
 }
 

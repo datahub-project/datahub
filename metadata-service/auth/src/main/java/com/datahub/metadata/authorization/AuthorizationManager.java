@@ -1,8 +1,6 @@
 package com.datahub.metadata.authorization;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.linkedin.common.Owner;
-import com.linkedin.common.Ownership;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.Entity;
 import com.linkedin.entity.client.EntityClient;
@@ -39,9 +37,6 @@ import static com.linkedin.metadata.Constants.*;
 @Slf4j
 public class AuthorizationManager implements Authorizer {
 
-  // Used for resolving resource ownership.
-  private final OwnershipClient _ownershipClient;
-
   // Maps privilege name to the associated set of policies for fast access.
   // Not concurrent data structure because writes are always against the entire thing.
   private final Map<String, List<DataHubPolicyInfo>> _policyCache = new HashMap<>(); // Shared Policy Cache.
@@ -58,7 +53,6 @@ public class AuthorizationManager implements Authorizer {
       final int delayIntervalSeconds,
       final int refreshIntervalSeconds,
       final AuthorizationMode mode) {
-    _ownershipClient = ownershipClient;
     _policyRefreshRunnable = new PolicyRefreshRunnable(entityClient, _policyCache);
     _refreshExecutorService.scheduleAtFixedRate(_policyRefreshRunnable, delayIntervalSeconds, refreshIntervalSeconds, TimeUnit.SECONDS);
     _mode = mode;
@@ -238,22 +232,6 @@ public class AuthorizationManager implements Authorizer {
     }
   }
 
-  private List<Urn> userOwners(final Ownership ownership) {
-    return ownership.getOwners()
-        .stream()
-        .filter(owner -> CORP_USER_ENTITY_NAME.equals(owner.getOwner().getEntityType()))
-        .map(Owner::getOwner)
-        .collect(Collectors.toList());
-  }
-
-  private List<Urn> groupOwners(final Ownership ownership) {
-    return ownership.getOwners()
-        .stream()
-        .filter(owner -> CORP_GROUP_ENTITY_NAME.equals(owner.getOwner().getEntityType()))
-        .map(Owner::getOwner)
-        .collect(Collectors.toList());
-  }
-
   /**
    * Class used to represent all users authorized to perform a particular privilege.
    */
@@ -292,5 +270,4 @@ public class AuthorizationManager implements Authorizer {
       return _allGroups;
     }
   }
-
 }

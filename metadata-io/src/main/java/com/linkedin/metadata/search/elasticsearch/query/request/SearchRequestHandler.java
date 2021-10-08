@@ -1,24 +1,25 @@
 package com.linkedin.metadata.search.elasticsearch.query.request;
 
 import com.google.common.collect.ImmutableMap;
+
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.DoubleMap;
 import com.linkedin.data.template.LongMap;
-import com.linkedin.metadata.dao.utils.ESUtils;
+import com.linkedin.metadata.search.AggregationMetadataArray;
+import com.linkedin.metadata.search.SearchResultMetadata;
+import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
-import com.linkedin.metadata.query.Filter;
-import com.linkedin.metadata.query.SortCriterion;
 import com.linkedin.metadata.search.AggregationMetadata;
-import com.linkedin.metadata.search.AggregationMetadataArray;
-import com.linkedin.metadata.search.FilterValueArray;
+import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.MatchedField;
 import com.linkedin.metadata.search.MatchedFieldArray;
+import com.linkedin.metadata.search.FilterValueArray;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
-import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.metadata.search.features.Features;
 import com.linkedin.metadata.utils.SearchUtil;
 import io.opentelemetry.extension.annotations.WithSpan;
@@ -52,7 +53,7 @@ import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.elasticsearch.search.fetch.subphase.highlight.HighlightBuilder;
 import org.elasticsearch.search.fetch.subphase.highlight.HighlightField;
 
-import static com.linkedin.metadata.dao.utils.SearchUtils.getQueryBuilderFromCriterion;
+import static com.linkedin.metadata.search.utils.SearchUtils.getQueryBuilderFromCriterion;
 
 
 @Slf4j
@@ -150,16 +151,20 @@ public class SearchRequestHandler {
       int size) {
     SearchRequest searchRequest = new SearchRequest();
 
-    final BoolQueryBuilder boolQueryBuilder = new BoolQueryBuilder();
+    final BoolQueryBuilder orQueryBuilder = new BoolQueryBuilder();
     if (filters != null) {
-      filters.getCriteria().forEach(criterion -> {
-        if (!criterion.getValue().trim().isEmpty()) {
-          boolQueryBuilder.filter(getQueryBuilderFromCriterion(criterion));
-        }
+      filters.getOr().forEach(or -> {
+        final BoolQueryBuilder andQueryBuilder = new BoolQueryBuilder();
+        or.getAnd().forEach(criterion -> {
+          if (!criterion.getValue().trim().isEmpty()) {
+            andQueryBuilder.filter(getQueryBuilderFromCriterion(criterion));
+          }
+        });
+          orQueryBuilder.should(andQueryBuilder);
       });
     }
     final SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
-    searchSourceBuilder.query(boolQueryBuilder);
+    searchSourceBuilder.query(orQueryBuilder);
     searchSourceBuilder.from(from).size(size);
     ESUtils.buildSortOrder(searchSourceBuilder, sortCriterion);
     searchRequest.source(searchSourceBuilder);

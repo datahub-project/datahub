@@ -8,6 +8,7 @@ dependencies {
     compile project(':metadata-service:auth')
     compile project(':metadata-io')
     compile project(':metadata-utils')
+    compile project(':metadata-models')
 
     compile externalDependency.graphqlJava
     compile externalDependency.antlr4Runtime

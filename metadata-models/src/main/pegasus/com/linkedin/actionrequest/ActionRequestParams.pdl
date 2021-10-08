@@ -1,0 +1,29 @@
+namespace com.linkedin.actionrequest
+
+import com.linkedin.common.Urn
+
+/**
+ * Parameters provided with a particular action request. Only one of the fields will be populated,
+ * depending on the action request type.
+ */
+record ActionRequestParams {
+  /**
+   * An optional set of information specific to term proposals.
+   */
+  glossaryTermProposal: optional record GlossaryTermProposal {
+    /**
+     * The urn of the glossary term being proposed.
+     */
+    glossaryTerm: Urn
+  }
+
+  /**
+   * An optional set of information specific to tag proposals.
+   */
+  tagProposal: optional record TagProposal {
+    /**
+     * The urn of the tag being proposed.
+     */
+    tag: Urn
+  }
+}

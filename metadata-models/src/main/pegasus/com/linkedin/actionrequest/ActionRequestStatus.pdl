@@ -1,0 +1,32 @@
+namespace com.linkedin.actionrequest
+
+import com.linkedin.common.AuditStamp
+
+/**
+ * The status of the action request - e.g. accepted, rejected, pending, etc
+ */
+@Aspect = {
+  "name": "actionRequestStatus"
+}
+record ActionRequestStatus {
+  /**
+   * Status of the action request. e.g. PENDING / COMPLETED
+   */
+  @Searchable = {
+    "fieldType": "KEYWORD"
+  }
+  status: string
+
+  /**
+   * Optional result of the action request, e.g. APPROVE or DENY in case of request approvals.
+   */
+  @Searchable = {
+    "fieldType": "KEYWORD"
+  }
+  result: optional string
+
+  /**
+   * Audit stamp containing who last modified the status and when.
+   */
+  lastModified: AuditStamp
+}

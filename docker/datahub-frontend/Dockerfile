@@ -10,7 +10,7 @@ RUN apk --no-cache add perl
 ARG ENABLE_EMBER="false"
 ENV CI=true
 ENV GRADLE_OPTS="-Xms256m -Xmx512m"
-COPY . datahub-src
+COPY . /datahub-src
 
 RUN mkdir /scripts && cp datahub-src/docker/datahub-frontend/start.sh /scripts/start.sh \
     && cd datahub-src && ./gradlew :datahub-frontend:dist -PenableEmber=${ENABLE_EMBER} -x test -x yarnTest -x yarnLint \
