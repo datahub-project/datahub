@@ -125,7 +125,6 @@
                         "type": "string",
                         "doc": "The name of the dashboard tool such as looker, redash etc.",
                         "Searchable": {
-                          "addToFilters": true,
                           "boostScore": 4.0,
                           "fieldName": "tool",
                           "fieldType": "TEXT_PARTIAL"
@@ -328,7 +327,8 @@
                         "default": null,
                         "Searchable": {
                           "addToFilters": true,
-                          "fieldType": "KEYWORD"
+                          "fieldType": "KEYWORD",
+                          "filterNameOverride": "Chart Type"
                         }
                       },
                       {
@@ -354,7 +354,8 @@
                         "default": null,
                         "Searchable": {
                           "addToFilters": true,
-                          "fieldType": "KEYWORD"
+                          "fieldType": "KEYWORD",
+                          "filterNameOverride": "Access Level"
                         }
                       },
                       {
@@ -399,7 +400,9 @@
                         "doc": "Chart query type",
                         "Searchable": {
                           "addToFilters": true,
-                          "fieldType": "KEYWORD"
+                          "fieldName": "queryType",
+                          "fieldType": "KEYWORD",
+                          "filterNameOverride": "Query Type"
                         }
                       }
                     ],
@@ -633,8 +636,10 @@
                                 "type": "string",
                                 "doc": "Urn of the applied tag",
                                 "Searchable": {
+                                  "addToFilters": true,
                                   "fieldName": "tags",
                                   "fieldType": "URN_PARTIAL",
+                                  "filterNameOverride": "Tags",
                                   "hasValuesFieldName": "hasTags"
                                 },
                                 "java": {
@@ -696,8 +701,10 @@
                                 "type": "string",
                                 "doc": "Urn of the applied glossary term",
                                 "Searchable": {
+                                  "addToFilters": true,
                                   "fieldName": "glossaryTerms",
-                                  "fieldType": "URN_PARTIAL"
+                                  "fieldType": "URN_PARTIAL",
+                                  "filterNameOverride": "Glossary Terms"
                                 },
                                 "java": {
                                   "class": "com.linkedin.pegasus2avro.common.urn.GlossaryTermUrn"
@@ -760,6 +767,39 @@
                     ],
                     "Aspect": {
                       "name": "institutionalMemory"
+                    }
+                  },
+                  {
+                    "type": "record",
+                    "name": "DataPlatformInstance",
+                    "namespace": "com.linkedin.pegasus2avro.common",
+                    "doc": "Tag aspect used for applying tags to an entity",
+                    "fields": [
+                      {
+                        "name": "platform",
+                        "type": "string",
+                        "doc": "Data Platform",
+                        "Searchable": {
+                          "addToFilters": true,
+                          "fieldType": "URN",
+                          "filterNameOverride": "Platform"
+                        },
+                        "java": {
+                          "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+                        }
+                      },
+                      {
+                        "name": "instance",
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "doc": "Instance of the data platform (e.g. db instance)",
+                        "default": null
+                      }
+                    ],
+                    "Aspect": {
+                      "name": "dataPlatformInstance"
                     }
                   }
                 ]
@@ -1253,7 +1293,6 @@
                         "type": "string",
                         "doc": "The name of the dashboard tool such as looker, redash etc.",
                         "Searchable": {
-                          "addToFilters": true,
                           "boostScore": 4.0,
                           "fieldName": "tool",
                           "fieldType": "TEXT_PARTIAL"
@@ -1366,7 +1405,8 @@
                         "default": null,
                         "Searchable": {
                           "addToFilters": true,
-                          "fieldType": "KEYWORD"
+                          "fieldType": "KEYWORD",
+                          "filterNameOverride": "Access Level"
                         }
                       },
                       {
@@ -1441,7 +1481,8 @@
                   "com.linkedin.pegasus2avro.common.GlobalTags",
                   "com.linkedin.pegasus2avro.common.BrowsePaths",
                   "com.linkedin.pegasus2avro.common.GlossaryTerms",
-                  "com.linkedin.pegasus2avro.common.InstitutionalMemory"
+                  "com.linkedin.pegasus2avro.common.InstitutionalMemory",
+                  "com.linkedin.pegasus2avro.common.DataPlatformInstance"
                 ]
               },
               "doc": "The list of metadata aspects associated with the dashboard. Depending on the use case, this can either be all, or a selection, of supported aspects."
@@ -1639,7 +1680,8 @@
                   "com.linkedin.pegasus2avro.common.GlobalTags",
                   "com.linkedin.pegasus2avro.common.BrowsePaths",
                   "com.linkedin.pegasus2avro.common.GlossaryTerms",
-                  "com.linkedin.pegasus2avro.common.InstitutionalMemory"
+                  "com.linkedin.pegasus2avro.common.InstitutionalMemory",
+                  "com.linkedin.pegasus2avro.common.DataPlatformInstance"
                 ]
               },
               "doc": "The list of metadata aspects associated with the data flow. Depending on the use case, this can either be all, or a selection, of supported aspects."
@@ -1986,7 +2028,8 @@
                   "com.linkedin.pegasus2avro.common.GlobalTags",
                   "com.linkedin.pegasus2avro.common.BrowsePaths",
                   "com.linkedin.pegasus2avro.common.GlossaryTerms",
-                  "com.linkedin.pegasus2avro.common.InstitutionalMemory"
+                  "com.linkedin.pegasus2avro.common.InstitutionalMemory",
+                  "com.linkedin.pegasus2avro.common.DataPlatformInstance"
                 ]
               },
               "doc": "The list of metadata aspects associated with the data job. Depending on the use case, this can either be all, or a selection, of supported aspects."
@@ -2026,10 +2069,6 @@
                         "name": "platform",
                         "type": "string",
                         "doc": "Data platform urn associated with the dataset",
-                        "Searchable": {
-                          "addToFilters": true,
-                          "fieldType": "URN"
-                        },
                         "java": {
                           "class": "com.linkedin.pegasus2avro.common.urn.Urn"
                         }
@@ -2068,6 +2107,7 @@
                         "Searchable": {
                           "addToFilters": true,
                           "fieldType": "TEXT_PARTIAL",
+                          "filterNameOverride": "Environment",
                           "queryByDefault": false
                         }
                       }
@@ -3122,7 +3162,8 @@
                   },
                   "com.linkedin.pegasus2avro.common.GlobalTags",
                   "com.linkedin.pegasus2avro.common.GlossaryTerms",
-                  "com.linkedin.pegasus2avro.common.BrowsePaths"
+                  "com.linkedin.pegasus2avro.common.BrowsePaths",
+                  "com.linkedin.pegasus2avro.common.DataPlatformInstance"
                 ]
               },
               "doc": "The list of metadata aspects associated with the dataset. Depending on the use case, this can either be all, or a selection, of supported aspects."
@@ -3424,10 +3465,6 @@
                         "name": "platform",
                         "type": "string",
                         "doc": "Standardized platform urn for the model",
-                        "Searchable": {
-                          "addToFilters": true,
-                          "fieldType": "URN"
-                        },
                         "java": {
                           "class": "com.linkedin.pegasus2avro.common.urn.Urn"
                         }
@@ -3447,7 +3484,9 @@
                         "type": "com.linkedin.pegasus2avro.common.FabricType",
                         "doc": "Fabric type where model belongs to or where it was generated",
                         "Searchable": {
+                          "addToFilters": true,
                           "fieldType": "TEXT_PARTIAL",
+                          "filterNameOverride": "Environment",
                           "queryByDefault": false
                         }
                       }
@@ -4361,7 +4400,9 @@
                       "name": "deprecation"
                     }
                   },
-                  "com.linkedin.pegasus2avro.common.BrowsePaths"
+                  "com.linkedin.pegasus2avro.common.BrowsePaths",
+                  "com.linkedin.pegasus2avro.common.GlobalTags",
+                  "com.linkedin.pegasus2avro.common.DataPlatformInstance"
                 ]
               },
               "doc": "The list of metadata aspects associated with the MLModel. Depending on the use case, this can either be all, or a selection, of supported aspects."
@@ -4402,7 +4443,8 @@
                         "doc": "Namespace for the primary key",
                         "Searchable": {
                           "addToFilters": true,
-                          "fieldType": "TEXT_PARTIAL"
+                          "fieldType": "TEXT_PARTIAL",
+                          "filterNameOverride": "Namespace"
                         }
                       },
                       {
@@ -4520,7 +4562,9 @@
                   "com.linkedin.pegasus2avro.common.Ownership",
                   "com.linkedin.pegasus2avro.common.InstitutionalMemory",
                   "com.linkedin.pegasus2avro.common.Status",
-                  "com.linkedin.pegasus2avro.common.Deprecation"
+                  "com.linkedin.pegasus2avro.common.Deprecation",
+                  "com.linkedin.pegasus2avro.common.GlobalTags",
+                  "com.linkedin.pegasus2avro.common.DataPlatformInstance"
                 ]
               },
               "doc": "The list of metadata aspects associated with the MLPrimaryKey. Depending on the use case, this can either be all, or a selection, of supported aspects."
@@ -4640,7 +4684,9 @@
                   "com.linkedin.pegasus2avro.common.InstitutionalMemory",
                   "com.linkedin.pegasus2avro.common.Status",
                   "com.linkedin.pegasus2avro.common.Deprecation",
-                  "com.linkedin.pegasus2avro.common.BrowsePaths"
+                  "com.linkedin.pegasus2avro.common.BrowsePaths",
+                  "com.linkedin.pegasus2avro.common.GlobalTags",
+                  "com.linkedin.pegasus2avro.common.DataPlatformInstance"
                 ]
               },
               "doc": "The list of metadata aspects associated with the MLFeature. Depending on the use case, this can either be all, or a selection, of supported aspects."
@@ -4684,10 +4730,6 @@
                             "dataPlatform"
                           ],
                           "name": "SourcePlatform"
-                        },
-                        "Searchable": {
-                          "addToFilters": true,
-                          "fieldType": "URN"
                         },
                         "java": {
                           "class": "com.linkedin.pegasus2avro.common.urn.Urn"
@@ -4786,7 +4828,9 @@
                   "com.linkedin.pegasus2avro.common.InstitutionalMemory",
                   "com.linkedin.pegasus2avro.common.Status",
                   "com.linkedin.pegasus2avro.common.Deprecation",
-                  "com.linkedin.pegasus2avro.common.BrowsePaths"
+                  "com.linkedin.pegasus2avro.common.BrowsePaths",
+                  "com.linkedin.pegasus2avro.common.GlobalTags",
+                  "com.linkedin.pegasus2avro.common.DataPlatformInstance"
                 ]
               },
               "doc": "The list of metadata aspects associated with the MLFeatureTable. Depending on the use case, this can either be all, or a selection, of supported aspects."
@@ -4825,10 +4869,6 @@
                         "name": "platform",
                         "type": "string",
                         "doc": "Standardized platform urn for the model Deployment",
-                        "Searchable": {
-                          "addToFilters": true,
-                          "fieldType": "URN"
-                        },
                         "java": {
                           "class": "com.linkedin.pegasus2avro.common.urn.Urn"
                         }
@@ -4848,7 +4888,9 @@
                         "type": "com.linkedin.pegasus2avro.common.FabricType",
                         "doc": "Fabric type where model Deployment belongs to or where it was generated",
                         "Searchable": {
+                          "addToFilters": true,
                           "fieldType": "TEXT_PARTIAL",
+                          "filterNameOverride": "Environment",
                           "queryByDefault": false
                         }
                       }
@@ -4961,7 +5003,9 @@
                   },
                   "com.linkedin.pegasus2avro.common.Ownership",
                   "com.linkedin.pegasus2avro.common.Status",
-                  "com.linkedin.pegasus2avro.common.Deprecation"
+                  "com.linkedin.pegasus2avro.common.Deprecation",
+                  "com.linkedin.pegasus2avro.common.GlobalTags",
+                  "com.linkedin.pegasus2avro.common.DataPlatformInstance"
                 ]
               },
               "doc": "The list of metadata aspects associated with the MLModelDeployment. Depending on the use case, this can either be all, or a selection, of supported aspects."
@@ -5000,10 +5044,6 @@
                         "name": "platform",
                         "type": "string",
                         "doc": "Standardized platform urn for the model group",
-                        "Searchable": {
-                          "addToFilters": true,
-                          "fieldType": "URN"
-                        },
                         "java": {
                           "class": "com.linkedin.pegasus2avro.common.urn.Urn"
                         }
@@ -5091,7 +5131,9 @@
                   "com.linkedin.pegasus2avro.common.Ownership",
                   "com.linkedin.pegasus2avro.common.Status",
                   "com.linkedin.pegasus2avro.common.Deprecation",
-                  "com.linkedin.pegasus2avro.common.BrowsePaths"
+                  "com.linkedin.pegasus2avro.common.BrowsePaths",
+                  "com.linkedin.pegasus2avro.common.GlobalTags",
+                  "com.linkedin.pegasus2avro.common.DataPlatformInstance"
                 ]
               },
               "doc": "The list of metadata aspects associated with the MLModelGroup. Depending on the use case, this can either be all, or a selection, of supported aspects."
