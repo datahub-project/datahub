@@ -12,6 +12,7 @@ import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -99,5 +100,11 @@ public class QueryUtils {
       return false;
     }
     return (from + size) / size < totalPageCount;
+  }
+
+  @Nonnull
+  public static Filter getFilterFromCriteria(List<Criterion> criteria) {
+    return new Filter().setOr(
+        new ConjunctiveCriterionArray(new ConjunctiveCriterion().setAnd(new CriterionArray(criteria))));
   }
 }
