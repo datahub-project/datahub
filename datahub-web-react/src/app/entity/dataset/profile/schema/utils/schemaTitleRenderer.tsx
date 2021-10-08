@@ -56,7 +56,6 @@ export default function useSchemaTitleRenderer(
             }
         }
 
-        console.log(record);
         return (
             <>
                 <FieldPathContainer>
