@@ -1,7 +1,5 @@
 package com.linkedin.datahub.graphql.types.mappers;
 
-import com.google.common.collect.Streams;
-
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.datahub.graphql.generated.AggregationMetadata;
 import com.linkedin.datahub.graphql.generated.Entity;
@@ -9,24 +7,22 @@ import com.linkedin.datahub.graphql.generated.FacetMetadata;
 import com.linkedin.datahub.graphql.generated.MatchedField;
 import com.linkedin.datahub.graphql.generated.SearchResult;
 import com.linkedin.datahub.graphql.generated.SearchResults;
+import com.linkedin.datahub.graphql.resolvers.EntityTypeMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
-import com.linkedin.metadata.query.MatchMetadata;
-import com.linkedin.metadata.query.SearchResultMetadata;
-
-import java.util.Collections;
+import com.linkedin.metadata.search.SearchEntity;
+import com.linkedin.metadata.search.SearchResultMetadata;
 import java.util.List;
-import java.util.stream.Stream;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 
 public class UrnSearchResultsMapper<T extends RecordTemplate, E extends Entity> {
   public static <T extends RecordTemplate, E extends Entity> SearchResults map(
-      com.linkedin.metadata.query.SearchResult searchResult
-  ) {
+      com.linkedin.metadata.search.SearchResult searchResult) {
     return new UrnSearchResultsMapper<T, E>().apply(searchResult);
   }
 
-  public SearchResults apply(com.linkedin.metadata.query.SearchResult input) {
+  public SearchResults apply(com.linkedin.metadata.search.SearchResult input) {
     final SearchResults result = new SearchResults();
 
     if (!input.hasFrom() || !input.hasPageSize() || !input.hasNumEntities()) {
@@ -38,35 +34,41 @@ public class UrnSearchResultsMapper<T extends RecordTemplate, E extends Entity> 
     result.setTotal(input.getNumEntities());
 
     final SearchResultMetadata searchResultMetadata = input.getMetadata();
-    Stream<Entity> entities = input.getEntities().stream().map(urn -> UrnToEntityMapper.map(urn));
-    if (searchResultMetadata.getMatches() != null) {
-      result.setSearchResults(
-          Streams.zip(entities, searchResultMetadata.getMatches().stream().map(this::getMatchedFieldEntry),
-              SearchResult::new).collect(Collectors.toList()));
-    } else {
-      result.setSearchResults(
-          entities.map(entity -> new SearchResult(entity, Collections.emptyList())).collect(Collectors.toList()));
-    }
-    result.setFacets(
-        searchResultMetadata.getSearchResultMetadatas().stream().map(this::mapFacet).collect(Collectors.toList()));
+    result.setSearchResults(input.getEntities().stream().map(this::mapResult).collect(Collectors.toList()));
+    result.setFacets(searchResultMetadata.getAggregations().stream().map(this::mapFacet).collect(Collectors.toList()));
 
     return result;
   }
 
-  private FacetMetadata mapFacet(com.linkedin.metadata.query.AggregationMetadata aggregationMetadata) {
+  private SearchResult mapResult(SearchEntity searchEntity) {
+    return new SearchResult(UrnToEntityMapper.map(searchEntity.getEntity()),
+        getMatchedFieldEntry(searchEntity.getMatchedFields()));
+  }
+
+  private FacetMetadata mapFacet(com.linkedin.metadata.search.AggregationMetadata aggregationMetadata) {
     final FacetMetadata facetMetadata = new FacetMetadata();
+    boolean isEntityTypeFilter = aggregationMetadata.getName().equals("entity");
     facetMetadata.setField(aggregationMetadata.getName());
-    facetMetadata.setAggregations(aggregationMetadata.getAggregations()
-        .entrySet()
+    facetMetadata.setDisplayName(
+        Optional.ofNullable(aggregationMetadata.getDisplayName()).orElse(aggregationMetadata.getName()));
+    facetMetadata.setAggregations(aggregationMetadata.getFilterValues()
         .stream()
-        .map(entry -> new AggregationMetadata(entry.getKey(), entry.getValue()))
+        .map(filterValue -> new AggregationMetadata(convertFilterValue(filterValue.getValue(), isEntityTypeFilter),
+            filterValue.getFacetCount(),
+            filterValue.getEntity() == null ? null : UrnToEntityMapper.map(filterValue.getEntity())))
         .collect(Collectors.toList()));
     return facetMetadata;
   }
 
-  private List<MatchedField> getMatchedFieldEntry(MatchMetadata highlightMetadata) {
-    return highlightMetadata.getMatchedFields()
-        .stream()
+  private String convertFilterValue(String filterValue, boolean isEntityType) {
+    if (isEntityType) {
+      return EntityTypeMapper.getType(filterValue).toString();
+    }
+    return filterValue;
+  }
+
+  private List<MatchedField> getMatchedFieldEntry(List<com.linkedin.metadata.search.MatchedField> highlightMetadata) {
+    return highlightMetadata.stream()
         .map(field -> new MatchedField(field.getName(), field.getValue()))
         .collect(Collectors.toList());
   }

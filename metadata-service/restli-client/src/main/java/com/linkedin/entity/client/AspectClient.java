@@ -15,6 +15,7 @@ import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.restli.client.Client;
 import com.linkedin.restli.client.Response;
 import com.linkedin.restli.client.RestLiResponseException;
+import com.linkedin.restli.common.HttpStatus;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
@@ -50,6 +51,34 @@ public class AspectClient extends BaseClient {
         ASPECTS_REQUEST_BUILDERS.get().id(urn).aspectParam(aspect).versionParam(version);
 
     return sendClientRequest(requestBuilder, actor).getEntity();
+  }
+
+  /**
+   * Gets aspect at version for an entity, or null if one doesn't exist.
+   *
+   * @param urn urn for the entity
+   * @return list of paths given urn
+   * @throws RemoteInvocationException on remote request error.
+   */
+  @Nullable
+  public VersionedAspect getAspectOrNull(
+      @Nonnull String urn,
+      @Nonnull String aspect,
+      @Nonnull Long version,
+      @Nonnull String actor)
+      throws RemoteInvocationException {
+
+    AspectsGetRequestBuilder requestBuilder =
+        ASPECTS_REQUEST_BUILDERS.get().id(urn).aspectParam(aspect).versionParam(version);
+    try {
+      return sendClientRequest(requestBuilder, actor).getEntity();
+    } catch (RestLiResponseException e) {
+      if (e.getStatus() == HttpStatus.S_404_NOT_FOUND.getCode()) {
+        // Then the aspect was not found. Return null.
+        return null;
+      }
+      throw e;
+    }
   }
 
   /**
