@@ -232,6 +232,7 @@ class BigQueryUsageConfig(BaseUsageConfig):
     extra_client_options: dict = {}
     env: str = builder.DEFAULT_ENV
     platform: str = "bigquery"
+    included_resource_names: Optional[List[str]] = None
 
     query_log_delay: Optional[pydantic.PositiveInt] = None
     max_query_duration: timedelta = timedelta(minutes=15)
@@ -311,6 +312,12 @@ class BigQueryUsageSource(Source):
             ),
         )
 
+        if (self.config.included_resource_names):
+            filter += f" AND protoPayload.resourceName = ({self.config.included_resource_names[0]}"
+            for table in self.config.included_resource_names[1:]:
+                filter += f" OR {table}" 
+            filter += ")"
+        print(filter)
         def get_entry_timestamp(entry: AuditLogEntry) -> datetime:
             return entry.timestamp
 
