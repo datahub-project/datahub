@@ -6,7 +6,8 @@ const generateColor = new ColorHash({
     saturation: 0.9,
 });
 
-export const StyledTag = styled(Tag)<{ $colorHash?: string }>`
+export const StyledTag = styled(Tag)<{ $colorHash?: string; disabled?: boolean }>`
+    opacity: ${(props) => (props.disabled ? 0.7 : 1)};
     ${(props) =>
         props.$colorHash &&
         css`
@@ -19,5 +20,5 @@ export const StyledTag = styled(Tag)<{ $colorHash?: string }>`
                 border-radius: 100em;
                 margin-right: 3px;
             }
-        `}
+        `};
 `;

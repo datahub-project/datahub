@@ -1,7 +1,6 @@
 package com.linkedin.metadata.entity.ebean;
 
 import com.codahale.metrics.Timer;
-
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;

@@ -10,6 +10,9 @@ import javax.servlet.ServletRequest;
 import javax.servlet.ServletResponse;
 import javax.servlet.http.HttpServletRequest;
 
+import static com.linkedin.metadata.Constants.*;
+
+
 // TODO: Add filter to Rest.li servlet as well.
 public class AuthenticationFilter implements Filter {
 

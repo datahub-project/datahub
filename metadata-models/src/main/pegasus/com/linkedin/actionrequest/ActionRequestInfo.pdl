@@ -1,0 +1,93 @@
+namespace com.linkedin.actionrequest
+
+import com.linkedin.common.Urn
+
+/**
+ * The status of the action request - e.g. accepted, rejected, pending, etc
+ */
+@Aspect = {
+  "name": "actionRequestInfo"
+}
+record ActionRequestInfo {
+ /**
+  * The type of the action request, for example 'TAG_ASSOCIATION'
+  */
+  @Searchable = {
+    "fieldType": "KEYWORD"
+  }
+  type: string
+
+  /**
+   * The users this action request is assigned to
+   */
+  @Searchable = {
+    "/*": {
+      "fieldType": "URN",
+      "addToFilters": true
+    }
+  }
+  assignedUsers: array[Urn]
+
+  /**
+   * The groups this action request is assigned to
+   */
+  @Searchable = {
+    "/*": {
+      "fieldType": "URN",
+      "addToFilters": true
+    }
+  }
+  assignedGroups: array[Urn]
+
+  /**
+   * The resource type that the action is associated with, for example 'dataset'
+   */
+  resourceType: optional string
+
+  /**
+   * The resource identifier that the action is associated with, for example 'urn:li:dataset:...'
+   */
+  @Searchable = {
+    "fieldType": "KEYWORD"
+  }
+  resource: optional string
+
+  /**
+   * The sub resource type that the action is associated with, for example 'datasetField'
+   */
+  subResourceType: optional string
+
+  /**
+   * The sub-resource identifier that the action is associated with, for example 'fieldName'
+   */
+  @Searchable = {
+    "fieldType": "KEYWORD"
+  }
+  subResource: optional string
+
+  /**
+   * Parameters specific for a particular Action Request type
+   */
+  params: optional ActionRequestParams
+
+  /**
+   * The time at which the request was initially created
+   */
+  @Searchable = {
+    "fieldType": "COUNT"
+  }
+  created: long
+
+  /**
+   * Who the action request was created by
+   */
+  @Searchable = {
+    "fieldType": "URN"
+  }
+  createdBy: Urn
+
+  /**
+   * The time at which the request is due
+   */
+  dueDate: optional long
+}

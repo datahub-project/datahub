@@ -1,0 +1,136 @@
+query listActionRequests($input: ListActionRequestsInput!) {
+    listActionRequests(input: $input) {
+        start
+        count
+        total
+        actionRequests {
+            urn
+            type
+            status
+            result
+            entity {
+                urn
+                type
+                ... on Dataset {
+                    name
+                    platform {
+                        name
+                        info {
+                            logoUrl
+                        }
+                    }
+                }
+                ... on Dashboard {
+                    tool
+                    info {
+                        name
+                    }
+                }
+                ... on Chart {
+                    tool
+                    info {
+                        name
+                    }
+                }
+                ... on DataJob {
+                    info {
+                        name
+                    }
+                }
+                ... on DataFlow {
+                    orchestrator
+                    info {
+                        name
+                    }
+                }
+                ... on MLFeatureTable {
+                    name
+                    platform {
+                        name
+                        info {
+                            logoUrl
+                        }
+                    }
+                }
+                ... on MLModel {
+                    name
+                    platform {
+                        name
+                        info {
+                            logoUrl
+                        }
+                    }
+                }
+                ... on MLModelGroup {
+                    name
+                    platform {
+                        name
+                        info {
+                            logoUrl
+                        }
+                    }
+                }
+            }
+            subResourceType
+            subResource
+            params {
+                glossaryTermProposal {
+                    glossaryTerm {
+                        urn
+                        type
+                        name
+                    }
+                }
+                tagProposal {
+                    tag {
+                        urn
+                        type
+                        name
+                    }
+                }
+            }
+            created {
+                time
+                actor {
+                    urn
+                    type
+                    username
+                    info {
+                        displayName
+                        firstName
+                        lastName
+                        fullName
+                    }
+                    editableInfo {
+                        pictureLink
+                    }
+                }
+            }
+            lastModified {
+                time
+                actor {
+                    urn
+                    type
+                    username
+                    info {
+                        displayName
+                        firstName
+                        lastName
+                        fullName
+                    }
+                    editableInfo {
+                        pictureLink
+                    }
+                }
+            }
+        }
+    }
+}
+
+mutation acceptProposal($urn: String!) {
+    acceptProposal(urn: $urn)
+}
+
+mutation rejectProposal($urn: String!) {
+    rejectProposal(urn: $urn)
+}

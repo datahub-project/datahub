@@ -1,0 +1,24 @@
+namespace com.linkedin.actionrequest
+
+import com.linkedin.common.AuditStamp
+
+/**
+ * Stores the archival status of an Action Request
+ */
+@Aspect = {
+  "name": "actionRequestArchived"
+}
+record ActionRequestArchived {
+  /**
+   * Status of the action request.
+   */
+  @Searchable = {
+    "fieldType": "BOOLEAN"
+  }
+  archived: boolean = false
+
+  /**
+   * Audit stamp containing who last modified the archival status and when.
+   */
+  lastModified: AuditStamp
+}

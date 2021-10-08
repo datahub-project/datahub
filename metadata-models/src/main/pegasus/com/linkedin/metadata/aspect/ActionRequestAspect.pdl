@@ -1,0 +1,10 @@
+namespace com.linkedin.metadata.aspect
+
+import com.linkedin.metadata.key.ActionRequestKey
+import com.linkedin.actionrequest.ActionRequestStatus
+import com.linkedin.actionrequest.ActionRequestInfo
+
+/**
+ * A union of all supported metadata aspects for a tag
+ */
+typeref ActionRequestAspect = union[ActionRequestKey, ActionRequestStatus, ActionRequestInfo]

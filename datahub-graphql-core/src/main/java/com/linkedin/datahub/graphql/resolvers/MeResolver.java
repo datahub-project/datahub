@@ -51,6 +51,7 @@ public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUs
         final PlatformPrivileges platformPrivileges = new PlatformPrivileges();
         platformPrivileges.setViewAnalytics(canViewAnalytics(context));
         platformPrivileges.setManagePolicies(canManagePolicies(context));
+        platformPrivileges.setViewMetadataProposals(canViewMetadataProposals(context));
 
         // Construct and return authenticated user object.
         final AuthenticatedUser authUser = new AuthenticatedUser();
@@ -75,6 +76,13 @@ public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUs
    */
   private boolean canManagePolicies(final QueryContext context) {
     return isAuthorized(context.getAuthorizer(), context.getActor(), PoliciesConfig.MANAGE_POLICIES_PRIVILEGE);
+  }
+
+  /**
+   * Returns true if the authenticated user has privileges to view metadata proposals.
+   */
+  private boolean canViewMetadataProposals(final QueryContext context) {
+    return isAuthorized(context.getAuthorizer(), context.getActor(), PoliciesConfig.VIEW_METADATA_PROPOSALS_PRIVILEGE);
   }
 
   /**

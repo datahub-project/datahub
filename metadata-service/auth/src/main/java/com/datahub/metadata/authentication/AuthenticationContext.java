@@ -1,7 +1,7 @@
 package com.datahub.metadata.authentication;
 
 public class AuthenticationContext {
-  private static final ThreadLocal<String> ACTOR = new ThreadLocal<String>();
+  private static final ThreadLocal<String> ACTOR = new ThreadLocal<>();
 
   public static String getActor() {
     return ACTOR.get();

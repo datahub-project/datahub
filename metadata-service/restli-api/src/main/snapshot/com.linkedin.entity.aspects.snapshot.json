@@ -2437,7 +2437,9 @@
         "type" : "com.linkedin.common.FabricType",
         "doc" : "Fabric type where model belongs to or where it was generated",
         "Searchable" : {
+          "addToFilters" : true,
           "fieldType" : "TEXT_PARTIAL",
+          "filterNameOverride" : "Environment",
           "queryByDefault" : false
         }
       } ],

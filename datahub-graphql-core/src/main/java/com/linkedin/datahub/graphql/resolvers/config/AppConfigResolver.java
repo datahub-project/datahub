@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.config;
 
 import com.datahub.metadata.authorization.Authorizer;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.generated.ActionRequestsConfig;
 import com.linkedin.datahub.graphql.generated.AnalyticsConfig;
 import com.linkedin.datahub.graphql.generated.AppConfig;
 import com.linkedin.datahub.graphql.generated.EntityType;
@@ -51,8 +52,12 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
         .collect(Collectors.toList())
     );
 
+    final ActionRequestsConfig actionRequestsConfig = new ActionRequestsConfig();
+    actionRequestsConfig.setEnabled(true); // Always set to true in SaaS.
+
     appConfig.setAnalyticsConfig(analyticsConfig);
     appConfig.setPoliciesConfig(policiesConfig);
+    appConfig.setActionRequestsConfig(actionRequestsConfig);
 
     return CompletableFuture.completedFuture(appConfig);
   }

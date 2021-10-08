@@ -89,6 +89,11 @@ type Query {
     """
     mlPrimaryKey(urn: String!): MLPrimaryKey
 
+    """
+    Fetch all action requests for the authenticated user
+    """
+    listActionRequests(input: ListActionRequestsInput!): ListActionRequestsResult
+
 }
 
 """
@@ -185,6 +190,26 @@ type Mutation {
     Incubating. Updates the description of a resource. Currently only supports Dataset Schema Fields
     """
     updateDescription(input: DescriptionUpdateInput!): Boolean
+
+    """
+    Accepts a proposal for a given entity or subresource
+    """
+    acceptProposal(urn: String!): Boolean
+
+    """
+    Rejects a proposal for a given entity or subresource
+    """
+    rejectProposal(urn: String!): Boolean
+
+    """
+    Adds a term proposal for a given entity or subresource
+    """
+    proposeTerm(input: TermAssociationInput!): Boolean
+
+    """
+    Adds a term proposal for a given entity or subresource
+    """
+    proposeTag(input: TagAssociationInput!): Boolean
 }
 
 """
@@ -572,6 +597,11 @@ type Dataset implements EntityWithRelationships & Entity {
     The structured tags associated with the dataset
     """
     globalTags: GlobalTags @deprecated
+
+    """
+		Proposed tags and terms on the given entity
+    """
+    proposals(type: ActionRequestType!, status: ActionRequestStatus): [ActionRequest!]
 
     """
     Sub Types that this entity implements
@@ -4862,6 +4892,198 @@ enum CostType {
     Org Cost Type to which the Cost of this entity should be attributed to
     """
     ORG_COST_TYPE
+}
+
+type ActionRequestsConfig {
+    """
+    Whether the action requests feature is enabled.
+    """
+    enabled: Boolean!
+}
+enum ActionRequestType {
+    """
+    Requests to associate a tag with an entity or sub resource
+    """
+    TAG_ASSOCIATION
+    """
+    Requests to associate a term with an entity or sub resource
+    """
+    TERM_ASSOCIATION
+    }
+    enum ActionRequestStatus {
+    """
+    The action request is pending action
+    """
+    PENDING
+    """
+    An action request has been completed
+    """
+    COMPLETED
+}
+enum ActionRequestResult {
+    """
+    The action request is accepted
+    """
+    ACCEPTED
+    """
+    An action request has been rejected
+    """
+    REJECTED
+}
+input ListActionRequestsInput {
+    """
+    Start offset of the result set
+    """
+    start: Int
+    """
+    Number of results to return in the result set
+    """
+    count: Int
+    """
+    An optional type filter
+    """
+    type: ActionRequestType
+    """
+    An optional Status filter
+    """
+    status: ActionRequestStatus
+    """
+    An optional action request assignee to filter by. If not provided, all
+    action requests that the authenticated user is assigned to will be returned.
+    """
+    assignee: ActionRequestAssignee
+}
+
+enum AssigneeType {
+    USER,
+    GROUP
+}
+
+input ActionRequestAssignee {
+    """
+    The type of the assignee, either user or group
+    """
+    type: AssigneeType!
+    """
+    The urn of the assignee
+    """
+    urn: String!
+}
+
+type ListActionRequestsResult {
+    """
+    Start offset of the result set
+    """
+    start: Int
+    """
+    Number of results to return in the result set
+    """
+    count: Int
+    """
+    The total number of action requests
+    """
+    total: Int
+    """
+    A list of groupings of action requests for a user
+    """
+    actionRequests: [ActionRequest!]!
+}
+
+"""
+A request for a user or group to perform a particular action, for example
+reviewing and approving tag or glossary term associations
+"""
+type ActionRequest {
+    """
+    The urn associated with the action request
+    """
+    urn: String!
+    """
+    The type of the action request
+    """
+    type: ActionRequestType!
+    """
+    The status of the action request
+    """
+    status: ActionRequestStatus!
+    """
+    The status of the action request
+    """
+    result: ActionRequestResult
+    """
+    The users assigned to the action request
+    """
+    assignedUsers: [String!]
+    """
+    The groups assigned to the action request
+    """
+    assignedGroups: [String!]
+    """
+    An optional target entity associated with the action request
+    """
+    entity: Entity
+    """
+    The sub-resource type associated with the action request, for example datasetField.
+    """
+    subResourceType: String
+    """
+    The sub-resource identifier associated with the action request, for example a fieldName.
+    """
+    subResource: String
+    """
+    Optional set of action request arguments specific to the action request type
+    """
+    params: ActionRequestParams
+    """
+    The time by which the action is required
+    """
+    dueDate: Long
+    """
+    The time and actor which initiated the action request
+    """
+    created: ResolvedAuditStamp!
+    """
+    The time and actor which last modified the action request
+    """
+    lastModified: ResolvedAuditStamp
+    }
+    type ActionRequestParams {
+    """
+    Glossary Term specific arguments
+    """
+    glossaryTermProposal: GlossaryTermProposalParams
+    """
+    Tag-proposal specific arguments
+    """
+    tagProposal: TagProposalParams
+}
+
+type TagProposalParams {
+    """
+    The urn of the proposed tag
+    """
+    tag: Tag!
+    }
+    type GlossaryTermProposalParams {
+    """
+    The urn of the proposed term
+    """
+    glossaryTerm: GlossaryTerm!
+}
+
+"""
+Audit stamp containing a resolved actor
+"""
+type ResolvedAuditStamp {
+    """
+    When the audited action took place
+    """
+    time: Long!
+
+    """
+    Who performed the audited action
+    """
+    actor: CorpUser
 }
 
 type SubTypes {

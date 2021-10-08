@@ -5,11 +5,12 @@ import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.dao.exception.RetryLimitReached;
 import com.linkedin.metadata.dao.utils.Statement;
-import com.linkedin.metadata.query.Condition;
-import com.linkedin.metadata.query.CriterionArray;
-import com.linkedin.metadata.query.Filter;
-import com.linkedin.metadata.query.RelationshipDirection;
-import com.linkedin.metadata.query.RelationshipFilter;
+import com.linkedin.metadata.query.filter.Condition;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
+import com.linkedin.metadata.query.filter.CriterionArray;
+import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.query.filter.RelationshipDirection;
+import com.linkedin.metadata.query.filter.RelationshipFilter;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -103,7 +104,7 @@ public class Neo4jGraphService implements GraphService {
 
     final String srcCriteria = filterToCriteria(sourceEntityFilter);
     final String destCriteria = filterToCriteria(destinationEntityFilter);
-    final String edgeCriteria = criterionToString(relationshipFilter.getCriteria());
+    final String edgeCriteria = relationshipFilterToCriteria(relationshipFilter);
 
     final RelationshipDirection relationshipDirection = relationshipFilter.getDirection();
 
@@ -297,6 +298,17 @@ public class Neo4jGraphService implements GraphService {
   }
 
   /**
+   * Converts {@link RelationshipFilter} to neo4j query criteria, filter criterion condition requires to be EQUAL.
+   *
+   * @param filter Query relationship filter
+   * @return Neo4j criteria string
+   */
+  @Nonnull
+  private static String relationshipFilterToCriteria(@Nonnull RelationshipFilter filter) {
+    return disjunctionToCriteria(filter.getOr());
+  }
+
+  /**
    * Converts {@link Filter} to neo4j query criteria, filter criterion condition requires to be EQUAL.
    *
    * @param filter Query Filter
@@ -304,7 +316,16 @@ public class Neo4jGraphService implements GraphService {
    */
   @Nonnull
   private static String filterToCriteria(@Nonnull Filter filter) {
-    return criterionToString(filter.getCriteria());
+    return disjunctionToCriteria(filter.getOr());
+  }
+
+  private static String disjunctionToCriteria(final ConjunctiveCriterionArray disjunction) {
+    if (disjunction.size() > 1) {
+      // TODO: Support disjunctions (ORs).
+      throw new UnsupportedOperationException("Neo4j query filter only supports 1 set of conjunction criteria");
+    }
+    final CriterionArray criterionArray = disjunction.size() > 0 ? disjunction.get(0).getAnd() : new CriterionArray();
+    return criterionToString(criterionArray);
   }
 
   /**

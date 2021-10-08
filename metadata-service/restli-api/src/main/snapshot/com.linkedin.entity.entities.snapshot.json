@@ -1,5 +1,188 @@
 {
   "models" : [ {
+    "type" : "record",
+    "name" : "ActionRequestInfo",
+    "namespace" : "com.linkedin.actionrequest",
+    "doc" : "The status of the action request - e.g. accepted, rejected, pending, etc",
+    "fields" : [ {
+      "name" : "type",
+      "type" : "string",
+      "doc" : "The type of the action request, for example 'TAG_ASSOCIATION'",
+      "Searchable" : {
+        "fieldType" : "KEYWORD"
+      }
+    }, {
+      "name" : "assignedUsers",
+      "type" : {
+        "type" : "array",
+        "items" : {
+          "type" : "typeref",
+          "name" : "Urn",
+          "namespace" : "com.linkedin.common",
+          "ref" : "string",
+          "java" : {
+            "class" : "com.linkedin.common.urn.Urn"
+          }
+        }
+      },
+      "doc" : "The users this action request is assigned to",
+      "Searchable" : {
+        "/*" : {
+          "addToFilters" : true,
+          "fieldType" : "URN"
+        }
+      }
+    }, {
+      "name" : "assignedGroups",
+      "type" : {
+        "type" : "array",
+        "items" : "com.linkedin.common.Urn"
+      },
+      "doc" : "The groups this action request is assigned to",
+      "Searchable" : {
+        "/*" : {
+          "addToFilters" : true,
+          "fieldType" : "URN"
+        }
+      }
+    }, {
+      "name" : "resourceType",
+      "type" : "string",
+      "doc" : "The resource type that the action is associated with, for example 'dataset'",
+      "optional" : true
+    }, {
+      "name" : "resource",
+      "type" : "string",
+      "doc" : "The resource identifier that the action is associated with, for example 'urn:li:dataset:...'",
+      "optional" : true,
+      "Searchable" : {
+        "fieldType" : "KEYWORD"
+      }
+    }, {
+      "name" : "subResourceType",
+      "type" : "string",
+      "doc" : "The sub resource type that the action is associated with, for example 'datasetField'",
+      "optional" : true
+    }, {
+      "name" : "subResource",
+      "type" : "string",
+      "doc" : "The sub-resource identifier that the action is associated with, for example 'fieldName'",
+      "optional" : true,
+      "Searchable" : {
+        "fieldType" : "KEYWORD"
+      }
+    }, {
+      "name" : "params",
+      "type" : {
+        "type" : "record",
+        "name" : "ActionRequestParams",
+        "doc" : "Parameters provided with a particular action request. Only one of the fields will be populated,\ndepending on the action request type.",
+        "fields" : [ {
+          "name" : "glossaryTermProposal",
+          "type" : {
+            "type" : "record",
+            "name" : "GlossaryTermProposal",
+            "fields" : [ {
+              "name" : "glossaryTerm",
+              "type" : "com.linkedin.common.Urn",
+              "doc" : "The urn of the glossary term being proposed."
+            } ]
+          },
+          "doc" : "An optional set of information specific to term proposals.",
+          "optional" : true
+        }, {
+          "name" : "tagProposal",
+          "type" : {
+            "type" : "record",
+            "name" : "TagProposal",
+            "fields" : [ {
+              "name" : "tag",
+              "type" : "com.linkedin.common.Urn",
+              "doc" : "The urn of the tag being proposed."
+            } ]
+          },
+          "doc" : "An optional set of information specific to tag proposals.",
+          "optional" : true
+        } ]
+      },
+      "doc" : "Parameters specific for a particular Action Request type",
+      "optional" : true
+    }, {
+      "name" : "created",
+      "type" : "long",
+      "doc" : "The time at which the request was initially created",
+      "Searchable" : {
+        "fieldType" : "COUNT"
+      }
+    }, {
+      "name" : "createdBy",
+      "type" : "com.linkedin.common.Urn",
+      "doc" : "Who the action request was created by",
+      "Searchable" : {
+        "fieldType" : "URN"
+      }
+    }, {
+      "name" : "dueDate",
+      "type" : "long",
+      "doc" : "The time at which the request is due",
+      "optional" : true
+    } ],
+    "Aspect" : {
+      "name" : "actionRequestInfo"
+    }
+  }, "com.linkedin.actionrequest.ActionRequestParams", {
+    "type" : "record",
+    "name" : "ActionRequestStatus",
+    "namespace" : "com.linkedin.actionrequest",
+    "doc" : "The status of the action request - e.g. accepted, rejected, pending, etc",
+    "fields" : [ {
+      "name" : "status",
+      "type" : "string",
+      "doc" : "Status of the action request. e.g. PENDING / COMPLETED",
+      "Searchable" : {
+        "fieldType" : "KEYWORD"
+      }
+    }, {
+      "name" : "result",
+      "type" : "string",
+      "doc" : "Optional result of the action request, e.g. APPROVE or DENY in case of request approvals.",
+      "optional" : true,
+      "Searchable" : {
+        "fieldType" : "KEYWORD"
+      }
+    }, {
+      "name" : "lastModified",
+      "type" : {
+        "type" : "record",
+        "name" : "AuditStamp",
+        "namespace" : "com.linkedin.common",
+        "doc" : "Data captured on a resource/association/sub-resource level giving insight into when that resource/association/sub-resource moved into a particular lifecycle stage, and who acted to move it into that specific lifecycle stage.",
+        "fields" : [ {
+          "name" : "time",
+          "type" : {
+            "type" : "typeref",
+            "name" : "Time",
+            "doc" : "Number of milliseconds since midnight, January 1, 1970 UTC. It must be a positive number",
+            "ref" : "long"
+          },
+          "doc" : "When did the resource/association/sub-resource move into the specific lifecycle stage represented by this AuditEvent."
+        }, {
+          "name" : "actor",
+          "type" : "Urn",
+          "doc" : "The entity (e.g. a member URN) which will be credited for moving the resource/association/sub-resource into the specific lifecycle stage. It is also the one used to authorize the change."
+        }, {
+          "name" : "impersonator",
+          "type" : "Urn",
+          "doc" : "The entity (e.g. a service URN) which performs the change on behalf of the Actor and must be authorized to act as the Actor.",
+          "optional" : true
+        } ]
+      },
+      "doc" : "Audit stamp containing who last modified the status and when."
+    } ],
+    "Aspect" : {
+      "name" : "actionRequestStatus"
+    }
+  }, "com.linkedin.actionrequest.GlossaryTermProposal", "com.linkedin.actionrequest.TagProposal", {
     "type" : "typeref",
     "name" : "ChartDataSourceType",
     "namespace" : "com.linkedin.chart",
@@ -107,37 +290,7 @@
         "doc" : "Data captured on a resource/association/sub-resource level giving insight into when that resource/association/sub-resource moved into various lifecycle stages, and who acted to move it into those lifecycle stages. The recommended best practice is to include this record in your record schema, and annotate its fields as @readOnly in your resource. See https://github.com/linkedin/rest.li/wiki/Validation-in-Rest.li#restli-validation-annotations",
         "fields" : [ {
           "name" : "created",
-          "type" : {
-            "type" : "record",
-            "name" : "AuditStamp",
-            "doc" : "Data captured on a resource/association/sub-resource level giving insight into when that resource/association/sub-resource moved into a particular lifecycle stage, and who acted to move it into that specific lifecycle stage.",
-            "fields" : [ {
-              "name" : "time",
-              "type" : {
-                "type" : "typeref",
-                "name" : "Time",
-                "doc" : "Number of milliseconds since midnight, January 1, 1970 UTC. It must be a positive number",
-                "ref" : "long"
-              },
-              "doc" : "When did the resource/association/sub-resource move into the specific lifecycle stage represented by this AuditEvent."
-            }, {
-              "name" : "actor",
-              "type" : {
-                "type" : "typeref",
-                "name" : "Urn",
-                "ref" : "string",
-                "java" : {
-                  "class" : "com.linkedin.common.urn.Urn"
-                }
-              },
-              "doc" : "The entity (e.g. a member URN) which will be credited for moving the resource/association/sub-resource into the specific lifecycle stage. It is also the one used to authorize the change."
-            }, {
-              "name" : "impersonator",
-              "type" : "Urn",
-              "doc" : "The entity (e.g. a service URN) which performs the change on behalf of the Actor and must be authorized to act as the Actor.",
-              "optional" : true
-            } ]
-          },
+          "type" : "AuditStamp",
           "doc" : "An AuditStamp corresponding to the creation of this resource/association/sub-resource. A value of 0 for time indicates missing data.",
           "default" : {
             "actor" : "urn:li:corpuser:unknown",
@@ -1737,6 +1890,43 @@
         "doc" : "A union of all supported metadata snapshot types.",
         "ref" : [ {
           "type" : "record",
+          "name" : "ActionRequestSnapshot",
+          "fields" : [ {
+            "name" : "urn",
+            "type" : "com.linkedin.common.Urn",
+            "doc" : "URN for the entity the metadata snapshot is associated with."
+          }, {
+            "name" : "aspects",
+            "type" : {
+              "type" : "array",
+              "items" : {
+                "type" : "typeref",
+                "name" : "ActionRequestAspect",
+                "namespace" : "com.linkedin.metadata.aspect",
+                "doc" : "A union of all supported metadata aspects for a tag",
+                "ref" : [ {
+                  "type" : "record",
+                  "name" : "ActionRequestKey",
+                  "namespace" : "com.linkedin.metadata.key",
+                  "doc" : "Key for an ActionRequest",
+                  "fields" : [ {
+                    "name" : "id",
+                    "type" : "string"
+                  } ],
+                  "Aspect" : {
+                    "name" : "actionRequestKey"
+                  }
+                }, "com.linkedin.actionrequest.ActionRequestStatus", "com.linkedin.actionrequest.ActionRequestInfo" ]
+              }
+            },
+            "doc" : "The list of metadata aspects associated with the Action Request."
+          } ],
+          "Entity" : {
+            "keyAspect" : "actionRequestKey",
+            "name" : "actionRequest"
+          }
+        }, {
+          "type" : "record",
           "name" : "ChartSnapshot",
           "doc" : "A metadata snapshot for a specific Chart entity.",
           "fields" : [ {
@@ -2302,7 +2492,7 @@
                     "Searchable" : {
                       "addToFilters" : true,
                       "fieldType" : "TEXT_PARTIAL",
-                      "filterNameOverride" : "Fabric Type",
+                      "filterNameOverride" : "Environment",
                       "queryByDefault" : false
                     }
                   } ],
@@ -2951,7 +3141,9 @@
                     "type" : "com.linkedin.common.FabricType",
                     "doc" : "Fabric type where model belongs to or where it was generated",
                     "Searchable" : {
+                      "addToFilters" : true,
                       "fieldType" : "TEXT_PARTIAL",
+                      "filterNameOverride" : "Environment",
                       "queryByDefault" : false
                     }
                   } ],
@@ -3803,7 +3995,9 @@
                     "type" : "com.linkedin.common.FabricType",
                     "doc" : "Fabric type where model Deployment belongs to or where it was generated",
                     "Searchable" : {
+                      "addToFilters" : true,
                       "fieldType" : "TEXT_PARTIAL",
+                      "filterNameOverride" : "Environment",
                       "queryByDefault" : false
                     }
                   } ],
@@ -4416,7 +4610,7 @@
         } ]
       }
     } ]
-  }, "com.linkedin.glossary.GlossaryNodeInfo", "com.linkedin.glossary.GlossaryRelatedTerms", "com.linkedin.glossary.GlossaryTermInfo", "com.linkedin.identity.CorpGroupInfo", "com.linkedin.identity.CorpUserEditableInfo", "com.linkedin.identity.CorpUserInfo", "com.linkedin.identity.GroupMembership", "com.linkedin.metadata.aspect.ChartAspect", "com.linkedin.metadata.aspect.CorpGroupAspect", "com.linkedin.metadata.aspect.CorpUserAspect", "com.linkedin.metadata.aspect.DashboardAspect", "com.linkedin.metadata.aspect.DataFlowAspect", "com.linkedin.metadata.aspect.DataHubPolicyAspect", "com.linkedin.metadata.aspect.DataJobAspect", "com.linkedin.metadata.aspect.DataPlatformAspect", "com.linkedin.metadata.aspect.DataProcessAspect", "com.linkedin.metadata.aspect.DatasetAspect", "com.linkedin.metadata.aspect.GlossaryNodeAspect", "com.linkedin.metadata.aspect.GlossaryTermAspect", "com.linkedin.metadata.aspect.MLFeatureAspect", "com.linkedin.metadata.aspect.MLFeatureTableAspect", "com.linkedin.metadata.aspect.MLModelAspect", "com.linkedin.metadata.aspect.MLModelDeploymentAspect", "com.linkedin.metadata.aspect.MLModelGroupAspect", "com.linkedin.metadata.aspect.MLPrimaryKeyAspect", "com.linkedin.metadata.aspect.SchemaFieldAspect", "com.linkedin.metadata.aspect.TagAspect", {
+  }, "com.linkedin.glossary.GlossaryNodeInfo", "com.linkedin.glossary.GlossaryRelatedTerms", "com.linkedin.glossary.GlossaryTermInfo", "com.linkedin.identity.CorpGroupInfo", "com.linkedin.identity.CorpUserEditableInfo", "com.linkedin.identity.CorpUserInfo", "com.linkedin.identity.GroupMembership", "com.linkedin.metadata.aspect.ActionRequestAspect", "com.linkedin.metadata.aspect.ChartAspect", "com.linkedin.metadata.aspect.CorpGroupAspect", "com.linkedin.metadata.aspect.CorpUserAspect", "com.linkedin.metadata.aspect.DashboardAspect", "com.linkedin.metadata.aspect.DataFlowAspect", "com.linkedin.metadata.aspect.DataHubPolicyAspect", "com.linkedin.metadata.aspect.DataJobAspect", "com.linkedin.metadata.aspect.DataPlatformAspect", "com.linkedin.metadata.aspect.DataProcessAspect", "com.linkedin.metadata.aspect.DatasetAspect", "com.linkedin.metadata.aspect.GlossaryNodeAspect", "com.linkedin.metadata.aspect.GlossaryTermAspect", "com.linkedin.metadata.aspect.MLFeatureAspect", "com.linkedin.metadata.aspect.MLFeatureTableAspect", "com.linkedin.metadata.aspect.MLModelAspect", "com.linkedin.metadata.aspect.MLModelDeploymentAspect", "com.linkedin.metadata.aspect.MLModelGroupAspect", "com.linkedin.metadata.aspect.MLPrimaryKeyAspect", "com.linkedin.metadata.aspect.SchemaFieldAspect", "com.linkedin.metadata.aspect.TagAspect", {
     "type" : "record",
     "name" : "BrowseResult",
     "namespace" : "com.linkedin.metadata.browse",
@@ -4500,7 +4694,7 @@
       "type" : "int",
       "doc" : "The total number of elements (entities + groups) directly under queried path"
     } ]
-  }, "com.linkedin.metadata.browse.BrowseResultEntity", "com.linkedin.metadata.browse.BrowseResultGroup", "com.linkedin.metadata.browse.BrowseResultMetadata", "com.linkedin.metadata.key.ChartKey", "com.linkedin.metadata.key.CorpGroupKey", "com.linkedin.metadata.key.CorpUserKey", "com.linkedin.metadata.key.DashboardKey", "com.linkedin.metadata.key.DataFlowKey", "com.linkedin.metadata.key.DataHubPolicyKey", "com.linkedin.metadata.key.DataJobKey", "com.linkedin.metadata.key.DataPlatformKey", "com.linkedin.metadata.key.DataProcessKey", "com.linkedin.metadata.key.DatasetKey", "com.linkedin.metadata.key.GlossaryNodeKey", "com.linkedin.metadata.key.GlossaryTermKey", "com.linkedin.metadata.key.MLFeatureKey", "com.linkedin.metadata.key.MLFeatureTableKey", "com.linkedin.metadata.key.MLModelDeploymentKey", "com.linkedin.metadata.key.MLModelGroupKey", "com.linkedin.metadata.key.MLModelKey", "com.linkedin.metadata.key.MLPrimaryKeyKey", "com.linkedin.metadata.key.SchemaFieldKey", "com.linkedin.metadata.key.TagKey", {
+  }, "com.linkedin.metadata.browse.BrowseResultEntity", "com.linkedin.metadata.browse.BrowseResultGroup", "com.linkedin.metadata.browse.BrowseResultMetadata", "com.linkedin.metadata.key.ActionRequestKey", "com.linkedin.metadata.key.ChartKey", "com.linkedin.metadata.key.CorpGroupKey", "com.linkedin.metadata.key.CorpUserKey", "com.linkedin.metadata.key.DashboardKey", "com.linkedin.metadata.key.DataFlowKey", "com.linkedin.metadata.key.DataHubPolicyKey", "com.linkedin.metadata.key.DataJobKey", "com.linkedin.metadata.key.DataPlatformKey", "com.linkedin.metadata.key.DataProcessKey", "com.linkedin.metadata.key.DatasetKey", "com.linkedin.metadata.key.GlossaryNodeKey", "com.linkedin.metadata.key.GlossaryTermKey", "com.linkedin.metadata.key.MLFeatureKey", "com.linkedin.metadata.key.MLFeatureTableKey", "com.linkedin.metadata.key.MLModelDeploymentKey", "com.linkedin.metadata.key.MLModelGroupKey", "com.linkedin.metadata.key.MLModelKey", "com.linkedin.metadata.key.MLPrimaryKeyKey", "com.linkedin.metadata.key.SchemaFieldKey", "com.linkedin.metadata.key.TagKey", {
     "type" : "record",
     "name" : "AutoCompleteResult",
     "namespace" : "com.linkedin.metadata.query",
@@ -4516,55 +4710,6 @@
         "items" : "string"
       },
       "doc" : "A list of typeahead suggestions"
-    } ]
-  }, {
-    "type" : "enum",
-    "name" : "Condition",
-    "namespace" : "com.linkedin.metadata.query",
-    "doc" : "The matching condition in a filter criterion",
-    "symbols" : [ "CONTAIN", "END_WITH", "EQUAL", "GREATER_THAN", "GREATER_THAN_OR_EQUAL_TO", "IN", "LESS_THAN", "LESS_THAN_OR_EQUAL_TO", "START_WITH" ],
-    "symbolDocs" : {
-      "CONTAIN" : "Represent the relation: String field contains value, e.g. name contains Profile",
-      "END_WITH" : "Represent the relation: String field ends with value, e.g. name ends with Event",
-      "EQUAL" : "Represent the relation: field = value, e.g. platform = hdfs",
-      "GREATER_THAN" : "Represent the relation greater than, e.g. ownerCount > 5",
-      "GREATER_THAN_OR_EQUAL_TO" : "Represent the relation greater than or equal to, e.g. ownerCount >= 5",
-      "IN" : "Represent the relation: String field is one of the array values to, e.g. name in [\"Profile\", \"Event\"]",
-      "LESS_THAN" : "Represent the relation less than, e.g. ownerCount < 3",
-      "LESS_THAN_OR_EQUAL_TO" : "Represent the relation less than or equal to, e.g. ownerCount <= 3",
-      "START_WITH" : "Represent the relation: String field starts with value, e.g. name starts with PageView"
-    }
-  }, {
-    "type" : "record",
-    "name" : "Criterion",
-    "namespace" : "com.linkedin.metadata.query",
-    "doc" : "A criterion for matching a field with given value",
-    "fields" : [ {
-      "name" : "field",
-      "type" : "string",
-      "doc" : "The name of the field that the criterion refers to"
-    }, {
-      "name" : "value",
-      "type" : "string",
-      "doc" : "The value of the intended field"
-    }, {
-      "name" : "condition",
-      "type" : "Condition",
-      "doc" : "The condition for the criterion, e.g. EQUAL, START_WITH",
-      "default" : "EQUAL"
-    } ]
-  }, {
-    "type" : "record",
-    "name" : "Filter",
-    "namespace" : "com.linkedin.metadata.query",
-    "doc" : "The filter for finding an record or a collection of records",
-    "fields" : [ {
-      "name" : "criteria",
-      "type" : {
-        "type" : "array",
-        "items" : "Criterion"
-      },
-      "doc" : "A list of criteria the filter applies to the query"
     } ]
   }, {
     "type" : "record",
@@ -4592,9 +4737,70 @@
       "doc" : "The total number of entities directly under searched path"
     } ]
   }, {
+    "type" : "enum",
+    "name" : "Condition",
+    "namespace" : "com.linkedin.metadata.query.filter",
+    "doc" : "The matching condition in a filter criterion",
+    "symbols" : [ "CONTAIN", "END_WITH", "EQUAL", "GREATER_THAN", "GREATER_THAN_OR_EQUAL_TO", "IN", "LESS_THAN", "LESS_THAN_OR_EQUAL_TO", "START_WITH" ],
+    "symbolDocs" : {
+      "CONTAIN" : "Represent the relation: String field contains value, e.g. name contains Profile",
+      "END_WITH" : "Represent the relation: String field ends with value, e.g. name ends with Event",
+      "EQUAL" : "Represent the relation: field = value, e.g. platform = hdfs",
+      "GREATER_THAN" : "Represent the relation greater than, e.g. ownerCount > 5",
+      "GREATER_THAN_OR_EQUAL_TO" : "Represent the relation greater than or equal to, e.g. ownerCount >= 5",
+      "IN" : "Represent the relation: String field is one of the array values to, e.g. name in [\"Profile\", \"Event\"]",
+      "LESS_THAN" : "Represent the relation less than, e.g. ownerCount < 3",
+      "LESS_THAN_OR_EQUAL_TO" : "Represent the relation less than or equal to, e.g. ownerCount <= 3",
+      "START_WITH" : "Represent the relation: String field starts with value, e.g. name starts with PageView"
+    }
+  }, {
+    "type" : "record",
+    "name" : "ConjunctiveCriterion",
+    "namespace" : "com.linkedin.metadata.query.filter",
+    "doc" : "A list of criterion and'd together.",
+    "fields" : [ {
+      "name" : "and",
+      "type" : {
+        "type" : "array",
+        "items" : {
+          "type" : "record",
+          "name" : "Criterion",
+          "doc" : "A criterion for matching a field with given value",
+          "fields" : [ {
+            "name" : "field",
+            "type" : "string",
+            "doc" : "The name of the field that the criterion refers to"
+          }, {
+            "name" : "value",
+            "type" : "string",
+            "doc" : "The value of the intended field"
+          }, {
+            "name" : "condition",
+            "type" : "Condition",
+            "doc" : "The condition for the criterion, e.g. EQUAL, START_WITH",
+            "default" : "EQUAL"
+          } ]
+        }
+      },
+      "doc" : "A list of and criteria the filter applies to the query"
+    } ]
+  }, "com.linkedin.metadata.query.filter.Criterion", {
+    "type" : "record",
+    "name" : "Filter",
+    "namespace" : "com.linkedin.metadata.query.filter",
+    "doc" : "The filter for finding a record or a collection of records",
+    "fields" : [ {
+      "name" : "or",
+      "type" : {
+        "type" : "array",
+        "items" : "ConjunctiveCriterion"
+      },
+      "doc" : "A list of of disjunctive criterion for the filter."
+    } ]
+  }, {
     "type" : "record",
     "name" : "SortCriterion",
-    "namespace" : "com.linkedin.metadata.query",
+    "namespace" : "com.linkedin.metadata.query.filter",
     "doc" : "Sort order along with the field to sort it on, to be applied to the results.",
     "fields" : [ {
       "name" : "field",
@@ -4614,7 +4820,7 @@
       },
       "doc" : "The order to sort the results i.e. ASCENDING or DESCENDING"
     } ]
-  }, "com.linkedin.metadata.query.SortOrder", {
+  }, "com.linkedin.metadata.query.filter.SortOrder", {
     "type" : "record",
     "name" : "DeleteEntityResponse",
     "namespace" : "com.linkedin.metadata.run",
@@ -4746,7 +4952,7 @@
       "type" : "int",
       "doc" : "The total number of entities directly under searched path"
     } ]
-  }, "com.linkedin.metadata.search.SearchResultMetadata", "com.linkedin.metadata.snapshot.ChartSnapshot", "com.linkedin.metadata.snapshot.CorpGroupSnapshot", "com.linkedin.metadata.snapshot.CorpUserSnapshot", "com.linkedin.metadata.snapshot.DashboardSnapshot", "com.linkedin.metadata.snapshot.DataFlowSnapshot", "com.linkedin.metadata.snapshot.DataHubPolicySnapshot", "com.linkedin.metadata.snapshot.DataJobSnapshot", "com.linkedin.metadata.snapshot.DataPlatformSnapshot", "com.linkedin.metadata.snapshot.DataProcessSnapshot", "com.linkedin.metadata.snapshot.DatasetSnapshot", "com.linkedin.metadata.snapshot.GlossaryNodeSnapshot", "com.linkedin.metadata.snapshot.GlossaryTermSnapshot", "com.linkedin.metadata.snapshot.MLFeatureSnapshot", "com.linkedin.metadata.snapshot.MLFeatureTableSnapshot", "com.linkedin.metadata.snapshot.MLModelDeploymentSnapshot", "com.linkedin.metadata.snapshot.MLModelGroupSnapshot", "com.linkedin.metadata.snapshot.MLModelSnapshot", "com.linkedin.metadata.snapshot.MLPrimaryKeySnapshot", "com.linkedin.metadata.snapshot.SchemaFieldSnapshot", "com.linkedin.metadata.snapshot.Snapshot", "com.linkedin.metadata.snapshot.TagSnapshot", "com.linkedin.ml.metadata.BaseData", "com.linkedin.ml.metadata.CaveatDetails", "com.linkedin.ml.metadata.CaveatsAndRecommendations", "com.linkedin.ml.metadata.DeploymentStatus", "com.linkedin.ml.metadata.EthicalConsiderations", "com.linkedin.ml.metadata.EvaluationData", "com.linkedin.ml.metadata.HyperParameterValueType", "com.linkedin.ml.metadata.IntendedUse", "com.linkedin.ml.metadata.IntendedUserType", "com.linkedin.ml.metadata.MLFeatureProperties", "com.linkedin.ml.metadata.MLFeatureTableProperties", "com.linkedin.ml.metadata.MLHyperParam", "com.linkedin.ml.metadata.MLMetric", "com.linkedin.ml.metadata.MLModelDeploymentProperties", "com.linkedin.ml.metadata.MLModelFactorPrompts", "com.linkedin.ml.metadata.MLModelFactors", "com.linkedin.ml.metadata.MLModelGroupProperties", "com.linkedin.ml.metadata.MLModelProperties", "com.linkedin.ml.metadata.MLPrimaryKeyProperties", "com.linkedin.ml.metadata.Metrics", "com.linkedin.ml.metadata.QuantitativeAnalyses", "com.linkedin.ml.metadata.ResultsType", "com.linkedin.ml.metadata.SourceCode", "com.linkedin.ml.metadata.SourceCodeUrl", "com.linkedin.ml.metadata.SourceCodeUrlType", "com.linkedin.ml.metadata.TrainingData", {
+  }, "com.linkedin.metadata.search.SearchResultMetadata", "com.linkedin.metadata.snapshot.ActionRequestSnapshot", "com.linkedin.metadata.snapshot.ChartSnapshot", "com.linkedin.metadata.snapshot.CorpGroupSnapshot", "com.linkedin.metadata.snapshot.CorpUserSnapshot", "com.linkedin.metadata.snapshot.DashboardSnapshot", "com.linkedin.metadata.snapshot.DataFlowSnapshot", "com.linkedin.metadata.snapshot.DataHubPolicySnapshot", "com.linkedin.metadata.snapshot.DataJobSnapshot", "com.linkedin.metadata.snapshot.DataPlatformSnapshot", "com.linkedin.metadata.snapshot.DataProcessSnapshot", "com.linkedin.metadata.snapshot.DatasetSnapshot", "com.linkedin.metadata.snapshot.GlossaryNodeSnapshot", "com.linkedin.metadata.snapshot.GlossaryTermSnapshot", "com.linkedin.metadata.snapshot.MLFeatureSnapshot", "com.linkedin.metadata.snapshot.MLFeatureTableSnapshot", "com.linkedin.metadata.snapshot.MLModelDeploymentSnapshot", "com.linkedin.metadata.snapshot.MLModelGroupSnapshot", "com.linkedin.metadata.snapshot.MLModelSnapshot", "com.linkedin.metadata.snapshot.MLPrimaryKeySnapshot", "com.linkedin.metadata.snapshot.SchemaFieldSnapshot", "com.linkedin.metadata.snapshot.Snapshot", "com.linkedin.metadata.snapshot.TagSnapshot", "com.linkedin.ml.metadata.BaseData", "com.linkedin.ml.metadata.CaveatDetails", "com.linkedin.ml.metadata.CaveatsAndRecommendations", "com.linkedin.ml.metadata.DeploymentStatus", "com.linkedin.ml.metadata.EthicalConsiderations", "com.linkedin.ml.metadata.EvaluationData", "com.linkedin.ml.metadata.HyperParameterValueType", "com.linkedin.ml.metadata.IntendedUse", "com.linkedin.ml.metadata.IntendedUserType", "com.linkedin.ml.metadata.MLFeatureProperties", "com.linkedin.ml.metadata.MLFeatureTableProperties", "com.linkedin.ml.metadata.MLHyperParam", "com.linkedin.ml.metadata.MLMetric", "com.linkedin.ml.metadata.MLModelDeploymentProperties", "com.linkedin.ml.metadata.MLModelFactorPrompts", "com.linkedin.ml.metadata.MLModelFactors", "com.linkedin.ml.metadata.MLModelGroupProperties", "com.linkedin.ml.metadata.MLModelProperties", "com.linkedin.ml.metadata.MLPrimaryKeyProperties", "com.linkedin.ml.metadata.Metrics", "com.linkedin.ml.metadata.QuantitativeAnalyses", "com.linkedin.ml.metadata.ResultsType", "com.linkedin.ml.metadata.SourceCode", "com.linkedin.ml.metadata.SourceCodeUrl", "com.linkedin.ml.metadata.SourceCodeUrlType", "com.linkedin.ml.metadata.TrainingData", {
     "type" : "record",
     "name" : "SystemMetadata",
     "namespace" : "com.linkedin.mxe",
@@ -4815,7 +5021,7 @@
           "optional" : true
         }, {
           "name" : "filter",
-          "type" : "com.linkedin.metadata.query.Filter",
+          "type" : "com.linkedin.metadata.query.filter.Filter",
           "optional" : true
         }, {
           "name" : "limit",
@@ -4849,7 +5055,7 @@
           "type" : "string"
         }, {
           "name" : "filter",
-          "type" : "com.linkedin.metadata.query.Filter",
+          "type" : "com.linkedin.metadata.query.filter.Filter",
           "optional" : true
         }, {
           "name" : "start",
@@ -4866,6 +5072,26 @@
           "type" : "string"
         } ],
         "returns" : "com.linkedin.metadata.run.DeleteEntityResponse"
+      }, {
+        "name" : "filter",
+        "parameters" : [ {
+          "name" : "entity",
+          "type" : "string"
+        }, {
+          "name" : "filter",
+          "type" : "com.linkedin.metadata.query.filter.Filter"
+        }, {
+          "name" : "sort",
+          "type" : "com.linkedin.metadata.query.filter.SortCriterion",
+          "optional" : true
+        }, {
+          "name" : "start",
+          "type" : "int"
+        }, {
+          "name" : "count",
+          "type" : "int"
+        } ],
+        "returns" : "com.linkedin.metadata.search.SearchResult"
       }, {
         "name" : "getBrowsePaths",
         "parameters" : [ {
@@ -4913,11 +5139,11 @@
           "type" : "string"
         }, {
           "name" : "filter",
-          "type" : "com.linkedin.metadata.query.Filter",
+          "type" : "com.linkedin.metadata.query.filter.Filter",
           "optional" : true
         }, {
           "name" : "sort",
-          "type" : "com.linkedin.metadata.query.SortCriterion",
+          "type" : "com.linkedin.metadata.query.filter.SortCriterion",
           "optional" : true
         }, {
           "name" : "start",
@@ -4938,11 +5164,11 @@
           "type" : "string"
         }, {
           "name" : "filter",
-          "type" : "com.linkedin.metadata.query.Filter",
+          "type" : "com.linkedin.metadata.query.filter.Filter",
           "optional" : true
         }, {
           "name" : "sort",
-          "type" : "com.linkedin.metadata.query.SortCriterion",
+          "type" : "com.linkedin.metadata.query.filter.SortCriterion",
           "optional" : true
         }, {
           "name" : "start",
