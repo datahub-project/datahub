@@ -28,9 +28,10 @@ export const chartSearchResult: SearchResults = {
     total: 0,
     searchResults,
     facets: [
-        { field: 'access', aggregations: [], __typename: 'FacetMetadata' },
+        { field: 'access', displayName: 'access', aggregations: [], __typename: 'FacetMetadata' },
         {
             field: 'type',
+            displayName: 'type',
             aggregations: [
                 { value: 'TABLE', count: 1, __typename: 'AggregationMetadata' },
                 { value: 'BAR', count: 3, __typename: 'AggregationMetadata' },
@@ -41,10 +42,11 @@ export const chartSearchResult: SearchResults = {
         },
         {
             field: 'tool',
+            displayName: 'tool',
             aggregations: [{ value: 'superset', count: 6, __typename: 'AggregationMetadata' }],
             __typename: 'FacetMetadata',
         },
-        { field: 'queryType', aggregations: [], __typename: 'FacetMetadata' },
+        { field: 'queryType', displayName: 'queryType', aggregations: [], __typename: 'FacetMetadata' },
     ],
     __typename: 'SearchResults',
 };

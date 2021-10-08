@@ -13,10 +13,6 @@ record MLModelGroupKey {
   /**
   * Standardized platform urn for the model group
   */
-  @Searchable = {
-    "fieldType": "URN",
-    "addToFilters": true
-  }
   platform: Urn
 
   /**
