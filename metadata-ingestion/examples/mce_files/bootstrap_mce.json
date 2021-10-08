@@ -570,7 +570,8 @@
                     }
                   },
                   "nativeDataType": "varchar(100)",
-                  "recursive": false
+                  "recursive": false,
+                  "isPartOfKey": true
                 },
                 {
                   "fieldPath": "field_bar",
