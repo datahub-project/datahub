@@ -31,6 +31,7 @@ public class CorpGroupSnapshotMapper implements ModelMapper<CorpGroupSnapshot, C
 
         ModelUtils.getAspectsFromSnapshot(corpGroup).forEach(aspect -> {
             if (aspect instanceof CorpGroupInfo) {
+                result.setProperties(CorpGroupPropertiesMapper.map(CorpGroupInfo.class.cast(aspect)));
                 result.setInfo(CorpGroupInfoMapper.map(CorpGroupInfo.class.cast(aspect)));
             }
         });
