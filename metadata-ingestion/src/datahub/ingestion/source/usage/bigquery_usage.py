@@ -312,12 +312,12 @@ class BigQueryUsageSource(Source):
             ),
         )
 
-        if (self.config.included_resource_names):
+        if self.config.included_resource_names:
             filter += f" AND protoPayload.resourceName = ({self.config.included_resource_names[0]}"
             for table in self.config.included_resource_names[1:]:
-                filter += f" OR {table}" 
+                filter += f" OR {table}"
             filter += ")"
-        print(filter)
+
         def get_entry_timestamp(entry: AuditLogEntry) -> datetime:
             return entry.timestamp
 
