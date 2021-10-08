@@ -1,0 +1,24 @@
+namespace com.linkedin.common
+
+/**
+ * Tag aspect used for applying tags to an entity
+ */
+@Aspect = {
+  "name": "dataPlatformInstance"
+}
+record DataPlatformInstance {
+  /**
+   * Data Platform
+   */
+  @Searchable = {
+    "fieldType": "URN",
+    "addToFilters": true,
+    "filterNameOverride": "Platform"
+  }
+  platform: Urn
+
+  /**
+   * Instance of the data platform (e.g. db instance)
+   */
+  instance: optional string
+}

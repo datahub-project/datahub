@@ -8,7 +8,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
 import com.linkedin.metadata.browse.BrowseResult;
-import com.linkedin.metadata.query.SearchResult;
+import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilders;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
@@ -110,7 +110,7 @@ public class ElasticSearchServiceTest {
 
     searchResult = _elasticSearchService.search(ENTITY_NAME, "test", null, null, 0, 10);
     assertEquals(searchResult.getNumEntities().intValue(), 1);
-    assertEquals(searchResult.getEntities().get(0), urn);
+    assertEquals(searchResult.getEntities().get(0).getEntity(), urn);
     browseResult = _elasticSearchService.browse(ENTITY_NAME, "", null, 0, 10);
     assertEquals(browseResult.getMetadata().getTotalNumEntities().longValue(), 1);
     assertEquals(browseResult.getGroups().get(0).getName(), "a");
@@ -130,7 +130,7 @@ public class ElasticSearchServiceTest {
 
     searchResult = _elasticSearchService.search(ENTITY_NAME, "test", null, null, 0, 10);
     assertEquals(searchResult.getNumEntities().intValue(), 1);
-    assertEquals(searchResult.getEntities().get(0), urn);
+    assertEquals(searchResult.getEntities().get(0).getEntity(), urn);
     browseResult = _elasticSearchService.browse(ENTITY_NAME, "", null, 0, 10);
     assertEquals(browseResult.getMetadata().getTotalNumEntities().longValue(), 2);
     assertEquals(browseResult.getGroups().get(0).getName(), "a");

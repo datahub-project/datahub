@@ -73,6 +73,9 @@ query getDataset($urn: String!) {
         glossaryTerms {
             ...glossaryTerms
         }
+        subTypes {
+            typeNames
+        }
         usageStats(resource: $urn, range: MONTH) {
             buckets {
                 bucket
