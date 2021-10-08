@@ -13,6 +13,8 @@ python generate_docker_quickstart.py ../docker-compose.yml ../docker-compose.ove
 
 python generate_docker_quickstart.py ../docker-compose-without-neo4j.yml ../docker-compose-without-neo4j.override.yml temp-without-neo4j.quickstart.yml
 
+python generate_docker_quickstart.py ../monitoring/docker-compose.monitoring.yml temp.quickstart.monitoring.yml
+
 if cmp docker-compose.quickstart.yml temp.quickstart.yml; then
     printf 'docker-compose.quickstart.yml is up to date.'
 else
@@ -25,5 +27,13 @@ if cmp docker-compose-without-neo4j.quickstart.yml temp-without-neo4j.quickstart
     exit 0
 else
     printf 'docker-compose-without-neo4j.quickstart.yml is out of date.'
+    exit 1
+fi
+
+if cmp docker-compose.quickstart.monitoring.yml temp.quickstart.monitoring.yml; then
+    printf 'docker-compose.quickstart.monitoring.yml is up to date.'
+    exit 0
+else
+    printf 'docker-compose.quickstart.monitoring.yml is out of date.'
     exit 1
 fi

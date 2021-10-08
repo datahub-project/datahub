@@ -46,6 +46,11 @@ type PlatformPrivileges {
   Whether the user should be able to view metadata proposals.
   """
   viewMetadataProposals: Boolean!
+
+  """
+  Whether the user should be able to manage users & groups
+  """
+  manageIdentities: Boolean!
 }
 
 """
@@ -64,6 +69,11 @@ type AppConfig {
   policiesConfig: PoliciesConfig!
 
   actionRequestsConfig: ActionRequestsConfig!
+
+  """
+  Configurations related to the User & Group management
+  """
+  identityManagementConfig: IdentityManagementConfig!
 }
 
 """
@@ -140,4 +150,14 @@ type ResourcePrivileges {
   A list of privileges that are supported against this resource
   """
   privileges: [Privilege!]!
+}
+
+"""
+Configurations related to Identity Management
+"""
+type IdentityManagementConfig {
+  """
+  Whether identity management screen is able to be shown in the UI
+  """
+  enabled: Boolean!
 }

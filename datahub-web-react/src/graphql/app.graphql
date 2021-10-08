@@ -24,5 +24,8 @@ query appConfig {
         actionRequestsConfig {
             enabled
         }
+        identityManagementConfig {
+            enabled
+        }
     }
 }

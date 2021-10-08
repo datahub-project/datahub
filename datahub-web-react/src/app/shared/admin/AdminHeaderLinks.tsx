@@ -1,6 +1,6 @@
 import styled from 'styled-components';
 import * as React from 'react';
-import { BankOutlined, BarChartOutlined, InboxOutlined } from '@ant-design/icons';
+import { BankOutlined, BarChartOutlined, InboxOutlined, UsergroupAddOutlined } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
 import { Button } from 'antd';
 import { useAppConfig } from '../../useAppConfig';
@@ -23,10 +23,13 @@ export function AdminHeaderLinks() {
     // Currently we only have a flag for metadata proposals.
     // In the future, we may add configs for alerts, announcements, etc.
     const isActionRequestsEnabled = config?.actionRequestsConfig.enabled;
+    const isIdentityManagementEnabled = config?.identityManagementConfig.enabled;
 
     const showAnalytics = (isAnalyticsEnabled && me && me.platformPrivileges.viewAnalytics) || false;
     const showPolicyBuilder = (isPoliciesEnabled && me && me.platformPrivileges.managePolicies) || false;
     const showActionRequests = (isActionRequestsEnabled && me && me.platformPrivileges.viewMetadataProposals) || false;
+    const showIdentityManagement =
+        (isIdentityManagementEnabled && me && me.platformPrivileges.manageIdentities) || false;
 
     return (
         <>
@@ -54,6 +57,15 @@ export function AdminHeaderLinks() {
                         <LinkButton type="text">
                             <InboxOutlined /> My Requests
                         </LinkButton>
+                    </Link>
+                </AdminLink>
+            )}
+            {showIdentityManagement && (
+                <AdminLink>
+                    <Link to="/identities">
+                        <Button type="text">
+                            <UsergroupAddOutlined /> Users & Groups
+                        </Button>
                     </Link>
                 </AdminLink>
             )}

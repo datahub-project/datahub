@@ -11,6 +11,7 @@ import { AnalyticsPage } from './analyticsDashboard/components/AnalyticsPage';
 import { PoliciesPage } from './policy/PoliciesPage';
 import AppConfigProvider from '../AppConfigProvider';
 import { ActionRequestsPage } from './actionrequest/ActionRequestsPage';
+import { ManageIdentitiesPage } from './identity/ManageIdentitiesPage';
 
 /**
  * Container for all views behind an authentication wall.
@@ -35,6 +36,7 @@ export const ProtectedRoutes = (): JSX.Element => {
                         <Route path={PageRoutes.ANALYTICS} render={() => <AnalyticsPage />} />
                         <Route path={PageRoutes.POLICIES} render={() => <PoliciesPage />} />
                         <Route path={PageRoutes.ACTION_REQUESTS} render={() => <ActionRequestsPage />} />
+                        <Route path={PageRoutes.IDENTITIES} render={() => <ManageIdentitiesPage />} />
                     </Switch>
                 </Layout>
             </Layout>

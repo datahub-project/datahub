@@ -13,6 +13,9 @@ export const DEFAULT_APP_CONFIG = {
     actionRequestsConfig: {
         enabled: false,
     },
+    identityManagementConfig: {
+        enabled: false,
+    },
 };
 
 export const AppConfigContext = React.createContext<{
