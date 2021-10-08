@@ -5,7 +5,7 @@ import styled from 'styled-components';
 
 import { useEntityRegistry } from '../useEntityRegistry';
 import { IconStyleType } from '../entity/Entity';
-import { NodeData, Direction } from './types';
+import { NodeData, Direction, VizNode } from './types';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { capitalizeFirstLetter } from '../shared/capitalizeFirstLetter';
 
@@ -63,7 +63,7 @@ export default function LineageEntityNode({
     onHover: (EntitySelectParams) => void;
     onExpandClick: (LineageExpandParams) => void;
     direction: Direction;
-    nodesToRenderByUrn: { [key: string]: { x: number; y: number; data: Omit<NodeData, 'children'> }[] };
+    nodesToRenderByUrn: Record<string, VizNode>;
 }) {
     const entityRegistry = useEntityRegistry();
     const unexploredHiddenChildren =
@@ -71,7 +71,7 @@ export default function LineageEntityNode({
 
     return (
         <PointerGroup data-testid={`node-${node.data.urn}-${direction}`} top={node.x} left={node.y}>
-            {unexploredHiddenChildren ? (
+            {unexploredHiddenChildren && (isHovered || isSelected) ? (
                 <Group>
                     {[...Array(unexploredHiddenChildren)].map((_, index) => {
                         const link = {

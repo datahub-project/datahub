@@ -49,6 +49,17 @@ export type NodeData = {
     platform?: string;
 };
 
+export type VizNode = {
+    x: number;
+    y: number;
+    data: NodeData;
+};
+
+export type VizEdge = {
+    source: VizNode;
+    target: VizNode;
+};
+
 export type FetchedEntities = { [x: string]: FetchedEntity };
 
 export enum Direction {

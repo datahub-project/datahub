@@ -15,10 +15,7 @@ export default function constructFetchedNode(
     const fetchedNode = fetchedEntities[urn];
 
     if (constructedNodes[urn]) {
-        return {
-            ...constructedNodes[urn],
-            children: [],
-        };
+        return constructedNodes[urn];
     }
 
     if (fetchedNode && !constructedNodes[urn]) {

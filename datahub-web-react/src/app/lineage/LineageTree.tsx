@@ -1,7 +1,4 @@
-import { HierarchyNode } from '@vx/hierarchy/lib/types';
-import React, { useCallback, useEffect, useState } from 'react';
-import debounce from 'lodash.debounce';
-import { Tree } from '@vx/hierarchy';
+import React, { useEffect, useMemo, useState } from 'react';
 import { TransformMatrix } from '@vx/zoom/lib/types';
 
 import { NodeData, Direction, EntitySelectParams, TreeProps } from './types';
@@ -9,12 +6,10 @@ import LineageTreeNodeAndEdgeRenderer from './LineageTreeNodeAndEdgeRenderer';
 import generateTree from './utils/generateTree';
 
 type LineageTreeProps = {
-    data: HierarchyNode<NodeData>;
+    data: NodeData;
     zoom: {
         transformMatrix: TransformMatrix;
     };
-    canvasHeight: number;
-    canvasWidth: number;
     onEntityClick: (EntitySelectParams) => void;
     onEntityCenter: (EntitySelectParams) => void;
     onLineageExpand: (LineageExpandParams) => void;
@@ -29,8 +24,6 @@ export default function LineageTree({
     data,
     zoom,
     margin,
-    canvasWidth,
-    canvasHeight,
     onEntityClick,
     onEntityCenter,
     onLineageExpand,
@@ -40,55 +33,38 @@ export default function LineageTree({
     direction,
 }: LineageTreeProps) {
     const [xCanvasScale, setXCanvasScale] = useState(1);
-    const [yCanvasScale, setYCanvasScale] = useState(1);
 
     useEffect(() => {
         setXCanvasScale(1);
-        setYCanvasScale(1);
-    }, [data.data.urn]);
+    }, [data.urn]);
 
-    // Need to disable exhaustive-deps because react has trouble introspecting the debounce call's dependencies
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    const debouncedSetYCanvasScale = useCallback(
-        debounce((newValue) => {
-            setYCanvasScale(newValue);
-        }, 6),
-        [setYCanvasScale],
+    const { nodesToRender, edgesToRender, nodesByUrn, layers } = useMemo(
+        () => generateTree(data, direction),
+        [data, direction],
     );
 
     useEffect(() => {
         // as our tree height grows, we need to expand our canvas so the nodes do not become increasingly squished together
-        if (data.height > xCanvasScale) {
-            setXCanvasScale(data.height);
+        if (layers > xCanvasScale) {
+            setXCanvasScale(layers);
         }
-    }, [data.height, xCanvasScale, setXCanvasScale]);
+    }, [layers, xCanvasScale, setXCanvasScale]);
 
-    const generatedTree = generateTree(data, []);
-    console.log(generatedTree);
-
-    // The <Tree /> component takes in the data we've prepared and lays out each node by providing it an x & y coordinate.
-    // However, we need to make a few adjustments to the layout before rendering
-    // TODO(gabe-lyons): Abstract the interior of <Tree />'s render into its own FC to further optimize
     return (
-        <Tree<NodeData> root={data} size={[yCanvasScale * canvasHeight, xCanvasScale * canvasWidth]}>
-            {(tree) => (
-                <LineageTreeNodeAndEdgeRenderer
-                    tree={tree}
-                    zoom={zoom}
-                    margin={margin}
-                    canvasHeight={canvasHeight}
-                    onEntityClick={onEntityClick}
-                    onEntityCenter={onEntityCenter}
-                    onLineageExpand={onLineageExpand}
-                    selectedEntity={selectedEntity}
-                    hoveredEntity={hoveredEntity}
-                    setHoveredEntity={setHoveredEntity}
-                    direction={direction}
-                    debouncedSetYCanvasScale={debouncedSetYCanvasScale}
-                    yCanvasScale={yCanvasScale}
-                    xCanvasScale={xCanvasScale}
-                />
-            )}
-        </Tree>
+        <LineageTreeNodeAndEdgeRenderer
+            data={data}
+            nodesToRender={nodesToRender}
+            edgesToRender={edgesToRender}
+            nodesByUrn={nodesByUrn}
+            zoom={zoom}
+            margin={margin}
+            onEntityClick={onEntityClick}
+            onEntityCenter={onEntityCenter}
+            onLineageExpand={onLineageExpand}
+            selectedEntity={selectedEntity}
+            hoveredEntity={hoveredEntity}
+            setHoveredEntity={setHoveredEntity}
+            direction={direction}
+        />
     );
 }
