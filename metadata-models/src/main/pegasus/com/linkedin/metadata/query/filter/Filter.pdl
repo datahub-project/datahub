@@ -1,0 +1,13 @@
+namespace com.linkedin.metadata.query.filter
+
+/**
+ * The filter for finding a record or a collection of records
+ */
+record Filter {
+
+  /**
+   * A list of of disjunctive criterion for the filter.
+   */
+  or: array[ConjunctiveCriterion]
+
+}
