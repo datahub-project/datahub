@@ -40,7 +40,7 @@
         "optional" : true
       }, {
         "name" : "filter",
-        "type" : "com.linkedin.metadata.query.Filter",
+        "type" : "com.linkedin.metadata.query.filter.Filter",
         "optional" : true
       }, {
         "name" : "limit",
@@ -74,7 +74,7 @@
         "type" : "string"
       }, {
         "name" : "filter",
-        "type" : "com.linkedin.metadata.query.Filter",
+        "type" : "com.linkedin.metadata.query.filter.Filter",
         "optional" : true
       }, {
         "name" : "start",
@@ -122,11 +122,11 @@
         "type" : "string"
       }, {
         "name" : "filter",
-        "type" : "com.linkedin.metadata.query.Filter",
+        "type" : "com.linkedin.metadata.query.filter.Filter",
         "optional" : true
       }, {
         "name" : "sort",
-        "type" : "com.linkedin.metadata.query.SortCriterion",
+        "type" : "com.linkedin.metadata.query.filter.SortCriterion",
         "optional" : true
       }, {
         "name" : "start",
@@ -159,11 +159,11 @@
         "type" : "string"
       }, {
         "name" : "filter",
-        "type" : "com.linkedin.metadata.query.Filter",
+        "type" : "com.linkedin.metadata.query.filter.Filter",
         "optional" : true
       }, {
         "name" : "sort",
-        "type" : "com.linkedin.metadata.query.SortCriterion",
+        "type" : "com.linkedin.metadata.query.filter.SortCriterion",
         "optional" : true
       }, {
         "name" : "start",
@@ -184,11 +184,11 @@
         "type" : "string"
       }, {
         "name" : "filter",
-        "type" : "com.linkedin.metadata.query.Filter",
+        "type" : "com.linkedin.metadata.query.filter.Filter",
         "optional" : true
       }, {
         "name" : "sort",
-        "type" : "com.linkedin.metadata.query.SortCriterion",
+        "type" : "com.linkedin.metadata.query.filter.SortCriterion",
         "optional" : true
       }, {
         "name" : "start",

@@ -22,7 +22,6 @@ dependencies {
   compile externalDependency.elasticSearchTransport
   compile externalDependency.kafkaClients
   compile externalDependency.gmaEbeanDao
-  compile externalDependency.gmaDaoApi
   compile externalDependency.gmaRestliResources
   compile externalDependency.gmaElasticsearchDao
   compile externalDependency.ebean

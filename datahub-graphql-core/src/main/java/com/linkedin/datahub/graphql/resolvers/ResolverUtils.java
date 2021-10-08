@@ -11,6 +11,8 @@ import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.query.Criterion;
 import com.linkedin.metadata.query.CriterionArray;
 import com.linkedin.metadata.query.Filter;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import graphql.schema.DataFetchingEnvironment;
 import java.lang.reflect.InvocationTargetException;
 import java.util.stream.Collectors;
