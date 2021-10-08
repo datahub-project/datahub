@@ -56,12 +56,13 @@ export default function useSchemaTitleRenderer(
             }
         }
 
+        console.log(record);
         return (
             <>
                 <FieldPathContainer>
                     <FieldPathText>{lastPath || firstPath}</FieldPathText>
                     <TypeLabel type={record.type} nativeDataType={record.nativeDataType} />
-                    {schemaMetadata?.primaryKeys?.includes(fieldPath) && <PrimaryKeyLabel />}
+                    {(schemaMetadata?.primaryKeys?.includes(fieldPath) || record.isPartOfKey) && <PrimaryKeyLabel />}
                     {schemaMetadata?.foreignKeys
                         ?.filter(
                             (constraint) =>
