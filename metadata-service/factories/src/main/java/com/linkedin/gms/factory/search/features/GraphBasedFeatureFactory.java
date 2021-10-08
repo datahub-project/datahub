@@ -1,11 +1,8 @@
 package com.linkedin.gms.factory.search.features;
 
 import com.linkedin.gms.factory.common.GraphServiceFactory;
-import com.linkedin.gms.factory.timeseries.TimeseriesAspectServiceFactory;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.search.features.GraphBasedFeature;
-import com.linkedin.metadata.search.features.UsageFeature;
-import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
