@@ -17,7 +17,11 @@ import com.linkedin.metadata.event.EntityEventProducer;
 import com.linkedin.metadata.key.CorpUserKey;
 import com.linkedin.mxe.SystemMetadata;
 
-import java.util.*;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.testcontainers.containers.CassandraContainer;
@@ -31,18 +35,18 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 
-public class DatastaxEntityServiceTest extends BaseEntityServiceTest {
+public class DatastaxEntityServiceTest extends EntityServiceTestBase {
 
   private CassandraContainer _cassandraContainer;
 
   @BeforeMethod
   public void setupTest() {
 
-    final DockerImageName IMAGE_NAME = DockerImageName
+    final DockerImageName imageName = DockerImageName
             .parse("cassandra:3.11")
             .asCompatibleSubstituteFor("cassandra");
 
-    _cassandraContainer = new CassandraContainer(IMAGE_NAME);
+    _cassandraContainer = new CassandraContainer(imageName);
     _cassandraContainer.start();
 
     // Setup

@@ -12,7 +12,7 @@ import org.testng.annotations.BeforeMethod;
 import javax.annotation.Nonnull;
 import static org.mockito.Mockito.mock;
 
-public class EbeanEntityServiceTest extends BaseEntityServiceTest {
+public class EbeanEntityServiceTest extends EntityServiceTestBase {
 
   @Nonnull
   private static ServerConfig createTestingH2ServerConfig() {
@@ -33,9 +33,9 @@ public class EbeanEntityServiceTest extends BaseEntityServiceTest {
 
   @BeforeMethod
   public void setupTest() {
-    EbeanServer _server = EbeanServerFactory.create(createTestingH2ServerConfig());
+    EbeanServer ebeanServer = EbeanServerFactory.create(createTestingH2ServerConfig());
     _mockProducer = mock(EntityEventProducer.class);
-    EbeanAspectDao aspectDao = new EbeanAspectDao(_server);
+    EbeanAspectDao aspectDao = new EbeanAspectDao(ebeanServer);
     aspectDao.setConnectionValidated(true);
     _entityService = new EbeanEntityService(aspectDao, _mockProducer, _testEntityRegistry);
     _aspectDao = aspectDao;

@@ -47,7 +47,7 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 
-abstract public class BaseEntityServiceTest {
+abstract public class EntityServiceTestBase {
 
     protected static final AuditStamp TEST_AUDIT_STAMP = createTestAuditStamp();
     private final EntityRegistry _snapshotEntityRegistry = new TestEntityRegistry();
