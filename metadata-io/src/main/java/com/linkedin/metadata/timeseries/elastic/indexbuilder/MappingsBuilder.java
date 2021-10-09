@@ -4,7 +4,6 @@ import com.google.common.collect.ImmutableMap;
 import com.linkedin.data.schema.DataSchema;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.TimeseriesFieldCollectionSpec;
-import com.linkedin.metadata.models.TimeseriesFieldSpec;
 import java.util.HashMap;
 import java.util.Map;
 import javax.annotation.Nonnull;
@@ -38,29 +37,24 @@ public class MappingsBuilder {
     mappings.put(EVENT_FIELD, ImmutableMap.of("type", "object", "enabled", false));
     mappings.put(SYSTEM_METADATA_FIELD, ImmutableMap.of("type", "object", "enabled", false));
     mappings.put(IS_EXPLODED_FIELD, ImmutableMap.of("type", "boolean"));
-    aspectSpec.getTimeseriesFieldSpecs().stream().forEach(x -> setTimeseriesFieldSpecMapping(x, mappings));
+
+    aspectSpec.getTimeseriesFieldSpecs()
+        .forEach(x -> mappings.put(x.getName(), getFieldMapping(x.getPegasusSchema().getType())));
     aspectSpec.getTimeseriesFieldCollectionSpecs()
-        .stream()
-        .forEach(x -> setTimeseriesFieldCollectionSpecMapping(x, mappings));
+        .forEach(x -> mappings.put(x.getName(), getTimeseriesFieldCollectionSpecMapping(x)));
 
     return ImmutableMap.of("properties", mappings);
   }
 
-  private static void setTimeseriesFieldSpecMapping(TimeseriesFieldSpec timeseriesFieldSpec,
-      Map<String, Object> mappings) {
-    mappings.put(timeseriesFieldSpec.getName(), getFieldMapping(timeseriesFieldSpec.getPegasusSchema().getType()));
-  }
-
-  private static void setTimeseriesFieldCollectionSpecMapping(
-      TimeseriesFieldCollectionSpec timeseriesFieldCollectionSpec, Map<String, Object> mappings) {
-    String collectionFieldName = timeseriesFieldCollectionSpec.getName();
+  private static Map<String, Object> getTimeseriesFieldCollectionSpecMapping(
+      TimeseriesFieldCollectionSpec timeseriesFieldCollectionSpec) {
+    Map<String, Object> collectionMappings = new HashMap<>();
+    collectionMappings.put(timeseriesFieldCollectionSpec.getTimeseriesFieldCollectionAnnotation().getKey(),
+        getFieldMapping(DataSchema.Type.STRING));
     timeseriesFieldCollectionSpec.getTimeseriesFieldSpecMap()
         .values()
-        .forEach(x -> mappings.put(collectionFieldName + "." + x.getName(),
-            getFieldMapping(x.getPegasusSchema().getType())));
-    mappings.put(
-        collectionFieldName + "." + timeseriesFieldCollectionSpec.getTimeseriesFieldCollectionAnnotation().getKey(),
-        getFieldMapping(DataSchema.Type.STRING));
+        .forEach(x -> collectionMappings.put(x.getName(), getFieldMapping(x.getPegasusSchema().getType())));
+    return ImmutableMap.of("properties", collectionMappings);
   }
 
   private static Map<String, Object> getFieldMapping(DataSchema.Type dataSchemaType) {
