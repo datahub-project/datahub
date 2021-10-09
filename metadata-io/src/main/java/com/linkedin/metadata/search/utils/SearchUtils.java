@@ -1,9 +1,9 @@
 package com.linkedin.metadata.search.utils;
 
-import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Criterion;
+import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import java.io.IOException;
 import java.io.InputStream;
