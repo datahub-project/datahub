@@ -51,7 +51,7 @@ public class MappingsBuilder {
     mappings.put(timeseriesFieldSpec.getName(), getFieldMapping(timeseriesFieldSpec.getPegasusSchema().getType()));
   }
 
-  private static  void setTimeseriesFieldCollectionSpecMapping(
+  private static void setTimeseriesFieldCollectionSpecMapping(
       TimeseriesFieldCollectionSpec timeseriesFieldCollectionSpec, Map<String, Object> mappings) {
     String collectionFieldName = timeseriesFieldCollectionSpec.getName();
     timeseriesFieldCollectionSpec.getTimeseriesFieldSpecMap()
@@ -66,15 +66,15 @@ public class MappingsBuilder {
   private static Map<String, Object> getFieldMapping(DataSchema.Type dataSchemaType) {
     switch (dataSchemaType) {
       case INT:
-        return  ImmutableMap.of("type", "integer");
+        return ImmutableMap.of("type", "integer");
       case LONG:
-        return  ImmutableMap.of("type", "long");
+        return ImmutableMap.of("type", "long");
       case FLOAT:
-        return  ImmutableMap.of("type", "float");
+        return ImmutableMap.of("type", "float");
       case DOUBLE:
-        return  ImmutableMap.of("type", "double");
+        return ImmutableMap.of("type", "double");
       default:
-        return  ImmutableMap.of("type", "keyword");
+        return ImmutableMap.of("type", "keyword");
     }
   }
 }
