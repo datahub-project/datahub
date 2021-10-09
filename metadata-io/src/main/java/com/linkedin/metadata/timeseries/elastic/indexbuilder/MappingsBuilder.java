@@ -46,12 +46,12 @@ public class MappingsBuilder {
     return ImmutableMap.of("properties", mappings);
   }
 
-  private static <K, V> void setTimeseriesFieldSpecMapping(TimeseriesFieldSpec timeseriesFieldSpec,
+  private static void setTimeseriesFieldSpecMapping(TimeseriesFieldSpec timeseriesFieldSpec,
       Map<String, Object> mappings) {
     mappings.put(timeseriesFieldSpec.getName(), getFieldMapping(timeseriesFieldSpec.getPegasusSchema().getType()));
   }
 
-  private static <K, V> void setTimeseriesFieldCollectionSpecMapping(
+  private static  void setTimeseriesFieldCollectionSpecMapping(
       TimeseriesFieldCollectionSpec timeseriesFieldCollectionSpec, Map<String, Object> mappings) {
     String collectionFieldName = timeseriesFieldCollectionSpec.getName();
     timeseriesFieldCollectionSpec.getTimeseriesFieldSpecMap()
@@ -63,21 +63,18 @@ public class MappingsBuilder {
         getFieldMapping(DataSchema.Type.STRING));
   }
 
-  private static <K, V> ImmutableMap<K, V> getFieldMapping(DataSchema.Type dataSchemaType) {
+  private static Map<String, Object> getFieldMapping(DataSchema.Type dataSchemaType) {
     switch (dataSchemaType) {
       case INT:
-        return (ImmutableMap<K, V>) ImmutableMap.of("type", "integer");
+        return  ImmutableMap.of("type", "integer");
       case LONG:
-        return (ImmutableMap<K, V>) ImmutableMap.of("type", "long");
+        return  ImmutableMap.of("type", "long");
       case FLOAT:
-        return (ImmutableMap<K, V>) ImmutableMap.of("type", "float");
+        return  ImmutableMap.of("type", "float");
       case DOUBLE:
-        return (ImmutableMap<K, V>) ImmutableMap.of("type", "double");
-      case RECORD:
-        return (ImmutableMap<K, V>) ImmutableMap.of("type", "object", "enabled", false);
-      case STRING:
+        return  ImmutableMap.of("type", "double");
       default:
-        return (ImmutableMap<K, V>) ImmutableMap.of("type", "keyword");
+        return  ImmutableMap.of("type", "keyword");
     }
   }
 }
