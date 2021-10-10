@@ -103,7 +103,8 @@ def send_lineage_to_datahub(
     upstream_subdag_triggers = []
 
     # subdags are always named with 'parent.child' style or Airflow won't run them
-    if dag.is_subdag and dag.parent_dag is not None:
+    # add connection from subdag trigger(s) if subdag task has no upstreams
+    if dag.is_subdag and dag.parent_dag is not None and len(task._upstream_task_ids) == 0:
 
         subdags = [x for x in dag.parent_dag.task_dict.values() if x.subdag is not None]
         matched_subdags = [x for x in subdags if x.subdag.dag_id == dag.dag_id]
