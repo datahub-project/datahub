@@ -337,6 +337,9 @@ def test_subdags(mock_emit, inlets, outlets):
                 task_id="subdag-task-3", dag=dag
             )
 
+            # some basic structure to check lineage ingestion
+            subdag_task_1 >> subdag_task_2
+
             # In practice, these are filled in by calling the dag bagger.
             # However, for testing we manually set them here.
             dag.is_subdag = True
@@ -347,8 +350,8 @@ def test_subdags(mock_emit, inlets, outlets):
         with dag:
             op1 = DummyOperator(
                 task_id="task1",
-                # inlets=inlets,
-                # outlets=outlets,
+                inlets=inlets,
+                outlets=outlets,
             )
 
             subdag_1 = SubDagOperator(
@@ -371,8 +374,8 @@ def test_subdags(mock_emit, inlets, outlets):
 
             op3 = DummyOperator(
                 task_id="task3",
-                # inlets=inlets,
-                # outlets=outlets,
+                inlets=inlets,
+                outlets=outlets,
             )
 
             op1 >> subdag_1 >> op2 >> subdag_2 >> op3
@@ -382,7 +385,7 @@ def test_subdags(mock_emit, inlets, outlets):
         for task in tasks:
 
             ti = TI(task=task, execution_date=DEFAULT_DATE)
-            ctx1 = {
+            ctx = {
                 "dag": task._dag,
                 "task": task,
                 "ti": ti,
@@ -392,22 +395,15 @@ def test_subdags(mock_emit, inlets, outlets):
             }
 
             prep = prepare_lineage(func)
-            prep(task, ctx1)
+            prep(task, ctx)
             post = apply_lineage(func)
-            post(task, ctx1)
+            post(task, ctx)
 
             # Verify that the inlets and outlets are registered and recognized by Airflow correctly,
             # or that our lineage backend forces it to.
-            # assert len(task.inlets) == 1
-            # assert len(task.outlets) == 1
-            # assert all(map(lambda let: isinstance(let, Dataset), task.inlets))
-            # assert all(map(lambda let: isinstance(let, Dataset), task.outlets))
-
-            # from pprint import pprint
-
-            # pprint(mock_emit.call_args[0][0])
+            assert all(map(lambda let: isinstance(let, Dataset), task.inlets))
+            assert all(map(lambda let: isinstance(let, Dataset), task.outlets))
 
             # Check that the right things were emitted.
             # mock_emit.assert_called_once()
-            # assert len(mock_emit.call_args[0][0]) == 4
-            # assert all(mce.validate() for mce in mock_emit.call_args[0][0])
+            assert all(mce.validate() for mce in mock_emit.call_args[0][0])
