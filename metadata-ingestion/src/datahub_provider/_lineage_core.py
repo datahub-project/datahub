@@ -74,7 +74,7 @@ def send_lineage_to_datahub(
 
     for upstream_task_id in task.upstream_task_ids:
         upstream_task = dag.task_dict[upstream_task_id]
-        
+
         # if upstream task is not a subdag, then skip it
         if upstream_task.subdag is None:
             continue
@@ -82,7 +82,9 @@ def send_lineage_to_datahub(
         # else, link the leaf tasks of the upstream subdag as upstream tasks
         upstream_subdag = upstream_task.subdag
 
-        upstream_subdag_flow_urn = builder.make_data_flow_urn("airflow", upstream_subdag.dag_id, config.cluster)
+        upstream_subdag_flow_urn = builder.make_data_flow_urn(
+            "airflow", upstream_subdag.dag_id, config.cluster
+        )
 
         for upstream_subdag_task_id in upstream_subdag.task_dict:
             upstream_subdag_task = upstream_subdag.task_dict[upstream_subdag_task_id]
@@ -90,26 +92,36 @@ def send_lineage_to_datahub(
             # if subdag task is a leaf task, then link it as an upstream task
             if len(upstream_subdag_task._downstream_task_ids) == 0:
 
-                upstream_subdag_task_urns.append(builder.make_data_job_urn_with_flow(upstream_subdag_flow_urn, upstream_subdag_task_id))
+                upstream_subdag_task_urns.append(
+                    builder.make_data_job_urn_with_flow(
+                        upstream_subdag_flow_urn, upstream_subdag_task_id
+                    )
+                )
 
     print("Upstream subdag leaf tasks", upstream_subdag_task_urns)
 
-    upstream_subdag_trigger_urn = None
+    upstream_subdag_triggers = []
 
     # subdags are always named with 'parent.child' style or Airflow won't run them
     if dag.is_subdag and dag.parent_dag is not None:
+
         subdags = [x for x in dag.parent_dag.task_dict.values() if x.subdag is not None]
         matched_subdags = [x for x in subdags if x.subdag.dag_id == dag.dag_id]
 
-        if len(matched_subdags) > 0:
+        upstream_subdag_trigger_id = matched_subdags[0].task_id
 
-            upstream_dag_flow_urn = builder.make_data_flow_urn("airflow", dag.parent_dag.dag_id, config.cluster)
-            
-            upstream_subdag_trigger_urn = builder.make_data_job_urn_with_flow(upstream_dag_flow_urn, matched_subdags[0].task_id)
+        parent_dag_urn = builder.make_data_flow_urn(
+            "airflow", dag.parent_dag.dag_id, config.cluster
+        )
 
-    print("Upstream subdag trigger: ", upstream_subdag_trigger_urn)
+        for upstream_task_id in dag.parent_dag.task_dict:
+            upstream_task = dag.parent_dag.task_dict[upstream_task_id]
+
+            if upstream_subdag_trigger_id in upstream_task._downstream_task_ids:
+                upstream_subdag_triggers.append(builder.make_data_job_urn_with_flow(parent_dag_urn, upstream_task_id))
+
+    print("Upstream triggers: ", upstream_subdag_triggers)
     print()
-
 
     # TODO: capture context
     # context dag_run
@@ -229,6 +241,11 @@ def send_lineage_to_datahub(
         )
     )
 
+    upstream_tasks = [
+        builder.make_data_job_urn_with_flow(flow_urn, task_id)
+        for task_id in task.upstream_task_ids
+    ] + upstream_subdag_task_urns + upstream_subdag_triggers
+
     job_mce = models.MetadataChangeEventClass(
         proposedSnapshot=models.DataJobSnapshotClass(
             urn=job_urn,
@@ -243,10 +260,7 @@ def send_lineage_to_datahub(
                 models.DataJobInputOutputClass(
                     inputDatasets=_entities_to_urn_list(inlets or []),
                     outputDatasets=_entities_to_urn_list(outlets or []),
-                    inputDatajobs=[
-                        builder.make_data_job_urn_with_flow(flow_urn, task_id)
-                        for task_id in task.upstream_task_ids
-                    ],
+                    inputDatajobs=upstream_tasks,
                 ),
                 *ownership_aspect,
                 *tags_aspect,
