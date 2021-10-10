@@ -12,10 +12,13 @@ from airflow.models import DAG, Connection, DagBag
 from airflow.models import TaskInstance as TI
 from airflow.utils.dates import days_ago
 
+from airflow.utils.trigger_rule import TriggerRule
 try:
     from airflow.operators.dummy import DummyOperator
+    from airflow.operators.subdag import SubDagOperator
 except ModuleNotFoundError:
     from airflow.operators.dummy_operator import DummyOperator
+    from airflow.operators.subdag_operator import SubDagOperator
 
 import datahub.emitter.mce_builder as builder
 from datahub_provider import get_provider_info
@@ -259,3 +262,152 @@ def test_lineage_backend(mock_emit, inlets, outlets):
         mock_emit.assert_called_once()
         assert len(mock_emit.call_args[0][0]) == 4
         assert all(mce.validate() for mce in mock_emit.call_args[0][0])
+
+@pytest.mark.parametrize(
+    ["inlets", "outlets"],
+    [
+        (
+            # Airflow 1.10.x uses a dictionary structure for inlets and outlets.
+            # We want the lineage backend to support this structure for backwards
+            # compatability reasons, so this test is not conditional.
+            {"datasets": [Dataset("snowflake", "mydb.schema.tableConsumed")]},
+            {"datasets": [Dataset("snowflake", "mydb.schema.tableProduced")]},
+        ),
+        pytest.param(
+            # Airflow 2.x also supports a flattened list for inlets and outlets.
+            # We want to test this capability.
+            [Dataset("snowflake", "mydb.schema.tableConsumed")],
+            [Dataset("snowflake", "mydb.schema.tableProduced")],
+            marks=pytest.mark.skipif(
+                airflow.version.version.startswith("1"),
+                reason="list-style lineage is only supported in Airflow 2.x",
+            ),
+        ),
+    ],
+    ids=[
+        "airflow-1-10-x-decl",
+        "airflow-2-x-decl",
+    ],
+)
+@mock.patch("datahub_provider.hooks.datahub.DatahubRestHook.emit_mces")
+def test_subdags(mock_emit, inlets, outlets):
+    DEFAULT_DATE = days_ago(2)
+
+    # Using autospec on xcom_pull and xcom_push methods fails on Python 3.6.
+    with mock.patch.dict(
+        os.environ,
+        {
+            "AIRFLOW__LINEAGE__BACKEND": "datahub_provider.lineage.datahub.DatahubLineageBackend",
+            "AIRFLOW__LINEAGE__DATAHUB_CONN_ID": datahub_rest_connection_config.conn_id,
+            "AIRFLOW__LINEAGE__DATAHUB_KWARGS": json.dumps(
+                {"graceful_exceptions": False}
+            ),
+        },
+    ), mock.patch("airflow.models.BaseOperator.xcom_pull"), mock.patch(
+        "airflow.models.BaseOperator.xcom_push"
+    ), patch_airflow_connection(
+        datahub_rest_connection_config
+    ):
+        func = mock.Mock()
+        func.__name__ = "foo"
+
+        DAG_NAME = "test_subdag_lineage_is_captured"
+
+        dag = DAG(dag_id=DAG_NAME, start_date=DEFAULT_DATE)
+
+        def subdag(main_dag, subdag_name, start_date, schedule_interval):
+            # you might like to make the name a parameter too
+            dag = DAG(
+                f"{main_dag.dag_id}.{subdag_name}",
+                # note the repetition here
+                schedule_interval=schedule_interval,
+                start_date=start_date,
+                tags=["this_is_a_subdag"]
+            )
+
+            subdag_task_1 = DummyOperator(
+                task_id="subdag-task-1", dag=dag
+            )
+
+            subdag_task_2 = DummyOperator(
+                task_id="subdag-task-2", dag=dag
+            )
+
+            subdag_task_3 = DummyOperator(
+                task_id="subdag-task-3", dag=dag
+            )
+
+            # In practice, these are filled in by calling the dag bagger.
+            # However, for testing we manually set them here.
+            dag.is_subdag = True
+            dag.parent_dag = main_dag
+
+            return dag
+
+        with dag:
+            op1 = DummyOperator(
+                task_id="task1",
+                # inlets=inlets,
+                # outlets=outlets,
+            )
+
+            subdag_1 = SubDagOperator(
+                task_id="subdag-1",
+                subdag=subdag(dag, "subdag-1", dag.start_date, dag.schedule_interval),
+                trigger_rule=TriggerRule.ALL_DONE
+            )
+
+            op2 = DummyOperator(
+                task_id="task2",
+                inlets=inlets,
+                outlets=outlets,
+            )
+
+            subdag_2 = SubDagOperator(
+                task_id="subdag-2",
+                subdag=subdag(dag, "subdag-2", dag.start_date, dag.schedule_interval),
+                trigger_rule=TriggerRule.ALL_DONE
+            )
+
+            op3 = DummyOperator(
+                task_id="task3",
+                # inlets=inlets,
+                # outlets=outlets,
+            )
+
+            op1 >> subdag_1 >> op2 >> subdag_2 >> op3
+
+        tasks = [op1, subdag_1, op2, subdag_2, op3] + list(subdag_1.subdag.task_dict.values()) + list(subdag_2.subdag.task_dict.values())
+
+        for task in tasks:
+
+            ti = TI(task=task, execution_date=DEFAULT_DATE)
+            ctx1 = {
+                "dag": task._dag,
+                "task": task,
+                "ti": ti,
+                "task_instance": ti,
+                "execution_date": DEFAULT_DATE,
+                "ts": "2021-04-08T00:54:25.771575+00:00",
+            }
+
+            prep = prepare_lineage(func)
+            prep(task, ctx1)
+            post = apply_lineage(func)
+            post(task, ctx1)
+
+            # Verify that the inlets and outlets are registered and recognized by Airflow correctly,
+            # or that our lineage backend forces it to.
+            # assert len(task.inlets) == 1
+            # assert len(task.outlets) == 1
+            # assert all(map(lambda let: isinstance(let, Dataset), task.inlets))
+            # assert all(map(lambda let: isinstance(let, Dataset), task.outlets))
+
+            # from pprint import pprint
+
+            # pprint(mock_emit.call_args[0][0])
+
+            # Check that the right things were emitted.
+            # mock_emit.assert_called_once()
+            # assert len(mock_emit.call_args[0][0]) == 4
+            # assert all(mce.validate() for mce in mock_emit.call_args[0][0])
