@@ -1,4 +1,4 @@
-import { HORIZONTAL_SPACE_PER_LAYER, VERTICAL_SPACE_PER_NODE } from '../constants';
+import { CURVE_PADDING, HORIZONTAL_SPACE_PER_LAYER, INNER_CURVE_PADDING, VERTICAL_SPACE_PER_NODE } from '../constants';
 import { Direction, NodeData, VizEdge, VizNode } from '../types';
 
 type ProcessArray = {
@@ -9,6 +9,7 @@ type ProcessArray = {
 export default function generateTree(
     data: NodeData,
     direction: Direction,
+    draggedNodes: Record<string, { x: number; y: number }>,
 ): {
     nodesToRender: VizNode[];
     edgesToRender: VizEdge[];
@@ -16,12 +17,14 @@ export default function generateTree(
     height: number;
     layers: number;
 } {
+    console.log(draggedNodes);
     const nodesToRender: VizNode[] = [];
     const edgesToRender: VizEdge[] = [];
     let maxHeight = VERTICAL_SPACE_PER_NODE;
 
     const nodesByUrn: Record<string, VizNode> = {};
     const xModifier = direction === Direction.Downstream ? 1 : -1;
+    const directionShift = direction === Direction.Downstream ? 0 : -20;
 
     let currentLayer = 0;
     let nodesInCurrentLayer: ProcessArray = [{ parent: null, node: data }];
@@ -67,9 +70,35 @@ export default function generateTree(
             }
 
             if (parent) {
+                const parentIsHigher = parent.x > vizNodeForNode.x;
+                const parentIsBehind = Math.abs(parent.y) < Math.abs(vizNodeForNode.y);
+
+                const curve = parentIsBehind
+                    ? [
+                          { x: parent.x, y: parent.y + 90 * xModifier + directionShift },
+                          { x: parent.x, y: parent.y + (90 + CURVE_PADDING) * xModifier },
+                          { x: vizNodeForNode.x, y: vizNodeForNode.y - (105 + CURVE_PADDING) * xModifier },
+                          { x: vizNodeForNode.x, y: vizNodeForNode.y - 105 * xModifier + directionShift },
+                      ]
+                    : [
+                          { x: parent.x, y: parent.y + 90 * xModifier + directionShift },
+                          { x: parent.x, y: parent.y + (90 + CURVE_PADDING) * xModifier },
+                          {
+                              x: parent.x + INNER_CURVE_PADDING * (parentIsHigher ? -1 : 1),
+                              y: parent.y + (90 + CURVE_PADDING) * xModifier,
+                          },
+                          {
+                              x: vizNodeForNode.x + INNER_CURVE_PADDING * (parentIsHigher ? 1 : -1),
+                              y: vizNodeForNode.y - (105 + CURVE_PADDING) * xModifier,
+                          },
+                          { x: vizNodeForNode.x, y: vizNodeForNode.y - (105 + CURVE_PADDING) * xModifier },
+                          { x: vizNodeForNode.x, y: vizNodeForNode.y - 105 * xModifier + directionShift },
+                      ];
+
                 const vizEdgeForPair = {
                     source: parent,
                     target: vizNodeForNode,
+                    curve,
                 };
                 edgesToRender.push(vizEdgeForPair);
             }

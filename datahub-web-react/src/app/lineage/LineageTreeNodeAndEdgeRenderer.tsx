@@ -1,6 +1,7 @@
 import React from 'react';
 import { Group } from '@vx/group';
-import { LinkHorizontal } from '@vx/shape';
+import { curveBasis } from '@vx/curve';
+import { LinePath } from '@vx/shape';
 import { TransformMatrix } from '@vx/zoom/lib/types';
 
 import { NodeData, Direction, EntitySelectParams, TreeProps, VizNode, VizEdge } from './types';
@@ -18,6 +19,7 @@ type Props = {
     selectedEntity?: EntitySelectParams;
     hoveredEntity?: EntitySelectParams;
     setHoveredEntity: (EntitySelectParams) => void;
+    onDrag: (params: EntitySelectParams, event: MouseEvent) => void;
     margin: TreeProps['margin'];
     direction: Direction;
     nodesToRender: VizNode[];
@@ -46,34 +48,44 @@ export default function LineageTreeNodeAndEdgeRenderer({
     selectedEntity,
     hoveredEntity,
     setHoveredEntity,
+    onDrag,
     direction,
     nodesToRender,
     edgesToRender,
     nodesByUrn,
 }: Props) {
+    const isLinkHighlighted = (link) =>
+        link.source.data.urn === hoveredEntity?.urn || link.target.data.urn === hoveredEntity?.urn;
     return (
         <Group transform={transformToString(zoom.transformMatrix)} top={margin?.top} left={margin?.left}>
-            {edgesToRender.map((link) => {
+            {[
+                // we want to render non-highlighted links first since svg does not support the
+                // concept of a z-index
+                ...edgesToRender.filter((link) => !isLinkHighlighted(link)),
+                ...edgesToRender.filter(isLinkHighlighted),
+            ].map((link) => {
+                const isHighlighted = isLinkHighlighted(link);
+
                 return (
-                    <LinkHorizontal
-                        data={link}
-                        stroke={
-                            link.source.data.urn === hoveredEntity?.urn || link.target.data.urn === hoveredEntity?.urn
-                                ? '#1890FF'
-                                : ANTD_GRAY[6]
-                        }
-                        strokeWidth="1"
-                        fill="none"
-                        key={`edge-${link.source.data.urn}-${link.target.data.urn}-${direction}`}
-                        data-testid={`edge-${link.source.data.urn}-${link.target.data.urn}-${direction}`}
-                        markerEnd="url(#triangle-downstream)"
-                        markerStart="url(#triangle-upstream)"
-                    />
+                    <Group>
+                        <LinePath
+                            // we rotated the svg 90 degrees so we need to switch x & y for the last mile
+                            x={(d) => d.y}
+                            y={(d) => d.x}
+                            curve={curveBasis}
+                            data={link.curve}
+                            stroke={isHighlighted ? '#1890FF' : ANTD_GRAY[6]}
+                            strokeWidth="1"
+                            markerEnd={`url(#triangle-downstream${isHighlighted ? '-highlighted' : ''})`}
+                            markerStart={`url(#triangle-upstream${isHighlighted ? '-highlighted' : ''})`}
+                        />
+                    </Group>
                 );
             })}
             {nodesToRender.map((node) => {
                 const isSelected = node.data.urn === selectedEntity?.urn;
                 const isHovered = node.data.urn === hoveredEntity?.urn;
+
                 return (
                     <LineageEntityNode
                         key={`node-${node.data.urn}-${direction}`}
@@ -87,6 +99,7 @@ export default function LineageTreeNodeAndEdgeRenderer({
                         direction={direction}
                         isCenterNode={data.urn === node.data.urn}
                         nodesToRenderByUrn={nodesByUrn}
+                        onDrag={onDrag}
                     />
                 );
             })}

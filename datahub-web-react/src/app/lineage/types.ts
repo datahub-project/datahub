@@ -58,6 +58,7 @@ export type VizNode = {
 export type VizEdge = {
     source: VizNode;
     target: VizNode;
+    curve: { x: number; y: number }[];
 };
 
 export type FetchedEntities = { [x: string]: FetchedEntity };
