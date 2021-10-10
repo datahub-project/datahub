@@ -54,19 +54,6 @@ def send_lineage_to_datahub(
         SerializedDAG,
     )
 
-    from pprint import pprint
-
-    print(context["task"].task_id)
-    # pprint(
-    #     {
-    #         **context,
-    #         "dag": vars(context["dag"]),
-    #         "task": vars(context["task"]),
-    #         "task_instance": vars(context["task_instance"]),
-    #         "ti": vars(context["ti"]),
-    #     }
-    # )
-
     dag: "DAG" = context["dag"]
     task: "BaseOperator" = context["task"]
 
@@ -98,8 +85,6 @@ def send_lineage_to_datahub(
                     )
                 )
 
-    print("Upstream subdag leaf tasks", upstream_subdag_task_urns)
-
     upstream_subdag_triggers = []
 
     # subdags are always named with 'parent.child' style or Airflow won't run them
@@ -120,9 +105,6 @@ def send_lineage_to_datahub(
 
             if upstream_subdag_trigger_id in upstream_task._downstream_task_ids:
                 upstream_subdag_triggers.append(builder.make_data_job_urn_with_flow(parent_dag_urn, upstream_task_id))
-
-    print("Upstream triggers: ", upstream_subdag_triggers)
-    print()
 
     # TODO: capture context
     # context dag_run
