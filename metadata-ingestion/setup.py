@@ -43,6 +43,7 @@ framework_common = {
     "python-dateutil>=2.8.0",
     "stackprinter",
     "tabulate",
+    "progressbar2",
 }
 
 kafka_common = {
