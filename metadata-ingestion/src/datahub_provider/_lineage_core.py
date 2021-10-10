@@ -241,9 +241,10 @@ def send_lineage_to_datahub(
         )
     )
 
+    # exclude subdag operator tasls since these are not emitted, resulting in empty metadata
     upstream_tasks = [
         builder.make_data_job_urn_with_flow(flow_urn, task_id)
-        for task_id in task.upstream_task_ids
+        for task_id in task.upstream_task_ids if dag.task_dict.get(task_id).subdag is None
     ] + upstream_subdag_task_urns + upstream_subdag_triggers
 
     job_mce = models.MetadataChangeEventClass(
