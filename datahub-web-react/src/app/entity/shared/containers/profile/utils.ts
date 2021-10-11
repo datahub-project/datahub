@@ -5,6 +5,7 @@ import useIsLineageMode from '../../../../lineage/utils/useIsLineageMode';
 import { useEntityRegistry } from '../../../../useEntityRegistry';
 import EntityRegistry from '../../../EntityRegistry';
 import { EntityTab, GenericEntityProperties } from '../../types';
+import { urlEncodeUrn } from '../../utils';
 
 export function getDataForEntityType<T>({
     data,
@@ -44,11 +45,13 @@ export function getEntityPath(
     const tabParamsString = tabParams ? `&${queryString.stringify(tabParams)}` : '';
 
     if (!tabName) {
-        return `/${entityRegistry.getPathName(entityType)}/${urn}?is_lineage_mode=${isLineageMode}${tabParamsString}`;
+        return `/${entityRegistry.getPathName(entityType)}/${urlEncodeUrn(
+            urn,
+        )}?is_lineage_mode=${isLineageMode}${tabParamsString}`;
     }
-    return `/${entityRegistry.getPathName(
-        entityType,
-    )}/${urn}/${tabName}?is_lineage_mode=${isLineageMode}${tabParamsString}`;
+    return `/${entityRegistry.getPathName(entityType)}/${urlEncodeUrn(
+        urn,
+    )}/${tabName}?is_lineage_mode=${isLineageMode}${tabParamsString}`;
 }
 
 export function useEntityPath(entityType: EntityType, urn: string, tabName?: string, tabParams?: Record<string, any>) {
