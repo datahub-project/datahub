@@ -45,11 +45,10 @@ export function getEntityPath(
     const tabParamsString = tabParams ? `&${queryString.stringify(tabParams)}` : '';
 
     if (!tabName) {
-        return `/${entityRegistry.getPathName(entityType)}/${urlEncodeUrn(
-            urn,
-        )}?is_lineage_mode=${isLineageMode}${tabParamsString}`;
+        return `${entityRegistry.getEntityUrl(entityType, urn)}?is_lineage_mode=${isLineageMode}${tabParamsString}`;
     }
-    return `/${entityRegistry.getPathName(entityType)}/${urlEncodeUrn(
+    return `${entityRegistry.getEntityUrl(
+        entityType,
         urn,
     )}/${tabName}?is_lineage_mode=${isLineageMode}${tabParamsString}`;
 }
