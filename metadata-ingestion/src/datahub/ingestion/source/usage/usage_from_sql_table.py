@@ -70,7 +70,6 @@ class UsageFromSqlTableSource(SqlUsageSource):
 
         return tables
 
-
     def parse_query(self, event_dict):
         query_id = event_dict["query_id"]
         query_text = event_dict["query_text"]
