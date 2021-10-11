@@ -103,6 +103,12 @@ jobs:
         run: ./gradlew build -x check -x docs-website:build
       - name: Smoke test
         run: ./smoke-test/smoke.sh
+      - uses: actions/upload-artifact@v2
+        if: always()
+        with:
+          name: Test Results (Smoke Test)
+          path: |
+            **/junit.*.xml
       - name: Slack failure notification
         if: failure() && github.event_name == 'push'
         uses: kpritam/slack-job-status-action@v1
