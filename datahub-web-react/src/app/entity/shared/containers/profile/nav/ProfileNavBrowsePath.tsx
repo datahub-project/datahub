@@ -109,6 +109,9 @@ export const ProfileNavBrowsePath = ({ type, path, upstreams, downstreams }: Pro
 
     const hasLineage = upstreams > 0 || downstreams > 0;
 
+    const upstreamText = upstreams === 100 ? '100+' : upstreams;
+    const downstreamText = downstreams === 100 ? '100+' : downstreams;
+
     return (
         <BrowseRow>
             <Breadcrumb style={{ fontSize: '16px' }} separator=">">
@@ -145,7 +148,7 @@ export const ProfileNavBrowsePath = ({ type, path, upstreams, downstreams }: Pro
                     </IconGroup>
                 </LineageIconGroup>
                 <LineageSummary>
-                    <LineageBadge count={`${upstreams} upstream, ${downstreams} downstream`} />
+                    <LineageBadge count={`${upstreamText} upstream, ${downstreamText} downstream`} />
                 </LineageSummary>
             </LineageNavContainer>
         </BrowseRow>

@@ -30,8 +30,8 @@ export const LineageTab = () => {
                     Visualize Lineage
                 </Button>
             </TabToolbar>
-            <LineageTable data={upstreamEntities} title={`${upstreamEntities?.length} Upstream`} />
-            <LineageTable data={downstreamEntities} title={`${downstreamEntities?.length} Downstream`} />
+            <LineageTable data={upstreamEntities} title={`${upstreamEntities?.length || 0} Upstream`} />
+            <LineageTable data={downstreamEntities} title={`${downstreamEntities?.length || 0} Downstream`} />
         </>
     );
 };
