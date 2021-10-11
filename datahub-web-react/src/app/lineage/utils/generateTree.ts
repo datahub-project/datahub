@@ -87,12 +87,13 @@ export default function generateTree(
 
             if (parent) {
                 const parentIsHigher = parent.x > vizNodeForNode.x;
-                const parentIsBehind =
+                const parentIsBehindChild =
                     direction === Direction.Downstream
                         ? parent.y < vizNodeForNode.y - nodeWidth
                         : parent.y > vizNodeForNode.y + nodeWidth;
 
-                const curve = parentIsBehind
+                // if the nodes are inverted, we want to draw the edge slightly differently
+                const curve = parentIsBehindChild
                     ? [
                           { x: parent.x, y: parent.y + INSIDE_NODE_SHIFT * xModifier + directionShift },
                           { x: parent.x, y: parent.y + (INSIDE_NODE_SHIFT + CURVE_PADDING) * xModifier },

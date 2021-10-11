@@ -35,6 +35,14 @@ public class EntityTypeResolver implements DataFetcher<CompletableFuture<Entity>
     }
 
 
+    private boolean isOnlySelectingIdentityFields(DataFetchingEnvironment environment) {
+        return environment.getField().getSelectionSet().getSelections().stream().filter(selection -> {
+            if (!(selection instanceof graphql.language.Field)) {
+                return true;
+            }
+            return !IDENTITY_FIELDS.contains(((graphql.language.Field) selection).getName());
+        }).count() == 0;
+    }
 
     @Override
     public CompletableFuture get(DataFetchingEnvironment environment) {
@@ -46,12 +54,7 @@ public class EntityTypeResolver implements DataFetcher<CompletableFuture<Entity>
         final String urn = resolvedEntity.getUrn();
         final Object javaObject = _entityProvider.apply(environment);
 
-        if (environment.getField().getSelectionSet().getSelections().stream().filter(selection -> {
-            if (!(selection instanceof graphql.language.Field)) {
-                return true;
-            }
-            return !IDENTITY_FIELDS.contains(((graphql.language.Field)selection).getName());
-        }).count() == 0) {
+        if (isOnlySelectingIdentityFields(environment)) {
             return CompletableFuture.completedFuture(javaObject);
         }
 

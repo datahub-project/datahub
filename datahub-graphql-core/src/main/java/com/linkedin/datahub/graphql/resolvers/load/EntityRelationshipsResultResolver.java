@@ -1,30 +1,22 @@
 package com.linkedin.datahub.graphql.resolvers.load;
 
 import com.linkedin.common.EntityRelationship;
-import com.linkedin.common.EntityRelationshipArray;
 import com.linkedin.common.EntityRelationships;
-import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityRelationshipsResult;
 import com.linkedin.datahub.graphql.generated.RelationshipsInput;
 import com.linkedin.datahub.graphql.types.common.mappers.AuditStampMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
-import com.linkedin.lineage.client.RelationshipClient;
-import com.linkedin.metadata.graph.GraphService;
-import com.linkedin.metadata.graph.RelatedEntitiesResult;
+import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.query.RelationshipDirection;
-import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
-import java.net.URISyntaxException;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
-import javax.annotation.Nullable;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
-import static com.linkedin.metadata.dao.utils.QueryUtils.*;
 
 
 /**
@@ -32,47 +24,10 @@ import static com.linkedin.metadata.dao.utils.QueryUtils.*;
  */
 public class EntityRelationshipsResultResolver implements DataFetcher<CompletableFuture<EntityRelationshipsResult>> {
 
-  private static final Integer MAX_DOWNSTREAM_CNT = 100;
-  private final GraphService _graphService;
+  private final GraphClient _graphClient;
 
-  public EntityRelationshipsResultResolver(final GraphService graphService) {
-    _graphService = graphService;
-  }
-
-  private EntityRelationships getRelatedEntities(
-      String rawUrn,
-      List<String> relationshipTypes,
-      RelationshipDirection direction,
-      @Nullable Integer start,
-      @Nullable Integer count) {
-
-    start = start == null ? 0 : start;
-    count = count == null ? MAX_DOWNSTREAM_CNT : count;
-
-    RelatedEntitiesResult relatedEntitiesResult =
-        _graphService.findRelatedEntities("", newFilter("urn", rawUrn), "", EMPTY_FILTER, relationshipTypes,
-            newRelationshipFilter(EMPTY_FILTER, direction), start, count);
-
-    final EntityRelationshipArray entityArray = new EntityRelationshipArray(
-        relatedEntitiesResult.getEntities().stream().map(
-            entity -> {
-              try {
-                return new EntityRelationship()
-                    .setEntity(Urn.createFromString(entity.getUrn()))
-                    .setType(entity.getRelationshipType());
-              } catch (URISyntaxException e) {
-                throw new RuntimeException(
-                    String.format("Failed to convert urnStr %s found in the Graph to an Urn object", entity.getUrn()));
-              }
-            }
-        ).collect(Collectors.toList())
-    );
-
-    return new EntityRelationships()
-        .setStart(relatedEntitiesResult.getStart())
-        .setCount(relatedEntitiesResult.getCount())
-        .setTotal(relatedEntitiesResult.getTotal())
-        .setRelationships(entityArray);
+  public EntityRelationshipsResultResolver(final GraphClient graphClient) {
+    _graphClient = graphClient;
   }
 
   @Override
@@ -107,7 +62,7 @@ public class EntityRelationshipsResultResolver implements DataFetcher<Completabl
       final Integer count,
       final String actor) {
 
-      return getRelatedEntities(urn, types, direction, start, count);
+      return _graphClient.getRelatedEntities(urn, types, direction, start, count, actor);
   }
 
   private EntityRelationshipsResult mapEntityRelationships(
