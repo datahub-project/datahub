@@ -61,7 +61,8 @@ record DashboardInfo includes CustomProperties, ExternalReference {
    */
   @Searchable = {
     "fieldType": "KEYWORD",
-    "addToFilters": true
+    "addToFilters": true,
+    "filterNameOverride": "Access Level"
   }
   access: optional AccessLevel
 

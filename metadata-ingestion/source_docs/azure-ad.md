@@ -90,7 +90,12 @@ source:
     graph_url: "https://graph.microsoft.com/v1.0"
     ingest_users: True
     ingest_groups: True
-    ingest_group_membership: True
+    groups_pattern:
+      allow:
+        - ".*"
+    users_pattern:
+      allow:
+        - ".*"
 
 sink:
   # sink configs
@@ -117,16 +122,13 @@ Note that a `.` is used to denote nested fields in the YAML configuration block.
 | `ingest_group_membership`          | bool   |          | `True`      | Whether group membership should be ingested into DataHub. ingest_groups must be True if this is True.           |
 | `azure_ad_response_to_username_attr`    | string |          | `"login"`   | Which Azure AD User Response attribute to use as input to DataHub username mapping.                                  |
 | `azure_ad_response_to_username_regex`   | string |          | `"([^@]+)"` | A regex used to parse the DataHub username from the attribute specified in `azure_ad_response_to_username_attr`.     |
+| `users_pattern.allow`                 |  list of strings    |             |       | List of regex patterns for users to include in ingestion. The name against which compare the regexp is the DataHub user name, i.e. the one resulting from the action of `azure_ad_response_to_username_attr` and `azure_ad_response_to_username_regex`   |
+| `users_pattern.deny`                  | list of strings     |             |       | As above, but for excluding users from ingestion.                                                                                                                           |
 | `azure_ad_response_to_groupname_attr`  | string |          | `"name"`    | Which Azure AD Group Response attribute to use as input to DataHub group name mapping.                               |
 | `azure_ad_response_to_groupname_regex` | string |          | `"(.*)"`    | A regex used to parse the DataHub group name from the attribute specified in `azure_ad_response_to_groupname_attr`. |
-     
-
-## Compatibility
-
- Validated against load:
-   - User Count: `1000`
-   - Group Count: `100`
-   - Group Membership Edges: `1000` (1 per User)
+| `groups_pattern.allow`                 |  list of strings  |             |       | List of regex patterns for groups to include in ingestion. The name against which compare the regexp is the DataHub group name, i.e. the one resulting from the action of `azure_ad_response_to_groupname_attr` and `azure_ad_response_to_groupname_regex`   |
+| `groups_pattern.deny`                  |  list of strings  |             |       | As above, but for exculing groups from ingestion.                                                                                                                           |
+| `ingest_groups_users`                  | bool              |             | `True`             | This option is useful only when `ingest_users` is set to False and `ingest_group_membership` to True. As effect, only the users which belongs to the selected groups will be ingested. |
 
 ## Questions
 

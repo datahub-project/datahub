@@ -14,8 +14,8 @@ export const SidebarTagsSection = ({ properties }: { properties?: any }) => {
     const canAddTerm = properties?.hasTerms;
 
     const { urn, entityType, entityData } = useEntityData();
-
     const refetch = useRefetch();
+
     return (
         <div>
             <SidebarHeader title="Tags" />

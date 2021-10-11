@@ -10,11 +10,15 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.GmsClientFactory;
 import com.linkedin.entity.Entity;
+import com.linkedin.entity.client.AspectClient;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.identity.CorpGroupInfo;
 import com.linkedin.identity.CorpUserEditableInfo;
 import com.linkedin.identity.CorpUserInfo;
+import com.linkedin.identity.CorpUserStatus;
 import com.linkedin.identity.GroupMembership;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.CorpGroupAspect;
 import com.linkedin.metadata.aspect.CorpGroupAspectArray;
 import com.linkedin.metadata.aspect.CorpUserAspect;
@@ -22,6 +26,8 @@ import com.linkedin.metadata.aspect.CorpUserAspectArray;
 import com.linkedin.metadata.snapshot.CorpGroupSnapshot;
 import com.linkedin.metadata.snapshot.CorpUserSnapshot;
 import com.linkedin.metadata.snapshot.Snapshot;
+import com.linkedin.metadata.utils.GenericAspectUtils;
+import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
 import java.io.UnsupportedEncodingException;
 import java.net.MalformedURLException;
@@ -64,8 +70,9 @@ import static auth.AuthUtils.*;
 @Slf4j
 public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebContext> {
 
-  private static final String SYSTEM_PRINCIPAL = "urn:li:corpuser:system";
+  private static final String SYSTEM_ACTOR = Constants.SYSTEM_ACTOR;
   private final EntityClient _entityClient = GmsClientFactory.getEntitiesClient();
+  private final AspectClient _aspectClient = GmsClientFactory.getAspectsClient();
   private final SsoManager _ssoManager;
 
   public OidcCallbackLogic(final SsoManager ssoManager) {
@@ -108,7 +115,7 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
       try {
         // If just-in-time User Provisioning is enabled, try to create the DataHub user if it does not exist.
         if (oidcConfigs.isJitProvisioningEnabled()) {
-          log.debug("Just-in-time provisioning is enabled. Beginning provisioning proces...");
+          log.debug("Just-in-time provisioning is enabled. Beginning provisioning process...");
           CorpUserSnapshot extractedUser = extractUser(corpUserUrn, profile);
           if (oidcConfigs.isExtractGroupsEnabled()) {
             // Extract groups & provision them.
@@ -125,6 +132,9 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
           log.debug("Pre Provisioning is required. Beginning validation of extracted user...");
           verifyPreProvisionedUser(corpUserUrn);
         }
+        // Update user status to active on login.
+        // If we want to prevent certain users from logging in, here's where we'll want to do it.
+        setUserStatus(corpUserUrn, new CorpUserStatus().setStatus(Constants.CORP_USER_STATUS_ACTIVE));
       } catch (Exception e) {
         log.error("Failed to perform post authentication steps. Redirecting to error page.", e);
         return internalServerError(String.format("Failed to perform post authentication steps. Error message: %s", e.getMessage()));
@@ -152,8 +162,7 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
 
     final Optional<String> mappedUserName = extractRegexGroup(
         oidcConfigs.getUserNameClaimRegex(),
-        (String) profile.getAttribute(oidcConfigs.getUserNameClaim())
-    );
+        userNameClaim);
 
     return mappedUserName.orElseThrow(() ->
         new RuntimeException(String.format("Failed to extract DataHub username from username claim %s using regex %s. Profile: %s",
@@ -184,7 +193,7 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
     userInfo.setFirstName(firstName, SetMode.IGNORE_NULL);
     userInfo.setLastName(lastName, SetMode.IGNORE_NULL);
     userInfo.setFullName(String.format("%s %s", firstName, lastName), SetMode.IGNORE_NULL);
-    userInfo.setEmail(email);
+    userInfo.setEmail(email, SetMode.IGNORE_NULL);
     // If there is a display name, use it. Otherwise fall back to full name.
     userInfo.setDisplayName(displayName == null ? userInfo.getFullName() : displayName, SetMode.IGNORE_NULL);
 
@@ -222,9 +231,6 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
         final Collection<String> groupNames = (Collection<String>) profile.getAttribute(groupsClaimName, Collection.class);
         for (String groupName : groupNames) {
           // Create a basic CorpGroupSnapshot from the information.
-          // TODO: once okta PR is in, finish this.
-          // final CorpGroupInfo corpGroupInfo = new CorpGroupInfo();
-          // corpGroupInfo.setDisplayName
           try {
 
             final CorpGroupInfo corpGroupInfo = new CorpGroupInfo();
@@ -232,6 +238,7 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
             corpGroupInfo.setGroups(new CorpGroupUrnArray());
             corpGroupInfo.setMembers(new CorpuserUrnArray());
             corpGroupInfo.setEmail("");
+            corpGroupInfo.setDisplayName(groupName);
 
             // To deal with the possibility of spaces, we url encode the URN group name.
             final String urlEncodedGroupName = URLEncoder.encode(groupName, StandardCharsets.UTF_8.toString());
@@ -271,18 +278,18 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
 
     // 1. Check if this user already exists.
     try {
-      final Entity corpUser = _entityClient.get(corpUserSnapshot.getUrn(), SYSTEM_PRINCIPAL);
+      final Entity corpUser = _entityClient.get(corpUserSnapshot.getUrn(), SYSTEM_ACTOR);
+      final CorpUserSnapshot existingCorpUserSnapshot = corpUser.getValue().getCorpUserSnapshot();
 
       log.debug(String.format("Fetched GMS user with urn %s",corpUserSnapshot.getUrn()));
 
       // If we find more than the key aspect, then the entity "exists".
-      if (corpUser.getValue().getCorpUserSnapshot().getAspects().size() <= 1) {
+      if (existingCorpUserSnapshot.getAspects().size() <= 1) {
         log.debug(String.format("Extracted user that does not yet exist %s. Provisioning...", corpUserSnapshot.getUrn()));
         // 2. The user does not exist. Provision them.
         final Entity newEntity = new Entity();
         newEntity.setValue(Snapshot.create(corpUserSnapshot));
-        _entityClient.update(newEntity, SYSTEM_PRINCIPAL);
-
+        _entityClient.update(newEntity, SYSTEM_ACTOR);
         log.debug(String.format("Successfully provisioned user %s", corpUserSnapshot.getUrn()));
       }
       log.debug(String.format("User %s already exists. Skipping provisioning", corpUserSnapshot.getUrn()));
@@ -302,7 +309,7 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
     // 1. Check if this user already exists.
     try {
       final Set<Urn> urnsToFetch = corpGroups.stream().map(CorpGroupSnapshot::getUrn).collect(Collectors.toSet());
-      final Map<Urn, Entity> existingGroups = _entityClient.batchGet(urnsToFetch, SYSTEM_PRINCIPAL);
+      final Map<Urn, Entity> existingGroups = _entityClient.batchGet(urnsToFetch, SYSTEM_ACTOR);
 
       log.debug(String.format("Fetched GMS groups with urns %s", existingGroups.keySet()));
 
@@ -335,7 +342,7 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
       // Now batch create all entities identified to create.
       _entityClient.batchUpdate(groupsToCreate.stream().map(groupSnapshot ->
           new Entity().setValue(Snapshot.create(groupSnapshot))
-      ).collect(Collectors.toSet()), SYSTEM_PRINCIPAL);
+      ).collect(Collectors.toSet()), SYSTEM_ACTOR);
 
       log.debug(String.format("Successfully provisioned groups with urns %s", groupsToCreateUrns));
 
@@ -349,7 +356,7 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
   private void verifyPreProvisionedUser(CorpuserUrn urn) {
     // Validate that the user exists in the system (there is more than just a key aspect for them, as of today).
     try {
-      final Entity corpUser = _entityClient.get(urn, SYSTEM_PRINCIPAL);
+      final Entity corpUser = _entityClient.get(urn, SYSTEM_ACTOR);
 
       log.debug(String.format("Fetched GMS user with urn %s", urn));
 
@@ -365,6 +372,17 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
       // Failing validation is something worth throwing about.
       throw new RuntimeException(String.format("Failed to validate user with urn %s.", urn), e);
     }
+  }
+
+  private void setUserStatus(final Urn urn, final CorpUserStatus newStatus) throws Exception {
+    // Update status aspect to be active.
+    final MetadataChangeProposal proposal = new MetadataChangeProposal();
+    proposal.setEntityUrn(urn);
+    proposal.setEntityType(Constants.CORP_USER_ENTITY_NAME);
+    proposal.setAspectName(Constants.CORP_USER_STATUS_ASPECT_NAME);
+    proposal.setAspect(GenericAspectUtils.serializeAspect(newStatus));
+    proposal.setChangeType(ChangeType.UPSERT);
+    _aspectClient.ingestProposal(proposal, Constants.SYSTEM_ACTOR).getEntity();
   }
 
   private Optional<String> extractRegexGroup(final String patternStr, final String target) {

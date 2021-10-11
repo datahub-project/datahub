@@ -1,6 +1,8 @@
 package com.linkedin.datahub.graphql.types.dataflow.mappers;
 
 import com.linkedin.common.GlobalTags;
+import com.linkedin.common.GlossaryTerms;
+import com.linkedin.common.InstitutionalMemory;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.Status;
 import com.linkedin.datahub.graphql.generated.DataFlow;
@@ -8,9 +10,11 @@ import com.linkedin.datahub.graphql.generated.DataFlowEditableProperties;
 import com.linkedin.datahub.graphql.generated.DataFlowInfo;
 import com.linkedin.datahub.graphql.generated.DataFlowProperties;
 import com.linkedin.datahub.graphql.generated.EntityType;
+import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StringMapMapper;
+import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
 import com.linkedin.datajob.EditableDataFlowProperties;
@@ -54,6 +58,10 @@ public class DataFlowSnapshotMapper implements ModelMapper<DataFlowSnapshot, Dat
                 final DataFlowEditableProperties dataFlowEditableProperties = new DataFlowEditableProperties();
                 dataFlowEditableProperties.setDescription(((EditableDataFlowProperties) aspect).getDescription());
                 result.setEditableProperties(dataFlowEditableProperties);
+            } else if (aspect instanceof InstitutionalMemory) {
+                result.setInstitutionalMemory(InstitutionalMemoryMapper.map((InstitutionalMemory) aspect));
+            } else if (aspect instanceof GlossaryTerms) {
+                result.setGlossaryTerms(GlossaryTermsMapper.map((GlossaryTerms) aspect));
             }
         });
         return result;

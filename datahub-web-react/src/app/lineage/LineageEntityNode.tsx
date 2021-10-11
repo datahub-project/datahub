@@ -180,7 +180,7 @@ export default function LineageEntityNode({
                             |{' '}
                         </tspan>
                         <tspan dx=".25em" dy="-2px">
-                            {truncate(capitalizeFirstLetter(node.data.type?.split('.').slice(-1)[0]), 16)}
+                            {capitalizeFirstLetter(node.data.subtype || node.data.type)}
                         </tspan>
                     </text>
                     <text
