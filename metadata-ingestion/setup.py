@@ -179,6 +179,7 @@ base_dev_requirements = {
             "bigquery-usage",
             "looker",
             "glue",
+            "mariadb",
             "okta",
             "oracle",
             "postgres",
