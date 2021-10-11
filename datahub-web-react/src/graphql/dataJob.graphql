@@ -5,7 +5,12 @@ query getDataJob($urn: String!) {
             ...fullRelationshipResults
         }
         incoming: relationships(
-            input: { types: ["DownstreamOf", "Consumes", "Produces"], direction: INCOMING, start: 0, count: 100 }
+            input: {
+                types: ["DownstreamOf", "Consumes", "Produces", "TrainedBy"]
+                direction: INCOMING
+                start: 0
+                count: 100
+            }
         ) {
             ...fullRelationshipResults
         }

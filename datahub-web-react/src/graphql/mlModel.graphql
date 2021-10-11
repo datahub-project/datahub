@@ -19,7 +19,7 @@ query getMLModel($urn: String!) {
                 count: 100
             }
         ) {
-            ...leafRelationshipResults
+            ...fullRelationshipResults
         }
     }
 }

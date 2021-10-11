@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Group } from '@vx/group';
 import { LinkHorizontal } from '@vx/shape';
 import styled from 'styled-components';
@@ -9,6 +9,9 @@ import { NodeData, Direction, VizNode, EntitySelectParams } from './types';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { capitalizeFirstLetter } from '../shared/capitalizeFirstLetter';
 
+const CLICK_DELAY_THRESHOLD = 1000;
+const DRAG_DISTANCE_THRESHOLD = 20;
+
 function truncate(input, length) {
     if (!input) return '';
     if (input.length > length) {
@@ -17,7 +20,9 @@ function truncate(input, length) {
     return input;
 }
 
-function getLastTokenOfTitle(title: string): string {
+function getLastTokenOfTitle(title?: string): string {
+    if (!title) return '';
+
     const lastToken = title?.split('.').slice(-1)[0];
 
     // if the last token does not contain any content, the string should not be tokenized on `.`
@@ -75,6 +80,17 @@ export default function LineageEntityNode({
     const unexploredHiddenChildren =
         node?.data?.countercurrentChildrenUrns?.filter((urn) => !(urn in nodesToRenderByUrn))?.length || 0;
 
+    // we need to track lastMouseDownCoordinates to differentiate between clicks and drags. It doesn't use useState because
+    // it shouldn't trigger re-renders
+    const lastMouseDownCoordinates = useMemo(
+        () => ({
+            ts: 0,
+            x: 0,
+            y: 0,
+        }),
+        [],
+    );
+
     return (
         <PointerGroup data-testid={`node-${node.data.urn}-${direction}`} top={node.x} left={node.y}>
             {unexploredHiddenChildren && (isHovered || isSelected) ? (
@@ -127,8 +143,16 @@ export default function LineageEntityNode({
             ) : null}
             <Group
                 onDoubleClick={() => onEntityCenter({ urn: node.data.urn, type: node.data.type })}
-                onClick={() => {
-                    onEntityClick({ urn: node.data.urn, type: node.data.type });
+                onClick={(event) => {
+                    if (
+                        event.timeStamp < lastMouseDownCoordinates.ts + CLICK_DELAY_THRESHOLD &&
+                        Math.sqrt(
+                            (event.clientX - lastMouseDownCoordinates.x) ** 2 +
+                                (event.clientY - lastMouseDownCoordinates.y) ** 2,
+                        ) < DRAG_DISTANCE_THRESHOLD
+                    ) {
+                        onEntityClick({ urn: node.data.urn, type: node.data.type });
+                    }
                 }}
                 onMouseOver={() => {
                     onHover({ urn: node.data.urn, type: node.data.type });
@@ -137,6 +161,9 @@ export default function LineageEntityNode({
                     onHover(undefined);
                 }}
                 onMouseDown={(event) => {
+                    lastMouseDownCoordinates.ts = event.timeStamp;
+                    lastMouseDownCoordinates.x = event.clientX;
+                    lastMouseDownCoordinates.y = event.clientY;
                     if (node.data.urn && node.data.type) {
                         onDrag({ urn: node.data.urn, type: node.data.type }, event);
                     }
