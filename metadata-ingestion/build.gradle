@@ -44,14 +44,14 @@ task lintFix(type: Exec, dependsOn: installDev) {
 task testQuick(type: Exec, dependsOn: installDev) {
   // We can't enforce the coverage requirements if we run a subset of the tests.
   commandLine 'bash', '-x', '-c',
-    "source ${venv_name}/bin/activate && pytest -m 'not integration' -vv"
+    "source ${venv_name}/bin/activate && pytest -m 'not integration' -vv --continue-on-collection-errors --junit-xml=junit.quick.xml"
 }
 task installDevTest(type: Exec, dependsOn: [installDev]) {
   commandLine "${venv_name}/bin/pip", 'install', '-e', '.[dev,integration-tests]'
 }
 task testFull(type: Exec, dependsOn: [testQuick, installDevTest]) {
   commandLine 'bash', '-x', '-c',
-    "source ${venv_name}/bin/activate && pytest -vv"
+    "source ${venv_name}/bin/activate && pytest -vv --continue-on-collection-errors --junit-xml=junit.full.xml"
 }
 
 task cleanPythonCache(type: Exec) {

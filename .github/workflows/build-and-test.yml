@@ -37,6 +37,7 @@ jobs:
           path: |
             **/build/reports/tests/test/**
             **/build/test-results/test/**
+            **/junit.*.xml
             ${{ github.event_path }}
       - name: Ensure codegen is updated
         run: |
