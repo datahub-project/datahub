@@ -24,6 +24,7 @@ from datahub.metadata.schema_classes import (
     ChartTypeClass,
     DashboardInfoClass,
 )
+from datahub.utilities import config_clean
 
 PAGE_SIZE = 25
 
@@ -123,6 +124,9 @@ class SupersetSource(Source):
     def __init__(self, ctx: PipelineContext, config: SupersetConfig):
         super().__init__(ctx)
         self.config = config
+        self.config.connect_uri = config_clean.remove_url_suffix(
+            self.config.connect_uri
+        )
         self.report = SourceReport()
 
         login_response = requests.post(
