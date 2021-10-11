@@ -234,7 +234,6 @@ Update the elasticsearch settings under global in the values.yaml as follows.
   elasticsearch:
     host: <<elasticsearch-endpoint>>
     port: "443"
-    indexPrefix: demo
     useSSL: "true"
 ```
 
@@ -244,7 +243,6 @@ You can also allow communication via HTTP (without SSL) by using the settings be
   elasticsearch:
     host: <<elasticsearch-endpoint>>
     port: "80"
-    indexPrefix: demo
 ```
 
 Lastly, you need to set the following env variable for **elasticsearchSetupJob**.
