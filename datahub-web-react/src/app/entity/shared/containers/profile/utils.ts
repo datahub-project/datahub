@@ -5,7 +5,6 @@ import useIsLineageMode from '../../../../lineage/utils/useIsLineageMode';
 import { useEntityRegistry } from '../../../../useEntityRegistry';
 import EntityRegistry from '../../../EntityRegistry';
 import { EntityTab, GenericEntityProperties } from '../../types';
-import { urlEncodeUrn } from '../../utils';
 
 export function getDataForEntityType<T>({
     data,
