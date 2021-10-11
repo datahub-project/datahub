@@ -24,6 +24,18 @@ def getUsageAggregationSchema() -> str:
     return _load_schema("UsageAggregation")
 
 @functools.lru_cache(maxsize=None)
+def getActionRequestArchivedSchema() -> str:
+    return _load_schema("ActionRequestArchived")
+
+@functools.lru_cache(maxsize=None)
+def getActionRequestInfoSchema() -> str:
+    return _load_schema("ActionRequestInfo")
+
+@functools.lru_cache(maxsize=None)
+def getActionRequestStatusSchema() -> str:
+    return _load_schema("ActionRequestStatus")
+
+@functools.lru_cache(maxsize=None)
 def getChartInfoSchema() -> str:
     return _load_schema("ChartInfo")
 
@@ -42,6 +54,10 @@ def getBrowsePathsSchema() -> str:
 @functools.lru_cache(maxsize=None)
 def getCostSchema() -> str:
     return _load_schema("Cost")
+
+@functools.lru_cache(maxsize=None)
+def getDataPlatformInstanceSchema() -> str:
+    return _load_schema("DataPlatformInstance")
 
 @functools.lru_cache(maxsize=None)
 def getDeprecationSchema() -> str:
@@ -166,6 +182,10 @@ def getCorpUserStatusSchema() -> str:
 @functools.lru_cache(maxsize=None)
 def getGroupMembershipSchema() -> str:
     return _load_schema("GroupMembership")
+
+@functools.lru_cache(maxsize=None)
+def getActionRequestKeySchema() -> str:
+    return _load_schema("ActionRequestKey")
 
 @functools.lru_cache(maxsize=None)
 def getChartKeySchema() -> str:
