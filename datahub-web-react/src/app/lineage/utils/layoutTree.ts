@@ -11,7 +11,7 @@ const INSIDE_NODE_SHIFT = nodeWidth / 2 - 19;
 
 const HEADER_HEIGHT = 125;
 
-export default function generateTree(
+export default function layoutTree(
     data: NodeData,
     direction: Direction,
     draggedNodes: Record<string, { x: number; y: number }>,

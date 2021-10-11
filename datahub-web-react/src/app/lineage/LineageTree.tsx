@@ -3,7 +3,7 @@ import { TransformMatrix } from '@vx/zoom/lib/types';
 
 import { NodeData, Direction, EntitySelectParams, TreeProps } from './types';
 import LineageTreeNodeAndEdgeRenderer from './LineageTreeNodeAndEdgeRenderer';
-import generateTree from './utils/generateTree';
+import layoutTree from './utils/layoutTree';
 
 type LineageTreeProps = {
     data: NodeData;
@@ -49,7 +49,7 @@ export default function LineageTree({
     let dragState: { urn: string; x: number; y: number } | undefined;
 
     const { nodesToRender, edgesToRender, nodesByUrn, layers } = useMemo(
-        () => generateTree(data, direction, draggedNodes, canvasHeight),
+        () => layoutTree(data, direction, draggedNodes, canvasHeight),
         [data, direction, draggedNodes, canvasHeight],
     );
 
