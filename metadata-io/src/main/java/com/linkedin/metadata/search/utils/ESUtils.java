@@ -50,7 +50,7 @@ public class ESUtils {
         final BoolQueryBuilder andQueryBuilder = new BoolQueryBuilder();
         or.getAnd().forEach(criterion -> {
           if (!criterion.getValue().trim().isEmpty()) {
-            andQueryBuilder.must(getQueryBuilderFromCriterion(criterion));
+            andQueryBuilder.must(getQueryBuilderFromCriterionForSearch(criterion));
           }
         });
         orQueryBuilder.should(andQueryBuilder);
