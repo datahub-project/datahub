@@ -52,11 +52,18 @@ export default function generateTree(
             if (nodesByUrn[node.urn]) {
                 vizNodeForNode = nodesByUrn[node.urn];
             } else {
-                vizNodeForNode = {
-                    data: node,
-                    x: VERTICAL_SPACE_PER_NODE * addedIndex - (VERTICAL_SPACE_PER_NODE * (layerSize - 1)) / 2,
-                    y: HORIZONTAL_SPACE_PER_LAYER * currentLayer * xModifier,
-                };
+                vizNodeForNode =
+                    node.urn in draggedNodes
+                        ? {
+                              data: node,
+                              x: draggedNodes[node.urn].x,
+                              y: draggedNodes[node.urn].y,
+                          }
+                        : {
+                              data: node,
+                              x: VERTICAL_SPACE_PER_NODE * addedIndex - (VERTICAL_SPACE_PER_NODE * (layerSize - 1)) / 2,
+                              y: HORIZONTAL_SPACE_PER_LAYER * currentLayer * xModifier,
+                          };
                 nodesByUrn[node.urn] = vizNodeForNode;
                 nodesToRender.push(vizNodeForNode);
                 nodesInNextLayer = [

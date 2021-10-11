@@ -19,7 +19,7 @@ type Props = {
     selectedEntity?: EntitySelectParams;
     hoveredEntity?: EntitySelectParams;
     setHoveredEntity: (EntitySelectParams) => void;
-    onDrag: (params: EntitySelectParams, event: MouseEvent) => void;
+    onDrag: (params: EntitySelectParams, event: React.MouseEvent) => void;
     margin: TreeProps['margin'];
     direction: Direction;
     nodesToRender: VizNode[];

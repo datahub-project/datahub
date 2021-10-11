@@ -5,7 +5,7 @@ import styled from 'styled-components';
 
 import { useEntityRegistry } from '../useEntityRegistry';
 import { IconStyleType } from '../entity/Entity';
-import { NodeData, Direction, VizNode } from './types';
+import { NodeData, Direction, VizNode, EntitySelectParams } from './types';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { capitalizeFirstLetter } from '../shared/capitalizeFirstLetter';
 
@@ -49,6 +49,7 @@ export default function LineageEntityNode({
     onEntityClick,
     onEntityCenter,
     onHover,
+    onDrag,
     onExpandClick,
     direction,
     isCenterNode,
@@ -61,6 +62,7 @@ export default function LineageEntityNode({
     onEntityClick: (EntitySelectParams) => void;
     onEntityCenter: (EntitySelectParams) => void;
     onHover: (EntitySelectParams) => void;
+    onDrag: (params: EntitySelectParams, event: React.MouseEvent) => void;
     onExpandClick: (LineageExpandParams) => void;
     direction: Direction;
     nodesToRenderByUrn: Record<string, VizNode>;
@@ -129,6 +131,11 @@ export default function LineageEntityNode({
                 }}
                 onMouseOut={() => {
                     onHover(undefined);
+                }}
+                onMouseDown={(event) => {
+                    if (node.data.urn && node.data.type) {
+                        onDrag({ urn: node.data.urn, type: node.data.type }, event);
+                    }
                 }}
             >
                 <rect

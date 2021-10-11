@@ -38,10 +38,41 @@ export default function LineageTree({
         setXCanvasScale(1);
     }, [data.urn]);
 
+    const [draggedNodes, setDraggedNodes] = useState<Record<string, { x: number; y: number }>>({});
+    let dragState: { urn: string; x: number; y: number } | undefined;
+
     const { nodesToRender, edgesToRender, nodesByUrn, layers } = useMemo(
-        () => generateTree(data, direction),
-        [data, direction],
+        () => generateTree(data, direction, draggedNodes),
+        [data, direction, draggedNodes],
     );
+
+    const dragContinue = (event: MouseEvent) => {
+        if (!dragState || !dragState.urn) {
+            return;
+        }
+
+        const realY =
+            (event.clientX - (dragState.x || 0)) * (1 / zoom.transformMatrix.scaleY) + nodesByUrn[dragState.urn].y;
+        const realX =
+            (event.clientY - (dragState.y || 0)) * (1 / zoom.transformMatrix.scaleX) + nodesByUrn[dragState.urn].x;
+        setDraggedNodes({
+            ...draggedNodes,
+            [dragState?.urn]: { x: realX, y: realY },
+        });
+    };
+
+    const stopDragging = () => {
+        window.removeEventListener('mousemove', dragContinue, false);
+        window.removeEventListener('mouseup', stopDragging, false);
+    };
+
+    const onDrag = ({ urn }, event: React.MouseEvent) => {
+        const { clientX, clientY } = event;
+        dragState = { urn, x: clientX, y: clientY };
+
+        window.addEventListener('mousemove', dragContinue, false);
+        window.addEventListener('mouseup', stopDragging, false);
+    };
 
     useEffect(() => {
         // as our tree height grows, we need to expand our canvas so the nodes do not become increasingly squished together
@@ -53,6 +84,7 @@ export default function LineageTree({
     return (
         <LineageTreeNodeAndEdgeRenderer
             data={data}
+            onDrag={onDrag}
             nodesToRender={nodesToRender}
             edgesToRender={edgesToRender}
             nodesByUrn={nodesByUrn}
