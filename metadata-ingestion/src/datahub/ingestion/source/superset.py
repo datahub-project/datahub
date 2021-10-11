@@ -1,6 +1,6 @@
 import json
 from functools import lru_cache
-from typing import Iterable, Optional
+from typing import Dict, Iterable, Optional
 
 import dateutil.parser as dp
 import requests
@@ -56,6 +56,8 @@ def get_platform_from_sqlalchemy_uri(sqlalchemy_uri: str) -> str:
         return "mongodb"
     if sqlalchemy_uri.startswith("hive"):
         return "hive"
+    if sqlalchemy_uri.startswith("awsathena"):
+        return "athena"
     return "external"
 
 
@@ -83,8 +85,9 @@ class SupersetConfig(ConfigModel):
     username: Optional[str] = None
     password: Optional[str] = None
     provider: str = "db"
-    options: dict = {}
+    options: Dict = {}
     env: str = DEFAULT_ENV
+    database_alias: Dict[str, str] = {}
 
 
 def get_metric_name(metric):
@@ -174,6 +177,8 @@ class SupersetSource(Source):
         database_name = (
             dataset_response.get("result", {}).get("database", {}).get("database_name")
         )
+        if self.config.database_alias.get(database_name) is not None:
+            database_name = self.config.database_alias.get(database_name)
 
         if database_id and table_name:
             platform = self.get_platform_from_database_id(database_id)
@@ -206,7 +211,7 @@ class SupersetSource(Source):
             created=AuditStamp(time=modified_ts, actor=modified_actor),
             lastModified=AuditStamp(time=modified_ts, actor=modified_actor),
         )
-        dashboard_url = f"{self.config.connect_uri[:-1]}{dashboard_data.get('url', '')}"
+        dashboard_url = f"{self.config.connect_uri}{dashboard_data.get('url', '')}"
 
         chart_urns = []
         raw_position_data = dashboard_data.get("position_json", "{}")
@@ -276,7 +281,7 @@ class SupersetSource(Source):
             lastModified=AuditStamp(time=modified_ts, actor=modified_actor),
         )
         chart_type = chart_type_from_viz_type.get(chart_data.get("viz_type", ""))
-        chart_url = f"{self.config.connect_uri[:-1]}{chart_data.get('url', '')}"
+        chart_url = f"{self.config.connect_uri}{chart_data.get('url', '')}"
 
         datasource_id = chart_data.get("datasource_id")
         datasource_urn = self.get_datasource_urn_from_id(datasource_id)
