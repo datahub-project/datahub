@@ -589,7 +589,7 @@ class SQLAlchemySource(Source):
             table=table,
             limit=self.config.profiling.limit,
             offset=self.config.profiling.offset,
-            send_sample_values=self.profiling.send_sample_values,
+            send_sample_values=self.config.profiling.send_sample_values,
         )
 
     def get_report(self):
