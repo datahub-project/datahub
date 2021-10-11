@@ -181,8 +181,7 @@ class SupersetSource(Source):
         database_name = (
             dataset_response.get("result", {}).get("database", {}).get("database_name")
         )
-        if self.config.database_alias.get(database_name) is not None:
-            database_name = self.config.database_alias.get(database_name)
+        database_name = self.config.database_alias.get(database_name, database_name)
 
         if database_id and table_name:
             platform = self.get_platform_from_database_id(database_id)
