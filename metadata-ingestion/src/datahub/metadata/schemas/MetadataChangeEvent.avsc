@@ -97,6 +97,293 @@
       "type": [
         {
           "type": "record",
+          "name": "ActionRequestSnapshot",
+          "namespace": "com.linkedin.pegasus2avro.metadata.snapshot",
+          "fields": [
+            {
+              "name": "urn",
+              "type": "string",
+              "doc": "URN for the entity the metadata snapshot is associated with.",
+              "java": {
+                "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+              }
+            },
+            {
+              "name": "aspects",
+              "type": {
+                "type": "array",
+                "items": [
+                  {
+                    "type": "record",
+                    "name": "ActionRequestKey",
+                    "namespace": "com.linkedin.pegasus2avro.metadata.key",
+                    "doc": "Key for an ActionRequest",
+                    "fields": [
+                      {
+                        "name": "id",
+                        "type": "string"
+                      }
+                    ],
+                    "Aspect": {
+                      "name": "actionRequestKey"
+                    }
+                  },
+                  {
+                    "type": "record",
+                    "name": "ActionRequestStatus",
+                    "namespace": "com.linkedin.pegasus2avro.actionrequest",
+                    "doc": "The status of the action request - e.g. accepted, rejected, pending, etc",
+                    "fields": [
+                      {
+                        "name": "status",
+                        "type": "string",
+                        "doc": "Status of the action request. e.g. PENDING / COMPLETED",
+                        "Searchable": {
+                          "fieldType": "KEYWORD"
+                        }
+                      },
+                      {
+                        "name": "result",
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "doc": "Optional result of the action request, e.g. APPROVE or DENY in case of request approvals.",
+                        "default": null,
+                        "Searchable": {
+                          "fieldType": "KEYWORD"
+                        }
+                      },
+                      {
+                        "name": "lastModified",
+                        "type": {
+                          "type": "record",
+                          "name": "AuditStamp",
+                          "namespace": "com.linkedin.pegasus2avro.common",
+                          "doc": "Data captured on a resource/association/sub-resource level giving insight into when that resource/association/sub-resource moved into a particular lifecycle stage, and who acted to move it into that specific lifecycle stage.",
+                          "fields": [
+                            {
+                              "name": "time",
+                              "type": "long",
+                              "doc": "When did the resource/association/sub-resource move into the specific lifecycle stage represented by this AuditEvent."
+                            },
+                            {
+                              "name": "actor",
+                              "type": "string",
+                              "doc": "The entity (e.g. a member URN) which will be credited for moving the resource/association/sub-resource into the specific lifecycle stage. It is also the one used to authorize the change.",
+                              "java": {
+                                "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+                              }
+                            },
+                            {
+                              "name": "impersonator",
+                              "type": [
+                                "null",
+                                "string"
+                              ],
+                              "doc": "The entity (e.g. a service URN) which performs the change on behalf of the Actor and must be authorized to act as the Actor.",
+                              "default": null,
+                              "java": {
+                                "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+                              }
+                            }
+                          ]
+                        },
+                        "doc": "Audit stamp containing who last modified the status and when."
+                      }
+                    ],
+                    "Aspect": {
+                      "name": "actionRequestStatus"
+                    }
+                  },
+                  {
+                    "type": "record",
+                    "name": "ActionRequestInfo",
+                    "namespace": "com.linkedin.pegasus2avro.actionrequest",
+                    "doc": "The status of the action request - e.g. accepted, rejected, pending, etc",
+                    "fields": [
+                      {
+                        "name": "type",
+                        "type": "string",
+                        "doc": "The type of the action request, for example 'TAG_ASSOCIATION'",
+                        "Searchable": {
+                          "fieldType": "KEYWORD"
+                        }
+                      },
+                      {
+                        "name": "assignedUsers",
+                        "type": {
+                          "type": "array",
+                          "items": "string"
+                        },
+                        "doc": "The users this action request is assigned to",
+                        "Searchable": {
+                          "/*": {
+                            "addToFilters": true,
+                            "fieldType": "URN"
+                          }
+                        }
+                      },
+                      {
+                        "name": "assignedGroups",
+                        "type": {
+                          "type": "array",
+                          "items": "string"
+                        },
+                        "doc": "The groups this action request is assigned to",
+                        "Searchable": {
+                          "/*": {
+                            "addToFilters": true,
+                            "fieldType": "URN"
+                          }
+                        }
+                      },
+                      {
+                        "name": "resourceType",
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "doc": "The resource type that the action is associated with, for example 'dataset'",
+                        "default": null
+                      },
+                      {
+                        "name": "resource",
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "doc": "The resource identifier that the action is associated with, for example 'urn:li:dataset:...'",
+                        "default": null,
+                        "Searchable": {
+                          "fieldType": "KEYWORD"
+                        }
+                      },
+                      {
+                        "name": "subResourceType",
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "doc": "The sub resource type that the action is associated with, for example 'datasetField'",
+                        "default": null
+                      },
+                      {
+                        "name": "subResource",
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "doc": "The sub-resource identifier that the action is associated with, for example 'fieldName'",
+                        "default": null,
+                        "Searchable": {
+                          "fieldType": "KEYWORD"
+                        }
+                      },
+                      {
+                        "name": "params",
+                        "type": [
+                          "null",
+                          {
+                            "type": "record",
+                            "name": "ActionRequestParams",
+                            "doc": "Parameters provided with a particular action request. Only one of the fields will be populated,\ndepending on the action request type.",
+                            "fields": [
+                              {
+                                "name": "glossaryTermProposal",
+                                "type": [
+                                  "null",
+                                  {
+                                    "type": "record",
+                                    "name": "GlossaryTermProposal",
+                                    "fields": [
+                                      {
+                                        "name": "glossaryTerm",
+                                        "type": "string",
+                                        "doc": "The urn of the glossary term being proposed.",
+                                        "java": {
+                                          "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+                                        }
+                                      }
+                                    ]
+                                  }
+                                ],
+                                "doc": "An optional set of information specific to term proposals.",
+                                "default": null
+                              },
+                              {
+                                "name": "tagProposal",
+                                "type": [
+                                  "null",
+                                  {
+                                    "type": "record",
+                                    "name": "TagProposal",
+                                    "fields": [
+                                      {
+                                        "name": "tag",
+                                        "type": "string",
+                                        "doc": "The urn of the tag being proposed.",
+                                        "java": {
+                                          "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+                                        }
+                                      }
+                                    ]
+                                  }
+                                ],
+                                "doc": "An optional set of information specific to tag proposals.",
+                                "default": null
+                              }
+                            ]
+                          }
+                        ],
+                        "doc": "Parameters specific for a particular Action Request type",
+                        "default": null
+                      },
+                      {
+                        "name": "created",
+                        "type": "long",
+                        "doc": "The time at which the request was initially created",
+                        "Searchable": {
+                          "fieldType": "COUNT"
+                        }
+                      },
+                      {
+                        "name": "createdBy",
+                        "type": "string",
+                        "doc": "Who the action request was created by",
+                        "Searchable": {
+                          "fieldType": "URN"
+                        },
+                        "java": {
+                          "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+                        }
+                      },
+                      {
+                        "name": "dueDate",
+                        "type": [
+                          "null",
+                          "long"
+                        ],
+                        "doc": "The time at which the request is due",
+                        "default": null
+                      }
+                    ],
+                    "Aspect": {
+                      "name": "actionRequestInfo"
+                    }
+                  }
+                ]
+              },
+              "doc": "The list of metadata aspects associated with the Action Request."
+            }
+          ],
+          "Entity": {
+            "keyAspect": "actionRequestKey",
+            "name": "actionRequest"
+          }
+        },
+        {
+          "type": "record",
           "name": "ChartSnapshot",
           "namespace": "com.linkedin.pegasus2avro.metadata.snapshot",
           "doc": "A metadata snapshot for a specific Chart entity.",
@@ -125,7 +412,6 @@
                         "type": "string",
                         "doc": "The name of the dashboard tool such as looker, redash etc.",
                         "Searchable": {
-                          "addToFilters": true,
                           "boostScore": 4.0,
                           "fieldName": "tool",
                           "fieldType": "TEXT_PARTIAL"
@@ -199,38 +485,7 @@
                           "fields": [
                             {
                               "name": "created",
-                              "type": {
-                                "type": "record",
-                                "name": "AuditStamp",
-                                "doc": "Data captured on a resource/association/sub-resource level giving insight into when that resource/association/sub-resource moved into a particular lifecycle stage, and who acted to move it into that specific lifecycle stage.",
-                                "fields": [
-                                  {
-                                    "name": "time",
-                                    "type": "long",
-                                    "doc": "When did the resource/association/sub-resource move into the specific lifecycle stage represented by this AuditEvent."
-                                  },
-                                  {
-                                    "name": "actor",
-                                    "type": "string",
-                                    "doc": "The entity (e.g. a member URN) which will be credited for moving the resource/association/sub-resource into the specific lifecycle stage. It is also the one used to authorize the change.",
-                                    "java": {
-                                      "class": "com.linkedin.pegasus2avro.common.urn.Urn"
-                                    }
-                                  },
-                                  {
-                                    "name": "impersonator",
-                                    "type": [
-                                      "null",
-                                      "string"
-                                    ],
-                                    "doc": "The entity (e.g. a service URN) which performs the change on behalf of the Actor and must be authorized to act as the Actor.",
-                                    "default": null,
-                                    "java": {
-                                      "class": "com.linkedin.pegasus2avro.common.urn.Urn"
-                                    }
-                                  }
-                                ]
-                              },
+                              "type": "AuditStamp",
                               "doc": "An AuditStamp corresponding to the creation of this resource/association/sub-resource. A value of 0 for time indicates missing data.",
                               "default": {
                                 "actor": "urn:li:corpuser:unknown",
@@ -328,7 +583,8 @@
                         "default": null,
                         "Searchable": {
                           "addToFilters": true,
-                          "fieldType": "KEYWORD"
+                          "fieldType": "KEYWORD",
+                          "filterNameOverride": "Chart Type"
                         }
                       },
                       {
@@ -354,7 +610,8 @@
                         "default": null,
                         "Searchable": {
                           "addToFilters": true,
-                          "fieldType": "KEYWORD"
+                          "fieldType": "KEYWORD",
+                          "filterNameOverride": "Access Level"
                         }
                       },
                       {
@@ -399,7 +656,9 @@
                         "doc": "Chart query type",
                         "Searchable": {
                           "addToFilters": true,
-                          "fieldType": "KEYWORD"
+                          "fieldName": "queryType",
+                          "fieldType": "KEYWORD",
+                          "filterNameOverride": "Query Type"
                         }
                       }
                     ],
@@ -633,8 +892,10 @@
                                 "type": "string",
                                 "doc": "Urn of the applied tag",
                                 "Searchable": {
+                                  "addToFilters": true,
                                   "fieldName": "tags",
                                   "fieldType": "URN_PARTIAL",
+                                  "filterNameOverride": "Tags",
                                   "hasValuesFieldName": "hasTags"
                                 },
                                 "java": {
@@ -696,8 +957,10 @@
                                 "type": "string",
                                 "doc": "Urn of the applied glossary term",
                                 "Searchable": {
+                                  "addToFilters": true,
                                   "fieldName": "glossaryTerms",
-                                  "fieldType": "URN_PARTIAL"
+                                  "fieldType": "URN_PARTIAL",
+                                  "filterNameOverride": "Glossary Terms"
                                 },
                                 "java": {
                                   "class": "com.linkedin.pegasus2avro.common.urn.GlossaryTermUrn"
@@ -760,6 +1023,39 @@
                     ],
                     "Aspect": {
                       "name": "institutionalMemory"
+                    }
+                  },
+                  {
+                    "type": "record",
+                    "name": "DataPlatformInstance",
+                    "namespace": "com.linkedin.pegasus2avro.common",
+                    "doc": "Tag aspect used for applying tags to an entity",
+                    "fields": [
+                      {
+                        "name": "platform",
+                        "type": "string",
+                        "doc": "Data Platform",
+                        "Searchable": {
+                          "addToFilters": true,
+                          "fieldType": "URN",
+                          "filterNameOverride": "Platform"
+                        },
+                        "java": {
+                          "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+                        }
+                      },
+                      {
+                        "name": "instance",
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "doc": "Instance of the data platform (e.g. db instance)",
+                        "default": null
+                      }
+                    ],
+                    "Aspect": {
+                      "name": "dataPlatformInstance"
                     }
                   }
                 ]
@@ -1253,7 +1549,6 @@
                         "type": "string",
                         "doc": "The name of the dashboard tool such as looker, redash etc.",
                         "Searchable": {
-                          "addToFilters": true,
                           "boostScore": 4.0,
                           "fieldName": "tool",
                           "fieldType": "TEXT_PARTIAL"
@@ -1366,7 +1661,8 @@
                         "default": null,
                         "Searchable": {
                           "addToFilters": true,
-                          "fieldType": "KEYWORD"
+                          "fieldType": "KEYWORD",
+                          "filterNameOverride": "Access Level"
                         }
                       },
                       {
@@ -1441,7 +1737,8 @@
                   "com.linkedin.pegasus2avro.common.GlobalTags",
                   "com.linkedin.pegasus2avro.common.BrowsePaths",
                   "com.linkedin.pegasus2avro.common.GlossaryTerms",
-                  "com.linkedin.pegasus2avro.common.InstitutionalMemory"
+                  "com.linkedin.pegasus2avro.common.InstitutionalMemory",
+                  "com.linkedin.pegasus2avro.common.DataPlatformInstance"
                 ]
               },
               "doc": "The list of metadata aspects associated with the dashboard. Depending on the use case, this can either be all, or a selection, of supported aspects."
@@ -1639,7 +1936,8 @@
                   "com.linkedin.pegasus2avro.common.GlobalTags",
                   "com.linkedin.pegasus2avro.common.BrowsePaths",
                   "com.linkedin.pegasus2avro.common.GlossaryTerms",
-                  "com.linkedin.pegasus2avro.common.InstitutionalMemory"
+                  "com.linkedin.pegasus2avro.common.InstitutionalMemory",
+                  "com.linkedin.pegasus2avro.common.DataPlatformInstance"
                 ]
               },
               "doc": "The list of metadata aspects associated with the data flow. Depending on the use case, this can either be all, or a selection, of supported aspects."
@@ -1986,7 +2284,8 @@
                   "com.linkedin.pegasus2avro.common.GlobalTags",
                   "com.linkedin.pegasus2avro.common.BrowsePaths",
                   "com.linkedin.pegasus2avro.common.GlossaryTerms",
-                  "com.linkedin.pegasus2avro.common.InstitutionalMemory"
+                  "com.linkedin.pegasus2avro.common.InstitutionalMemory",
+                  "com.linkedin.pegasus2avro.common.DataPlatformInstance"
                 ]
               },
               "doc": "The list of metadata aspects associated with the data job. Depending on the use case, this can either be all, or a selection, of supported aspects."
@@ -2026,10 +2325,6 @@
                         "name": "platform",
                         "type": "string",
                         "doc": "Data platform urn associated with the dataset",
-                        "Searchable": {
-                          "addToFilters": true,
-                          "fieldType": "URN"
-                        },
                         "java": {
                           "class": "com.linkedin.pegasus2avro.common.urn.Urn"
                         }
@@ -2068,6 +2363,7 @@
                         "Searchable": {
                           "addToFilters": true,
                           "fieldType": "TEXT_PARTIAL",
+                          "filterNameOverride": "Environment",
                           "queryByDefault": false
                         }
                       }
@@ -3122,7 +3418,8 @@
                   },
                   "com.linkedin.pegasus2avro.common.GlobalTags",
                   "com.linkedin.pegasus2avro.common.GlossaryTerms",
-                  "com.linkedin.pegasus2avro.common.BrowsePaths"
+                  "com.linkedin.pegasus2avro.common.BrowsePaths",
+                  "com.linkedin.pegasus2avro.common.DataPlatformInstance"
                 ]
               },
               "doc": "The list of metadata aspects associated with the dataset. Depending on the use case, this can either be all, or a selection, of supported aspects."
@@ -3424,10 +3721,6 @@
                         "name": "platform",
                         "type": "string",
                         "doc": "Standardized platform urn for the model",
-                        "Searchable": {
-                          "addToFilters": true,
-                          "fieldType": "URN"
-                        },
                         "java": {
                           "class": "com.linkedin.pegasus2avro.common.urn.Urn"
                         }
@@ -3447,7 +3740,9 @@
                         "type": "com.linkedin.pegasus2avro.common.FabricType",
                         "doc": "Fabric type where model belongs to or where it was generated",
                         "Searchable": {
+                          "addToFilters": true,
                           "fieldType": "TEXT_PARTIAL",
+                          "filterNameOverride": "Environment",
                           "queryByDefault": false
                         }
                       }
@@ -4361,7 +4656,9 @@
                       "name": "deprecation"
                     }
                   },
-                  "com.linkedin.pegasus2avro.common.BrowsePaths"
+                  "com.linkedin.pegasus2avro.common.BrowsePaths",
+                  "com.linkedin.pegasus2avro.common.GlobalTags",
+                  "com.linkedin.pegasus2avro.common.DataPlatformInstance"
                 ]
               },
               "doc": "The list of metadata aspects associated with the MLModel. Depending on the use case, this can either be all, or a selection, of supported aspects."
@@ -4402,7 +4699,8 @@
                         "doc": "Namespace for the primary key",
                         "Searchable": {
                           "addToFilters": true,
-                          "fieldType": "TEXT_PARTIAL"
+                          "fieldType": "TEXT_PARTIAL",
+                          "filterNameOverride": "Namespace"
                         }
                       },
                       {
@@ -4520,7 +4818,9 @@
                   "com.linkedin.pegasus2avro.common.Ownership",
                   "com.linkedin.pegasus2avro.common.InstitutionalMemory",
                   "com.linkedin.pegasus2avro.common.Status",
-                  "com.linkedin.pegasus2avro.common.Deprecation"
+                  "com.linkedin.pegasus2avro.common.Deprecation",
+                  "com.linkedin.pegasus2avro.common.GlobalTags",
+                  "com.linkedin.pegasus2avro.common.DataPlatformInstance"
                 ]
               },
               "doc": "The list of metadata aspects associated with the MLPrimaryKey. Depending on the use case, this can either be all, or a selection, of supported aspects."
@@ -4640,7 +4940,9 @@
                   "com.linkedin.pegasus2avro.common.InstitutionalMemory",
                   "com.linkedin.pegasus2avro.common.Status",
                   "com.linkedin.pegasus2avro.common.Deprecation",
-                  "com.linkedin.pegasus2avro.common.BrowsePaths"
+                  "com.linkedin.pegasus2avro.common.BrowsePaths",
+                  "com.linkedin.pegasus2avro.common.GlobalTags",
+                  "com.linkedin.pegasus2avro.common.DataPlatformInstance"
                 ]
               },
               "doc": "The list of metadata aspects associated with the MLFeature. Depending on the use case, this can either be all, or a selection, of supported aspects."
@@ -4684,10 +4986,6 @@
                             "dataPlatform"
                           ],
                           "name": "SourcePlatform"
-                        },
-                        "Searchable": {
-                          "addToFilters": true,
-                          "fieldType": "URN"
                         },
                         "java": {
                           "class": "com.linkedin.pegasus2avro.common.urn.Urn"
@@ -4786,7 +5084,9 @@
                   "com.linkedin.pegasus2avro.common.InstitutionalMemory",
                   "com.linkedin.pegasus2avro.common.Status",
                   "com.linkedin.pegasus2avro.common.Deprecation",
-                  "com.linkedin.pegasus2avro.common.BrowsePaths"
+                  "com.linkedin.pegasus2avro.common.BrowsePaths",
+                  "com.linkedin.pegasus2avro.common.GlobalTags",
+                  "com.linkedin.pegasus2avro.common.DataPlatformInstance"
                 ]
               },
               "doc": "The list of metadata aspects associated with the MLFeatureTable. Depending on the use case, this can either be all, or a selection, of supported aspects."
@@ -4825,10 +5125,6 @@
                         "name": "platform",
                         "type": "string",
                         "doc": "Standardized platform urn for the model Deployment",
-                        "Searchable": {
-                          "addToFilters": true,
-                          "fieldType": "URN"
-                        },
                         "java": {
                           "class": "com.linkedin.pegasus2avro.common.urn.Urn"
                         }
@@ -4848,7 +5144,9 @@
                         "type": "com.linkedin.pegasus2avro.common.FabricType",
                         "doc": "Fabric type where model Deployment belongs to or where it was generated",
                         "Searchable": {
+                          "addToFilters": true,
                           "fieldType": "TEXT_PARTIAL",
+                          "filterNameOverride": "Environment",
                           "queryByDefault": false
                         }
                       }
@@ -4961,7 +5259,9 @@
                   },
                   "com.linkedin.pegasus2avro.common.Ownership",
                   "com.linkedin.pegasus2avro.common.Status",
-                  "com.linkedin.pegasus2avro.common.Deprecation"
+                  "com.linkedin.pegasus2avro.common.Deprecation",
+                  "com.linkedin.pegasus2avro.common.GlobalTags",
+                  "com.linkedin.pegasus2avro.common.DataPlatformInstance"
                 ]
               },
               "doc": "The list of metadata aspects associated with the MLModelDeployment. Depending on the use case, this can either be all, or a selection, of supported aspects."
@@ -5000,10 +5300,6 @@
                         "name": "platform",
                         "type": "string",
                         "doc": "Standardized platform urn for the model group",
-                        "Searchable": {
-                          "addToFilters": true,
-                          "fieldType": "URN"
-                        },
                         "java": {
                           "class": "com.linkedin.pegasus2avro.common.urn.Urn"
                         }
@@ -5091,7 +5387,9 @@
                   "com.linkedin.pegasus2avro.common.Ownership",
                   "com.linkedin.pegasus2avro.common.Status",
                   "com.linkedin.pegasus2avro.common.Deprecation",
-                  "com.linkedin.pegasus2avro.common.BrowsePaths"
+                  "com.linkedin.pegasus2avro.common.BrowsePaths",
+                  "com.linkedin.pegasus2avro.common.GlobalTags",
+                  "com.linkedin.pegasus2avro.common.DataPlatformInstance"
                 ]
               },
               "doc": "The list of metadata aspects associated with the MLModelGroup. Depending on the use case, this can either be all, or a selection, of supported aspects."
