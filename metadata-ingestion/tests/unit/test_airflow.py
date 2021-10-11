@@ -263,6 +263,7 @@ def test_lineage_backend(mock_emit, inlets, outlets):
         assert len(mock_emit.call_args[0][0]) == 4
         assert all(mce.validate() for mce in mock_emit.call_args[0][0])
 
+
 @pytest.mark.parametrize(
     ["inlets", "outlets"],
     [
@@ -322,20 +323,14 @@ def test_subdags(mock_emit, inlets, outlets):
                 # note the repetition here
                 schedule_interval=schedule_interval,
                 start_date=start_date,
-                tags=["this_is_a_subdag"]
+                tags=["this_is_a_subdag"],
             )
 
-            subdag_task_1 = DummyOperator(
-                task_id="subdag-task-1", dag=dag
-            )
+            subdag_task_1 = DummyOperator(task_id="subdag-task-1", dag=dag)
 
-            subdag_task_2 = DummyOperator(
-                task_id="subdag-task-2", dag=dag
-            )
+            subdag_task_2 = DummyOperator(task_id="subdag-task-2", dag=dag)
 
-            subdag_task_3 = DummyOperator(
-                task_id="subdag-task-3", dag=dag
-            )
+            subdag_task_3 = DummyOperator(task_id="subdag-task-3", dag=dag)
 
             # some basic structure to check lineage ingestion
             subdag_task_1 >> subdag_task_2
@@ -357,7 +352,7 @@ def test_subdags(mock_emit, inlets, outlets):
             subdag_1 = SubDagOperator(
                 task_id="subdag-1",
                 subdag=subdag(dag, "subdag-1", dag.start_date, dag.schedule_interval),
-                trigger_rule=TriggerRule.ALL_DONE
+                trigger_rule=TriggerRule.ALL_DONE,
             )
 
             op2 = DummyOperator(
@@ -369,7 +364,7 @@ def test_subdags(mock_emit, inlets, outlets):
             subdag_2 = SubDagOperator(
                 task_id="subdag-2",
                 subdag=subdag(dag, "subdag-2", dag.start_date, dag.schedule_interval),
-                trigger_rule=TriggerRule.ALL_DONE
+                trigger_rule=TriggerRule.ALL_DONE,
             )
 
             op3 = DummyOperator(
@@ -380,7 +375,11 @@ def test_subdags(mock_emit, inlets, outlets):
 
             op1 >> subdag_1 >> op2 >> subdag_2 >> op3
 
-        tasks = [op1, subdag_1, op2, subdag_2, op3] + list(subdag_1.subdag.task_dict.values()) + list(subdag_2.subdag.task_dict.values())
+        tasks = (
+            [op1, subdag_1, op2, subdag_2, op3]
+            + list(subdag_1.subdag.task_dict.values())
+            + list(subdag_2.subdag.task_dict.values())
+        )
 
         for task in tasks:
 
