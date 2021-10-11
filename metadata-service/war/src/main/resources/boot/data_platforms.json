@@ -20,16 +20,6 @@
     }
   },
   {
-    "urn": "urn:li:dataPlatform:airflow",
-    "aspect": {
-      "datasetNameDelimiter": ".",
-      "name": "airflow",
-      "displayName": "Airflow",
-      "type": "OTHERS",
-      "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/airflowlogo.png"
-    }
-  },
-  {
     "urn": "urn:li:dataPlatform:ambry",
     "aspect": {
       "datasetNameDelimiter": ".",
