@@ -478,6 +478,7 @@ fragment schemaMetadataFields on SchemaMetadata {
         type
         nativeDataType
         recursive
+        isPartOfKey
         globalTags {
             ...globalTagsFields
         }
@@ -584,4 +585,3 @@ fragment nonRecursiveMLModelGroupFields on MLModelGroup {
         ...ownershipFields
     }
 }
-
