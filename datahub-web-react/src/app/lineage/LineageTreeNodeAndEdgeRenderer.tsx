@@ -67,7 +67,7 @@ export default function LineageTreeNodeAndEdgeRenderer({
                 const isHighlighted = isLinkHighlighted(link);
 
                 return (
-                    <Group>
+                    <Group key={`edge-${link.source.data.urn}-${link.target.data.urn}-${direction}`}>
                         <LinePath
                             // we rotated the svg 90 degrees so we need to switch x & y for the last mile
                             x={(d) => d.y}
@@ -78,6 +78,7 @@ export default function LineageTreeNodeAndEdgeRenderer({
                             strokeWidth="1"
                             markerEnd={`url(#triangle-downstream${isHighlighted ? '-highlighted' : ''})`}
                             markerStart={`url(#triangle-upstream${isHighlighted ? '-highlighted' : ''})`}
+                            data-testid={`edge-${link.source.data.urn}-${link.target.data.urn}-${direction}`}
                         />
                     </Group>
                 );

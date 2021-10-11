@@ -4,7 +4,6 @@ import {
     DataPlatform,
     DatasetEditableProperties,
     DatasetEditablePropertiesUpdate,
-    DownstreamEntityRelationships,
     EditableSchemaMetadata,
     EditableSchemaMetadataUpdate,
     EntityType,
@@ -18,7 +17,6 @@ import {
     OwnershipUpdate,
     SchemaMetadata,
     StringMapEntry,
-    UpstreamEntityRelationships,
 } from '../../../types.generated';
 import { FetchedEntity } from '../../lineage/types';
 

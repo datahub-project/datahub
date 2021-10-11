@@ -56,7 +56,10 @@ export default function LineageVizInsideZoom({
     width,
     height,
 }: Props) {
+    const [draggedNodes, setDraggedNodes] = useState<Record<string, { x: number; y: number }>>({});
+
     const [hoveredEntity, setHoveredEntity] = useState<EntitySelectParams | undefined>(undefined);
+    const [isDraggingNode, setIsDraggingNode] = useState(false);
 
     const entityRegistry = useEntityRegistry();
 
@@ -90,9 +93,17 @@ export default function LineageVizInsideZoom({
                 height={height}
                 onMouseDown={zoom.dragStart}
                 onMouseUp={zoom.dragEnd}
-                onMouseMove={zoom.dragMove}
+                onMouseMove={(e) => {
+                    if (!isDraggingNode) {
+                        zoom.dragMove(e);
+                    }
+                }}
                 onTouchStart={zoom.dragStart}
-                onTouchMove={zoom.dragMove}
+                onTouchMove={(e) => {
+                    if (!isDraggingNode) {
+                        zoom.dragMove(e);
+                    }
+                }}
                 onTouchEnd={zoom.dragEnd}
                 isDragging={zoom.isDragging}
             >
@@ -184,6 +195,10 @@ export default function LineageVizInsideZoom({
                     hoveredEntity={hoveredEntity}
                     setHoveredEntity={setHoveredEntity}
                     direction={Direction.Upstream}
+                    canvasHeight={height}
+                    setIsDraggingNode={setIsDraggingNode}
+                    draggedNodes={draggedNodes}
+                    setDraggedNodes={setDraggedNodes}
                 />
                 <LineageTree
                     data={downstreamData}
@@ -196,6 +211,10 @@ export default function LineageVizInsideZoom({
                     hoveredEntity={hoveredEntity}
                     setHoveredEntity={setHoveredEntity}
                     direction={Direction.Downstream}
+                    canvasHeight={height}
+                    setIsDraggingNode={setIsDraggingNode}
+                    draggedNodes={draggedNodes}
+                    setDraggedNodes={setDraggedNodes}
                 />
             </RootSvg>
         </ZoomContainer>

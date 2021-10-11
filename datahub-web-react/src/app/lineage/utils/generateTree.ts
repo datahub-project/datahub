@@ -1,15 +1,21 @@
-import { CURVE_PADDING, HORIZONTAL_SPACE_PER_LAYER, INNER_CURVE_PADDING, VERTICAL_SPACE_PER_NODE } from '../constants';
+import { CURVE_PADDING, HORIZONTAL_SPACE_PER_LAYER, VERTICAL_SPACE_PER_NODE } from '../constants';
 import { Direction, NodeData, VizEdge, VizNode } from '../types';
+import { width as nodeWidth } from '../LineageEntityNode';
 
 type ProcessArray = {
     parent: VizNode | null;
     node: NodeData;
 }[];
 
+const INSIDE_NODE_SHIFT = nodeWidth / 2 - 19;
+
+const HEADER_HEIGHT = 125;
+
 export default function generateTree(
     data: NodeData,
     direction: Direction,
     draggedNodes: Record<string, { x: number; y: number }>,
+    canvasHeight: number,
 ): {
     nodesToRender: VizNode[];
     edgesToRender: VizEdge[];
@@ -17,7 +23,6 @@ export default function generateTree(
     height: number;
     layers: number;
 } {
-    console.log(draggedNodes);
     const nodesToRender: VizNode[] = [];
     const edgesToRender: VizEdge[] = [];
     let maxHeight = VERTICAL_SPACE_PER_NODE;
@@ -61,7 +66,11 @@ export default function generateTree(
                           }
                         : {
                               data: node,
-                              x: VERTICAL_SPACE_PER_NODE * addedIndex - (VERTICAL_SPACE_PER_NODE * (layerSize - 1)) / 2,
+                              x:
+                                  VERTICAL_SPACE_PER_NODE * addedIndex -
+                                  (VERTICAL_SPACE_PER_NODE * (layerSize - 1)) / 2 +
+                                  canvasHeight / 2 +
+                                  HEADER_HEIGHT,
                               y: HORIZONTAL_SPACE_PER_LAYER * currentLayer * xModifier,
                           };
                 nodesByUrn[node.urn] = vizNodeForNode;
@@ -78,28 +87,31 @@ export default function generateTree(
 
             if (parent) {
                 const parentIsHigher = parent.x > vizNodeForNode.x;
-                const parentIsBehind = Math.abs(parent.y) < Math.abs(vizNodeForNode.y);
+                const parentIsBehind =
+                    direction === Direction.Downstream
+                        ? parent.y < vizNodeForNode.y - nodeWidth
+                        : parent.y > vizNodeForNode.y + nodeWidth;
 
                 const curve = parentIsBehind
                     ? [
-                          { x: parent.x, y: parent.y + 90 * xModifier + directionShift },
-                          { x: parent.x, y: parent.y + (90 + CURVE_PADDING) * xModifier },
-                          { x: vizNodeForNode.x, y: vizNodeForNode.y - (105 + CURVE_PADDING) * xModifier },
-                          { x: vizNodeForNode.x, y: vizNodeForNode.y - 105 * xModifier + directionShift },
+                          { x: parent.x, y: parent.y + INSIDE_NODE_SHIFT * xModifier + directionShift },
+                          { x: parent.x, y: parent.y + (INSIDE_NODE_SHIFT + CURVE_PADDING) * xModifier },
+                          { x: vizNodeForNode.x, y: vizNodeForNode.y - (nodeWidth / 2 + CURVE_PADDING) * xModifier },
+                          { x: vizNodeForNode.x, y: vizNodeForNode.y - (nodeWidth / 2) * xModifier + directionShift },
                       ]
                     : [
-                          { x: parent.x, y: parent.y + 90 * xModifier + directionShift },
-                          { x: parent.x, y: parent.y + (90 + CURVE_PADDING) * xModifier },
+                          { x: parent.x, y: parent.y + INSIDE_NODE_SHIFT * xModifier + directionShift },
+                          { x: parent.x, y: parent.y + (INSIDE_NODE_SHIFT + CURVE_PADDING) * xModifier },
                           {
-                              x: parent.x + INNER_CURVE_PADDING * (parentIsHigher ? -1 : 1),
-                              y: parent.y + (90 + CURVE_PADDING) * xModifier,
+                              x: parent.x + CURVE_PADDING * (parentIsHigher ? -1 : 1),
+                              y: parent.y + (INSIDE_NODE_SHIFT + CURVE_PADDING) * xModifier,
                           },
                           {
-                              x: vizNodeForNode.x + INNER_CURVE_PADDING * (parentIsHigher ? 1 : -1),
-                              y: vizNodeForNode.y - (105 + CURVE_PADDING) * xModifier,
+                              x: vizNodeForNode.x + CURVE_PADDING * (parentIsHigher ? 1 : -1),
+                              y: vizNodeForNode.y - (nodeWidth / 2 + CURVE_PADDING) * xModifier,
                           },
-                          { x: vizNodeForNode.x, y: vizNodeForNode.y - (105 + CURVE_PADDING) * xModifier },
-                          { x: vizNodeForNode.x, y: vizNodeForNode.y - 105 * xModifier + directionShift },
+                          { x: vizNodeForNode.x, y: vizNodeForNode.y - (nodeWidth / 2 + CURVE_PADDING) * xModifier },
+                          { x: vizNodeForNode.x, y: vizNodeForNode.y - (nodeWidth / 2) * xModifier + directionShift },
                       ];
 
                 const vizEdgeForPair = {

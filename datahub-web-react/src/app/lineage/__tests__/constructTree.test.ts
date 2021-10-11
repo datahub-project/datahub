@@ -208,7 +208,7 @@ describe('constructTree', () => {
         });
     });
 
-    it('for a set of identical nodes, only one will have children', () => {
+    it('for a set of identical nodes, both will be referentially identical', () => {
         const fetchedEntities = [
             { entity: dataset4WithLineage, direction: Direction.Upstream, fullyFetched: true },
             { entity: dataset5WithLineage, direction: Direction.Upstream, fullyFetched: true },
@@ -237,8 +237,7 @@ describe('constructTree', () => {
 
         expect(fifthDatasetIntance1?.name).toEqual('Fifth Test Dataset');
         expect(fifthDatasetIntance2?.name).toEqual('Fifth Test Dataset');
-        expect(fifthDatasetIntance1 === fifthDatasetIntance2).toEqual(false);
-        expect(fifthDatasetIntance1?.children === fifthDatasetIntance2?.children).toEqual(false);
+        expect(fifthDatasetIntance1 === fifthDatasetIntance2).toEqual(true);
     });
 
     it('handles partially fetched graph with layers of lineage', () => {

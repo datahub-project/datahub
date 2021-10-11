@@ -42,6 +42,10 @@ const PointerGroup = styled(Group)`
     cursor: pointer;
 `;
 
+const UnselectableText = styled.text`
+    user-select: none;
+`;
+
 export default function LineageEntityNode({
     node,
     isSelected,
@@ -173,7 +177,7 @@ export default function LineageEntityNode({
                     )
                 )}
                 <Group>
-                    <text
+                    <UnselectableText
                         dy="-1em"
                         x={textX}
                         fontSize={8}
@@ -190,8 +194,8 @@ export default function LineageEntityNode({
                         <tspan dx=".25em" dy="-2px">
                             {capitalizeFirstLetter(node.data.subtype || node.data.type)}
                         </tspan>
-                    </text>
-                    <text
+                    </UnselectableText>
+                    <UnselectableText
                         dy="1em"
                         x={textX}
                         fontSize={14}
@@ -200,10 +204,10 @@ export default function LineageEntityNode({
                         fill={isCenterNode ? '#1890FF' : 'black'}
                     >
                         {truncate(getLastTokenOfTitle(node.data.name), 16)}
-                    </text>
+                    </UnselectableText>
                 </Group>
                 {unexploredHiddenChildren && isHovered ? (
-                    <text
+                    <UnselectableText
                         dy=".33em"
                         dx={textX}
                         fontSize={16}
@@ -214,7 +218,7 @@ export default function LineageEntityNode({
                     >
                         {unexploredHiddenChildren} hidden {direction === Direction.Upstream ? 'downstream' : 'upstream'}{' '}
                         {unexploredHiddenChildren > 1 ? 'dependencies' : 'dependency'}
-                    </text>
+                    </UnselectableText>
                 ) : null}
             </Group>
         </PointerGroup>

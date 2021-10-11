@@ -18,6 +18,10 @@ type LineageTreeProps = {
     setHoveredEntity: (EntitySelectParams) => void;
     margin: TreeProps['margin'];
     direction: Direction;
+    canvasHeight: number;
+    setIsDraggingNode: (isDraggingNode: boolean) => void;
+    draggedNodes: Record<string, { x: number; y: number }>;
+    setDraggedNodes: (draggedNodes: Record<string, { x: number; y: number }>) => void;
 };
 
 export default function LineageTree({
@@ -31,6 +35,10 @@ export default function LineageTree({
     hoveredEntity,
     setHoveredEntity,
     direction,
+    canvasHeight,
+    setIsDraggingNode,
+    draggedNodes,
+    setDraggedNodes,
 }: LineageTreeProps) {
     const [xCanvasScale, setXCanvasScale] = useState(1);
 
@@ -38,12 +46,11 @@ export default function LineageTree({
         setXCanvasScale(1);
     }, [data.urn]);
 
-    const [draggedNodes, setDraggedNodes] = useState<Record<string, { x: number; y: number }>>({});
     let dragState: { urn: string; x: number; y: number } | undefined;
 
     const { nodesToRender, edgesToRender, nodesByUrn, layers } = useMemo(
-        () => generateTree(data, direction, draggedNodes),
-        [data, direction, draggedNodes],
+        () => generateTree(data, direction, draggedNodes, canvasHeight),
+        [data, direction, draggedNodes, canvasHeight],
     );
 
     const dragContinue = (event: MouseEvent) => {
@@ -62,6 +69,7 @@ export default function LineageTree({
     };
 
     const stopDragging = () => {
+        setIsDraggingNode(false);
         window.removeEventListener('mousemove', dragContinue, false);
         window.removeEventListener('mouseup', stopDragging, false);
     };
@@ -69,6 +77,7 @@ export default function LineageTree({
     const onDrag = ({ urn }, event: React.MouseEvent) => {
         const { clientX, clientY } = event;
         dragState = { urn, x: clientX, y: clientY };
+        setIsDraggingNode(true);
 
         window.addEventListener('mousemove', dragContinue, false);
         window.addEventListener('mouseup', stopDragging, false);
