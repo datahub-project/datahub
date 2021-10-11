@@ -44,6 +44,11 @@ dependencies {
   testCompile project(':test-models')
 }
 
+test {
+  // https://docs.gradle.org/current/userguide/performance.html
+  maxParallelForks = Runtime.runtime.availableProcessors().intdiv(2) ?: 1
+}
+
 tasks.withType(Test) {
     enableAssertions = false
 }
