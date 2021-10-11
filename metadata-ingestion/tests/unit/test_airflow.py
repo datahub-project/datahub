@@ -11,14 +11,11 @@ from airflow.lineage import apply_lineage, prepare_lineage
 from airflow.models import DAG, Connection, DagBag
 from airflow.models import TaskInstance as TI
 from airflow.utils.dates import days_ago
-from airflow.utils.trigger_rule import TriggerRule
 
 try:
     from airflow.operators.dummy import DummyOperator
-    from airflow.operators.subdag import SubDagOperator
 except ModuleNotFoundError:
     from airflow.operators.dummy_operator import DummyOperator
-    from airflow.operators.subdag_operator import SubDagOperator
 
 import datahub.emitter.mce_builder as builder
 from datahub_provider import get_provider_info

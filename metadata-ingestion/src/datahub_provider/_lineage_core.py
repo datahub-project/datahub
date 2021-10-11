@@ -99,7 +99,9 @@ def send_lineage_to_datahub(
 
         # filter through the parent dag's tasks and find the subdag trigger(s)
         subdags = [x for x in dag.parent_dag.task_dict.values() if x.subdag is not None]
-        matched_subdags = [x for x in subdags if x.subdag.dag_id == dag.dag_id]
+        matched_subdags = [
+            x for x in subdags if getattr(getattr(x, "subdag"), "dag_id") == dag.dag_id
+        ]
 
         # id of the task containing the subdag
         subdag_task_id = matched_subdags[0].task_id
@@ -243,7 +245,7 @@ def send_lineage_to_datahub(
         [
             builder.make_data_job_urn_with_flow(flow_urn, task_id)
             for task_id in task.upstream_task_ids
-            if dag.task_dict.get(task_id).subdag is None
+            if dag.task_dict[task_id].subdag is None
         ]
         + upstream_subdag_task_urns
         + upstream_subdag_triggers
