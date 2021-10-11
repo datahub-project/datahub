@@ -34,7 +34,10 @@ jobs:
         if: always()
         with:
           name: Test Results
-          path: "**/build/reports/tests/test/**"
+          path: |
+            **/build/reports/tests/test/**
+            **/build/test-results/test/**
+            ${{ github.event_path }}
       - name: Ensure codegen is updated
         run: |
           if output=$(git status --porcelain) && [ ! -z "$output" ]; then
