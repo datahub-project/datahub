@@ -34,7 +34,6 @@ import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import io.opentelemetry.extension.annotations.WithSpan;
-
 import java.net.URISyntaxException;
 import java.sql.Timestamp;
 import java.util.ArrayList;
@@ -48,7 +47,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 
@@ -200,15 +198,19 @@ public class EbeanEntityService extends EntityService {
         aspectMetadataList.getPageSize());
   }
 
-  // TODO: Move to EntityService
   @Override
   @Nonnull
   @WithSpan
   public RecordTemplate ingestAspect(@Nonnull final Urn urn, @Nonnull final String entityName,
       @Nonnull final String aspectName, @Nonnull final RecordTemplate newAspect, @Nonnull final AuditStamp auditStamp,
       @Nonnull final SystemMetadata systemMetadata) {
-    log.debug("Invoked ingestAspect with urn: {}, entityName: {}, aspectName: {}, newValue: {}", urn, entityName,
-        aspectName, newAspect);
+
+    log.debug("Invoked ingestAspect with urn: {}, aspectName: {}, newAspect: {}", urn, aspectName, newAspect);
+
+    if (!urn.toString().trim().equals(urn.toString())) {
+      throw new IllegalArgumentException("Error: cannot provide an URN with leading or trailing whitespace");
+    }
+
     Timer.Context ingestToLocalDBTimer = MetricUtils.timer(this.getClass(), "ingestAspectToLocalDB").time();
 
     // 1. Retrieve the previous (latest) version of the aspect
@@ -219,7 +221,7 @@ public class EbeanEntityService extends EntityService {
 
     // 3. The before change processors could ask to stop the processing of the aspect change here.
     if (result.changeState == ChangeState.FAILURE) {
-      log.info("Ignoring aspect for urn: {}, entityName: {}, aspectName: {}, newValue:{}. Reason: {}", urn, entityName,
+      log.info("Ignoring aspect for urn: {}, entityName: {}, aspectName: {}, newAspect:{}. Reason: {}", urn, entityName,
           aspectName, result.aspect, result.message);
       return result.aspect;
     }
@@ -372,7 +374,7 @@ public class EbeanEntityService extends EntityService {
 
     if (aspectSpec == null) {
       throw new RuntimeException(
-          String.format("Unknown aspect {} for entity {}", metadataChangeProposal.getAspectName(),
+          String.format("Unknown aspect %s for entity %s", metadataChangeProposal.getAspectName(),
               metadataChangeProposal.getEntityType()));
     }
 

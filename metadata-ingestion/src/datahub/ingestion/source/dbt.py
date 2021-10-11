@@ -37,7 +37,14 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     StringTypeClass,
     TimeTypeClass,
 )
-from datahub.metadata.schema_classes import DatasetPropertiesClass
+from datahub.metadata.schema_classes import (
+    DatasetPropertiesClass,
+    GlobalTagsClass,
+    OwnerClass,
+    OwnershipClass,
+    OwnershipTypeClass,
+    TagAssociationClass,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +58,7 @@ class DBTConfig(ConfigModel):
     load_schemas: bool
     use_identifiers: bool = False
     node_type_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
+    tag_prefix: str = "dbt:"
 
 
 @dataclass
@@ -60,6 +68,7 @@ class DBTColumn:
     description: str
     index: int
     data_type: str
+    tags: List[str] = field(default_factory=list)
 
     def __repr__(self):
         fields = tuple("{}={}".format(k, v) for k, v in self.__dict__.items())
@@ -85,17 +94,23 @@ class DBTNode:
     # see https://docs.getdbt.com/reference/artifacts/manifest-json
     catalog_type: Optional[str]
 
+    owner: Optional[str]
+
     columns: List[DBTColumn] = field(default_factory=list)
     upstream_urns: List[str] = field(default_factory=list)
 
     meta: Dict[str, Any] = field(default_factory=dict)
+
+    tags: List[str] = field(default_factory=list)
 
     def __repr__(self):
         fields = tuple("{}={}".format(k, v) for k, v in self.__dict__.items())
         return self.__class__.__name__ + str(tuple(sorted(fields))).replace("'", "")
 
 
-def get_columns(catalog_node: dict, manifest_node: dict) -> List[DBTColumn]:
+def get_columns(
+    catalog_node: dict, manifest_node: dict, tag_prefix: str
+) -> List[DBTColumn]:
     columns = []
 
     manifest_columns = manifest_node.get("columns", {})
@@ -105,12 +120,16 @@ def get_columns(catalog_node: dict, manifest_node: dict) -> List[DBTColumn]:
     for key in raw_columns:
         raw_column = raw_columns[key]
 
+        tags = manifest_columns.get(key.lower(), {}).get("tags", [])
+        tags = [tag_prefix + tag for tag in tags]
+
         dbtCol = DBTColumn(
             name=raw_column["name"].lower(),
             comment=raw_column.get("comment", ""),
             description=manifest_columns.get(key.lower(), {}).get("description", ""),
             data_type=raw_column["type"],
             index=raw_column["index"],
+            tags=tags,
         )
         columns.append(dbtCol)
     return columns
@@ -122,6 +141,7 @@ def extract_dbt_entities(
     sources_results: List[Dict[str, Any]],
     load_schemas: bool,
     use_identifiers: bool,
+    tag_prefix: str,
     target_platform: str,
     environment: str,
     node_type_pattern: AllowDenyPattern,
@@ -177,10 +197,14 @@ def extract_dbt_entities(
                 key,
                 f"Entity {key} ({name}) is in manifest but missing from catalog",
             )
-
         else:
-
             catalog_type = all_catalog_entities[key]["metadata"]["type"]
+
+        meta = manifest_node.get("meta", {})
+        owner = meta.get("owner")
+
+        tags = manifest_node.get("tags", [])
+        tags = [tag_prefix + tag for tag in tags]
 
         dbtNode = DBTNode(
             dbt_name=key,
@@ -204,6 +228,8 @@ def extract_dbt_entities(
                 environment,
             ),
             meta=manifest_node.get("meta", {}),
+            tags=tags,
+            owner=owner,
         )
 
         # overwrite columns from catalog
@@ -219,7 +245,7 @@ def extract_dbt_entities(
                     f"Entity {dbtNode.dbt_name} is in manifest but missing from catalog",
                 )
             else:
-                dbtNode.columns = get_columns(catalog_node, manifest_node)
+                dbtNode.columns = get_columns(catalog_node, manifest_node, tag_prefix)
 
         else:
             dbtNode.columns = []
@@ -235,6 +261,7 @@ def loadManifestAndCatalog(
     sources_path: Optional[str],
     load_schemas: bool,
     use_identifiers: bool,
+    tag_prefix: str,
     target_platform: str,
     environment: str,
     node_type_pattern: AllowDenyPattern,
@@ -275,6 +302,7 @@ def loadManifestAndCatalog(
         sources_results,
         load_schemas,
         use_identifiers,
+        tag_prefix,
         target_platform,
         environment,
         node_type_pattern,
@@ -418,6 +446,12 @@ def get_schema_metadata(
         elif column.description:
             description = column.description
 
+        globalTags = None
+        if column.tags:
+            globalTags = GlobalTagsClass(
+                tags=[TagAssociationClass(f"urn:li:tag:{tag}") for tag in column.tags]
+            )
+
         field = SchemaField(
             fieldPath=column.name,
             nativeDataType=column.data_type,
@@ -425,6 +459,7 @@ def get_schema_metadata(
             description=description,
             nullable=False,  # TODO: actually autodetect this
             recursive=False,
+            globalTags=globalTags,
         )
 
         canonical_schema.append(field)
@@ -477,6 +512,7 @@ class DBTSource(Source):
             self.config.sources_path,
             self.config.load_schemas,
             self.config.use_identifiers,
+            self.config.tag_prefix,
             self.config.target_platform,
             self.config.env,
             self.config.node_type_pattern,
@@ -498,10 +534,7 @@ class DBTSource(Source):
 
         for node in nodes:
 
-            dataset_snapshot = DatasetSnapshot(
-                urn=node.datahub_urn,
-                aspects=[],
-            )
+            dataset_snapshot = DatasetSnapshot(urn=node.datahub_urn, aspects=[])
 
             description = None
 
@@ -518,11 +551,32 @@ class DBTSource(Source):
             }
 
             dbt_properties = DatasetPropertiesClass(
-                description=description,
-                customProperties=custom_props,
-                tags=[],
+                description=description, customProperties=custom_props, tags=node.tags
             )
             dataset_snapshot.aspects.append(dbt_properties)
+
+            if node.owner:
+                owners = [
+                    OwnerClass(
+                        owner=f"urn:li:corpuser:{node.owner}",
+                        type=OwnershipTypeClass.DATAOWNER,
+                    )
+                ]
+                dataset_snapshot.aspects.append(
+                    OwnershipClass(
+                        owners=owners,
+                    )
+                )
+
+            if node.tags:
+                dataset_snapshot.aspects.append(
+                    GlobalTagsClass(
+                        tags=[
+                            TagAssociationClass(f"urn:li:tag:{tag}")
+                            for tag in node.tags
+                        ]
+                    )
+                )
 
             upstreams = get_upstream_lineage(node.upstream_urns)
             if upstreams is not None:

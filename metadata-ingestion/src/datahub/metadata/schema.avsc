@@ -991,7 +991,7 @@
                           },
                           "type": "boolean",
                           "name": "active",
-                          "doc": "Whether the corpUser is active, ref: https://iwww.corp.linkedin.com/wiki/cf/display/GTSD/Accessing+Active+Directory+via+LDAP+tools"
+                          "doc": "Deprecated! Use CorpUserStatus instead. Whether the corpUser is active, ref: https://iwww.corp.linkedin.com/wiki/cf/display/GTSD/Accessing+Active+Directory+via+LDAP+tools"
                         },
                         {
                           "type": [
@@ -1173,6 +1173,30 @@
                         }
                       ],
                       "doc": "Linkedin corp user information that can be edited from UI"
+                    },
+                    {
+                      "type": "record",
+                      "Aspect": {
+                        "name": "corpUserStatus"
+                      },
+                      "name": "CorpUserStatus",
+                      "namespace": "com.linkedin.pegasus2avro.identity",
+                      "fields": [
+                        {
+                          "Searchable": {
+                            "fieldType": "KEYWORD"
+                          },
+                          "type": "string",
+                          "name": "status",
+                          "doc": "Status of the user, e.g. PROVISIONED / ACTIVE / SUSPENDED"
+                        },
+                        {
+                          "type": "com.linkedin.pegasus2avro.common.AuditStamp",
+                          "name": "lastModified",
+                          "doc": "Audit stamp containing who last modified the status and when."
+                        }
+                      ],
+                      "doc": "The status of the user, e.g. provisioned, active, suspended, etc."
                     },
                     {
                       "type": "record",
@@ -6064,6 +6088,25 @@
   "com.linkedin.pegasus2avro.common.InstitutionalMemory",
   "com.linkedin.pegasus2avro.common.Ownership",
   "com.linkedin.pegasus2avro.common.Status",
+  {
+    "type": "record",
+    "Aspect": {
+      "name": "subTypes"
+    },
+    "name": "SubTypes",
+    "namespace": "com.linkedin.pegasus2avro.common",
+    "fields": [
+      {
+        "type": {
+          "type": "array",
+          "items": "string"
+        },
+        "name": "typeNames",
+        "doc": "The names of the specific types.\n"
+      }
+    ],
+    "doc": "Sub Types. Use this aspect to specialize a generic Entity\ne.g. Making a Dataset also be a View or also be a LookerExplore"
+  },
   "com.linkedin.pegasus2avro.dashboard.DashboardInfo",
   "com.linkedin.pegasus2avro.dashboard.EditableDashboardProperties",
   "com.linkedin.pegasus2avro.datajob.DataFlowInfo",
@@ -6534,6 +6577,7 @@
   "com.linkedin.pegasus2avro.identity.CorpGroupInfo",
   "com.linkedin.pegasus2avro.identity.CorpUserEditableInfo",
   "com.linkedin.pegasus2avro.identity.CorpUserInfo",
+  "com.linkedin.pegasus2avro.identity.CorpUserStatus",
   "com.linkedin.pegasus2avro.identity.GroupMembership",
   "com.linkedin.pegasus2avro.metadata.key.ChartKey",
   "com.linkedin.pegasus2avro.metadata.key.CorpGroupKey",

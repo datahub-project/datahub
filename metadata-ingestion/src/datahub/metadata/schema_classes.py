@@ -1417,6 +1417,42 @@ class StatusClass(DictWrapper):
         self._inner_dict['removed'] = value
     
     
+class SubTypesClass(DictWrapper):
+    """Sub Types. Use this aspect to specialize a generic Entity
+    e.g. Making a Dataset also be a View or also be a LookerExplore"""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.common.SubTypes")
+    def __init__(self,
+        typeNames: List[str],
+    ):
+        super().__init__()
+        
+        self.typeNames = typeNames
+    
+    @classmethod
+    def construct_with_defaults(cls) -> "SubTypesClass":
+        self = cls.construct({})
+        self._restore_defaults()
+        
+        return self
+    
+    def _restore_defaults(self) -> None:
+        self.typeNames = list()
+    
+    
+    @property
+    def typeNames(self) -> List[str]:
+        """Getter: The names of the specific types.
+    """
+        return self._inner_dict.get('typeNames')  # type: ignore
+    
+    @typeNames.setter
+    def typeNames(self, value: List[str]) -> None:
+        """Setter: The names of the specific types.
+    """
+        self._inner_dict['typeNames'] = value
+    
+    
 class TagAssociationClass(DictWrapper):
     """Properties of an applied tag. For now, just an Urn. In the future we can extend this with other properties, e.g.
     propagation parameters."""
@@ -4102,12 +4138,12 @@ class CorpUserInfoClass(DictWrapper):
     
     @property
     def active(self) -> bool:
-        """Getter: Whether the corpUser is active, ref: https://iwww.corp.linkedin.com/wiki/cf/display/GTSD/Accessing+Active+Directory+via+LDAP+tools"""
+        """Getter: Deprecated! Use CorpUserStatus instead. Whether the corpUser is active, ref: https://iwww.corp.linkedin.com/wiki/cf/display/GTSD/Accessing+Active+Directory+via+LDAP+tools"""
         return self._inner_dict.get('active')  # type: ignore
     
     @active.setter
     def active(self, value: bool) -> None:
-        """Setter: Whether the corpUser is active, ref: https://iwww.corp.linkedin.com/wiki/cf/display/GTSD/Accessing+Active+Directory+via+LDAP+tools"""
+        """Setter: Deprecated! Use CorpUserStatus instead. Whether the corpUser is active, ref: https://iwww.corp.linkedin.com/wiki/cf/display/GTSD/Accessing+Active+Directory+via+LDAP+tools"""
         self._inner_dict['active'] = value
     
     
@@ -4219,6 +4255,53 @@ class CorpUserInfoClass(DictWrapper):
     def countryCode(self, value: Union[None, str]) -> None:
         """Setter: two uppercase letters country code. e.g.  US"""
         self._inner_dict['countryCode'] = value
+    
+    
+class CorpUserStatusClass(DictWrapper):
+    """The status of the user, e.g. provisioned, active, suspended, etc."""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.identity.CorpUserStatus")
+    def __init__(self,
+        status: str,
+        lastModified: "AuditStampClass",
+    ):
+        super().__init__()
+        
+        self.status = status
+        self.lastModified = lastModified
+    
+    @classmethod
+    def construct_with_defaults(cls) -> "CorpUserStatusClass":
+        self = cls.construct({})
+        self._restore_defaults()
+        
+        return self
+    
+    def _restore_defaults(self) -> None:
+        self.status = str()
+        self.lastModified = AuditStampClass.construct_with_defaults()
+    
+    
+    @property
+    def status(self) -> str:
+        """Getter: Status of the user, e.g. PROVISIONED / ACTIVE / SUSPENDED"""
+        return self._inner_dict.get('status')  # type: ignore
+    
+    @status.setter
+    def status(self, value: str) -> None:
+        """Setter: Status of the user, e.g. PROVISIONED / ACTIVE / SUSPENDED"""
+        self._inner_dict['status'] = value
+    
+    
+    @property
+    def lastModified(self) -> "AuditStampClass":
+        """Getter: Audit stamp containing who last modified the status and when."""
+        return self._inner_dict.get('lastModified')  # type: ignore
+    
+    @lastModified.setter
+    def lastModified(self, value: "AuditStampClass") -> None:
+        """Setter: Audit stamp containing who last modified the status and when."""
+        self._inner_dict['lastModified'] = value
     
     
 class GroupMembershipClass(DictWrapper):
@@ -5282,7 +5365,7 @@ class CorpUserSnapshotClass(DictWrapper):
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot")
     def __init__(self,
         urn: str,
-        aspects: List[Union["CorpUserKeyClass", "CorpUserInfoClass", "CorpUserEditableInfoClass", "GroupMembershipClass", "GlobalTagsClass", "StatusClass"]],
+        aspects: List[Union["CorpUserKeyClass", "CorpUserInfoClass", "CorpUserEditableInfoClass", "CorpUserStatusClass", "GroupMembershipClass", "GlobalTagsClass", "StatusClass"]],
     ):
         super().__init__()
         
@@ -5313,12 +5396,12 @@ class CorpUserSnapshotClass(DictWrapper):
     
     
     @property
-    def aspects(self) -> List[Union["CorpUserKeyClass", "CorpUserInfoClass", "CorpUserEditableInfoClass", "GroupMembershipClass", "GlobalTagsClass", "StatusClass"]]:
+    def aspects(self) -> List[Union["CorpUserKeyClass", "CorpUserInfoClass", "CorpUserEditableInfoClass", "CorpUserStatusClass", "GroupMembershipClass", "GlobalTagsClass", "StatusClass"]]:
         """Getter: The list of metadata aspects associated with the CorpUser. Depending on the use case, this can either be all, or a selection, of supported aspects."""
         return self._inner_dict.get('aspects')  # type: ignore
     
     @aspects.setter
-    def aspects(self, value: List[Union["CorpUserKeyClass", "CorpUserInfoClass", "CorpUserEditableInfoClass", "GroupMembershipClass", "GlobalTagsClass", "StatusClass"]]) -> None:
+    def aspects(self, value: List[Union["CorpUserKeyClass", "CorpUserInfoClass", "CorpUserEditableInfoClass", "CorpUserStatusClass", "GroupMembershipClass", "GlobalTagsClass", "StatusClass"]]) -> None:
         """Setter: The list of metadata aspects associated with the CorpUser. Depending on the use case, this can either be all, or a selection, of supported aspects."""
         self._inner_dict['aspects'] = value
     
@@ -10285,6 +10368,7 @@ __SCHEMA_TYPES = {
     'com.linkedin.pegasus2avro.common.OwnershipSourceType': OwnershipSourceTypeClass,
     'com.linkedin.pegasus2avro.common.OwnershipType': OwnershipTypeClass,
     'com.linkedin.pegasus2avro.common.Status': StatusClass,
+    'com.linkedin.pegasus2avro.common.SubTypes': SubTypesClass,
     'com.linkedin.pegasus2avro.common.TagAssociation': TagAssociationClass,
     'com.linkedin.pegasus2avro.common.VersionTag': VersionTagClass,
     'com.linkedin.pegasus2avro.common.WindowDuration': WindowDurationClass,
@@ -10325,6 +10409,7 @@ __SCHEMA_TYPES = {
     'com.linkedin.pegasus2avro.identity.CorpGroupInfo': CorpGroupInfoClass,
     'com.linkedin.pegasus2avro.identity.CorpUserEditableInfo': CorpUserEditableInfoClass,
     'com.linkedin.pegasus2avro.identity.CorpUserInfo': CorpUserInfoClass,
+    'com.linkedin.pegasus2avro.identity.CorpUserStatus': CorpUserStatusClass,
     'com.linkedin.pegasus2avro.identity.GroupMembership': GroupMembershipClass,
     'com.linkedin.pegasus2avro.metadata.key.ChartKey': ChartKeyClass,
     'com.linkedin.pegasus2avro.metadata.key.CorpGroupKey': CorpGroupKeyClass,
@@ -10466,6 +10551,7 @@ __SCHEMA_TYPES = {
     'OwnershipSourceType': OwnershipSourceTypeClass,
     'OwnershipType': OwnershipTypeClass,
     'Status': StatusClass,
+    'SubTypes': SubTypesClass,
     'TagAssociation': TagAssociationClass,
     'VersionTag': VersionTagClass,
     'WindowDuration': WindowDurationClass,
@@ -10506,6 +10592,7 @@ __SCHEMA_TYPES = {
     'CorpGroupInfo': CorpGroupInfoClass,
     'CorpUserEditableInfo': CorpUserEditableInfoClass,
     'CorpUserInfo': CorpUserInfoClass,
+    'CorpUserStatus': CorpUserStatusClass,
     'GroupMembership': GroupMembershipClass,
     'ChartKey': ChartKeyClass,
     'CorpGroupKey': CorpGroupKeyClass,

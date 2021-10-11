@@ -28,6 +28,7 @@ dependencies {
   compile externalDependency.ebean
   enhance externalDependency.ebeanAgent
   compile externalDependency.opentelemetryAnnotations
+  compile externalDependency.springContext
 
   annotationProcessor externalDependency.lombok
 

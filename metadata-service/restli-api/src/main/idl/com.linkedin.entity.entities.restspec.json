@@ -116,6 +116,27 @@
         "optional" : true
       } ]
     }, {
+      "name" : "list",
+      "parameters" : [ {
+        "name" : "entity",
+        "type" : "string"
+      }, {
+        "name" : "filter",
+        "type" : "com.linkedin.metadata.query.Filter",
+        "optional" : true
+      }, {
+        "name" : "sort",
+        "type" : "com.linkedin.metadata.query.SortCriterion",
+        "optional" : true
+      }, {
+        "name" : "start",
+        "type" : "int"
+      }, {
+        "name" : "count",
+        "type" : "int"
+      } ],
+      "returns" : "com.linkedin.metadata.query.ListResult"
+    }, {
       "name" : "listUrns",
       "parameters" : [ {
         "name" : "entity",
@@ -151,7 +172,32 @@
         "name" : "count",
         "type" : "int"
       } ],
-      "returns" : "com.linkedin.metadata.query.SearchResult"
+      "returns" : "com.linkedin.metadata.search.SearchResult"
+    }, {
+      "name" : "searchAcrossEntities",
+      "parameters" : [ {
+        "name" : "entities",
+        "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
+        "optional" : true
+      }, {
+        "name" : "input",
+        "type" : "string"
+      }, {
+        "name" : "filter",
+        "type" : "com.linkedin.metadata.query.Filter",
+        "optional" : true
+      }, {
+        "name" : "sort",
+        "type" : "com.linkedin.metadata.query.SortCriterion",
+        "optional" : true
+      }, {
+        "name" : "start",
+        "type" : "int"
+      }, {
+        "name" : "count",
+        "type" : "int"
+      } ],
+      "returns" : "com.linkedin.metadata.search.SearchResult"
     }, {
       "name" : "setWritable",
       "parameters" : [ {

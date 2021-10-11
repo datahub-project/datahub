@@ -35,7 +35,7 @@ import com.linkedin.entity.Entity;
 import com.linkedin.metadata.extractor.AspectExtractor;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
-import com.linkedin.metadata.query.SearchResult;
+import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.snapshot.DatasetSnapshot;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.r2.RemoteInvocationException;
@@ -99,7 +99,7 @@ public class DatasetType implements SearchableEntityType<Dataset>, BrowsableEnti
             return gmsResults.stream()
                 .map(gmsDataset ->
                     gmsDataset == null ? null : DataFetcherResult.<Dataset>newResult()
-                        .data(DatasetSnapshotMapper.map(gmsDataset.getValue().getDatasetSnapshot()))
+                            .data(DatasetSnapshotMapper.map(gmsDataset.getValue().getDatasetSnapshot()))
                         .localContext(AspectExtractor.extractAspects(gmsDataset.getValue().getDatasetSnapshot()))
                         .build()
                 )

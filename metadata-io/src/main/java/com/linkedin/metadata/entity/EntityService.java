@@ -9,19 +9,21 @@ import com.linkedin.data.schema.TyperefDataSchema;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.UnionTemplate;
 import com.linkedin.entity.Entity;
-import com.linkedin.metadata.utils.PegasusUtils;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.dao.exception.ModelConversionException;
 import com.linkedin.metadata.dao.utils.RecordUtils;
 import com.linkedin.metadata.event.EntityEventProducer;
 import com.linkedin.metadata.models.AspectSpec;
-import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.changeprocessor.ChangeStreamProcessor;
 import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.run.AspectRowSummary;
+import com.linkedin.metadata.search.utils.BrowsePathUtils;
 import com.linkedin.metadata.snapshot.Snapshot;
+import com.linkedin.metadata.utils.DataPlatformInstanceUtils;
+import com.linkedin.metadata.utils.EntityKeyUtils;
+import com.linkedin.metadata.utils.PegasusUtils;
 import com.linkedin.mxe.MetadataAuditOperation;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -29,6 +31,7 @@ import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
 import java.net.URISyntaxException;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -37,7 +40,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.Constants.ASPECT_LATEST_VERSION;
 import static com.linkedin.metadata.utils.PegasusUtils.getDataTemplateClassFromSchema;
 import static com.linkedin.metadata.utils.PegasusUtils.urnToEntityName;
 
@@ -85,10 +88,11 @@ public abstract class EntityService {
   private final ChangeStreamProcessor _changeStreamProcessor;
   private Boolean _emitAspectSpecificAuditEvent = false;
   public static final String DEFAULT_RUN_ID = "no-run-id-provided";
+  public static final String BROWSE_PATHS = "browsePaths";
+  public static final String DATA_PLATFORM_INSTANCE = "dataPlatformInstance";
 
-  protected EntityService(@Nonnull final EntityEventProducer producer,
-                          @Nonnull final EntityRegistry entityRegistry,
-                          @Nonnull final ChangeStreamProcessor changeStreamProcessor) {
+  protected EntityService(@Nonnull final EntityEventProducer producer, @Nonnull final EntityRegistry entityRegistry,
+      @Nonnull final ChangeStreamProcessor changeStreamProcessor) {
     _producer = producer;
     _entityRegistry = entityRegistry;
     _entityToValidAspects = buildEntityToValidAspects(entityRegistry);
@@ -308,19 +312,43 @@ public abstract class EntityService {
             .collect(Collectors.toList())));
   }
 
-  private void ingestSnapshotUnion(
-      @Nonnull final Snapshot snapshotUnion,
-      @Nonnull final AuditStamp auditStamp,
+  public Map<String, RecordTemplate> getDefaultAspectsFromUrn(@Nonnull final Urn urn) {
+    Map<String, RecordTemplate> aspects = new HashMap<>();
+    final String keyAspectName = getKeyAspectName(urn);
+    RecordTemplate keyAspect = getLatestAspect(urn, keyAspectName);
+    if (keyAspect == null) {
+      keyAspect = buildKeyAspect(urn);
+      aspects.put(keyAspectName, keyAspect);
+    }
+
+    String entityType = urnToEntityName(urn);
+    if (_entityRegistry.getEntitySpec(entityType).getAspectSpecMap().containsKey(BROWSE_PATHS)
+        && getLatestAspect(urn, BROWSE_PATHS) == null) {
+      try {
+        aspects.put(BROWSE_PATHS, BrowsePathUtils.buildBrowsePath(urn));
+      } catch (URISyntaxException e) {
+        log.error("Failed to parse urn: {}", urn);
+      }
+    }
+
+    if (_entityRegistry.getEntitySpec(entityType).getAspectSpecMap().containsKey(DATA_PLATFORM_INSTANCE)
+        && getLatestAspect(urn, DATA_PLATFORM_INSTANCE) == null) {
+      DataPlatformInstanceUtils.buildDataPlatformInstance(entityType, keyAspect)
+          .ifPresent(aspect -> aspects.put(DATA_PLATFORM_INSTANCE, aspect));
+    }
+
+    return aspects;
+  }
+
+  private void ingestSnapshotUnion(@Nonnull final Snapshot snapshotUnion, @Nonnull final AuditStamp auditStamp,
       SystemMetadata systemMetadata) {
     final RecordTemplate snapshotRecord = RecordUtils.getSelectedRecordTemplateFromUnion(snapshotUnion);
     final Urn urn = com.linkedin.metadata.dao.utils.ModelUtils.getUrnFromSnapshot(snapshotRecord);
     final List<RecordTemplate> aspectRecordsToIngest =
         com.linkedin.metadata.dao.utils.ModelUtils.getAspectsFromSnapshot(snapshotRecord);
 
-    final String keyAspectName = getKeyAspectName(urn);
-    if (getLatestAspect(urn, keyAspectName) == null) {
-      aspectRecordsToIngest.add(buildKeyAspect(urn));
-    }
+    log.info("INGEST urn {} with system metadata {}", urn.toString(), systemMetadata.toString());
+    aspectRecordsToIngest.addAll(getDefaultAspectsFromUrn(urn).values());
     String entityName = PegasusUtils.getEntityNameFromSchema(snapshotRecord.schema());
 
     aspectRecordsToIngest.forEach(aspect -> {

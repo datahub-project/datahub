@@ -111,6 +111,7 @@ fragment nonRecursiveDatasetFields on Dataset {
             key
             value
         }
+        externalUrl
     }
     editableProperties {
         description
@@ -158,6 +159,9 @@ fragment nonRecursiveDatasetFields on Dataset {
     }
     glossaryTerms {
         ...glossaryTerms
+    }
+    subTypes {
+        typeNames
     }
 }
 
@@ -474,6 +478,7 @@ fragment schemaMetadataFields on SchemaMetadata {
         type
         nativeDataType
         recursive
+        isPartOfKey
         globalTags {
             ...globalTagsFields
         }
