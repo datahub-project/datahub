@@ -32,9 +32,6 @@ import org.pac4j.core.util.CommonHelper;
 import org.pac4j.oidc.client.OidcClient;
 import org.pac4j.oidc.config.OidcConfiguration;
 import org.pac4j.oidc.credentials.OidcCredentials;
-import org.pac4j.oidc.credentials.authenticator.OidcAuthenticator;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 
 @Slf4j
