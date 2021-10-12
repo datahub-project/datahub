@@ -97,9 +97,9 @@ export class DatasetEntity implements Entity<Dataset> {
                     name: 'View Definition',
                     component: ViewDefinitionTab,
                     display: {
-                        isVisible: (_, dataset: GetDatasetQuery) =>
+                        visible: (_, dataset: GetDatasetQuery) =>
                             (dataset?.dataset?.subTypes?.typeNames?.includes(SUBTYPES.VIEW) as boolean) || false,
-                        isClickable: (_, dataset: GetDatasetQuery) =>
+                        enabled: (_, dataset: GetDatasetQuery) =>
                             (dataset?.dataset?.viewProperties?.logic && true) || false,
                     },
                 },
@@ -115,8 +115,8 @@ export class DatasetEntity implements Entity<Dataset> {
                     name: 'Lineage',
                     component: LineageTab,
                     display: {
-                        isVisible: (_, _1) => true,
-                        isClickable: (_, dataset: GetDatasetQuery) =>
+                        visible: (_, _1) => true,
+                        enabled: (_, dataset: GetDatasetQuery) =>
                             (dataset?.dataset?.upstreamLineage?.entities?.length || 0) > 0 ||
                             (dataset?.dataset?.downstreamLineage?.entities?.length || 0) > 0,
                     },
@@ -125,8 +125,8 @@ export class DatasetEntity implements Entity<Dataset> {
                     name: 'Queries',
                     component: QueriesTab,
                     display: {
-                        isVisible: (_, _1) => true,
-                        isClickable: (_, dataset: GetDatasetQuery) =>
+                        visible: (_, _1) => true,
+                        enabled: (_, dataset: GetDatasetQuery) =>
                             (dataset?.dataset?.usageStats?.buckets?.length || 0) > 0,
                     },
                 },
@@ -134,8 +134,8 @@ export class DatasetEntity implements Entity<Dataset> {
                     name: 'Stats',
                     component: StatsTab,
                     display: {
-                        isVisible: (_, _1) => true,
-                        isClickable: (_, dataset: GetDatasetQuery) =>
+                        visible: (_, _1) => true,
+                        enabled: (_, dataset: GetDatasetQuery) =>
                             (dataset?.dataset?.datasetProfiles?.length || 0) > 0 ||
                             (dataset?.dataset?.usageStats?.buckets?.length || 0) > 0,
                     },
@@ -148,14 +148,14 @@ export class DatasetEntity implements Entity<Dataset> {
                 {
                     component: SidebarViewDefinitionSection,
                     display: {
-                        isVisible: (_, dataset: GetDatasetQuery) =>
+                        visible: (_, dataset: GetDatasetQuery) =>
                             (dataset?.dataset?.viewProperties?.logic && true) || false,
                     },
                 },
                 {
                     component: SidebarStatsSection,
                     display: {
-                        isVisible: (_, dataset: GetDatasetQuery) =>
+                        visible: (_, dataset: GetDatasetQuery) =>
                             (dataset?.dataset?.datasetProfiles?.length || 0) > 0 ||
                             (dataset?.dataset?.usageStats?.buckets?.length || 0) > 0,
                     },

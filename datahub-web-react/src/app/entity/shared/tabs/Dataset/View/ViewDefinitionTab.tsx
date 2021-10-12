@@ -15,9 +15,12 @@ const InfoSection = styled.div`
 const InfoItemContainer = styled.div<{ justifyContent }>`
     display: flex;
     position: relative;
-    z-index: 1;
     justify-content: ${(props) => props.justifyContent};
     padding: 12px 2px;
+`;
+
+const InfoItemContent = styled.div`
+    padding-top: 8px;
 `;
 
 const QueryText = styled(Typography.Paragraph)`
@@ -44,10 +47,10 @@ export default function ViewDefinitionTab() {
                 <Typography.Title level={5}>Details</Typography.Title>
                 <InfoItemContainer justifyContent="left">
                     <InfoItem title="Materialized">
-                        <div style={{ paddingTop: 8 }}>{materialized ? 'True' : 'False'}</div>
+                        <InfoItemContent>{materialized ? 'True' : 'False'}</InfoItemContent>
                     </InfoItem>
                     <InfoItem title="Language">
-                        <div style={{ paddingTop: 8 }}>{language.toUpperCase()}</div>
+                        <InfoItemContent>{language.toUpperCase()}</InfoItemContent>
                     </InfoItem>
                 </InfoItemContainer>
             </InfoSection>

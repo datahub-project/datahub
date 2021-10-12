@@ -85,9 +85,8 @@ export class DashboardEntity implements Entity<Dashboard> {
                     name: 'Charts',
                     component: DashboardChartsTab,
                     display: {
-                        isVisible: (_, _1) => true,
-                        isClickable: (_, dashboard: GetDashboardQuery) =>
-                            (dashboard?.dashboard?.charts?.total || 0) > 0,
+                        visible: (_, _1) => true,
+                        enabled: (_, dashboard: GetDashboardQuery) => (dashboard?.dashboard?.charts?.total || 0) > 0,
                     },
                 },
             ]}

@@ -80,8 +80,8 @@ export class DataJobEntity implements Entity<DataJob> {
                     name: 'Lineage',
                     component: LineageTab,
                     display: {
-                        isVisible: (_, _1) => true,
-                        isClickable: (_, dataJob: GetDataJobQuery) =>
+                        visible: (_, _1) => true,
+                        enabled: (_, dataJob: GetDataJobQuery) =>
                             (dataJob?.dataJob?.upstreamLineage?.entities?.length || 0) > 0 ||
                             (dataJob?.dataJob?.downstreamLineage?.entities?.length || 0) > 0,
                     },

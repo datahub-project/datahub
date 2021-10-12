@@ -82,16 +82,16 @@ export class ChartEntity implements Entity<Chart> {
                     name: 'Inputs',
                     component: ChartInputsTab,
                     display: {
-                        isVisible: (_, _1) => true,
-                        isClickable: (_, chart: GetChartQuery) => (chart?.chart?.inputs?.total || 0) > 0,
+                        visible: (_, _1) => true,
+                        enabled: (_, chart: GetChartQuery) => (chart?.chart?.inputs?.total || 0) > 0,
                     },
                 },
                 {
                     name: 'Dashboards',
                     component: ChartDashboardsTab,
                     display: {
-                        isVisible: (_, _1) => true,
-                        isClickable: (_, chart: GetChartQuery) => (chart?.chart?.dashboards?.total || 0) > 0,
+                        visible: (_, _1) => true,
+                        enabled: (_, chart: GetChartQuery) => (chart?.chart?.dashboards?.total || 0) > 0,
                     },
                 },
             ]}
