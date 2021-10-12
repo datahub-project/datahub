@@ -21,6 +21,10 @@ public class DgraphSchema {
     private final @Nonnull Map<String, Set<String>> types;
     private final DgraphExecutor dgraph;
 
+    public static DgraphSchema empty() {
+        return new DgraphSchema(Collections.emptySet(), Collections.emptyMap(), null);
+    }
+
     public DgraphSchema(@Nonnull Set<String> fields, @Nonnull Map<String, Set<String>> types) {
         this(fields, types, null);
     }
@@ -29,6 +33,17 @@ public class DgraphSchema {
         this.fields = fields;
         this.types = types;
         this.dgraph = dgraph;
+    }
+
+    /**
+     * Adds the given DgraphExecutor to this schema returning a new instance.
+     * Be aware this and the new instance share the underlying fields and types datastructures.
+     *
+     * @param dgraph dgraph executor to add
+     * @return new instance
+     */
+    public DgraphSchema withDgraph(DgraphExecutor dgraph) {
+        return new DgraphSchema(this.fields, this.types, dgraph);
     }
 
     synchronized public boolean isEmpty() {
@@ -96,10 +111,7 @@ public class DgraphSchema {
                 System.out.printf(System.currentTimeMillis() + ": adding predicate %s to %s: %s%n", fieldName, typeName, schema);
             }
 
-            dgraph.execute(dgraphClient -> {
-                dgraphClient.alter(setSchema);
-                return null;
-            });
+            dgraph.executeConsumer(dgraphClient -> dgraphClient.alter(setSchema));
         }
 
         // now that the schema has been updated on dgraph we can cache this new type / field

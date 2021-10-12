@@ -34,7 +34,7 @@ import java.util.function.Consumer;
 import static com.linkedin.metadata.dao.utils.QueryUtils.EMPTY_FILTER;
 import static com.linkedin.metadata.dao.utils.QueryUtils.newFilter;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertTrue;
 
 @Slf4j
 public class DgraphGraphServiceTest extends GraphServiceTestBase {
@@ -209,7 +209,7 @@ public class DgraphGraphServiceTest extends GraphServiceTestBase {
                 + "    ],\n"
                 + "    \"types\": \"not a list\"\n"
                 + "  }");
-        assertNull(schemaWithNonListTypes, "Should be null if type field is not a list");
+        assertTrue(schemaWithNonListTypes.isEmpty(), "Should be empty if type field is not a list");
 
         DgraphSchema schemaWithoutTypes = DgraphGraphService.getSchema("{\n"
                 + "    \"schema\": [\n"
@@ -224,15 +224,15 @@ public class DgraphGraphServiceTest extends GraphServiceTestBase {
                 + "      }\n"
                 + "    ]"
                 + "  }");
-        assertNull(schemaWithoutTypes, "Should be null if no type field exists");
+        assertTrue(schemaWithoutTypes.isEmpty(), "Should be empty if no type field exists");
 
         DgraphSchema schemaWithNonListSchema = DgraphGraphService.getSchema("{\n"
                 + "    \"schema\": \"not a list\""
                 + "  }");
-        assertNull(schemaWithNonListSchema, "Should be null if schema field is not a list");
+        assertTrue(schemaWithNonListSchema.isEmpty(), "Should be empty if schema field is not a list");
 
-        DgraphSchema schemaWithoutSchema = DgraphGraphService.getSchema("{ }", null);
-        assertNull(schemaWithoutSchema, "Should be null if no schema field exists");
+        DgraphSchema schemaWithoutSchema = DgraphGraphService.getSchema("{ }");
+        assertTrue(schemaWithoutSchema.isEmpty(), "Should be empty if no schema field exists");
     }
 
     @Test

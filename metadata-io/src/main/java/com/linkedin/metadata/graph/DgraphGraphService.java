@@ -16,8 +16,6 @@ import io.dgraph.DgraphProto.Operation;
 import io.dgraph.DgraphProto.Request;
 import io.dgraph.DgraphProto.Response;
 import io.dgraph.DgraphProto.Value;
-import io.dgraph.TxnConflictException;
-import io.grpc.StatusRuntimeException;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.Pair;
@@ -33,15 +31,16 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.StringJoiner;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 @Slf4j
 public class DgraphGraphService implements GraphService {
+
+    // calls to Dgraph cluster will be retried if they throw retry-able exceptions
+    // with a max number of attempts of 160 a call will finally fail after around 15 minutes
+    private static final int MAX_ATTEMPTS = 160;
 
     private final @Nonnull DgraphExecutor _dgraph;
 
@@ -55,36 +54,16 @@ public class DgraphGraphService implements GraphService {
     private final DgraphSchema _schema = getSchema();
 
     public DgraphGraphService(@Nonnull DgraphClient client) {
-        this._dgraph = new DgraphExecutor(client);
+        this._dgraph = new DgraphExecutor(client, MAX_ATTEMPTS);
     }
 
     protected @Nonnull DgraphSchema getSchema() {
-        DgraphSchema schema = null;
-
-        int attempt = 1;
-        while (true) {
-            Response response = _dgraph.execute(dgraphClient -> dgraphClient.newReadOnlyTransaction().doRequest(
-                    Request.newBuilder().setQuery("schema { predicate }").build()
-            ));
-            schema = getSchema(response.getJson().toStringUtf8(), _dgraph);
-            if (schema != null) {
-                break;
-            }
-
-            if (attempt <= 10) {
-                try {
-                    synchronized (System.out) {
-                        System.out.println(System.currentTimeMillis() + ": schema not available yet, waiting 10s");
-                    }
-                    TimeUnit.SECONDS.sleep(10);
-                    attempt++;
-                } catch (InterruptedException e2) {
-                    // ignore interruption
-                }
-            } else {
-                throw new RuntimeException("Failed to obtain schema from dgraph");
-            }
-        }
+        Response response = _dgraph.executeFunction(dgraphClient ->
+                dgraphClient.newReadOnlyTransaction().doRequest(
+                        Request.newBuilder().setQuery("schema { predicate }").build()
+                )
+        );
+        DgraphSchema schema = getSchema(response.getJson().toStringUtf8()).withDgraph(_dgraph);
 
         if (schema.isEmpty()) {
             Operation setSchema = Operation.newBuilder()
@@ -94,26 +73,19 @@ public class DgraphGraphService implements GraphService {
                             + "<key>: string @index(hash) .\n"
                     )
                     .build();
-            _dgraph.execute(dgraphClient -> {
-                dgraphClient.alter(setSchema);
-                return null;
-            });
+            _dgraph.executeConsumer(dgraphClient -> dgraphClient.alter(setSchema));
         }
 
         return schema;
     }
 
-    protected static DgraphSchema getSchema(@Nonnull String json) {
-        return getSchema(json, null);
-    }
-
-    protected static DgraphSchema getSchema(@Nonnull String json, DgraphExecutor dgraph) {
+    protected static @Nonnull DgraphSchema getSchema(@Nonnull String json) {
         Map<String, Object> data = getDataFromResponseJson(json);
 
         Object schemaObj = data.get("schema");
         if (!(schemaObj instanceof List<?>)) {
             log.info("The result from Dgraph did not contain a 'schema' field, or that field is not a List");
-            return null;
+            return DgraphSchema.empty();
         }
 
         List<?> schemaList = (List<?>) schemaObj;
@@ -134,7 +106,7 @@ public class DgraphGraphService implements GraphService {
         Object typesObj = data.get("types");
         if (!(typesObj instanceof List<?>)) {
             log.info("The result from Dgraph did not contain a 'types' field, or that field is not a List");
-            return null;
+            return DgraphSchema.empty();
         }
 
         List<?> types = (List<?>) typesObj;
@@ -170,7 +142,7 @@ public class DgraphGraphService implements GraphService {
             return Stream.of(Pair.of(typeName, fields));
         }).filter(t -> !t.getKey().startsWith("dgraph.")).collect(Collectors.toMap(Pair::getKey, Pair::getValue));
 
-        return new DgraphSchema(fieldNames, typeFields, dgraph);
+        return new DgraphSchema(fieldNames, typeFields);
     }
 
     @Override
@@ -241,73 +213,12 @@ public class DgraphGraphService implements GraphService {
                     edge.getDestination(),
                     edge.getRelationshipType());
         }
-        _dgraph.execute(client -> client.newTransaction().doRequest(request));
+        _dgraph.executeFunction(client -> client.newTransaction().doRequest(request));
         synchronized (System.out) {
             System.out.printf(System.currentTimeMillis() + ": Added  Edge source: %s, destination: %s, type: %s%n",
                     edge.getSource(),
                     edge.getDestination(),
                     edge.getRelationshipType());
-        }
-    }
-
-    private void retry(Runnable func) {
-        retry(() -> {
-            func.run();
-            return null;
-        });
-    }
-
-    private <T> T retry(Supplier<T> func) {
-        // we have to make sure schema is initialized before executing any requests to dgraph
-        if (get_schema() == null) {
-            throw new IllegalStateException("Schema should have been initialized by now");
-        }
-
-        int retry = 0;
-        while (true) {
-            try {
-                return func.get();
-            } catch (Exception e) {
-                Throwable t = e;
-
-                // unwrap RuntimeException and ExecutionException
-                while (true) {
-                    if ((t instanceof RuntimeException || t instanceof ExecutionException) && t.getCause() != null) {
-                        t = t.getCause();
-                        continue;
-                    }
-                    break;
-                }
-
-                if (t instanceof TxnConflictException
-                        || t instanceof StatusRuntimeException && (
-                                t.getMessage().contains("operation opIndexing is already running")
-                                        || t.getMessage().contains("Please retry")
-                                        || t.getMessage().contains("DEADLINE_EXCEEDED:")
-                                        || t.getMessage().contains("context deadline exceeded")
-                        )) {
-                    try {
-                        // wait 0.01s, 0.02s, 0.04s, 0.08s, ..., 10.24s
-                        long time = (long) Math.pow(2, Math.min(retry, 10)) * 10;
-                        synchronized (System.out) {
-                            System.out.printf(System.currentTimeMillis() + ": retrying in %d ms%n", time);
-                        }
-                        TimeUnit.MILLISECONDS.sleep(time);
-                        retry++;
-                    } catch (InterruptedException e2) {
-                        // ignore interruption
-                    }
-
-                    continue;
-                }
-
-                // throw unexpected exceptions
-                synchronized (System.out) {
-                    System.out.printf(System.currentTimeMillis() + ": %s%n", e.getMessage());
-                }
-
-                throw e;
-            }
         }
     }
 
@@ -475,7 +386,7 @@ public class DgraphGraphService implements GraphService {
                 .build();
 
         log.debug("Query: " + query);
-        Response response = _dgraph.execute(client -> client.newReadOnlyTransaction().doRequest(request));
+        Response response = _dgraph.executeFunction(client -> client.newReadOnlyTransaction().doRequest(request));
         String json = response.getJson().toStringUtf8();
         Map<String, Object> data = getDataFromResponseJson(json);
 
@@ -641,7 +552,7 @@ public class DgraphGraphService implements GraphService {
                 .build();
 
         System.out.printf(System.currentTimeMillis() + ": removing node %s%n", urn);
-        _dgraph.execute(client -> client.newTransaction().doRequest(request));
+        _dgraph.executeConsumer(client -> client.newTransaction().doRequest(request));
         System.out.printf(System.currentTimeMillis() + ": removed  node %s%n", urn);
     }
 
@@ -693,7 +604,7 @@ public class DgraphGraphService implements GraphService {
                 .build();
 
         System.out.printf(System.currentTimeMillis() + ": removing outgoing edges from node %s%n", urn);
-        _dgraph.execute(client -> client.newTransaction().doRequest(request));
+        _dgraph.executeConsumer(client -> client.newTransaction().doRequest(request));
         System.out.printf(System.currentTimeMillis() + ": removed  outgoing edges from node %s%n", urn);
     }
 
@@ -730,7 +641,7 @@ public class DgraphGraphService implements GraphService {
                 .build();
 
         System.out.printf(System.currentTimeMillis() + ": removing incoming edges from node %s%n", urn);
-        _dgraph.execute(client -> client.newTransaction().doRequest(request));
+        _dgraph.executeConsumer(client -> client.newTransaction().doRequest(request));
         System.out.printf(System.currentTimeMillis() + ": removed incoming edges from node %s%n", urn);
     }
 
@@ -742,10 +653,7 @@ public class DgraphGraphService implements GraphService {
         log.debug("dropping Dgraph data");
 
         Operation dropAll = Operation.newBuilder().setDropOp(Operation.DropOp.ALL).build();
-        _dgraph.execute(client -> {
-            client.alter(dropAll);
-            return null;
-        });
+        _dgraph.executeConsumer(client -> client.alter(dropAll));
 
         // drop schema cache
         get_schema().clear();
