@@ -172,12 +172,13 @@ def test_hook_airflow_ui(hook):
 @pytest.mark.parametrize(
     ["inlets", "outlets"],
     [
-        (
+        pytest.param(
             # Airflow 1.10.x uses a dictionary structure for inlets and outlets.
             # We want the lineage backend to support this structure for backwards
             # compatability reasons, so this test is not conditional.
             {"datasets": [Dataset("snowflake", "mydb.schema.tableConsumed")]},
             {"datasets": [Dataset("snowflake", "mydb.schema.tableProduced")]},
+            id="airflow-1-10-lineage-syntax",
         ),
         pytest.param(
             # Airflow 2.x also supports a flattened list for inlets and outlets.
@@ -188,11 +189,8 @@ def test_hook_airflow_ui(hook):
                 airflow.version.version.startswith("1"),
                 reason="list-style lineage is only supported in Airflow 2.x",
             ),
+            id="airflow-2-lineage-syntax",
         ),
-    ],
-    ids=[
-        "airflow-1-10-x-decl",
-        "airflow-2-x-decl",
     ],
 )
 @mock.patch("datahub_provider.hooks.datahub.DatahubRestHook.emit_mces")
