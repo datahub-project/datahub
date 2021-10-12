@@ -115,7 +115,7 @@ class GEProfilingConfig(ConfigModel):
     enabled: bool = False
     limit: Optional[int] = None
     offset: Optional[int] = None
-    send_sample_values: Optional[bool] = True
+    send_sample_values: bool = True
 
     # The default of (5 * cpu_count) is adopted from the default max_workers
     # parameter of ThreadPoolExecutor. Given that profiling is often an I/O-bound
@@ -591,6 +591,7 @@ class SQLAlchemySource(Source):
             yield GEProfilerRequest(
                 pretty_name=dataset_name,
                 batch_kwargs=self.prepare_profiler_args(schema=schema, table=table),
+                send_sample_values=self.config.profiling.send_sample_values,
             )
 
     def loop_profiler(
@@ -617,7 +618,6 @@ class SQLAlchemySource(Source):
             table=table,
             limit=self.config.profiling.limit,
             offset=self.config.profiling.offset,
-            send_sample_values=self.config.profiling.send_sample_values,
         )
 
     def get_report(self):
