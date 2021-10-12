@@ -38,7 +38,6 @@ jobs:
             **/build/reports/tests/test/**
             **/build/test-results/test/**
             **/junit.*.xml
-            ${{ github.event_path }}
       - name: Ensure codegen is updated
         run: |
           if output=$(git status --porcelain) && [ ! -z "$output" ]; then
@@ -145,3 +144,12 @@ jobs:
           python-version: "3.6"
       - name: Quickstart Compose Validation
         run: ./docker/quickstart/generate_and_compare.sh
+
+  event-file:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Upload
+        uses: actions/upload-artifact@v2
+        with:
+          name: Event File
+          path: ${{ github.event_path }}
