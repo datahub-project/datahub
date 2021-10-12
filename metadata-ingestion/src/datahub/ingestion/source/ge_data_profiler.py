@@ -110,12 +110,11 @@ class DatahubGEProfiler:
     ) -> Iterable[Tuple[GEProfilerRequest, DatasetProfileClass]]:
         start_time = time.perf_counter()
 
+        max_workers = min(max_workers, len(requests))
         logger.info(
             f"Will profile {len(requests)} table(s) with {max_workers} worker(s)"
         )
-        with ThreadPoolExecutor(
-            max_workers=min(max_workers, len(requests))
-        ) as async_executor:
+        with ThreadPoolExecutor(max_workers=max_workers) as async_executor:
             async_profiles = [
                 (
                     request,
