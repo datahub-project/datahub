@@ -45,7 +45,7 @@ from datahub.metadata.schema_classes import (
     TagAssociationClass
 )
 
-def custom_tags(current: DatasetSnapshotClass):
+def custom_tags(current: DatasetSnapshotClass) -> List[TagAssociationClass]:
     """ Returns tags to associate to a dataset depending on custom logic
 
     This function receives a DatasetSnapshotClass, performs custom logic and returns
