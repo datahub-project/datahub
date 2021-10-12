@@ -60,8 +60,8 @@ class SupersetConfig(ConfigModel):
     database_alias: Dict[str, str] = {}
 
     @validator("connect_uri")
-    def remove_quotes(cls, v):
-        return config_clean.remove_url_suffix(v)
+    def remove_trailing_slash(cls, v):
+        return config_clean.remove_trailing_slashes(v)
 
 
 def get_metric_name(metric):
