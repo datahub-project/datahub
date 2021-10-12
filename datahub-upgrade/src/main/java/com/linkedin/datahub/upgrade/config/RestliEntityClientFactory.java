@@ -9,7 +9,7 @@ import org.springframework.context.annotation.Configuration;
 
 
 @Configuration
-public class EntityClientFactory {
+public class RestliEntityClientFactory {
   @Value("${DATAHUB_GMS_HOST:localhost}")
   private String gmsHost;
   @Value("${DATAHUB_GMS_PORT:8080}")
@@ -19,7 +19,7 @@ public class EntityClientFactory {
   @Value("${DATAHUB_GMS_SSL_PROTOCOL:#{null}}")
   private String gmsSslProtocol;
 
-  @Bean("entityClient")
+  @Bean("restliEntityClient")
   public RestliEntityClient getEntityClient() {
     Client restClient = DefaultRestliClientFactory.getRestLiClient(gmsHost, gmsPort, gmsUseSSL, gmsSslProtocol);
     return new RestliEntityClient(restClient);

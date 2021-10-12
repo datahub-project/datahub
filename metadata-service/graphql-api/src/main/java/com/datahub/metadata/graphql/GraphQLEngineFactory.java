@@ -29,7 +29,7 @@ public class GraphQLEngineFactory {
   private IndexConvention indexConvention;
 
   @Autowired
-  @Qualifier("entityClient")
+  @Qualifier("javaEntityClient")
   private EntityClient _entityClient;
 
   @Autowired

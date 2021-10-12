@@ -21,7 +21,7 @@ public class RestoreBackupConfig {
   ApplicationContext applicationContext;
 
   @Bean(name = "restoreBackup")
-  @DependsOn({"ebeanServer", "entityService", "entityClient", "graphService", "searchService"})
+  @DependsOn({"ebeanServer", "entityService", "restliEntityClient", "graphService", "searchService"})
   @Nonnull
   public RestoreBackup createInstance() {
     final EbeanServer ebeanServer = applicationContext.getBean(EbeanServer.class);
