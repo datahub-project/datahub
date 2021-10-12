@@ -94,6 +94,16 @@ export class DatasetEntity implements Entity<Dataset> {
                     component: SchemaTab,
                 },
                 {
+                    name: 'View Definition',
+                    component: ViewDefinitionTab,
+                    display: {
+                        isVisible: (_, dataset: GetDatasetQuery) =>
+                            (dataset?.dataset?.subTypes?.typeNames?.includes(SUBTYPES.VIEW) as boolean) || false,
+                        isClickable: (_, dataset: GetDatasetQuery) =>
+                            (dataset?.dataset?.viewProperties?.logic && true) || false,
+                    },
+                },
+                {
                     name: 'Documentation',
                     component: DocumentationTab,
                 },
@@ -118,16 +128,6 @@ export class DatasetEntity implements Entity<Dataset> {
                         isVisible: (_, _1) => true,
                         isClickable: (_, dataset: GetDatasetQuery) =>
                             (dataset?.dataset?.usageStats?.buckets?.length || 0) > 0,
-                    },
-                },
-                {
-                    name: 'View Definition',
-                    component: ViewDefinitionTab,
-                    display: {
-                        isVisible: (_, dataset: GetDatasetQuery) =>
-                            (dataset?.dataset?.subTypes?.typeNames?.includes(SUBTYPES.VIEW) as boolean) || false,
-                        isClickable: (_, dataset: GetDatasetQuery) =>
-                            (dataset?.dataset?.viewProperties?.logic && true) || false,
                     },
                 },
                 {
