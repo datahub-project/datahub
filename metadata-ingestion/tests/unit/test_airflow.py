@@ -8,8 +8,7 @@ import airflow.configuration
 import airflow.version
 import pytest
 from airflow.lineage import apply_lineage, prepare_lineage
-from airflow.models import DAG, Connection, DagBag
-from airflow.models import TaskInstance as TI
+from airflow.models import DAG, Connection, DagBag, TaskInstance
 from airflow.utils.dates import days_ago
 
 try:
@@ -20,7 +19,7 @@ except ModuleNotFoundError:
 import datahub.emitter.mce_builder as builder
 from datahub_provider import get_provider_info
 from datahub_provider.entities import Dataset
-from datahub_provider.hooks.datahub import DatahubKafkaHook, DatahubRestHook
+from datahub_provider.hooks.datahub import AIRFLOW_1, DatahubKafkaHook, DatahubRestHook
 from datahub_provider.operators.datahub import DatahubEmitterOperator
 
 lineage_mce = builder.make_lineage_mce(
@@ -75,7 +74,7 @@ def test_dags_load_with_no_errors(pytestconfig):
     dag_bag = DagBag(dag_folder=str(airflow_examples_folder), include_examples=False)
 
     import_errors = dag_bag.import_errors
-    if airflow.version.version.startswith("1"):
+    if AIRFLOW_1:
         # The TaskFlow API is new in Airflow 2.x, so we don't expect that demo DAG
         # to work on earlier versions.
         import_errors = {
@@ -233,11 +232,7 @@ def test_lineage_backend(mock_emit, inlets, outlets):
             )
             op1 >> op2
 
-        if airflow.version.version.startswith("1"):
-            ti = TI(task=op2, execution_date=DEFAULT_DATE)
-        else:
-            ti = TI(task=op2)
-
+        ti = TaskInstance(task=op2)
         ctx1 = {
             "dag": dag,
             "task": op2,
