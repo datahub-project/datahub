@@ -1726,6 +1726,33 @@
     }
   }, {
     "type" : "record",
+    "name" : "ViewProperties",
+    "namespace" : "com.linkedin.dataset",
+    "doc" : "Details about a View. \ne.g. Gets activated when subTypes is view",
+    "fields" : [ {
+      "name" : "materialized",
+      "type" : "boolean",
+      "doc" : "Whether the view is materialized",
+      "Searchable" : {
+        "fieldType" : "BOOLEAN",
+        "weightsPerFieldValue" : {
+          "true" : 0.5
+        }
+      }
+    }, {
+      "name" : "viewLogic",
+      "type" : "string",
+      "doc" : "The view logic"
+    }, {
+      "name" : "viewLanguage",
+      "type" : "string",
+      "doc" : "The view logic language / dialect"
+    } ],
+    "Aspect" : {
+      "name" : "viewProperties"
+    }
+  }, {
+    "type" : "record",
     "name" : "Entity",
     "namespace" : "com.linkedin.entity",
     "fields" : [ {
@@ -2302,7 +2329,7 @@
                     "Searchable" : {
                       "addToFilters" : true,
                       "fieldType" : "TEXT_PARTIAL",
-                      "filterNameOverride" : "Fabric Type",
+                      "filterNameOverride" : "Environment",
                       "queryByDefault" : false
                     }
                   } ],
@@ -2801,7 +2828,7 @@
                   "Aspect" : {
                     "name" : "editableSchemaMetadata"
                   }
-                }, "com.linkedin.common.GlobalTags", "com.linkedin.common.GlossaryTerms", "com.linkedin.common.BrowsePaths", "com.linkedin.common.DataPlatformInstance" ]
+                }, "com.linkedin.common.GlobalTags", "com.linkedin.common.GlossaryTerms", "com.linkedin.common.BrowsePaths", "com.linkedin.common.DataPlatformInstance", "com.linkedin.dataset.ViewProperties" ]
               }
             },
             "doc" : "The list of metadata aspects associated with the dataset. Depending on the use case, this can either be all, or a selection, of supported aspects."
@@ -2951,7 +2978,9 @@
                     "type" : "com.linkedin.common.FabricType",
                     "doc" : "Fabric type where model belongs to or where it was generated",
                     "Searchable" : {
+                      "addToFilters" : true,
                       "fieldType" : "TEXT_PARTIAL",
+                      "filterNameOverride" : "Environment",
                       "queryByDefault" : false
                     }
                   } ],
@@ -3803,7 +3832,9 @@
                     "type" : "com.linkedin.common.FabricType",
                     "doc" : "Fabric type where model Deployment belongs to or where it was generated",
                     "Searchable" : {
+                      "addToFilters" : true,
                       "fieldType" : "TEXT_PARTIAL",
+                      "filterNameOverride" : "Environment",
                       "queryByDefault" : false
                     }
                   } ],

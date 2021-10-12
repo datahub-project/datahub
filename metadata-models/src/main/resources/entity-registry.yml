@@ -2,7 +2,7 @@ entities:
   - name: dataset
     keyAspect: datasetKey
     aspects:
-      - viewDetails
+      - viewProperties
       - subTypes
       - datasetProfile
       - datasetUsageStatistics

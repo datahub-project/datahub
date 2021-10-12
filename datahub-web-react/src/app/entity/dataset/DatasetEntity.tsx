@@ -22,6 +22,8 @@ import { SidebarStatsSection } from '../shared/containers/profile/sidebar/Datase
 import StatsTab from '../shared/tabs/Dataset/Stats/StatsTab';
 import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
 import { capitalizeFirstLetter } from '../../shared/capitalizeFirstLetter';
+import ViewDefinitionTab from '../shared/tabs/Dataset/View/ViewDefinitionTab';
+import { SidebarViewDefinitionSection } from '../shared/containers/profile/sidebar/Dataset/View/SidebarViewDefinitionSection';
 
 const MatchTag = styled(Tag)`
     &&& {
@@ -29,6 +31,10 @@ const MatchTag = styled(Tag)`
         margin-top: 10px;
     }
 `;
+
+const SUBTYPES = {
+    VIEW: 'view',
+};
 
 /**
  * Definition of the DataHub Dataset entity.
@@ -98,20 +104,41 @@ export class DatasetEntity implements Entity<Dataset> {
                 {
                     name: 'Lineage',
                     component: LineageTab,
-                    shouldHide: (_, dataset: GetDatasetQuery) =>
-                        (dataset?.dataset?.upstreamLineage?.entities?.length || 0) === 0 &&
-                        (dataset?.dataset?.downstreamLineage?.entities?.length || 0) === 0,
+                    display: {
+                        isVisible: (_, _1) => true,
+                        isClickable: (_, dataset: GetDatasetQuery) =>
+                            (dataset?.dataset?.upstreamLineage?.entities?.length || 0) > 0 ||
+                            (dataset?.dataset?.downstreamLineage?.entities?.length || 0) > 0,
+                    },
                 },
                 {
                     name: 'Queries',
                     component: QueriesTab,
-                    shouldHide: (_, dataset: GetDatasetQuery) => !dataset?.dataset?.usageStats?.buckets?.length,
+                    display: {
+                        isVisible: (_, _1) => true,
+                        isClickable: (_, dataset: GetDatasetQuery) =>
+                            (dataset?.dataset?.usageStats?.buckets?.length || 0) > 0,
+                    },
+                },
+                {
+                    name: 'View Definition',
+                    component: ViewDefinitionTab,
+                    display: {
+                        isVisible: (_, dataset: GetDatasetQuery) =>
+                            (dataset?.dataset?.subTypes?.typeNames?.includes(SUBTYPES.VIEW) as boolean) || false,
+                        isClickable: (_, dataset: GetDatasetQuery) =>
+                            (dataset?.dataset?.viewProperties?.logic && true) || false,
+                    },
                 },
                 {
                     name: 'Stats',
                     component: StatsTab,
-                    shouldHide: (_, dataset: GetDatasetQuery) =>
-                        !dataset?.dataset?.datasetProfiles?.length && !dataset?.dataset?.usageStats?.buckets?.length,
+                    display: {
+                        isVisible: (_, _1) => true,
+                        isClickable: (_, dataset: GetDatasetQuery) =>
+                            (dataset?.dataset?.datasetProfiles?.length || 0) > 0 ||
+                            (dataset?.dataset?.usageStats?.buckets?.length || 0) > 0,
+                    },
                 },
             ]}
             sidebarSections={[
@@ -119,9 +146,19 @@ export class DatasetEntity implements Entity<Dataset> {
                     component: SidebarAboutSection,
                 },
                 {
+                    component: SidebarViewDefinitionSection,
+                    display: {
+                        isVisible: (_, dataset: GetDatasetQuery) =>
+                            (dataset?.dataset?.viewProperties?.logic && true) || false,
+                    },
+                },
+                {
                     component: SidebarStatsSection,
-                    shouldHide: (_, dataset: GetDatasetQuery) =>
-                        !dataset?.dataset?.datasetProfiles?.length && !dataset?.dataset?.usageStats?.buckets?.length,
+                    display: {
+                        isVisible: (_, dataset: GetDatasetQuery) =>
+                            (dataset?.dataset?.datasetProfiles?.length || 0) > 0 ||
+                            (dataset?.dataset?.usageStats?.buckets?.length || 0) > 0,
+                    },
                 },
                 {
                     component: SidebarTagsSection,

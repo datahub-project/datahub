@@ -48,7 +48,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetLineageTypeClass,
     UpstreamClass,
     UpstreamLineage,
-    ViewDetails,
+    ViewProperties,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
@@ -433,7 +433,7 @@ class LookerView:
     sql_table_names: List[str]
     fields: List[ViewField]
     raw_file_content: str
-    view_details: Optional[ViewDetails] = None
+    view_details: Optional[ViewProperties] = None
 
     @classmethod
     def _import_sql_parser_cls(cls, sql_parser_path: str) -> Type[SQLParser]:
@@ -560,7 +560,7 @@ class LookerView:
                     True if derived_table["materialized_view"] == "yes" else False
                 )
 
-            view_details = ViewDetails(
+            view_details = ViewProperties(
                 materialized=materialized, viewLogic=view_logic, viewLanguage=view_lang
             )
 
@@ -920,7 +920,7 @@ class LookMLSource(Source):
                 entityType="dataset",
                 changeType=ChangeTypeClass.UPSERT,
                 entityUrn=looker_view.id.get_urn(self.source_config),
-                aspectName="viewDetails",
+                aspectName="viewProperties",
                 aspect=looker_view.view_details,
             )
             events.append(viewEvent)

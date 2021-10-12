@@ -7,9 +7,9 @@ import com.linkedin.common.Urn
  * e.g. Gets activated when subTypes is view
  */
 @Aspect = {
-  "name": "viewDetails"
+  "name": "viewProperties"
 }
-record ViewDetails {
+record ViewProperties {
 
   /**
    * Whether the view is materialized

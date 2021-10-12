@@ -81,12 +81,18 @@ export class ChartEntity implements Entity<Chart> {
                 {
                     name: 'Inputs',
                     component: ChartInputsTab,
-                    shouldHide: (_, chart: GetChartQuery) => (chart?.chart?.inputs?.total || 0) === 0,
+                    display: {
+                        isVisible: (_, _1) => true,
+                        isClickable: (_, chart: GetChartQuery) => (chart?.chart?.inputs?.total || 0) > 0,
+                    },
                 },
                 {
                     name: 'Dashboards',
                     component: ChartDashboardsTab,
-                    shouldHide: (_, chart: GetChartQuery) => (chart?.chart?.dashboards?.total || 0) === 0,
+                    display: {
+                        isVisible: (_, _1) => true,
+                        isClickable: (_, chart: GetChartQuery) => (chart?.chart?.dashboards?.total || 0) > 0,
+                    },
                 },
             ]}
             sidebarSections={[

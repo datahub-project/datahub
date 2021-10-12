@@ -79,9 +79,12 @@ export class DataJobEntity implements Entity<DataJob> {
                 {
                     name: 'Lineage',
                     component: LineageTab,
-                    shouldHide: (_, dataJob: GetDataJobQuery) =>
-                        (dataJob?.dataJob?.upstreamLineage?.entities?.length || 0) === 0 &&
-                        (dataJob?.dataJob?.downstreamLineage?.entities?.length || 0) === 0,
+                    display: {
+                        isVisible: (_, _1) => true,
+                        isClickable: (_, dataJob: GetDataJobQuery) =>
+                            (dataJob?.dataJob?.upstreamLineage?.entities?.length || 0) > 0 ||
+                            (dataJob?.dataJob?.downstreamLineage?.entities?.length || 0) > 0,
+                    },
                 },
             ]}
             sidebarSections={[

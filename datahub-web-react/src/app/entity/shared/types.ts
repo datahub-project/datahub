@@ -24,12 +24,17 @@ import {
 export type EntityTab = {
     name: string;
     component: React.FunctionComponent;
-    shouldHide?: (GenericEntityProperties, T) => boolean;
+    display?: {
+        isVisible: (GenericEntityProperties, T) => boolean; // Whether the tab is visible on the UI. Defaults to true.
+        isClickable: (GenericEntityProperties, T) => boolean; // Whether the tab is clickable on the UI. Defaults to true.
+    };
 };
 
 export type EntitySidebarSection = {
     component: React.FunctionComponent<{ properties?: any }>;
-    shouldHide?: (GenericEntityProperties, T) => boolean;
+    display?: {
+        isVisible: (GenericEntityProperties, T) => boolean;
+    };
     properties?: any;
 };
 
