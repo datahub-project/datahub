@@ -22,7 +22,7 @@ import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.TagSnapshotMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.TagUpdateInputSnapshotMapper;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.RestliEntityClient;
 import com.linkedin.entity.Entity;
 import com.linkedin.metadata.extractor.AspectExtractor;
 import com.linkedin.metadata.query.AutoCompleteResult;
@@ -47,9 +47,9 @@ public class TagType implements com.linkedin.datahub.graphql.types.SearchableEnt
 
     private static final Set<String> FACET_FIELDS = Collections.emptySet();
 
-    private final EntityClient _tagClient;
+    private final RestliEntityClient _tagClient;
 
-    public TagType(final EntityClient tagClient) {
+    public TagType(final RestliEntityClient tagClient) {
         _tagClient = tagClient;
     }
 

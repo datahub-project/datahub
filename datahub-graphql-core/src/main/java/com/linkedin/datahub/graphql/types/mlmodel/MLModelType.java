@@ -5,7 +5,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.types.mappers.BrowseResultMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
 import com.linkedin.datahub.graphql.types.mlmodel.mappers.MLModelSnapshotMapper;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.RestliEntityClient;
 import com.linkedin.entity.Entity;
 import com.linkedin.metadata.extractor.AspectExtractor;
 import com.linkedin.metadata.search.SearchResult;
@@ -42,9 +42,9 @@ import static com.linkedin.datahub.graphql.Constants.BROWSE_PATH_DELIMITER;
 public class MLModelType implements SearchableEntityType<MLModel>, BrowsableEntityType<MLModel> {
 
     private static final Set<String> FACET_FIELDS = ImmutableSet.of("origin", "platform");
-    private final EntityClient _mlModelsClient;
+    private final RestliEntityClient _mlModelsClient;
 
-    public MLModelType(final EntityClient mlModelsClient) {
+    public MLModelType(final RestliEntityClient mlModelsClient) {
         _mlModelsClient = mlModelsClient;
     }
 

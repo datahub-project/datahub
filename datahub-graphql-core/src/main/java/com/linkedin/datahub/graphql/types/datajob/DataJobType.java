@@ -31,7 +31,7 @@ import com.linkedin.datahub.graphql.types.MutableType;
 import com.linkedin.datahub.graphql.types.mappers.BrowsePathsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowseResultMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.RestliEntityClient;
 import com.linkedin.entity.Entity;
 import com.linkedin.metadata.extractor.AspectExtractor;
 import com.linkedin.metadata.browse.BrowseResult;
@@ -58,9 +58,9 @@ import static com.linkedin.datahub.graphql.Constants.BROWSE_PATH_DELIMITER;
 public class DataJobType implements SearchableEntityType<DataJob>, BrowsableEntityType<DataJob>, MutableType<DataJobUpdateInput> {
 
     private static final Set<String> FACET_FIELDS = ImmutableSet.of("flow");
-    private final EntityClient _dataJobsClient;
+    private final RestliEntityClient _dataJobsClient;
 
-    public DataJobType(final EntityClient dataJobsClient) {
+    public DataJobType(final RestliEntityClient dataJobsClient) {
         _dataJobsClient = dataJobsClient;
     }
 

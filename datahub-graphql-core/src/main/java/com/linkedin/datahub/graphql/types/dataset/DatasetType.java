@@ -30,7 +30,7 @@ import com.linkedin.datahub.graphql.types.mappers.BrowsePathsMapper;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.mappers.BrowseResultMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.RestliEntityClient;
 import com.linkedin.entity.Entity;
 import com.linkedin.metadata.extractor.AspectExtractor;
 import com.linkedin.metadata.browse.BrowseResult;
@@ -57,9 +57,9 @@ public class DatasetType implements SearchableEntityType<Dataset>, BrowsableEnti
     private static final Set<String> FACET_FIELDS = ImmutableSet.of("origin", "platform");
     private static final String ENTITY_NAME = "dataset";
 
-    private final EntityClient _datasetsClient;
+    private final RestliEntityClient _datasetsClient;
 
-    public DatasetType(final EntityClient datasetsClient) {
+    public DatasetType(final RestliEntityClient datasetsClient) {
         _datasetsClient = datasetsClient;
     }
 

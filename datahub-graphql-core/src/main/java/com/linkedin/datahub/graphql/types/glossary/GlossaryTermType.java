@@ -20,7 +20,7 @@ import com.linkedin.datahub.graphql.types.mappers.BrowsePathsMapper;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.mappers.BrowseResultMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.RestliEntityClient;
 import com.linkedin.entity.Entity;
 import com.linkedin.metadata.extractor.AspectExtractor;
 import com.linkedin.metadata.browse.BrowseResult;
@@ -43,9 +43,9 @@ public class GlossaryTermType implements SearchableEntityType<GlossaryTerm>, Bro
 
     private static final Set<String> FACET_FIELDS = ImmutableSet.of("");
 
-    private final EntityClient _glossaryTermsClient;
+    private final RestliEntityClient _glossaryTermsClient;
 
-    public GlossaryTermType(final EntityClient glossaryTermsClient) {
+    public GlossaryTermType(final RestliEntityClient glossaryTermsClient) {
         _glossaryTermsClient = glossaryTermsClient;
     }
 

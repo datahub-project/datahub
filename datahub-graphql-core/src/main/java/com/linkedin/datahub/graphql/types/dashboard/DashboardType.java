@@ -31,7 +31,7 @@ import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowsePathsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowseResultMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.RestliEntityClient;
 import com.linkedin.entity.Entity;
 import com.linkedin.metadata.extractor.AspectExtractor;
 import com.linkedin.metadata.browse.BrowseResult;
@@ -58,9 +58,9 @@ public class DashboardType implements SearchableEntityType<Dashboard>, Browsable
 
     private static final Set<String> FACET_FIELDS = ImmutableSet.of("access", "tool");
 
-    private final EntityClient _dashboardsClient;
+    private final RestliEntityClient _dashboardsClient;
 
-    public DashboardType(final EntityClient dashboardsClient) {
+    public DashboardType(final RestliEntityClient dashboardsClient) {
         _dashboardsClient = dashboardsClient;
     }
 

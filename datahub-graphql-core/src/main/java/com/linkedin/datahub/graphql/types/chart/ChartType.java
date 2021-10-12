@@ -30,7 +30,7 @@ import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowsePathsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowseResultMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.RestliEntityClient;
 import com.linkedin.metadata.extractor.AspectExtractor;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
@@ -56,9 +56,9 @@ public class ChartType implements SearchableEntityType<Chart>, BrowsableEntityTy
 
     private static final Set<String> FACET_FIELDS = ImmutableSet.of("access", "queryType", "tool", "type");
 
-    private final EntityClient _entityClient;
+    private final RestliEntityClient _entityClient;
 
-    public ChartType(final EntityClient entityClient)  {
+    public ChartType(final RestliEntityClient entityClient)  {
         _entityClient = entityClient;
     }
 

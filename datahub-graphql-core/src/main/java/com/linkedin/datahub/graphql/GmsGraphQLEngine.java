@@ -108,7 +108,7 @@ import com.linkedin.datahub.graphql.types.lineage.DataFlowDataJobsRelationshipsT
 import com.linkedin.datahub.graphql.types.glossary.GlossaryTermType;
 
 import com.linkedin.datahub.graphql.types.usage.UsageType;
-import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.entity.client.EntityClient;
 import graphql.execution.DataFetcherResult;
 import graphql.schema.idl.RuntimeWiring;
 import java.util.ArrayList;
@@ -142,7 +142,7 @@ import static graphql.Scalars.GraphQLLong;
 public class GmsGraphQLEngine {
 
     private final AnalyticsService analyticsService;
-    private final EntityService entityService;
+    private final EntityClient entityClient;
 
     private final DatasetType datasetType;
     private final CorpUserType corpUserType;
@@ -199,9 +199,9 @@ public class GmsGraphQLEngine {
         this(null, null);
     }
 
-    public GmsGraphQLEngine(final AnalyticsService analyticsService, final EntityService entityService) {
+    public GmsGraphQLEngine(final AnalyticsService analyticsService, final EntityClient entityService) {
         this.analyticsService = analyticsService;
-        this.entityService = entityService;
+        this.entityClient  = entityClient;
 
         this.datasetType = new DatasetType(GmsClientFactory.getEntitiesClient());
         this.corpUserType = new CorpUserType(GmsClientFactory.getEntitiesClient());
@@ -430,18 +430,19 @@ public class GmsGraphQLEngine {
             .dataFetcher("updateDashboard", new AuthenticatedResolver<>(new MutableTypeResolver<>(dashboardType)))
             .dataFetcher("updateDataJob", new AuthenticatedResolver<>(new MutableTypeResolver<>(dataJobType)))
             .dataFetcher("updateDataFlow", new AuthenticatedResolver<>(new MutableTypeResolver<>(dataFlowType)))
-            .dataFetcher("addTag", new AuthenticatedResolver<>(new AddTagResolver(entityService)))
-            .dataFetcher("removeTag", new AuthenticatedResolver<>(new RemoveTagResolver(entityService)))
-            .dataFetcher("addTerm", new AuthenticatedResolver<>(new AddTermResolver(entityService)))
-            .dataFetcher("removeTerm", new AuthenticatedResolver<>(new RemoveTermResolver(entityService)))
+            .dataFetcher("addTag", new AuthenticatedResolver<>(new AddTagResolver(entityClient)))
+            .dataFetcher("removeTag", new AuthenticatedResolver<>(new RemoveTagResolver(entityClient)))
+            .dataFetcher("addTerm", new AuthenticatedResolver<>(new AddTermResolver(entityClient)))
+            .dataFetcher("removeTerm", new AuthenticatedResolver<>(new RemoveTermResolver(entityClient)))
             .dataFetcher("createPolicy", new UpsertPolicyResolver(GmsClientFactory.getAspectsClient()))
             .dataFetcher("updatePolicy", new UpsertPolicyResolver(GmsClientFactory.getAspectsClient()))
             .dataFetcher("deletePolicy", new DeletePolicyResolver(GmsClientFactory.getEntitiesClient()))
-            .dataFetcher("updateDescription", new AuthenticatedResolver<>(new UpdateFieldDescriptionResolver(entityService)))
-            .dataFetcher("addOwner", new AddOwnerResolver(entityService))
-            .dataFetcher("removeOwner", new RemoveOwnerResolver(entityService))
-            .dataFetcher("addLink", new AddLinkResolver(entityService))
-            .dataFetcher("removeLink", new RemoveLinkResolver(entityService))
+            .dataFetcher("updateDescription", new AuthenticatedResolver<>(new UpdateFieldDescriptionResolver(
+                entityClient)))
+            .dataFetcher("addOwner", new AddOwnerResolver(entityClient))
+            .dataFetcher("removeOwner", new RemoveOwnerResolver(entityClient))
+            .dataFetcher("addLink", new AddLinkResolver(entityClient))
+            .dataFetcher("removeLink", new RemoveLinkResolver(entityClient))
             .dataFetcher("addGroupMembers", new AddGroupMembersResolver(GmsClientFactory.getAspectsClient()))
             .dataFetcher("removeGroupMembers", new RemoveGroupMembersResolver(GmsClientFactory.getAspectsClient()))
             .dataFetcher("createGroup", new CreateGroupResolver(GmsClientFactory.getAspectsClient()))

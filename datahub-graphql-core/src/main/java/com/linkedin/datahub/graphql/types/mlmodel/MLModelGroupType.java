@@ -20,7 +20,7 @@ import com.linkedin.datahub.graphql.types.mappers.BrowseResultMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
 import com.linkedin.datahub.graphql.types.mlmodel.mappers.MLModelGroupSnapshotMapper;
 import com.linkedin.entity.Entity;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.RestliEntityClient;
 import com.linkedin.metadata.extractor.AspectExtractor;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
@@ -40,9 +40,9 @@ import static com.linkedin.datahub.graphql.Constants.BROWSE_PATH_DELIMITER;
 public class MLModelGroupType implements SearchableEntityType<MLModelGroup>, BrowsableEntityType<MLModelGroup> {
 
     private static final Set<String> FACET_FIELDS = ImmutableSet.of("origin", "platform");
-    private final EntityClient _mlModelGroupClient;
+    private final RestliEntityClient _mlModelGroupClient;
 
-    public MLModelGroupType(final EntityClient mlModelGroupClient) {
+    public MLModelGroupType(final RestliEntityClient mlModelGroupClient) {
         _mlModelGroupClient = mlModelGroupClient;
     }
 

@@ -6,7 +6,7 @@ import com.linkedin.datahub.graphql.types.EntityType;
 import com.linkedin.datahub.graphql.generated.DataPlatform;
 import com.linkedin.datahub.graphql.types.dataplatform.mappers.DataPlatformSnapshotMapper;
 
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.RestliEntityClient;
 import com.linkedin.metadata.extractor.AspectExtractor;
 import graphql.execution.DataFetcherResult;
 import java.net.URISyntaxException;
@@ -18,9 +18,9 @@ import java.util.stream.Collectors;
 
 public class DataPlatformType implements EntityType<DataPlatform> {
 
-    private final EntityClient _entityClient;
+    private final RestliEntityClient _entityClient;
 
-    public DataPlatformType(final EntityClient entityClient) {
+    public DataPlatformType(final RestliEntityClient entityClient) {
         _entityClient = entityClient;
     }
 

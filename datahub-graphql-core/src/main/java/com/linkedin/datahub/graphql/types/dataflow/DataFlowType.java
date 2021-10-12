@@ -31,7 +31,7 @@ import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowsePathsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowseResultMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.RestliEntityClient;
 import com.linkedin.entity.Entity;
 import com.linkedin.metadata.extractor.AspectExtractor;
 import com.linkedin.metadata.browse.BrowseResult;
@@ -57,9 +57,9 @@ import static com.linkedin.datahub.graphql.Constants.BROWSE_PATH_DELIMITER;
 public class DataFlowType implements SearchableEntityType<DataFlow>, BrowsableEntityType<DataFlow>, MutableType<DataFlowUpdateInput> {
 
     private static final Set<String> FACET_FIELDS = ImmutableSet.of("orchestrator", "cluster");
-    private final EntityClient _dataFlowsClient;
+    private final RestliEntityClient _dataFlowsClient;
 
-    public DataFlowType(final EntityClient dataFlowsClient) {
+    public DataFlowType(final RestliEntityClient dataFlowsClient) {
         _dataFlowsClient = dataFlowsClient;
     }
 

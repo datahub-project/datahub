@@ -14,7 +14,7 @@ import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
 import com.linkedin.datahub.graphql.types.mlmodel.mappers.MLPrimaryKeySnapshotMapper;
 import com.linkedin.entity.Entity;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.RestliEntityClient;
 import com.linkedin.metadata.extractor.AspectExtractor;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.search.SearchResult;
@@ -31,9 +31,9 @@ import java.util.stream.Collectors;
 public class MLPrimaryKeyType implements SearchableEntityType<MLPrimaryKey> {
 
     private static final Set<String> FACET_FIELDS = ImmutableSet.of("");
-    private final EntityClient _mlPrimaryKeyClient;
+    private final RestliEntityClient _mlPrimaryKeyClient;
 
-    public MLPrimaryKeyType(final EntityClient mlPrimaryKey) {
+    public MLPrimaryKeyType(final RestliEntityClient mlPrimaryKey) {
         _mlPrimaryKeyClient = mlPrimaryKey;
     }
 

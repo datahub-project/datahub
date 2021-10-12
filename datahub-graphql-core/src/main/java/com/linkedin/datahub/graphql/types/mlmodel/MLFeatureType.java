@@ -15,7 +15,7 @@ import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
 import com.linkedin.datahub.graphql.types.mlmodel.mappers.MLFeatureSnapshotMapper;
 import com.linkedin.entity.Entity;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.RestliEntityClient;
 import com.linkedin.metadata.extractor.AspectExtractor;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.search.SearchResult;
@@ -32,9 +32,9 @@ import java.util.stream.Collectors;
 public class MLFeatureType implements SearchableEntityType<MLFeature> {
 
     private static final Set<String> FACET_FIELDS = ImmutableSet.of("");
-    private final EntityClient _mlFeatureClient;
+    private final RestliEntityClient _mlFeatureClient;
 
-    public MLFeatureType(final EntityClient mlFeatureClient) {
+    public MLFeatureType(final RestliEntityClient mlFeatureClient) {
         _mlFeatureClient = mlFeatureClient;
     }
 

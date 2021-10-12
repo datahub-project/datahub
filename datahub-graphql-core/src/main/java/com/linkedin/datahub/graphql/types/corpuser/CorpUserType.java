@@ -13,7 +13,7 @@ import com.linkedin.datahub.graphql.generated.SearchResults;
 import com.linkedin.datahub.graphql.types.corpuser.mappers.CorpUserSnapshotMapper;
 import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.RestliEntityClient;
 import com.linkedin.entity.Entity;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.search.SearchResult;
@@ -31,9 +31,9 @@ import java.util.stream.Collectors;
 
 public class CorpUserType implements SearchableEntityType<CorpUser> {
 
-    private final EntityClient _corpUsersClient;
+    private final RestliEntityClient _corpUsersClient;
 
-    public CorpUserType(final EntityClient corpUsersClient) {
+    public CorpUserType(final RestliEntityClient corpUsersClient) {
         _corpUsersClient = corpUsersClient;
     }
 

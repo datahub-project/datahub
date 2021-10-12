@@ -1,6 +1,6 @@
 package com.linkedin.datahub.upgrade.config;
 
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.RestliEntityClient;
 import com.linkedin.metadata.restli.DefaultRestliClientFactory;
 import com.linkedin.restli.client.Client;
 import org.springframework.beans.factory.annotation.Value;
@@ -20,8 +20,8 @@ public class EntityClientFactory {
   private String gmsSslProtocol;
 
   @Bean("entityClient")
-  public EntityClient getEntityClient() {
+  public RestliEntityClient getEntityClient() {
     Client restClient = DefaultRestliClientFactory.getRestLiClient(gmsHost, gmsPort, gmsUseSSL, gmsSslProtocol);
-    return new EntityClient(restClient);
+    return new RestliEntityClient(restClient);
   }
 }

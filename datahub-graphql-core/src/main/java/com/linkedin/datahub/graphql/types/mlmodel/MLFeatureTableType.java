@@ -20,7 +20,7 @@ import com.linkedin.datahub.graphql.types.mappers.BrowseResultMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
 import com.linkedin.datahub.graphql.types.mlmodel.mappers.MLFeatureTableSnapshotMapper;
 import com.linkedin.entity.Entity;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.RestliEntityClient;
 import com.linkedin.metadata.extractor.AspectExtractor;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
@@ -40,9 +40,9 @@ import static com.linkedin.datahub.graphql.Constants.BROWSE_PATH_DELIMITER;
 public class MLFeatureTableType implements SearchableEntityType<MLFeatureTable>, BrowsableEntityType<MLFeatureTable> {
 
     private static final Set<String> FACET_FIELDS = ImmutableSet.of("platform", "name");
-    private final EntityClient _mlFeatureTableClient;
+    private final RestliEntityClient _mlFeatureTableClient;
 
-    public MLFeatureTableType(final EntityClient mlFeatureTableClient) {
+    public MLFeatureTableType(final RestliEntityClient mlFeatureTableClient) {
         _mlFeatureTableClient = mlFeatureTableClient;
     }
 
