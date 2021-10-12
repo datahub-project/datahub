@@ -149,6 +149,8 @@ class AvroToMceSchemaConverter:
     @staticmethod
     def _get_type_annotation(schema: ExtendedAvroNestedSchemas) -> str:
         simple_native_type = AvroToMceSchemaConverter._get_simple_native_type(schema)
+        if simple_native_type.startswith("__struct_"):
+            simple_native_type = "struct"
         if isinstance(schema, avro.schema.Field):
             return simple_native_type
         else:
@@ -228,7 +230,9 @@ class AvroToMceSchemaConverter:
                     native_data_type = native_data_type[
                         slice(len(type_prefix), len(native_data_type) - 1)
                     ]
-
+                native_data_type = actual_schema.props.get(
+                    "native_data_type", native_data_type
+                )
                 field = SchemaField(
                     fieldPath=self._converter._get_cur_field_path(),
                     # Populate it with the simple native type for now.
@@ -303,11 +307,7 @@ class AvroToMceSchemaConverter:
         """Emits the field most-recent field, optionally triggering sub-schema generation under the field."""
         last_field_schema = self._fields_stack[-1]
         # Generate the custom-description for the field.
-        description = (
-            last_field_schema.doc
-            if last_field_schema.doc
-            else "No description available."
-        )
+        description = last_field_schema.doc if last_field_schema.doc else None
         if last_field_schema.has_default:
             description = (
                 f"{description}\nField default value: {last_field_schema.default}"
