@@ -55,7 +55,6 @@ public class ESAggregatedStatsDAO {
   private static final String ES_TERMS_AGGREGATION_PREFIX = "terms_";
   private static final String ES_MAX_AGGREGATION_PREFIX = "max_";
   private static final String ES_FIELD_TIMESTAMP = "timestampMillis";
-  private static final String ES_KEYWORD_SUFFIX = ".keyword";
   private static final String ES_AGG_TIMESTAMP = ES_AGGREGATION_PREFIX + ES_FIELD_TIMESTAMP;
   private static final String ES_AGG_MAX_TIMESTAMP =
       ES_AGGREGATION_PREFIX + ES_MAX_AGGREGATION_PREFIX + ES_FIELD_TIMESTAMP;
@@ -362,9 +361,6 @@ public class ESAggregatedStatsDAO {
       AggregationSpec aggregationSpec) {
     String fieldPath = aggregationSpec.getFieldPath();
     String esFieldName = fieldPath;
-    if (!isIntegralType(getAggregationSpecMemberType(aspectSpec, aggregationSpec))) {
-      esFieldName += ES_KEYWORD_SUFFIX;
-    }
 
     switch (aggregationSpec.getAggregationType()) {
       case LATEST:
@@ -415,9 +411,6 @@ public class ESAggregatedStatsDAO {
         // Process the string grouping bucket using the 'terms' aggregation.
         String fieldName = curGroupingBucket.getKey();
         DataSchema.Type fieldType = getGroupingBucketKeyType(aspectSpec, curGroupingBucket);
-        if (!isIntegralType(fieldType)) {
-          fieldName += ES_KEYWORD_SUFFIX;
-        }
         curAggregationBuilder = AggregationBuilders.terms(getGroupingBucketAggName(curGroupingBucket))
             .field(fieldName)
             .size(MAX_TERM_BUCKETS)
