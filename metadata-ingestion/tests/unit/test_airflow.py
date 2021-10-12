@@ -230,7 +230,16 @@ def test_lineage_backend(mock_emit, inlets, outlets):
             )
             op1 >> op2
 
-        ti = TaskInstance(task=op2)
+        # Airflow <= 2.1 requires the execution_date parameter. Newer Airflow
+        # versions do not require it, but will attempt to find the associated
+        # run_id in the database if execution_date is provided. As such, we
+        # must fake the run_id parameter for newer Airflow versions.
+        if any(
+            airflow.version.version.startswith(prefix) for prefix in ["1", "2.0", "2.1"]
+        ):
+            ti = TaskInstance(task=op2, execution_date=DEFAULT_DATE)
+        else:
+            ti = TaskInstance(task=op2, run_id=f"test_airflow-{DEFAULT_DATE}")
         ctx1 = {
             "dag": dag,
             "task": op2,
