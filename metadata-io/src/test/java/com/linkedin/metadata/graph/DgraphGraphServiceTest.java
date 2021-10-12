@@ -13,6 +13,7 @@ import io.grpc.ManagedChannelBuilder;
 import io.grpc.MethodDescriptor;
 import lombok.extern.slf4j.Slf4j;
 import org.testcontainers.containers.output.OutputFrame;
+import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.AfterTest;
 import org.testng.annotations.BeforeMethod;
@@ -56,19 +57,12 @@ public class DgraphGraphServiceTest extends GraphServiceTestBase {
                 .withStartupAttempts(3);
         _container.start();
 
-        // use Slf4jLogConsumer instead: Slf4jLogConsumer logConsumer = new Slf4jLogConsumer(log);
-        _container.followOutput(new Consumer<OutputFrame>() {
-            @Override
-            public void accept(OutputFrame outputFrame) {
-                Console.print(outputFrame.getUtf8String());
-            }
-        });
+        Slf4jLogConsumer logConsumer = new Slf4jLogConsumer(log);
+        _container.followOutput(logConsumer);
     }
 
     @BeforeMethod
-    public void connect(Method method) {
-        System.out.println(System.currentTimeMillis() + ": Running test " + method.getName());
-
+    public void connect() {
         _channel = ManagedChannelBuilder
                 .forAddress(_container.getHost(), _container.getGrpcPort())
                 .usePlaintext()

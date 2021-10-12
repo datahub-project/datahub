@@ -102,15 +102,13 @@ public class DgraphSchema {
         allTypesFields.add(fieldName);
 
         if (dgraph != null) {
+            log.info("Adding predicate {} for type {} to schema", fieldName, typeName);
+
             StringJoiner type = new StringJoiner("\n  ");
             allTypesFields.stream().map(t -> "<" + t + ">").forEach(type::add);
             schema.add(String.format("type <%s> {\n  %s\n}", typeName, type));
             log.debug("Adding to schema: " + schema);
             DgraphProto.Operation setSchema = DgraphProto.Operation.newBuilder().setSchema(schema.toString()).setRunInBackground(true).build();
-            synchronized (System.out) {
-                System.out.printf(System.currentTimeMillis() + ": adding predicate %s to %s: %s%n", fieldName, typeName, schema);
-            }
-
             dgraph.executeConsumer(dgraphClient -> dgraphClient.alter(setSchema));
         }
 

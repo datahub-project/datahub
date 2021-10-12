@@ -6,12 +6,14 @@ import io.github.resilience4j.core.IntervalFunction;
 import io.github.resilience4j.retry.Retry;
 import io.github.resilience4j.retry.RetryConfig;
 import io.grpc.StatusRuntimeException;
+import lombok.extern.slf4j.Slf4j;
 
 import java.time.Duration;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
+@Slf4j
 public class DgraphExecutor {
 
     // requests are retried with an exponential randomized backoff
@@ -88,9 +90,7 @@ public class DgraphExecutor {
                         || t.getMessage().contains("context deadline exceeded")
                         || t.getMessage().contains("Only leader can decide to commit or abort")
         )) {
-            synchronized (System.out) {
-                System.out.printf(System.currentTimeMillis() + ": retrying %s%n", t.getMessage());
-            }
+            log.debug("retrying request due to {}", t.getMessage());
             return true;
         }
         return false;

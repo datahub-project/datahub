@@ -207,19 +207,7 @@ public class DgraphGraphService implements GraphService {
                 .build();
 
         // run the request
-        synchronized (System.out) {
-            System.out.printf(System.currentTimeMillis() + ": Adding Edge source: %s, destination: %s, type: %s%n",
-                    edge.getSource(),
-                    edge.getDestination(),
-                    edge.getRelationshipType());
-        }
         _dgraph.executeFunction(client -> client.newTransaction().doRequest(request));
-        synchronized (System.out) {
-            System.out.printf(System.currentTimeMillis() + ": Added  Edge source: %s, destination: %s, type: %s%n",
-                    edge.getSource(),
-                    edge.getDestination(),
-                    edge.getRelationshipType());
-        }
     }
 
     private static @Nonnull String getDgraphType(@Nonnull Urn urn) {
@@ -551,9 +539,7 @@ public class DgraphGraphService implements GraphService {
                 .setCommitNow(true)
                 .build();
 
-        System.out.printf(System.currentTimeMillis() + ": removing node %s%n", urn);
         _dgraph.executeConsumer(client -> client.newTransaction().doRequest(request));
-        System.out.printf(System.currentTimeMillis() + ": removed  node %s%n", urn);
     }
 
     @Override
@@ -603,9 +589,7 @@ public class DgraphGraphService implements GraphService {
                 .setCommitNow(true)
                 .build();
 
-        System.out.printf(System.currentTimeMillis() + ": removing outgoing edges from node %s%n", urn);
         _dgraph.executeConsumer(client -> client.newTransaction().doRequest(request));
-        System.out.printf(System.currentTimeMillis() + ": removed  outgoing edges from node %s%n", urn);
     }
 
     private void removeIncomingEdgesFromNode(@Nonnull Urn urn,
@@ -640,9 +624,7 @@ public class DgraphGraphService implements GraphService {
                 .setCommitNow(true)
                 .build();
 
-        System.out.printf(System.currentTimeMillis() + ": removing incoming edges from node %s%n", urn);
         _dgraph.executeConsumer(client -> client.newTransaction().doRequest(request));
-        System.out.printf(System.currentTimeMillis() + ": removed incoming edges from node %s%n", urn);
     }
 
     @Override
