@@ -1,5 +1,6 @@
 package com.linkedin.metadata;
 
+import org.elasticsearch.ElasticsearchStatusException;
 import org.elasticsearch.action.admin.indices.flush.FlushRequest;
 import org.elasticsearch.action.admin.indices.flush.FlushResponse;
 import org.elasticsearch.action.admin.indices.refresh.RefreshRequest;
@@ -13,12 +14,46 @@ import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.common.xcontent.XContentType;
 import org.testng.TestException;
+import scala.Console;
 
-import java.io.IOException;
+import java.net.SocketTimeoutException;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 public class ElasticSearchTestUtils {
+
+    // request options for all requests
+    private static final RequestOptions OPTIONS = RequestOptions.DEFAULT;
+
+    private interface ThrowingSupplier<T, E extends Exception> {
+        T get() throws E;
+    }
+
+    // We are retrying requests, otherwise concurrency tests will see exceptions like these:
+    //   java.net.SocketTimeoutException: 30,000 milliseconds timeout on connection http-outgoing-1 [ACTIVE]
+    private static <T> T retry(ThrowingSupplier<T, Exception> func) {
+        int attempts = 3;
+        Exception exception = null;
+
+        while (attempts > 0) {
+            try {
+                attempts--;
+                return func.get();
+            } catch (Exception e) {
+                exception = e;
+                Console.println(e);
+                if (e instanceof SocketTimeoutException) {
+                    continue;
+                }
+                if (e instanceof ElasticsearchStatusException) {
+                    Console.println(((ElasticsearchStatusException) e).status().getStatus());
+                }
+                break;
+            }
+        }
+
+        throw new RuntimeException(exception);
+    }
 
     private ElasticSearchTestUtils() {
     }
@@ -37,13 +72,13 @@ public class ElasticSearchTestUtils {
         waitForSyncFlag(searchClient, syncFlag, indexName, true);
 
         // flush changes for all indices in ES to disk
-        FlushResponse fResponse = searchClient.indices().flush(new FlushRequest(), RequestOptions.DEFAULT);
+        FlushResponse fResponse = retry(() -> searchClient.indices().flush(new FlushRequest(), OPTIONS));
         if (fResponse.getFailedShards() > 0) {
             throw new RuntimeException("Failed to flush " + fResponse.getFailedShards() + " of " + fResponse.getTotalShards() + " shards");
         }
 
         // wait for all indices to be refreshed
-        RefreshResponse rResponse = searchClient.indices().refresh(new RefreshRequest(), RequestOptions.DEFAULT);
+        RefreshResponse rResponse = retry(() -> searchClient.indices().refresh(new RefreshRequest(), OPTIONS));
         if (rResponse.getFailedShards() > 0) {
             throw new RuntimeException("Failed to refresh " + rResponse.getFailedShards() + " of " + rResponse.getTotalShards() + " shards");
         }
@@ -53,26 +88,27 @@ public class ElasticSearchTestUtils {
         waitForSyncFlag(searchClient, syncFlag, indexName, false);
     }
 
-    private static void addSyncFlag(RestHighLevelClient searchClient, String docId, String indexName) throws IOException {
+    private static void addSyncFlag(RestHighLevelClient searchClient, String docId, String indexName) {
         String document = "{ }";
         final IndexRequest indexRequest = new IndexRequest(indexName).id(docId).source(document, XContentType.JSON);
         final UpdateRequest updateRequest = new UpdateRequest(indexName, docId).doc(document, XContentType.JSON)
                 .detectNoop(false)
+                .retryOnConflict(3)
                 .upsert(indexRequest);
-        searchClient.update(updateRequest, RequestOptions.DEFAULT);
+        retry(() -> searchClient.update(updateRequest, OPTIONS));
     }
 
-    private static void removeSyncFlag(RestHighLevelClient searchClient, String docId, String indexName) throws IOException {
+    private static void removeSyncFlag(RestHighLevelClient searchClient, String docId, String indexName) {
         final DeleteRequest deleteRequest = new DeleteRequest(indexName).id(docId);
-        searchClient.delete(deleteRequest, RequestOptions.DEFAULT);
+        retry(() -> searchClient.delete(deleteRequest, OPTIONS));
     }
 
     private static void waitForSyncFlag(RestHighLevelClient searchClient, String docId, String indexName, boolean toExist)
-            throws IOException, InterruptedException {
+            throws InterruptedException {
         GetRequest request = new GetRequest(indexName).id(docId);
         long timeout = System.currentTimeMillis() + TimeUnit.MILLISECONDS.convert(10, TimeUnit.SECONDS);
         while (System.currentTimeMillis() < timeout) {
-            GetResponse response = searchClient.get(request, RequestOptions.DEFAULT);
+            GetResponse response = retry(() -> searchClient.get(request, OPTIONS));
             if (response.isExists() == toExist) {
                 return;
             }
