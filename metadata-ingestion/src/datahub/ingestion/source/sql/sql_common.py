@@ -32,7 +32,6 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.ge_data_profiler import GEProfilerRequest
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
@@ -55,7 +54,10 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 from datahub.metadata.schema_classes import ChangeTypeClass, DatasetPropertiesClass
 
 if TYPE_CHECKING:
-    from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler
+    from datahub.ingestion.source.ge_data_profiler import (
+        DatahubGEProfiler,
+        GEProfilerRequest,
+    )
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -332,7 +334,7 @@ class SQLAlchemySource(Source):
 
         for inspector in self.get_inspectors():
             profiler = None
-            profile_requests: List[GEProfilerRequest] = []
+            profile_requests: List["GEProfilerRequest"] = []
             if sql_config.profiling.enabled:
                 profiler = self._get_profiler_instance(inspector)
 
@@ -569,7 +571,9 @@ class SQLAlchemySource(Source):
         inspector: Inspector,
         schema: str,
         sql_config: SQLAlchemyConfig,
-    ) -> Iterable[GEProfilerRequest]:
+    ) -> Iterable["GEProfilerRequest"]:
+        from datahub.ingestion.source.ge_data_profiler import GEProfilerRequest
+
         for table in inspector.get_table_names(schema):
             schema, table = self.standardize_schema_table_names(
                 schema=schema, entity=table
@@ -589,7 +593,7 @@ class SQLAlchemySource(Source):
             )
 
     def loop_profiler(
-        self, profile_requests: List[GEProfilerRequest], profiler: "DatahubGEProfiler"
+        self, profile_requests: List["GEProfilerRequest"], profiler: "DatahubGEProfiler"
     ) -> Iterable[MetadataWorkUnit]:
         for request, profile in profiler.generate_profiles(
             profile_requests, self.config.profiling.max_workers
