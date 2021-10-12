@@ -70,6 +70,8 @@ class GEProfilerRequest:
     pretty_name: str
     batch_kwargs: dict
 
+    send_sample_values: bool
+
 
 @dataclasses.dataclass
 class DatahubGEProfiler:
@@ -122,6 +124,7 @@ class DatahubGEProfiler:
                         self.generate_profile,
                         request.pretty_name,
                         **request.batch_kwargs,
+                        send_sample_values=request.send_sample_values,
                     ),
                 )
                 for request in requests
@@ -142,6 +145,7 @@ class DatahubGEProfiler:
         table: str = None,
         limit: int = None,
         offset: int = None,
+        send_sample_values: bool = True,
         **kwargs: Any,
     ) -> DatasetProfileClass:
         logger.info(f"Profiling {pretty_name} (this may take a while)")
@@ -158,7 +162,9 @@ class DatahubGEProfiler:
                 pretty_name=pretty_name,
             )
 
-        profile = self._convert_evrs_to_profile(evrs, pretty_name=pretty_name)
+        profile = self._convert_evrs_to_profile(
+            evrs, pretty_name=pretty_name, send_sample_values=send_sample_values
+        )
         logger.debug(f"Finished profiling {pretty_name}")
 
         return profile
@@ -194,7 +200,10 @@ class DatahubGEProfiler:
     # - https://github.com/great-expectations/great_expectations/blob/71e9c1eae433a31416a38de1688e2793e9778299/great_expectations/profile/basic_dataset_profiler.py
 
     def _convert_evrs_to_profile(
-        self, evrs: ExpectationSuiteValidationResult, pretty_name: str
+        self,
+        evrs: ExpectationSuiteValidationResult,
+        pretty_name: str,
+        send_sample_values: bool,
     ) -> DatasetProfileClass:
         profile = DatasetProfileClass(timestampMillis=get_sys_time())
 
@@ -207,7 +216,11 @@ class DatahubGEProfiler:
                 )
             else:
                 self._handle_convert_column_evrs(
-                    profile, col, evrs_for_col, pretty_name=pretty_name
+                    profile,
+                    col,
+                    evrs_for_col,
+                    pretty_name=pretty_name,
+                    send_sample_values=send_sample_values,
                 )
 
         return profile
@@ -239,6 +252,7 @@ class DatahubGEProfiler:
         column: str,
         col_evrs: Iterable[ExpectationValidationResult],
         pretty_name: str,
+        send_sample_values: bool,
     ) -> None:
         # TRICKY: This method mutates the profile directly.
 
@@ -293,6 +307,8 @@ class DatahubGEProfiler:
                 column_profile.sampleValues = [
                     str(v) for v in res["partial_unexpected_list"]
                 ]
+                if not send_sample_values:
+                    column_profile.sampleValues = []
             elif exp == "expect_column_kl_divergence_to_be_less_than":
                 if "details" in res and "observed_partition" in res["details"]:
                     partition = res["details"]["observed_partition"]
@@ -313,6 +329,8 @@ class DatahubGEProfiler:
                         ValueFrequencyClass(value=str(value), frequency=count)
                         for value, count in res["details"]["value_counts"].items()
                     ]
+                    if not send_sample_values:
+                        column_profile.distinctValueFrequencies = []
             elif exp == "expect_column_values_to_be_in_type_list":
                 # ignore; we already know the types for each column via ingestion
                 pass
