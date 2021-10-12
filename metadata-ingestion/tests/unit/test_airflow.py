@@ -233,7 +233,7 @@ def test_lineage_backend(mock_emit, inlets, outlets):
             )
             op1 >> op2
 
-        ti = TI(task=op2, execution_date=DEFAULT_DATE, run_id="test_run")
+        ti = TI(task=op2)
         ctx1 = {
             "dag": dag,
             "task": op2,
