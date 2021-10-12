@@ -409,6 +409,7 @@ export const dataset3 = {
         },
     ],
     subTypes: null,
+    viewProperties: null,
 } as Dataset;
 
 export const dataset4 = {

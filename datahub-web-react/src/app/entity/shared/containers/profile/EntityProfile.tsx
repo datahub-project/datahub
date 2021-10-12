@@ -161,7 +161,7 @@ export const EntityProfile = <T, U>({
                         <>
                             <EntityHeader />
                             <Divider />
-                            <EntitySidebar sidebarSections={sidebarSections} />
+                            <EntitySidebar sidebarSections={sideBarSectionsWithDefaults} />
                         </>
                     )}
                 </div>
