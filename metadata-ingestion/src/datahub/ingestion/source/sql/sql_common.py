@@ -111,6 +111,7 @@ class GEProfilingConfig(ConfigModel):
     enabled: bool = False
     limit: Optional[int] = None
     offset: Optional[int] = None
+    send_sample_values: Optional[bool] = True
 
 
 class SQLAlchemyConfig(ConfigModel):
@@ -588,6 +589,7 @@ class SQLAlchemySource(Source):
             table=table,
             limit=self.config.profiling.limit,
             offset=self.config.profiling.offset,
+            send_sample_values=self.config.profiling.send_sample_values,
         )
 
     def get_report(self):
