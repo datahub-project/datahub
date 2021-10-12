@@ -48,6 +48,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetLineageTypeClass,
     UpstreamClass,
     UpstreamLineage,
+    ViewProperties,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
@@ -432,6 +433,7 @@ class LookerView:
     sql_table_names: List[str]
     fields: List[ViewField]
     raw_file_content: str
+    view_details: Optional[ViewProperties] = None
 
     @classmethod
     def _import_sql_parser_cls(cls, sql_parser_path: str) -> Type[SQLParser]:
@@ -541,6 +543,26 @@ class LookerView:
                 derived_table,
                 fields,
             )
+            # also store the view logic and materialization
+            if "sql" in derived_table:
+                view_logic = derived_table["sql"]
+                view_lang = "sql"
+            if "explore_source" in derived_table:
+                view_logic = str(derived_table["explore_source"])
+                view_lang = "lookml"
+
+            materialized = False
+            for k in derived_table:
+                if k in ["datagroup_trigger", "sql_trigger_value", "persist_for"]:
+                    materialized = True
+            if "materialized_view" in derived_table:
+                materialized = (
+                    True if derived_table["materialized_view"] == "yes" else False
+                )
+
+            view_details = ViewProperties(
+                materialized=materialized, viewLogic=view_logic, viewLanguage=view_lang
+            )
 
             return LookerView(
                 id=LookerViewId(
@@ -553,6 +575,7 @@ class LookerView:
                 sql_table_names=sql_table_names,
                 fields=fields,
                 raw_file_content=looker_viewfile.raw_file_content,
+                view_details=view_details,
             )
 
         # If not a derived table, then this view essentially wraps an existing
@@ -880,17 +903,29 @@ class LookMLSource(Source):
 
         return dataset_props
 
-    def _build_dataset_mcp(
+    def _build_dataset_mcps(
         self, looker_view: LookerView
-    ) -> MetadataChangeProposalWrapper:
-        changeEvent = MetadataChangeProposalWrapper(
+    ) -> List[MetadataChangeProposalWrapper]:
+        events = []
+        subTypeEvent = MetadataChangeProposalWrapper(
             entityType="dataset",
             changeType=ChangeTypeClass.UPSERT,
             entityUrn=looker_view.id.get_urn(self.source_config),
             aspectName="subTypes",
             aspect=SubTypesClass(typeNames=["view"]),
         )
-        return changeEvent
+        events.append(subTypeEvent)
+        if looker_view.view_details is not None:
+            viewEvent = MetadataChangeProposalWrapper(
+                entityType="dataset",
+                changeType=ChangeTypeClass.UPSERT,
+                entityUrn=looker_view.id.get_urn(self.source_config),
+                aspectName="viewProperties",
+                aspect=looker_view.view_details,
+            )
+            events.append(viewEvent)
+
+        return events
 
     def _build_dataset_mce(self, looker_view: LookerView) -> MetadataChangeEvent:
         """
@@ -1031,16 +1066,15 @@ class LookMLSource(Source):
                                 processed_view_files.add(include)
                                 yield workunit
 
-                                mcp = self._build_dataset_mcp(maybe_looker_view)
-                                # We want to treat subtype aspects as optional, so allowing failures in this aspect to be treated as warnings rather than failures
-                                workunit = MetadataWorkUnit(
-                                    id=f"lookml-view-subtype-{maybe_looker_view.id}",
-                                    mcp=mcp,
-                                    treat_errors_as_warnings=True,
-                                )
-                                self.reporter.report_workunit(workunit)
-                                yield workunit
-
+                                for mcp in self._build_dataset_mcps(maybe_looker_view):
+                                    # We want to treat mcp aspects as optional, so allowing failures in this aspect to be treated as warnings rather than failures
+                                    workunit = MetadataWorkUnit(
+                                        id=f"lookml-view-{mcp.aspectName}-{maybe_looker_view.id}",
+                                        mcp=mcp,
+                                        treat_errors_as_warnings=True,
+                                    )
+                                    self.reporter.report_workunit(workunit)
+                                    yield workunit
                             else:
                                 self.reporter.report_views_dropped(
                                     str(maybe_looker_view.id)

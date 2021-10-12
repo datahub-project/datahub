@@ -37,14 +37,16 @@ export const EntityTabs = <T,>({ tabs, selectedTab }: Props) => {
         }
     }, [tabs, selectedTab, routeToTab]);
 
+    const visibleTabs = tabs.filter((tab) => tab.display?.visible);
+
     return (
         <UnborderedTabs
             activeKey={selectedTab?.name}
             size="large"
             onTabClick={(tab: string) => routeToTab({ tabName: tab })}
         >
-            {tabs.map((tab) => {
-                if (tab.shouldHide?.(entityData, baseEntity) === true) {
+            {visibleTabs.map((tab) => {
+                if (!tab.display?.enabled(entityData, baseEntity)) {
                     return <Tab tab={tab.name} key={tab.name} disabled />;
                 }
                 return <Tab tab={tab.name} key={tab.name} />;
