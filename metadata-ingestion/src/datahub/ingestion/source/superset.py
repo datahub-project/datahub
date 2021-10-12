@@ -11,6 +11,7 @@ from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.sql import sql_common
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
     AuditStamp,
     ChangeAuditStamps,
@@ -28,39 +29,6 @@ from datahub.metadata.schema_classes import (
 from datahub.utilities import config_clean
 
 PAGE_SIZE = 25
-
-
-def get_platform_from_sqlalchemy_uri(sqlalchemy_uri: str) -> str:
-    if sqlalchemy_uri.startswith("bigquery"):
-        return "bigquery"
-    if sqlalchemy_uri.startswith("druid"):
-        return "druid"
-    if sqlalchemy_uri.startswith("mssql"):
-        return "mssql"
-    if (
-        sqlalchemy_uri.startswith("jdbc:postgres:")
-        and sqlalchemy_uri.index("redshift.amazonaws") > 0
-    ):
-        return "redshift"
-    if sqlalchemy_uri.startswith("snowflake"):
-        return "snowflake"
-    if sqlalchemy_uri.startswith("presto"):
-        return "presto"
-    if sqlalchemy_uri.startswith("postgresql"):
-        return "postgres"
-    if sqlalchemy_uri.startswith("pinot"):
-        return "pinot"
-    if sqlalchemy_uri.startswith("oracle"):
-        return "oracle"
-    if sqlalchemy_uri.startswith("mysql"):
-        return "mysql"
-    if sqlalchemy_uri.startswith("mongodb"):
-        return "mongodb"
-    if sqlalchemy_uri.startswith("hive"):
-        return "hive"
-    if sqlalchemy_uri.startswith("awsathena"):
-        return "athena"
-    return "external"
 
 
 chart_type_from_viz_type = {
@@ -170,7 +138,7 @@ class SupersetSource(Source):
             f"{self.config.connect_uri}/api/v1/database/{database_id}"
         ).json()
         sqlalchemy_uri = database_response.get("result", {}).get("sqlalchemy_uri")
-        return get_platform_from_sqlalchemy_uri(sqlalchemy_uri)
+        return sql_common.get_platform_from_sqlalchemy_uri(sqlalchemy_uri)
 
     @lru_cache(maxsize=None)
     def get_datasource_urn_from_id(self, datasource_id):
