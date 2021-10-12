@@ -128,14 +128,17 @@ def _get_all_relation_info(self, connection, **kw):
 
 
 # workaround to get external tables
-# Ideally, we would monkey patch by UNION of SVV_EXTERNAL_COLUMNS
-# to the existing query in dialect.py _get_schema_column_info().
-# However, the SVV_EXTERNAL_COLUMNS external_type column is
-# different than the System Catalog tables (tables with a PG prefix).
-# So, we're querying from SVV_COLUMNS (a join of System Catalog tables and SVV_EXTERNAL_COLUMNS)
-# while skipping the System Catalog tables to get a similar result.
-# Reference: https://docs.aws.amazon.com/redshift/latest/dg/r_SVV_EXTERNAL_COLUMNS.html
-# https://docs.amazonaws.cn/en_us/redshift/latest/dg/r_SVV_COLUMNS.html
+# Rewriting some external table types to match redshift type based on
+# this redshift-sqlalchemy pull request:
+#   https://github.com/sqlalchemy-redshift/sqlalchemy-redshift/pull/163/files
+# The mapping of external types to redshift types:
+#   (https://docs.aws.amazon.com/redshift/latest/dg/r_CREATE_EXTERNAL_TABLE.html):
+# External type -> Redshift type
+#   int -> integer
+#   decimal -> numeric
+#   char -> character
+#   float -> real
+#   double -> float
 @reflection.cache  # type: ignore
 def _get_schema_column_info(self, connection, schema=None, **kw):
     schema_clause = "AND schema = '{schema}'".format(schema=schema) if schema else ""
@@ -143,24 +146,104 @@ def _get_schema_column_info(self, connection, schema=None, **kw):
     with connection.connect() as cc:
         result = cc.execute(
             """
-            SELECT s.table_schema AS "schema",
-                s.table_name AS "table_name",
-                s.column_name AS "name",
-                NULL AS "encode",
-                s.data_type AS "type",
-                NULL AS "distkey",
-                NULL AS "sortkey",
-                NULL AS "notnull",
-                NULL AS "comment",
-                NULL AS "adsrc",
-                NULL AS "attnum",
-                s.data_type AS "format_type",
-                NULL AS "default",
-                NULL AS "schema_oid",
-                NULL AS "table_oid"
-            FROM SVV_COLUMNS s
-            WHERE s.table_schema !~ '^pg_'
-            {schema_clause}
+            SELECT
+              n.nspname as "schema",
+              c.relname as "table_name",
+              att.attname as "name",
+              format_encoding(att.attencodingtype::integer) as "encode",
+              format_type(att.atttypid, att.atttypmod) as "type",
+              att.attisdistkey as "distkey",
+              att.attsortkeyord as "sortkey",
+              att.attnotnull as "notnull",
+              pg_catalog.col_description(att.attrelid, att.attnum)
+                as "comment",
+              adsrc,
+              attnum,
+              pg_catalog.format_type(att.atttypid, att.atttypmod),
+              pg_catalog.pg_get_expr(ad.adbin, ad.adrelid) AS DEFAULT,
+              n.oid as "schema_oid",
+              c.oid as "table_oid"
+            FROM pg_catalog.pg_class c
+            LEFT JOIN pg_catalog.pg_namespace n
+              ON n.oid = c.relnamespace
+            JOIN pg_catalog.pg_attribute att
+              ON att.attrelid = c.oid
+            LEFT JOIN pg_catalog.pg_attrdef ad
+              ON (att.attrelid, att.attnum) = (ad.adrelid, ad.adnum)
+            WHERE n.nspname !~ '^pg_'
+              AND att.attnum > 0
+              AND NOT att.attisdropped
+              {schema_clause}
+            UNION
+            SELECT
+              view_schema as "schema",
+              view_name as "table_name",
+              col_name as "name",
+              null as "encode",
+              col_type as "type",
+              null as "distkey",
+              0 as "sortkey",
+              null as "notnull",
+              null as "comment",
+              null as "adsrc",
+              null as "attnum",
+              col_type as "format_type",
+              null as "default",
+              null as "schema_oid",
+              null as "table_oid"
+            FROM pg_get_late_binding_view_cols() cols(
+              view_schema name,
+              view_name name,
+              col_name name,
+              col_type varchar,
+              col_num int)
+            WHERE 1 {schema_clause}
+            UNION
+            SELECT
+              schemaname as "schema",
+              tablename as "table_name",
+              columnname as "name",
+              null as "encode",
+              -- Spectrum represents data types differently.
+              -- Standardize, so we can infer types.
+              CASE
+                WHEN external_type = 'int' THEN 'integer'
+                 ELSE
+                   replace(
+                   replace(
+                   replace(
+                   replace(
+                   replace(external_type, 'decimal', 'numeric'),
+                    'varchar', 'character varying'),
+                    'char(', 'character('),
+                    'float', 'real'),
+                    'double', 'float')
+                 END AS "type",
+              null as "distkey",
+              0 as "sortkey",
+              null as "notnull",
+              null as "comment",
+              null as "adsrc",
+              null as "attnum",
+              CASE
+                 WHEN external_type = 'int' THEN 'integer'
+                 ELSE
+                   replace(
+                   replace(
+                   replace(
+                   replace(
+                   replace(external_type, 'decimal', 'numeric'),
+                    'varchar', 'character varying'),
+                    'char(', 'character('),
+                    'float', 'real'),
+                    'double', 'float')
+                 END AS "format_type",
+              null as "default",
+              null as "schema_oid",
+              null as "table_oid"
+            FROM SVV_EXTERNAL_COLUMNS
+            WHERE 1 {schema_clause}
+            ORDER BY "schema", "table_name", "attnum"
         """.format(
                 schema_clause=schema_clause
             )
