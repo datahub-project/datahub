@@ -85,12 +85,12 @@ const TabContent = styled.div`
 `;
 
 const defaultTabDisplayConfig = {
-    isVisible: (_, _1) => true,
-    isClickable: (_, _1) => true,
+    visible: (_, _1) => true,
+    enabled: (_, _1) => true,
 };
 
 const defaultSidebarSection = {
-    isVisible: (_, _1) => true,
+    visible: (_, _1) => true,
 };
 
 /**
