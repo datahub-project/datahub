@@ -254,7 +254,6 @@ public class ElasticSearchTimeseriesAspectServiceTest {
   @Test(groups = {"getAggregatedStats"}, dependsOnGroups = {"upsert"})
   public void testGetAggregatedStatsLatestStatForDay1() {
     // Filter is only on the urn
-    Filter filter = new Filter();
     Criterion hasUrnCriterion =
         new Criterion().setField("urn").setCondition(Condition.EQUAL).setValue(TEST_URN.toString());
     Criterion startTimeCriterion = new Criterion().setField(ES_FILED_TIMESTAMP)
@@ -264,7 +263,7 @@ public class ElasticSearchTimeseriesAspectServiceTest {
         .setCondition(Condition.LESS_THAN_OR_EQUAL_TO)
         .setValue(String.valueOf(_startTime + 23 * TIME_INCREMENT));
 
-    QueryUtils.getFilterFromCriteria(ImmutableList.of(hasUrnCriterion, startTimeCriterion, endTimeCriterion));
+    Filter filter = QueryUtils.getFilterFromCriteria(ImmutableList.of(hasUrnCriterion, startTimeCriterion, endTimeCriterion));
 
     // Aggregate on latest stat value
     AggregationSpec latestStatAggregationSpec =
@@ -291,7 +290,6 @@ public class ElasticSearchTimeseriesAspectServiceTest {
   @Test(groups = {"getAggregatedStats"}, dependsOnGroups = {"upsert"})
   public void testGetAggregatedStatsLatestStrArrayDay1() {
     // Filter is only on the urn
-    Filter filter = new Filter();
     Criterion hasUrnCriterion =
         new Criterion().setField("urn").setCondition(Condition.EQUAL).setValue(TEST_URN.toString());
     Criterion startTimeCriterion = new Criterion().setField(ES_FILED_TIMESTAMP)
@@ -301,7 +299,7 @@ public class ElasticSearchTimeseriesAspectServiceTest {
         .setCondition(Condition.LESS_THAN_OR_EQUAL_TO)
         .setValue(String.valueOf(_startTime + 23 * TIME_INCREMENT));
 
-    QueryUtils.getFilterFromCriteria(ImmutableList.of(hasUrnCriterion, startTimeCriterion, endTimeCriterion));
+    Filter filter = QueryUtils.getFilterFromCriteria(ImmutableList.of(hasUrnCriterion, startTimeCriterion, endTimeCriterion));
 
     // Aggregate on latest stat value
     AggregationSpec latestStatAggregationSpec =
@@ -336,7 +334,6 @@ public class ElasticSearchTimeseriesAspectServiceTest {
   @Test(groups = {"getAggregatedStats"}, dependsOnGroups = {"upsert"})
   public void testGetAggregatedStatsLatestStatForTwoDays() {
     // Filter is only on the urn
-    Filter filter = new Filter();
     Criterion hasUrnCriterion =
         new Criterion().setField("urn").setCondition(Condition.EQUAL).setValue(TEST_URN.toString());
     Criterion startTimeCriterion = new Criterion().setField(ES_FILED_TIMESTAMP)
@@ -346,7 +343,7 @@ public class ElasticSearchTimeseriesAspectServiceTest {
         .setCondition(Condition.LESS_THAN_OR_EQUAL_TO)
         .setValue(String.valueOf(_startTime + 47 * TIME_INCREMENT));
 
-    QueryUtils.getFilterFromCriteria(ImmutableList.of(hasUrnCriterion, startTimeCriterion, endTimeCriterion));
+    Filter filter = QueryUtils.getFilterFromCriteria(ImmutableList.of(hasUrnCriterion, startTimeCriterion, endTimeCriterion));
 
     // Aggregate on latest stat value
     AggregationSpec latestStatAggregationSpec =
@@ -376,7 +373,6 @@ public class ElasticSearchTimeseriesAspectServiceTest {
 
   @Test(groups = {"getAggregatedStats"}, dependsOnGroups = {"upsert"})
   public void testGetAggregatedStatsLatestStatForFirst10HoursOfDay1() {
-    Filter filter = new Filter();
     Criterion hasUrnCriterion =
         new Criterion().setField("urn").setCondition(Condition.EQUAL).setValue(TEST_URN.toString());
     Criterion startTimeCriterion = new Criterion().setField(ES_FILED_TIMESTAMP)
@@ -386,7 +382,7 @@ public class ElasticSearchTimeseriesAspectServiceTest {
         .setCondition(Condition.LESS_THAN_OR_EQUAL_TO)
         .setValue(String.valueOf(_startTime + 9 * TIME_INCREMENT));
 
-    QueryUtils.getFilterFromCriteria(ImmutableList.of(hasUrnCriterion, startTimeCriterion, endTimeCriterion));
+    Filter filter = QueryUtils.getFilterFromCriteria(ImmutableList.of(hasUrnCriterion, startTimeCriterion, endTimeCriterion));
 
     // Aggregate on latest stat value
     AggregationSpec latestStatAggregationSpec =
@@ -413,7 +409,6 @@ public class ElasticSearchTimeseriesAspectServiceTest {
   @Test(groups = {"getAggregatedStats"}, dependsOnGroups = {"upsert"})
   public void testGetAggregatedStatsLatestStatForCol1Day1() {
     Long lastEntryTimeStamp = _startTime + 23 * TIME_INCREMENT;
-    Filter filter = new Filter();
     Criterion hasUrnCriterion =
         new Criterion().setField("urn").setCondition(Condition.EQUAL).setValue(TEST_URN.toString());
     Criterion startTimeCriterion = new Criterion().setField(ES_FILED_TIMESTAMP)
@@ -425,7 +420,7 @@ public class ElasticSearchTimeseriesAspectServiceTest {
     Criterion hasCol1 =
         new Criterion().setField("componentProfiles.key").setCondition(Condition.EQUAL).setValue("col1");
 
-    QueryUtils.getFilterFromCriteria(ImmutableList.of(hasUrnCriterion, hasCol1, startTimeCriterion, endTimeCriterion));
+    Filter filter = QueryUtils.getFilterFromCriteria(ImmutableList.of(hasUrnCriterion, hasCol1, startTimeCriterion, endTimeCriterion));
 
     // Aggregate on latest stat value
     AggregationSpec latestStatAggregationSpec =
@@ -457,7 +452,6 @@ public class ElasticSearchTimeseriesAspectServiceTest {
   @Test(groups = {"getAggregatedStats"}, dependsOnGroups = {"upsert"})
   public void testGetAggregatedStatsLatestStatForAllColumnsDay1() {
     Long lastEntryTimeStamp = _startTime + 23 * TIME_INCREMENT;
-    Filter filter = new Filter();
     Criterion hasUrnCriterion =
         new Criterion().setField("urn").setCondition(Condition.EQUAL).setValue(TEST_URN.toString());
     Criterion startTimeCriterion = new Criterion().setField(ES_FILED_TIMESTAMP)
@@ -467,7 +461,7 @@ public class ElasticSearchTimeseriesAspectServiceTest {
         .setCondition(Condition.LESS_THAN_OR_EQUAL_TO)
         .setValue(String.valueOf(lastEntryTimeStamp));
 
-    QueryUtils.getFilterFromCriteria(ImmutableList.of(hasUrnCriterion, startTimeCriterion, endTimeCriterion));
+    Filter filter = QueryUtils.getFilterFromCriteria(ImmutableList.of(hasUrnCriterion, startTimeCriterion, endTimeCriterion));
 
     // Aggregate on latest stat value
     AggregationSpec latestStatAggregationSpec =
@@ -503,7 +497,6 @@ public class ElasticSearchTimeseriesAspectServiceTest {
   /* Sum Aggregation Tests */
   @Test(groups = {"getAggregatedStats"}, dependsOnGroups = {"upsert"})
   public void testGetAggregatedStatsSumStatForFirst10HoursOfDay1() {
-    Filter filter = new Filter();
     Criterion hasUrnCriterion =
         new Criterion().setField("urn").setCondition(Condition.EQUAL).setValue(TEST_URN.toString());
     Criterion startTimeCriterion = new Criterion().setField(ES_FILED_TIMESTAMP)
@@ -513,7 +506,7 @@ public class ElasticSearchTimeseriesAspectServiceTest {
         .setCondition(Condition.LESS_THAN_OR_EQUAL_TO)
         .setValue(String.valueOf(_startTime + 9 * TIME_INCREMENT));
 
-    QueryUtils.getFilterFromCriteria(ImmutableList.of(hasUrnCriterion, startTimeCriterion, endTimeCriterion));
+    Filter filter = QueryUtils.getFilterFromCriteria(ImmutableList.of(hasUrnCriterion, startTimeCriterion, endTimeCriterion));
 
     // Aggregate the sum of stat value
     AggregationSpec sumAggregationSpec =
@@ -542,7 +535,6 @@ public class ElasticSearchTimeseriesAspectServiceTest {
   @Test(groups = {"getAggregatedStats"}, dependsOnGroups = {"upsert"})
   public void testGetAggregatedStatsSumStatForCol2Day1() {
     Long lastEntryTimeStamp = _startTime + 23 * TIME_INCREMENT;
-    Filter filter = new Filter();
     Criterion hasUrnCriterion =
         new Criterion().setField("urn").setCondition(Condition.EQUAL).setValue(TEST_URN.toString());
     Criterion startTimeCriterion = new Criterion().setField(ES_FILED_TIMESTAMP)
@@ -554,7 +546,7 @@ public class ElasticSearchTimeseriesAspectServiceTest {
     Criterion hasCol2 =
         new Criterion().setField("componentProfiles.key").setCondition(Condition.EQUAL).setValue("col2");
 
-    QueryUtils.getFilterFromCriteria(ImmutableList.of(hasUrnCriterion, hasCol2, startTimeCriterion, endTimeCriterion));
+    Filter filter = QueryUtils.getFilterFromCriteria(ImmutableList.of(hasUrnCriterion, hasCol2, startTimeCriterion, endTimeCriterion));
 
     // Aggregate the sum of stat value
     AggregationSpec sumStatAggregationSpec =
@@ -588,7 +580,6 @@ public class ElasticSearchTimeseriesAspectServiceTest {
   @Test(groups = {"getAggregatedStats"}, dependsOnGroups = {"upsert"})
   public void testGetAggregatedStatsCardinalityAggStrStatDay1() {
     // Filter is only on the urn
-    Filter filter = new Filter();
     Criterion hasUrnCriterion =
         new Criterion().setField("urn").setCondition(Condition.EQUAL).setValue(TEST_URN.toString());
     Criterion startTimeCriterion = new Criterion().setField(ES_FILED_TIMESTAMP)
@@ -598,7 +589,7 @@ public class ElasticSearchTimeseriesAspectServiceTest {
         .setCondition(Condition.LESS_THAN_OR_EQUAL_TO)
         .setValue(String.valueOf(_startTime + 23 * TIME_INCREMENT));
 
-    QueryUtils.getFilterFromCriteria(ImmutableList.of(hasUrnCriterion, startTimeCriterion, endTimeCriterion));
+    Filter filter = QueryUtils.getFilterFromCriteria(ImmutableList.of(hasUrnCriterion, startTimeCriterion, endTimeCriterion));
 
     // Aggregate on latest stat value
     AggregationSpec cardinalityStatAggregationSpec =
@@ -624,7 +615,6 @@ public class ElasticSearchTimeseriesAspectServiceTest {
   @Test(groups = {"getAggregatedStats", "usageStats"}, dependsOnGroups = {"upsert"})
   public void testGetAggregatedStatsSumStatsCollectionDay1() {
     // Filter is only on the urn
-    Filter filter = new Filter();
     Criterion hasUrnCriterion =
         new Criterion().setField("urn").setCondition(Condition.EQUAL).setValue(TEST_URN.toString());
     Criterion startTimeCriterion = new Criterion().setField(ES_FILED_TIMESTAMP)
@@ -634,7 +624,7 @@ public class ElasticSearchTimeseriesAspectServiceTest {
         .setCondition(Condition.LESS_THAN_OR_EQUAL_TO)
         .setValue(String.valueOf(_startTime + 23 * TIME_INCREMENT));
 
-    QueryUtils.getFilterFromCriteria(ImmutableList.of(hasUrnCriterion, startTimeCriterion, endTimeCriterion));
+    Filter filter = QueryUtils.getFilterFromCriteria(ImmutableList.of(hasUrnCriterion, startTimeCriterion, endTimeCriterion));
 
     // Aggregate on latest stat value
     AggregationSpec cardinalityStatAggregationSpec =

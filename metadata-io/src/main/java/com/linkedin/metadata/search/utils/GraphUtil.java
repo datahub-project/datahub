@@ -4,7 +4,6 @@ import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.dao.utils.RecordUtils;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -16,16 +15,15 @@ import org.neo4j.driver.types.Node;
 import org.neo4j.driver.types.Path;
 import org.neo4j.driver.types.Relationship;
 
-import static com.linkedin.metadata.search.utils.QueryUtils.*;
 
 
-public class Neo4jUtil {
+public class GraphUtil {
 
   public static final String URN_FIELD = "urn";
   public static final String SOURCE_FIELD = "source";
   public static final String DESTINATION_FIELD = "destination";
 
-  private Neo4jUtil() {
+  private GraphUtil() {
     // Util class
   }
 
@@ -43,27 +41,6 @@ public class Neo4jUtil {
     entity.data().forEach((k, v) -> fields.put(k, toValueObject(v)));
 
     return fields;
-  }
-
-  /**
-   * Converts RELATIONSHIP to edge (field:value map), excluding source and destination.
-   *
-   * @param relationship RELATIONSHIP defined in models
-   * @return unmodifiable field value map
-   */
-  @Nonnull
-  public static <RELATIONSHIP extends RecordTemplate> Map<String, Object> relationshipToEdge(
-      @Nonnull RELATIONSHIP relationship) {
-    final Map<String, Object> fields = new HashMap<>();
-
-    // put all field values except source and destination
-    relationship.data().forEach((k, v) -> {
-      if (!SOURCE_FIELD.equals(k) && !DESTINATION_FIELD.equals(k)) {
-        fields.put(k, toValueObject(v));
-      }
-    });
-
-    return Collections.unmodifiableMap(fields);
   }
 
   /**
@@ -105,19 +82,6 @@ public class Neo4jUtil {
     }
 
     return key + ":\"" + value.toString() + "\"";
-  }
-
-  /**
-   * Converts node (field:value map) to ENTITY.
-   *
-   * @param entityClass Class of Entity
-   * @param node Neo4j Node of entityClass type
-   * @return ENTITY
-   */
-  @Nonnull
-  public static <ENTITY extends RecordTemplate> ENTITY nodeToEntity(@Nonnull Class<ENTITY> entityClass,
-      @Nonnull Node node) {
-    return RecordUtils.toRecordTemplate(entityClass, new DataMap(node.asMap()));
   }
 
   /**

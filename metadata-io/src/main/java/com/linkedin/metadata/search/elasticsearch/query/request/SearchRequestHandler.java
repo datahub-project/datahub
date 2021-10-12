@@ -52,8 +52,6 @@ import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.elasticsearch.search.fetch.subphase.highlight.HighlightBuilder;
 import org.elasticsearch.search.fetch.subphase.highlight.HighlightField;
 
-import static com.linkedin.metadata.search.utils.SearchUtils.getQueryBuilderFromCriterion;
-
 @Slf4j
 public class SearchRequestHandler {
 
@@ -155,7 +153,7 @@ public class SearchRequestHandler {
         final BoolQueryBuilder andQueryBuilder = new BoolQueryBuilder();
         or.getAnd().forEach(criterion -> {
           if (!criterion.getValue().trim().isEmpty()) {
-            andQueryBuilder.filter(getQueryBuilderFromCriterion(criterion));
+            andQueryBuilder.filter(ESUtils.getQueryBuilderFromCriterionForSearch(criterion));
           }
         });
         orQueryBuilder.should(andQueryBuilder);
