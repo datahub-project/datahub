@@ -1,7 +1,10 @@
 import contextlib
 import dataclasses
+import logging
+import time
 import unittest.mock
-from typing import Any, Iterable, Optional
+from concurrent.futures import ThreadPoolExecutor
+from typing import Any, Iterable, List, Optional, Tuple
 
 from great_expectations.core.expectation_validation_result import (
     ExpectationSuiteValidationResult,
@@ -25,6 +28,8 @@ from datahub.metadata.schema_classes import (
     ValueFrequencyClass,
 )
 from datahub.utilities.groupby import groupby_unsorted
+
+logger: logging.Logger = logging.getLogger(__name__)
 
 # The reason for this wacky structure is quite fun. GE basically assumes that
 # the config structures were generated directly from YML and further assumes that
@@ -61,6 +66,12 @@ def _properly_init_datasource(conn):
 
 
 @dataclasses.dataclass
+class GEProfilerRequest:
+    pretty_name: str
+    batch_kwargs: dict
+
+
+@dataclasses.dataclass
 class DatahubGEProfiler:
     data_context: BaseDataContext
     report: SourceReport
@@ -94,6 +105,37 @@ class DatahubGEProfiler:
         with _properly_init_datasource(self.conn):
             self.data_context = BaseDataContext(project_config=data_context_config)
 
+    def generate_profiles(
+        self, requests: List[GEProfilerRequest], max_workers: int
+    ) -> Iterable[Tuple[GEProfilerRequest, DatasetProfileClass]]:
+        start_time = time.perf_counter()
+
+        logger.info(
+            f"Will profile {len(requests)} table(s) with {max_workers} worker(s)"
+        )
+        with ThreadPoolExecutor(
+            max_workers=min(max_workers, len(requests))
+        ) as async_executor:
+            async_profiles = [
+                (
+                    request,
+                    async_executor.submit(
+                        self.generate_profile,
+                        request.pretty_name,
+                        **request.batch_kwargs,
+                    ),
+                )
+                for request in requests
+            ]
+
+            for request, async_profile in async_profiles:
+                yield (request, async_profile.result())
+
+        end_time = time.perf_counter()
+        logger.info(
+            f"Profiling {len(requests)} table(s) finished in {end_time - start_time} seconds"
+        )
+
     def generate_profile(
         self,
         pretty_name: str,
@@ -103,6 +145,8 @@ class DatahubGEProfiler:
         offset: int = None,
         **kwargs: Any,
     ) -> DatasetProfileClass:
+        logger.info(f"Profiling {pretty_name} (this may take a while)")
+
         with _properly_init_datasource(self.conn):
             evrs = self._profile_data_asset(
                 {
@@ -116,6 +160,7 @@ class DatahubGEProfiler:
             )
 
         profile = self._convert_evrs_to_profile(evrs, pretty_name=pretty_name)
+        logger.debug(f"Finished profiling {pretty_name}")
 
         return profile
 
