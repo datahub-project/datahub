@@ -8,7 +8,8 @@ import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 
 import javax.annotation.Nonnull;
 
-public class SchemaFieldMapper implements ModelMapper<com.linkedin.schema.SchemaField, SchemaField> {
+public class
+SchemaFieldMapper implements ModelMapper<com.linkedin.schema.SchemaField, SchemaField> {
 
     public static final SchemaFieldMapper INSTANCE = new SchemaFieldMapper();
 
@@ -28,6 +29,7 @@ public class SchemaFieldMapper implements ModelMapper<com.linkedin.schema.Schema
         result.setType(mapSchemaFieldDataType(input.getType()));
         if (input.hasGlobalTags()) {
             result.setGlobalTags(GlobalTagsMapper.map(input.getGlobalTags()));
+            result.setTags(GlobalTagsMapper.map(input.getGlobalTags()));
         }
         if (input.hasGlossaryTerms()) {
             result.setGlossaryTerms(GlossaryTermsMapper.map(input.getGlossaryTerms()));
