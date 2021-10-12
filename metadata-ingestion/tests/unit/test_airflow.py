@@ -233,7 +233,11 @@ def test_lineage_backend(mock_emit, inlets, outlets):
             )
             op1 >> op2
 
-        ti = TI(task=op2, execution_date=DEFAULT_DATE)
+        if airflow.version.version.startswith("1"):
+            ti = TI(task=op2, execution_date=DEFAULT_DATE)
+        else:
+            ti = TI(task=op2)
+
         ctx1 = {
             "dag": dag,
             "task": op2,

@@ -8,6 +8,7 @@ import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
 import com.linkedin.identity.CorpUserEditableInfo;
 import com.linkedin.identity.CorpUserInfo;
+import com.linkedin.identity.CorpUserStatus;
 import com.linkedin.metadata.dao.utils.ModelUtils;
 import com.linkedin.metadata.snapshot.CorpUserSnapshot;
 import javax.annotation.Nonnull;
@@ -35,11 +36,14 @@ public class CorpUserSnapshotMapper implements ModelMapper<CorpUserSnapshot, Cor
 
         ModelUtils.getAspectsFromSnapshot(corpUser).forEach(aspect -> {
             if (aspect instanceof CorpUserInfo) {
+                result.setProperties(CorpUserPropertiesMapper.map(CorpUserInfo.class.cast(aspect)));
                 result.setInfo(CorpUserInfoMapper.map(CorpUserInfo.class.cast(aspect)));
             } else if (aspect instanceof CorpUserEditableInfo) {
                 result.setEditableInfo(CorpUserEditableInfoMapper.map(CorpUserEditableInfo.class.cast(aspect)));
             } else if (aspect instanceof GlobalTags) {
                 result.setGlobalTags(GlobalTagsMapper.map(GlobalTags.class.cast(aspect)));
+            } else if (aspect instanceof CorpUserStatus) {
+                result.setStatus(CorpUserStatusMapper.map(CorpUserStatus.class.cast(aspect)));
             }
         });
 

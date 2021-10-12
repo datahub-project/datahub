@@ -3,7 +3,7 @@
 source:
   type: "file"
   config:
-    filename: "./tests/integration/lookml/lookml_mces_with_external_urls.json"
+    filename: "./examples/mce_files/bootstrap_mce.json"
 
 # see https://datahubproject.io/docs/metadata-ingestion/sink_docs/datahub for complete documentation
 sink:

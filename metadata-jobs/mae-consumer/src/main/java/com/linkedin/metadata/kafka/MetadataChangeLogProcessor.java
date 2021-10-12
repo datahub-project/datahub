@@ -109,7 +109,7 @@ public class MetadataChangeLogProcessor {
         return;
       }
 
-      Urn urn = EntityKeyUtils.getUrnFromLog(event);
+      Urn urn = EntityKeyUtils.getUrnFromLog(event, entitySpec.getKeyAspectSpec());
 
       if (!event.hasAspectName() || !event.hasAspect()) {
         log.error("Aspect or aspect name is missing");
@@ -156,13 +156,12 @@ public class MetadataChangeLogProcessor {
         }
       }
     }
-    if (edgesToAdd.size() > 0) {
-      new Thread(() -> {
-        _graphService.removeEdgesFromNode(urn, new ArrayList<>(relationshipTypesBeingAdded),
-            newRelationshipFilter(new Filter().setCriteria(new CriterionArray()), RelationshipDirection.OUTGOING));
-        edgesToAdd.forEach(edge -> _graphService.addEdge(edge));
-      }).start();
-    }
+    log.info(String.format("Here's the relationship types found %s", relationshipTypesBeingAdded));
+    new Thread(() -> {
+      _graphService.removeEdgesFromNode(urn, new ArrayList<>(relationshipTypesBeingAdded),
+          newRelationshipFilter(new Filter().setCriteria(new CriterionArray()), RelationshipDirection.OUTGOING));
+      edgesToAdd.forEach(edge -> _graphService.addEdge(edge));
+    }).start();
   }
 
   /**

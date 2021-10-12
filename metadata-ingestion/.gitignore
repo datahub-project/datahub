@@ -134,3 +134,6 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# Generated classes
+src/datahub/metadata/
