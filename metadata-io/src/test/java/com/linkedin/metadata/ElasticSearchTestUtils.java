@@ -1,5 +1,7 @@
 package com.linkedin.metadata;
 
+import io.github.resilience4j.retry.Retry;
+import io.github.resilience4j.retry.RetryConfig;
 import org.elasticsearch.ElasticsearchStatusException;
 import org.elasticsearch.action.admin.indices.flush.FlushRequest;
 import org.elasticsearch.action.admin.indices.flush.FlushResponse;
@@ -14,7 +16,6 @@ import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.common.xcontent.XContentType;
 import org.testng.TestException;
-import scala.Console;
 
 import java.net.SocketTimeoutException;
 import java.util.UUID;
@@ -25,6 +26,15 @@ public class ElasticSearchTestUtils {
     // request options for all requests
     private static final RequestOptions OPTIONS = RequestOptions.DEFAULT;
 
+    // retry logic for ES requests
+    private static final Retry RETRY = Retry.of("ElasticSearchTestUtils", RetryConfig.custom()
+            .retryExceptions(SocketTimeoutException.class, ElasticsearchStatusException.class)
+            .failAfterMaxAttempts(true)
+            .maxAttempts(3)
+            .build()
+    );
+
+    // allow for Supplier<T> that throw exceptions
     private interface ThrowingSupplier<T, E extends Exception> {
         T get() throws E;
     }
@@ -32,27 +42,13 @@ public class ElasticSearchTestUtils {
     // We are retrying requests, otherwise concurrency tests will see exceptions like these:
     //   java.net.SocketTimeoutException: 30,000 milliseconds timeout on connection http-outgoing-1 [ACTIVE]
     private static <T> T retry(ThrowingSupplier<T, Exception> func) {
-        int attempts = 3;
-        Exception exception = null;
-
-        while (attempts > 0) {
+        return RETRY.executeSupplier(() -> {
             try {
-                attempts--;
                 return func.get();
             } catch (Exception e) {
-                exception = e;
-                Console.println(e);
-                if (e instanceof SocketTimeoutException) {
-                    continue;
-                }
-                if (e instanceof ElasticsearchStatusException) {
-                    Console.println(((ElasticsearchStatusException) e).status().getStatus());
-                }
-                break;
+                throw new RuntimeException(e);
             }
-        }
-
-        throw new RuntimeException(exception);
+        });
     }
 
     private ElasticSearchTestUtils() {
