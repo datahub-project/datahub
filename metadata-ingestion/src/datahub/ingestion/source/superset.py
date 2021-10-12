@@ -4,6 +4,7 @@ from typing import Dict, Iterable, Optional
 
 import dateutil.parser as dp
 import requests
+from pydantic.class_validators import validator
 
 from datahub.configuration.common import ConfigModel
 from datahub.emitter.mce_builder import DEFAULT_ENV
@@ -90,6 +91,10 @@ class SupersetConfig(ConfigModel):
     env: str = DEFAULT_ENV
     database_alias: Dict[str, str] = {}
 
+    @validator("connect_uri")
+    def remove_quotes(cls, v):
+        return config_clean.remove_url_suffix(v)
+
 
 def get_metric_name(metric):
     if not metric:
@@ -124,9 +129,6 @@ class SupersetSource(Source):
     def __init__(self, ctx: PipelineContext, config: SupersetConfig):
         super().__init__(ctx)
         self.config = config
-        self.config.connect_uri = config_clean.remove_url_suffix(
-            self.config.connect_uri
-        )
         self.report = SourceReport()
 
         login_response = requests.post(
