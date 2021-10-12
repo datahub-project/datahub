@@ -8,8 +8,7 @@ import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 
 import javax.annotation.Nonnull;
 
-public class
-SchemaFieldMapper implements ModelMapper<com.linkedin.schema.SchemaField, SchemaField> {
+public class SchemaFieldMapper implements ModelMapper<com.linkedin.schema.SchemaField, SchemaField> {
 
     public static final SchemaFieldMapper INSTANCE = new SchemaFieldMapper();
 
