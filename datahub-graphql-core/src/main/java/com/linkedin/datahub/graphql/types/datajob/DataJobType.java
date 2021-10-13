@@ -11,6 +11,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.authorization.ConjunctivePrivilegeGroup;
 import com.linkedin.datahub.graphql.authorization.DisjunctivePrivilegeGroup;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
@@ -58,9 +59,9 @@ import static com.linkedin.datahub.graphql.Constants.BROWSE_PATH_DELIMITER;
 public class DataJobType implements SearchableEntityType<DataJob>, BrowsableEntityType<DataJob>, MutableType<DataJobUpdateInput> {
 
     private static final Set<String> FACET_FIELDS = ImmutableSet.of("flow");
-    private final RestliEntityClient _dataJobsClient;
+    private final EntityClient _dataJobsClient;
 
-    public DataJobType(final RestliEntityClient dataJobsClient) {
+    public DataJobType(final EntityClient dataJobsClient) {
         _dataJobsClient = dataJobsClient;
     }
 

@@ -5,13 +5,6 @@ import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
-import com.linkedin.entity.EntitiesDoBatchGetTotalEntityCountRequestBuilder;
-import com.linkedin.entity.EntitiesDoDeleteRequestBuilder;
-import com.linkedin.entity.EntitiesDoGetBrowsePathsRequestBuilder;
-import com.linkedin.entity.EntitiesDoGetTotalEntityCountRequestBuilder;
-import com.linkedin.entity.EntitiesDoListUrnsRequestBuilder;
-import com.linkedin.entity.EntitiesDoSearchAcrossEntitiesRequestBuilder;
-import com.linkedin.entity.EntitiesDoSetWritableRequestBuilder;
 import com.linkedin.entity.Entity;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.entity.EntityService;
@@ -20,7 +13,6 @@ import com.linkedin.metadata.query.Filter;
 import com.linkedin.metadata.query.ListResult;
 import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.resources.entity.EntityResource;
-import com.linkedin.metadata.restli.RestliUtil;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchService;
@@ -28,7 +20,6 @@ import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.r2.RemoteInvocationException;
 import java.net.URISyntaxException;
 import java.time.Clock;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -239,7 +230,7 @@ public class JavaEntityClient implements EntityClient {
         int start,
         int count,
         @Nonnull String actor) throws RemoteInvocationException {
-        _searchService.searchAcrossEntities(entities, input, filter, null, start, count);
+        return _searchService.searchAcrossEntities(entities, input, filter, null, start, count);
     }
 
     /**
@@ -274,16 +265,13 @@ public class JavaEntityClient implements EntityClient {
      */
     public ListUrnsResult listUrns(@Nonnull final String entityName, final int start, final int count, @Nonnull final String actor)
         throws RemoteInvocationException {
-      
-
+        return _entityService.listUrns(entityName, start, count);
     }
 
     /**
      * Hard delete an entity with a particular urn.
      */
     public void deleteEntity(@Nonnull final Urn urn, @Nonnull final String actor) throws RemoteInvocationException {
-        EntitiesDoDeleteRequestBuilder requestBuilder = ENTITIES_REQUEST_BUILDERS.actionDelete()
-                .urnParam(urn.toString());
-        sendClientRequest(requestBuilder, actor);
+        _entityService.deleteUrn(urn);
     }
 }

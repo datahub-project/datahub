@@ -52,7 +52,10 @@ public class EbeanAspectDao {
   private final Map<String, Retention> _aspectRetentionMap = new HashMap<>();
   private final Clock _clock = Clock.systemUTC();
 
-  private int _queryKeysCount = 0; // 0 means no pagination on keys
+  // Why 500? From tuning, this seems to be about the largest size we can get without having ebean batch issues.
+  // This may be able to be moved up, 500 is a bit conservative. However, we should be careful to tweak this without
+  // more testing.
+  private int _queryKeysCount = 500; // 0 means no pagination on keys
 
   public EbeanAspectDao(@Nonnull final EbeanServer server) {
     _server = server;

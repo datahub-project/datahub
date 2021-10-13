@@ -5,8 +5,10 @@ import com.linkedin.datahub.graphql.GmsGraphQLEngine;
 import com.linkedin.datahub.graphql.GraphQLEngine;
 import com.linkedin.datahub.graphql.analytics.service.AnalyticsService;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.JavaEntityClient;
 import com.linkedin.gms.factory.common.IndexConventionFactory;
 import com.linkedin.gms.factory.common.RestHighLevelClientFactory;
+import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import javax.annotation.Nonnull;
 import org.elasticsearch.client.RestHighLevelClient;
@@ -30,7 +32,11 @@ public class GraphQLEngineFactory {
 
   @Autowired
   @Qualifier("javaEntityClient")
-  private EntityClient _entityClient;
+  private JavaEntityClient _entityClient;
+
+  @Autowired
+  @Qualifier("entityService")
+  private EntityService _entityService;
 
   @Autowired
   private AuthorizationManager authorizationManager;
@@ -42,8 +48,8 @@ public class GraphQLEngineFactory {
   @Nonnull
   protected GraphQLEngine getInstance() {
     if (isAnalyticsEnabled) {
-      return new GmsGraphQLEngineNoCodeUpgradeConfig.java(
-          new AnalyticsService(elasticClient, indexConvention.getPrefix()), _entityClient
+      return new GmsGraphQLEngine(
+          new AnalyticsService(elasticClient, indexConvention.getPrefix()), _entityService, _entityClient
       ).builder().build();
     }
     return new GmsGraphQLEngine().builder().build();

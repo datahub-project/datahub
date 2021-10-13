@@ -176,7 +176,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
         EntitiesDoIngestRequestBuilder requestBuilder =
             ENTITIES_REQUEST_BUILDERS.actionIngest().entityParam(entity);
 
-        return sendClientRequest(requestBuilder, actor);
+        sendClientRequest(requestBuilder, actor);
     }
 
     public void updateWithSystemMetadata(
@@ -184,20 +184,21 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
         @Nullable final SystemMetadata systemMetadata,
         @Nonnull final String actor) throws RemoteInvocationException {
         if (systemMetadata == null) {
-            return update(entity, actor);
+            update(entity, actor);
+            return;
         }
 
         EntitiesDoIngestRequestBuilder requestBuilder =
             ENTITIES_REQUEST_BUILDERS.actionIngest().entityParam(entity).systemMetadataParam(systemMetadata);
 
-        return sendClientRequest(requestBuilder, actor);
+        sendClientRequest(requestBuilder, actor);
     }
 
     public void batchUpdate(@Nonnull final Set<Entity> entities, final String actor) throws RemoteInvocationException {
         EntitiesDoBatchIngestRequestBuilder requestBuilder =
             ENTITIES_REQUEST_BUILDERS.actionBatchIngest().entitiesParam(new EntityArray(entities));
 
-        return sendClientRequest(requestBuilder, actor);
+        sendClientRequest(requestBuilder, actor);
     }
 
     /**
