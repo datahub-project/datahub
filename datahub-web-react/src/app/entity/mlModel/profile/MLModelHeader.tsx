@@ -58,7 +58,7 @@ export default function MLModelHeader({ mlModel: { ownership, platform, properti
                     ) : null}
                 </Row>
                 <MarkdownViewer isCompact={isCompact} source={properties?.description || ''} />
-                <AvatarsGroup owners={ownership?.owners} entityRegistry={entityRegistry} size="large" />
+                <AvatarsGroup owners={ownership?.owners} entityRegistry={entityRegistry} />
             </Space>
         </>
     );

@@ -123,7 +123,7 @@ export const SearchBar = ({
                 options={options}
                 onSelect={(value: string, option) =>
                     onSearch(
-                        filterSearchQuery(value),
+                        `"${filterSearchQuery(value)}"`,
                         searchEntityTypes.indexOf(option.type) >= 0 ? option.type : undefined,
                     )
                 }
