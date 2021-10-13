@@ -2,22 +2,7 @@ package com.linkedin.entity.client;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
-import com.linkedin.entity.EntitiesBatchGetRequestBuilder;
-import com.linkedin.entity.EntitiesDoAutocompleteRequestBuilder;
-import com.linkedin.entity.EntitiesDoBatchGetTotalEntityCountRequestBuilder;
-import com.linkedin.entity.EntitiesDoBatchIngestRequestBuilder;
-import com.linkedin.entity.EntitiesDoBrowseRequestBuilder;
-import com.linkedin.entity.EntitiesDoDeleteRequestBuilder;
-import com.linkedin.entity.EntitiesDoGetBrowsePathsRequestBuilder;
-import com.linkedin.entity.EntitiesDoGetTotalEntityCountRequestBuilder;
-import com.linkedin.entity.EntitiesDoIngestRequestBuilder;
-import com.linkedin.entity.EntitiesDoListRequestBuilder;
-import com.linkedin.entity.EntitiesDoListUrnsRequestBuilder;
-import com.linkedin.entity.EntitiesDoSearchAcrossEntitiesRequestBuilder;
-import com.linkedin.entity.EntitiesDoSearchRequestBuilder;
-import com.linkedin.entity.EntitiesDoSetWritableRequestBuilder;
 import com.linkedin.entity.Entity;
-import com.linkedin.entity.EntityArray;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.Filter;
@@ -26,19 +11,12 @@ import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.r2.RemoteInvocationException;
-import com.linkedin.restli.client.Response;
 import java.net.URISyntaxException;
-import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-
-import static com.linkedin.metadata.dao.utils.QueryUtils.*;
 
 
 public interface EntityClient {
@@ -101,14 +79,16 @@ public interface EntityClient {
       int limit,
       @Nonnull String actor) throws RemoteInvocationException;
 
-  public Response<Void> update(@Nonnull final Entity entity, @Nonnull final String actor) throws RemoteInvocationException;
+  public void update(@Nonnull final Entity entity, @Nonnull final String actor)
+      throws RemoteInvocationException, URISyntaxException;
 
-  public Response<Void> updateWithSystemMetadata(
+  public void updateWithSystemMetadata(
       @Nonnull final Entity entity,
       @Nullable final SystemMetadata systemMetadata,
-      @Nonnull final String actor) throws RemoteInvocationException;
+      @Nonnull final String actor) throws RemoteInvocationException, URISyntaxException;
 
-  public Response<Void> batchUpdate(@Nonnull final Set<Entity> entities, final String actor) throws RemoteInvocationException;
+  public void batchUpdate(@Nonnull final Set<Entity> entities, final String actor)
+      throws RemoteInvocationException, URISyntaxException;
 
   /**
    * Searches for entities matching to a given query and filters

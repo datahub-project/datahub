@@ -29,7 +29,6 @@ import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.restli.client.Client;
-import com.linkedin.restli.client.Response;
 import java.net.URISyntaxException;
 import java.util.Collection;
 import java.util.HashMap;
@@ -173,14 +172,14 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
         return sendClientRequest(requestBuilder, actor).getEntity();
     }
 
-    public Response<Void> update(@Nonnull final Entity entity, @Nonnull final String actor) throws RemoteInvocationException {
+    public void update(@Nonnull final Entity entity, @Nonnull final String actor) throws RemoteInvocationException {
         EntitiesDoIngestRequestBuilder requestBuilder =
             ENTITIES_REQUEST_BUILDERS.actionIngest().entityParam(entity);
 
         return sendClientRequest(requestBuilder, actor);
     }
 
-    public Response<Void> updateWithSystemMetadata(
+    public void updateWithSystemMetadata(
         @Nonnull final Entity entity,
         @Nullable final SystemMetadata systemMetadata,
         @Nonnull final String actor) throws RemoteInvocationException {
@@ -194,7 +193,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
         return sendClientRequest(requestBuilder, actor);
     }
 
-    public Response<Void> batchUpdate(@Nonnull final Set<Entity> entities, final String actor) throws RemoteInvocationException {
+    public void batchUpdate(@Nonnull final Set<Entity> entities, final String actor) throws RemoteInvocationException {
         EntitiesDoBatchIngestRequestBuilder requestBuilder =
             ENTITIES_REQUEST_BUILDERS.actionBatchIngest().entitiesParam(new EntityArray(entities));
 

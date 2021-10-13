@@ -42,7 +42,7 @@ public class GraphQLEngineFactory {
   @Nonnull
   protected GraphQLEngine getInstance() {
     if (isAnalyticsEnabled) {
-      return new GmsGraphQLEngine(
+      return new GmsGraphQLEngineNoCodeUpgradeConfig.java(
           new AnalyticsService(elasticClient, indexConvention.getPrefix()), _entityClient
       ).builder().build();
     }
