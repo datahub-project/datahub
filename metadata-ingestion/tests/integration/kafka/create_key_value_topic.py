@@ -33,9 +33,9 @@ def parse_command_line_args():
     arg_parser.add_argument(
         "--key-schema-file", required=False, help="File name of key Avro schema to use"
     )
-    arg_parser.add_argument("--record-value", required=True, help="Record value")
+    arg_parser.add_argument("--record-value", required=False, help="Record value")
     arg_parser.add_argument(
-        "--value-schema-file", required=True, help="File name of Avro schema to use"
+        "--value-schema-file", required=False, help="File name of Avro schema to use"
     )
 
     return arg_parser.parse_args()
@@ -44,8 +44,14 @@ def parse_command_line_args():
 def load_avro_schema_from_file(
     key_schema_file: str, value_schema_file: str
 ) -> Tuple[Schema, Schema]:
-    key_schema = avro.load(key_schema_file)
-    value_schema = avro.load(value_schema_file)
+    key_schema = (
+        avro.load(key_schema_file)
+        if key_schema_file is not None
+        else avro.loads('{"type": "string"}')
+    )
+    value_schema = (
+        avro.load(value_schema_file) if value_schema_file is not None else None
+    )
 
     return key_schema, value_schema
 
@@ -67,18 +73,18 @@ def send_record(args):
     )
 
     key = json.loads(args.record_key) if args.record_key else str(uuid.uuid4())
-    value = json.loads(args.record_value)
+    value = json.loads(args.record_value) if args.record_value else None
 
     try:
         producer.produce(topic=args.topic, key=key, value=value)
+        producer.flush()
     except Exception as e:
         print(
             f"Exception while producing record value - {value} to topic - {args.topic}: {e}"
         )
+        raise e
     else:
         print(f"Successfully producing record value - {value} to topic - {args.topic}")
-
-    producer.flush()
 
 
 """
