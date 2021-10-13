@@ -263,6 +263,10 @@ fragment searchResults on SearchResults {
                     }
                 }
             }
+            ... on Tag {
+                name
+                description
+            }
         }
         matchedFields {
             name

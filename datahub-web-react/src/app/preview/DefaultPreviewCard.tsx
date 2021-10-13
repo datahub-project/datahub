@@ -26,10 +26,10 @@ interface Props {
 }
 
 const PreviewContainer = styled.div`
-    margin-bottom: 8px;
     display: flex;
     width: 100%;
     justify-content: space-between;
+    align-items: center;
 `;
 
 const PlatformInfo = styled.div`
@@ -54,7 +54,7 @@ const PreviewImage = styled(Image)`
 const EntityTitle = styled(Typography.Text)`
     &&& {
         margin-bottom: 0;
-        font-size: 16px;
+        font-size: 18px;
         font-weight: 600;
         vertical-align: middle;
     }
@@ -82,6 +82,7 @@ const DescriptionContainer = styled.div`
 
 const AvatarContainer = styled.div`
     margin-top: 12px;
+    margin-right: 32px;
 `;
 
 const TagContainer = styled.div`
@@ -115,9 +116,9 @@ export default function DefaultPreviewCard({
                 <Link to={url}>
                     <TitleContainer>
                         <PlatformInfo>
-                            {logoComponent}
+                            {logoComponent && logoComponent}
                             {!!logoUrl && <PreviewImage preview={false} src={logoUrl} alt={platform} />}
-                            <PlatformText>{platform}</PlatformText>
+                            {platform && <PlatformText>{platform}</PlatformText>}
                             <PlatformDivider />
                             <PlatformText>{type}</PlatformText>
                         </PlatformInfo>
@@ -134,11 +135,13 @@ export default function DefaultPreviewCard({
                         <NoMarkdownViewer limit={200}>{description}</NoMarkdownViewer>
                     </DescriptionContainer>
                 )}
+                {owners && owners.length > 0 && (
+                    <AvatarContainer>
+                        <AvatarsGroup size={28} owners={owners} entityRegistry={entityRegistry} maxCount={4} />
+                    </AvatarContainer>
+                )}
                 {snippet}
             </div>
-            <AvatarContainer>
-                <AvatarsGroup owners={owners} entityRegistry={entityRegistry} maxCount={4} />
-            </AvatarContainer>
         </PreviewContainer>
     );
 }
