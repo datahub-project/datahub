@@ -18,9 +18,12 @@ public class UsageBasedRankerFactory {
   @Autowired
   private UsageFeature usageFeature;
 
+  @Autowired
+  private GraphBasedFeature graphBasedFeature;
+
   @Bean(name = "usageBasedRanker")
   @Nonnull
   protected UsageBasedRanker getInstance() {
-    return new UsageBasedRanker(usageFeature);
+    return new UsageBasedRanker(usageFeature, graphBasedFeature);
   }
 }
