@@ -21,7 +21,8 @@ public class Features {
     RANK_WITHIN_TYPE,
     QUERY_COUNT,
     OUT_DEGREE,
-    HAS_OWNERS
+    HAS_OWNERS,
+    ONLY_MATCH_CUSTOM_PROPERTIES
   }
 
   public Double getNumericFeature(Name featureName, double defaultValue) {
