@@ -84,7 +84,10 @@ export class DashboardEntity implements Entity<Dashboard> {
                 {
                     name: 'Charts',
                     component: DashboardChartsTab,
-                    shouldHide: (_, dashboard: GetDashboardQuery) => dashboard?.dashboard?.charts?.total === 0,
+                    display: {
+                        visible: (_, _1) => true,
+                        enabled: (_, dashboard: GetDashboardQuery) => (dashboard?.dashboard?.charts?.total || 0) > 0,
+                    },
                 },
             ]}
             sidebarSections={[

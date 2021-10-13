@@ -5,7 +5,6 @@ import { useState } from 'react';
 import styled from 'styled-components';
 
 import { FacetMetadata } from '../../types.generated';
-import { capitalizeFirstLetter } from '../shared/capitalizeFirstLetter';
 import { SearchFilterLabel } from './SearchFilterLabel';
 import { FILTERS_TO_TRUNCATE, TRUNCATED_FILTER_LENGTH } from './utils/constants';
 
@@ -33,7 +32,7 @@ export const SearchFilter = ({ facet, selectedFilters, onFilterSelect }: Props) 
     return (
         // TODO(gabe-lyons): fix up styes to use styled-components
         <div key={facet.field} style={{ padding: '0px 25px 15px 25px' }}>
-            <div style={{ fontWeight: 'bold', marginBottom: '10px' }}>{capitalizeFirstLetter(facet?.displayName)}</div>
+            <div style={{ fontWeight: 'bold', marginBottom: '10px' }}>{facet?.displayName}</div>
             {facet.aggregations.map((aggregation, i) => {
                 if (i >= TRUNCATED_FILTER_LENGTH && !expanded && shouldTruncate) {
                     return null;

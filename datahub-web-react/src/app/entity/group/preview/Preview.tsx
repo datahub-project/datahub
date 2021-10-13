@@ -1,63 +1,105 @@
 import React from 'react';
-import { Avatar, Row, Space, Typography } from 'antd';
+import { Tag, Typography } from 'antd';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
-import { CorpUser, EntityType } from '../../../../types.generated';
+import { EntityType } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
-import { CustomAvatar } from '../../../shared/avatar';
+import { ANTD_GRAY } from '../../shared/constants';
+import { IconStyleType } from '../../Entity';
+import NoMarkdownViewer from '../../shared/components/styled/StripMarkdownText';
 
-const NameText = styled(Typography.Title)`
-    margin: 0;
-    color: #0073b1;
+const PreviewContainer = styled.div`
+    margin-bottom: 4px;
+    display: flex;
+    width: 100%;
+    justify-content: space-between;
+    align-items: center;
 `;
-const DescriptionText = styled(Typography.Paragraph)`
-    color: rgba(0, 0, 0, 1);
+
+const PlatformInfo = styled.div`
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    height: 24px;
+`;
+
+const TitleContainer = styled.div`
+    margin-bottom: 8px;
+`;
+
+const PreviewImage = styled.div`
+    max-height: 18px;
+    width: auto;
+    object-fit: contain;
+    margin-right: 10px;
+    background-color: transparent;
+`;
+
+const EntityTitle = styled(Typography.Text)`
+    &&& {
+        margin-bottom: 0;
+        font-size: 16px;
+        font-weight: 600;
+        vertical-align: middle;
+    }
+`;
+
+const PlatformText = styled(Typography.Text)`
+    font-size: 12px;
+    line-height: 20px;
+    font-weight: 700;
+    color: ${ANTD_GRAY[7]};
+`;
+
+const DescriptionContainer = styled.div`
+    margin-top: 5px;
+`;
+
+const MemberCountContainer = styled.span`
+    margin-left: 12px;
+    margin-right: 12px;
 `;
 
 export const Preview = ({
     urn,
     name,
     description,
-    members,
+    membersCount,
 }: {
     urn: string;
     name: string;
     description?: string | null;
-    members?: Array<CorpUser> | null;
+    membersCount?: number;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
+    const url = entityRegistry.getEntityUrl(EntityType.Dataset, urn);
 
     return (
-        <Link to={entityRegistry.getEntityUrl(EntityType.CorpGroup, urn)} style={{ width: '100%' }}>
-            <Row justify="space-between">
-                <Space direction="vertical" size={4}>
-                    <NameText level={3}>{name}</NameText>
-                    {description?.length === 0 ? (
-                        <DescriptionText type="secondary">No description</DescriptionText>
-                    ) : (
-                        <DescriptionText>{description}</DescriptionText>
-                    )}
-                </Space>
-                <Avatar.Group maxCount={3} size="default" style={{ marginTop: 12 }}>
-                    {(members || [])?.map((member, key) => (
-                        // eslint-disable-next-line react/no-array-index-key
-                        <div data-testid={`avatar-tag-${member.urn}`} key={`${member.urn}-${key}`}>
-                            <CustomAvatar
-                                name={
-                                    member.info?.fullName ||
-                                    member.info?.displayName ||
-                                    member.info?.firstName ||
-                                    member.info?.email ||
-                                    member.username
-                                }
-                                url={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${member.urn}`}
-                                photoUrl={member.editableInfo?.pictureLink || undefined}
-                            />
-                        </div>
-                    ))}
-                </Avatar.Group>
-            </Row>
-        </Link>
+        <PreviewContainer>
+            <div>
+                <Link to={url}>
+                    <TitleContainer>
+                        <PlatformInfo>
+                            <PreviewImage>
+                                {entityRegistry.getIcon(EntityType.CorpGroup, 20, IconStyleType.HIGHLIGHT)}
+                            </PreviewImage>
+                            <PlatformText>{entityRegistry.getEntityName(EntityType.CorpGroup)}</PlatformText>
+                        </PlatformInfo>
+                        <Link to={url}>
+                            <EntityTitle>{name || urn}</EntityTitle>
+                            <MemberCountContainer>
+                                <Tag>{membersCount} members</Tag>
+                            </MemberCountContainer>
+                        </Link>
+                    </TitleContainer>
+                </Link>
+                {description && description.length > 0 && (
+                    <DescriptionContainer>
+                        <NoMarkdownViewer limit={200}>{description}</NoMarkdownViewer>
+                    </DescriptionContainer>
+                )}
+            </div>
+        </PreviewContainer>
     );
 };

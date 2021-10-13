@@ -20,7 +20,6 @@ public class SubTypesResolver implements DataFetcher<CompletableFuture<SubTypes>
     String _entityType;
     String _aspectName;
 
-
     @Override
     public CompletableFuture<SubTypes> get(DataFetchingEnvironment environment) throws Exception {
         return CompletableFuture.supplyAsync(() -> {
