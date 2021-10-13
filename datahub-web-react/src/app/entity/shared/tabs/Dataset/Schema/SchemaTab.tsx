@@ -1,5 +1,5 @@
 import { Empty } from 'antd';
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
 import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
 // import { EditableSchemaFieldInfo, GlobalTagsUpdate } from '../../../../../types.generated';
@@ -32,13 +32,22 @@ export const SchemaTab = () => {
         [schemaMetadata],
     );
     const hasKeySchema = useMemo(
-        () =>
-            (schemaMetadata?.fields?.findIndex((field) => field.fieldPath.indexOf(KEY_SCHEMA_PREFIX) > -1) || -1) !==
-            -1,
+        () => schemaMetadata?.fields?.findIndex((field) => field.fieldPath.indexOf(KEY_SCHEMA_PREFIX) > -1) !== -1,
+        [schemaMetadata],
+    );
+    const hasValueSchema = useMemo(
+        () => schemaMetadata?.fields?.findIndex((field) => field.fieldPath.indexOf(KEY_SCHEMA_PREFIX) === -1) !== -1,
         [schemaMetadata],
     );
 
-    const [showKeySchema, setShowKeySchema] = useState(false);
+    const [showKeySchema, setShowKeySchema] = useState(!hasValueSchema);
+
+    // if there is no value schema, default the selected schema to Key
+    useEffect(() => {
+        if (!hasValueSchema && hasKeySchema) {
+            setShowKeySchema(true);
+        }
+    }, [hasValueSchema, hasKeySchema, setShowKeySchema]);
 
     const rows = useMemo(() => {
         return groupByFieldPath(schemaMetadata?.fields, { showKeySchema });
