@@ -128,6 +128,16 @@
     }
   },
   {
+    "urn": "urn:li:dataPlatform:mariadb",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "mariadb",
+      "displayName": "MariaDB",
+      "type": "RELATIONAL_DB",
+      "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/mariadblogo.png"
+    }
+  },
+  {
     "urn": "urn:li:dataPlatform:oracle",
     "aspect": {
       "datasetNameDelimiter": ".",
