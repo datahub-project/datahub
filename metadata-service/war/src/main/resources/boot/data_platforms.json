@@ -98,6 +98,16 @@
     }
   },
   {
+    "urn": "urn:li:dataPlatform:kafka-connect",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "kafka-connect",
+      "displayName": "Kafka Connect",
+      "type": "OTHERS",
+      "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/kafkalogo.png"
+    }
+  },
+  {
     "urn": "urn:li:dataPlatform:kusto",
     "aspect": {
       "datasetNameDelimiter": ".",
