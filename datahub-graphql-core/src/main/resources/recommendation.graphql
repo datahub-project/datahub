@@ -1,0 +1,207 @@
+extend type Query {
+  """
+  Get recommendations
+  """
+  getRecommendations(input: GetRecommendationsInput!): RecommendationResults
+}
+
+"""
+Input arguments for getting recommended modules
+"""
+input GetRecommendationsInput {
+  """
+  URN of the user requesting recommendations
+  """
+  userUrn: String!
+
+  """
+  Context of the page requesting recommendations
+  """
+  requestContext: RequestContext
+
+  """
+  Max number of modules to return
+  """
+  limit: Int
+}
+
+"""
+Type of the page
+"""
+enum PageType {
+  """
+  Home page
+  """
+  HOME,
+
+  """
+  Search page
+  """
+  SEARCH,
+
+  """
+  Entity page
+  """
+  ENTITY
+}
+
+"""
+Context that defines the page requesting recommendations
+i.e. for search pages, the query/filters. for entity pages, the entity urn and tab
+"""
+input RequestContext {
+  """
+  Type of the page where the recommendations will be rendered
+  """
+  pageType: PageType!
+
+  """
+  Additional context for defining the search page requesting recommendations
+  """
+  searchRequestContext: SearchRequestContext
+
+  """
+  Additional context for defining the entity page requesting recommendations
+  """
+  entityRequestContext: EntityRequestContext
+}
+
+"""
+Context that defines a search page requesting recommendatinos
+"""
+input SearchRequestContext {
+  """
+  Search query
+  """
+  query: String!
+
+	"""
+	Faceted filters applied to search results
+	"""
+	filters: [FacetFilterInput!]
+}
+
+"""
+Context that defines an entity page requesting recommendations
+"""
+input EntityRequestContext {
+  """
+  Urn of the entity being shown
+  """
+  entityUrn: String!
+}
+
+"""
+Results returned by the GetRecommendations query
+"""
+type RecommendationResults {
+  """
+  List of modules to show
+  """
+  modules: [RecommendationModule!]!
+}
+
+type RecommendationModule {
+  """
+  Title of the module to display
+  """
+  title: String!
+
+  """
+  Type of the module being recommended
+  """
+  moduleType: String!
+
+  """
+  Type of rendering that defines how the module should be rendered
+  """
+  renderType: RenderType!
+
+  """
+  List of content to display inside the module
+  """
+  content: [RecommendationContent!]!
+}
+
+"""
+Enum that defines how the modules should be rendered.
+There should be two frontend implementation of large and small modules per type.
+"""
+enum RenderType {
+  """
+  Simple list of entities
+  """
+  ENTITY_LIST,
+
+  """
+  List of platforms
+  """
+  PLATFORM_LIST
+}
+
+"""
+Content to display within each recommendation module
+"""
+type RecommendationContent {
+  """
+  String representation of content
+  """
+  value: String!
+
+  """
+  Entity being recommended. Empty if the content being recommended is not an entity
+  """
+  entity: Entity
+
+  """
+  Additional context required to generate the landing page
+  """
+  landingPageContext: LandingPageContext
+}
+
+interface LandingPageContext
+
+"""
+Context to define the search landing page
+"""
+type SearchPageContext implements LandingPageContext {
+  """
+  Entity types to be searched. If this is not provided, all entities will be searched.
+  """
+	types: [EntityType!]
+
+  """
+  Search query
+  """
+  query: String!
+
+  """
+  Filters
+  """
+  filters: [Filter!]
+}
+
+"""
+Facet filters to apply to search results
+"""
+type Filter {
+  """
+  Name of field to filter by
+  """
+	field: String!
+
+	"""
+	Value of the field to filter by
+	"""
+	value: String!
+}
+
+"""
+Context to define the entity landing page
+"""
+type EntityPageContext implements LandingPageContext {
+  """
+  Urn of the entity being shown
+  """
+  entityUrn: String!
+}

@@ -20,6 +20,7 @@ import com.linkedin.datahub.graphql.generated.EntityRelationship;
 import com.linkedin.datahub.graphql.generated.EntityRelationshipLegacy;
 import com.linkedin.datahub.graphql.generated.ForeignKeyConstraint;
 import com.linkedin.datahub.graphql.generated.MLModelProperties;
+import com.linkedin.datahub.graphql.generated.RecommendationContent;
 import com.linkedin.datahub.graphql.generated.RelatedDataset;
 import com.linkedin.datahub.graphql.generated.SearchResult;
 import com.linkedin.datahub.graphql.generated.InstitutionalMemoryMetadata;
@@ -65,6 +66,7 @@ import com.linkedin.datahub.graphql.resolvers.policy.DeletePolicyResolver;
 import com.linkedin.datahub.graphql.resolvers.policy.ListPoliciesResolver;
 import com.linkedin.datahub.graphql.resolvers.config.AppConfigResolver;
 import com.linkedin.datahub.graphql.resolvers.policy.UpsertPolicyResolver;
+import com.linkedin.datahub.graphql.resolvers.recommendation.GetRecommendationsResolver;
 import com.linkedin.datahub.graphql.resolvers.search.SearchAcrossEntitiesResolver;
 import com.linkedin.datahub.graphql.resolvers.type.AspectInterfaceTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.type.HyperParameterValueTypeResolver;
@@ -363,6 +365,7 @@ public class GmsGraphQLEngine {
                     new SearchResolver(GmsClientFactory.getEntitiesClient())))
             .dataFetcher("searchAcrossEntities",
                 new SearchAcrossEntitiesResolver(GmsClientFactory.getEntitiesClient()))
+            .dataFetcher("getRecommendations", new GetRecommendationsResolver())
             .dataFetcher("autoComplete", new AuthenticatedResolver<>(
                     new AutoCompleteResolver(searchableTypes)))
             .dataFetcher("autoCompleteForMultiple", new AuthenticatedResolver<>(
@@ -464,6 +467,11 @@ public class GmsGraphQLEngine {
                 .dataFetcher("entity", new EntityTypeResolver(
                     entityTypes.stream().collect(Collectors.toList()),
                     (env) -> ((AggregationMetadata) env.getSource()).getEntity()))
+            )
+            .type("RecommendationContent", typeWiring -> typeWiring
+                .dataFetcher("entity", new EntityTypeResolver(
+                    entityTypes.stream().collect(Collectors.toList()),
+                    (env) -> ((RecommendationContent) env.getSource()).getEntity()))
             )
             .type("BrowseResults", typeWiring -> typeWiring
                 .dataFetcher("entities", new AuthenticatedResolver<>(

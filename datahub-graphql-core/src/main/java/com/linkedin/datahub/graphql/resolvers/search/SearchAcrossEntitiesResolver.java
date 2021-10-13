@@ -1,7 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.search;
 
 import com.google.common.collect.ImmutableList;
-import com.linkedin.datahub.graphql.exception.ValidationException;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.SearchAcrossEntitiesInput;
 import com.linkedin.datahub.graphql.generated.SearchResults;
@@ -18,7 +17,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
-import static org.apache.commons.lang3.StringUtils.isBlank;
 
 
 /**
@@ -49,10 +47,6 @@ public class SearchAcrossEntitiesResolver implements DataFetcher<CompletableFutu
 
     // escape forward slash since it is a reserved character in Elasticsearch
     final String sanitizedQuery = ResolverUtils.escapeForwardSlash(input.getQuery());
-    if (isBlank(sanitizedQuery)) {
-      log.error("'query' parameter cannot was null or empty");
-      throw new ValidationException("'query' parameter cannot be null or empty");
-    }
 
     final int start = input.getStart() != null ? input.getStart() : DEFAULT_START;
     final int count = input.getCount() != null ? input.getCount() : DEFAULT_COUNT;
