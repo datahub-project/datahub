@@ -8,10 +8,12 @@ import { useGetAuthenticatedUser } from '../../useGetAuthenticatedUser';
 
 const AdminLink = styled.span`
     margin-right: 4px;
-`;
-
-const LinkButton = styled(Button)`
-    color: white;
+    &&& .ant-btn-text {
+        color: white;
+        :hover {
+            color: ${(props) => props.theme.styles['primary-color']};
+        }
+    }
 `;
 
 export function AdminHeaderLinks() {
@@ -36,27 +38,27 @@ export function AdminHeaderLinks() {
             {showAnalytics && (
                 <AdminLink>
                     <Link to="/analytics">
-                        <LinkButton type="text">
+                        <Button type="text">
                             <BarChartOutlined /> Analytics
-                        </LinkButton>
+                        </Button>
                     </Link>
                 </AdminLink>
             )}
             {showPolicyBuilder && (
                 <AdminLink>
                     <Link to="/policies">
-                        <LinkButton type="text">
+                        <Button type="text">
                             <BankOutlined /> Policies
-                        </LinkButton>
+                        </Button>
                     </Link>
                 </AdminLink>
             )}
             {showActionRequests && (
                 <AdminLink>
                     <Link to="/requests">
-                        <LinkButton type="text">
+                        <Button type="text">
                             <InboxOutlined /> My Requests
-                        </LinkButton>
+                        </Button>
                     </Link>
                 </AdminLink>
             )}

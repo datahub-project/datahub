@@ -73,7 +73,7 @@ export const Preview = ({
     membersCount?: number;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
-    const url = entityRegistry.getEntityUrl(EntityType.Dataset, urn);
+    const url = entityRegistry.getEntityUrl(EntityType.CorpGroup, urn);
 
     return (
         <PreviewContainer>
