@@ -20,6 +20,8 @@ public class MatchMetadataFeature implements FeatureExtractor {
   }
 
   private boolean onlyMatchCustomProperties(SearchEntity entity) {
-    return entity.getMatchedFields().stream().allMatch(field -> field.getName().equals(CUSTOM_PROPERTIES));
+    return !entity.getMatchedFields().isEmpty() && entity.getMatchedFields()
+        .stream()
+        .allMatch(field -> field.getName().equals(CUSTOM_PROPERTIES));
   }
 }
