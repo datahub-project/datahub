@@ -107,7 +107,8 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   @Nonnull
   @WithSpan
   public Task<AnyRecord> get(@Nonnull String urnStr,
-      @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) throws URISyntaxException {
+                             @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames)
+      throws URISyntaxException {
     log.info("GET {}", urnStr);
     final Urn urn = Urn.createFromString(urnStr);
     return RestliUtil.toTask(() -> {
@@ -125,7 +126,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   @Nonnull
   @WithSpan
   public Task<Map<String, AnyRecord>> batchGet(@Nonnull Set<String> urnStrs,
-      @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) throws URISyntaxException {
+                                         @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) throws URISyntaxException {
     log.info("BATCH GET {}", urnStrs.toString());
     final Set<Urn> urns = new HashSet<>();
     for (final String urnStr : urnStrs) {
@@ -137,8 +138,8 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       return _entityService.getEntities(urns, projectedAspects)
           .entrySet()
           .stream()
-          .collect(
-              Collectors.toMap(entry -> entry.getKey().toString(), entry -> new AnyRecord(entry.getValue().data())));
+          .collect(Collectors.toMap(entry -> entry.getKey().toString(),
+                  entry -> new AnyRecord(entry.getValue().data())));
     }, MetricRegistry.name(this.getClass(), "batchGet"));
   }
 
@@ -240,14 +241,15 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   @Action(name = ACTION_LIST)
   @Nonnull
   @WithSpan
-  public Task<ListResult> list(@ActionParam(PARAM_ENTITY) @Nonnull String entityName,
+  public Task<ListResult> list(
+      @ActionParam(PARAM_ENTITY) @Nonnull String entityName,
       @ActionParam(PARAM_FILTER) @Optional @Nullable Filter filter,
-      @ActionParam(PARAM_SORT) @Optional @Nullable SortCriterion sortCriterion, @ActionParam(PARAM_START) int start,
+      @ActionParam(PARAM_SORT) @Optional @Nullable SortCriterion sortCriterion,
+      @ActionParam(PARAM_START) int start,
       @ActionParam(PARAM_COUNT) int count) {
 
     log.info("GET LIST RESULTS for {} with filter {}", entityName, filter);
-    return RestliUtil.toTask(
-        () -> toListResult(_entitySearchService.filter(entityName, filter, sortCriterion, start, count)),
+    return RestliUtil.toTask(() -> toListResult(_entitySearchService.filter(entityName, filter, sortCriterion, start, count)),
         MetricRegistry.name(this.getClass(), "filter"));
   }
 
@@ -352,8 +354,11 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     listResult.setStart(searchResult.getFrom());
     listResult.setCount(searchResult.getPageSize());
     listResult.setTotal(searchResult.getNumEntities());
-    listResult.setEntities(
-        new UrnArray(searchResult.getEntities().stream().map(SearchEntity::getEntity).collect(Collectors.toList())));
+    listResult.setEntities(new UrnArray(
+      searchResult.getEntities()
+        .stream()
+        .map(SearchEntity::getEntity)
+        .collect(Collectors.toList())));
     return listResult;
   }
 }
