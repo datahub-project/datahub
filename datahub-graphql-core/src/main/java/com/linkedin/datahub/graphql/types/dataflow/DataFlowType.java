@@ -36,7 +36,7 @@ import com.linkedin.entity.Entity;
 import com.linkedin.metadata.extractor.AspectExtractor;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
-import com.linkedin.metadata.query.SearchResult;
+import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.snapshot.DataFlowSnapshot;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.r2.RemoteInvocationException;
@@ -157,11 +157,12 @@ public class DataFlowType implements SearchableEntityType<DataFlow>, BrowsableEn
     }
 
     @Override
-    public DataFlow update(@Nonnull DataFlowUpdateInput input, @Nonnull QueryContext context) throws Exception {
+    public DataFlow update(@Nonnull String urn, @Nonnull DataFlowUpdateInput input, @Nonnull QueryContext context) throws Exception {
 
-        if (isAuthorized(input, context)) {
+        if (isAuthorized(urn, input, context)) {
             final CorpuserUrn actor = CorpuserUrn.createFromString(context.getActor());
             final DataFlowSnapshot dataFlowSnapshot = DataFlowUpdateInputSnapshotMapper.map(input, actor);
+            dataFlowSnapshot.setUrn(DataFlowUrn.createFromString(urn));
             final Snapshot snapshot = Snapshot.create(dataFlowSnapshot);
 
             try {
@@ -169,22 +170,22 @@ public class DataFlowType implements SearchableEntityType<DataFlow>, BrowsableEn
                 entity.setValue(snapshot);
                 _dataFlowsClient.update(entity, context.getActor());
             } catch (RemoteInvocationException e) {
-                throw new RuntimeException(String.format("Failed to write entity with urn %s", input.getUrn()), e);
+                throw new RuntimeException(String.format("Failed to write entity with urn %s", urn), e);
             }
 
-            return load(input.getUrn(), context).getData();
+            return load(urn, context).getData();
         }
         throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
     }
 
-    private boolean isAuthorized(@Nonnull DataFlowUpdateInput update, @Nonnull QueryContext context) {
+    private boolean isAuthorized(@Nonnull String urn, @Nonnull DataFlowUpdateInput update, @Nonnull QueryContext context) {
         // Decide whether the current principal should be allowed to update the Dataset.
         final DisjunctivePrivilegeGroup orPrivilegeGroups = getAuthorizedPrivileges(update);
         return AuthorizationUtils.isAuthorized(
             context.getAuthorizer(),
             context.getActor(),
             PoliciesConfig.DATA_FLOW_PRIVILEGES.getResourceType(),
-            update.getUrn(),
+            urn,
             orPrivilegeGroups);
     }
 

@@ -36,7 +36,7 @@ import com.linkedin.entity.Entity;
 import com.linkedin.metadata.extractor.AspectExtractor;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
-import com.linkedin.metadata.query.SearchResult;
+import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.snapshot.DashboardSnapshot;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.r2.RemoteInvocationException;
@@ -162,31 +162,32 @@ public class DashboardType implements SearchableEntityType<Dashboard>, Browsable
     }
 
     @Override
-    public Dashboard update(@Nonnull DashboardUpdateInput input, @Nonnull QueryContext context) throws Exception {
-        if (isAuthorized(input, context)) {
+    public Dashboard update(@Nonnull String urn, @Nonnull DashboardUpdateInput input, @Nonnull QueryContext context) throws Exception {
+        if (isAuthorized(urn, input, context)) {
             final CorpuserUrn actor = CorpuserUrn.createFromString(context.getActor());
             final DashboardSnapshot partialDashboard = DashboardUpdateInputSnapshotMapper.map(input, actor);
+            partialDashboard.setUrn(DashboardUrn.createFromString(urn));
             final Snapshot snapshot = Snapshot.create(partialDashboard);
 
             try {
                 _dashboardsClient.update(new com.linkedin.entity.Entity().setValue(snapshot), context.getActor());
             } catch (RemoteInvocationException e) {
-                throw new RuntimeException(String.format("Failed to write entity with urn %s", input.getUrn()), e);
+                throw new RuntimeException(String.format("Failed to write entity with urn %s", urn), e);
             }
 
-            return load(input.getUrn(), context).getData();
+            return load(urn, context).getData();
         }
         throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
     }
 
-    private boolean isAuthorized(@Nonnull DashboardUpdateInput update, @Nonnull QueryContext context) {
+    private boolean isAuthorized(@Nonnull String urn, @Nonnull DashboardUpdateInput update, @Nonnull QueryContext context) {
         // Decide whether the current principal should be allowed to update the Dataset.
         final DisjunctivePrivilegeGroup orPrivilegeGroups = getAuthorizedPrivileges(update);
         return AuthorizationUtils.isAuthorized(
             context.getAuthorizer(),
             context.getActor(),
             PoliciesConfig.DASHBOARD_PRIVILEGES.getResourceType(),
-            update.getUrn(),
+            urn,
             orPrivilegeGroups);
     }
 

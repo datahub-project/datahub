@@ -37,6 +37,11 @@ def projectMdFiles = project.fileTree("${project.projectDir}") {
     exclude '**/dist/**'
     }
 
+// Combine GraphQL schemas for documentation.
+task generateGraphQLSchema(type: Exec) {
+  workingDir "$projectDir/graphql"
+  commandLine './generateGraphQLSchema.sh'
+}
 
 /*
   Wrappers around Yarn Tasks.
@@ -50,7 +55,11 @@ task yarnInstall(type: YarnTask) {
   }
 }
 
-task yarnGenerate(type: YarnTask, dependsOn: yarnInstall) {
+task generateGraphQLDocumentation(type: YarnTask, dependsOn: [yarnInstall, generateGraphQLSchema] ) {
+  args = ['docusaurus', 'docs:generate:graphql']
+}
+
+task yarnGenerate(type: YarnTask, dependsOn: [yarnInstall, generateGraphQLDocumentation] ) {
   inputs.files(projectMdFiles)
   outputs.cacheIf { true }
   args = ['run', 'generate']

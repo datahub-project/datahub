@@ -1,5 +1,7 @@
+import json
 import logging
-from typing import Any, Iterable, Optional
+from collections import defaultdict
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 import pydantic
 
@@ -11,15 +13,28 @@ from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.sql import text
 from sqlalchemy.sql.elements import quoted_name
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel
+import datahub.emitter.mce_builder as builder
+from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.time_window_config import BaseTimeWindowConfig
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.sql_common import (
     RecordTypeClass,
     SQLAlchemyConfig,
     SQLAlchemySource,
+    SqlWorkUnit,
     TimeTypeClass,
     make_sqlalchemy_uri,
     register_custom_type,
 )
+from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
+    DatasetLineageTypeClass,
+    UpstreamClass,
+    UpstreamLineage,
+)
+from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
+from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
+from datahub.metadata.schema_classes import ChangeTypeClass, DatasetPropertiesClass
 
 register_custom_type(custom_types.TIMESTAMP_TZ, TimeTypeClass)
 register_custom_type(custom_types.TIMESTAMP_LTZ, TimeTypeClass)
@@ -29,7 +44,7 @@ register_custom_type(custom_types.VARIANT, RecordTypeClass)
 logger: logging.Logger = logging.getLogger(__name__)
 
 
-class BaseSnowflakeConfig(ConfigModel):
+class BaseSnowflakeConfig(BaseTimeWindowConfig):
     # Note: this config model is also used by the snowflake-usage source.
 
     scheme = "snowflake"
@@ -39,6 +54,7 @@ class BaseSnowflakeConfig(ConfigModel):
     host_port: str
     warehouse: Optional[str]
     role: Optional[str]
+    include_table_lineage: Optional[bool] = True
 
     def get_sql_alchemy_url(self, database=None):
         return make_sqlalchemy_uri(
@@ -61,11 +77,7 @@ class BaseSnowflakeConfig(ConfigModel):
 
 class SnowflakeConfig(BaseSnowflakeConfig, SQLAlchemyConfig):
     database_pattern: AllowDenyPattern = AllowDenyPattern(
-        deny=[
-            r"^UTIL_DB$",
-            r"^SNOWFLAKE$",
-            r"^SNOWFLAKE_SAMPLE_DATA$",
-        ]
+        deny=[r"^UTIL_DB$", r"^SNOWFLAKE$", r"^SNOWFLAKE_SAMPLE_DATA$"]
     )
 
     database: Optional[str]  # deprecated
@@ -88,6 +100,7 @@ class SnowflakeSource(SQLAlchemySource):
 
     def __init__(self, config, ctx):
         super().__init__(config, ctx, "snowflake")
+        self._lineage_map: Optional[Dict[str, List[Tuple[str, str, str]]]] = None
 
     @classmethod
     def create(cls, config_dict, ctx):
@@ -113,3 +126,156 @@ class SnowflakeSource(SQLAlchemySource):
     def get_identifier(self, *, schema: str, entity: str, **kwargs: Any) -> str:
         regular = super().get_identifier(schema=schema, entity=entity, **kwargs)
         return f"{self.current_database.lower()}.{regular}"
+
+    def _populate_lineage(self) -> None:
+        url = self.config.get_sql_alchemy_url()
+        logger.debug(f"sql_alchemy_url={url}")
+        engine = create_engine(url, **self.config.options)
+        query: str = """
+WITH table_lineage_history AS (
+    SELECT
+        r.value:"objectName" AS upstream_table_name,
+        r.value:"objectDomain" AS upstream_table_domain,
+        r.value:"columns" AS upstream_table_columns,
+        w.value:"objectName" AS downstream_table_name,
+        w.value:"objectDomain" AS downstream_table_domain,
+        w.value:"columns" AS downstream_table_columns,
+        t.query_start_time AS query_start_time
+    FROM
+        (SELECT * from snowflake.account_usage.access_history) t,
+        lateral flatten(input => t.BASE_OBJECTS_ACCESSED) r,
+        lateral flatten(input => t.OBJECTS_MODIFIED) w
+    WHERE r.value:"objectId" IS NOT NULL
+    AND w.value:"objectId" IS NOT NULL
+    AND w.value:"objectName" NOT LIKE '%.GE_TMP_%'
+    AND t.query_start_time >= to_timestamp_ltz({start_time_millis}, 3)
+    AND t.query_start_time < to_timestamp_ltz({end_time_millis}, 3))
+SELECT upstream_table_name, downstream_table_name, upstream_table_columns, downstream_table_columns
+FROM table_lineage_history
+WHERE upstream_table_domain = 'Table' and downstream_table_domain = 'Table'
+QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name, upstream_table_name ORDER BY query_start_time DESC) = 1        """.format(
+            start_time_millis=int(self.config.start_time.timestamp() * 1000),
+            end_time_millis=int(self.config.end_time.timestamp() * 1000),
+        )
+        self._lineage_map = defaultdict(list)
+        try:
+            for db_row in engine.execute(query):
+                # key is the down-stream table name
+                key: str = db_row[1].lower().replace('"', "")
+                self._lineage_map[key].append(
+                    # (<upstream_table_name>, <json_list_of_upstream_columns>, <json_list_of_downstream_columns>)
+                    (db_row[0].lower().replace('"', ""), db_row[2], db_row[3])
+                )
+                logger.debug(f"Lineage[{key}]:{self._lineage_map[key]}")
+        except Exception as e:
+            logger.warning(
+                f"Extracting lineage from Snowflake failed."
+                f"Please check your premissions. Continuing...\nError was {e}."
+            )
+
+    def _get_upstream_lineage_info(
+        self, dataset_urn: str
+    ) -> Optional[Tuple[UpstreamLineage, Dict[str, str]]]:
+        dataset_key = builder.dataset_urn_to_key(dataset_urn)
+        if dataset_key is None:
+            logger.warning(f"Invalid dataset urn {dataset_urn}. Could not get key!")
+            return None
+
+        if self._lineage_map is None:
+            self._populate_lineage()
+        assert self._lineage_map is not None
+        dataset_name = dataset_key.name
+        lineage = self._lineage_map.get(f"{dataset_name}", None)
+        if lineage is None:
+            logger.debug(f"No lineage found for {dataset_name}")
+            return None
+        upstream_tables: List[UpstreamClass] = []
+        column_lineage: Dict[str, str] = {}
+        for lineage_entry in lineage:
+            # Update the table-lineage
+            upstream_table_name = lineage_entry[0]
+            upstream_table = UpstreamClass(
+                dataset=builder.make_dataset_urn(
+                    self.platform, upstream_table_name, self.config.env
+                ),
+                type=DatasetLineageTypeClass.TRANSFORMED,
+            )
+            upstream_tables.append(upstream_table)
+            # Update column-lineage for each down-stream column.
+            upstream_columns = [
+                d["columnName"].lower() for d in json.loads(lineage_entry[1])
+            ]
+            downstream_columns = [
+                d["columnName"].lower() for d in json.loads(lineage_entry[2])
+            ]
+            upstream_column_str = (
+                f"{upstream_table_name}({', '.join(sorted(upstream_columns))})"
+            )
+            downstream_column_str = (
+                f"{dataset_name}({', '.join(sorted(downstream_columns))})"
+            )
+            column_lineage_key = f"column_lineage[{upstream_table_name}]"
+            column_lineage_value = (
+                f"{{{upstream_column_str} -> {downstream_column_str}}}"
+            )
+            column_lineage[column_lineage_key] = column_lineage_value
+            logger.debug(f"{column_lineage_key}:{column_lineage_value}")
+
+        return UpstreamLineage(upstreams=upstream_tables), column_lineage
+
+    # Override the base class method.
+    def get_workunits(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
+        for wu in super().get_workunits():
+            if (
+                self.config.include_table_lineage
+                and isinstance(wu, SqlWorkUnit)
+                and isinstance(wu.metadata, MetadataChangeEvent)
+                and isinstance(wu.metadata.proposedSnapshot, DatasetSnapshot)
+            ):
+                dataset_snapshot: DatasetSnapshot = wu.metadata.proposedSnapshot
+                assert dataset_snapshot
+                # Join the workunit stream from super with the lineage info using the urn.
+                lineage_info = self._get_upstream_lineage_info(dataset_snapshot.urn)
+                if lineage_info is not None:
+                    # Emit the lineage work unit
+                    upstream_lineage, upstream_column_props = lineage_info
+                    lineage_mcpw = MetadataChangeProposalWrapper(
+                        entityType="dataset",
+                        changeType=ChangeTypeClass.UPSERT,
+                        entityUrn=dataset_snapshot.urn,
+                        aspectName="upstreamLineage",
+                        aspect=upstream_lineage,
+                    )
+                    lineage_wu = MetadataWorkUnit(
+                        id=f"{self.platform}-{lineage_mcpw.entityUrn}-{lineage_mcpw.aspectName}",
+                        mcp=lineage_mcpw,
+                    )
+                    self.report.report_workunit(lineage_wu)
+                    yield lineage_wu
+
+                    # Update the super's workunit to include the column-lineage in the custom properties. We need to follow
+                    # the RCU semantics for both the aspects & customProperties in order to preserve the changes made by super.
+                    aspects = dataset_snapshot.aspects
+                    if aspects is None:
+                        aspects = []
+                    dataset_properties_aspect: Optional[DatasetPropertiesClass] = None
+                    for aspect in aspects:
+                        if isinstance(aspect, DatasetPropertiesClass):
+                            dataset_properties_aspect = aspect
+                    if dataset_properties_aspect is None:
+                        dataset_properties_aspect = DatasetPropertiesClass()
+                        aspects.append(dataset_properties_aspect)
+
+                    custom_properties = (
+                        {
+                            **dataset_properties_aspect.customProperties,
+                            **upstream_column_props,
+                        }
+                        if dataset_properties_aspect.customProperties
+                        else upstream_column_props
+                    )
+                    dataset_properties_aspect.customProperties = custom_properties
+                    dataset_snapshot.aspects = aspects
+
+            # Emit the work unit from super.
+            yield wu

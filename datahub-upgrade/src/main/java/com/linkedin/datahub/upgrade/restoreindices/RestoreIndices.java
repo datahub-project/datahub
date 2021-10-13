@@ -10,7 +10,7 @@ import com.linkedin.datahub.upgrade.common.steps.GMSQualificationStep;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.search.SearchService;
+import com.linkedin.metadata.search.EntitySearchService;
 import io.ebean.EbeanServer;
 import java.util.ArrayList;
 import java.util.List;
@@ -23,8 +23,9 @@ public class RestoreIndices implements Upgrade {
   private final List<UpgradeStep> _steps;
 
   public RestoreIndices(final EbeanServer server, final EntityService entityService,
-      final EntityRegistry entityRegistry, final SearchService searchService, final GraphService graphService) {
-    _steps = buildSteps(server, entityService, entityRegistry, searchService, graphService);
+      final EntityRegistry entityRegistry, final EntitySearchService entitySearchService,
+      final GraphService graphService) {
+    _steps = buildSteps(server, entityService, entityRegistry, entitySearchService, graphService);
   }
 
   @Override
@@ -38,10 +39,11 @@ public class RestoreIndices implements Upgrade {
   }
 
   private List<UpgradeStep> buildSteps(final EbeanServer server, final EntityService entityService,
-      final EntityRegistry entityRegistry, final SearchService searchService, final GraphService graphService) {
+      final EntityRegistry entityRegistry, final EntitySearchService entitySearchService,
+      final GraphService graphService) {
     final List<UpgradeStep> steps = new ArrayList<>();
     steps.add(new GMSQualificationStep());
-    steps.add(new ClearSearchServiceStep(searchService, false));
+    steps.add(new ClearSearchServiceStep(entitySearchService, false));
     steps.add(new ClearGraphServiceStep(graphService, false));
     steps.add(new SendMAEStep(server, entityService, entityRegistry));
     return steps;

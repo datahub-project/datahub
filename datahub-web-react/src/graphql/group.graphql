@@ -8,7 +8,7 @@ query getGroup($urn: String!, $membersCount: Int!) {
             description
             email
         }
-        relationships(types: ["IsMemberOfGroup"], direction: INCOMING, start: 0, count: $membersCount) {
+        relationships(input: { types: ["IsMemberOfGroup"], direction: INCOMING, start: 0, count: $membersCount }) {
             start
             count
             total
@@ -37,7 +37,7 @@ query getGroup($urn: String!, $membersCount: Int!) {
 
 query getGroupMembers($urn: String!, $start: Int!, $count: Int!) {
     corpGroup(urn: $urn) {
-        relationships(types: ["IsMemberOfGroup"], direction: INCOMING, start: $start, count: $count) {
+        relationships(input: { types: ["IsMemberOfGroup"], direction: INCOMING, start: $start, count: $count }) {
             start
             count
             total
@@ -61,7 +61,7 @@ query getGroupMembers($urn: String!, $start: Int!, $count: Int!) {
                 }
             }
         }
-        otherMembers: relationships(types: ["isOwner"], direction: INCOMING, start: $start, count: $count) {
+        otherMembers: relationships(input: { types: ["isOwner"], direction: INCOMING, start: $start, count: $count }) {
             start
             count
             total
@@ -85,7 +85,7 @@ query getGroupMembers($urn: String!, $start: Int!, $count: Int!) {
                 }
             }
         }
-        andMore: relationships(types: ["DownstreamOf"], direction: INCOMING, start: $start, count: $count) {
+        andMore: relationships(input: { types: ["DownstreamOf"], direction: INCOMING, start: $start, count: $count }) {
             start
             count
             total
@@ -110,4 +110,41 @@ query getGroupMembers($urn: String!, $start: Int!, $count: Int!) {
             }
         }
     }
+}
+
+query listGroups($input: ListGroupsInput!) {
+    listGroups(input: $input) {
+        start
+        count
+        total
+        groups {
+            urn
+            type
+            name
+            info {
+                displayName
+                description
+                email
+            }
+            memberCount: relationships(input: { types: ["IsMemberOfGroup"], direction: INCOMING, start: 0, count: 1 }) {
+                total
+            }
+        }
+    }
+}
+
+mutation addGroupMembers($groupUrn: String!, $userUrns: [String!]!) {
+    addGroupMembers(input: { groupUrn: $groupUrn, userUrns: $userUrns })
+}
+
+mutation removeGroupMembers($groupUrn: String!, $userUrns: [String!]!) {
+    removeGroupMembers(input: { groupUrn: $groupUrn, userUrns: $userUrns })
+}
+
+mutation removeGroup($urn: String!) {
+    removeGroup(urn: $urn)
+}
+
+mutation createGroup($input: CreateGroupInput!) {
+    createGroup(input: $input)
 }

@@ -30,7 +30,7 @@ public class AuthenticationFilter implements Filter {
       // Save actor to ThreadLocal context.
       AuthenticationContext.setActor(principal);
     } else {
-      AuthenticationContext.remove();
+      AuthenticationContext.setActor(Constants.UNKNOWN_ACTOR);
     }
     chain.doFilter(request, response);
     AuthenticationContext.remove();

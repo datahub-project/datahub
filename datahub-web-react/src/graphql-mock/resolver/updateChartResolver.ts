@@ -7,8 +7,8 @@ type UpdateChart = {
 };
 
 export const updateChartResolver = {
-    updateChart({ variables: { input } }): UpdateChart {
-        const { globalTags, urn, ownership }: ChartUpdateInput = input;
+    updateChart({ variables: { urn, input } }): UpdateChart {
+        const { globalTags, ownership }: ChartUpdateInput = input;
         const chart = findChartByURN(urn);
 
         if (ownership) {

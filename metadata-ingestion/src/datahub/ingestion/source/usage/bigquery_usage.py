@@ -12,13 +12,13 @@ import pydantic
 from google.cloud.logging_v2.client import Client as GCPLoggingClient
 
 import datahub.emitter.mce_builder as builder
+from datahub.configuration.time_window_config import get_time_bucket
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
-from datahub.ingestion.api.workunit import UsageStatsWorkUnit
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.usage.usage_common import (
     BaseUsageConfig,
     GenericAggregatedDataset,
-    get_time_bucket,
 )
 from datahub.utilities.delayed_iter import delayed_iter
 
@@ -110,8 +110,11 @@ def _table_ref_to_urn(ref: BigQueryTableRef, env: str) -> str:
     )
 
 
-def _job_name_ref(project: str, jobId: str) -> str:
-    return f"projects/{project}/jobs/{jobId}"
+def _job_name_ref(project: str, jobId: str) -> Optional[str]:
+    if project and jobId:
+        return f"projects/{project}/jobs/{jobId}"
+    else:
+        return None
 
 
 @dataclass
@@ -145,6 +148,7 @@ class ReadEvent:
 
     @classmethod
     def from_entry(cls, entry: AuditLogEntry) -> "ReadEvent":
+
         user = entry.payload["authenticationInfo"]["principalEmail"]
         resourceName = entry.payload["resourceName"]
         readInfo = entry.payload["metadata"]["tableDataRead"]
@@ -155,7 +159,7 @@ class ReadEvent:
         readReason = readInfo.get("reason")
         jobName = None
         if readReason == "JOB":
-            jobName = readInfo["jobName"]
+            jobName = readInfo.get("jobName")
 
         readEvent = ReadEvent(
             actor_email=user,
@@ -166,6 +170,11 @@ class ReadEvent:
             jobName=jobName,
             payload=entry.payload if DEBUG_INCLUDE_FULL_PAYLOADS else None,
         )
+        if readReason == "JOB" and not jobName:
+            logger.debug(
+                "jobName from read events is absent when readReason is JOB. "
+                "Auditlog entry - {logEntry}".format(logEntry=entry)
+            )
         return readEvent
 
 
@@ -182,7 +191,7 @@ class QueryEvent:
     query: str
     destinationTable: Optional[BigQueryTableRef]
     referencedTables: Optional[List[BigQueryTableRef]]
-    jobName: str
+    jobName: Optional[str]
 
     payload: Any
 
@@ -199,7 +208,9 @@ class QueryEvent:
         user = entry.payload["authenticationInfo"]["principalEmail"]
 
         job = entry.payload["serviceData"]["jobCompletedEvent"]["job"]
-        jobName = _job_name_ref(job["jobName"]["projectId"], job["jobName"]["jobId"])
+        jobName = _job_name_ref(
+            job.get("jobName", {}).get("projectId"), job.get("jobName", {}).get("jobId")
+        )
         rawQuery = job["jobConfiguration"]["query"]["query"]
 
         rawDestTable = job["jobConfiguration"]["query"]["destinationTable"]
@@ -223,6 +234,11 @@ class QueryEvent:
             jobName=jobName,
             payload=entry.payload if DEBUG_INCLUDE_FULL_PAYLOADS else None,
         )
+        if not jobName:
+            logger.debug(
+                "jobName from query events is absent. "
+                "Auditlog entry - {logEntry}".format(logEntry=entry)
+            )
         return queryEvent
 
 
@@ -266,7 +282,7 @@ class BigQueryUsageSource(Source):
         config = BigQueryUsageConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
-    def get_workunits(self) -> Iterable[UsageStatsWorkUnit]:
+    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         clients = self._make_bigquery_clients()
         bigquery_log_entries = self._get_bigquery_log_entries(clients)
         parsed_events = self._parse_bigquery_log_entries(bigquery_log_entries)
@@ -333,15 +349,22 @@ class BigQueryUsageSource(Source):
     ) -> Iterable[Union[ReadEvent, QueryEvent]]:
         for entry in entries:
             event: Union[None, ReadEvent, QueryEvent] = None
-            if ReadEvent.can_parse_entry(entry):
-                event = ReadEvent.from_entry(entry)
-            elif QueryEvent.can_parse_entry(entry):
-                event = QueryEvent.from_entry(entry)
-            else:
+            try:
+                if ReadEvent.can_parse_entry(entry):
+                    event = ReadEvent.from_entry(entry)
+                elif QueryEvent.can_parse_entry(entry):
+                    event = QueryEvent.from_entry(entry)
+                else:
+                    raise RuntimeError(
+                        "Log entry cannot be parsed as either ReadEvent or QueryEvent."
+                    )
+            except Exception as e:
                 self.report.report_failure(
                     f"{entry.log_name}-{entry.insert_id}",
                     f"unable to parse log entry: {entry!r}",
                 )
+                logger.error("Error while parsing GCP log entries", e)
+
             if event:
                 yield event
 
@@ -361,7 +384,8 @@ class BigQueryUsageSource(Source):
         ) -> Iterable[ReadEvent]:
             for event in events:
                 if isinstance(event, QueryEvent):
-                    query_jobs[event.jobName] = event
+                    if event.jobName:
+                        query_jobs[event.jobName] = event
                 else:
                     yield event
 
@@ -423,7 +447,7 @@ class BigQueryUsageSource(Source):
 
         return datasets
 
-    def _make_usage_stat(self, agg: AggregatedDataset) -> UsageStatsWorkUnit:
+    def _make_usage_stat(self, agg: AggregatedDataset) -> MetadataWorkUnit:
         return agg.make_usage_workunit(
             self.config.bucket_duration,
             lambda resource: _table_ref_to_urn(resource, self.config.env),

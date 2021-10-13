@@ -1,6 +1,7 @@
 package com.linkedin.metadata.boot;
 
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -22,13 +23,24 @@ public class BootstrapManager {
     // Once the application has been set up, apply boot steps.
     log.info("Starting Bootstrap Process...");
     for (int i = 0; i < _bootSteps.size(); i++) {
-      log.info(String.format("Executing Bootstrap Step %s/%s...", i, _bootSteps.size()));
       final BootstrapStep step = _bootSteps.get(i);
-      try {
-        step.execute();
-      } catch (Exception e) {
-        log.error(String.format("Caught exception while executing bootstrao step %s. Exiting...", step.name()), e);
-        System.exit(1);
+      if (step.getExecutionMode() == BootstrapStep.ExecutionMode.BLOCKING) {
+        log.info("Executing bootstrap step {}/{} with name {}...", i + 1, _bootSteps.size(), step.name());
+        try {
+          step.execute();
+        } catch (Exception e) {
+          log.error(String.format("Caught exception while executing bootstrap step %s. Exiting...", step.name()), e);
+          System.exit(1);
+        }
+      } else { // Async
+        log.info("Starting asynchronous bootstrap step {}/{} with name {}...", i + 1, _bootSteps.size(), step.name());
+        CompletableFuture.runAsync(() -> {
+          try {
+            step.execute();
+          } catch (Exception e) {
+            log.error(String.format("Caught exception while executing bootstrap step %s. Exiting...", step.name()), e);
+          }
+        });
       }
     }
   }

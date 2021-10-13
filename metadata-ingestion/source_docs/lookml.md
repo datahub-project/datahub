@@ -12,8 +12,17 @@ Note! This plugin uses a package that requires Python 3.7+!
 
 This plugin extracts the following:
 
-- LookML views from model files
-- Name, upstream table names, dimensions, measures, and dimension groups
+- LookML views from model files in a project
+- Name, upstream table names, metadata for dimensions, measures, and dimension groups attached as tags
+- If API integration is enabled (recommended), resolves table and view names by calling the Looker API, otherwise supports offline resolution of these names.
+
+**_NOTE_:** To get complete Looker metadata integration (including Looker dashboards and charts and lineage to the underlying Looker views, you must ALSO use the Looker source. Documentation for that is [here](./looker.md)
+
+### Configuration Notes
+
+See the [Looker authentication docs](https://docs.looker.com/reference/api-and-integration/api-auth#authentication_with_an_sdk) for the steps to create a client ID and secret. 
+You need to ensure that the API key is attached to a user that has Admin privileges. If that is not possible, read the configuration section to provide an offline specification of the `connection_to_platform_map` and the `project_name`.
+
 
 ## Quickstart recipe
 
@@ -29,9 +38,30 @@ source:
     base_folder: /path/to/model/files
 
     # Options
-    connection_to_platform_map:
-      connection_name: platform_name (or platform_name.database_name) # for ex. my_snowflake_conn: snowflake.my_database
+    api:
+      # Coordinates for your looker instance
+      base_url: https://YOUR_INSTANCE.cloud.looker.com
 
+      # Credentials for your Looker connection (https://docs.looker.com/reference/api-and-integration/api-auth)
+      client_id: client_id_from_looker 
+      client_secret: client_secret_from_looker
+      
+    # Alternative to API section above if you want a purely file-based ingestion with no api calls to Looker
+    # project_name: PROJECT_NAME # See (https://docs.looker.com/data-modeling/getting-started/how-project-works) to understand what is your project name
+    # connection_to_platform_map:
+    #   connection_name_1:
+    #     platform: snowflake # bigquery, hive, etc
+    #     default_db: DEFAULT_DATABASE. # the default database configured for this connection
+    #     default_schema: DEFAULT_SCHEMA # the default schema configured for this connection
+    #   connection_name_2:
+    #     platform: bigquery # snowflake, hive, etc
+    #     default_db: DEFAULT_DATABASE. # the default database configured for this connection
+    #     default_schema: DEFAULT_SCHEMA # the default schema configured for this connection
+    
+    github_info:
+       repo: org/repo-name
+          
+    
 sink:
   # sink configs
 ```
@@ -43,7 +73,14 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | Field                                          | Required | Default    | Description                                                             |
 | ---------------------------------------------- | -------- | ---------- | ----------------------------------------------------------------------- |
 | `base_folder`                                  | ✅       |            | Where the `*.model.lkml` and `*.view.lkml` files are stored.            |
-| `connection_to_platform_map.<connection_name>` | ✅       |            | Mappings between connection names in the model files to platform names. |
+| `api.base_url`                                 | ❓ if using api |            | Url to your Looker instance: https://company.looker.com:19999 or https://looker.company.com, or similar. | 
+| `api.client_id`                                | ❓ if using api |            | Looker API3 client ID.                                 |
+| `api.client_secret`                            | ❓ if using api |            | Looker API3 client secret. | 
+| `project_name` | ❓ if NOT using api         |           | The project name within with all the model files live. See (https://docs.looker.com/data-modeling/getting-started/how-project-works) to understand what the Looker project name should be. The simplest way to see your projects is to click on `Develop` followed by `Manage LookML Projects` in the Looker application. |
+| `connection_to_platform_map.<connection_name>` |          |            | Mappings between connection names in the model files to platform, database and schema values |
+| `connection_to_platform_map.<connection_name>.platform` | ❓ if NOT using api         |           | Mappings between connection name in the model files to platform name (e.g. snowflake, bigquery, etc) |
+| `connection_to_platform_map.<connection_name>.default_db` | ❓ if NOT using api         |           | Mappings between connection name in the model files to default database configured for this platform on Looker |
+| `connection_to_platform_map.<connection_name>.default_schema` | ❓ if NOT using api         |           | Mappings between connection name in the model files to default schema configured for this platform on Looker |
 | `platform_name`                                |          | `"looker"` | Platform to use in namespace when constructing URNs.                    |
 | `model_pattern.allow`                          |          |            | List of regex patterns for models to include in ingestion.                       |
 | `model_pattern.deny`                           |          |            | List of regex patterns for models to exclude from ingestion.                     |
@@ -51,8 +88,15 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `view_pattern.allow`                           |          |            | List of regex patterns for views to include in ingestion.                        |
 | `view_pattern.deny`                            |          |            | List of regex patterns for views to exclude from ingestion.                      |
 | `view_pattern.ignoreCase`  |          | `True` | Whether to ignore case sensitivity during pattern matching.                                                                                                                                  |
+| `view_naming_pattern` |   | `{project}.view.{name}` | Pattern for providing dataset names to views. Allowed variables are `{project}`, `{model}`, `{name}` | 
+| `view_browse_pattern` |   | `/{env}/{platform}/{project}/views/{name}` | Pattern for providing browse paths to views. Allowed variables are `{project}`, `{model}`, `{name}`, `{platform}` and `{env}` | 
 | `env`                                          |          | `"PROD"`   | Environment to use in namespace when constructing URNs.                 |
 | `parse_table_names_from_sql`                   |          | `False`    | See note below.                                                         |
+| `tag_measures_and_dimensions`   |          | `True`    | When enabled, attaches tags to measures, dimensions and dimension groups to make them more discoverable. When disabled, adds this information to the description of the column. |
+| `github_info`                   |          | Empty.    | When provided, will annotate views with github urls. See config variables below. | 
+| `github_info.repo`              |  ✅   if providing `github_info`        |    |  Your github repository in `org/repo` form. e.g. `linkedin/datahub` | 
+| `github_info.branch`            |          | `main` | The default branch in your repo that you want urls to point to. Typically `main` or `master` |  
+| `github_info.base_url`          |          | `https://github.com` | The base url for your github coordinates | 
 | `sql_parser`                                   |          | `datahub.utilities.sql_parser.DefaultSQLParser`    | See note below.                                                         |
 
 Note! The integration can use an SQL parser to try to parse the tables the views depends on. This parsing is disabled by default, 

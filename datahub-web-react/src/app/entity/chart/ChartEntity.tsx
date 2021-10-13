@@ -1,12 +1,21 @@
 import { LineChartOutlined } from '@ant-design/icons';
 import * as React from 'react';
-import { Chart, EntityType, SearchResult } from '../../../types.generated';
+import { Chart, EntityType, PlatformType, SearchResult } from '../../../types.generated';
 import { Direction } from '../../lineage/types';
 import getChildren from '../../lineage/utils/getChildren';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
 import { getLogoFromPlatform } from '../../shared/getLogoFromPlatform';
 import { ChartPreview } from './preview/ChartPreview';
-import ChartProfile from './profile/ChartProfile';
+import { GetChartQuery, useGetChartQuery, useUpdateChartMutation } from '../../../graphql/chart.generated';
+import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
+import { SidebarAboutSection } from '../shared/containers/profile/sidebar/SidebarAboutSection';
+import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
+import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/SidebarOwnerSection';
+import { GenericEntityProperties } from '../shared/types';
+import { EntityProfile } from '../shared/containers/profile/EntityProfile';
+import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
+import { ChartInputsTab } from '../shared/tabs/Entity/ChartInputsTab';
+import { ChartDashboardsTab } from '../shared/tabs/Entity/ChartDashboardsTab';
 
 /**
  * Definition of the DataHub Chart entity.
@@ -49,9 +58,82 @@ export class ChartEntity implements Entity<Chart> {
 
     getPathName = () => 'chart';
 
+    getEntityName = () => 'Chart';
+
     getCollectionName = () => 'Charts';
 
-    renderProfile = (urn: string) => <ChartProfile urn={urn} />;
+    renderProfile = (urn: string) => (
+        <EntityProfile
+            urn={urn}
+            entityType={EntityType.Chart}
+            useEntityQuery={useGetChartQuery}
+            useUpdateQuery={useUpdateChartMutation}
+            getOverrideProperties={this.getOverrideProperties}
+            tabs={[
+                {
+                    name: 'Documentation',
+                    component: DocumentationTab,
+                },
+                {
+                    name: 'Properties',
+                    component: PropertiesTab,
+                },
+                {
+                    name: 'Inputs',
+                    component: ChartInputsTab,
+                    display: {
+                        visible: (_, _1) => true,
+                        enabled: (_, chart: GetChartQuery) => (chart?.chart?.inputs?.total || 0) > 0,
+                    },
+                },
+                {
+                    name: 'Dashboards',
+                    component: ChartDashboardsTab,
+                    display: {
+                        visible: (_, _1) => true,
+                        enabled: (_, chart: GetChartQuery) => (chart?.chart?.dashboards?.total || 0) > 0,
+                    },
+                },
+            ]}
+            sidebarSections={[
+                {
+                    component: SidebarAboutSection,
+                },
+                {
+                    component: SidebarTagsSection,
+                    properties: {
+                        hasTags: true,
+                        hasTerms: true,
+                    },
+                },
+                {
+                    component: SidebarOwnerSection,
+                },
+            ]}
+        />
+    );
+
+    getOverrideProperties = (res: GetChartQuery): GenericEntityProperties => {
+        // TODO: Get rid of this once we have correctly formed platform coming back.
+        const tool = res.chart?.tool || '';
+        const name = res.chart?.info?.name;
+        const externalUrl = res.chart?.info?.externalUrl;
+        return {
+            ...res,
+            name,
+            externalUrl,
+            platform: {
+                urn: `urn:li:dataPlatform:(${tool})`,
+                type: EntityType.DataPlatform,
+                name: tool,
+                info: {
+                    logoUrl: getLogoFromPlatform(tool),
+                    type: PlatformType.Others,
+                    datasetNameDelimiter: '.',
+                },
+            },
+        };
+    };
 
     renderPreview = (_: PreviewType, data: Chart) => {
         return (
@@ -63,6 +145,7 @@ export class ChartEntity implements Entity<Chart> {
                 access={data.info?.access}
                 owners={data.ownership?.owners}
                 tags={data?.globalTags || undefined}
+                glossaryTerms={data?.glossaryTerms}
             />
         );
     };

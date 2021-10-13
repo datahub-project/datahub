@@ -1,5 +1,6 @@
 """Convenience functions for creating MCEs"""
 import logging
+import re
 import time
 from typing import List, Optional, Type, TypeVar, cast, get_type_hints
 
@@ -7,6 +8,7 @@ import typing_inspect
 from avrogen.dict_wrapper import DictWrapper
 
 from datahub.metadata.schema_classes import (
+    DatasetKeyClass,
     DatasetLineageTypeClass,
     DatasetSnapshotClass,
     MetadataChangeEventClass,
@@ -42,6 +44,16 @@ def make_data_platform_urn(platform: str) -> str:
 
 def make_dataset_urn(platform: str, name: str, env: str = DEFAULT_ENV) -> str:
     return f"urn:li:dataset:({make_data_platform_urn(platform)},{name},{env})"
+
+
+def dataset_urn_to_key(dataset_urn: str) -> Optional[DatasetKeyClass]:
+    pattern = r"urn:li:dataset:\(urn:li:dataPlatform:(.*),(.*),(.*)\)"
+    results = re.search(pattern, dataset_urn)
+    if results is not None:
+        return DatasetKeyClass(
+            platform=results.group(1), name=results.group(2), origin=results.group(3)
+        )
+    return None
 
 
 def make_user_urn(username: str) -> str:

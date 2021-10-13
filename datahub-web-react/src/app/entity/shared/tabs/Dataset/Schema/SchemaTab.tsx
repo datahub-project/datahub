@@ -1,5 +1,5 @@
 import { Empty } from 'antd';
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
 import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
 // import { EditableSchemaFieldInfo, GlobalTagsUpdate } from '../../../../../types.generated';
@@ -11,7 +11,6 @@ import { ANTD_GRAY } from '../../../constants';
 import { useBaseEntity, useEntityData } from '../../../EntityContext';
 
 import SchemaTable from './SchemaTable';
-import { useUpdateSchema } from './utils/useUpdateSchema';
 
 const NoSchema = styled(Empty)`
     color: ${ANTD_GRAY[6]};
@@ -33,19 +32,26 @@ export const SchemaTab = () => {
         [schemaMetadata],
     );
     const hasKeySchema = useMemo(
-        () =>
-            (schemaMetadata?.fields?.findIndex((field) => field.fieldPath.indexOf(KEY_SCHEMA_PREFIX) > -1) || -1) !==
-            -1,
+        () => schemaMetadata?.fields?.findIndex((field) => field.fieldPath.indexOf(KEY_SCHEMA_PREFIX) > -1) !== -1,
+        [schemaMetadata],
+    );
+    const hasValueSchema = useMemo(
+        () => schemaMetadata?.fields?.findIndex((field) => field.fieldPath.indexOf(KEY_SCHEMA_PREFIX) === -1) !== -1,
         [schemaMetadata],
     );
 
-    const [showKeySchema, setShowKeySchema] = useState(false);
+    const [showKeySchema, setShowKeySchema] = useState(!hasValueSchema);
+
+    // if there is no value schema, default the selected schema to Key
+    useEffect(() => {
+        if (!hasValueSchema && hasKeySchema) {
+            setShowKeySchema(true);
+        }
+    }, [hasValueSchema, hasKeySchema, setShowKeySchema]);
 
     const rows = useMemo(() => {
         return groupByFieldPath(schemaMetadata?.fields, { showKeySchema });
     }, [schemaMetadata, showKeySchema]);
-
-    const { onUpdateDescription, onUpdateTags } = useUpdateSchema(schemaMetadata, editableSchemaMetadata);
 
     return (
         <div>
@@ -64,10 +70,9 @@ export const SchemaTab = () => {
             ) : rows && rows.length > 0 ? (
                 <>
                     <SchemaTable
+                        schemaMetadata={schemaMetadata}
                         rows={rows}
                         editMode
-                        onUpdateDescription={onUpdateDescription}
-                        onUpdateTags={onUpdateTags}
                         editableSchemaMetadata={editableSchemaMetadata}
                         usageStats={usageStats}
                     />

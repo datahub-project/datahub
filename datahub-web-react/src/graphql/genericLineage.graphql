@@ -110,6 +110,9 @@ fragment upstreamRelationshipFields on UpstreamEntityRelationships {
                 editableProperties {
                     description
                 }
+                subTypes {
+                    typeNames
+                }
             }
             ... on MLModelGroup {
                 urn
@@ -204,6 +207,9 @@ fragment downstreamRelationshipFields on DownstreamEntityRelationships {
                     ...ownershipFields
                 }
                 ...shallowLineageFields
+                subTypes {
+                   typeNames
+                }
             }
             ... on MLModelGroup {
                 urn

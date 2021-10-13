@@ -1,4 +1,3 @@
-import { AvatarSize } from 'antd/lib/avatar/SizeContext';
 import React from 'react';
 import { EntityType, Owner } from '../../../types.generated';
 import CustomAvatar from './CustomAvatar';
@@ -9,7 +8,7 @@ type Props = {
     owners?: Array<Owner> | null;
     entityRegistry: EntityRegistry;
     maxCount?: number;
-    size?: AvatarSize;
+    size?: number;
 };
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -24,6 +23,7 @@ export default function AvatarsGroup({ owners, entityRegistry, maxCount = 6, siz
                 <div data-testid={`avatar-tag-${owner.owner.urn}`} key={`${owner.owner.urn}-${key}`}>
                     {owner.owner.__typename === 'CorpUser' ? (
                         <CustomAvatar
+                            size={size}
                             name={
                                 owner.owner.info?.fullName ||
                                 owner.owner.info?.firstName ||
@@ -36,6 +36,7 @@ export default function AvatarsGroup({ owners, entityRegistry, maxCount = 6, siz
                     ) : (
                         owner.owner.__typename === 'CorpGroup' && (
                             <CustomAvatar
+                                size={size || 28}
                                 name={owner.owner.name}
                                 url={`/${entityRegistry.getPathName(owner.owner.type || EntityType.CorpGroup)}/${
                                     owner.owner.urn

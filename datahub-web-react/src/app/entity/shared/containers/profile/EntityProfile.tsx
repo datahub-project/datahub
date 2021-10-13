@@ -3,7 +3,6 @@ import { Alert, Divider } from 'antd';
 import { MutationHookOptions, MutationTuple, QueryHookOptions, QueryResult } from '@apollo/client/react/types/types';
 import styled from 'styled-components';
 import { useHistory } from 'react-router';
-
 import { EntityType, Exact } from '../../../../../types.generated';
 import { Message } from '../../../../shared/Message';
 import { getDataForEntityType, getEntityPath, useRoutedTab } from './utils';
@@ -36,8 +35,8 @@ type Props<T, U> = {
         }>
     >;
     useUpdateQuery: (
-        baseOptions?: MutationHookOptions<U, { input: GenericEntityUpdate }> | undefined,
-    ) => MutationTuple<U, { input: GenericEntityUpdate }>;
+        baseOptions?: MutationHookOptions<U, { urn: string; input: GenericEntityUpdate }> | undefined,
+    ) => MutationTuple<U, { urn: string; input: GenericEntityUpdate }>;
     getOverrideProperties: (T) => GenericEntityProperties;
     tabs: EntityTab[];
     sidebarSections: EntitySidebarSection[];
@@ -85,8 +84,14 @@ const TabContent = styled.div`
     overflow: auto;
 `;
 
-// TODO(Gabe): Refactor this to generate dynamically
-const QUERY_NAME = 'getDataset';
+const defaultTabDisplayConfig = {
+    visible: (_, _1) => true,
+    enabled: (_, _1) => true,
+};
+
+const defaultSidebarSection = {
+    visible: (_, _1) => true,
+};
 
 /**
  * Container for display of the Entity Page
@@ -105,6 +110,11 @@ export const EntityProfile = <T, U>({
     const entityRegistry = useEntityRegistry();
     const history = useHistory();
     const isCompact = React.useContext(CompactContext);
+    const tabsWithDefaults = tabs.map((tab) => ({ ...tab, display: { ...defaultTabDisplayConfig, ...tab.display } }));
+    const sideBarSectionsWithDefaults = sidebarSections.map((sidebarSection) => ({
+        ...sidebarSection,
+        display: { ...defaultSidebarSection, ...sidebarSection.display },
+    }));
 
     const routeToTab = useCallback(
         ({
@@ -124,7 +134,7 @@ export const EntityProfile = <T, U>({
     const { loading, error, data, refetch } = useEntityQuery({ variables: { urn } });
 
     const [updateEntity] = useUpdateQuery({
-        refetchQueries: () => [QUERY_NAME],
+        onCompleted: () => refetch(),
     });
 
     const entityData = getDataForEntityType({ data, entityType, getOverrideProperties });
@@ -151,7 +161,7 @@ export const EntityProfile = <T, U>({
                         <>
                             <EntityHeader />
                             <Divider />
-                            <EntitySidebar sidebarSections={sidebarSections} />
+                            <EntitySidebar sidebarSections={sideBarSectionsWithDefaults} />
                         </>
                     )}
                 </div>
@@ -186,13 +196,13 @@ export const EntityProfile = <T, U>({
                                 <HeaderAndTabsFlex>
                                     <Header>
                                         <EntityHeader />
-                                        <EntityTabs tabs={tabs} selectedTab={routedTab} />
+                                        <EntityTabs tabs={tabsWithDefaults} selectedTab={routedTab} />
                                     </Header>
                                     <TabContent>{routedTab && <routedTab.component />}</TabContent>
                                 </HeaderAndTabsFlex>
                             </HeaderAndTabs>
                             <Sidebar>
-                                <EntitySidebar sidebarSections={sidebarSections} />
+                                <EntitySidebar sidebarSections={sideBarSectionsWithDefaults} />
                             </Sidebar>
                         </>
                     )}

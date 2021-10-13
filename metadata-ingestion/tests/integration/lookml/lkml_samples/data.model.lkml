@@ -1,6 +1,20 @@
 connection: "my_connection"
 
 include: "foo.view.lkml"
+include: "bar.view.lkml"
+include: "fragment_derived.view.lkml"
+include: "liquid.view.lkml"
+
+explore: aliased_explore {
+  from: my_view
+}
+
+explore: dataset_owners{
+  join: all_entities {
+    relationship: many_to_one
+    sql_on: ${all_entities.urn} =  ${dataset_owners.urn};;
+  }
+}
 
 explore: data_model {
   label: "Data model!"

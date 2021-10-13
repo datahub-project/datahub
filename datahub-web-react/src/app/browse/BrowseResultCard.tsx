@@ -3,6 +3,7 @@ import { Card, Row, Space, Typography } from 'antd';
 import { Link } from 'react-router-dom';
 import { ArrowRightOutlined, FolderOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
+import { singularizeCollectionName } from '../entity/shared/utils';
 
 const styles = {
     row: { padding: 8 },
@@ -28,6 +29,10 @@ export interface BrowseResultProps {
 }
 
 export default function BrowseResultCard({ url, count, name, type, onClick }: BrowseResultProps) {
+    let displayType = type;
+    if (count === 1) {
+        displayType = singularizeCollectionName(type);
+    }
     return (
         <Link to={url} onClick={onClick}>
             <ResultCard hoverable>
@@ -41,7 +46,7 @@ export default function BrowseResultCard({ url, count, name, type, onClick }: Br
                     <Space>
                         {count && (
                             <Typography.Text strong>
-                                {count} {type}
+                                {count} {displayType}
                             </Typography.Text>
                         )}
                         <ArrowRightOutlined />

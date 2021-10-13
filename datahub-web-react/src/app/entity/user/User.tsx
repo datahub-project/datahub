@@ -17,7 +17,7 @@ export class UserEntity implements Entity<CorpUser> {
         }
 
         if (styleType === IconStyleType.HIGHLIGHT) {
-            return <UserOutlined style={{ fontSize, color: 'rgb(144 163 236)' }} />;
+            return <UserOutlined style={{ fontSize }} />;
         }
 
         return (
@@ -39,6 +39,8 @@ export class UserEntity implements Entity<CorpUser> {
     getAutoCompleteFieldName = () => 'username';
 
     getPathName: () => string = () => 'user';
+
+    getEntityName = () => 'User';
 
     getCollectionName: () => string = () => 'Users';
 

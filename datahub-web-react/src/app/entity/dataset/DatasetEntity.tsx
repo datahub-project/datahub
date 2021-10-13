@@ -21,6 +21,9 @@ import { SidebarTagsSection } from '../shared/containers/profile/sidebar/Sidebar
 import { SidebarStatsSection } from '../shared/containers/profile/sidebar/Dataset/StatsSidebarSection';
 import StatsTab from '../shared/tabs/Dataset/Stats/StatsTab';
 import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
+import { capitalizeFirstLetter } from '../../shared/capitalizeFirstLetter';
+import ViewDefinitionTab from '../shared/tabs/Dataset/View/ViewDefinitionTab';
+import { SidebarViewDefinitionSection } from '../shared/containers/profile/sidebar/Dataset/View/SidebarViewDefinitionSection';
 
 const MatchTag = styled(Tag)`
     &&& {
@@ -28,6 +31,10 @@ const MatchTag = styled(Tag)`
         margin-top: 10px;
     }
 `;
+
+const SUBTYPES = {
+    VIEW: 'view',
+};
 
 /**
  * Definition of the DataHub Dataset entity.
@@ -70,6 +77,8 @@ export class DatasetEntity implements Entity<Dataset> {
 
     getPathName = () => 'dataset';
 
+    getEntityName = () => 'Dataset';
+
     getCollectionName = () => 'Datasets';
 
     renderProfile = (urn: string) => (
@@ -85,6 +94,16 @@ export class DatasetEntity implements Entity<Dataset> {
                     component: SchemaTab,
                 },
                 {
+                    name: 'View Definition',
+                    component: ViewDefinitionTab,
+                    display: {
+                        visible: (_, dataset: GetDatasetQuery) =>
+                            (dataset?.dataset?.subTypes?.typeNames?.includes(SUBTYPES.VIEW) && true) || false,
+                        enabled: (_, dataset: GetDatasetQuery) =>
+                            (dataset?.dataset?.viewProperties?.logic && true) || false,
+                    },
+                },
+                {
                     name: 'Documentation',
                     component: DocumentationTab,
                 },
@@ -95,20 +114,31 @@ export class DatasetEntity implements Entity<Dataset> {
                 {
                     name: 'Lineage',
                     component: LineageTab,
-                    shouldHide: (_, dataset: GetDatasetQuery) =>
-                        (dataset?.dataset?.upstreamLineage?.entities?.length || 0) === 0 &&
-                        (dataset?.dataset?.downstreamLineage?.entities?.length || 0) === 0,
+                    display: {
+                        visible: (_, _1) => true,
+                        enabled: (_, dataset: GetDatasetQuery) =>
+                            (dataset?.dataset?.upstreamLineage?.entities?.length || 0) > 0 ||
+                            (dataset?.dataset?.downstreamLineage?.entities?.length || 0) > 0,
+                    },
                 },
                 {
                     name: 'Queries',
                     component: QueriesTab,
-                    shouldHide: (_, dataset: GetDatasetQuery) => !dataset?.dataset?.usageStats?.buckets?.length,
+                    display: {
+                        visible: (_, _1) => true,
+                        enabled: (_, dataset: GetDatasetQuery) =>
+                            (dataset?.dataset?.usageStats?.buckets?.length || 0) > 0,
+                    },
                 },
                 {
                     name: 'Stats',
                     component: StatsTab,
-                    shouldHide: (_, dataset: GetDatasetQuery) =>
-                        !dataset?.dataset?.datasetProfiles?.length && !dataset?.dataset?.usageStats?.buckets?.length,
+                    display: {
+                        visible: (_, _1) => true,
+                        enabled: (_, dataset: GetDatasetQuery) =>
+                            (dataset?.dataset?.datasetProfiles?.length || 0) > 0 ||
+                            (dataset?.dataset?.usageStats?.buckets?.length || 0) > 0,
+                    },
                 },
             ]}
             sidebarSections={[
@@ -116,9 +146,19 @@ export class DatasetEntity implements Entity<Dataset> {
                     component: SidebarAboutSection,
                 },
                 {
+                    component: SidebarViewDefinitionSection,
+                    display: {
+                        visible: (_, dataset: GetDatasetQuery) =>
+                            (dataset?.dataset?.viewProperties?.logic && true) || false,
+                    },
+                },
+                {
                     component: SidebarStatsSection,
-                    shouldHide: (_, dataset: GetDatasetQuery) =>
-                        !dataset?.dataset?.datasetProfiles?.length && !dataset?.dataset?.usageStats?.buckets?.length,
+                    display: {
+                        visible: (_, dataset: GetDatasetQuery) =>
+                            (dataset?.dataset?.datasetProfiles?.length || 0) > 0 ||
+                            (dataset?.dataset?.usageStats?.buckets?.length || 0) > 0,
+                    },
                 },
                 {
                     component: SidebarTagsSection,
@@ -134,9 +174,13 @@ export class DatasetEntity implements Entity<Dataset> {
         />
     );
 
-    getOverrideProperties = (_: GetDatasetQuery): GenericEntityProperties => {
-        // TODO(@shirshanka): calcualte entityTypeOverride value and return it in the object below
-        return {};
+    getOverrideProperties = (dataset: GetDatasetQuery): GenericEntityProperties => {
+        // if dataset has subTypes filled out, pick the most specific subtype and return it
+        const subTypes = dataset?.dataset?.subTypes;
+        return {
+            externalUrl: dataset.dataset?.properties?.externalUrl,
+            entityTypeOverride: subTypes ? capitalizeFirstLetter(subTypes.typeNames?.[0]) : '',
+        };
     };
 
     renderPreview = (_: PreviewType, data: Dataset) => {
@@ -145,6 +189,7 @@ export class DatasetEntity implements Entity<Dataset> {
                 urn={data.urn}
                 name={data.name}
                 origin={data.origin}
+                subtype={data.subTypes?.typeNames?.[0]}
                 description={data.editableProperties?.description || data.description}
                 platformName={data.platform.displayName || data.platform.name}
                 platformLogo={data.platform.info?.logoUrl}
@@ -167,6 +212,8 @@ export class DatasetEntity implements Entity<Dataset> {
                 platformLogo={data.platform.info?.logoUrl}
                 owners={data.ownership?.owners}
                 globalTags={data.globalTags}
+                glossaryTerms={data.glossaryTerms}
+                subtype={data.subTypes?.typeNames?.[0]}
                 snippet={
                     // Add match highlights only if all the matched fields are in the FIELDS_TO_HIGHLIGHT
                     result.matchedFields.length > 0 &&
@@ -188,6 +235,7 @@ export class DatasetEntity implements Entity<Dataset> {
             urn: entity.urn,
             name: entity.name,
             type: EntityType.Dataset,
+            subtype: entity.subTypes?.typeNames?.[0] || undefined,
             upstreamChildren: getChildren({ entity, type: EntityType.Dataset }, Direction.Upstream).map(
                 (child) => child.entity.urn,
             ),

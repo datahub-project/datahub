@@ -1,6 +1,6 @@
-import { UserOutlined } from '@ant-design/icons';
+import { TeamOutlined } from '@ant-design/icons';
 import * as React from 'react';
-import { CorpGroup, CorpUser, EntityType, SearchResult } from '../../../types.generated';
+import { CorpGroup, EntityType, SearchResult } from '../../../types.generated';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
 import { Preview } from './preview/Preview';
 import GroupProfile from './GroupProfile';
@@ -14,15 +14,15 @@ export class GroupEntity implements Entity<CorpGroup> {
     // TODO: update icons for UserGroup
     icon = (fontSize: number, styleType: IconStyleType) => {
         if (styleType === IconStyleType.TAB_VIEW) {
-            return <UserOutlined style={{ fontSize }} />;
+            return <TeamOutlined style={{ fontSize }} />;
         }
 
         if (styleType === IconStyleType.HIGHLIGHT) {
-            return <UserOutlined style={{ fontSize, color: 'rgb(144 163 236)' }} />;
+            return <TeamOutlined style={{ fontSize }} />;
         }
 
         return (
-            <UserOutlined
+            <TeamOutlined
                 style={{
                     fontSize,
                     color: '#BFBFBF',
@@ -41,6 +41,8 @@ export class GroupEntity implements Entity<CorpGroup> {
 
     getPathName: () => string = () => 'group';
 
+    getEntityName = () => 'Group';
+
     getCollectionName: () => string = () => 'Groups';
 
     renderProfile: (urn: string) => JSX.Element = (_) => <GroupProfile />;
@@ -50,7 +52,7 @@ export class GroupEntity implements Entity<CorpGroup> {
             urn={data.urn}
             name={data.info?.displayName || data.name || ''}
             description={data.info?.description}
-            members={data?.relationships?.relationships?.map((rel) => rel?.entity as CorpUser)}
+            membersCount={data?.relationships?.total || 0}
         />
     );
 

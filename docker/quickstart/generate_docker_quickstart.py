@@ -62,6 +62,16 @@ def modify_docker_config(base_path, docker_yaml_config):
         if name in mem_limits:
             service["mem_limit"] = mem_limits[name]
 
+        # 8. Correct relative paths for volume mounts
+        if "volumes" in service:
+            volumes = service["volumes"]
+            for i in range(len(volumes)):
+                ## Quickstart yaml files are located under quickstart. To get correct paths, need to refer to parent directory
+                if volumes[i].startswith("../"):
+                    volumes[i] = "../" + volumes[i]
+                elif volumes[i].startswith("./"):
+                    volumes[i] = "." + volumes[i]
+
     # 8. Set docker compose version to 2.
     # We need at least this version, since we use features like start_period for
     # healthchecks and shell-like variable interpolation.

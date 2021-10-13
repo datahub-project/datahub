@@ -28,6 +28,7 @@ dependencies {
   compile externalDependency.ebean
   enhance externalDependency.ebeanAgent
   compile externalDependency.opentelemetryAnnotations
+  compile externalDependency.springContext
 
   annotationProcessor externalDependency.lombok
 
@@ -37,6 +38,7 @@ dependencies {
   testCompile externalDependency.mockito
   testCompile externalDependency.mockitoInline
   testCompile externalDependency.iStackCommons
+  testCompile externalDependency.resilience4j
   testCompile externalDependency.testContainers
   testCompile externalDependency.testContainersJunit
   testCompile externalDependency.testContainersElasticsearch

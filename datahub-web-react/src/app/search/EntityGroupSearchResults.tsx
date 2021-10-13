@@ -71,7 +71,6 @@ export const EntityGroupSearchResults = ({ type, query, searchResults }: Props) 
                                     query,
                                     page: 0,
                                     history,
-                                    entityRegistry,
                                 })
                             }
                         >

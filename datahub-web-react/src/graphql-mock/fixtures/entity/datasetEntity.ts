@@ -53,7 +53,6 @@ export const datasetEntity = ({
         uri: null,
         platform: generatePlatform({ platform, urn: platformURN }),
         platformNativeType: null,
-        tags: [],
         properties: null,
         editableProperties: null,
         editableSchemaMetadata: null,
@@ -82,5 +81,6 @@ export const datasetEntity = ({
         schemaMetadata: null,
         previousSchemaMetadata: null,
         __typename: 'Dataset',
+        subTypes: null,
     };
 };

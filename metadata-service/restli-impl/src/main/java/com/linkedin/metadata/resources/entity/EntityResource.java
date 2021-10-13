@@ -1,31 +1,31 @@
 package com.linkedin.metadata.resources.entity;
 
 import com.codahale.metrics.MetricRegistry;
-import com.codahale.metrics.Timer;
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.LongMap;
-import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.Entity;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.browse.BrowseResult;
-import com.linkedin.metadata.dao.utils.RecordUtils;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.RollbackRunResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.Filter;
+import com.linkedin.metadata.query.ListResult;
 import com.linkedin.metadata.query.ListUrnsResult;
-import com.linkedin.metadata.query.SearchResult;
 import com.linkedin.metadata.query.SortCriterion;
 import com.linkedin.metadata.restli.RestliUtil;
 import com.linkedin.metadata.run.DeleteEntityResponse;
+import com.linkedin.metadata.search.EntitySearchService;
+import com.linkedin.metadata.search.SearchEntity;
+import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchService;
-import com.linkedin.metadata.search.utils.BrowsePathUtils;
-import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.parseq.Task;
 import com.linkedin.restli.common.HttpStatus;
+import com.linkedin.restli.internal.server.methods.AnyRecord;
 import com.linkedin.restli.server.annotations.Action;
 import com.linkedin.restli.server.annotations.ActionParam;
 import com.linkedin.restli.server.annotations.Optional;
@@ -51,7 +51,6 @@ import javax.inject.Named;
 import lombok.extern.slf4j.Slf4j;
 
 import static com.linkedin.metadata.resources.ResourceUtils.validateOrThrow;
-import static com.linkedin.metadata.resources.ResourceUtils.validateOrWarn;
 import static com.linkedin.metadata.restli.RestliConstants.ACTION_AUTOCOMPLETE;
 import static com.linkedin.metadata.restli.RestliConstants.ACTION_BROWSE;
 import static com.linkedin.metadata.restli.RestliConstants.ACTION_GET_BROWSE_PATHS;
@@ -77,6 +76,8 @@ import static com.linkedin.metadata.utils.PegasusUtils.urnToEntityName;
 public class EntityResource extends CollectionResourceTaskTemplate<String, Entity> {
 
   private static final String ACTION_SEARCH = "search";
+  private static final String ACTION_LIST = "list";
+  private static final String ACTION_SEARCH_ACROSS_ENTITIES = "searchAcrossEntities";
   private static final String ACTION_BATCH_INGEST = "batchIngest";
   private static final String ACTION_LIST_URNS = "listUrns";
   private static final String PARAM_ENTITY = "entity";
@@ -95,13 +96,18 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   @Named("searchService")
   private SearchService _searchService;
 
+  @Inject
+  @Named("entitySearchService")
+  private EntitySearchService _entitySearchService;
+
   /**
    * Retrieves the value for an entity that is made up of latest versions of specified aspects.
    */
   @RestMethod.Get
   @Nonnull
   @WithSpan
-  public Task<Entity> get(@Nonnull String urnStr, @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames)
+  public Task<AnyRecord> get(@Nonnull String urnStr,
+                             @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames)
       throws URISyntaxException {
     log.info("GET {}", urnStr);
     final Urn urn = Urn.createFromString(urnStr);
@@ -111,18 +117,16 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       final Entity entity = _entityService.getEntity(urn, projectedAspects);
       if (entity == null) {
         throw RestliUtil.resourceNotFoundException();
-      } else {
-        validateOrWarn(entity);
       }
-      return entity;
+      return new AnyRecord(entity.data());
     }, MetricRegistry.name(this.getClass(), "get"));
   }
 
   @RestMethod.BatchGet
   @Nonnull
   @WithSpan
-  public Task<Map<String, Entity>> batchGet(@Nonnull Set<String> urnStrs,
-      @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) throws URISyntaxException {
+  public Task<Map<String, AnyRecord>> batchGet(@Nonnull Set<String> urnStrs,
+                                         @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) throws URISyntaxException {
     log.info("BATCH GET {}", urnStrs.toString());
     final Set<Urn> urns = new HashSet<>();
     for (final String urnStr : urnStrs) {
@@ -134,8 +138,8 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       return _entityService.getEntities(urns, projectedAspects)
           .entrySet()
           .stream()
-          .peek(entry -> validateOrWarn(entry.getValue()))
-          .collect(Collectors.toMap(entry -> entry.getKey().toString(), Map.Entry::getValue));
+          .collect(Collectors.toMap(entry -> entry.getKey().toString(),
+                  entry -> new AnyRecord(entry.getValue().data())));
     }, MetricRegistry.name(this.getClass(), "batchGet"));
   }
 
@@ -160,23 +164,11 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       throws URISyntaxException {
     validateOrThrow(entity, HttpStatus.S_422_UNPROCESSABLE_ENTITY);
 
-    Timer.Context preIngestTimer = MetricUtils.timer(this.getClass(), "preIngest").time();
     SystemMetadata systemMetadata = populateDefaultFieldsIfEmpty(providedSystemMetadata);
-
-    final Set<String> projectedAspects = new HashSet<>(Arrays.asList("browsePaths"));
-    final RecordTemplate snapshotRecord = RecordUtils.getSelectedRecordTemplateFromUnion(entity.getValue());
-    final Urn urn = com.linkedin.metadata.dao.utils.ModelUtils.getUrnFromSnapshot(snapshotRecord);
-
-    log.info("INGEST urn {} with system metadata {}", urn.toString(), systemMetadata.toString());
-
-    final Entity browsePathEntity = _entityService.getEntity(urn, projectedAspects);
-    BrowsePathUtils.addBrowsePathIfNotExists(entity.getValue(), browsePathEntity);
 
     // TODO Correctly audit ingestions.
     final AuditStamp auditStamp =
         new AuditStamp().setTime(_clock.millis()).setActor(Urn.createFromString(Constants.UNKNOWN_ACTOR));
-
-    preIngestTimer.stop();
 
     // variables referenced in lambdas are required to be final
     final SystemMetadata finalSystemMetadata = systemMetadata;
@@ -226,8 +218,38 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       @ActionParam(PARAM_COUNT) int count) {
 
     log.info("GET SEARCH RESULTS for {} with query {}", entityName, input);
-    return RestliUtil.toTask(() -> _searchService.search(entityName, input, filter, sortCriterion, start, count),
+    // TODO - change it to use _searchService once we are confident on it's latency
+    return RestliUtil.toTask(() -> _entitySearchService.search(entityName, input, filter, sortCriterion, start, count),
         MetricRegistry.name(this.getClass(), "search"));
+  }
+
+  @Action(name = ACTION_SEARCH_ACROSS_ENTITIES)
+  @Nonnull
+  @WithSpan
+  public Task<SearchResult> searchAcrossEntities(@ActionParam(PARAM_ENTITIES) @Optional @Nullable String[] entities,
+      @ActionParam(PARAM_INPUT) @Nonnull String input, @ActionParam(PARAM_FILTER) @Optional @Nullable Filter filter,
+      @ActionParam(PARAM_SORT) @Optional @Nullable SortCriterion sortCriterion, @ActionParam(PARAM_START) int start,
+      @ActionParam(PARAM_COUNT) int count) {
+    List<String> entityList = entities == null ? Collections.emptyList() : Arrays.asList(entities);
+    log.info("GET SEARCH RESULTS ACROSS ENTITIES for {} with query {}", entityList, input);
+    return RestliUtil.toTask(
+        () -> _searchService.searchAcrossEntities(entityList, input, filter, sortCriterion, start, count),
+        "searchAcrossEntities");
+  }
+
+  @Action(name = ACTION_LIST)
+  @Nonnull
+  @WithSpan
+  public Task<ListResult> list(
+      @ActionParam(PARAM_ENTITY) @Nonnull String entityName,
+      @ActionParam(PARAM_FILTER) @Optional @Nullable Filter filter,
+      @ActionParam(PARAM_SORT) @Optional @Nullable SortCriterion sortCriterion,
+      @ActionParam(PARAM_START) int start,
+      @ActionParam(PARAM_COUNT) int count) {
+
+    log.info("GET LIST RESULTS for {} with filter {}", entityName, filter);
+    return RestliUtil.toTask(() -> toListResult(_entitySearchService.filter(entityName, filter, sortCriterion, start, count)),
+        MetricRegistry.name(this.getClass(), "filter"));
   }
 
   @Action(name = ACTION_AUTOCOMPLETE)
@@ -237,7 +259,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       @ActionParam(PARAM_QUERY) @Nonnull String query, @ActionParam(PARAM_FIELD) @Optional @Nullable String field,
       @ActionParam(PARAM_FILTER) @Optional @Nullable Filter filter, @ActionParam(PARAM_LIMIT) int limit) {
 
-    return RestliUtil.toTask(() -> _searchService.autoComplete(entityName, query, field, filter, limit),
+    return RestliUtil.toTask(() -> _entitySearchService.autoComplete(entityName, query, field, filter, limit),
         MetricRegistry.name(this.getClass(), "autocomplete"));
   }
 
@@ -249,7 +271,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       @ActionParam(PARAM_START) int start, @ActionParam(PARAM_LIMIT) int limit) {
 
     log.info("GET BROWSE RESULTS for {} at path {}", entityName, path);
-    return RestliUtil.toTask(() -> _searchService.browse(entityName, path, filter, start, limit),
+    return RestliUtil.toTask(() -> _entitySearchService.browse(entityName, path, filter, start, limit),
         MetricRegistry.name(this.getClass(), "browse"));
   }
 
@@ -259,7 +281,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   public Task<StringArray> getBrowsePaths(
       @ActionParam(value = PARAM_URN, typeref = com.linkedin.common.Urn.class) @Nonnull Urn urn) {
     log.info("GET BROWSE PATHS for {}", urn.toString());
-    return RestliUtil.toTask(() -> new StringArray(_searchService.getBrowsePaths(urnToEntityName(urn), urn)),
+    return RestliUtil.toTask(() -> new StringArray(_entitySearchService.getBrowsePaths(urnToEntityName(urn), urn)),
         MetricRegistry.name(this.getClass(), "getBrowsePaths"));
   }
 
@@ -317,12 +339,25 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   @Action(name = ACTION_LIST_URNS)
   @Nonnull
   @WithSpan
-  public Task<ListUrnsResult> listUrns(
-      @ActionParam(PARAM_ENTITY) @Nonnull String entityName,
-      @ActionParam(PARAM_START) int start,
-      @ActionParam(PARAM_COUNT) int count
-  ) throws URISyntaxException {
+  public Task<ListUrnsResult> listUrns(@ActionParam(PARAM_ENTITY) @Nonnull String entityName,
+      @ActionParam(PARAM_START) int start, @ActionParam(PARAM_COUNT) int count) throws URISyntaxException {
     log.info("LIST URNS for {} with start {} and count {}", entityName, start, count);
     return RestliUtil.toTask(() -> _entityService.listUrns(entityName, start, count), "listUrns");
+  }
+
+  private ListResult toListResult(final SearchResult searchResult) {
+    if (searchResult == null) {
+      return null;
+    }
+    final ListResult listResult = new ListResult();
+    listResult.setStart(searchResult.getFrom());
+    listResult.setCount(searchResult.getPageSize());
+    listResult.setTotal(searchResult.getNumEntities());
+    listResult.setEntities(new UrnArray(
+      searchResult.getEntities()
+        .stream()
+        .map(SearchEntity::getEntity)
+        .collect(Collectors.toList())));
+    return listResult;
   }
 }

@@ -2,8 +2,17 @@ entities:
   - name: dataset
     keyAspect: datasetKey
     aspects:
+      - viewProperties
+      - subTypes
       - datasetProfile
+      - datasetUsageStatistics
   - name: dataHubPolicy
     keyAspect: dataHubPolicyKey
     aspects:
       - dataHubPolicyInfo
+  - name: corpuser
+    keyAspect: corpUserKey
+    aspects:
+      - corpUserInfo
+      - corpUserEditableInfo
+      - corpUserStatus

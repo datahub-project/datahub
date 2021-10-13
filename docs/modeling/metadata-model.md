@@ -332,3 +332,208 @@ Because timeseries aspects are updated on a frequent basis, ingests of these asp
 instead of being stored in local DB). 
 
 You can retrieve timeseries aspects using the "aspects?action=getTimeseriesAspectValues" end point. 
+
+#### Aggregatable Timeseries aspects
+Being able to perform SQL like *group by + aggregate* operations on the timeseries aspects is a very natural use-case for
+this kind of data (dataset profiles, usage statistics etc.). This section describes how to define, ingest and perform an
+aggregation query against a timeseries aspect.
+
+##### Defining a new aggregatable Timeseries aspect.
+
+The *@TimeseriesField* and the *@TimeseriesFieldCollection* are two new annotations that can be attached to a field of
+a *Timeseries aspect* that allows it to be part of an aggregatable query. The kinds of aggregations allowed on these
+annotated fields depends on the type of the field, as well as the kind of aggregation, as
+described [here](#Performing-an-aggregation-on-a-Timeseries-aspect).
+
+* `@TimeseriesField = {}` - this annotation can be used with any type of non-collection type field of the aspect such as
+  primitive types and records (see the fields *stat*, *strStat* and *strArray* fields
+  of [TestEntityProfile.pdl](https://github.com/linkedin/datahub/blob/master/test-models/src/main/pegasus/com/datahub/test/TestEntityProfile.pdl)).
+
+* The `@TimeseriesFieldCollection {"key":"<name of the key field of collection item type>"}` annotation allows for
+aggregation support on the items of a collection type (supported only for the array type collections for now), where the
+value of `"key"` is the name of the field in the collection item type that will be used to specify the group-by clause (
+see *userCounts* and *fieldCounts* fields of [DatasetUsageStatistics.pdl](https://github.com/linkedin/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/dataset/DatasetUsageStatistics.pdl)). 
+
+In addition to defining the new aspect with appropriate Timeseries annotations,
+the [entity-registry.yml](https://github.com/linkedin/datahub/blob/master/metadata-models/src/main/resources/entity-registry.yml)
+file needs to be updated as well. Just add the new aspect name under the list of aspects against the appropriate entity as shown below, such as `datasetUsageStatistics` for the aspect DatasetUsageStatistics.
+```yaml
+entities:
+  - name: dataset
+    keyAspect: datasetKey
+    aspects:
+      - datasetProfile
+      - datasetUsageStatistics
+```
+
+##### Ingesting a Timeseries aspect
+The timeseries aspects can be ingested via the GSM REST endpoint `/aspects?action=ingestProposal` or via the python API.
+
+Example1: Via GSM REST API using curl.
+
+```shell
+curl --location --request POST 'http://localhost:8080/aspects?action=ingestProposal' \
+--header 'X-RestLi-Protocol-Version: 2.0.0' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+  "proposal" : {
+    "entityType": "dataset",
+    "entityUrn" : "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)",
+    "changeType" : "UPSERT",
+    "aspectName" : "datasetUsageStatistics",
+    "aspect" : {
+      "value" : "{ \"timestampMillis\":1629840771000,\"uniqueUserCount\" : 10, \"totalSqlQueries\": 20, \"fieldCounts\": [ {\"fieldPath\": \"col1\", \"count\": 20}, {\"fieldPath\" : \"col2\", \"count\": 5} ]}",
+      "contentType": "application/json"
+    }
+  }
+}'
+```
+Example2: Via Python API to Kafka(or REST)
+```python
+from datahub.metadata.schema_classes import (
+    ChangeTypeClass,
+    DatasetFieldUsageCountsClass,
+    DatasetUsageStatisticsClass,
+)
+from datahub.emitter.kafka_emitter import DatahubKafkaEmitter
+from datahub.emitter.rest_emitter import DatahubRestEmitter
+
+usageStats = DatasetUsageStatisticsClass(
+            timestampMillis=1629840771000,
+            uniqueUserCount=10,
+            totalSqlQueries=20,
+            fieldCounts=[
+                DatasetFieldUsageCountsClass(
+                    fieldPath="col1",
+                    count=10
+                )
+            ]
+        )
+
+mcpw = MetadataChangeProposalWrapper(
+    entityType="dataset",
+    aspectName="datasetUsageStatistics",
+    changeType=ChangeTypeClass.UPSERT,
+    entityUrn="urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)",
+    aspect=usageStats,
+)
+
+# Instantiate appropriate emitter (kafk_emitter/rest_emitter)
+my_emitter = DatahubKafkaEmitter("""<config>""")
+my_emitter.emit(mcpw)
+```
+
+##### Performing an aggregation on a Timeseries aspect.
+
+Aggreations on timeseries aspects can be performed by the GSM REST API for `/analytics?action=getTimeseriesStats` which
+accepts the following params.
+* `entityName` - The name of the entity the aspect is associated with.
+* `aspectName` - The name of the aspect.
+* `filter` - Any pre-filtering criteria before grouping and aggregations are performed.
+* `metrics` - A list of aggregation specification. The `fieldPath` member of an aggregation specification refers to the
+  field name against which the aggregation needs to be performed, and the `aggregationType` specifies the kind of aggregation.
+* `buckets` - A list of grouping bucket specifications. Each grouping bucket has a `key` field that refers to the field
+  to use for grouping. The `type` field specifies the kind of grouping bucket.
+
+We support three kinds of aggregations that can be specified in an aggregation query on the Timeseries annotated fields.
+The values that `aggregationType` can take are
+
+* `LATEST`: The latest value of the field in each bucket. Supported for any type of field.
+* `SUM`: The cumulative sum of the field in each bucket. Supported only for integral types.
+* `CARDINALITY`: The number of unique values or the cardinality of the set in each bucket. Supported for string and
+  record types.
+
+We support two types of grouping for defining the buckets to perform aggregations against.
+
+* `DATE_GROUPING_BUCKET`: Allows for creating time-based buckets such as by second, minute, hour, day, week, month,
+  quarter, year etc. Should be used in conjunction with a timestamp field whose value is in milliseconds since *epoch*.
+  The `timeWindowSize` param specifies the date histogram bucket width.
+* `STRING_GROUPING_BUCKET`: Allows for creating buckets grouped by the unique values of a field. Should be used in
+  conjunction with a string type field always.
+
+The API returns a generic SQL like table as the `table` member of the output that contains the results of
+the `group-by/aggregate` query, in addition to echoing the input params.
+
+* `columnNames`: the names of the table columns. The group-by `key` names appear in the same order as they are specified
+  in the request. Aggregation specifications follow the grouping fields in the same order as specified in the request,
+  and will be named `<agg_name>_<fieldPath>`.
+* `columnTypes`: the data types of the columns.
+* `rows`: the data values, each row corresponding to the respective bucket(s).
+
+Example1: Latest unique user count for each day.
+```shell
+# QUERY
+curl --location --request POST 'http://localhost:8080/analytics?action=getTimeseriesStats' \
+--header 'X-RestLi-Protocol-Version: 2.0.0' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+    "entityName": "dataset",
+    "aspectName": "datasetUsageStatistics",
+    "filter": {
+        "criteria": []
+    },
+    "metrics": [
+        {
+            "fieldPath": "uniqueUserCount",
+            "aggregationType": "LATEST"
+        }
+    ],
+    "buckets": [
+        {
+            "key": "timestampMillis",
+            "type": "DATE_GROUPING_BUCKET",
+            "timeWindowSize": {
+                "multiple": 1,
+                "unit": "DAY"
+            }
+        }
+    ]
+}'
+
+# SAMPLE RESPOSNE
+{
+    "value": {
+        "filter": {
+            "criteria": []
+        },
+        "aspectName": "datasetUsageStatistics",
+        "entityName": "dataset",
+        "groupingBuckets": [
+            {
+                "type": "DATE_GROUPING_BUCKET",
+                "timeWindowSize": {
+                    "multiple": 1,
+                    "unit": "DAY"
+                },
+                "key": "timestampMillis"
+            }
+        ],
+        "aggregationSpecs": [
+            {
+                "fieldPath": "uniqueUserCount",
+                "aggregationType": "LATEST"
+            }
+        ],
+        "table": {
+            "columnNames": [
+                "timestampMillis",
+                "latest_uniqueUserCount"
+            ],
+            "rows": [
+                [
+                    "1631491200000",
+                    "1"
+                ]
+            ],
+            "columnTypes": [
+                "long",
+                "int"
+            ]
+        }
+    }
+}
+```
+For more examples on the complex types of group-by/aggregations, refer to the tests in the group `getAggregatedStats` of [ElasticSearchTimeseriesAspectServiceTest.java](https://github.com/linkedin/datahub/blob/master/metadata-io/src/test/java/com/linkedin/metadata/timeseries/elastic/ElasticSearchTimeseriesAspectServiceTest.java).
+
+
+

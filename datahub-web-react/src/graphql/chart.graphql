@@ -7,29 +7,6 @@ query getChart($urn: String!) {
         info {
             name
             description
-            inputs {
-                urn
-                name
-                origin
-                description
-                platform {
-                    name
-                    info {
-                        logoUrl
-                    }
-                }
-                platformNativeType
-                tags
-                ownership {
-                    ...ownershipFields
-                }
-                downstreamLineage {
-                    ...downstreamRelationshipFields
-                }
-                upstreamLineage {
-                    ...upstreamRelationshipFields
-                }
-            }
             externalUrl
             type
             access
@@ -64,11 +41,98 @@ query getChart($urn: String!) {
         editableProperties {
             description
         }
+        institutionalMemory {
+            elements {
+                url
+                author {
+                    urn
+                    username
+                }
+                label
+                created {
+                    time
+                    actor
+                }
+            }
+        }
+        glossaryTerms {
+            ...glossaryTerms
+        }
+        inputs: relationships(input: { types: ["Consumes"], direction: OUTGOING, start: 0, count: 100 }) {
+            start
+            count
+            total
+            relationships {
+                entity {
+                    ... on Dataset {
+                        urn
+                        type
+                        name
+                        origin
+                        description
+                        platform {
+                            name
+                            info {
+                                logoUrl
+                            }
+                        }
+                        editableProperties {
+                            description
+                        }
+                        ownership {
+                            ...ownershipFields
+                        }
+                        globalTags {
+                            ...globalTagsFields
+                        }
+                        glossaryTerms {
+                            ...glossaryTerms
+                        }
+                    }
+                }
+            }
+        }
+        dashboards: relationships(input: { types: ["Contains"], direction: INCOMING, start: 0, count: 100 }) {
+            start
+            count
+            total
+            relationships {
+                entity {
+                    ... on Dashboard {
+                        urn
+                        type
+                        tool
+                        dashboardId
+                        info {
+                            name
+                            description
+                            externalUrl
+                            access
+                            lastModified {
+                                time
+                            }
+                        }
+                        ownership {
+                            ...ownershipFields
+                        }
+                        globalTags {
+                            ...globalTagsFields
+                        }
+                        glossaryTerms {
+                            ...glossaryTerms
+                        }
+                        editableProperties {
+                            description
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
-mutation updateChart($input: ChartUpdateInput!) {
-    updateChart(input: $input) {
+mutation updateChart($urn: String!, $input: ChartUpdateInput!) {
+    updateChart(urn: $urn, input: $input) {
         urn
         type
         tool
@@ -76,29 +140,6 @@ mutation updateChart($input: ChartUpdateInput!) {
         info {
             name
             description
-            inputs {
-                urn
-                name
-                origin
-                description
-                platform {
-                    name
-                    info {
-                        logoUrl
-                    }
-                }
-                platformNativeType
-                tags
-                ownership {
-                    ...ownershipFields
-                }
-                downstreamLineage {
-                    ...downstreamRelationshipFields
-                }
-                upstreamLineage {
-                    ...upstreamRelationshipFields
-                }
-            }
             externalUrl
             type
             access

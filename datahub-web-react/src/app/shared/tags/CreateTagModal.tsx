@@ -4,6 +4,7 @@ import styled from 'styled-components';
 
 import { useUpdateTagMutation } from '../../../graphql/tag.generated';
 import { useAddTagMutation } from '../../../graphql/mutations.generated';
+import { SubResourceType } from '../../../types.generated';
 
 type CreateTagModalProps = {
     visible: boolean;
@@ -38,6 +39,7 @@ export default function CreateTagModal({
         const tagUrn = `urn:li:tag:${tagName}`;
         updateTagMutation({
             variables: {
+                urn: tagUrn,
                 input: {
                     urn: tagUrn,
                     name: tagName,
@@ -51,8 +53,9 @@ export default function CreateTagModal({
                     variables: {
                         input: {
                             tagUrn,
-                            targetUrn: entityUrn,
+                            resourceUrn: entityUrn,
                             subResource: entitySubresource,
+                            subResourceType: entitySubresource ? SubResourceType.DatasetField : null,
                         },
                     },
                 }).finally(() => {
@@ -63,7 +66,7 @@ export default function CreateTagModal({
             })
             .catch((e) => {
                 message.destroy();
-                message.error({ content: `Failed to remove term: \n ${e.message || ''}`, duration: 3 });
+                message.error({ content: `Failed to create & add tag: \n ${e.message || ''}`, duration: 3 });
                 onClose();
             });
     };
@@ -77,7 +80,7 @@ export default function CreateTagModal({
                     <Button onClick={onBack} type="text">
                         Back
                     </Button>
-                    <Button onClick={onOk} disabled={stagedDescription.length === 0 || disableCreate}>
+                    <Button onClick={onOk} disabled={disableCreate}>
                         Create
                     </Button>
                 </>
@@ -85,7 +88,7 @@ export default function CreateTagModal({
         >
             <FullWidthSpace direction="vertical">
                 <Input.TextArea
-                    placeholder="Write a description for your new tag..."
+                    placeholder="Add a description for your new tag..."
                     value={stagedDescription}
                     onChange={(e) => setStagedDescription(e.target.value)}
                 />

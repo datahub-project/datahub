@@ -42,6 +42,7 @@ Supported SQL sources:
 - [Redshift](./redshift.md)
 - [Snowflake](./snowflake.md)
 - [Generic SQLAlchemy source](./sqlalchemy.md)
+- [Trino](./trino.md)
 
 ## Quickstart recipe
 
@@ -75,6 +76,7 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `profile_pattern.allow`      |          |         | List of regex patterns for tables to profile.                           |
 | `profile_pattern.deny`       |          |         | List of regex patterns for tables to not profile.                       |
 | `profile_pattern.ignoreCase` |          | `True`  | Whether to ignore case sensitivity during pattern matching.             |
+| `profile.send_sample_values` |          | `True`  | Whether to send sample values or not.                                   |
 
 ## Compatibility
 

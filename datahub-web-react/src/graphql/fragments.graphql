@@ -106,10 +106,12 @@ fragment nonRecursiveDatasetFields on Dataset {
         }
     }
     platformNativeType
-    tags
     properties {
-        key
-        value
+        customProperties {
+            key
+            value
+        }
+        externalUrl
     }
     editableProperties {
         description
@@ -157,6 +159,9 @@ fragment nonRecursiveDatasetFields on Dataset {
     }
     glossaryTerms {
         ...glossaryTerms
+    }
+    subTypes {
+        typeNames
     }
 }
 
@@ -236,6 +241,23 @@ fragment dataJobFields on DataJob {
     globalTags {
         ...globalTagsFields
     }
+    institutionalMemory {
+        elements {
+            url
+            author {
+                urn
+                username
+            }
+            label
+            created {
+                time
+                actor
+            }
+        }
+    }
+    glossaryTerms {
+        ...glossaryTerms
+    }
 }
 
 fragment dashboardFields on Dashboard {
@@ -246,21 +268,6 @@ fragment dashboardFields on Dashboard {
     info {
         name
         description
-        charts {
-            urn
-            tool
-            type
-            info {
-                name
-                description
-                inputs {
-                    urn
-                }
-            }
-            ownership {
-                ...ownershipFields
-            }
-        }
         customProperties {
             key
             value
@@ -280,6 +287,23 @@ fragment dashboardFields on Dashboard {
     }
     globalTags {
         ...globalTagsFields
+    }
+    institutionalMemory {
+        elements {
+            url
+            author {
+                urn
+                username
+            }
+            label
+            created {
+                time
+                actor
+            }
+        }
+    }
+    glossaryTerms {
+        ...glossaryTerms
     }
 }
 
@@ -454,6 +478,7 @@ fragment schemaMetadataFields on SchemaMetadata {
         type
         nativeDataType
         recursive
+        isPartOfKey
         globalTags {
             ...globalTagsFields
         }
@@ -462,6 +487,40 @@ fragment schemaMetadataFields on SchemaMetadata {
         }
     }
     primaryKeys
+    foreignKeys {
+        name
+        sourceFields {
+            fieldPath
+        }
+        foreignFields {
+            fieldPath
+        }
+        foreignDataset {
+            urn
+            name
+            type
+            origin
+            description
+            uri
+            platform {
+                name
+                info {
+                    displayName
+                    logoUrl
+                }
+            }
+            platformNativeType
+            ownership {
+                ...ownershipFields
+            }
+            globalTags {
+                ...globalTagsFields
+            }
+            glossaryTerms {
+                ...glossaryTerms
+            }
+        }
+    }
 }
 
 fragment nonRecursiveMLModel on MLModel {

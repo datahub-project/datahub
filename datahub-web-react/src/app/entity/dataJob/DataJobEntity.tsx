@@ -1,12 +1,21 @@
 import * as React from 'react';
 import { ConsoleSqlOutlined } from '@ant-design/icons';
-import { DataJob, EntityType, SearchResult } from '../../../types.generated';
+import { DataJob, EntityType, PlatformType, SearchResult } from '../../../types.generated';
 import { Preview } from './preview/Preview';
-import { DataJobProfile } from './profile/DataJobProfile';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
 import getChildren from '../../lineage/utils/getChildren';
 import { Direction } from '../../lineage/types';
 import { getLogoFromPlatform } from '../../shared/getLogoFromPlatform';
+import { EntityProfile } from '../shared/containers/profile/EntityProfile';
+import { GetDataJobQuery, useGetDataJobQuery, useUpdateDataJobMutation } from '../../../graphql/dataJob.generated';
+import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
+import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
+import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
+import { SidebarAboutSection } from '../shared/containers/profile/sidebar/SidebarAboutSection';
+import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
+import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/SidebarOwnerSection';
+import { GenericEntityProperties } from '../shared/types';
+import { DataJobFlowTab } from '../shared/tabs/Entity/DataJobFlowTab';
 
 /**
  * Definition of the DataHub DataJob entity.
@@ -43,9 +52,80 @@ export class DataJobEntity implements Entity<DataJob> {
 
     getPathName = () => 'tasks';
 
-    getCollectionName = () => 'Task';
+    getEntityName = () => 'Task';
 
-    renderProfile = (urn: string) => <DataJobProfile urn={urn} />;
+    getCollectionName = () => 'Tasks';
+
+    renderProfile = (urn: string) => (
+        <EntityProfile
+            urn={urn}
+            entityType={EntityType.DataJob}
+            useEntityQuery={useGetDataJobQuery}
+            useUpdateQuery={useUpdateDataJobMutation}
+            getOverrideProperties={this.getOverrideProperties}
+            tabs={[
+                {
+                    name: 'Documentation',
+                    component: DocumentationTab,
+                },
+                {
+                    name: 'Properties',
+                    component: PropertiesTab,
+                },
+                {
+                    name: 'Pipeline',
+                    component: DataJobFlowTab,
+                },
+                {
+                    name: 'Lineage',
+                    component: LineageTab,
+                    display: {
+                        visible: (_, _1) => true,
+                        enabled: (_, dataJob: GetDataJobQuery) =>
+                            (dataJob?.dataJob?.upstreamLineage?.entities?.length || 0) > 0 ||
+                            (dataJob?.dataJob?.downstreamLineage?.entities?.length || 0) > 0,
+                    },
+                },
+            ]}
+            sidebarSections={[
+                {
+                    component: SidebarAboutSection,
+                },
+                {
+                    component: SidebarTagsSection,
+                    properties: {
+                        hasTags: true,
+                        hasTerms: true,
+                    },
+                },
+                {
+                    component: SidebarOwnerSection,
+                },
+            ]}
+        />
+    );
+
+    getOverrideProperties = (res: GetDataJobQuery): GenericEntityProperties => {
+        // TODO: Get rid of this once we have correctly formed platform coming back.
+        const tool = res.dataJob?.dataFlow?.orchestrator || '';
+        const name = res.dataJob?.info?.name;
+        const externalUrl = res.dataJob?.info?.externalUrl;
+        return {
+            ...res,
+            name,
+            externalUrl,
+            platform: {
+                urn: `urn:li:dataPlatform:(${tool})`,
+                type: EntityType.DataPlatform,
+                name: tool,
+                info: {
+                    logoUrl: getLogoFromPlatform(tool),
+                    type: PlatformType.Others,
+                    datasetNameDelimiter: '.',
+                },
+            },
+        };
+    };
 
     renderPreview = (_: PreviewType, data: DataJob) => {
         const platformName = data.dataFlow
