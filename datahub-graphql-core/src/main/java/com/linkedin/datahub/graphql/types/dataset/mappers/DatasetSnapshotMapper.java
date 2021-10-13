@@ -20,6 +20,7 @@ import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
 import com.linkedin.dataset.DatasetDeprecation;
 import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.dataset.EditableDatasetProperties;
+import com.linkedin.dataset.ViewProperties;
 import com.linkedin.metadata.snapshot.DatasetSnapshot;
 import com.linkedin.schema.EditableSchemaMetadata;
 import com.linkedin.schema.SchemaMetadata;
@@ -92,9 +93,15 @@ public class DatasetSnapshotMapper implements ModelMapper<DatasetSnapshot, Datas
                 final DatasetEditableProperties editableProperties = new DatasetEditableProperties();
                 editableProperties.setDescription(editableDatasetProperties.getDescription());
                 result.setEditableProperties(editableProperties);
+            } else if (aspect instanceof ViewProperties) {
+                final ViewProperties properties = (ViewProperties) aspect;
+                final com.linkedin.datahub.graphql.generated.ViewProperties graphqlProperties = new com.linkedin.datahub.graphql.generated.ViewProperties();
+                graphqlProperties.setMaterialized(properties.isMaterialized());
+                graphqlProperties.setLanguage(properties.getViewLanguage());
+                graphqlProperties.setLogic(properties.getViewLogic());
+                result.setViewProperties(graphqlProperties);
             }
         });
-
         return result;
     }
 }
