@@ -2,6 +2,7 @@ import React from 'react';
 import { EntityType, Owner } from '../../../../types.generated';
 import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
+import { IconStyleType } from '../../Entity';
 
 export const Preview = ({
     urn,
@@ -20,8 +21,9 @@ export const Preview = ({
             url={entityRegistry.getEntityUrl(EntityType.MlfeatureTable, urn)}
             name={name}
             description={description || ''}
-            type="MLFeature Table"
+            type={entityRegistry.getEntityName(EntityType.MlfeatureTable)}
             owners={owners}
+            logoComponent={entityRegistry.getIcon(EntityType.MlfeatureTable, 20, IconStyleType.HIGHLIGHT)}
         />
     );
 };

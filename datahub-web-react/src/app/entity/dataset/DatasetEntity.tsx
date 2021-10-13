@@ -212,6 +212,7 @@ export class DatasetEntity implements Entity<Dataset> {
                 platformLogo={data.platform.info?.logoUrl}
                 owners={data.ownership?.owners}
                 globalTags={data.globalTags}
+                glossaryTerms={data.glossaryTerms}
                 subtype={data.subTypes?.typeNames?.[0]}
                 snippet={
                     // Add match highlights only if all the matched fields are in the FIELDS_TO_HIGHLIGHT

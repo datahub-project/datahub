@@ -160,7 +160,7 @@ export const HomePageHeader = () => {
     };
 
     const onAutoComplete = (query: string) => {
-        if (query && query !== '') {
+        if (query && query.trim() !== '') {
             getAutoCompleteResultsForMultiple({
                 variables: {
                     input: {
@@ -187,6 +187,10 @@ export const HomePageHeader = () => {
     const suggestionsToShow = useMemo(() => {
         let result: string[] = [];
         if (!suggestionsLoading) {
+            // TODO: Make this more dynamic.
+            // Add a ticket.
+            // Colored Tags: Feature Request...
+            // ...
             [EntityType.Dashboard, EntityType.Chart, EntityType.Dataset].forEach((type) => {
                 const suggestionsToShowForEntity = getSuggestionFieldsFromResult(
                     allSearchResultsByType[type]?.data,
