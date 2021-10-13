@@ -1,14 +1,58 @@
 import React from 'react';
-import { Space, Typography } from 'antd';
+import { Typography } from 'antd';
 import { Link } from 'react-router-dom';
+import styled from 'styled-components';
 import { EntityType } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
-import CustomAvatar from '../../../shared/avatar/CustomAvatar';
+import { ANTD_GRAY } from '../../shared/constants';
+import { IconStyleType } from '../../Entity';
+import { CustomAvatar } from '../../../shared/avatar';
 
-const styles = {
-    name: { margin: 0, color: '#0073b1' },
-    title: { color: 'rgba(0, 0, 0, 0.45)' },
-};
+const PreviewContainer = styled.div`
+    display: flex;
+    width: 100%;
+    justify-content: space-between;
+    align-items: center;
+`;
+
+const PlatformInfo = styled.div`
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    height: 24px;
+`;
+
+const TitleContainer = styled.div`
+    margin-bottom: 8px;
+`;
+
+const PreviewImage = styled.div`
+    max-height: 18px;
+    width: auto;
+    object-fit: contain;
+    margin-right: 10px;
+    background-color: transparent;
+`;
+
+const EntityTitle = styled(Typography.Text)`
+    &&& {
+        margin-bottom: 0;
+        font-size: 16px;
+        font-weight: 600;
+        vertical-align: middle;
+    }
+`;
+
+const PlatformText = styled(Typography.Text)`
+    font-size: 12px;
+    line-height: 20px;
+    font-weight: 700;
+    color: ${ANTD_GRAY[7]};
+`;
+
+const AvatarContainer = styled.div`
+    margin-right: 60px;
+`;
 
 export const Preview = ({
     urn,
@@ -18,22 +62,35 @@ export const Preview = ({
 }: {
     urn: string;
     name: string;
-    title?: string;
-    photoUrl?: string;
+    photoUrl?: string | undefined;
+    title?: string | undefined;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
+    const url = entityRegistry.getEntityUrl(EntityType.Dataset, urn);
 
     return (
-        <Link to={entityRegistry.getEntityUrl(EntityType.CorpUser, urn)}>
-            <Space size={28}>
-                <CustomAvatar size={60} photoUrl={photoUrl} name={name} />
-                <Space direction="vertical" size={4}>
-                    <Typography.Title style={styles.name} level={3}>
-                        {name}
-                    </Typography.Title>
-                    <Typography.Text style={styles.title}>{title}</Typography.Text>
-                </Space>
-            </Space>
-        </Link>
+        <PreviewContainer>
+            <div>
+                <Link to={url}>
+                    <TitleContainer>
+                        <PlatformInfo>
+                            <PreviewImage>
+                                {entityRegistry.getIcon(EntityType.CorpUser, 20, IconStyleType.HIGHLIGHT)}
+                            </PreviewImage>
+                            <PlatformText>{entityRegistry.getEntityName(EntityType.CorpUser)}</PlatformText>
+                        </PlatformInfo>
+                        <Link to={url}>
+                            <EntityTitle>{name || urn}</EntityTitle>
+                        </Link>
+                    </TitleContainer>
+                </Link>
+                {title && <TitleContainer>{title}</TitleContainer>}
+            </div>
+            <Link to={url}>
+                <AvatarContainer>
+                    <CustomAvatar size={48} photoUrl={photoUrl} name={name || undefined} />
+                </AvatarContainer>
+            </Link>
+        </PreviewContainer>
     );
 };

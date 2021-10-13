@@ -1,7 +1,8 @@
 import React from 'react';
-import { Divider, List, ListProps, Pagination, Typography } from 'antd';
+import { Button, Divider, Empty, List, ListProps, Pagination, Typography } from 'antd';
 import styled from 'styled-components';
-
+import { RocketOutlined } from '@ant-design/icons';
+import { useHistory } from 'react-router';
 import { Message } from '../shared/Message';
 import {
     FacetFilterInput,
@@ -14,6 +15,8 @@ import { useEntityRegistry } from '../useEntityRegistry';
 import analytics from '../analytics/analytics';
 import { EventType } from '../analytics';
 import { SearchCfg } from '../../conf';
+import { navigateToSearchUrl } from './utils/navigateToSearchUrl';
+import { ANTD_GRAY } from '../entity/shared/constants';
 
 const ResultList = styled(List)`
     &&& {
@@ -40,6 +43,7 @@ const FiltersContainer = styled.div`
 
 const ResultContainer = styled.div`
     flex: 1;
+    margin-bottom: 20px;
 `;
 
 const PaginationControlContainer = styled.div`
@@ -72,6 +76,18 @@ const FiltersHeader = styled.div`
 
 const SearchFilterContainer = styled.div`
     padding-top: 10px;
+`;
+
+const NoDataContainer = styled.div`
+    > div {
+        margin-top: 28px;
+        margin-bottom: 28px;
+    }
+`;
+
+const ThinDivider = styled(Divider)`
+    margin-top: 16px;
+    margin-bottom: 16px;
 `;
 
 interface Props {
@@ -113,12 +129,11 @@ export const SearchResults = ({
         });
     };
 
-    const onFilterSelect = (selected: boolean, field: string, value: string) => {
-        const newFilters = selected
-            ? [...selectedFilters, { field, value }]
-            : selectedFilters.filter((filter) => filter.field !== field || filter.value !== value);
+    const onFilterSelect = (newFilters) => {
         onChangeFilters(newFilters);
     };
+
+    const history = useHistory();
 
     return (
         <>
@@ -128,6 +143,7 @@ export const SearchResults = ({
                     <FiltersHeader>Filter</FiltersHeader>
                     <SearchFilterContainer>
                         <SearchFilters
+                            loading={loading}
                             facets={filters || []}
                             selectedFilters={selectedFilters}
                             onFilterSelect={onFilterSelect}
@@ -144,28 +160,47 @@ export const SearchResults = ({
                             of <b>{totalResults}</b> results
                         </Typography.Paragraph>
                     </PaginationInfoContainer>
-                    <ResultList<React.FC<ListProps<SearchResult>>>
-                        dataSource={searchResponse?.searchResults}
-                        split={false}
-                        renderItem={(item, index) => (
-                            <>
-                                <List.Item onClick={() => onResultClick(item, index)}>
-                                    {entityRegistry.renderSearchResult(item.entity.type, item)}
-                                </List.Item>
-                                <Divider />
-                            </>
-                        )}
-                    />
-                    <PaginationControlContainer>
-                        <Pagination
-                            current={page}
-                            pageSize={SearchCfg.RESULTS_PER_PAGE}
-                            total={totalResults}
-                            showLessItems
-                            onChange={onChangePage}
-                            showSizeChanger={false}
-                        />
-                    </PaginationControlContainer>
+                    {!loading && (
+                        <>
+                            <ResultList<React.FC<ListProps<SearchResult>>>
+                                dataSource={searchResponse?.searchResults}
+                                split={false}
+                                locale={{
+                                    emptyText: (
+                                        <NoDataContainer>
+                                            <Empty
+                                                style={{ fontSize: 18, color: ANTD_GRAY[8] }}
+                                                description={`No results found for "${query}"`}
+                                            />
+                                            <Button
+                                                onClick={() => navigateToSearchUrl({ query: '*', page: 0, history })}
+                                            >
+                                                <RocketOutlined /> Explore your metadata
+                                            </Button>
+                                        </NoDataContainer>
+                                    ),
+                                }}
+                                renderItem={(item, index) => (
+                                    <>
+                                        <List.Item style={{ padding: 0 }} onClick={() => onResultClick(item, index)}>
+                                            {entityRegistry.renderSearchResult(item.entity.type, item)}
+                                        </List.Item>
+                                        <ThinDivider />
+                                    </>
+                                )}
+                            />
+                            <PaginationControlContainer>
+                                <Pagination
+                                    current={page}
+                                    pageSize={SearchCfg.RESULTS_PER_PAGE}
+                                    total={totalResults}
+                                    showLessItems
+                                    onChange={onChangePage}
+                                    showSizeChanger={false}
+                                />
+                            </PaginationControlContainer>
+                        </>
+                    )}
                 </ResultContainer>
             </SearchBody>
         </>

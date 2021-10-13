@@ -156,6 +156,7 @@ query getDataset($urn: String!) {
                 }
             }
         }
+        ...viewProperties
     }
 }
 
@@ -182,5 +183,13 @@ query getDatasetSchemaVersions($urn: String!, $version1: Long, $version2: Long) 
                 }
             }
         }
+    }
+}
+
+fragment viewProperties on Dataset {
+    viewProperties {
+        materialized
+        logic
+        language
     }
 }
