@@ -66,7 +66,7 @@ export const Preview = ({
     title?: string | undefined;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
-    const url = entityRegistry.getEntityUrl(EntityType.Dataset, urn);
+    const url = entityRegistry.getEntityUrl(EntityType.CorpUser, urn);
 
     return (
         <PreviewContainer>
