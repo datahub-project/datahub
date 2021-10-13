@@ -37,7 +37,7 @@ export const EntityTabs = <T,>({ tabs, selectedTab }: Props) => {
         }
     }, [tabs, selectedTab, routeToTab]);
 
-    const visibleTabs = tabs.filter((tab) => tab.display?.visible);
+    const visibleTabs = tabs.filter((tab) => tab.display?.visible(entityData, baseEntity));
 
     return (
         <UnborderedTabs
