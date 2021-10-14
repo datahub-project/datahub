@@ -1,0 +1,11 @@
+namespace com.linkedin.metadata.query.filter
+
+/**
+ * A list of criterion and'd together.
+ */
+record ConjunctiveCriterion {
+  /**
+   * A list of and criteria the filter applies to the query
+   */
+  and: array[Criterion]
+}
