@@ -666,7 +666,7 @@ class LookerExplore:
                     ).get_urn(config),
                     type=DatasetLineageTypeClass.VIEW,
                 )
-                for view_name in self.upstream_views
+                for view_name in sorted(self.upstream_views)
             ]
             upstream_lineage = UpstreamLineage(upstreams=upstreams)
             dataset_snapshot.aspects.append(upstream_lineage)
