@@ -119,7 +119,8 @@ plugins: Dict[str, Set[str]] = {
     "sqlalchemy": sql_common,
     "sql-profiles": sql_common | {"great-expectations"},
     "superset": {"requests"},
-    "trino": sql_common
+    "trino": sql_common,
+    "grafana": {"requests", "sql-metadata==2.3.0"}
     | {
         # SQLAlchemy support is coming up in trino python client
         # subject to PR merging - https://github.com/trinodb/trino-python-client/pull/81.
@@ -188,7 +189,8 @@ base_dev_requirements = {
             "datahub-rest",
             "redash",
             "redshift",
-            "redshift-usage"
+            "redshift-usage",
+            "grafana"
             # airflow is added below
         ]
         for dependency in plugins[plugin]
@@ -270,6 +272,7 @@ entry_points = {
         "snowflake-usage = datahub.ingestion.source.usage.snowflake_usage:SnowflakeUsageSource",
         "superset = datahub.ingestion.source.superset:SupersetSource",
         "trino = datahub.ingestion.source.sql.trino:TrinoSource",
+        "grafana = datahub.ingestion.source.grafana:GrafanaSource",
     ],
     "datahub.ingestion.sink.plugins": [
         "file = datahub.ingestion.sink.file:FileSink",
