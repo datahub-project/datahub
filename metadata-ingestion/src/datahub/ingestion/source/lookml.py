@@ -284,6 +284,15 @@ class LookerModel:
             # only load files that we haven't seen so far
             included_files = [x for x in included_files if x not in seen_so_far]
             for included_file in included_files:
+                # Filter out dashboards - we get those through the looker source.
+                if (
+                    included_file.endswith(".dashboard")
+                    or included_file.endswith(".dashboard.lookml")
+                    or included_file.endswith(".dashboard.lkml")
+                ):
+                    logger.debug(f"include '{inc}' is a dashboard, skipping it")
+                    continue
+
                 logger.debug(
                     f"Will be loading {included_file}, traversed here via {traversal_path}"
                 )
@@ -385,6 +394,13 @@ class LookerViewFileLoader:
     ) -> Optional[LookerViewFile]:
         # always fully resolve paths to simplify de-dup
         path = str(pathlib.Path(path).resolve())
+        if not path.endswith(".view.lkml"):
+            # not a view file
+            logger.debug(
+                f"Skipping file {path} because it doesn't appear to be a view file"
+            )
+            return None
+
         if self.is_view_seen(str(path)):
             return self.viewfile_cache[path]
 
