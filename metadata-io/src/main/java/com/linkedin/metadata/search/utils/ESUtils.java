@@ -59,7 +59,7 @@ public class ESUtils {
         });
         orQueryBuilder.should(andQueryBuilder);
       });
-    } else {
+    } else if (filter.getCriteria() != null ) {
       // Otherwise, build boolean query from the deprecated "criteria" field.
       log.warn("Received query Filter with a deprecated field 'criteria'. Use 'or' instead.");
       final BoolQueryBuilder andQueryBuilder = new BoolQueryBuilder();
