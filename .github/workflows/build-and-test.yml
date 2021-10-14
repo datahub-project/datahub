@@ -112,16 +112,3 @@ jobs:
           python-version: "3.6"
       - name: Quickstart Compose Validation
         run: ./docker/quickstart/generate_and_compare.sh
-        
-  sync:
-    runs-on: ubuntu-latest
-    name: Git Repo Sync
-    steps:
-    - uses: actions/checkout@v2
-      with:
-        fetch-depth: 0
-    - uses: wangchucheng/git-repo-sync@v0.1.0
-      with:
-        target-url: ${{ secrets.GITLAB_URL }}
-        target-username: ${{ secrets.USERNAME }}
-        target-token: ${{ secrets.GITLAB_TOKEN }}
