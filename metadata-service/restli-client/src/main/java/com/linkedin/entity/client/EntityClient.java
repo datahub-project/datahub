@@ -80,15 +80,15 @@ public interface EntityClient {
       @Nonnull String actor) throws RemoteInvocationException;
 
   public void update(@Nonnull final Entity entity, @Nonnull final String actor)
-      throws RemoteInvocationException, URISyntaxException;
+      throws RemoteInvocationException;
 
   public void updateWithSystemMetadata(
       @Nonnull final Entity entity,
       @Nullable final SystemMetadata systemMetadata,
-      @Nonnull final String actor) throws RemoteInvocationException, URISyntaxException;
+      @Nonnull final String actor) throws RemoteInvocationException;
 
   public void batchUpdate(@Nonnull final Set<Entity> entities, final String actor)
-      throws RemoteInvocationException, URISyntaxException;
+      throws RemoteInvocationException;
 
   /**
    * Searches for entities matching to a given query and filters

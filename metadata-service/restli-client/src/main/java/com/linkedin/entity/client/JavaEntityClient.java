@@ -27,6 +27,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.SneakyThrows;
 
 import static com.linkedin.metadata.dao.utils.QueryUtils.*;
 
@@ -113,18 +114,20 @@ public class JavaEntityClient implements EntityClient {
         return _entitySearchService.browse(entityType, path, newFilter(requestFilters), start, limit);
     }
 
+    @SneakyThrows
     public void update(@Nonnull final Entity entity, @Nonnull final String actor)
-        throws RemoteInvocationException, URISyntaxException {
+        throws RemoteInvocationException {
         AuditStamp auditStamp = new AuditStamp();
         auditStamp.setActor(Urn.createFromString(actor));
         auditStamp.setTime(Clock.systemUTC().millis());
         _entityService.ingestEntity(entity, auditStamp);
     }
 
+    @SneakyThrows
     public void updateWithSystemMetadata(
         @Nonnull final Entity entity,
         @Nullable final SystemMetadata systemMetadata,
-        @Nonnull final String actor) throws RemoteInvocationException, URISyntaxException {
+        @Nonnull final String actor) throws RemoteInvocationException {
         if (systemMetadata == null) {
             update(entity, actor);
             return;
@@ -137,8 +140,9 @@ public class JavaEntityClient implements EntityClient {
         _entityService.ingestEntity(entity, auditStamp, systemMetadata);
     }
 
+    @SneakyThrows
     public void batchUpdate(@Nonnull final Set<Entity> entities, final String actor)
-        throws RemoteInvocationException, URISyntaxException {
+        throws RemoteInvocationException {
         AuditStamp auditStamp = new AuditStamp();
         auditStamp.setActor(Urn.createFromString(actor));
         auditStamp.setTime(Clock.systemUTC().millis());
