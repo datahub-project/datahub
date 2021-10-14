@@ -24,6 +24,7 @@ import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.ListResult;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.mxe.SystemMetadata;
@@ -380,5 +381,39 @@ public class EntityClient extends BaseClient {
         EntitiesDoDeleteRequestBuilder requestBuilder = ENTITIES_REQUEST_BUILDERS.actionDelete()
                 .urnParam(urn.toString());
         sendClientRequest(requestBuilder, actor);
+    }
+
+    /**
+    * Filters entities based on a particular Filter and Sort criterion
+    *
+    * @param entity filter entity
+    * @param filter search filters
+    * @param sortCriterion sort criterion
+    * @param start start offset for search results
+    * @param count max number of search results requested
+    * @return a set of {@link SearchResult}s
+    * @throws RemoteInvocationException
+    */
+    @Nonnull
+    public SearchResult filter(
+      @Nonnull String entity,
+      @Nonnull Filter filter,
+      @Nullable SortCriterion sortCriterion,
+      int start,
+      int count,
+      @Nonnull String actor)
+      throws RemoteInvocationException {
+
+        final EntitiesDoFilterRequestBuilder requestBuilder = ENTITIES_REQUEST_BUILDERS.actionFilter()
+            .entityParam(entity)
+            .filterParam(filter)
+            .startParam(start)
+            .countParam(count);
+
+        if (sortCriterion != null) {
+            requestBuilder.sortParam(sortCriterion);
+        }
+
+        return sendClientRequest(requestBuilder, actor).getEntity();
     }
 }
