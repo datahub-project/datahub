@@ -29,7 +29,7 @@ jobs:
         with:
           python-version: "3.6"
       - name: Gradle build (and test)
-        run: ./gradlew build -x :metadata-ingestion:build -x :metadata-ingestion:check -x docs-website:build
+        run: ./gradlew build -x :metadata-io:test -x :metadata-ingestion:build -x :metadata-ingestion:check -x docs-website:build
       - uses: actions/upload-artifact@v2
         if: always()
         with:
