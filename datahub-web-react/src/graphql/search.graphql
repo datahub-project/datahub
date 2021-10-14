@@ -38,12 +38,6 @@ fragment searchResults on SearchResults {
                     description
                 }
                 platformNativeType
-                properties {
-                    customProperties {
-                        key
-                        value
-                    }
-                }
                 ownership {
                     ...ownershipFields
                 }
@@ -77,28 +71,10 @@ fragment searchResults on SearchResults {
                     displayName
                     description
                 }
-                relationships(input: { types: ["IsMemberOfGroup"], direction: INCOMING }) {
-                    relationships {
-                        type
-                        direction
-                        entity {
-                            urn
-                            type
-                            ... on CorpUser {
-                                username
-                                info {
-                                    active
-                                    displayName
-                                    title
-                                    firstName
-                                    lastName
-                                }
-                                editableInfo {
-                                    pictureLink
-                                }
-                            }
-                        }
-                    }
+                relationships(input: { types: ["IsMemberOfGroup"], direction: INCOMING, start: 0, count: 1 }) {
+                    start
+                    count
+                    total
                 }
             }
             ... on Dashboard {
