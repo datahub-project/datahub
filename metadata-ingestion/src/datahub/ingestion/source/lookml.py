@@ -755,7 +755,7 @@ class LookMLSource(Source):
         return looker_model
 
     def _platform_names_have_2_parts(self, platform: str) -> bool:
-        if platform in ["hive", "mysql"]:
+        if platform in ["hive", "mysql", "athena"]:
             return True
         else:
             return False
@@ -769,7 +769,7 @@ class LookMLSource(Source):
 
         # Bigquery has "project.db.table" which can be mapped to db.schema.table form
         # All other relational db's follow "db.schema.table"
-        # With the exception of mysql, hive which are "db.table"
+        # With the exception of mysql, hive, athena which are "db.table"
 
         # first detect which one we have
         parts = len(sql_table_name.split("."))
