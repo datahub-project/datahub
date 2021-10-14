@@ -88,14 +88,15 @@ public class SearchableFieldSpecExtractor implements SchemaVisitor {
   private void extractSearchableAnnotation(final Object annotationObj, final DataSchema currentSchema,
       final TraverserContext context) {
     final PathSpec path = new PathSpec(context.getSchemaPathSpec());
+    final Optional<PathSpec> fullPath = FieldSpecUtils.getPathSpecWithAspectName(context);
     final SearchableAnnotation annotation =
         SearchableAnnotation.fromPegasusAnnotationObject(annotationObj, FieldSpecUtils.getSchemaFieldName(path),
             currentSchema.getDereferencedType(), path.toString());
     if (_searchFieldNamesToPatch.containsKey(annotation.getFieldName()) && !_searchFieldNamesToPatch.get(
         annotation.getFieldName()).equals(context.getSchemaPathSpec().toString())) {
       throw new ModelValidationException(
-          String.format("Entity has multiple searchable fields with the same field name %s",
-              annotation.getFieldName()));
+          String.format("Entity has multiple searchable fields with the same field name %s, path: %s",
+              annotation.getFieldName(), fullPath.orElse(path)));
     }
     final SearchableFieldSpec fieldSpec = new SearchableFieldSpec(path, annotation, currentSchema);
     _specs.add(fieldSpec);
