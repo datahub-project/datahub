@@ -4,7 +4,6 @@ import com.google.common.collect.ImmutableList;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.features.FeatureExtractor;
 import com.linkedin.metadata.search.features.Features;
-import com.linkedin.metadata.search.features.GraphBasedFeature;
 import com.linkedin.metadata.search.features.MatchMetadataFeature;
 import com.linkedin.metadata.search.features.NumEntitiesPerTypeFeature;
 import com.linkedin.metadata.search.features.UsageFeature;
@@ -16,9 +15,8 @@ public class UsageBasedRanker extends SearchRanker {
 
   private final List<FeatureExtractor> featureExtractors;
 
-  public UsageBasedRanker(UsageFeature usageFeature, GraphBasedFeature graphBasedFeature) {
-    featureExtractors =
-        ImmutableList.of(usageFeature, graphBasedFeature, new NumEntitiesPerTypeFeature(), new MatchMetadataFeature());
+  public UsageBasedRanker(UsageFeature usageFeature) {
+    featureExtractors = ImmutableList.of(usageFeature, new NumEntitiesPerTypeFeature(), new MatchMetadataFeature());
   }
 
   @Override
