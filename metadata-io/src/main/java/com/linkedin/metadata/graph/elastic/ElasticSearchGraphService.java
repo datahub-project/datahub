@@ -150,6 +150,7 @@ public class ElasticSearchGraphService implements GraphService {
     criterion.setValue(urn.toString());
     criterionArray.add(criterion);
     filter.setOr(new ConjunctiveCriterionArray(ImmutableList.of(new ConjunctiveCriterion().setAnd(criterionArray))));
+
     return filter;
   }
 

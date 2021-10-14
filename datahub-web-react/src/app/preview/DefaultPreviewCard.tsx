@@ -1,8 +1,8 @@
 import { Image, Typography } from 'antd';
-import React from 'react';
+import React, { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-import { GlobalTags, Owner, GlossaryTerms } from '../../types.generated';
+import { GlobalTags, Owner, GlossaryTerms, SearchInsight } from '../../types.generated';
 import { useEntityRegistry } from '../useEntityRegistry';
 import AvatarsGroup from '../shared/avatar/AvatarsGroup';
 import TagTermGroup from '../shared/tags/TagTermGroup';
@@ -21,6 +21,7 @@ interface Props {
     tags?: GlobalTags;
     owners?: Array<Owner> | null;
     snippet?: React.ReactNode;
+    insights?: Array<SearchInsight> | null;
     glossaryTerms?: GlossaryTerms;
     dataTestID?: string;
 }
@@ -78,6 +79,7 @@ const PlatformDivider = styled.div`
 
 const DescriptionContainer = styled.div`
     margin-top: 5px;
+    color: ${ANTD_GRAY[7]};
 `;
 
 const AvatarContainer = styled.div`
@@ -89,6 +91,21 @@ const TagContainer = styled.div`
     display: inline-block;
     margin-left: 8px;
     margin-top: -2px;
+`;
+
+const InsightContainer = styled.div`
+    margin-top: 12px;
+`;
+
+const InsightsText = styled(Typography.Text)`
+    font-size: 12px;
+    line-height: 20px;
+    font-weight: 600;
+    color: ${ANTD_GRAY[7]};
+`;
+
+const InsightIconContainer = styled.span`
+    margin-right: 4px;
 `;
 
 export default function DefaultPreviewCard({
@@ -105,11 +122,22 @@ export default function DefaultPreviewCard({
     tags,
     owners,
     snippet,
+    insights,
     glossaryTerms,
     dataTestID,
 }: Props) {
     const entityRegistry = useEntityRegistry();
-
+    const insightViews: Array<ReactNode> = [
+        ...(insights?.map((insight) => (
+            <>
+                <InsightIconContainer>{insight.icon}</InsightIconContainer>
+                <InsightsText>{insight.text}</InsightsText>
+            </>
+        )) || []),
+    ];
+    if (snippet) {
+        insightViews.push(snippet);
+    }
     return (
         <PreviewContainer data-testid={dataTestID}>
             <div>
@@ -140,7 +168,16 @@ export default function DefaultPreviewCard({
                         <AvatarsGroup size={28} owners={owners} entityRegistry={entityRegistry} maxCount={4} />
                     </AvatarContainer>
                 )}
-                {snippet}
+                {insightViews.length > 0 && (
+                    <InsightContainer>
+                        {insightViews.map((insightView, index) => (
+                            <span>
+                                {insightView}
+                                {index < insightViews.length - 1 && <PlatformDivider />}
+                            </span>
+                        ))}
+                    </InsightContainer>
+                )}
             </div>
         </PreviewContainer>
     );

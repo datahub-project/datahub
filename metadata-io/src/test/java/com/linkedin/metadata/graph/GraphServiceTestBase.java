@@ -27,7 +27,7 @@ import java.util.stream.IntStream;
 
 import static com.linkedin.metadata.search.utils.QueryUtils.EMPTY_FILTER;
 import static com.linkedin.metadata.search.utils.QueryUtils.newFilter;
-import static com.linkedin.metadata.search.utils.Neo4jUtil.newRelationshipFilter;
+import static com.linkedin.metadata.search.utils.QueryUtils.newRelationshipFilter;
 import static org.testng.Assert.*;
 
 /**

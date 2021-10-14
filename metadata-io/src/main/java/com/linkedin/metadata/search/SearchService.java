@@ -14,7 +14,6 @@ import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.CacheManager;
 
-
 @Slf4j
 public class SearchService {
   private final EntitySearchService _entitySearchService;

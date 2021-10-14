@@ -73,8 +73,8 @@ public class ElasticSearchTimeseriesAspectService implements TimeseriesAspectSer
     _indexBuilders = indexBuilders;
     _searchClient = searchClient;
     _bulkProcessor = BulkProcessor.builder(
-            (request, bulkListener) -> searchClient.bulkAsync(request, RequestOptions.DEFAULT, bulkListener),
-            BulkListener.getInstance())
+        (request, bulkListener) -> searchClient.bulkAsync(request, RequestOptions.DEFAULT, bulkListener),
+        BulkListener.getInstance())
         .setBulkActions(bulkRequestsLimit)
         .setFlushInterval(TimeValue.timeValueSeconds(bulkFlushPeriod))
         .setBackoffPolicy(BackoffPolicy.constantBackoff(TimeValue.timeValueSeconds(retryInterval), numRetries))

@@ -385,25 +385,25 @@ public class EntityClient extends BaseClient {
     }
 
     /**
-     * Filters entities based on a particular Filter and Sort criterion
-     *
-     * @param entity filter entity
-     * @param filter search filters
-     * @param sortCriterion sort criterion
-     * @param start start offset for search results
-     * @param count max number of search results requested
-     * @return a set of {@link SearchResult}s
-     * @throws RemoteInvocationException
-     */
+    * Filters entities based on a particular Filter and Sort criterion
+    *
+    * @param entity filter entity
+    * @param filter search filters
+    * @param sortCriterion sort criterion
+    * @param start start offset for search results
+    * @param count max number of search results requested
+    * @return a set of {@link SearchResult}s
+    * @throws RemoteInvocationException
+    */
     @Nonnull
     public SearchResult filter(
-        @Nonnull String entity,
-        @Nonnull Filter filter,
-        @Nullable SortCriterion sortCriterion,
-        int start,
-        int count,
-        @Nonnull String actor)
-        throws RemoteInvocationException {
+      @Nonnull String entity,
+      @Nonnull Filter filter,
+      @Nullable SortCriterion sortCriterion,
+      int start,
+      int count,
+      @Nonnull String actor)
+      throws RemoteInvocationException {
 
         final EntitiesDoFilterRequestBuilder requestBuilder = ENTITIES_REQUEST_BUILDERS.actionFilter()
             .entityParam(entity)

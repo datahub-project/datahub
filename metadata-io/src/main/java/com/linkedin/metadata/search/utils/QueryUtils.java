@@ -11,6 +11,8 @@ import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.query.filter.RelationshipDirection;
+import com.linkedin.metadata.query.filter.RelationshipFilter;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -74,6 +76,42 @@ public class QueryUtils {
   }
 
   /**
+<<<<<<< HEAD
+=======
+   * Create {@link RelationshipFilter} using filter conditions and relationship direction.
+   *
+   * @param field field to create a filter on
+   * @param value field value to be filtered
+   * @param relationshipDirection {@link RelationshipDirection} relationship direction
+   * @return RelationshipFilter
+   */
+  @Nonnull
+  public static RelationshipFilter createRelationshipFilter(@Nonnull String field, @Nonnull String value,
+      @Nonnull RelationshipDirection relationshipDirection) {
+    return createRelationshipFilter(newFilter(field, value), relationshipDirection);
+  }
+
+  /**
+   * Create {@link RelationshipFilter} using filter and relationship direction.
+   *
+   * @param filter {@link Filter} filter
+   * @param relationshipDirection {@link RelationshipDirection} relationship direction
+   * @return RelationshipFilter
+   */
+  @Nonnull
+  public static RelationshipFilter createRelationshipFilter(@Nonnull Filter filter,
+      @Nonnull RelationshipDirection relationshipDirection) {
+    return new RelationshipFilter().setOr(filter.getOr()).setDirection(relationshipDirection);
+  }
+
+  @Nonnull
+  public static RelationshipFilter newRelationshipFilter(@Nonnull Filter filter,
+      @Nonnull RelationshipDirection relationshipDirection) {
+    return new RelationshipFilter().setOr(filter.getOr()).setDirection(relationshipDirection);
+  }
+
+  /**
+>>>>>>> origin/master
    * Calculates the total page count.
    *
    * @param totalCount total count

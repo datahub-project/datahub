@@ -1,7 +1,6 @@
 import * as React from 'react';
 import { DatabaseFilled, DatabaseOutlined } from '@ant-design/icons';
-import { Tag, Typography } from 'antd';
-import styled from 'styled-components';
+import { Typography } from 'antd';
 import { Dataset, EntityType, SearchResult } from '../../../types.generated';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
 import { Preview } from './preview/Preview';
@@ -24,13 +23,6 @@ import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
 import { capitalizeFirstLetter } from '../../shared/capitalizeFirstLetter';
 import ViewDefinitionTab from '../shared/tabs/Dataset/View/ViewDefinitionTab';
 import { SidebarViewDefinitionSection } from '../shared/containers/profile/sidebar/Dataset/View/SidebarViewDefinitionSection';
-
-const MatchTag = styled(Tag)`
-    &&& {
-        margin-bottom: 0px;
-        margin-top: 10px;
-    }
-`;
 
 const SUBTYPES = {
     VIEW: 'view',
@@ -218,14 +210,13 @@ export class DatasetEntity implements Entity<Dataset> {
                     // Add match highlights only if all the matched fields are in the FIELDS_TO_HIGHLIGHT
                     result.matchedFields.length > 0 &&
                     result.matchedFields.every((field) => FIELDS_TO_HIGHLIGHT.has(field.name)) && (
-                        <MatchTag>
-                            <Typography.Text>
-                                Matches {FIELDS_TO_HIGHLIGHT.get(result.matchedFields[0].name)}{' '}
-                                <b>{result.matchedFields[0].value}</b>
-                            </Typography.Text>
-                        </MatchTag>
+                        <Typography.Text>
+                            Matches {FIELDS_TO_HIGHLIGHT.get(result.matchedFields[0].name)}{' '}
+                            <b>{result.matchedFields[0].value}</b>
+                        </Typography.Text>
                     )
                 }
+                insights={result.insights}
             />
         );
     };

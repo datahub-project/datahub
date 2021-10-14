@@ -53,7 +53,7 @@ import org.springframework.kafka.annotation.EnableKafka;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 
-import static com.linkedin.metadata.search.utils.Neo4jUtil.createRelationshipFilter;
+import static com.linkedin.metadata.search.utils.QueryUtils.createRelationshipFilter;
 
 
 @Slf4j

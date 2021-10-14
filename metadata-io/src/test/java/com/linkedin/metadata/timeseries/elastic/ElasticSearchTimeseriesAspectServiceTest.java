@@ -254,6 +254,7 @@ public class ElasticSearchTimeseriesAspectServiceTest {
   /* Latest Aggregation Tests */
   @Test(groups = {"getAggregatedStats"}, dependsOnGroups = {"upsert"})
   public void testGetAggregatedStatsLatestStatForDay1() {
+    // Filter is only on the urn
     Criterion hasUrnCriterion =
         new Criterion().setField("urn").setCondition(Condition.EQUAL).setValue(TEST_URN.toString());
     Criterion startTimeCriterion = new Criterion().setField(ES_FILED_TIMESTAMP)
@@ -289,6 +290,7 @@ public class ElasticSearchTimeseriesAspectServiceTest {
 
   @Test(groups = {"getAggregatedStats"}, dependsOnGroups = {"upsert"})
   public void testGetAggregatedStatsLatestStrArrayDay1() {
+    // Filter is only on the urn
     Criterion hasUrnCriterion =
         new Criterion().setField("urn").setCondition(Condition.EQUAL).setValue(TEST_URN.toString());
     Criterion startTimeCriterion = new Criterion().setField(ES_FILED_TIMESTAMP)
@@ -332,6 +334,7 @@ public class ElasticSearchTimeseriesAspectServiceTest {
 
   @Test(groups = {"getAggregatedStats"}, dependsOnGroups = {"upsert"})
   public void testGetAggregatedStatsLatestStatForTwoDays() {
+    // Filter is only on the urn
     Criterion hasUrnCriterion =
         new Criterion().setField("urn").setCondition(Condition.EQUAL).setValue(TEST_URN.toString());
     Criterion startTimeCriterion = new Criterion().setField(ES_FILED_TIMESTAMP)
@@ -577,6 +580,7 @@ public class ElasticSearchTimeseriesAspectServiceTest {
 
   @Test(groups = {"getAggregatedStats"}, dependsOnGroups = {"upsert"})
   public void testGetAggregatedStatsCardinalityAggStrStatDay1() {
+    // Filter is only on the urn
     Criterion hasUrnCriterion =
         new Criterion().setField("urn").setCondition(Condition.EQUAL).setValue(TEST_URN.toString());
     Criterion startTimeCriterion = new Criterion().setField(ES_FILED_TIMESTAMP)
@@ -611,6 +615,7 @@ public class ElasticSearchTimeseriesAspectServiceTest {
 
   @Test(groups = {"getAggregatedStats", "usageStats"}, dependsOnGroups = {"upsert"})
   public void testGetAggregatedStatsSumStatsCollectionDay1() {
+    // Filter is only on the urn
     Criterion hasUrnCriterion =
         new Criterion().setField("urn").setCondition(Condition.EQUAL).setValue(TEST_URN.toString());
     Criterion startTimeCriterion = new Criterion().setField(ES_FILED_TIMESTAMP)

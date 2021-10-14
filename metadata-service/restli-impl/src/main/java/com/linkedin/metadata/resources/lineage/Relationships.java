@@ -9,10 +9,9 @@ import com.linkedin.common.EntityRelationships;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.graph.RelatedEntitiesResult;
 import com.linkedin.metadata.graph.GraphService;
-import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
-import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.restli.RestliUtil;
+import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.parseq.Task;
 import com.linkedin.restli.common.HttpStatus;
 import com.linkedin.restli.server.UpdateResponse;
@@ -33,8 +32,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import static com.linkedin.metadata.search.utils.QueryUtils.newFilter;
-import static com.linkedin.metadata.search.utils.Neo4jUtil.newRelationshipFilter;
-
+import static com.linkedin.metadata.search.utils.QueryUtils.newRelationshipFilter;
 
 /**
  * Rest.li entry point: /relationships?type={entityType}&direction={direction}&types={types}
@@ -42,7 +40,6 @@ import static com.linkedin.metadata.search.utils.Neo4jUtil.newRelationshipFilter
 @RestLiSimpleResource(name = "relationships", namespace = "com.linkedin.lineage")
 public final class Relationships extends SimpleResourceTemplate<EntityRelationships> {
 
-    private static final Filter EMPTY_FILTER = new Filter().setOr(new ConjunctiveCriterionArray());
     private static final Integer MAX_DOWNSTREAM_CNT = 100;
 
     @Inject
@@ -64,8 +61,8 @@ public final class Relationships extends SimpleResourceTemplate<EntityRelationsh
         count = count == null ? MAX_DOWNSTREAM_CNT : count;
 
         return _graphService.findRelatedEntities("", newFilter("urn", rawUrn),
-            "", EMPTY_FILTER,
-            relationshipTypes, newRelationshipFilter(EMPTY_FILTER, direction),
+            "", QueryUtils.EMPTY_FILTER,
+            relationshipTypes, newRelationshipFilter(QueryUtils.EMPTY_FILTER, direction),
             start, count);
     }
 
