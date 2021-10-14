@@ -146,7 +146,20 @@ export class DashboardEntity implements Entity<Dashboard> {
     };
 
     renderSearch = (result: SearchResult) => {
-        return this.renderPreview(PreviewType.SEARCH, result.entity as Dashboard);
+        const data = result.entity as Dashboard;
+        return (
+            <DashboardPreview
+                urn={data.urn}
+                platform={data.tool}
+                name={data.info?.name}
+                description={data.editableProperties?.description || data.info?.description}
+                access={data.info?.access}
+                tags={data.globalTags || undefined}
+                owners={data.ownership?.owners}
+                glossaryTerms={data?.glossaryTerms}
+                insights={result.insights}
+            />
+        );
     };
 
     getLineageVizConfig = (entity: Dashboard) => {

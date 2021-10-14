@@ -151,7 +151,20 @@ export class ChartEntity implements Entity<Chart> {
     };
 
     renderSearch = (result: SearchResult) => {
-        return this.renderPreview(PreviewType.SEARCH, result.entity as Chart);
+        const data = result.entity as Chart;
+        return (
+            <ChartPreview
+                urn={data.urn}
+                platform={data.tool}
+                name={data.info?.name}
+                description={data.editableProperties?.description || data.info?.description}
+                access={data.info?.access}
+                owners={data.ownership?.owners}
+                tags={data?.globalTags || undefined}
+                glossaryTerms={data?.glossaryTerms}
+                insights={result.insights}
+            />
+        );
     };
 
     getLineageVizConfig = (entity: Chart) => {

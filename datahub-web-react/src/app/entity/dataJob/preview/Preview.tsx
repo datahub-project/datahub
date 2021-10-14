@@ -1,5 +1,5 @@
 import React from 'react';
-import { EntityType, GlobalTags, Owner } from '../../../../types.generated';
+import { EntityType, GlobalTags, Owner, SearchInsight } from '../../../../types.generated';
 import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { capitalizeFirstLetter } from '../../../shared/capitalizeFirstLetter';
@@ -13,6 +13,7 @@ export const Preview = ({
     owners,
     globalTags,
     snippet,
+    insights,
 }: {
     urn: string;
     name: string;
@@ -22,6 +23,7 @@ export const Preview = ({
     owners?: Array<Owner> | null;
     globalTags?: GlobalTags | null;
     snippet?: React.ReactNode | null;
+    insights?: Array<SearchInsight> | null;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     const capitalizedPlatform = capitalizeFirstLetter(platformName);
@@ -37,6 +39,7 @@ export const Preview = ({
             tags={globalTags || undefined}
             snippet={snippet}
             dataTestID="datajob-item-preview"
+            insights={insights}
         />
     );
 };
