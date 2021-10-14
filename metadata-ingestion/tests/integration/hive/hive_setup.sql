@@ -49,10 +49,10 @@ CREATE TABLE IF NOT EXISTS db1.nested_struct_test
 );
 
 CREATE TABLE db1.union_test(
-    foo UNIONTYPE<int, double, array<string>, struct<a:int,b:string>>
+    foo UNIONTYPE<int, double, array<string>, struct<a:int,b:string>, struct<c:int,d:double>>
 );
 
 CREATE TABLE db1.map_test(
     KeyValue String, 
-    RecordId map<string,string>
+    RecordId map<int,string>
 ); 

@@ -7,6 +7,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     ArrayTypeClass,
     BooleanTypeClass,
     BytesTypeClass,
+    DateTypeClass,
     EnumTypeClass,
     FixedTypeClass,
     MapTypeClass,
@@ -16,6 +17,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     SchemaField,
     SchemaFieldDataType,
     StringTypeClass,
+    TimeTypeClass,
     UnionTypeClass,
 )
 
@@ -79,7 +81,13 @@ class AvroToMceSchemaConverter:
         "fixed": FixedTypeClass,
     }
 
-    def __init__(self, is_key_schema: bool) -> None:
+    field_logical_type_mapping: Dict[str, Any] = {
+        "date": DateTypeClass,
+        "timestamp-millis": TimeTypeClass,
+        "decimal": NumberTypeClass,
+    }
+
+    def __init__(self, is_key_schema: bool, default_nullable: bool = False) -> None:
         # Tracks the prefix name stack for nested name generation.
         self._prefix_name_stack: PrefixNameStack = [self.version_string]
         # Tracks the fields on the current path.
@@ -88,6 +96,8 @@ class AvroToMceSchemaConverter:
         self._record_types_seen: List[str] = []
         # If part of the key-schema or value-schema.
         self._is_key_schema = is_key_schema
+        # Default value of nullable for non-null schema.
+        self.default_nullable = default_nullable
         if is_key_schema:
             # Helps maintain backwards-compatibility. Annotation for any field that is part of key-schema.
             self._prefix_name_stack.append("[key=True]")
@@ -106,12 +116,16 @@ class AvroToMceSchemaConverter:
             avro.schema.EnumSchema: self._gen_non_nested_to_mce_fields,
         }
 
-    def _get_column_type(self, field_type: Union[str, dict]) -> SchemaFieldDataType:
+    def _get_column_type(
+        self, field_type: Union[str, dict], logical_type: str
+    ) -> SchemaFieldDataType:
         tp = field_type
         if hasattr(tp, "type"):
             tp = tp.type  # type: ignore
         tp = str(tp)
         TypeClass: Any = self.field_type_mapping.get(tp)
+        if logical_type is not None:
+            TypeClass = self.field_logical_type_mapping.get(logical_type, TypeClass)
         dt = SchemaFieldDataType(type=TypeClass())
         return dt
 
@@ -121,9 +135,9 @@ class AvroToMceSchemaConverter:
         if isinstance(schema, avro.schema.UnionSchema):
             return any(self._is_nullable(sub_schema) for sub_schema in schema.schemas)
         elif isinstance(schema, avro.schema.PrimitiveSchema):
-            return schema.name == "null"
+            return schema.name == "null" or schema.props.get("_nullable", False)
         else:
-            return False
+            return self.default_nullable
 
     def _get_cur_field_path(self) -> str:
         return ".".join(self._prefix_name_stack)
@@ -151,6 +165,8 @@ class AvroToMceSchemaConverter:
         simple_native_type = AvroToMceSchemaConverter._get_simple_native_type(schema)
         if simple_native_type.startswith("__struct_"):
             simple_native_type = "struct"
+        elif simple_native_type.startswith("__structn_"):
+            simple_native_type = "struct{}".format(simple_native_type.split("_")[3])
         if isinstance(schema, avro.schema.Field):
             return simple_native_type
         else:
@@ -237,7 +253,9 @@ class AvroToMceSchemaConverter:
                     fieldPath=self._converter._get_cur_field_path(),
                     # Populate it with the simple native type for now.
                     nativeDataType=native_data_type,
-                    type=self._converter._get_column_type(actual_schema.type),
+                    type=self._converter._get_column_type(
+                        actual_schema.type, actual_schema.props.get("logicalType")
+                    ),
                     description=description,
                     recursive=False,
                     nullable=self._converter._is_nullable(schema),
@@ -382,7 +400,10 @@ class AvroToMceSchemaConverter:
 
     @classmethod
     def to_mce_fields(
-        cls, avro_schema_string: str, is_key_schema: bool
+        cls,
+        avro_schema_string: str,
+        is_key_schema: bool,
+        default_nullable: bool = False,
     ) -> Generator[SchemaField, None, None]:
         """
         Converts a key or value type AVRO schema string to appropriate MCE SchemaFields.
@@ -393,7 +414,7 @@ class AvroToMceSchemaConverter:
         # Prefer the `parse` function over the deprecated `Parse` function.
         avro_schema_parse_fn = getattr(avro.schema, "parse", "Parse")
         avro_schema = avro_schema_parse_fn(avro_schema_string)
-        converter = cls(is_key_schema)
+        converter = cls(is_key_schema, default_nullable)
         yield from converter._to_mce_fields(avro_schema)
 
 
@@ -402,7 +423,7 @@ class AvroToMceSchemaConverter:
 
 
 def avro_schema_to_mce_fields(
-    avro_schema_string: str, is_key_schema: bool = False
+    avro_schema_string: str, is_key_schema: bool = False, default_nullable: bool = False
 ) -> List[SchemaField]:
     """
     Converts an avro schema into schema fields compatible with MCE.
@@ -411,5 +432,7 @@ def avro_schema_to_mce_fields(
     :return: The list of MCE compatible SchemaFields.
     """
     return list(
-        AvroToMceSchemaConverter.to_mce_fields(avro_schema_string, is_key_schema)
+        AvroToMceSchemaConverter.to_mce_fields(
+            avro_schema_string, is_key_schema, default_nullable
+        )
     )

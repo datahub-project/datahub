@@ -15,11 +15,11 @@ from datahub.ingestion.source.sql.sql_common import (
 )
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     DateTypeClass,
+    NullTypeClass,
     NumberTypeClass,
     SchemaField,
     TimeTypeClass,
 )
-from datahub.metadata.schema_classes import NullTypeClass
 
 register_custom_type(HiveDate, DateTypeClass)
 register_custom_type(HiveTimestamp, TimeTypeClass)
@@ -59,12 +59,12 @@ class HiveSource(SQLAlchemySource):
     def get_schema_fields_for_column(
         self,
         dataset_name: str,
-        columns: Dict[Any, Any],
+        column: Dict[Any, Any],
         pk_constraints: Optional[Dict[Any, Any]] = None,
     ) -> List[SchemaField]:
 
         fields = super().get_schema_fields_for_column(
-            dataset_name, columns, pk_constraints
+            dataset_name, column, pk_constraints
         )
 
         if self._COMPLEX_TYPE.match(fields[0].nativeDataType) and isinstance(
@@ -72,18 +72,17 @@ class HiveSource(SQLAlchemySource):
         ):
             assert len(fields) == 1
             field = fields[0]
-            # Get avro schema for newfields along with parent complex field
+            # Get avro schema for subfields along with parent complex field
             avro_schema = self.get_avro_schema_from_native_data_type(
-                field.nativeDataType, field.fieldPath
+                field.nativeDataType, column["name"]
             )
 
-            newfields = schema_util.avro_schema_to_mce_fields(json.dumps(avro_schema))
-
-            # TODO - set nullable correctly as per native data type or from schema_util
-            for subfield in newfields:
-                subfield.nullable = field.nullable
+            newfields = schema_util.avro_schema_to_mce_fields(
+                json.dumps(avro_schema), default_nullable=True
+            )
 
             # First field is the parent complex field
+            newfields[0].nullable = field.nullable
             newfields[0].description = field.description
             newfields[0].isPartOfKey = field.isPartOfKey
             return newfields
@@ -106,35 +105,29 @@ class HiveSource(SQLAlchemySource):
 
 _BRACKETS = {"(": ")", "[": "]", "{": "}", "<": ">"}
 
-# TODO - Check these mappings carefully
 _all_atomic_types = {
     "string": "string",
     "int": "int",
     "integer": "int",
     "double": "double",
     "double precision": "double",
-    "binary": "boolean",
+    "binary": "string",
     "boolean": "boolean",
-    "decimal": "decimal",
     "float": "float",
-    "byte": "int",
     "tinyint": "int",
     "smallint": "int",
     "int": "int",
     "bigint": "long",
     "varchar": "string",
     "char": "string",
-    "date": "date",
-    "timestamp": "timestamp",
-    "numeric": "decimal",
 }
 
-_FIXED_DECIMAL = re.compile("decimal\\(\\s*(\\d+)\\s*,\\s*(\\d+)\\s*\\)")
+_FIXED_DECIMAL = re.compile(r"(decimal|numeric)(\(\s*(\d+)\s*,\s*(\d+)\s*\))?")
 
-_FIXED_STRING = re.compile("(var)?char\\(\\s*(\\d+)\\s*\\)")
+_FIXED_STRING = re.compile(r"(var)?char\(\s*(\d+)\s*\)")
 
 
-def _parse_datatype_string(s):
+def _parse_datatype_string(s, **kwargs):
     s = s.strip()
     if s.startswith("array<"):
         if s[-1] != ">":
@@ -153,28 +146,41 @@ def _parse_datatype_string(s):
                 "The map type string format is: 'map<key_type,value_type>', "
                 + "but got: %s" % s
             )
-        # kt = _parse_datatype_string(parts[0])  # keys are assumed to be strings in avro map
+        kt = _parse_datatype_string(parts[0])
         vt = _parse_datatype_string(parts[1])
-        return {"type": "map", "values": vt, "native_data_type": s}
+        # keys are assumed to be strings in avro map
+        return {
+            "type": "map",
+            "values": vt,
+            "native_data_type": s,
+            "key_type": kt,
+            "key_native_data_type": parts[0],
+        }
     elif s.startswith("uniontype<"):
         if s[-1] != ">":
             raise ValueError("'>' should be the last char, but got: %s" % s)
         parts = _ignore_brackets_split(s[10:-1], ",")
         t = []
+        ustruct_seqn = 0
         for part in parts:
-            t.append(_parse_datatype_string(part))
+            if part.startswith("struct<"):
+                # ustruct_seqn defines sequence number of struct in union
+                t.append(_parse_datatype_string(part, ustruct_seqn=ustruct_seqn))
+                ustruct_seqn += 1
+            else:
+                t.append(_parse_datatype_string(part))
         return t
     elif s.startswith("struct<"):
         if s[-1] != ">":
             raise ValueError("'>' should be the last char, but got: %s" % s)
-        return _parse_struct_fields_string(s[7:-1])
+        return _parse_struct_fields_string(s[7:-1], **kwargs)
     elif ":" in s:
-        return _parse_struct_fields_string(s)
+        return _parse_struct_fields_string(s, **kwargs)
     else:
         return _parse_basic_datatype_string(s)
 
 
-def _parse_struct_fields_string(s):
+def _parse_struct_fields_string(s, **kwargs):
     parts = _ignore_brackets_split(s, ",")
     fields = []
     for part in parts:
@@ -191,9 +197,16 @@ def _parse_struct_fields_string(s):
             field_name = field_name[1:-1]
         field_type = _parse_datatype_string(name_and_type[1])
         fields.append({"name": field_name, "type": field_type})
+
+    if kwargs.get("ustruct_seqn") is not None:
+        struct_name = "__structn_{}_{}".format(
+            kwargs["ustruct_seqn"], str(uuid.uuid4()).replace("-", "")
+        )
+    else:
+        struct_name = "__struct_{}".format(str(uuid.uuid4()).replace("-", ""))
     return {
         "type": "record",
-        "name": "__struct_{}".format(str(uuid.uuid4()).replace("-", "")),
+        "name": struct_name,
         "fields": fields,
         "native_data_type": "struct<{}>".format(s),
     }
@@ -201,22 +214,50 @@ def _parse_struct_fields_string(s):
 
 def _parse_basic_datatype_string(s):
     if s in _all_atomic_types.keys():
-        return {"type": _all_atomic_types[s], "native_data_type": s}
-    elif _FIXED_DECIMAL.match(s):
-        m = _FIXED_DECIMAL.match(s)
         return {
-            "type": "bytes",
-            "logicalType": "decimal",
-            "precision": int(m.group(1)),  # type: ignore
-            "scale": int(m.group(2)),  # type: ignore
+            "type": _all_atomic_types[s],
             "native_data_type": s,
+            "_nullable": True,
         }
+
     elif _FIXED_STRING.match(s):
         m = _FIXED_STRING.match(s)
-        return {"type": "string", "native_data_type": s}
+        return {"type": "string", "native_data_type": s, "_nullable": True}
+
+    elif _FIXED_DECIMAL.match(s):
+        m = _FIXED_DECIMAL.match(s)
+        if m.group(2) is not None:  # type: ignore
+            return {
+                "type": "bytes",
+                "logicalType": "decimal",
+                "precision": int(m.group(3)),  # type: ignore
+                "scale": int(m.group(4)),  # type: ignore
+                "native_data_type": s,
+                "_nullable": True,
+            }
+        else:
+            return {
+                "type": "bytes",
+                "logicalType": "decimal",
+                "native_data_type": s,
+                "_nullable": True,
+            }
+    elif s == "date":
+        return {
+            "type": "int",
+            "logicalType": "date",
+            "native_data_type": s,
+            "_nullable": True,
+        }
+    elif s == "timestamp":
+        return {
+            "type": "int",
+            "logicalType": "timestamp-millis",
+            "native_data_type": s,
+            "_nullable": True,
+        }
     else:
-        return {"type": "null", "native_data_type": s}
-        # raise ValueError("Could not parse datatype: %s" % s)
+        return {"type": "null", "native_data_type": s, "_nullable": True}
 
 
 def _ignore_brackets_split(s, separator):

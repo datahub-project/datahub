@@ -346,7 +346,7 @@
                                         }
                                     }
                                 },
-                                "nativeDataType": "map<string,string>",
+                                "nativeDataType": "map<int,string>",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -930,7 +930,7 @@
                                 "isPartOfKey": false
                             },
                             {
-                                "fieldPath": "[version=2.0].[type=struct].[type=union].[type=struct].foo",
+                                "fieldPath": "[version=2.0].[type=struct].[type=union].[type=struct0].foo",
                                 "jsonPath": null,
                                 "nullable": true,
                                 "description": null,
@@ -948,7 +948,7 @@
                                 "isPartOfKey": false
                             },
                             {
-                                "fieldPath": "[version=2.0].[type=struct].[type=union].[type=struct].foo.[type=int].a",
+                                "fieldPath": "[version=2.0].[type=struct].[type=union].[type=struct0].foo.[type=int].a",
                                 "jsonPath": null,
                                 "nullable": true,
                                 "description": null,
@@ -964,7 +964,7 @@
                                 "isPartOfKey": false
                             },
                             {
-                                "fieldPath": "[version=2.0].[type=struct].[type=union].[type=struct].foo.[type=string].b",
+                                "fieldPath": "[version=2.0].[type=struct].[type=union].[type=struct0].foo.[type=string].b",
                                 "jsonPath": null,
                                 "nullable": true,
                                 "description": null,
@@ -974,6 +974,56 @@
                                     }
                                 },
                                 "nativeDataType": "string",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "[version=2.0].[type=struct].[type=union].[type=struct1].foo",
+                                "jsonPath": null,
+                                "nullable": true,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.UnionType": {
+                                            "nestedTypes": null
+                                        }
+                                    }
+                                },
+                                "nativeDataType": "struct<a:int,b:string>",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "[version=2.0].[type=struct].[type=union].[type=struct1].foo.[type=int].c",
+                                "jsonPath": null,
+                                "nullable": true,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "int",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "[version=2.0].[type=struct].[type=union].[type=struct1].foo.[type=double].d",
+                                "jsonPath": null,
+                                "nullable": true,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "double",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,

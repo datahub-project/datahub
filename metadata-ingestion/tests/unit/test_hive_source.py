@@ -57,14 +57,22 @@ def test_hive_configuration_get_avro_schema_from_native_data_type():
                 "fields": [
                     {
                         "name": "type",
-                        "type": {"type": "string", "native_data_type": "string"},
+                        "type": {
+                            "type": "string",
+                            "native_data_type": "string",
+                            "_nullable": True,
+                        },
                     },
                     {
                         "name": "provider",
                         "type": {
                             "type": "array",
                             "native_data_type": "array<int>",
-                            "items": {"type": "int", "native_data_type": "int"},
+                            "items": {
+                                "type": "int",
+                                "native_data_type": "int",
+                                "_nullable": True,
+                            },
                         },
                     },
                     {
@@ -79,6 +87,7 @@ def test_hive_configuration_get_avro_schema_from_native_data_type():
                                     "type": {
                                         "type": "string",
                                         "native_data_type": "string",
+                                        "_nullable": True,
                                     },
                                 }
                             ],
