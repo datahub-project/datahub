@@ -7,6 +7,7 @@ import com.linkedin.metadata.query.filter.SortCriterion;
 import java.util.Arrays;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.extern.slf4j.Slf4j;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
@@ -18,6 +19,7 @@ import org.elasticsearch.search.sort.SortOrder;
 import static com.linkedin.metadata.search.utils.SearchUtils.*;
 
 
+@Slf4j
 public class ESUtils {
 
   private static final String DEFAULT_SEARCH_RESULTS_SORT_BY_FIELD = "urn";
@@ -46,6 +48,8 @@ public class ESUtils {
     if (filter == null) {
       return orQueryBuilder;
     }
+    if (filter.getOr() != null) {
+      // If caller is using the new Filters API, build boolean query from that.
       filter.getOr().forEach(or -> {
         final BoolQueryBuilder andQueryBuilder = new BoolQueryBuilder();
         or.getAnd().forEach(criterion -> {
@@ -55,6 +59,17 @@ public class ESUtils {
         });
         orQueryBuilder.should(andQueryBuilder);
       });
+    } else {
+      // Otherwise, build boolean query from the deprecated "criteria" field.
+      log.warn("Received query Filter with a deprecated field 'criteria'. Use 'or' instead.");
+      final BoolQueryBuilder andQueryBuilder = new BoolQueryBuilder();
+      filter.getCriteria().forEach(criterion -> {
+        if (!criterion.getValue().trim().isEmpty()) {
+          andQueryBuilder.must(getQueryBuilderFromCriterionForSearch(criterion));
+        }
+      });
+      orQueryBuilder.should(andQueryBuilder);
+    }
     return orQueryBuilder;
   }
 

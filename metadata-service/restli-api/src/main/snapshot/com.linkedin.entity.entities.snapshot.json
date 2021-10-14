@@ -777,7 +777,7 @@
               "addToFilters" : true,
               "fieldName" : "tags",
               "fieldType" : "URN_PARTIAL",
-              "filterNameOverride" : "Tags",
+              "filterNameOverride" : "Tag",
               "hasValuesFieldName" : "hasTags"
             }
           } ]
@@ -854,7 +854,7 @@
         "addToFilters" : true,
         "fieldName" : "glossaryTerms",
         "fieldType" : "URN_PARTIAL",
-        "filterNameOverride" : "Glossary Terms"
+        "filterNameOverride" : "Glossary Term"
       }
     } ]
   }, "com.linkedin.common.GlossaryTermUrn", {
@@ -3568,9 +3568,7 @@
                     "type" : "string",
                     "doc" : "Namespace for the primary key",
                     "Searchable" : {
-                      "addToFilters" : true,
-                      "fieldType" : "TEXT_PARTIAL",
-                      "filterNameOverride" : "Namespace"
+                      "fieldType" : "TEXT_PARTIAL"
                     }
                   }, {
                     "name" : "name",
@@ -4677,7 +4675,16 @@
         "type" : "array",
         "items" : "ConjunctiveCriterion"
       },
-      "doc" : "A list of of disjunctive criterion for the filter."
+      "doc" : "A list of of disjunctive criterion for the filter.",
+      "optional" : true
+    }, {
+      "name" : "criteria",
+      "type" : {
+        "type" : "array",
+        "items" : "Criterion"
+      },
+      "doc" : "Deprecated! A list of conjunctive criterion for the filter. If \"or\" field is provided, then this field is ignored.",
+      "optional" : true
     } ]
   }, {
     "type" : "record",

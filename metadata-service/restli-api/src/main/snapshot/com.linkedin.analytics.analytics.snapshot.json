@@ -70,7 +70,16 @@
               } ]
             }
           },
-          "doc" : "A list of of disjunctive criterion for the filter."
+          "doc" : "A list of of disjunctive criterion for the filter.",
+          "optional" : true
+        }, {
+          "name" : "criteria",
+          "type" : {
+            "type" : "array",
+            "items" : "Criterion"
+          },
+          "doc" : "Deprecated! A list of conjunctive criterion for the filter. If \"or\" field is provided, then this field is ignored.",
+          "optional" : true
         } ]
       },
       "doc" : "Input param filter.",

@@ -8,6 +8,10 @@ record Filter {
   /**
    * A list of of disjunctive criterion for the filter.
    */
-  or: array[ConjunctiveCriterion]
+  or: optional array[ConjunctiveCriterion]
 
+  /**
+   * Deprecated! A list of conjunctive criterion for the filter. If "or" field is provided, then this field is ignored.
+   */
+   criteria: optional array[Criterion]
 }
