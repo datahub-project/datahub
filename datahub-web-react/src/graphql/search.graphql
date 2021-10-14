@@ -274,6 +274,7 @@ fragment searchResults on SearchResults {
         }
         insights {
             text
+            icon
         }
     }
     facets {
