@@ -146,6 +146,11 @@ type SearchResult {
   entity: Entity!
 
   """
+  Insights about why the search result was matched
+  """
+  insights: [SearchInsight!]
+
+  """
   Matched field hint
   """
   matchedFields: [MatchedField!]!
@@ -164,6 +169,21 @@ type MatchedField {
   Value of the field that matched
   """
   value: String!
+}
+
+"""
+Insights about why a search result was returned or ranked in the way that it was
+"""
+type SearchInsight {
+   """
+   The insight to display
+   """
+   text: String!
+
+   """
+   An optional emoji to display in front of the text
+   """
+   icon: String
 }
 
 """
