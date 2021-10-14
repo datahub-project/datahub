@@ -65,6 +65,7 @@ public class DatasetSnapshotMapper implements ModelMapper<DatasetSnapshot, Datas
                     properties.setCustomProperties(StringMapMapper.map(gmsProperties.getCustomProperties()));
                 }
                 result.setProperties(properties);
+                result.setDescription(properties.getDescription());
                 if (gmsProperties.hasUri()) {
                     // Deprecated field.
                     result.setUri(gmsProperties.getUri().toString());
