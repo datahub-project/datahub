@@ -158,6 +158,7 @@ export class DataJobEntity implements Entity<DataJob> {
                 platformLogo={getLogoFromPlatform(data.dataFlow?.orchestrator || '')}
                 owners={data.ownership?.owners}
                 globalTags={data.globalTags}
+                insights={result.insights}
             />
         );
     };
