@@ -1358,6 +1358,7 @@ export const mocks = [
                                     value: 'fieldValue',
                                 },
                             ],
+                            insights: [],
                         },
                         {
                             entity: {
@@ -1425,6 +1426,7 @@ export const mocks = [
                                 ...dataset3,
                             },
                             matchedFields: [],
+                            insights: [],
                         },
                     ],
                     facets: [
@@ -1481,6 +1483,7 @@ export const mocks = [
                                 ...glossaryTerm1,
                             },
                             matchedFields: [],
+                            insights: [],
                         },
                     ],
                     facets: [
@@ -1572,6 +1575,7 @@ export const mocks = [
                                 ...dataset3,
                             },
                             matchedFields: [],
+                            insights: [],
                         },
                     ],
                     facets: [
@@ -1624,6 +1628,7 @@ export const mocks = [
                                 ...user1,
                             },
                             matchedFields: [],
+                            insights: [],
                         },
                     ],
                 },
@@ -1726,6 +1731,7 @@ export const mocks = [
                                 ...dataset3,
                             },
                             matchedFields: [],
+                            insights: [],
                         },
                     ],
                     facets: [
@@ -1782,6 +1788,7 @@ export const mocks = [
                                 ...dataset3,
                             },
                             matchedFields: [],
+                            insights: [],
                         },
                         {
                             entity: {
@@ -1789,6 +1796,7 @@ export const mocks = [
                                 ...dataset4,
                             },
                             matchedFields: [],
+                            insights: [],
                         },
                     ],
                     facets: [
@@ -1845,6 +1853,7 @@ export const mocks = [
                                 ...dataFlow1,
                             },
                             matchedFields: [],
+                            insights: [],
                         },
                     ],
                     facets: [
@@ -1987,6 +1996,7 @@ export const mocks = [
                                 ...dataJob1,
                             },
                             matchedFields: [],
+                            insights: [],
                         },
                     ],
                     facets: [
@@ -2065,6 +2075,7 @@ export const mocks = [
                                 ...dataset3,
                             },
                             matchedFields: [],
+                            insights: [],
                         },
                     ],
                     facets: [
@@ -2126,6 +2137,7 @@ export const mocks = [
                                 ...dataset3,
                             },
                             matchedFields: [],
+                            insights: [],
                         },
                     ],
                     facets: [],
@@ -2161,6 +2173,7 @@ export const mocks = [
                                 ...dataJob1,
                             },
                             matchedFields: [],
+                            insights: [],
                         },
                     ],
                     facets: [
@@ -2221,6 +2234,7 @@ export const mocks = [
                                 ...dataset3,
                             },
                             matchedFields: [],
+                            insights: [],
                         },
                     ],
                     facets: [
@@ -2277,6 +2291,7 @@ export const mocks = [
                                 ...dataset3,
                             },
                             matchedFields: [],
+                            insights: [],
                         },
                         {
                             entity: {
@@ -2284,6 +2299,7 @@ export const mocks = [
                                 ...dataset4,
                             },
                             matchedFields: [],
+                            insights: [],
                         },
                     ],
                     facets: [
@@ -2349,6 +2365,7 @@ export const mocks = [
                                 ...dataset3,
                             },
                             matchedFields: [],
+                            insights: [],
                         },
                     ],
                     facets: [
@@ -2414,6 +2431,7 @@ export const mocks = [
                                 ...dataset3,
                             },
                             matchedFields: [],
+                            insights: [],
                         },
                     ],
                     facets: [
