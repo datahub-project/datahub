@@ -26,12 +26,18 @@ import org.joda.time.DateTime;
 
 @Slf4j
 @RequiredArgsConstructor
-public class UsageFeature implements FeatureExtractor {
+public class UsageFeature extends BatchFeatureExtractor {
 
   private final TimeseriesAspectService _timeseriesAspectService;
+  private final int batchSize;
 
   @Override
-  public List<Features> extractFeatures(List<SearchEntity> entities) {
+  public int getBatchSize() {
+    return batchSize;
+  }
+
+  @Override
+  public List<Features> extractFeaturesForBatch(List<SearchEntity> entities) {
     Map<String, Long> urnToUsageCount = getUrnToUsageCount(
         entities.stream().map(SearchEntity::getEntity).map(Object::toString).collect(Collectors.toSet()));
     return entities.stream()
