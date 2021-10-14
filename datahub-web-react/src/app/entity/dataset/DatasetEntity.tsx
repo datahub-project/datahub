@@ -216,10 +216,7 @@ export class DatasetEntity implements Entity<Dataset> {
                         </Typography.Text>
                     )
                 }
-                insights={[
-                    { text: 'Queried 50 times last month', icon: '🚀' },
-                    { text: 'Highly Connected', icon: '📈' },
-                ]}
+                insights={result.insights}
             />
         );
     };
