@@ -1,10 +1,12 @@
 import contextlib
 import dataclasses
 import logging
+import threading
 import time
 import unittest.mock
+import uuid
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any, Iterable, List, Optional, Tuple
+from typing import Any, Iterable, Iterator, List, Optional, Tuple
 
 from great_expectations.core.expectation_validation_result import (
     ExpectationSuiteValidationResult,
@@ -15,6 +17,7 @@ from great_expectations.data_context.types.base import (
     DataContextConfig,
     DatasourceConfig,
     InMemoryStoreBackendDefaults,
+    datasourceConfigSchema,
 )
 from great_expectations.datasource.sqlalchemy_datasource import SqlAlchemyDatasource
 
@@ -39,30 +42,33 @@ logger: logging.Logger = logging.getLogger(__name__)
 # object), we cannot use it because of the config loading system. As such, we instead
 # pass a "dummy" config into the DatasourceConfig, but then dynamically add the
 # engine parameter when the SqlAlchemyDatasource is actually set up, and then remove
-# it from the cached config object to avoid those same copying mechanisms. While
-# you might expect that this is sufficient because GE caches the Datasource objects
-# that it constructs, it actually occassionally bypasses this cache (likely a bug
-# in GE), and so we need to wrap every call to GE with the below context manager.
+# it from the cached config object to avoid those same copying mechanisms.
+#
+# We need to wrap this mechanism with a lock, since having multiple methods
+# simultaneously patching the same methods will cause concurrency issues.
+
+_properly_init_datasource_lock = threading.Lock()
 
 
 @contextlib.contextmanager
 def _properly_init_datasource(conn):
-    underlying_datasource_init = SqlAlchemyDatasource.__init__
+    with _properly_init_datasource_lock:
+        underlying_datasource_init = SqlAlchemyDatasource.__init__
 
-    def sqlalchemy_datasource_init(
-        self: SqlAlchemyDatasource, *args: Any, **kwargs: Any
-    ) -> None:
-        underlying_datasource_init(self, *args, **kwargs, engine=conn)
-        self.drivername = conn.dialect.name
-        del self._datasource_config["engine"]
+        def sqlalchemy_datasource_init(
+            self: SqlAlchemyDatasource, *args: Any, **kwargs: Any
+        ) -> None:
+            underlying_datasource_init(self, *args, **kwargs, engine=conn)
+            self.drivername = conn.dialect.name
+            del self._datasource_config["engine"]
 
-    with unittest.mock.patch(
-        "great_expectations.datasource.sqlalchemy_datasource.SqlAlchemyDatasource.__init__",
-        sqlalchemy_datasource_init,
-    ), unittest.mock.patch(
-        "great_expectations.data_context.store.validations_store.ValidationsStore.set"
-    ):
-        yield
+        with unittest.mock.patch(
+            "great_expectations.datasource.sqlalchemy_datasource.SqlAlchemyDatasource.__init__",
+            sqlalchemy_datasource_init,
+        ), unittest.mock.patch(
+            "great_expectations.data_context.store.validations_store.ValidationsStore.set"
+        ):
+            yield
 
 
 @dataclasses.dataclass
@@ -74,38 +80,58 @@ class GEProfilerRequest:
 
 
 @dataclasses.dataclass
-class DatahubGEProfiler:
+class GEContext:
     data_context: BaseDataContext
+    datasource_name: str
+
+
+@dataclasses.dataclass
+class DatahubGEProfiler:
     report: SourceReport
 
     # The actual value doesn't matter, it just matters that we use it consistently throughout.
-    datasource_name: str = "my_sqlalchemy_datasource"
+    _datasource_name_base: str = "my_sqlalchemy_datasource"
 
     def __init__(self, conn, report):
-        self.conn = conn
+        self.base_engine = conn
         self.report = report
 
-        data_context_config = DataContextConfig(
-            datasources={
-                self.datasource_name: DatasourceConfig(
-                    class_name="SqlAlchemyDatasource",
-                    credentials={
-                        # This isn't actually used since we pass the connection directly,
-                        # but GE parses it to change some of its behavior so it's useful
-                        # to emulate that here.
-                        "url": self.conn.engine.url,
-                    },
-                )
-            },
-            store_backend_defaults=InMemoryStoreBackendDefaults(),
-            anonymous_usage_statistics={
-                "enabled": False,
-                # "data_context_id": <not set>,
-            },
+        self.data_context = BaseDataContext(
+            project_config=DataContextConfig(
+                # The datasources will be added later on, as needed.
+                datasources={},
+                store_backend_defaults=InMemoryStoreBackendDefaults(),
+                anonymous_usage_statistics={
+                    "enabled": False,
+                    # "data_context_id": <not set>,
+                },
+            )
         )
 
-        with _properly_init_datasource(self.conn):
-            self.data_context = BaseDataContext(project_config=data_context_config)
+    @contextlib.contextmanager
+    def _ge_context(self) -> Iterator[GEContext]:
+        with self.base_engine.connect() as conn:
+            datasource_name = f"{self._datasource_name_base}-{uuid.uuid4()}"
+
+            datasource_config = DatasourceConfig(
+                class_name="SqlAlchemyDatasource",
+                credentials={
+                    # This isn't actually used since we pass the connection directly,
+                    # but GE parses it to change some of its behavior so it's useful
+                    # to emulate that here.
+                    "url": conn.engine.url,
+                },
+            )
+            with _properly_init_datasource(conn):
+                # Using the add_datasource method ensures that the datasource is added to
+                # GE-internal cache, which avoids problems when calling GE methods later on.
+                assert self.data_context.add_datasource(
+                    datasource_name,
+                    initialize=True,
+                    **dict(datasourceConfigSchema.dump(datasource_config)),
+                )
+
+            yield GEContext(self.data_context, datasource_name)
 
     def generate_profiles(
         self, requests: List[GEProfilerRequest], max_workers: int
@@ -148,10 +174,11 @@ class DatahubGEProfiler:
         send_sample_values: bool = True,
         **kwargs: Any,
     ) -> DatasetProfileClass:
-        logger.info(f"Profiling {pretty_name} (this may take a while)")
+        with self._ge_context() as ge_context:
+            logger.info(f"Profiling {pretty_name} (this may take a while)")
 
-        with _properly_init_datasource(self.conn):
             evrs = self._profile_data_asset(
+                ge_context,
                 {
                     "schema": schema,
                     "table": table,
@@ -162,25 +189,26 @@ class DatahubGEProfiler:
                 pretty_name=pretty_name,
             )
 
-        profile = self._convert_evrs_to_profile(
-            evrs, pretty_name=pretty_name, send_sample_values=send_sample_values
-        )
-        logger.debug(f"Finished profiling {pretty_name}")
+            profile = self._convert_evrs_to_profile(
+                evrs, pretty_name=pretty_name, send_sample_values=send_sample_values
+            )
+            logger.debug(f"Finished profiling {pretty_name}")
 
-        return profile
+            return profile
 
     def _profile_data_asset(
         self,
+        ge_context: GEContext,
         batch_kwargs: dict,
         pretty_name: str,
     ) -> ExpectationSuiteValidationResult:
         # Internally, this uses the GE dataset profiler:
         # great_expectations.profile.basic_dataset_profiler.BasicDatasetProfiler
 
-        profile_results = self.data_context.profile_data_asset(
-            self.datasource_name,
+        profile_results = ge_context.data_context.profile_data_asset(
+            ge_context.datasource_name,
             batch_kwargs={
-                "datasource": self.datasource_name,
+                "datasource": ge_context.datasource_name,
                 **batch_kwargs,
             },
         )
