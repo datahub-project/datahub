@@ -115,9 +115,10 @@ public class DefaultUpgradeManager implements UpgradeManager {
           break;
         }
       } catch (Exception e) {
+        e.printStackTrace();
         context.report()
             .addLine(
-                String.format("Caught exception during attempt %s of Step with id %s: %s", i, step.id(), e.toString()));
+                String.format("Caught exception during attempt %s of Step with id %s: %s", i, step.id(), e));
         result = new DefaultUpgradeStepResult(step.id(), UpgradeStepResult.Result.FAILED);
         context.report().addLine(String.format("Retrying %s more times...", maxAttempts - (i + 1)));
       }
