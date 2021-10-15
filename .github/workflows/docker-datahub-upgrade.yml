@@ -2,13 +2,13 @@ name: docker-datahub-upgrade docker
 on:
   push:
     branches:
-      - dl--fix-restore-indices
+      - master
     paths-ignore:
       - 'docs/**'
       - '**.md'
   pull_request:
     branches:
-      - dl--fix-restore-indices
+      - master
     paths:
       - './datahub-upgrade/**'
       - '.github/workflows/docker-datahub-upgrade.yml'
@@ -33,7 +33,7 @@ jobs:
           echo "GITHUB_REF: $GITHUB_REF"
           SHORT_SHA=$(git rev-parse --short "$GITHUB_SHA")
           echo "SHORT_SHA: $SHORT_SHA"
-          TAG=test
+          TAG=$(echo ${GITHUB_REF} | sed -e "s,refs/heads/.*$,head\,${SHORT_SHA},g" -e 's,refs/tags/,,g' -e 's,refs/pull/\([0-9]*\).*,pr\1,g')
           echo "tag=$TAG"
           echo "::set-output name=tag::$TAG"
       - name: Check whether publishing enabled
