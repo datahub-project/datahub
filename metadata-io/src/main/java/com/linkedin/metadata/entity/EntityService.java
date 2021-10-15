@@ -169,7 +169,9 @@ public abstract class EntityService {
    * is as such public.
    *
    * @param urn an urn associated with the aspect to update
+   * @param entityName name of the entity being updated
    * @param aspectName name of the aspect being updated
+   * @param aspectSpec spec of the aspect being updated
    * @param newValue new value of the aspect being updated
    * @param auditStamp an {@link AuditStamp} containing metadata about the writer & current time
    * @param version specific version of the aspect being requests
@@ -177,9 +179,9 @@ public abstract class EntityService {
    *                successful update
    * @return the {@link RecordTemplate} representation of the requested aspect object
    */
-  public abstract RecordTemplate updateAspect(@Nonnull final Urn urn, @Nonnull final String aspectName,
-      @Nonnull final RecordTemplate newValue, @Nonnull final AuditStamp auditStamp, final long version,
-      final boolean emitMae);
+  public abstract RecordTemplate updateAspect(@Nonnull final Urn urn, @Nonnull final String entityName,
+      @Nonnull final String aspectName, @Nonnull final AspectSpec aspectSpec, @Nonnull final RecordTemplate newValue,
+      @Nonnull final AuditStamp auditStamp, @Nonnull final long version, @Nonnull final boolean emitMae);
 
   /**
    * Lists the entity URNs found in storage.
