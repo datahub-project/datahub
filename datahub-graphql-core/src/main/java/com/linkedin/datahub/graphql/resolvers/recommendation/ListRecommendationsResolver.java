@@ -16,7 +16,6 @@ import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.net.URISyntaxException;
-import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
@@ -37,11 +36,12 @@ public class ListRecommendationsResolver implements DataFetcher<CompletableFutur
     return CompletableFuture.supplyAsync(() -> {
       try {
         log.debug("Listing recommendations for input {}", input);
-        if (input.getRequestContext().getScenario() != ScenarioType.HOME) {
-          log.info("Recommendations are only supported on the home page");
-          return new ListRecommendationsResult(Collections.emptyList());
+        if (input.getRequestContext().getScenario() == ScenarioType.HOME) {
+          return createMockHomeResults();
+        } else if (input.getRequestContext().getScenario() == ScenarioType.SEARCH_RESULTS) {
+          return createMockSearchResults();
         }
-        return createMockResults();
+        return createMockEntityResults();
       } catch (Exception e) {
         log.error("Failed to get recommendations for input {}", input);
         throw new RuntimeException("Failed to get recommendations for input " + input, e);
@@ -49,7 +49,45 @@ public class ListRecommendationsResolver implements DataFetcher<CompletableFutur
     });
   }
 
-  private ListRecommendationsResult createMockResults() {
+  private ListRecommendationsResult createMockSearchResults() {
+    // Popular Tags
+    List<String> popularTagList =
+        ImmutableList.of(
+            "urn:li:tag:Legacy",
+            "urn:li:tag:Email",
+            "urn:li:tag:PII",
+            "urn:li:tag:Highly Confidential",
+            "urn:li:tag:Marketing",
+            "urn:li:tag:SalesDev",
+            "urn:li:tag:MemberRefreshQ3");
+    RecommendationModule popularTags = new RecommendationModule();
+    popularTags.setTitle("Popular Tags");
+    popularTags.setModuleType("PopularTags");
+    popularTags.setRenderType(RecommendationRenderType.TAG_SEARCH_LIST);
+    popularTags.setContent(popularTagList.stream().map(this::createTagSearchRec).collect(Collectors.toList()));
+
+    return ListRecommendationsResult.builder()
+        .setModules(ImmutableList.of(popularTags))
+        .build();
+  }
+
+  private ListRecommendationsResult createMockEntityResults() {
+    // People also viewed
+    List<String> peopleAlsoViewed =
+        ImmutableList.of("urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleHdfsDataset,PROD)", "urn:li:dashboard:(looker,baz)");
+    RecommendationModule peopleAlsoViewedModule = new RecommendationModule();
+    peopleAlsoViewedModule.setTitle("People also viewed");
+    peopleAlsoViewedModule.setModuleType("PeopleAlsoViewed");
+    peopleAlsoViewedModule.setRenderType(RecommendationRenderType.ENTITY_LIST);
+    peopleAlsoViewedModule.setContent(peopleAlsoViewed.stream().map(this::createEntityRec).collect(Collectors.toList()));
+
+    return ListRecommendationsResult.builder()
+        .setModules(ImmutableList.of(peopleAlsoViewedModule))
+        .build();
+  }
+
+  private ListRecommendationsResult createMockHomeResults() {
     // Top platforms
     List<String> platforms =
         ImmutableList.of("urn:li:dataPlatform:bigquery", "urn:li:dataPlatform:snowflake", "urn:li:dataPlatform:looker",
@@ -112,6 +150,23 @@ public class ListRecommendationsResolver implements DataFetcher<CompletableFutur
     content.setParams(RecommendationParams.builder()
         .setEntityProfileParams(EntityProfileParams.builder()
             .setUrn(entityUrn)
+            .build())
+        .build());
+    return content;
+  }
+
+  private RecommendationContent createTagSearchRec(String tagUrn) {
+    RecommendationContent content = new RecommendationContent();
+    content.setValue(tagUrn);
+    try {
+      content.setEntity(UrnToEntityMapper.map(Urn.createFromString(tagUrn)));
+    } catch (URISyntaxException e) {
+      log.error("Invalid urn: {}", tagUrn);
+    }
+    content.setParams(RecommendationParams.builder()
+        .setSearchParams(SearchParams.builder()
+            .setQuery("")
+            .setFilters(ImmutableList.of(Filter.builder().setField("tags").setValue(tagUrn).build()))
             .build())
         .build());
     return content;

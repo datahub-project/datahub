@@ -142,7 +142,12 @@ enum RecommendationRenderType {
   """
   List of platforms
   """
-  PLATFORM_LIST
+  PLATFORM_LIST,
+
+  """
+  Tag search list
+  """
+  TAG_SEARCH_LIST
 }
 
 """
