@@ -89,24 +89,30 @@ export const SearchBar = ({
 }: Props) => {
     const [searchQuery, setSearchQuery] = useState<string>();
     const [selected, setSelected] = useState<string>();
+    const searchEntityTypes = entityRegistry.getSearchEntityTypes();
+
     const options = suggestions.map((entity: AutoCompleteResultForEntity) => ({
         label: entityRegistry.getCollectionName(entity.type),
         options: [
             ...entity.suggestions.map((suggestion: string) =>
                 renderItem(suggestion, entityRegistry.getIcon(entity.type, 14, IconStyleType.TAB_VIEW), entity.type),
             ),
-            {
-                value: `${SEARCH_FOR_ENTITY_PREFIX}${searchQuery}__${entity.type}`,
-                label: (
-                    <SuggestionContainer key={entity.type}>
-                        <ExploreForEntity>
-                            Explore all `{searchQuery}` in {entityRegistry.getCollectionName(entity.type)}
-                        </ExploreForEntity>
-                    </SuggestionContainer>
-                ),
-                type: entity.type,
-                key: `${searchQuery}-${entity.type}`,
-            },
+            ...(searchEntityTypes.indexOf(entity.type) >= 0
+                ? [
+                      {
+                          value: `${SEARCH_FOR_ENTITY_PREFIX}${searchQuery}__${entity.type}`,
+                          label: (
+                              <SuggestionContainer key={entity.type}>
+                                  <ExploreForEntity>
+                                      Explore all `{searchQuery}` in {entityRegistry.getCollectionName(entity.type)}
+                                  </ExploreForEntity>
+                              </SuggestionContainer>
+                          ),
+                          type: entity.type,
+                          key: `${searchQuery}-${entity.type}`,
+                      },
+                  ]
+                : []),
         ],
     }));
 
@@ -115,7 +121,12 @@ export const SearchBar = ({
             <StyledAutoComplete
                 style={autoCompleteStyle}
                 options={options}
-                onSelect={(value: string, option) => onSearch(filterSearchQuery(value), option.type)}
+                onSelect={(value: string, option) =>
+                    onSearch(
+                        `"${filterSearchQuery(value)}"`,
+                        searchEntityTypes.indexOf(option.type) >= 0 ? option.type : undefined,
+                    )
+                }
                 onSearch={(value: string) => onQueryChange(value)}
                 defaultValue={initialQuery || undefined}
                 value={selected}

@@ -184,3 +184,6 @@ A brief summary of the steps that occur when the user navigates to the React app
 7. DataHub sets session cookies for the newly authenticated user 
 8. DataHub redirects the user to the homepage ("/")
 
+### Root user
+
+Even if OIDC is configured the root user can still login without OIDC by going to `/login` URL endpoint. It is recommended that you don't use the default credentials by mounting a different file in the front end container. To do this please see (jaas)[../jaas.md] - "Mount a custom user.props file".

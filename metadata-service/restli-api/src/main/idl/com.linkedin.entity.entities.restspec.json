@@ -40,7 +40,7 @@
         "optional" : true
       }, {
         "name" : "filter",
-        "type" : "com.linkedin.metadata.query.Filter",
+        "type" : "com.linkedin.metadata.query.filter.Filter",
         "optional" : true
       }, {
         "name" : "limit",
@@ -74,7 +74,7 @@
         "type" : "string"
       }, {
         "name" : "filter",
-        "type" : "com.linkedin.metadata.query.Filter",
+        "type" : "com.linkedin.metadata.query.filter.Filter",
         "optional" : true
       }, {
         "name" : "start",
@@ -91,6 +91,26 @@
         "type" : "string"
       } ],
       "returns" : "com.linkedin.metadata.run.DeleteEntityResponse"
+    }, {
+      "name" : "filter",
+      "parameters" : [ {
+        "name" : "entity",
+        "type" : "string"
+      }, {
+        "name" : "filter",
+        "type" : "com.linkedin.metadata.query.filter.Filter"
+      }, {
+        "name" : "sort",
+        "type" : "com.linkedin.metadata.query.filter.SortCriterion",
+        "optional" : true
+      }, {
+        "name" : "start",
+        "type" : "int"
+      }, {
+        "name" : "count",
+        "type" : "int"
+      } ],
+      "returns" : "com.linkedin.metadata.search.SearchResult"
     }, {
       "name" : "getBrowsePaths",
       "parameters" : [ {
@@ -122,11 +142,11 @@
         "type" : "string"
       }, {
         "name" : "filter",
-        "type" : "com.linkedin.metadata.query.Filter",
+        "type" : "com.linkedin.metadata.query.filter.Filter",
         "optional" : true
       }, {
         "name" : "sort",
-        "type" : "com.linkedin.metadata.query.SortCriterion",
+        "type" : "com.linkedin.metadata.query.filter.SortCriterion",
         "optional" : true
       }, {
         "name" : "start",
@@ -159,11 +179,11 @@
         "type" : "string"
       }, {
         "name" : "filter",
-        "type" : "com.linkedin.metadata.query.Filter",
+        "type" : "com.linkedin.metadata.query.filter.Filter",
         "optional" : true
       }, {
         "name" : "sort",
-        "type" : "com.linkedin.metadata.query.SortCriterion",
+        "type" : "com.linkedin.metadata.query.filter.SortCriterion",
         "optional" : true
       }, {
         "name" : "start",
@@ -184,11 +204,11 @@
         "type" : "string"
       }, {
         "name" : "filter",
-        "type" : "com.linkedin.metadata.query.Filter",
+        "type" : "com.linkedin.metadata.query.filter.Filter",
         "optional" : true
       }, {
         "name" : "sort",
-        "type" : "com.linkedin.metadata.query.SortCriterion",
+        "type" : "com.linkedin.metadata.query.filter.SortCriterion",
         "optional" : true
       }, {
         "name" : "start",
