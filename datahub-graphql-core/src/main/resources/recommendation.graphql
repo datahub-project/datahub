@@ -1,23 +1,23 @@
 extend type Query {
   """
-  Get recommendations
+  Fetch recommendations for a particular scenario
   """
-  getRecommendations(input: GetRecommendationsInput!): RecommendationResults
+  listRecommendations(input: ListRecommendationsInput!): ListRecommendationsResult
 }
 
 """
-Input arguments for getting recommended modules
+Input arguments for fetching UI recommendations
 """
-input GetRecommendationsInput {
+input ListRecommendationsInput {
   """
-  URN of the user requesting recommendations
+  Urn of the actor requesting recommendations
   """
   userUrn: String!
 
   """
-  Context of the page requesting recommendations
+  Context provider by the caller requesting recommendations
   """
-  requestContext: RequestContext
+  requestContext: RecommendationRequestContext
 
   """
   Max number of modules to return
@@ -28,32 +28,32 @@ input GetRecommendationsInput {
 """
 Type of the page
 """
-enum PageType {
+enum ScenarioType {
   """
-  Home page
+  Recommendations to show on the users home page
   """
   HOME,
 
   """
-  Search page
+  Recommendations to show on the search results page
   """
-  SEARCH,
+  SEARCH_RESULTS,
 
   """
-  Entity page
+  Recommendations to show on an Entity Profile page
   """
-  ENTITY
+  ENTITY_PROFILE
 }
 
 """
 Context that defines the page requesting recommendations
 i.e. for search pages, the query/filters. for entity pages, the entity urn and tab
 """
-input RequestContext {
+input RecommendationRequestContext {
   """
-  Type of the page where the recommendations will be rendered
+  Scenario in which the recommendations will be displayed
   """
-  pageType: PageType!
+  scenario: ScenarioType!
 
   """
   Additional context for defining the search page requesting recommendations
@@ -85,16 +85,22 @@ input SearchRequestContext {
 Context that defines an entity page requesting recommendations
 """
 input EntityRequestContext {
+
   """
-  Urn of the entity being shown
+  Type of the enity being displayed
   """
-  entityUrn: String!
+  type: EntityType!
+
+  """
+  Urn of the entity being displayed
+  """
+  urn: String!
 }
 
 """
 Results returned by the GetRecommendations query
 """
-type RecommendationResults {
+type ListRecommendationsResult {
   """
   List of modules to show
   """
@@ -115,7 +121,7 @@ type RecommendationModule {
   """
   Type of rendering that defines how the module should be rendered
   """
-  renderType: RenderType!
+  renderType: RecommendationRenderType!
 
   """
   List of content to display inside the module
@@ -127,7 +133,7 @@ type RecommendationModule {
 Enum that defines how the modules should be rendered.
 There should be two frontend implementation of large and small modules per type.
 """
-enum RenderType {
+enum RecommendationRenderType {
   """
   Simple list of entities
   """
@@ -154,17 +160,30 @@ type RecommendationContent {
   entity: Entity
 
   """
-  Additional context required to generate the landing page
+  Additional context required to generate the the recommendation
   """
-  landingPageContext: LandingPageContext
+  params: RecommendationParams
 }
 
-interface LandingPageContext
+"""
+Parameters required to render a recommendation of a given type
+"""
+type RecommendationParams {
+  """
+  Context to define the search recommendations
+  """
+  searchParams: SearchParams
+
+  """
+  Context to define the entity profile page
+  """
+  entityProfileParams: EntityProfileParams
+}
 
 """
-Context to define the search landing page
+Context to define the search recommendations
 """
-type SearchPageContext implements LandingPageContext {
+type SearchParams {
   """
   Entity types to be searched. If this is not provided, all entities will be searched.
   """
@@ -197,11 +216,11 @@ type Filter {
 }
 
 """
-Context to define the entity landing page
+Context to define the entity profile page
 """
-type EntityPageContext implements LandingPageContext {
+type EntityProfileParams {
   """
   Urn of the entity being shown
   """
-  entityUrn: String!
+  urn: String!
 }

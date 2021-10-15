@@ -66,7 +66,7 @@ import com.linkedin.datahub.graphql.resolvers.policy.DeletePolicyResolver;
 import com.linkedin.datahub.graphql.resolvers.policy.ListPoliciesResolver;
 import com.linkedin.datahub.graphql.resolvers.config.AppConfigResolver;
 import com.linkedin.datahub.graphql.resolvers.policy.UpsertPolicyResolver;
-import com.linkedin.datahub.graphql.resolvers.recommendation.GetRecommendationsResolver;
+import com.linkedin.datahub.graphql.resolvers.recommendation.ListRecommendationsResolver;
 import com.linkedin.datahub.graphql.resolvers.search.SearchAcrossEntitiesResolver;
 import com.linkedin.datahub.graphql.resolvers.type.AspectInterfaceTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.type.HyperParameterValueTypeResolver;
@@ -300,6 +300,18 @@ public class GmsGraphQLEngine {
         return analyticsSchemaString;
     }
 
+    public static String recommendationsSchema() {
+        String recommendationsSchemaString;
+        try {
+            InputStream is = Thread.currentThread().getContextClassLoader().getResourceAsStream(RECOMMENDATIONS_SCHEMA_FILE);
+            recommendationsSchemaString = IOUtils.toString(is, StandardCharsets.UTF_8);
+            is.close();
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to find GraphQL Schema with name " + RECOMMENDATIONS_SCHEMA_FILE, e);
+        }
+        return recommendationsSchemaString;
+    }
+
     /**
      * Returns a {@link Supplier} responsible for creating a new {@link DataLoader} from
      * a {@link LoadableType}.
@@ -338,6 +350,7 @@ public class GmsGraphQLEngine {
             .addSchema(searchSchema())
             .addSchema(appSchema())
             .addSchema(analyticsSchema())
+            .addSchema(recommendationsSchema())
             .addDataLoaders(loaderSuppliers(loadableTypes))
             .addDataLoader("Aspect", (context) -> createAspectLoader(context))
             .addDataLoader("UsageQueryResult", (context) -> createUsageLoader(context))
@@ -365,7 +378,7 @@ public class GmsGraphQLEngine {
                     new SearchResolver(GmsClientFactory.getEntitiesClient())))
             .dataFetcher("searchAcrossEntities",
                 new SearchAcrossEntitiesResolver(GmsClientFactory.getEntitiesClient()))
-            .dataFetcher("getRecommendations", new GetRecommendationsResolver())
+            .dataFetcher("getRecommendations", new ListRecommendationsResolver())
             .dataFetcher("autoComplete", new AuthenticatedResolver<>(
                     new AutoCompleteResolver(searchableTypes)))
             .dataFetcher("autoCompleteForMultiple", new AuthenticatedResolver<>(
@@ -422,6 +435,8 @@ public class GmsGraphQLEngine {
                 new ListUsersResolver(GmsClientFactory.getEntitiesClient()))
             .dataFetcher("listGroups",
                 new ListGroupsResolver(GmsClientFactory.getEntitiesClient()))
+            .dataFetcher("listRecommendations",
+                new ListRecommendationsResolver())
         );
     }
 

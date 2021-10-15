@@ -1,0 +1,28 @@
+query listRecommendations($input: ListRecommendationsInput!) {
+    listRecommendations(input: $input) {
+        modules {
+            title
+            moduleType
+            renderType
+            content {
+                value
+                entity {
+                    ...entityPreview
+                }
+                params {
+                    searchParams {
+                        types
+                        query
+                        filters {
+                            field
+                            value
+                        }
+                    }
+                    entityProfileParams {
+                        urn
+                    }
+                }
+            }
+        }
+    }
+}

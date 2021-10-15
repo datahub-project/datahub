@@ -4,6 +4,8 @@ import styled from 'styled-components';
 
 import { useEntityRegistry } from '../useEntityRegistry';
 import { BrowseEntityCard } from '../search/BrowseEntityCard';
+import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
+import { HomePageRecommendations } from './HomePageRecommendations';
 
 const Title = styled(Typography.Text)`
     && {
@@ -25,9 +27,11 @@ const BodyContainer = styled.div`
 
 export const HomePageBody = () => {
     const entityRegistry = useEntityRegistry();
+    const authenticatedUserUrn = useGetAuthenticatedUser()?.corpUser?.urn;
 
     return (
         <BodyContainer>
+            {authenticatedUserUrn && <HomePageRecommendations userUrn={authenticatedUserUrn} />}
             <Title>
                 <b>Explore</b> your data
             </Title>
