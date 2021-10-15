@@ -1,4 +1,4 @@
-package com.linkedin.metadata.resources;
+package com.linkedin.metadata.entity;
 
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.entity.RecordTemplateValidator;
@@ -8,7 +8,7 @@ import lombok.extern.slf4j.Slf4j;
 
 
 @Slf4j
-public class ResourceUtils {
+public class ValidationUtils {
 
   /**
    * Validates a {@link RecordTemplate} and throws {@link com.linkedin.restli.server.RestLiServiceException}
@@ -34,6 +34,6 @@ public class ResourceUtils {
     });
   }
 
-  private ResourceUtils() {
+  private ValidationUtils() {
   }
 }

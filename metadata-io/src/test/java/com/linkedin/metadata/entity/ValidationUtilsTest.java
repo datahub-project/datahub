@@ -1,4 +1,4 @@
-package com.linkedin.metadata.resources;
+package com.linkedin.metadata.entity;
 
 import com.linkedin.common.BrowsePath;
 import com.linkedin.common.Owner;
@@ -11,22 +11,21 @@ import com.linkedin.restli.server.RestLiServiceException;
 import org.testng.annotations.Test;
 import org.testng.Assert;
 
-
-public class ResourceUtilsTest {
+public class ValidationUtilsTest {
   @Test
   public void testValidateOrThrowThrowsOnMissingUnrecognizedField() {
     DataMap rawMap = new DataMap();
     rawMap.put("removed", true);
     rawMap.put("extraField", 1);
     Status status = new Status(rawMap);
-    Assert.assertThrows(RestLiServiceException.class, () -> ResourceUtils.validateOrThrow(status, HttpStatus.S_500_INTERNAL_SERVER_ERROR));
+    Assert.assertThrows(RestLiServiceException.class, () -> ValidationUtils.validateOrThrow(status, HttpStatus.S_500_INTERNAL_SERVER_ERROR));
   }
 
   @Test
   public void testValidateOrThrowThrowsOnMissingRequiredField() {
     DataMap rawMap = new DataMap();
     BrowsePath status = new BrowsePath(rawMap);
-    Assert.assertThrows(RestLiServiceException.class, () -> ResourceUtils.validateOrThrow(status, HttpStatus.S_500_INTERNAL_SERVER_ERROR));
+    Assert.assertThrows(RestLiServiceException.class, () -> ValidationUtils.validateOrThrow(status, HttpStatus.S_500_INTERNAL_SERVER_ERROR));
   }
 
   @Test
@@ -35,13 +34,13 @@ public class ResourceUtilsTest {
     Owner owner = new Owner(rawMap);
     owner.setOwner(Urn.createFromString("urn:li:corpuser:test"));
     owner.setType(OwnershipType.DATAOWNER);
-    ResourceUtils.validateOrThrow(owner, HttpStatus.S_500_INTERNAL_SERVER_ERROR);
+    ValidationUtils.validateOrThrow(owner, HttpStatus.S_500_INTERNAL_SERVER_ERROR);
   }
 
   @Test
   public void testValidateOrThrowDoesNotThrowOnMissingDefaultField() {
     DataMap rawMap = new DataMap();
     Status status = new Status(rawMap);
-    ResourceUtils.validateOrThrow(status, HttpStatus.S_500_INTERNAL_SERVER_ERROR);
+    ValidationUtils.validateOrThrow(status, HttpStatus.S_500_INTERNAL_SERVER_ERROR);
   }
 }

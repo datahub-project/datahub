@@ -26,10 +26,12 @@ import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericAspectUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import com.linkedin.metadata.entity.ValidationUtils;
 import com.linkedin.mxe.MetadataAuditOperation;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
+import com.linkedin.restli.common.HttpStatus;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.net.URISyntaxException;
 import java.sql.Timestamp;
@@ -351,8 +353,6 @@ public class EbeanEntityService extends EntityService {
   @Override
   public Urn ingestProposal(@Nonnull MetadataChangeProposal metadataChangeProposal, AuditStamp auditStamp) {
 
-    // todo: add restli model validation.
-
     log.debug("entity type = {}", metadataChangeProposal.getEntityType());
     EntitySpec entitySpec = getEntityRegistry().getEntitySpec(metadataChangeProposal.getEntityType());
     log.debug("entity spec = {}", entitySpec);
@@ -381,6 +381,7 @@ public class EbeanEntityService extends EntityService {
     try {
       aspect = GenericAspectUtils.deserializeAspect(metadataChangeProposal.getAspect().getValue(),
           metadataChangeProposal.getAspect().getContentType(), aspectSpec);
+      ValidationUtils.validateOrThrow(aspect, HttpStatus.S_400_BAD_REQUEST);
     } catch (ModelConversionException e) {
       throw new RuntimeException(
           String.format("Could not deserialize {} for aspect {}", metadataChangeProposal.getAspect().getValue(),
