@@ -7,6 +7,8 @@ import com.linkedin.common.Status
 import com.linkedin.ml.metadata.MLFeatureTableProperties
 import com.linkedin.common.Deprecation
 import com.linkedin.common.BrowsePaths
+import com.linkedin.common.GlobalTags
+import com.linkedin.common.DataPlatformInstance
 
 /**
  * A union of all supported metadata aspects for a MLFeatureTable
@@ -18,5 +20,7 @@ typeref MLFeatureTableAspect = union[
   InstitutionalMemory,
   Status,
   Deprecation,
-  BrowsePaths
+  BrowsePaths,
+  GlobalTags,
+  DataPlatformInstance
 ]

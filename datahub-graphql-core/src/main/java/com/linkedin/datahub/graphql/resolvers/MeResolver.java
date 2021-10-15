@@ -51,6 +51,7 @@ public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUs
         final PlatformPrivileges platformPrivileges = new PlatformPrivileges();
         platformPrivileges.setViewAnalytics(canViewAnalytics(context));
         platformPrivileges.setManagePolicies(canManagePolicies(context));
+        platformPrivileges.setManageIdentities(canManageUsersGroups(context));
 
         // Construct and return authenticated user object.
         final AuthenticatedUser authUser = new AuthenticatedUser();

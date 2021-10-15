@@ -122,11 +122,7 @@ export default function TagProfile() {
                                 <div>
                                     <CreatedByLabel>Created by</CreatedByLabel>
                                 </div>
-                                <AvatarsGroup
-                                    owners={data?.tag?.ownership?.owners}
-                                    entityRegistry={entityRegistry}
-                                    size="large"
-                                />
+                                <AvatarsGroup owners={data?.tag?.ownership?.owners} entityRegistry={entityRegistry} />
                             </div>
                         </div>
                         <StatsBox>
@@ -160,7 +156,6 @@ export default function TagProfile() {
                                                                 ? entityAndSchemaQuery
                                                                 : entityQuery,
                                                         history,
-                                                        entityRegistry,
                                                     })
                                                 }
                                             >

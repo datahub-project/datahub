@@ -25,7 +25,7 @@ export const EntitySidebar = <T,>({ sidebarSections }: Props) => {
     return (
         <ContentContainer>
             {sidebarSections?.map((section) => {
-                if (section.shouldHide?.(entityData, baseEntity) === true) {
+                if (section.display?.visible(entityData, baseEntity) !== true) {
                     return null;
                 }
                 return <section.component properties={section.properties} />;

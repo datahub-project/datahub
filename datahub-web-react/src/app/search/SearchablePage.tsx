@@ -57,18 +57,19 @@ export const SearchablePage = ({ initialQuery, onSearch, onAutoComplete, childre
             type,
             query,
             history,
-            entityRegistry,
         });
     };
 
     const autoComplete = (query: string) => {
-        getAutoCompleteResults({
-            variables: {
-                input: {
-                    query,
+        if (query && query.trim() !== '') {
+            getAutoCompleteResults({
+                variables: {
+                    input: {
+                        query,
+                    },
                 },
-            },
-        });
+            });
+        }
     };
 
     return (

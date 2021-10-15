@@ -1,0 +1,15 @@
+namespace com.linkedin.metadata.search
+
+import com.linkedin.common.Urn
+
+/**
+ * The model for the search result
+ */
+record SearchResultMetadata {
+
+  /**
+   * A list of search result metadata such as aggregations
+   */
+  aggregations: array[AggregationMetadata] = []
+
+}
