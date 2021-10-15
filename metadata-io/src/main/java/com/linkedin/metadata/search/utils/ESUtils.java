@@ -28,7 +28,7 @@ public class ESUtils {
    * Refer to https://www.elastic.co/guide/en/elasticsearch/reference/current/regexp-syntax.html for list of reserved
    * characters in an Elasticsearch regular expression.
    */
-  private static final String ELASTICSEARCH_REGEXP_RESERVED_CHARACTERS = "?+*|{}[]()";
+  private static final String ELASTICSEARCH_REGEXP_RESERVED_CHARACTERS = "?+*|{}[]()#@&<>~";
 
   private ESUtils() {
 
