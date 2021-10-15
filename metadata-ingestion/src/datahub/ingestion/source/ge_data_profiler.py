@@ -1,3 +1,4 @@
+import concurrent.futures
 import contextlib
 import dataclasses
 import logging
@@ -5,7 +6,6 @@ import threading
 import time
 import unittest.mock
 import uuid
-from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Iterable, Iterator, List, Optional, Tuple
 
 from great_expectations.core.expectation_validation_result import (
@@ -96,23 +96,22 @@ class DatahubGEProfiler:
         self.base_engine = conn
         self.report = report
 
-        self.data_context = BaseDataContext(
-            project_config=DataContextConfig(
-                # The datasources will be added later on, as needed.
-                datasources={},
-                store_backend_defaults=InMemoryStoreBackendDefaults(),
-                anonymous_usage_statistics={
-                    "enabled": False,
-                    # "data_context_id": <not set>,
-                },
-            )
-        )
-
     @contextlib.contextmanager
     def _ge_context(self) -> Iterator[GEContext]:
         with self.base_engine.connect() as conn:
-            datasource_name = f"{self._datasource_name_base}-{uuid.uuid4()}"
+            data_context = BaseDataContext(
+                project_config=DataContextConfig(
+                    # The datasource will be added via add_datasource().
+                    datasources={},
+                    store_backend_defaults=InMemoryStoreBackendDefaults(),
+                    anonymous_usage_statistics={
+                        "enabled": False,
+                        # "data_context_id": <not set>,
+                    },
+                )
+            )
 
+            datasource_name = f"{self._datasource_name_base}-{uuid.uuid4()}"
             datasource_config = DatasourceConfig(
                 class_name="SqlAlchemyDatasource",
                 credentials={
@@ -125,13 +124,14 @@ class DatahubGEProfiler:
             with _properly_init_datasource(conn):
                 # Using the add_datasource method ensures that the datasource is added to
                 # GE-internal cache, which avoids problems when calling GE methods later on.
-                assert self.data_context.add_datasource(
+                assert data_context.add_datasource(
                     datasource_name,
                     initialize=True,
                     **dict(datasourceConfigSchema.dump(datasource_config)),
                 )
+            assert data_context.get_datasource(datasource_name)
 
-            yield GEContext(self.data_context, datasource_name)
+            yield GEContext(data_context, datasource_name)
 
     def generate_profiles(
         self, requests: List[GEProfilerRequest], max_workers: int
@@ -142,26 +142,32 @@ class DatahubGEProfiler:
         logger.info(
             f"Will profile {len(requests)} table(s) with {max_workers} worker(s)"
         )
-        with ThreadPoolExecutor(max_workers=max_workers) as async_executor:
+        with concurrent.futures.ThreadPoolExecutor(
+            max_workers=max_workers
+        ) as async_executor:
             async_profiles = [
-                (
+                async_executor.submit(
+                    self.generate_profile_from_request,
                     request,
-                    async_executor.submit(
-                        self.generate_profile,
-                        request.pretty_name,
-                        **request.batch_kwargs,
-                        send_sample_values=request.send_sample_values,
-                    ),
                 )
                 for request in requests
             ]
 
-            for request, async_profile in async_profiles:
-                yield (request, async_profile.result())
+            for async_profile in concurrent.futures.as_completed(async_profiles):
+                yield async_profile.result()
 
         end_time = time.perf_counter()
         logger.info(
             f"Profiling {len(requests)} table(s) finished in {end_time - start_time} seconds"
+        )
+
+    def generate_profile_from_request(
+        self, request: GEProfilerRequest
+    ) -> Tuple[GEProfilerRequest, DatasetProfileClass]:
+        return request, self.generate_profile(
+            request.pretty_name,
+            **request.batch_kwargs,
+            send_sample_values=request.send_sample_values,
         )
 
     def generate_profile(
