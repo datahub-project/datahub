@@ -33,3 +33,7 @@ mutation removeOwner($input: RemoveOwnerInput!) {
 mutation updateDescription($input: DescriptionUpdateInput!) {
     updateDescription(input: $input)
 }
+
+mutation addSurveyResponse($input: AddSurveyResponseInput!) {
+    addSurveyResponse(input: $input)
+}
