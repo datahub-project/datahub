@@ -23,6 +23,7 @@ import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
 import { capitalizeFirstLetter } from '../../shared/capitalizeFirstLetter';
 import ViewDefinitionTab from '../shared/tabs/Dataset/View/ViewDefinitionTab';
 import { SidebarViewDefinitionSection } from '../shared/containers/profile/sidebar/Dataset/View/SidebarViewDefinitionSection';
+import { SidebarRecommendationsSection } from '../shared/containers/profile/sidebar/Recommendations/SidebarRecommendationsSection';
 
 const SUBTYPES = {
     VIEW: 'view',
@@ -162,6 +163,9 @@ export class DatasetEntity implements Entity<Dataset> {
                 {
                     component: SidebarOwnerSection,
                 },
+                {
+                    component: SidebarRecommendationsSection,
+                },
             ]}
         />
     );
@@ -240,5 +244,9 @@ export class DatasetEntity implements Entity<Dataset> {
 
     displayName = (data: Dataset) => {
         return data.name;
+    };
+
+    platformLogoUrl = (data: Dataset) => {
+        return data.platform.info?.logoUrl || undefined;
     };
 }

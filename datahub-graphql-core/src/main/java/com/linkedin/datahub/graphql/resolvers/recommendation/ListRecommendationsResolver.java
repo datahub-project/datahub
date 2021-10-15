@@ -75,7 +75,8 @@ public class ListRecommendationsResolver implements DataFetcher<CompletableFutur
     // People also viewed
     List<String> peopleAlsoViewed =
         ImmutableList.of("urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)",
-            "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleHdfsDataset,PROD)", "urn:li:dashboard:(looker,baz)");
+            "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleHdfsDataset,PROD)", "urn:li:dashboard:(looker,baz)",
+            "urn:li:glossaryTerm:AccountBalance");
     RecommendationModule peopleAlsoViewedModule = new RecommendationModule();
     peopleAlsoViewedModule.setTitle("People also viewed");
     peopleAlsoViewedModule.setModuleType("PeopleAlsoViewed");

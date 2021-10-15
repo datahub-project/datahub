@@ -241,4 +241,8 @@ fragment entityPreview on Entity {
             }
         }
     }
+    ... on Tag {
+        name
+        description
+    }
 }

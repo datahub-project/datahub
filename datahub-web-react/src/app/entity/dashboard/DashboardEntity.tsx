@@ -181,4 +181,8 @@ export class DashboardEntity implements Entity<Dashboard> {
     displayName = (data: Dashboard) => {
         return data.info?.name || data.urn;
     };
+
+    platformLogoUrl = (data: Dashboard) => {
+        return getLogoFromPlatform(data.tool) || undefined;
+    };
 }

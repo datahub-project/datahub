@@ -76,4 +76,8 @@ export class MLModelEntity implements Entity<MlModel> {
     displayName = (data: MlModel) => {
         return data.name;
     };
+
+    platformLogoUrl = (data: MlModel) => {
+        return data.platform.info?.logoUrl || undefined;
+    };
 }

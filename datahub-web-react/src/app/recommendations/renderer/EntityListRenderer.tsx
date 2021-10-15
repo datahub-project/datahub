@@ -1,10 +1,11 @@
 import React from 'react';
 import { List } from 'antd';
 import styled from 'styled-components';
-import { RecommendationContent, RecommendationRenderType } from '../../../types.generated';
+import { Entity, RecommendationContent, RecommendationRenderType } from '../../../types.generated';
 import { PreviewType } from '../../entity/Entity';
 import EntityRegistry from '../../entity/EntityRegistry';
 import { RecommendationDisplayType, RecommendationsRenderer } from './RecommendationsRenderer';
+import { EntityLinkGroup } from './EntityLinkGroup';
 
 const StyledList = styled(List)`
     padding-left: 40px;
@@ -44,22 +45,29 @@ export class EntityListRenderer implements RecommendationsRenderer {
         displayType: RecommendationDisplayType,
     ): JSX.Element {
         // todo: track clicks via module type.
-        console.log(moduleType);
-        console.log(renderType);
-        console.log(displayType);
-        const entities = content.map((cnt) => cnt.entity);
-        return (
-            <StyledList
-                bordered
-                dataSource={entities}
-                renderItem={(item) =>
-                    item && (
-                        <StyledListItem>
-                            {this.entityRegistry.renderPreview(item.type, PreviewType.PREVIEW, item)}
-                        </StyledListItem>
-                    )
-                }
-            />
-        );
+        const entities = content.map((cnt) => cnt.entity).filter((entity) => entity !== undefined && entity !== null);
+
+        const getRecommendationView = (rt, cnt, dt) => {
+            switch (dt) {
+                case RecommendationDisplayType.DISPLAY_NAME_GROUP:
+                    return <EntityLinkGroup entities={entities as Array<Entity>} />;
+                default:
+                    // By default, return a basic entity preview list.
+                    return (
+                        <StyledList
+                            dataSource={entities}
+                            renderItem={(item) =>
+                                item && (
+                                    <StyledListItem>
+                                        {this.entityRegistry.renderPreview(item.type, PreviewType.PREVIEW, item)}
+                                    </StyledListItem>
+                                )
+                            }
+                        />
+                    );
+            }
+        };
+        const recommendationView = getRecommendationView(renderType, content, displayType);
+        return <>{recommendationView}</>;
     }
 }

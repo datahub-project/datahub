@@ -63,4 +63,8 @@ export class GroupEntity implements Entity<CorpGroup> {
     displayName = (data: CorpGroup) => {
         return data.info?.displayName || data.name;
     };
+
+    platformLogoUrl = (_: CorpGroup) => {
+        return undefined;
+    };
 }

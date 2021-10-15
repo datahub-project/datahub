@@ -62,4 +62,8 @@ export class UserEntity implements Entity<CorpUser> {
     displayName = (data: CorpUser) => {
         return data.info?.displayName || data.info?.fullName || data.username;
     };
+
+    platformLogoUrl = (_: CorpUser) => {
+        return undefined;
+    };
 }

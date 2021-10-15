@@ -110,4 +110,10 @@ export interface Entity<T> {
      * Returns a display name for the entity
      */
     displayName: (data: T) => string;
+
+    /**
+     * Returns the url for the platform associated with the entity,
+     * or undefined if one cannot be found
+     */
+    platformLogoUrl: (data: T) => string | undefined;
 }

@@ -182,4 +182,8 @@ export class DataJobEntity implements Entity<DataJob> {
     displayName = (data: DataJob) => {
         return data.info?.name || data.urn;
     };
+
+    platformLogoUrl = (data: DataJob) => {
+        return getLogoFromPlatform(data.dataFlow?.orchestrator || '') || undefined;
+    };
 }

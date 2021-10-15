@@ -186,4 +186,8 @@ export class ChartEntity implements Entity<Chart> {
     displayName = (data: Chart) => {
         return data.info?.name || data.urn;
     };
+
+    platformLogoUrl = (data: Chart) => {
+        return getLogoFromPlatform(data.tool) || undefined;
+    };
 }

@@ -74,4 +74,8 @@ export class MLFeatureEntity implements Entity<MlFeature> {
     displayName = (data: MlFeature) => {
         return data.name;
     };
+
+    platformLogoUrl = (_: MlFeature) => {
+        return undefined;
+    };
 }

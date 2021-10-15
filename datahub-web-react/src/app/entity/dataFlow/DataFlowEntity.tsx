@@ -149,4 +149,8 @@ export class DataFlowEntity implements Entity<DataFlow> {
     displayName = (data: DataFlow) => {
         return data.info?.name || data.urn;
     };
+
+    platformLogoUrl = (data: DataFlow) => {
+        return getLogoFromPlatform(data.orchestrator || '') || undefined;
+    };
 }

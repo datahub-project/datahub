@@ -6,6 +6,8 @@ import { RecommendationContent, RecommendationRenderType } from '../../../types.
 export enum RecommendationDisplayType {
     DEFAULT,
     COMPACT,
+    DISPLAY_NAME_LIST,
+    DISPLAY_NAME_GROUP,
 }
 
 /**

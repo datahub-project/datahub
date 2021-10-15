@@ -17,6 +17,8 @@ import { EventType } from '../analytics';
 import { SearchCfg } from '../../conf';
 import { navigateToSearchUrl } from './utils/navigateToSearchUrl';
 import { ANTD_GRAY } from '../entity/shared/constants';
+import { SearchResultsRecommendations } from './SearchResultsRecommendations';
+import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
 
 const ResultList = styled(List)`
     &&& {
@@ -90,6 +92,10 @@ const ThinDivider = styled(Divider)`
     margin-bottom: 16px;
 `;
 
+const SearchResultsRecommendationsContainer = styled.div`
+    margin-top: 40px;
+`;
+
 interface Props {
     query: string;
     page: number;
@@ -117,6 +123,7 @@ export const SearchResults = ({
     const lastResultIndex = pageStart + pageSize > totalResults ? totalResults : pageStart + pageSize;
 
     const entityRegistry = useEntityRegistry();
+    const authenticatedUserUrn = useGetAuthenticatedUser()?.corpUser?.urn;
 
     const onResultClick = (result: SearchResult, index: number) => {
         analytics.event({
@@ -134,6 +141,7 @@ export const SearchResults = ({
     };
 
     const history = useHistory();
+    const isEmptyResults = !loading && (!searchResponse || searchResponse?.total === 0);
 
     return (
         <>
@@ -167,17 +175,21 @@ export const SearchResults = ({
                                 split={false}
                                 locale={{
                                     emptyText: (
-                                        <NoDataContainer>
-                                            <Empty
-                                                style={{ fontSize: 18, color: ANTD_GRAY[8] }}
-                                                description={`No results found for "${query}"`}
-                                            />
-                                            <Button
-                                                onClick={() => navigateToSearchUrl({ query: '*', page: 0, history })}
-                                            >
-                                                <RocketOutlined /> Explore your metadata
-                                            </Button>
-                                        </NoDataContainer>
+                                        <>
+                                            <NoDataContainer>
+                                                <Empty
+                                                    style={{ fontSize: 18, color: ANTD_GRAY[8] }}
+                                                    description={`No results found for "${query}"`}
+                                                />
+                                                <Button
+                                                    onClick={() =>
+                                                        navigateToSearchUrl({ query: '*', page: 0, history })
+                                                    }
+                                                >
+                                                    <RocketOutlined /> Explore your metadata
+                                                </Button>
+                                            </NoDataContainer>
+                                        </>
                                     ),
                                 }}
                                 renderItem={(item, index) => (
@@ -199,6 +211,15 @@ export const SearchResults = ({
                                     showSizeChanger={false}
                                 />
                             </PaginationControlContainer>
+                            {authenticatedUserUrn && isEmptyResults && (
+                                <SearchResultsRecommendationsContainer>
+                                    <SearchResultsRecommendations
+                                        userUrn={authenticatedUserUrn}
+                                        query={query}
+                                        filters={selectedFilters}
+                                    />
+                                </SearchResultsRecommendationsContainer>
+                            )}
                         </>
                     )}
                 </ResultContainer>

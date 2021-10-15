@@ -76,4 +76,8 @@ export class MLModelGroupEntity implements Entity<MlModelGroup> {
     displayName = (data: MlModelGroup) => {
         return data.name;
     };
+
+    platformLogoUrl = (data: MlModelGroup) => {
+        return data.platform.info?.logoUrl || undefined;
+    };
 }

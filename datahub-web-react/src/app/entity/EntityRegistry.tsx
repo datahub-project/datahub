@@ -122,4 +122,9 @@ export default class EntityRegistry {
         const entity = validatedGet(type, this.entityTypeToEntity);
         return entity.displayName(data);
     }
+
+    getPlatformLogoUrl<T>(type: EntityType, data: T): string | undefined {
+        const entity = validatedGet(type, this.entityTypeToEntity);
+        return entity.platformLogoUrl(data);
+    }
 }

@@ -68,4 +68,8 @@ export class TagEntity implements Entity<Tag> {
     displayName = (data: Tag) => {
         return data.name;
     };
+
+    platformLogoUrl = (_: Tag) => {
+        return undefined;
+    };
 }
