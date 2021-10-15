@@ -381,7 +381,7 @@ public class EbeanEntityService extends EntityService {
     try {
       aspect = GenericAspectUtils.deserializeAspect(metadataChangeProposal.getAspect().getValue(),
           metadataChangeProposal.getAspect().getContentType(), aspectSpec);
-      ValidationUtils.validateOrThrow(aspect, HttpStatus.S_400_BAD_REQUEST);
+      ValidationUtils.validateOrThrow(aspect);
     } catch (ModelConversionException e) {
       throw new RuntimeException(
           String.format("Could not deserialize {} for aspect {}", metadataChangeProposal.getAspect().getValue(),
