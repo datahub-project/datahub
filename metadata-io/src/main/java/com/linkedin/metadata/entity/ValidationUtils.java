@@ -1,7 +1,6 @@
 package com.linkedin.metadata.entity;
 
 import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.metadata.entity.RecordTemplateValidator;
 import com.linkedin.restli.common.HttpStatus;
 import com.linkedin.restli.server.RestLiServiceException;
 import lombok.extern.slf4j.Slf4j;
