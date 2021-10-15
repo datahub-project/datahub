@@ -15,7 +15,10 @@ public class ValidationUtils {
    */
   public static void validateOrThrow(RecordTemplate record) {
     RecordTemplateValidator.validate(record, validationResult -> {
-      throw new ValidationException(String.format("Failed to validate record: %s", validationResult.getMessages().toString()));
+      throw new ValidationException(
+          String.format("Failed to validate record with class %s: %s",
+          record.getClass().getName(),
+          validationResult.getMessages().toString()));
     });
   }
 
