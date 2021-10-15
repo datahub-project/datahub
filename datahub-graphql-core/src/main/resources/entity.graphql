@@ -185,6 +185,11 @@ type Mutation {
     Incubating. Updates the description of a resource. Currently only supports Dataset Schema Fields
     """
     updateDescription(input: DescriptionUpdateInput!): Boolean
+    
+    """
+    Add survey response from a particular Entity. 
+    """
+    addSurveyResponse(input: AddSurveyResponseInput!): Boolean
 }
 
 """
@@ -3820,6 +3825,31 @@ input DescriptionUpdateInput {
     A sub resource identitifer, eg dataset field path
     """
     subResource: String
+}
+
+"""
+Input provided when adding the association between a Metadata Entity and a survey response 
+"""
+input AddSurveyResponseInput {
+    """
+    The time at which the survey response information was submitted
+    """
+    createdAt: Long
+
+    """
+    The responses given to survey questions
+    """
+    responseText: [String]
+
+    """
+    The questions asked to users
+    """
+    questionText: [String]
+
+    """
+    The primary key of the User to add or remove
+    """
+    userUrn: String!
 }
 
 """
