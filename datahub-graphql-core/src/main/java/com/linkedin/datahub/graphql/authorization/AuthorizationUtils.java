@@ -4,11 +4,21 @@ import com.datahub.metadata.authorization.AuthorizationRequest;
 import com.datahub.metadata.authorization.AuthorizationResult;
 import com.datahub.metadata.authorization.Authorizer;
 import com.datahub.metadata.authorization.ResourceSpec;
+import com.google.common.collect.ImmutableList;
+import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.metadata.authorization.PoliciesConfig;
 import java.util.Optional;
 import javax.annotation.Nonnull;
 
 
 public class AuthorizationUtils {
+
+  public static boolean canManageUsersAndGroups(@Nonnull QueryContext context) {
+    final Authorizer authorizer = context.getAuthorizer();
+    final String actor = context.getActor();
+    final ConjunctivePrivilegeGroup andGroup = new ConjunctivePrivilegeGroup(ImmutableList.of(PoliciesConfig.MANAGE_USERS_AND_GROUPS_PRIVILEGE.getType()));
+    return isAuthorized(authorizer, actor, new DisjunctivePrivilegeGroup(ImmutableList.of(andGroup)));
+  }
 
   public static boolean isAuthorized(
       @Nonnull Authorizer authorizer,

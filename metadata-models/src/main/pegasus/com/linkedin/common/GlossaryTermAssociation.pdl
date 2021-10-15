@@ -4,12 +4,14 @@ namespace com.linkedin.common
  * Properties of an applied glossary term.
  */
 record GlossaryTermAssociation {
-   /**
-    * Urn of the applied glossary term
-    */
-    @Searchable = {
-        "fieldName": "glossaryTerms",
-        "fieldType": "URN_PARTIAL"
-    }
-    urn: GlossaryTermUrn
+ /**
+  * Urn of the applied glossary term
+  */
+  @Searchable = {
+    "fieldName": "glossaryTerms",
+    "fieldType": "URN_PARTIAL",
+    "addToFilters": true,
+    "filterNameOverride": "Glossary Term"
+  }
+  urn: GlossaryTermUrn
 }

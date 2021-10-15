@@ -2,15 +2,12 @@
 
 MONITORING_COMPOSE=""
 if [[ $MONITORING == true ]]; then
-  MONITORING_COMPOSE="-f monitoring/docker-compose.monitoring.yml"
+  MONITORING_COMPOSE="-f quickstart/docker-compose.quickstart.monitoring.yml"
 fi
 
 CONSUMERS_COMPOSE=""
 if [[ $SEPARATE_CONSUMERS == true ]]; then
-  CONSUMERS_COMPOSE="-f docker-compose.consumers.yml -f docker-compose.consumers.dev.yml"
-  if [[ $MONITORING == true ]]; then
-    MONITORING_COMPOSE="-f monitoring/docker-compose.monitoring.yml -f monitoring/docker-compose.consumers.monitoring.yml"
-  fi
+  CONSUMERS_COMPOSE="-f docker-compose.consumers.yml"
 fi
 
 # Quickstarts DataHub by pulling all images from dockerhub and then running the containers locally. No images are
@@ -40,5 +37,5 @@ else
     $MONITORING_COMPOSE $CONSUMERS_COMPOSE pull && \
   docker-compose -p datahub \
     -f quickstart/docker-compose-without-neo4j.quickstart.yml \
-    $MONITORING_COMPOSE $CONSUMERS_COMPOSE up
+    $MONITORING_COMPOSE $CONSUMERS_COMPOSE up $@
 fi

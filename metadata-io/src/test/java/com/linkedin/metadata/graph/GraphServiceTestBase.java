@@ -1,9 +1,9 @@
 package com.linkedin.metadata.graph;
 
 import com.linkedin.common.urn.Urn;
-import com.linkedin.metadata.query.Filter;
-import com.linkedin.metadata.query.RelationshipDirection;
-import com.linkedin.metadata.query.RelationshipFilter;
+import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.query.filter.RelationshipDirection;
+import com.linkedin.metadata.query.filter.RelationshipFilter;
 import org.testng.Assert;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -25,9 +25,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-import static com.linkedin.metadata.dao.utils.QueryUtils.EMPTY_FILTER;
-import static com.linkedin.metadata.dao.utils.QueryUtils.newFilter;
-import static com.linkedin.metadata.dao.utils.QueryUtils.newRelationshipFilter;
+import static com.linkedin.metadata.search.utils.QueryUtils.EMPTY_FILTER;
+import static com.linkedin.metadata.search.utils.QueryUtils.newFilter;
+import static com.linkedin.metadata.search.utils.QueryUtils.newRelationshipFilter;
 import static org.testng.Assert.*;
 
 /**
