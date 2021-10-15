@@ -6,6 +6,8 @@ import CloseIcon from '../../images/close-button.svg';
 import { EmojiQuestion } from './EmojiQuestion';
 import { YesNoQuestion } from './YesNoQuestion';
 import { FreeTextQuestion } from './FreeTextQuestion';
+import { useAddSurveyResponseMutation } from '../../graphql/mutations.generated';
+import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
 
 const ShowSurveyButton = styled.button<{ showModal: boolean }>`
     position: fixed;
@@ -95,6 +97,9 @@ export const Survey = () => {
     const [response2, setResponse2] = useState('');
     const [response3, setResponse3] = useState('');
     const [showQuestionNumber, setShowQuestionNumber] = useState(0);
+    const [addSurveyResponseMutation] = useAddSurveyResponseMutation();
+    const user = useGetAuthenticatedUser();
+
     useEffect(() => {
         setShowQuestionNumber((s) => s + 1);
     }, [response1, response2]);
@@ -102,26 +107,37 @@ export const Survey = () => {
     const submitResponses = (e) => {
         e.preventDefault();
         setShowModal(false);
-        console.log(response3);
-        const requestOptions = {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ response: response3 }),
+        let mutation: ((input: any) => Promise<any>) | null = null;
+        mutation = addSurveyResponseMutation;
+        const input = {
+            createdAt: Date.now(),
+            responseText: [response1, response2, response3],
+            // questionText is hard coded for now
+            // TODO change questionText according to question config (to come)
+            questionText: [
+                'Hows your experience with DH so far',
+                'Were you able to find what you were looking for',
+                'Leave us your feedback',
+            ],
+            userUrn: user?.corpUser.urn,
         };
-        fetch('/entities?action=ingest', requestOptions)
-            .then(async (response) => {
-                console.log(response);
-                if (!response.ok) {
-                    const data = await response.json();
-                    console.log('This is the response data ', data);
-                    const error = (data && data.message) || response.status;
-                    console.log('error: ', error);
-                    return Promise.reject(error);
+        mutation({
+            variables: {
+                input,
+            },
+        })
+            .then(({ errors }) => {
+                if (!errors) {
+                    message.success({
+                        content: 'Successfully Submitted Response!',
+                        duration: 2,
+                    });
                 }
-                return Promise.resolve();
             })
             .catch((error) => {
-                message.error(`Failed to submit response! ${error}`);
+                console.log({ error });
+                message.destroy();
+                message.error({ content: 'Failed to submit response' });
             });
     };
 
