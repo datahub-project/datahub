@@ -1,8 +1,15 @@
 import contextlib
-import dataclasses
-import unittest.mock
-from typing import Any, Iterable, Optional
 
+# import cProfile
+import dataclasses
+import logging
+import unittest.mock
+from typing import Any, Dict, Iterable, List, Optional
+
+# import great_expectations.core
+from great_expectations.core import ExpectationSuite
+
+# from great_expectations.core.batch import Batch
 from great_expectations.core.expectation_validation_result import (
     ExpectationSuiteValidationResult,
     ExpectationValidationResult,
@@ -13,8 +20,14 @@ from great_expectations.data_context.types.base import (
     DatasourceConfig,
     InMemoryStoreBackendDefaults,
 )
+from great_expectations.dataset.dataset import Dataset
 from great_expectations.datasource.sqlalchemy_datasource import SqlAlchemyDatasource
+from great_expectations.profile.base import DatasetProfiler
+from great_expectations.profile.user_configurable_profiler import (
+    UserConfigurableProfiler,
+)
 
+from datahub.configuration.common import ConfigModel
 from datahub.emitter.mce_builder import get_sys_time
 from datahub.ingestion.api.source import SourceReport
 from datahub.metadata.schema_classes import (
@@ -25,6 +38,8 @@ from datahub.metadata.schema_classes import (
     ValueFrequencyClass,
 )
 from datahub.utilities.groupby import groupby_unsorted
+
+logger: logging.Logger = logging.getLogger(__name__)
 
 # The reason for this wacky structure is quite fun. GE basically assumes that
 # the config structures were generated directly from YML and further assumes that
@@ -60,17 +75,109 @@ def _properly_init_datasource(conn):
         yield
 
 
+class GEProfilingConfig(ConfigModel):
+    enabled: bool = False
+    limit: Optional[int] = None
+    offset: Optional[int] = None
+    profile_table_level_only: bool = True
+    # TODO: Translate what sub-knobs this translates to.
+    turn_off_expensive_profiling_metrics: bool = True
+    get_field_level_stats_if_not_null_only: bool = False
+    get_field_unique_count: bool = True
+    get_field_unique_proportion: bool = True
+    get_field_null_count: bool = True
+    get_field_min_value: bool = True
+    get_field_max_value: bool = True
+    get_field_mean_value: bool = True
+    get_field_median_value: bool = True
+    get_field_stddev_value: bool = True
+    get_field_quantiles: bool = True
+    get_field_distinct_value_frequencies: bool = True
+    get_field_histogram: bool = True
+    get_field_sample_values: bool = True
+
+
+class DatahubConfigurableProfiler(DatasetProfiler):
+    """
+    This is simply a wrapper over the GE's UserConfigurableProfile, since it does not inherit from DatasetProfile.
+    """
+
+    @staticmethod
+    def datahub_config_to_ge_config(config: GEProfilingConfig) -> Dict[str, Any]:
+        ge_config: Dict[str, Any] = {}
+        ge_config["table_expectations_only"] = config.profile_table_level_only
+        ge_config["not_null_only"] = config.get_field_level_stats_if_not_null_only
+        # TODO: This is tricky!
+        ge_config["ignored_columns"] = []
+        # TODO: Set excluded expectations
+        excluded_expectations: List[str] = []
+        if not config.profile_table_level_only:
+            if not config.get_field_unique_count:
+                excluded_expectations.append(
+                    "expect_column_unique_value_count_to_be_between"
+                )
+            if not config.get_field_unique_proportion:
+                excluded_expectations.append(
+                    "expect_column_proportion_of_unique_values_to_be_between"
+                )
+            if not config.get_field_null_count:
+                excluded_expectations.append("expect_column_values_to_not_be_null")
+            if not config.get_field_min_value:
+                excluded_expectations.append("expect_column_min_to_be_between")
+            if not config.get_field_max_value:
+                excluded_expectations.append("expect_column_max_to_be_between")
+            if not config.get_field_mean_value:
+                excluded_expectations.append("expect_column_mean_to_be_between")
+            if not config.get_field_median_value:
+                excluded_expectations.append("expect_column_median_to_be_between")
+            if not config.get_field_stddev_value:
+                excluded_expectations.append("expect_column_stdev_to_be_between")
+            if not config.get_field_quantiles:
+                excluded_expectations.append(
+                    "expect_column_quantile_values_to_be_between"
+                )
+            if not config.get_field_distinct_value_frequencies:
+                excluded_expectations.append(
+                    "expect_column_distinct_values_to_be_in_set"
+                )
+            if not config.get_field_histogram:
+                excluded_expectations.append(
+                    "expect_column_kl_divergence_to_be_less_than"
+                )
+            if not config.get_field_sample_values:
+                excluded_expectations.append("expect_column_values_to_be_in_set")
+
+        ge_config["excluded_expectations"] = excluded_expectations
+        return ge_config
+
+    @classmethod
+    def _profile(
+        cls, dataset: Dataset, configuration: Optional[Dict[str, Any]] = None
+    ) -> ExpectationSuite:
+        """
+        Override method, which returns the expectation suite using the UserConfigurable Profiler.
+        """
+        profiler = (
+            UserConfigurableProfiler(profile_dataset=dataset)
+            if configuration is None
+            else UserConfigurableProfiler(profile_dataset=dataset, **configuration)
+        )
+        return profiler.build_suite()
+
+
 @dataclasses.dataclass
 class DatahubGEProfiler:
     data_context: BaseDataContext
     report: SourceReport
+    config: GEProfilingConfig
 
     # The actual value doesn't matter, it just matters that we use it consistently throughout.
     datasource_name: str = "my_sqlalchemy_datasource"
 
-    def __init__(self, conn, report):
+    def __init__(self, conn, report, config):
         self.conn = conn
         self.report = report
+        self.config = config
 
         data_context_config = DataContextConfig(
             datasources={
@@ -99,49 +206,58 @@ class DatahubGEProfiler:
         pretty_name: str,
         schema: str = None,
         table: str = None,
-        limit: int = None,
-        offset: int = None,
-        send_sample_values: bool = True,
         **kwargs: Any,
-    ) -> DatasetProfileClass:
+    ) -> Optional[DatasetProfileClass]:
         with _properly_init_datasource(self.conn):
             evrs = self._profile_data_asset(
-                {
+                batch_kwargs={
+                    "datasource": self.datasource_name,
                     "schema": schema,
                     "table": table,
-                    "limit": limit,
-                    "offset": offset,
+                    "limit": self.config.limit,
+                    "offset": self.config.offset,
                     **kwargs,
                 },
                 pretty_name=pretty_name,
             )
 
-        profile = self._convert_evrs_to_profile(
-            evrs, pretty_name=pretty_name, send_sample_values=send_sample_values
-        )
+        if evrs is not None:
+            return self._convert_evrs_to_profile(
+                evrs,
+                pretty_name=pretty_name,
+                send_sample_values=self.config.get_field_sample_values,
+            )
 
-        return profile
+        return None
 
     def _profile_data_asset(
         self,
         batch_kwargs: dict,
         pretty_name: str,
     ) -> ExpectationSuiteValidationResult:
-        # Internally, this uses the GE dataset profiler:
-        # great_expectations.profile.basic_dataset_profiler.BasicDatasetProfiler
+        try:
+            profile_results = self.data_context.profile_data_asset(
+                self.datasource_name,
+                profiler=DatahubConfigurableProfiler,
+                profiler_configuration=DatahubConfigurableProfiler.datahub_config_to_ge_config(
+                    self.config
+                ),
+                batch_kwargs={
+                    "datasource": self.datasource_name,
+                    **batch_kwargs,
+                },
+            )
 
-        profile_results = self.data_context.profile_data_asset(
-            self.datasource_name,
-            batch_kwargs={
-                "datasource": self.datasource_name,
-                **batch_kwargs,
-            },
-        )
-        assert profile_results["success"]
+            assert profile_results["success"]
 
-        assert len(profile_results["results"]) == 1
-        _suite, evrs = profile_results["results"][0]
-        return evrs
+            assert len(profile_results["results"]) == 1
+            _suite, evrs = profile_results["results"][0]
+            return evrs
+        except Exception as e:
+            logger.warning(
+                f"Encountered exception {e}\nwhile profiling {pretty_name}, {batch_kwargs}"
+            )
+            return None
 
     @staticmethod
     def _get_column_from_evr(evr: ExpectationValidationResult) -> Optional[str]:
@@ -150,7 +266,7 @@ class DatahubGEProfiler:
     # The list of handled expectations has been created by referencing these files:
     # - https://github.com/great-expectations/great_expectations/blob/71e9c1eae433a31416a38de1688e2793e9778299/great_expectations/render/renderer/profiling_results_overview_section_renderer.py
     # - https://github.com/great-expectations/great_expectations/blob/71e9c1eae433a31416a38de1688e2793e9778299/great_expectations/render/renderer/column_section_renderer.py
-    # - https://github.com/great-expectations/great_expectations/blob/71e9c1eae433a31416a38de1688e2793e9778299/great_expectations/profile/basic_dataset_profiler.py
+    # - https://github.com/great-expectations/great_expectations/blob/71e9c1eae433a31416a38de1688e2793e9778299/great_expectations/profile/user_configurable_profiler.py
 
     def _convert_evrs_to_profile(
         self,

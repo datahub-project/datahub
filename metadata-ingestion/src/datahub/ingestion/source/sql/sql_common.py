@@ -107,13 +107,6 @@ class SQLSourceReport(SourceReport):
         self.filtered.append(ent_name)
 
 
-class GEProfilingConfig(ConfigModel):
-    enabled: bool = False
-    limit: Optional[int] = None
-    offset: Optional[int] = None
-    send_sample_values: Optional[bool] = True
-
-
 class SQLAlchemyConfig(ConfigModel):
     env: str = DEFAULT_ENV
     options: dict = {}
@@ -128,6 +121,8 @@ class SQLAlchemyConfig(ConfigModel):
 
     include_views: Optional[bool] = True
     include_tables: Optional[bool] = True
+
+    from datahub.ingestion.source.ge_data_profiler import GEProfilingConfig
 
     profiling: GEProfilingConfig = GEProfilingConfig()
 
@@ -543,7 +538,9 @@ class SQLAlchemySource(Source):
     def _get_profiler_instance(self, inspector: Inspector) -> "DatahubGEProfiler":
         from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler
 
-        return DatahubGEProfiler(conn=inspector.bind, report=self.report)
+        return DatahubGEProfiler(
+            conn=inspector.bind, report=self.report, config=self.config.profiling
+        )
 
     def loop_profiler(
         self,
@@ -572,6 +569,9 @@ class SQLAlchemySource(Source):
             )
             logger.debug(f"Finished profiling {dataset_name}")
 
+            if profile is None:
+                continue
+
             mcp = MetadataChangeProposalWrapper(
                 entityType="dataset",
                 entityUrn=f"urn:li:dataset:(urn:li:dataPlatform:{self.platform},{dataset_name},{self.config.env})",
@@ -587,9 +587,6 @@ class SQLAlchemySource(Source):
         return dict(
             schema=schema,
             table=table,
-            limit=self.config.profiling.limit,
-            offset=self.config.profiling.offset,
-            send_sample_values=self.config.profiling.send_sample_values,
         )
 
     def get_report(self):
