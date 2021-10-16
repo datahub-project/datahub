@@ -51,6 +51,8 @@ AvroNonNestedSchemas = Union[
 
 FieldStack = List[avro.schema.Field]
 
+NULL = "null"
+
 # ------------------------------------------------------------------------------
 # AvroToMceSchemaConverter
 
@@ -62,7 +64,7 @@ class AvroToMceSchemaConverter:
     version_string: str = "[version=2.0]"
 
     field_type_mapping: Dict[str, Any] = {
-        "null": NullTypeClass,
+        NULL: NullTypeClass,
         "bool": BooleanTypeClass,
         "boolean": BooleanTypeClass,
         "int": NumberTypeClass,
@@ -121,7 +123,7 @@ class AvroToMceSchemaConverter:
         if isinstance(schema, avro.schema.UnionSchema):
             return any(self._is_nullable(sub_schema) for sub_schema in schema.schemas)
         elif isinstance(schema, avro.schema.PrimitiveSchema):
-            return schema.name == "null"
+            return schema.type == NULL
         else:
             return False
 
@@ -138,9 +140,9 @@ class AvroToMceSchemaConverter:
         if isinstance(schema, avro.schema.UnionSchema) and len(schema.schemas) == 2:
             # Optional types as unions in AVRO. Return underlying non-null sub-type.
             (first, second) = schema.schemas
-            if first.type == avro.schema.NULL:
+            if first.type == NULL:
                 return second.type
-            elif second.type == avro.schema.NULL:
+            elif second.type == NULL:
                 return first.type
 
         # For everything else, use the schema's type
@@ -160,9 +162,9 @@ class AvroToMceSchemaConverter:
     ) -> AvroNestedSchemas:
         if isinstance(schema, avro.schema.UnionSchema) and len(schema.schemas) == 2:
             (first, second) = schema.schemas
-            if first.type == avro.schema.NULL:
+            if first.type == NULL:
                 return second
-            elif second.type == avro.schema.NULL:
+            elif second.type == NULL:
                 return first
         return default
 
@@ -273,7 +275,7 @@ class AvroToMceSchemaConverter:
                 yield is_option_as_union_type
             else:
                 for sub_schema in schema.schemas:
-                    if sub_schema.type != avro.schema.NULL:
+                    if sub_schema.type != NULL:
                         yield sub_schema
         # Record type
         elif isinstance(schema, avro.schema.RecordSchema):
