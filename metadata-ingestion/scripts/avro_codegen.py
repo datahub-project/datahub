@@ -22,16 +22,15 @@ def merge_schemas(schemas: List[str]) -> str:
     schemas_obj = [json.loads(schema) for schema in schemas]
     merged = ["null"] + schemas_obj
 
-    # Deduplicate repeated names.
-    def Register(self, schema):
-        if schema.fullname in self._names:
-            # print(f"deduping {schema.fullname}")
-            pass
-        else:
-            self._names[schema.fullname] = schema
+    # Patch add_name method to NOT complain about duplicate names
+    def add_name(self, name_attr, space_attr, new_schema):
+        to_add = avro.schema.Name(name_attr, space_attr, self.default_namespace)
 
-    with unittest.mock.patch("avro.schema.Names.Register", Register):
-        cleaned_schema = avro.schema.SchemaFromJSONData(merged)
+        self.names[to_add.fullname] = new_schema
+        return to_add
+
+    with unittest.mock.patch("avro.schema.Names.add_name", add_name):
+        cleaned_schema = avro.schema.make_avsc_object(merged)
 
     # Convert back to an Avro schema JSON representation.
     class MappingProxyEncoder(json.JSONEncoder):
