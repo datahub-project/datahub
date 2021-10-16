@@ -111,7 +111,7 @@ public class SendMAEStep implements UpgradeStep {
           final MetadataChangeLog metadataChangeLog = new MetadataChangeLog();
           metadataChangeLog.setEntityType(entityName);
           metadataChangeLog.setEntityUrn(urn);
-          metadataChangeLog.setChangeType(ChangeType.UPDATE);
+          metadataChangeLog.setChangeType(ChangeType.UPSERT);
           metadataChangeLog.setAspectName(aspectName);
           metadataChangeLog.setAspect(GenericAspectUtils.serializeAspect(aspectRecord));
           metadataChangeLog.setSystemMetadata(latestSystemMetadata);

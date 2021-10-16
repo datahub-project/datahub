@@ -331,7 +331,7 @@ public class EbeanEntityService extends EntityService {
       final MetadataChangeLog metadataChangeLog = new MetadataChangeLog();
       metadataChangeLog.setEntityType(entityName);
       metadataChangeLog.setEntityUrn(urn);
-      metadataChangeLog.setChangeType(ChangeType.UPDATE);
+      metadataChangeLog.setChangeType(ChangeType.UPSERT);
       metadataChangeLog.setAspectName(aspectName);
       metadataChangeLog.setAspect(GenericAspectUtils.serializeAspect(newValue));
       metadataChangeLog.setSystemMetadata(result.newSystemMetadata);
