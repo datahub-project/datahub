@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.group;
 
+import com.linkedin.common.CorpGroupUrnArray;
+import com.linkedin.common.CorpuserUrnArray;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
@@ -46,6 +48,9 @@ public class CreateGroupResolver implements DataFetcher<CompletableFuture<String
           final CorpGroupInfo info = new CorpGroupInfo();
           info.setDisplayName(input.getName());
           info.setDescription(input.getDescription());
+          info.setGroups(new CorpGroupUrnArray());
+          info.setMembers(new CorpuserUrnArray());
+          info.setAdmins(new CorpuserUrnArray());
 
           // Finally, create the MetadataChangeProposal.
           final MetadataChangeProposal proposal = new MetadataChangeProposal();
