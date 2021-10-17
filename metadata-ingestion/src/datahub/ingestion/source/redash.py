@@ -167,6 +167,18 @@ class MysqlQualifiedNameParser(QualifiedNameParser):
 
 
 @dataclass
+class AthenaQualifiedNameParser(QualifiedNameParser):
+    split_char: str = "."
+    names: List = field(default_factory=lambda: ["database_name", "table_name"])
+
+    def get_full_qualified_name(self, database_name: str, table_name: str) -> str:
+        self.get_segments(table_name)
+        _database_name = self.segments_dict.get("database_name") or database_name
+        _table_name = self.segments_dict.get("table_name")
+        return f"{_database_name}{self.split_char}{_table_name}"
+
+
+@dataclass
 class BigqueryQualifiedNameParser(QualifiedNameParser):
     split_char: str = "."
     names: List = field(
@@ -193,6 +205,10 @@ def get_full_qualified_name(platform: str, database_name: str, table_name: str) 
         )
     elif platform == "mssql":
         full_qualified_name = MssqlQualifiedNameParser().get_full_qualified_name(
+            database_name, table_name
+        )
+    elif platform == "athena":
+        full_qualified_name = AthenaQualifiedNameParser().get_full_qualified_name(
             database_name, table_name
         )
     elif platform == "bigquery":
