@@ -148,8 +148,8 @@ def test_avro_schema_to_mce_fields_record_with_two_fields():
 """
     fields = avro_schema_to_mce_fields(schema)
     expected_field_paths = [
-        "[version=2.0].[type=name].[type=string].a",
-        "[version=2.0].[type=name].[type=string].b",
+        "[version=2.0].[type=some.event.name].[type=string].a",
+        "[version=2.0].[type=some.event.name].[type=string].b",
     ]
     assret_field_paths_match(fields, expected_field_paths)
 
@@ -162,6 +162,29 @@ def test_avro_schema_to_mce_fields_toplevel_isnt_a_record():
 """
     fields = avro_schema_to_mce_fields(schema)
     expected_field_paths = ["[version=2.0].[type=string]"]
+    assret_field_paths_match(fields, expected_field_paths)
+
+
+def test_avro_schema_namespacing():
+    schema = """
+{
+  "type": "record",
+  "name": "name",
+  "namespace": "some.event.namespace",
+  "fields": [
+    {
+      "name": "aStringField",
+      "type": "string",
+      "doc": "some docs",
+      "default": "this is custom, default value"
+    }
+  ]
+}
+"""
+    fields = avro_schema_to_mce_fields(schema)
+    expected_field_paths = [
+        "[version=2.0].[type=name].[type=string].aStringField",
+    ]
     assret_field_paths_match(fields, expected_field_paths)
 
 
@@ -183,7 +206,7 @@ def test_avro_schema_to_mce_fields_with_default():
 """
     fields = avro_schema_to_mce_fields(schema)
     expected_field_paths = [
-        "[version=2.0].[type=name].[type=string].aStringField",
+        "[version=2.0].[type=some.event.name].[type=string].aStringField",
     ]
     assret_field_paths_match(fields, expected_field_paths)
     description = fields[0].description
