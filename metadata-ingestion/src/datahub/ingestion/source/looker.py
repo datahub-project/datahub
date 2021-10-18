@@ -518,7 +518,9 @@ class LookerDashboardSource(Source):
             chartUrl=dashboard_element.url(self.source_config.base_url),
             inputs=dashboard_element.get_view_urns(self.source_config),
             customProperties={
-                "upstream_fields": ",".join(set(dashboard_element.upstream_fields))
+                "upstream_fields": ",".join(
+                    sorted(set(dashboard_element.upstream_fields))
+                )
                 if dashboard_element.upstream_fields
                 else ""
             },

@@ -1,6 +1,6 @@
 package com.linkedin.metadata.graph;
 
-import com.linkedin.metadata.query.RelationshipFilter;
+import com.linkedin.metadata.query.filter.RelationshipFilter;
 import org.neo4j.driver.Driver;
 import org.neo4j.driver.GraphDatabase;
 import org.testng.SkipException;

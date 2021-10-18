@@ -61,7 +61,7 @@ export default function useSchemaTitleRenderer(
                 <FieldPathContainer>
                     <FieldPathText>{lastPath || firstPath}</FieldPathText>
                     <TypeLabel type={record.type} nativeDataType={record.nativeDataType} />
-                    {schemaMetadata?.primaryKeys?.includes(fieldPath) && <PrimaryKeyLabel />}
+                    {(schemaMetadata?.primaryKeys?.includes(fieldPath) || record.isPartOfKey) && <PrimaryKeyLabel />}
                     {schemaMetadata?.foreignKeys
                         ?.filter(
                             (constraint) =>
