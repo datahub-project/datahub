@@ -14,7 +14,7 @@ This plugin extracts the following:
 - Groups
 - Group Membership
 
-from your Azure AD instance. 
+from your Azure AD instance.
 
 ### Extracting DataHub Users
 
@@ -71,8 +71,12 @@ This is a known limitation in our data model that is being tracked by [this tick
 
 ## Quickstart recipe
 
-As a prerequisite, you should [create a DataHub Application](https://docs.microsoft.com/en-us/graph/toolkit/get-started/add-aad-app-registration) within the Azure AD Portal with full permissions
-to read your organization's Users and Groups. 
+As a prerequisite, you should [create a DataHub Application](https://docs.microsoft.com/en-us/graph/toolkit/get-started/add-aad-app-registration) within the Azure AD Portal with the permissions
+to read your organization's Users and Groups. The required API permissions include the following:
+
+- `Group.Read.All`
+- `GroupMember.Read.All`
+- `User.Read.All`
 
 You can use the following recipe to get started with Azure ingestion! See [below](#config-details) for full configuration options.
 
