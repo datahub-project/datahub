@@ -1,5 +1,6 @@
 package com.linkedin.metadata.search.features;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.graph.GraphService;
@@ -9,7 +10,6 @@ import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.utils.Neo4jUtil;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.utils.ConcurrencyUtils;
-import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +21,8 @@ import lombok.extern.slf4j.Slf4j;
 public class GraphBasedFeature implements FeatureExtractor {
 
   private final GraphService _graphService;
+
+  private static final List<String> RELEVANT_RELATIONSHIP_TYPES = ImmutableList.of("DownstreamOf", "Consumes");
 
   @Override
   public List<Features> extractFeatures(List<SearchEntity> entities) {
@@ -34,7 +36,7 @@ public class GraphBasedFeature implements FeatureExtractor {
   private int getOutDegree(Urn urn) {
     RelatedEntitiesResult graphResult =
         _graphService.findRelatedEntities("", QueryUtils.EMPTY_FILTER, "", QueryUtils.newFilter("urn", urn.toString()),
-            Collections.emptyList(),
+            RELEVANT_RELATIONSHIP_TYPES,
             Neo4jUtil.newRelationshipFilter(QueryUtils.EMPTY_FILTER, RelationshipDirection.OUTGOING), 0, 1000);
     return graphResult.getCount();
   }
