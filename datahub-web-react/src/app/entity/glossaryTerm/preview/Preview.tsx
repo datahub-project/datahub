@@ -22,7 +22,8 @@ export const Preview = ({
             name={name || ''}
             description={definition || ''}
             owners={owners}
-            logoComponent={<BookOutlined style={{ fontSize: '24px' }} />}
+            logoComponent={<BookOutlined style={{ fontSize: '20px' }} />}
+            type="Glossary Term"
         />
     );
 };

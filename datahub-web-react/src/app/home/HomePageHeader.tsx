@@ -31,6 +31,7 @@ const WelcomeText = styled(Typography.Text)`
 
 const SubHeaderText = styled(Typography.Text)`
     font-size: 20px;
+    font-weight: 500;
     color: ${(props) =>
         props.theme.styles['homepage-text-color'] || props.theme.styles['homepage-background-lower-fade']};
 `;
@@ -155,12 +156,11 @@ export const HomePageHeader = () => {
             type,
             query,
             history,
-            entityRegistry,
         });
     };
 
     const onAutoComplete = (query: string) => {
-        if (query && query !== '') {
+        if (query && query.trim() !== '') {
             getAutoCompleteResultsForMultiple({
                 variables: {
                     input: {
@@ -187,6 +187,10 @@ export const HomePageHeader = () => {
     const suggestionsToShow = useMemo(() => {
         let result: string[] = [];
         if (!suggestionsLoading) {
+            // TODO: Make this more dynamic.
+            // Add a ticket.
+            // Colored Tags: Feature Request...
+            // ...
             [EntityType.Dashboard, EntityType.Chart, EntityType.Dataset].forEach((type) => {
                 const suggestionsToShowForEntity = getSuggestionFieldsFromResult(
                     allSearchResultsByType[type]?.data,
@@ -258,7 +262,6 @@ export const HomePageHeader = () => {
                                                     type: undefined,
                                                     query: suggestion,
                                                     history,
-                                                    entityRegistry,
                                                 })
                                             }
                                         >

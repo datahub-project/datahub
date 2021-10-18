@@ -1,11 +1,7 @@
 package com.linkedin.metadata.entity.ebean;
 
-import com.google.common.annotations.VisibleForTesting;
-
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.metadata.entity.AspectStorageValidationUtil;
-import com.linkedin.metadata.entity.ListResult;
 import com.linkedin.metadata.dao.exception.ModelConversionException;
 import com.linkedin.metadata.dao.exception.RetryLimitReached;
 import com.linkedin.metadata.dao.retention.IndefiniteRetention;
@@ -13,18 +9,19 @@ import com.linkedin.metadata.dao.retention.Retention;
 import com.linkedin.metadata.dao.retention.TimeBasedRetention;
 import com.linkedin.metadata.dao.retention.VersionBasedRetention;
 import com.linkedin.metadata.dao.utils.QueryUtils;
+import com.linkedin.metadata.entity.AspectStorageValidationUtil;
+import com.linkedin.metadata.entity.ListResult;
 import com.linkedin.metadata.query.ExtraInfo;
 import com.linkedin.metadata.query.ExtraInfoArray;
 import com.linkedin.metadata.query.ListResultMetadata;
 import io.ebean.DuplicateKeyException;
 import io.ebean.EbeanServer;
-import io.ebean.EbeanServerFactory;
 import io.ebean.PagedList;
 import io.ebean.Query;
 import io.ebean.RawSql;
 import io.ebean.RawSqlBuilder;
 import io.ebean.Transaction;
-import io.ebean.config.ServerConfig;
+import io.ebean.annotation.TxIsolation;
 import java.net.URISyntaxException;
 import java.sql.Timestamp;
 import java.time.Clock;
@@ -43,12 +40,11 @@ import javax.persistence.RollbackException;
 import javax.persistence.Table;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.Constants.ASPECT_LATEST_VERSION;
 
 @Slf4j
 public class EbeanAspectDao {
 
-  public static final String EBEAN_MODEL_PACKAGE = EbeanAspectV2.class.getPackage().getName();
   private static final IndefiniteRetention INDEFINITE_RETENTION = new IndefiniteRetention();
 
   private final EbeanServer _server;
@@ -58,16 +54,6 @@ public class EbeanAspectDao {
 
   private int _queryKeysCount = 0; // 0 means no pagination on keys
 
-  /**
-   * Constructor for EntityEbeanDao.
-   *
-   * @param serverConfig {@link ServerConfig} that defines the configuration of EbeanServer instances
-   */
-  public EbeanAspectDao(@Nonnull final ServerConfig serverConfig) {
-    this(createServer(serverConfig));
-  }
-
-  @VisibleForTesting
   public EbeanAspectDao(@Nonnull final EbeanServer server) {
     _server = server;
   }
@@ -471,7 +457,7 @@ public class EbeanAspectDao {
 
     T result = null;
     do {
-      try (Transaction transaction = _server.beginTransaction()) {
+      try (Transaction transaction = _server.beginTransaction(TxIsolation.REPEATABLE_READ)) {
         result = block.get();
         transaction.commit();
         lastException = null;
@@ -609,15 +595,5 @@ public class EbeanAspectDao {
     final ListResultMetadata listResultMetadata = new ListResultMetadata();
     listResultMetadata.setExtraInfos(new ExtraInfoArray(extraInfos));
     return listResultMetadata;
-  }
-
-  @Nonnull
-  private static EbeanServer createServer(@Nonnull final ServerConfig serverConfig) {
-    // Make sure that the serverConfig includes the package that contains DAO's Ebean model.
-    if (!serverConfig.getPackages().contains(EBEAN_MODEL_PACKAGE)) {
-      serverConfig.getPackages().add(EBEAN_MODEL_PACKAGE);
-    }
-    // TODO: Consider supporting SCSI
-    return EbeanServerFactory.create(serverConfig);
   }
 }

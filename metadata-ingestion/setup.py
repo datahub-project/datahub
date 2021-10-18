@@ -104,10 +104,12 @@ plugins: Dict[str, Set[str]] = {
     "mssql": sql_common | {"sqlalchemy-pytds>=0.3"},
     "mssql-odbc": sql_common | {"pyodbc"},
     "mysql": sql_common | {"pymysql>=1.0.2"},
+    # mariadb should have same dependency as mysql
+    "mariadb": sql_common | {"pymysql>=1.0.2"},
     "okta": {"okta~=1.7.0"},
     "oracle": sql_common | {"cx_Oracle"},
     "postgres": sql_common | {"psycopg2-binary", "GeoAlchemy2"},
-    "redash": {"redash-toolbelt"},
+    "redash": {"redash-toolbelt", "sql-metadata"},
     "redshift": sql_common | {"sqlalchemy-redshift", "psycopg2-binary", "GeoAlchemy2"},
     "redshift-usage": sql_common
     | {"sqlalchemy-redshift", "psycopg2-binary", "GeoAlchemy2"},
@@ -117,6 +119,13 @@ plugins: Dict[str, Set[str]] = {
     "sqlalchemy": sql_common,
     "sql-profiles": sql_common | {"great-expectations"},
     "superset": {"requests"},
+    "trino": sql_common
+    | {
+        # SQLAlchemy support is coming up in trino python client
+        # subject to PR merging - https://github.com/trinodb/trino-python-client/pull/81.
+        # PR is from same author as that of sqlalchemy-trino library below.
+        "sqlalchemy-trino"
+    },
 }
 
 all_exclude_plugins: Set[str] = {
@@ -170,6 +179,7 @@ base_dev_requirements = {
             "bigquery-usage",
             "looker",
             "glue",
+            "mariadb",
             "okta",
             "oracle",
             "postgres",
@@ -187,8 +197,10 @@ base_dev_requirements = {
 
 if is_py37_or_newer:
     # The lookml plugin only works on Python 3.7 or newer.
+    # The trino plugin only works on Python 3.7 or newer.
+    # The trino plugin can be supported on Python 3.6 with minimal changes to opensource sqlalchemy-trino sourcecode.
     base_dev_requirements = base_dev_requirements.union(
-        {dependency for plugin in ["lookml"] for dependency in plugins[plugin]}
+        {dependency for plugin in ["lookml", "trino"] for dependency in plugins[plugin]}
     )
 
 dev_requirements = {
@@ -214,6 +226,7 @@ full_test_dev_requirements = {
             "mongodb",
             "mssql",
             "mysql",
+            "mariadb",
             "snowflake",
             "sql-profiles",
             "redash",
@@ -246,6 +259,7 @@ entry_points = {
         "mongodb = datahub.ingestion.source.mongodb:MongoDBSource",
         "mssql = datahub.ingestion.source.sql.mssql:SQLServerSource",
         "mysql = datahub.ingestion.source.sql.mysql:MySQLSource",
+        "mariadb = datahub.ingestion.source.sql.mariadb.MariaDBSource",
         "okta = datahub.ingestion.source.identity.okta:OktaSource",
         "oracle = datahub.ingestion.source.sql.oracle:OracleSource",
         "postgres = datahub.ingestion.source.sql.postgres:PostgresSource",
@@ -255,6 +269,7 @@ entry_points = {
         "snowflake = datahub.ingestion.source.sql.snowflake:SnowflakeSource",
         "snowflake-usage = datahub.ingestion.source.usage.snowflake_usage:SnowflakeUsageSource",
         "superset = datahub.ingestion.source.superset:SupersetSource",
+        "trino = datahub.ingestion.source.sql.trino:TrinoSource",
     ],
     "datahub.ingestion.sink.plugins": [
         "file = datahub.ingestion.sink.file:FileSink",

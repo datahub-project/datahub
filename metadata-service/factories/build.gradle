@@ -14,6 +14,7 @@ dependencies {
   compile externalDependency.servletApi
   compile externalDependency.springBeans
   compile externalDependency.springBootAutoconfigure
+  compile externalDependency.springBootStarterCache
   compile externalDependency.springContext
   compile externalDependency.springCore
   compile externalDependency.springKafka

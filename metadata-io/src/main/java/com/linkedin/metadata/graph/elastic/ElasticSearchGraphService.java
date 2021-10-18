@@ -8,12 +8,14 @@ import com.linkedin.metadata.graph.Edge;
 import com.linkedin.metadata.graph.RelatedEntity;
 import com.linkedin.metadata.graph.RelatedEntitiesResult;
 import com.linkedin.metadata.graph.GraphService;
-import com.linkedin.metadata.query.Condition;
-import com.linkedin.metadata.query.Criterion;
-import com.linkedin.metadata.query.CriterionArray;
-import com.linkedin.metadata.query.Filter;
-import com.linkedin.metadata.query.RelationshipDirection;
-import com.linkedin.metadata.query.RelationshipFilter;
+import com.linkedin.metadata.query.filter.Condition;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
+import com.linkedin.metadata.query.filter.Criterion;
+import com.linkedin.metadata.query.filter.CriterionArray;
+import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.query.filter.RelationshipDirection;
+import com.linkedin.metadata.query.filter.RelationshipFilter;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.IndexBuilder;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import java.io.IOException;
@@ -147,14 +149,14 @@ public class ElasticSearchGraphService implements GraphService {
     criterion.setField("urn");
     criterion.setValue(urn.toString());
     criterionArray.add(criterion);
-    filter.setCriteria(criterionArray);
+    filter.setOr(new ConjunctiveCriterionArray(ImmutableList.of(new ConjunctiveCriterion().setAnd(criterionArray))));
 
     return filter;
   }
 
   public void removeNode(@Nonnull final Urn urn) {
     Filter urnFilter = createUrnFilter(urn);
-    Filter emptyFilter = new Filter().setCriteria(new CriterionArray());
+    Filter emptyFilter = new Filter().setOr(new ConjunctiveCriterionArray());
     List<String> relationshipTypes = new ArrayList<>();
 
     RelationshipFilter outgoingFilter = new RelationshipFilter().setDirection(RelationshipDirection.OUTGOING);
@@ -187,7 +189,7 @@ public class ElasticSearchGraphService implements GraphService {
       @Nonnull final RelationshipFilter relationshipFilter) {
 
     Filter urnFilter = createUrnFilter(urn);
-    Filter emptyFilter = new Filter().setCriteria(new CriterionArray());
+    Filter emptyFilter = new Filter().setOr(new ConjunctiveCriterionArray());
 
     _graphWriteDAO.deleteByQuery(
         null,

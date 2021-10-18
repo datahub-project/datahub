@@ -214,6 +214,7 @@ export const datasetSearchResult: SearchResults = {
     facets: [
         {
             field: 'platform',
+            displayName: 'platform',
             aggregations: [
                 {
                     value: 's3',
@@ -240,6 +241,7 @@ export const datasetSearchResult: SearchResults = {
         },
         {
             field: 'origin',
+            displayName: 'origin',
             aggregations: [
                 {
                     value: 'prod',
