@@ -134,14 +134,14 @@ class AvroToMceSchemaConverter:
         return ".".join(self._prefix_name_stack)
 
     @staticmethod
-    def _simplify_name(name_or_fullname: str) -> str:
+    def _strip_namespace(name_or_fullname: str) -> str:
         return name_or_fullname.rsplit(".", maxsplit=1)[-1]
 
     @staticmethod
     def _get_simple_native_type(schema: ExtendedAvroNestedSchemas) -> str:
         if isinstance(schema, (avro.schema.RecordSchema, avro.schema.Field)):
             # For Records, fields, always return the name.
-            return AvroToMceSchemaConverter._simplify_name(schema.name)
+            return AvroToMceSchemaConverter._strip_namespace(schema.name)
 
         # For optional, use the underlying non-null type
         if isinstance(schema, avro.schema.UnionSchema) and len(schema.schemas) == 2:
