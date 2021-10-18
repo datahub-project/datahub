@@ -13,6 +13,7 @@ This plugin extracts the following:
 - Metadata for databases, schemas, and tables
 - Column types associated with each table
 - Table, row, and column statistics via optional [SQL profiling](./sql_profiles.md)
+- Table level lineage.
 
 :::tip
 
@@ -43,22 +44,36 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 
 As a SQL-based service, the Athena integration is also supported by our SQL profiler. See [here](./sql_profiles.md) for more details on configuration.
 
-| Field                       | Required | Default      | Description                                                                                                                                                                             |
-| --------------------------- | -------- | ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `project_id`                |          | Autodetected | Project ID to ingest from. If not specified, will infer from environment.                                                                                                               |
-| `env`                       |          | `"PROD"`     | Environment to use in namespace when constructing URNs.                                                                                                                                 |
-| `options.<option>`          |          |              | Any options specified here will be passed to SQLAlchemy's `create_engine` as kwargs.<br />See https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine for details. |
-| `table_pattern.allow`       |          |              | List of regex patterns for tables to include in ingestion.                                                                                                                              |
-| `table_pattern.deny`        |          |              | List of regex patterns for tables to exclude from ingestion.                                                                                                                            |
-| `table_pattern.ignoreCase`  |          | `True`       | Whether to ignore case sensitivity during pattern matching.                                                                                                                             |
-| `schema_pattern.allow`      |          |              | List of regex patterns for schemas to include in ingestion.                                                                                                                             |
-| `schema_pattern.deny`       |          |              | List of regex patterns for schemas to exclude from ingestion.                                                                                                                           |
-| `schema_pattern.ignoreCase` |          | `True`       | Whether to ignore case sensitivity during pattern matching.                                                                                                                             |
-| `view_pattern.allow`        |          |              | List of regex patterns for views to include in ingestion.                                                                                                                               |
-| `view_pattern.deny`         |          |              | List of regex patterns for views to exclude from ingestion.                                                                                                                             |
-| `view_pattern.ignoreCase`   |          | `True`       | Whether to ignore case sensitivity during pattern matching.                                                                                                                             |
-| `include_tables`            |          | `True`       | Whether tables should be ingested.                                                                                                                                                      |
-| `include_views`             |          | `True`       | Whether views should be ingested.                                                                                                                                                       |
+| Field                       | Required | Default                                                                  | Description                                                                                                                                                                             |
+| --------------------------- | -------- | ------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `project_id`                |          | Autodetected                                                             | Project ID to ingest from. If not specified, will infer from environment.                                                                                                               |
+| `env`                       |          | `"PROD"`                                                                 | Environment to use in namespace when constructing URNs.                                                                                                                                 |
+| `options.<option>`          |          |                                                                          | Any options specified here will be passed to SQLAlchemy's `create_engine` as kwargs.<br />See https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine for details. |
+| `table_pattern.allow`       |          |                                                                          | List of regex patterns for tables to include in ingestion.                                                                                                                              |
+| `table_pattern.deny`        |          |                                                                          | List of regex patterns for tables to exclude from ingestion.                                                                                                                            |
+| `table_pattern.ignoreCase`  |          | `True`                                                                   | Whether to ignore case sensitivity during pattern matching.                                                                                                                             |
+| `schema_pattern.allow`      |          |                                                                          | List of regex patterns for schemas to include in ingestion.                                                                                                                             |
+| `schema_pattern.deny`       |          |                                                                          | List of regex patterns for schemas to exclude from ingestion.                                                                                                                           |
+| `schema_pattern.ignoreCase` |          | `True`                                                                   | Whether to ignore case sensitivity during pattern matching.                                                                                                                             |
+| `view_pattern.allow`        |          |                                                                          | List of regex patterns for views to include in ingestion.                                                                                                                               |
+| `view_pattern.deny`         |          |                                                                          | List of regex patterns for views to exclude from ingestion.                                                                                                                             |
+| `view_pattern.ignoreCase`   |          | `True`                                                                   | Whether to ignore case sensitivity during pattern matching.                                                                                                                             |
+| `include_tables`            |          | `True`                                                                   | Whether tables should be ingested.                                                                                                                                                      |
+| `include_views`             |          | `True`                                                                   | Whether views should be ingested.                                                                                                                                                       |
+| `include_table_lineage`     |          | `True`                                                                   | Whether table level lineage should be ingested and processed.                                                                                                                           |
+| `max_query_duration`        |          | `15`                                                                     | A time buffer in minutes to adjust start_time and end_time while querying Bigquery audit logs.                                                                                          |
+| `start_time`                |          | Start of last full day in UTC (or hour, depending on `bucket_duration`)  | Earliest time of lineage data to consider.                                                                                                                                              |
+| `end_time`                  |          | End of last full day in UTC (or hour, depending on `bucket_duration`)    | Latest time of lineage data to consider.                                                                                                                                                |
+| `extra_client_options`      |          |                                                                          | Additional options to pass to `google.cloud.logging_v2.client.Client`.                                                                                                                  |
+
+The following parameters are only relevant if include_table_lineage is set to true:
+
+- max_query_duration 
+- start_time 
+- end_time 
+- extra_client_options
+
+Note: Since bigquery source also supports dataset level lineage, the auth client will require additional permissions to be able to access the google audit logs. Refer the permissions section in bigquery-usage section below which also accesses the audit logs.
 
 ## Compatibility
 
@@ -88,7 +103,8 @@ Note: the client must have one of the following OAuth scopes, and should be auth
 
 :::note
 
-This source only does usage statistics. To get the tables, views, and schemas in your BigQuery project, use the `bigquery` source described above.
+1. This source only does usage statistics. To get the tables, views, and schemas in your BigQuery project, use the `bigquery` source described above.
+2. Depending on the compliance policies setup for the bigquery instance, sometimes logging.read permission is not sufficient. In that case, use either admin or private log viewer permission. 
 
 :::
 
