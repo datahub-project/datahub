@@ -357,6 +357,7 @@ public class EbeanEntityServiceTest {
     DatasetProfile datasetProfile = new DatasetProfile();
     datasetProfile.setRowCount(1000);
     datasetProfile.setColumnCount(15);
+    datasetProfile.setTimestampMillis(0L);
     MetadataChangeProposal gmce = new MetadataChangeProposal();
     gmce.setEntityUrn(entityUrn);
     gmce.setChangeType(ChangeType.UPSERT);

@@ -26,6 +26,7 @@ import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericAspectUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import com.linkedin.metadata.entity.ValidationUtils;
 import com.linkedin.mxe.MetadataAuditOperation;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -202,6 +203,11 @@ public class EbeanEntityService extends EntityService {
       @Nonnull final SystemMetadata systemMetadata) {
 
     log.debug("Invoked ingestAspect with urn: {}, aspectName: {}, newValue: {}", urn, aspectName, newValue);
+
+    if (!urn.toString().trim().equals(urn.toString())) {
+      throw new IllegalArgumentException("Error: cannot provide an URN with leading or trailing whitespace");
+    }
+
     Timer.Context ingestToLocalDBTimer = MetricUtils.timer(this.getClass(), "ingestAspectToLocalDB").time();
     UpdateAspectResult result = ingestAspectToLocalDB(urn, aspectName, ignored -> newValue, auditStamp, systemMetadata,
         DEFAULT_MAX_TRANSACTION_RETRY);
@@ -346,8 +352,6 @@ public class EbeanEntityService extends EntityService {
   @Override
   public Urn ingestProposal(@Nonnull MetadataChangeProposal metadataChangeProposal, AuditStamp auditStamp) {
 
-    // todo: add restli model validation.
-
     log.debug("entity type = {}", metadataChangeProposal.getEntityType());
     EntitySpec entitySpec = getEntityRegistry().getEntitySpec(metadataChangeProposal.getEntityType());
     log.debug("entity spec = {}", entitySpec);
@@ -376,6 +380,7 @@ public class EbeanEntityService extends EntityService {
     try {
       aspect = GenericAspectUtils.deserializeAspect(metadataChangeProposal.getAspect().getValue(),
           metadataChangeProposal.getAspect().getContentType(), aspectSpec);
+      ValidationUtils.validateOrThrow(aspect);
     } catch (ModelConversionException e) {
       throw new RuntimeException(
           String.format("Could not deserialize {} for aspect {}", metadataChangeProposal.getAspect().getValue(),

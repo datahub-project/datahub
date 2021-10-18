@@ -11,7 +11,7 @@ record GlossaryTermAssociation {
     "fieldName": "glossaryTerms",
     "fieldType": "URN_PARTIAL",
     "addToFilters": true,
-    "filterNameOverride": "Glossary Terms"
+    "filterNameOverride": "Glossary Term"
   }
   urn: GlossaryTermUrn
 }

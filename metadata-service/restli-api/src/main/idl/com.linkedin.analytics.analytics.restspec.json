@@ -19,7 +19,7 @@
         "type" : "{ \"type\" : \"array\", \"items\" : \"com.linkedin.timeseries.AggregationSpec\" }"
       }, {
         "name" : "filter",
-        "type" : "com.linkedin.metadata.query.Filter",
+        "type" : "com.linkedin.metadata.query.filter.Filter",
         "optional" : true
       }, {
         "name" : "buckets",

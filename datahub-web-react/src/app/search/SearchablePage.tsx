@@ -61,13 +61,15 @@ export const SearchablePage = ({ initialQuery, onSearch, onAutoComplete, childre
     };
 
     const autoComplete = (query: string) => {
-        getAutoCompleteResults({
-            variables: {
-                input: {
-                    query,
+        if (query && query.trim() !== '') {
+            getAutoCompleteResults({
+                variables: {
+                    input: {
+                        query,
+                    },
                 },
-            },
-        });
+            });
+        }
     };
 
     return (
