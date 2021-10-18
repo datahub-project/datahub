@@ -6,8 +6,6 @@ import { RecommendationContent, RecommendationRenderType } from '../../../types.
 export enum RecommendationDisplayType {
     DEFAULT,
     COMPACT,
-    DISPLAY_NAME_LIST,
-    DISPLAY_NAME_GROUP,
 }
 
 /**
@@ -18,7 +16,7 @@ export interface RecommendationsRenderer {
      * Invoked when a recommendation should be rendered.
      */
     renderRecommendation(
-        moduleType: string,
+        moduleId: string,
         renderType: RecommendationRenderType,
         content: Array<RecommendationContent>,
         displayType: RecommendationDisplayType,

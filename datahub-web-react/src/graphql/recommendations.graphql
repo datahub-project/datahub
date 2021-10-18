@@ -2,7 +2,7 @@ query listRecommendations($input: ListRecommendationsInput!) {
     listRecommendations(input: $input) {
         modules {
             title
-            moduleType
+            moduleId
             renderType
             content {
                 value

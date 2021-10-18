@@ -86,6 +86,6 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
     };
 
     platformLogoUrl = (data: MlFeatureTable) => {
-        return data.platform.info?.logoUrl || undefined;
+        return data.platform?.info?.logoUrl || undefined;
     };
 }

@@ -62,7 +62,7 @@ public class ListRecommendationsResolver implements DataFetcher<CompletableFutur
             "urn:li:tag:MemberRefreshQ3");
     RecommendationModule popularTags = new RecommendationModule();
     popularTags.setTitle("Popular Tags");
-    popularTags.setModuleType("PopularTags");
+    popularTags.setModuleId("PopularTags");
     popularTags.setRenderType(RecommendationRenderType.TAG_SEARCH_LIST);
     popularTags.setContent(popularTagList.stream().map(this::createTagSearchRec).collect(Collectors.toList()));
 
@@ -79,8 +79,8 @@ public class ListRecommendationsResolver implements DataFetcher<CompletableFutur
             "urn:li:glossaryTerm:AccountBalance");
     RecommendationModule peopleAlsoViewedModule = new RecommendationModule();
     peopleAlsoViewedModule.setTitle("People also viewed");
-    peopleAlsoViewedModule.setModuleType("PeopleAlsoViewed");
-    peopleAlsoViewedModule.setRenderType(RecommendationRenderType.ENTITY_LIST);
+    peopleAlsoViewedModule.setModuleId("PeopleAlsoViewed");
+    peopleAlsoViewedModule.setRenderType(RecommendationRenderType.ENTITY_NAME_LIST);
     peopleAlsoViewedModule.setContent(peopleAlsoViewed.stream().map(this::createEntityRec).collect(Collectors.toList()));
 
     return ListRecommendationsResult.builder()
@@ -95,8 +95,8 @@ public class ListRecommendationsResolver implements DataFetcher<CompletableFutur
             "urn:li:dataPlatform:airflow");
     RecommendationModule topPlatformModule = new RecommendationModule();
     topPlatformModule.setTitle("Top Platforms");
-    topPlatformModule.setModuleType("TopPlatforms");
-    topPlatformModule.setRenderType(RecommendationRenderType.PLATFORM_LIST);
+    topPlatformModule.setModuleId("TopPlatforms");
+    topPlatformModule.setRenderType(RecommendationRenderType.PLATFORM_SEARCH_LIST);
     topPlatformModule.setContent(platforms.stream().map(this::createPlatformRec).collect(Collectors.toList()));
 
     // Recently Viewed
@@ -104,8 +104,8 @@ public class ListRecommendationsResolver implements DataFetcher<CompletableFutur
         "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleHdfsDataset,PROD)", "urn:li:dashboard:(looker,baz)");
     RecommendationModule recentlyViewedModule = new RecommendationModule();
     recentlyViewedModule.setTitle("Recently Viewed");
-    recentlyViewedModule.setModuleType("RecentlyViewed");
-    recentlyViewedModule.setRenderType(RecommendationRenderType.ENTITY_LIST);
+    recentlyViewedModule.setModuleId("RecentlyViewed");
+    recentlyViewedModule.setRenderType(RecommendationRenderType.ENTITY_NAME_LIST);
     recentlyViewedModule.setContent(recentlyViewed.stream().map(this::createEntityRec).collect(Collectors.toList()));
 
     // Popular entities
@@ -114,8 +114,8 @@ public class ListRecommendationsResolver implements DataFetcher<CompletableFutur
         "urn:li:mlFeatureTable:(urn:li:dataPlatform:feast,user_analytics)");
     RecommendationModule popularEntitiesModule = new RecommendationModule();
     popularEntitiesModule.setTitle("Most Popular");
-    popularEntitiesModule.setModuleType("PopularEntities");
-    popularEntitiesModule.setRenderType(RecommendationRenderType.ENTITY_LIST);
+    popularEntitiesModule.setModuleId("PopularEntities");
+    popularEntitiesModule.setRenderType(RecommendationRenderType.ENTITY_NAME_LIST);
     popularEntitiesModule.setContent(popularEntities.stream().map(this::createEntityRec).collect(Collectors.toList()));
 
     return ListRecommendationsResult.builder()
