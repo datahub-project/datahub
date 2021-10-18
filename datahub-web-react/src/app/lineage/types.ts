@@ -26,6 +26,7 @@ export type FetchedEntity = {
     urn: string;
     name: string;
     type: EntityType;
+    subtype?: string;
     icon?: string;
     // children?: Array<string>;
     upstreamChildren?: Array<string>;
@@ -38,6 +39,7 @@ export type NodeData = {
     urn?: string;
     name: string;
     type?: EntityType;
+    subtype?: string;
     children?: Array<NodeData>;
     unexploredChildren?: number;
     icon?: string;

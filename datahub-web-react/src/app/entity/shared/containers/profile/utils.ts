@@ -8,7 +8,6 @@ import { EntityTab, GenericEntityProperties } from '../../types';
 
 export function getDataForEntityType<T>({
     data,
-    entityType,
     getOverrideProperties,
 }: {
     data: T;
@@ -18,7 +17,7 @@ export function getDataForEntityType<T>({
     if (!data) {
         return null;
     }
-    const entityData = data[entityType.toLowerCase()];
+    const entityData = data[Object.keys(data)[0]];
     let modifiedEntityData = entityData;
     // Bring 'customProperties' field to the root level.
     if (entityData.properties?.customProperties) {
@@ -45,11 +44,12 @@ export function getEntityPath(
     const tabParamsString = tabParams ? `&${queryString.stringify(tabParams)}` : '';
 
     if (!tabName) {
-        return `/${entityRegistry.getPathName(entityType)}/${urn}?is_lineage_mode=${isLineageMode}${tabParamsString}`;
+        return `${entityRegistry.getEntityUrl(entityType, urn)}?is_lineage_mode=${isLineageMode}${tabParamsString}`;
     }
-    return `/${entityRegistry.getPathName(
+    return `${entityRegistry.getEntityUrl(
         entityType,
-    )}/${urn}/${tabName}?is_lineage_mode=${isLineageMode}${tabParamsString}`;
+        urn,
+    )}/${tabName}?is_lineage_mode=${isLineageMode}${tabParamsString}`;
 }
 
 export function useEntityPath(entityType: EntityType, urn: string, tabName?: string, tabParams?: Record<string, any>) {

@@ -16,6 +16,7 @@ from looker_sdk.sdk.api31.methods import Looker31SDK
 from looker_sdk.sdk.api31.models import DBConnection
 from pydantic import root_validator, validator
 
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.source.looker_common import (
     LookerCommonConfig,
     LookerUtil,
@@ -23,7 +24,11 @@ from datahub.ingestion.source.looker_common import (
     ViewField,
     ViewFieldType,
 )
-from datahub.metadata.schema_classes import DatasetPropertiesClass
+from datahub.metadata.schema_classes import (
+    ChangeTypeClass,
+    DatasetPropertiesClass,
+    SubTypesClass,
+)
 from datahub.utilities.sql_parser import SQLParser
 
 if sys.version_info >= (3, 7):
@@ -43,6 +48,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetLineageTypeClass,
     UpstreamClass,
     UpstreamLineage,
+    ViewProperties,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
@@ -278,6 +284,15 @@ class LookerModel:
             # only load files that we haven't seen so far
             included_files = [x for x in included_files if x not in seen_so_far]
             for included_file in included_files:
+                # Filter out dashboards - we get those through the looker source.
+                if (
+                    included_file.endswith(".dashboard")
+                    or included_file.endswith(".dashboard.lookml")
+                    or included_file.endswith(".dashboard.lkml")
+                ):
+                    logger.debug(f"include '{inc}' is a dashboard, skipping it")
+                    continue
+
                 logger.debug(
                     f"Will be loading {included_file}, traversed here via {traversal_path}"
                 )
@@ -354,6 +369,12 @@ class LookerViewFile:
         )
 
 
+@dataclass
+class SQLInfo:
+    table_names: List[str]
+    column_names: List[str]
+
+
 class LookerViewFileLoader:
     """
     Loads the looker viewfile at a :path and caches the LookerViewFile in memory
@@ -373,6 +394,13 @@ class LookerViewFileLoader:
     ) -> Optional[LookerViewFile]:
         # always fully resolve paths to simplify de-dup
         path = str(pathlib.Path(path).resolve())
+        if not path.endswith(".view.lkml"):
+            # not a view file
+            logger.debug(
+                f"Skipping file {path} because it doesn't appear to be a view file"
+            )
+            return None
+
         if self.is_view_seen(str(path)):
             return self.viewfile_cache[path]
 
@@ -421,6 +449,7 @@ class LookerView:
     sql_table_names: List[str]
     fields: List[ViewField]
     raw_file_content: str
+    view_details: Optional[ViewProperties] = None
 
     @classmethod
     def _import_sql_parser_cls(cls, sql_parser_path: str) -> Type[SQLParser]:
@@ -428,7 +457,7 @@ class LookerView:
         module_name, cls_name = sql_parser_path.rsplit(".", 1)
         import sys
 
-        logger.info(sys.path)
+        logger.debug(sys.path)
         parser_cls = getattr(importlib.import_module(module_name), cls_name)
         if not issubclass(parser_cls, SQLParser):
             raise ValueError(f"must be derived from {SQLParser}; got {parser_cls}")
@@ -436,16 +465,22 @@ class LookerView:
         return parser_cls
 
     @classmethod
-    def _get_sql_table_names(cls, sql: str, sql_parser_path: str) -> List[str]:
+    def _get_sql_info(cls, sql: str, sql_parser_path: str) -> SQLInfo:
         parser_cls = cls._import_sql_parser_cls(sql_parser_path)
 
-        sql_table_names: List[str] = parser_cls(sql).get_tables()
+        parser_instance: SQLParser = parser_cls(sql)
+
+        sql_table_names: List[str] = parser_instance.get_tables()
+        column_names: List[str] = parser_instance.get_columns()
+        logger.debug(f"Column names parsed = {column_names}")
+        # Drop table names with # in them
+        sql_table_names = [t for t in sql_table_names if "#" not in t]
 
         # Remove quotes from table names
         sql_table_names = [t.replace('"', "") for t in sql_table_names]
         sql_table_names = [t.replace("`", "") for t in sql_table_names]
 
-        return sql_table_names
+        return SQLInfo(table_names=sql_table_names, column_names=column_names)
 
     @classmethod
     def _get_fields(
@@ -515,15 +550,35 @@ class LookerView:
 
         # Parse SQL from derived tables to extract dependencies
         if derived_table is not None:
-            sql_table_names = []
-            if parse_table_names_from_sql and "sql" in derived_table:
-                logger.debug(
-                    f"Parsing sql from derived table section of view: {view_name}"
+            fields, sql_table_names = cls._extract_metadata_from_sql_query(
+                reporter,
+                parse_table_names_from_sql,
+                sql_parser_path,
+                view_name,
+                sql_table_name,
+                derived_table,
+                fields,
+            )
+            # also store the view logic and materialization
+            if "sql" in derived_table:
+                view_logic = derived_table["sql"]
+                view_lang = "sql"
+            if "explore_source" in derived_table:
+                view_logic = str(derived_table["explore_source"])
+                view_lang = "lookml"
+
+            materialized = False
+            for k in derived_table:
+                if k in ["datagroup_trigger", "sql_trigger_value", "persist_for"]:
+                    materialized = True
+            if "materialized_view" in derived_table:
+                materialized = (
+                    True if derived_table["materialized_view"] == "yes" else False
                 )
-                # Get the list of tables in the query
-                sql_table_names = cls._get_sql_table_names(
-                    derived_table["sql"], sql_parser_path
-                )
+
+            view_details = ViewProperties(
+                materialized=materialized, viewLogic=view_logic, viewLanguage=view_lang
+            )
 
             return LookerView(
                 id=LookerViewId(
@@ -536,6 +591,7 @@ class LookerView:
                 sql_table_names=sql_table_names,
                 fields=fields,
                 raw_file_content=looker_viewfile.raw_file_content,
+                view_details=view_details,
             )
 
         # If not a derived table, then this view essentially wraps an existing
@@ -559,6 +615,56 @@ class LookerView:
             raw_file_content=looker_viewfile.raw_file_content,
         )
         return output_looker_view
+
+    @classmethod
+    def _extract_metadata_from_sql_query(
+        cls: Type,
+        reporter: SourceReport,
+        parse_table_names_from_sql: bool,
+        sql_parser_path: str,
+        view_name: str,
+        sql_table_name: Optional[str],
+        derived_table: dict,
+        fields: List[ViewField],
+    ) -> Tuple[List[ViewField], List[str]]:
+        sql_table_names: List[str] = []
+        if parse_table_names_from_sql and "sql" in derived_table:
+            logger.debug(f"Parsing sql from derived table section of view: {view_name}")
+            sql_query = derived_table["sql"]
+
+            # Skip queries that contain liquid variables. We currently don't parse them correctly
+            if "{%" in sql_query:
+                logger.debug(
+                    f"{view_name}: Skipping sql_query parsing since it contains liquid variables"
+                )
+                return fields, sql_table_names
+            # Looker supports sql fragments that omit the SELECT and FROM parts of the query
+            # Add those in if we detect that it is missing
+            if not re.match(r"^\s*SELECT", sql_query):
+                # add a SELECT clause at the beginning
+                sql_query = "SELECT " + sql_query
+            if not re.search(r" FROM\s", sql_query):
+                # add a FROM clause at the end
+                sql_query = f"{sql_query} FROM {sql_table_name if sql_table_name is not None else view_name}"
+                # Get the list of tables in the query
+            try:
+                sql_info = cls._get_sql_info(sql_query, sql_parser_path)
+                sql_table_names = sql_info.table_names
+                column_names = sql_info.column_names
+                if fields == []:
+                    # it seems like the view is defined purely as sql, let's try using the column names to populate the schema
+                    fields = [
+                        # set types to unknown for now as our sql parser doesn't give us column types yet
+                        ViewField(c, "unknown", "", ViewFieldType.UNKNOWN)
+                        for c in column_names
+                    ]
+            except Exception as e:
+                reporter.report_warning(
+                    f"looker-view-{view_name}",
+                    f"Failed to parse sql query, lineage will not be accurate. Exception: {e}",
+                )
+
+        return fields, sql_table_names
 
     @classmethod
     def resolve_extends_view_name(
@@ -665,7 +771,7 @@ class LookMLSource(Source):
         return looker_model
 
     def _platform_names_have_2_parts(self, platform: str) -> bool:
-        if platform in ["hive", "mysql"]:
+        if platform in ["hive", "mysql", "athena"]:
             return True
         else:
             return False
@@ -679,7 +785,7 @@ class LookMLSource(Source):
 
         # Bigquery has "project.db.table" which can be mapped to db.schema.table form
         # All other relational db's follow "db.schema.table"
-        # With the exception of mysql, hive which are "db.table"
+        # With the exception of mysql, hive, athena which are "db.table"
 
         # first detect which one we have
         parts = len(sql_table_name.split("."))
@@ -773,7 +879,9 @@ class LookMLSource(Source):
 
         return None
 
-    def _get_upstream_lineage(self, looker_view: LookerView) -> UpstreamLineage:
+    def _get_upstream_lineage(
+        self, looker_view: LookerView
+    ) -> Optional[UpstreamLineage]:
         upstreams = []
         for sql_table_name in looker_view.sql_table_names:
 
@@ -785,21 +893,55 @@ class LookMLSource(Source):
             )
             upstreams.append(upstream)
 
-        upstream_lineage = UpstreamLineage(upstreams=upstreams)
-
-        return upstream_lineage
+        if upstreams != []:
+            return UpstreamLineage(upstreams=upstreams)
+        else:
+            return None
 
     def _get_custom_properties(self, looker_view: LookerView) -> DatasetPropertiesClass:
+        file_path = str(pathlib.Path(looker_view.absolute_file_path).resolve()).replace(
+            str(self.source_config.base_folder.resolve()), ""
+        )
+
         custom_properties = {
             "looker.file.content": looker_view.raw_file_content[
                 0:512000
             ],  # grab a limited slice of characters from the file
-            "looker.file.path": str(
-                pathlib.Path(looker_view.absolute_file_path).resolve()
-            ).replace(str(self.source_config.base_folder.resolve()), ""),
+            "looker.file.path": file_path,
         }
         dataset_props = DatasetPropertiesClass(customProperties=custom_properties)
+
+        if self.source_config.github_info is not None:
+            github_file_url = self.source_config.github_info.get_url_for_file_path(
+                file_path
+            )
+            dataset_props.externalUrl = github_file_url
+
         return dataset_props
+
+    def _build_dataset_mcps(
+        self, looker_view: LookerView
+    ) -> List[MetadataChangeProposalWrapper]:
+        events = []
+        subTypeEvent = MetadataChangeProposalWrapper(
+            entityType="dataset",
+            changeType=ChangeTypeClass.UPSERT,
+            entityUrn=looker_view.id.get_urn(self.source_config),
+            aspectName="subTypes",
+            aspect=SubTypesClass(typeNames=["view"]),
+        )
+        events.append(subTypeEvent)
+        if looker_view.view_details is not None:
+            viewEvent = MetadataChangeProposalWrapper(
+                entityType="dataset",
+                changeType=ChangeTypeClass.UPSERT,
+                entityUrn=looker_view.id.get_urn(self.source_config),
+                aspectName="viewProperties",
+                aspect=looker_view.view_details,
+            )
+            events.append(viewEvent)
+
+        return events
 
     def _build_dataset_mce(self, looker_view: LookerView) -> MetadataChangeEvent:
         """
@@ -816,15 +958,17 @@ class LookMLSource(Source):
         )
         dataset_snapshot.aspects.append(browse_paths)
         dataset_snapshot.aspects.append(Status(removed=False))
-        dataset_snapshot.aspects.append(self._get_upstream_lineage(looker_view))
-        dataset_snapshot.aspects.append(
-            LookerUtil._get_schema(
-                self.source_config.platform_name,
-                looker_view.id.view_name,
-                looker_view.fields,
-                self.reporter,
-            )
+        upstream_lineage = self._get_upstream_lineage(looker_view)
+        if upstream_lineage is not None:
+            dataset_snapshot.aspects.append(upstream_lineage)
+        schema_metadata = LookerUtil._get_schema(
+            self.source_config.platform_name,
+            looker_view.id.view_name,
+            looker_view.fields,
+            self.reporter,
         )
+        if schema_metadata is not None:
+            dataset_snapshot.aspects.append(schema_metadata)
         dataset_snapshot.aspects.append(self._get_custom_properties(looker_view))
 
         mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
@@ -937,6 +1081,16 @@ class LookMLSource(Source):
                                 self.reporter.report_workunit(workunit)
                                 processed_view_files.add(include)
                                 yield workunit
+
+                                for mcp in self._build_dataset_mcps(maybe_looker_view):
+                                    # We want to treat mcp aspects as optional, so allowing failures in this aspect to be treated as warnings rather than failures
+                                    workunit = MetadataWorkUnit(
+                                        id=f"lookml-view-{mcp.aspectName}-{maybe_looker_view.id}",
+                                        mcp=mcp,
+                                        treat_errors_as_warnings=True,
+                                    )
+                                    self.reporter.report_workunit(workunit)
+                                    yield workunit
                             else:
                                 self.reporter.report_views_dropped(
                                     str(maybe_looker_view.id)

@@ -197,7 +197,8 @@
       "optional" : true,
       "Searchable" : {
         "addToFilters" : true,
-        "fieldType" : "KEYWORD"
+        "fieldType" : "KEYWORD",
+        "filterNameOverride" : "Chart Type"
       }
     }, {
       "name" : "access",
@@ -216,7 +217,8 @@
       "optional" : true,
       "Searchable" : {
         "addToFilters" : true,
-        "fieldType" : "KEYWORD"
+        "fieldType" : "KEYWORD",
+        "filterNameOverride" : "Access Level"
       }
     }, {
       "name" : "lastRefreshed",
@@ -250,7 +252,9 @@
       "doc" : "Chart query type",
       "Searchable" : {
         "addToFilters" : true,
-        "fieldType" : "KEYWORD"
+        "fieldName" : "queryType",
+        "fieldType" : "KEYWORD",
+        "filterNameOverride" : "Query Type"
       }
     } ],
     "Aspect" : {
@@ -557,6 +561,29 @@
       }
     }
   }, {
+    "type" : "record",
+    "name" : "DataPlatformInstance",
+    "namespace" : "com.linkedin.common",
+    "doc" : "Tag aspect used for applying tags to an entity",
+    "fields" : [ {
+      "name" : "platform",
+      "type" : "Urn",
+      "doc" : "Data Platform",
+      "Searchable" : {
+        "addToFilters" : true,
+        "fieldType" : "URN",
+        "filterNameOverride" : "Platform"
+      }
+    }, {
+      "name" : "instance",
+      "type" : "string",
+      "doc" : "Instance of the data platform (e.g. db instance)",
+      "optional" : true
+    } ],
+    "Aspect" : {
+      "name" : "dataPlatformInstance"
+    }
+  }, {
     "type" : "typeref",
     "name" : "DataPlatformUrn",
     "namespace" : "com.linkedin.common",
@@ -747,8 +774,10 @@
             },
             "doc" : "Urn of the applied tag",
             "Searchable" : {
+              "addToFilters" : true,
               "fieldName" : "tags",
               "fieldType" : "URN_PARTIAL",
+              "filterNameOverride" : "Tag",
               "hasValuesFieldName" : "hasTags"
             }
           } ]
@@ -822,8 +851,10 @@
       },
       "doc" : "Urn of the applied glossary term",
       "Searchable" : {
+        "addToFilters" : true,
         "fieldName" : "glossaryTerms",
-        "fieldType" : "URN_PARTIAL"
+        "fieldType" : "URN_PARTIAL",
+        "filterNameOverride" : "Glossary Term"
       }
     } ]
   }, "com.linkedin.common.GlossaryTermUrn", {
@@ -1154,7 +1185,8 @@
       "optional" : true,
       "Searchable" : {
         "addToFilters" : true,
-        "fieldType" : "KEYWORD"
+        "fieldType" : "KEYWORD",
+        "filterNameOverride" : "Access Level"
       }
     }, {
       "name" : "lastRefreshed",
@@ -1694,6 +1726,33 @@
     }
   }, {
     "type" : "record",
+    "name" : "ViewProperties",
+    "namespace" : "com.linkedin.dataset",
+    "doc" : "Details about a View. \ne.g. Gets activated when subTypes is view",
+    "fields" : [ {
+      "name" : "materialized",
+      "type" : "boolean",
+      "doc" : "Whether the view is materialized",
+      "Searchable" : {
+        "fieldType" : "BOOLEAN",
+        "weightsPerFieldValue" : {
+          "true" : 0.5
+        }
+      }
+    }, {
+      "name" : "viewLogic",
+      "type" : "string",
+      "doc" : "The view logic"
+    }, {
+      "name" : "viewLanguage",
+      "type" : "string",
+      "doc" : "The view logic language / dialect"
+    } ],
+    "Aspect" : {
+      "name" : "viewProperties"
+    }
+  }, {
+    "type" : "record",
     "name" : "Entity",
     "namespace" : "com.linkedin.entity",
     "fields" : [ {
@@ -1730,7 +1789,6 @@
                     "type" : "string",
                     "doc" : "The name of the dashboard tool such as looker, redash etc.",
                     "Searchable" : {
-                      "addToFilters" : true,
                       "boostScore" : 4.0,
                       "fieldName" : "tool",
                       "fieldType" : "TEXT_PARTIAL"
@@ -1743,7 +1801,7 @@
                   "Aspect" : {
                     "name" : "chartKey"
                   }
-                }, "com.linkedin.chart.ChartInfo", "com.linkedin.chart.ChartQuery", "com.linkedin.chart.EditableChartProperties", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags", "com.linkedin.common.BrowsePaths" ]
+                }, "com.linkedin.chart.ChartInfo", "com.linkedin.chart.ChartQuery", "com.linkedin.chart.EditableChartProperties", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags", "com.linkedin.common.BrowsePaths", "com.linkedin.common.GlossaryTerms", "com.linkedin.common.InstitutionalMemory", "com.linkedin.common.DataPlatformInstance" ]
               }
             },
             "doc" : "The list of metadata aspects associated with the chart. Depending on the use case, this can either be all, or a selection, of supported aspects."
@@ -1908,7 +1966,7 @@
                   "fields" : [ {
                     "name" : "active",
                     "type" : "boolean",
-                    "doc" : "Whether the corpUser is active, ref: https://iwww.corp.linkedin.com/wiki/cf/display/GTSD/Accessing+Active+Directory+via+LDAP+tools",
+                    "doc" : "Deprecated! Use CorpUserStatus instead. Whether the corpUser is active, ref: https://iwww.corp.linkedin.com/wiki/cf/display/GTSD/Accessing+Active+Directory+via+LDAP+tools",
                     "Searchable" : {
                       "fieldType" : "BOOLEAN",
                       "weightsPerFieldValue" : {
@@ -2040,6 +2098,26 @@
                   }
                 }, {
                   "type" : "record",
+                  "name" : "CorpUserStatus",
+                  "namespace" : "com.linkedin.identity",
+                  "doc" : "The status of the user, e.g. provisioned, active, suspended, etc.",
+                  "fields" : [ {
+                    "name" : "status",
+                    "type" : "string",
+                    "doc" : "Status of the user, e.g. PROVISIONED / ACTIVE / SUSPENDED",
+                    "Searchable" : {
+                      "fieldType" : "KEYWORD"
+                    }
+                  }, {
+                    "name" : "lastModified",
+                    "type" : "com.linkedin.common.AuditStamp",
+                    "doc" : "Audit stamp containing who last modified the status and when."
+                  } ],
+                  "Aspect" : {
+                    "name" : "corpUserStatus"
+                  }
+                }, {
+                  "type" : "record",
                   "name" : "GroupMembership",
                   "namespace" : "com.linkedin.identity",
                   "doc" : "Carries information about the CorpGroups a user is in.",
@@ -2095,7 +2173,6 @@
                     "type" : "string",
                     "doc" : "The name of the dashboard tool such as looker, redash etc.",
                     "Searchable" : {
-                      "addToFilters" : true,
                       "boostScore" : 4.0,
                       "fieldName" : "tool",
                       "fieldType" : "TEXT_PARTIAL"
@@ -2108,7 +2185,7 @@
                   "Aspect" : {
                     "name" : "dashboardKey"
                   }
-                }, "com.linkedin.dashboard.DashboardInfo", "com.linkedin.dashboard.EditableDashboardProperties", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags", "com.linkedin.common.BrowsePaths" ]
+                }, "com.linkedin.dashboard.DashboardInfo", "com.linkedin.dashboard.EditableDashboardProperties", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags", "com.linkedin.common.BrowsePaths", "com.linkedin.common.GlossaryTerms", "com.linkedin.common.InstitutionalMemory", "com.linkedin.common.DataPlatformInstance" ]
               }
             },
             "doc" : "The list of metadata aspects associated with the dashboard. Depending on the use case, this can either be all, or a selection, of supported aspects."
@@ -2165,7 +2242,7 @@
                   "Aspect" : {
                     "name" : "dataFlowKey"
                   }
-                }, "com.linkedin.datajob.DataFlowInfo", "com.linkedin.datajob.EditableDataFlowProperties", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags", "com.linkedin.common.BrowsePaths" ]
+                }, "com.linkedin.datajob.DataFlowInfo", "com.linkedin.datajob.EditableDataFlowProperties", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags", "com.linkedin.common.BrowsePaths", "com.linkedin.common.GlossaryTerms", "com.linkedin.common.InstitutionalMemory", "com.linkedin.common.DataPlatformInstance" ]
               }
             },
             "doc" : "The list of metadata aspects associated with the data flow. Depending on the use case, this can either be all, or a selection, of supported aspects."
@@ -2221,7 +2298,7 @@
                   "Aspect" : {
                     "name" : "dataJobKey"
                   }
-                }, "com.linkedin.datajob.DataJobInfo", "com.linkedin.datajob.DataJobInputOutput", "com.linkedin.datajob.EditableDataJobProperties", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags", "com.linkedin.common.BrowsePaths" ]
+                }, "com.linkedin.datajob.DataJobInfo", "com.linkedin.datajob.DataJobInputOutput", "com.linkedin.datajob.EditableDataJobProperties", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags", "com.linkedin.common.BrowsePaths", "com.linkedin.common.GlossaryTerms", "com.linkedin.common.InstitutionalMemory", "com.linkedin.common.DataPlatformInstance" ]
               }
             },
             "doc" : "The list of metadata aspects associated with the data job. Depending on the use case, this can either be all, or a selection, of supported aspects."
@@ -2255,11 +2332,7 @@
                   "fields" : [ {
                     "name" : "platform",
                     "type" : "com.linkedin.common.Urn",
-                    "doc" : "Data platform urn associated with the dataset",
-                    "Searchable" : {
-                      "addToFilters" : true,
-                      "fieldType" : "URN"
-                    }
+                    "doc" : "Data platform urn associated with the dataset"
                   }, {
                     "name" : "name",
                     "type" : "string",
@@ -2276,6 +2349,7 @@
                     "Searchable" : {
                       "addToFilters" : true,
                       "fieldType" : "TEXT_PARTIAL",
+                      "filterNameOverride" : "Environment",
                       "queryByDefault" : false
                     }
                   } ],
@@ -2774,7 +2848,7 @@
                   "Aspect" : {
                     "name" : "editableSchemaMetadata"
                   }
-                }, "com.linkedin.common.GlobalTags", "com.linkedin.common.GlossaryTerms", "com.linkedin.common.BrowsePaths" ]
+                }, "com.linkedin.common.GlobalTags", "com.linkedin.common.GlossaryTerms", "com.linkedin.common.BrowsePaths", "com.linkedin.common.DataPlatformInstance", "com.linkedin.dataset.ViewProperties" ]
               }
             },
             "doc" : "The list of metadata aspects associated with the dataset. Depending on the use case, this can either be all, or a selection, of supported aspects."
@@ -2834,7 +2908,8 @@
                   "Aspect" : {
                     "name" : "dataProcessKey"
                   }
-                }, "com.linkedin.common.Ownership", "com.linkedin.dataprocess.DataProcessInfo", "com.linkedin.common.Status" ]
+                }, "com.linkedin.common.Ownership", "com.linkedin.dataprocess.DataProcessInfo", "com.linkedin.common.Status" ],
+                "deprecated" : "Use DataJob instead."
               }
             },
             "doc" : "The list of metadata aspects associated with the data process. Depending on the use case, this can either be all, or a selection, of supported aspects."
@@ -2842,7 +2917,8 @@
           "Entity" : {
             "keyAspect" : "dataProcessKey",
             "name" : "dataProcess"
-          }
+          },
+          "deprecated" : "Use DataJob instead."
         }, {
           "type" : "record",
           "name" : "DataPlatformSnapshot",
@@ -2907,11 +2983,7 @@
                   "fields" : [ {
                     "name" : "platform",
                     "type" : "com.linkedin.common.Urn",
-                    "doc" : "Standardized platform urn for the model",
-                    "Searchable" : {
-                      "addToFilters" : true,
-                      "fieldType" : "URN"
-                    }
+                    "doc" : "Standardized platform urn for the model"
                   }, {
                     "name" : "name",
                     "type" : "string",
@@ -2926,7 +2998,9 @@
                     "type" : "com.linkedin.common.FabricType",
                     "doc" : "Fabric type where model belongs to or where it was generated",
                     "Searchable" : {
+                      "addToFilters" : true,
                       "fieldType" : "TEXT_PARTIAL",
+                      "filterNameOverride" : "Environment",
                       "queryByDefault" : false
                     }
                   } ],
@@ -3459,7 +3533,7 @@
                   "Aspect" : {
                     "name" : "sourceCode"
                   }
-                }, "com.linkedin.common.Status", "com.linkedin.common.Cost", "com.linkedin.common.Deprecation", "com.linkedin.common.BrowsePaths" ]
+                }, "com.linkedin.common.Status", "com.linkedin.common.Cost", "com.linkedin.common.Deprecation", "com.linkedin.common.BrowsePaths", "com.linkedin.common.GlobalTags", "com.linkedin.common.DataPlatformInstance" ]
               }
             },
             "doc" : "The list of metadata aspects associated with the MLModel. Depending on the use case, this can either be all, or a selection, of supported aspects."
@@ -3494,7 +3568,6 @@
                     "type" : "string",
                     "doc" : "Namespace for the primary key",
                     "Searchable" : {
-                      "addToFilters" : true,
                       "fieldType" : "TEXT_PARTIAL"
                     }
                   }, {
@@ -3547,7 +3620,7 @@
                   "Aspect" : {
                     "name" : "mlPrimaryKeyProperties"
                   }
-                }, "com.linkedin.common.Ownership", "com.linkedin.common.InstitutionalMemory", "com.linkedin.common.Status", "com.linkedin.common.Deprecation" ]
+                }, "com.linkedin.common.Ownership", "com.linkedin.common.InstitutionalMemory", "com.linkedin.common.Status", "com.linkedin.common.Deprecation", "com.linkedin.common.GlobalTags", "com.linkedin.common.DataPlatformInstance" ]
               }
             },
             "doc" : "The list of metadata aspects associated with the MLPrimaryKey. Depending on the use case, this can either be all, or a selection, of supported aspects."
@@ -3635,7 +3708,7 @@
                   "Aspect" : {
                     "name" : "mlFeatureProperties"
                   }
-                }, "com.linkedin.common.Ownership", "com.linkedin.common.InstitutionalMemory", "com.linkedin.common.Status", "com.linkedin.common.Deprecation", "com.linkedin.common.BrowsePaths" ]
+                }, "com.linkedin.common.Ownership", "com.linkedin.common.InstitutionalMemory", "com.linkedin.common.Status", "com.linkedin.common.Deprecation", "com.linkedin.common.BrowsePaths", "com.linkedin.common.GlobalTags", "com.linkedin.common.DataPlatformInstance" ]
               }
             },
             "doc" : "The list of metadata aspects associated with the MLFeature. Depending on the use case, this can either be all, or a selection, of supported aspects."
@@ -3672,10 +3745,6 @@
                     "Relationship" : {
                       "entityTypes" : [ "dataPlatform" ],
                       "name" : "SourcePlatform"
-                    },
-                    "Searchable" : {
-                      "addToFilters" : true,
-                      "fieldType" : "URN"
                     }
                   }, {
                     "name" : "name",
@@ -3733,7 +3802,7 @@
                   "Aspect" : {
                     "name" : "mlFeatureTableProperties"
                   }
-                }, "com.linkedin.common.Ownership", "com.linkedin.common.InstitutionalMemory", "com.linkedin.common.Status", "com.linkedin.common.Deprecation", "com.linkedin.common.BrowsePaths" ]
+                }, "com.linkedin.common.Ownership", "com.linkedin.common.InstitutionalMemory", "com.linkedin.common.Status", "com.linkedin.common.Deprecation", "com.linkedin.common.BrowsePaths", "com.linkedin.common.GlobalTags", "com.linkedin.common.DataPlatformInstance" ]
               }
             },
             "doc" : "The list of metadata aspects associated with the MLFeatureTable. Depending on the use case, this can either be all, or a selection, of supported aspects."
@@ -3766,11 +3835,7 @@
                   "fields" : [ {
                     "name" : "platform",
                     "type" : "com.linkedin.common.Urn",
-                    "doc" : "Standardized platform urn for the model Deployment",
-                    "Searchable" : {
-                      "addToFilters" : true,
-                      "fieldType" : "URN"
-                    }
+                    "doc" : "Standardized platform urn for the model Deployment"
                   }, {
                     "name" : "name",
                     "type" : "string",
@@ -3785,7 +3850,9 @@
                     "type" : "com.linkedin.common.FabricType",
                     "doc" : "Fabric type where model Deployment belongs to or where it was generated",
                     "Searchable" : {
+                      "addToFilters" : true,
                       "fieldType" : "TEXT_PARTIAL",
+                      "filterNameOverride" : "Environment",
                       "queryByDefault" : false
                     }
                   } ],
@@ -3841,7 +3908,7 @@
                   "Aspect" : {
                     "name" : "mlModelDeploymentProperties"
                   }
-                }, "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.Deprecation" ]
+                }, "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.Deprecation", "com.linkedin.common.GlobalTags", "com.linkedin.common.DataPlatformInstance" ]
               }
             },
             "doc" : "The list of metadata aspects associated with the MLModelDeployment. Depending on the use case, this can either be all, or a selection, of supported aspects."
@@ -3874,11 +3941,7 @@
                   "fields" : [ {
                     "name" : "platform",
                     "type" : "com.linkedin.common.Urn",
-                    "doc" : "Standardized platform urn for the model group",
-                    "Searchable" : {
-                      "addToFilters" : true,
-                      "fieldType" : "URN"
-                    }
+                    "doc" : "Standardized platform urn for the model group"
                   }, {
                     "name" : "name",
                     "type" : "string",
@@ -3929,7 +3992,7 @@
                   "Aspect" : {
                     "name" : "mlModelGroupProperties"
                   }
-                }, "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.Deprecation", "com.linkedin.common.BrowsePaths" ]
+                }, "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.Deprecation", "com.linkedin.common.BrowsePaths", "com.linkedin.common.GlobalTags", "com.linkedin.common.DataPlatformInstance" ]
               }
             },
             "doc" : "The list of metadata aspects associated with the MLModelGroup. Depending on the use case, this can either be all, or a selection, of supported aspects."
@@ -4547,22 +4610,6 @@
     } ]
   }, "com.linkedin.metadata.browse.BrowseResultEntity", "com.linkedin.metadata.browse.BrowseResultGroup", "com.linkedin.metadata.browse.BrowseResultMetadata", "com.linkedin.metadata.key.ChartKey", "com.linkedin.metadata.key.CorpGroupKey", "com.linkedin.metadata.key.CorpUserKey", "com.linkedin.metadata.key.DashboardKey", "com.linkedin.metadata.key.DataFlowKey", "com.linkedin.metadata.key.DataHubPolicyKey", "com.linkedin.metadata.key.DataJobKey", "com.linkedin.metadata.key.DataPlatformKey", "com.linkedin.metadata.key.DataProcessKey", "com.linkedin.metadata.key.DatasetKey", "com.linkedin.metadata.key.GlossaryNodeKey", "com.linkedin.metadata.key.GlossaryTermKey", "com.linkedin.metadata.key.MLFeatureKey", "com.linkedin.metadata.key.MLFeatureTableKey", "com.linkedin.metadata.key.MLModelDeploymentKey", "com.linkedin.metadata.key.MLModelGroupKey", "com.linkedin.metadata.key.MLModelKey", "com.linkedin.metadata.key.MLPrimaryKeyKey", "com.linkedin.metadata.key.SchemaFieldKey", "com.linkedin.metadata.key.SurveyResponseKey", "com.linkedin.metadata.key.TagKey", {
     "type" : "record",
-    "name" : "AggregationMetadata",
-    "namespace" : "com.linkedin.metadata.query",
-    "fields" : [ {
-      "name" : "name",
-      "type" : "string",
-      "doc" : "The name of the aggregation, e.g, platform, origin"
-    }, {
-      "name" : "aggregations",
-      "type" : {
-        "type" : "map",
-        "values" : "long"
-      },
-      "doc" : "List of aggregations showing the number of documents falling into each bucket. e.g, for platform aggregation, the bucket can be hive, kafka, etc"
-    } ]
-  }, {
-    "type" : "record",
     "name" : "AutoCompleteResult",
     "namespace" : "com.linkedin.metadata.query",
     "doc" : "The model for the auto complete result",
@@ -4579,53 +4626,29 @@
       "doc" : "A list of typeahead suggestions"
     } ]
   }, {
-    "type" : "enum",
-    "name" : "Condition",
-    "namespace" : "com.linkedin.metadata.query",
-    "doc" : "The matching condition in a filter criterion",
-    "symbols" : [ "CONTAIN", "END_WITH", "EQUAL", "GREATER_THAN", "GREATER_THAN_OR_EQUAL_TO", "IN", "LESS_THAN", "LESS_THAN_OR_EQUAL_TO", "START_WITH" ],
-    "symbolDocs" : {
-      "CONTAIN" : "Represent the relation: String field contains value, e.g. name contains Profile",
-      "END_WITH" : "Represent the relation: String field ends with value, e.g. name ends with Event",
-      "EQUAL" : "Represent the relation: field = value, e.g. platform = hdfs",
-      "GREATER_THAN" : "Represent the relation greater than, e.g. ownerCount > 5",
-      "GREATER_THAN_OR_EQUAL_TO" : "Represent the relation greater than or equal to, e.g. ownerCount >= 5",
-      "IN" : "Represent the relation: String field is one of the array values to, e.g. name in [\"Profile\", \"Event\"]",
-      "LESS_THAN" : "Represent the relation less than, e.g. ownerCount < 3",
-      "LESS_THAN_OR_EQUAL_TO" : "Represent the relation less than or equal to, e.g. ownerCount <= 3",
-      "START_WITH" : "Represent the relation: String field starts with value, e.g. name starts with PageView"
-    }
-  }, {
     "type" : "record",
-    "name" : "Criterion",
+    "name" : "ListResult",
     "namespace" : "com.linkedin.metadata.query",
-    "doc" : "A criterion for matching a field with given value",
+    "doc" : "The model for the result of a list query",
     "fields" : [ {
-      "name" : "field",
-      "type" : "string",
-      "doc" : "The name of the field that the criterion refers to"
-    }, {
-      "name" : "value",
-      "type" : "string",
-      "doc" : "The value of the intended field"
-    }, {
-      "name" : "condition",
-      "type" : "Condition",
-      "doc" : "The condition for the criterion, e.g. EQUAL, START_WITH",
-      "default" : "EQUAL"
-    } ]
-  }, {
-    "type" : "record",
-    "name" : "Filter",
-    "namespace" : "com.linkedin.metadata.query",
-    "doc" : "The filter for finding an record or a collection of records",
-    "fields" : [ {
-      "name" : "criteria",
+      "name" : "entities",
       "type" : {
         "type" : "array",
-        "items" : "Criterion"
+        "items" : "com.linkedin.common.Urn"
       },
-      "doc" : "A list of criteria the filter applies to the query"
+      "doc" : "A list of entities returned in the list"
+    }, {
+      "name" : "start",
+      "type" : "int",
+      "doc" : "Offset of the first entity in the result"
+    }, {
+      "name" : "count",
+      "type" : "int",
+      "doc" : "Size of each page in the result"
+    }, {
+      "name" : "total",
+      "type" : "int",
+      "doc" : "The total number of entities directly under searched path"
     } ]
   }, {
     "type" : "record",
@@ -4653,89 +4676,79 @@
       "doc" : "The total number of entities directly under searched path"
     } ]
   }, {
+    "type" : "enum",
+    "name" : "Condition",
+    "namespace" : "com.linkedin.metadata.query.filter",
+    "doc" : "The matching condition in a filter criterion",
+    "symbols" : [ "CONTAIN", "END_WITH", "EQUAL", "GREATER_THAN", "GREATER_THAN_OR_EQUAL_TO", "IN", "LESS_THAN", "LESS_THAN_OR_EQUAL_TO", "START_WITH" ],
+    "symbolDocs" : {
+      "CONTAIN" : "Represent the relation: String field contains value, e.g. name contains Profile",
+      "END_WITH" : "Represent the relation: String field ends with value, e.g. name ends with Event",
+      "EQUAL" : "Represent the relation: field = value, e.g. platform = hdfs",
+      "GREATER_THAN" : "Represent the relation greater than, e.g. ownerCount > 5",
+      "GREATER_THAN_OR_EQUAL_TO" : "Represent the relation greater than or equal to, e.g. ownerCount >= 5",
+      "IN" : "Represent the relation: String field is one of the array values to, e.g. name in [\"Profile\", \"Event\"]",
+      "LESS_THAN" : "Represent the relation less than, e.g. ownerCount < 3",
+      "LESS_THAN_OR_EQUAL_TO" : "Represent the relation less than or equal to, e.g. ownerCount <= 3",
+      "START_WITH" : "Represent the relation: String field starts with value, e.g. name starts with PageView"
+    }
+  }, {
     "type" : "record",
-    "name" : "MatchMetadata",
-    "namespace" : "com.linkedin.metadata.query",
+    "name" : "ConjunctiveCriterion",
+    "namespace" : "com.linkedin.metadata.query.filter",
+    "doc" : "A list of criterion and'd together.",
     "fields" : [ {
-      "name" : "matchedFields",
+      "name" : "and",
       "type" : {
         "type" : "array",
         "items" : {
           "type" : "record",
-          "name" : "MatchedField",
+          "name" : "Criterion",
+          "doc" : "A criterion for matching a field with given value",
           "fields" : [ {
-            "name" : "name",
+            "name" : "field",
             "type" : "string",
-            "doc" : "Matched field name"
+            "doc" : "The name of the field that the criterion refers to"
           }, {
             "name" : "value",
             "type" : "string",
-            "doc" : "Matched field value"
+            "doc" : "The value of the intended field"
+          }, {
+            "name" : "condition",
+            "type" : "Condition",
+            "doc" : "The condition for the criterion, e.g. EQUAL, START_WITH",
+            "default" : "EQUAL"
           } ]
         }
       },
-      "doc" : "Matched field name and values"
+      "doc" : "A list of and criteria the filter applies to the query"
     } ]
-  }, "com.linkedin.metadata.query.MatchedField", {
+  }, "com.linkedin.metadata.query.filter.Criterion", {
     "type" : "record",
-    "name" : "SearchResult",
-    "namespace" : "com.linkedin.metadata.query",
-    "doc" : "The model for the result of a search query",
+    "name" : "Filter",
+    "namespace" : "com.linkedin.metadata.query.filter",
+    "doc" : "The filter for finding a record or a collection of records",
     "fields" : [ {
-      "name" : "entities",
+      "name" : "or",
       "type" : {
         "type" : "array",
-        "items" : "com.linkedin.common.Urn"
+        "items" : "ConjunctiveCriterion"
       },
-      "doc" : "A list of entities returned from the search results"
+      "doc" : "A list of of disjunctive criterion for the filter.",
+      "optional" : true
     }, {
-      "name" : "metadata",
+      "name" : "criteria",
       "type" : {
-        "type" : "record",
-        "name" : "SearchResultMetadata",
-        "doc" : "The model for the search result",
-        "fields" : [ {
-          "name" : "searchResultMetadatas",
-          "type" : {
-            "type" : "array",
-            "items" : "AggregationMetadata"
-          },
-          "doc" : "A list of search result metadata such as aggregations"
-        }, {
-          "name" : "urns",
-          "type" : {
-            "type" : "array",
-            "items" : "com.linkedin.common.Urn"
-          },
-          "doc" : "A list of urns corresponding to search documents (in order) as returned by the search index"
-        }, {
-          "name" : "matches",
-          "type" : {
-            "type" : "array",
-            "items" : "MatchMetadata"
-          },
-          "doc" : "A list of match metadata for each search result, containing the list of fields in the search document that matched the query",
-          "optional" : true
-        } ]
+        "type" : "array",
+        "items" : "Criterion"
       },
-      "doc" : "Metadata specific to the browse result of the queried path"
-    }, {
-      "name" : "from",
-      "type" : "int",
-      "doc" : "Offset of the first entity in the result"
-    }, {
-      "name" : "pageSize",
-      "type" : "int",
-      "doc" : "Size of each page in the result"
-    }, {
-      "name" : "numEntities",
-      "type" : "int",
-      "doc" : "The total number of entities directly under searched path"
+      "doc" : "Deprecated! A list of conjunctive criterion for the filter. If \"or\" field is provided, then this field is ignored.",
+      "optional" : true
     } ]
-  }, "com.linkedin.metadata.query.SearchResultMetadata", {
+  }, {
     "type" : "record",
     "name" : "SortCriterion",
-    "namespace" : "com.linkedin.metadata.query",
+    "namespace" : "com.linkedin.metadata.query.filter",
     "doc" : "Sort order along with the field to sort it on, to be applied to the results.",
     "fields" : [ {
       "name" : "field",
@@ -4755,7 +4768,7 @@
       },
       "doc" : "The order to sort the results i.e. ASCENDING or DESCENDING"
     } ]
-  }, "com.linkedin.metadata.query.SortOrder", {
+  }, "com.linkedin.metadata.query.filter.SortOrder", {
     "type" : "record",
     "name" : "DeleteEntityResponse",
     "namespace" : "com.linkedin.metadata.run",
@@ -4766,7 +4779,128 @@
       "name" : "rows",
       "type" : "long"
     } ]
-  }, "com.linkedin.metadata.snapshot.ChartSnapshot", "com.linkedin.metadata.snapshot.CorpGroupSnapshot", "com.linkedin.metadata.snapshot.CorpUserSnapshot", "com.linkedin.metadata.snapshot.DashboardSnapshot", "com.linkedin.metadata.snapshot.DataFlowSnapshot", "com.linkedin.metadata.snapshot.DataHubPolicySnapshot", "com.linkedin.metadata.snapshot.DataJobSnapshot", "com.linkedin.metadata.snapshot.DataPlatformSnapshot", "com.linkedin.metadata.snapshot.DataProcessSnapshot", "com.linkedin.metadata.snapshot.DatasetSnapshot", "com.linkedin.metadata.snapshot.GlossaryNodeSnapshot", "com.linkedin.metadata.snapshot.GlossaryTermSnapshot", "com.linkedin.metadata.snapshot.MLFeatureSnapshot", "com.linkedin.metadata.snapshot.MLFeatureTableSnapshot", "com.linkedin.metadata.snapshot.MLModelDeploymentSnapshot", "com.linkedin.metadata.snapshot.MLModelGroupSnapshot", "com.linkedin.metadata.snapshot.MLModelSnapshot", "com.linkedin.metadata.snapshot.MLPrimaryKeySnapshot", "com.linkedin.metadata.snapshot.SchemaFieldSnapshot", "com.linkedin.metadata.snapshot.Snapshot", "com.linkedin.metadata.snapshot.SurveyResponseSnapshot", "com.linkedin.metadata.snapshot.TagSnapshot", "com.linkedin.ml.metadata.BaseData", "com.linkedin.ml.metadata.CaveatDetails", "com.linkedin.ml.metadata.CaveatsAndRecommendations", "com.linkedin.ml.metadata.DeploymentStatus", "com.linkedin.ml.metadata.EthicalConsiderations", "com.linkedin.ml.metadata.EvaluationData", "com.linkedin.ml.metadata.HyperParameterValueType", "com.linkedin.ml.metadata.IntendedUse", "com.linkedin.ml.metadata.IntendedUserType", "com.linkedin.ml.metadata.MLFeatureProperties", "com.linkedin.ml.metadata.MLFeatureTableProperties", "com.linkedin.ml.metadata.MLHyperParam", "com.linkedin.ml.metadata.MLMetric", "com.linkedin.ml.metadata.MLModelDeploymentProperties", "com.linkedin.ml.metadata.MLModelFactorPrompts", "com.linkedin.ml.metadata.MLModelFactors", "com.linkedin.ml.metadata.MLModelGroupProperties", "com.linkedin.ml.metadata.MLModelProperties", "com.linkedin.ml.metadata.MLPrimaryKeyProperties", "com.linkedin.ml.metadata.Metrics", "com.linkedin.ml.metadata.QuantitativeAnalyses", "com.linkedin.ml.metadata.ResultsType", "com.linkedin.ml.metadata.SourceCode", "com.linkedin.ml.metadata.SourceCodeUrl", "com.linkedin.ml.metadata.SourceCodeUrlType", "com.linkedin.ml.metadata.TrainingData", {
+  }, {
+    "type" : "record",
+    "name" : "AggregationMetadata",
+    "namespace" : "com.linkedin.metadata.search",
+    "fields" : [ {
+      "name" : "name",
+      "type" : "string",
+      "doc" : "The name of the aggregation, e.g, platform, origin"
+    }, {
+      "name" : "displayName",
+      "type" : "string",
+      "doc" : "Name of the filter to be displayed in the UI",
+      "optional" : true
+    }, {
+      "name" : "aggregations",
+      "type" : {
+        "type" : "map",
+        "values" : "long"
+      },
+      "doc" : "List of aggregations showing the number of documents falling into each bucket. e.g, for platform aggregation, the bucket can be hive, kafka, etc"
+    }, {
+      "name" : "filterValues",
+      "type" : {
+        "type" : "array",
+        "items" : {
+          "type" : "record",
+          "name" : "FilterValue",
+          "fields" : [ {
+            "name" : "value",
+            "type" : "string"
+          }, {
+            "name" : "entity",
+            "type" : "com.linkedin.common.Urn",
+            "optional" : true
+          }, {
+            "name" : "facetCount",
+            "type" : "long"
+          } ]
+        }
+      }
+    } ]
+  }, "com.linkedin.metadata.search.FilterValue", {
+    "type" : "record",
+    "name" : "MatchedField",
+    "namespace" : "com.linkedin.metadata.search",
+    "fields" : [ {
+      "name" : "name",
+      "type" : "string",
+      "doc" : "Matched field name"
+    }, {
+      "name" : "value",
+      "type" : "string",
+      "doc" : "Matched field value"
+    } ]
+  }, {
+    "type" : "record",
+    "name" : "SearchEntity",
+    "namespace" : "com.linkedin.metadata.search",
+    "doc" : "The model for each entity returned by the search query",
+    "fields" : [ {
+      "name" : "entity",
+      "type" : "com.linkedin.common.Urn",
+      "doc" : "Urn of the entity being returned"
+    }, {
+      "name" : "matchedFields",
+      "type" : {
+        "type" : "array",
+        "items" : "MatchedField"
+      },
+      "doc" : "Matched field name and values",
+      "default" : [ ]
+    }, {
+      "name" : "features",
+      "type" : {
+        "type" : "map",
+        "values" : "double"
+      },
+      "optional" : true
+    } ]
+  }, {
+    "type" : "record",
+    "name" : "SearchResult",
+    "namespace" : "com.linkedin.metadata.search",
+    "doc" : "The model for the result of a search query",
+    "fields" : [ {
+      "name" : "entities",
+      "type" : {
+        "type" : "array",
+        "items" : "SearchEntity"
+      },
+      "doc" : "A list of entities returned from the search results"
+    }, {
+      "name" : "metadata",
+      "type" : {
+        "type" : "record",
+        "name" : "SearchResultMetadata",
+        "doc" : "The model for the search result",
+        "fields" : [ {
+          "name" : "aggregations",
+          "type" : {
+            "type" : "array",
+            "items" : "AggregationMetadata"
+          },
+          "doc" : "A list of search result metadata such as aggregations",
+          "default" : [ ]
+        } ]
+      },
+      "doc" : "Metadata specific to the browse result of the queried path"
+    }, {
+      "name" : "from",
+      "type" : "int",
+      "doc" : "Offset of the first entity in the result"
+    }, {
+      "name" : "pageSize",
+      "type" : "int",
+      "doc" : "Size of each page in the result"
+    }, {
+      "name" : "numEntities",
+      "type" : "int",
+      "doc" : "The total number of entities directly under searched path"
+    } ]
+  }, "com.linkedin.metadata.search.SearchResultMetadata", "com.linkedin.metadata.snapshot.ChartSnapshot", "com.linkedin.metadata.snapshot.CorpGroupSnapshot", "com.linkedin.metadata.snapshot.CorpUserSnapshot", "com.linkedin.metadata.snapshot.DashboardSnapshot", "com.linkedin.metadata.snapshot.DataFlowSnapshot", "com.linkedin.metadata.snapshot.DataHubPolicySnapshot", "com.linkedin.metadata.snapshot.DataJobSnapshot", "com.linkedin.metadata.snapshot.DataPlatformSnapshot", "com.linkedin.metadata.snapshot.DataProcessSnapshot", "com.linkedin.metadata.snapshot.DatasetSnapshot", "com.linkedin.metadata.snapshot.GlossaryNodeSnapshot", "com.linkedin.metadata.snapshot.GlossaryTermSnapshot", "com.linkedin.metadata.snapshot.MLFeatureSnapshot", "com.linkedin.metadata.snapshot.MLFeatureTableSnapshot", "com.linkedin.metadata.snapshot.MLModelDeploymentSnapshot", "com.linkedin.metadata.snapshot.MLModelGroupSnapshot", "com.linkedin.metadata.snapshot.MLModelSnapshot", "com.linkedin.metadata.snapshot.MLPrimaryKeySnapshot", "com.linkedin.metadata.snapshot.SchemaFieldSnapshot", "com.linkedin.metadata.snapshot.Snapshot", "com.linkedin.metadata.snapshot.TagSnapshot", "com.linkedin.ml.metadata.BaseData", "com.linkedin.ml.metadata.CaveatDetails", "com.linkedin.ml.metadata.CaveatsAndRecommendations", "com.linkedin.ml.metadata.DeploymentStatus", "com.linkedin.ml.metadata.EthicalConsiderations", "com.linkedin.ml.metadata.EvaluationData", "com.linkedin.ml.metadata.HyperParameterValueType", "com.linkedin.ml.metadata.IntendedUse", "com.linkedin.ml.metadata.IntendedUserType", "com.linkedin.ml.metadata.MLFeatureProperties", "com.linkedin.ml.metadata.MLFeatureTableProperties", "com.linkedin.ml.metadata.MLHyperParam", "com.linkedin.ml.metadata.MLMetric", "com.linkedin.ml.metadata.MLModelDeploymentProperties", "com.linkedin.ml.metadata.MLModelFactorPrompts", "com.linkedin.ml.metadata.MLModelFactors", "com.linkedin.ml.metadata.MLModelGroupProperties", "com.linkedin.ml.metadata.MLModelProperties", "com.linkedin.ml.metadata.MLPrimaryKeyProperties", "com.linkedin.ml.metadata.Metrics", "com.linkedin.ml.metadata.QuantitativeAnalyses", "com.linkedin.ml.metadata.ResultsType", "com.linkedin.ml.metadata.SourceCode", "com.linkedin.ml.metadata.SourceCodeUrl", "com.linkedin.ml.metadata.SourceCodeUrlType", "com.linkedin.ml.metadata.TrainingData", {
     "type" : "record",
     "name" : "SystemMetadata",
     "namespace" : "com.linkedin.mxe",
@@ -4835,7 +4969,7 @@
           "optional" : true
         }, {
           "name" : "filter",
-          "type" : "com.linkedin.metadata.query.Filter",
+          "type" : "com.linkedin.metadata.query.filter.Filter",
           "optional" : true
         }, {
           "name" : "limit",
@@ -4869,7 +5003,7 @@
           "type" : "string"
         }, {
           "name" : "filter",
-          "type" : "com.linkedin.metadata.query.Filter",
+          "type" : "com.linkedin.metadata.query.filter.Filter",
           "optional" : true
         }, {
           "name" : "start",
@@ -4886,6 +5020,26 @@
           "type" : "string"
         } ],
         "returns" : "com.linkedin.metadata.run.DeleteEntityResponse"
+      }, {
+        "name" : "filter",
+        "parameters" : [ {
+          "name" : "entity",
+          "type" : "string"
+        }, {
+          "name" : "filter",
+          "type" : "com.linkedin.metadata.query.filter.Filter"
+        }, {
+          "name" : "sort",
+          "type" : "com.linkedin.metadata.query.filter.SortCriterion",
+          "optional" : true
+        }, {
+          "name" : "start",
+          "type" : "int"
+        }, {
+          "name" : "count",
+          "type" : "int"
+        } ],
+        "returns" : "com.linkedin.metadata.search.SearchResult"
       }, {
         "name" : "getBrowsePaths",
         "parameters" : [ {
@@ -4911,6 +5065,27 @@
           "optional" : true
         } ]
       }, {
+        "name" : "list",
+        "parameters" : [ {
+          "name" : "entity",
+          "type" : "string"
+        }, {
+          "name" : "filter",
+          "type" : "com.linkedin.metadata.query.filter.Filter",
+          "optional" : true
+        }, {
+          "name" : "sort",
+          "type" : "com.linkedin.metadata.query.filter.SortCriterion",
+          "optional" : true
+        }, {
+          "name" : "start",
+          "type" : "int"
+        }, {
+          "name" : "count",
+          "type" : "int"
+        } ],
+        "returns" : "com.linkedin.metadata.query.ListResult"
+      }, {
         "name" : "listUrns",
         "parameters" : [ {
           "name" : "entity",
@@ -4933,11 +5108,11 @@
           "type" : "string"
         }, {
           "name" : "filter",
-          "type" : "com.linkedin.metadata.query.Filter",
+          "type" : "com.linkedin.metadata.query.filter.Filter",
           "optional" : true
         }, {
           "name" : "sort",
-          "type" : "com.linkedin.metadata.query.SortCriterion",
+          "type" : "com.linkedin.metadata.query.filter.SortCriterion",
           "optional" : true
         }, {
           "name" : "start",
@@ -4946,7 +5121,32 @@
           "name" : "count",
           "type" : "int"
         } ],
-        "returns" : "com.linkedin.metadata.query.SearchResult"
+        "returns" : "com.linkedin.metadata.search.SearchResult"
+      }, {
+        "name" : "searchAcrossEntities",
+        "parameters" : [ {
+          "name" : "entities",
+          "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
+          "optional" : true
+        }, {
+          "name" : "input",
+          "type" : "string"
+        }, {
+          "name" : "filter",
+          "type" : "com.linkedin.metadata.query.filter.Filter",
+          "optional" : true
+        }, {
+          "name" : "sort",
+          "type" : "com.linkedin.metadata.query.filter.SortCriterion",
+          "optional" : true
+        }, {
+          "name" : "start",
+          "type" : "int"
+        }, {
+          "name" : "count",
+          "type" : "int"
+        } ],
+        "returns" : "com.linkedin.metadata.search.SearchResult"
       }, {
         "name" : "setWritable",
         "parameters" : [ {

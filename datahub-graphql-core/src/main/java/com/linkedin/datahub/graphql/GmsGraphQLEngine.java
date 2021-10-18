@@ -6,6 +6,7 @@ import com.linkedin.datahub.graphql.analytics.resolver.GetChartsResolver;
 import com.linkedin.datahub.graphql.analytics.resolver.GetHighlightsResolver;
 import com.linkedin.datahub.graphql.analytics.resolver.IsAnalyticsEnabledResolver;
 import com.linkedin.datahub.graphql.analytics.service.AnalyticsService;
+import com.linkedin.datahub.graphql.generated.AggregationMetadata;
 import com.linkedin.datahub.graphql.generated.Aspect;
 import com.linkedin.datahub.graphql.generated.BrowseResults;
 import com.linkedin.datahub.graphql.generated.Chart;
@@ -17,6 +18,7 @@ import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityRelationship;
 import com.linkedin.datahub.graphql.generated.EntityRelationshipLegacy;
+import com.linkedin.datahub.graphql.generated.ForeignKeyConstraint;
 import com.linkedin.datahub.graphql.generated.MLModelProperties;
 import com.linkedin.datahub.graphql.generated.RelatedDataset;
 import com.linkedin.datahub.graphql.generated.SearchResult;
@@ -36,6 +38,12 @@ import com.linkedin.datahub.graphql.generated.MLFeatureProperties;
 import com.linkedin.datahub.graphql.generated.MLPrimaryKey;
 import com.linkedin.datahub.graphql.generated.MLPrimaryKeyProperties;
 import com.linkedin.datahub.graphql.resolvers.MeResolver;
+import com.linkedin.datahub.graphql.resolvers.group.AddGroupMembersResolver;
+import com.linkedin.datahub.graphql.resolvers.group.CreateGroupResolver;
+import com.linkedin.datahub.graphql.resolvers.group.ListGroupsResolver;
+import com.linkedin.datahub.graphql.resolvers.group.RemoveGroupMembersResolver;
+import com.linkedin.datahub.graphql.resolvers.group.RemoveGroupResolver;
+import com.linkedin.datahub.graphql.resolvers.group.UpdateUserStatusResolver;
 import com.linkedin.datahub.graphql.resolvers.load.AspectResolver;
 import com.linkedin.datahub.graphql.resolvers.load.EntityTypeBatchResolver;
 import com.linkedin.datahub.graphql.resolvers.load.EntityTypeResolver;
@@ -43,9 +51,13 @@ import com.linkedin.datahub.graphql.resolvers.load.LoadableTypeBatchResolver;
 import com.linkedin.datahub.graphql.resolvers.load.EntityRelationshipsResultResolver;
 import com.linkedin.datahub.graphql.resolvers.load.TimeSeriesAspectResolver;
 import com.linkedin.datahub.graphql.resolvers.load.UsageTypeResolver;
+import com.linkedin.datahub.graphql.resolvers.mutate.AddLinkResolver;
+import com.linkedin.datahub.graphql.resolvers.mutate.AddOwnerResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.AddTagResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.AddTermResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.MutableTypeResolver;
+import com.linkedin.datahub.graphql.resolvers.mutate.RemoveLinkResolver;
+import com.linkedin.datahub.graphql.resolvers.mutate.RemoveOwnerResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.RemoveTagResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.RemoveTermResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.UpdateFieldDescriptionResolver;
@@ -53,10 +65,13 @@ import com.linkedin.datahub.graphql.resolvers.policy.DeletePolicyResolver;
 import com.linkedin.datahub.graphql.resolvers.policy.ListPoliciesResolver;
 import com.linkedin.datahub.graphql.resolvers.config.AppConfigResolver;
 import com.linkedin.datahub.graphql.resolvers.policy.UpsertPolicyResolver;
+import com.linkedin.datahub.graphql.resolvers.search.SearchAcrossEntitiesResolver;
 import com.linkedin.datahub.graphql.resolvers.type.AspectInterfaceTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.type.HyperParameterValueTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.type.ResultsTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.type.TimeSeriesAspectInterfaceTypeResolver;
+import com.linkedin.datahub.graphql.resolvers.user.ListUsersResolver;
+import com.linkedin.datahub.graphql.resolvers.user.RemoveUserResolver;
 import com.linkedin.datahub.graphql.types.BrowsableEntityType;
 import com.linkedin.datahub.graphql.types.EntityType;
 import com.linkedin.datahub.graphql.types.LoadableType;
@@ -98,6 +113,7 @@ import graphql.execution.DataFetcherResult;
 import graphql.schema.idl.RuntimeWiring;
 import java.util.ArrayList;
 import java.util.Collections;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.IOUtils;
 import org.dataloader.BatchLoaderContextProvider;
 import org.dataloader.DataLoader;
@@ -113,8 +129,6 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import static com.linkedin.datahub.graphql.Constants.*;
 import static graphql.Scalars.GraphQLLong;
@@ -124,9 +138,8 @@ import static graphql.Scalars.GraphQLLong;
  *
  * TODO: Accept GMS clients as constructor arguments.
  */
+@Slf4j
 public class GmsGraphQLEngine {
-
-    private static final Logger _logger = LoggerFactory.getLogger(GmsGraphQLEngine.class.getName());
 
     private final AnalyticsService analyticsService;
     private final EntityService entityService;
@@ -311,6 +324,7 @@ public class GmsGraphQLEngine {
         configureTypeExtensions(builder);
         configureTagAssociationResolver(builder);
         configureDataJobResolvers(builder);
+        configureDataFlowResolvers(builder);
         configureMLFeatureTableResolvers(builder);
         configureGlossaryRelationshipResolvers(builder);
         configureAnalyticsResolvers(builder);
@@ -346,7 +360,9 @@ public class GmsGraphQLEngine {
             .dataFetcher("me", new AuthenticatedResolver<>(
                     new MeResolver(GmsClientFactory.getEntitiesClient())))
             .dataFetcher("search", new AuthenticatedResolver<>(
-                    new SearchResolver(searchableTypes)))
+                    new SearchResolver(GmsClientFactory.getEntitiesClient())))
+            .dataFetcher("searchAcrossEntities",
+                new SearchAcrossEntitiesResolver(GmsClientFactory.getEntitiesClient()))
             .dataFetcher("autoComplete", new AuthenticatedResolver<>(
                     new AutoCompleteResolver(searchableTypes)))
             .dataFetcher("autoCompleteForMultiple", new AuthenticatedResolver<>(
@@ -399,6 +415,10 @@ public class GmsGraphQLEngine {
                             (env) -> env.getArgument(URN_FIELD_NAME))))
             .dataFetcher("listPolicies",
                 new ListPoliciesResolver(GmsClientFactory.getEntitiesClient()))
+            .dataFetcher("listUsers",
+                new ListUsersResolver(GmsClientFactory.getEntitiesClient()))
+            .dataFetcher("listGroups",
+                new ListGroupsResolver(GmsClientFactory.getEntitiesClient()))
         );
     }
 
@@ -418,6 +438,16 @@ public class GmsGraphQLEngine {
             .dataFetcher("updatePolicy", new UpsertPolicyResolver(GmsClientFactory.getAspectsClient()))
             .dataFetcher("deletePolicy", new DeletePolicyResolver(GmsClientFactory.getEntitiesClient()))
             .dataFetcher("updateDescription", new AuthenticatedResolver<>(new UpdateFieldDescriptionResolver(entityService)))
+            .dataFetcher("addOwner", new AddOwnerResolver(entityService))
+            .dataFetcher("removeOwner", new RemoveOwnerResolver(entityService))
+            .dataFetcher("addLink", new AddLinkResolver(entityService))
+            .dataFetcher("removeLink", new RemoveLinkResolver(entityService))
+            .dataFetcher("addGroupMembers", new AddGroupMembersResolver(GmsClientFactory.getAspectsClient()))
+            .dataFetcher("removeGroupMembers", new RemoveGroupMembersResolver(GmsClientFactory.getAspectsClient()))
+            .dataFetcher("createGroup", new CreateGroupResolver(GmsClientFactory.getAspectsClient()))
+            .dataFetcher("removeUser", new RemoveUserResolver(GmsClientFactory.getEntitiesClient()))
+            .dataFetcher("removeGroup", new RemoveGroupResolver(GmsClientFactory.getEntitiesClient()))
+            .dataFetcher("updateUserStatus", new UpdateUserStatusResolver(GmsClientFactory.getAspectsClient()))
         );
     }
 
@@ -429,6 +459,11 @@ public class GmsGraphQLEngine {
                         entityTypes.stream().collect(Collectors.toList()),
                         (env) -> ((SearchResult) env.getSource()).getEntity()))
                 )
+            )
+            .type("AggregationMetadata", typeWiring -> typeWiring
+                .dataFetcher("entity", new EntityTypeResolver(
+                    entityTypes.stream().collect(Collectors.toList()),
+                    (env) -> ((AggregationMetadata) env.getSource()).getEntity()))
             )
             .type("BrowseResults", typeWiring -> typeWiring
                 .dataFetcher("entities", new AuthenticatedResolver<>(
@@ -483,6 +518,9 @@ public class GmsGraphQLEngine {
                 .dataFetcher("schemaMetadata", new AuthenticatedResolver<>(
                     new AspectResolver())
                 )
+               .dataFetcher("subTypes", new AuthenticatedResolver(new SubTypesResolver(GmsClientFactory.getAspectsClient(),
+                           "dataset",
+                       "subTypes")))
             )
             .type("Owner", typeWiring -> typeWiring
                     .dataFetcher("owner", new AuthenticatedResolver<>(
@@ -501,6 +539,12 @@ public class GmsGraphQLEngine {
                             new LoadableTypeResolver<>(datasetType,
                                     (env) -> ((RelatedDataset) env.getSource()).getDataset().getUrn()))
                     )
+            )
+            .type("ForeignKeyConstraint", typeWiring -> typeWiring
+                .dataFetcher("foreignDataset", new AuthenticatedResolver<>(
+                    new LoadableTypeResolver<>(datasetType,
+                        (env) -> ((ForeignKeyConstraint) env.getSource()).getForeignDataset().getUrn()))
+                )
             )
             .type("InstitutionalMemoryMetadata", typeWiring -> typeWiring
                 .dataFetcher("author", new AuthenticatedResolver<>(
@@ -684,13 +728,6 @@ public class GmsGraphQLEngine {
                                 (env) -> ((Entity) env.getSource()).getUrn()))
                 )
             )
-            .type("DataFlow", typeWiring -> typeWiring
-                    .dataFetcher("dataJobs", new AuthenticatedResolver<>(
-                            new LoadableTypeResolver<>(dataFlowDataJobsRelationshipType,
-                                    (env) -> ((Entity) env.getSource()).getUrn())
-                            )
-                    )
-            )
             .type("DataJobInputOutput", typeWiring -> typeWiring
                 .dataFetcher("inputDatasets", new AuthenticatedResolver<>(
                     new LoadableTypeBatchResolver<>(datasetType,
@@ -710,6 +747,23 @@ public class GmsGraphQLEngine {
                             .map(DataJob::getUrn)
                             .collect(Collectors.toList())))
                 )
+            );
+    }
+
+    /**
+     * Configures resolvers responsible for resolving the {@link com.linkedin.datahub.graphql.generated.DataFlow} type.
+     */
+    private void configureDataFlowResolvers(final RuntimeWiring.Builder builder) {
+        builder
+            .type("DataFlow", typeWiring -> typeWiring
+                .dataFetcher("dataJobs", new AuthenticatedResolver<>(
+                        new LoadableTypeResolver<>(dataFlowDataJobsRelationshipType,
+                            (env) -> ((Entity) env.getSource()).getUrn())
+                    )
+                )
+                .dataFetcher("relationships", new AuthenticatedResolver<>(
+                    new EntityRelationshipsResultResolver(GmsClientFactory.getRelationshipsClient())
+                ))
             );
     }
 
@@ -821,10 +875,10 @@ public class GmsGraphQLEngine {
         DataLoaderOptions loaderOptions = DataLoaderOptions.newOptions().setBatchLoaderContextProvider(contextProvider);
         return DataLoader.newDataLoader((keys, context) -> CompletableFuture.supplyAsync(() -> {
             try {
-                _logger.debug(String.format("Batch loading entities of type: %s, keys: %s", graphType.name(), keys));
+                log.debug(String.format("Batch loading entities of type: %s, keys: %s", graphType.name(), keys));
                 return graphType.batchLoad(keys, context.getContext());
             } catch (Exception e) {
-                _logger.error(String.format("Failed to load Entities of type: %s, keys: %s", graphType.name(), keys) + " " + e.getMessage());
+                log.error(String.format("Failed to load Entities of type: %s, keys: %s", graphType.name(), keys) + " " + e.getMessage());
                 throw new RuntimeException(String.format("Failed to retrieve entities of type %s", graphType.name()), e);
             }
         }), loaderOptions);
@@ -835,10 +889,10 @@ public class GmsGraphQLEngine {
         DataLoaderOptions loaderOptions = DataLoaderOptions.newOptions().setBatchLoaderContextProvider(contextProvider);
         return DataLoader.newDataLoader((keys, context) -> CompletableFuture.supplyAsync(() -> {
             try {
-                _logger.debug(String.format("Batch loading aspects with keys: %s", keys));
+                log.debug(String.format("Batch loading aspects with keys: %s", keys));
                 return aspectType.batchLoad(keys, context.getContext());
             } catch (Exception e) {
-                _logger.error(String.format("Failed to load Aspect for entity. keys: %s", keys) + " " + e.getMessage());
+                log.error(String.format("Failed to load Aspect for entity. keys: %s", keys) + " " + e.getMessage());
                 throw new RuntimeException(String.format("Failed to retrieve entities of type Aspect", e));
             }
         }), loaderOptions);

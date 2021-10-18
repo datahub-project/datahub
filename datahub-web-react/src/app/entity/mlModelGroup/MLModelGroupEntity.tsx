@@ -42,6 +42,8 @@ export class MLModelGroupEntity implements Entity<MlModelGroup> {
 
     getPathName = () => 'mlModelGroup';
 
+    getEntityName = () => 'ML Group';
+
     getCollectionName = () => 'ML Groups';
 
     renderProfile = (urn: string) => <MLModelGroupProfile urn={urn} />;

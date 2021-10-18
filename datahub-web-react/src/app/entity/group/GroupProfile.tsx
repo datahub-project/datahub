@@ -9,6 +9,7 @@ import RelatedEntityResults from '../../shared/entitySearch/RelatedEntityResults
 import { Message } from '../../shared/Message';
 import GroupMembers from './GroupMembers';
 import { LegacyEntityProfile } from '../../shared/LegacyEntityProfile';
+import { useEntityRegistry } from '../../useEntityRegistry';
 
 const messageStyle = { marginTop: '10%' };
 
@@ -22,9 +23,10 @@ const ENABLED_TAB_TYPES = [TabType.Members, TabType.Ownership];
 const MEMBER_PAGE_SIZE = 20;
 
 /**
- * Responsible for reading & writing users.
+ * Responsible for reading & writing groups.
  */
 export default function GroupProfile() {
+    const entityRegistry = useEntityRegistry();
     const { urn } = useUserParams();
     const { loading, error, data } = useGetGroupQuery({ variables: { urn, membersCount: MEMBER_PAGE_SIZE } });
 
@@ -92,7 +94,7 @@ export default function GroupProfile() {
                     tags={null}
                     header={
                         <GroupHeader
-                            name={data?.corpGroup?.name}
+                            name={entityRegistry.getDisplayName(EntityType.CorpGroup, data?.corpGroup)}
                             description={description}
                             email={data?.corpGroup?.info?.email}
                         />

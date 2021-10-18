@@ -1,5 +1,6 @@
 import logging
 from dataclasses import dataclass, field
+from hashlib import md5
 from typing import Iterable, List, Optional
 
 import confluent_kafka
@@ -97,7 +98,6 @@ class KafkaSource(Source):
             aspects=[],  # we append to this list later on
         )
         dataset_snapshot.aspects.append(Status(removed=False))
-
         # Fetch schema from the registry.
         schema: Optional[Schema] = None
         try:
@@ -132,7 +132,7 @@ class KafkaSource(Source):
 
         # Parse the key schema
         key_fields: List[SchemaField] = []
-        if key_schema and schema.schema_type == "AVRO":
+        if key_schema and key_schema.schema_type == "AVRO":
             key_fields = schema_util.avro_schema_to_mce_fields(
                 key_schema.schema_str, is_key_schema=True
             )
@@ -143,16 +143,27 @@ class KafkaSource(Source):
             )
 
         key_schema_str: Optional[str] = None
-        if schema is not None:
+        if schema is not None or key_schema is not None:
+            # create a merged string for the combined schemas and compute an md5 hash across
+            schema_as_string = schema.schema_str if schema is not None else ""
+            schema_as_string = (
+                schema_as_string + key_schema.schema_str
+                if key_schema is not None
+                else ""
+            )
+            md5_hash = md5(schema_as_string.encode()).hexdigest()
+
             if key_schema:
                 key_schema_str = key_schema.schema_str
+
             schema_metadata = SchemaMetadata(
                 schemaName=topic,
                 version=0,
-                hash=str(schema._hash),
+                hash=md5_hash,
                 platform=f"urn:li:dataPlatform:{platform}",
                 platformSchema=KafkaSchema(
-                    documentSchema=schema.schema_str, keySchema=key_schema_str
+                    documentSchema=schema.schema_str if schema is not None else "",
+                    keySchema=key_schema_str,
                 ),
                 fields=key_fields + fields,
             )

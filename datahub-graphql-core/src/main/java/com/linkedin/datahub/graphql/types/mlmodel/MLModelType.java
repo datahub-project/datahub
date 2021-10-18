@@ -8,7 +8,7 @@ import com.linkedin.datahub.graphql.types.mlmodel.mappers.MLModelSnapshotMapper;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.Entity;
 import com.linkedin.metadata.extractor.AspectExtractor;
-import com.linkedin.metadata.query.SearchResult;
+import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.browse.BrowseResult;
 import graphql.execution.DataFetcherResult;
 import java.util.List;
