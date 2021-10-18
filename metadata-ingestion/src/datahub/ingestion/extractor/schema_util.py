@@ -51,7 +51,10 @@ AvroNonNestedSchemas = Union[
 
 FieldStack = List[avro.schema.Field]
 
-NULL = "null"
+# The latest avro code contains this type definition in a compatibility module,
+# but that has not yet been released to PyPI. In the interim, we define it ourselves.
+# https://github.com/apache/avro/blob/e5811b404ac01fac0d0d6e223d62441554c9cbe9/lang/py/avro/compatibility.py#L48
+AVRO_TYPE_NULL = "null"
 
 # ------------------------------------------------------------------------------
 # AvroToMceSchemaConverter
@@ -64,7 +67,7 @@ class AvroToMceSchemaConverter:
     version_string: str = "[version=2.0]"
 
     field_type_mapping: Dict[str, Any] = {
-        NULL: NullTypeClass,
+        AVRO_TYPE_NULL: NullTypeClass,
         "bool": BooleanTypeClass,
         "boolean": BooleanTypeClass,
         "int": NumberTypeClass,
@@ -123,7 +126,7 @@ class AvroToMceSchemaConverter:
         if isinstance(schema, avro.schema.UnionSchema):
             return any(self._is_nullable(sub_schema) for sub_schema in schema.schemas)
         elif isinstance(schema, avro.schema.PrimitiveSchema):
-            return schema.type == NULL
+            return schema.type == AVRO_TYPE_NULL
         else:
             return False
 
@@ -140,9 +143,9 @@ class AvroToMceSchemaConverter:
         if isinstance(schema, avro.schema.UnionSchema) and len(schema.schemas) == 2:
             # Optional types as unions in AVRO. Return underlying non-null sub-type.
             (first, second) = schema.schemas
-            if first.type == NULL:
+            if first.type == AVRO_TYPE_NULL:
                 return second.type
-            elif second.type == NULL:
+            elif second.type == AVRO_TYPE_NULL:
                 return first.type
 
         # For everything else, use the schema's type
@@ -162,9 +165,9 @@ class AvroToMceSchemaConverter:
     ) -> AvroNestedSchemas:
         if isinstance(schema, avro.schema.UnionSchema) and len(schema.schemas) == 2:
             (first, second) = schema.schemas
-            if first.type == NULL:
+            if first.type == AVRO_TYPE_NULL:
                 return second
-            elif second.type == NULL:
+            elif second.type == AVRO_TYPE_NULL:
                 return first
         return default
 
@@ -275,7 +278,7 @@ class AvroToMceSchemaConverter:
                 yield is_option_as_union_type
             else:
                 for sub_schema in schema.schemas:
-                    if sub_schema.type != NULL:
+                    if sub_schema.type != AVRO_TYPE_NULL:
                         yield sub_schema
         # Record type
         elif isinstance(schema, avro.schema.RecordSchema):
