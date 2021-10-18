@@ -11,6 +11,7 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.RollbackRunResult;
+import com.linkedin.metadata.entity.ValidationException;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
@@ -26,6 +27,7 @@ import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.parseq.Task;
 import com.linkedin.restli.common.HttpStatus;
 import com.linkedin.restli.internal.server.methods.AnyRecord;
+import com.linkedin.restli.server.RestLiServiceException;
 import com.linkedin.restli.server.annotations.Action;
 import com.linkedin.restli.server.annotations.ActionParam;
 import com.linkedin.restli.server.annotations.Optional;
@@ -50,7 +52,7 @@ import javax.inject.Inject;
 import javax.inject.Named;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.metadata.resources.ResourceUtils.validateOrThrow;
+import static com.linkedin.metadata.entity.ValidationUtils.validateOrThrow;
 import static com.linkedin.metadata.restli.RestliConstants.ACTION_AUTOCOMPLETE;
 import static com.linkedin.metadata.restli.RestliConstants.ACTION_BROWSE;
 import static com.linkedin.metadata.restli.RestliConstants.ACTION_GET_BROWSE_PATHS;
@@ -163,7 +165,11 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   public Task<Void> ingest(@ActionParam(PARAM_ENTITY) @Nonnull Entity entity,
       @ActionParam(SYSTEM_METADATA) @Optional @Nullable SystemMetadata providedSystemMetadata)
       throws URISyntaxException {
-    validateOrThrow(entity, HttpStatus.S_422_UNPROCESSABLE_ENTITY);
+    try {
+      validateOrThrow(entity);
+    } catch (ValidationException e) {
+      throw new RestLiServiceException(HttpStatus.S_422_UNPROCESSABLE_ENTITY, e);
+    }
 
     SystemMetadata systemMetadata = populateDefaultFieldsIfEmpty(providedSystemMetadata);
 
@@ -186,7 +192,11 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       @ActionParam(SYSTEM_METADATA) @Optional @Nullable SystemMetadata[] systemMetadataList) throws URISyntaxException {
 
     for (Entity entity : entities) {
-      validateOrThrow(entity, HttpStatus.S_422_UNPROCESSABLE_ENTITY);
+      try {
+        validateOrThrow(entity);
+      } catch (ValidationException e) {
+        throw new RestLiServiceException(HttpStatus.S_422_UNPROCESSABLE_ENTITY, e);
+      }
     }
 
     final AuditStamp auditStamp =

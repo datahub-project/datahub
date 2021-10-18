@@ -19,9 +19,10 @@ export function getDataForEntityType<T>({
     }
     const entityData = data[Object.keys(data)[0]];
     let modifiedEntityData = entityData;
-    // Bring 'customProperties' field to the root level.
-    if (entityData.properties?.customProperties) {
-        const customProperties = entityData.properties?.customProperties;
+    // Bring 'customProperties' field to the root level,
+    // from the GQL info or properties fields, respectively.
+    const customProperties = entityData.properties?.customProperties || entityData.info?.customProperties;
+    if (customProperties) {
         modifiedEntityData = {
             ...entityData,
             customProperties,
