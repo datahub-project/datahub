@@ -335,8 +335,12 @@ public class EbeanEntityService extends EntityService {
       metadataChangeLog.setAspectName(aspectName);
       metadataChangeLog.setAspect(GenericAspectUtils.serializeAspect(newValue));
       metadataChangeLog.setSystemMetadata(result.newSystemMetadata);
-      metadataChangeLog.setPreviousAspectValue(GenericAspectUtils.serializeAspect(oldValue));
-      metadataChangeLog.setPreviousSystemMetadata(result.oldSystemMetadata);
+      if (oldValue != null) {
+        metadataChangeLog.setPreviousAspectValue(GenericAspectUtils.serializeAspect(oldValue));
+      }
+      if (result.oldSystemMetadata != null) {
+        metadataChangeLog.setPreviousSystemMetadata(result.oldSystemMetadata);
+      }
       produceMetadataChangeLog(urn, aspectSpec, metadataChangeLog);
     } else {
       log.debug(String.format("Skipped producing MetadataAuditEvent for updated aspect %s, urn %s. emitMAE is false.",
