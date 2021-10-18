@@ -14,7 +14,11 @@ const RecommendationsContainer = styled.div`
     }
 `;
 
-const RecommendationTitle = styled(Typography.Title)``;
+const RecommendationTitle = styled(Typography.Title)`
+    && {
+        margin-bottom: 20px;
+    }
+`;
 
 type Props = {
     userUrn: string;

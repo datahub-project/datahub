@@ -11,6 +11,7 @@ const StyledList = styled(List)`
     padding-left: 40px;
     padding-right: 40px;
     margin-top: -1px;
+    box-shadow: ${(props) => props.theme.styles['box-shadow']};
     .ant-list-items > .ant-list-item {
         padding-right: 0px;
         padding-left: 0px;

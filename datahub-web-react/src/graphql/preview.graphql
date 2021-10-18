@@ -245,4 +245,11 @@ fragment entityPreview on Entity {
         name
         description
     }
+    ... on DataPlatform {
+        name
+        info {
+            displayName
+            logoUrl
+        }
+    }
 }

@@ -31,7 +31,6 @@ export const HomePageBody = () => {
 
     return (
         <BodyContainer>
-            {authenticatedUserUrn && <HomePageRecommendations userUrn={authenticatedUserUrn} />}
             <Title>
                 <b>Explore</b> your data
             </Title>
@@ -42,6 +41,7 @@ export const HomePageBody = () => {
                     </Col>
                 ))}
             </EntityGridRow>
+            {authenticatedUserUrn && <HomePageRecommendations userUrn={authenticatedUserUrn} />}
         </BodyContainer>
     );
 };
