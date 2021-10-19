@@ -315,5 +315,15 @@
       "type": "RELATIONAL_DB",
       "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/awsathenalogo.png"
     }
+  },
+  {
+    "urn": "urn:li:dataPlatform:spark",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "spark",
+      "displayName": "Spark",
+      "type": "OTHERS",
+      "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/sparklogo.png"
+    }
   }
 ]
