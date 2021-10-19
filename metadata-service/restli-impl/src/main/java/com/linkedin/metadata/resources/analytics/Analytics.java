@@ -1,7 +1,7 @@
 package com.linkedin.metadata.resources.analytics;
 
 import com.linkedin.analytics.GetTimeseriesAggregatedStatsResponse;
-import com.linkedin.metadata.query.Filter;
+import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.restli.RestliUtils;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.parseq.Task;

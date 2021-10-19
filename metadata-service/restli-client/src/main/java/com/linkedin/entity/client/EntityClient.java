@@ -9,6 +9,7 @@ import com.linkedin.entity.EntitiesDoBatchGetTotalEntityCountRequestBuilder;
 import com.linkedin.entity.EntitiesDoBatchIngestRequestBuilder;
 import com.linkedin.entity.EntitiesDoBrowseRequestBuilder;
 import com.linkedin.entity.EntitiesDoDeleteRequestBuilder;
+import com.linkedin.entity.EntitiesDoFilterRequestBuilder;
 import com.linkedin.entity.EntitiesDoGetBrowsePathsRequestBuilder;
 import com.linkedin.entity.EntitiesDoGetTotalEntityCountRequestBuilder;
 import com.linkedin.entity.EntitiesDoIngestRequestBuilder;
@@ -23,7 +24,8 @@ import com.linkedin.entity.EntityArray;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.ListResult;
-import com.linkedin.metadata.query.Filter;
+import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.mxe.SystemMetadata;
@@ -41,7 +43,7 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-import static com.linkedin.metadata.dao.utils.QueryUtils.newFilter;
+import static com.linkedin.metadata.search.utils.QueryUtils.newFilter;
 
 
 public class EntityClient extends BaseClient {
@@ -380,5 +382,39 @@ public class EntityClient extends BaseClient {
         EntitiesDoDeleteRequestBuilder requestBuilder = ENTITIES_REQUEST_BUILDERS.actionDelete()
                 .urnParam(urn.toString());
         sendClientRequest(requestBuilder, actor);
+    }
+
+    /**
+    * Filters entities based on a particular Filter and Sort criterion
+    *
+    * @param entity filter entity
+    * @param filter search filters
+    * @param sortCriterion sort criterion
+    * @param start start offset for search results
+    * @param count max number of search results requested
+    * @return a set of {@link SearchResult}s
+    * @throws RemoteInvocationException
+    */
+    @Nonnull
+    public SearchResult filter(
+      @Nonnull String entity,
+      @Nonnull Filter filter,
+      @Nullable SortCriterion sortCriterion,
+      int start,
+      int count,
+      @Nonnull String actor)
+      throws RemoteInvocationException {
+
+        final EntitiesDoFilterRequestBuilder requestBuilder = ENTITIES_REQUEST_BUILDERS.actionFilter()
+            .entityParam(entity)
+            .filterParam(filter)
+            .startParam(start)
+            .countParam(count);
+
+        if (sortCriterion != null) {
+            requestBuilder.sortParam(sortCriterion);
+        }
+
+        return sendClientRequest(requestBuilder, actor).getEntity();
     }
 }
