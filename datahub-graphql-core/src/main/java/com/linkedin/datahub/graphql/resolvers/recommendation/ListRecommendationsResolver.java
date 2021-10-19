@@ -101,7 +101,8 @@ public class ListRecommendationsResolver implements DataFetcher<CompletableFutur
 
     // Recently Viewed
     List<String> recentlyViewed = ImmutableList.of("urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)",
-        "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleHdfsDataset,PROD)", "urn:li:dashboard:(looker,baz)");
+        "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleHdfsDataset,PROD)", "urn:li:dashboard:(looker,baz)", "urn:li:corpuser:datahub",
+        "urn:li:corpGroup:bfoo");
     RecommendationModule recentlyViewedModule = new RecommendationModule();
     recentlyViewedModule.setTitle("Recently Viewed");
     recentlyViewedModule.setModuleId("RecentlyViewed");
