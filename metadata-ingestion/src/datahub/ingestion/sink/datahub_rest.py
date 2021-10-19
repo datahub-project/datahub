@@ -22,6 +22,7 @@ class DatahubRestSinkConfig(ConfigModel):
     server: str = "http://localhost:8080"
     token: Optional[str]
     timeout_sec: Optional[int]
+    ca_cert: Optional[str]
 
 
 @dataclass
@@ -39,6 +40,7 @@ class DatahubRestSink(Sink):
             self.config.token,
             connect_timeout_sec=self.config.timeout_sec,  # reuse timeout_sec for connect timeout
             read_timeout_sec=self.config.timeout_sec,
+            ca_cert = self.config.ca_cert
         )
         self.emitter.test_connection()
 
