@@ -9,7 +9,7 @@ import com.linkedin.datahub.graphql.generated.ListGroupsInput;
 import com.linkedin.datahub.graphql.generated.ListGroupsResult;
 import com.linkedin.datahub.graphql.types.corpgroup.mappers.CorpGroupSnapshotMapper;
 import com.linkedin.entity.Entity;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.RestliEntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.query.ListResult;
 import com.linkedin.metadata.snapshot.CorpGroupSnapshot;
@@ -30,9 +30,9 @@ public class ListGroupsResolver implements DataFetcher<CompletableFuture<ListGro
   private static final Integer DEFAULT_START = 0;
   private static final Integer DEFAULT_COUNT = 20;
 
-  private final EntityClient _entityClient;
+  private final RestliEntityClient _entityClient;
 
-  public ListGroupsResolver(final EntityClient entityClient) {
+  public ListGroupsResolver(final RestliEntityClient entityClient) {
     _entityClient = entityClient;
   }
 
