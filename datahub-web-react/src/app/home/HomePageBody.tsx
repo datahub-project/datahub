@@ -43,7 +43,7 @@ export const HomePageBody = () => {
     const orderedEntityCounts =
         entityCountData?.getEntityCounts?.counts?.sort((a, b) => {
             return browseEntityList.indexOf(a.entityType) - browseEntityList.indexOf(b.entityType);
-        }) || [];
+        }) || PERMANENT_ENTITY_TYPES.map((entityType) => ({ count: 0, entityType }));
 
     return (
         <BodyContainer>
