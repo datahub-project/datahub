@@ -56,7 +56,7 @@ const PreviewImage = styled(Image)`
 const EntityTitle = styled(Typography.Text)<{ titleSizePx?: number }>`
     &&& {
         margin-bottom: 0;
-        font-size: ${(props) => props.titleSizePx || 18}px;
+        font-size: ${(props) => props.titleSizePx || 16}px;
         font-weight: 600;
         vertical-align: middle;
     }

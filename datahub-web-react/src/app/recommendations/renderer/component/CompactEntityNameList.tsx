@@ -12,6 +12,7 @@ export const CompactEntityNameList = ({ entities }: Props) => {
     return (
         <>
             {entities.map((entity) => {
+                console.log(entity);
                 const genericProps = entityRegistry.getGenericEntityProperties(entity.type, entity);
                 const platformLogoUrl = genericProps?.platform?.info?.logoUrl;
                 const displayName = entityRegistry.getDisplayName(entity.type, entity);

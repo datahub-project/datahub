@@ -55,6 +55,7 @@ export const HomePageRecommendations = ({ userUrn }: Props) => {
                 limit: 5,
             },
         },
+        fetchPolicy: 'no-cache',
     });
     const recommendationModules = data?.listRecommendations?.modules;
 

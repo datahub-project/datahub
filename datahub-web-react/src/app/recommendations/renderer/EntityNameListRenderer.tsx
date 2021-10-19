@@ -14,6 +14,7 @@ export class EntityNameListRenderer implements RecommendationsRenderer {
     ): JSX.Element {
         // todo: track clicks via module type.
         const entities = content.map((cnt) => cnt.entity).filter((entity) => entity !== undefined && entity !== null);
+        console.log(content);
         return (
             <>
                 {displayType === RecommendationDisplayType.COMPACT ? (
