@@ -1,6 +1,5 @@
 package com.linkedin.metadata.entity;
 
-import com.datastax.driver.core.Cluster;
 import com.datastax.driver.core.KeyspaceMetadata;
 import com.datastax.driver.core.Row;
 import com.datastax.driver.core.Session;
@@ -40,7 +39,7 @@ import static org.testng.Assert.assertTrue;
 public class DatastaxEntityServiceTest extends EntityServiceTestBase {
 
   private CassandraContainer _cassandraContainer;
-  private static final String keyspaceName = "test";
+  private static final String KEYSPACE_NAME = "test";
 
   @BeforeTest
   public void setupContainer() {
@@ -55,7 +54,7 @@ public class DatastaxEntityServiceTest extends EntityServiceTestBase {
     try (Session session = _cassandraContainer.getCluster().connect()) {
 
       session.execute(String.format("CREATE KEYSPACE IF NOT EXISTS %s WITH replication = \n"
-              + "{'class':'SimpleStrategy','replication_factor':'1'};", keyspaceName));
+              + "{'class':'SimpleStrategy','replication_factor':'1'};", KEYSPACE_NAME));
       session.execute(
               String.format("create table %s.%s (urn varchar, \n"
                               + "aspect varchar, \n"
@@ -67,13 +66,13 @@ public class DatastaxEntityServiceTest extends EntityServiceTestBase {
                               + "createdfor varchar, \n"
                               + "entity varchar, \n"
                               + "PRIMARY KEY (urn,aspect,version));",
-                      keyspaceName,
+                      KEYSPACE_NAME,
                       DatastaxAspect.TABLE_NAME));
 
       List<KeyspaceMetadata> keyspaces = session.getCluster().getMetadata().getKeyspaces();
       List<KeyspaceMetadata> filteredKeyspaces = keyspaces
               .stream()
-              .filter(km -> km.getName().equals(keyspaceName))
+              .filter(km -> km.getName().equals(KEYSPACE_NAME))
               .collect(Collectors.toList());
 
       assertEquals(filteredKeyspaces.size(), 1);
@@ -83,7 +82,7 @@ public class DatastaxEntityServiceTest extends EntityServiceTestBase {
 
   private Map<String, String> createTestServerConfig() {
     return new HashMap<String, String>() {{
-      put("keyspace", keyspaceName);
+      put("keyspace", KEYSPACE_NAME);
       put("username", _cassandraContainer.getUsername());
       put("password", _cassandraContainer.getPassword());
       put("hosts", _cassandraContainer.getHost());
@@ -96,8 +95,8 @@ public class DatastaxEntityServiceTest extends EntityServiceTestBase {
   @BeforeMethod
   public void setupTest() {
     try (Session session = _cassandraContainer.getCluster().connect()) {
-      session.execute( String.format("TRUNCATE %s.%s;", keyspaceName, DatastaxAspect.TABLE_NAME));
-      List<Row> rs = session.execute(String.format("SELECT * FROM %s.%s;", keyspaceName, DatastaxAspect.TABLE_NAME))
+      session.execute(String.format("TRUNCATE %s.%s;", KEYSPACE_NAME, DatastaxAspect.TABLE_NAME));
+      List<Row> rs = session.execute(String.format("SELECT * FROM %s.%s;", KEYSPACE_NAME, DatastaxAspect.TABLE_NAME))
               .all();
       assertEquals(rs.size(), 0);
     }

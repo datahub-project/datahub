@@ -18,6 +18,9 @@ dependencies {
   compile spec.product.pegasus.generator
 
   compile externalDependency.lombok
+  compile externalDependency.datastaxOssNativeProtocol
+  compile externalDependency.datastaxOssCore
+  compile externalDependency.datastaxOssQueryBuilder
   compile externalDependency.elasticSearchRest
   compile externalDependency.elasticSearchTransport
   compile externalDependency.kafkaClients
@@ -31,10 +34,6 @@ dependencies {
   compile externalDependency.springContext
 
   annotationProcessor externalDependency.lombok
-
-  implementation group: 'com.datastax.oss', name: 'native-protocol', version: '1.5.0'
-  implementation group: 'com.datastax.oss', name: 'java-driver-core', version: '4.13.0'
-  implementation "com.datastax.oss:java-driver-query-builder:4.13.0"
 
   testCompile externalDependency.testng
   testCompile externalDependency.h2
