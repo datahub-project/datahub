@@ -24,7 +24,7 @@ export default function GlossaryTermHeader({ definition, sourceRef, sourceUrl, o
                         </a>
                     )}
                 </Space>
-                <AvatarsGroup owners={ownership?.owners} entityRegistry={entityRegistry} size="large" />
+                <AvatarsGroup owners={ownership?.owners} entityRegistry={entityRegistry} />
             </Space>
         </>
     );

@@ -6,6 +6,7 @@ import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.DataTemplateUtil;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.Aspect;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.dao.utils.RecordUtils;
@@ -14,10 +15,13 @@ import com.linkedin.metadata.entity.ListResult;
 import com.linkedin.metadata.entity.RollbackResult;
 import com.linkedin.metadata.entity.RollbackRunResult;
 import com.linkedin.metadata.event.EntityEventProducer;
+import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.run.AspectRowSummary;
+import com.linkedin.metadata.utils.GenericAspectUtils;
 import com.linkedin.mxe.MetadataAuditOperation;
+import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 
@@ -271,20 +275,22 @@ public class DatastaxEntityService extends EntityService {
   }
 
   @Nonnull
-  public RecordTemplate updateAspect(@Nonnull final Urn urn, @Nonnull final String aspectName,
-      @Nonnull final RecordTemplate newValue, @Nonnull final AuditStamp auditStamp, final long version,
-      final boolean emitMae) {
+  public RecordTemplate updateAspect(@Nonnull final Urn urn, @Nonnull final String entityName,
+     @Nonnull final String aspectName, @Nonnull final AspectSpec aspectSpec, @Nonnull final RecordTemplate newValue,
+     @Nonnull final AuditStamp auditStamp, @Nonnull final long version, @Nonnull final boolean emitMae) {
 
     log.debug(
         String.format("Invoked updateAspect with urn: %s, aspectName: %s, newValue: %s, version: %s, emitMae: %s", urn,
             aspectName, newValue, version, emitMae));
-    return updateAspect(urn, aspectName, newValue, auditStamp, version, emitMae, DEFAULT_MAX_CONDITIONAL_RETRY);
+    return updateAspect(urn, entityName, aspectName, aspectSpec, newValue, auditStamp, version, emitMae,
+            DEFAULT_MAX_CONDITIONAL_RETRY);
   }
 
   @Nonnull
-  private RecordTemplate updateAspect(@Nonnull final Urn urn, @Nonnull final String aspectName,
-    @Nonnull final RecordTemplate value, @Nonnull final AuditStamp auditStamp, final long version,
-    final boolean emitMae, final int maxConditionalUpdateRetry) {
+  private RecordTemplate updateAspect(@Nonnull final Urn urn, @Nonnull final String entityName,
+    @Nonnull final String aspectName, @Nonnull final AspectSpec aspectSpec, @Nonnull final RecordTemplate value,
+    @Nonnull final AuditStamp auditStamp, @Nonnull final long version, @Nonnull final boolean emitMae,
+    final int maxConditionalUpdateRetry) {
 
     final UpdateAspectResult result = _entityDao.runInConditionalWithRetry(() -> {
 
@@ -320,9 +326,20 @@ public class DatastaxEntityService extends EntityService {
     final RecordTemplate newValue = result.getNewValue();
 
     if (emitMae) {
-      log.debug(String.format("Producing MetadataAuditEvent for updated aspect %s, urn %s", aspectName, urn));
-      produceMetadataAuditEvent(urn, oldValue, newValue, result.getOldSystemMetadata(),
-          result.getNewSystemMetadata(), MetadataAuditOperation.UPDATE);
+      final MetadataChangeLog metadataChangeLog = new MetadataChangeLog();
+      metadataChangeLog.setEntityType(entityName);
+      metadataChangeLog.setEntityUrn(urn);
+      metadataChangeLog.setChangeType(ChangeType.UPSERT);
+      metadataChangeLog.setAspectName(aspectName);
+      metadataChangeLog.setAspect(GenericAspectUtils.serializeAspect(newValue));
+      metadataChangeLog.setSystemMetadata(result.newSystemMetadata);
+      if (oldValue != null) {
+        metadataChangeLog.setPreviousAspectValue(GenericAspectUtils.serializeAspect(oldValue));
+      }
+      if (result.oldSystemMetadata != null) {
+        metadataChangeLog.setPreviousSystemMetadata(result.oldSystemMetadata);
+      }
+      produceMetadataChangeLog(urn, aspectSpec, metadataChangeLog);
     } else {
       log.debug(String.format("Skipped producing MetadataAuditEvent for updated aspect %s, urn %s. emitMAE is false.",
           aspectName, urn));

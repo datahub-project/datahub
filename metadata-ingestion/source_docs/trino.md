@@ -42,13 +42,13 @@ sink:
 
 Note that a `.` is used to denote nested fields in the YAML recipe.
 
-As a SQL-based service, the Athena integration is also supported by our SQL profiler. See [here](./sql_profiles.md) for more details on configuration.
+As a SQL-based service, the Trino integration is also supported by our SQL profiler. See [here](./sql_profiles.md) for more details on configuration.
 
 | Field                       | Required | Default            | Description                                                                                                                                                                             |
 | --------------------------- | -------- | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `username`                  |    ✅    |                    | Trino username.                                                                                                                                                                         |
 | `password`                  |          |                    | Trino password.                                                                                                                                                                         |
-| `host_port`                 |    ✅    | `"localhost:3306"` | Trino host URL.                                                                                                                                                                         |
+| `host_port`                 |    ✅    |                    | Trino host URL.                                                                                                                                                                         |
 | `database`                  |    ✅    |                    | Trino database (catalog).                                                                                                                                                                         |
 | `database_alias`            |          |          | Alias to apply to database when ingesting.                                                                                                                                              |
 | `env`                       |          | `"PROD"`           | Environment to use in namespace when constructing URNs.                                                                                                                                 |

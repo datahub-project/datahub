@@ -66,7 +66,7 @@ export default function CreateTagModal({
             })
             .catch((e) => {
                 message.destroy();
-                message.error({ content: `Failed to remove term: \n ${e.message || ''}`, duration: 3 });
+                message.error({ content: `Failed to create & add tag: \n ${e.message || ''}`, duration: 3 });
                 onClose();
             });
     };
