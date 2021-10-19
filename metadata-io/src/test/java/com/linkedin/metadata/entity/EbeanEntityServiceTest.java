@@ -12,7 +12,6 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.dataset.DatasetProfile;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.identity.CorpUserInfo;
-import com.linkedin.metadata.utils.PegasusUtils;
 import com.linkedin.metadata.aspect.Aspect;
 import com.linkedin.metadata.aspect.CorpUserAspect;
 import com.linkedin.metadata.aspect.CorpUserAspectArray;
@@ -23,7 +22,7 @@ import com.linkedin.metadata.entity.ebean.EbeanEntityService;
 import com.linkedin.metadata.entity.ebean.EbeanUtils;
 import com.linkedin.metadata.event.EntityEventProducer;
 import com.linkedin.metadata.key.CorpUserKey;
-import com.linkedin.metadata.utils.EntityKeyUtils;
+import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.MergedEntityRegistry;
@@ -31,6 +30,8 @@ import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.snapshot.CorpUserSnapshot;
 import com.linkedin.metadata.snapshot.Snapshot;
+import com.linkedin.metadata.utils.EntityKeyUtils;
+import com.linkedin.metadata.utils.PegasusUtils;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataAuditOperation;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -378,21 +379,25 @@ public class EbeanEntityServiceTest {
     Urn entityUrn = Urn.createFromString("urn:li:corpuser:test");
 
     String aspectName = PegasusUtils.getAspectNameFromSchema(new CorpUserInfo().schema());
+    AspectSpec corpUserInfoSpec = _testEntityRegistry.getEntitySpec("corpuser").getAspectSpec("corpUserInfo");
 
     // Ingest CorpUserInfo Aspect #1
     CorpUserInfo writeAspect = createCorpUserInfo("email@test.com");
 
     // Validate retrieval of CorpUserInfo Aspect #1
-    _entityService.updateAspect(entityUrn, aspectName, writeAspect, TEST_AUDIT_STAMP, 1, true);
+    _entityService.updateAspect(entityUrn, "corpuser", aspectName, corpUserInfoSpec, writeAspect, TEST_AUDIT_STAMP, 1,
+        true);
     RecordTemplate readAspect1 = _entityService.getAspect(entityUrn, aspectName, 1);
     assertTrue(DataTemplateUtil.areEqual(writeAspect, readAspect1));
-    verify(_mockProducer, times(1)).produceMetadataAuditEvent(Mockito.eq(entityUrn), Mockito.eq(null), Mockito.any(),
-        Mockito.any(), Mockito.any(), Mockito.eq(MetadataAuditOperation.UPDATE));
+    verify(_mockProducer, times(1)).produceMetadataChangeLog(Mockito.eq(entityUrn), Mockito.eq(corpUserInfoSpec),
+        Mockito.any());
+
     // Ingest CorpUserInfo Aspect #2
     writeAspect.setEmail("newemail@test.com");
 
     // Validate retrieval of CorpUserInfo Aspect #2
-    _entityService.updateAspect(entityUrn, aspectName, writeAspect, TEST_AUDIT_STAMP, 1, false);
+    _entityService.updateAspect(entityUrn, "corpuser", aspectName, corpUserInfoSpec, writeAspect, TEST_AUDIT_STAMP, 1,
+        false);
     RecordTemplate readAspect2 = _entityService.getAspect(entityUrn, aspectName, 1);
     assertTrue(DataTemplateUtil.areEqual(writeAspect, readAspect2));
     verifyNoMoreInteractions(_mockProducer);
@@ -404,12 +409,14 @@ public class EbeanEntityServiceTest {
     Urn entityUrn = Urn.createFromString("urn:li:corpuser:test");
 
     String aspectName = PegasusUtils.getAspectNameFromSchema(new CorpUserInfo().schema());
+    AspectSpec corpUserInfoSpec = _testEntityRegistry.getEntitySpec("corpuser").getAspectSpec("corpUserInfo");
 
     // Ingest CorpUserInfo Aspect #1
     CorpUserInfo writeAspect = createCorpUserInfo("email@test.com");
 
     // Validate retrieval of CorpUserInfo Aspect #1
-    _entityService.updateAspect(entityUrn, aspectName, writeAspect, TEST_AUDIT_STAMP, 1, true);
+    _entityService.updateAspect(entityUrn, "corpuser", aspectName, corpUserInfoSpec, writeAspect, TEST_AUDIT_STAMP, 1,
+        true);
 
     VersionedAspect writtenVersionedAspect = new VersionedAspect();
     writtenVersionedAspect.setAspect(Aspect.create(writeAspect));
@@ -417,8 +424,8 @@ public class EbeanEntityServiceTest {
 
     VersionedAspect readAspect1 = _entityService.getVersionedAspect(entityUrn, aspectName, 1);
     assertTrue(DataTemplateUtil.areEqual(writtenVersionedAspect, readAspect1));
-    verify(_mockProducer, times(1)).produceMetadataAuditEvent(Mockito.eq(entityUrn), Mockito.eq(null), Mockito.any(),
-        Mockito.any(), Mockito.any(), Mockito.eq(MetadataAuditOperation.UPDATE));
+    verify(_mockProducer, times(1)).produceMetadataChangeLog(Mockito.eq(entityUrn), Mockito.eq(corpUserInfoSpec),
+        Mockito.any());
 
     VersionedAspect readAspect2 = _entityService.getVersionedAspect(entityUrn, aspectName, -1);
     assertTrue(DataTemplateUtil.areEqual(writtenVersionedAspect, readAspect2));
@@ -621,7 +628,7 @@ public class EbeanEntityServiceTest {
     _entityService.ingestAspect(entityUrn3, aspectName, writeAspect3, TEST_AUDIT_STAMP, metadata1);
 
     // List aspects urns
-    ListUrnsResult batch1 = _entityService.listUrns(entityUrn1.getEntityType(),  0, 2);
+    ListUrnsResult batch1 = _entityService.listUrns(entityUrn1.getEntityType(), 0, 2);
 
     assertEquals(0, (int) batch1.getStart());
     assertEquals(2, (int) batch1.getCount());
@@ -630,7 +637,7 @@ public class EbeanEntityServiceTest {
     assertEquals(entityUrn1.toString(), batch1.getEntities().get(0).toString());
     assertEquals(entityUrn2.toString(), batch1.getEntities().get(1).toString());
 
-    ListUrnsResult batch2 = _entityService.listUrns(entityUrn1.getEntityType(),  2, 2);
+    ListUrnsResult batch2 = _entityService.listUrns(entityUrn1.getEntityType(), 2, 2);
 
     assertEquals(2, (int) batch2.getStart());
     assertEquals(1, (int) batch2.getCount());

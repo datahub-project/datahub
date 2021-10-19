@@ -4,7 +4,7 @@ import com.linkedin.datahub.upgrade.restorebackup.RestoreBackup;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphService;
-import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.EntitySearchService;
 import io.ebean.EbeanServer;
 import javax.annotation.Nonnull;
@@ -21,7 +21,7 @@ public class RestoreBackupConfig {
   ApplicationContext applicationContext;
 
   @Bean(name = "restoreBackup")
-  @DependsOn({"ebeanServer", "entityService", "entityClient", "graphService", "searchService"})
+  @DependsOn({"ebeanServer", "entityService", "entityClient", "graphService", "searchService", "entityRegistry"})
   @Nonnull
   public RestoreBackup createInstance() {
     final EbeanServer ebeanServer = applicationContext.getBean(EbeanServer.class);
@@ -29,8 +29,9 @@ public class RestoreBackupConfig {
     final EntityClient entityClient = applicationContext.getBean(EntityClient.class);
     final GraphService graphClient = applicationContext.getBean(GraphService.class);
     final EntitySearchService searchClient = applicationContext.getBean(EntitySearchService.class);
+    final EntityRegistry entityRegistry = applicationContext.getBean(EntityRegistry.class);
 
-    return new RestoreBackup(ebeanServer, entityService, SnapshotEntityRegistry.getInstance(), entityClient,
+    return new RestoreBackup(ebeanServer, entityService, entityRegistry, entityClient,
         graphClient, searchClient);
   }
 }
