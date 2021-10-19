@@ -57,6 +57,7 @@ public class DatasetSnapshotMapper implements ModelMapper<DatasetSnapshot, Datas
                 final DatasetProperties gmsProperties = (DatasetProperties) aspect;
                 final com.linkedin.datahub.graphql.generated.DatasetProperties properties = new com.linkedin.datahub.graphql.generated.DatasetProperties();
                 properties.setDescription(gmsProperties.getDescription());
+                result.setDescription(gmsProperties.getDescription());
                 properties.setOrigin(FabricType.valueOf(dataset.getUrn().getOriginEntity().toString()));
                 if (gmsProperties.hasExternalUrl()) {
                     properties.setExternalUrl(gmsProperties.getExternalUrl().toString());

@@ -12,7 +12,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.Entity;
 import com.linkedin.entity.client.AspectClient;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.RestliEntityClient;
 import com.linkedin.entity.client.OwnershipClient;
 import com.linkedin.identity.CorpUserInfo;
 import com.linkedin.identity.GroupMembership;
@@ -47,13 +47,13 @@ public class PolicyEngineTest {
 
   private static final String RESOURCE_URN = "urn:li:dataset:test";
 
-  private EntityClient _entityClient;
+  private RestliEntityClient _entityClient;
   private AspectClient _aspectClient;
   private PolicyEngine _policyEngine;
 
   @BeforeMethod
   public void setupTest() throws Exception {
-    _entityClient = Mockito.mock(EntityClient.class);
+    _entityClient = Mockito.mock(RestliEntityClient.class);
     _aspectClient = Mockito.mock(AspectClient.class);
     _policyEngine = new PolicyEngine(_entityClient, new OwnershipClient(_aspectClient));
 

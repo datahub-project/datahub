@@ -356,7 +356,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     return RestliUtil.toTask(() -> _entityService.listUrns(entityName, start, count), "listUrns");
   }
 
-  private ListResult toListResult(final SearchResult searchResult) {
+  public static ListResult toListResult(final SearchResult searchResult) {
     if (searchResult == null) {
       return null;
     }

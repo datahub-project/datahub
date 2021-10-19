@@ -108,6 +108,7 @@ import com.linkedin.datahub.graphql.types.lineage.DataFlowDataJobsRelationshipsT
 import com.linkedin.datahub.graphql.types.glossary.GlossaryTermType;
 
 import com.linkedin.datahub.graphql.types.usage.UsageType;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.entity.EntityService;
 import graphql.execution.DataFetcherResult;
 import graphql.schema.idl.RuntimeWiring;
@@ -142,6 +143,7 @@ import static graphql.Scalars.GraphQLLong;
 public class GmsGraphQLEngine {
 
     private final AnalyticsService analyticsService;
+    private final EntityClient entityClient;
     private final EntityService entityService;
 
     private final DatasetType datasetType;
@@ -196,37 +198,38 @@ public class GmsGraphQLEngine {
     public final List<BrowsableEntityType<?>> browsableTypes;
 
     public GmsGraphQLEngine() {
-        this(null, null);
+        this(null, null, null);
     }
 
-    public GmsGraphQLEngine(final AnalyticsService analyticsService, final EntityService entityService) {
+    public GmsGraphQLEngine(final AnalyticsService analyticsService, final EntityService entityService, final EntityClient entityClient) {
         this.analyticsService = analyticsService;
+        this.entityClient = entityClient;
         this.entityService = entityService;
 
-        this.datasetType = new DatasetType(GmsClientFactory.getEntitiesClient());
-        this.corpUserType = new CorpUserType(GmsClientFactory.getEntitiesClient());
-        this.corpGroupType = new CorpGroupType(GmsClientFactory.getEntitiesClient());
-        this.chartType = new ChartType(GmsClientFactory.getEntitiesClient());
-        this.dashboardType = new DashboardType(GmsClientFactory.getEntitiesClient());
-        this.dataPlatformType = new DataPlatformType(GmsClientFactory.getEntitiesClient());
+        this.datasetType = new DatasetType(entityClient);
+        this.corpUserType = new CorpUserType(entityClient);
+        this.corpGroupType = new CorpGroupType(entityClient);
+        this.chartType = new ChartType(entityClient);
+        this.dashboardType = new DashboardType(entityClient);
+        this.dataPlatformType = new DataPlatformType(entityClient);
         this.downstreamLineageType = new DownstreamLineageType(
             GmsClientFactory.getLineagesClient()
         );
         this.upstreamLineageType = new UpstreamLineageType(
             GmsClientFactory.getLineagesClient()
         );
-        this.tagType = new TagType(GmsClientFactory.getEntitiesClient());
-        this.mlModelType = new MLModelType(GmsClientFactory.getEntitiesClient());
-        this.mlModelGroupType = new MLModelGroupType(GmsClientFactory.getEntitiesClient());
-        this.mlFeatureType = new MLFeatureType(GmsClientFactory.getEntitiesClient());
-        this.mlFeatureTableType = new MLFeatureTableType(GmsClientFactory.getEntitiesClient());
-        this.mlPrimaryKeyType = new MLPrimaryKeyType(GmsClientFactory.getEntitiesClient());
-        this.dataFlowType = new DataFlowType(GmsClientFactory.getEntitiesClient());
-        this.dataJobType = new DataJobType(GmsClientFactory.getEntitiesClient());
+        this.tagType = new TagType(entityClient);
+        this.mlModelType = new MLModelType(entityClient);
+        this.mlModelGroupType = new MLModelGroupType(entityClient);
+        this.mlFeatureType = new MLFeatureType(entityClient);
+        this.mlFeatureTableType = new MLFeatureTableType(entityClient);
+        this.mlPrimaryKeyType = new MLPrimaryKeyType(entityClient);
+        this.dataFlowType = new DataFlowType(entityClient);
+        this.dataJobType = new DataJobType(entityClient);
         this.dataFlowDataJobsRelationshipType = new DataFlowDataJobsRelationshipsType(
             GmsClientFactory.getRelationshipsClient()
         );
-        this.glossaryTermType = new GlossaryTermType(GmsClientFactory.getEntitiesClient());
+        this.glossaryTermType = new GlossaryTermType(entityClient);
         this.aspectType = new AspectType(GmsClientFactory.getAspectsClient());
         this.usageType = new UsageType(GmsClientFactory.getUsageClient());
 
@@ -437,7 +440,8 @@ public class GmsGraphQLEngine {
             .dataFetcher("createPolicy", new UpsertPolicyResolver(GmsClientFactory.getAspectsClient()))
             .dataFetcher("updatePolicy", new UpsertPolicyResolver(GmsClientFactory.getAspectsClient()))
             .dataFetcher("deletePolicy", new DeletePolicyResolver(GmsClientFactory.getEntitiesClient()))
-            .dataFetcher("updateDescription", new AuthenticatedResolver<>(new UpdateFieldDescriptionResolver(entityService)))
+            .dataFetcher("updateDescription", new AuthenticatedResolver<>(new UpdateFieldDescriptionResolver(
+                entityService)))
             .dataFetcher("addOwner", new AddOwnerResolver(entityService))
             .dataFetcher("removeOwner", new RemoveOwnerResolver(entityService))
             .dataFetcher("addLink", new AddLinkResolver(entityService))
