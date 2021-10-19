@@ -81,7 +81,7 @@ public class TopPlatformsCandidateSource implements RecommendationCandidateSourc
 
     // Get the top 5 platforms with the most number of documents
     PriorityQueue<Map.Entry<String, Long>> queue =
-        new PriorityQueue<>(MAX_CONTENT, Map.Entry.comparingByValue(Comparator.reverseOrder()));
+        new PriorityQueue<>(MAX_CONTENT, Map.Entry.comparingByValue(Comparator.naturalOrder()));
     for (Map.Entry<String, Long> entry : mergedResult.entrySet()) {
       queue.add(entry);
       if (queue.size() > MAX_CONTENT) {
