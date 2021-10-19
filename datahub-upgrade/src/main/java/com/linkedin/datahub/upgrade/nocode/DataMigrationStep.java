@@ -149,13 +149,14 @@ public class DataMigrationStep implements UpgradeStep {
             try {
               browsePaths = BrowsePathUtils.buildBrowsePath(urn);
 
-              final AuditStamp browsePathsStamp = new AuditStamp();
-              browsePathsStamp.setActor(Urn.createFromString(Constants.SYSTEM_ACTOR));
-              browsePathsStamp.setTime(System.currentTimeMillis());
+              if (browsePaths != null) {
+                final AuditStamp browsePathsStamp = new AuditStamp();
+                browsePathsStamp.setActor(Urn.createFromString(Constants.SYSTEM_ACTOR));
+                browsePathsStamp.setTime(System.currentTimeMillis());
 
-              _entityService.ingestAspect(urn, BROWSE_PATHS_ASPECT_NAME, browsePaths, browsePathsStamp);
-              urnsWithBrowsePath.add(urn);
-
+                _entityService.ingestAspect(urn, BROWSE_PATHS_ASPECT_NAME, browsePaths, browsePathsStamp);
+                urnsWithBrowsePath.add(urn);
+              }
             } catch (URISyntaxException e) {
               throw new RuntimeException("Failed to ingest Browse Path", e);
             }

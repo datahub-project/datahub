@@ -27,6 +27,10 @@ public class BrowsePathUtils {
 
   public static BrowsePaths buildBrowsePath(Urn urn) throws URISyntaxException {
     String defaultBrowsePath = getDefaultBrowsePath(urn);
+    if (defaultBrowsePath.equals("")) {
+      return null;
+    }
+
     StringArray browsePaths = new StringArray();
     browsePaths.add(defaultBrowsePath);
     BrowsePaths browsePathAspect = new BrowsePaths();

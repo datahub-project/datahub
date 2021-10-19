@@ -3,6 +3,7 @@ package com.linkedin.metadata.entity;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.BrowsePaths;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.schema.TyperefDataSchema;
@@ -321,7 +322,10 @@ public abstract class EntityService {
     if (_entityRegistry.getEntitySpec(entityType).getAspectSpecMap().containsKey(BROWSE_PATHS)
         && getLatestAspect(urn, BROWSE_PATHS) == null) {
       try {
-        aspects.put(BROWSE_PATHS, BrowsePathUtils.buildBrowsePath(urn));
+        BrowsePaths generatedBrowsePath = BrowsePathUtils.buildBrowsePath(urn);
+        if (generatedBrowsePath != null) {
+          aspects.put(BROWSE_PATHS, generatedBrowsePath);
+        }
       } catch (URISyntaxException e) {
         log.error("Failed to parse urn: {}", urn);
       }
