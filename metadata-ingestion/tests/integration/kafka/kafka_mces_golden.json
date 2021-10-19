@@ -56,7 +56,7 @@
                                 "fieldPath": "[version=2.0].[type=CreateUserRequest].[type=string].email",
                                 "jsonPath": null,
                                 "nullable": false,
-                                "description": "No description available.",
+                                "description": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -72,7 +72,7 @@
                                 "fieldPath": "[version=2.0].[type=CreateUserRequest].[type=string].firstName",
                                 "jsonPath": null,
                                 "nullable": false,
-                                "description": "No description available.",
+                                "description": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -88,7 +88,7 @@
                                 "fieldPath": "[version=2.0].[type=CreateUserRequest].[type=string].lastName",
                                 "jsonPath": null,
                                 "nullable": false,
-                                "description": "No description available.",
+                                "description": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -164,7 +164,7 @@
                                 "fieldPath": "[version=2.0].[key=True].[type=UserKey].[type=long].id",
                                 "jsonPath": null,
                                 "nullable": false,
-                                "description": "No description available.",
+                                "description": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -180,7 +180,7 @@
                                 "fieldPath": "[version=2.0].[key=True].[type=UserKey].[type=string].namespace",
                                 "jsonPath": null,
                                 "nullable": false,
-                                "description": "No description available.",
+                                "description": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -256,7 +256,7 @@
                                 "fieldPath": "[version=2.0].[key=True].[type=UserKey].[type=long].id",
                                 "jsonPath": null,
                                 "nullable": false,
-                                "description": "No description available.",
+                                "description": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -272,7 +272,7 @@
                                 "fieldPath": "[version=2.0].[key=True].[type=UserKey].[type=string].namespace",
                                 "jsonPath": null,
                                 "nullable": false,
-                                "description": "No description available.",
+                                "description": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -288,7 +288,7 @@
                                 "fieldPath": "[version=2.0].[type=CreateUserRequest].[type=string].email",
                                 "jsonPath": null,
                                 "nullable": false,
-                                "description": "No description available.",
+                                "description": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -304,7 +304,7 @@
                                 "fieldPath": "[version=2.0].[type=CreateUserRequest].[type=string].firstName",
                                 "jsonPath": null,
                                 "nullable": false,
-                                "description": "No description available.",
+                                "description": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -320,7 +320,7 @@
                                 "fieldPath": "[version=2.0].[type=CreateUserRequest].[type=string].lastName",
                                 "jsonPath": null,
                                 "nullable": false,
-                                "description": "No description available.",
+                                "description": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}

@@ -247,25 +247,8 @@ def get_schema_metadata(
     columns: List[dict],
     pk_constraints: dict = None,
     foreign_keys: List[ForeignKeyConstraint] = None,
+    canonical_schema: List[SchemaField] = [],
 ) -> SchemaMetadata:
-    canonical_schema: List[SchemaField] = []
-
-    for column in columns:
-        field = SchemaField(
-            fieldPath=column["name"],
-            type=get_column_type(sql_report, dataset_name, column["type"]),
-            nativeDataType=column.get("full_type", repr(column["type"])),
-            description=column.get("comment", None),
-            nullable=column["nullable"],
-            recursive=False,
-        )
-        if (
-            pk_constraints is not None
-            and isinstance(pk_constraints, dict)  # some dialects (hive) return list
-            and column["name"] in pk_constraints.get("constrained_columns", [])
-        ):
-            field.isPartOfKey = True
-        canonical_schema.append(field)
 
     schema_metadata = SchemaMetadata(
         schemaName=dataset_name,
@@ -437,6 +420,10 @@ class SQLAlchemySource(Source):
                 )
                 foreign_keys = []
 
+            schema_fields = self.get_schema_fields(
+                dataset_name, columns, pk_constraints
+            )
+
             schema_metadata = get_schema_metadata(
                 self.report,
                 dataset_name,
@@ -444,6 +431,7 @@ class SQLAlchemySource(Source):
                 columns,
                 pk_constraints,
                 foreign_keys,
+                schema_fields,
             )
             dataset_snapshot.aspects.append(schema_metadata)
 
@@ -451,6 +439,36 @@ class SQLAlchemySource(Source):
             wu = SqlWorkUnit(id=dataset_name, mce=mce)
             self.report.report_workunit(wu)
             yield wu
+
+    def get_schema_fields(
+        self, dataset_name: str, columns: List[dict], pk_constraints: dict = None
+    ) -> List[SchemaField]:
+        canonical_schema = []
+        for column in columns:
+            fields = self.get_schema_fields_for_column(
+                dataset_name, column, pk_constraints
+            )
+            canonical_schema.extend(fields)
+        return canonical_schema
+
+    def get_schema_fields_for_column(
+        self, dataset_name: str, column: dict, pk_constraints: dict = None
+    ) -> List[SchemaField]:
+        field = SchemaField(
+            fieldPath=column["name"],
+            type=get_column_type(self.report, dataset_name, column["type"]),
+            nativeDataType=column.get("full_type", repr(column["type"])),
+            description=column.get("comment", None),
+            nullable=column["nullable"],
+            recursive=False,
+        )
+        if (
+            pk_constraints is not None
+            and isinstance(pk_constraints, dict)  # some dialects (hive) return list
+            and column["name"] in pk_constraints.get("constrained_columns", [])
+        ):
+            field.isPartOfKey = True
+        return [field]
 
     def loop_views(
         self,
@@ -480,8 +498,13 @@ class SQLAlchemySource(Source):
                 )
                 schema_metadata = None
             else:
+                schema_fields = self.get_schema_fields(dataset_name, columns)
                 schema_metadata = get_schema_metadata(
-                    self.report, dataset_name, self.platform, columns
+                    self.report,
+                    dataset_name,
+                    self.platform,
+                    columns,
+                    canonical_schema=schema_fields,
                 )
 
             try:
