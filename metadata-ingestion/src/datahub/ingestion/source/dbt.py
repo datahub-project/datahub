@@ -59,7 +59,7 @@ class DBTConfig(ConfigModel):
     use_identifiers: bool = False
     node_type_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
     tag_prefix: str = "dbt:"
-    name_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
+    node_name_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
 
 
 @dataclass
@@ -147,7 +147,7 @@ def extract_dbt_entities(
     environment: str,
     node_type_pattern: AllowDenyPattern,
     report: SourceReport,
-    name_pattern: AllowDenyPattern,
+    node_name_pattern: AllowDenyPattern,
 ) -> List[DBTNode]:
 
     sources_by_id = {x["unique_id"]: x for x in sources_results}
@@ -165,7 +165,7 @@ def extract_dbt_entities(
         if manifest_node.get("alias") is not None:
             name = manifest_node["alias"]
 
-        if not name_pattern.allowed(key):
+        if not node_name_pattern.allowed(key):
             continue
 
         # initialize comment to "" for consistency with descriptions
@@ -273,7 +273,7 @@ def loadManifestAndCatalog(
     environment: str,
     node_type_pattern: AllowDenyPattern,
     report: SourceReport,
-    name_pattern: AllowDenyPattern,
+    node_name_pattern: AllowDenyPattern,
 ) -> Tuple[List[DBTNode], Optional[str], Optional[str], Optional[str], Optional[str]]:
     with open(manifest_path, "r") as manifest:
         dbt_manifest_json = json.load(manifest)
@@ -315,7 +315,7 @@ def loadManifestAndCatalog(
         environment,
         node_type_pattern,
         report,
-        name_pattern,
+        node_name_pattern,
     )
 
     return nodes, manifest_schema, manifest_version, catalog_schema, catalog_version
@@ -528,7 +528,7 @@ class DBTSource(Source):
             self.config.env,
             self.config.node_type_pattern,
             self.report,
-            self.config.name_pattern,
+            self.config.node_name_pattern,
         )
 
         additional_custom_props = {
