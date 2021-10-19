@@ -4,6 +4,7 @@ import styled from 'styled-components';
 import { Tag, EntityType, SearchResult } from '../../../types.generated';
 import DefaultPreviewCard from '../../preview/DefaultPreviewCard';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
+import { getDataForEntityType } from '../shared/containers/profile/utils';
 import TagProfile from './TagProfile';
 
 const PreviewTagIcon = styled(TagOutlined)`
@@ -69,7 +70,7 @@ export class TagEntity implements Entity<Tag> {
         return data.name;
     };
 
-    platformLogoUrl = (_: Tag) => {
-        return undefined;
+    getGenericEntityProperties = (tag: Tag) => {
+        return getDataForEntityType({ data: tag, entityType: this.type, getOverrideProperties: (data) => data });
     };
 }

@@ -9,6 +9,7 @@ fragment entityPreview on Entity {
         platform {
             name
             info {
+                displayName
                 logoUrl
             }
         }
@@ -223,6 +224,7 @@ fragment entityPreview on Entity {
         platform {
             name
             info {
+                displayName
                 logoUrl
             }
         }
@@ -237,6 +239,7 @@ fragment entityPreview on Entity {
         platform {
             name
             info {
+                displayName
                 logoUrl
             }
         }

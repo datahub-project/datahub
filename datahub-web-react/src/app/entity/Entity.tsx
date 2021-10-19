@@ -1,5 +1,6 @@
 import { EntityType, SearchResult } from '../../types.generated';
 import { FetchedEntity } from '../lineage/types';
+import { GenericEntityProperties } from './shared/types';
 
 export enum PreviewType {
     /**
@@ -112,8 +113,7 @@ export interface Entity<T> {
     displayName: (data: T) => string;
 
     /**
-     * Returns the url for the platform associated with the entity,
-     * or undefined if one cannot be found
+     * Returns generic entity properties for the entity
      */
-    platformLogoUrl: (data: T) => string | undefined;
+    getGenericEntityProperties: (data: T) => GenericEntityProperties | null;
 }

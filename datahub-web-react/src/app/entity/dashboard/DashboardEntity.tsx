@@ -19,6 +19,8 @@ import { DashboardChartsTab } from '../shared/tabs/Entity/DashboardChartsTab';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
 import { GenericEntityProperties } from '../shared/types';
 import { DashboardPreview } from './preview/DashboardPreview';
+import { getDataForEntityType } from '../shared/containers/profile/utils';
+import { capitalizeFirstLetter } from '../../shared/capitalizeFirstLetter';
 
 /**
  * Definition of the DataHub Dashboard entity.
@@ -71,7 +73,7 @@ export class DashboardEntity implements Entity<Dashboard> {
             entityType={EntityType.Dashboard}
             useEntityQuery={useGetDashboardQuery}
             useUpdateQuery={useUpdateDashboardMutation}
-            getOverrideProperties={this.getOverrideProperties}
+            getOverrideProperties={this.getOverridePropertiesFromEntity}
             tabs={[
                 {
                     name: 'Documentation',
@@ -108,13 +110,12 @@ export class DashboardEntity implements Entity<Dashboard> {
         />
     );
 
-    getOverrideProperties = (res: GetDashboardQuery): GenericEntityProperties => {
+    getOverridePropertiesFromEntity = (dashboard?: Dashboard | null): GenericEntityProperties => {
         // TODO: Get rid of this once we have correctly formed platform coming back.
-        const tool = res.dashboard?.tool || '';
-        const name = res.dashboard?.info?.name;
-        const externalUrl = res.dashboard?.info?.externalUrl;
+        const tool = dashboard?.tool || '';
+        const name = dashboard?.info?.name;
+        const externalUrl = dashboard?.info?.externalUrl;
         return {
-            ...res,
             name,
             externalUrl,
             platform: {
@@ -123,6 +124,7 @@ export class DashboardEntity implements Entity<Dashboard> {
                 name: tool,
                 info: {
                     logoUrl: getLogoFromPlatform(tool),
+                    displayName: capitalizeFirstLetter(tool),
                     type: PlatformType.Others,
                     datasetNameDelimiter: '.',
                 },
@@ -182,7 +184,11 @@ export class DashboardEntity implements Entity<Dashboard> {
         return data.info?.name || data.urn;
     };
 
-    platformLogoUrl = (data: Dashboard) => {
-        return getLogoFromPlatform(data.tool) || undefined;
+    getGenericEntityProperties = (data: Dashboard) => {
+        return getDataForEntityType({
+            data,
+            entityType: this.type,
+            getOverrideProperties: this.getOverridePropertiesFromEntity,
+        });
     };
 }

@@ -4,6 +4,7 @@ import { EntityType, GlossaryTerm, SearchResult } from '../../../types.generated
 import { Entity, IconStyleType, PreviewType } from '../Entity';
 import { Preview } from './preview/Preview';
 import GlossaryTermProfile from './profile/GlossaryTermProfile';
+import { getDataForEntityType } from '../shared/containers/profile/utils';
 
 /**
  * Definition of the DataHub Dataset entity.
@@ -67,5 +68,13 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
 
     platformLogoUrl = (_: GlossaryTerm) => {
         return undefined;
+    };
+
+    getGenericEntityProperties = (glossaryTerm: GlossaryTerm) => {
+        return getDataForEntityType({
+            data: glossaryTerm,
+            entityType: this.type,
+            getOverrideProperties: (data) => data,
+        });
     };
 }

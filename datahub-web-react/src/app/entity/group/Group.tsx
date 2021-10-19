@@ -4,6 +4,7 @@ import { CorpGroup, EntityType, SearchResult } from '../../../types.generated';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
 import { Preview } from './preview/Preview';
 import GroupProfile from './GroupProfile';
+import { getDataForEntityType } from '../shared/containers/profile/utils';
 
 /**
  * Definition of the DataHub CorpGroup entity.
@@ -64,7 +65,7 @@ export class GroupEntity implements Entity<CorpGroup> {
         return data.info?.displayName || data.name;
     };
 
-    platformLogoUrl = (_: CorpGroup) => {
-        return undefined;
+    getGenericEntityProperties = (group: CorpGroup) => {
+        return getDataForEntityType({ data: group, entityType: this.type, getOverrideProperties: (data) => data });
     };
 }
