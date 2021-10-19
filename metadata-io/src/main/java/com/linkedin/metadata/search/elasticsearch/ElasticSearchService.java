@@ -91,7 +91,7 @@ public class ElasticSearchService implements EntitySearchService {
       @Nullable Filter requestParams, int limit) {
     log.debug("Aggregating by value: {}, field: {}, requestParams: {}, limit: {}", entityName, field, requestParams,
         limit);
-    return null;
+    return esSearchDAO.aggregateByValue(entityName, field, requestParams, limit);
   }
 
   @Nonnull

@@ -24,7 +24,7 @@ public class HighUsageCandidateSourceFactory {
   @Qualifier(IndexConventionFactory.INDEX_CONVENTION_BEAN)
   private IndexConvention indexConvention;
 
-  @Bean
+  @Bean(name = "highUsageCandidateSource")
   @Nonnull
   protected HighUsageCandidateSource getInstance() {
     return new HighUsageCandidateSource(searchClient, indexConvention);

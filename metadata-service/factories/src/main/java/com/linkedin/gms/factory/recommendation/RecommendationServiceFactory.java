@@ -1,6 +1,9 @@
 package com.linkedin.gms.factory.recommendation;
 
 import com.google.common.collect.ImmutableList;
+import com.linkedin.gms.factory.recommendation.candidatesource.HighUsageCandidateSourceFactory;
+import com.linkedin.gms.factory.recommendation.candidatesource.RecentlyViewedCandidateSourceFactory;
+import com.linkedin.gms.factory.recommendation.candidatesource.TopPlatformsCandidateSourceFactory;
 import com.linkedin.metadata.recommendation.RecommendationService;
 import com.linkedin.metadata.recommendation.candidatesource.HighUsageCandidateSource;
 import com.linkedin.metadata.recommendation.candidatesource.RecentlyViewedCandidateSource;
@@ -8,20 +11,27 @@ import com.linkedin.metadata.recommendation.candidatesource.TopPlatformsCandidat
 import com.linkedin.metadata.recommendation.ranker.SimpleRecommendationRanker;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Import;
 
 
 @Configuration
+@Import({TopPlatformsCandidateSourceFactory.class, RecentlyViewedCandidateSourceFactory.class,
+    HighUsageCandidateSourceFactory.class})
 public class RecommendationServiceFactory {
 
   @Autowired
+  @Qualifier("topPlatformsCandidateSource")
   private TopPlatformsCandidateSource topPlatformsCandidateSource;
 
   @Autowired
+  @Qualifier("recentlyViewedCandidateSource")
   private RecentlyViewedCandidateSource recentlyViewedCandidateSource;
 
   @Autowired
+  @Qualifier("highUsageCandidateSource")
   private HighUsageCandidateSource highUsageCandidateSource;
 
   @Bean

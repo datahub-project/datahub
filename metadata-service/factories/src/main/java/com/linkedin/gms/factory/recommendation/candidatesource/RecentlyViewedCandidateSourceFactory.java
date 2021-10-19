@@ -24,7 +24,7 @@ public class RecentlyViewedCandidateSourceFactory {
   @Qualifier(IndexConventionFactory.INDEX_CONVENTION_BEAN)
   private IndexConvention indexConvention;
 
-  @Bean
+  @Bean(name = "recentlyViewedCandidateSource")
   @Nonnull
   protected RecentlyViewedCandidateSource getInstance() {
     return new RecentlyViewedCandidateSource(searchClient, indexConvention);

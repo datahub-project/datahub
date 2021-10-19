@@ -86,7 +86,7 @@ public class HighUsageCandidateSource implements RecommendationCandidateSource {
           .map(Optional::get)
           .collect(Collectors.toList());
     } catch (Exception e) {
-      log.error("Search query to get most recently viewed entities failed", e);
+      log.error("Search query to get most popular entities failed", e);
       throw new ESQueryException("Search query failed:", e);
     }
   }
@@ -96,7 +96,7 @@ public class HighUsageCandidateSource implements RecommendationCandidateSource {
     SearchSourceBuilder source = new SearchSourceBuilder();
     BoolQueryBuilder query = QueryBuilders.boolQuery();
     // Filter for the entity view events of the user requesting recommendation
-    query.must(QueryBuilders.termQuery(DataHubUsageEventConstants.ACTOR_URN, userUrn));
+    query.must(QueryBuilders.termQuery(DataHubUsageEventConstants.ACTOR_URN, userUrn.toString()));
     query.must(
         QueryBuilders.termQuery(DataHubUsageEventConstants.TYPE, DataHubUsageEventType.ENTITY_VIEW_EVENT.toString()));
     source.query(query);

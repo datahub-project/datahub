@@ -97,7 +97,7 @@ public class RecentlyViewedCandidateSource implements RecommendationCandidateSou
     SearchSourceBuilder source = new SearchSourceBuilder();
     BoolQueryBuilder query = QueryBuilders.boolQuery();
     // Filter for the entity view events of the user requesting recommendation
-    query.must(QueryBuilders.termQuery(DataHubUsageEventConstants.ACTOR_URN, userUrn));
+    query.must(QueryBuilders.termQuery(DataHubUsageEventConstants.ACTOR_URN, userUrn.toString()));
     query.must(
         QueryBuilders.termQuery(DataHubUsageEventConstants.TYPE, DataHubUsageEventType.ENTITY_VIEW_EVENT.toString()));
     source.query(query);
