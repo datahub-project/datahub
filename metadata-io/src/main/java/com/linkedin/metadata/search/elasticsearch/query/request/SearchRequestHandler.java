@@ -168,6 +168,28 @@ public class SearchRequestHandler {
     return searchRequest;
   }
 
+  /**
+   * Get search request to aggregate and get document counts per field value
+   *
+   * @param field Field to aggregate by
+   * @param filter {@link Filter} list of conditions with fields and values
+   * @param limit number of aggregations to return
+   * @return {@link SearchRequest} that contains the aggregation query
+   */
+  @Nonnull
+  public SearchRequest getAggregationRequest(@Nonnull String field, @Nullable Filter filter, int limit) {
+    SearchRequest searchRequest = new SearchRequest();
+    QueryBuilder query = filter == null ? QueryBuilders.matchAllQuery() : ESUtils.buildFilterQuery(filter);
+
+    final SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+    searchSourceBuilder.query(query);
+    searchSourceBuilder.size(0);
+    searchSourceBuilder.aggregation(AggregationBuilders.terms(field).field(field + ".keyword").size(limit));
+    searchRequest.source(searchSourceBuilder);
+
+    return searchRequest;
+  }
+
   private QueryBuilder getQuery(@Nonnull String query) {
     return SearchQueryBuilder.buildQuery(_entitySpec, query);
   }

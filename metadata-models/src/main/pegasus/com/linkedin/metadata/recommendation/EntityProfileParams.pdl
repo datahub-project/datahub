@@ -3,7 +3,7 @@ namespace com.linkedin.metadata.recommendation
 import com.linkedin.common.Urn
 
 /**
- * Facet filters to apply to search results
+ * Context to define the entity profile page
  */
 record EntityProfileParams {
   /**

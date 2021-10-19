@@ -8,7 +8,7 @@ enum RecommendationRenderType {
   /**
    * Simple list of entities
    */
-  ENTITY_LIST,
+  ENTITY_NAME_LIST,
 
   /**
    * List of platforms to search

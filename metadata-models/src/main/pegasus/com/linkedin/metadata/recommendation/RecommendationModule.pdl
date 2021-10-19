@@ -7,9 +7,9 @@ record RecommendationModule {
   title: string
 
   /**
-   * Type of the module being recommended
+   * Unique id of the module being recommended
    */
-  moduleType: string
+  moduleId: string
 
   /**
    * Type of rendering that defines how the module should be rendered
