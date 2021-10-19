@@ -1,9 +1,9 @@
-create keyspace datahubpoc WITH REPLICATION = {
+create keyspace datahub WITH REPLICATION = {
   'class' : 'SimpleStrategy',
   'replication_factor' : 1
 };
 
-create table datahubpoc.metadata_aspect_v2 (
+create table datahub.metadata_aspect_v2 (
   urn                           varchar,
   aspect                        varchar,
   version                       bigint,
@@ -16,22 +16,22 @@ create table datahubpoc.metadata_aspect_v2 (
   PRIMARY KEY (urn,aspect,version)
 );
 
-insert into datahubpoc.metadata_aspect_v2 (urn, aspect, version, metadata, createdon, createdby, entity) values(
+insert into datahub.metadata_aspect_v2 (urn, aspect, version, metadata, createdon, createdby, entity) values(
   'urn:li:corpuser:datahub',
   'corpUserInfo',
   0,
   '{"displayName":"Data Hub","active":true,"fullName":"Data Hub","email":"datahub@linkedin.com"}',
   toTimestamp(now()),
-  'urn:li:principal:datahub',
+  'urn:li:corpuser:__datahub_system',
   'corpuser'
 );
 
-insert into datahubpoc.metadata_aspect_v2 (urn, aspect, version, metadata, createdon, createdby, entity) values(
+insert into datahub.metadata_aspect_v2 (urn, aspect, version, metadata, createdon, createdby, entity) values(
   'urn:li:corpuser:datahub',
   'corpUserEditableInfo',
   0,
   '{"skills":[],"teams":[],"pictureLink":"https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/default_avatar.png"}',
   toTimestamp(now()),
-  'urn:li:principal:datahub',
+  'urn:li:corpuser:__datahub_system',
   'corpuser'
 );
