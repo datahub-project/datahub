@@ -111,6 +111,7 @@ import com.linkedin.datahub.graphql.types.glossary.GlossaryTermType;
 
 import com.linkedin.datahub.graphql.types.usage.UsageType;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.recommendation.RecommendationService;
 import graphql.execution.DataFetcherResult;
 import graphql.schema.idl.RuntimeWiring;
 import java.util.ArrayList;
@@ -145,6 +146,7 @@ public class GmsGraphQLEngine {
 
     private final AnalyticsService analyticsService;
     private final EntityService entityService;
+    private final RecommendationService recommendationService;
 
     private final DatasetType datasetType;
     private final CorpUserType corpUserType;
@@ -198,12 +200,13 @@ public class GmsGraphQLEngine {
     public final List<BrowsableEntityType<?>> browsableTypes;
 
     public GmsGraphQLEngine() {
-        this(null, null);
+        this(null, null, null);
     }
 
-    public GmsGraphQLEngine(final AnalyticsService analyticsService, final EntityService entityService) {
+    public GmsGraphQLEngine(final AnalyticsService analyticsService, final EntityService entityService, final RecommendationService recommendationService) {
         this.analyticsService = analyticsService;
         this.entityService = entityService;
+        this.recommendationService = recommendationService;
 
         this.datasetType = new DatasetType(GmsClientFactory.getEntitiesClient());
         this.corpUserType = new CorpUserType(GmsClientFactory.getEntitiesClient());
@@ -378,7 +381,7 @@ public class GmsGraphQLEngine {
                     new SearchResolver(GmsClientFactory.getEntitiesClient())))
             .dataFetcher("searchAcrossEntities",
                 new SearchAcrossEntitiesResolver(GmsClientFactory.getEntitiesClient()))
-            .dataFetcher("getRecommendations", new ListRecommendationsResolver())
+            .dataFetcher("getRecommendations", new ListRecommendationsResolver(recommendationService))
             .dataFetcher("autoComplete", new AuthenticatedResolver<>(
                     new AutoCompleteResolver(searchableTypes)))
             .dataFetcher("autoCompleteForMultiple", new AuthenticatedResolver<>(
@@ -436,7 +439,7 @@ public class GmsGraphQLEngine {
             .dataFetcher("listGroups",
                 new ListGroupsResolver(GmsClientFactory.getEntitiesClient()))
             .dataFetcher("listRecommendations",
-                new ListRecommendationsResolver())
+                new ListRecommendationsResolver(recommendationService))
         );
     }
 

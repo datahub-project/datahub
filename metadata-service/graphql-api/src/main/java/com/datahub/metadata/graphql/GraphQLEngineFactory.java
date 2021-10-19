@@ -7,19 +7,23 @@ import com.linkedin.datahub.graphql.analytics.service.AnalyticsService;
 import com.linkedin.gms.factory.common.IndexConventionFactory;
 import com.linkedin.gms.factory.common.RestHighLevelClientFactory;
 import com.linkedin.gms.factory.entity.EntityServiceFactory;
+import com.linkedin.gms.factory.recommendation.RecommendationServiceFactory;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.recommendation.RecommendationService;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import javax.annotation.Nonnull;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
-import org.springframework.context.annotation.Bean;
+
 
 @Configuration
-@Import({RestHighLevelClientFactory.class, IndexConventionFactory.class, EntityServiceFactory.class, AuthorizationManagerFactory.class})
+@Import({RestHighLevelClientFactory.class, IndexConventionFactory.class, EntityServiceFactory.class,
+    AuthorizationManagerFactory.class, RecommendationServiceFactory.class})
 public class GraphQLEngineFactory {
   @Autowired
   @Qualifier("elasticSearchRestHighLevelClient")
@@ -34,6 +38,9 @@ public class GraphQLEngineFactory {
   private EntityService _entityService;
 
   @Autowired
+  private RecommendationService _recommendationService;
+
+  @Autowired
   private AuthorizationManager authorizationManager;
 
   @Value("${ANALYTICS_ENABLED:true}") // TODO: Migrate to DATAHUB_ANALYTICS_ENABLED
@@ -43,9 +50,8 @@ public class GraphQLEngineFactory {
   @Nonnull
   protected GraphQLEngine getInstance() {
     if (isAnalyticsEnabled) {
-      return new GmsGraphQLEngine(
-          new AnalyticsService(elasticClient, indexConvention.getPrefix()), _entityService
-      ).builder().build();
+      return new GmsGraphQLEngine(new AnalyticsService(elasticClient, indexConvention.getPrefix()), _entityService,
+          _recommendationService).builder().build();
     }
     return new GmsGraphQLEngine().builder().build();
   }

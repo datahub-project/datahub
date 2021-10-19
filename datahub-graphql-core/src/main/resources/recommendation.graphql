@@ -26,7 +26,7 @@ input ListRecommendationsInput {
 }
 
 """
-Type of the page
+Type of the scenario requesting recommendation
 """
 enum ScenarioType {
   """
@@ -98,7 +98,7 @@ input EntityRequestContext {
 }
 
 """
-Results returned by the GetRecommendations query
+Results returned by the ListRecommendations query
 """
 type ListRecommendationsResult {
   """
@@ -183,6 +183,11 @@ type RecommendationParams {
   Context to define the entity profile page
   """
   entityProfileParams: EntityProfileParams
+
+  """
+  Context about the recommendation
+  """
+  contentParams: ContentParams
 }
 
 """
@@ -228,4 +233,14 @@ type EntityProfileParams {
   Urn of the entity being shown
   """
   urn: String!
+}
+
+"""
+Params about the recommended content
+"""
+type ContentParams {
+  """
+  Number of entities corresponding to the recommended content
+  """
+  count: Long
 }
