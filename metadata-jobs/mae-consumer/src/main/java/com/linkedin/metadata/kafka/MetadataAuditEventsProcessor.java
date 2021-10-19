@@ -211,7 +211,7 @@ public class MetadataAuditEventsProcessor {
         }
       }
     }
-    if (relationshipTypesBeingAdded.size() > 0) {
+    if (edgesToAdd.size() > 0) {
       new Thread(() -> {
         _graphService.removeEdgesFromNode(sourceUrn, new ArrayList<>(relationshipTypesBeingAdded),
             createRelationshipFilter(new Filter().setOr(new ConjunctiveCriterionArray()), RelationshipDirection.OUTGOING));
