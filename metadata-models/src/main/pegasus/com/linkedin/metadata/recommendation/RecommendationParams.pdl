@@ -1,0 +1,16 @@
+namespace com.linkedin.metadata.recommendation
+
+/**
+ * Parameters required to render a recommendation of a given type
+ */
+record RecommendationParams {
+  /**
+   * Context to define the search recommendations
+   */
+  searchParams: optional SearchParams
+
+  /**
+   * Context to define the entity profile page
+   */
+  entityProfileParams: optional EntityProfileParams
+}

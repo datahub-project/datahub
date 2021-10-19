@@ -1,0 +1,13 @@
+namespace com.linkedin.metadata.recommendation
+
+import com.linkedin.common.Urn
+
+/**
+ * Facet filters to apply to search results
+ */
+record EntityProfileParams {
+  /**
+   * Urn of the entity being shown
+   */
+  urn: Urn
+}
