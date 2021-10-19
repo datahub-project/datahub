@@ -5,19 +5,18 @@ import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.Entity;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
-import com.linkedin.metadata.query.Filter;
+import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.ListResult;
-import com.linkedin.metadata.query.ListUrnsResult;
+import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.r2.RemoteInvocationException;
-import java.net.URISyntaxException;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-
 
 public interface EntityClient {
 
@@ -198,4 +197,25 @@ public interface EntityClient {
    * Hard delete an entity with a particular urn.
    */
   public void deleteEntity(@Nonnull final Urn urn, @Nonnull final String actor) throws RemoteInvocationException;
+
+  /**
+   * Filters entities based on a particular Filter and Sort criterion
+   *
+   * @param entity filter entity
+   * @param filter search filters
+   * @param sortCriterion sort criterion
+   * @param start start offset for search results
+   * @param count max number of search results requested
+   * @return a set of {@link SearchResult}s
+   * @throws RemoteInvocationException
+   */
+  @Nonnull
+  public SearchResult filter(
+      @Nonnull String entity,
+      @Nonnull Filter filter,
+      @Nullable SortCriterion sortCriterion,
+      int start,
+      int count,
+      @Nonnull String actor)
+      throws RemoteInvocationException;
 }

@@ -9,7 +9,8 @@ import com.linkedin.entity.Entity;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.query.AutoCompleteResult;
-import com.linkedin.metadata.query.Filter;
+import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.ListResult;
 import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.resources.entity.EntityResource;
@@ -18,7 +19,6 @@ import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.r2.RemoteInvocationException;
-import java.net.URISyntaxException;
 import java.time.Clock;
 import java.util.List;
 import java.util.Map;
@@ -29,7 +29,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.SneakyThrows;
 
-import static com.linkedin.metadata.dao.utils.QueryUtils.*;
+import static com.linkedin.metadata.search.utils.QueryUtils.*;
 
 
 public class JavaEntityClient implements EntityClient {
@@ -277,5 +277,12 @@ public class JavaEntityClient implements EntityClient {
      */
     public void deleteEntity(@Nonnull final Urn urn, @Nonnull final String actor) throws RemoteInvocationException {
         _entityService.deleteUrn(urn);
+    }
+
+    @Nonnull
+    @Override
+    public SearchResult filter(@Nonnull String entity, @Nonnull Filter filter, @Nullable SortCriterion sortCriterion,
+        int start, int count, @Nonnull String actor) throws RemoteInvocationException {
+        return _entitySearchService.filter(entity, filter, sortCriterion, start, count);
     }
 }

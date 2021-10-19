@@ -4,7 +4,7 @@ import com.linkedin.datahub.upgrade.nocode.NoCodeUpgrade;
 
 import com.linkedin.entity.client.RestliEntityClient;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import io.ebean.EbeanServer;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,13 +21,13 @@ public class NoCodeUpgradeConfig {
   ApplicationContext applicationContext;
 
   @Bean(name = "noCodeUpgrade")
-  @DependsOn({"ebeanServer", "entityService", "restliEntityClient"})
+  @DependsOn({"ebeanServer", "entityService", "restliEntityClient", "entityRegistry"})
   @Nonnull
   public NoCodeUpgrade createInstance() {
     final EbeanServer ebeanServer = applicationContext.getBean(EbeanServer.class);
     final EntityService entityService = applicationContext.getBean(EntityService.class);
     final RestliEntityClient entityClient = applicationContext.getBean(RestliEntityClient.class);
-    final SnapshotEntityRegistry entityRegistry = new SnapshotEntityRegistry();
+    final EntityRegistry entityRegistry = applicationContext.getBean(EntityRegistry.class);
 
     return new NoCodeUpgrade(ebeanServer, entityService, entityRegistry, entityClient);
   }

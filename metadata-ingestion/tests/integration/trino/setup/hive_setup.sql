@@ -43,4 +43,17 @@ select * from test_data;
 CREATE MATERIALIZED VIEW db1.struct_test_view_materialized as select * from db1.struct_test;
 CREATE VIEW db1.array_struct_test_view as select * from db1.array_struct_test;
 
+CREATE TABLE IF NOT EXISTS db1.nested_struct_test
+(
+ property_id INT,
+ service STRUCT<
+                type: STRING
+               ,provider: STRUCT<name:VARCHAR(50), id:TINYINT>
+               >
+);
 
+CREATE TABLE db1.union_test(
+    foo UNIONTYPE<int, double, array<string>, struct<a:int,b:string>>
+) STORED AS ORC ;
+
+CREATE TABLE db1.map_test(KeyValue String, RecordId map<int,string>); 

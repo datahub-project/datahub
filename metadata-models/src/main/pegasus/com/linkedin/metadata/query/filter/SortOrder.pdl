@@ -1,0 +1,17 @@
+namespace com.linkedin.metadata.query.filter
+
+/**
+ * The order used to sort the results
+ */
+enum SortOrder {
+
+  /**
+   * If results need to be sorted in ascending order
+   */
+  ASCENDING
+
+  /**
+   * If results need to be sorted in descending order
+   */
+  DESCENDING
+}

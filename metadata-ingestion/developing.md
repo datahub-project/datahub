@@ -106,6 +106,13 @@ pytest -m 'integration'
 ### Sanity check code before committing
 
 ```shell
+./scripts/codegen.sh
+```
+
+This will generate some schema related files. These are auto-generated in docker containers. Do not commit these files in source code.
+
+
+```shell
 # Assumes: pip install -e '.[dev]' and venv is activated
 black src/ tests/
 isort src/ tests/
