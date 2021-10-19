@@ -1,5 +1,4 @@
 import { RecommendationContent, RecommendationRenderType } from '../../types.generated';
-import EntityRegistry from '../entity/EntityRegistry';
 import { RecommendationsRenderer, RecommendationDisplayType } from './renderer/RecommendationsRenderer';
 
 function validatedGet<K, V>(key: K, map: Map<K, V>): V {
@@ -13,8 +12,6 @@ function validatedGet<K, V>(key: K, map: Map<K, V>): V {
  * Serves as a singleton registry for all recommendation renderers
  */
 export default class RecommendationRendererRegistry {
-    entityRegistry;
-
     renderers: Array<RecommendationsRenderer> = new Array<RecommendationsRenderer>();
 
     renderTypeToRenderer: Map<RecommendationRenderType, RecommendationsRenderer> = new Map<
@@ -22,22 +19,18 @@ export default class RecommendationRendererRegistry {
         RecommendationsRenderer
     >();
 
-    constructor(entityRegistry: EntityRegistry) {
-        this.entityRegistry = entityRegistry;
-    }
-
     register(renderType: RecommendationRenderType, renderer: RecommendationsRenderer) {
         this.renderers.push(renderer);
         this.renderTypeToRenderer.set(renderType, renderer);
     }
 
     renderRecommendation(
-        moduleType: string,
+        moduleId: string,
         renderType: RecommendationRenderType,
         content: Array<RecommendationContent>,
         displayType: RecommendationDisplayType,
     ): JSX.Element {
         const renderer = validatedGet(renderType, this.renderTypeToRenderer);
-        return renderer.renderRecommendation(moduleType, renderType, content, displayType);
+        return renderer.renderRecommendation(moduleId, renderType, content, displayType);
     }
 }

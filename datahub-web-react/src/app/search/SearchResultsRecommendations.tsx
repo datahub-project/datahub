@@ -1,6 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Typography } from 'antd';
+import { Divider, Typography } from 'antd';
 import {
     FacetFilterInput,
     RecommendationModule as RecommendationModuleType,
@@ -8,16 +8,25 @@ import {
 } from '../../types.generated';
 import { useListRecommendationsQuery } from '../../graphql/recommendations.generated';
 import { RecommendationModule } from '../recommendations/RecommendationModule';
+import { ANTD_GRAY } from '../entity/shared/constants';
 
 const RecommendationsContainer = styled.div`
-    margin-left: 100px;
-    margin-right: 100px;
-    > div {
-        margin-bottom: 60px;
-    }
+    margin-left: 40px;
+    margin-right: 40px;
 `;
 
-const RecommendationTitle = styled(Typography.Title)``;
+const RecommendationContainer = styled.div`
+    margin-bottom: 40px;
+`;
+
+const ThinDivider = styled(Divider)`
+    margin-top: 12px;
+    margin-bottom: 12px;
+`;
+
+const RecommendationTitle = styled(Typography.Title)`
+    color: ${ANTD_GRAY[7]};
+`;
 
 type Props = {
     userUrn: string;
@@ -46,11 +55,12 @@ export const SearchResultsRecommendations = ({ userUrn, query, filters }: Props)
         <RecommendationsContainer>
             {recommendationModules &&
                 recommendationModules.map((module) => (
-                    <>
-                        <RecommendationTitle level={3}>More you may be interested in...</RecommendationTitle>
-                        <RecommendationTitle level={4}>{module.title}</RecommendationTitle>
+                    <RecommendationContainer>
+                        <RecommendationTitle level={3}>More you may be interested in</RecommendationTitle>
+                        <RecommendationTitle level={5}>{module.title}</RecommendationTitle>
+                        <ThinDivider />
                         <RecommendationModule module={module as RecommendationModuleType} showTitle={false} />
-                    </>
+                    </RecommendationContainer>
                 ))}
         </RecommendationsContainer>
     );

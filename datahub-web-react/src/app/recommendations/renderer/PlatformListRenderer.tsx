@@ -1,26 +1,16 @@
 import React from 'react';
 import { RecommendationContent, RecommendationRenderType } from '../../../types.generated';
-import EntityRegistry from '../../entity/EntityRegistry';
+import { PlatformList } from './component/PlatformList';
 import { RecommendationDisplayType, RecommendationsRenderer } from './RecommendationsRenderer';
 
 export class PlatformListRenderer implements RecommendationsRenderer {
-    entityRegistry;
-
-    constructor(entityRegistry: EntityRegistry) {
-        this.entityRegistry = entityRegistry;
-    }
-
+    /* eslint-disable class-methods-use-this */
     renderRecommendation(
-        moduleType: string,
-        renderType: RecommendationRenderType,
+        _: string,
+        _1: RecommendationRenderType,
         content: RecommendationContent[],
-        displayType: RecommendationDisplayType,
+        _2: RecommendationDisplayType,
     ): JSX.Element {
-        console.log(moduleType);
-        console.log(renderType);
-        console.log(content);
-        console.log(displayType);
-        console.log(this.entityRegistry);
-        return <>Not yet implemented!</>;
+        return <PlatformList content={content || []} />;
     }
 }

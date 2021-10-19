@@ -44,7 +44,7 @@ export const SidebarEntityRecommendations = ({
                     <>
                         <SidebarHeader title={module.title} />
                         <RecommendationModule
-                            displayType={RecommendationDisplayType.DISPLAY_NAME_GROUP}
+                            displayType={RecommendationDisplayType.COMPACT}
                             module={module as RecommendationModuleType}
                             showTitle={false}
                         />

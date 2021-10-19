@@ -17,7 +17,7 @@ export const RecommendationModule = ({ module, displayType, showTitle }: Props) 
         <>
             {showTitle && <Typography.Title level={4}>{module.title}</Typography.Title>}
             {recommendationRenderer.renderRecommendation(
-                module.moduleType,
+                module.moduleId,
                 module.renderType,
                 module.content,
                 finalDisplayType,

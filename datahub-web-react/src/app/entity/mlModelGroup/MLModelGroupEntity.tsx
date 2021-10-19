@@ -78,6 +78,6 @@ export class MLModelGroupEntity implements Entity<MlModelGroup> {
     };
 
     platformLogoUrl = (data: MlModelGroup) => {
-        return data.platform.info?.logoUrl || undefined;
+        return data.platform?.info?.logoUrl || undefined;
     };
 }
