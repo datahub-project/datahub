@@ -83,7 +83,9 @@ def test_dbt_ingest(pytestconfig, tmp_path, mock_time):
             "dbt_without_schemas_with_filter_mces_golden.json",
             source_config_modifiers={
                 "load_schemas": False,
-                "node_name_pattern": {"deny": ["source.sample_dbt.pagila.payment_p2020_06"]},
+                "node_name_pattern": {
+                    "deny": ["source.sample_dbt.pagila.payment_p2020_06"]
+                },
             },
         ),
     ]
