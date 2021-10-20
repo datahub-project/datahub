@@ -155,6 +155,7 @@ public class DataMigrationStep implements UpgradeStep {
 
               _entityService.ingestAspect(urn, BROWSE_PATHS_ASPECT_NAME, browsePaths, browsePathsStamp);
               urnsWithBrowsePath.add(urn);
+
             } catch (URISyntaxException e) {
               throw new RuntimeException("Failed to ingest Browse Path", e);
             }
