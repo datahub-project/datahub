@@ -61,6 +61,9 @@ export const SearchablePage = ({ initialQuery, onSearch, onAutoComplete, childre
     };
 
     const autoComplete = (query: string) => {
+        if (query === '') {
+            return;
+        }
         getAutoCompleteResults({
             variables: {
                 input: {

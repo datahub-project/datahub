@@ -1598,7 +1598,7 @@
     "fields" : [ {
       "name" : "active",
       "type" : "boolean",
-      "doc" : "Whether the corpUser is active, ref: https://iwww.corp.linkedin.com/wiki/cf/display/GTSD/Accessing+Active+Directory+via+LDAP+tools",
+      "doc" : "Deprecated! Use CorpUserStatus instead. Whether the corpUser is active, ref: https://iwww.corp.linkedin.com/wiki/cf/display/GTSD/Accessing+Active+Directory+via+LDAP+tools",
       "Searchable" : {
         "fieldType" : "BOOLEAN",
         "weightsPerFieldValue" : {
@@ -1683,6 +1683,47 @@
       "name" : "corpUserInfo"
     }
   }, {
+    "type" : "record",
+    "name" : "CorpUserStatus",
+    "namespace" : "com.linkedin.identity",
+    "doc" : "The status of the user, e.g. provisioned, active, suspended, etc.",
+    "fields" : [ {
+      "name" : "status",
+      "type" : "string",
+      "doc" : "Status of the user, e.g. PROVISIONED / ACTIVE / SUSPENDED",
+      "Searchable" : {
+        "fieldType" : "KEYWORD"
+      }
+    }, {
+      "name" : "lastModified",
+      "type" : "com.linkedin.common.AuditStamp",
+      "doc" : "Audit stamp containing who last modified the status and when."
+    } ],
+    "Aspect" : {
+      "name" : "corpUserStatus"
+    }
+  }, {
+    "type" : "record",
+    "name" : "GroupMembership",
+    "namespace" : "com.linkedin.identity",
+    "doc" : "Carries information about the CorpGroups a user is in.",
+    "fields" : [ {
+      "name" : "groups",
+      "type" : {
+        "type" : "array",
+        "items" : "com.linkedin.common.Urn"
+      },
+      "Relationship" : {
+        "/*" : {
+          "entityTypes" : [ "corpGroup" ],
+          "name" : "IsMemberOfGroup"
+        }
+      }
+    } ],
+    "Aspect" : {
+      "name" : "groupMembership"
+    }
+  }, {
     "type" : "typeref",
     "name" : "Aspect",
     "namespace" : "com.linkedin.metadata.aspect",
@@ -1744,7 +1785,7 @@
       "Aspect" : {
         "name" : "corpUserKey"
       }
-    }, "com.linkedin.identity.CorpUserEditableInfo", "com.linkedin.identity.CorpUserInfo", {
+    }, "com.linkedin.identity.CorpUserEditableInfo", "com.linkedin.identity.CorpUserInfo", "com.linkedin.identity.CorpUserStatus", "com.linkedin.identity.GroupMembership", {
       "type" : "record",
       "name" : "DashboardKey",
       "namespace" : "com.linkedin.metadata.key",
@@ -2437,7 +2478,9 @@
         "type" : "com.linkedin.common.FabricType",
         "doc" : "Fabric type where model belongs to or where it was generated",
         "Searchable" : {
+          "addToFilters" : true,
           "fieldType" : "TEXT_PARTIAL",
+          "filterNameOverride" : "Environment",
           "queryByDefault" : false
         }
       } ],
