@@ -6,7 +6,7 @@ import threading
 import time
 import unittest.mock
 import uuid
-from typing import Any, Iterable, Iterator, List, Optional, Tuple
+from typing import Any, Iterable, Iterator, List, Optional, Tuple, Union
 
 from great_expectations.core.expectation_validation_result import (
     ExpectationSuiteValidationResult,
@@ -20,6 +20,7 @@ from great_expectations.data_context.types.base import (
     datasourceConfigSchema,
 )
 from great_expectations.datasource.sqlalchemy_datasource import SqlAlchemyDatasource
+from sqlalchemy.engine import Connection, Engine
 
 from datahub.emitter.mce_builder import get_sys_time
 from datahub.ingestion.api.source import SourceReport
@@ -92,13 +93,17 @@ class DatahubGEProfiler:
     # The actual value doesn't matter, it just matters that we use it consistently throughout.
     _datasource_name_base: str = "my_sqlalchemy_datasource"
 
-    def __init__(self, conn, report):
+    def __init__(self, conn: Union[Engine, Connection], report: SourceReport):
         self.base_engine = conn
         self.report = report
 
     @contextlib.contextmanager
     def _ge_context(self) -> Iterator[GEContext]:
-        with self.base_engine.connect() as conn:
+        # TRICKY: The call to `.engine` is quite important here. Connection.connect()
+        # returns a "branched" connection, which does not actually use a new underlying
+        # DBAPI object from the connection pool. Engine.connect() does what we want to
+        # make the threading code work correctly.
+        with self.base_engine.engine.connect() as conn:
             data_context = BaseDataContext(
                 project_config=DataContextConfig(
                     # The datasource will be added via add_datasource().
