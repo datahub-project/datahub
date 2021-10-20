@@ -1,4 +1,5 @@
 import logging
+import os
 from abc import abstractmethod
 from dataclasses import dataclass, field
 from typing import (
@@ -53,7 +54,10 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 from datahub.metadata.schema_classes import ChangeTypeClass, DatasetPropertiesClass
 
 if TYPE_CHECKING:
-    from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler
+    from datahub.ingestion.source.ge_data_profiler import (
+        DatahubGEProfiler,
+        GEProfilerRequest,
+    )
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -111,7 +115,13 @@ class GEProfilingConfig(ConfigModel):
     enabled: bool = False
     limit: Optional[int] = None
     offset: Optional[int] = None
-    send_sample_values: Optional[bool] = True
+    send_sample_values: bool = True
+
+    # The default of (5 * cpu_count) is adopted from the default max_workers
+    # parameter of ThreadPoolExecutor. Given that profiling is often an I/O-bound
+    # task, it may make sense to increase this default value in the future.
+    # https://docs.python.org/3/library/concurrent.futures.html#concurrent.futures.ThreadPoolExecutor
+    max_workers: int = 5 * (os.cpu_count() or 4)
 
 
 class SQLAlchemyConfig(ConfigModel):
@@ -299,7 +309,16 @@ class SQLAlchemySource(Source):
             # If debug logging is enabled, we also want to echo each SQL query issued.
             sql_config.options.setdefault("echo", True)
 
+        # Extra default SQLAlchemy option for better connection pooling and threading.
+        # https://docs.sqlalchemy.org/en/14/core/pooling.html#sqlalchemy.pool.QueuePool.params.max_overflow
+        if sql_config.profiling.enabled:
+            sql_config.options.setdefault(
+                "max_overflow", sql_config.profiling.max_workers
+            )
+
         for inspector in self.get_inspectors():
+            profiler = None
+            profile_requests: List["GEProfilerRequest"] = []
             if sql_config.profiling.enabled:
                 profiler = self._get_profiler_instance(inspector)
 
@@ -314,10 +333,13 @@ class SQLAlchemySource(Source):
                 if sql_config.include_views:
                     yield from self.loop_views(inspector, schema, sql_config)
 
-                if sql_config.profiling.enabled:
-                    yield from self.loop_profiler(
-                        inspector, profiler, schema, sql_config
+                if profiler:
+                    profile_requests += list(
+                        self.loop_profiler_requests(inspector, schema, sql_config)
                     )
+
+            if profiler and profile_requests:
+                yield from self.loop_profiler(profile_requests, profiler)
 
     def standardize_schema_table_names(
         self, schema: str, entity: str
@@ -568,13 +590,14 @@ class SQLAlchemySource(Source):
 
         return DatahubGEProfiler(conn=inspector.bind, report=self.report)
 
-    def loop_profiler(
+    def loop_profiler_requests(
         self,
         inspector: Inspector,
-        profiler: "DatahubGEProfiler",
         schema: str,
         sql_config: SQLAlchemyConfig,
-    ) -> Iterable[MetadataWorkUnit]:
+    ) -> Iterable["GEProfilerRequest"]:
+        from datahub.ingestion.source.ge_data_profiler import GEProfilerRequest
+
         for table in inspector.get_table_names(schema):
             schema, table = self.standardize_schema_table_names(
                 schema=schema, entity=table
@@ -588,13 +611,19 @@ class SQLAlchemySource(Source):
                 self.report.report_dropped(f"profile of {dataset_name}")
                 continue
 
-            logger.info(f"Profiling {dataset_name} (this may take a while)")
-            profile = profiler.generate_profile(
+            yield GEProfilerRequest(
                 pretty_name=dataset_name,
-                **self.prepare_profiler_args(schema=schema, table=table),
+                batch_kwargs=self.prepare_profiler_args(schema=schema, table=table),
+                send_sample_values=self.config.profiling.send_sample_values,
             )
-            logger.debug(f"Finished profiling {dataset_name}")
 
+    def loop_profiler(
+        self, profile_requests: List["GEProfilerRequest"], profiler: "DatahubGEProfiler"
+    ) -> Iterable[MetadataWorkUnit]:
+        for request, profile in profiler.generate_profiles(
+            profile_requests, self.config.profiling.max_workers
+        ):
+            dataset_name = request.pretty_name
             mcp = MetadataChangeProposalWrapper(
                 entityType="dataset",
                 entityUrn=f"urn:li:dataset:(urn:li:dataPlatform:{self.platform},{dataset_name},{self.config.env})",
@@ -612,7 +641,6 @@ class SQLAlchemySource(Source):
             table=table,
             limit=self.config.profiling.limit,
             offset=self.config.profiling.offset,
-            send_sample_values=self.config.profiling.send_sample_values,
         )
 
     def get_report(self):
