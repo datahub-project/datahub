@@ -229,12 +229,13 @@ class BigQuerySource(SQLAlchemySource):
     def get_lineage_mcp(
         self, dataset_urn: str
     ) -> Optional[MetadataChangeProposalWrapper]:
+        if self.lineage_metadata is None:
+            return None
         dataset_key: Optional[DatasetKey] = mce_builder.dataset_urn_to_key(dataset_urn)
         if dataset_key is None:
             return None
         project_id, dataset_name, tablename = dataset_key.name.split(".")
         bq_table = BigQueryTableRef(project_id, dataset_name, tablename)
-        assert self.lineage_metadata is not None
         if str(bq_table) in self.lineage_metadata:
             upstream_list: List[UpstreamClass] = []
             # Sorting the list of upstream lineage events in order to avoid creating multiple aspects in backend
