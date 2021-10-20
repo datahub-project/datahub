@@ -25,6 +25,7 @@ interface Props {
     glossaryTerms?: GlossaryTerms;
     dataTestID?: string;
     titleSizePx?: number;
+    onClick?: () => void;
 }
 
 const PreviewContainer = styled.div`
@@ -127,6 +128,7 @@ export default function DefaultPreviewCard({
     glossaryTerms,
     titleSizePx,
     dataTestID,
+    onClick,
 }: Props) {
     const entityRegistry = useEntityRegistry();
     const insightViews: Array<ReactNode> = [
@@ -152,7 +154,7 @@ export default function DefaultPreviewCard({
                             <PlatformDivider />
                             <PlatformText>{type}</PlatformText>
                         </PlatformInfo>
-                        <Link to={url}>
+                        <Link to={url} onClick={onClick}>
                             <EntityTitle titleSizePx={titleSizePx}>{name || ' '}</EntityTitle>
                         </Link>
                         <TagContainer>

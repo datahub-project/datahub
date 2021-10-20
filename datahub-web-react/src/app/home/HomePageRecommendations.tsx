@@ -1,7 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
 import { Col, Divider, Row, Typography } from 'antd';
-
 import { EntityType, RecommendationModule as RecommendationModuleType, ScenarioType } from '../../types.generated';
 import { useListRecommendationsQuery } from '../../graphql/recommendations.generated';
 import { RecommendationModule } from '../recommendations/RecommendationModule';
@@ -45,12 +44,13 @@ export const HomePageRecommendations = ({ userUrn }: Props) => {
             .map((entityTypeStr) => entityTypeStr as EntityType);
 
     // Recommendations
+    const scenario = ScenarioType.Home;
     const { data } = useListRecommendationsQuery({
         variables: {
             input: {
                 userUrn,
                 requestContext: {
-                    scenario: ScenarioType.Home,
+                    scenario,
                 },
                 limit: 5,
             },
@@ -80,7 +80,11 @@ export const HomePageRecommendations = ({ userUrn }: Props) => {
                     <RecommendationContainer>
                         <RecommendationTitle level={4}>{module.title}</RecommendationTitle>
                         <ThinDivider />
-                        <RecommendationModule module={module as RecommendationModuleType} showTitle={false} />
+                        <RecommendationModule
+                            module={module as RecommendationModuleType}
+                            scenarioType={scenario}
+                            showTitle={false}
+                        />
                     </RecommendationContainer>
                 ))}
         </RecommendationsContainer>

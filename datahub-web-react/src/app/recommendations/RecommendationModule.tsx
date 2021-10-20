@@ -1,23 +1,37 @@
 import { Typography } from 'antd';
-import React from 'react';
-import { RecommendationModule as RecommendationModuleType } from '../../types.generated';
+import React, { useMemo } from 'react';
+import { v4 as uuidv4 } from 'uuid';
+import { RecommendationModule as RecommendationModuleType, ScenarioType } from '../../types.generated';
+import analytics, { EventType } from '../analytics';
 import { RecommendationDisplayType } from './renderer/RecommendationsRenderer';
 import { useRecommendationRenderer } from './useRecommendationRenderer';
 
 type Props = {
     module: RecommendationModuleType;
+    scenarioType: ScenarioType;
     displayType?: RecommendationDisplayType;
     showTitle?: boolean;
 };
 
-export const RecommendationModule = ({ module, displayType, showTitle }: Props) => {
+export const RecommendationModule = ({ module, scenarioType, displayType, showTitle }: Props) => {
     const finalDisplayType = displayType || RecommendationDisplayType.DEFAULT; // Fallback to default item size if not provided.
     const recommendationRenderer = useRecommendationRenderer();
+    const renderId = useMemo(() => uuidv4(), []);
+    console.log(`render id ${renderId}`);
+    analytics.event({
+        type: EventType.RecommendationImpressionEvent,
+        renderId,
+        moduleId: module.moduleId,
+        renderType: module.renderType,
+        scenarioType,
+    });
     return (
         <>
             {showTitle && <Typography.Title level={4}>{module.title}</Typography.Title>}
             {recommendationRenderer.renderRecommendation(
+                renderId,
                 module.moduleId,
+                scenarioType,
                 module.renderType,
                 module.content,
                 finalDisplayType,

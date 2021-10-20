@@ -39,15 +39,16 @@ const ThinDivider = styled(Divider)`
 
 type Props = {
     entities: Array<Entity>;
+    onClick?: (index: number) => void;
 };
 
-export const EntityNameList = ({ entities }: Props) => {
+export const EntityNameList = ({ entities, onClick }: Props) => {
     const entityRegistry = useEntityRegistry();
     return (
         <StyledList
             bordered
             dataSource={entities}
-            renderItem={(entity) => {
+            renderItem={(entity, index) => {
                 const genericProps = entityRegistry.getGenericEntityProperties(entity.type, entity);
                 const platformLogoUrl = genericProps?.platform?.info?.logoUrl;
                 const platformName = genericProps?.platform?.info?.displayName;
@@ -66,6 +67,7 @@ export const EntityNameList = ({ entities }: Props) => {
                                 platform={platformName || undefined}
                                 type={entityTypeName}
                                 titleSizePx={14}
+                                onClick={() => onClick?.(index)}
                             />
                         </ListItem>
                         <ThinDivider />

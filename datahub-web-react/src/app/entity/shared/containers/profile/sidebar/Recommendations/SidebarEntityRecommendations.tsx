@@ -21,12 +21,13 @@ export const SidebarEntityRecommendations = ({
     entityUrn: string;
     entityType: EntityType;
 }) => {
+    const scenario = ScenarioType.EntityProfile;
     const { data } = useListRecommendationsQuery({
         variables: {
             input: {
                 userUrn,
                 requestContext: {
-                    scenario: ScenarioType.EntityProfile,
+                    scenario,
                     entityRequestContext: {
                         urn: entityUrn,
                         type: entityType,
@@ -38,7 +39,6 @@ export const SidebarEntityRecommendations = ({
         fetchPolicy: 'no-cache',
     });
     const recommendationModules = data?.listRecommendations?.modules;
-    console.log(recommendationModules);
     return (
         <RecommendationsContainer>
             {recommendationModules &&
@@ -46,9 +46,10 @@ export const SidebarEntityRecommendations = ({
                     <>
                         <SidebarHeader title={module.title} />
                         <RecommendationModule
-                            displayType={RecommendationDisplayType.COMPACT}
                             module={module as RecommendationModuleType}
+                            scenarioType={scenario}
                             showTitle={false}
+                            displayType={RecommendationDisplayType.COMPACT}
                         />
                     </>
                 ))}

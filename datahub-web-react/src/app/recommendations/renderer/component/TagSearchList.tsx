@@ -10,19 +10,21 @@ const TagSearchListContainer = styled.div``;
 
 type Props = {
     content: Array<RecommendationContent>;
+    onClick?: (index: number) => void;
 };
 
-export const TagSearchList = ({ content }: Props) => {
+export const TagSearchList = ({ content, onClick }: Props) => {
     const tags: Array<Tag> = content
         .map((cnt) => cnt.entity)
         .filter((entity) => entity !== null && entity !== undefined)
         .map((entity) => entity as Tag);
     return (
         <TagSearchListContainer>
-            {tags.map((tag) => (
+            {tags.map((tag, index) => (
                 <Link
                     to={{ pathname: `${PageRoutes.SEARCH}`, search: `?filter_tags=${urlEncodeUrn(tag.urn)}` }}
                     key={tag.urn}
+                    onClick={() => onClick?.(index)}
                 >
                     <StyledTag $colorHash={tag.urn} closable={false}>
                         {tag.name}

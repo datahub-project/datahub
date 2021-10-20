@@ -14,21 +14,23 @@ const PlatformListContainer = styled.div`
 
 type Props = {
     content: Array<RecommendationContent>;
+    onClick?: (index: number) => void;
 };
 
-export const PlatformList = ({ content }: Props) => {
+export const PlatformList = ({ content, onClick }: Props) => {
     const platforms: Array<DataPlatform> = content
         .map((cnt) => cnt.entity)
         .filter((platform) => platform !== null && platform !== undefined) as Array<DataPlatform>;
     return (
         <PlatformListContainer>
-            {platforms.map((platform) => (
+            {platforms.map((platform, index) => (
                 <Link
                     to={{
                         pathname: `${PageRoutes.SEARCH}`,
                         search: `?filter_platform=${urlEncodeUrn(platform.urn)}`,
                     }}
                     key={platform.urn}
+                    onClick={() => onClick?.(index)}
                 >
                     <PlatformCard name={platform.info?.displayName || ''} logoUrl={platform.info?.logoUrl || ''} />
                 </Link>
