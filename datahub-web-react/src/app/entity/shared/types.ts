@@ -23,12 +23,17 @@ import { FetchedEntity } from '../../lineage/types';
 export type EntityTab = {
     name: string;
     component: React.FunctionComponent;
-    shouldHide?: (GenericEntityProperties, T) => boolean;
+    display?: {
+        visible: (GenericEntityProperties, T) => boolean; // Whether the tab is visible on the UI. Defaults to true.
+        enabled: (GenericEntityProperties, T) => boolean; // Whether the tab is enabled on the UI. Defaults to true.
+    };
 };
 
 export type EntitySidebarSection = {
     component: React.FunctionComponent<{ properties?: any }>;
-    shouldHide?: (GenericEntityProperties, T) => boolean;
+    display?: {
+        visible: (GenericEntityProperties, T) => boolean; // Whether the sidebar is visible on the UI. Defaults to true.
+    };
     properties?: any;
 };
 

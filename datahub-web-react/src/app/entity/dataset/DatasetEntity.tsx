@@ -1,8 +1,7 @@
 import * as React from 'react';
 import { DatabaseFilled, DatabaseOutlined } from '@ant-design/icons';
-import { Tag, Typography } from 'antd';
-import styled from 'styled-components';
-import { Dataset, EntityType, RelationshipDirection, SearchResult } from '../../../types.generated';
+import { Typography } from 'antd';
+import { Dataset, EntityType, SearchResult } from '../../../types.generated';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
 import { Preview } from './preview/Preview';
 import { FIELDS_TO_HIGHLIGHT } from './search/highlights';
@@ -21,13 +20,12 @@ import { SidebarStatsSection } from '../shared/containers/profile/sidebar/Datase
 import StatsTab from '../shared/tabs/Dataset/Stats/StatsTab';
 import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
 import { capitalizeFirstLetter } from '../../shared/capitalizeFirstLetter';
+import ViewDefinitionTab from '../shared/tabs/Dataset/View/ViewDefinitionTab';
+import { SidebarViewDefinitionSection } from '../shared/containers/profile/sidebar/Dataset/View/SidebarViewDefinitionSection';
 
-const MatchTag = styled(Tag)`
-    &&& {
-        margin-bottom: 0px;
-        margin-top: 10px;
-    }
-`;
+const SUBTYPES = {
+    VIEW: 'view',
+};
 
 /**
  * Definition of the DataHub Dataset entity.
@@ -87,6 +85,16 @@ export class DatasetEntity implements Entity<Dataset> {
                     component: SchemaTab,
                 },
                 {
+                    name: 'View Definition',
+                    component: ViewDefinitionTab,
+                    display: {
+                        visible: (_, dataset: GetDatasetQuery) =>
+                            (dataset?.dataset?.subTypes?.typeNames?.includes(SUBTYPES.VIEW) && true) || false,
+                        enabled: (_, dataset: GetDatasetQuery) =>
+                            (dataset?.dataset?.viewProperties?.logic && true) || false,
+                    },
+                },
+                {
                     name: 'Documentation',
                     component: DocumentationTab,
                 },
@@ -97,19 +105,30 @@ export class DatasetEntity implements Entity<Dataset> {
                 {
                     name: 'Lineage',
                     component: LineageTab,
-                    shouldHide: (_, dataset: GetDatasetQuery) =>
-                        !((dataset?.dataset?.incoming?.count || 0) > 0 || (dataset?.dataset?.outgoing?.count || 0) > 0),
+                    display: {
+                        visible: (_, _1) => true,
+												enabled: (_, dataset: GetDatasetQuery) =>
+														(dataset?.dataset?.incoming?.count || 0) > 0 || (dataset?.dataset?.outgoing?.count || 0) > 0,
+                    },
                 },
                 {
                     name: 'Queries',
                     component: QueriesTab,
-                    shouldHide: (_, dataset: GetDatasetQuery) => !dataset?.dataset?.usageStats?.buckets?.length,
+                    display: {
+                        visible: (_, _1) => true,
+                        enabled: (_, dataset: GetDatasetQuery) =>
+                            (dataset?.dataset?.usageStats?.buckets?.length || 0) > 0,
+                    },
                 },
                 {
                     name: 'Stats',
                     component: StatsTab,
-                    shouldHide: (_, dataset: GetDatasetQuery) =>
-                        !dataset?.dataset?.datasetProfiles?.length && !dataset?.dataset?.usageStats?.buckets?.length,
+                    display: {
+                        visible: (_, _1) => true,
+                        enabled: (_, dataset: GetDatasetQuery) =>
+                            (dataset?.dataset?.datasetProfiles?.length || 0) > 0 ||
+                            (dataset?.dataset?.usageStats?.buckets?.length || 0) > 0,
+                    },
                 },
             ]}
             sidebarSections={[
@@ -117,9 +136,19 @@ export class DatasetEntity implements Entity<Dataset> {
                     component: SidebarAboutSection,
                 },
                 {
+                    component: SidebarViewDefinitionSection,
+                    display: {
+                        visible: (_, dataset: GetDatasetQuery) =>
+                            (dataset?.dataset?.viewProperties?.logic && true) || false,
+                    },
+                },
+                {
                     component: SidebarStatsSection,
-                    shouldHide: (_, dataset: GetDatasetQuery) =>
-                        !dataset?.dataset?.datasetProfiles?.length && !dataset?.dataset?.usageStats?.buckets?.length,
+                    display: {
+                        visible: (_, dataset: GetDatasetQuery) =>
+                            (dataset?.dataset?.datasetProfiles?.length || 0) > 0 ||
+                            (dataset?.dataset?.usageStats?.buckets?.length || 0) > 0,
+                    },
                 },
                 {
                     component: SidebarTagsSection,
@@ -173,19 +202,19 @@ export class DatasetEntity implements Entity<Dataset> {
                 platformLogo={data.platform.info?.logoUrl}
                 owners={data.ownership?.owners}
                 globalTags={data.globalTags}
+                glossaryTerms={data.glossaryTerms}
                 subtype={data.subTypes?.typeNames?.[0]}
                 snippet={
                     // Add match highlights only if all the matched fields are in the FIELDS_TO_HIGHLIGHT
                     result.matchedFields.length > 0 &&
                     result.matchedFields.every((field) => FIELDS_TO_HIGHLIGHT.has(field.name)) && (
-                        <MatchTag>
-                            <Typography.Text>
-                                Matches {FIELDS_TO_HIGHLIGHT.get(result.matchedFields[0].name)}{' '}
-                                <b>{result.matchedFields[0].value}</b>
-                            </Typography.Text>
-                        </MatchTag>
+                        <Typography.Text>
+                            Matches {FIELDS_TO_HIGHLIGHT.get(result.matchedFields[0].name)}{' '}
+                            <b>{result.matchedFields[0].value}</b>
+                        </Typography.Text>
                     )
                 }
+                insights={result.insights}
             />
         );
     };

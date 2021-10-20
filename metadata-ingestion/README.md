@@ -52,6 +52,7 @@ Sources:
 | [mongodb](./source_docs/mongodb.md)             | `pip install 'acryl-datahub[mongodb]'`                     | MongoDB source                      |
 | [mssql](./source_docs/mssql.md)                 | `pip install 'acryl-datahub[mssql]'`                       | SQL Server source                   |
 | [mysql](./source_docs/mysql.md)                 | `pip install 'acryl-datahub[mysql]'`                       | MySQL source                        |
+| [mariadb](./source_docs/mariadb.md)             | `pip install 'acryl-datahub[mariadb]'`                     | MariaDB source                      |
 | [oracle](./source_docs/oracle.md)               | `pip install 'acryl-datahub[oracle]'`                      | Oracle source                       |
 | [postgres](./source_docs/postgres.md)           | `pip install 'acryl-datahub[postgres]'`                    | Postgres source                     |
 | [redash](./source_docs/redash.md)               | `pip install 'acryl-datahub[redash]'`                      | Redash source                       |

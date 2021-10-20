@@ -20,9 +20,9 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.RelationshipFieldSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.query.CriterionArray;
-import com.linkedin.metadata.query.Filter;
-import com.linkedin.metadata.query.RelationshipDirection;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
+import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
@@ -52,8 +52,7 @@ import org.springframework.kafka.annotation.EnableKafka;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 
-import static com.linkedin.metadata.dao.utils.QueryUtils.newRelationshipFilter;
-import static com.linkedin.metadata.dao.Neo4jUtil.*;
+import static com.linkedin.metadata.search.utils.QueryUtils.newRelationshipFilter;
 
 
 @Slf4j
@@ -109,7 +108,7 @@ public class MetadataChangeLogProcessor {
         return;
       }
 
-      Urn urn = EntityKeyUtils.getUrnFromLog(event);
+      Urn urn = EntityKeyUtils.getUrnFromLog(event, entitySpec.getKeyAspectSpec());
 
       if (!event.hasAspectName() || !event.hasAspect()) {
         log.error("Aspect or aspect name is missing");
@@ -156,10 +155,11 @@ public class MetadataChangeLogProcessor {
         }
       }
     }
-    if (edgesToAdd.size() > 0) {
+    log.info(String.format("Here's the relationship types found %s", relationshipTypesBeingAdded));
+    if (relationshipTypesBeingAdded.size() > 0) {
       new Thread(() -> {
         _graphService.removeEdgesFromNode(urn, new ArrayList<>(relationshipTypesBeingAdded),
-            newRelationshipFilter(new Filter().setCriteria(new CriterionArray()), RelationshipDirection.OUTGOING));
+            newRelationshipFilter(new Filter().setOr(new ConjunctiveCriterionArray()), RelationshipDirection.OUTGOING));
         edgesToAdd.forEach(edge -> _graphService.addEdge(edge));
       }).start();
     }

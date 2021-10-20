@@ -1486,3 +1486,322 @@ def test_update_schemafield(frontend_session):
     assert res_data["data"]
     assert res_data["data"]["dataset"]
     assert res_data["data"]["dataset"]["editableSchemaMetadata"] == {'editableSchemaFieldInfo': [{'description': 'new description'}]}
+
+@pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
+def test_list_users(frontend_session):
+
+    json = {
+        "query": """query listUsers($input: ListUsersInput!) {\n
+            listUsers(input: $input) {\n
+                start\n
+                count\n
+                total\n
+                users {\n
+                    urn\n
+                    type\n
+                    username\n
+                    properties {\n
+                      firstName
+                    }\n
+                }\n
+            }\n
+        }""",
+        "variables": {
+            "input": {
+              "start": "0",
+              "count": "2",
+            }
+        }
+    }
+    response = frontend_session.post(
+        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json
+    )
+    response.raise_for_status()
+    res_data = response.json()
+
+    assert res_data
+    assert res_data["data"]
+    assert res_data["data"]["listUsers"]
+    assert res_data["data"]["listUsers"]["start"] is 0
+    assert res_data["data"]["listUsers"]["count"] is 2
+    assert len(res_data["data"]["listUsers"]["users"]) is 2 # Length of default user set.
+
+@pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
+def test_list_groups(frontend_session):
+
+    json = {
+        "query": """query listGroups($input: ListGroupsInput!) {\n
+            listGroups(input: $input) {\n
+                start\n
+                count\n
+                total\n
+                groups {\n
+                    urn\n
+                    type\n
+                    name\n
+                    properties {\n
+                      displayName
+                    }\n
+                }\n
+            }\n
+        }""",
+        "variables": {
+            "input": {
+              "start": "0",
+              "count": "2",
+            }
+        }
+    }
+    response = frontend_session.post(
+        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json
+    )
+    response.raise_for_status()
+    res_data = response.json()
+
+    assert res_data
+    assert res_data["data"]
+    assert res_data["data"]["listGroups"]
+    assert res_data["data"]["listGroups"]["start"] is 0
+    assert res_data["data"]["listGroups"]["count"] is 2
+    assert len(res_data["data"]["listGroups"]["groups"]) is 2 # Length of default group set.
+
+@pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion", "test_list_groups"])
+def test_add_remove_members_from_group(frontend_session):
+
+    # Assert no group edges for user jdoe
+    json = {
+        "query": """query corpUser($urn: String!) {\n
+            corpUser(urn: $urn) {\n
+                urn\n
+                relationships(input: { types: ["IsMemberOfGroup"], direction: OUTGOING, start: 0, count: 1 }) {\n
+                    total\n
+                }\n
+            }\n
+        }""",
+        "variables": {
+            "urn": "urn:li:corpuser:jdoe"
+        }
+    }
+    response = frontend_session.post(
+        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json
+    )
+    response.raise_for_status()
+    res_data = response.json()
+
+    assert res_data
+    assert res_data["data"]
+    assert res_data["data"]["corpUser"]
+    assert res_data["data"]["corpUser"]["relationships"]["total"] is 0
+
+    # Add jdoe to group
+    json = {
+        "query": """mutation addGroupMembers($input: AddGroupMembersInput!) {\n
+            addGroupMembers(input: $input) }""",
+        "variables": {
+            "input": {
+                "groupUrn": "urn:li:corpGroup:bfoo",
+                "userUrns": [ "urn:li:corpuser:jdoe" ],
+            }
+        }
+    }
+
+    response = frontend_session.post(
+        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json
+    )
+    response.raise_for_status()
+
+    # Sleep for edge store to be updated. Not ideal!
+    time.sleep(1)
+
+    # Verify the member has been added
+    json = {
+        "query": """query corpUser($urn: String!) {\n
+            corpUser(urn: $urn) {\n
+                urn\n
+                relationships(input: { types: ["IsMemberOfGroup"], direction: OUTGOING, start: 0, count: 1 }) {\n
+                    total\n
+                }\n
+            }\n
+        }""",
+        "variables": {
+            "urn": "urn:li:corpuser:jdoe"
+        }
+    }
+    response = frontend_session.post(
+        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json
+    )
+    response.raise_for_status()
+    res_data = response.json()
+
+    assert res_data
+    assert res_data["data"]
+    assert res_data["data"]["corpUser"]
+    assert res_data["data"]["corpUser"]["relationships"]["total"] is 1
+
+    # Now remove jdoe from the group
+    json = {
+        "query": """mutation removeGroupMembers($input: RemoveGroupMembersInput!) {\n
+            removeGroupMembers(input: $input) }""",
+        "variables": {
+            "input": {
+                "groupUrn": "urn:li:corpGroup:bfoo",
+                "userUrns": [ "urn:li:corpuser:jdoe" ],
+            }
+        }
+    }
+
+    response = frontend_session.post(
+        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json
+    )
+    response.raise_for_status()
+
+    # Sleep for edge store to be updated. Not ideal!
+    time.sleep(1)
+
+    # Verify the member has been removed
+    json = {
+        "query": """query corpUser($urn: String!) {\n
+            corpUser(urn: $urn) {\n
+                urn\n
+                relationships(input: { types: ["IsMemberOfGroup"], direction: OUTGOING, start: 0, count: 1 }) {\n
+                    total\n
+                }\n
+            }\n
+        }""",
+        "variables": {
+            "urn": "urn:li:corpuser:jdoe"
+        }
+    }
+    response = frontend_session.post(
+        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json
+    )
+    response.raise_for_status()
+    res_data = response.json()
+
+    assert res_data
+    assert res_data["data"]
+    assert res_data["data"]["corpUser"]
+    assert res_data["data"]["corpUser"]["relationships"]["total"] is 0
+
+@pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion", "test_list_groups", "test_add_remove_members_from_group"])
+def test_remove_user(frontend_session):
+
+    json = {
+        "query": """mutation removeUser($urn: String!) {\n
+            removeUser(urn: $urn) }""",
+        "variables": {
+            "urn": "urn:li:corpuser:jdoe"
+        }
+    }
+
+    response = frontend_session.post(
+        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json
+    )
+    response.raise_for_status()
+
+    json = {
+        "query": """query corpUser($urn: String!) {\n
+            corpUser(urn: $urn) {\n
+                urn\n
+                properties {\n
+                    firstName\n
+                }\n
+            }\n
+        }""",
+        "variables": {
+            "urn": "urn:li:corpuser:jdoe"
+        }
+    }
+    response = frontend_session.post(
+        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json
+    )
+    response.raise_for_status()
+    res_data = response.json()
+
+    assert res_data
+    assert res_data["data"]
+    assert res_data["data"]["corpUser"]
+    assert res_data["data"]["corpUser"]["properties"] is None
+
+@pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion", "test_list_groups", "test_add_remove_members_from_group"])
+def test_remove_group(frontend_session):
+
+    json = {
+        "query": """mutation removeGroup($urn: String!) {\n
+            removeGroup(urn: $urn) }""",
+        "variables": {
+          "urn": "urn:li:corpGroup:bfoo"
+        }
+    }
+
+    response = frontend_session.post(
+        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json
+    )
+    response.raise_for_status()
+
+    json = {
+        "query": """query corpGroup($urn: String!) {\n
+            corpGroup(urn: $urn) {\n
+                urn\n
+                properties {\n
+                    displayName\n
+                }\n
+            }\n
+        }""",
+        "variables": {
+            "urn": "urn:li:corpGroup:bfoo"
+        }
+    }
+    response = frontend_session.post(
+        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json
+    )
+    response.raise_for_status()
+    res_data = response.json()
+
+    assert res_data
+    assert res_data["data"]
+    assert res_data["data"]["corpGroup"]
+    assert res_data["data"]["corpGroup"]["properties"] is None
+
+@pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion", "test_list_groups", "test_remove_group"])
+def test_create_group(frontend_session):
+
+    json = {
+        "query": """mutation createGroup($input: CreateGroupInput!) {\n
+            createGroup(input: $input) }""",
+        "variables": {
+            "input": {
+                "name": "Test Group",
+                "description": "My test group"
+            }
+        }
+    }
+
+    response = frontend_session.post(
+        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json
+    )
+    response.raise_for_status()
+
+    json = {
+        "query": """query corpGroup($urn: String!) {\n
+            corpGroup(urn: $urn) {\n
+                urn\n
+                properties {\n
+                    displayName\n
+                }\n
+            }\n
+        }""",
+        "variables": {
+          "urn": "urn:li:corpGroup:Test Group"
+        }
+    }
+    response = frontend_session.post(
+        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json
+    )
+    response.raise_for_status()
+    res_data = response.json()
+
+    assert res_data
+    assert res_data["data"]
+    assert res_data["data"]["corpGroup"]
+    assert res_data["data"]["corpGroup"]["properties"]["displayName"] == "Test Group"

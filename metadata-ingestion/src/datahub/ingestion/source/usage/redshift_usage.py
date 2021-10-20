@@ -37,18 +37,20 @@ SELECT DISTINCT ss.userid,
        ss.query,
        sui.usename,
        ss.tbl,
-       sq.text,
+       sq.querytxt,
        sti.database,
        sti.schema,
        sti.table,
-       ss.starttime,
-       ss.endtime
+       sq.starttime,
+       sq.endtime,
+       sq.aborted
 FROM stl_scan ss
   JOIN svv_table_info sti ON ss.tbl = sti.table_id
-  LEFT JOIN stl_querytext sq ON ss.query = sq.query
+  JOIN stl_query sq ON ss.query = sq.query
   JOIN svl_user_info sui ON sq.userid = sui.usesysid
 WHERE ss.starttime >= '{start_time}'
-AND ss.endtime < '{end_time}'
+AND ss.starttime < '{end_time}'
+AND sq.aborted = 0
 ORDER BY ss.endtime DESC;
 """.strip()
 
@@ -62,7 +64,7 @@ class RedshiftJoinedAccessEvent(BaseModel):
     usename: str = None  # type:ignore
     query: int
     tbl: int
-    text: str = None  # type:ignore
+    text: str = Field(None, alias="querytxt")
     database: str = None  # type:ignore
     schema_: str = Field(None, alias="schema")
     table: str = None  # type:ignore
@@ -76,7 +78,7 @@ class RedshiftUsageConfig(RedshiftConfig, BaseUsageConfig):
     options: dict = {}
 
     def get_sql_alchemy_url(self):
-        return super().get_sql_alchemy_url(uri_opts=self.options)
+        return super().get_sql_alchemy_url()
 
 
 @dataclasses.dataclass

@@ -199,11 +199,11 @@ export const PoliciesPage = () => {
 
     return (
         <SearchablePage>
-            {policiesLoading && <Message type="loading" content="Loading your policies..." />}
-            {policiesError && message.error('Failed to load your Policies :(')}
+            {policiesLoading && <Message type="loading" content="Loading policies..." />}
+            {policiesError && message.error('Failed to load policies :(')}
             {updateError && message.error('Failed to update the Policy :(')}
             <PoliciesContainer>
-                <PoliciesTitle level={2}>Your Policies</PoliciesTitle>
+                <PoliciesTitle level={2}>Manage Policies</PoliciesTitle>
                 <NewPolicyButton onClick={onClickNewPolicy} data-testid="add-policy-button">
                     + New Policy
                 </NewPolicyButton>

@@ -80,12 +80,18 @@ export class ChartEntity implements Entity<Chart> {
                 {
                     name: 'Inputs',
                     component: ChartInputsTab,
-                    shouldHide: (_, chart: GetChartQuery) => (chart?.chart?.inputs?.total || 0) === 0,
+                    display: {
+                        visible: (_, _1) => true,
+                        enabled: (_, chart: GetChartQuery) => (chart?.chart?.inputs?.total || 0) > 0,
+                    },
                 },
                 {
                     name: 'Dashboards',
                     component: ChartDashboardsTab,
-                    shouldHide: (_, chart: GetChartQuery) => (chart?.chart?.dashboards?.total || 0) === 0,
+                    display: {
+                        visible: (_, _1) => true,
+                        enabled: (_, chart: GetChartQuery) => (chart?.chart?.dashboards?.total || 0) > 0,
+                    },
                 },
             ]}
             sidebarSections={[
@@ -144,7 +150,20 @@ export class ChartEntity implements Entity<Chart> {
     };
 
     renderSearch = (result: SearchResult) => {
-        return this.renderPreview(PreviewType.SEARCH, result.entity as Chart);
+        const data = result.entity as Chart;
+        return (
+            <ChartPreview
+                urn={data.urn}
+                platform={data.tool}
+                name={data.info?.name}
+                description={data.editableProperties?.description || data.info?.description}
+                access={data.info?.access}
+                owners={data.ownership?.owners}
+                tags={data?.globalTags || undefined}
+                glossaryTerms={data?.glossaryTerms}
+                insights={result.insights}
+            />
+        );
     };
 
     getLineageVizConfig = (entity: Chart) => {

@@ -5,6 +5,8 @@ CREATE TABLE librarydb.book (
 	name VARCHAR ( 50 ) NOT NULL,
 	author VARCHAR ( 50 ),
   publisher VARCHAR (50),
+  tags JSON,
+  genre_ids INTEGER[],
   PRIMARY KEY (id)
 );
 

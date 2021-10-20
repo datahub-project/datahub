@@ -78,9 +78,12 @@ export class DataJobEntity implements Entity<DataJob> {
                 {
                     name: 'Lineage',
                     component: LineageTab,
-                    shouldHide: (_, dataJob: GetDataJobQuery) =>
-                        (dataJob?.dataJob?.incoming?.count || 0) === 0 &&
-                        (dataJob?.dataJob?.outgoing?.count || 0) === 0,
+                    display: {
+                        visible: (_, _1) => true,
+												enabled: (_, dataJob: GetDataJobQuery) =>
+														(dataJob?.dataJob?.incoming?.count || 0) !== 0 ||
+														(dataJob?.dataJob?.outgoing?.count || 0) !== 0,
+                    },
                 },
             ]}
             sidebarSections={[
@@ -154,6 +157,7 @@ export class DataJobEntity implements Entity<DataJob> {
                 platformLogo={getLogoFromPlatform(data.dataFlow?.orchestrator || '')}
                 owners={data.ownership?.owners}
                 globalTags={data.globalTags}
+                insights={result.insights}
             />
         );
     };

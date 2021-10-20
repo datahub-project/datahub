@@ -12,7 +12,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.Entity;
 import com.linkedin.entity.client.AspectClient;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.RestliEntityClient;
 import com.linkedin.entity.client.OwnershipClient;
 import com.linkedin.metadata.aspect.Aspect;
 import com.linkedin.metadata.aspect.DataHubPolicyAspect;
@@ -40,13 +40,13 @@ import static com.linkedin.metadata.authorization.PoliciesConfig.*;
 
 public class AuthorizationManagerTest {
 
-  private EntityClient _entityClient;
+  private RestliEntityClient _entityClient;
   private AspectClient _aspectClient;
   private AuthorizationManager _authorizationManager;
 
   @BeforeMethod
   public void setupTest() throws Exception {
-    _entityClient = Mockito.mock(EntityClient.class);
+    _entityClient = Mockito.mock(RestliEntityClient.class);
     _aspectClient = Mockito.mock(AspectClient.class);
 
     // Init mocks.

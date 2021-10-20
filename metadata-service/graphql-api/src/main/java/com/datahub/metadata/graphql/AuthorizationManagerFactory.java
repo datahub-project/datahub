@@ -2,7 +2,7 @@ package com.datahub.metadata.graphql;
 
 import com.datahub.metadata.authorization.AuthorizationManager;
 import com.linkedin.entity.client.AspectClient;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.RestliEntityClient;
 import com.linkedin.entity.client.OwnershipClient;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,12 +16,12 @@ import org.springframework.context.annotation.Scope;
 
 // TODO: move this to gms factories module.
 @Configuration
-@Import({EntityClientFactory.class, AspectClientFactory.class})
+@Import({RestliEntityClientFactory.class, AspectClientFactory.class})
 public class AuthorizationManagerFactory {
 
   @Autowired
-  @Qualifier("entityClient")
-  private EntityClient entityClient;
+  @Qualifier("restliEntityClient")
+  private RestliEntityClient entityClient;
 
   @Autowired
   @Qualifier("aspectClient")

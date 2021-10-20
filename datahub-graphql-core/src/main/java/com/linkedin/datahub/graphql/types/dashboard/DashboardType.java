@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.types.dashboard;
 
 import com.google.common.collect.ImmutableList;
+
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.CorpuserUrn;
 
@@ -11,6 +12,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.authorization.ConjunctivePrivilegeGroup;
 import com.linkedin.datahub.graphql.authorization.DisjunctivePrivilegeGroup;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
@@ -31,7 +33,6 @@ import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowsePathsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowseResultMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
-import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.Entity;
 import com.linkedin.metadata.extractor.AspectExtractor;
 import com.linkedin.metadata.browse.BrowseResult;
@@ -58,10 +59,10 @@ public class DashboardType implements SearchableEntityType<Dashboard>, Browsable
 
     private static final Set<String> FACET_FIELDS = ImmutableSet.of("access", "tool");
 
-    private final EntityClient _dashboardsClient;
+    private final EntityClient _entityClient;
 
-    public DashboardType(final EntityClient dashboardsClient) {
-        _dashboardsClient = dashboardsClient;
+    public DashboardType(final EntityClient entityClient) {
+        _entityClient = entityClient;
     }
 
     @Override
@@ -86,7 +87,7 @@ public class DashboardType implements SearchableEntityType<Dashboard>, Browsable
                 .collect(Collectors.toList());
 
         try {
-            final Map<Urn, Entity> dashboardMap = _dashboardsClient.batchGet(dashboardUrns
+            final Map<Urn, Entity> dashboardMap = _entityClient.batchGet(dashboardUrns
                     .stream()
                     .filter(Objects::nonNull)
                     .collect(Collectors.toSet()),
@@ -115,7 +116,7 @@ public class DashboardType implements SearchableEntityType<Dashboard>, Browsable
                                 int count,
                                 @Nonnull QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
-        final SearchResult searchResult = _dashboardsClient.search("dashboard", query, facetFilters, start, count, context.getActor());
+        final SearchResult searchResult = _entityClient.search("dashboard", query, facetFilters, start, count, context.getActor());
         return UrnSearchResultsMapper.map(searchResult);
     }
 
@@ -126,7 +127,7 @@ public class DashboardType implements SearchableEntityType<Dashboard>, Browsable
                                             int limit,
                                             @Nonnull QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
-        final AutoCompleteResult result = _dashboardsClient.autoComplete("dashboard", query, facetFilters, limit, context.getActor());
+        final AutoCompleteResult result = _entityClient.autoComplete("dashboard", query, facetFilters, limit, context.getActor());
         return AutoCompleteResultsMapper.map(result);
     }
 
@@ -137,7 +138,7 @@ public class DashboardType implements SearchableEntityType<Dashboard>, Browsable
                                 @Nonnull QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
         final String pathStr = path.size() > 0 ? BROWSE_PATH_DELIMITER + String.join(BROWSE_PATH_DELIMITER, path) : "";
-        final BrowseResult result = _dashboardsClient.browse(
+        final BrowseResult result = _entityClient.browse(
             "dashboard",
                 pathStr,
                 facetFilters,
@@ -149,7 +150,7 @@ public class DashboardType implements SearchableEntityType<Dashboard>, Browsable
 
     @Override
     public List<BrowsePath> browsePaths(@Nonnull String urn, @Nonnull QueryContext context) throws Exception {
-        final StringArray result = _dashboardsClient.getBrowsePaths(getDashboardUrn(urn), context.getActor());
+        final StringArray result = _entityClient.getBrowsePaths(getDashboardUrn(urn), context.getActor());
         return BrowsePathsMapper.map(result);
     }
 
@@ -170,7 +171,7 @@ public class DashboardType implements SearchableEntityType<Dashboard>, Browsable
             final Snapshot snapshot = Snapshot.create(partialDashboard);
 
             try {
-                _dashboardsClient.update(new com.linkedin.entity.Entity().setValue(snapshot), context.getActor());
+                _entityClient.update(new com.linkedin.entity.Entity().setValue(snapshot), context.getActor());
             } catch (RemoteInvocationException e) {
                 throw new RuntimeException(String.format("Failed to write entity with urn %s", urn), e);
             }

@@ -37,6 +37,13 @@ import com.linkedin.datahub.graphql.generated.MLFeatureProperties;
 import com.linkedin.datahub.graphql.generated.MLPrimaryKey;
 import com.linkedin.datahub.graphql.generated.MLPrimaryKeyProperties;
 import com.linkedin.datahub.graphql.resolvers.MeResolver;
+import com.linkedin.datahub.graphql.resolvers.group.AddGroupMembersResolver;
+import com.linkedin.datahub.graphql.resolvers.group.CreateGroupResolver;
+import com.linkedin.datahub.graphql.resolvers.group.EntityCountsResolver;
+import com.linkedin.datahub.graphql.resolvers.group.ListGroupsResolver;
+import com.linkedin.datahub.graphql.resolvers.group.RemoveGroupMembersResolver;
+import com.linkedin.datahub.graphql.resolvers.group.RemoveGroupResolver;
+import com.linkedin.datahub.graphql.resolvers.group.UpdateUserStatusResolver;
 import com.linkedin.datahub.graphql.resolvers.load.AspectResolver;
 import com.linkedin.datahub.graphql.resolvers.load.EntityTypeBatchResolver;
 import com.linkedin.datahub.graphql.resolvers.load.EntityTypeResolver;
@@ -63,6 +70,8 @@ import com.linkedin.datahub.graphql.resolvers.type.AspectInterfaceTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.type.HyperParameterValueTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.type.ResultsTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.type.TimeSeriesAspectInterfaceTypeResolver;
+import com.linkedin.datahub.graphql.resolvers.user.ListUsersResolver;
+import com.linkedin.datahub.graphql.resolvers.user.RemoveUserResolver;
 import com.linkedin.datahub.graphql.types.BrowsableEntityType;
 import com.linkedin.datahub.graphql.types.EntityType;
 import com.linkedin.datahub.graphql.types.LoadableType;
@@ -97,6 +106,7 @@ import com.linkedin.datahub.graphql.types.lineage.DataFlowDataJobsRelationshipsT
 import com.linkedin.datahub.graphql.types.glossary.GlossaryTermType;
 
 import com.linkedin.datahub.graphql.types.usage.UsageType;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphClient;
 import graphql.execution.DataFetcherResult;
@@ -132,6 +142,7 @@ import static graphql.Scalars.GraphQLLong;
 public class GmsGraphQLEngine {
 
     private final AnalyticsService analyticsService;
+    private final EntityClient entityClient;
     private final EntityService entityService;
     private final GraphClient graphClient;
 
@@ -191,9 +202,11 @@ public class GmsGraphQLEngine {
     public GmsGraphQLEngine(
         final AnalyticsService analyticsService,
         final EntityService entityService,
-        final GraphClient graphClient
+        final GraphClient graphClient,
+				final EntityClient entityClient
     ) {
         this.analyticsService = analyticsService;
+        this.entityClient = entityClient;
         this.entityService = entityService;
         this.graphClient = graphClient;
 
@@ -210,11 +223,24 @@ public class GmsGraphQLEngine {
         this.mlFeatureTableType = new MLFeatureTableType(GmsClientFactory.getEntitiesClient());
         this.mlPrimaryKeyType = new MLPrimaryKeyType(GmsClientFactory.getEntitiesClient());
         this.dataFlowType = new DataFlowType(GmsClientFactory.getEntitiesClient());
-        this.dataJobType = new DataJobType(GmsClientFactory.getEntitiesClient());
+        this.datasetType = new DatasetType(entityClient);
+        this.corpUserType = new CorpUserType(entityClient);
+        this.corpGroupType = new CorpGroupType(entityClient);
+        this.chartType = new ChartType(entityClient);
+        this.dashboardType = new DashboardType(entityClient);
+        this.dataPlatformType = new DataPlatformType(entityClient);
+        this.tagType = new TagType(entityClient);
+        this.mlModelType = new MLModelType(entityClient);
+        this.mlModelGroupType = new MLModelGroupType(entityClient);
+        this.mlFeatureType = new MLFeatureType(entityClient);
+        this.mlFeatureTableType = new MLFeatureTableType(entityClient);
+        this.mlPrimaryKeyType = new MLPrimaryKeyType(entityClient);
+        this.dataFlowType = new DataFlowType(entityClient);
+        this.dataJobType = new DataJobType(entityClient);
         this.dataFlowDataJobsRelationshipType = new DataFlowDataJobsRelationshipsType(
             GmsClientFactory.getRelationshipsClient()
         );
-        this.glossaryTermType = new GlossaryTermType(GmsClientFactory.getEntitiesClient());
+        this.glossaryTermType = new GlossaryTermType(entityClient);
         this.aspectType = new AspectType(GmsClientFactory.getAspectsClient());
         this.usageType = new UsageType(GmsClientFactory.getUsageClient());
 
@@ -403,6 +429,12 @@ public class GmsGraphQLEngine {
                             (env) -> env.getArgument(URN_FIELD_NAME))))
             .dataFetcher("listPolicies",
                 new ListPoliciesResolver(GmsClientFactory.getEntitiesClient()))
+            .dataFetcher("listUsers",
+                new ListUsersResolver(GmsClientFactory.getEntitiesClient()))
+            .dataFetcher("listGroups",
+                new ListGroupsResolver(GmsClientFactory.getEntitiesClient()))
+            .dataFetcher("getEntityCounts",
+                new EntityCountsResolver(GmsClientFactory.getEntitiesClient()))
         );
     }
 
@@ -421,11 +453,18 @@ public class GmsGraphQLEngine {
             .dataFetcher("createPolicy", new UpsertPolicyResolver(GmsClientFactory.getAspectsClient()))
             .dataFetcher("updatePolicy", new UpsertPolicyResolver(GmsClientFactory.getAspectsClient()))
             .dataFetcher("deletePolicy", new DeletePolicyResolver(GmsClientFactory.getEntitiesClient()))
-            .dataFetcher("updateDescription", new AuthenticatedResolver<>(new UpdateFieldDescriptionResolver(entityService)))
+            .dataFetcher("updateDescription", new AuthenticatedResolver<>(new UpdateFieldDescriptionResolver(
+                entityService)))
             .dataFetcher("addOwner", new AddOwnerResolver(entityService))
             .dataFetcher("removeOwner", new RemoveOwnerResolver(entityService))
             .dataFetcher("addLink", new AddLinkResolver(entityService))
             .dataFetcher("removeLink", new RemoveLinkResolver(entityService))
+            .dataFetcher("addGroupMembers", new AddGroupMembersResolver(GmsClientFactory.getAspectsClient()))
+            .dataFetcher("removeGroupMembers", new RemoveGroupMembersResolver(GmsClientFactory.getAspectsClient()))
+            .dataFetcher("createGroup", new CreateGroupResolver(GmsClientFactory.getAspectsClient()))
+            .dataFetcher("removeUser", new RemoveUserResolver(GmsClientFactory.getEntitiesClient()))
+            .dataFetcher("removeGroup", new RemoveGroupResolver(GmsClientFactory.getEntitiesClient()))
+            .dataFetcher("updateUserStatus", new UpdateUserStatusResolver(GmsClientFactory.getAspectsClient()))
         );
     }
 

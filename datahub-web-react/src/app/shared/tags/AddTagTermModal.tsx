@@ -238,8 +238,8 @@ export default function AddTagTermModal({
                 showArrow={false}
                 filterOption={false}
                 onSearch={(value: string) => {
-                    autoComplete(value);
-                    setInputValue(value);
+                    autoComplete(value.trim());
+                    setInputValue(value.trim());
                 }}
                 onSelect={(selected) =>
                     selected === CREATE_TAG_VALUE ? setShowCreateModal(true) : setSelectedValue(String(selected))

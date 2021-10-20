@@ -114,11 +114,20 @@ query getDataset($urn: String!) {
         ) {
             ...fullRelationshipResults
         }
+        ...viewProperties
     }
 }
 
 mutation updateDataset($urn: String!, $input: DatasetUpdateInput!) {
     updateDataset(urn: $urn, input: $input) {
         urn
+    }
+}
+
+fragment viewProperties on Dataset {
+    viewProperties {
+        materialized
+        logic
+        language
     }
 }
