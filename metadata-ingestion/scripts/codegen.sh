@@ -1,5 +1,5 @@
 #!/bin/bash
-set -euxo pipefail
+set -euo pipefail
 
 OUTDIR=./src/datahub/metadata
 
@@ -8,7 +8,7 @@ DATAHUB_ROOT=..
 SCHEMAS_ROOT="$DATAHUB_ROOT/metadata-events/mxe-schemas/src/renamed/avro/com/linkedin"
 FILES="$SCHEMAS_ROOT/mxe/MetadataChangeEvent.avsc $SCHEMAS_ROOT/mxe/MetadataChangeProposal.avsc $SCHEMAS_ROOT/usage/UsageAggregation.avsc"
 # Since we depend on jq, check if jq is installed
-if ! which jq; then
+if ! which jq > /dev/null; then
    echo "jq is not installed. Please install jq and rerun (https://stedolan.github.io/jq/)"
    exit 1
 fi

@@ -12,7 +12,7 @@ import javax.annotation.Nonnull;
  */
 public class EntityTypeMapper {
 
-  private static final Map<EntityType, String> ENTITY_TYPE_TO_NAME =
+  static final Map<EntityType, String> ENTITY_TYPE_TO_NAME =
       ImmutableMap.<EntityType, String>builder().put(EntityType.DATASET, "dataset")
           .put(EntityType.CORP_USER, "corpuser")
           .put(EntityType.CORP_GROUP, "corpGroup")

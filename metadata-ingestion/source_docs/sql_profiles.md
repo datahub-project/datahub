@@ -68,15 +68,16 @@ sink:
 
 Note that a `.` is used to denote nested fields in the YAML recipe.
 
-| Field                        | Required | Default | Description                                                             |
-| ---------------------------- | -------- | ------- | ----------------------------------------------------------------------- |
-| `profiling.enabled`          |          | `False` | Whether profiling should be done.                                       |
-| `profiling.limit`            |          |         | Max number of documents to profile. By default, profiles all documents. |
-| `profiling.offset`           |          |         | Offset in documents to profile. By default, uses no offset.             |
-| `profile_pattern.allow`      |          |         | List of regex patterns for tables to profile.                           |
-| `profile_pattern.deny`       |          |         | List of regex patterns for tables to not profile.                       |
-| `profile_pattern.ignoreCase` |          | `True`  | Whether to ignore case sensitivity during pattern matching.             |
-| `profile.send_sample_values` |          | `True`  | Whether to send sample values or not.                                   |
+| Field                        | Required | Default            | Description                                                             |
+| ---------------------------- | -------- | ------------------ | ----------------------------------------------------------------------- |
+| `profiling.enabled`          |          | `False`            | Whether profiling should be done.                                       |
+| `profiling.limit`            |          |                    | Max number of documents to profile. By default, profiles all documents. |
+| `profiling.offset`           |          |                    | Offset in documents to profile. By default, uses no offset.             |
+| `profiling.max_workers`      |          | `5*os.cpu_count()` | Number of worker threads to use for profiling. Set to 1 to disable.     |
+| `profile_pattern.allow`      |          |                    | List of regex patterns for tables to profile.                           |
+| `profile_pattern.deny`       |          |                    | List of regex patterns for tables to not profile.                       |
+| `profile_pattern.ignoreCase` |          | `True`             | Whether to ignore case sensitivity during pattern matching.             |
+| `profile.send_sample_values` |          | `True`             | Whether to send sample values or not.                                   |
 
 ## Compatibility
 

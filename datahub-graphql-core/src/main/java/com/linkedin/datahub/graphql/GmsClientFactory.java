@@ -1,7 +1,7 @@
 package com.linkedin.datahub.graphql;
 
 import com.linkedin.entity.client.AspectClient;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.RestliEntityClient;
 import com.linkedin.lineage.client.Lineages;
 import com.linkedin.lineage.client.RelationshipClient;
 import com.linkedin.metadata.restli.DefaultRestliClientFactory;
@@ -32,7 +32,7 @@ public class GmsClientFactory {
 
     private static Lineages _lineages;
     private static RelationshipClient _relationshipClient;
-    private static EntityClient _entities;
+    private static RestliEntityClient _entities;
     private static AspectClient _aspects;
     private static UsageClient _usage;
 
@@ -61,11 +61,11 @@ public class GmsClientFactory {
         return _relationshipClient;
     }
 
-    public static EntityClient getEntitiesClient() {
+    public static RestliEntityClient getEntitiesClient() {
         if (_entities == null) {
             synchronized (GmsClientFactory.class) {
                 if (_entities == null) {
-                    _entities = new EntityClient(REST_CLIENT);
+                    _entities = new RestliEntityClient(REST_CLIENT);
                 }
             }
         }

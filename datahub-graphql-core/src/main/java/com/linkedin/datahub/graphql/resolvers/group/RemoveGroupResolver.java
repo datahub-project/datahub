@@ -4,7 +4,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.RestliEntityClient;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletableFuture;
@@ -14,9 +14,9 @@ import java.util.concurrent.CompletableFuture;
  */
 public class RemoveGroupResolver implements DataFetcher<CompletableFuture<Boolean>> {
 
-  private final EntityClient _entityClient;
+  private final RestliEntityClient _entityClient;
 
-  public RemoveGroupResolver(final EntityClient entityClient) {
+  public RemoveGroupResolver(final RestliEntityClient entityClient) {
     _entityClient = entityClient;
   }
 
