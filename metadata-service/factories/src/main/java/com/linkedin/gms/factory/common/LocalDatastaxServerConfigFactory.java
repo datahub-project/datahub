@@ -28,7 +28,7 @@ public class LocalDatastaxServerConfigFactory {
   @Value("${DATASTAX_DATACENTER:datacenter1}")
   private String datastaxDataCenter;
 
-  @Value("${DATASTAX_KEYSPACE:datahubpoc}")
+  @Value("${DATASTAX_KEYSPACE:datahub}")
   private String datastaxKeyspace;
 
   @Value("${DATASTAX_USE_SSL:false}")

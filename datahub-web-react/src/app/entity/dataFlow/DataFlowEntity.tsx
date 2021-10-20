@@ -141,6 +141,7 @@ export class DataFlowEntity implements Entity<DataFlow> {
                 platformLogo={getLogoFromPlatform(data.orchestrator)}
                 owners={data.ownership?.owners}
                 globalTags={data.globalTags}
+                insights={result.insights}
             />
         );
     };

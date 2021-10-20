@@ -14,10 +14,12 @@ import com.linkedin.dataset.DatasetUserUsageCounts;
 import com.linkedin.dataset.DatasetUserUsageCountsArray;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.query.Condition;
-import com.linkedin.metadata.query.Criterion;
-import com.linkedin.metadata.query.CriterionArray;
-import com.linkedin.metadata.query.Filter;
+import com.linkedin.metadata.query.filter.Condition;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
+import com.linkedin.metadata.query.filter.Criterion;
+import com.linkedin.metadata.query.filter.CriterionArray;
+import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.restli.RestliUtil;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.timeseries.transformer.TimeseriesAspectTransformer;
@@ -305,7 +307,8 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
             .setValue(endTime.toString());
         criteria.add(endTimeCriterion);
       }
-      filter.setCriteria(new CriterionArray(criteria));
+      
+      filter.setOr(new ConjunctiveCriterionArray(new ConjunctiveCriterion().setAnd(new CriterionArray(criteria))));
 
       // 2. Get buckets.
       UsageAggregationArray buckets = getBuckets(filter, resource, duration);

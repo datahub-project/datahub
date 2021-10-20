@@ -1,7 +1,7 @@
 package com.linkedin.metadata.entity;
 
-import com.datastax.driver.core.Cluster;
 import com.datastax.driver.core.KeyspaceMetadata;
+import com.datastax.driver.core.Row;
 import com.datastax.driver.core.Session;
 import com.google.common.base.Equivalence;
 import com.linkedin.common.urn.Urn;
@@ -28,6 +28,7 @@ import org.testcontainers.containers.CassandraContainer;
 import org.testcontainers.utility.DockerImageName;
 import org.testng.annotations.AfterTest;
 import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
 import static org.mockito.Mockito.mock;
@@ -38,51 +39,50 @@ import static org.testng.Assert.assertTrue;
 public class DatastaxEntityServiceTest extends EntityServiceTestBase {
 
   private CassandraContainer _cassandraContainer;
+  private static final String KEYSPACE_NAME = "test";
 
-  @BeforeMethod
-  public void setupTest() {
-
+  @BeforeTest
+  public void setupContainer() {
     final DockerImageName imageName = DockerImageName
             .parse("cassandra:3.11")
             .asCompatibleSubstituteFor("cassandra");
 
     _cassandraContainer = new CassandraContainer(imageName);
+    _cassandraContainer.withEnv("JVM_OPTS", "-Xms512M -Xmx512M");
     _cassandraContainer.start();
 
-    // Setup
-    Cluster cluster = _cassandraContainer.getCluster();
-    final String keyspaceName = "test";
-    final String tableName = DatastaxAspect.TABLE_NAME;
-
-    try (Session session = cluster.connect()) {
+    try (Session session = _cassandraContainer.getCluster().connect()) {
 
       session.execute(String.format("CREATE KEYSPACE IF NOT EXISTS %s WITH replication = \n"
-              + "{'class':'SimpleStrategy','replication_factor':'1'};", keyspaceName));
+              + "{'class':'SimpleStrategy','replication_factor':'1'};", KEYSPACE_NAME));
       session.execute(
               String.format("create table %s.%s (urn varchar, \n"
-                      + "aspect varchar, \n"
-                      + "systemmetadata varchar, \n"
-                      + "version bigint, \n"
-                      + "metadata text, \n"
-                      + "createdon timestamp, \n"
-                      + "createdby varchar, \n"
-                      + "createdfor varchar, \n"
-                      + "entity varchar, \n"
-                      + "PRIMARY KEY (urn,aspect,version));",
-              keyspaceName,
-              tableName));
+                              + "aspect varchar, \n"
+                              + "systemmetadata varchar, \n"
+                              + "version bigint, \n"
+                              + "metadata text, \n"
+                              + "createdon timestamp, \n"
+                              + "createdby varchar, \n"
+                              + "createdfor varchar, \n"
+                              + "entity varchar, \n"
+                              + "PRIMARY KEY (urn,aspect,version));",
+                      KEYSPACE_NAME,
+                      DatastaxAspect.TABLE_NAME));
 
       List<KeyspaceMetadata> keyspaces = session.getCluster().getMetadata().getKeyspaces();
-                List<KeyspaceMetadata> filteredKeyspaces = keyspaces
-                  .stream()
-                  .filter(km -> km.getName().equals(keyspaceName))
-                  .collect(Collectors.toList());
+      List<KeyspaceMetadata> filteredKeyspaces = keyspaces
+              .stream()
+              .filter(km -> km.getName().equals(KEYSPACE_NAME))
+              .collect(Collectors.toList());
 
-                assertEquals(filteredKeyspaces.size(), 1);
+      assertEquals(filteredKeyspaces.size(), 1);
     }
 
-    Map<String, String> serverConfig = new HashMap<String, String>() {{
-      put("keyspace", keyspaceName);
+  }
+
+  private Map<String, String> createTestServerConfig() {
+    return new HashMap<String, String>() {{
+      put("keyspace", KEYSPACE_NAME);
       put("username", _cassandraContainer.getUsername());
       put("password", _cassandraContainer.getPassword());
       put("hosts", _cassandraContainer.getHost());
@@ -90,7 +90,18 @@ public class DatastaxEntityServiceTest extends EntityServiceTestBase {
       put("datacenter", "datacenter1");
       put("useSsl", "false");
     }};
-    DatastaxAspectDao aspectDao = new DatastaxAspectDao(serverConfig);
+  }
+
+  @BeforeMethod
+  public void setupTest() {
+    try (Session session = _cassandraContainer.getCluster().connect()) {
+      session.execute(String.format("TRUNCATE %s.%s;", KEYSPACE_NAME, DatastaxAspect.TABLE_NAME));
+      List<Row> rs = session.execute(String.format("SELECT * FROM %s.%s;", KEYSPACE_NAME, DatastaxAspect.TABLE_NAME))
+              .all();
+      assertEquals(rs.size(), 0);
+    }
+
+    DatastaxAspectDao aspectDao = new DatastaxAspectDao(createTestServerConfig());
     _aspectDao = aspectDao;
     _mockProducer = mock(EntityEventProducer.class);
     _entityService = new DatastaxEntityService(aspectDao, _mockProducer, _testEntityRegistry);

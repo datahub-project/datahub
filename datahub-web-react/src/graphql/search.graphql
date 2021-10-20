@@ -263,10 +263,18 @@ fragment searchResults on SearchResults {
                     }
                 }
             }
+            ... on Tag {
+                name
+                description
+            }
         }
         matchedFields {
             name
             value
+        }
+        insights {
+            text
+            icon
         }
     }
     facets {

@@ -24,7 +24,7 @@ public class BootstrapManagerFactory {
   @Qualifier("entityService")
   private EntityService _entityService;
 
-  @Autowired
+  @Autowired(required = false)
   @Qualifier("ebeanServer")
   private EbeanServer _server;
 
@@ -34,9 +34,8 @@ public class BootstrapManagerFactory {
   protected BootstrapManager createInstance() {
     final IngestPoliciesStep ingestPoliciesStep = new IngestPoliciesStep(_entityService);
     final IngestDataPlatformsStep ingestDataPlatformsStep = new IngestDataPlatformsStep(_entityService);
-    final IngestDataPlatformInstancesStep ingestDataPlatformInstancesStep =
-        new IngestDataPlatformInstancesStep(_entityService, _server);
-    return new BootstrapManager(
-        ImmutableList.of(ingestPoliciesStep, ingestDataPlatformsStep, ingestDataPlatformInstancesStep));
+    return _server == null
+      ? new BootstrapManager(ImmutableList.of(ingestPoliciesStep, ingestDataPlatformsStep))
+      : new BootstrapManager(ImmutableList.of(ingestPoliciesStep, ingestDataPlatformsStep, new IngestDataPlatformInstancesStep(_entityService, _server)));
   }
 }
