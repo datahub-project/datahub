@@ -7,6 +7,7 @@ import pydantic
 
 # This import verifies that the dependencies are available.
 import snowflake.sqlalchemy  # noqa: F401
+import sqlalchemy
 from snowflake.sqlalchemy import custom_types
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine.reflection import Inspector
@@ -112,16 +113,27 @@ class SnowflakeSource(SQLAlchemySource):
         logger.debug(f"sql_alchemy_url={url}")
         engine = create_engine(url, **self.config.options)
 
+        db = None
+
+        @sqlalchemy.event.listens_for(engine, "connect")
+        def connect(dbapi_connection, connection_record):
+            if db is not None:
+                cursor_obj = dbapi_connection.cursor()
+                cursor_obj.execute((f'USE DATABASE "{quoted_name(db, True)}"'))
+                cursor_obj.close()
+
         for db_row in engine.execute(text("SHOW DATABASES")):
-            with engine.connect() as conn:
-                db = db_row.name
-                if self.config.database_pattern.allowed(db):
-                    self.current_database = db
-                    conn.execute((f'USE DATABASE "{quoted_name(db, True)}"'))
+            db = db_row.name
+            if self.config.database_pattern.allowed(db):
+                self.current_database = db
+
+                with engine.connect() as conn:
+                    # TRICKY: the "USE DATABASE" command is actually called by the engine's connect event hook.
+                    # https://docs.sqlalchemy.org/en/14/core/engines.html#modifying-the-dbapi-connection-after-connect-or-running-commands-after-connect
                     inspector = inspect(conn)
                     yield inspector
-                else:
-                    self.report.report_dropped(db)
+            else:
+                self.report.report_dropped(db)
 
     def get_identifier(self, *, schema: str, entity: str, **kwargs: Any) -> str:
         regular = super().get_identifier(schema=schema, entity=entity, **kwargs)
