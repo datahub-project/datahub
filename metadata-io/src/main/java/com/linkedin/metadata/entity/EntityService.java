@@ -12,6 +12,7 @@ import com.linkedin.data.template.UnionTemplate;
 import com.linkedin.entity.Entity;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.dao.exception.ModelConversionException;
+import com.linkedin.metadata.dao.utils.ModelUtils;
 import com.linkedin.metadata.dao.utils.RecordUtils;
 import com.linkedin.metadata.event.EntityEventProducer;
 import com.linkedin.metadata.extractor.AspectExtractor;
@@ -36,6 +37,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -342,6 +344,13 @@ public abstract class EntityService {
     return aspects;
   }
 
+  private Set<String> getAspectNamesFromSnapshotRecord(RecordTemplate snapshotRecord) {
+    return ModelUtils.getAspectsFromSnapshot(snapshotRecord)
+        .stream()
+        .map(record -> PegasusUtils.getAspectNameFromSchema(record.schema()))
+        .collect(Collectors.toSet());
+  }
+
   private void ingestSnapshotUnion(
       @Nonnull final Snapshot snapshotUnion,
       @Nonnull final AuditStamp auditStamp,
@@ -352,11 +361,7 @@ public abstract class EntityService {
         com.linkedin.metadata.dao.utils.ModelUtils.getAspectsFromSnapshot(snapshotRecord);
 
     log.info("INGEST urn {} with system metadata {}", urn.toString(), systemMetadata.toString());
-    aspectRecordsToIngest.addAll(getDefaultAspectsFromUrn(urn,
-        AspectExtractor.extractAspectRecords(
-            RecordUtils.getSelectedRecordTemplateFromUnion(snapshotUnion)
-        ).keySet()
-    ).values());
+    aspectRecordsToIngest.addAll(getDefaultAspectsFromUrn(urn, getAspectNamesFromSnapshotRecord(snapshotRecord)).values());
 
     aspectRecordsToIngest.forEach(aspect -> {
       final String aspectName = PegasusUtils.getAspectNameFromSchema(aspect.schema());
