@@ -13,7 +13,7 @@ record TagAssociation {
     "fieldType": "URN_PARTIAL",
     "hasValuesFieldName": "hasTags",
     "addToFilters": true,
-    "filterNameOverride": "Tags"
+    "filterNameOverride": "Tag"
   }
   tag: TagUrn
 }

@@ -22,16 +22,15 @@ def merge_schemas(schemas: List[str]) -> str:
     schemas_obj = [json.loads(schema) for schema in schemas]
     merged = ["null"] + schemas_obj
 
-    # Deduplicate repeated names.
-    def Register(self, schema):
-        if schema.fullname in self._names:
-            # print(f"deduping {schema.fullname}")
-            pass
-        else:
-            self._names[schema.fullname] = schema
+    # Patch add_name method to NOT complain about duplicate names
+    def add_name(self, name_attr, space_attr, new_schema):
+        to_add = avro.schema.Name(name_attr, space_attr, self.default_namespace)
 
-    with unittest.mock.patch("avro.schema.Names.Register", Register):
-        cleaned_schema = avro.schema.SchemaFromJSONData(merged)
+        self.names[to_add.fullname] = new_schema
+        return to_add
+
+    with unittest.mock.patch("avro.schema.Names.add_name", add_name):
+        cleaned_schema = avro.schema.make_avsc_object(merged)
 
     # Convert back to an Avro schema JSON representation.
     class MappingProxyEncoder(json.JSONEncoder):
@@ -52,7 +51,9 @@ autogen_header = """# flake8: noqa
 
 # fmt: off
 """
-autogen_footer = "# fmt: on\n"
+autogen_footer = """
+# fmt: on
+"""
 
 
 def suppress_checks_in_file(filepath: Union[str, Path]) -> None:
@@ -69,6 +70,30 @@ def suppress_checks_in_file(filepath: Union[str, Path]) -> None:
         f.write(autogen_header)
         f.write(contents)
         f.write(autogen_footer)
+
+
+def add_avro_python3_warning(filepath: Path) -> None:
+    contents = filepath.read_text()
+
+    contents = f"""
+# The SchemaFromJSONData method only exists in avro-python3, but is called make_avsc_object in avro.
+# We can use this fact to detect conflicts between the two packages. Pip won't detect those conflicts
+# because both are namespace packages, and hence are allowed to overwrite files from each other.
+# This means that installation order matters, which is a pretty unintuitive outcome.
+# See https://github.com/pypa/pip/issues/4625 for details.
+try:
+    from avro.schema import SchemaFromJSONData
+    import warnings
+
+    warnings.warn("It seems like 'avro-python3' is installed, which conflicts with the 'avro' package used by datahub. "
+                + "Try running `pip uninstall avro-python3 && pip install --upgrade --force-reinstall avro` to fix this issue.")
+except ImportError:
+    pass
+
+{contents}
+    """
+
+    filepath.write_text(contents)
 
 
 load_schema_method = """
@@ -103,9 +128,10 @@ def generate(schema_files: List[str], outdir: str) -> None:
     merged_schema = merge_schemas(list(schemas.values()))
 
     write_schema_files(merged_schema, outdir)
-    with open(f"{outdir}/__init__.py", "w"):
-        # Truncate this file.
-        pass
+
+    # Schema files post-processing.
+    (Path(outdir) / "__init__.py").write_text("# This file is intentionally empty.\n")
+    add_avro_python3_warning(Path(outdir) / "schema_classes.py")
 
     # Save raw schema files in codegen as well.
     schema_save_dir = Path(outdir) / "schemas"

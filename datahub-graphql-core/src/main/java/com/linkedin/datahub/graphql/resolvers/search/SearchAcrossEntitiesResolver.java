@@ -8,7 +8,7 @@ import com.linkedin.datahub.graphql.generated.SearchResults;
 import com.linkedin.datahub.graphql.resolvers.EntityTypeMapper;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.RestliEntityClient;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.List;
@@ -34,9 +34,9 @@ public class SearchAcrossEntitiesResolver implements DataFetcher<CompletableFutu
   private static final List<EntityType> SEARCHABLE_ENTITY_TYPES =
       ImmutableList.of(EntityType.DATASET, EntityType.DASHBOARD, EntityType.CHART, EntityType.MLMODEL,
           EntityType.MLMODEL_GROUP, EntityType.MLFEATURE_TABLE, EntityType.DATA_FLOW, EntityType.DATA_JOB,
-          EntityType.GLOSSARY_TERM);
+          EntityType.GLOSSARY_TERM, EntityType.TAG, EntityType.CORP_USER, EntityType.CORP_GROUP);
 
-  private final EntityClient _entityClient;
+  private final RestliEntityClient _entityClient;
 
   @Override
   public CompletableFuture<SearchResults> get(DataFetchingEnvironment environment) {
