@@ -98,12 +98,13 @@ public class HighUsageCandidateSource implements RecommendationCandidateSource {
     // Filter for the entity view events of the user requesting recommendation
     query.must(QueryBuilders.termQuery(DataHubUsageEventConstants.ACTOR_URN, userUrn.toString()));
     query.must(
-        QueryBuilders.termQuery(DataHubUsageEventConstants.TYPE, DataHubUsageEventType.ENTITY_VIEW_EVENT.toString()));
+        QueryBuilders.termQuery(DataHubUsageEventConstants.TYPE, DataHubUsageEventType.ENTITY_VIEW_EVENT.getType()));
     source.query(query);
 
     // Find the entities with the most views
-    AggregationBuilder aggregation =
-        AggregationBuilders.terms(ENTITY_AGG_NAME).field(DataHubUsageEventConstants.ENTITY_URN).size(MAX_CONTENT);
+    AggregationBuilder aggregation = AggregationBuilders.terms(ENTITY_AGG_NAME)
+        .field(DataHubUsageEventConstants.ENTITY_URN + ".keyword")
+        .size(MAX_CONTENT);
     source.aggregation(aggregation);
     source.size(0);
 

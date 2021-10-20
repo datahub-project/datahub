@@ -99,13 +99,13 @@ public class RecentlyViewedCandidateSource implements RecommendationCandidateSou
     // Filter for the entity view events of the user requesting recommendation
     query.must(QueryBuilders.termQuery(DataHubUsageEventConstants.ACTOR_URN, userUrn.toString()));
     query.must(
-        QueryBuilders.termQuery(DataHubUsageEventConstants.TYPE, DataHubUsageEventType.ENTITY_VIEW_EVENT.toString()));
+        QueryBuilders.termQuery(DataHubUsageEventConstants.TYPE, DataHubUsageEventType.ENTITY_VIEW_EVENT.getType()));
     source.query(query);
 
     // Find the entity with the largest last viewed timestamp
     String lastViewed = "last_viewed";
     AggregationBuilder aggregation = AggregationBuilders.terms(ENTITY_AGG_NAME)
-        .field(DataHubUsageEventConstants.ENTITY_URN)
+        .field(DataHubUsageEventConstants.ENTITY_URN + ".keyword")
         .size(MAX_CONTENT)
         .order(BucketOrder.aggregation(lastViewed, false))
         .subAggregation(AggregationBuilders.max(lastViewed).field(DataHubUsageEventConstants.TIMESTAMP));
