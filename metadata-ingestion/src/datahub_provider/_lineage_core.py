@@ -56,8 +56,8 @@ def send_lineage_to_datahub(
     dag: "DAG" = context["dag"]
     task: "BaseOperator" = context["task"]
 
-    # resolvve URNs for upstream nodes in subdags upstream of the current task.
-    upstream_subdag_task_urns = []
+    # resolve URNs for upstream nodes in subdags upstream of the current task.
+    upstream_subdag_task_urns: List[str] = []
 
     for upstream_task_id in task.upstream_task_ids:
         upstream_task = dag.task_dict[upstream_task_id]
@@ -76,18 +76,18 @@ def send_lineage_to_datahub(
         for upstream_subdag_task_id in upstream_subdag.task_dict:
             upstream_subdag_task = upstream_subdag.task_dict[upstream_subdag_task_id]
 
+            upstream_subdag_task_urn = builder.make_data_job_urn_with_flow(
+                upstream_subdag_flow_urn, upstream_subdag_task_id
+            )
+
             # if subdag task is a leaf task, then link it as an upstream task
             if len(upstream_subdag_task._downstream_task_ids) == 0:
 
-                upstream_subdag_task_urns.append(
-                    builder.make_data_job_urn_with_flow(
-                        upstream_subdag_flow_urn, upstream_subdag_task_id
-                    )
-                )
+                upstream_subdag_task_urns.append(upstream_subdag_task_urn)
 
     # resolve URNs for upstream nodes that trigger the subdag containing the current task.
     # (if it is in a subdag at all)
-    upstream_subdag_triggers = []
+    upstream_subdag_triggers: List[str] = []
 
     # subdags are always named with 'parent.child' style or Airflow won't run them
     # add connection from subdag trigger(s) if subdag task has no upstreams
@@ -114,13 +114,13 @@ def send_lineage_to_datahub(
         for upstream_task_id in dag.parent_dag.task_dict:
             upstream_task = dag.parent_dag.task_dict[upstream_task_id]
 
+            upstream_task_urn = builder.make_data_job_urn_with_flow(
+                parent_dag_urn, upstream_task_id
+            )
+
             # if the task triggers the subdag, link it to this node in the subdag
             if subdag_task_id in upstream_task._downstream_task_ids:
-                upstream_subdag_triggers.append(
-                    builder.make_data_job_urn_with_flow(
-                        parent_dag_urn, upstream_task_id
-                    )
-                )
+                upstream_subdag_triggers.append(upstream_task_urn)
 
     # TODO: capture context
     # context dag_run
@@ -240,7 +240,7 @@ def send_lineage_to_datahub(
         )
     )
 
-    # exclude subdag operator tasls since these are not emitted, resulting in empty metadata
+    # exclude subdag operator tasks since these are not emitted, resulting in empty metadata
     upstream_tasks = (
         [
             builder.make_data_job_urn_with_flow(flow_urn, task_id)
