@@ -211,7 +211,12 @@ public class MetadataAuditEventsProcessor {
         }
       }
     }
-    if (edgesToAdd.size() > 0) {
+
+    if (deleteEntity) {
+      new Thread(() -> {
+        _graphService.removeNode(sourceUrn);
+      }).start();
+    } else if (edgesToAdd.size() > 0) {
       new Thread(() -> {
         _graphService.removeEdgesFromNode(sourceUrn, new ArrayList<>(relationshipTypesBeingAdded),
             createRelationshipFilter(new Filter().setOr(new ConjunctiveCriterionArray()), RelationshipDirection.OUTGOING));
