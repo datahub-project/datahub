@@ -310,8 +310,8 @@ public abstract class EntityService {
             .collect(Collectors.toList())));
   }
 
-  public Map<String, RecordTemplate> getDefaultAspectsFromUrn(@Nonnull final Urn urn, Snapshot snapshot) {
-    Map<String, RecordTemplate> existingAspects = AspectExtractor.extractAspectRecords(snapshot);
+  public Map<String, RecordTemplate> getDefaultAspectsFromUrn(@Nonnull final Urn urn, Set<String> includedAspects) {
+
     Map<String, RecordTemplate> aspects = new HashMap<>();
     final String keyAspectName = getKeyAspectName(urn);
     RecordTemplate keyAspect = getLatestAspect(urn, keyAspectName);
@@ -322,7 +322,7 @@ public abstract class EntityService {
 
     String entityType = urnToEntityName(urn);
     if (_entityRegistry.getEntitySpec(entityType).getAspectSpecMap().containsKey(BROWSE_PATHS)
-        && getLatestAspect(urn, BROWSE_PATHS) == null) {
+        && getLatestAspect(urn, BROWSE_PATHS) == null && !includedAspects.contains(BROWSE_PATHS)) {
       try {
         BrowsePaths generatedBrowsePath = BrowsePathUtils.buildBrowsePath(urn);
         if (generatedBrowsePath != null) {
@@ -352,7 +352,11 @@ public abstract class EntityService {
         com.linkedin.metadata.dao.utils.ModelUtils.getAspectsFromSnapshot(snapshotRecord);
 
     log.info("INGEST urn {} with system metadata {}", urn.toString(), systemMetadata.toString());
-    aspectRecordsToIngest.addAll(getDefaultAspectsFromUrn(urn, snapshotUnion).values());
+    aspectRecordsToIngest.addAll(getDefaultAspectsFromUrn(urn,
+        AspectExtractor.extractAspectRecords(
+            RecordUtils.getSelectedRecordTemplateFromUnion(snapshotUnion)
+        ).keySet()
+    ).values());
 
     aspectRecordsToIngest.forEach(aspect -> {
       final String aspectName = PegasusUtils.getAspectNameFromSchema(aspect.schema());
