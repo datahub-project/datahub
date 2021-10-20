@@ -16,6 +16,8 @@ import { SidebarTagsSection } from '../shared/containers/profile/sidebar/Sidebar
 import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/SidebarOwnerSection';
 import { GenericEntityProperties } from '../shared/types';
 import { DataJobFlowTab } from '../shared/tabs/Entity/DataJobFlowTab';
+import { getDataForEntityType } from '../shared/containers/profile/utils';
+import { capitalizeFirstLetter } from '../../shared/capitalizeFirstLetter';
 
 /**
  * Definition of the DataHub DataJob entity.
@@ -62,7 +64,7 @@ export class DataJobEntity implements Entity<DataJob> {
             entityType={EntityType.DataJob}
             useEntityQuery={useGetDataJobQuery}
             useUpdateQuery={useUpdateDataJobMutation}
-            getOverrideProperties={this.getOverrideProperties}
+            getOverrideProperties={this.getOverridePropertiesFromEntity}
             tabs={[
                 {
                     name: 'Documentation',
@@ -105,13 +107,12 @@ export class DataJobEntity implements Entity<DataJob> {
         />
     );
 
-    getOverrideProperties = (res: GetDataJobQuery): GenericEntityProperties => {
+    getOverridePropertiesFromEntity = (dataJob?: DataJob | null): GenericEntityProperties => {
         // TODO: Get rid of this once we have correctly formed platform coming back.
-        const tool = res.dataJob?.dataFlow?.orchestrator || '';
-        const name = res.dataJob?.info?.name;
-        const externalUrl = res.dataJob?.info?.externalUrl;
+        const tool = dataJob?.dataFlow?.orchestrator || '';
+        const name = dataJob?.info?.name;
+        const externalUrl = dataJob?.info?.externalUrl;
         return {
-            ...res,
             name,
             externalUrl,
             platform: {
@@ -120,6 +121,7 @@ export class DataJobEntity implements Entity<DataJob> {
                 name: tool,
                 info: {
                     logoUrl: getLogoFromPlatform(tool),
+                    displayName: capitalizeFirstLetter(tool),
                     type: PlatformType.Others,
                     datasetNameDelimiter: '.',
                 },
@@ -183,7 +185,11 @@ export class DataJobEntity implements Entity<DataJob> {
         return data.info?.name || data.urn;
     };
 
-    platformLogoUrl = (data: DataJob) => {
-        return getLogoFromPlatform(data.dataFlow?.orchestrator || '') || undefined;
+    getGenericEntityProperties = (data: DataJob) => {
+        return getDataForEntityType({
+            data,
+            entityType: this.type,
+            getOverrideProperties: this.getOverridePropertiesFromEntity,
+        });
     };
 }

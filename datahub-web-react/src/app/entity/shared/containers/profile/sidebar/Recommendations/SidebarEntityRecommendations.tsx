@@ -35,8 +35,10 @@ export const SidebarEntityRecommendations = ({
                 limit: 3,
             },
         },
+        fetchPolicy: 'no-cache',
     });
     const recommendationModules = data?.listRecommendations?.modules;
+    console.log(recommendationModules);
     return (
         <RecommendationsContainer>
             {recommendationModules &&

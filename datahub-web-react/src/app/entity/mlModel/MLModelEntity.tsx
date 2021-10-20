@@ -6,6 +6,7 @@ import { MLModelProfile } from './profile/MLModelProfile';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
 import getChildren from '../../lineage/utils/getChildren';
 import { Direction } from '../../lineage/types';
+import { getDataForEntityType } from '../shared/containers/profile/utils';
 
 /**
  * Definition of the DataHub MlModel entity.
@@ -77,7 +78,7 @@ export class MLModelEntity implements Entity<MlModel> {
         return data.name;
     };
 
-    platformLogoUrl = (data: MlModel) => {
-        return data.platform?.info?.logoUrl || undefined;
+    getGenericEntityProperties = (mlModel: MlModel) => {
+        return getDataForEntityType({ data: mlModel, entityType: this.type, getOverrideProperties: (data) => data });
     };
 }

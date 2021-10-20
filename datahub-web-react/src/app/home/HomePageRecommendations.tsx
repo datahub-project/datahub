@@ -55,6 +55,7 @@ export const HomePageRecommendations = ({ userUrn }: Props) => {
                 limit: 5,
             },
         },
+        fetchPolicy: 'no-cache',
     });
     const recommendationModules = data?.listRecommendations?.modules;
 
@@ -68,7 +69,7 @@ export const HomePageRecommendations = ({ userUrn }: Props) => {
                         <Col xs={24} sm={24} md={4} key={entityType}>
                             <BrowseEntityCard
                                 entityType={entityType}
-                                count={browseEntityTypes[entityType].data?.browse?.total || 0}
+                                count={browseEntityTypes[entityType].data?.browse?.metadata.totalNumEntities || 0}
                             />
                         </Col>
                     ))}

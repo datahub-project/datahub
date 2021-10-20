@@ -49,6 +49,7 @@ export const SearchResultsRecommendations = ({ userUrn, query, filters }: Props)
                 limit: 3,
             },
         },
+        fetchPolicy: 'no-cache',
     });
     const recommendationModules = data?.listRecommendations?.modules;
     return (
