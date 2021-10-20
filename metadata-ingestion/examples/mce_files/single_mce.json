@@ -1,41 +1,28 @@
 {
   "auditHeader": null,
   "proposedSnapshot": {
-    "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {
-      "urn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,dag_abc,PROD),task_123)",
+    "com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot": {
+      "urn": "urn:li:corpuser:harshal",
       "aspects": [
         {
-          "com.linkedin.pegasus2avro.common.Ownership": {
-            "owners": [
-              {
-                "owner": "urn:li:corpuser:datahub",
-                "type": "DATAOWNER",
-                "source": null
-              }
-            ],
-            "lastModified": {
-              "time": 1581407189000,
-              "actor": "urn:li:corpuser:datahub",
-              "impersonator": null
-            }
-          }
-        },
-        {
-          "com.linkedin.pegasus2avro.datajob.DataJobInfo": {
-            "name": "User Creations 2228",
-            "description": "Constructs the fct_users_created fro232m logging_eventss",
-            "type": "SQL",
-            "flowUrn": "urn:li:dataFlow:(airflow,dag_abc,PROD)"
-          }
-        },
-        {
-          "com.linkedin.pegasus2avro.datajob.DataJobInputOutput": {
-            "inputDatasets": [
-              "urn:li:dataset:(urn:li:dataPlatform:hive,logging_events2,PROD)"
-            ],
-            "outputDatasets": [
-              "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)"
-            ]
+          "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
+            "active": true,
+            "displayName": {
+              "string": "Harshal Sheth"
+            },
+            "email": "harshal@sheth.io",
+            "title": {
+              "string": "Engineer"
+            },
+            "managerUrn": null,
+            "departmentId": null,
+            "departmentName": null,
+            "firstName": null,
+            "lastName": null,
+            "fullName": {
+              "string": "Harshal Sheth"
+            },
+            "countryCode": null
           }
         }
       ]

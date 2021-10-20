@@ -83,8 +83,7 @@ public class ElasticSearchGraphService implements GraphService {
       byte[] bytesOfRawDocID = rawDocId.getBytes(StandardCharsets.UTF_8);
       MessageDigest md = MessageDigest.getInstance("MD5");
       byte[] thedigest = md.digest(bytesOfRawDocID);
-      final String docId = Base64.getEncoder().encodeToString(thedigest);
-      return docId;
+      return Base64.getEncoder().encodeToString(thedigest);
     } catch (NoSuchAlgorithmException e) {
       e.printStackTrace();
       return rawDocId;
