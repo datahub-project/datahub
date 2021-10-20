@@ -142,7 +142,8 @@ public class DatastaxAspectDao implements AspectDao {
             .value(DatastaxAspect.CREATED_BY_COLUMN, literal(datastaxAspect.getCreatedBy()))
             .ifNotExists();
   }
-  private Update createCondUpdateStatement(DatastaxAspect newDatastaxAspect, DatastaxAspect oldDatastaxAspect) {
+
+  private Update createUpdateStatement(DatastaxAspect newDatastaxAspect, DatastaxAspect oldDatastaxAspect) {
     return update(DatastaxAspect.TABLE_NAME)
             .setColumn(DatastaxAspect.METADATA_COLUMN, literal(newDatastaxAspect.getMetadata()))
             .setColumn(DatastaxAspect.SYSTEM_METADATA_COLUMN, literal(newDatastaxAspect.getSystemMetadata()))
@@ -151,14 +152,7 @@ public class DatastaxAspectDao implements AspectDao {
             .setColumn(DatastaxAspect.CREATED_FOR_COLUMN, literal(newDatastaxAspect.getCreatedFor()))
             .whereColumn(DatastaxAspect.URN_COLUMN).isEqualTo(literal(newDatastaxAspect.getUrn()))
             .whereColumn(DatastaxAspect.ASPECT_COLUMN).isEqualTo(literal(newDatastaxAspect.getAspect()))
-            .whereColumn(DatastaxAspect.VERSION_COLUMN).isEqualTo(literal(newDatastaxAspect.getVersion()))
-            .if_(
-                    Condition.column(DatastaxAspect.METADATA_COLUMN).isEqualTo(literal(oldDatastaxAspect.getMetadata())),
-                    Condition.column(DatastaxAspect.SYSTEM_METADATA_COLUMN).isEqualTo(literal(oldDatastaxAspect.getSystemMetadata())),
-                    Condition.column(DatastaxAspect.CREATED_ON_COLUMN).isEqualTo(literal(oldDatastaxAspect.getCreatedOn() == null
-                            ? null
-                            : oldDatastaxAspect.getCreatedOn().toInstant())),
-                    Condition.column(DatastaxAspect.CREATED_BY_COLUMN).isEqualTo(literal(oldDatastaxAspect.getCreatedBy())));
+            .whereColumn(DatastaxAspect.VERSION_COLUMN).isEqualTo(literal(newDatastaxAspect.getVersion()));
   }
 
   public long batchSaveLatestAspect(
@@ -191,7 +185,9 @@ public class DatastaxAspectDao implements AspectDao {
     if (nextVersion == 0)  {
       batch = batch.addStatement(createCondInsertStatement(newDatastaxAspect).build());
     } else {
-      batch = batch.addStatement(createCondUpdateStatement(newDatastaxAspect, oldDatastaxAspect).build());
+      // We don't need to add a condition here as the conditional insert will fail if another thread has updated the
+      // aspect in the meantime
+      batch = batch.addStatement(createUpdateStatement(newDatastaxAspect, oldDatastaxAspect).build());
     }
 
     ResultSet rs = _cqlSession.execute(batch.build());
@@ -283,6 +279,17 @@ public class DatastaxAspectDao implements AspectDao {
     return result;
   }
 
+  public ResultSet updateSystemMetadata(@Nonnull DatastaxAspect datastaxAspect) {
+
+      Update u = update(DatastaxAspect.TABLE_NAME)
+              .setColumn(DatastaxAspect.SYSTEM_METADATA_COLUMN, literal(datastaxAspect.getSystemMetadata()))
+              .whereColumn(DatastaxAspect.URN_COLUMN).isEqualTo(literal(datastaxAspect.getUrn()))
+              .whereColumn(DatastaxAspect.ASPECT_COLUMN).isEqualTo(literal(datastaxAspect.getAspect()))
+              .whereColumn(DatastaxAspect.VERSION_COLUMN).isEqualTo(literal(datastaxAspect.getVersion()));
+
+      return _cqlSession.execute(u.build());
+    }
+
   public ResultSet condUpsertAspect(DatastaxAspect datastaxAspect, DatastaxAspect oldDatastaxAspect) {
 
     String entity;
@@ -305,16 +312,8 @@ public class DatastaxAspectDao implements AspectDao {
               .setColumn(DatastaxAspect.CREATED_FOR_COLUMN, literal(datastaxAspect.getCreatedFor()))
               .whereColumn(DatastaxAspect.URN_COLUMN).isEqualTo(literal(datastaxAspect.getUrn()))
               .whereColumn(DatastaxAspect.ASPECT_COLUMN).isEqualTo(literal(datastaxAspect.getAspect()))
-              .whereColumn(DatastaxAspect.VERSION_COLUMN).isEqualTo(literal(datastaxAspect.getVersion()))
-              .if_(
-                      Condition.column(DatastaxAspect.METADATA_COLUMN).isEqualTo(literal(oldDatastaxAspect.getMetadata())),
-                      Condition.column(DatastaxAspect.SYSTEM_METADATA_COLUMN).isEqualTo(literal(oldDatastaxAspect.getSystemMetadata())),
-                      Condition.column(DatastaxAspect.CREATED_ON_COLUMN).isEqualTo(literal(oldDatastaxAspect.getCreatedOn() == null
-                              ? null
-                              : oldDatastaxAspect.getCreatedOn().toInstant())),
-                      Condition.column(DatastaxAspect.CREATED_BY_COLUMN).isEqualTo(literal(oldDatastaxAspect.getCreatedBy())));
+              .whereColumn(DatastaxAspect.VERSION_COLUMN).isEqualTo(literal(datastaxAspect.getVersion()));
 
-      // TODO: check for wasApplied
       return _cqlSession.execute(u.build());
     }
   }
