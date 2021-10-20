@@ -48,9 +48,14 @@ public interface RecommendationCandidateSource {
       return Optional.empty();
     }
 
+    List<RecommendationContent> candidates = getCandidates(userUrn, requestContext);
+    if (candidates.isEmpty()) {
+      return Optional.empty();
+    }
+
     return Optional.of(new RecommendationModule().setTitle(getTitle())
         .setModuleId(getModuleId())
         .setRenderType(getRenderType())
-        .setContent(new RecommendationContentArray(getCandidates(userUrn, requestContext))));
+        .setContent(new RecommendationContentArray(candidates)));
   }
 }

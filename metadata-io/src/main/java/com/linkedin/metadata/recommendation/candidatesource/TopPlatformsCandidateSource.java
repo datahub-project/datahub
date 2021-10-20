@@ -2,6 +2,9 @@ package com.linkedin.metadata.recommendation.candidatesource;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.dataplatform.DataPlatformInfo;
+import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
@@ -27,19 +30,22 @@ import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.tuple.Pair;
 import org.springframework.cache.CacheManager;
 
 
 @Slf4j
 public class TopPlatformsCandidateSource implements RecommendationCandidateSource {
+  private final EntityService _entityService;
   private final EntitySearchService _entitySearchService;
   private final NonEmptyEntitiesCache _nonEmptyEntitiesCache;
 
   private static final String PLATFORM = "platform";
   private static final int MAX_CONTENT = 5;
 
-  public TopPlatformsCandidateSource(EntitySearchService entitySearchService, EntityRegistry entityRegistry,
-      CacheManager cacheManager) {
+  public TopPlatformsCandidateSource(EntityService entityService, EntitySearchService entitySearchService,
+      EntityRegistry entityRegistry, CacheManager cacheManager) {
+    _entityService = entityService;
     _entitySearchService = entitySearchService;
     _nonEmptyEntitiesCache = new NonEmptyEntitiesCache(entityRegistry, entitySearchService, cacheManager);
   }
@@ -75,26 +81,46 @@ public class TopPlatformsCandidateSource implements RecommendationCandidateSourc
     // Merge the aggregated result into one
     Map<String, Long> mergedResult =
         resultPerEntity.stream().reduce(this::mergeAggregation).orElse(Collections.emptyMap());
-    if (mergedResult.isEmpty()) {
+
+    // Convert key into urns
+    Map<Urn, Long> platformCounts = mergedResult.entrySet().stream().map(entry -> {
+      try {
+        Urn platformUrn = Urn.createFromString(entry.getKey());
+        return Optional.of(Pair.of(platformUrn, entry.getValue()));
+      } catch (URISyntaxException e) {
+        log.error("Invalid platform urn {}", entry.getKey(), e);
+        return Optional.<Pair<Urn, Long>>empty();
+      }
+    }).filter(Optional::isPresent).map(Optional::get).collect(Collectors.toMap(Pair::getKey, Pair::getValue));
+
+    if (platformCounts.isEmpty()) {
       return Collections.emptyList();
     }
 
-    // Get the top 5 platforms with the most number of documents
-    PriorityQueue<Map.Entry<String, Long>> queue =
-        new PriorityQueue<>(MAX_CONTENT, Map.Entry.comparingByValue(Comparator.naturalOrder()));
-    for (Map.Entry<String, Long> entry : mergedResult.entrySet()) {
-      queue.add(entry);
-      if (queue.size() > MAX_CONTENT) {
+    // Get the top X valid platforms (ones with logo) with the most number of documents
+    PriorityQueue<Map.Entry<Urn, Long>> queue =
+        new PriorityQueue<>(MAX_CONTENT, Map.Entry.comparingByValue(Comparator.reverseOrder()));
+    for (Map.Entry<Urn, Long> entry : platformCounts.entrySet()) {
+      if (queue.size() < MAX_CONTENT && isValidPlatform(entry.getKey())) {
+        queue.add(entry);
+      } else if (queue.size() > 0 && queue.peek().getValue() < entry.getValue() && isValidPlatform(entry.getKey())) {
         queue.poll();
+        queue.add(entry);
       }
     }
 
-    // Build recommendation
     return queue.stream()
+        .sorted(Map.Entry.comparingByValue(Comparator.reverseOrder()))
         .map(entry -> buildRecommendationContent(entry.getKey(), entry.getValue()))
-        .filter(Optional::isPresent)
-        .map(Optional::get)
         .collect(Collectors.toList());
+  }
+
+  private boolean isValidPlatform(Urn platformUrn) {
+    RecordTemplate dataPlatformInfo = _entityService.getLatestAspect(platformUrn, "dataPlatformInfo");
+    if (dataPlatformInfo == null) {
+      return false;
+    }
+    return ((DataPlatformInfo) dataPlatformInfo).hasLogoUrl();
   }
 
   private Map<String, Long> mergeAggregation(Map<String, Long> first, Map<String, Long> second) {
@@ -102,18 +128,14 @@ public class TopPlatformsCandidateSource implements RecommendationCandidateSourc
         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, Long::sum));
   }
 
-  private Optional<RecommendationContent> buildRecommendationContent(String platformUrn, long count) {
+  private RecommendationContent buildRecommendationContent(Urn platformUrn, long count) {
     // Set filters for platform
     SearchParams searchParams = new SearchParams().setQuery("")
-        .setFilters(new CriterionArray(ImmutableList.of(new Criterion().setField(PLATFORM).setValue(platformUrn))));
+        .setFilters(
+            new CriterionArray(ImmutableList.of(new Criterion().setField(PLATFORM).setValue(platformUrn.toString()))));
     ContentParams contentParams = new ContentParams().setCount(count);
-    try {
-      return Optional.of(new RecommendationContent().setValue(platformUrn)
-          .setEntity(Urn.createFromString(platformUrn))
-          .setParams(new RecommendationParams().setSearchParams(searchParams).setContentParams(contentParams)));
-    } catch (URISyntaxException e) {
-      log.error("Error decoding platform URN: {}", platformUrn, e);
-      return Optional.empty();
-    }
+    return new RecommendationContent().setValue(platformUrn.toString())
+        .setEntity(platformUrn)
+        .setParams(new RecommendationParams().setSearchParams(searchParams).setContentParams(contentParams));
   }
 }

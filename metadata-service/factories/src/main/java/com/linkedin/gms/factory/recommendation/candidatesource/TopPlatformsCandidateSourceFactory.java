@@ -1,7 +1,9 @@
 package com.linkedin.gms.factory.recommendation.candidatesource;
 
+import com.linkedin.gms.factory.entity.EntityServiceFactory;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.gms.factory.search.EntitySearchServiceFactory;
+import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.recommendation.candidatesource.TopPlatformsCandidateSource;
 import com.linkedin.metadata.search.EntitySearchService;
@@ -15,8 +17,12 @@ import org.springframework.context.annotation.Import;
 
 
 @Configuration
-@Import({EntitySearchServiceFactory.class, EntityRegistryFactory.class})
+@Import({EntityServiceFactory.class, EntitySearchServiceFactory.class, EntityRegistryFactory.class})
 public class TopPlatformsCandidateSourceFactory {
+
+  @Autowired
+  @Qualifier("entityService")
+  private EntityService entityService;
 
   @Autowired
   @Qualifier("entitySearchService")
@@ -32,6 +38,6 @@ public class TopPlatformsCandidateSourceFactory {
   @Bean(name = "topPlatformsCandidateSource")
   @Nonnull
   protected TopPlatformsCandidateSource getInstance() {
-    return new TopPlatformsCandidateSource(entitySearchService, entityRegistry, cacheManager);
+    return new TopPlatformsCandidateSource(entityService, entitySearchService, entityRegistry, cacheManager);
   }
 }
