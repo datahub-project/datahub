@@ -1,25 +1,24 @@
-package com.linkedin.metadata.resources;
+package com.linkedin.metadata.entity;
 
 import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.metadata.entity.RecordTemplateValidator;
-import com.linkedin.restli.common.HttpStatus;
-import com.linkedin.restli.server.RestLiServiceException;
 import lombok.extern.slf4j.Slf4j;
 
 
 @Slf4j
-public class ResourceUtils {
+public class ValidationUtils {
 
   /**
    * Validates a {@link RecordTemplate} and throws {@link com.linkedin.restli.server.RestLiServiceException}
    * if validation fails.
    *
    * @param record record to be validated.
-   * @param status the status code to return to the client on failure.
    */
-  public static void validateOrThrow(RecordTemplate record, HttpStatus status) {
+  public static void validateOrThrow(RecordTemplate record) {
     RecordTemplateValidator.validate(record, validationResult -> {
-      throw new RestLiServiceException(status, validationResult.getMessages().toString());
+      throw new ValidationException(
+          String.format("Failed to validate record with class %s: %s",
+          record.getClass().getName(),
+          validationResult.getMessages().toString()));
     });
   }
 
@@ -34,6 +33,6 @@ public class ResourceUtils {
     });
   }
 
-  private ResourceUtils() {
+  private ValidationUtils() {
   }
 }

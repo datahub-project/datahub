@@ -3,7 +3,7 @@ package com.linkedin.metadata.kafka;
 import com.codahale.metrics.Histogram;
 import com.codahale.metrics.MetricRegistry;
 import com.linkedin.entity.Entity;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.RestliEntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.EventUtils;
 import com.linkedin.metadata.kafka.config.MetadataChangeProposalProcessorCondition;
@@ -33,7 +33,7 @@ import org.springframework.stereotype.Component;
 @EnableKafka
 public class MetadataChangeEventsProcessor {
 
-  private EntityClient entityClient;
+  private RestliEntityClient entityClient;
   private KafkaTemplate<String, GenericRecord> kafkaTemplate;
 
   private final Histogram kafkaLagStats =
@@ -43,7 +43,7 @@ public class MetadataChangeEventsProcessor {
   private String fmceTopicName;
 
   public MetadataChangeEventsProcessor(
-      @Nonnull final EntityClient entityClient,
+      @Nonnull final RestliEntityClient entityClient,
       @Nonnull final KafkaTemplate<String, GenericRecord> kafkaTemplate) {
     this.entityClient = entityClient;
     this.kafkaTemplate = kafkaTemplate;

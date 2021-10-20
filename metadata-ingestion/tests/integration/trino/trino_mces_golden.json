@@ -93,6 +93,40 @@
                                     "globalTags": null,
                                     "glossaryTerms": null,
                                     "isPartOfKey": false
+                                },
+                                {
+                                    "fieldPath": "tags",
+                                    "jsonPath": null,
+                                    "nullable": true,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.RecordType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "JSON()",
+                                    "recursive": false,
+                                    "globalTags": null,
+                                    "glossaryTerms": null,
+                                    "isPartOfKey": false
+                                },
+                                {
+                                    "fieldPath": "[version=2.0].[type=struct].[type=array].[type=int].genre_ids",
+                                    "jsonPath": null,
+                                    "nullable": true,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.ArrayType": {
+                                                "nestedType" : null
+                                            }
+                                        }
+                                    },
+                                    "nativeDataType": "ARRAY(INTEGER())",
+                                    "recursive": false,
+                                    "globalTags": null,
+                                    "glossaryTerms": null,
+                                    "isPartOfKey": false
                                 }
                             ],
                             "primaryKeys": null,
@@ -451,7 +485,7 @@
         "changeType": "UPSERT",
         "aspectName": "datasetProfile",
         "aspect": {
-            "value": "{\"timestampMillis\": 1632398400000, \"rowCount\": 3, \"columnCount\": 4, \"fieldProfiles\": [{\"fieldPath\": \"id\", \"uniqueCount\": 3, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"1\", \"2\", \"3\"]}, {\"fieldPath\": \"name\", \"uniqueCount\": 3, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"Book 1\", \"Book 2\", \"Book 3\"]}, {\"fieldPath\": \"author\", \"uniqueCount\": 3, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"ABC\", \"PQR\", \"XYZ\"]}, {\"fieldPath\": \"publisher\", \"uniqueCount\": 0, \"nullCount\": 3, \"nullProportion\": 1.0, \"sampleValues\": []}]}",
+            "value": "{\"timestampMillis\": 1632398400000, \"rowCount\": 3, \"columnCount\": 6, \"fieldProfiles\": [{\"fieldPath\": \"id\", \"uniqueCount\": 3, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"1\", \"2\", \"3\"]}, {\"fieldPath\": \"name\", \"uniqueCount\": 3, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"Book 1\", \"Book 2\", \"Book 3\"]}, {\"fieldPath\": \"author\", \"uniqueCount\": 3, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"ABC\", \"PQR\", \"XYZ\"]}, {\"fieldPath\": \"publisher\", \"uniqueCount\": 0, \"nullCount\": 3, \"nullProportion\": 1.0, \"sampleValues\": []}, {\"fieldPath\": \"tags\", \"nullCount\": 3, \"nullProportion\": 1.0, \"sampleValues\": []}, {\"fieldPath\": \"genre_ids\", \"uniqueCount\": 0, \"nullCount\": 3, \"nullProportion\": 1.0, \"sampleValues\": []}]}",
             "contentType": "application/json"
         },
         "systemMetadata": null
