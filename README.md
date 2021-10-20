@@ -24,7 +24,7 @@ export const Logo = (props) => {
 <!--
 HOSTED_DOCS_ONLY-->
 <p align="center">
-<img alt="DataHub" src="docs/imgs/datahub-logo.png" height="200px" />
+<img alt="DataHub" src="docs/imgs/datahub-logo-color-mark.svg" height="200px" />
 </p>
 <!-- -->
 
@@ -127,8 +127,6 @@ Here are the companies that have officially adopted DataHub. Please feel free to
 - [Uphold](https://uphold.com)
 - [Viasat](https://viasat.com)
 - [Wolt](https://wolt.com)
-
-
 
 ## Select Articles & Talks
 
