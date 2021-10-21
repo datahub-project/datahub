@@ -160,7 +160,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
     final Urn urn = EntityKeyUtils.getUrnFromProposal(metadataChangeProposal,
         _entityService.getKeyAspectSpec(metadataChangeProposal.getEntityType()));
 
-    return _entityService.getDefaultAspectsFromUrn(urn, ImmutableSet.of(metadataChangeProposal.getAspectName()))
+    return _entityService.generateDefaultAspectsIfMissing(urn, ImmutableSet.of(metadataChangeProposal.getAspectName()))
         .stream()
         .map(entry -> getProposalFromAspect(entry.getKey(), entry.getValue(), metadataChangeProposal))
         .filter(Objects::nonNull)

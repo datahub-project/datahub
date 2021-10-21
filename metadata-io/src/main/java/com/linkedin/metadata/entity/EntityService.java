@@ -309,7 +309,7 @@ public abstract class EntityService {
             .collect(Collectors.toList())));
   }
 
-  public List<Pair<String, RecordTemplate>> getDefaultAspectsFromUrn(@Nonnull final Urn urn, Set<String> includedAspects) {
+  public List<Pair<String, RecordTemplate>> generateDefaultAspectsIfMissing(@Nonnull final Urn urn, Set<String> includedAspects) {
 
     List<Pair<String, RecordTemplate>> aspects = new ArrayList<>();
     final String keyAspectName = getKeyAspectName(urn);
@@ -333,7 +333,7 @@ public abstract class EntityService {
     }
 
     if (_entityRegistry.getEntitySpec(entityType).getAspectSpecMap().containsKey(DATA_PLATFORM_INSTANCE)
-        && getLatestAspect(urn, DATA_PLATFORM_INSTANCE) == null) {
+        && getLatestAspect(urn, DATA_PLATFORM_INSTANCE) == null && !includedAspects.contains(DATA_PLATFORM_INSTANCE)) {
       DataPlatformInstanceUtils.buildDataPlatformInstance(entityType, keyAspect)
           .ifPresent(aspect -> aspects.add(Pair.of(DATA_PLATFORM_INSTANCE, aspect)));
     }
@@ -351,7 +351,7 @@ public abstract class EntityService {
         NewModelUtils.getAspectsFromSnapshot(snapshotRecord);
 
     log.info("INGEST urn {} with system metadata {}", urn.toString(), systemMetadata.toString());
-    aspectRecordsToIngest.addAll(getDefaultAspectsFromUrn(
+    aspectRecordsToIngest.addAll(generateDefaultAspectsIfMissing(
         urn,
         aspectRecordsToIngest.stream().map(pair -> pair.getFirst()).collect(Collectors.toSet())
     ));
