@@ -76,6 +76,11 @@ const companyLogos = [
     imageUrl: "/img/logos/companies/uphold.png",
     size: "large",
   },
+  {
+    name: "Peloton",
+    imageUrl: "/img/logos/companies/peloton.png",
+    size: "large",
+  },
 ];
 
 const platformLogos = [
