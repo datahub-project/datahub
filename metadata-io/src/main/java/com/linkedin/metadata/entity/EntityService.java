@@ -31,6 +31,7 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
 import java.net.URISyntaxException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -310,14 +311,14 @@ public abstract class EntityService {
             .collect(Collectors.toList())));
   }
 
-  public Map<String, RecordTemplate> getDefaultAspectsFromUrn(@Nonnull final Urn urn, Set<String> includedAspects) {
+  public List<Pair<String, RecordTemplate>> getDefaultAspectsFromUrn(@Nonnull final Urn urn, Set<String> includedAspects) {
 
-    Map<String, RecordTemplate> aspects = new HashMap<>();
+    List<Pair<String, RecordTemplate>> aspects = new ArrayList<>();
     final String keyAspectName = getKeyAspectName(urn);
     RecordTemplate keyAspect = getLatestAspect(urn, keyAspectName);
     if (keyAspect == null) {
       keyAspect = buildKeyAspect(urn);
-      aspects.put(keyAspectName, keyAspect);
+      aspects.add(Pair.of(keyAspectName, keyAspect));
     }
 
     String entityType = urnToEntityName(urn);
@@ -326,7 +327,7 @@ public abstract class EntityService {
       try {
         BrowsePaths generatedBrowsePath = BrowsePathUtils.buildBrowsePath(urn);
         if (generatedBrowsePath != null) {
-          aspects.put(BROWSE_PATHS, generatedBrowsePath);
+          aspects.add(Pair.of(BROWSE_PATHS, generatedBrowsePath));
         }
       } catch (URISyntaxException e) {
         log.error("Failed to parse urn: {}", urn);
@@ -336,17 +337,10 @@ public abstract class EntityService {
     if (_entityRegistry.getEntitySpec(entityType).getAspectSpecMap().containsKey(DATA_PLATFORM_INSTANCE)
         && getLatestAspect(urn, DATA_PLATFORM_INSTANCE) == null) {
       DataPlatformInstanceUtils.buildDataPlatformInstance(entityType, keyAspect)
-          .ifPresent(aspect -> aspects.put(DATA_PLATFORM_INSTANCE, aspect));
+          .ifPresent(aspect -> aspects.add(Pair.of(DATA_PLATFORM_INSTANCE, aspect)));
     }
 
     return aspects;
-  }
-
-  private Set<String> getAspectNamesFromSnapshotRecord(RecordTemplate snapshotRecord) {
-    return ModelUtils.getAspectsFromSnapshot(snapshotRecord)
-        .stream()
-        .map(record -> PegasusUtils.getAspectNameFromSchema(record.schema()))
-        .collect(Collectors.toSet());
   }
 
   private void ingestSnapshotUnion(
@@ -355,15 +349,18 @@ public abstract class EntityService {
       SystemMetadata systemMetadata) {
     final RecordTemplate snapshotRecord = RecordUtils.getSelectedRecordTemplateFromUnion(snapshotUnion);
     final Urn urn = com.linkedin.metadata.dao.utils.ModelUtils.getUrnFromSnapshot(snapshotRecord);
-    final List<RecordTemplate> aspectRecordsToIngest =
-        com.linkedin.metadata.dao.utils.ModelUtils.getAspectsFromSnapshot(snapshotRecord);
+    final List<Pair<String, RecordTemplate>> aspectRecordsToIngest =
+        NewModelUtils.getAspectsFromSnapshot(snapshotRecord);
 
     log.info("INGEST urn {} with system metadata {}", urn.toString(), systemMetadata.toString());
-    aspectRecordsToIngest.addAll(getDefaultAspectsFromUrn(urn, getAspectNamesFromSnapshotRecord(snapshotRecord)).values());
+    aspectRecordsToIngest.addAll(getDefaultAspectsFromUrn(
+        urn,
+        aspectRecordsToIngest.stream().map(pair -> pair.getFirst()).collect(
+        Collectors.toSet()
+        )));
 
-    aspectRecordsToIngest.forEach(aspect -> {
-      final String aspectName = PegasusUtils.getAspectNameFromSchema(aspect.schema());
-      ingestAspect(urn, aspectName, aspect, auditStamp, systemMetadata);
+    aspectRecordsToIngest.forEach(aspectNamePair -> {
+      ingestAspect(urn, aspectNamePair.getFirst(), aspectNamePair.getSecond(), auditStamp, systemMetadata);
     });
   }
 
