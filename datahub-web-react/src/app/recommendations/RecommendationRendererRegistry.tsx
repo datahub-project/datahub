@@ -32,7 +32,6 @@ export default class RecommendationRendererRegistry {
         content: Array<RecommendationContent>,
         displayType: RecommendationDisplayType,
     ): JSX.Element {
-        console.log(`sub render id ${renderId}`);
         const renderer = validatedGet(renderType, this.renderTypeToRenderer);
         return renderer.renderRecommendation(renderId, moduleId, scenarioType, renderType, content, displayType);
     }

@@ -4,7 +4,7 @@ import styled from 'styled-components';
 import { PageRoutes } from '../../../../conf/Global';
 import { DataPlatform, RecommendationContent } from '../../../../types.generated';
 import { urlEncodeUrn } from '../../../entity/shared/utils';
-import { PlatformCard } from './PlatformCard';
+import { LogoCountCard } from '../../../shared/LogoCountCard';
 
 const PlatformListContainer = styled.div`
     display: flex;
@@ -34,7 +34,7 @@ export const PlatformList = ({ content, onClick }: Props) => {
                     key={platform.platform.urn}
                     onClick={() => onClick?.(index)}
                 >
-                    <PlatformCard
+                    <LogoCountCard
                         name={platform.platform.info?.displayName || ''}
                         logoUrl={platform.platform.info?.logoUrl || ''}
                         count={platform.count}
