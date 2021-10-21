@@ -203,7 +203,7 @@ public class GmsGraphQLEngine {
         final AnalyticsService analyticsService,
         final EntityService entityService,
         final GraphClient graphClient,
-				final EntityClient entityClient
+        final EntityClient entityClient
     ) {
         this.analyticsService = analyticsService;
         this.entityClient = entityClient;
