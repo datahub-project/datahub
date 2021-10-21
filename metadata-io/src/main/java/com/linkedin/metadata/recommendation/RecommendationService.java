@@ -14,7 +14,6 @@ import lombok.extern.slf4j.Slf4j;
 
 
 @Slf4j
-@RequiredArgsConstructor
 public class RecommendationService {
 
   private final List<RecommendationCandidateSource> _candidateSources;
