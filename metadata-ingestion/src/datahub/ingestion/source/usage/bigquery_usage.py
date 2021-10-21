@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 from typing import Any, Counter, Dict, Iterable, List, MutableMapping, Optional, Union
 
 import cachetools
+from datahub.configuration.common import AllowDenyPattern
 import pydantic
 from google.cloud.logging_v2.client import Client as GCPLoggingClient
 
@@ -232,7 +233,7 @@ class BigQueryUsageConfig(BaseUsageConfig):
     extra_client_options: dict = {}
     env: str = builder.DEFAULT_ENV
     platform: str = "bigquery"
-    included_resource_names: Optional[List[str]] = None
+    included_resource_names: AllowDenyPattern = AllowDenyPattern.allow_all()
 
     query_log_delay: Optional[pydantic.PositiveInt] = None
     max_query_duration: timedelta = timedelta(minutes=15)
@@ -312,10 +313,13 @@ class BigQueryUsageSource(Source):
             ),
         )
 
-        if self.config.included_resource_names:
-            filter += f" AND protoPayload.resourceName = ({self.config.included_resource_names[0]}"
-            for table in self.config.included_resource_names[1:]:
-                filter += f" OR {table}"
+        if self.config.included_resource_names.is_fully_specified_allow_list():
+            included_resource_names = self.config.included_resource_names.get_allowed_list()
+            for idx, table in enumerate(included_resource_names):
+                if idx == 0:
+                    filter += f" AND protoPayload.resourceName = ({table}"
+                else:
+                    filter += f" OR {table}"
             filter += ")"
 
         def get_entry_timestamp(entry: AuditLogEntry) -> datetime:
