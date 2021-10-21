@@ -1,5 +1,6 @@
 package auth.sso.oidc;
 
+import com.linkedin.common.AuditStamp;
 import com.linkedin.common.CorpGroupUrnArray;
 import com.linkedin.common.CorpuserUrnArray;
 import com.linkedin.common.UrnArray;
@@ -134,7 +135,12 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
         }
         // Update user status to active on login.
         // If we want to prevent certain users from logging in, here's where we'll want to do it.
-        setUserStatus(corpUserUrn, new CorpUserStatus().setStatus(Constants.CORP_USER_STATUS_ACTIVE));
+        setUserStatus(corpUserUrn, new CorpUserStatus()
+            .setStatus(Constants.CORP_USER_STATUS_ACTIVE)
+            .setLastModified(new AuditStamp()
+                .setActor(Urn.createFromString(Constants.SYSTEM_ACTOR))
+                .setTime(System.currentTimeMillis()))
+        );
       } catch (Exception e) {
         log.error("Failed to perform post authentication steps. Redirecting to error page.", e);
         return internalServerError(String.format("Failed to perform post authentication steps. Error message: %s", e.getMessage()));
@@ -223,7 +229,6 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
   private List<CorpGroupSnapshot> extractGroups(CommonProfile profile) {
 
     log.debug(String.format("Attempting to extract groups from OIDC profile %s", profile.getAttributes().toString()));
-
     final OidcConfigs configs = (OidcConfigs) _ssoManager.getSsoProvider().configs();
 
     // First, attempt to extract a list of groups from the profile, using the group name attribute config.
