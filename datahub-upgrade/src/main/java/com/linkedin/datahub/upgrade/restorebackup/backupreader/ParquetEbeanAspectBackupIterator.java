@@ -42,6 +42,6 @@ public class ParquetEbeanAspectBackupIterator implements EbeanAspectBackupIterat
         (Long) record.get("version"), record.get("metadata").toString(),
         Timestamp.from(Instant.ofEpochMilli((Long) record.get("createdon") / 1000)), record.get("createdby").toString(),
         Optional.ofNullable(record.get("createdfor")).map(Object::toString).orElse(null),
-        record.get("systemMetadata").toString());
+        Optional.ofNullable(record.get("systemmetadata")).map(Object::toString).orElse(null));
   }
 }
