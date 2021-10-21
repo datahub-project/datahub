@@ -26,13 +26,13 @@ RUNS_TABLE_COLUMNS = ["runId", "rows", "created at"]
 RUN_TABLE_COLUMNS = ["urn", "aspect name", "created at"]
 
 
-@click.group(cls=DefaultGroup)
+@click.group(cls=DefaultGroup, default="run")
 def ingest() -> None:
     """Ingest metadata into DataHub."""
     pass
 
 
-@ingest.command(default=True)
+@ingest.command()
 @click.option(
     "-c",
     "--config",
