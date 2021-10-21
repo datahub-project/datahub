@@ -355,9 +355,7 @@ public abstract class EntityService {
     log.info("INGEST urn {} with system metadata {}", urn.toString(), systemMetadata.toString());
     aspectRecordsToIngest.addAll(getDefaultAspectsFromUrn(
         urn,
-        aspectRecordsToIngest.stream().map(pair -> pair.getFirst()).collect(
-        Collectors.toSet()
-        )
+        aspectRecordsToIngest.stream().map(pair -> pair.getFirst()).collect(Collectors.toSet())
     ));
 
     aspectRecordsToIngest.forEach(aspectNamePair -> {
