@@ -5,7 +5,7 @@ import Link from "@docusaurus/Link";
 
 import styles from "../styles/section.module.scss";
 
-const AcrylSection = () => (
+const AnnouncementSection = () => (
   <section className={clsx(styles.section, styles.announcementSection)}>
     <div className="container">
       <img src={useBaseUrl("/static/img/acryl-logo-white-mark.svg")} />
@@ -25,17 +25,4 @@ const AcrylSection = () => (
   </section>
 );
 
-export default AcrylSection;
-
-export const Logo = (props) => {
-  return (
-    <div style={{ display: "flex", justifyContent: "center", padding: "20px" }}>
-      <img
-        height="150"
-        alt="DataHub Logo"
-        src={useBaseUrl("/static/img/datahub-logo-color-mark.svg")}
-        {...props}
-      />
-    </div>
-  );
-};
+export default AnnouncementSection;
