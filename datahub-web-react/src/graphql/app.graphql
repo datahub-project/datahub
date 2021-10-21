@@ -29,3 +29,12 @@ query appConfig {
         }
     }
 }
+
+query getEntityCounts($input: EntityCountInput) {
+    getEntityCounts(input: $input) {
+        counts {
+            entityType
+            count
+        }
+    }
+}

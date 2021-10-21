@@ -45,6 +45,7 @@ import com.linkedin.datahub.graphql.resolvers.MeResolver;
 import com.linkedin.datahub.graphql.resolvers.actionrequest.ListActionRequestsResolver;
 import com.linkedin.datahub.graphql.resolvers.group.AddGroupMembersResolver;
 import com.linkedin.datahub.graphql.resolvers.group.CreateGroupResolver;
+import com.linkedin.datahub.graphql.resolvers.group.EntityCountsResolver;
 import com.linkedin.datahub.graphql.resolvers.group.ListGroupsResolver;
 import com.linkedin.datahub.graphql.resolvers.group.RemoveGroupMembersResolver;
 import com.linkedin.datahub.graphql.resolvers.group.RemoveGroupResolver;
@@ -456,6 +457,8 @@ public class GmsGraphQLEngine {
                 new ListUsersResolver(GmsClientFactory.getEntitiesClient()))
             .dataFetcher("listGroups",
                 new ListGroupsResolver(GmsClientFactory.getEntitiesClient()))
+            .dataFetcher("getEntityCounts",
+                new EntityCountsResolver(GmsClientFactory.getEntitiesClient()))
         );
     }
 
