@@ -8,7 +8,7 @@ import styles from "../styles/section.module.scss";
 const AnnouncementSection = () => (
   <section className={clsx(styles.section, styles.announcementSection)}>
     <div className="container">
-      <img src={useBaseUrl("/static/img/acryl-logo-white-mark.svg")} />
+      <img src={useBaseUrl("/img/acryl-logo-white-mark.svg")} />
       <h2>Managed DataHub</h2>
       <p>
         Acryl Data delivers an easy to consume DataHub platform for the

@@ -8,72 +8,72 @@ import styles from "../styles/logos.module.scss";
 const companyLogos = [
   {
     name: "LinkedIn",
-    imageUrl: "/static/img/logos/companies/linkedin.svg",
+    imageUrl: "/img/logos/companies/linkedin.svg",
     size: "small",
   },
   {
     name: "Expedia Group",
-    imageUrl: "/static/img/logos/companies/expedia.svg",
+    imageUrl: "/img/logos/companies/expedia.svg",
     size: "default",
   },
   {
     name: "Saxo Bank",
-    imageUrl: "/static/img/logos/companies/saxobank.svg",
+    imageUrl: "/img/logos/companies/saxobank.svg",
     size: "default",
   },
   {
     name: "Grofers",
-    imageUrl: "/static/img/logos/companies/grofers.png",
+    imageUrl: "/img/logos/companies/grofers.png",
     size: "default",
   },
   {
     name: "Typeform",
-    imageUrl: "/static/img/logos/companies/typeform.svg",
+    imageUrl: "/img/logos/companies/typeform.svg",
     size: "default",
   },
   {
     name: "SpotHero",
-    imageUrl: "/static/img/logos/companies/spothero.png",
+    imageUrl: "/img/logos/companies/spothero.png",
     size: "default",
   },
   {
     name: "Geotab",
-    imageUrl: "/static/img/logos/companies/geotab.jpg",
+    imageUrl: "/img/logos/companies/geotab.jpg",
     size: "small",
   },
   {
     name: "ThoughtWorks",
-    imageUrl: "/static/img/logos/companies/thoughtworks.png",
+    imageUrl: "/img/logos/companies/thoughtworks.png",
     size: "large",
   },
   {
     name: "Viasat",
-    imageUrl: "/static/img/logos/companies/viasat.png",
+    imageUrl: "/img/logos/companies/viasat.png",
     size: "large",
   },
   {
     name: "Klarna",
-    imageUrl: "/static/img/logos/companies/klarna.svg",
+    imageUrl: "/img/logos/companies/klarna.svg",
     size: "small",
   },
   {
     name: "Wolt",
-    imageUrl: "/static/img/logos/companies/wolt.png",
+    imageUrl: "/img/logos/companies/wolt.png",
     size: "large",
   },
   {
     name: "DFDS",
-    imageUrl: "/static/img/logos/companies/dfds.png",
+    imageUrl: "/img/logos/companies/dfds.png",
     size: "default",
   },
   {
     name: "BankSalad",
-    imageUrl: "/static/img/logos/companies/banksalad.png",
+    imageUrl: "/img/logos/companies/banksalad.png",
     size: "large",
   },
   {
     name: "Uphold",
-    imageUrl: "/static/img/logos/companies/uphold.png",
+    imageUrl: "/img/logos/companies/uphold.png",
     size: "large",
   },
 ];
@@ -81,80 +81,80 @@ const companyLogos = [
 const platformLogos = [
   {
     name: "ADLS",
-    imageUrl: "/static/img/logos/platforms/adls.svg",
+    imageUrl: "/img/logos/platforms/adls.svg",
   },
   {
     name: "Airflow",
-    imageUrl: "/static/img/logos/platforms/airflow.svg",
+    imageUrl: "/img/logos/platforms/airflow.svg",
   },
   {
     name: "Athena",
-    imageUrl: "/static/img/logos/platforms/athena.svg",
+    imageUrl: "/img/logos/platforms/athena.svg",
   },
   {
     name: "BigQuery",
-    imageUrl: "/static/img/logos/platforms/bigquery.svg",
+    imageUrl: "/img/logos/platforms/bigquery.svg",
   },
   {
     name: "CouchBase",
-    imageUrl: "/static/img/logos/platforms/couchbase.svg",
+    imageUrl: "/img/logos/platforms/couchbase.svg",
   },
-  { name: "DBT", imageUrl: "/static/img/logos/platforms/dbt.svg" },
-  { name: "Druid", imageUrl: "/static/img/logos/platforms/druid.svg" },
+  { name: "DBT", imageUrl: "/img/logos/platforms/dbt.svg" },
+  { name: "Druid", imageUrl: "/img/logos/platforms/druid.svg" },
   {
     name: "Feast",
-    imageUrl: "/static/img/logos/platforms/feast.svg",
+    imageUrl: "/img/logos/platforms/feast.svg",
   },
   {
     name: "Glue",
-    imageUrl: "/static/img/logos/platforms/glue.svg",
+    imageUrl: "/img/logos/platforms/glue.svg",
   },
   {
     name: "Hadoop",
-    imageUrl: "/static/img/logos/platforms/hadoop.svg",
+    imageUrl: "/img/logos/platforms/hadoop.svg",
   },
   {
     name: "Hive",
-    imageUrl: "/static/img/logos/platforms/hive.svg",
+    imageUrl: "/img/logos/platforms/hive.svg",
   },
-  { name: "Kafka", imageUrl: "/static/img/logos/platforms/kafka.svg" },
-  { name: "Kusto", imageUrl: "/static/img/logos/platforms/kusto.svg" },
-  { name: "Looker", imageUrl: "/static/img/logos/platforms/looker.svg" },
-  { name: "MongoDB", imageUrl: "/static/img/logos/platforms/mongodb.svg" },
+  { name: "Kafka", imageUrl: "/img/logos/platforms/kafka.svg" },
+  { name: "Kusto", imageUrl: "/img/logos/platforms/kusto.svg" },
+  { name: "Looker", imageUrl: "/img/logos/platforms/looker.svg" },
+  { name: "MongoDB", imageUrl: "/img/logos/platforms/mongodb.svg" },
   {
     name: "MSSQL",
-    imageUrl: "/static/img/logos/platforms/mssql.svg",
+    imageUrl: "/img/logos/platforms/mssql.svg",
   },
   {
     name: "MySQL",
-    imageUrl: "/static/img/logos/platforms/mysql.svg",
+    imageUrl: "/img/logos/platforms/mysql.svg",
   },
-  { name: "Oracle", imageUrl: "/static/img/logos/platforms/oracle.svg" },
-  { name: "Pinot", imageUrl: "/static/img/logos/platforms/pinot.svg" },
-  { name: "PostgreSQL", imageUrl: "/static/img/logos/platforms/postgres.svg" },
-  { name: "Presto", imageUrl: "/static/img/logos/platforms/presto.svg" },
-  { name: "Redash", imageUrl: "/static/img/logos/platforms/redash.svg" },
+  { name: "Oracle", imageUrl: "/img/logos/platforms/oracle.svg" },
+  { name: "Pinot", imageUrl: "/img/logos/platforms/pinot.svg" },
+  { name: "PostgreSQL", imageUrl: "/img/logos/platforms/postgres.svg" },
+  { name: "Presto", imageUrl: "/img/logos/platforms/presto.svg" },
+  { name: "Redash", imageUrl: "/img/logos/platforms/redash.svg" },
   {
     name: "Redshift",
-    imageUrl: "/static/img/logos/platforms/redshift.svg",
+    imageUrl: "/img/logos/platforms/redshift.svg",
   },
   {
     name: "S3",
-    imageUrl: "/static/img/logos/platforms/s3.svg",
+    imageUrl: "/img/logos/platforms/s3.svg",
   },
   {
     name: "SageMaker",
-    imageUrl: "/static/img/logos/platforms/sagemaker.svg",
+    imageUrl: "/img/logos/platforms/sagemaker.svg",
   },
-  { name: "Snowflake", imageUrl: "/static/img/logos/platforms/snowflake.svg" },
-  { name: "Spark", imageUrl: "/static/img/logos/platforms/spark.svg" },
+  { name: "Snowflake", imageUrl: "/img/logos/platforms/snowflake.svg" },
+  { name: "Spark", imageUrl: "/img/logos/platforms/spark.svg" },
   {
     name: "Superset",
-    imageUrl: "/static/img/logos/platforms/superset.svg",
+    imageUrl: "/img/logos/platforms/superset.svg",
   },
   {
     name: "Teradata",
-    imageUrl: "/static/img/logos/platforms/teradata.svg",
+    imageUrl: "/img/logos/platforms/teradata.svg",
   },
 ];
 
@@ -178,10 +178,7 @@ export const PlatformLogos = () => (
 );
 
 export const CompanyLogos = () => (
-  <Link
-    to={useBaseUrl("docs/metadata-ingestion#installing-plugins/")}
-    className={styles.marquee}
-  >
+  <div className={styles.marquee}>
     <div className={styles.companyWrapper}>
       {[...companyLogos, ...companyLogos].map((logo, idx) => (
         <img
@@ -193,5 +190,5 @@ export const CompanyLogos = () => (
         />
       ))}
     </div>
-  </Link>
+  </div>
 );
