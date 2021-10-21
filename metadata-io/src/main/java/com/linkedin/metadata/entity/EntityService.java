@@ -357,7 +357,8 @@ public abstract class EntityService {
         urn,
         aspectRecordsToIngest.stream().map(pair -> pair.getFirst()).collect(
         Collectors.toSet()
-        )));
+        )
+    ));
 
     aspectRecordsToIngest.forEach(aspectNamePair -> {
       ingestAspect(urn, aspectNamePair.getFirst(), aspectNamePair.getSecond(), auditStamp, systemMetadata);
