@@ -15,17 +15,19 @@ def _is_importable(path: str) -> bool:
     return "." in path or ":" in path
 
 
-def import_path(key: str) -> Any:
+def import_path(path: str) -> Any:
     """
     Import an item from a package, where the path is formatted as 'package.module.submodule.ClassName'
-    or 'package.module.submodule:ClassName.classmethod'.
+    or 'package.module.submodule:ClassName.classmethod'. The dot-based format assumes that the bit
+    after the last dot is the item to be fetched. In cases where the item to be imported is embedded
+    within another type, the colon-based syntax can be used to disambiguate.
     """
-    assert _is_importable(key), "path must be in the appropriate format"
+    assert _is_importable(path), "path must be in the appropriate format"
 
-    if ":" in key:
-        module_name, object_name = key.rsplit(":", 1)
+    if ":" in path:
+        module_name, object_name = path.rsplit(":", 1)
     else:
-        module_name, object_name = key.rsplit(".", 1)
+        module_name, object_name = path.rsplit(".", 1)
 
     item = importlib.import_module(module_name)
     for attr in object_name.split("."):

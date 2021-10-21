@@ -9,6 +9,7 @@ from datahub.ingestion.extractor.extractor_registry import extractor_registry
 from datahub.ingestion.sink.console import ConsoleSink
 from datahub.ingestion.sink.sink_registry import sink_registry
 from datahub.ingestion.source.source_registry import source_registry
+from datahub.ingestion.transformer.transform_registry import transform_registry
 from tests.test_helpers.click_helpers import assert_result_ok
 
 
@@ -18,16 +19,24 @@ from tests.test_helpers.click_helpers import assert_result_ok
         source_registry,
         sink_registry,
         extractor_registry,
+        transform_registry,
     ],
 )
 def test_registry_nonempty(registry):
     assert len(registry.mapping) > 0
 
 
-def test_list_all() -> None:
+@pytest.mark.parametrize(
+    "verbose",
+    [False, True],
+)
+def test_list_all(verbose: bool) -> None:
     # This just verifies that it runs without error.
     runner = CliRunner()
-    result = runner.invoke(datahub, ["check", "plugins", "--verbose"])
+    args = ["check", "plugins"]
+    if verbose:
+        args.append("--verbose")
+    result = runner.invoke(datahub, args)
     assert_result_ok(result)
     assert len(result.output.splitlines()) > 20
 
@@ -37,6 +46,9 @@ def test_registry():
     fake_registry = PluginRegistry[Sink]()
     fake_registry.register("console", ConsoleSink)
     fake_registry.register_disabled("disabled", ModuleNotFoundError("disabled sink"))
+    fake_registry.register_disabled(
+        "disabled-exception", Exception("second disabled sink")
+    )
 
     class DummyClass:
         pass
@@ -72,3 +84,9 @@ def test_registry():
         fake_registry.register("thisdoesnotexist", DummyClass)  # type: ignore
     with pytest.raises(ConfigurationError, match="disabled"):
         fake_registry.get("disabled")
+    with pytest.raises(ConfigurationError, match="second disabled sink"):
+        fake_registry.get("disabled-exception")
+
+    # This just verifies that it runs without error. The formatting should be manually checked.
+    assert len(fake_registry.summary(verbose=False).splitlines()) >= 5
+    assert len(fake_registry.summary(verbose=True).splitlines()) >= 5
