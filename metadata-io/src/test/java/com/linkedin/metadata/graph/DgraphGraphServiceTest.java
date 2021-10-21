@@ -1,7 +1,6 @@
 package com.linkedin.metadata.graph;
 
-import com.linkedin.metadata.query.RelationshipDirection;
-import com.linkedin.metadata.query.RelationshipFilter;
+import com.linkedin.metadata.query.filter.RelationshipDirection;
 import io.dgraph.DgraphClient;
 import io.dgraph.DgraphGrpc;
 import io.grpc.CallOptions;
@@ -28,11 +27,13 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
-import static com.linkedin.metadata.dao.utils.QueryUtils.EMPTY_FILTER;
-import static com.linkedin.metadata.dao.utils.QueryUtils.newFilter;
+import static com.linkedin.metadata.search.utils.QueryUtils.EMPTY_FILTER;
+import static com.linkedin.metadata.search.utils.QueryUtils.newFilter;
+import static com.linkedin.metadata.search.utils.QueryUtils.newRelationshipFilter;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
+@SuppressWarnings("ArraysAsListWithZeroOrOneArgument")
 @Slf4j
 public class DgraphGraphServiceTest extends GraphServiceTestBase {
 
@@ -641,7 +642,7 @@ public class DgraphGraphServiceTest extends GraphServiceTestBase {
                             put("key", "dest-key");
                         }}),
                         Arrays.asList("relationship1", "relationship2"),
-                        new RelationshipFilter().setCriteria(EMPTY_FILTER.getCriteria()).setDirection(direction),
+                        newRelationshipFilter(EMPTY_FILTER, direction),
                         0, 100
                 ),
                 expectedQuery

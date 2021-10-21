@@ -4,11 +4,11 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.protobuf.ByteString;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.metadata.query.Criterion;
-import com.linkedin.metadata.query.CriterionArray;
-import com.linkedin.metadata.query.Filter;
-import com.linkedin.metadata.query.RelationshipDirection;
-import com.linkedin.metadata.query.RelationshipFilter;
+import com.linkedin.metadata.query.filter.Criterion;
+import com.linkedin.metadata.query.filter.CriterionArray;
+import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.query.filter.RelationshipDirection;
+import com.linkedin.metadata.query.filter.RelationshipFilter;
 import io.dgraph.DgraphClient;
 import io.dgraph.DgraphProto.Mutation;
 import io.dgraph.DgraphProto.NQuad;
@@ -167,7 +167,7 @@ public class DgraphGraphService implements GraphService {
         String srcVar = "uid(src)";
         String dstVar = "uid(dst)";
 
-        // edge case: source and destnation are same node
+        // edge case: source and destination are same node
         if (edge.getSource().equals(edge.getDestination())) {
             query = String.format("query {\n"
                     + " node as var(func: eq(urn, \"%s\"))\n"
@@ -242,12 +242,26 @@ public class DgraphGraphService implements GraphService {
                                                        @Nonnull RelationshipFilter relationshipFilter,
                                                        int offset,
                                                        int count) {
-        // TODO: verify assumptions: criterions in filters are AND
-
         if (relationshipTypes.isEmpty()) {
-            // we would have to construct a query that never returns an results
+            // we would have to construct a query that never returns any results
             // just do not call this method in the first place
             throw new IllegalArgumentException("The relationship types must not be empty");
+        }
+
+
+        if (sourceEntityFilter.hasCriteria() || destinationEntityFilter.hasCriteria()) {
+            throw new IllegalArgumentException("The DgraphGraphService does not support criteria in source or destination entity filter");
+        }
+
+        //noinspection ConstantConditions
+        if (sourceEntityFilter.hasOr() && sourceEntityFilter.getOr().size() > 1
+                || destinationEntityFilter.hasOr() && destinationEntityFilter.getOr().size() > 1) {
+            throw new IllegalArgumentException("The DgraphGraphService does not support multiple OR criteria in source or destination entity filter");
+        }
+
+        //noinspection ConstantConditions
+        if (relationshipFilter.hasCriteria() || relationshipFilter.hasOr() && relationshipFilter.getOr().size() > 0) {
+            throw new IllegalArgumentException("The DgraphGraphService does not support any criteria for the relationship filter");
         }
 
         // We are not querying for <src> <relationship> <dest> and return <dest>
@@ -278,24 +292,31 @@ public class DgraphGraphService implements GraphService {
             filters.add(String.format("%s as var(func: eq(<type>, \"%s\"))", destinationTypeFilterName, destinationType));
         }
 
-        CriterionArray sourceCriteria = sourceEntityFilter.getCriteria();
-        IntStream.range(0, sourceCriteria.size())
-                .forEach(idx -> {
-                    String sourceFilterName = "sourceFilter" + (idx + 1);
-                    sourceFilterNames.add(sourceFilterName);
-                    Criterion criterion = sourceCriteria.get(idx);
-                    // TODO: escape field name and string value
-                    filters.add(String.format("%s as var(func: eq(<%s>, \"%s\"))", sourceFilterName, criterion.getField(), criterion.getValue()));
-                });
-        CriterionArray destinationCriteria = destinationEntityFilter.getCriteria();
-        IntStream.range(0, destinationCriteria.size())
-                .forEach(idx -> {
-                    String sourceFilterName = "destinationFilter" + (idx + 1);
-                    destinationFilterNames.add(sourceFilterName);
-                    Criterion criterion = destinationCriteria.get(idx);
-                    // TODO: escape field name and string value
-                    filters.add(String.format("%s as var(func: eq(<%s>, \"%s\"))", sourceFilterName, criterion.getField(), criterion.getValue()));
-                });
+        //noinspection ConstantConditions
+        if (sourceEntityFilter.hasOr() && sourceEntityFilter.getOr().size() == 1) {
+            CriterionArray sourceCriteria = sourceEntityFilter.getOr().get(0).getAnd();
+            IntStream.range(0, sourceCriteria.size())
+                    .forEach(idx -> {
+                        String sourceFilterName = "sourceFilter" + (idx + 1);
+                        sourceFilterNames.add(sourceFilterName);
+                        Criterion criterion = sourceCriteria.get(idx);
+                        // TODO: escape field name and string value
+                        filters.add(String.format("%s as var(func: eq(<%s>, \"%s\"))", sourceFilterName, criterion.getField(), criterion.getValue()));
+                    });
+        }
+
+        //noinspection ConstantConditions
+        if (destinationEntityFilter.hasOr() && destinationEntityFilter.getOr().size() == 1) {
+            CriterionArray destinationCriteria = destinationEntityFilter.getOr().get(0).getAnd();
+            IntStream.range(0, destinationCriteria.size())
+                    .forEach(idx -> {
+                        String sourceFilterName = "destinationFilter" + (idx + 1);
+                        destinationFilterNames.add(sourceFilterName);
+                        Criterion criterion = destinationCriteria.get(idx);
+                        // TODO: escape field name and string value
+                        filters.add(String.format("%s as var(func: eq(<%s>, \"%s\"))", sourceFilterName, criterion.getField(), criterion.getValue()));
+                    });
+        }
 
         IntStream.range(0, directedRelationshipTypes.size())
                 .forEach(idx -> {
