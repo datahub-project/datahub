@@ -1,4 +1,4 @@
-package com.linkedin.datahub.graphql.types.dataset.mappers;
+package com.linkedin.metadata.entity;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
@@ -15,6 +15,7 @@ import com.linkedin.data.template.WrappingArrayTemplate;
 import com.linkedin.metadata.aspect.AspectVersion;
 import com.linkedin.metadata.dao.utils.RecordUtils;
 import com.linkedin.metadata.dummy.DummySnapshot;
+import com.linkedin.metadata.utils.PegasusUtils;
 import com.linkedin.metadata.validator.AspectValidator;
 import com.linkedin.metadata.validator.DeltaValidator;
 import com.linkedin.metadata.validator.DocumentValidator;
@@ -23,6 +24,7 @@ import com.linkedin.metadata.validator.InvalidSchemaException;
 import com.linkedin.metadata.validator.RelationshipValidator;
 import com.linkedin.metadata.validator.SnapshotValidator;
 import com.linkedin.metadata.validator.ValidationUtils;
+import com.linkedin.util.Pair;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -146,7 +148,7 @@ public class NewModelUtils {
   }
 
   @Nonnull
-  public static <SNAPSHOT extends RecordTemplate> List<RecordTemplate> getAspectsFromSnapshot(
+  public static <SNAPSHOT extends RecordTemplate> List<Pair<String, RecordTemplate>> getAspectsFromSnapshot(
       @Nonnull SNAPSHOT snapshot) {
     SnapshotValidator.validateSnapshotSchema(snapshot.getClass());
     return getAspects(snapshot);
@@ -163,19 +165,21 @@ public class NewModelUtils {
   }
 
   @Nonnull
-  public static List<RecordTemplate> getAspectsFromSnapshotUnion(@Nonnull UnionTemplate snapshotUnion) {
+  public static List<Pair<String, RecordTemplate>> getAspectsFromSnapshotUnion(@Nonnull UnionTemplate snapshotUnion) {
     return getAspects(RecordUtils.getSelectedRecordTemplateFromUnion(snapshotUnion));
   }
 
   @Nonnull
-  private static List<RecordTemplate> getAspects(@Nonnull RecordTemplate snapshot) {
+  private static List<Pair<String, RecordTemplate>> getAspects(@Nonnull RecordTemplate snapshot) {
     Class<? extends WrappingArrayTemplate> clazz = getAspectsArrayClass(snapshot.getClass());
     WrappingArrayTemplate aspectArray =
         (WrappingArrayTemplate) RecordUtils.getRecordTemplateWrappedField(snapshot, "aspects", clazz);
-    List<RecordTemplate> aspects = new ArrayList();
+    List<Pair<String, RecordTemplate>> aspects = new ArrayList();
     aspectArray.forEach((item) -> {
       try {
-        aspects.add(RecordUtils.getSelectedRecordTemplateFromUnion((UnionTemplate) item));
+        RecordTemplate aspect = RecordUtils.getSelectedRecordTemplateFromUnion((UnionTemplate) item);
+        String name = PegasusUtils.getAspectNameFromSchema(aspect.schema());
+        aspects.add(Pair.of(name, aspect));
       } catch (InvalidSchemaException e) {
         // ignore fields that are not part of the union
       } catch (TemplateOutputCastException e) {
@@ -375,4 +379,3 @@ public class NewModelUtils {
     }
   }
 }
-
