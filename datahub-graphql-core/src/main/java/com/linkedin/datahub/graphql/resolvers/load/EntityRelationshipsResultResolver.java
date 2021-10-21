@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.load;
 
 import com.linkedin.common.EntityRelationship;
+
 import com.linkedin.common.EntityRelationships;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Entity;
@@ -9,7 +10,7 @@ import com.linkedin.datahub.graphql.generated.RelationshipsInput;
 import com.linkedin.datahub.graphql.types.common.mappers.AuditStampMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.metadata.graph.GraphClient;
-import com.linkedin.metadata.query.RelationshipDirection;
+import com.linkedin.metadata.query.filter.RelationshipDirection;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.List;
@@ -34,24 +35,24 @@ public class EntityRelationshipsResultResolver implements DataFetcher<Completabl
   public CompletableFuture<EntityRelationshipsResult> get(DataFetchingEnvironment environment) {
     final QueryContext context = environment.getContext();
     final String urn = ((Entity) environment.getSource()).getUrn();
-      final RelationshipsInput input = bindArgument(environment.getArgument("input"), RelationshipsInput.class);
+    final RelationshipsInput input = bindArgument(environment.getArgument("input"), RelationshipsInput.class);
 
-      final List<String> relationshipTypes = input.getTypes();
-      final com.linkedin.datahub.graphql.generated.RelationshipDirection relationshipDirection = input.getDirection();
-      final Integer start = input.getStart(); // Optional!
-      final Integer count = input.getCount(); // Optional!
-      final RelationshipDirection resolvedDirection = RelationshipDirection.valueOf(relationshipDirection.toString());
-      return CompletableFuture.supplyAsync(() -> mapEntityRelationships(
-            fetchEntityRelationships(
-              urn,
-              relationshipTypes,
-              resolvedDirection,
-              start,
-              count,
-              context.getActor()
-            ),
-          resolvedDirection
-      ));
+    final List<String> relationshipTypes = input.getTypes();
+    final com.linkedin.datahub.graphql.generated.RelationshipDirection relationshipDirection = input.getDirection();
+    final Integer start = input.getStart(); // Optional!
+    final Integer count = input.getCount(); // Optional!
+    final RelationshipDirection resolvedDirection = RelationshipDirection.valueOf(relationshipDirection.toString());
+    return CompletableFuture.supplyAsync(() -> mapEntityRelationships(
+          fetchEntityRelationships(
+            urn,
+            relationshipTypes,
+            resolvedDirection,
+            start,
+            count,
+            context.getActor()
+          ),
+        resolvedDirection
+    ));
   }
 
   private EntityRelationships fetchEntityRelationships(
@@ -62,7 +63,7 @@ public class EntityRelationshipsResultResolver implements DataFetcher<Completabl
       final Integer count,
       final String actor) {
 
-      return _graphClient.getRelatedEntities(urn, types, direction, start, count, actor);
+    return _graphClient.getRelatedEntities(urn, types, direction, start, count, actor);
   }
 
   private EntityRelationshipsResult mapEntityRelationships(

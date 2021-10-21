@@ -85,7 +85,7 @@ export type EntityContextType = {
     updateEntity: UpdateEntityType<any>;
     routeToTab: (params: { tabName: string; tabParams?: Record<string, any>; method?: 'push' | 'replace' }) => void;
     refetch: () => Promise<any>;
-    lineageMetadata: FetchedEntity | undefined;
+    lineage: FetchedEntity | undefined;
 };
 
 export type RequiredAndNotNull<T> = {

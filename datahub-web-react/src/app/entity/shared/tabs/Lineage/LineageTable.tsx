@@ -5,7 +5,7 @@ import VisiblitySensor from 'react-visibility-sensor';
 
 import { useEntityRegistry } from '../../../../useEntityRegistry';
 import { PreviewType } from '../../../Entity';
-import { Entity, EntityType } from '../../../../../types.generated';
+import { Entity } from '../../../../../types.generated';
 import { ANTD_GRAY } from '../../constants';
 
 const LineageList = styled(List)`
@@ -58,12 +58,8 @@ export const LineageTable = ({ data, title }: Props) => {
                 <ListItem>
                     <VisiblitySensor partialVisibility>
                         {({ isVisible }) =>
-                            isVisible ? (
-                                entityRegistry.renderPreview(
-                                    item?.type || EntityType.Dataset,
-                                    PreviewType.PREVIEW,
-                                    item,
-                                )
+                            isVisible && !!item.type ? (
+                                entityRegistry.renderPreview(item.type, PreviewType.PREVIEW, item)
                             ) : (
                                 <ItemPlaceholder />
                             )

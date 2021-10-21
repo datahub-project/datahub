@@ -1,7 +1,7 @@
 package com.linkedin.metadata.graph;
 
 import com.linkedin.common.EntityRelationships;
-import com.linkedin.metadata.query.RelationshipDirection;
+import com.linkedin.metadata.query.filter.RelationshipDirection;
 import java.util.List;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;

@@ -167,8 +167,6 @@ export class ChartEntity implements Entity<Chart> {
     };
 
     getLineageVizConfig = (entity: Chart) => {
-        // eslint-disable-next-line @typescript-eslint/dot-notation
-        console.log(entity?.['dashboards']);
         return {
             urn: entity.urn,
             name: entity.info?.name || '',

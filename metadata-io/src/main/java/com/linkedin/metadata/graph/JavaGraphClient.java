@@ -4,8 +4,8 @@ import com.linkedin.common.EntityRelationship;
 import com.linkedin.common.EntityRelationshipArray;
 import com.linkedin.common.EntityRelationships;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.metadata.dao.utils.QueryUtils;
-import com.linkedin.metadata.query.RelationshipDirection;
+import com.linkedin.metadata.query.filter.RelationshipDirection;
+import com.linkedin.metadata.search.utils.QueryUtils;
 import java.net.URISyntaxException;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -13,7 +13,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.metadata.dao.utils.QueryUtils.*;
+import static com.linkedin.metadata.search.utils.QueryUtils.*;
 
 
 @Slf4j

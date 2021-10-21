@@ -3,7 +3,7 @@ import React from 'react';
 import styled from 'styled-components';
 import { useGetBrowsePathsQuery } from '../../../../../../graphql/browse.generated';
 import { EntityType } from '../../../../../../types.generated';
-import { useLineageMetadata } from '../../../EntityContext';
+import { useLineageData } from '../../../EntityContext';
 import { ProfileNavBrowsePath } from './ProfileNavBrowsePath';
 
 type Props = {
@@ -15,15 +15,15 @@ const AffixWithHeight = styled(Affix)``;
 
 export const EntityProfileNavBar = ({ urn, entityType }: Props) => {
     const { data: browseData } = useGetBrowsePathsQuery({ variables: { input: { urn, type: entityType } } });
-    const lineageMetadata = useLineageMetadata();
+    const lineage = useLineageData();
 
     return (
         <AffixWithHeight offsetTop={60}>
             <ProfileNavBrowsePath
                 type={entityType}
                 path={browseData?.browsePaths?.[0]?.path || []}
-                upstreams={lineageMetadata?.upstreamChildren?.length || 0}
-                downstreams={lineageMetadata?.downstreamChildren?.length || 0}
+                upstreams={lineage?.upstreamChildren?.length || 0}
+                downstreams={lineage?.downstreamChildren?.length || 0}
             />
         </AffixWithHeight>
     );

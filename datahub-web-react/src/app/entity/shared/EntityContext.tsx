@@ -10,7 +10,7 @@ const EntityContext = React.createContext<EntityContextType>({
     updateEntity: () => Promise.resolve({}),
     routeToTab: () => {},
     refetch: () => Promise.resolve({}),
-    lineageMetadata: undefined,
+    lineage: undefined,
 });
 
 export default EntityContext;
@@ -40,7 +40,7 @@ export const useRefetch = () => {
     return refetch;
 };
 
-export const useLineageMetadata = () => {
-    const { lineageMetadata } = useContext(EntityContext);
-    return lineageMetadata;
+export const useLineageData = () => {
+    const { lineage } = useContext(EntityContext);
+    return lineage;
 };

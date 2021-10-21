@@ -3,7 +3,7 @@ import { Button } from 'antd';
 import { useHistory } from 'react-router';
 import { PartitionOutlined } from '@ant-design/icons';
 
-import { useEntityData, useLineageMetadata } from '../../EntityContext';
+import { useEntityData, useLineageData } from '../../EntityContext';
 import TabToolbar from '../../components/styled/TabToolbar';
 import { getEntityPath } from '../../containers/profile/utils';
 import { useEntityRegistry } from '../../../../useEntityRegistry';
@@ -13,14 +13,14 @@ export const LineageTab = () => {
     const { urn, entityType } = useEntityData();
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
-    const lineageMetadata = useLineageMetadata();
+    const lineage = useLineageData();
 
     const routeToLineage = useCallback(() => {
         history.push(getEntityPath(entityType, urn, entityRegistry, true));
     }, [history, entityType, urn, entityRegistry]);
 
-    const upstreamEntities = lineageMetadata?.upstreamChildren?.map((result) => result.entity);
-    const downstreamEntities = lineageMetadata?.downstreamChildren?.map((result) => result.entity);
+    const upstreamEntities = lineage?.upstreamChildren?.map((result) => result.entity);
+    const downstreamEntities = lineage?.downstreamChildren?.map((result) => result.entity);
 
     return (
         <>

@@ -105,6 +105,7 @@ public class UrnToEntityMapper implements ModelMapper<com.linkedin.common.urn.Ur
     if (input.getEntityType().equals("dataPlatform")) {
       partialEntity = new DataPlatform();
       ((DataPlatform) partialEntity).setUrn(input.toString());
+      ((DataPlatform) partialEntity).setType(EntityType.DATA_PLATFORM);
     }
     return partialEntity;
   }

@@ -196,7 +196,7 @@ public class GmsGraphQLEngine {
     public final List<BrowsableEntityType<?>> browsableTypes;
 
     public GmsGraphQLEngine() {
-        this(null, null, null);
+        this(null, null, null, null);
     }
 
     public GmsGraphQLEngine(
@@ -210,19 +210,6 @@ public class GmsGraphQLEngine {
         this.entityService = entityService;
         this.graphClient = graphClient;
 
-        this.datasetType = new DatasetType(GmsClientFactory.getEntitiesClient());
-        this.corpUserType = new CorpUserType(GmsClientFactory.getEntitiesClient());
-        this.corpGroupType = new CorpGroupType(GmsClientFactory.getEntitiesClient());
-        this.chartType = new ChartType(GmsClientFactory.getEntitiesClient());
-        this.dashboardType = new DashboardType(GmsClientFactory.getEntitiesClient());
-        this.dataPlatformType = new DataPlatformType(GmsClientFactory.getEntitiesClient());
-        this.tagType = new TagType(GmsClientFactory.getEntitiesClient());
-        this.mlModelType = new MLModelType(GmsClientFactory.getEntitiesClient());
-        this.mlModelGroupType = new MLModelGroupType(GmsClientFactory.getEntitiesClient());
-        this.mlFeatureType = new MLFeatureType(GmsClientFactory.getEntitiesClient());
-        this.mlFeatureTableType = new MLFeatureTableType(GmsClientFactory.getEntitiesClient());
-        this.mlPrimaryKeyType = new MLPrimaryKeyType(GmsClientFactory.getEntitiesClient());
-        this.dataFlowType = new DataFlowType(GmsClientFactory.getEntitiesClient());
         this.datasetType = new DatasetType(entityClient);
         this.corpUserType = new CorpUserType(entityClient);
         this.corpGroupType = new CorpGroupType(entityClient);

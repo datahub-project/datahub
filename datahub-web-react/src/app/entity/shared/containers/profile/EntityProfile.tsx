@@ -139,7 +139,7 @@ export const EntityProfile = <T, U>({
 
     const entityData = getDataForEntityType({ data, entityType, getOverrideProperties });
 
-    const lineageMetadata = entityData ? entityRegistry.getLineageVizConfig(entityType, entityData) : undefined;
+    const lineage = entityData ? entityRegistry.getLineageVizConfig(entityType, entityData) : undefined;
 
     if (isCompact) {
         return (
@@ -152,7 +152,7 @@ export const EntityProfile = <T, U>({
                     updateEntity,
                     routeToTab,
                     refetch,
-                    lineageMetadata,
+                    lineage,
                 }}
             >
                 <div>
@@ -182,7 +182,7 @@ export const EntityProfile = <T, U>({
                 updateEntity,
                 routeToTab,
                 refetch,
-                lineageMetadata,
+                lineage,
             }}
         >
             <>

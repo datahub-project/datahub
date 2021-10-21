@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { DatabaseFilled, DatabaseOutlined } from '@ant-design/icons';
 import { Typography } from 'antd';
-import { Dataset, EntityType, SearchResult } from '../../../types.generated';
+import { Dataset, EntityType, RelationshipDirection, SearchResult } from '../../../types.generated';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
 import { Preview } from './preview/Preview';
 import { FIELDS_TO_HIGHLIGHT } from './search/highlights';
@@ -107,8 +107,9 @@ export class DatasetEntity implements Entity<Dataset> {
                     component: LineageTab,
                     display: {
                         visible: (_, _1) => true,
-												enabled: (_, dataset: GetDatasetQuery) =>
-														(dataset?.dataset?.incoming?.count || 0) > 0 || (dataset?.dataset?.outgoing?.count || 0) > 0,
+                        enabled: (_, dataset: GetDatasetQuery) =>
+                            (dataset?.dataset?.incoming?.count || 0) > 0 ||
+                            (dataset?.dataset?.outgoing?.count || 0) > 0,
                     },
                 },
                 {
