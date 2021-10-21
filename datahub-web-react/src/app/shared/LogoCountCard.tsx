@@ -55,7 +55,7 @@ export const LogoCountCard = ({ logoUrl, logoComponent, name, count }: Props) =>
             <TitleContainer>
                 <Title level={5}>{name}</Title>
             </TitleContainer>
-            {count && <CountText>({formatNumber(count)})</CountText>}
+            {count && <CountText>{formatNumber(count)}</CountText>}
         </Container>
     );
 };

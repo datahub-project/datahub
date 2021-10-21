@@ -26,6 +26,8 @@ import { GetTagDocument } from './graphql/tag.generated';
 import { GetMlModelDocument } from './graphql/mlModel.generated';
 import { GetMlModelGroupDocument } from './graphql/mlModelGroup.generated';
 import { GetGlossaryTermDocument, GetGlossaryTermQuery } from './graphql/glossaryTerm.generated';
+import { GetEntityCountsDocument } from './graphql/app.generated';
+import { GetMeDocument } from './graphql/me.generated';
 
 const user1 = {
     username: 'sdas',
@@ -2458,6 +2460,45 @@ export const mocks = [
                     ],
                 },
             } as GetSearchResultsForMultipleQuery,
+        },
+    },
+    {
+        request: {
+            query: GetEntityCountsDocument,
+            variables: {
+                input: {
+                    types: [EntityType.Dataset],
+                },
+            },
+        },
+        result: {
+            data: {
+                getEntityCounts: {
+                    counts: [
+                        {
+                            entityType: EntityType.Dataset,
+                            count: 10,
+                        },
+                    ],
+                },
+            },
+        },
+    },
+    {
+        request: {
+            query: GetMeDocument,
+        },
+        result: {
+            data: {
+                me: {
+                    corpUser: { ...user2 },
+                    platformPrivileges: {
+                        viewAnalytics: true,
+                        managePolicies: true,
+                        manageIdentities: true,
+                    },
+                },
+            },
         },
     },
 ];
