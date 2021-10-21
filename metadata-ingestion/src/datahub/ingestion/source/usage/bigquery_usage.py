@@ -8,11 +8,11 @@ from datetime import datetime, timedelta
 from typing import Any, Counter, Dict, Iterable, List, MutableMapping, Optional, Union
 
 import cachetools
-from datahub.configuration.common import AllowDenyPattern
 import pydantic
 from google.cloud.logging_v2.client import Client as GCPLoggingClient
 
 import datahub.emitter.mce_builder as builder
+from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.time_window_config import get_time_bucket
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
