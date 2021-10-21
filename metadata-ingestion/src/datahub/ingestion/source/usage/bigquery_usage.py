@@ -233,7 +233,7 @@ class BigQueryUsageConfig(BaseUsageConfig):
     extra_client_options: dict = {}
     env: str = builder.DEFAULT_ENV
     platform: str = "bigquery"
-    included_resource_names: AllowDenyPattern = AllowDenyPattern.allow_all()
+    resource_name_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
 
     query_log_delay: Optional[pydantic.PositiveInt] = None
     max_query_duration: timedelta = timedelta(minutes=15)
@@ -313,9 +313,9 @@ class BigQueryUsageSource(Source):
             ),
         )
 
-        if self.config.included_resource_names.is_fully_specified_allow_list():
-            included_resource_names = self.config.included_resource_names.get_allowed_list()
-            for idx, table in enumerate(included_resource_names):
+        if self.config.resource_name_pattern.is_fully_specified_allow_list():
+            resource_name_pattern = self.config.resource_name_pattern.get_allowed_list()
+            for idx, table in enumerate(resource_name_pattern):
                 if idx == 0:
                     filter += f" AND protoPayload.resourceName = ({table}"
                 else:
