@@ -21,7 +21,7 @@ describe('HomePage', () => {
         const { getByText } = render(
             <MockedProvider
                 mocks={mocks}
-                addTypename
+                addTypename={false}
                 defaultOptions={{
                     watchQuery: { fetchPolicy: 'no-cache' },
                     query: { fetchPolicy: 'no-cache' },
