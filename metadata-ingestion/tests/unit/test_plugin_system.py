@@ -70,7 +70,7 @@ def test_registry():
     with pytest.raises(ConfigurationError, match="disabled"):
         fake_registry.get("lazy-error")
 
-    # Test error-checking.
+    # Test error-checking on keys.
     with pytest.raises(KeyError, match="special characters"):
         fake_registry.register("thisdoesnotexist.otherthing", ConsoleSink)
     with pytest.raises(KeyError, match="in use"):
@@ -78,13 +78,14 @@ def test_registry():
     with pytest.raises(KeyError, match="not find"):
         fake_registry.get("thisdoesnotexist")
 
+    # Test error-checking on registered types.
     with pytest.raises(ValueError, match="abstract"):
         fake_registry.register("thisdoesnotexist", Sink)  # type: ignore
     with pytest.raises(ValueError, match="derived"):
         fake_registry.register("thisdoesnotexist", DummyClass)  # type: ignore
     with pytest.raises(ConfigurationError, match="disabled"):
         fake_registry.get("disabled")
-    with pytest.raises(ConfigurationError, match="second disabled sink"):
+    with pytest.raises(ConfigurationError, match="disabled"):
         fake_registry.get("disabled-exception")
 
     # This just verifies that it runs without error. The formatting should be manually checked.
