@@ -233,7 +233,7 @@ export const HomePageHeader = () => {
                     />
                     {suggestionsToShow && suggestionsToShow.length > 0 && (
                         <SuggestionsContainer>
-                            <SuggestedQueriesText strong>Suggested Searches</SuggestedQueriesText>
+                            <SuggestedQueriesText strong>Try searching for</SuggestedQueriesText>
                             <SuggestionTagContainer>
                                 {suggestionsToShow.slice(0, 3).map((suggestion) => (
                                     <SuggestionButton
