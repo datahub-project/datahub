@@ -1,30 +1,25 @@
 <!--HOSTED_DOCS_ONLY
-import ThemedImage from '@theme/ThemedImage';
 import useBaseUrl from '@docusaurus/useBaseUrl';
-import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 
 export const Logo = (props) => {
-  const siteConfig = useDocusaurusContext().siteConfig;
   return (
-    <div style={{display: "flex"}}>
-      <ThemedImage
+    <div style={{ display: "flex", justifyContent: "center", padding: "20px" }}>
+      <img
+        height="150"
         alt="DataHub Logo"
-        sources={{
-            light: useBaseUrl(siteConfig.themeConfig.navbar.logo.src),
-            dark: useBaseUrl(siteConfig.themeConfig.navbar.logo.srcDark),
-        }}
+        src={useBaseUrl("/static/img/datahub-logo-color-mark.svg")}
         {...props}
       />
     </div>
-  )
+  );
 };
 
-<Logo style={{"maxWidth": "16em", "margin": "0 auto"}} />
+<Logo />
 
 <!--
 HOSTED_DOCS_ONLY-->
 <p align="center">
-<img alt="DataHub" src="docs/imgs/datahub-logo.png" height="200px" />
+<img alt="DataHub" src="docs/imgs/datahub-logo-color-mark.svg" height="150" />
 </p>
 <!-- -->
 
@@ -80,7 +75,7 @@ Please follow the [DataHub Quickstart Guide](https://datahubproject.io/docs/quic
 
 There's a [hosted demo environment](https://datahubproject.io/docs/demo) where you can play around with DataHub before installing.
 
-[![DataHub Demo GIF](docs/imgs/demo_large.gif)](https://datahubproject.io/docs/demo)
+[![DataHub Demo GIF](docs/imgs/entity.png)](https://datahubproject.io/docs/demo)
 
 ## Source Code and Repositories
 
@@ -128,8 +123,6 @@ Here are the companies that have officially adopted DataHub. Please feel free to
 - [Uphold](https://uphold.com)
 - [Viasat](https://viasat.com)
 - [Wolt](https://wolt.com)
-
-
 
 ## Select Articles & Talks
 
