@@ -98,6 +98,11 @@ type Query {
     List all DataHub Groups
     """
     listGroups(input: ListGroupsInput!): ListGroupsResult
+
+    """
+    Fetches the number of entities ingested by type
+    """
+    getEntityCounts(input: EntityCountInput): EntityCountResults
 }
 
 """
@@ -324,6 +329,13 @@ enum EntityType {
     The ML Primary Key Entity
     """
     MLPRIMARY_KEY
+}
+
+"""
+Input for the get entity counts endpoint
+"""
+input EntityCountInput {
+    types: [EntityType!]
 }
 
 """
@@ -4259,6 +4271,15 @@ input ListGroupsInput {
   The maximum number of Policies to be returned in the result set
   """
   count: Int
+}
+
+type EntityCountResults {
+    counts: [EntityCountResult!]
+}
+
+type EntityCountResult {
+    entityType: EntityType!
+    count: Int!
 }
 
 """

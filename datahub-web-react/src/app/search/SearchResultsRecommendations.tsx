@@ -35,12 +35,13 @@ type Props = {
 };
 
 export const SearchResultsRecommendations = ({ userUrn, query, filters }: Props) => {
+    const scenario = ScenarioType.SearchResults;
     const { data } = useListRecommendationsQuery({
         variables: {
             input: {
                 userUrn,
                 requestContext: {
-                    scenario: ScenarioType.SearchResults,
+                    scenario,
                     searchRequestContext: {
                         query,
                         filters,
@@ -54,15 +55,23 @@ export const SearchResultsRecommendations = ({ userUrn, query, filters }: Props)
     const recommendationModules = data?.listRecommendations?.modules;
     return (
         <RecommendationsContainer>
-            {recommendationModules &&
-                recommendationModules.map((module) => (
-                    <RecommendationContainer>
-                        <RecommendationTitle level={3}>More you may be interested in</RecommendationTitle>
-                        <RecommendationTitle level={5}>{module.title}</RecommendationTitle>
-                        <ThinDivider />
-                        <RecommendationModule module={module as RecommendationModuleType} showTitle={false} />
-                    </RecommendationContainer>
-                ))}
+            <RecommendationContainer>
+                {recommendationModules && recommendationModules.length && (
+                    <RecommendationTitle level={3}>More you may be interested in</RecommendationTitle>
+                )}
+                {recommendationModules &&
+                    recommendationModules.map((module) => (
+                        <>
+                            <RecommendationTitle level={5}>{module.title}</RecommendationTitle>
+                            <ThinDivider />
+                            <RecommendationModule
+                                module={module as RecommendationModuleType}
+                                scenarioType={scenario}
+                                showTitle={false}
+                            />
+                        </>
+                    ))}
+            </RecommendationContainer>
         </RecommendationsContainer>
     );
 };

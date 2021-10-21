@@ -1,16 +1,32 @@
 import React from 'react';
-import { RecommendationContent, RecommendationRenderType } from '../../../types.generated';
+import { RecommendationContent, RecommendationRenderType, ScenarioType } from '../../../types.generated';
+import { recommendationClickEvent } from '../util/recommendationClickEvent';
 import { PlatformList } from './component/PlatformList';
 import { RecommendationDisplayType, RecommendationsRenderer } from './RecommendationsRenderer';
 
 export class PlatformListRenderer implements RecommendationsRenderer {
     /* eslint-disable class-methods-use-this */
     renderRecommendation(
-        _: string,
-        _1: RecommendationRenderType,
+        renderId: string,
+        moduleId: string,
+        scenarioType: ScenarioType,
+        renderType: RecommendationRenderType,
         content: RecommendationContent[],
-        _2: RecommendationDisplayType,
+        _: RecommendationDisplayType,
     ): JSX.Element {
-        return <PlatformList content={content || []} />;
+        return (
+            <PlatformList
+                onClick={(index) =>
+                    recommendationClickEvent({
+                        renderId: renderId.slice(),
+                        moduleId,
+                        scenarioType,
+                        renderType,
+                        index,
+                    })
+                }
+                content={content || []}
+            />
+        );
     }
 }

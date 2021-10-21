@@ -1,4 +1,5 @@
 import logging
+import os
 from abc import abstractmethod
 from dataclasses import dataclass, field
 from typing import (
@@ -53,9 +54,45 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 from datahub.metadata.schema_classes import ChangeTypeClass, DatasetPropertiesClass
 
 if TYPE_CHECKING:
-    from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler
+    from datahub.ingestion.source.ge_data_profiler import (
+        DatahubGEProfiler,
+        GEProfilerRequest,
+    )
 
 logger: logging.Logger = logging.getLogger(__name__)
+
+
+def get_platform_from_sqlalchemy_uri(sqlalchemy_uri: str) -> str:
+    if sqlalchemy_uri.startswith("bigquery"):
+        return "bigquery"
+    if sqlalchemy_uri.startswith("druid"):
+        return "druid"
+    if sqlalchemy_uri.startswith("mssql"):
+        return "mssql"
+    if (
+        sqlalchemy_uri.startswith("jdbc:postgres:")
+        and sqlalchemy_uri.index("redshift.amazonaws") > 0
+    ):
+        return "redshift"
+    if sqlalchemy_uri.startswith("snowflake"):
+        return "snowflake"
+    if sqlalchemy_uri.startswith("presto"):
+        return "presto"
+    if sqlalchemy_uri.startswith("postgresql"):
+        return "postgres"
+    if sqlalchemy_uri.startswith("pinot"):
+        return "pinot"
+    if sqlalchemy_uri.startswith("oracle"):
+        return "oracle"
+    if sqlalchemy_uri.startswith("mysql"):
+        return "mysql"
+    if sqlalchemy_uri.startswith("mongodb"):
+        return "mongodb"
+    if sqlalchemy_uri.startswith("hive"):
+        return "hive"
+    if sqlalchemy_uri.startswith("awsathena"):
+        return "athena"
+    return "external"
 
 
 def make_sqlalchemy_uri(
@@ -111,7 +148,13 @@ class GEProfilingConfig(ConfigModel):
     enabled: bool = False
     limit: Optional[int] = None
     offset: Optional[int] = None
-    send_sample_values: Optional[bool] = True
+    send_sample_values: bool = True
+
+    # The default of (5 * cpu_count) is adopted from the default max_workers
+    # parameter of ThreadPoolExecutor. Given that profiling is often an I/O-bound
+    # task, it may make sense to increase this default value in the future.
+    # https://docs.python.org/3/library/concurrent.futures.html#concurrent.futures.ThreadPoolExecutor
+    max_workers: int = 5 * (os.cpu_count() or 4)
 
 
 class SQLAlchemyConfig(ConfigModel):
@@ -247,25 +290,8 @@ def get_schema_metadata(
     columns: List[dict],
     pk_constraints: dict = None,
     foreign_keys: List[ForeignKeyConstraint] = None,
+    canonical_schema: List[SchemaField] = [],
 ) -> SchemaMetadata:
-    canonical_schema: List[SchemaField] = []
-
-    for column in columns:
-        field = SchemaField(
-            fieldPath=column["name"],
-            type=get_column_type(sql_report, dataset_name, column["type"]),
-            nativeDataType=column.get("full_type", repr(column["type"])),
-            description=column.get("comment", None),
-            nullable=column["nullable"],
-            recursive=False,
-        )
-        if (
-            pk_constraints is not None
-            and isinstance(pk_constraints, dict)  # some dialects (hive) return list
-            and column["name"] in pk_constraints.get("constrained_columns", [])
-        ):
-            field.isPartOfKey = True
-        canonical_schema.append(field)
 
     schema_metadata = SchemaMetadata(
         schemaName=dataset_name,
@@ -316,7 +342,16 @@ class SQLAlchemySource(Source):
             # If debug logging is enabled, we also want to echo each SQL query issued.
             sql_config.options.setdefault("echo", True)
 
+        # Extra default SQLAlchemy option for better connection pooling and threading.
+        # https://docs.sqlalchemy.org/en/14/core/pooling.html#sqlalchemy.pool.QueuePool.params.max_overflow
+        if sql_config.profiling.enabled:
+            sql_config.options.setdefault(
+                "max_overflow", sql_config.profiling.max_workers
+            )
+
         for inspector in self.get_inspectors():
+            profiler = None
+            profile_requests: List["GEProfilerRequest"] = []
             if sql_config.profiling.enabled:
                 profiler = self._get_profiler_instance(inspector)
 
@@ -331,10 +366,13 @@ class SQLAlchemySource(Source):
                 if sql_config.include_views:
                     yield from self.loop_views(inspector, schema, sql_config)
 
-                if sql_config.profiling.enabled:
-                    yield from self.loop_profiler(
-                        inspector, profiler, schema, sql_config
+                if profiler:
+                    profile_requests += list(
+                        self.loop_profiler_requests(inspector, schema, sql_config)
                     )
+
+            if profiler and profile_requests:
+                yield from self.loop_profiler(profile_requests, profiler)
 
     def standardize_schema_table_names(
         self, schema: str, entity: str
@@ -437,6 +475,10 @@ class SQLAlchemySource(Source):
                 )
                 foreign_keys = []
 
+            schema_fields = self.get_schema_fields(
+                dataset_name, columns, pk_constraints
+            )
+
             schema_metadata = get_schema_metadata(
                 self.report,
                 dataset_name,
@@ -444,6 +486,7 @@ class SQLAlchemySource(Source):
                 columns,
                 pk_constraints,
                 foreign_keys,
+                schema_fields,
             )
             dataset_snapshot.aspects.append(schema_metadata)
 
@@ -451,6 +494,36 @@ class SQLAlchemySource(Source):
             wu = SqlWorkUnit(id=dataset_name, mce=mce)
             self.report.report_workunit(wu)
             yield wu
+
+    def get_schema_fields(
+        self, dataset_name: str, columns: List[dict], pk_constraints: dict = None
+    ) -> List[SchemaField]:
+        canonical_schema = []
+        for column in columns:
+            fields = self.get_schema_fields_for_column(
+                dataset_name, column, pk_constraints
+            )
+            canonical_schema.extend(fields)
+        return canonical_schema
+
+    def get_schema_fields_for_column(
+        self, dataset_name: str, column: dict, pk_constraints: dict = None
+    ) -> List[SchemaField]:
+        field = SchemaField(
+            fieldPath=column["name"],
+            type=get_column_type(self.report, dataset_name, column["type"]),
+            nativeDataType=column.get("full_type", repr(column["type"])),
+            description=column.get("comment", None),
+            nullable=column["nullable"],
+            recursive=False,
+        )
+        if (
+            pk_constraints is not None
+            and isinstance(pk_constraints, dict)  # some dialects (hive) return list
+            and column["name"] in pk_constraints.get("constrained_columns", [])
+        ):
+            field.isPartOfKey = True
+        return [field]
 
     def loop_views(
         self,
@@ -480,8 +553,13 @@ class SQLAlchemySource(Source):
                 )
                 schema_metadata = None
             else:
+                schema_fields = self.get_schema_fields(dataset_name, columns)
                 schema_metadata = get_schema_metadata(
-                    self.report, dataset_name, self.platform, columns
+                    self.report,
+                    dataset_name,
+                    self.platform,
+                    columns,
+                    canonical_schema=schema_fields,
                 )
 
             try:
@@ -545,13 +623,14 @@ class SQLAlchemySource(Source):
 
         return DatahubGEProfiler(conn=inspector.bind, report=self.report)
 
-    def loop_profiler(
+    def loop_profiler_requests(
         self,
         inspector: Inspector,
-        profiler: "DatahubGEProfiler",
         schema: str,
         sql_config: SQLAlchemyConfig,
-    ) -> Iterable[MetadataWorkUnit]:
+    ) -> Iterable["GEProfilerRequest"]:
+        from datahub.ingestion.source.ge_data_profiler import GEProfilerRequest
+
         for table in inspector.get_table_names(schema):
             schema, table = self.standardize_schema_table_names(
                 schema=schema, entity=table
@@ -565,13 +644,19 @@ class SQLAlchemySource(Source):
                 self.report.report_dropped(f"profile of {dataset_name}")
                 continue
 
-            logger.info(f"Profiling {dataset_name} (this may take a while)")
-            profile = profiler.generate_profile(
+            yield GEProfilerRequest(
                 pretty_name=dataset_name,
-                **self.prepare_profiler_args(schema=schema, table=table),
+                batch_kwargs=self.prepare_profiler_args(schema=schema, table=table),
+                send_sample_values=self.config.profiling.send_sample_values,
             )
-            logger.debug(f"Finished profiling {dataset_name}")
 
+    def loop_profiler(
+        self, profile_requests: List["GEProfilerRequest"], profiler: "DatahubGEProfiler"
+    ) -> Iterable[MetadataWorkUnit]:
+        for request, profile in profiler.generate_profiles(
+            profile_requests, self.config.profiling.max_workers
+        ):
+            dataset_name = request.pretty_name
             mcp = MetadataChangeProposalWrapper(
                 entityType="dataset",
                 entityUrn=f"urn:li:dataset:(urn:li:dataPlatform:{self.platform},{dataset_name},{self.config.env})",
@@ -589,7 +674,6 @@ class SQLAlchemySource(Source):
             table=table,
             limit=self.config.profiling.limit,
             offset=self.config.profiling.offset,
-            send_sample_values=self.config.profiling.send_sample_values,
         )
 
     def get_report(self):

@@ -38,11 +38,12 @@ type Props = {
     url: string;
     platformLogoUrl?: string;
     logoComponent?: React.ReactNode;
+    onClick?: () => void;
 };
 
-export const EntityPreviewTag = ({ displayName, url, platformLogoUrl, logoComponent }: Props) => {
+export const EntityPreviewTag = ({ displayName, url, platformLogoUrl, logoComponent, onClick }: Props) => {
     return (
-        <Link to={url}>
+        <Link to={url} onClick={onClick}>
             <EntityTag>
                 <TitleContainer>
                     <IconContainer>

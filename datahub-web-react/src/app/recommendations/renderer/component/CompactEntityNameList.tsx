@@ -6,13 +6,13 @@ import { EntityPreviewTag } from './EntityPreviewTag';
 
 type Props = {
     entities: Array<Entity>;
+    onClick?: (index: number) => void;
 };
-export const CompactEntityNameList = ({ entities }: Props) => {
+export const CompactEntityNameList = ({ entities, onClick }: Props) => {
     const entityRegistry = useEntityRegistry();
     return (
         <>
-            {entities.map((entity) => {
-                console.log(entity);
+            {entities.map((entity, index) => {
                 const genericProps = entityRegistry.getGenericEntityProperties(entity.type, entity);
                 const platformLogoUrl = genericProps?.platform?.info?.logoUrl;
                 const displayName = entityRegistry.getDisplayName(entity.type, entity);
@@ -24,6 +24,7 @@ export const CompactEntityNameList = ({ entities }: Props) => {
                         url={url}
                         platformLogoUrl={platformLogoUrl || undefined}
                         logoComponent={fallbackIcon}
+                        onClick={() => onClick?.(index)}
                     />
                 );
             })}

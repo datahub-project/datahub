@@ -13,6 +13,7 @@ import { useGetAllEntitySearchResults } from '../../utils/customGraphQL/useGetAl
 import { EntityType } from '../../types.generated';
 import analytics, { EventType } from '../analytics';
 import { AdminHeaderLinks } from '../shared/admin/AdminHeaderLinks';
+import { ANTD_GRAY } from '../entity/shared/constants';
 
 const Background = styled.div`
     width: 100%;
@@ -33,7 +34,7 @@ const styles = {
     navBar: { padding: '24px' },
     searchContainer: { width: '100%', marginTop: '40px' },
     logoImage: { width: 140 },
-    searchBox: { maxWidth: 540, width: '40vw', minWidth: 300, margin: '40px 0px', marginBottom: '12px' },
+    searchBox: { width: '40vw', minWidth: 400, margin: '40px 0px', marginBottom: '12px' },
     subtitle: { marginTop: '28px', color: '#FFFFFF', fontSize: 12 },
 };
 
@@ -51,12 +52,19 @@ const NavGroup = styled.div`
     justify-content: center;
 `;
 
-const SuggestionTagContainer = styled.div`
+const SuggestionsContainer = styled.div`
     padding: 0px 30px;
+    max-width: 540px;
+    display: flex;
+    flex-direction: column;
+    justify-content: left;
+    align-items: start;
+`;
+
+const SuggestionTagContainer = styled.div`
     display: flex;
     justify-content: left;
     align-items: center;
-    max-width: 540px;
     flex-wrap: wrap;
     > div {
         margin-bottom: 12px;
@@ -75,6 +83,12 @@ const SuggestionTag = styled(Tag)`
     && {
         padding: 8px 16px;
     }
+`;
+
+const SuggestedQueriesText = styled(Typography.Text)`
+    margin-left: 12px;
+    margin-bottom: 12px;
+    color: ${ANTD_GRAY[8]};
 `;
 
 const SearchBarContainer = styled.div`
@@ -217,24 +231,27 @@ export const HomePageHeader = () => {
                         autoCompleteStyle={styles.searchBox}
                         entityRegistry={entityRegistry}
                     />
-                    <SuggestionTagContainer>
-                        {suggestionsToShow &&
-                            suggestionsToShow.length > 0 &&
-                            suggestionsToShow.slice(0, 3).map((suggestion) => (
-                                <SuggestionButton
-                                    type="link"
-                                    onClick={() =>
-                                        navigateToSearchUrl({
-                                            type: undefined,
-                                            query: suggestion,
-                                            history,
-                                        })
-                                    }
-                                >
-                                    <SuggestionTag>{truncate(suggestion, 40)}</SuggestionTag>
-                                </SuggestionButton>
-                            ))}
-                    </SuggestionTagContainer>
+                    {suggestionsToShow && suggestionsToShow.length > 0 && (
+                        <SuggestionsContainer>
+                            <SuggestedQueriesText strong>Suggested Searches</SuggestedQueriesText>
+                            <SuggestionTagContainer>
+                                {suggestionsToShow.slice(0, 3).map((suggestion) => (
+                                    <SuggestionButton
+                                        type="link"
+                                        onClick={() =>
+                                            navigateToSearchUrl({
+                                                type: undefined,
+                                                query: suggestion,
+                                                history,
+                                            })
+                                        }
+                                    >
+                                        <SuggestionTag>{truncate(suggestion, 40)}</SuggestionTag>
+                                    </SuggestionButton>
+                                ))}
+                            </SuggestionTagContainer>
+                        </SuggestionsContainer>
+                    )}
                 </SearchBarContainer>
             </HeaderContainer>
         </Background>

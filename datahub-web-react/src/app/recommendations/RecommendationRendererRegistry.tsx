@@ -1,4 +1,4 @@
-import { RecommendationContent, RecommendationRenderType } from '../../types.generated';
+import { RecommendationContent, RecommendationRenderType, ScenarioType } from '../../types.generated';
 import { RecommendationsRenderer, RecommendationDisplayType } from './renderer/RecommendationsRenderer';
 
 function validatedGet<K, V>(key: K, map: Map<K, V>): V {
@@ -25,12 +25,14 @@ export default class RecommendationRendererRegistry {
     }
 
     renderRecommendation(
+        renderId: string,
         moduleId: string,
+        scenarioType: ScenarioType,
         renderType: RecommendationRenderType,
         content: Array<RecommendationContent>,
         displayType: RecommendationDisplayType,
     ): JSX.Element {
         const renderer = validatedGet(renderType, this.renderTypeToRenderer);
-        return renderer.renderRecommendation(moduleId, renderType, content, displayType);
+        return renderer.renderRecommendation(renderId, moduleId, scenarioType, renderType, content, displayType);
     }
 }
