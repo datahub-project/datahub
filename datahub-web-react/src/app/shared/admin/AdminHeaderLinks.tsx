@@ -9,7 +9,7 @@ import { useGetAuthenticatedUser } from '../../useGetAuthenticatedUser';
 const AdminLink = styled.span`
     margin-right: 4px;
     &&& .ant-btn-text {
-        color: white;
+        color: ${(props) => props.theme.styles['heading-color']};
         :hover {
             color: ${(props) => props.theme.styles['primary-color']};
         }
