@@ -38,6 +38,7 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `timeout_sec` |     | 30      | Per-HTTP request timeout.    |
 | `token` |     |       | Bearer token used for authentication.    |
 | `extra_headers` |     |       | Extra headers which will be added to the request.    |
+| `max_threads`   |          | `1` |  Experimental: Max parallelism for REST API calls     |
 
 ## DataHub Kafka
 
