@@ -386,7 +386,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
 
     @Nonnull
     @Override
-    public SearchResult filter(@Nonnull String entity, @Nonnull Filter filter, @Nullable SortCriterion sortCriterion,
+    public SearchResult filter(@Nonnull String entity, @Nonnull Filter filter, @Nonnull SortCriterion sortCriterion,
         int start, int count, @Nonnull String actor) throws RemoteInvocationException {
         EntitiesDoFilterRequestBuilder requestBuilder =
             ENTITIES_REQUEST_BUILDERS.actionFilter()

@@ -452,7 +452,7 @@ public class GmsGraphQLEngine {
             .dataFetcher("listPolicies",
                 new ListPoliciesResolver(GmsClientFactory.getEntitiesClient()))
             .dataFetcher("listActionRequests",
-                new ListActionRequestsResolver(GmsClientFactory.getEntitiesClient()))
+                new ListActionRequestsResolver(entityClient))
             .dataFetcher("listUsers",
                 new ListUsersResolver(GmsClientFactory.getEntitiesClient()))
             .dataFetcher("listGroups",
@@ -560,7 +560,7 @@ public class GmsGraphQLEngine {
                 )
                 .dataFetcher("proposals", new AuthenticatedResolver<>(
                     new ProposalsResolver(
-                        (env) -> ((Entity) env.getSource()).getUrn(), GmsClientFactory.getEntitiesClient()))
+                        (env) -> ((Entity) env.getSource()).getUrn(), entityClient))
                 )
                 .dataFetcher("datasetProfiles", new AuthenticatedResolver<>(
                     new TimeSeriesAspectResolver(
