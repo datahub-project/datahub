@@ -34,7 +34,7 @@ module.exports = {
       id: "announcement",
       content:
         '<div><img src="/img/acryl-logo-white-mark.svg" /><span><strong>Managed DataHub</strong> &nbsp;Acryl Data delivers an easy to consume DataHub platform for the enterprise</span></div> <a href="/docs/saas" target="_blank" class="button button--primary">Sign up for Managed DataHub →</a>',
-      backgroundColor: "#020d17",
+      backgroundColor: "#090a11",
       textColor: "#ffffff",
       isCloseable: false,
     },
@@ -84,6 +84,7 @@ module.exports = {
       ],
     },
     footer: {
+      style: "dark",
       links: [
         {
           title: "Docs",

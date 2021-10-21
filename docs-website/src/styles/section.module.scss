@@ -17,3 +17,12 @@
   background: url("@site/static/img/datahub-logo-watermark.svg") -50% 10vh no-repeat,
     url("@site/static/img/datahub-logo-watermark.svg") 150% 100% no-repeat;
 }
+
+.announcementSection {
+  background: #090a11;
+  text-align: center;
+  h2,
+  p {
+    color: #fff;
+  }
+}

@@ -24,15 +24,13 @@ const Hero = ({}) => (
                 complexity.
               </p>
               <Link
-                className={clsx("button button--primary button--lg")}
+                className="button button--primary button--lg"
                 to={useBaseUrl("docs/")}
               >
                 Get Started →
               </Link>
               <Link
-                className={clsx(
-                  "button button--secondary button--outline button--lg"
-                )}
+                className="button button--secondary button--outline button--lg"
                 to="https://slack.datahubproject.io"
               >
                 Join our Slack

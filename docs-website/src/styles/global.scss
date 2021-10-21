@@ -63,7 +63,6 @@ div[class^="announcementBarContent"] {
   align-items: center;
   padding: 0 1rem;
   justify-content: space-between;
-  background: #020d17;
   font-size: 1rem;
   > div {
     display: flex;
@@ -126,5 +125,8 @@ div[class^="announcementBarContent"] {
     text-align: left;
     font-size: 0.8em;
     opacity: 0.5;
+  }
+  &.footer--dark {
+    --ifm-footer-background-color: #000000;
   }
 }

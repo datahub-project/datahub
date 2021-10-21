@@ -9,6 +9,7 @@ import Features from "../components/Features";
 import Section from "../components/Section";
 import { PlatformLogos, CompanyLogos } from "../components/Logos";
 import RoundedImage from "../components/RoundedImage";
+import AnnouncementSection from "../components/AnnouncementSection";
 
 const example_recipe = `
 source:
@@ -117,6 +118,7 @@ function Home() {
       <Section title="Trusted Across the Industry">
         <CompanyLogos />
       </Section>
+      <AnnouncementSection />
     </Layout>
   );
 }
