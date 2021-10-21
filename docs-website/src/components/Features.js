@@ -6,7 +6,7 @@ import useBaseUrl from "@docusaurus/useBaseUrl";
 const featuresContent = [
   {
     title: "Open Source",
-    imageUrl: "/static/img/icons/open.svg",
+    imageUrl: "/img/icons/open.svg",
     description: (
       <>
         DataHub was originally{" "}
@@ -22,7 +22,7 @@ const featuresContent = [
   },
   {
     title: "Forward Looking Architecture",
-    imageUrl: "/static/img/icons/architecture.svg",
+    imageUrl: "/img/icons/architecture.svg",
     description: (
       <>
         DataHub follows a{" "}
@@ -41,7 +41,7 @@ const featuresContent = [
   },
   {
     title: "Massive Ecosystem",
-    imageUrl: "/static/img/icons/ecosystem.svg",
+    imageUrl: "/img/icons/ecosystem.svg",
     description: (
       <>
         DataHub has pre-built integrations with your favorite systems: Kafka,

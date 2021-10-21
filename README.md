@@ -7,7 +7,7 @@ export const Logo = (props) => {
       <img
         height="150"
         alt="DataHub Logo"
-        src={useBaseUrl("/static/img/datahub-logo-color-mark.svg")}
+        src={useBaseUrl("/img/datahub-logo-color-mark.svg")}
         {...props}
       />
     </div>
