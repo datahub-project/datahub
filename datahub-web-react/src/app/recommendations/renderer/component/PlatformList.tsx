@@ -18,21 +18,27 @@ type Props = {
 };
 
 export const PlatformList = ({ content, onClick }: Props) => {
-    const platforms: Array<DataPlatform> = content
-        .map((cnt) => cnt.entity)
-        .filter((platform) => platform !== null && platform !== undefined) as Array<DataPlatform>;
+    const platformsWithCounts: Array<{ platform: DataPlatform; count?: number }> = content
+        .map((cnt) => ({ platform: cnt.entity, count: cnt.params?.contentParams?.count }))
+        .filter(
+            (platformWithCount) => platformWithCount.platform !== null && platformWithCount !== undefined,
+        ) as Array<{ platform: DataPlatform; count?: number }>;
     return (
         <PlatformListContainer>
-            {platforms.map((platform, index) => (
+            {platformsWithCounts.map((platform, index) => (
                 <Link
                     to={{
                         pathname: `${PageRoutes.SEARCH}`,
-                        search: `?filter_platform=${urlEncodeUrn(platform.urn)}`,
+                        search: `?filter_platform=${urlEncodeUrn(platform.platform.urn)}`,
                     }}
-                    key={platform.urn}
+                    key={platform.platform.urn}
                     onClick={() => onClick?.(index)}
                 >
-                    <PlatformCard name={platform.info?.displayName || ''} logoUrl={platform.info?.logoUrl || ''} />
+                    <PlatformCard
+                        name={platform.platform.info?.displayName || ''}
+                        logoUrl={platform.platform.info?.logoUrl || ''}
+                        count={platform.count}
+                    />
                 </Link>
             ))}
         </PlatformListContainer>

@@ -6,7 +6,16 @@ import { RecommendationContent, Tag } from '../../../../types.generated';
 import { StyledTag } from '../../../entity/shared/components/styled/StyledTag';
 import { urlEncodeUrn } from '../../../entity/shared/utils';
 
-const TagSearchListContainer = styled.div``;
+const TagSearchListContainer = styled.div`
+    display: flex;
+    justify-content: left;
+    align-items: center;
+    flex-wrap: wrap;
+`;
+
+const TagContainer = styled.div`
+    margin-bottom: 4px;
+`;
 
 type Props = {
     content: Array<RecommendationContent>;
@@ -26,9 +35,11 @@ export const TagSearchList = ({ content, onClick }: Props) => {
                     key={tag.urn}
                     onClick={() => onClick?.(index)}
                 >
-                    <StyledTag $colorHash={tag.urn} closable={false}>
-                        {tag.name}
-                    </StyledTag>
+                    <TagContainer>
+                        <StyledTag $colorHash={tag.urn} closable={false}>
+                            {tag.name}
+                        </StyledTag>
+                    </TagContainer>
                 </Link>
             ))}
         </TagSearchListContainer>

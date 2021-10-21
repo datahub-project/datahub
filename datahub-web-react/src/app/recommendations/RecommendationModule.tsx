@@ -17,7 +17,6 @@ export const RecommendationModule = ({ module, scenarioType, displayType, showTi
     const finalDisplayType = displayType || RecommendationDisplayType.DEFAULT; // Fallback to default item size if not provided.
     const recommendationRenderer = useRecommendationRenderer();
     const renderId = useMemo(() => uuidv4(), []);
-    console.log(`render id ${renderId}`);
     analytics.event({
         type: EventType.RecommendationImpressionEvent,
         renderId,

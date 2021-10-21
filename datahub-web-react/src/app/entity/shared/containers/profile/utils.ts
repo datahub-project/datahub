@@ -20,8 +20,8 @@ export function getDataForEntityType<T>({
     const anyEntityData = entityData as any;
     let modifiedEntityData = entityData;
     // Bring 'customProperties' field to the root level.
-    if (anyEntityData.properties?.customProperties) {
-        const customProperties = anyEntityData.properties?.customProperties;
+    const customProperties = anyEntityData.properties?.customProperties || anyEntityData.info?.customProperties;
+    if (customProperties) {
         modifiedEntityData = {
             ...entityData,
             customProperties,

@@ -21,6 +21,9 @@ query listRecommendations($input: ListRecommendationsInput!) {
                     entityProfileParams {
                         urn
                     }
+                    contentParams {
+                        count
+                    }
                 }
             }
         }

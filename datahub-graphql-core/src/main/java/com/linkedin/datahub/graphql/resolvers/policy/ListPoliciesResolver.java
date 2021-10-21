@@ -8,7 +8,7 @@ import com.linkedin.datahub.graphql.generated.ListPoliciesResult;
 import com.linkedin.datahub.graphql.generated.Policy;
 import com.linkedin.datahub.graphql.resolvers.policy.mappers.PolicyInfoPolicyMapper;
 import com.linkedin.entity.Entity;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.RestliEntityClient;
 import com.linkedin.metadata.aspect.DataHubPolicyAspect;
 import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.snapshot.DataHubPolicySnapshot;
@@ -29,9 +29,9 @@ public class ListPoliciesResolver implements DataFetcher<CompletableFuture<ListP
   private static final Integer DEFAULT_COUNT = 20;
   private static final String POLICY_ENTITY_NAME = "dataHubPolicy";
 
-  private final EntityClient _entityClient;
+  private final RestliEntityClient _entityClient;
 
-  public ListPoliciesResolver(final EntityClient entityClient) {
+  public ListPoliciesResolver(final RestliEntityClient entityClient) {
     _entityClient = entityClient;
   }
 

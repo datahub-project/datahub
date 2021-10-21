@@ -1,5 +1,5 @@
 import React from 'react';
-import { Card, Typography } from 'antd';
+import { Typography } from 'antd';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 import { useEntityRegistry } from '../useEntityRegistry';
@@ -36,7 +36,17 @@ const TypeText = styled(Typography.Title)`
     color: ${ANTD_GRAY[9]};
 `;
 
-const EntityCard = styled(Card)`
+const EntityCard = styled.div`
+    margin-right: 24px;
+    margin-bottom: 12px;
+    width: 160px;
+    height: 140px;
+    display: flex;
+    justify-content: center;
+    border-radius: 4px;
+    align-items: center;
+    flex-direction: column;
+    border: 1px solid ${ANTD_GRAY[4]};
     && {
         border-color: ${(props) => props.theme.styles['border-color-base']};
         box-shadow: ${(props) => props.theme.styles['box-shadow']};
@@ -51,7 +61,7 @@ export const BrowseEntityCard = ({ entityType, count }: { entityType: EntityType
     const formattedCount = formatNumber(count);
     return (
         <Link to={`${PageRoutes.BROWSE}/${entityRegistry.getPathName(entityType)}`}>
-            <EntityCard hoverable>
+            <EntityCard>
                 <ContentRow>
                     {entityRegistry.getIcon(entityType, 20, IconStyleType.HIGHLIGHT)}
                     <TitleRow>

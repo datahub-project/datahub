@@ -1,16 +1,24 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Col, Divider, Row, Typography } from 'antd';
+import { Divider, Typography } from 'antd';
 import { EntityType, RecommendationModule as RecommendationModuleType, ScenarioType } from '../../types.generated';
 import { useListRecommendationsQuery } from '../../graphql/recommendations.generated';
 import { RecommendationModule } from '../recommendations/RecommendationModule';
 import { BrowseEntityCard } from '../search/BrowseEntityCard';
-import { useGetAllEntityBrowseResults } from '../../utils/customGraphQL/useGetAllEntityBrowseResults';
+import { useEntityRegistry } from '../useEntityRegistry';
+import { useGetEntityCountsQuery } from '../../graphql/app.generated';
+import { formatNumber } from '../shared/formatNumber';
 
-const RecommendationsContainer = styled.div``;
+const RecommendationsContainer = styled.div`
+    margin-top: 32px;
+    padding-left: 12px;
+    padding-right: 12px;
+`;
 
 const RecommendationContainer = styled.div`
     margin-bottom: 32px;
+    max-width: 1000px;
+    min-width: 750px;
 `;
 
 const RecommendationTitle = styled(Typography.Title)`
@@ -24,24 +32,37 @@ const ThinDivider = styled(Divider)`
     margin-bottom: 12px;
 `;
 
-const EntityGridRow = styled(Row)``;
+const BrowseCardContainer = styled.div`
+    display: flex;
+    justify-content: left;
+    align-items: center;
+    flex-wrap: wrap;
+`;
 
 type Props = {
     userUrn: string;
 };
 
+// TODO: Make this list config-driven
+const PERMANENT_ENTITY_TYPES = [EntityType.Dataset, EntityType.Dashboard, EntityType.DataFlow];
+
 export const HomePageRecommendations = ({ userUrn }: Props) => {
     // Entity Types
-    const browseEntityTypes = useGetAllEntityBrowseResults({
-        path: [],
-        start: 0,
-        count: 1,
+    const entityRegistry = useEntityRegistry();
+    const browseEntityList = entityRegistry.getBrowseEntityTypes();
+
+    const { data: entityCountData } = useGetEntityCountsQuery({
+        variables: {
+            input: {
+                types: browseEntityList,
+            },
+        },
     });
-    const activeEntityTypes =
-        browseEntityTypes &&
-        Object.keys(browseEntityTypes)
-            .filter((entityType) => browseEntityTypes[entityType].data?.browse?.total > 0)
-            .map((entityTypeStr) => entityTypeStr as EntityType);
+
+    const orderedEntityCounts =
+        entityCountData?.getEntityCounts?.counts?.sort((a, b) => {
+            return browseEntityList.indexOf(a.entityType) - browseEntityList.indexOf(b.entityType);
+        }) || PERMANENT_ENTITY_TYPES.map((entityType) => ({ count: 0, entityType }));
 
     // Recommendations
     const scenario = ScenarioType.Home;
@@ -64,16 +85,19 @@ export const HomePageRecommendations = ({ userUrn }: Props) => {
             <RecommendationContainer>
                 <RecommendationTitle level={4}>Explore your Metadata</RecommendationTitle>
                 <ThinDivider />
-                <EntityGridRow gutter={[16, 24]}>
-                    {activeEntityTypes.map((entityType) => (
-                        <Col xs={24} sm={24} md={4} key={entityType}>
-                            <BrowseEntityCard
-                                entityType={entityType}
-                                count={browseEntityTypes[entityType].data?.browse?.metadata.totalNumEntities || 0}
-                            />
-                        </Col>
-                    ))}
-                </EntityGridRow>
+                <BrowseCardContainer>
+                    {orderedEntityCounts.map(
+                        (entityCount) =>
+                            entityCount &&
+                            (entityCount.count !== 0 ||
+                                PERMANENT_ENTITY_TYPES.indexOf(entityCount.entityType) !== -1) && (
+                                <BrowseEntityCard
+                                    entityType={entityCount.entityType}
+                                    count={formatNumber(entityCount.count)}
+                                />
+                            ),
+                    )}
+                </BrowseCardContainer>
             </RecommendationContainer>
             {recommendationModules &&
                 recommendationModules.map((module) => (

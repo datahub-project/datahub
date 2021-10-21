@@ -32,7 +32,7 @@ public class SearchServiceFactory {
   @Autowired
   private CacheManager cacheManager;
 
-  @Value("${SEARCH_SERVICE_BATCH_SIZE:1000}")
+  @Value("${SEARCH_SERVICE_BATCH_SIZE:100}")
   private Integer batchSize;
 
   @Bean(name = "searchService")
