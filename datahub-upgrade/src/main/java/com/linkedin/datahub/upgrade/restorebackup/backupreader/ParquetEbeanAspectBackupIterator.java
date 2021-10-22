@@ -24,6 +24,7 @@ public class ParquetEbeanAspectBackupIterator implements EbeanAspectBackupIterat
 
   @Override
   public EbeanAspectV2 next() {
+
     if (currentReaderIndex >= _parquetReaders.size()) {
       return null;
     }
@@ -32,6 +33,7 @@ public class ParquetEbeanAspectBackupIterator implements EbeanAspectBackupIterat
     try {
       GenericRecord record = parquetReader.read();
       if (record == null) {
+        log.info("Record is null, moving to next reader {} {}", currentReaderIndex, _parquetReaders.size());
         parquetReader.close();
         currentReaderIndex++;
         return next();
