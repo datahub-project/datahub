@@ -126,7 +126,7 @@ export const ProfileNavBrowsePath = ({
         </BreadcrumbItem>
     ));
 
-    const hasLineage = upstreams > 0 || downstreams > 0 || breadcrumbLinksEnabled;
+    const hasLineage = upstreams > 0 || downstreams > 0;
 
     return (
         <BrowseRow>
