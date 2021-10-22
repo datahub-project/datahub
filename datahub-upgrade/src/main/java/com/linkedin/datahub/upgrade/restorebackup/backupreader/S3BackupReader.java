@@ -62,14 +62,14 @@ public class S3BackupReader implements BackupReader {
       throw new RuntimeException(
           String.format("Backup file on path %s in bucket %s is not found", path.get(), bucket.get()));
     }
-    List<ParquetReader<GenericRecord>> reader = localFilePaths.stream().map(filePath -> {
+    List<ParquetReader<GenericRecord>> readers = localFilePaths.stream().map(filePath -> {
       try {
         return AvroParquetReader.<GenericRecord>builder(new Path(filePath)).build();
       } catch (IOException e) {
         throw new RuntimeException("Failed to build ParquetReader");
       }
     }).collect(Collectors.toList());
-    return new ParquetEbeanAspectBackupIterator(reader);
+    return new ParquetEbeanAspectBackupIterator(readers);
   }
 
   private List<String> getFileKey(String bucket, String path) {
@@ -77,7 +77,8 @@ public class S3BackupReader implements BackupReader {
     return objectListResult.getObjectSummaries()
         .stream()
         .filter(os -> os.getKey().endsWith(PARQUET_SUFFIX))
-        .map(S3ObjectSummary::getKey);
+        .map(S3ObjectSummary::getKey)
+        .collect(Collectors.toList());
   }
 
   private Optional<String> saveFile(String bucket, String key) {
