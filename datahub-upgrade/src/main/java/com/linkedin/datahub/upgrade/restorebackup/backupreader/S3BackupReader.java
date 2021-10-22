@@ -12,7 +12,9 @@ import com.linkedin.datahub.upgrade.UpgradeContext;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.GenericRecord;
@@ -51,26 +53,30 @@ public class S3BackupReader implements BackupReader {
       throw new IllegalArgumentException(
           "BACKUP_S3_BUCKET and BACKUP_S3_PATH must be set to run RestoreBackup through S3");
     }
-    Optional<String> localFilePath = getFileKey(bucket.get(), path.get()).flatMap(key -> saveFile(bucket.get(), key));
-    if (!localFilePath.isPresent()) {
+    List<String> localFilePaths = getFileKey(bucket.get(), path.get()).stream()
+        .map(key -> saveFile(bucket.get(), key))
+        .filter(Optional::isPresent)
+        .map(Optional::get)
+        .collect(Collectors.toList());
+    if (localFilePaths.isEmpty()) {
       throw new RuntimeException(
           String.format("Backup file on path %s in bucket %s is not found", path.get(), bucket.get()));
     }
-    try {
-      ParquetReader<GenericRecord> reader =
-          AvroParquetReader.<GenericRecord>builder(new Path(localFilePath.get())).build();
-      return new ParquetEbeanAspectBackupIterator(reader);
-    } catch (IOException e) {
-      throw new RuntimeException("Failed to build ParquetReader");
-    }
+    List<ParquetReader<GenericRecord>> reader = localFilePaths.stream().map(filePath -> {
+      try {
+        return AvroParquetReader.<GenericRecord>builder(new Path(filePath)).build();
+      } catch (IOException e) {
+        throw new RuntimeException("Failed to build ParquetReader");
+      }
+    }).collect(Collectors.toList());
+    return new ParquetEbeanAspectBackupIterator(reader);
   }
 
-  private Optional<String> getFileKey(String bucket, String path) {
+  private List<String> getFileKey(String bucket, String path) {
     ListObjectsV2Result objectListResult = _client.listObjectsV2(bucket, path);
     return objectListResult.getObjectSummaries()
         .stream()
         .filter(os -> os.getKey().endsWith(PARQUET_SUFFIX))
-        .findFirst()
         .map(S3ObjectSummary::getKey);
   }
 
