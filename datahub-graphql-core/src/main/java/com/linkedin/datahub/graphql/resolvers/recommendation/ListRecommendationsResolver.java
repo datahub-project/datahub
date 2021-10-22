@@ -12,7 +12,6 @@ import com.linkedin.datahub.graphql.generated.RecommendationModule;
 import com.linkedin.datahub.graphql.generated.RecommendationParams;
 import com.linkedin.datahub.graphql.generated.RecommendationRenderType;
 import com.linkedin.datahub.graphql.generated.RecommendationRequestContext;
-import com.linkedin.datahub.graphql.generated.ScenarioType;
 import com.linkedin.datahub.graphql.generated.SearchParams;
 import com.linkedin.datahub.graphql.resolvers.EntityTypeMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
@@ -47,21 +46,16 @@ public class ListRecommendationsResolver implements DataFetcher<CompletableFutur
     return CompletableFuture.supplyAsync(() -> {
       try {
         log.debug("Listing recommendations for input {}", input);
-        if (input.getRequestContext().getScenario() == ScenarioType.HOME) {
-          List<com.linkedin.metadata.recommendation.RecommendationModule> modules =
-              _recommendationService.listRecommendations(Urn.createFromString(input.getUserUrn()),
-                  mapRequestContext(input.getRequestContext()), input.getLimit());
-          return ListRecommendationsResult.builder()
-              .setModules(modules.stream()
-                  .map(this::mapRecommendationModule)
-                  .filter(Optional::isPresent)
-                  .map(Optional::get)
-                  .collect(Collectors.toList()))
-              .build();
-        } else if (input.getRequestContext().getScenario() == ScenarioType.SEARCH_RESULTS) {
-          return createMockSearchResults();
-        }
-        return createMockEntityResults();
+        List<com.linkedin.metadata.recommendation.RecommendationModule> modules =
+            _recommendationService.listRecommendations(Urn.createFromString(input.getUserUrn()),
+                mapRequestContext(input.getRequestContext()), input.getLimit());
+        return ListRecommendationsResult.builder()
+            .setModules(modules.stream()
+                .map(this::mapRecommendationModule)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .collect(Collectors.toList()))
+            .build();
       } catch (Exception e) {
         log.error("Failed to get recommendations for input {}", input);
         throw new RuntimeException("Failed to get recommendations for input " + input, e);
@@ -208,8 +202,8 @@ public class ListRecommendationsResolver implements DataFetcher<CompletableFutur
 
     // Recently Viewed
     List<String> recentlyViewed = ImmutableList.of("urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)",
-        "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleHdfsDataset,PROD)", "urn:li:dashboard:(looker,baz)", "urn:li:corpuser:datahub",
-        "urn:li:corpGroup:bfoo");
+        "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleHdfsDataset,PROD)", "urn:li:dashboard:(looker,baz)",
+        "urn:li:corpuser:datahub", "urn:li:corpGroup:bfoo");
     RecommendationModule recentlyViewedModule = new RecommendationModule();
     recentlyViewedModule.setTitle("Recently Viewed");
     recentlyViewedModule.setModuleId("RecentlyViewed");

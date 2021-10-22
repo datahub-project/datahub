@@ -5,17 +5,40 @@ import com.linkedin.metadata.recommendation.candidatesource.RecommendationCandid
 import com.linkedin.metadata.recommendation.ranker.RecommendationModuleRanker;
 import com.linkedin.metadata.utils.ConcurrencyUtils;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 
-@RequiredArgsConstructor
+@Slf4j
 public class RecommendationService {
 
   private final List<RecommendationCandidateSource> _candidateSources;
   private final RecommendationModuleRanker _ranker;
+
+  public RecommendationService(List<RecommendationCandidateSource> candidateSources,
+      RecommendationModuleRanker ranker) {
+    validateCandidateSources(candidateSources);
+    _candidateSources = candidateSources;
+    _ranker = ranker;
+  }
+
+  private void validateCandidateSources(List<RecommendationCandidateSource> candidateSources) {
+    Map<String, Long> moduleIdCount = candidateSources.stream()
+        .collect(Collectors.groupingBy(RecommendationCandidateSource::getModuleId, Collectors.counting()));
+    List<String> moduleIdsWithDuplicates = moduleIdCount.entrySet()
+        .stream()
+        .filter(entry -> entry.getValue() > 1)
+        .map(Map.Entry::getKey)
+        .collect(Collectors.toList());
+    if (!moduleIdsWithDuplicates.isEmpty()) {
+      log.error("Cannot have candidate sources with duplicate module IDs: {}", moduleIdsWithDuplicates);
+      throw new IllegalArgumentException("Cannot have candidate sources with duplicate module IDs");
+    }
+  }
 
   /**
    * Return the list of recommendation modules given input context
