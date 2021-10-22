@@ -12,35 +12,25 @@ Here’s an overview of DataHub’s current functionality. Curious about what’
 
 Here’s an example of searching for assets related to the term `health`: we see results spanning Looker dashboards, BigQuery datasets, and DataHub Tags & Users, and ultimately navigate to the “DataHub Health” Looker dashboard overview ([view in demo site](https://demo.datahubproject.io/dashboard/urn:li:dashboard:(looker,dashboards.11)/Documentation?is_lineage_mode=false))
 
-<p align="center">
-  <img src="https://github.com/maggiehays/datahub/blob/1e5c49c5d121bb4342725aa9024b35f439d784b7/docs/imgs/feature-search-across-all-entities.gif">
-</p>
-
 ![](/imgs/feature-search-across-all-entities.gif)
 
 ### Easily understand the end-to-end journey of data by tracing lineage across platforms, datasets, pipelines, charts, and dashboards
 
 Let’s dig into the dependency chain of the “DataHub Health” Looker dashboard. Using the lineage view, we can navigate all upstream dependencies of the Dashboard including Looker Charts, Snowflake and s3 Datasets, and Airflow Pipelines ([view in demo site](https://demo.datahubproject.io/dashboard/urn:li:dashboard:(looker,dashboards.11)/Documentation?is_lineage_mode=true))
 
-<p align="center">
-  <img src="https://github.com/maggiehays/datahub/blob/1e5c49c5d121bb4342725aa9024b35f439d784b7/docs/imgs/feature-navigate-lineage-vis.gif">
-</p>
+![](imgs/feature-navigate-lineage-vis.gif)
 
 ### Quickly gain context about related entities as you navigate the lineage graph
 
 As you explore the relationships between entities, it’s easy to view documentation, usage stats, ownership, and more without leaving the lineage graph
 
-<p align="center">
-  <img src="https://github.com/maggiehays/datahub/blob/1e5c49c5d121bb4342725aa9024b35f439d784b7/docs/imgs/feature-view-entitiy-details-via-lineage-vis.gif">
-</p>
+![](imgs/feature-view-entitiy-details-via-lineage-vis.gif)
 
 ### Gain confidence in the accuracy and relevance of datasets
 
 DataHub provides dataset profiling and usage statistics for popular data warehousing platforms, making it easy for data practitioners to understand the shape of the data and how it has evolved over time. Query stats give context into how often (and by whom) the data is queried which can act as a strong signal of the trustworthiness of a dataset
 
-<p align="center">
-  <img src="https://github.com/maggiehays/datahub/blob/1e5c49c5d121bb4342725aa9024b35f439d784b7/docs/imgs/feature-table-usage-and-stats.gif">
-</p>
+![](imgs/feature-table-usage-and-stats.gif)
 
 ## Robust Documentation and Tagging
 
