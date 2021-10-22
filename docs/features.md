@@ -38,33 +38,25 @@ DataHub provides dataset profiling and usage statistics for popular data warehou
 
 DataHub makes it easy to update and maintain documentation as definitions and use cases evolve. In addition to managing documentation via GMS, DataHub offers rich documentation and support for external links via the UI. 
 
-<p align="center">
-  <img src="https://github.com/maggiehays/datahub/blob/1e5c49c5d121bb4342725aa9024b35f439d784b7/docs/imgs/feature-rich-documentation.gif">
-</p>
+![](imgs/feature-rich-documentation.gif)
 
 ### Create and define new tags via API and/or the DataHub UI
 
 Create and add tags to any type of entity within DataHub via the GraphQL API, or allow your end users to create and define new tags within the UI as use cases evolve over time
 
-<p align="center">
-  <img src="https://github.com/maggiehays/datahub/blob/1e5c49c5d121bb4342725aa9024b35f439d784b7/docs/imgs/feature-create-new-tag.gif">
-</p>
+![](imgs/feature-create-new-tag.gif)
 
 ### Browse and search specific tags to fast-track discovery across entities
 
 Seamlessly browse entities associated with a tag or filter search results for a specific tag to find the entities that matter most
 
-<p align="center">
-  <img src="https://github.com/maggiehays/datahub/blob/f2a219e7475f4ca6bca399aa2950b354372b5e2e/docs/imgs/feature-tag-browse.gif">
-</p>
+![](imgs/feature-tag-browse.gif)
 
 ## Data Governance at your fingertips 
 
 ### Quickly assign asset ownership to users and/or user groups 
 
-<p align="center">
-  <img src="https://github.com/maggiehays/datahub/blob/1e5c49c5d121bb4342725aa9024b35f439d784b7/docs/imgs/feature-add-owners.gif">
-</p>
+![](imgs/feature-add-owners.gif)
 
 ### Manage Fine-Grained Access Control with Policies
 
@@ -75,18 +67,13 @@ DataHub admins can create Policies to define who can perform what action against
 * **Privileges** - Choose the set of permissions, such as Edit Owners, Edit Documentation, Edit Links
 * **Users and/or Groups** - Assign relevant Users and/or Groups; you can also assign the Policy to Resource Owners, regardless of which Group they belong to
 
-<p align="center">
-  <img src="https://github.com/maggiehays/datahub/blob/1e5c49c5d121bb4342725aa9024b35f439d784b7/docs/imgs/feature-create-policy.gif">
-</p>
+![](imgs/feature-create-policy.gif)
 
 ## Metadata quality & usage analytics
 
 Gain a deeper understanding of the health of metadata within DataHub and how end-users are interacting with the platform. The Analytics view provides a snapshot of volume of assets and percentage with assigned ownership, weekly active users, and most common searches & actions ([view in demo site](https://demo.datahubproject.io/analytics)).
 
-<p align="center">
-  <img src="https://github.com/maggiehays/datahub/blob/1e5c49c5d121bb4342725aa9024b35f439d784b7/docs/imgs/feature-datahub-analytics.png">
-</p>
-
+![](imgs/feature-datahub-analytics.png)
 
 ## DataHub is a Platform for Developers
 
