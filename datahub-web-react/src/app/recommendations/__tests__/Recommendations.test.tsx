@@ -1,10 +1,10 @@
 import React from 'react';
 import { render, waitFor } from '@testing-library/react';
 import { MockedProvider } from '@apollo/client/testing';
+import { Route } from 'react-router';
 import { HomePage } from '../../home/HomePage';
 import { mocks } from '../../../Mocks';
 import TestPageContainer from '../../../utils/test-utils/TestPageContainer';
-import { Route } from 'react-router';
 import { PageRoutes } from '../../../conf/Global';
 import { SearchPage } from '../../search/SearchPage';
 import { EntityType } from '../../../types.generated';
