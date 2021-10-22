@@ -32,7 +32,8 @@ public class ConcurrencyUtils {
   public static <O, T> List<T> transformAndCollectAsync(List<O> originalList, Function<O, T> transformer,
       BiFunction<O, Throwable, ? extends T> exceptionHandler) {
     return originalList.stream()
-        .map(element -> CompletableFuture.supplyAsync(() -> transformer.apply(element)).exceptionally(e -> exceptionHandler))
+        .map(element -> CompletableFuture.supplyAsync(() -> transformer.apply(element))
+            .exceptionally(e -> exceptionHandler.apply(element, e)))
         .filter(Objects::nonNull)
         .collect(Collectors.collectingAndThen(Collectors.toList(),
             completableFutureList -> completableFutureList.stream().map(CompletableFuture::join)))
