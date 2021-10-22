@@ -87,13 +87,6 @@ DataHub admins can create Policies to define who can perform what action against
   <img src="https://github.com/maggiehays/datahub/blob/1e5c49c5d121bb4342725aa9024b35f439d784b7/docs/imgs/feature-create-policy.gif">
 </p>
 
-### Control key business glossary terms via code
-
-## PLACEHOLDER
-_Gif of applying existing term to assets_
-
-_Gif of creating a new term via recipe & it populates in UI_
-
 ## Metadata quality & usage analytics
 
 Gain a deeper understanding of the health of metadata within DataHub and how end-users are interacting with the platform. The Analytics view provides a snapshot of volume of assets and percentage with assigned ownership, weekly active users, and most common searches & actions ([view in demo site](https://demo.datahubproject.io/analytics)).
