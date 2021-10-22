@@ -210,7 +210,7 @@ def get_mces_from_term(
         else defaults.source,
         sourceUrl=glossaryTerm.source_url if glossaryTerm.source_url else defaults.url,
         parentNode=parentNode,
-        customProperties=glossaryTerm.custom_properties
+        customProperties=glossaryTerm.custom_properties,
     )
     aspects.append(term_info)
 
