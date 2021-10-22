@@ -16,9 +16,9 @@ python generate_docker_quickstart.py ../monitoring/docker-compose.monitoring.yml
 for flavour in "" "-without-neo4j" ".monitoring"
 do
   if cmp docker-compose$flavour.quickstart.yml temp$flavour.quickstart.yml; then
-    printf 'docker-compose$flavour.quickstart.yml is up to date.'
+    echo "docker-compose$flavour.quickstart.yml is up to date."
   else
-    printf 'docker-compose$flavour.quickstart.yml is out of date.'
+    echo "docker-compose$flavour.quickstart.yml is out of date."
     exit 1
   fi
 done
