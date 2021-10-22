@@ -76,8 +76,6 @@ public class QueryUtils {
   }
 
   /**
-<<<<<<< HEAD
-=======
    * Create {@link RelationshipFilter} using filter conditions and relationship direction.
    *
    * @param field field to create a filter on
@@ -111,7 +109,6 @@ public class QueryUtils {
   }
 
   /**
->>>>>>> origin/master
    * Calculates the total page count.
    *
    * @param totalCount total count
