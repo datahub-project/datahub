@@ -30,7 +30,7 @@ public class S3BackupReader implements BackupReader {
   private final AmazonS3 _client;
 
   private static final String PARQUET_SUFFIX = ".gz.parquet";
-  private static final String TEMP_FILE_PATH = "/tmp/backup.gz.parquet";
+  private static final String TEMP_DIR = "/tmp/";
 
   public S3BackupReader() {
     _client = AmazonS3ClientBuilder.standard().withRegion(Regions.US_WEST_2).build();
@@ -53,7 +53,8 @@ public class S3BackupReader implements BackupReader {
       throw new IllegalArgumentException(
           "BACKUP_S3_BUCKET and BACKUP_S3_PATH must be set to run RestoreBackup through S3");
     }
-    List<String> localFilePaths = getFileKey(bucket.get(), path.get()).stream()
+    List<String> s3Keys = getFileKey(bucket.get(), path.get());
+    List<String> localFilePaths = s3Keys.stream()
         .map(key -> saveFile(bucket.get(), key))
         .filter(Optional::isPresent)
         .map(Optional::get)
@@ -82,17 +83,25 @@ public class S3BackupReader implements BackupReader {
   }
 
   private Optional<String> saveFile(String bucket, String key) {
-    System.out.format("Downloading %s from S3 bucket %s...\n", key, bucket);
+    log.info("Downloading {} from S3 bucket {}...", key, bucket);
+    String[] path = key.split("/");
+    String localFilePath;
+    if (path.length > 0) {
+      localFilePath = TEMP_DIR + path[path.length - 1];
+    } else {
+      localFilePath = "backup.gz.parquet";
+    }
+
     final AmazonS3 s3 = AmazonS3ClientBuilder.standard().withRegion(Regions.DEFAULT_REGION).build();
     try (S3Object o = s3.getObject(bucket, key);
         S3ObjectInputStream s3is = o.getObjectContent();
-        FileOutputStream fos = FileUtils.openOutputStream(new File(TEMP_FILE_PATH))) {
+        FileOutputStream fos = FileUtils.openOutputStream(new File(localFilePath))) {
       byte[] readBuf = new byte[1024];
       int readLen = 0;
       while ((readLen = s3is.read(readBuf)) > 0) {
         fos.write(readBuf, 0, readLen);
       }
-      return Optional.of(TEMP_FILE_PATH);
+      return Optional.of(localFilePath);
     } catch (AmazonServiceException e) {
       System.err.println(e.getErrorMessage());
       return Optional.empty();
