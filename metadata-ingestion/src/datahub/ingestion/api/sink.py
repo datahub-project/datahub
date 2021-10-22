@@ -1,6 +1,7 @@
+import datetime
 from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, List
+from typing import Any, List, Optional
 
 from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope, WorkUnit
@@ -12,6 +13,9 @@ class SinkReport(Report):
     records_written: int = 0
     warnings: List[Any] = field(default_factory=list)
     failures: List[Any] = field(default_factory=list)
+    downstream_start_time: Optional[datetime.datetime] = None
+    downstream_end_time: Optional[datetime.datetime] = None
+    downstream_total_latency_in_seconds: Optional[float] = None
 
     def report_record_written(self, record_envelope: RecordEnvelope) -> None:
         self.records_written += 1
@@ -21,6 +25,20 @@ class SinkReport(Report):
 
     def report_failure(self, info: Any) -> None:
         self.failures.append(info)
+
+    def report_downstream_latency(
+        self, start_time: datetime.datetime, end_time: datetime.datetime
+    ) -> None:
+        if (
+            self.downstream_start_time is None
+            or self.downstream_start_time > start_time
+        ):
+            self.downstream_start_time = start_time
+        if self.downstream_end_time is None or self.downstream_end_time < end_time:
+            self.downstream_end_time = end_time
+        self.downstream_total_latency_in_seconds = (
+            self.downstream_end_time - self.downstream_start_time
+        ).total_seconds()
 
 
 class WriteCallback(metaclass=ABCMeta):
