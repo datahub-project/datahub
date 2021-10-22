@@ -19,7 +19,7 @@ import { DataJobEntity } from './app/entity/dataJob/DataJobEntity';
 import { TagEntity } from './app/entity/tag/Tag';
 import { EntityRegistryContext } from './entityRegistryContext';
 import { Theme } from './conf/theme/types';
-import defaultThemeConfig from './conf/theme/theme_light.config.json';
+import defaultThemeConfig from './conf/theme/theme_acryl.config.json';
 import { PageRoutes } from './conf/Global';
 import { isLoggedInVar } from './app/auth/checkAuthStatus';
 import { GlobalCfg } from './conf';
