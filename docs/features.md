@@ -71,7 +71,7 @@ Seamlessly browse entities associated with a tag or filter search results for a 
 ### Quickly assign asset ownership to users and/or user groups 
 
 <p align="center">
-  <img src="https://github.com/maggiehays/datahub/blob/1e5c49c5d121bb4342725aa9024b35f439d784b7/docs/imgs/feature-add-onwers.gif">
+  <img src="https://github.com/maggiehays/datahub/blob/1e5c49c5d121bb4342725aa9024b35f439d784b7/docs/imgs/feature-add-owners.gif">
 </p>
 
 ### Manage Fine-Grained Access Control with Policies
