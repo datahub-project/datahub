@@ -33,7 +33,7 @@ const ResultList = styled(List)`
 const SearchBody = styled.div`
     display: flex;
     flex-direction: row;
-    min-height: 100vh;
+    min-height: calc(100vh - 60px);
 `;
 
 const FiltersContainer = styled.div`
