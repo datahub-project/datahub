@@ -29,7 +29,7 @@ const PlatformLogo = styled(Image)`
 `;
 
 const CountText = styled(Typography.Text)`
-    font-size: 14px;
+    font-size: 18px;
     color: ${ANTD_GRAY[8]};
 `;
 

@@ -1,7 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
 import { Divider, Typography } from 'antd';
-import { EntityType, RecommendationModule as RecommendationModuleType, ScenarioType } from '../../types.generated';
+import { RecommendationModule as RecommendationModuleType, ScenarioType } from '../../types.generated';
 import { useListRecommendationsQuery } from '../../graphql/recommendations.generated';
 import { RecommendationModule } from '../recommendations/RecommendationModule';
 import { BrowseEntityCard } from '../search/BrowseEntityCard';
@@ -43,9 +43,6 @@ type Props = {
     userUrn: string;
 };
 
-// TODO: Make this list config-driven
-const PERMANENT_ENTITY_TYPES = [EntityType.Dataset, EntityType.Dashboard, EntityType.DataFlow];
-
 export const HomePageRecommendations = ({ userUrn }: Props) => {
     // Entity Types
     const entityRegistry = useEntityRegistry();
@@ -59,10 +56,9 @@ export const HomePageRecommendations = ({ userUrn }: Props) => {
         },
     });
 
-    const orderedEntityCounts =
-        entityCountData?.getEntityCounts?.counts?.sort((a, b) => {
-            return browseEntityList.indexOf(a.entityType) - browseEntityList.indexOf(b.entityType);
-        }) || PERMANENT_ENTITY_TYPES.map((entityType) => ({ count: 0, entityType }));
+    const orderedEntityCounts = entityCountData?.getEntityCounts?.counts?.sort((a, b) => {
+        return browseEntityList.indexOf(a.entityType) - browseEntityList.indexOf(b.entityType);
+    });
 
     // Recommendations
     const scenario = ScenarioType.Home;
@@ -82,23 +78,24 @@ export const HomePageRecommendations = ({ userUrn }: Props) => {
 
     return (
         <RecommendationsContainer>
-            <RecommendationContainer>
-                <RecommendationTitle level={4}>Explore your Metadata</RecommendationTitle>
-                <ThinDivider />
-                <BrowseCardContainer>
-                    {orderedEntityCounts.map(
-                        (entityCount) =>
-                            entityCount &&
-                            (entityCount.count !== 0 ||
-                                PERMANENT_ENTITY_TYPES.indexOf(entityCount.entityType) !== -1) && (
-                                <BrowseEntityCard
-                                    entityType={entityCount.entityType}
-                                    count={formatNumber(entityCount.count)}
-                                />
-                            ),
-                    )}
-                </BrowseCardContainer>
-            </RecommendationContainer>
+            {orderedEntityCounts && orderedEntityCounts.length > 0 && (
+                <RecommendationContainer>
+                    <RecommendationTitle level={4}>Explore your Metadata</RecommendationTitle>
+                    <ThinDivider />
+                    <BrowseCardContainer>
+                        {orderedEntityCounts.map(
+                            (entityCount) =>
+                                entityCount &&
+                                entityCount.count !== 0 && (
+                                    <BrowseEntityCard
+                                        entityType={entityCount.entityType}
+                                        count={formatNumber(entityCount.count)}
+                                    />
+                                ),
+                        )}
+                    </BrowseCardContainer>
+                </RecommendationContainer>
+            )}
             {recommendationModules &&
                 recommendationModules.map((module) => (
                     <RecommendationContainer>
