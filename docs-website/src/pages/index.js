@@ -52,9 +52,7 @@ function Home() {
                 using our Airflow integration or another scheduler of choice.
               </p>
               <p>
-                DataHub's push-based architecture also supports pull, but
-                pull-first systems cannot support push. Learn more about
-                metadata ingestion with DataHub in the{" "}
+                Learn more about metadata ingestion with DataHub in the{" "}
                 <Link to={"docs/metadata-ingestion"}>docs</Link>.
               </p>
             </div>
