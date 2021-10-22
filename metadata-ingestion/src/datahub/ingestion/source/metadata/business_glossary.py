@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Iterable, List, Optional, Union, Dict
+from typing import Any, Dict, Iterable, List, Optional, Union
 
 from pydantic import validator
 
