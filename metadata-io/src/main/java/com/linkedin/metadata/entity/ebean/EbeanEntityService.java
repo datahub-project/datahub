@@ -1,6 +1,9 @@
 package com.linkedin.metadata.entity.ebean;
 
 import com.codahale.metrics.Timer;
+
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterators;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
@@ -102,7 +105,12 @@ public class EbeanEntityService extends EntityService {
       urnToAspects.get(key).add(keyAspect);
     });
 
-    _entityDao.batchGet(dbKeys).forEach((key, aspectEntry) -> {
+    Map<EbeanAspectV2.PrimaryKey, EbeanAspectV2> batchGetResults = new HashMap<>();
+    Iterators.partition(dbKeys.iterator(), 500).forEachRemaining(
+        batch -> batchGetResults.putAll(_entityDao.batchGet(ImmutableSet.copyOf(batch)))
+    );
+
+    batchGetResults.forEach((key, aspectEntry) -> {
       final Urn urn = toUrn(key.getUrn());
       final String aspectName = key.getAspect();
       // for now, don't add the key aspect here- we have already added it above
