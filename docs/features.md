@@ -63,7 +63,7 @@ Create and add tags to any type of entity within DataHub via the GraphQL API, or
 Seamlessly browse entities associated with a tag or filter search results for a specific tag to find the entities that matter most
 
 <p align="center">
-  <img src="https://github.com/maggiehays/datahub/blob/1e5c49c5d121bb4342725aa9024b35f439d784b7/docs/imgs/feature-tag-browse.gif">
+  <img src="https://github.com/maggiehays/datahub/blob/f2a219e7475f4ca6bca399aa2950b354372b5e2e/docs/imgs/feature-tag-browse.gif">
 </p>
 
 ## Data Governance at your fingertips 
@@ -89,7 +89,7 @@ DataHub admins can create Policies to define who can perform what action against
 
 ### Control key business glossary terms via code
 
-## PLACEHODER
+## PLACEHOLDER
 _Gif of applying existing term to assets_
 
 _Gif of creating a new term via recipe & it populates in UI_
