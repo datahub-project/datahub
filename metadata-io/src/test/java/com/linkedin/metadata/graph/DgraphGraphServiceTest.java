@@ -1,5 +1,6 @@
 package com.linkedin.metadata.graph;
 
+import com.linkedin.metadata.query.filter.RelationshipFilter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import io.dgraph.DgraphClient;
 import io.dgraph.DgraphGrpc;
