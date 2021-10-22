@@ -538,6 +538,7 @@ class SQLAlchemySource(Source):
     def _get_profiler_instance(self, inspector: Inspector) -> "DatahubGEProfiler":
         from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler
 
+        self.config.profiling.allow_deny_patterns = self.config.profile_pattern
         return DatahubGEProfiler(
             conn=inspector.bind, report=self.report, config=self.config.profiling
         )

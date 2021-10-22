@@ -2,6 +2,8 @@ import contextlib
 
 # import cProfile
 import dataclasses
+import datetime
+import itertools
 import logging
 import unittest.mock
 from typing import Any, Dict, Iterable, List, Optional
@@ -27,7 +29,7 @@ from great_expectations.profile.user_configurable_profiler import (
     UserConfigurableProfiler,
 )
 
-from datahub.configuration.common import ConfigModel
+from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.emitter.mce_builder import get_sys_time
 from datahub.ingestion.api.source import SourceReport
 from datahub.metadata.schema_classes import (
@@ -79,22 +81,22 @@ class GEProfilingConfig(ConfigModel):
     enabled: bool = False
     limit: Optional[int] = None
     offset: Optional[int] = None
-    profile_table_level_only: bool = True
-    # TODO: Translate what sub-knobs this translates to.
     turn_off_expensive_profiling_metrics: bool = True
-    get_field_level_stats_if_not_null_only: bool = False
-    get_field_unique_count: bool = True
-    get_field_unique_proportion: bool = True
-    get_field_null_count: bool = True
-    get_field_min_value: bool = True
-    get_field_max_value: bool = True
-    get_field_mean_value: bool = True
-    get_field_median_value: bool = True
-    get_field_stddev_value: bool = True
-    get_field_quantiles: bool = True
-    get_field_distinct_value_frequencies: bool = True
-    get_field_histogram: bool = True
-    get_field_sample_values: bool = True
+    profile_table_level_only: bool = False
+    include_field_level_stats_if_not_null_only: bool = False
+    include_field_unique_count: bool = True
+    include_field_unique_proportion: bool = True
+    include_field_null_count: bool = True
+    include_field_min_value: bool = True
+    include_field_max_value: bool = True
+    include_field_mean_value: bool = True
+    include_field_median_value: bool = True
+    include_field_stddev_value: bool = True
+    include_field_quantiles: bool = True
+    include_field_distinct_value_frequencies: bool = True
+    include_field_histogram: bool = True
+    include_field_sample_values: bool = True
+    allow_deny_patterns: AllowDenyPattern = AllowDenyPattern.allow_all()
 
 
 class DatahubConfigurableProfiler(DatasetProfiler):
@@ -103,64 +105,100 @@ class DatahubConfigurableProfiler(DatasetProfiler):
     """
 
     @staticmethod
-    def datahub_config_to_ge_config(config: GEProfilingConfig) -> Dict[str, Any]:
+    def datahub_config_to_ge_config(
+        dataset: Dataset, dataset_name: str, config: GEProfilingConfig
+    ) -> Dict[str, Any]:
         ge_config: Dict[str, Any] = {}
-        ge_config["table_expectations_only"] = config.profile_table_level_only
-        ge_config["not_null_only"] = config.get_field_level_stats_if_not_null_only
-        # TODO: This is tricky!
-        ge_config["ignored_columns"] = []
-        # TODO: Set excluded expectations
+
+        # Compute excluded expectations
         excluded_expectations: List[str] = []
         if not config.profile_table_level_only:
-            if not config.get_field_unique_count:
+            if not config.include_field_unique_count:
                 excluded_expectations.append(
                     "expect_column_unique_value_count_to_be_between"
                 )
-            if not config.get_field_unique_proportion:
+            if not config.include_field_unique_proportion:
                 excluded_expectations.append(
                     "expect_column_proportion_of_unique_values_to_be_between"
                 )
-            if not config.get_field_null_count:
+            if not config.include_field_null_count:
                 excluded_expectations.append("expect_column_values_to_not_be_null")
-            if not config.get_field_min_value:
+            if not config.include_field_min_value:
                 excluded_expectations.append("expect_column_min_to_be_between")
-            if not config.get_field_max_value:
+            if not config.include_field_max_value:
                 excluded_expectations.append("expect_column_max_to_be_between")
-            if not config.get_field_mean_value:
+            if not config.include_field_mean_value:
                 excluded_expectations.append("expect_column_mean_to_be_between")
-            if not config.get_field_median_value:
+            if not config.include_field_median_value:
                 excluded_expectations.append("expect_column_median_to_be_between")
-            if not config.get_field_stddev_value:
+            if not config.include_field_stddev_value:
                 excluded_expectations.append("expect_column_stdev_to_be_between")
-            if not config.get_field_quantiles:
+            # The following are expensive computations
+            if (
+                not config.include_field_quantiles
+                or config.turn_off_expensive_profiling_metrics
+            ):
                 excluded_expectations.append(
                     "expect_column_quantile_values_to_be_between"
                 )
-            if not config.get_field_distinct_value_frequencies:
+            if (
+                not config.include_field_distinct_value_frequencies
+                or config.turn_off_expensive_profiling_metrics
+            ):
                 excluded_expectations.append(
                     "expect_column_distinct_values_to_be_in_set"
                 )
-            if not config.get_field_histogram:
+            if (
+                not config.include_field_histogram
+                or config.turn_off_expensive_profiling_metrics
+            ):
                 excluded_expectations.append(
                     "expect_column_kl_divergence_to_be_less_than"
                 )
-            if not config.get_field_sample_values:
+            if (
+                not config.include_field_sample_values
+                or config.turn_off_expensive_profiling_metrics
+            ):
                 excluded_expectations.append("expect_column_values_to_be_in_set")
 
         ge_config["excluded_expectations"] = excluded_expectations
+
+        # Compute ignored columns
+        ignored_columns = []
+        profiled_columns = []
+        for col in dataset.get_table_columns():
+            # We expect the allow/deny patterns to specify '<table_pattern>.<column_pattern>'
+            if not config.allow_deny_patterns.allowed(f"{dataset_name}.{col}"):
+                ignored_columns.append(col)
+            else:
+                profiled_columns.append(col)
+
+        if config.turn_off_expensive_profiling_metrics:
+            # Profiling cost goes up significantly with number of columns.
+            # Limit it to 5 for now if the user wants to turn off expensive profiling.
+            MAX_ALLOWED_COLUMNS: int = 5
+            ignored_columns.extend(
+                itertools.islice(profiled_columns, MAX_ALLOWED_COLUMNS, None)
+            )
+
+        ge_config["ignored_columns"] = ignored_columns
+        ge_config["table_expectations_only"] = config.profile_table_level_only
+        ge_config["not_null_only"] = config.include_field_level_stats_if_not_null_only
+
         return ge_config
 
     @classmethod
     def _profile(
-        cls, dataset: Dataset, configuration: Optional[Dict[str, Any]] = None
+        cls, dataset: Dataset, configuration: Dict[str, Any]
     ) -> ExpectationSuite:
         """
         Override method, which returns the expectation suite using the UserConfigurable Profiler.
         """
-        profiler = (
-            UserConfigurableProfiler(profile_dataset=dataset)
-            if configuration is None
-            else UserConfigurableProfiler(profile_dataset=dataset, **configuration)
+        profiler_configuration = cls.datahub_config_to_ge_config(
+            dataset, configuration["dataset_name"], configuration["config"]
+        )
+        profiler = UserConfigurableProfiler(
+            profile_dataset=dataset, **profiler_configuration
         )
         return profiler.build_suite()
 
@@ -225,7 +263,7 @@ class DatahubGEProfiler:
             return self._convert_evrs_to_profile(
                 evrs,
                 pretty_name=pretty_name,
-                send_sample_values=self.config.get_field_sample_values,
+                send_sample_values=self.config.include_field_sample_values,
             )
 
         return None
@@ -236,16 +274,21 @@ class DatahubGEProfiler:
         pretty_name: str,
     ) -> ExpectationSuiteValidationResult:
         try:
+            start_time = datetime.datetime.now()
             profile_results = self.data_context.profile_data_asset(
                 self.datasource_name,
                 profiler=DatahubConfigurableProfiler,
-                profiler_configuration=DatahubConfigurableProfiler.datahub_config_to_ge_config(
-                    self.config
-                ),
+                profiler_configuration={
+                    "config": self.config,
+                    "dataset_name": pretty_name,
+                },
                 batch_kwargs={
                     "datasource": self.datasource_name,
                     **batch_kwargs,
                 },
+            )
+            logger.info(
+                f"Profiling time in seconds for {pretty_name}:{(datetime.datetime.now() - start_time).total_seconds()}"
             )
 
             assert profile_results["success"]
@@ -257,6 +300,7 @@ class DatahubGEProfiler:
             logger.warning(
                 f"Encountered exception {e}\nwhile profiling {pretty_name}, {batch_kwargs}"
             )
+            self.report.report_warning(pretty_name, "Exception {e}")
             return None
 
     @staticmethod
