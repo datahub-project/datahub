@@ -464,16 +464,6 @@ interface EntityWithRelationships implements Entity {
     type: EntityType!
 
     """
-    Entities upstream of the given entity
-    """
-    upstreamLineage: UpstreamEntityRelationships
-
-    """
-    Entities downstream of the given entity
-    """
-    downstreamLineage: DownstreamEntityRelationships
-
-    """
     Edges extending from this entity
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
@@ -605,18 +595,6 @@ type Dataset implements EntityWithRelationships & Entity {
     Uri should not include any environment specific properties
     """
     uri: String @deprecated
-
-    """
-    Deprecated, use relationships DownstreamOf, UpstreamOf instead
-    Entities upstream of the given entity
-    """
-    upstreamLineage: UpstreamEntityRelationships @deprecated
-
-    """
-    Deprecated, use relationships DownstreamOf, UpstreamOf instead
-    Entities downstream of the given entity
-    """
-    downstreamLineage: DownstreamEntityRelationships @deprecated
 
     """
     Deprecated, use tags field instead
@@ -1517,46 +1495,6 @@ Deprecated, use relationships query instead
 """
 type DataFlowDataJobsRelationships {
     entities: [EntityRelationshipLegacy]
-}
-
-"""
-Deprecated, use relationships query instead
-"""
-type UpstreamLineage {
-    """
-    List of upstream datasets
-    """
-    upstreams: [RelatedDataset!]!
-}
-
-"""
-Deprecated, use relationships query instead
-"""
-type DownstreamLineage {
-    """
-    List of downstream datasets
-    """
-    downstreams: [RelatedDataset!]!
-}
-
-"""
-Deprecated, use relationships query instead
-"""
-type RelatedDataset {
-    """
-    The upstream dataset the lineage points to
-    """
-    dataset: Dataset!
-
-    """
-    The type of the lineage
-    """
-    type: DatasetLineageType!
-
-    """
-    When the lineage was created
-    """
-    created: AuditStamp!
 }
 
 """
@@ -2653,18 +2591,6 @@ type Dashboard implements EntityWithRelationships & Entity {
     The structured tags associated with the dashboard
     """
     globalTags: GlobalTags @deprecated
-
-    """
-    Deprecated, use relationships DownstreamOf, UpstreamOf instead
-    Entities upstream of the given entity
-    """
-    upstreamLineage: UpstreamEntityRelationships @deprecated
-
-    """
-    Deprecated, use relationships DownstreamOf, UpstreamOf instead
-    Entities downstream of the given entity
-    """
-    downstreamLineage: DownstreamEntityRelationships @deprecated
 }
 
 """
@@ -2863,18 +2789,6 @@ type Chart implements EntityWithRelationships & Entity {
     The structured tags associated with the chart
     """
     globalTags: GlobalTags @deprecated
-
-    """
-    Deprecated, use relationships DownstreamOf, UpstreamOf instead
-    Entities upstream of the given entity
-    """
-    upstreamLineage: UpstreamEntityRelationships @deprecated
-
-    """
-    Deprecated, use relationships DownstreamOf, UpstreamOf instead
-    Entities downstream of the given entity
-    """
-    downstreamLineage: DownstreamEntityRelationships @deprecated
 }
 
 """
@@ -3318,17 +3232,6 @@ type DataJob implements EntityWithRelationships & Entity {
     """
     inputOutput: DataJobInputOutput @deprecated
 
-    """
-    Deprecated, use relationships Produces, Consumes, DownstreamOf instead
-    Entities upstream of the given entity
-    """
-    upstreamLineage: UpstreamEntityRelationships @deprecated
-
-    """
-    Deprecated, use relationships Produces, Consumes, DownstreamOf instead
-    Entities downstream of the given entity
-    """
-    downstreamLineage: DownstreamEntityRelationships @deprecated
 
     """
     Deprecated, use the tags field instead
@@ -4458,18 +4361,6 @@ type MLModel implements EntityWithRelationships & Entity {
     deprecation: Deprecation
 
     """
-    Deprecated, use relationships DownstreamOf, UpstreamOf instead
-    Entities upstream of the given entity
-    """
-    upstreamLineage: UpstreamEntityRelationships @deprecated
-
-    """
-    Deprecated, use relationships DownstreamOf, UpstreamOf instead
-    Entities downstream of the given entity
-    """
-    downstreamLineage: DownstreamEntityRelationships @deprecated
-
-    """
     Edges extending from this entity
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
@@ -4529,18 +4420,6 @@ type MLModelGroup implements EntityWithRelationships & Entity {
     Deprecation
     """
     deprecation: Deprecation
-
-    """
-    Deprecated, use relationships DownstreamOf, UpstreamOf instead
-    Entities upstream of the given entity
-    """
-    upstreamLineage: UpstreamEntityRelationships @deprecated
-
-    """
-    Deprecated, use relationships DownstreamOf, UpstreamOf instead
-    Entities downstream of the given entity
-    """
-    downstreamLineage: DownstreamEntityRelationships @deprecated
 
     """
     Edges extending from this entity
