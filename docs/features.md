@@ -36,8 +36,9 @@ As you explore the relationships between entities, it’s easy to view documenta
 
 DataHub provides dataset profiling and usage statistics for popular data warehousing platforms, making it easy for data practitioners to understand the shape of the data and how it has evolved over time. Query stats give context into how often (and by whom) the data is queried which can act as a strong signal of the trustworthiness of a dataset
 
-********* table_usage_and_stats.gif
-
+<p align="center">
+  <img src="https://github.com/maggiehays/datahub/blob/1e5c49c5d121bb4342725aa9024b35f439d784b7/docs/imgs/feature-table-usage-and-stats.gif">
+</p>
 
 ## Robust Documentation and Tagging
 
@@ -45,26 +46,33 @@ DataHub provides dataset profiling and usage statistics for popular data warehou
 
 DataHub makes it easy to update and maintain documentation as definitions and use cases evolve. In addition to managing documentation via GMS, DataHub offers rich documentation and support for external links via the UI. 
 
-******* rich_docuementation.gif
-
+<p align="center">
+  <img src="https://github.com/maggiehays/datahub/blob/1e5c49c5d121bb4342725aa9024b35f439d784b7/docs/imgs/feature-rich-documentation.gif">
+</p>
 
 ### Create and define new tags via API and/or the DataHub UI
 
 Create and add tags to any type of entity within DataHub via the GraphQL API, or allow your end users to create and define new tags within the UI as use cases evolve over time
 
-****** create_new_tag.gif
+<p align="center">
+  <img src="https://github.com/maggiehays/datahub/blob/1e5c49c5d121bb4342725aa9024b35f439d784b7/docs/imgs/feature-create-new-tag.gif">
+</p>
 
 ### Browse and search specific tags to fast-track discovery across entities
 
 Seamlessly browse entities associated with a tag or filter search results for a specific tag to find the entities that matter most
 
-***** tag_search.gif
+<p align="center">
+  <img src="https://github.com/maggiehays/datahub/blob/1e5c49c5d121bb4342725aa9024b35f439d784b7/docs/imgs/feature-tag-browse.gif">
+</p>
 
 ## Data Governance at your fingertips 
 
 ### Quickly assign asset ownership to users and/or user groups 
 
-***** add_owners.gif
+<p align="center">
+  <img src="https://github.com/maggiehays/datahub/blob/1e5c49c5d121bb4342725aa9024b35f439d784b7/docs/imgs/feature-add-onwers.gif">
+</p>
 
 ### Manage Fine-Grained Access Control with Policies
 
@@ -75,7 +83,9 @@ DataHub admins can create Policies to define who can perform what action against
 * **Privileges** - Choose the set of permissions, such as Edit Owners, Edit Documentation, Edit Links
 * **Users and/or Groups** - Assign relevant Users and/or Groups; you can also assign the Policy to Resource Owners, regardless of which Group they belong to
 
-***** create_policy.gif
+<p align="center">
+  <img src="https://github.com/maggiehays/datahub/blob/1e5c49c5d121bb4342725aa9024b35f439d784b7/docs/imgs/feature-create-policy.gif">
+</p>
 
 ### Control key business glossary terms via code
 
@@ -88,7 +98,10 @@ _Gif of creating a new term via recipe & it populates in UI_
 
 Gain a deeper understanding of the health of metadata within DataHub and how end-users are interacting with the platform. The Analytics view provides a snapshot of volume of assets and percentage with assigned ownership, weekly active users, and most common searches & actions. Check it out in the demo site here.
 
-***** datahub_analytics.png
+<p align="center">
+  <img src="https://github.com/maggiehays/datahub/blob/1e5c49c5d121bb4342725aa9024b35f439d784b7/docs/imgs/feature-datahub-analytics.png">
+</p>
+
 
 ## DataHub is a Platform for Developers
 
@@ -118,7 +131,6 @@ DataHub is an API- and stream-first platform, empowering developers to implement
 | Trino FKA Presto | Supported |
 
 ### BI Tools
-
 | Source | Status |
 |---|:---:|
 | Business Glossary | Supported |
@@ -128,40 +140,32 @@ DataHub is an API- and stream-first platform, empowering developers to implement
 | Tableau | Planned |
 | Grafana | Partially Supported |
 
-
 ### ETL / ELT
-
 | Source | Status |
 |---|:---:|
 | dbt | Supported |
 | Glue | Supported |
 
 ### Workflow Orchestration
-
 | Source | Status |
 |---|:---:|
 | Airflow | Supported |
 | Prefect | Planned |
 
 ### Data Observability
-
 | Source | Status |
 |---|:---:|
 | Great Expectations | Planned |
 
-
 ### ML Platform
-
 | Source | Status |
 |---|:---:|
 | Feast | Supported |
 | Sagemaker | Supported |
 
 ### Identity Management
-
 | Source | Status |
 |---|:---:|
 | Azure AD | Supported |
 | LDAP | Supported |
 | Okta | Supported |
-
