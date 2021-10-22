@@ -21,6 +21,8 @@ import {
     MlModel,
     MlModelGroup,
     SchemaFieldDataType,
+    ScenarioType,
+    RecommendationRenderType,
 } from './types.generated';
 import { GetTagDocument } from './graphql/tag.generated';
 import { GetMlModelDocument } from './graphql/mlModel.generated';
@@ -28,6 +30,7 @@ import { GetMlModelGroupDocument } from './graphql/mlModelGroup.generated';
 import { GetGlossaryTermDocument, GetGlossaryTermQuery } from './graphql/glossaryTerm.generated';
 import { GetEntityCountsDocument } from './graphql/app.generated';
 import { GetMeDocument } from './graphql/me.generated';
+import { ListRecommendationsDocument } from './graphql/recommendations.generated';
 
 const user1 = {
     username: 'sdas',
@@ -1080,6 +1083,55 @@ export const mlModelGroup = {
         ],
     },
 } as MlModelGroup;
+
+export const recommendationModules = [
+    {
+        title: 'Most Popular',
+        moduleId: 'MostPopular',
+        renderType: RecommendationRenderType.EntityNameList,
+        content: [
+            {
+                entity: {
+                    ...dataset2,
+                },
+            },
+        ],
+    },
+    {
+        title: 'Top Platforms',
+        moduleId: 'TopPlatforms',
+        renderType: RecommendationRenderType.PlatformSearchList,
+        content: [
+            {
+                entity: {
+                    urn: 'urn:li:dataPlatform:snowflake',
+                    type: EntityType.DataPlatform,
+                    info: {
+                        displayName: 'Snowflake',
+                    },
+                },
+                params: {
+                    contentParams: {
+                        count: 1,
+                    },
+                },
+            },
+        ],
+    },
+    {
+        title: 'Popular Tags',
+        moduleId: 'PopularTags',
+        renderType: RecommendationRenderType.TagSearchList,
+        content: [
+            {
+                entity: {
+                    urn: 'urn:li:tag:TestTag',
+                    name: 'TestTag',
+                },
+            },
+        ],
+    },
+];
 
 /*
     Define mock data to be returned by Apollo MockProvider. 
@@ -2497,6 +2549,102 @@ export const mocks = [
                         managePolicies: true,
                         manageIdentities: true,
                     },
+                },
+            },
+        },
+    },
+    {
+        request: {
+            query: ListRecommendationsDocument,
+            variables: {
+                input: {
+                    userUrn: user2.urn,
+                    requestContext: {
+                        scenario: ScenarioType.Home,
+                    },
+                    limit: 5,
+                },
+            },
+        },
+        result: {
+            data: {
+                listRecommendations: {
+                    modules: [...recommendationModules],
+                },
+            },
+        },
+    },
+    {
+        request: {
+            query: ListRecommendationsDocument,
+            variables: {
+                input: {
+                    userUrn: user2.urn,
+                    requestContext: {
+                        scenario: ScenarioType.EntityProfile,
+                        entityRequestContext: {
+                            urn: dataset3.urn,
+                            type: EntityType.Dataset,
+                        },
+                    },
+                    limit: 3,
+                },
+            },
+        },
+        result: {
+            data: {
+                listRecommendations: {
+                    modules: [...recommendationModules],
+                },
+            },
+        },
+    },
+    {
+        request: {
+            query: ListRecommendationsDocument,
+            variables: {
+                input: {
+                    userUrn: user2.urn,
+                    requestContext: {
+                        scenario: ScenarioType.SearchResults,
+                        searchRequestContext: {
+                            query: 'noresults',
+                            filters: [],
+                        },
+                    },
+                    limit: 3,
+                },
+            },
+        },
+        result: {
+            data: {
+                listRecommendations: {
+                    modules: [...recommendationModules],
+                },
+            },
+        },
+    },
+    {
+        request: {
+            query: GetSearchResultsForMultipleDocument,
+            variables: {
+                input: {
+                    types: [],
+                    query: 'noresults',
+                    start: 0,
+                    count: 10,
+                    filters: [],
+                },
+            },
+        },
+        result: {
+            data: {
+                search: {
+                    start: 0,
+                    count: 0,
+                    total: 0,
+                    searchResults: [],
+                    facets: [],
                 },
             },
         },

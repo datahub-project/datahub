@@ -10,6 +10,7 @@ const PlatformListContainer = styled.div`
     display: flex;
     justify-content: left;
     align-items: center;
+    flex-wrap: wrap;
 `;
 
 type Props = {

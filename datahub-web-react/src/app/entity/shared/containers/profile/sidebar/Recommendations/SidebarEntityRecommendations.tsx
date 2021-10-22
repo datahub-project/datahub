@@ -12,6 +12,10 @@ import { SidebarHeader } from '../SidebarHeader';
 
 const RecommendationsContainer = styled.div``;
 
+const RecommendationContainer = styled.div`
+    margin-bottom: 20px;
+`;
+
 export const SidebarEntityRecommendations = ({
     userUrn,
     entityUrn,
@@ -43,7 +47,7 @@ export const SidebarEntityRecommendations = ({
         <RecommendationsContainer>
             {recommendationModules &&
                 recommendationModules.map((module) => (
-                    <>
+                    <RecommendationContainer>
                         <SidebarHeader title={module.title} />
                         <RecommendationModule
                             module={module as RecommendationModuleType}
@@ -51,7 +55,7 @@ export const SidebarEntityRecommendations = ({
                             showTitle={false}
                             displayType={RecommendationDisplayType.COMPACT}
                         />
-                    </>
+                    </RecommendationContainer>
                 ))}
         </RecommendationsContainer>
     );
