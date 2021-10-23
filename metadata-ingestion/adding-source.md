@@ -5,8 +5,8 @@ There are two ways of adding a metadata ingestion source.
 1. You are going to contribute the custom source directly to the Datahub project.
 2. You are writing the custom source for yourself and are not going to contribute back (yet).
 
-If you are going for case (1) just follow the steps 1 to 7 below. In case you are building it for yourself you can skip
-steps 4-7 and follow the documentation
+If you are going for case (1) just follow the steps 1 to 9 below. In case you are building it for yourself you can skip
+steps 4-9 (but maybe write tests and docs for yourself as well) and follow the documentation
 on [how to use custom ingestion sources](../docs/how/add-custom-ingestion-source.md)
 without forking Datahub.
 
@@ -32,7 +32,9 @@ Some sources use the default `SourceReport` class, but others inherit and extend
 The core for the source is the `get_workunits` method, which produces a stream of MCE objects.
 The [file source](./src/datahub/ingestion/source/file.py) is a good and simple example.
 
-The MetadataChangeEventClass is defined in the metadata models which are generated under `metadata-ingestion/src/datahub/metadata/schema_classes.py`. There are also some [convenience methods](./src/datahub/emitter/mce_builder.py) for commonly used operations.
+The MetadataChangeEventClass is defined in the metadata models which are generated
+under `metadata-ingestion/src/datahub/metadata/schema_classes.py`. There are also
+some [convenience methods](./src/datahub/emitter/mce_builder.py) for commonly used operations.
 
 ### 4. Set up the dependencies
 
@@ -49,12 +51,15 @@ Tests go in the `tests` directory. We use the [pytest framework](https://pytest.
 
 ### 7. Write docs
 
-Add the plugin to the table at the top of the README file, and add the source's documentation underneath the sources header.
+Add the plugin to the table at the top of the README file, and add the source's documentation underneath the sources
+header.
 
 ### 8. Add SQL Alchemy mapping (if applicable)
 
-Add the source in `get_platform_from_sqlalchemy_uri` function in [sql_common.py](./src/datahub/ingestion/source/sql/sql_common.py) if the source has an sqlalchemy source
+Add the source in `get_platform_from_sqlalchemy_uri` function
+in [sql_common.py](./src/datahub/ingestion/source/sql/sql_common.py) if the source has an sqlalchemy source
 
 ### 9. Add logo
 
-Add logo image in [images folder](../datahub-web-react/src/images) and add it to be ingested in [boot](../metadata-service/war/src/main/resources/boot/data_platforms.json)
+Add logo image in [images folder](../datahub-web-react/src/images) and add it to be ingested
+in [boot](../metadata-service/war/src/main/resources/boot/data_platforms.json)
