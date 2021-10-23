@@ -1,6 +1,7 @@
 package com.linkedin.metadata.resources.entity;
 
 import com.codahale.metrics.MetricRegistry;
+import com.google.common.collect.ImmutableSet;
 import com.linkedin.aspect.GetTimeseriesAspectValuesResponse;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
@@ -159,8 +160,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
     final Urn urn = EntityKeyUtils.getUrnFromProposal(metadataChangeProposal,
         _entityService.getKeyAspectSpec(metadataChangeProposal.getEntityType()));
 
-    return _entityService.getDefaultAspectsFromUrn(urn)
-        .entrySet()
+    return _entityService.generateDefaultAspectsIfMissing(urn, ImmutableSet.of(metadataChangeProposal.getAspectName()))
         .stream()
         .map(entry -> getProposalFromAspect(entry.getKey(), entry.getValue(), metadataChangeProposal))
         .filter(Objects::nonNull)

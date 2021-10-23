@@ -1,11 +1,25 @@
 query getMLModelGroup($urn: String!) {
     mlModelGroup(urn: $urn) {
         ...nonRecursiveMLModelGroupFields
-        downstreamLineage {
-            ...downstreamRelationshipFields
+        incoming: relationships(
+            input: {
+                types: ["DownstreamOf", "Consumes", "Produces", "TrainedBy", "MemberOf"]
+                direction: INCOMING
+                start: 0
+                count: 100
+            }
+        ) {
+            ...fullRelationshipResults
         }
-        upstreamLineage {
-            ...upstreamRelationshipFields
+        outgoing: relationships(
+            input: {
+                types: ["DownstreamOf", "Consumes", "Produces", "TrainedBy", "MemberOf"]
+                direction: OUTGOING
+                start: 0
+                count: 100
+            }
+        ) {
+            ...fullRelationshipResults
         }
     }
 }

@@ -1,3 +1,4 @@
+import concurrent.futures
 import datetime
 import json
 import logging
@@ -76,6 +77,7 @@ class LookerAPI:
         os.environ["LOOKERSDK_BASE_URL"] = config.base_url
 
         self.client = looker_sdk.init31()
+
         # try authenticating current user to check connectivity
         # (since it's possible to initialize an invalid client without any complaints)
         try:
@@ -99,6 +101,7 @@ class LookerDashboardSourceConfig(LookerAPIConfig, LookerCommonConfig):
     extract_owners: bool = True
     strip_user_ids_from_email: bool = False
     skip_personal_folders: bool = False
+    max_threads: int = os.cpu_count() or 40
 
 
 @dataclass
@@ -107,6 +110,9 @@ class LookerDashboardSourceReport(SourceReport):
     charts_scanned: int = 0
     filtered_dashboards: List[str] = dataclass_field(default_factory=list)
     filtered_charts: List[str] = dataclass_field(default_factory=list)
+    upstream_start_time: Optional[datetime.datetime] = None
+    upstream_end_time: Optional[datetime.datetime] = None
+    upstream_total_latency_in_seconds: Optional[float] = None
 
     def report_dashboards_scanned(self) -> None:
         self.dashboards_scanned += 1
@@ -119,6 +125,17 @@ class LookerDashboardSourceReport(SourceReport):
 
     def report_charts_dropped(self, view: str) -> None:
         self.filtered_charts.append(view)
+
+    def report_upstream_latency(
+        self, start_time: datetime.datetime, end_time: datetime.datetime
+    ) -> None:
+        if self.upstream_start_time is None or self.upstream_start_time > start_time:
+            self.upstream_start_time = start_time
+        if self.upstream_end_time is None or self.upstream_end_time < end_time:
+            self.upstream_end_time = end_time
+        self.upstream_total_latency_in_seconds = (
+            self.upstream_end_time - self.upstream_start_time
+        ).total_seconds()
 
 
 @dataclass
@@ -539,18 +556,45 @@ class LookerDashboardSource(Source):
         explore_events: List[
             Union[MetadataChangeEvent, MetadataChangeProposalWrapper]
         ] = []
-        for (model, explore) in self.explore_set:
-            logger.info("Will process model: {}, explore: {}".format(model, explore))
-            looker_explore = LookerExplore.from_api(
-                model, explore, self.client, self.reporter
-            )
-            if looker_explore is not None:
-                events = looker_explore._to_metadata_events(
+        with concurrent.futures.ThreadPoolExecutor(
+            max_workers=self.source_config.max_threads
+        ) as async_executor:
+            explore_futures = [
+                async_executor.submit(self.fetch_one_explore, model, explore)
+                for (model, explore) in self.explore_set
+            ]
+            for future in concurrent.futures.as_completed(explore_futures):
+                events, explore_id, start_time, end_time = future.result()
+                explore_events.extend(events)
+                self.reporter.report_upstream_latency(start_time, end_time)
+                logger.info(
+                    f"Running time of fetch_one_explore for {explore_id}: {(end_time-start_time).total_seconds()}"
+                )
+
+        return explore_events
+
+    def fetch_one_explore(
+        self, model: str, explore: str
+    ) -> Tuple[
+        List[Union[MetadataChangeEvent, MetadataChangeProposalWrapper]],
+        str,
+        datetime.datetime,
+        datetime.datetime,
+    ]:
+        start_time = datetime.datetime.now()
+        events: List[Union[MetadataChangeEvent, MetadataChangeProposalWrapper]] = []
+        looker_explore = LookerExplore.from_api(
+            model, explore, self.client, self.reporter
+        )
+        if looker_explore is not None:
+            events = (
+                looker_explore._to_metadata_events(
                     self.source_config, self.reporter, self.source_config.base_url
                 )
-                if events is not None:
-                    explore_events.extend(events)
-        return explore_events
+                or events
+            )
+
+        return events, f"{model}:{explore}", start_time, datetime.datetime.now()
 
     def _make_dashboard_and_chart_mces(
         self, looker_dashboard: LookerDashboard
@@ -613,13 +657,17 @@ class LookerDashboardSource(Source):
                 return ownership
         return None
 
+    folder_path_cache: Dict[str, str] = {}
+
     def _get_folder_path(self, folder: FolderBase, client: Looker31SDK) -> str:
-        assert folder.id is not None
-        ancestors = [
-            ancestor.name
-            for ancestor in client.folder_ancestors(folder.id, fields="name")
-        ]
-        return "/".join(ancestors + [folder.name])
+        assert folder.id
+        if not self.folder_path_cache.get(folder.id):
+            ancestors = [
+                ancestor.name
+                for ancestor in client.folder_ancestors(folder.id, fields="name")
+            ]
+            self.folder_path_cache[folder.id] = "/".join(ancestors + [folder.name])
+        return self.folder_path_cache[folder.id]
 
     def _get_looker_dashboard(
         self, dashboard: Dashboard, client: Looker31SDK
@@ -677,6 +725,57 @@ class LookerDashboardSource(Source):
         )
         return looker_dashboard
 
+    def process_dashboard(
+        self, dashboard_id: str
+    ) -> Tuple[List[MetadataWorkUnit], str, datetime.datetime, datetime.datetime]:
+        start_time = datetime.datetime.now()
+        assert dashboard_id is not None
+        self.reporter.report_dashboards_scanned()
+        if not self.source_config.dashboard_pattern.allowed(dashboard_id):
+            self.reporter.report_dashboards_dropped(dashboard_id)
+            return [], dashboard_id, start_time, datetime.datetime.now()
+        try:
+            fields = [
+                "id",
+                "title",
+                "dashboard_elements",
+                "dashboard_filters",
+                "deleted",
+                "description",
+                "folder",
+                "user_id",
+            ]
+            dashboard_object = self.client.dashboard(
+                dashboard_id=dashboard_id, fields=",".join(fields)
+            )
+        except SDKError:
+            # A looker dashboard could be deleted in between the list and the get
+            self.reporter.report_warning(
+                dashboard_id,
+                f"Error occurred while loading dashboard {dashboard_id}. Skipping.",
+            )
+            return [], dashboard_id, start_time, datetime.datetime.now()
+
+        if self.source_config.skip_personal_folders:
+            if dashboard_object.folder is not None and (
+                dashboard_object.folder.is_personal
+                or dashboard_object.folder.is_personal_descendant
+            ):
+                self.reporter.report_warning(
+                    dashboard_id, "Dropped due to being a personal folder"
+                )
+                self.reporter.report_dashboards_dropped(dashboard_id)
+                return [], dashboard_id, start_time, datetime.datetime.now()
+
+        looker_dashboard = self._get_looker_dashboard(dashboard_object, self.client)
+        mces = self._make_dashboard_and_chart_mces(looker_dashboard)
+        # for mce in mces:
+        workunits = [
+            MetadataWorkUnit(id=f"looker-{mce.proposedSnapshot.urn}", mce=mce)
+            for mce in mces
+        ]
+        return workunits, dashboard_id, start_time, datetime.datetime.now()
+
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         dashboards = self.client.all_dashboards(fields="id")
         deleted_dashboards = (
@@ -692,53 +791,22 @@ class LookerDashboardSource(Source):
             [deleted_dashboard.id for deleted_dashboard in deleted_dashboards]
         )
 
-        for dashboard_id in dashboard_ids:
-            assert dashboard_id is not None
-            self.reporter.report_dashboards_scanned()
-            if not self.source_config.dashboard_pattern.allowed(dashboard_id):
-                self.reporter.report_dashboards_dropped(dashboard_id)
-                continue
-            try:
-                fields = [
-                    "id",
-                    "title",
-                    "dashboard_elements",
-                    "dashboard_filters",
-                    "deleted",
-                    "description",
-                    "folder",
-                    "user_id",
-                ]
-                dashboard_object = self.client.dashboard(
-                    dashboard_id=dashboard_id, fields=",".join(fields)
+        with concurrent.futures.ThreadPoolExecutor(
+            max_workers=self.source_config.max_threads
+        ) as async_executor:
+            async_workunits = [
+                async_executor.submit(self.process_dashboard, dashboard_id)
+                for dashboard_id in dashboard_ids
+            ]
+            for async_workunit in concurrent.futures.as_completed(async_workunits):
+                work_units, dashboard_id, start_time, end_time = async_workunit.result()
+                logger.info(
+                    f"Running time of process_dashboard for {dashboard_id} = {(end_time-start_time).total_seconds()}"
                 )
-            except SDKError:
-                # A looker dashboard could be deleted in between the list and the get
-                self.reporter.report_warning(
-                    dashboard_id,
-                    f"Error occurred while loading dashboard {dashboard_id}. Skipping.",
-                )
-                continue
-
-            if self.source_config.skip_personal_folders:
-                if dashboard_object.folder is not None and (
-                    dashboard_object.folder.is_personal
-                    or dashboard_object.folder.is_personal_descendant
-                ):
-                    self.reporter.report_warning(
-                        dashboard_id, "Dropped due to being a personal folder"
-                    )
-                    self.reporter.report_dashboards_dropped(dashboard_id)
-                    continue
-
-            looker_dashboard = self._get_looker_dashboard(dashboard_object, self.client)
-            mces = self._make_dashboard_and_chart_mces(looker_dashboard)
-            for mce in mces:
-                workunit = MetadataWorkUnit(
-                    id=f"looker-{mce.proposedSnapshot.urn}", mce=mce
-                )
-                self.reporter.report_workunit(workunit)
-                yield workunit
+                self.reporter.report_upstream_latency(start_time, end_time)
+                for mwu in work_units:
+                    yield mwu
+                    self.reporter.report_workunit(mwu)
 
         if (
             self.source_config.extract_owners
