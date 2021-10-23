@@ -1,0 +1,532 @@
+[
+    {
+        "auditHeader": null,
+        "proposedSnapshot": {
+            "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+                "urn": "urn:li:dataset:(urn:li:dataPlatform:trino,library_catalog.librarydb.book,PROD)",
+                "aspects": [
+                    {
+                        "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                            "schemaName": "library_catalog.librarydb.book",
+                            "platform": "urn:li:dataPlatform:trino",
+                            "version": 0,
+                            "created": {
+                                "time": 0,
+                                "actor": "urn:li:corpuser:unknown",
+                                "impersonator": null
+                            },
+                            "lastModified": {
+                                "time": 0,
+                                "actor": "urn:li:corpuser:unknown",
+                                "impersonator": null
+                            },
+                            "deleted": null,
+                            "dataset": null,
+                            "cluster": null,
+                            "hash": "",
+                            "platformSchema": {
+                                "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                    "tableSchema": ""
+                                }
+                            },
+                            "fields": [
+                                {
+                                    "fieldPath": "id",
+                                    "jsonPath": null,
+                                    "nullable": true,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "INTEGER()",
+                                    "recursive": false,
+                                    "globalTags": null,
+                                    "glossaryTerms": null,
+                                    "isPartOfKey": false
+                                },
+                                {
+                                    "fieldPath": "name",
+                                    "jsonPath": null,
+                                    "nullable": true,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.StringType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "VARCHAR(length=50)",
+                                    "recursive": false,
+                                    "globalTags": null,
+                                    "glossaryTerms": null,
+                                    "isPartOfKey": false
+                                },
+                                {
+                                    "fieldPath": "author",
+                                    "jsonPath": null,
+                                    "nullable": true,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.StringType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "VARCHAR(length=50)",
+                                    "recursive": false,
+                                    "globalTags": null,
+                                    "glossaryTerms": null,
+                                    "isPartOfKey": false
+                                },
+                                {
+                                    "fieldPath": "publisher",
+                                    "jsonPath": null,
+                                    "nullable": true,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.StringType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "VARCHAR(length=50)",
+                                    "recursive": false,
+                                    "globalTags": null,
+                                    "glossaryTerms": null,
+                                    "isPartOfKey": false
+                                },
+                                {
+                                    "fieldPath": "tags",
+                                    "jsonPath": null,
+                                    "nullable": true,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.RecordType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "JSON()",
+                                    "recursive": false,
+                                    "globalTags": null,
+                                    "glossaryTerms": null,
+                                    "isPartOfKey": false
+                                },
+                                {
+                                    "fieldPath": "[version=2.0].[type=struct].[type=array].[type=int].genre_ids",
+                                    "jsonPath": null,
+                                    "nullable": true,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.ArrayType": {
+                                                "nestedType" : null
+                                            }
+                                        }
+                                    },
+                                    "nativeDataType": "ARRAY(INTEGER())",
+                                    "recursive": false,
+                                    "globalTags": null,
+                                    "glossaryTerms": null,
+                                    "isPartOfKey": false
+                                }
+                            ],
+                            "primaryKeys": null,
+                            "foreignKeysSpecs": null,
+                            "foreignKeys": null
+                        }
+                    }
+                ]
+            }
+        },
+        "proposedDelta": null,
+        "systemMetadata": {
+            "lastObserved": 1632398400000,
+            "runId": "trino-test",
+            "properties": null
+        }
+    },
+    {
+        "auditHeader": null,
+        "proposedSnapshot": {
+            "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+                "urn": "urn:li:dataset:(urn:li:dataPlatform:trino,library_catalog.librarydb.issue_history,PROD)",
+                "aspects": [
+                    {
+                        "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                            "schemaName": "library_catalog.librarydb.issue_history",
+                            "platform": "urn:li:dataPlatform:trino",
+                            "version": 0,
+                            "created": {
+                                "time": 0,
+                                "actor": "urn:li:corpuser:unknown",
+                                "impersonator": null
+                            },
+                            "lastModified": {
+                                "time": 0,
+                                "actor": "urn:li:corpuser:unknown",
+                                "impersonator": null
+                            },
+                            "deleted": null,
+                            "dataset": null,
+                            "cluster": null,
+                            "hash": "",
+                            "platformSchema": {
+                                "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                    "tableSchema": ""
+                                }
+                            },
+                            "fields": [
+                                {
+                                    "fieldPath": "book_id",
+                                    "jsonPath": null,
+                                    "nullable": true,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "INTEGER()",
+                                    "recursive": false,
+                                    "globalTags": null,
+                                    "glossaryTerms": null,
+                                    "isPartOfKey": false
+                                },
+                                {
+                                    "fieldPath": "member_id",
+                                    "jsonPath": null,
+                                    "nullable": true,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "INTEGER()",
+                                    "recursive": false,
+                                    "globalTags": null,
+                                    "glossaryTerms": null,
+                                    "isPartOfKey": false
+                                },
+                                {
+                                    "fieldPath": "issue_date",
+                                    "jsonPath": null,
+                                    "nullable": true,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.DateType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "DATE()",
+                                    "recursive": false,
+                                    "globalTags": null,
+                                    "glossaryTerms": null,
+                                    "isPartOfKey": false
+                                },
+                                {
+                                    "fieldPath": "return_date",
+                                    "jsonPath": null,
+                                    "nullable": true,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.DateType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "DATE()",
+                                    "recursive": false,
+                                    "globalTags": null,
+                                    "glossaryTerms": null,
+                                    "isPartOfKey": false
+                                }
+                            ],
+                            "primaryKeys": null,
+                            "foreignKeysSpecs": null,
+                            "foreignKeys": null
+                        }
+                    }
+                ]
+            }
+        },
+        "proposedDelta": null,
+        "systemMetadata": {
+            "lastObserved": 1632398400000,
+            "runId": "trino-test",
+            "properties": null
+        }
+    },
+    {
+        "auditHeader": null,
+        "proposedSnapshot": {
+            "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+                "urn": "urn:li:dataset:(urn:li:dataPlatform:trino,library_catalog.librarydb.member,PROD)",
+                "aspects": [
+                    {
+                        "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                            "schemaName": "library_catalog.librarydb.member",
+                            "platform": "urn:li:dataPlatform:trino",
+                            "version": 0,
+                            "created": {
+                                "time": 0,
+                                "actor": "urn:li:corpuser:unknown",
+                                "impersonator": null
+                            },
+                            "lastModified": {
+                                "time": 0,
+                                "actor": "urn:li:corpuser:unknown",
+                                "impersonator": null
+                            },
+                            "deleted": null,
+                            "dataset": null,
+                            "cluster": null,
+                            "hash": "",
+                            "platformSchema": {
+                                "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                    "tableSchema": ""
+                                }
+                            },
+                            "fields": [
+                                {
+                                    "fieldPath": "id",
+                                    "jsonPath": null,
+                                    "nullable": true,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "INTEGER()",
+                                    "recursive": false,
+                                    "globalTags": null,
+                                    "glossaryTerms": null,
+                                    "isPartOfKey": false
+                                },
+                                {
+                                    "fieldPath": "name",
+                                    "jsonPath": null,
+                                    "nullable": true,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.StringType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "VARCHAR(length=50)",
+                                    "recursive": false,
+                                    "globalTags": null,
+                                    "glossaryTerms": null,
+                                    "isPartOfKey": false
+                                }
+                            ],
+                            "primaryKeys": null,
+                            "foreignKeysSpecs": null,
+                            "foreignKeys": null
+                        }
+                    }
+                ]
+            }
+        },
+        "proposedDelta": null,
+        "systemMetadata": {
+            "lastObserved": 1632398400000,
+            "runId": "trino-test",
+            "properties": null
+        }
+    },
+    {
+        "auditHeader": null,
+        "proposedSnapshot": {
+            "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+                "urn": "urn:li:dataset:(urn:li:dataPlatform:trino,library_catalog.librarydb.book_in_circulation,PROD)",
+                "aspects": [
+                    {
+                        "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                            "schemaName": "library_catalog.librarydb.book_in_circulation",
+                            "platform": "urn:li:dataPlatform:trino",
+                            "version": 0,
+                            "created": {
+                                "time": 0,
+                                "actor": "urn:li:corpuser:unknown",
+                                "impersonator": null
+                            },
+                            "lastModified": {
+                                "time": 0,
+                                "actor": "urn:li:corpuser:unknown",
+                                "impersonator": null
+                            },
+                            "deleted": null,
+                            "dataset": null,
+                            "cluster": null,
+                            "hash": "",
+                            "platformSchema": {
+                                "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                    "tableSchema": ""
+                                }
+                            },
+                            "fields": [
+                                {
+                                    "fieldPath": "id",
+                                    "jsonPath": null,
+                                    "nullable": true,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "INTEGER()",
+                                    "recursive": false,
+                                    "globalTags": null,
+                                    "glossaryTerms": null,
+                                    "isPartOfKey": false
+                                },
+                                {
+                                    "fieldPath": "name",
+                                    "jsonPath": null,
+                                    "nullable": true,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.StringType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "VARCHAR(length=50)",
+                                    "recursive": false,
+                                    "globalTags": null,
+                                    "glossaryTerms": null,
+                                    "isPartOfKey": false
+                                },
+                                {
+                                    "fieldPath": "author",
+                                    "jsonPath": null,
+                                    "nullable": true,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.StringType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "VARCHAR(length=50)",
+                                    "recursive": false,
+                                    "globalTags": null,
+                                    "glossaryTerms": null,
+                                    "isPartOfKey": false
+                                },
+                                {
+                                    "fieldPath": "publisher",
+                                    "jsonPath": null,
+                                    "nullable": true,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.StringType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "VARCHAR(length=50)",
+                                    "recursive": false,
+                                    "globalTags": null,
+                                    "glossaryTerms": null,
+                                    "isPartOfKey": false
+                                },
+                                {
+                                    "fieldPath": "member_id",
+                                    "jsonPath": null,
+                                    "nullable": true,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "INTEGER()",
+                                    "recursive": false,
+                                    "globalTags": null,
+                                    "glossaryTerms": null,
+                                    "isPartOfKey": false
+                                },
+                                {
+                                    "fieldPath": "issue_date",
+                                    "jsonPath": null,
+                                    "nullable": true,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.DateType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "DATE()",
+                                    "recursive": false,
+                                    "globalTags": null,
+                                    "glossaryTerms": null,
+                                    "isPartOfKey": false
+                                }
+                            ],
+                            "primaryKeys": null,
+                            "foreignKeysSpecs": null,
+                            "foreignKeys": null
+                        }
+                    }
+                ]
+            }
+        },
+        "proposedDelta": null,
+        "systemMetadata": {
+            "lastObserved": 1632398400000,
+            "runId": "trino-test",
+            "properties": null
+        }
+    },
+    {
+        "auditHeader": null,
+        "entityType": "dataset",
+        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,library_catalog.librarydb.book,PROD)",
+        "entityKeyAspect": null,
+        "changeType": "UPSERT",
+        "aspectName": "datasetProfile",
+        "aspect": {
+            "value": "{\"timestampMillis\": 1632398400000, \"rowCount\": 3, \"columnCount\": 6, \"fieldProfiles\": [{\"fieldPath\": \"id\", \"uniqueCount\": 3, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"1\", \"2\", \"3\"]}, {\"fieldPath\": \"name\", \"uniqueCount\": 3, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"Book 1\", \"Book 2\", \"Book 3\"]}, {\"fieldPath\": \"author\", \"uniqueCount\": 3, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"ABC\", \"PQR\", \"XYZ\"]}, {\"fieldPath\": \"publisher\", \"uniqueCount\": 0, \"nullCount\": 3, \"nullProportion\": 1.0, \"sampleValues\": []}, {\"fieldPath\": \"tags\", \"nullCount\": 3, \"nullProportion\": 1.0, \"sampleValues\": []}, {\"fieldPath\": \"genre_ids\", \"uniqueCount\": 0, \"nullCount\": 3, \"nullProportion\": 1.0, \"sampleValues\": []}]}",
+            "contentType": "application/json"
+        },
+        "systemMetadata": null
+    },
+    {
+        "auditHeader": null,
+        "entityType": "dataset",
+        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,library_catalog.librarydb.issue_history,PROD)",
+        "entityKeyAspect": null,
+        "changeType": "UPSERT",
+        "aspectName": "datasetProfile",
+        "aspect": {
+            "value": "{\"timestampMillis\": 1632398400000, \"rowCount\": 2, \"columnCount\": 4, \"fieldProfiles\": [{\"fieldPath\": \"book_id\", \"uniqueCount\": 2, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"1\", \"2\"]}, {\"fieldPath\": \"member_id\", \"uniqueCount\": 2, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"1\", \"2\"]}, {\"fieldPath\": \"issue_date\", \"uniqueCount\": 1, \"uniqueProportion\": 0.5, \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"2021-09-27\", \"max\": \"2021-09-27\", \"sampleValues\": [\"2021-09-27\", \"2021-09-27\"]}, {\"fieldPath\": \"return_date\", \"uniqueCount\": 1, \"uniqueProportion\": 1.0, \"nullCount\": 1, \"nullProportion\": 0.5, \"min\": \"2021-09-27\", \"max\": \"2021-09-27\", \"sampleValues\": [\"2021-09-27\"]}]}",
+            "contentType": "application/json"
+        },
+        "systemMetadata": null
+    },
+    {
+        "auditHeader": null,
+        "entityType": "dataset",
+        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,library_catalog.librarydb.member,PROD)",
+        "entityKeyAspect": null,
+        "changeType": "UPSERT",
+        "aspectName": "datasetProfile",
+        "aspect": {
+            "value": "{\"timestampMillis\": 1632398400000, \"rowCount\": 2, \"columnCount\": 2, \"fieldProfiles\": [{\"fieldPath\": \"id\", \"uniqueCount\": 2, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"1\", \"2\"]}, {\"fieldPath\": \"name\", \"uniqueCount\": 2, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"Member 1\", \"Member 2\"]}]}",
+            "contentType": "application/json"
+        },
+        "systemMetadata": null
+    },
+    {
+        "auditHeader": null,
+        "entityType": "dataset",
+        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,library_catalog.librarydb.book_in_circulation,PROD)",
+        "entityKeyAspect": null,
+        "changeType": "UPSERT",
+        "aspectName": "datasetProfile",
+        "aspect": {
+            "value": "{\"timestampMillis\": 1632398400000, \"rowCount\": 1, \"columnCount\": 6, \"fieldProfiles\": [{\"fieldPath\": \"id\", \"uniqueCount\": 1, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"2\"]}, {\"fieldPath\": \"name\", \"uniqueCount\": 1, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"Book 2\"]}, {\"fieldPath\": \"author\", \"uniqueCount\": 1, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"PQR\"]}, {\"fieldPath\": \"publisher\", \"uniqueCount\": 0, \"nullCount\": 1, \"nullProportion\": 1.0, \"sampleValues\": []}, {\"fieldPath\": \"member_id\", \"uniqueCount\": 1, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"2\"]}, {\"fieldPath\": \"issue_date\", \"uniqueCount\": 1, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"2021-09-27\", \"max\": \"2021-09-27\", \"sampleValues\": [\"2021-09-27\"]}]}",
+            "contentType": "application/json"
+        },
+        "systemMetadata": null
+    }
+]

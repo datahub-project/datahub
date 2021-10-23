@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.types.chart;
 
 import com.google.common.collect.ImmutableList;
+
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.ChartUrn;
 import com.linkedin.common.urn.CorpuserUrn;
@@ -10,6 +11,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.authorization.ConjunctivePrivilegeGroup;
 import com.linkedin.datahub.graphql.authorization.DisjunctivePrivilegeGroup;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
@@ -30,11 +32,10 @@ import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowsePathsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowseResultMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
-import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.extractor.AspectExtractor;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
-import com.linkedin.metadata.query.SearchResult;
+import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.snapshot.ChartSnapshot;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.r2.RemoteInvocationException;

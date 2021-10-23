@@ -89,6 +89,20 @@ type Query {
     """
     mlPrimaryKey(urn: String!): MLPrimaryKey
 
+    """
+    List all DataHub Users
+    """
+    listUsers(input: ListUsersInput!): ListUsersResult
+
+    """
+    List all DataHub Groups
+    """
+    listGroups(input: ListGroupsInput!): ListGroupsResult
+
+    """
+    Fetches the number of entities ingested by type
+    """
+    getEntityCounts(input: EntityCountInput): EntityCountResults
 }
 
 """
@@ -185,6 +199,36 @@ type Mutation {
     Incubating. Updates the description of a resource. Currently only supports Dataset Schema Fields
     """
     updateDescription(input: DescriptionUpdateInput!): Boolean
+
+    """
+    Remove a user. Requires Manage Users & Groups Platform Privilege
+    """
+    removeUser(urn: String!): Boolean
+
+    """
+    Change the status of a user. Requires Manage Users & Groups Platform Privilege
+    """
+    updateUserStatus(urn: String!, status: CorpUserStatus!): String
+
+    """
+    Remove a group. Requires Manage Users & Groups Platform Privilege
+    """
+    removeGroup(urn: String!): Boolean
+
+    """
+    Add members to a group
+    """
+    addGroupMembers(input: AddGroupMembersInput!): Boolean
+
+    """
+    Remove members from a group
+    """
+    removeGroupMembers(input: RemoveGroupMembersInput!): Boolean
+
+    """
+    Create a new group. Returns the urn of the newly created group. Requires Manage Users & Groups Platform Privilege
+    """
+    createGroup(input: CreateGroupInput!): String
 }
 
 """
@@ -285,6 +329,13 @@ enum EntityType {
     The ML Primary Key Entity
     """
     MLPRIMARY_KEY
+}
+
+"""
+Input for the get entity counts endpoint
+"""
+input EntityCountInput {
+    types: [EntityType!]
 }
 
 """
@@ -413,16 +464,6 @@ interface EntityWithRelationships implements Entity {
     type: EntityType!
 
     """
-    Entities upstream of the given entity
-    """
-    upstreamLineage: UpstreamEntityRelationships
-
-    """
-    Entities downstream of the given entity
-    """
-    downstreamLineage: DownstreamEntityRelationships
-
-    """
     Edges extending from this entity
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
@@ -549,29 +590,27 @@ type Dataset implements EntityWithRelationships & Entity {
     platformNativeType: PlatformNativeType @deprecated
 
     """
-    Deprecated, use externalUrl instead
+    Deprecated, use properties instead
     Native Dataset Uri
     Uri should not include any environment specific properties
     """
     uri: String @deprecated
 
     """
-    Deprecated, use relationships DownstreamOf, UpstreamOf instead
-    Entities upstream of the given entity
-    """
-    upstreamLineage: UpstreamEntityRelationships @deprecated
-
-    """
-    Deprecated, use relationships DownstreamOf, UpstreamOf instead
-    Entities downstream of the given entity
-    """
-    downstreamLineage: DownstreamEntityRelationships @deprecated
-
-    """
     Deprecated, use tags field instead
     The structured tags associated with the dataset
     """
     globalTags: GlobalTags @deprecated
+
+    """
+    Sub Types that this entity implements
+    """
+    subTypes: SubTypes
+
+    """
+    View related properties. Only relevant if subtypes field contains VIEW.
+    """
+    viewProperties: ViewProperties
 }
 
 """
@@ -599,6 +638,7 @@ type DatasetProperties {
     """
     externalUrl: String
 }
+
 
 """
 A Glossary Term, or a node in a Business Glossary representing a standardized domain
@@ -1346,6 +1386,27 @@ enum SchemaFieldDataType {
 }
 
 """
+Properties about a Dataset of type view
+"""
+type ViewProperties {
+  """
+  Whether the view is materialized or not
+  """
+  materialized: Boolean!
+
+  """
+  The logic associated with the view, most commonly a SQL statement
+  """
+  logic: String!
+
+  """
+  The language in which the view logic is written, for example SQL
+  """
+  language: String!
+}
+
+
+"""
 Dataset properties that are editable via the UI This represents logical metadata,
 as opposed to technical metadata
 """
@@ -1434,46 +1495,6 @@ Deprecated, use relationships query instead
 """
 type DataFlowDataJobsRelationships {
     entities: [EntityRelationshipLegacy]
-}
-
-"""
-Deprecated, use relationships query instead
-"""
-type UpstreamLineage {
-    """
-    List of upstream datasets
-    """
-    upstreams: [RelatedDataset!]!
-}
-
-"""
-Deprecated, use relationships query instead
-"""
-type DownstreamLineage {
-    """
-    List of downstream datasets
-    """
-    downstreams: [RelatedDataset!]!
-}
-
-"""
-Deprecated, use relationships query instead
-"""
-type RelatedDataset {
-    """
-    The upstream dataset the lineage points to
-    """
-    dataset: Dataset!
-
-    """
-    The type of the lineage
-    """
-    type: DatasetLineageType!
-
-    """
-    When the lineage was created
-    """
-    created: AuditStamp!
 }
 
 """
@@ -1650,6 +1671,16 @@ enum OwnershipType {
 }
 
 """
+The state of a CorpUser
+"""
+enum CorpUserStatus {
+  """
+  A User that has been provisioned and logged in
+  """
+  ACTIVE
+}
+
+"""
 A DataHub User entity, which represents a Person on the Metadata Entity Graph
 """
 type CorpUser implements Entity {
@@ -1678,6 +1709,11 @@ type CorpUser implements Entity {
     Read write properties about the corp user
     """
     editableProperties: CorpUserEditableProperties
+
+    """
+    The status of the user
+    """
+    status: CorpUserStatus
 
     """
     The tags associated with the user
@@ -1959,6 +1995,11 @@ type CorpGroupInfo {
 Additional read only properties about a group
 """
 type CorpGroupProperties {
+    """
+    display name of this group
+    """
+    displayName: String
+
     """
     The description provided for the group
     """
@@ -2550,18 +2591,6 @@ type Dashboard implements EntityWithRelationships & Entity {
     The structured tags associated with the dashboard
     """
     globalTags: GlobalTags @deprecated
-
-    """
-    Deprecated, use relationships DownstreamOf, UpstreamOf instead
-    Entities upstream of the given entity
-    """
-    upstreamLineage: UpstreamEntityRelationships @deprecated
-
-    """
-    Deprecated, use relationships DownstreamOf, UpstreamOf instead
-    Entities downstream of the given entity
-    """
-    downstreamLineage: DownstreamEntityRelationships @deprecated
 }
 
 """
@@ -2760,18 +2789,6 @@ type Chart implements EntityWithRelationships & Entity {
     The structured tags associated with the chart
     """
     globalTags: GlobalTags @deprecated
-
-    """
-    Deprecated, use relationships DownstreamOf, UpstreamOf instead
-    Entities upstream of the given entity
-    """
-    upstreamLineage: UpstreamEntityRelationships @deprecated
-
-    """
-    Deprecated, use relationships DownstreamOf, UpstreamOf instead
-    Entities downstream of the given entity
-    """
-    downstreamLineage: DownstreamEntityRelationships @deprecated
 }
 
 """
@@ -3215,17 +3232,6 @@ type DataJob implements EntityWithRelationships & Entity {
     """
     inputOutput: DataJobInputOutput @deprecated
 
-    """
-    Deprecated, use relationships Produces, Consumes, DownstreamOf instead
-    Entities upstream of the given entity
-    """
-    upstreamLineage: UpstreamEntityRelationships @deprecated
-
-    """
-    Deprecated, use relationships Produces, Consumes, DownstreamOf instead
-    Entities downstream of the given entity
-    """
-    downstreamLineage: DownstreamEntityRelationships @deprecated
 
     """
     Deprecated, use the tags field instead
@@ -3857,6 +3863,36 @@ input PolicyUpdateInput {
 }
 
 """
+Input required to add members to a DataHub group
+"""
+input AddGroupMembersInput {
+  """
+  The group to add members to
+  """
+  groupUrn: String!
+
+  """
+  The members to add to the group
+  """
+  userUrns: [String!]!
+}
+
+"""
+Input required to remove members from a DataHub group
+"""
+input RemoveGroupMembersInput {
+  """
+  The group to remove members from
+  """
+  groupUrn: String!
+
+  """
+  The members to remove from the group
+  """
+  userUrns: [String!]!
+}
+
+"""
 The type of the Access Policy
 """
 enum PolicyType {
@@ -4086,6 +4122,95 @@ type ListPoliciesResult {
 }
 
 """
+Input required when listing DataHub Users
+"""
+input ListUsersInput {
+  """
+  The starting offset of the result set returned
+  """
+  start: Int
+
+  """
+  The maximum number of Policies to be returned in the result set
+  """
+  count: Int
+}
+
+"""
+The result obtained when listing DataHub Users
+"""
+type ListUsersResult {
+  """
+  The starting offset of the result set returned
+  """
+  start: Int!
+
+  """
+  The number of Policies in the returned result set
+  """
+  count: Int!
+
+  """
+  The total number of Policies in the result set
+  """
+  total: Int!
+
+  """
+  The users themselves
+  """
+  users: [CorpUser!]!
+}
+
+"""
+Input required when listing DataHub Groups
+"""
+input ListGroupsInput {
+  """
+  The starting offset of the result set returned
+  """
+  start: Int
+
+  """
+  The maximum number of Policies to be returned in the result set
+  """
+  count: Int
+}
+
+type EntityCountResults {
+    counts: [EntityCountResult!]
+}
+
+type EntityCountResult {
+    entityType: EntityType!
+    count: Int!
+}
+
+"""
+The result obtained when listing DataHub Groups
+"""
+type ListGroupsResult {
+  """
+  The starting offset of the result set returned
+  """
+  start: Int!
+
+  """
+  The number of Policies in the returned result set
+  """
+  count: Int!
+
+  """
+  The total number of Policies in the result set
+  """
+  total: Int!
+
+  """
+  The groups themselves
+  """
+  groups: [CorpGroup!]!
+}
+
+"""
 A time stamp along with an optional actor
 """
 type AuditStamp {
@@ -4098,6 +4223,21 @@ type AuditStamp {
     Who performed the audited action
     """
     actor: String
+}
+
+"""
+Input for creating a new group
+"""
+input CreateGroupInput {
+  """
+  The display name of the group
+  """
+  name: String!
+
+  """
+  The description of the group
+  """
+  description: String
 }
 
 """
@@ -4221,18 +4361,6 @@ type MLModel implements EntityWithRelationships & Entity {
     deprecation: Deprecation
 
     """
-    Deprecated, use relationships DownstreamOf, UpstreamOf instead
-    Entities upstream of the given entity
-    """
-    upstreamLineage: UpstreamEntityRelationships @deprecated
-
-    """
-    Deprecated, use relationships DownstreamOf, UpstreamOf instead
-    Entities downstream of the given entity
-    """
-    downstreamLineage: DownstreamEntityRelationships @deprecated
-
-    """
     Edges extending from this entity
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
@@ -4292,18 +4420,6 @@ type MLModelGroup implements EntityWithRelationships & Entity {
     Deprecation
     """
     deprecation: Deprecation
-
-    """
-    Deprecated, use relationships DownstreamOf, UpstreamOf instead
-    Entities upstream of the given entity
-    """
-    upstreamLineage: UpstreamEntityRelationships @deprecated
-
-    """
-    Deprecated, use relationships DownstreamOf, UpstreamOf instead
-    Entities downstream of the given entity
-    """
-    downstreamLineage: DownstreamEntityRelationships @deprecated
 
     """
     Edges extending from this entity
@@ -4856,4 +4972,11 @@ enum CostType {
     Org Cost Type to which the Cost of this entity should be attributed to
     """
     ORG_COST_TYPE
+}
+
+type SubTypes {
+   """
+    The sub-types that this entity implements. e.g. Datasets that are views will implement the "view" subtype
+   """
+   typeNames: [String!]
 }

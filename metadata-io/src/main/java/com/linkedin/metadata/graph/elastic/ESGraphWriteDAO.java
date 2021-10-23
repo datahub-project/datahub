@@ -1,7 +1,7 @@
 package com.linkedin.metadata.graph.elastic;
 
-import com.linkedin.metadata.query.Filter;
-import com.linkedin.metadata.query.RelationshipFilter;
+import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.query.filter.RelationshipFilter;
 import com.linkedin.metadata.search.elasticsearch.update.BulkListener;
 
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;

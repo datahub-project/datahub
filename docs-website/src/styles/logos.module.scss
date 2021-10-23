@@ -1,0 +1,60 @@
+.marquee {
+  width: 100%;
+  overflow: hidden;
+  display: block;
+
+  > div {
+    width: max-content;
+    will-change: transform;
+    animation: marquee 200s linear infinite;
+    display: flex;
+    align-items: center;
+
+    &:hover {
+      animation-play-state: paused;
+    }
+
+    img {
+      margin: 4rem 2rem;
+    }
+  }
+}
+
+@keyframes marquee {
+  0% {
+    transform: translate(0, 0);
+  }
+  100% {
+    transform: translate(-100%, 0);
+  }
+}
+
+.platformLogo {
+  width: 60px;
+  height: 50px;
+}
+
+.companyWrapper {
+  background: #fff;
+  html[data-theme="dark"] & {
+    filter: invert(1);
+    mix-blend-mode: exclusion;
+  }
+}
+
+.companyLogo {
+  width: auto;
+  mix-blend-mode: luminosity;
+  opacity: 0.66;
+  height: 60px;
+}
+
+.default {
+  height: 60px;
+}
+.large {
+  height: 100px;
+}
+.small {
+  height: 30px;
+}

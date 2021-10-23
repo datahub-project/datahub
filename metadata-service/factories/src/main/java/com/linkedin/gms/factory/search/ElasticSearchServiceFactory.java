@@ -56,9 +56,9 @@ public class ElasticSearchServiceFactory {
   @Bean(name = "elasticSearchService")
   @Nonnull
   protected ElasticSearchService getInstance() {
+    ESSearchDAO esSearchDAO = new ESSearchDAO(entityRegistry, searchClient, indexConvention);
     return new ElasticSearchService(new ESIndexBuilders(entityRegistry, searchClient, indexConvention, settingsBuilder),
-        new ESSearchDAO(entityRegistry, searchClient, indexConvention),
-        new ESBrowseDAO(entityRegistry, searchClient, indexConvention),
+        esSearchDAO, new ESBrowseDAO(entityRegistry, searchClient, indexConvention),
         new ESWriteDAO(entityRegistry, searchClient, indexConvention, bulkRequestsLimit, bulkFlushPeriod, numRetries,
             retryInterval));
   }

@@ -10,7 +10,7 @@ import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.datahub.graphql.generated.AuthenticatedUser;
 import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.types.corpuser.mappers.CorpUserSnapshotMapper;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.RestliEntityClient;
 import com.linkedin.metadata.snapshot.CorpUserSnapshot;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetcher;
@@ -29,9 +29,9 @@ import java.util.concurrent.CompletableFuture;
  */
 public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUser>> {
 
-  private final EntityClient _entityClient;
+  private final RestliEntityClient _entityClient;
 
-  public MeResolver(final EntityClient entityClient) {
+  public MeResolver(final RestliEntityClient entityClient) {
     _entityClient = entityClient;
   }
 
@@ -51,6 +51,7 @@ public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUs
         final PlatformPrivileges platformPrivileges = new PlatformPrivileges();
         platformPrivileges.setViewAnalytics(canViewAnalytics(context));
         platformPrivileges.setManagePolicies(canManagePolicies(context));
+        platformPrivileges.setManageIdentities(canManageUsersGroups(context));
 
         // Construct and return authenticated user object.
         final AuthenticatedUser authUser = new AuthenticatedUser();

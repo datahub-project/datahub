@@ -1,14 +1,7 @@
-import { Checkbox } from 'antd';
-import { CheckboxChangeEvent } from 'antd/lib/checkbox';
 import * as React from 'react';
-
-interface FacetMetadata {
-    field: string;
-    aggregations: Array<{
-        value: string;
-        count: number;
-    }>;
-}
+import { useEffect, useState } from 'react';
+import { FacetMetadata } from '../../types.generated';
+import { SearchFilter } from './SearchFilter';
 
 interface Props {
     facets: Array<FacetMetadata>;
@@ -16,37 +9,50 @@ interface Props {
         field: string;
         value: string;
     }>;
-    onFilterSelect: (selected: boolean, field: string, value: string) => void;
+    onFilterSelect: (
+        newFilters: Array<{
+            field: string;
+            value: string;
+        }>,
+    ) => void;
+    loading: boolean;
 }
 
-export const SearchFilters = ({ facets, selectedFilters, onFilterSelect }: Props) => {
+export const SearchFilters = ({ facets, selectedFilters, onFilterSelect, loading }: Props) => {
+    const [cachedProps, setCachedProps] = useState<{
+        facets: Array<FacetMetadata>;
+        selectedFilters: Array<{
+            field: string;
+            value: string;
+        }>;
+    }>({
+        facets,
+        selectedFilters,
+    });
+
+    // we want to persist the selected filters through the loading jitter
+    useEffect(() => {
+        if (!loading) {
+            setCachedProps({ facets, selectedFilters });
+        }
+    }, [facets, selectedFilters, loading]);
+
+    const onFilterSelectAndSetCache = (selected: boolean, field: string, value: string) => {
+        const newFilters = selected
+            ? [...selectedFilters, { field, value }]
+            : selectedFilters.filter((filter) => filter.field !== field || filter.value !== value);
+        setCachedProps({ ...cachedProps, selectedFilters: newFilters });
+        onFilterSelect(newFilters);
+    };
+
     return (
         <>
-            {facets.map((facet) => (
-                <div key={facet.field} style={{ padding: '0px 25px 15px 25px' }}>
-                    <div style={{ fontWeight: 'bold', marginBottom: '10px' }}>
-                        {facet.field.charAt(0).toUpperCase() + facet.field.slice(1)}
-                    </div>
-                    {facet.aggregations.map((aggregation) => (
-                        <span key={`${facet.field}-${aggregation.value}`}>
-                            <Checkbox
-                                data-testid={`facet-${facet.field}-${aggregation.value}`}
-                                style={{ margin: '5px 0px' }}
-                                checked={
-                                    selectedFilters.find(
-                                        (f) => f.field === facet.field && f.value === aggregation.value,
-                                    ) !== undefined
-                                }
-                                onChange={(e: CheckboxChangeEvent) =>
-                                    onFilterSelect(e.target.checked, facet.field, aggregation.value)
-                                }
-                            >
-                                {aggregation.value} ({aggregation.count})
-                            </Checkbox>
-                            <br />
-                        </span>
-                    ))}
-                </div>
+            {cachedProps.facets.map((facet) => (
+                <SearchFilter
+                    facet={facet}
+                    selectedFilters={cachedProps.selectedFilters}
+                    onFilterSelect={onFilterSelectAndSetCache}
+                />
             ))}
         </>
     );

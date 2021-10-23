@@ -208,7 +208,7 @@ describe('constructTree', () => {
         });
     });
 
-    it('maintains referential equality between identical nodes', () => {
+    it('for a set of identical nodes, both will be referentially identical', () => {
         const fetchedEntities = [
             { entity: dataset4WithLineage, direction: Direction.Upstream, fullyFetched: true },
             { entity: dataset5WithLineage, direction: Direction.Upstream, fullyFetched: true },
@@ -232,8 +232,8 @@ describe('constructTree', () => {
             testEntityRegistry,
         );
 
-        const fifthDatasetIntance1 = tree?.children?.[0]?.children?.[0]?.children?.[0];
-        const fifthDatasetIntance2 = tree?.children?.[0]?.children?.[1];
+        const fifthDatasetIntance1 = tree?.children?.[0]?.children?.[1];
+        const fifthDatasetIntance2 = tree?.children?.[0]?.children?.[0]?.children?.[0];
 
         expect(fifthDatasetIntance1?.name).toEqual('Fifth Test Dataset');
         expect(fifthDatasetIntance2?.name).toEqual('Fifth Test Dataset');

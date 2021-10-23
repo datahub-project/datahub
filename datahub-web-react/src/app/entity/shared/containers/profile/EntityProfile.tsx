@@ -3,7 +3,6 @@ import { Alert, Divider } from 'antd';
 import { MutationHookOptions, MutationTuple, QueryHookOptions, QueryResult } from '@apollo/client/react/types/types';
 import styled from 'styled-components';
 import { useHistory } from 'react-router';
-
 import { EntityType, Exact } from '../../../../../types.generated';
 import { Message } from '../../../../shared/Message';
 import { getDataForEntityType, getEntityPath, useRoutedTab } from './utils';
@@ -85,6 +84,15 @@ const TabContent = styled.div`
     overflow: auto;
 `;
 
+const defaultTabDisplayConfig = {
+    visible: (_, _1) => true,
+    enabled: (_, _1) => true,
+};
+
+const defaultSidebarSection = {
+    visible: (_, _1) => true,
+};
+
 /**
  * Container for display of the Entity Page
  */
@@ -102,6 +110,11 @@ export const EntityProfile = <T, U>({
     const entityRegistry = useEntityRegistry();
     const history = useHistory();
     const isCompact = React.useContext(CompactContext);
+    const tabsWithDefaults = tabs.map((tab) => ({ ...tab, display: { ...defaultTabDisplayConfig, ...tab.display } }));
+    const sideBarSectionsWithDefaults = sidebarSections.map((sidebarSection) => ({
+        ...sidebarSection,
+        display: { ...defaultSidebarSection, ...sidebarSection.display },
+    }));
 
     const routeToTab = useCallback(
         ({
@@ -126,6 +139,8 @@ export const EntityProfile = <T, U>({
 
     const entityData = getDataForEntityType({ data, entityType, getOverrideProperties });
 
+    const lineage = entityData ? entityRegistry.getLineageVizConfig(entityType, entityData) : undefined;
+
     if (isCompact) {
         return (
             <EntityContext.Provider
@@ -137,6 +152,7 @@ export const EntityProfile = <T, U>({
                     updateEntity,
                     routeToTab,
                     refetch,
+                    lineage,
                 }}
             >
                 <div>
@@ -148,7 +164,7 @@ export const EntityProfile = <T, U>({
                         <>
                             <EntityHeader />
                             <Divider />
-                            <EntitySidebar sidebarSections={sidebarSections} />
+                            <EntitySidebar sidebarSections={sideBarSectionsWithDefaults} />
                         </>
                     )}
                 </div>
@@ -166,10 +182,11 @@ export const EntityProfile = <T, U>({
                 updateEntity,
                 routeToTab,
                 refetch,
+                lineage,
             }}
         >
             <>
-                <EntityProfileNavBar urn={urn} entityData={entityData} entityType={entityType} />
+                <EntityProfileNavBar urn={urn} entityType={entityType} />
                 {loading && <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />}
                 {!loading && error && (
                     <Alert type="error" message={error?.message || `Entity failed to load for urn ${urn}`} />
@@ -183,13 +200,13 @@ export const EntityProfile = <T, U>({
                                 <HeaderAndTabsFlex>
                                     <Header>
                                         <EntityHeader />
-                                        <EntityTabs tabs={tabs} selectedTab={routedTab} />
+                                        <EntityTabs tabs={tabsWithDefaults} selectedTab={routedTab} />
                                     </Header>
                                     <TabContent>{routedTab && <routedTab.component />}</TabContent>
                                 </HeaderAndTabsFlex>
                             </HeaderAndTabs>
                             <Sidebar>
-                                <EntitySidebar sidebarSections={sidebarSections} />
+                                <EntitySidebar sidebarSections={sideBarSectionsWithDefaults} />
                             </Sidebar>
                         </>
                     )}

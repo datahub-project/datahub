@@ -7,6 +7,8 @@ import {
     GetAutoCompleteMultipleResultsDocument,
     GetSearchResultsDocument,
     GetSearchResultsQuery,
+    GetSearchResultsForMultipleDocument,
+    GetSearchResultsForMultipleQuery,
 } from './graphql/search.generated';
 import { GetUserDocument } from './graphql/user.generated';
 import {
@@ -19,6 +21,7 @@ import {
     MlModel,
     MlModelGroup,
     SchemaFieldDataType,
+    RelationshipDirection,
 } from './types.generated';
 import { GetTagDocument } from './graphql/tag.generated';
 import { GetMlModelDocument } from './graphql/mlModel.generated';
@@ -259,6 +262,7 @@ export const dataset3 = {
     properties: {
         origin: 'PROD',
         customProperties: [{ key: 'propertyAKey', value: 'propertyAValue' }],
+        externalUrl: 'https://data.hub',
     },
     editableProperties: null,
     created: {
@@ -315,8 +319,8 @@ export const dataset3 = {
             },
         ],
     },
-    upstreamLineage: null,
-    downstreamLineage: null,
+    incoming: null,
+    outgoing: null,
     institutionalMemory: {
         elements: [
             {
@@ -405,6 +409,8 @@ export const dataset3 = {
             ],
         },
     ],
+    subTypes: null,
+    viewProperties: null,
 } as Dataset;
 
 export const dataset4 = {
@@ -433,45 +439,53 @@ export const dataset7 = {
 
 export const dataset3WithLineage = {
     ...dataset3,
-    upstreamLineage: {
-        entities: [
+    outgoing: {
+        start: 0,
+        count: 2,
+        total: 2,
+        relationships: [
             {
-                created: {
-                    time: 0,
-                },
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Outgoing,
                 entity: dataset7,
             },
             {
-                created: {
-                    time: 0,
-                },
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Outgoing,
                 entity: dataset4,
             },
         ],
     },
+    incoming: null,
 };
 
 export const dataset4WithLineage = {
     ...dataset4,
-    upstreamLineage: {
-        entities: [
+    outgoing: {
+        start: 0,
+        count: 2,
+        total: 2,
+        relationships: [
             {
-                created: {
-                    time: 0,
-                },
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Outgoing,
                 entity: dataset6,
             },
             {
-                created: {
-                    time: 0,
-                },
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Outgoing,
                 entity: dataset5,
             },
         ],
     },
-    downstreamLineage: {
-        entities: [
+    incoming: {
+        start: 0,
+        count: 1,
+        total: 1,
+        relationships: [
             {
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Incoming,
                 entity: dataset3,
             },
         ],
@@ -480,23 +494,27 @@ export const dataset4WithLineage = {
 
 export const dataset5WithCyclicalLineage = {
     ...dataset5,
-    upstreamLineage: {
-        entities: [
+    outgoing: {
+        start: 0,
+        count: 1,
+        total: 1,
+        relationships: [
             {
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Outgoing,
                 entity: dataset3,
             },
         ],
     },
-    downstreamLineage: {
-        entities: [
+    incoming: {
+        start: 0,
+        count: 1,
+        total: 1,
+        relationships: [
             {
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Incoming,
                 entity: dataset7,
-            },
-            {
-                entity: dataset6,
-            },
-            {
-                entity: dataset4,
             },
         ],
     },
@@ -504,16 +522,25 @@ export const dataset5WithCyclicalLineage = {
 
 export const dataset5WithLineage = {
     ...dataset5,
-    upstreamLineage: null,
-    downstreamLineage: {
-        entities: [
+    outgoing: null,
+    incoming: {
+        start: 0,
+        count: 3,
+        total: 3,
+        relationships: [
             {
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Incoming,
                 entity: dataset7,
             },
             {
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Incoming,
                 entity: dataset6,
             },
             {
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Incoming,
                 entity: dataset4,
             },
         ],
@@ -522,16 +549,26 @@ export const dataset5WithLineage = {
 
 export const dataset6WithLineage = {
     ...dataset6,
-    upstreamLineage: {
-        entities: [
+    outgoing: {
+        start: 0,
+        count: 1,
+        total: 1,
+        relationships: [
             {
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Outgoing,
                 entity: dataset5,
             },
         ],
     },
-    downstreamLineage: {
-        entities: [
+    incoming: {
+        start: 0,
+        count: 1,
+        total: 1,
+        relationships: [
             {
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Incoming,
                 entity: dataset4,
             },
         ],
@@ -540,16 +577,26 @@ export const dataset6WithLineage = {
 
 export const dataset7WithLineage = {
     ...dataset7,
-    upstreamLineage: {
-        entities: [
+    outgoing: {
+        start: 0,
+        count: 1,
+        total: 1,
+        relationships: [
             {
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Outgoing,
                 entity: dataset5,
             },
         ],
     },
-    downstreamLineage: {
-        entities: [
+    incoming: {
+        start: 0,
+        count: 1,
+        total: 1,
+        relationships: [
             {
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Incoming,
                 entity: dataset3,
             },
         ],
@@ -558,22 +605,36 @@ export const dataset7WithLineage = {
 
 export const dataset7WithSelfReferentialLineage = {
     ...dataset7,
-    upstreamLineage: {
-        entities: [
+    outgoing: {
+        start: 0,
+        count: 2,
+        total: 2,
+        relationships: [
             {
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Outgoing,
                 entity: dataset5,
             },
             {
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Outgoing,
                 entity: dataset7,
             },
         ],
     },
-    downstreamLineage: {
-        entities: [
+    incoming: {
+        start: 0,
+        count: 2,
+        total: 2,
+        relationships: [
             {
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Incoming,
                 entity: dataset3,
             },
             {
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Incoming,
                 entity: dataset7,
             },
         ],
@@ -817,8 +878,6 @@ export const dataJob1 = {
         outputDatasets: [dataset3],
         inputDatajobs: [],
     },
-    upstreamLineage: null,
-    downstreamLineage: null,
     globalTags: {
         tags: [
             {
@@ -873,8 +932,6 @@ export const dataJob2 = {
         outputDatasets: [dataset3],
         inputDatajobs: [dataJob1],
     },
-    upstreamLineage: null,
-    downstreamLineage: null,
     globalTags: {
         tags: [
             {
@@ -929,8 +986,6 @@ export const dataJob3 = {
         outputDatasets: [dataset3],
         inputDatajobs: [dataJob2],
     },
-    upstreamLineage: null,
-    downstreamLineage: null,
     globalTags: {
         tags: [
             {
@@ -944,17 +999,6 @@ export const dataJob3 = {
         ],
     },
 } as DataJob;
-
-dataJob1.upstreamLineage = {
-    entities: [
-        {
-            created: {
-                time: 0,
-            },
-            entity: dataJob3,
-        },
-    ],
-};
 
 export const mlModel = {
     __typename: 'MLModel',
@@ -1019,6 +1063,8 @@ export const mlModel = {
             },
         ],
     },
+    incoming: null,
+    outgoing: null,
 } as MlModel;
 
 export const mlModelGroup = {
@@ -1072,6 +1118,8 @@ export const mlModelGroup = {
             },
         ],
     },
+    incoming: null,
+    outgoing: null,
 } as MlModelGroup;
 
 /*
@@ -1353,6 +1401,7 @@ export const mocks = [
                                     value: 'fieldValue',
                                 },
                             ],
+                            insights: [],
                         },
                         {
                             entity: {
@@ -1370,14 +1419,16 @@ export const mocks = [
                     facets: [
                         {
                             field: 'origin',
-                            aggregations: [{ value: 'PROD', count: 3 }],
+                            displayName: 'origin',
+                            aggregations: [{ value: 'PROD', count: 3, entity: null }],
                         },
                         {
                             field: 'platform',
+                            displayName: 'platform',
                             aggregations: [
-                                { value: 'HDFS', count: 1 },
-                                { value: 'MySQL', count: 1 },
-                                { value: 'Kafka', count: 1 },
+                                { value: 'HDFS', count: 1, entity: null },
+                                { value: 'MySQL', count: 1, entity: null },
+                                { value: 'Kafka', count: 1, entity: null },
                             ],
                         },
                     ],
@@ -1418,24 +1469,28 @@ export const mocks = [
                                 ...dataset3,
                             },
                             matchedFields: [],
+                            insights: [],
                         },
                     ],
                     facets: [
                         {
                             field: 'origin',
+                            displayName: 'origin',
                             aggregations: [
                                 {
                                     value: 'PROD',
                                     count: 3,
+                                    entity: null,
                                 },
                             ],
                         },
                         {
                             field: 'platform',
+                            displayName: 'platform',
                             aggregations: [
-                                { value: 'hdfs', count: 1 },
-                                { value: 'mysql', count: 1 },
-                                { value: 'kafka', count: 1 },
+                                { value: 'hdfs', count: 1, entity: null },
+                                { value: 'mysql', count: 1, entity: null },
+                                { value: 'kafka', count: 1, entity: null },
                             ],
                         },
                     ],
@@ -1471,24 +1526,28 @@ export const mocks = [
                                 ...glossaryTerm1,
                             },
                             matchedFields: [],
+                            insights: [],
                         },
                     ],
                     facets: [
                         {
                             field: 'origin',
+                            displayName: 'origin',
                             aggregations: [
                                 {
                                     value: 'PROD',
                                     count: 3,
+                                    entity: null,
                                 },
                             ],
                         },
                         {
                             field: 'platform',
+                            displayName: 'platform',
                             aggregations: [
-                                { value: 'hdfs', count: 1 },
-                                { value: 'mysql', count: 1 },
-                                { value: 'kafka', count: 1 },
+                                { value: 'hdfs', count: 1, entity: null },
+                                { value: 'mysql', count: 1, entity: null },
+                                { value: 'kafka', count: 1, entity: null },
                             ],
                         },
                     ],
@@ -1534,7 +1593,11 @@ export const mocks = [
                     filters: [
                         {
                             field: 'platform',
-                            value: 'kafka,hdfs',
+                            value: 'kafka',
+                        },
+                        {
+                            field: 'platform',
+                            value: 'hdfs',
                         },
                     ],
                 },
@@ -1555,24 +1618,28 @@ export const mocks = [
                                 ...dataset3,
                             },
                             matchedFields: [],
+                            insights: [],
                         },
                     ],
                     facets: [
                         {
                             field: 'origin',
+                            displayName: 'origin',
                             aggregations: [
                                 {
                                     value: 'PROD',
                                     count: 3,
+                                    entity: null,
                                 },
                             ],
                         },
                         {
                             field: 'platform',
+                            displayName: 'platform',
                             aggregations: [
-                                { value: 'hdfs', count: 1 },
-                                { value: 'mysql', count: 1 },
-                                { value: 'kafka', count: 1 },
+                                { value: 'hdfs', count: 1, entity: null },
+                                { value: 'mysql', count: 1, entity: null },
+                                { value: 'kafka', count: 1, entity: null },
                             ],
                         },
                     ],
@@ -1604,6 +1671,7 @@ export const mocks = [
                                 ...user1,
                             },
                             matchedFields: [],
+                            insights: [],
                         },
                     ],
                 },
@@ -1706,24 +1774,28 @@ export const mocks = [
                                 ...dataset3,
                             },
                             matchedFields: [],
+                            insights: [],
                         },
                     ],
                     facets: [
                         {
                             field: 'origin',
+                            displayName: 'origin',
                             aggregations: [
                                 {
                                     value: 'PROD',
                                     count: 3,
+                                    entity: null,
                                 },
                             ],
                         },
                         {
                             field: 'platform',
+                            displayName: 'platform',
                             aggregations: [
-                                { value: 'hdfs', count: 1 },
-                                { value: 'mysql', count: 1 },
-                                { value: 'kafka', count: 1 },
+                                { value: 'hdfs', count: 1, entity: null },
+                                { value: 'mysql', count: 1, entity: null },
+                                { value: 'kafka', count: 1, entity: null },
                             ],
                         },
                     ],
@@ -1759,6 +1831,7 @@ export const mocks = [
                                 ...dataset3,
                             },
                             matchedFields: [],
+                            insights: [],
                         },
                         {
                             entity: {
@@ -1766,24 +1839,28 @@ export const mocks = [
                                 ...dataset4,
                             },
                             matchedFields: [],
+                            insights: [],
                         },
                     ],
                     facets: [
                         {
                             field: 'origin',
+                            displayName: 'origin',
                             aggregations: [
                                 {
                                     value: 'PROD',
                                     count: 3,
+                                    entity: null,
                                 },
                             ],
                         },
                         {
                             field: 'platform',
+                            displayName: 'platform',
                             aggregations: [
-                                { value: 'hdfs', count: 1 },
-                                { value: 'mysql', count: 1 },
-                                { value: 'kafka', count: 1 },
+                                { value: 'hdfs', count: 1, entity: null },
+                                { value: 'mysql', count: 1, entity: null },
+                                { value: 'kafka', count: 1, entity: null },
                             ],
                         },
                     ],
@@ -1819,24 +1896,32 @@ export const mocks = [
                                 ...dataFlow1,
                             },
                             matchedFields: [],
+                            insights: [],
                         },
                     ],
                     facets: [
                         {
                             field: 'origin',
+                            displayName: 'platform',
                             aggregations: [
                                 {
                                     value: 'PROD',
                                     count: 3,
+                                    entity: null,
                                 },
                             ],
                         },
                         {
                             field: 'platform',
+                            displayName: 'platform',
                             aggregations: [
-                                { value: 'hdfs', count: 1 },
-                                { value: 'mysql', count: 1 },
-                                { value: 'kafka', count: 1 },
+                                {
+                                    value: 'hdfs',
+                                    count: 1,
+                                    entity: null,
+                                },
+                                { value: 'mysql', count: 1, entity: null },
+                                { value: 'kafka', count: 1, entity: null },
                             ],
                         },
                     ],
@@ -1954,24 +2039,32 @@ export const mocks = [
                                 ...dataJob1,
                             },
                             matchedFields: [],
+                            insights: [],
                         },
                     ],
                     facets: [
                         {
                             field: 'origin',
+                            displayName: 'platform',
                             aggregations: [
                                 {
                                     value: 'PROD',
                                     count: 3,
+                                    entity: null,
                                 },
                             ],
                         },
                         {
                             field: 'platform',
+                            displayName: 'platform',
                             aggregations: [
-                                { value: 'hdfs', count: 1 },
-                                { value: 'mysql', count: 1 },
-                                { value: 'kafka', count: 1 },
+                                {
+                                    value: 'hdfs',
+                                    count: 1,
+                                    entity: null,
+                                },
+                                { value: 'mysql', count: 1, entity: null },
+                                { value: 'kafka', count: 1, entity: null },
                             ],
                         },
                     ],
@@ -1990,6 +2083,424 @@ export const mocks = [
             data: {
                 tag: { ...sampleTag },
             },
+        },
+    },
+    {
+        request: {
+            query: GetSearchResultsForMultipleDocument,
+            variables: {
+                input: {
+                    types: ['DATASET'],
+                    query: 'test',
+                    start: 0,
+                    count: 10,
+                    filters: [
+                        {
+                            field: 'platform',
+                            value: 'kafka',
+                        },
+                    ],
+                },
+            },
+        },
+        result: {
+            data: {
+                __typename: 'Query',
+                searchAcrossEntities: {
+                    __typename: 'SearchResults',
+                    start: 0,
+                    count: 1,
+                    total: 1,
+                    searchResults: [
+                        {
+                            entity: {
+                                __typename: 'Dataset',
+                                ...dataset3,
+                            },
+                            matchedFields: [],
+                            insights: [],
+                        },
+                    ],
+                    facets: [
+                        {
+                            field: 'origin',
+                            displayName: 'origin',
+                            aggregations: [
+                                {
+                                    value: 'PROD',
+                                    count: 3,
+                                    entity: null,
+                                },
+                            ],
+                        },
+                        {
+                            field: 'platform',
+                            displayName: 'platform',
+                            aggregations: [
+                                { value: 'hdfs', count: 1, entity: null },
+                                { value: 'mysql', count: 1, entity: null },
+                                { value: 'kafka', count: 1, entity: null },
+                            ],
+                        },
+                    ],
+                },
+            } as GetSearchResultsForMultipleQuery,
+        },
+    },
+    {
+        request: {
+            query: GetSearchResultsForMultipleDocument,
+            variables: {
+                input: {
+                    types: ['DATASET'],
+                    query: 'test',
+                    start: 0,
+                    count: 10,
+                    filters: [
+                        {
+                            field: 'platform',
+                            value: 'kafka',
+                        },
+                    ],
+                },
+            },
+        },
+        result: {
+            data: {
+                __typename: 'Query',
+                searchAcrossEntities: {
+                    __typename: 'SearchResults',
+                    start: 0,
+                    count: 1,
+                    total: 1,
+                    searchResults: [
+                        {
+                            entity: {
+                                __typename: 'Dataset',
+                                ...dataset3,
+                            },
+                            matchedFields: [],
+                            insights: [],
+                        },
+                    ],
+                    facets: [],
+                },
+            } as GetSearchResultsForMultipleQuery,
+        },
+    },
+    {
+        request: {
+            query: GetSearchResultsForMultipleDocument,
+            variables: {
+                input: {
+                    types: ['DATA_JOB'],
+                    query: 'Sample',
+                    start: 0,
+                    count: 10,
+                    filters: [],
+                },
+            },
+        },
+        result: {
+            data: {
+                __typename: 'Query',
+                searchAcrossEntities: {
+                    __typename: 'SearchResults',
+                    start: 0,
+                    count: 1,
+                    total: 1,
+                    searchResults: [
+                        {
+                            entity: {
+                                __typename: 'DataJob',
+                                ...dataJob1,
+                            },
+                            matchedFields: [],
+                            insights: [],
+                        },
+                    ],
+                    facets: [
+                        {
+                            field: 'origin',
+                            displayName: 'platform',
+                            aggregations: [
+                                {
+                                    value: 'PROD',
+                                    count: 3,
+                                    entity: null,
+                                },
+                            ],
+                        },
+                        {
+                            field: 'platform',
+                            displayName: 'platform',
+                            aggregations: [
+                                {
+                                    value: 'hdfs',
+                                    count: 1,
+                                    entity: null,
+                                },
+                                { value: 'mysql', count: 1, entity: null },
+                                { value: 'kafka', count: 1, entity: null },
+                            ],
+                        },
+                    ],
+                },
+            } as GetSearchResultsForMultipleQuery,
+        },
+    },
+    {
+        request: {
+            query: GetSearchResultsForMultipleDocument,
+            variables: {
+                input: {
+                    types: ['DATASET'],
+                    query: 'tags:"abc-sample-tag" OR fieldTags:"abc-sample-tag" OR editedFieldTags:"abc-sample-tag"',
+                    start: 0,
+                    count: 1,
+                    filters: [],
+                },
+            },
+        },
+        result: {
+            data: {
+                __typename: 'Query',
+                searchAcrossEntities: {
+                    __typename: 'SearchResults',
+                    start: 0,
+                    count: 1,
+                    total: 1,
+                    searchResults: [
+                        {
+                            entity: {
+                                __typename: 'Dataset',
+                                ...dataset3,
+                            },
+                            matchedFields: [],
+                            insights: [],
+                        },
+                    ],
+                    facets: [
+                        {
+                            field: 'origin',
+                            displayName: 'origin',
+                            aggregations: [
+                                {
+                                    value: 'PROD',
+                                    count: 3,
+                                    entity: null,
+                                },
+                            ],
+                        },
+                        {
+                            field: 'platform',
+                            displayName: 'platform',
+                            aggregations: [
+                                { value: 'hdfs', count: 1, entity: null },
+                                { value: 'mysql', count: 1, entity: null },
+                                { value: 'kafka', count: 1, entity: null },
+                            ],
+                        },
+                    ],
+                },
+            } as GetSearchResultsForMultipleQuery,
+        },
+    },
+    {
+        request: {
+            query: GetSearchResultsForMultipleDocument,
+            variables: {
+                input: {
+                    types: ['DATASET'],
+                    query: '*',
+                    start: 0,
+                    count: 20,
+                    filters: [],
+                },
+            },
+        },
+        result: {
+            data: {
+                __typename: 'Query',
+                searchAcrossEntities: {
+                    __typename: 'SearchResults',
+                    start: 0,
+                    count: 1,
+                    total: 1,
+                    searchResults: [
+                        {
+                            entity: {
+                                __typename: 'Dataset',
+                                ...dataset3,
+                            },
+                            matchedFields: [],
+                            insights: [],
+                        },
+                        {
+                            entity: {
+                                __typename: 'Dataset',
+                                ...dataset4,
+                            },
+                            matchedFields: [],
+                            insights: [],
+                        },
+                    ],
+                    facets: [
+                        {
+                            field: 'origin',
+                            displayName: 'origin',
+                            aggregations: [
+                                {
+                                    value: 'PROD',
+                                    count: 3,
+                                    entity: null,
+                                },
+                            ],
+                        },
+                        {
+                            field: 'platform',
+                            displayName: 'platform',
+                            aggregations: [
+                                { value: 'hdfs', count: 1, entity: null },
+                                { value: 'mysql', count: 1, entity: null },
+                                { value: 'kafka', count: 1, entity: null },
+                            ],
+                        },
+                    ],
+                },
+            } as GetSearchResultsForMultipleQuery,
+        },
+    },
+    {
+        request: {
+            query: GetSearchResultsForMultipleDocument,
+            variables: {
+                input: {
+                    types: ['DATASET'],
+                    query: 'test',
+                    start: 0,
+                    count: 10,
+                    filters: [
+                        {
+                            field: 'platform',
+                            value: 'kafka',
+                        },
+                        {
+                            field: 'platform',
+                            value: 'hdfs',
+                        },
+                    ],
+                },
+            },
+        },
+        result: {
+            data: {
+                __typename: 'Query',
+                searchAcrossEntities: {
+                    __typename: 'SearchResults',
+                    start: 0,
+                    count: 1,
+                    total: 1,
+                    searchResults: [
+                        {
+                            entity: {
+                                __typename: 'Dataset',
+                                ...dataset3,
+                            },
+                            matchedFields: [],
+                            insights: [],
+                        },
+                    ],
+                    facets: [
+                        {
+                            field: 'origin',
+                            displayName: 'origin',
+                            aggregations: [
+                                {
+                                    value: 'PROD',
+                                    count: 3,
+                                    entity: null,
+                                },
+                            ],
+                        },
+                        {
+                            field: 'platform',
+                            displayName: 'platform',
+                            aggregations: [
+                                { value: 'hdfs', count: 1, entity: null },
+                                { value: 'mysql', count: 1, entity: null },
+                                { value: 'kafka', count: 1, entity: null },
+                            ],
+                        },
+                    ],
+                },
+            } as GetSearchResultsForMultipleQuery,
+        },
+    },
+    {
+        request: {
+            query: GetSearchResultsForMultipleDocument,
+            variables: {
+                input: {
+                    types: ['DATASET'],
+                    query: 'test',
+                    start: 0,
+                    count: 10,
+                    filters: [
+                        {
+                            field: 'platform',
+                            value: 'kafka',
+                        },
+                        {
+                            field: 'platform',
+                            value: 'hdfs',
+                        },
+                    ],
+                },
+            },
+        },
+        result: {
+            data: {
+                __typename: 'Query',
+                searchAcrossEntities: {
+                    __typename: 'SearchResults',
+                    start: 0,
+                    count: 1,
+                    total: 1,
+                    searchResults: [
+                        {
+                            entity: {
+                                __typename: 'Dataset',
+                                ...dataset3,
+                            },
+                            matchedFields: [],
+                            insights: [],
+                        },
+                    ],
+                    facets: [
+                        {
+                            field: 'origin',
+                            displayName: 'origin',
+                            aggregations: [
+                                {
+                                    value: 'PROD',
+                                    count: 3,
+                                    entity: null,
+                                },
+                            ],
+                        },
+                        {
+                            field: 'platform',
+                            displayName: 'platform',
+                            aggregations: [
+                                { value: 'hdfs', count: 1, entity: null },
+                                { value: 'mysql', count: 1, entity: null },
+                                { value: 'kafka', count: 1, entity: null },
+                            ],
+                        },
+                    ],
+                },
+            } as GetSearchResultsForMultipleQuery,
         },
     },
 ];

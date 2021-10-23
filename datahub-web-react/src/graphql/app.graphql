@@ -21,5 +21,17 @@ query appConfig {
         analyticsConfig {
             enabled
         }
+        identityManagementConfig {
+            enabled
+        }
+    }
+}
+
+query getEntityCounts($input: EntityCountInput) {
+    getEntityCounts(input: $input) {
+        counts {
+            entityType
+            count
+        }
     }
 }

@@ -1,9 +1,14 @@
 import { TagOutlined, TagFilled } from '@ant-design/icons';
 import * as React from 'react';
+import styled from 'styled-components';
 import { Tag, EntityType, SearchResult } from '../../../types.generated';
 import DefaultPreviewCard from '../../preview/DefaultPreviewCard';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
 import TagProfile from './TagProfile';
+
+const PreviewTagIcon = styled(TagOutlined)`
+    font-size: 20px;
+`;
 
 /**
  * Definition of the DataHub Tag entity.
@@ -51,6 +56,8 @@ export class TagEntity implements Entity<Tag> {
             description={data.description || ''}
             name={data.name}
             url={`/${this.getPathName()}/${data.urn}`}
+            logoComponent={<PreviewTagIcon />}
+            type="Tag"
         />
     );
 
