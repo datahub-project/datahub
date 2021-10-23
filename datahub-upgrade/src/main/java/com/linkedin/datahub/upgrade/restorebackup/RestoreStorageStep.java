@@ -14,6 +14,7 @@ import com.linkedin.datahub.upgrade.restorebackup.backupreader.LocalParquetReade
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.entity.ebean.EbeanUtils;
+import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import java.net.URISyntaxException;
@@ -94,8 +95,9 @@ public class RestoreStorageStep implements UpgradeStep {
             EbeanUtils.toAspectRecord(entityName, aspectName, aspect.getMetadata(), _entityRegistry);
 
         // 4. Verify that the aspect is a valid aspect associated with the entity
+        AspectSpec aspectSpec;
         try {
-          entitySpec.getAspectSpec(aspectName);
+          aspectSpec = entitySpec.getAspectSpec(aspectName);
         } catch (Exception e) {
           context.report()
               .addLine(String.format("Failed to find aspect spec with name %s associated with entity named %s: %s",
@@ -105,8 +107,8 @@ public class RestoreStorageStep implements UpgradeStep {
 
         // 5. Write the row back using the EntityService
         boolean emitMae = aspect.getKey().getVersion() == 0L;
-        _entityService.updateAspect(urn, aspectName, aspectRecord, toAuditStamp(aspect), aspect.getKey().getVersion(),
-            emitMae);
+        _entityService.updateAspect(urn, entityName, aspectName, aspectSpec, aspectRecord, toAuditStamp(aspect),
+            aspect.getKey().getVersion(), emitMae);
 
         if (numRows % REPORT_BATCH_SIZE == 0) {
           context.report().addLine(String.format("Successfully inserted %d rows", numRows));

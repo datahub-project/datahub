@@ -21,7 +21,7 @@ export const LdapFormItem = ({ form }: Props) => {
     const onChangeOwnerQuery = async (query: string) => {
         const row = await form.validateFields();
 
-        if (query && query !== '') {
+        if (query && query.trim() !== '') {
             getOwnerAutoCompleteResults({
                 variables: {
                     input: {

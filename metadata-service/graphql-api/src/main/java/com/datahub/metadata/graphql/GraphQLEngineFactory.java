@@ -4,9 +4,9 @@ import com.datahub.metadata.authorization.AuthorizationManager;
 import com.linkedin.datahub.graphql.GmsGraphQLEngine;
 import com.linkedin.datahub.graphql.GraphQLEngine;
 import com.linkedin.datahub.graphql.analytics.service.AnalyticsService;
+import com.linkedin.entity.client.JavaEntityClient;
 import com.linkedin.gms.factory.common.IndexConventionFactory;
 import com.linkedin.gms.factory.common.RestHighLevelClientFactory;
-import com.linkedin.gms.factory.entity.EntityServiceFactory;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import javax.annotation.Nonnull;
@@ -19,7 +19,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Bean;
 
 @Configuration
-@Import({RestHighLevelClientFactory.class, IndexConventionFactory.class, EntityServiceFactory.class, AuthorizationManagerFactory.class})
+@Import({RestHighLevelClientFactory.class, IndexConventionFactory.class, RestliEntityClientFactory.class, AuthorizationManagerFactory.class})
 public class GraphQLEngineFactory {
   @Autowired
   @Qualifier("elasticSearchRestHighLevelClient")
@@ -28,6 +28,10 @@ public class GraphQLEngineFactory {
   @Autowired
   @Qualifier(IndexConventionFactory.INDEX_CONVENTION_BEAN)
   private IndexConvention indexConvention;
+
+  @Autowired
+  @Qualifier("javaEntityClient")
+  private JavaEntityClient _entityClient;
 
   @Autowired
   @Qualifier("entityService")
@@ -44,7 +48,7 @@ public class GraphQLEngineFactory {
   protected GraphQLEngine getInstance() {
     if (isAnalyticsEnabled) {
       return new GmsGraphQLEngine(
-          new AnalyticsService(elasticClient, indexConvention.getPrefix()), _entityService
+          new AnalyticsService(elasticClient, indexConvention.getPrefix()), _entityService, _entityClient
       ).builder().build();
     }
     return new GmsGraphQLEngine().builder().build();

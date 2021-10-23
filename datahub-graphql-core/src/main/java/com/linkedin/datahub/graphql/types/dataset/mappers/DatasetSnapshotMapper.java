@@ -20,6 +20,7 @@ import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
 import com.linkedin.dataset.DatasetDeprecation;
 import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.dataset.EditableDatasetProperties;
+import com.linkedin.dataset.ViewProperties;
 import com.linkedin.metadata.snapshot.DatasetSnapshot;
 import com.linkedin.schema.EditableSchemaMetadata;
 import com.linkedin.schema.SchemaMetadata;
@@ -56,6 +57,7 @@ public class DatasetSnapshotMapper implements ModelMapper<DatasetSnapshot, Datas
                 final DatasetProperties gmsProperties = (DatasetProperties) aspect;
                 final com.linkedin.datahub.graphql.generated.DatasetProperties properties = new com.linkedin.datahub.graphql.generated.DatasetProperties();
                 properties.setDescription(gmsProperties.getDescription());
+                result.setDescription(gmsProperties.getDescription());
                 properties.setOrigin(FabricType.valueOf(dataset.getUrn().getOriginEntity().toString()));
                 if (gmsProperties.hasExternalUrl()) {
                     properties.setExternalUrl(gmsProperties.getExternalUrl().toString());
@@ -64,6 +66,7 @@ public class DatasetSnapshotMapper implements ModelMapper<DatasetSnapshot, Datas
                     properties.setCustomProperties(StringMapMapper.map(gmsProperties.getCustomProperties()));
                 }
                 result.setProperties(properties);
+                result.setDescription(properties.getDescription());
                 if (gmsProperties.hasUri()) {
                     // Deprecated field.
                     result.setUri(gmsProperties.getUri().toString());
@@ -92,9 +95,15 @@ public class DatasetSnapshotMapper implements ModelMapper<DatasetSnapshot, Datas
                 final DatasetEditableProperties editableProperties = new DatasetEditableProperties();
                 editableProperties.setDescription(editableDatasetProperties.getDescription());
                 result.setEditableProperties(editableProperties);
+            } else if (aspect instanceof ViewProperties) {
+                final ViewProperties properties = (ViewProperties) aspect;
+                final com.linkedin.datahub.graphql.generated.ViewProperties graphqlProperties = new com.linkedin.datahub.graphql.generated.ViewProperties();
+                graphqlProperties.setMaterialized(properties.isMaterialized());
+                graphqlProperties.setLanguage(properties.getViewLanguage());
+                graphqlProperties.setLogic(properties.getViewLogic());
+                result.setViewProperties(graphqlProperties);
             }
         });
-
         return result;
     }
 }

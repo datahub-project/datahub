@@ -6,10 +6,9 @@ import com.linkedin.common.EntityRelationshipArray;
 import com.linkedin.common.EntityRelationships;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.graph.GraphService;
-import com.linkedin.metadata.query.CriterionArray;
-import com.linkedin.metadata.query.Filter;
-import com.linkedin.metadata.query.RelationshipDirection;
+import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.restli.RestliUtil;
+import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.parseq.Task;
 import com.linkedin.restli.server.annotations.Optional;
 import com.linkedin.restli.server.annotations.QueryParam;
@@ -28,8 +27,8 @@ import javax.annotation.Nullable;
 import javax.inject.Inject;
 import javax.inject.Named;
 
-import static com.linkedin.metadata.dao.utils.QueryUtils.newFilter;
-import static com.linkedin.metadata.dao.utils.QueryUtils.newRelationshipFilter;
+import static com.linkedin.metadata.search.utils.QueryUtils.newFilter;
+import static com.linkedin.metadata.search.utils.QueryUtils.newRelationshipFilter;
 
 
 /**
@@ -40,7 +39,6 @@ import static com.linkedin.metadata.dao.utils.QueryUtils.newRelationshipFilter;
 @RestLiSimpleResource(name = "lineage", namespace = "com.linkedin.lineage")
 public final class Lineage extends SimpleResourceTemplate<EntityRelationships> {
 
-    private static final Filter EMPTY_FILTER = new Filter().setCriteria(new CriterionArray());
     private static final Integer MAX_DOWNSTREAM_CNT = 100;
 
     private static final List<String> LINEAGE_RELATIONSHIP_TYPES = Arrays.asList(
@@ -70,8 +68,8 @@ public final class Lineage extends SimpleResourceTemplate<EntityRelationships> {
     private List<Urn> getRelatedEntities(String rawUrn, List<String> relationshipTypes, RelationshipDirection direction) {
         return
             _graphService.findRelatedEntities("", newFilter("urn", rawUrn),
-                "", EMPTY_FILTER,
-                relationshipTypes, newRelationshipFilter(EMPTY_FILTER, direction),
+                "", QueryUtils.EMPTY_FILTER,
+                relationshipTypes, newRelationshipFilter(QueryUtils.EMPTY_FILTER, direction),
                 0, MAX_DOWNSTREAM_CNT)
                 .getEntities().stream().map(
                 entity -> {

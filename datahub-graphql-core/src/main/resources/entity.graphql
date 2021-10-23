@@ -98,6 +98,11 @@ type Query {
     List all DataHub Groups
     """
     listGroups(input: ListGroupsInput!): ListGroupsResult
+
+    """
+    Fetches the number of entities ingested by type
+    """
+    getEntityCounts(input: EntityCountInput): EntityCountResults
 }
 
 """
@@ -324,6 +329,13 @@ enum EntityType {
     The ML Primary Key Entity
     """
     MLPRIMARY_KEY
+}
+
+"""
+Input for the get entity counts endpoint
+"""
+input EntityCountInput {
+    types: [EntityType!]
 }
 
 """
@@ -616,6 +628,11 @@ type Dataset implements EntityWithRelationships & Entity {
     Sub Types that this entity implements
     """
     subTypes: SubTypes
+
+    """
+    View related properties. Only relevant if subtypes field contains VIEW.
+    """
+    viewProperties: ViewProperties
 }
 
 """
@@ -1389,6 +1406,27 @@ enum SchemaFieldDataType {
     """
     STRUCT
 }
+
+"""
+Properties about a Dataset of type view
+"""
+type ViewProperties {
+  """
+  Whether the view is materialized or not
+  """
+  materialized: Boolean!
+
+  """
+  The logic associated with the view, most commonly a SQL statement
+  """
+  logic: String!
+
+  """
+  The language in which the view logic is written, for example SQL
+  """
+  language: String!
+}
+
 
 """
 Dataset properties that are editable via the UI This represents logical metadata,
@@ -4233,6 +4271,15 @@ input ListGroupsInput {
   The maximum number of Policies to be returned in the result set
   """
   count: Int
+}
+
+type EntityCountResults {
+    counts: [EntityCountResult!]
+}
+
+type EntityCountResult {
+    entityType: EntityType!
+    count: Int!
 }
 
 """
