@@ -33,6 +33,7 @@ from great_expectations.profile.base import DatasetProfiler
 from great_expectations.profile.user_configurable_profiler import (
     UserConfigurableProfiler,
 )
+from pydantic import root_validator
 from sqlalchemy.engine import Connection, Engine
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
@@ -94,9 +95,9 @@ class GEProfilerRequest:
 
 class GEProfilingConfig(ConfigModel):
     enabled: bool = False
+    turn_off_expensive_profiling_metrics: bool = True
     limit: Optional[int] = None
     offset: Optional[int] = None
-    turn_off_expensive_profiling_metrics: bool = True
     profile_table_level_only: bool = False
     include_field_level_stats_if_not_null_only: bool = False
     include_field_unique_count: bool = True
@@ -112,12 +113,58 @@ class GEProfilingConfig(ConfigModel):
     include_field_histogram: bool = True
     include_field_sample_values: bool = True
     allow_deny_patterns: AllowDenyPattern = AllowDenyPattern.allow_all()
+    max_number_of_fields_to_profile: Optional[int] = None
 
     # The default of (5 * cpu_count) is adopted from the default max_workers
     # parameter of ThreadPoolExecutor. Given that profiling is often an I/O-bound
     # task, it may make sense to increase this default value in the future.
     # https://docs.python.org/3/library/concurrent.futures.html#concurrent.futures.ThreadPoolExecutor
     max_workers: int = 5 * (os.cpu_count() or 4)
+
+    @root_validator(pre=True)
+    def ensure_field_level_settings_are_normalized(
+        cls: "GEProfilingConfig", values: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        max_num_fields_to_profile_key = "max_number_of_fields_to_profile"
+        table_level_profiling_only_key = "profile_table_level_only"
+        if values.get(table_level_profiling_only_key):
+            all_field_level_metrics: List[str] = [
+                "include_field_level_stats_if_not_null_only",
+                "include_field_unique_count",
+                "include_field_unique_proportion",
+                "include_field_null_count",
+                "include_field_min_value",
+                "include_field_max_value",
+                "include_field_mean_value",
+                "include_field_median_value",
+                "include_field_stddev_value",
+                "include_field_quantiles",
+                "include_field_distinct_value_frequencies",
+                "include_field_histogram",
+                "include_field_sample_values",
+            ]
+            # Supress all field-level metrics
+            for field_level_metric in all_field_level_metrics:
+                values[field_level_metric] = False
+            assert (
+                values[max_num_fields_to_profile_key] is None
+            ), f"{max_num_fields_to_profile_key} should be set to None"
+
+        if values.get("turn_off_expensive_profiling_metrics"):
+            if not values.get(table_level_profiling_only_key):
+                expensive_field_level_metrics: List[str] = [
+                    "include_field_quantiles",
+                    "include_field_distinct_value_frequencies",
+                    "include_field_histogram",
+                    "include_field_sample_values",
+                ]
+                for expensive_field_metric in expensive_field_level_metrics:
+                    values[expensive_field_metric] = False
+            if values.get(max_num_fields_to_profile_key) is None:
+                # We currently profile upto 10 non-filtered columns in this mode by default.
+                values[max_num_fields_to_profile_key] = 10
+
+        return values
 
 
 class DatahubConfigurableProfiler(DatasetProfiler):
@@ -126,67 +173,46 @@ class DatahubConfigurableProfiler(DatasetProfiler):
     """
 
     @staticmethod
-    def datahub_config_to_ge_config(
+    def _get_excluded_expectations(config: GEProfilingConfig) -> List[str]:
+        # Compute excluded expectations
+        excluded_expectations: List[str] = []
+        if not config.include_field_unique_count:
+            excluded_expectations.append(
+                "expect_column_unique_value_count_to_be_between"
+            )
+        if not config.include_field_unique_proportion:
+            excluded_expectations.append(
+                "expect_column_proportion_of_unique_values_to_be_between"
+            )
+        if not config.include_field_null_count:
+            excluded_expectations.append("expect_column_values_to_not_be_null")
+        if not config.include_field_min_value:
+            excluded_expectations.append("expect_column_min_to_be_between")
+        if not config.include_field_max_value:
+            excluded_expectations.append("expect_column_max_to_be_between")
+        if not config.include_field_mean_value:
+            excluded_expectations.append("expect_column_mean_to_be_between")
+        if not config.include_field_median_value:
+            excluded_expectations.append("expect_column_median_to_be_between")
+        if not config.include_field_stddev_value:
+            excluded_expectations.append("expect_column_stdev_to_be_between")
+        if not config.include_field_quantiles:
+            excluded_expectations.append("expect_column_quantile_values_to_be_between")
+        if not config.include_field_distinct_value_frequencies:
+            excluded_expectations.append("expect_column_distinct_values_to_be_in_set")
+        if not config.include_field_histogram:
+            excluded_expectations.append("expect_column_kl_divergence_to_be_less_than")
+        if not config.include_field_sample_values:
+            excluded_expectations.append("expect_column_values_to_be_in_set")
+        return excluded_expectations
+
+    @staticmethod
+    def _get_ignored_columns(
         dataset: Dataset,
         dataset_name: str,
         config: GEProfilingConfig,
         report: SQLSourceReport,
-    ) -> Dict[str, Any]:
-        ge_config: Dict[str, Any] = {}
-
-        # Compute excluded expectations
-        excluded_expectations: List[str] = []
-        if not config.profile_table_level_only:
-            if not config.include_field_unique_count:
-                excluded_expectations.append(
-                    "expect_column_unique_value_count_to_be_between"
-                )
-            if not config.include_field_unique_proportion:
-                excluded_expectations.append(
-                    "expect_column_proportion_of_unique_values_to_be_between"
-                )
-            if not config.include_field_null_count:
-                excluded_expectations.append("expect_column_values_to_not_be_null")
-            if not config.include_field_min_value:
-                excluded_expectations.append("expect_column_min_to_be_between")
-            if not config.include_field_max_value:
-                excluded_expectations.append("expect_column_max_to_be_between")
-            if not config.include_field_mean_value:
-                excluded_expectations.append("expect_column_mean_to_be_between")
-            if not config.include_field_median_value:
-                excluded_expectations.append("expect_column_median_to_be_between")
-            if not config.include_field_stddev_value:
-                excluded_expectations.append("expect_column_stdev_to_be_between")
-            # The following are expensive computations
-            if (
-                not config.include_field_quantiles
-                or config.turn_off_expensive_profiling_metrics
-            ):
-                excluded_expectations.append(
-                    "expect_column_quantile_values_to_be_between"
-                )
-            if (
-                not config.include_field_distinct_value_frequencies
-                or config.turn_off_expensive_profiling_metrics
-            ):
-                excluded_expectations.append(
-                    "expect_column_distinct_values_to_be_in_set"
-                )
-            if (
-                not config.include_field_histogram
-                or config.turn_off_expensive_profiling_metrics
-            ):
-                excluded_expectations.append(
-                    "expect_column_kl_divergence_to_be_less_than"
-                )
-            if (
-                not config.include_field_sample_values
-                or config.turn_off_expensive_profiling_metrics
-            ):
-                excluded_expectations.append("expect_column_values_to_be_in_set")
-
-        ge_config["excluded_expectations"] = excluded_expectations
-
+    ) -> List[str]:
         # Compute ignored columns
         ignored_columns = []
         profiled_columns = []
@@ -196,21 +222,38 @@ class DatahubConfigurableProfiler(DatasetProfiler):
                 ignored_columns.append(col)
             else:
                 profiled_columns.append(col)
-
-        if config.turn_off_expensive_profiling_metrics:
-            # Profiling cost goes up significantly with number of columns.
-            # Limit it to 5 for now if the user wants to turn off expensive profiling.
-            MAX_ALLOWED_COLUMNS: int = 5
-            columns_being_dropped = itertools.islice(
-                profiled_columns, MAX_ALLOWED_COLUMNS, None
-            )
-            ignored_columns.extend(columns_being_dropped)
         if ignored_columns:
             report.report_dropped(
-                f"profile of columns {dataset_name}({', '.join(ignored_columns)})"
+                f"profile of columns by pattern {dataset_name}({', '.join(ignored_columns)})"
             )
 
-        ge_config["ignored_columns"] = ignored_columns
+        if config.max_number_of_fields_to_profile is not None:
+            columns_being_dropped = list(
+                itertools.islice(
+                    profiled_columns, config.max_number_of_fields_to_profile, None
+                )
+            )
+            ignored_columns.extend(columns_being_dropped)
+            if len(columns_being_dropped):
+                report.report_dropped(
+                    f"max_number_of_fields_to_profile={config.max_number_of_fields_to_profile} reached. Profile of columns {dataset_name}({', '.join(columns_being_dropped)})"
+                )
+        return ignored_columns
+
+    @staticmethod
+    def datahub_config_to_ge_config(
+        dataset: Dataset,
+        dataset_name: str,
+        config: GEProfilingConfig,
+        report: SQLSourceReport,
+    ) -> Dict[str, Any]:
+        ge_config: Dict[str, Any] = {}
+        ge_config[
+            "excluded_expectations"
+        ] = DatahubConfigurableProfiler._get_excluded_expectations(config)
+        ge_config["ignored_columns"] = DatahubConfigurableProfiler._get_ignored_columns(
+            dataset, dataset_name, config, report
+        )
         ge_config["table_expectations_only"] = config.profile_table_level_only
         ge_config["not_null_only"] = config.include_field_level_stats_if_not_null_only
 
