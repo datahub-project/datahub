@@ -1,13 +1,11 @@
 import * as React from 'react';
 import { DatabaseFilled, DatabaseOutlined } from '@ant-design/icons';
-import { Tag, Typography } from 'antd';
-import styled from 'styled-components';
-import { Dataset, EntityType, SearchResult } from '../../../types.generated';
+import { Typography } from 'antd';
+import { Dataset, EntityType, RelationshipDirection, SearchResult } from '../../../types.generated';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
 import { Preview } from './preview/Preview';
 import { FIELDS_TO_HIGHLIGHT } from './search/highlights';
-import { Direction } from '../../lineage/types';
-import getChildren from '../../lineage/utils/getChildren';
+import { getChildrenFromRelationships } from '../../lineage/utils/getChildren';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
 import { GetDatasetQuery, useGetDatasetQuery, useUpdateDatasetMutation } from '../../../graphql/dataset.generated';
 import { GenericEntityProperties } from '../shared/types';
@@ -24,13 +22,6 @@ import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
 import { capitalizeFirstLetter } from '../../shared/capitalizeFirstLetter';
 import ViewDefinitionTab from '../shared/tabs/Dataset/View/ViewDefinitionTab';
 import { SidebarViewDefinitionSection } from '../shared/containers/profile/sidebar/Dataset/View/SidebarViewDefinitionSection';
-
-const MatchTag = styled(Tag)`
-    &&& {
-        margin-bottom: 0px;
-        margin-top: 10px;
-    }
-`;
 
 const SUBTYPES = {
     VIEW: 'view',
@@ -98,7 +89,7 @@ export class DatasetEntity implements Entity<Dataset> {
                     component: ViewDefinitionTab,
                     display: {
                         visible: (_, dataset: GetDatasetQuery) =>
-                            (dataset?.dataset?.subTypes?.typeNames?.includes(SUBTYPES.VIEW) as boolean) || false,
+                            (dataset?.dataset?.subTypes?.typeNames?.includes(SUBTYPES.VIEW) && true) || false,
                         enabled: (_, dataset: GetDatasetQuery) =>
                             (dataset?.dataset?.viewProperties?.logic && true) || false,
                     },
@@ -117,8 +108,8 @@ export class DatasetEntity implements Entity<Dataset> {
                     display: {
                         visible: (_, _1) => true,
                         enabled: (_, dataset: GetDatasetQuery) =>
-                            (dataset?.dataset?.upstreamLineage?.entities?.length || 0) > 0 ||
-                            (dataset?.dataset?.downstreamLineage?.entities?.length || 0) > 0,
+                            (dataset?.dataset?.incoming?.count || 0) > 0 ||
+                            (dataset?.dataset?.outgoing?.count || 0) > 0,
                     },
                 },
                 {
@@ -218,36 +209,43 @@ export class DatasetEntity implements Entity<Dataset> {
                     // Add match highlights only if all the matched fields are in the FIELDS_TO_HIGHLIGHT
                     result.matchedFields.length > 0 &&
                     result.matchedFields.every((field) => FIELDS_TO_HIGHLIGHT.has(field.name)) && (
-                        <MatchTag>
-                            <Typography.Text>
-                                Matches {FIELDS_TO_HIGHLIGHT.get(result.matchedFields[0].name)}{' '}
-                                <b>{result.matchedFields[0].value}</b>
-                            </Typography.Text>
-                        </MatchTag>
+                        <Typography.Text>
+                            Matches {FIELDS_TO_HIGHLIGHT.get(result.matchedFields[0].name)}{' '}
+                            <b>{result.matchedFields[0].value}</b>
+                        </Typography.Text>
                     )
                 }
+                insights={result.insights}
             />
         );
     };
 
     getLineageVizConfig = (entity: Dataset) => {
         return {
-            urn: entity.urn,
-            name: entity.name,
+            urn: entity?.urn,
+            name: entity?.name,
             type: EntityType.Dataset,
             subtype: entity.subTypes?.typeNames?.[0] || undefined,
-            upstreamChildren: getChildren({ entity, type: EntityType.Dataset }, Direction.Upstream).map(
-                (child) => child.entity.urn,
-            ),
-            downstreamChildren: getChildren({ entity, type: EntityType.Dataset }, Direction.Downstream).map(
-                (child) => child.entity.urn,
-            ),
-            icon: entity.platform.info?.logoUrl || undefined,
-            platform: entity.platform.name,
+            downstreamChildren: getChildrenFromRelationships({
+                // eslint-disable-next-line @typescript-eslint/dot-notation
+                incomingRelationships: entity?.['incoming'],
+                // eslint-disable-next-line @typescript-eslint/dot-notation
+                outgoingRelationships: entity?.['outgoing'],
+                direction: RelationshipDirection.Incoming,
+            }),
+            upstreamChildren: getChildrenFromRelationships({
+                // eslint-disable-next-line @typescript-eslint/dot-notation
+                incomingRelationships: entity?.['incoming'],
+                // eslint-disable-next-line @typescript-eslint/dot-notation
+                outgoingRelationships: entity?.['outgoing'],
+                direction: RelationshipDirection.Outgoing,
+            }),
+            icon: entity?.platform?.info?.logoUrl || undefined,
+            platform: entity?.platform?.name,
         };
     };
 
     displayName = (data: Dataset) => {
-        return data.name;
+        return data?.name;
     };
 }

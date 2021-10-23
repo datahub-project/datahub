@@ -1,12 +1,16 @@
+import concurrent.futures
 import contextlib
 
 # import cProfile
 import dataclasses
-import datetime
 import itertools
 import logging
+import os
+import threading
+import time
 import unittest.mock
-from typing import Any, Dict, Iterable, List, Optional
+import uuid
+from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple, Union
 
 # import great_expectations.core
 from great_expectations.core import ExpectationSuite
@@ -21,6 +25,7 @@ from great_expectations.data_context.types.base import (
     DataContextConfig,
     DatasourceConfig,
     InMemoryStoreBackendDefaults,
+    datasourceConfigSchema,
 )
 from great_expectations.dataset.dataset import Dataset
 from great_expectations.datasource.sqlalchemy_datasource import SqlAlchemyDatasource
@@ -28,10 +33,11 @@ from great_expectations.profile.base import DatasetProfiler
 from great_expectations.profile.user_configurable_profiler import (
     UserConfigurableProfiler,
 )
+from sqlalchemy.engine import Connection, Engine
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.emitter.mce_builder import get_sys_time
-from datahub.ingestion.api.source import SourceReport
+from datahub.ingestion.source.sql.sql_common import SQLSourceReport
 from datahub.metadata.schema_classes import (
     DatasetFieldProfileClass,
     DatasetProfileClass,
@@ -51,30 +57,39 @@ logger: logging.Logger = logging.getLogger(__name__)
 # object), we cannot use it because of the config loading system. As such, we instead
 # pass a "dummy" config into the DatasourceConfig, but then dynamically add the
 # engine parameter when the SqlAlchemyDatasource is actually set up, and then remove
-# it from the cached config object to avoid those same copying mechanisms. While
-# you might expect that this is sufficient because GE caches the Datasource objects
-# that it constructs, it actually occassionally bypasses this cache (likely a bug
-# in GE), and so we need to wrap every call to GE with the below context manager.
+# it from the cached config object to avoid those same copying mechanisms.
+#
+# We need to wrap this mechanism with a lock, since having multiple methods
+# simultaneously patching the same methods will cause concurrency issues.
+
+_properly_init_datasource_lock = threading.Lock()
 
 
 @contextlib.contextmanager
 def _properly_init_datasource(conn):
-    underlying_datasource_init = SqlAlchemyDatasource.__init__
+    with _properly_init_datasource_lock:
+        underlying_datasource_init = SqlAlchemyDatasource.__init__
 
-    def sqlalchemy_datasource_init(
-        self: SqlAlchemyDatasource, *args: Any, **kwargs: Any
-    ) -> None:
-        underlying_datasource_init(self, *args, **kwargs, engine=conn)
-        self.drivername = conn.dialect.name
-        del self._datasource_config["engine"]
+        def sqlalchemy_datasource_init(
+            self: SqlAlchemyDatasource, *args: Any, **kwargs: Any
+        ) -> None:
+            underlying_datasource_init(self, *args, **kwargs, engine=conn)
+            self.drivername = conn.dialect.name
+            del self._datasource_config["engine"]
 
-    with unittest.mock.patch(
-        "great_expectations.datasource.sqlalchemy_datasource.SqlAlchemyDatasource.__init__",
-        sqlalchemy_datasource_init,
-    ), unittest.mock.patch(
-        "great_expectations.data_context.store.validations_store.ValidationsStore.set"
-    ):
-        yield
+        with unittest.mock.patch(
+            "great_expectations.datasource.sqlalchemy_datasource.SqlAlchemyDatasource.__init__",
+            sqlalchemy_datasource_init,
+        ), unittest.mock.patch(
+            "great_expectations.data_context.store.validations_store.ValidationsStore.set"
+        ):
+            yield
+
+
+@dataclasses.dataclass
+class GEProfilerRequest:
+    pretty_name: str
+    batch_kwargs: dict
 
 
 class GEProfilingConfig(ConfigModel):
@@ -98,6 +113,12 @@ class GEProfilingConfig(ConfigModel):
     include_field_sample_values: bool = True
     allow_deny_patterns: AllowDenyPattern = AllowDenyPattern.allow_all()
 
+    # The default of (5 * cpu_count) is adopted from the default max_workers
+    # parameter of ThreadPoolExecutor. Given that profiling is often an I/O-bound
+    # task, it may make sense to increase this default value in the future.
+    # https://docs.python.org/3/library/concurrent.futures.html#concurrent.futures.ThreadPoolExecutor
+    max_workers: int = 5 * (os.cpu_count() or 4)
+
 
 class DatahubConfigurableProfiler(DatasetProfiler):
     """
@@ -106,7 +127,10 @@ class DatahubConfigurableProfiler(DatasetProfiler):
 
     @staticmethod
     def datahub_config_to_ge_config(
-        dataset: Dataset, dataset_name: str, config: GEProfilingConfig
+        dataset: Dataset,
+        dataset_name: str,
+        config: GEProfilingConfig,
+        report: SQLSourceReport,
     ) -> Dict[str, Any]:
         ge_config: Dict[str, Any] = {}
 
@@ -177,8 +201,13 @@ class DatahubConfigurableProfiler(DatasetProfiler):
             # Profiling cost goes up significantly with number of columns.
             # Limit it to 5 for now if the user wants to turn off expensive profiling.
             MAX_ALLOWED_COLUMNS: int = 5
-            ignored_columns.extend(
-                itertools.islice(profiled_columns, MAX_ALLOWED_COLUMNS, None)
+            columns_being_dropped = itertools.islice(
+                profiled_columns, MAX_ALLOWED_COLUMNS, None
+            )
+            ignored_columns.extend(columns_being_dropped)
+        if ignored_columns:
+            report.report_dropped(
+                f"profile of columns {dataset_name}({', '.join(ignored_columns)})"
             )
 
         ge_config["ignored_columns"] = ignored_columns
@@ -195,7 +224,10 @@ class DatahubConfigurableProfiler(DatasetProfiler):
         Override method, which returns the expectation suite using the UserConfigurable Profiler.
         """
         profiler_configuration = cls.datahub_config_to_ge_config(
-            dataset, configuration["dataset_name"], configuration["config"]
+            dataset,
+            configuration["dataset_name"],
+            configuration["config"],
+            configuration["report"],
         )
         profiler = UserConfigurableProfiler(
             profile_dataset=dataset, **profiler_configuration
@@ -204,40 +236,105 @@ class DatahubConfigurableProfiler(DatasetProfiler):
 
 
 @dataclasses.dataclass
-class DatahubGEProfiler:
+class GEContext:
     data_context: BaseDataContext
-    report: SourceReport
+    datasource_name: str
+
+
+@dataclasses.dataclass
+class DatahubGEProfiler:
+    report: SQLSourceReport
     config: GEProfilingConfig
 
     # The actual value doesn't matter, it just matters that we use it consistently throughout.
-    datasource_name: str = "my_sqlalchemy_datasource"
+    _datasource_name_base: str = "my_sqlalchemy_datasource"
 
-    def __init__(self, conn, report, config):
-        self.conn = conn
+    def __init__(
+        self,
+        conn: Union[Engine, Connection],
+        report: SQLSourceReport,
+        config: GEProfilingConfig,
+    ):
+        self.base_engine = conn
         self.report = report
         self.config = config
 
-        data_context_config = DataContextConfig(
-            datasources={
-                self.datasource_name: DatasourceConfig(
-                    class_name="SqlAlchemyDatasource",
-                    credentials={
-                        # This isn't actually used since we pass the connection directly,
-                        # but GE parses it to change some of its behavior so it's useful
-                        # to emulate that here.
-                        "url": self.conn.engine.url,
+    @contextlib.contextmanager
+    def _ge_context(self) -> Iterator[GEContext]:
+        # TRICKY: The call to `.engine` is quite important here. Connection.connect()
+        # returns a "branched" connection, which does not actually use a new underlying
+        # DBAPI object from the connection pool. Engine.connect() does what we want to
+        # make the threading code work correctly.
+        with self.base_engine.engine.connect() as conn:
+            data_context = BaseDataContext(
+                project_config=DataContextConfig(
+                    # The datasource will be added via add_datasource().
+                    datasources={},
+                    store_backend_defaults=InMemoryStoreBackendDefaults(),
+                    anonymous_usage_statistics={
+                        "enabled": False,
+                        # "data_context_id": <not set>,
                     },
                 )
-            },
-            store_backend_defaults=InMemoryStoreBackendDefaults(),
-            anonymous_usage_statistics={
-                "enabled": False,
-                # "data_context_id": <not set>,
-            },
+            )
+
+            datasource_name = f"{self._datasource_name_base}-{uuid.uuid4()}"
+            datasource_config = DatasourceConfig(
+                class_name="SqlAlchemyDatasource",
+                credentials={
+                    # This isn't actually used since we pass the connection directly,
+                    # but GE parses it to change some of its behavior so it's useful
+                    # to emulate that here.
+                    "url": conn.engine.url,
+                },
+            )
+            with _properly_init_datasource(conn):
+                # Using the add_datasource method ensures that the datasource is added to
+                # GE-internal cache, which avoids problems when calling GE methods later on.
+                assert data_context.add_datasource(
+                    datasource_name,
+                    initialize=True,
+                    **dict(datasourceConfigSchema.dump(datasource_config)),
+                )
+            assert data_context.get_datasource(datasource_name)
+
+            yield GEContext(data_context, datasource_name)
+
+    def generate_profiles(
+        self, requests: List[GEProfilerRequest], max_workers: int
+    ) -> Iterable[Tuple[GEProfilerRequest, Optional[DatasetProfileClass]]]:
+        start_time = time.perf_counter()
+
+        max_workers = min(max_workers, len(requests))
+        logger.info(
+            f"Will profile {len(requests)} table(s) with {max_workers} worker(s)"
+        )
+        with concurrent.futures.ThreadPoolExecutor(
+            max_workers=max_workers
+        ) as async_executor:
+            async_profiles = [
+                async_executor.submit(
+                    self.generate_profile_from_request,
+                    request,
+                )
+                for request in requests
+            ]
+
+            for async_profile in concurrent.futures.as_completed(async_profiles):
+                yield async_profile.result()
+
+        end_time = time.perf_counter()
+        logger.info(
+            f"Profiling {len(requests)} table(s) finished in {end_time - start_time} seconds"
         )
 
-        with _properly_init_datasource(self.conn):
-            self.data_context = BaseDataContext(project_config=data_context_config)
+    def generate_profile_from_request(
+        self, request: GEProfilerRequest
+    ) -> Tuple[GEProfilerRequest, Optional[DatasetProfileClass]]:
+        return request, self.generate_profile(
+            request.pretty_name,
+            **request.batch_kwargs,
+        )
 
     def generate_profile(
         self,
@@ -246,10 +343,12 @@ class DatahubGEProfiler:
         table: str = None,
         **kwargs: Any,
     ) -> Optional[DatasetProfileClass]:
-        with _properly_init_datasource(self.conn):
+        with self._ge_context() as ge_context:
+            logger.info(f"Profiling {pretty_name} (this may take a while)")
+
             evrs = self._profile_data_asset(
-                batch_kwargs={
-                    "datasource": self.datasource_name,
+                ge_context,
+                {
                     "schema": schema,
                     "table": table,
                     "limit": self.config.limit,
@@ -259,40 +358,42 @@ class DatahubGEProfiler:
                 pretty_name=pretty_name,
             )
 
-        if evrs is not None:
-            return self._convert_evrs_to_profile(
-                evrs,
-                pretty_name=pretty_name,
-                send_sample_values=self.config.include_field_sample_values,
+            profile = (
+                self._convert_evrs_to_profile(evrs, pretty_name=pretty_name)
+                if evrs is not None
+                else None
             )
+            logger.debug(f"Finished profiling {pretty_name}")
 
-        return None
+            return profile
 
     def _profile_data_asset(
         self,
+        ge_context: GEContext,
         batch_kwargs: dict,
         pretty_name: str,
     ) -> ExpectationSuiteValidationResult:
         try:
-            start_time = datetime.datetime.now()
-            profile_results = self.data_context.profile_data_asset(
-                self.datasource_name,
+            start_time = time.perf_counter()
+            profile_results = ge_context.data_context.profile_data_asset(
+                ge_context.datasource_name,
                 profiler=DatahubConfigurableProfiler,
                 profiler_configuration={
                     "config": self.config,
                     "dataset_name": pretty_name,
+                    "report": self.report,
                 },
                 batch_kwargs={
-                    "datasource": self.datasource_name,
+                    "datasource": ge_context.datasource_name,
                     **batch_kwargs,
                 },
             )
+            end_time = time.perf_counter()
             logger.info(
-                f"Profiling time in seconds for {pretty_name}:{(datetime.datetime.now() - start_time).total_seconds()}"
+                f"Profiling for {pretty_name} took {end_time - start_time} seconds."
             )
 
             assert profile_results["success"]
-
             assert len(profile_results["results"]) == 1
             _suite, evrs = profile_results["results"][0]
             return evrs
@@ -316,7 +417,6 @@ class DatahubGEProfiler:
         self,
         evrs: ExpectationSuiteValidationResult,
         pretty_name: str,
-        send_sample_values: bool,
     ) -> DatasetProfileClass:
         profile = DatasetProfileClass(timestampMillis=get_sys_time())
 
@@ -333,7 +433,6 @@ class DatahubGEProfiler:
                     col,
                     evrs_for_col,
                     pretty_name=pretty_name,
-                    send_sample_values=send_sample_values,
                 )
 
         return profile
@@ -365,7 +464,6 @@ class DatahubGEProfiler:
         column: str,
         col_evrs: Iterable[ExpectationValidationResult],
         pretty_name: str,
-        send_sample_values: bool,
     ) -> None:
         # TRICKY: This method mutates the profile directly.
 
@@ -420,8 +518,6 @@ class DatahubGEProfiler:
                 column_profile.sampleValues = [
                     str(v) for v in res["partial_unexpected_list"]
                 ]
-                if not send_sample_values:
-                    column_profile.sampleValues = []
             elif exp == "expect_column_kl_divergence_to_be_less_than":
                 if "details" in res and "observed_partition" in res["details"]:
                     partition = res["details"]["observed_partition"]
@@ -442,8 +538,6 @@ class DatahubGEProfiler:
                         ValueFrequencyClass(value=str(value), frequency=count)
                         for value, count in res["details"]["value_counts"].items()
                     ]
-                    if not send_sample_values:
-                        column_profile.distinctValueFrequencies = []
             elif exp == "expect_column_values_to_be_in_type_list":
                 # ignore; we already know the types for each column via ingestion
                 pass

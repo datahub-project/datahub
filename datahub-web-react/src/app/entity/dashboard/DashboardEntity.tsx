@@ -6,9 +6,8 @@ import {
     useUpdateDashboardMutation,
 } from '../../../graphql/dashboard.generated';
 import { Dashboard, EntityType, PlatformType, SearchResult } from '../../../types.generated';
-import { Direction } from '../../lineage/types';
+import { EntityAndType } from '../../lineage/types';
 import { getLogoFromPlatform } from '../../shared/getLogoFromPlatform';
-import getChildren from '../../lineage/utils/getChildren';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
 import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/SidebarOwnerSection';
@@ -146,7 +145,20 @@ export class DashboardEntity implements Entity<Dashboard> {
     };
 
     renderSearch = (result: SearchResult) => {
-        return this.renderPreview(PreviewType.SEARCH, result.entity as Dashboard);
+        const data = result.entity as Dashboard;
+        return (
+            <DashboardPreview
+                urn={data.urn}
+                platform={data.tool}
+                name={data.info?.name}
+                description={data.editableProperties?.description || data.info?.description}
+                access={data.info?.access}
+                tags={data.globalTags || undefined}
+                owners={data.ownership?.owners}
+                glossaryTerms={data?.glossaryTerms}
+                insights={result.insights}
+            />
+        );
     };
 
     getLineageVizConfig = (entity: Dashboard) => {
@@ -154,12 +166,11 @@ export class DashboardEntity implements Entity<Dashboard> {
             urn: entity.urn,
             name: entity.info?.name || '',
             type: EntityType.Dashboard,
-            upstreamChildren: getChildren({ entity, type: EntityType.Dashboard }, Direction.Upstream).map(
-                (child) => child.entity.urn,
+            // eslint-disable-next-line @typescript-eslint/dot-notation
+            upstreamChildren: entity?.['charts']?.relationships?.map(
+                (relationship) => ({ entity: relationship.entity, type: relationship.entity.type } as EntityAndType),
             ),
-            downstreamChildren: getChildren({ entity, type: EntityType.Dashboard }, Direction.Downstream).map(
-                (child) => child.entity.urn,
-            ),
+            downstreamChildren: undefined,
             icon: getLogoFromPlatform(entity.tool),
             platform: entity.tool,
         };

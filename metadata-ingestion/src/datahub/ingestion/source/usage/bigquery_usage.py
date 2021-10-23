@@ -417,7 +417,6 @@ class BigQueryUsageSource(Source):
                         str(event.resource),
                         "failed to match table read event with job; try increasing `query_log_delay` or `max_query_duration`",
                     )
-
             yield event
 
     def _aggregate_enriched_read_events(

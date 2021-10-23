@@ -1,6 +1,7 @@
 package com.linkedin.metadata.resources.entity;
 
 import com.codahale.metrics.MetricRegistry;
+import com.google.common.collect.ImmutableSet;
 import com.linkedin.aspect.GetTimeseriesAspectValuesResponse;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
@@ -10,6 +11,7 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.EnvelopedAspectArray;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.ValidationException;
 import com.linkedin.metadata.restli.RestliUtil;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.EntityKeyUtils;
@@ -17,7 +19,9 @@ import com.linkedin.metadata.utils.GenericAspectUtils;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.parseq.Task;
+import com.linkedin.restli.common.HttpStatus;
 import com.linkedin.restli.internal.server.methods.AnyRecord;
+import com.linkedin.restli.server.RestLiServiceException;
 import com.linkedin.restli.server.annotations.Action;
 import com.linkedin.restli.server.annotations.ActionParam;
 import com.linkedin.restli.server.annotations.Optional;
@@ -135,9 +139,13 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
 
     return RestliUtil.toTask(() -> {
       log.debug("Proposal: {}", metadataChangeProposal);
-      Urn urn = _entityService.ingestProposal(metadataChangeProposal, auditStamp);
-      additionalChanges.forEach(proposal -> _entityService.ingestProposal(proposal, auditStamp));
-      return urn.toString();
+      try {
+        Urn urn = _entityService.ingestProposal(metadataChangeProposal, auditStamp);
+        additionalChanges.forEach(proposal -> _entityService.ingestProposal(proposal, auditStamp));
+        return urn.toString();
+      } catch (ValidationException e) {
+        throw new RestLiServiceException(HttpStatus.S_422_UNPROCESSABLE_ENTITY, e.getMessage());
+      }
     }, MetricRegistry.name(this.getClass(), "ingestProposal"));
   }
 
@@ -152,8 +160,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
     final Urn urn = EntityKeyUtils.getUrnFromProposal(metadataChangeProposal,
         _entityService.getKeyAspectSpec(metadataChangeProposal.getEntityType()));
 
-    return _entityService.getDefaultAspectsFromUrn(urn)
-        .entrySet()
+    return _entityService.generateDefaultAspectsIfMissing(urn, ImmutableSet.of(metadataChangeProposal.getAspectName()))
         .stream()
         .map(entry -> getProposalFromAspect(entry.getKey(), entry.getValue(), metadataChangeProposal))
         .filter(Objects::nonNull)

@@ -35,3 +35,11 @@ Tests go in the `tests` directory. We use the [pytest framework](https://pytest.
 ### 7. Write docs
 
 Add the plugin to the table at the top of the README file, and add the source's documentation underneath the sources header.
+
+### 8. Add SQL Alchemy mapping (if applicable)
+
+Add the source in `get_platform_from_sqlalchemy_uri` function in [sql_common.py](./src/datahub/ingestion/source/sql/sql_common.py) if the source has an sqlalchemy source
+
+### 9. Add logo
+
+Add logo image in [images folder](../datahub-web-react/src/images) and add it to be ingested in [boot](../metadata-service/war/src/main/resources/boot/data_platforms.json)

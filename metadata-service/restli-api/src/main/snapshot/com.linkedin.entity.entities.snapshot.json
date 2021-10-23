@@ -777,7 +777,7 @@
               "addToFilters" : true,
               "fieldName" : "tags",
               "fieldType" : "URN_PARTIAL",
-              "filterNameOverride" : "Tags",
+              "filterNameOverride" : "Tag",
               "hasValuesFieldName" : "hasTags"
             }
           } ]
@@ -854,7 +854,7 @@
         "addToFilters" : true,
         "fieldName" : "glossaryTerms",
         "fieldType" : "URN_PARTIAL",
-        "filterNameOverride" : "Glossary Terms"
+        "filterNameOverride" : "Glossary Term"
       }
     } ]
   }, "com.linkedin.common.GlossaryTermUrn", {
@@ -3568,9 +3568,7 @@
                     "type" : "string",
                     "doc" : "Namespace for the primary key",
                     "Searchable" : {
-                      "addToFilters" : true,
-                      "fieldType" : "TEXT_PARTIAL",
-                      "filterNameOverride" : "Namespace"
+                      "fieldType" : "TEXT_PARTIAL"
                     }
                   }, {
                     "name" : "name",
@@ -4569,55 +4567,6 @@
       "doc" : "A list of typeahead suggestions"
     } ]
   }, {
-    "type" : "enum",
-    "name" : "Condition",
-    "namespace" : "com.linkedin.metadata.query",
-    "doc" : "The matching condition in a filter criterion",
-    "symbols" : [ "CONTAIN", "END_WITH", "EQUAL", "GREATER_THAN", "GREATER_THAN_OR_EQUAL_TO", "IN", "LESS_THAN", "LESS_THAN_OR_EQUAL_TO", "START_WITH" ],
-    "symbolDocs" : {
-      "CONTAIN" : "Represent the relation: String field contains value, e.g. name contains Profile",
-      "END_WITH" : "Represent the relation: String field ends with value, e.g. name ends with Event",
-      "EQUAL" : "Represent the relation: field = value, e.g. platform = hdfs",
-      "GREATER_THAN" : "Represent the relation greater than, e.g. ownerCount > 5",
-      "GREATER_THAN_OR_EQUAL_TO" : "Represent the relation greater than or equal to, e.g. ownerCount >= 5",
-      "IN" : "Represent the relation: String field is one of the array values to, e.g. name in [\"Profile\", \"Event\"]",
-      "LESS_THAN" : "Represent the relation less than, e.g. ownerCount < 3",
-      "LESS_THAN_OR_EQUAL_TO" : "Represent the relation less than or equal to, e.g. ownerCount <= 3",
-      "START_WITH" : "Represent the relation: String field starts with value, e.g. name starts with PageView"
-    }
-  }, {
-    "type" : "record",
-    "name" : "Criterion",
-    "namespace" : "com.linkedin.metadata.query",
-    "doc" : "A criterion for matching a field with given value",
-    "fields" : [ {
-      "name" : "field",
-      "type" : "string",
-      "doc" : "The name of the field that the criterion refers to"
-    }, {
-      "name" : "value",
-      "type" : "string",
-      "doc" : "The value of the intended field"
-    }, {
-      "name" : "condition",
-      "type" : "Condition",
-      "doc" : "The condition for the criterion, e.g. EQUAL, START_WITH",
-      "default" : "EQUAL"
-    } ]
-  }, {
-    "type" : "record",
-    "name" : "Filter",
-    "namespace" : "com.linkedin.metadata.query",
-    "doc" : "The filter for finding an record or a collection of records",
-    "fields" : [ {
-      "name" : "criteria",
-      "type" : {
-        "type" : "array",
-        "items" : "Criterion"
-      },
-      "doc" : "A list of criteria the filter applies to the query"
-    } ]
-  }, {
     "type" : "record",
     "name" : "ListResult",
     "namespace" : "com.linkedin.metadata.query",
@@ -4668,9 +4617,79 @@
       "doc" : "The total number of entities directly under searched path"
     } ]
   }, {
+    "type" : "enum",
+    "name" : "Condition",
+    "namespace" : "com.linkedin.metadata.query.filter",
+    "doc" : "The matching condition in a filter criterion",
+    "symbols" : [ "CONTAIN", "END_WITH", "EQUAL", "GREATER_THAN", "GREATER_THAN_OR_EQUAL_TO", "IN", "LESS_THAN", "LESS_THAN_OR_EQUAL_TO", "START_WITH" ],
+    "symbolDocs" : {
+      "CONTAIN" : "Represent the relation: String field contains value, e.g. name contains Profile",
+      "END_WITH" : "Represent the relation: String field ends with value, e.g. name ends with Event",
+      "EQUAL" : "Represent the relation: field = value, e.g. platform = hdfs",
+      "GREATER_THAN" : "Represent the relation greater than, e.g. ownerCount > 5",
+      "GREATER_THAN_OR_EQUAL_TO" : "Represent the relation greater than or equal to, e.g. ownerCount >= 5",
+      "IN" : "Represent the relation: String field is one of the array values to, e.g. name in [\"Profile\", \"Event\"]",
+      "LESS_THAN" : "Represent the relation less than, e.g. ownerCount < 3",
+      "LESS_THAN_OR_EQUAL_TO" : "Represent the relation less than or equal to, e.g. ownerCount <= 3",
+      "START_WITH" : "Represent the relation: String field starts with value, e.g. name starts with PageView"
+    }
+  }, {
+    "type" : "record",
+    "name" : "ConjunctiveCriterion",
+    "namespace" : "com.linkedin.metadata.query.filter",
+    "doc" : "A list of criterion and'd together.",
+    "fields" : [ {
+      "name" : "and",
+      "type" : {
+        "type" : "array",
+        "items" : {
+          "type" : "record",
+          "name" : "Criterion",
+          "doc" : "A criterion for matching a field with given value",
+          "fields" : [ {
+            "name" : "field",
+            "type" : "string",
+            "doc" : "The name of the field that the criterion refers to"
+          }, {
+            "name" : "value",
+            "type" : "string",
+            "doc" : "The value of the intended field"
+          }, {
+            "name" : "condition",
+            "type" : "Condition",
+            "doc" : "The condition for the criterion, e.g. EQUAL, START_WITH",
+            "default" : "EQUAL"
+          } ]
+        }
+      },
+      "doc" : "A list of and criteria the filter applies to the query"
+    } ]
+  }, "com.linkedin.metadata.query.filter.Criterion", {
+    "type" : "record",
+    "name" : "Filter",
+    "namespace" : "com.linkedin.metadata.query.filter",
+    "doc" : "The filter for finding a record or a collection of records",
+    "fields" : [ {
+      "name" : "or",
+      "type" : {
+        "type" : "array",
+        "items" : "ConjunctiveCriterion"
+      },
+      "doc" : "A list of of disjunctive criterion for the filter.",
+      "optional" : true
+    }, {
+      "name" : "criteria",
+      "type" : {
+        "type" : "array",
+        "items" : "Criterion"
+      },
+      "doc" : "Deprecated! A list of conjunctive criterion for the filter. If \"or\" field is provided, then this field is ignored.",
+      "optional" : true
+    } ]
+  }, {
     "type" : "record",
     "name" : "SortCriterion",
-    "namespace" : "com.linkedin.metadata.query",
+    "namespace" : "com.linkedin.metadata.query.filter",
     "doc" : "Sort order along with the field to sort it on, to be applied to the results.",
     "fields" : [ {
       "name" : "field",
@@ -4690,7 +4709,7 @@
       },
       "doc" : "The order to sort the results i.e. ASCENDING or DESCENDING"
     } ]
-  }, "com.linkedin.metadata.query.SortOrder", {
+  }, "com.linkedin.metadata.query.filter.SortOrder", {
     "type" : "record",
     "name" : "DeleteEntityResponse",
     "namespace" : "com.linkedin.metadata.run",
@@ -4891,7 +4910,7 @@
           "optional" : true
         }, {
           "name" : "filter",
-          "type" : "com.linkedin.metadata.query.Filter",
+          "type" : "com.linkedin.metadata.query.filter.Filter",
           "optional" : true
         }, {
           "name" : "limit",
@@ -4925,7 +4944,7 @@
           "type" : "string"
         }, {
           "name" : "filter",
-          "type" : "com.linkedin.metadata.query.Filter",
+          "type" : "com.linkedin.metadata.query.filter.Filter",
           "optional" : true
         }, {
           "name" : "start",
@@ -4942,6 +4961,26 @@
           "type" : "string"
         } ],
         "returns" : "com.linkedin.metadata.run.DeleteEntityResponse"
+      }, {
+        "name" : "filter",
+        "parameters" : [ {
+          "name" : "entity",
+          "type" : "string"
+        }, {
+          "name" : "filter",
+          "type" : "com.linkedin.metadata.query.filter.Filter"
+        }, {
+          "name" : "sort",
+          "type" : "com.linkedin.metadata.query.filter.SortCriterion",
+          "optional" : true
+        }, {
+          "name" : "start",
+          "type" : "int"
+        }, {
+          "name" : "count",
+          "type" : "int"
+        } ],
+        "returns" : "com.linkedin.metadata.search.SearchResult"
       }, {
         "name" : "getBrowsePaths",
         "parameters" : [ {
@@ -4973,11 +5012,11 @@
           "type" : "string"
         }, {
           "name" : "filter",
-          "type" : "com.linkedin.metadata.query.Filter",
+          "type" : "com.linkedin.metadata.query.filter.Filter",
           "optional" : true
         }, {
           "name" : "sort",
-          "type" : "com.linkedin.metadata.query.SortCriterion",
+          "type" : "com.linkedin.metadata.query.filter.SortCriterion",
           "optional" : true
         }, {
           "name" : "start",
@@ -5010,11 +5049,11 @@
           "type" : "string"
         }, {
           "name" : "filter",
-          "type" : "com.linkedin.metadata.query.Filter",
+          "type" : "com.linkedin.metadata.query.filter.Filter",
           "optional" : true
         }, {
           "name" : "sort",
-          "type" : "com.linkedin.metadata.query.SortCriterion",
+          "type" : "com.linkedin.metadata.query.filter.SortCriterion",
           "optional" : true
         }, {
           "name" : "start",
@@ -5035,11 +5074,11 @@
           "type" : "string"
         }, {
           "name" : "filter",
-          "type" : "com.linkedin.metadata.query.Filter",
+          "type" : "com.linkedin.metadata.query.filter.Filter",
           "optional" : true
         }, {
           "name" : "sort",
-          "type" : "com.linkedin.metadata.query.SortCriterion",
+          "type" : "com.linkedin.metadata.query.filter.SortCriterion",
           "optional" : true
         }, {
           "name" : "start",
