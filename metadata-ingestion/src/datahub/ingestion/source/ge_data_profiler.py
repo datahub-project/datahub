@@ -1,7 +1,5 @@
 import concurrent.futures
 import contextlib
-
-# import cProfile
 import dataclasses
 import itertools
 import logging
@@ -12,10 +10,8 @@ import unittest.mock
 import uuid
 from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple, Union
 
-# import great_expectations.core
+import pydantic
 from great_expectations.core import ExpectationSuite
-
-# from great_expectations.core.batch import Batch
 from great_expectations.core.expectation_validation_result import (
     ExpectationSuiteValidationResult,
     ExpectationValidationResult,
@@ -33,7 +29,6 @@ from great_expectations.profile.base import DatasetProfiler
 from great_expectations.profile.user_configurable_profiler import (
     UserConfigurableProfiler,
 )
-from pydantic import root_validator
 from sqlalchemy.engine import Connection, Engine
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
@@ -95,7 +90,7 @@ class GEProfilerRequest:
 
 class GEProfilingConfig(ConfigModel):
     enabled: bool = False
-    turn_off_expensive_profiling_metrics: bool = True
+    turn_off_expensive_profiling_metrics: bool = False
     limit: Optional[int] = None
     offset: Optional[int] = None
     profile_table_level_only: bool = False
@@ -113,7 +108,7 @@ class GEProfilingConfig(ConfigModel):
     include_field_histogram: bool = True
     include_field_sample_values: bool = True
     allow_deny_patterns: AllowDenyPattern = AllowDenyPattern.allow_all()
-    max_number_of_fields_to_profile: Optional[int] = None
+    max_number_of_fields_to_profile: Optional[pydantic.PositiveInt] = None
 
     # The default of (5 * cpu_count) is adopted from the default max_workers
     # parameter of ThreadPoolExecutor. Given that profiling is often an I/O-bound
@@ -121,12 +116,13 @@ class GEProfilingConfig(ConfigModel):
     # https://docs.python.org/3/library/concurrent.futures.html#concurrent.futures.ThreadPoolExecutor
     max_workers: int = 5 * (os.cpu_count() or 4)
 
-    @root_validator(pre=True)
+    @pydantic.root_validator()
     def ensure_field_level_settings_are_normalized(
         cls: "GEProfilingConfig", values: Dict[str, Any]
     ) -> Dict[str, Any]:
         max_num_fields_to_profile_key = "max_number_of_fields_to_profile"
         table_level_profiling_only_key = "profile_table_level_only"
+        max_num_fields_to_profile = values.get(max_num_fields_to_profile_key)
         if values.get(table_level_profiling_only_key):
             all_field_level_metrics: List[str] = [
                 "include_field_level_stats_if_not_null_only",
@@ -147,7 +143,7 @@ class GEProfilingConfig(ConfigModel):
             for field_level_metric in all_field_level_metrics:
                 values[field_level_metric] = False
             assert (
-                values[max_num_fields_to_profile_key] is None
+                max_num_fields_to_profile is None
             ), f"{max_num_fields_to_profile_key} should be set to None"
 
         if values.get("turn_off_expensive_profiling_metrics"):
@@ -160,7 +156,7 @@ class GEProfilingConfig(ConfigModel):
                 ]
                 for expensive_field_metric in expensive_field_level_metrics:
                     values[expensive_field_metric] = False
-            if values.get(max_num_fields_to_profile_key) is None:
+            if max_num_fields_to_profile is None:
                 # We currently profile upto 10 non-filtered columns in this mode by default.
                 values[max_num_fields_to_profile_key] = 10
 
@@ -213,9 +209,11 @@ class DatahubConfigurableProfiler(DatasetProfiler):
         config: GEProfilingConfig,
         report: SQLSourceReport,
     ) -> List[str]:
+        ignored_columns: List[str] = []
+        if config.profile_table_level_only:
+            return ignored_columns
         # Compute ignored columns
-        ignored_columns = []
-        profiled_columns = []
+        profiled_columns: List[str] = []
         for col in dataset.get_table_columns():
             # We expect the allow/deny patterns to specify '<table_pattern>.<column_pattern>'
             if not config.allow_deny_patterns.allowed(f"{dataset_name}.{col}"):
