@@ -24,7 +24,7 @@ Use Case: See sample data for a dataset and statistics on the shape of the data 
 - [ ] Integration with systems like Great Expectations, AWS deequ, dbt test etc.
 
 #### Fine-grained Access Control for Metadata
-- [x] Support for role-based access control on metadata: view, edit, etc. (partial support for view-only)
+- [x] Support for role-based access control to edit metadata
 - Scope: Access control on entity-level, aspect-level and within aspects as well.
 
 #### Column-level lineage
