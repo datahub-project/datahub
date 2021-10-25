@@ -16,6 +16,7 @@ type Props = {
     path: Array<string>;
     upstreams: number;
     downstreams: number;
+    breadcrumbLinksEnabled: boolean;
 };
 
 const LineageIconGroup = styled.div`
@@ -79,11 +80,23 @@ const LineageBadge = styled(Badge)`
     }
 `;
 
+const BreadcrumbItem = styled(Breadcrumb.Item)<{ disabled: boolean }>`
+    &&& :hover {
+        color: ${(props) => (props.disabled ? ANTD_GRAY[7] : props.theme.styles['primary-color'])};
+    }
+`;
+
 /**
  * Responsible for rendering a clickable browse path view.
  */
 // TODO(Gabe): use this everywhere
-export const ProfileNavBrowsePath = ({ type, path, upstreams, downstreams }: Props): JSX.Element => {
+export const ProfileNavBrowsePath = ({
+    type,
+    path,
+    upstreams,
+    downstreams,
+    breadcrumbLinksEnabled,
+}: Props): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     const history = useHistory();
     const location = useLocation();
@@ -96,15 +109,21 @@ export const ProfileNavBrowsePath = ({ type, path, upstreams, downstreams }: Pro
     const baseBrowsePath = `${PageRoutes.BROWSE}/${entityRegistry.getPathName(type)}`;
 
     const pathCrumbs = path.map((part, index) => (
-        <Breadcrumb.Item key={`${part || index}`}>
-            <Link
-                to={
-                    index === path.length - 1 ? '#' : `${baseBrowsePath}/${createPartialPath(path.slice(0, index + 1))}`
-                }
-            >
-                {part}
-            </Link>
-        </Breadcrumb.Item>
+        <BreadcrumbItem key={`${part || index}`} disabled={!breadcrumbLinksEnabled}>
+            {breadcrumbLinksEnabled ? (
+                <Link
+                    to={
+                        index === path.length - 1
+                            ? '#'
+                            : `${baseBrowsePath}/${createPartialPath(path.slice(0, index + 1))}`
+                    }
+                >
+                    {part}
+                </Link>
+            ) : (
+                part
+            )}
+        </BreadcrumbItem>
     ));
 
     const hasLineage = upstreams > 0 || downstreams > 0;
@@ -115,9 +134,15 @@ export const ProfileNavBrowsePath = ({ type, path, upstreams, downstreams }: Pro
     return (
         <BrowseRow>
             <Breadcrumb style={{ fontSize: '16px' }} separator=">">
-                <Breadcrumb.Item>
-                    <Link to={baseBrowsePath}>{entityRegistry.getCollectionName(type)}</Link>
-                </Breadcrumb.Item>
+                <BreadcrumbItem disabled={!breadcrumbLinksEnabled}>
+                    {breadcrumbLinksEnabled ? (
+                        <Link to={breadcrumbLinksEnabled ? baseBrowsePath : undefined}>
+                            {entityRegistry.getCollectionName(type)}
+                        </Link>
+                    ) : (
+                        entityRegistry.getCollectionName(type)
+                    )}
+                </BreadcrumbItem>
                 {pathCrumbs}
             </Breadcrumb>
             <LineageNavContainer>

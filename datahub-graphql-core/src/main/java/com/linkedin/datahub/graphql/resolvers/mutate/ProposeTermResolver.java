@@ -41,7 +41,8 @@ public class ProposeTermResolver implements DataFetcher<CompletableFuture<Boolea
           input.getSubResource(),
           input.getSubResourceType(),
           "glossaryTerm",
-          _entityService
+          _entityService,
+          false
       );
 
       log.info("Proposing Term. input: {}", input.toString());

@@ -26,9 +26,10 @@ public class DataHubDataFetcherExceptionHandler implements DataFetcherExceptionH
       message = "An unknown error occurred.";
     }
 
-    if (exception instanceof IllegalArgumentException) {
+    // note: make sure to access the true error message via `getCause()`
+    if (exception.getCause() instanceof IllegalArgumentException) {
       errorCode = DataHubGraphQLErrorCode.BAD_REQUEST;
-      message = exception.getMessage();
+      message = exception.getCause().getMessage();
     }
 
     if (exception instanceof DataHubGraphQLException) {
