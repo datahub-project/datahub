@@ -9,7 +9,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 
@@ -54,11 +53,10 @@ public class RecommendationService {
     // Get candidates from input candidate sources which are eligible in parallel
     List<RecommendationModule> candidates = ConcurrencyUtils.transformAndCollectAsync(_candidateSources.stream()
         .filter(source -> source.isEligible(userUrn, requestContext))
-        .collect(Collectors.toList()), source -> source.getModule(userUrn, requestContext))
-        .stream()
-        .filter(Optional::isPresent)
-        .map(Optional::get)
-        .collect(Collectors.toList());
+        .collect(Collectors.toList()), source -> source.getModule(userUrn, requestContext), (source, exception) -> {
+      log.error("Error while fetching candidates from source {}", source, exception);
+      return Optional.<RecommendationModule>empty();
+    }).stream().filter(Optional::isPresent).map(Optional::get).collect(Collectors.toList());
 
     return _ranker.rank(candidates, userUrn, requestContext, limit);
   }

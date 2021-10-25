@@ -42,6 +42,8 @@ dependencies {
   testCompile externalDependency.testContainersJunit
   testCompile externalDependency.testContainersElasticsearch
   testCompile project(':test-models')
+
+  testAnnotationProcessor externalDependency.lombok
 }
 
 tasks.withType(Test) {
