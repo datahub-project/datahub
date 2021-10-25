@@ -392,9 +392,11 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
             ENTITIES_REQUEST_BUILDERS.actionFilter()
                 .entityParam(entity)
                 .filterParam(filter)
-                .sortParam(sortCriterion)
                 .startParam(start)
                 .countParam(count);
+        if (sortCriterion != null) {
+            requestBuilder.sortParam(sortCriterion);
+        }
         return sendClientRequest(requestBuilder, actor).getEntity();
     }
 }

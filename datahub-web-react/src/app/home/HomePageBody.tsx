@@ -26,7 +26,7 @@ const BodyContainer = styled.div`
 `;
 
 // TODO: Make this list config-driven
-const PERMANENT_ENTITY_TYPES = [EntityType.Dataset, EntityType.Chart, EntityType.Dashboard];
+const PERMANENT_ENTITY_TYPES = [EntityType.Dataset, EntityType.Dashboard, EntityType.Chart];
 
 export const HomePageBody = () => {
     const entityRegistry = useEntityRegistry();
