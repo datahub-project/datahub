@@ -8,7 +8,7 @@ import threading
 import time
 import unittest.mock
 import uuid
-from typing import Any, Dict, Iterable, Iterator, List, Optional, Set, Tuple, Union
+from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple, Union
 
 import pydantic
 from great_expectations.core import ExpectationSuite
@@ -88,11 +88,10 @@ class GEProfilerRequest:
 
 class GEProfilingConfig(ConfigModel):
     enabled: bool = False
-    turn_off_expensive_profiling_metrics: bool = False
     limit: Optional[int] = None
     offset: Optional[int] = None
+    turn_off_expensive_profiling_metrics: bool = False
     profile_table_level_only: bool = False
-    include_field_level_stats_if_not_null_only: bool = False
     include_field_null_count: bool = True
     include_field_min_value: bool = True
     include_field_max_value: bool = True
@@ -121,7 +120,6 @@ class GEProfilingConfig(ConfigModel):
         max_num_fields_to_profile = values.get(max_num_fields_to_profile_key)
         if values.get(table_level_profiling_only_key):
             all_field_level_metrics: List[str] = [
-                "include_field_level_stats_if_not_null_only",
                 "include_field_null_count",
                 "include_field_min_value",
                 "include_field_max_value",
@@ -159,7 +157,10 @@ class GEProfilingConfig(ConfigModel):
 
 class DatahubConfigurableProfiler(DatasetProfiler):
     """
-    TODO:
+    DatahubConfigurableProfiler is a wrapper on top of DatahubGECustomProfiler that essentially translates the
+    GEProfilingConfig into a proper GEProfiler's interface and delegates actual profiling to DatahubGECustomProfiler.
+    Column filtering based on our Allow/Deny patterns requires us to intercept the _profile call
+    and compute the list of the columns to profile.
     """
 
     @staticmethod
@@ -199,33 +200,36 @@ class DatahubConfigurableProfiler(DatasetProfiler):
             return []
 
         # Compute columns to profile
-        columns_to_profile: Set[str] = {col for col in dataset.get_table_columns()}
+        columns_to_profile: List[str] = []
         # Compute ignored columns
-        ignored_columns: Set[str] = set()
-        for col in columns_to_profile:
+        ignored_columns: List[str] = []
+        for col in dataset.get_table_columns():
             # We expect the allow/deny patterns to specify '<table_pattern>.<column_pattern>'
             if not config.allow_deny_patterns.allowed(f"{dataset_name}.{col}"):
-                ignored_columns.add(col)
+                ignored_columns.append(col)
+            else:
+                columns_to_profile.append(col)
         if ignored_columns:
             report.report_dropped(
-                f"profile of columns by pattern {dataset_name}({', '.join(ignored_columns)})"
+                f"The profile of columns by pattern {dataset_name}({', '.join(sorted(ignored_columns))})"
             )
-        columns_to_profile -= ignored_columns
 
         if config.max_number_of_fields_to_profile is not None:
-            columns_being_dropped = set(
-                list(
-                    itertools.islice(
-                        columns_to_profile, config.max_number_of_fields_to_profile, None
-                    )
+            columns_being_dropped: List[str] = list(
+                itertools.islice(
+                    columns_to_profile, config.max_number_of_fields_to_profile, None
                 )
             )
-            columns_to_profile -= columns_being_dropped
+            columns_to_profile = list(
+                itertools.islice(
+                    columns_to_profile, config.max_number_of_fields_to_profile
+                )
+            )
             if columns_being_dropped:
                 report.report_dropped(
-                    f"max_number_of_fields_to_profile={config.max_number_of_fields_to_profile} reached. Profile of columns {dataset_name}({', '.join(columns_being_dropped)})"
+                    f"The max_number_of_fields_to_profile={config.max_number_of_fields_to_profile} reached. Profile of columns {dataset_name}({', '.join(sorted(columns_being_dropped))})"
                 )
-        return list(columns_to_profile)
+        return columns_to_profile
 
     @staticmethod
     def datahub_config_to_ge_config(
@@ -234,18 +238,18 @@ class DatahubConfigurableProfiler(DatasetProfiler):
         config: GEProfilingConfig,
         report: SQLSourceReport,
     ) -> Dict[str, Any]:
-        ge_config: Dict[str, Any] = {}
-        ge_config[
-            "excluded_expectations"
+        excluded_expectations: List[
+            str
         ] = DatahubConfigurableProfiler._get_excluded_expectations(config)
-        ge_config[
-            "columns_to_profile"
+        columns_to_profile: List[
+            str
         ] = DatahubConfigurableProfiler._get_columns_to_profile(
             dataset, dataset_name, config, report
         )
-        ge_config["not_null_only"] = config.include_field_level_stats_if_not_null_only
-
-        return ge_config
+        return {
+            "excluded_expectations": excluded_expectations,
+            "columns_to_profile": columns_to_profile,
+        }
 
     @classmethod
     def _profile(
