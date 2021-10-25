@@ -20,7 +20,6 @@ import { SidebarStatsSection } from '../sidebar/Dataset/StatsSidebarSection';
 import { SidebarOwnerSection } from '../sidebar/Ownership/SidebarOwnerSection';
 import { SidebarAboutSection } from '../sidebar/SidebarAboutSection';
 import { SidebarTagsSection } from '../sidebar/SidebarTagsSection';
-import { SidebarRecommendationsSection } from '../sidebar/Recommendations/SidebarRecommendationsSection';
 
 describe('EntityProfile', () => {
     it('renders dataset page', async () => {
