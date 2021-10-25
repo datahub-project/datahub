@@ -67,6 +67,20 @@ div[class^="announcementBarContent"] {
   > div {
     display: flex;
     align-items: center;
+
+    > p {
+      text-align: left;
+      line-height: 1.1rem;
+      margin: 0;
+      > span {
+        @media (max-width: 780px) {
+          display: none;
+        }
+      }
+      @media (max-width: 480px) {
+        display: none;
+      }
+    }
   }
 
   img {

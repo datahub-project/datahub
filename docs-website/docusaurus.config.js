@@ -33,7 +33,7 @@ module.exports = {
     announcementBar: {
       id: "announcement",
       content:
-        '<div><img src="/img/acryl-logo-white-mark.svg" /><span><strong>Managed DataHub</strong> &nbsp;Acryl Data delivers an easy to consume DataHub platform for the enterprise</span></div> <a href="/docs/saas" target="_blank" class="button button--primary">Sign up for Managed DataHub →</a>',
+        '<div><img src="/img/acryl-logo-white-mark.svg" /><p><strong>Managed DataHub</strong><span> &nbsp;Acryl Data delivers an easy to consume DataHub platform for the enterprise</span></p></div> <a href="/managed" class="button button--primary">Sign up for Managed DataHub →</a>',
       backgroundColor: "#090a11",
       textColor: "#ffffff",
       isCloseable: false,
