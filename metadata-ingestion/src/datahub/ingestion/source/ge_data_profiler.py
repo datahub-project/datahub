@@ -8,7 +8,7 @@ import threading
 import time
 import unittest.mock
 import uuid
-from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple, Union
+from typing import Any, Dict, Iterable, Iterator, List, Optional, Set, Tuple, Union
 
 import pydantic
 from great_expectations.core import ExpectationSuite
@@ -26,13 +26,11 @@ from great_expectations.data_context.types.base import (
 from great_expectations.dataset.dataset import Dataset
 from great_expectations.datasource.sqlalchemy_datasource import SqlAlchemyDatasource
 from great_expectations.profile.base import DatasetProfiler
-from great_expectations.profile.user_configurable_profiler import (
-    UserConfigurableProfiler,
-)
 from sqlalchemy.engine import Connection, Engine
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.emitter.mce_builder import get_sys_time
+from datahub.ingestion.source.datahub_custom_ge_profiler import DatahubGECustomProfiler
 from datahub.ingestion.source.sql.sql_common import SQLSourceReport
 from datahub.metadata.schema_classes import (
     DatasetFieldProfileClass,
@@ -95,8 +93,6 @@ class GEProfilingConfig(ConfigModel):
     offset: Optional[int] = None
     profile_table_level_only: bool = False
     include_field_level_stats_if_not_null_only: bool = False
-    include_field_unique_count: bool = True
-    include_field_unique_proportion: bool = True
     include_field_null_count: bool = True
     include_field_min_value: bool = True
     include_field_max_value: bool = True
@@ -126,8 +122,6 @@ class GEProfilingConfig(ConfigModel):
         if values.get(table_level_profiling_only_key):
             all_field_level_metrics: List[str] = [
                 "include_field_level_stats_if_not_null_only",
-                "include_field_unique_count",
-                "include_field_unique_proportion",
                 "include_field_null_count",
                 "include_field_min_value",
                 "include_field_max_value",
@@ -165,21 +159,13 @@ class GEProfilingConfig(ConfigModel):
 
 class DatahubConfigurableProfiler(DatasetProfiler):
     """
-    This is simply a wrapper over the GE's UserConfigurableProfile, since it does not inherit from DatasetProfile.
+    TODO:
     """
 
     @staticmethod
     def _get_excluded_expectations(config: GEProfilingConfig) -> List[str]:
         # Compute excluded expectations
         excluded_expectations: List[str] = []
-        if not config.include_field_unique_count:
-            excluded_expectations.append(
-                "expect_column_unique_value_count_to_be_between"
-            )
-        if not config.include_field_unique_proportion:
-            excluded_expectations.append(
-                "expect_column_proportion_of_unique_values_to_be_between"
-            )
         if not config.include_field_null_count:
             excluded_expectations.append("expect_column_values_to_not_be_null")
         if not config.include_field_min_value:
@@ -203,40 +189,43 @@ class DatahubConfigurableProfiler(DatasetProfiler):
         return excluded_expectations
 
     @staticmethod
-    def _get_ignored_columns(
+    def _get_columns_to_profile(
         dataset: Dataset,
         dataset_name: str,
         config: GEProfilingConfig,
         report: SQLSourceReport,
     ) -> List[str]:
-        ignored_columns: List[str] = []
         if config.profile_table_level_only:
-            return ignored_columns
+            return []
+
+        # Compute columns to profile
+        columns_to_profile: Set[str] = {col for col in dataset.get_table_columns()}
         # Compute ignored columns
-        profiled_columns: List[str] = []
-        for col in dataset.get_table_columns():
+        ignored_columns: Set[str] = set()
+        for col in columns_to_profile:
             # We expect the allow/deny patterns to specify '<table_pattern>.<column_pattern>'
             if not config.allow_deny_patterns.allowed(f"{dataset_name}.{col}"):
-                ignored_columns.append(col)
-            else:
-                profiled_columns.append(col)
+                ignored_columns.add(col)
         if ignored_columns:
             report.report_dropped(
                 f"profile of columns by pattern {dataset_name}({', '.join(ignored_columns)})"
             )
+        columns_to_profile -= ignored_columns
 
         if config.max_number_of_fields_to_profile is not None:
-            columns_being_dropped = list(
-                itertools.islice(
-                    profiled_columns, config.max_number_of_fields_to_profile, None
+            columns_being_dropped = set(
+                list(
+                    itertools.islice(
+                        columns_to_profile, config.max_number_of_fields_to_profile, None
+                    )
                 )
             )
-            ignored_columns.extend(columns_being_dropped)
-            if len(columns_being_dropped):
+            columns_to_profile -= columns_being_dropped
+            if columns_being_dropped:
                 report.report_dropped(
                     f"max_number_of_fields_to_profile={config.max_number_of_fields_to_profile} reached. Profile of columns {dataset_name}({', '.join(columns_being_dropped)})"
                 )
-        return ignored_columns
+        return list(columns_to_profile)
 
     @staticmethod
     def datahub_config_to_ge_config(
@@ -249,10 +238,11 @@ class DatahubConfigurableProfiler(DatasetProfiler):
         ge_config[
             "excluded_expectations"
         ] = DatahubConfigurableProfiler._get_excluded_expectations(config)
-        ge_config["ignored_columns"] = DatahubConfigurableProfiler._get_ignored_columns(
+        ge_config[
+            "columns_to_profile"
+        ] = DatahubConfigurableProfiler._get_columns_to_profile(
             dataset, dataset_name, config, report
         )
-        ge_config["table_expectations_only"] = config.profile_table_level_only
         ge_config["not_null_only"] = config.include_field_level_stats_if_not_null_only
 
         return ge_config
@@ -270,10 +260,7 @@ class DatahubConfigurableProfiler(DatasetProfiler):
             configuration["config"],
             configuration["report"],
         )
-        profiler = UserConfigurableProfiler(
-            profile_dataset=dataset, **profiler_configuration
-        )
-        return profiler.build_suite()
+        return DatahubGECustomProfiler._profile(dataset, profiler_configuration)
 
 
 @dataclasses.dataclass
