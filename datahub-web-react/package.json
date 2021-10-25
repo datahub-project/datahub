@@ -70,6 +70,7 @@
         "react-router-dom": "^5.1.6",
         "react-scripts": "4.0.3",
         "react-syntax-highlighter": "^15.4.4",
+        "react-visibility-sensor": "^5.1.1",
         "sinon": "^11.1.1",
         "start-server-and-test": "1.12.2",
         "styled-components": "^5.2.1",

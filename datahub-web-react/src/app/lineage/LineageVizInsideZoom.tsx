@@ -1,5 +1,4 @@
-import React, { SVGProps, useEffect, useMemo } from 'react';
-import { hierarchy } from '@vx/hierarchy';
+import React, { SVGProps, useEffect, useMemo, useState } from 'react';
 import { PlusOutlined, MinusOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
 import { Button } from 'antd';
@@ -57,16 +56,20 @@ export default function LineageVizInsideZoom({
     width,
     height,
 }: Props) {
+    const [draggedNodes, setDraggedNodes] = useState<Record<string, { x: number; y: number }>>({});
+
+    const [hoveredEntity, setHoveredEntity] = useState<EntitySelectParams | undefined>(undefined);
+    const [isDraggingNode, setIsDraggingNode] = useState(false);
+
     const entityRegistry = useEntityRegistry();
-    const yMax = height - margin?.top - margin?.bottom;
-    const xMax = (width - margin?.left - margin?.right) / 2;
 
     const downstreamData = useMemo(
-        () => hierarchy(constructTree(entityAndType, fetchedEntities, Direction.Downstream, entityRegistry)),
+        () => constructTree(entityAndType, fetchedEntities, Direction.Downstream, entityRegistry),
         [entityAndType, fetchedEntities, entityRegistry],
     );
+
     const upstreamData = useMemo(
-        () => hierarchy(constructTree(entityAndType, fetchedEntities, Direction.Upstream, entityRegistry)),
+        () => constructTree(entityAndType, fetchedEntities, Direction.Upstream, entityRegistry),
         [entityAndType, fetchedEntities, entityRegistry],
     );
 
@@ -74,6 +77,7 @@ export default function LineageVizInsideZoom({
         zoom.setTransformMatrix({ ...zoom.transformMatrix, translateY: 0, translateX: width / 2 });
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [entityAndType?.entity?.urn]);
+
     return (
         <ZoomContainer>
             <ZoomControls>
@@ -89,9 +93,17 @@ export default function LineageVizInsideZoom({
                 height={height}
                 onMouseDown={zoom.dragStart}
                 onMouseUp={zoom.dragEnd}
-                onMouseMove={zoom.dragMove}
+                onMouseMove={(e) => {
+                    if (!isDraggingNode) {
+                        zoom.dragMove(e);
+                    }
+                }}
                 onTouchStart={zoom.dragStart}
-                onTouchMove={zoom.dragMove}
+                onTouchMove={(e) => {
+                    if (!isDraggingNode) {
+                        zoom.dragMove(e);
+                    }
+                }}
                 onTouchEnd={zoom.dragEnd}
                 isDragging={zoom.isDragging}
             >
@@ -120,13 +132,37 @@ export default function LineageVizInsideZoom({
                     >
                         <path d="M 0 5 L 10 10 L 10 0 L 0 5 z" fill="#BFBFBF" />
                     </marker>
+                    <marker
+                        id="triangle-downstream-highlighted"
+                        viewBox="0 0 10 10"
+                        refX="10"
+                        refY="5"
+                        markerUnits="strokeWidth"
+                        markerWidth="10"
+                        markerHeight="10"
+                        orient="auto"
+                    >
+                        <path d="M 0 0 L 10 5 L 0 10 z" fill="#1890FF" />
+                    </marker>
+                    <marker
+                        id="triangle-upstream-highlighted"
+                        viewBox="0 0 10 10"
+                        refX="0"
+                        refY="5"
+                        markerUnits="strokeWidth"
+                        markerWidth="10"
+                        markerHeight="10"
+                        orient="auto"
+                    >
+                        <path d="M 0 5 L 10 10 L 10 0 L 0 5 z" fill="#1890FF" />
+                    </marker>
                     <linearGradient id="gradient-Downstream" x1="1" x2="0" y1="0" y2="0">
-                        <stop offset="0%" stopColor="#BFBFBF" />
-                        <stop offset="100%" stopColor="#BFBFBF" stopOpacity="0" />
+                        <stop offset="0%" stopColor="#1890FF" />
+                        <stop offset="100%" stopColor="#1890FF" stopOpacity="0" />
                     </linearGradient>
                     <linearGradient id="gradient-Upstream" x1="0" x2="1" y1="0" y2="0">
-                        <stop offset="0%" stopColor="#BFBFBF" />
-                        <stop offset="100%" stopColor="#BFBFBF" stopOpacity="0" />
+                        <stop offset="0%" stopColor="#1890FF" />
+                        <stop offset="100%" stopColor="#1890FF" stopOpacity="0" />
                     </linearGradient>
                     <filter id="shadow1">
                         <feDropShadow
@@ -154,11 +190,15 @@ export default function LineageVizInsideZoom({
                     onEntityClick={onEntityClick}
                     onEntityCenter={onEntityCenter}
                     onLineageExpand={onLineageExpand}
-                    canvasHeight={yMax}
-                    canvasWidth={xMax}
                     margin={margin}
                     selectedEntity={selectedEntity}
+                    hoveredEntity={hoveredEntity}
+                    setHoveredEntity={setHoveredEntity}
                     direction={Direction.Upstream}
+                    canvasHeight={height}
+                    setIsDraggingNode={setIsDraggingNode}
+                    draggedNodes={draggedNodes}
+                    setDraggedNodes={setDraggedNodes}
                 />
                 <LineageTree
                     data={downstreamData}
@@ -166,11 +206,15 @@ export default function LineageVizInsideZoom({
                     onEntityClick={onEntityClick}
                     onEntityCenter={onEntityCenter}
                     onLineageExpand={onLineageExpand}
-                    canvasHeight={yMax}
-                    canvasWidth={xMax}
                     margin={margin}
                     selectedEntity={selectedEntity}
+                    hoveredEntity={hoveredEntity}
+                    setHoveredEntity={setHoveredEntity}
                     direction={Direction.Downstream}
+                    canvasHeight={height}
+                    setIsDraggingNode={setIsDraggingNode}
+                    draggedNodes={draggedNodes}
+                    setDraggedNodes={setDraggedNodes}
                 />
             </RootSvg>
         </ZoomContainer>
