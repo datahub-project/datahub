@@ -1,10 +1,9 @@
 import * as React from 'react';
 import { ConsoleSqlOutlined } from '@ant-design/icons';
-import { DataJob, EntityType, PlatformType, SearchResult } from '../../../types.generated';
+import { DataJob, EntityType, PlatformType, RelationshipDirection, SearchResult } from '../../../types.generated';
 import { Preview } from './preview/Preview';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
-import getChildren from '../../lineage/utils/getChildren';
-import { Direction } from '../../lineage/types';
+import { getChildrenFromRelationships } from '../../lineage/utils/getChildren';
 import { getLogoFromPlatform } from '../../shared/getLogoFromPlatform';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
 import { GetDataJobQuery, useGetDataJobQuery, useUpdateDataJobMutation } from '../../../graphql/dataJob.generated';
@@ -82,8 +81,8 @@ export class DataJobEntity implements Entity<DataJob> {
                     display: {
                         visible: (_, _1) => true,
                         enabled: (_, dataJob: GetDataJobQuery) =>
-                            (dataJob?.dataJob?.upstreamLineage?.entities?.length || 0) > 0 ||
-                            (dataJob?.dataJob?.downstreamLineage?.entities?.length || 0) > 0,
+                            (dataJob?.dataJob?.incoming?.count || 0) !== 0 ||
+                            (dataJob?.dataJob?.outgoing?.count || 0) !== 0,
                     },
                 },
             ]}
@@ -165,17 +164,25 @@ export class DataJobEntity implements Entity<DataJob> {
 
     getLineageVizConfig = (entity: DataJob) => {
         return {
-            urn: entity.urn,
-            name: entity.info?.name || '',
+            urn: entity?.urn,
+            name: entity?.info?.name || '',
             type: EntityType.DataJob,
-            upstreamChildren: getChildren({ entity, type: EntityType.DataJob }, Direction.Upstream).map(
-                (child) => child.entity.urn,
-            ),
-            downstreamChildren: getChildren({ entity, type: EntityType.DataJob }, Direction.Downstream).map(
-                (child) => child.entity.urn,
-            ),
+            downstreamChildren: getChildrenFromRelationships({
+                // eslint-disable-next-line @typescript-eslint/dot-notation
+                incomingRelationships: entity?.['incoming'],
+                // eslint-disable-next-line @typescript-eslint/dot-notation
+                outgoingRelationships: entity?.['outgoing'],
+                direction: RelationshipDirection.Incoming,
+            }),
+            upstreamChildren: getChildrenFromRelationships({
+                // eslint-disable-next-line @typescript-eslint/dot-notation
+                incomingRelationships: entity?.['incoming'],
+                // eslint-disable-next-line @typescript-eslint/dot-notation
+                outgoingRelationships: entity?.['outgoing'],
+                direction: RelationshipDirection.Outgoing,
+            }),
             icon: getLogoFromPlatform(entity.dataFlow?.orchestrator || ''),
-            platform: entity.dataFlow?.orchestrator || '',
+            platform: entity?.dataFlow?.orchestrator || '',
         };
     };
 
