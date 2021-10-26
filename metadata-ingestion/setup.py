@@ -120,13 +120,13 @@ plugins: Dict[str, Set[str]] = {
     "sql-profiles": sql_common | {"great-expectations"},
     "superset": {"requests"},
     "trino": sql_common,
-    "grafana": {"requests", "sql-metadata==2.3.0"}
     | {
         # SQLAlchemy support is coming up in trino python client
         # subject to PR merging - https://github.com/trinodb/trino-python-client/pull/81.
         # PR is from same author as that of sqlalchemy-trino library below.
         "sqlalchemy-trino"
     },
+    "grafana": {"requests", "sql-metadata==2.3.0"}
 }
 
 all_exclude_plugins: Set[str] = {
