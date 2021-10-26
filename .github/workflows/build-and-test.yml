@@ -58,11 +58,14 @@ jobs:
 
   metadata-ingestion-general:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.6", "3.9"]
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-python@v2
         with:
-          python-version: "3.6"
+          python-version: ${{ matrix.python-version }}
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
       - name: Run metadata-ingestion tests
