@@ -14,18 +14,25 @@ import javax.annotation.Nonnull;
 /**
  * Base interface for defining a candidate source for recommendation module
  */
-public interface RecommendationCandidateSource {
-  // Title of the module that is sourced
+public interface RecommendationSource {
+
+  /**
+   * Returns the title of the module that is sourced (used in rendering)
+   */
   String getTitle();
 
-  // Module ID of the module that is sourced
+  /**
+   * Returns a unique module id associated with the module
+   */
   String getModuleId();
 
-  // Render type of the module that is sourced
+  /**
+   * Returns the template type used for rendering recommendations from this module
+   */
   RecommendationRenderType getRenderType();
 
   /**
-   * Whether or not this source is eligible given the context
+   * Whether or not this module is eligible for resolution given the context
    *
    * @param userUrn User requesting recommendations
    * @param requestContext Context of where the recommendations are being requested
@@ -34,28 +41,36 @@ public interface RecommendationCandidateSource {
   boolean isEligible(@Nonnull Urn userUrn, @Nonnull RecommendationRequestContext requestContext);
 
   /**
-   * Get recommendation candidates given the context
+   * Get recommended items (candidates / content) provided the context
    *
    * @param userUrn User requesting recommendations
    * @param requestContext Context of where the recommendations are being requested
    * @return list of recommendation candidates
    */
-  List<RecommendationContent> getCandidates(@Nonnull Urn userUrn, @Nonnull RecommendationRequestContext requestContext);
+  List<RecommendationContent> getRecommendations(@Nonnull Urn userUrn, @Nonnull RecommendationRequestContext requestContext);
 
-  default Optional<RecommendationModule> getModule(@Nonnull Urn userUrn,
+  /**
+   * Get the full recommendations module itself provided the request context.
+   *
+   * @param userUrn User requesting recommendations
+   * @param requestContext Context of where the recommendations are being requested
+   * @return list of recommendation candidates
+   */
+  default Optional<RecommendationModule> getRecommendationModule(
+      @Nonnull Urn userUrn,
       @Nonnull RecommendationRequestContext requestContext) {
     if (!isEligible(userUrn, requestContext)) {
       return Optional.empty();
     }
 
-    List<RecommendationContent> candidates = getCandidates(userUrn, requestContext);
-    if (candidates.isEmpty()) {
+    List<RecommendationContent> recommendations = getRecommendations(userUrn, requestContext);
+    if (recommendations.isEmpty()) {
       return Optional.empty();
     }
 
     return Optional.of(new RecommendationModule().setTitle(getTitle())
         .setModuleId(getModuleId())
         .setRenderType(getRenderType())
-        .setContent(new RecommendationContentArray(candidates)));
+        .setContent(new RecommendationContentArray(recommendations)));
   }
 }

@@ -12,7 +12,7 @@ import lombok.RequiredArgsConstructor;
 
 @Getter
 @RequiredArgsConstructor
-public class TestCandidateSource implements RecommendationCandidateSource {
+public class TestSource implements RecommendationSource {
 
   private final String title;
   private final String moduleId;
@@ -41,7 +41,7 @@ public class TestCandidateSource implements RecommendationCandidateSource {
   }
 
   @Override
-  public List<RecommendationContent> getCandidates(@Nonnull Urn userUrn,
+  public List<RecommendationContent> getRecommendations(@Nonnull Urn userUrn,
       @Nonnull RecommendationRequestContext requestContext) {
     return contents;
   }

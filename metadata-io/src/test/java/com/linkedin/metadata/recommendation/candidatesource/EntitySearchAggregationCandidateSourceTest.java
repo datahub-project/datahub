@@ -30,11 +30,11 @@ import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 
-public class EntitySearchAggregationBasedCandidateSourceTest {
+public class EntitySearchAggregationCandidateSourceTest {
   private EntitySearchService _entitySearchService = Mockito.mock(EntitySearchService.class);
   private NonEmptyEntitiesCache _nonEmptyEntitiesCache = Mockito.mock(NonEmptyEntitiesCache.class);
-  private EntitySearchAggregationBasedCandidateSource _valueBasedCandidateSource;
-  private EntitySearchAggregationBasedCandidateSource _urnBasedCandidateSource;
+  private EntitySearchAggregationSource _valueBasedCandidateSource;
+  private EntitySearchAggregationSource _urnBasedCandidateSource;
 
   private static final Urn USER = new CorpuserUrn("test");
   private static final RecommendationRequestContext CONTEXT =
@@ -47,8 +47,8 @@ public class EntitySearchAggregationBasedCandidateSourceTest {
     _urnBasedCandidateSource = buildCandidateSource("testUrn", true);
   }
 
-  private EntitySearchAggregationBasedCandidateSource buildCandidateSource(String identifier, boolean isValueUrn) {
-    return new EntitySearchAggregationBasedCandidateSource(_entitySearchService, _nonEmptyEntitiesCache) {
+  private EntitySearchAggregationSource buildCandidateSource(String identifier, boolean isValueUrn) {
+    return new EntitySearchAggregationSource(_entitySearchService, _nonEmptyEntitiesCache) {
       @Override
       protected String getSearchFieldName() {
         return identifier;
@@ -89,10 +89,10 @@ public class EntitySearchAggregationBasedCandidateSourceTest {
   @Test
   public void testWhenNonEmptyCacheReturnsEmpty() {
     Mockito.when(_nonEmptyEntitiesCache.getNonEmptyEntities()).thenReturn(Collections.emptyList());
-    List<RecommendationContent> candidates = _valueBasedCandidateSource.getCandidates(USER, CONTEXT);
+    List<RecommendationContent> candidates = _valueBasedCandidateSource.getRecommendations(USER, CONTEXT);
     assertTrue(candidates.isEmpty());
     Mockito.verifyZeroInteractions(_entitySearchService);
-    assertFalse(_valueBasedCandidateSource.getModule(USER, CONTEXT).isPresent());
+    assertFalse(_valueBasedCandidateSource.getRecommendationModule(USER, CONTEXT).isPresent());
   }
 
   @Test
@@ -100,9 +100,9 @@ public class EntitySearchAggregationBasedCandidateSourceTest {
     Mockito.when(_nonEmptyEntitiesCache.getNonEmptyEntities()).thenReturn(ImmutableList.of("testEntity"));
     Mockito.when(_entitySearchService.aggregateByValue(eq("testEntity"), eq("testValue"), eq(null), anyInt()))
         .thenReturn(Collections.emptyMap());
-    List<RecommendationContent> candidates = _valueBasedCandidateSource.getCandidates(USER, CONTEXT);
+    List<RecommendationContent> candidates = _valueBasedCandidateSource.getRecommendations(USER, CONTEXT);
     assertTrue(candidates.isEmpty());
-    assertFalse(_valueBasedCandidateSource.getModule(USER, CONTEXT).isPresent());
+    assertFalse(_valueBasedCandidateSource.getRecommendationModule(USER, CONTEXT).isPresent());
   }
 
   @Test
@@ -111,7 +111,7 @@ public class EntitySearchAggregationBasedCandidateSourceTest {
     Mockito.when(_nonEmptyEntitiesCache.getNonEmptyEntities()).thenReturn(ImmutableList.of("testEntity"));
     Mockito.when(_entitySearchService.aggregateByValue(eq("testEntity"), eq("testValue"), eq(null), anyInt()))
         .thenReturn(ImmutableMap.of("value1", 1L));
-    List<RecommendationContent> candidates = _valueBasedCandidateSource.getCandidates(USER, CONTEXT);
+    List<RecommendationContent> candidates = _valueBasedCandidateSource.getRecommendations(USER, CONTEXT);
     assertEquals(candidates.size(), 1);
     RecommendationContent content = candidates.get(0);
     assertEquals(content.getValue(), "value1");
@@ -125,12 +125,12 @@ public class EntitySearchAggregationBasedCandidateSourceTest {
         new Criterion().setField("testValue").setValue("value1"));
     assertNotNull(params.getContentParams());
     assertEquals(params.getContentParams().getCount().longValue(), 1L);
-    assertTrue(_valueBasedCandidateSource.getModule(USER, CONTEXT).isPresent());
+    assertTrue(_valueBasedCandidateSource.getRecommendationModule(USER, CONTEXT).isPresent());
 
     // One entity type, multiple result
     Mockito.when(_entitySearchService.aggregateByValue(eq("testEntity"), eq("testValue"), eq(null), anyInt()))
         .thenReturn(ImmutableMap.of("value1", 1L, "value2", 2L, "value3", 3L));
-    candidates = _valueBasedCandidateSource.getCandidates(USER, CONTEXT);
+    candidates = _valueBasedCandidateSource.getRecommendations(USER, CONTEXT);
     assertEquals(candidates.size(), 2);
     content = candidates.get(0);
     assertEquals(content.getValue(), "value3");
@@ -156,7 +156,7 @@ public class EntitySearchAggregationBasedCandidateSourceTest {
         new Criterion().setField("testValue").setValue("value2"));
     assertNotNull(params.getContentParams());
     assertEquals(params.getContentParams().getCount().longValue(), 2L);
-    assertTrue(_valueBasedCandidateSource.getModule(USER, CONTEXT).isPresent());
+    assertTrue(_valueBasedCandidateSource.getRecommendationModule(USER, CONTEXT).isPresent());
 
     // Multiple entity type, multiple result
     Mockito.when(_nonEmptyEntitiesCache.getNonEmptyEntities())
@@ -165,7 +165,7 @@ public class EntitySearchAggregationBasedCandidateSourceTest {
         .thenReturn(ImmutableMap.of("value1", 1L, "value3", 3L));
     Mockito.when(_entitySearchService.aggregateByValue(eq("testEntity2"), eq("testValue"), eq(null), anyInt()))
         .thenReturn(ImmutableMap.of("value1", 3L, "value2", 2L));
-    candidates = _valueBasedCandidateSource.getCandidates(USER, CONTEXT);
+    candidates = _valueBasedCandidateSource.getRecommendations(USER, CONTEXT);
     assertEquals(candidates.size(), 2);
     content = candidates.get(0);
     assertEquals(content.getValue(), "value1");
@@ -191,7 +191,7 @@ public class EntitySearchAggregationBasedCandidateSourceTest {
         new Criterion().setField("testValue").setValue("value3"));
     assertNotNull(params.getContentParams());
     assertEquals(params.getContentParams().getCount().longValue(), 3L);
-    assertTrue(_valueBasedCandidateSource.getModule(USER, CONTEXT).isPresent());
+    assertTrue(_valueBasedCandidateSource.getRecommendationModule(USER, CONTEXT).isPresent());
   }
 
   @Test
@@ -206,7 +206,7 @@ public class EntitySearchAggregationBasedCandidateSourceTest {
 //    Urn testUrn3 = new TestEntityUrn("testUrn3", TestEntityUtil.getTestEntityUrn().toString(), "VALUE_1");
     Mockito.when(_entitySearchService.aggregateByValue(eq("testEntity"), eq("testUrn"), eq(null), anyInt()))
         .thenReturn(ImmutableMap.of(testUrn1.toString(), 1L));
-    List<RecommendationContent> candidates = _urnBasedCandidateSource.getCandidates(USER, CONTEXT);
+    List<RecommendationContent> candidates = _urnBasedCandidateSource.getRecommendations(USER, CONTEXT);
     assertEquals(candidates.size(), 1);
     RecommendationContent content = candidates.get(0);
     assertEquals(content.getValue(), testUrn1.toString());
@@ -220,12 +220,12 @@ public class EntitySearchAggregationBasedCandidateSourceTest {
         new Criterion().setField("testUrn").setValue(testUrn1.toString()));
     assertNotNull(params.getContentParams());
     assertEquals(params.getContentParams().getCount().longValue(), 1L);
-    assertTrue(_urnBasedCandidateSource.getModule(USER, CONTEXT).isPresent());
+    assertTrue(_urnBasedCandidateSource.getRecommendationModule(USER, CONTEXT).isPresent());
 
     // One entity type, multiple result
     Mockito.when(_entitySearchService.aggregateByValue(eq("testEntity"), eq("testUrn"), eq(null), anyInt()))
         .thenReturn(ImmutableMap.of(testUrn1.toString(), 1L, testUrn2.toString(), 2L, testUrn3.toString(), 3L));
-    candidates = _urnBasedCandidateSource.getCandidates(USER, CONTEXT);
+    candidates = _urnBasedCandidateSource.getRecommendations(USER, CONTEXT);
     assertEquals(candidates.size(), 2);
     content = candidates.get(0);
     assertEquals(content.getValue(), testUrn3.toString());
@@ -251,7 +251,7 @@ public class EntitySearchAggregationBasedCandidateSourceTest {
         new Criterion().setField("testUrn").setValue(testUrn2.toString()));
     assertNotNull(params.getContentParams());
     assertEquals(params.getContentParams().getCount().longValue(), 2L);
-    assertTrue(_urnBasedCandidateSource.getModule(USER, CONTEXT).isPresent());
+    assertTrue(_urnBasedCandidateSource.getRecommendationModule(USER, CONTEXT).isPresent());
 
     // Multiple entity type, multiple result
     Mockito.when(_nonEmptyEntitiesCache.getNonEmptyEntities())
@@ -260,7 +260,7 @@ public class EntitySearchAggregationBasedCandidateSourceTest {
         .thenReturn(ImmutableMap.of(testUrn1.toString(), 1L, testUrn3.toString(), 3L));
     Mockito.when(_entitySearchService.aggregateByValue(eq("testEntity2"), eq("testUrn"), eq(null), anyInt()))
         .thenReturn(ImmutableMap.of(testUrn1.toString(), 3L, testUrn2.toString(), 2L));
-    candidates = _urnBasedCandidateSource.getCandidates(USER, CONTEXT);
+    candidates = _urnBasedCandidateSource.getRecommendations(USER, CONTEXT);
     assertEquals(candidates.size(), 2);
     content = candidates.get(0);
     assertEquals(content.getValue(), testUrn1.toString());
@@ -286,6 +286,6 @@ public class EntitySearchAggregationBasedCandidateSourceTest {
         new Criterion().setField("testUrn").setValue(testUrn3.toString()));
     assertNotNull(params.getContentParams());
     assertEquals(params.getContentParams().getCount().longValue(), 3L);
-    assertTrue(_urnBasedCandidateSource.getModule(USER, CONTEXT).isPresent());
+    assertTrue(_urnBasedCandidateSource.getRecommendationModule(USER, CONTEXT).isPresent());
   }
 }

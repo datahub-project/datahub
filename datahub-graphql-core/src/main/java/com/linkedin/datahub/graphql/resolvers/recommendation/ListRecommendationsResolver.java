@@ -18,7 +18,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.recommendation.EntityRequestContext;
-import com.linkedin.metadata.recommendation.RecommendationService;
+import com.linkedin.metadata.recommendation.RecommendationsService;
 import com.linkedin.metadata.recommendation.SearchRequestContext;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -36,7 +36,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 @Slf4j
 @RequiredArgsConstructor
 public class ListRecommendationsResolver implements DataFetcher<CompletableFuture<ListRecommendationsResult>> {
-  private final RecommendationService _recommendationService;
+  private final RecommendationsService _recommendationsService;
 
   @Override
   public CompletableFuture<ListRecommendationsResult> get(DataFetchingEnvironment environment) {
@@ -47,7 +47,7 @@ public class ListRecommendationsResolver implements DataFetcher<CompletableFutur
       try {
         log.debug("Listing recommendations for input {}", input);
         List<com.linkedin.metadata.recommendation.RecommendationModule> modules =
-            _recommendationService.listRecommendations(Urn.createFromString(input.getUserUrn()),
+            _recommendationsService.listRecommendations(Urn.createFromString(input.getUserUrn()),
                 mapRequestContext(input.getRequestContext()), input.getLimit());
         return ListRecommendationsResult.builder()
             .setModules(modules.stream()

@@ -37,7 +37,7 @@ import org.elasticsearch.search.builder.SearchSourceBuilder;
 
 @Slf4j
 @RequiredArgsConstructor
-public class RecentlyViewedCandidateSource implements RecommendationCandidateSource {
+public class RecentlyViewedSource implements RecommendationSource {
   private final RestHighLevelClient _searchClient;
   private final IndexConvention _indexConvention;
 
@@ -73,7 +73,7 @@ public class RecentlyViewedCandidateSource implements RecommendationCandidateSou
   }
 
   @Override
-  public List<RecommendationContent> getCandidates(@Nonnull Urn userUrn,
+  public List<RecommendationContent> getRecommendations(@Nonnull Urn userUrn,
       @Nonnull RecommendationRequestContext requestContext) {
     SearchRequest searchRequest = buildSearchRequest(userUrn);
     try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "getRecentlyViewed").time()) {

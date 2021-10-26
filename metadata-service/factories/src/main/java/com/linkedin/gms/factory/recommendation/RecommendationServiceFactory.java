@@ -6,13 +6,15 @@ import com.linkedin.gms.factory.recommendation.candidatesource.RecentlyViewedCan
 import com.linkedin.gms.factory.recommendation.candidatesource.TopPlatformsCandidateSourceFactory;
 import com.linkedin.gms.factory.recommendation.candidatesource.TopTagsCandidateSourceFactory;
 import com.linkedin.gms.factory.recommendation.candidatesource.TopTermsCandidateSourceFactory;
-import com.linkedin.metadata.recommendation.RecommendationService;
-import com.linkedin.metadata.recommendation.candidatesource.HighUsageCandidateSource;
-import com.linkedin.metadata.recommendation.candidatesource.RecentlyViewedCandidateSource;
-import com.linkedin.metadata.recommendation.candidatesource.TopPlatformsCandidateSource;
-import com.linkedin.metadata.recommendation.candidatesource.TopTagsCandidateSource;
-import com.linkedin.metadata.recommendation.candidatesource.TopTermsCandidateSource;
+import com.linkedin.metadata.recommendation.RecommendationsService;
+import com.linkedin.metadata.recommendation.candidatesource.MostPopularSource;
+import com.linkedin.metadata.recommendation.candidatesource.RecentlyViewedSource;
+import com.linkedin.metadata.recommendation.candidatesource.RecommendationSource;
+import com.linkedin.metadata.recommendation.candidatesource.TopPlatformsSource;
+import com.linkedin.metadata.recommendation.candidatesource.TopTagsSource;
+import com.linkedin.metadata.recommendation.candidatesource.TopTermsSource;
 import com.linkedin.metadata.recommendation.ranker.SimpleRecommendationRanker;
+import java.util.List;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -28,29 +30,33 @@ public class RecommendationServiceFactory {
 
   @Autowired
   @Qualifier("topPlatformsCandidateSource")
-  private TopPlatformsCandidateSource topPlatformsCandidateSource;
+  private TopPlatformsSource topPlatformsCandidateSource;
 
   @Autowired
   @Qualifier("recentlyViewedCandidateSource")
-  private RecentlyViewedCandidateSource recentlyViewedCandidateSource;
+  private RecentlyViewedSource recentlyViewedCandidateSource;
 
   @Autowired
   @Qualifier("highUsageCandidateSource")
-  private HighUsageCandidateSource highUsageCandidateSource;
+  private MostPopularSource _mostPopularCandidateSource;
 
   @Autowired
   @Qualifier("topTagsCandidateSource")
-  private TopTagsCandidateSource topTagsCandidateSource;
+  private TopTagsSource topTagsCandidateSource;
 
   @Autowired
   @Qualifier("topTermsCandidateSource")
-  private TopTermsCandidateSource topTermsCandidateSource;
+  private TopTermsSource topTermsCandidateSource;
 
   @Bean
   @Nonnull
-  protected RecommendationService getInstance() {
-    return new RecommendationService(
-        ImmutableList.of(topPlatformsCandidateSource, recentlyViewedCandidateSource, highUsageCandidateSource,
-            topTagsCandidateSource, topTermsCandidateSource), new SimpleRecommendationRanker());
+  protected RecommendationsService getInstance() {
+    // TODO: Make this class-name pluggable to minimize merge conflict potential.
+    // This is where you can add new recommendation modules.
+    final List<RecommendationSource> candidateSources = ImmutableList.of(
+        topPlatformsCandidateSource,
+        recentlyViewedCandidateSource, _mostPopularCandidateSource,
+        topTagsCandidateSource, topTermsCandidateSource);
+    return new RecommendationsService(candidateSources, new SimpleRecommendationRanker());
   }
 }

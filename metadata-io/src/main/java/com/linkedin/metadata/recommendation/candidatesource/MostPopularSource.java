@@ -36,7 +36,7 @@ import org.elasticsearch.search.builder.SearchSourceBuilder;
 
 @Slf4j
 @RequiredArgsConstructor
-public class HighUsageCandidateSource implements RecommendationCandidateSource {
+public class MostPopularSource implements RecommendationSource {
   private final RestHighLevelClient _searchClient;
   private final IndexConvention _indexConvention;
 
@@ -66,16 +66,16 @@ public class HighUsageCandidateSource implements RecommendationCandidateSource {
       analyticsEnabled = _searchClient.indices()
           .exists(new GetIndexRequest(_indexConvention.getIndexName(DATAHUB_USAGE_INDEX)), RequestOptions.DEFAULT);
     } catch (IOException e) {
-      log.error("Failed to check whether DataHub usage index exists");
+      log.error("Failed to determine whether DataHub usage index exists");
     }
     return requestContext.getScenario() == ScenarioType.HOME && analyticsEnabled;
   }
 
   @Override
-  public List<RecommendationContent> getCandidates(@Nonnull Urn userUrn,
+  public List<RecommendationContent> getRecommendations(@Nonnull Urn userUrn,
       @Nonnull RecommendationRequestContext requestContext) {
     SearchRequest searchRequest = buildSearchRequest(userUrn);
-    try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "getRecentlyViewed").time()) {
+    try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "getMostPopular").time()) {
       final SearchResponse searchResponse = _searchClient.search(searchRequest, RequestOptions.DEFAULT);
       // extract results
       ParsedTerms parsedTerms = searchResponse.getAggregations().get(ENTITY_AGG_NAME);

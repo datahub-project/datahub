@@ -37,12 +37,14 @@ import org.springframework.cache.CacheManager;
  */
 @Slf4j
 @RequiredArgsConstructor
-public abstract class EntitySearchAggregationBasedCandidateSource implements RecommendationCandidateSource {
+public abstract class EntitySearchAggregationSource implements RecommendationSource {
   private final EntitySearchService _entitySearchService;
   private final NonEmptyEntitiesCache _nonEmptyEntitiesCache;
 
-  protected EntitySearchAggregationBasedCandidateSource(EntitySearchService entitySearchService,
-      EntityRegistry entityRegistry, CacheManager cacheManager) {
+  protected EntitySearchAggregationSource(
+      EntitySearchService entitySearchService,
+      EntityRegistry entityRegistry,
+      CacheManager cacheManager) {
     _entitySearchService = entitySearchService;
     _nonEmptyEntitiesCache = new NonEmptyEntitiesCache(entityRegistry, entitySearchService, cacheManager);
   }
@@ -88,7 +90,8 @@ public abstract class EntitySearchAggregationBasedCandidateSource implements Rec
   }
 
   @Override
-  public List<RecommendationContent> getCandidates(@Nonnull Urn userUrn,
+  public List<RecommendationContent> getRecommendations(
+      @Nonnull Urn userUrn,
       @Nullable RecommendationRequestContext requestContext) {
     // Fetch number of documents per platform for each entity type
     List<Map<String, Long>> resultPerEntity =
@@ -96,8 +99,7 @@ public abstract class EntitySearchAggregationBasedCandidateSource implements Rec
             entity -> _entitySearchService.aggregateByValue(entity, getSearchFieldName(), null, getMaxContent() * 10));
 
     // Merge the aggregated result into one
-    Map<String, Long> mergedResult =
-        resultPerEntity.stream().reduce(this::mergeAggregation).orElse(Collections.emptyMap());
+    Map<String, Long> mergedResult = resultPerEntity.stream().reduce(this::mergeAggregation).orElse(Collections.emptyMap());
 
     if (mergedResult.isEmpty()) {
       return Collections.emptyList();
@@ -133,8 +135,7 @@ public abstract class EntitySearchAggregationBasedCandidateSource implements Rec
 
   // Get top K entries with the most count
   private <T> List<Map.Entry<T, Long>> getTopKValues(Map<T, Long> countMap) {
-    PriorityQueue<Map.Entry<T, Long>> queue =
-        new PriorityQueue<>(getMaxContent(), Map.Entry.comparingByValue(Comparator.naturalOrder()));
+    final PriorityQueue<Map.Entry<T, Long>> queue = new PriorityQueue<>(getMaxContent(), Map.Entry.comparingByValue(Comparator.naturalOrder()));
     for (Map.Entry<T, Long> entry : countMap.entrySet()) {
       if (queue.size() < getMaxContent() && isValidCandidate(entry.getKey())) {
         queue.add(entry);
@@ -145,7 +146,7 @@ public abstract class EntitySearchAggregationBasedCandidateSource implements Rec
     }
 
     // Since priority queue polls in reverse order (nature of heaps), need to reverse order before returning
-    LinkedList<Map.Entry<T, Long>> topK = new LinkedList<>();
+    final LinkedList<Map.Entry<T, Long>> topK = new LinkedList<>();
     while (!queue.isEmpty()) {
       topK.addFirst(queue.poll());
     }
