@@ -3,7 +3,7 @@ package com.linkedin.gms.factory.recommendation.candidatesource;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.gms.factory.search.EntitySearchServiceFactory;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.recommendation.candidatesource.TopTermsCandidateSource;
+import com.linkedin.metadata.recommendation.candidatesource.TopTermsSource;
 import com.linkedin.metadata.search.EntitySearchService;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,7 +31,7 @@ public class TopTermsCandidateSourceFactory {
 
   @Bean(name = "topTermsCandidateSource")
   @Nonnull
-  protected TopTermsCandidateSource getInstance() {
-    return new TopTermsCandidateSource(entitySearchService, entityRegistry, cacheManager);
+  protected TopTermsSource getInstance() {
+    return new TopTermsSource(entitySearchService, entityRegistry, cacheManager);
   }
 }

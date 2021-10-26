@@ -8,7 +8,7 @@ import com.linkedin.gms.factory.common.IndexConventionFactory;
 import com.linkedin.gms.factory.common.RestHighLevelClientFactory;
 import com.linkedin.gms.factory.recommendation.RecommendationServiceFactory;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.recommendation.RecommendationService;
+import com.linkedin.metadata.recommendation.RecommendationsService;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import javax.annotation.Nonnull;
@@ -41,7 +41,7 @@ public class GraphQLEngineFactory {
   private EntityService _entityService;
 
   @Autowired
-  private RecommendationService _recommendationService;
+  private RecommendationsService _recommendationsService;
 
   @Autowired
   @Qualifier("graphClient")
@@ -56,16 +56,14 @@ public class GraphQLEngineFactory {
     if (isAnalyticsEnabled) {
       return new GmsGraphQLEngine(
           new AnalyticsService(elasticClient, indexConvention.getPrefix()),
-          _entityService,
-          _recommendationService,
+          _entityService, _recommendationsService,
           _graphClient,
           _entityClient
       ).builder().build();
     }
     return new GmsGraphQLEngine(
         null,
-        _entityService,
-        _recommendationService,
+        _entityService, _recommendationsService,
         _graphClient,
         _entityClient
     ).builder().build();

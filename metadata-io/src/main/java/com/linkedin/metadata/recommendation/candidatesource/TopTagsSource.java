@@ -12,11 +12,13 @@ import org.springframework.cache.CacheManager;
 
 
 @Slf4j
-public class TopTagsCandidateSource extends EntitySearchAggregationBasedCandidateSource {
+public class TopTagsSource extends EntitySearchAggregationSource {
 
   private static final String TAGS = "tags";
 
-  public TopTagsCandidateSource(EntitySearchService entitySearchService, EntityRegistry entityRegistry,
+  public TopTagsSource(
+      EntitySearchService entitySearchService,
+      EntityRegistry entityRegistry,
       CacheManager cacheManager) {
     super(entitySearchService, entityRegistry, cacheManager);
   }

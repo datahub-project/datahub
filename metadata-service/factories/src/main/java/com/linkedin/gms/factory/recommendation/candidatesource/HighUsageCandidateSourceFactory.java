@@ -2,7 +2,7 @@ package com.linkedin.gms.factory.recommendation.candidatesource;
 
 import com.linkedin.gms.factory.common.IndexConventionFactory;
 import com.linkedin.gms.factory.common.RestHighLevelClientFactory;
-import com.linkedin.metadata.recommendation.candidatesource.HighUsageCandidateSource;
+import com.linkedin.metadata.recommendation.candidatesource.MostPopularSource;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import javax.annotation.Nonnull;
 import org.elasticsearch.client.RestHighLevelClient;
@@ -26,7 +26,7 @@ public class HighUsageCandidateSourceFactory {
 
   @Bean(name = "highUsageCandidateSource")
   @Nonnull
-  protected HighUsageCandidateSource getInstance() {
-    return new HighUsageCandidateSource(searchClient, indexConvention);
+  protected MostPopularSource getInstance() {
+    return new MostPopularSource(searchClient, indexConvention);
   }
 }

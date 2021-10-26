@@ -1,6 +1,9 @@
 package com.linkedin.metadata.recommendation.candidatesource;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.dataplatform.DataPlatformInfo;
+import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.recommendation.RecommendationRenderType;
 import com.linkedin.metadata.recommendation.RecommendationRequestContext;
@@ -12,48 +15,58 @@ import org.springframework.cache.CacheManager;
 
 
 @Slf4j
-public class TopTermsCandidateSource extends EntitySearchAggregationBasedCandidateSource {
+public class TopPlatformsSource extends EntitySearchAggregationSource {
+  private final EntityService _entityService;
 
-  private static final String TERMS = "glossaryTerms";
+  private static final String PLATFORM = "platform";
 
-  public TopTermsCandidateSource(EntitySearchService entitySearchService, EntityRegistry entityRegistry,
-      CacheManager cacheManager) {
+  public TopPlatformsSource(EntityService entityService, EntitySearchService entitySearchService,
+      EntityRegistry entityRegistry, CacheManager cacheManager) {
     super(entitySearchService, entityRegistry, cacheManager);
+    _entityService = entityService;
   }
 
   @Override
   public String getTitle() {
-    return "Popular Glossary Terms";
+    return "Platforms";
   }
 
   @Override
   public String getModuleId() {
-    return "TopTerms";
+    return "Platforms";
   }
 
   @Override
   public RecommendationRenderType getRenderType() {
-    return RecommendationRenderType.TAG_SEARCH_LIST;
+    return RecommendationRenderType.PLATFORM_SEARCH_LIST;
   }
 
   @Override
   public boolean isEligible(@Nonnull Urn userUrn, @Nonnull RecommendationRequestContext requestContext) {
-    return requestContext.getScenario() == ScenarioType.HOME
-        || requestContext.getScenario() == ScenarioType.SEARCH_RESULTS;
+    return requestContext.getScenario() == ScenarioType.HOME;
   }
 
   @Override
   protected String getSearchFieldName() {
-    return TERMS;
+    return PLATFORM;
   }
 
   @Override
   protected int getMaxContent() {
-    return 10;
+    return 20;
   }
 
   @Override
   protected boolean isValueUrn() {
     return true;
+  }
+
+  @Override
+  protected boolean isValidCandidateUrn(Urn urn) {
+    RecordTemplate dataPlatformInfo = _entityService.getLatestAspect(urn, "dataPlatformInfo");
+    if (dataPlatformInfo == null) {
+      return false;
+    }
+    return ((DataPlatformInfo) dataPlatformInfo).hasLogoUrl();
   }
 }

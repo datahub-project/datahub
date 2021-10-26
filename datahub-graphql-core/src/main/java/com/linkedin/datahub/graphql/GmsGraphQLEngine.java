@@ -110,7 +110,7 @@ import com.linkedin.datahub.graphql.types.glossary.GlossaryTermType;
 import com.linkedin.datahub.graphql.types.usage.UsageType;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.recommendation.RecommendationService;
+import com.linkedin.metadata.recommendation.RecommendationsService;
 import com.linkedin.metadata.graph.GraphClient;
 import graphql.execution.DataFetcherResult;
 import graphql.schema.idl.RuntimeWiring;
@@ -147,7 +147,7 @@ public class GmsGraphQLEngine {
     private final AnalyticsService analyticsService;
     private final EntityClient entityClient;
     private final EntityService entityService;
-    private final RecommendationService recommendationService;
+    private final RecommendationsService _recommendationsService;
     private final GraphClient graphClient;
 
     private final DatasetType datasetType;
@@ -206,13 +206,13 @@ public class GmsGraphQLEngine {
     public GmsGraphQLEngine(
         final AnalyticsService analyticsService,
         final EntityService entityService,
-        final RecommendationService recommendationService,
+        final RecommendationsService recommendationsService,
         final GraphClient graphClient,
         final EntityClient entityClient
     ) {
         this.analyticsService = analyticsService;
         this.entityService = entityService;
-        this.recommendationService = recommendationService;
+        this._recommendationsService = recommendationsService;
         this.graphClient = graphClient;
         this.entityClient = entityClient;
 
@@ -440,7 +440,7 @@ public class GmsGraphQLEngine {
             .dataFetcher("listGroups",
                 new ListGroupsResolver(GmsClientFactory.getEntitiesClient()))
             .dataFetcher("listRecommendations",
-                new ListRecommendationsResolver(recommendationService))
+                new ListRecommendationsResolver(_recommendationsService))
             .dataFetcher("getEntityCounts",
                 new EntityCountsResolver(GmsClientFactory.getEntitiesClient()))
         );
