@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# this scripts checks if docker-compose$flavour.quickstart.yml is up to date for these 'flavours':
+FLAVOURS=("" "-without-neo4j" ".monitoring")
+
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 cd "$DIR"
 
@@ -13,7 +16,7 @@ python generate_docker_quickstart.py ../docker-compose.yml ../docker-compose.ove
 python generate_docker_quickstart.py ../docker-compose-without-neo4j.yml ../docker-compose-without-neo4j.override.yml temp-without-neo4j.quickstart.yml
 python generate_docker_quickstart.py ../monitoring/docker-compose.monitoring.yml temp.monitoring.quickstart.yml
 
-for flavour in "" "-without-neo4j" ".monitoring"
+for flavour in "${flavours[@]}"
 do
   if cmp docker-compose$flavour.quickstart.yml temp$flavour.quickstart.yml; then
     echo "docker-compose$flavour.quickstart.yml is up to date."
