@@ -1636,6 +1636,7 @@ def test_add_remove_members_from_group(frontend_session):
     assert res_data
     assert res_data["data"]
     assert res_data["data"]["corpUser"]
+    assert res_data["data"]["corpUser"]["relationships"]
     assert res_data["data"]["corpUser"]["relationships"]["total"] is 1
 
     # Now remove jdoe from the group

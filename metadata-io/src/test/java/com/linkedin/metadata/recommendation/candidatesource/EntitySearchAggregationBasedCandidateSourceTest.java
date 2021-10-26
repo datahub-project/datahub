@@ -4,7 +4,6 @@ import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.TestEntityUrn;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.metadata.TestEntityUtil;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.recommendation.RecommendationContent;
 import com.linkedin.metadata.recommendation.RecommendationParams;
