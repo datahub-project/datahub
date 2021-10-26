@@ -46,8 +46,6 @@ class DatahubGECustomProfiler(BasicDatasetProfilerBase):
                 )
             )
 
-            # df.expect_column_to_exist(column)
-
             type_ = cls._get_column_type(df, column)
             cardinality = cls._get_column_cardinality(df, column)
             if "expect_column_values_to_not_be_null" not in excluded_expectations:
@@ -78,7 +76,6 @@ class DatahubGECustomProfiler(BasicDatasetProfilerBase):
                     ProfilerCardinality.VERY_MANY,
                     ProfilerCardinality.UNIQUE,
                 ]:
-                    # TODO: change to class-first expectation structure?
                     if "expect_column_min_to_be_between" not in excluded_expectations:
                         df.expect_column_min_to_be_between(
                             column, min_value=None, max_value=None
