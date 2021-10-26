@@ -9,7 +9,7 @@ CREATE TABLE metadata_aspect_v2 (
   createdby                     VARCHAR(255) NOT NULL,
   createdfor                    VARCHAR(255),
   CONSTRAINT pk_metadata_aspect_v2 PRIMARY KEY (urn,aspect,version)
-) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin;
 
 INSERT INTO metadata_aspect_v2 (urn, aspect, version, metadata, createdon, createdby) VALUES(
   'urn:li:corpuser:datahub',
