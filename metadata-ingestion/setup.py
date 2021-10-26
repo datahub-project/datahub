@@ -119,7 +119,7 @@ plugins: Dict[str, Set[str]] = {
     "sqlalchemy": sql_common,
     "sql-profiles": sql_common | {"great-expectations"},
     "superset": {"requests"},
-    "trino": sql_common,
+    "trino": sql_common
     | {
         # SQLAlchemy support is coming up in trino python client
         # subject to PR merging - https://github.com/trinodb/trino-python-client/pull/81.
