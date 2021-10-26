@@ -59,6 +59,7 @@ class DBTConfig(ConfigModel):
     use_identifiers: bool = False
     node_type_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
     tag_prefix: str = "dbt:"
+    node_name_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
 
 
 @dataclass
@@ -146,6 +147,7 @@ def extract_dbt_entities(
     environment: str,
     node_type_pattern: AllowDenyPattern,
     report: SourceReport,
+    node_name_pattern: AllowDenyPattern,
 ) -> List[DBTNode]:
 
     sources_by_id = {x["unique_id"]: x for x in sources_results}
@@ -157,12 +159,14 @@ def extract_dbt_entities(
             continue
 
         name = manifest_node["name"]
-
         if "identifier" in manifest_node and use_identifiers:
             name = manifest_node["identifier"]
 
         if manifest_node.get("alias") is not None:
             name = manifest_node["alias"]
+
+        if not node_name_pattern.allowed(key):
+            continue
 
         # initialize comment to "" for consistency with descriptions
         # (since dbt null/undefined descriptions as "")
@@ -201,7 +205,10 @@ def extract_dbt_entities(
             catalog_type = all_catalog_entities[key]["metadata"]["type"]
 
         meta = manifest_node.get("meta", {})
+
         owner = meta.get("owner")
+        if owner is None:
+            owner = manifest_node.get("config", {}).get("meta", {}).get("owner")
 
         tags = manifest_node.get("tags", [])
         tags = [tag_prefix + tag for tag in tags]
@@ -210,10 +217,10 @@ def extract_dbt_entities(
             dbt_name=key,
             database=manifest_node["database"],
             schema=manifest_node["schema"],
+            name=name,
             dbt_file_path=manifest_node["original_file_path"],
             node_type=manifest_node["resource_type"],
             max_loaded_at=sources_by_id.get(key, {}).get("max_loaded_at"),
-            name=name,
             comment=comment,
             description=manifest_node.get("description", ""),
             upstream_urns=upstream_urns,
@@ -266,6 +273,7 @@ def loadManifestAndCatalog(
     environment: str,
     node_type_pattern: AllowDenyPattern,
     report: SourceReport,
+    node_name_pattern: AllowDenyPattern,
 ) -> Tuple[List[DBTNode], Optional[str], Optional[str], Optional[str], Optional[str]]:
     with open(manifest_path, "r") as manifest:
         dbt_manifest_json = json.load(manifest)
@@ -307,16 +315,20 @@ def loadManifestAndCatalog(
         environment,
         node_type_pattern,
         report,
+        node_name_pattern,
     )
 
     return nodes, manifest_schema, manifest_version, catalog_schema, catalog_version
 
 
+def get_db_fqn(database: str, schema: str, name: str) -> str:
+    return f"{database}.{schema}.{name}".replace('"', "")
+
+
 def get_urn_from_dbtNode(
     database: str, schema: str, name: str, target_platform: str, env: str
 ) -> str:
-
-    db_fqn = f"{database}.{schema}.{name}".replace('"', "")
+    db_fqn = get_db_fqn(database, schema, name)
     return f"urn:li:dataset:(urn:li:dataPlatform:{target_platform},{db_fqn},{env})"
 
 
@@ -351,7 +363,6 @@ def get_upstreams(
     upstream_urns = []
 
     for upstream in upstreams:
-
         if "identifier" in all_nodes[upstream] and use_identifiers:
             name = all_nodes[upstream]["identifier"]
         else:
@@ -517,6 +528,7 @@ class DBTSource(Source):
             self.config.env,
             self.config.node_type_pattern,
             self.report,
+            self.config.node_name_pattern,
         )
 
         additional_custom_props = {

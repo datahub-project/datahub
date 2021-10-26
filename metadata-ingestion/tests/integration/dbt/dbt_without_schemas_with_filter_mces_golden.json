@@ -88,7 +88,7 @@
     "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "dbt-test-without-schemas",
+        "runId": "dbt-test-without-schemas-with-filter",
         "properties": null
     }
 },
@@ -146,7 +146,7 @@
     "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "dbt-test-without-schemas",
+        "runId": "dbt-test-without-schemas-with-filter",
         "properties": null
     }
 },
@@ -249,7 +249,7 @@
     "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "dbt-test-without-schemas",
+        "runId": "dbt-test-without-schemas-with-filter",
         "properties": null
     }
 },
@@ -298,7 +298,7 @@
     "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "dbt-test-without-schemas",
+        "runId": "dbt-test-without-schemas-with-filter",
         "properties": null
     }
 },
@@ -355,7 +355,7 @@
     "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "dbt-test-without-schemas",
+        "runId": "dbt-test-without-schemas-with-filter",
         "properties": null
     }
 },
@@ -393,7 +393,7 @@
     "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "dbt-test-without-schemas",
+        "runId": "dbt-test-without-schemas-with-filter",
         "properties": null
     }
 },
@@ -431,7 +431,7 @@
     "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "dbt-test-without-schemas",
+        "runId": "dbt-test-without-schemas-with-filter",
         "properties": null
     }
 },
@@ -469,7 +469,7 @@
     "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "dbt-test-without-schemas",
+        "runId": "dbt-test-without-schemas-with-filter",
         "properties": null
     }
 },
@@ -526,7 +526,7 @@
     "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "dbt-test-without-schemas",
+        "runId": "dbt-test-without-schemas-with-filter",
         "properties": null
     }
 },
@@ -564,7 +564,7 @@
     "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "dbt-test-without-schemas",
+        "runId": "dbt-test-without-schemas-with-filter",
         "properties": null
     }
 },
@@ -602,7 +602,7 @@
     "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "dbt-test-without-schemas",
+        "runId": "dbt-test-without-schemas-with-filter",
         "properties": null
     }
 },
@@ -660,7 +660,7 @@
     "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "dbt-test-without-schemas",
+        "runId": "dbt-test-without-schemas-with-filter",
         "properties": null
     }
 },
@@ -698,7 +698,7 @@
     "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "dbt-test-without-schemas",
+        "runId": "dbt-test-without-schemas-with-filter",
         "properties": null
     }
 },
@@ -736,7 +736,7 @@
     "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "dbt-test-without-schemas",
+        "runId": "dbt-test-without-schemas-with-filter",
         "properties": null
     }
 },
@@ -774,45 +774,7 @@
     "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "dbt-test-without-schemas",
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_06,PROD)",
-            "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-                        "customProperties": {
-                            "node_type": "source",
-                            "dbt_file_path": "models/base.yml",
-                            "catalog_type": "BASE TABLE",
-                            "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v1.json",
-                            "manifest_version": "0.19.1",
-                            "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
-                            "catalog_version": "0.19.1"
-                        },
-                        "externalUrl": null,
-                        "description": null,
-                        "uri": null,
-                        "tags": []
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
-                        "upstreams": []
-                    }
-                }
-            ]
-        }
-    },
-    "proposedDelta": null,
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "dbt-test-without-schemas",
+        "runId": "dbt-test-without-schemas-with-filter",
         "properties": null
     }
 }
