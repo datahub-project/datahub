@@ -1,5 +1,6 @@
 import { EntityType, SearchResult } from '../../types.generated';
 import { FetchedEntity } from '../lineage/types';
+import { GenericEntityProperties } from './shared/types';
 
 export enum PreviewType {
     /**
@@ -88,16 +89,22 @@ export interface Entity<T> {
 
     /**
      * Renders the 'profile' of the entity on an entity details page.
+     *
+     * TODO: Explore using getGenericEntityProperties for rendering profiles.
      */
     renderProfile: (urn: string) => JSX.Element;
 
     /**
      * Renders a preview of the entity across different use cases like search, browse, etc.
+     *
+     * TODO: Explore using getGenericEntityProperties for rendering previews.
      */
     renderPreview: (type: PreviewType, data: T) => JSX.Element;
 
     /**
      * Renders a search result
+     *
+     * TODO: Explore using getGenericEntityProperties for rendering profiles.
      */
     renderSearch: (result: SearchResult) => JSX.Element;
 
@@ -108,6 +115,13 @@ export interface Entity<T> {
 
     /**
      * Returns a display name for the entity
+     *
+     * TODO: Migrate to using getGenericEntityProperties for display name retrieval.
      */
     displayName: (data: T) => string;
+
+    /**
+     * Returns generic entity properties for the entity
+     */
+    getGenericEntityProperties: (data: T) => GenericEntityProperties | null;
 }

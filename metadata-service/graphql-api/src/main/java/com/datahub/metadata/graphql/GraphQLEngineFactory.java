@@ -7,7 +7,9 @@ import com.linkedin.datahub.graphql.analytics.service.AnalyticsService;
 import com.linkedin.entity.client.JavaEntityClient;
 import com.linkedin.gms.factory.common.IndexConventionFactory;
 import com.linkedin.gms.factory.common.RestHighLevelClientFactory;
+import com.linkedin.gms.factory.recommendation.RecommendationServiceFactory;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.recommendation.RecommendationService;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import javax.annotation.Nonnull;
@@ -15,12 +17,14 @@ import org.elasticsearch.client.RestHighLevelClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
-import org.springframework.context.annotation.Bean;
+
 
 @Configuration
-@Import({RestHighLevelClientFactory.class, IndexConventionFactory.class, RestliEntityClientFactory.class, AuthorizationManagerFactory.class})
+@Import({RestHighLevelClientFactory.class, IndexConventionFactory.class, RestliEntityClientFactory.class,
+    AuthorizationManagerFactory.class, RecommendationServiceFactory.class})
 public class GraphQLEngineFactory {
   @Autowired
   @Qualifier("elasticSearchRestHighLevelClient")
@@ -39,6 +43,8 @@ public class GraphQLEngineFactory {
   private EntityService _entityService;
 
   @Autowired
+  private RecommendationService _recommendationService;
+
   @Qualifier("graphClient")
   private GraphClient _graphClient;
 
@@ -53,7 +59,7 @@ public class GraphQLEngineFactory {
   protected GraphQLEngine getInstance() {
     if (isAnalyticsEnabled) {
       return new GmsGraphQLEngine(
-          new AnalyticsService(elasticClient, indexConvention.getPrefix()), _entityService, _graphClient, _entityClient
+          new AnalyticsService(elasticClient, indexConvention.getPrefix()), _entityService, _recommendationService,  _graphClient, _entityClient
       ).builder().build();
     }
     return new GmsGraphQLEngine().builder().build();

@@ -1,4 +1,4 @@
-package com.linkedin.metadata.kafka.transformer;
+package com.linkedin.metadata.datahubusage;
 
 import lombok.Getter;
 
