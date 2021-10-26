@@ -1,8 +1,6 @@
 import { LineChartOutlined } from '@ant-design/icons';
 import * as React from 'react';
 import { Chart, EntityType, PlatformType, SearchResult } from '../../../types.generated';
-import { Direction } from '../../lineage/types';
-import getChildren from '../../lineage/utils/getChildren';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
 import { getLogoFromPlatform } from '../../shared/getLogoFromPlatform';
 import { ChartPreview } from './preview/ChartPreview';
@@ -18,6 +16,7 @@ import { ChartInputsTab } from '../shared/tabs/Entity/ChartInputsTab';
 import { ChartDashboardsTab } from '../shared/tabs/Entity/ChartDashboardsTab';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { capitalizeFirstLetter } from '../../shared/capitalizeFirstLetter';
+import { EntityAndType } from '../../lineage/types';
 
 /**
  * Definition of the DataHub Chart entity.
@@ -174,11 +173,13 @@ export class ChartEntity implements Entity<Chart> {
             urn: entity.urn,
             name: entity.info?.name || '',
             type: EntityType.Chart,
-            upstreamChildren: getChildren({ entity, type: EntityType.Chart }, Direction.Upstream).map(
-                (child) => child.entity.urn,
+            // eslint-disable-next-line @typescript-eslint/dot-notation
+            upstreamChildren: entity?.['inputs']?.relationships?.map(
+                (relationship) => ({ entity: relationship.entity, type: relationship.entity.type } as EntityAndType),
             ),
-            downstreamChildren: getChildren({ entity, type: EntityType.Chart }, Direction.Downstream).map(
-                (child) => child.entity.urn,
+            // eslint-disable-next-line @typescript-eslint/dot-notation
+            downstreamChildren: entity?.['dashboards']?.relationships?.map(
+                (relationship) => ({ entity: relationship.entity, type: relationship.entity.type } as EntityAndType),
             ),
             icon: getLogoFromPlatform(entity.tool),
             platform: entity.tool,

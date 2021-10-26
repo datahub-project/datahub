@@ -47,6 +47,7 @@ export const HomePageRecommendations = ({ userUrn }: Props) => {
     // Entity Types
     const entityRegistry = useEntityRegistry();
     const browseEntityList = entityRegistry.getBrowseEntityTypes();
+    console.log(browseEntityList);
 
     const { data: entityCountData } = useGetEntityCountsQuery({
         variables: {

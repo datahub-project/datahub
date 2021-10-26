@@ -23,6 +23,7 @@ import {
     SchemaFieldDataType,
     ScenarioType,
     RecommendationRenderType,
+    RelationshipDirection,
 } from './types.generated';
 import { GetTagDocument } from './graphql/tag.generated';
 import { GetMlModelDocument } from './graphql/mlModel.generated';
@@ -323,8 +324,8 @@ export const dataset3 = {
             },
         ],
     },
-    upstreamLineage: null,
-    downstreamLineage: null,
+    incoming: null,
+    outgoing: null,
     institutionalMemory: {
         elements: [
             {
@@ -443,45 +444,53 @@ export const dataset7 = {
 
 export const dataset3WithLineage = {
     ...dataset3,
-    upstreamLineage: {
-        entities: [
+    outgoing: {
+        start: 0,
+        count: 2,
+        total: 2,
+        relationships: [
             {
-                created: {
-                    time: 0,
-                },
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Outgoing,
                 entity: dataset7,
             },
             {
-                created: {
-                    time: 0,
-                },
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Outgoing,
                 entity: dataset4,
             },
         ],
     },
+    incoming: null,
 };
 
 export const dataset4WithLineage = {
     ...dataset4,
-    upstreamLineage: {
-        entities: [
+    outgoing: {
+        start: 0,
+        count: 2,
+        total: 2,
+        relationships: [
             {
-                created: {
-                    time: 0,
-                },
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Outgoing,
                 entity: dataset6,
             },
             {
-                created: {
-                    time: 0,
-                },
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Outgoing,
                 entity: dataset5,
             },
         ],
     },
-    downstreamLineage: {
-        entities: [
+    incoming: {
+        start: 0,
+        count: 1,
+        total: 1,
+        relationships: [
             {
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Incoming,
                 entity: dataset3,
             },
         ],
@@ -490,23 +499,27 @@ export const dataset4WithLineage = {
 
 export const dataset5WithCyclicalLineage = {
     ...dataset5,
-    upstreamLineage: {
-        entities: [
+    outgoing: {
+        start: 0,
+        count: 1,
+        total: 1,
+        relationships: [
             {
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Outgoing,
                 entity: dataset3,
             },
         ],
     },
-    downstreamLineage: {
-        entities: [
+    incoming: {
+        start: 0,
+        count: 1,
+        total: 1,
+        relationships: [
             {
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Incoming,
                 entity: dataset7,
-            },
-            {
-                entity: dataset6,
-            },
-            {
-                entity: dataset4,
             },
         ],
     },
@@ -514,16 +527,25 @@ export const dataset5WithCyclicalLineage = {
 
 export const dataset5WithLineage = {
     ...dataset5,
-    upstreamLineage: null,
-    downstreamLineage: {
-        entities: [
+    outgoing: null,
+    incoming: {
+        start: 0,
+        count: 3,
+        total: 3,
+        relationships: [
             {
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Incoming,
                 entity: dataset7,
             },
             {
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Incoming,
                 entity: dataset6,
             },
             {
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Incoming,
                 entity: dataset4,
             },
         ],
@@ -532,16 +554,26 @@ export const dataset5WithLineage = {
 
 export const dataset6WithLineage = {
     ...dataset6,
-    upstreamLineage: {
-        entities: [
+    outgoing: {
+        start: 0,
+        count: 1,
+        total: 1,
+        relationships: [
             {
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Outgoing,
                 entity: dataset5,
             },
         ],
     },
-    downstreamLineage: {
-        entities: [
+    incoming: {
+        start: 0,
+        count: 1,
+        total: 1,
+        relationships: [
             {
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Incoming,
                 entity: dataset4,
             },
         ],
@@ -550,16 +582,26 @@ export const dataset6WithLineage = {
 
 export const dataset7WithLineage = {
     ...dataset7,
-    upstreamLineage: {
-        entities: [
+    outgoing: {
+        start: 0,
+        count: 1,
+        total: 1,
+        relationships: [
             {
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Outgoing,
                 entity: dataset5,
             },
         ],
     },
-    downstreamLineage: {
-        entities: [
+    incoming: {
+        start: 0,
+        count: 1,
+        total: 1,
+        relationships: [
             {
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Incoming,
                 entity: dataset3,
             },
         ],
@@ -568,22 +610,36 @@ export const dataset7WithLineage = {
 
 export const dataset7WithSelfReferentialLineage = {
     ...dataset7,
-    upstreamLineage: {
-        entities: [
+    outgoing: {
+        start: 0,
+        count: 2,
+        total: 2,
+        relationships: [
             {
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Outgoing,
                 entity: dataset5,
             },
             {
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Outgoing,
                 entity: dataset7,
             },
         ],
     },
-    downstreamLineage: {
-        entities: [
+    incoming: {
+        start: 0,
+        count: 2,
+        total: 2,
+        relationships: [
             {
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Incoming,
                 entity: dataset3,
             },
             {
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Incoming,
                 entity: dataset7,
             },
         ],
@@ -827,8 +883,6 @@ export const dataJob1 = {
         outputDatasets: [dataset3],
         inputDatajobs: [],
     },
-    upstreamLineage: null,
-    downstreamLineage: null,
     globalTags: {
         tags: [
             {
@@ -883,8 +937,6 @@ export const dataJob2 = {
         outputDatasets: [dataset3],
         inputDatajobs: [dataJob1],
     },
-    upstreamLineage: null,
-    downstreamLineage: null,
     globalTags: {
         tags: [
             {
@@ -939,8 +991,6 @@ export const dataJob3 = {
         outputDatasets: [dataset3],
         inputDatajobs: [dataJob2],
     },
-    upstreamLineage: null,
-    downstreamLineage: null,
     globalTags: {
         tags: [
             {
@@ -954,17 +1004,6 @@ export const dataJob3 = {
         ],
     },
 } as DataJob;
-
-dataJob1.upstreamLineage = {
-    entities: [
-        {
-            created: {
-                time: 0,
-            },
-            entity: dataJob3,
-        },
-    ],
-};
 
 export const mlModel = {
     __typename: 'MLModel',
@@ -1029,6 +1068,8 @@ export const mlModel = {
             },
         ],
     },
+    incoming: null,
+    outgoing: null,
 } as MlModel;
 
 export const mlModelGroup = {
@@ -1082,6 +1123,8 @@ export const mlModelGroup = {
             },
         ],
     },
+    incoming: null,
+    outgoing: null,
 } as MlModelGroup;
 
 export const recommendationModules = [
@@ -2645,6 +2688,37 @@ export const mocks = [
                     total: 0,
                     searchResults: [],
                     facets: [],
+                },
+            },
+        },
+    },
+    {
+        request: {
+            query: GetEntityCountsDocument,
+            variables: {
+                input: {
+                    types: [
+                        EntityType.Dataset,
+                        EntityType.Chart,
+                        EntityType.Dashboard,
+                        EntityType.DataFlow,
+                        EntityType.GlossaryTerm,
+                        EntityType.MlfeatureTable,
+                        EntityType.Mlmodel,
+                        EntityType.MlmodelGroup,
+                    ],
+                },
+            },
+        },
+        result: {
+            data: {
+                getEntityCounts: {
+                    counts: [
+                        {
+                            entityType: EntityType.Dataset,
+                            count: 670,
+                        },
+                    ],
                 },
             },
         },

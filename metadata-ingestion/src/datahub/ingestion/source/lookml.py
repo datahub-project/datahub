@@ -640,10 +640,10 @@ class LookerView:
                 return fields, sql_table_names
             # Looker supports sql fragments that omit the SELECT and FROM parts of the query
             # Add those in if we detect that it is missing
-            if not re.match(r"^\s*SELECT", sql_query):
+            if not re.search(r"SELECT\s", sql_query, flags=re.I):
                 # add a SELECT clause at the beginning
                 sql_query = "SELECT " + sql_query
-            if not re.search(r" FROM\s", sql_query):
+            if not re.search(r"FROM\s", sql_query, flags=re.I):
                 # add a FROM clause at the end
                 sql_query = f"{sql_query} FROM {sql_table_name if sql_table_name is not None else view_name}"
                 # Get the list of tables in the query
@@ -824,7 +824,7 @@ class LookMLSource(Source):
         # Check if table name matches cascading derived tables pattern
         # derived tables can be referred to using aliases that look like table_name.SQL_TABLE_NAME
         # See https://docs.looker.com/data-modeling/learning-lookml/derived-tables#syntax_for_referencing_a_derived_table
-        if re.fullmatch(r"\w+\.SQL_TABLE_NAME", sql_table_name):
+        if re.fullmatch(r"\w+\.SQL_TABLE_NAME", sql_table_name, flags=re.I):
             sql_table_name = sql_table_name.lower().split(".")[0]
             # upstream dataset is a looker view based on current view id's project and model
             view_id = LookerViewId(
