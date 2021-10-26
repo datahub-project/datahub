@@ -4,7 +4,7 @@ DataHub is a modern data catalog built to enable end-to-end data discovery, data
 
 # What Does DataHub Enable?
 
-Here’s an overview of DataHub’s current functionality. Curious about what’s to come? Check out our [roadmap]([https://datahubproject.io/docs/roadmap).
+Here’s an overview of DataHub’s current functionality. Curious about what’s to come? Check out our [roadmap]([roadmap).
 
 ## End-to-end Search and Discovery
 
@@ -12,7 +12,7 @@ Here’s an overview of DataHub’s current functionality. Curious about what’
 
 Here’s an example of searching for assets related to the term `health`: we see results spanning Looker dashboards, BigQuery datasets, and DataHub Tags & Users, and ultimately navigate to the “DataHub Health” Looker dashboard overview ([view in demo site](https://demo.datahubproject.io/dashboard/urn:li:dashboard:(looker,dashboards.11)/Documentation?is_lineage_mode=false))
 
-![](/imgs/feature-search-across-all-entities.gif)
+![](imgs/feature-search-across-all-entities.gif)
 
 ### Easily understand the end-to-end journey of data by tracing lineage across platforms, datasets, pipelines, charts, and dashboards
 
