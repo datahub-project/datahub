@@ -7,11 +7,10 @@ A list of previous Town Halls, their planned schedule, and the recording of the 
 
 ## Agenda
 - Project Updates and Callouts by Shirshanka
-   - Business Glossary Demo
-   - 0.8.12 Upcoming Release Highlights 
-   - Users and Groups Management (Okta, Azure AD)
-- Demo: Fine Grained Access Control by John Joyce (Acryl Data)
-- Community Case-Study: DataHub @ Warung Pintar and Redash integration by Taufiq Ibrahim (Bizzy Group) 
+   - GraphQL Public API Annoucement
+- Demo: Faceted Search by Gabe Lyons (Acryl Data)
+- Stateful Ingestion by Shirshanka Das & Surya Lanka (Acryl Data)
+- Case-Study: DataHub @ Adevinta by Martinez de Apellaniz   
 - Recent Improvements to the Looker Connector by Shirshanka Das & Maggie Hays (Acryl Data)
 - Offline
    - Foreign Key and Related Term Mapping by Gabe Lyons (Acryl Data) [video](https://www.loom.com/share/79f27c2d9f6c4a3b8aacbc48c19add18)
@@ -21,10 +20,11 @@ A list of previous Town Halls, their planned schedule, and the recording of the 
 
 ## Agenda
 - Project Updates and Callouts by Shirshanka
-   - GraphQL Public API Annoucement
-- Demo: Faceted Search by Gabe Lyons (Acryl Data)
-- Stateful Ingestion by Shirshanka Das & Surya Lanka (Acryl Data)
-- Case-Study: DataHub @ Adevinta by Martinez de Apellaniz   
+   - Business Glossary Demo
+   - 0.8.12 Upcoming Release Highlights 
+   - Users and Groups Management (Okta, Azure AD)
+- Demo: Fine Grained Access Control by John Joyce (Acryl Data)
+- Community Case-Study: DataHub @ Warung Pintar and Redash integration by Taufiq Ibrahim (Bizzy Group) 
 - New User Experience by John Joyce (Acryl Data)
 - Offline
    - Performance Monitoring by Dexter Lee (Acryl Data) [video](https://youtu.be/6Xfr_Y9abZo)
