@@ -56,6 +56,6 @@ public class GraphQLEngineFactory {
           new AnalyticsService(elasticClient, indexConvention.getPrefix()), _entityService, _graphClient, _entityClient
       ).builder().build();
     }
-    return new GmsGraphQLEngine().builder().build();
+    return new GmsGraphQLEngine(null, _entityService, _graphClient, _entityClient).builder().build();
   }
 }
