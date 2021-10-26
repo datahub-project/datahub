@@ -32,6 +32,11 @@ const companyLogos = [
     size: "default",
   },
   {
+    name: "Peloton",
+    imageUrl: "/img/logos/companies/peloton.png",
+    size: "large",
+  },
+  {
     name: "SpotHero",
     imageUrl: "/img/logos/companies/spothero.png",
     size: "default",
