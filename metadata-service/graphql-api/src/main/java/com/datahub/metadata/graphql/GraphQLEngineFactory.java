@@ -1,6 +1,5 @@
 package com.datahub.metadata.graphql;
 
-import com.datahub.metadata.authorization.AuthorizationManager;
 import com.linkedin.datahub.graphql.GmsGraphQLEngine;
 import com.linkedin.datahub.graphql.GraphQLEngine;
 import com.linkedin.datahub.graphql.analytics.service.AnalyticsService;
@@ -23,8 +22,7 @@ import org.springframework.context.annotation.Import;
 
 
 @Configuration
-@Import({RestHighLevelClientFactory.class, IndexConventionFactory.class, RestliEntityClientFactory.class,
-    AuthorizationManagerFactory.class, RecommendationServiceFactory.class})
+@Import({RestHighLevelClientFactory.class, IndexConventionFactory.class, RestliEntityClientFactory.class, RecommendationServiceFactory.class})
 public class GraphQLEngineFactory {
   @Autowired
   @Qualifier("elasticSearchRestHighLevelClient")
@@ -45,11 +43,9 @@ public class GraphQLEngineFactory {
   @Autowired
   private RecommendationService _recommendationService;
 
+  @Autowired
   @Qualifier("graphClient")
   private GraphClient _graphClient;
-
-  @Autowired
-  private AuthorizationManager authorizationManager;
 
   @Value("${ANALYTICS_ENABLED:true}") // TODO: Migrate to DATAHUB_ANALYTICS_ENABLED
   private Boolean isAnalyticsEnabled;
@@ -59,9 +55,19 @@ public class GraphQLEngineFactory {
   protected GraphQLEngine getInstance() {
     if (isAnalyticsEnabled) {
       return new GmsGraphQLEngine(
-          new AnalyticsService(elasticClient, indexConvention.getPrefix()), _entityService, _recommendationService,  _graphClient, _entityClient
+          new AnalyticsService(elasticClient, indexConvention.getPrefix()),
+          _entityService,
+          _recommendationService,
+          _graphClient,
+          _entityClient
       ).builder().build();
     }
-    return new GmsGraphQLEngine().builder().build();
+    return new GmsGraphQLEngine(
+        null,
+        _entityService,
+        _recommendationService,
+        _graphClient,
+        _entityClient
+    ).builder().build();
   }
 }
