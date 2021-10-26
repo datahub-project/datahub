@@ -4,7 +4,7 @@ DataHub is a modern data catalog built to enable end-to-end data discovery, data
 
 # What Does DataHub Enable?
 
-Here’s an overview of DataHub’s current functionality. Curious about what’s to come? Check out our [roadmap]([docs/roadmap.md).
+Here’s an overview of DataHub’s current functionality. Curious about what’s to come? Check out our [roadmap]([/roadmap.md).
 
 ## End-to-end Search and Discovery
 
