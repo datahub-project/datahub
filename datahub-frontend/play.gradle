@@ -79,7 +79,7 @@ model {
   }
 }
 
-task unzipAssets(type: Copy, dependsOn: configurations.assets) {
+task unzipAssets(type: Copy, dependsOn: [configurations.assets, ':datahub-web-react:yarnBuild']) {
   into "${buildDir}/assets"
   from {
     configurations.assets.collect { zipTree(it) }
