@@ -139,6 +139,6 @@
     },
     "resolutions": {
         "@ant-design/colors": "6.0.0",
-				"refractor": "3.3.1"
+        "refractor": "3.3.1"
     }
 }
