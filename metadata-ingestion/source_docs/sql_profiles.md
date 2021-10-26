@@ -5,7 +5,7 @@ For context on getting started with ingestion, check out our [metadata ingestion
 ## Setup
 
 To install this plugin, run `pip install 'acryl-datahub[sql-profiles]'` (prior to datahub version `0.8.16.0`).
-In the versions after `0.0.16.0`, this gets installed along with the SQL-based source itself.
+In the versions after `0.8.16.0`, this gets installed along with the SQL-based source itself.
 
 The SQL-based profiler does not run alone, but rather can be enabled for other SQL-based sources.
 Enabling profiling will slow down ingestion runs.
