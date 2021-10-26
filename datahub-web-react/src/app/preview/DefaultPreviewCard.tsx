@@ -141,8 +141,8 @@ export default function DefaultPreviewCard({
     return (
         <PreviewContainer data-testid={dataTestID}>
             <div>
-                <Link to={url}>
-                    <TitleContainer>
+                <TitleContainer>
+                    <Link to={url}>
                         <PlatformInfo>
                             {logoComponent && logoComponent}
                             {!!logoUrl && <PreviewImage preview={false} src={logoUrl} alt={platform} />}
@@ -150,14 +150,12 @@ export default function DefaultPreviewCard({
                             <PlatformDivider />
                             <PlatformText>{type}</PlatformText>
                         </PlatformInfo>
-                        <Link to={url}>
-                            <EntityTitle>{name || ' '}</EntityTitle>
-                        </Link>
-                        <TagContainer>
-                            <TagTermGroup uneditableGlossaryTerms={glossaryTerms} uneditableTags={tags} maxShow={3} />
-                        </TagContainer>
-                    </TitleContainer>
-                </Link>
+                        <EntityTitle>{name || ' '}</EntityTitle>
+                    </Link>
+                    <TagContainer>
+                        <TagTermGroup uneditableGlossaryTerms={glossaryTerms} uneditableTags={tags} maxShow={3} />
+                    </TagContainer>
+                </TitleContainer>
                 {description.length > 0 && (
                     <DescriptionContainer>
                         <NoMarkdownViewer limit={200}>{description}</NoMarkdownViewer>
