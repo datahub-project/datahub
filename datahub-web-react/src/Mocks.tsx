@@ -27,6 +27,7 @@ import { GetTagDocument } from './graphql/tag.generated';
 import { GetMlModelDocument } from './graphql/mlModel.generated';
 import { GetMlModelGroupDocument } from './graphql/mlModelGroup.generated';
 import { GetGlossaryTermDocument, GetGlossaryTermQuery } from './graphql/glossaryTerm.generated';
+import { GetMeDocument } from './graphql/me.generated';
 
 const user1 = {
     username: 'sdas',
@@ -2499,6 +2500,21 @@ export const mocks = [
                             ],
                         },
                     ],
+                },
+            } as GetSearchResultsForMultipleQuery,
+        },
+    },
+    {
+        request: {
+            query: GetMeDocument,
+            variables: {},
+        },
+        result: {
+            data: {
+                __typename: 'Query',
+                me: {
+                    __typename: 'AuthenticatedUser',
+                    corpUser: user1,
                 },
             } as GetSearchResultsForMultipleQuery,
         },
