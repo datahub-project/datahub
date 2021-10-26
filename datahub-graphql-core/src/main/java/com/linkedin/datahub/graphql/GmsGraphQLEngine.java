@@ -383,7 +383,6 @@ public class GmsGraphQLEngine {
                     new SearchResolver(GmsClientFactory.getEntitiesClient())))
             .dataFetcher("searchAcrossEntities",
                 new SearchAcrossEntitiesResolver(GmsClientFactory.getEntitiesClient()))
-            .dataFetcher("getRecommendations", new ListRecommendationsResolver(recommendationService))
             .dataFetcher("autoComplete", new AuthenticatedResolver<>(
                     new AutoCompleteResolver(searchableTypes)))
             .dataFetcher("autoCompleteForMultiple", new AuthenticatedResolver<>(
