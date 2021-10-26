@@ -2,7 +2,7 @@
 
 DataHub is a modern data catalog built to enable end-to-end data discovery, data observability, and data governance. This extensible metadata platform is built for developers to tame the complexity of their rapidly evolving data ecosystems, and for data practitioners to leverage the full value of data within their organization.
 
-Here’s an overview of DataHub’s current functionality. Curious about what’s to come? Check out our [roadmap]([./roadmap.md).
+Here’s an overview of DataHub’s current functionality. Curious about what’s to come? Check out our [roadmap](./roadmap.md).
 
 ## End-to-end Search and Discovery
 
