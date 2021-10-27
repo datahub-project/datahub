@@ -138,6 +138,7 @@
         "source-map-explorer": "^2.5.2"
     },
     "resolutions": {
-        "@ant-design/colors": "6.0.0"
+        "@ant-design/colors": "6.0.0",
+        "refractor": "3.3.1"
     }
 }

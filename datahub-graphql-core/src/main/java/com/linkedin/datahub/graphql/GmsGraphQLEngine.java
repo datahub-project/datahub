@@ -147,8 +147,8 @@ public class GmsGraphQLEngine {
     private final AnalyticsService analyticsService;
     private final EntityClient entityClient;
     private final EntityService entityService;
-    private final RecommendationsService _recommendationsService;
     private final GraphClient graphClient;
+    private final RecommendationsService recommendationsService;
 
     private final DatasetType datasetType;
     private final CorpUserType corpUserType;
@@ -206,15 +206,16 @@ public class GmsGraphQLEngine {
     public GmsGraphQLEngine(
         final AnalyticsService analyticsService,
         final EntityService entityService,
-        final RecommendationsService recommendationsService,
         final GraphClient graphClient,
-        final EntityClient entityClient
-    ) {
+        final EntityClient entityClient,
+        final RecommendationsService recommendationsService
+
+        ) {
         this.analyticsService = analyticsService;
         this.entityService = entityService;
-        this._recommendationsService = recommendationsService;
         this.graphClient = graphClient;
         this.entityClient = entityClient;
+        this.recommendationsService = recommendationsService;
 
         this.datasetType = new DatasetType(entityClient);
         this.corpUserType = new CorpUserType(entityClient);
@@ -440,7 +441,7 @@ public class GmsGraphQLEngine {
             .dataFetcher("listGroups",
                 new ListGroupsResolver(GmsClientFactory.getEntitiesClient()))
             .dataFetcher("listRecommendations",
-                new ListRecommendationsResolver(_recommendationsService))
+                new ListRecommendationsResolver(recommendationsService))
             .dataFetcher("getEntityCounts",
                 new EntityCountsResolver(GmsClientFactory.getEntitiesClient()))
         );
