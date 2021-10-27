@@ -35,7 +35,7 @@ export const GlossaryTermSearchList = ({ content, onClick }: Props) => {
         .filter((entity) => entity !== null && entity !== undefined)
         .map((entity) => entity as GlossaryTerm);
 
-    const onClickTag = (term: any, index: number) => {
+    const onClickTerm = (term: any, index: number) => {
         onClick?.(index);
         navigateToSearchUrl({
             filters: [
@@ -51,7 +51,7 @@ export const GlossaryTermSearchList = ({ content, onClick }: Props) => {
     return (
         <TermSearchListContainer>
             {terms.map((term, index) => (
-                <TermButton type="text" key={term.urn} onClick={() => onClickTag(term, index)}>
+                <TermButton type="text" key={term.urn} onClick={() => onClickTerm(term, index)}>
                     <TermContainer>
                         <Tag closable={false}>
                             {term.name}
