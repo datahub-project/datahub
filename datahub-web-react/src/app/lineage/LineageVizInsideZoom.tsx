@@ -26,6 +26,18 @@ const ZoomButton = styled(Button)`
 
 const RootSvg = styled.svg<{ isDragging: boolean } & SVGProps<SVGSVGElement>>`
     cursor: ${(props) => (props.isDragging ? 'grabbing' : 'grab')};
+    @keyframes spin {
+        0% {
+            transform: rotate(0deg);
+        }
+        100% {
+            transform: rotate(359deg);
+        }
+    }
+    .lineageExpandLoading {
+        transform-origin: 100px 500px;
+        animation: spin 2s linear infinite;
+    }
 `;
 
 type Props = {

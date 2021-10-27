@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Group } from '@vx/group';
 import { LinkHorizontal } from '@vx/shape';
 import styled from 'styled-components';
@@ -76,6 +76,7 @@ export default function LineageEntityNode({
     direction: Direction;
     nodesToRenderByUrn: Record<string, VizNode>;
 }) {
+    const [isExpanding, setIsExpanding] = useState(false);
     const entityRegistry = useEntityRegistry();
     const unexploredHiddenChildren =
         node?.data?.countercurrentChildrenUrns?.filter((urn) => !(urn in nodesToRenderByUrn))?.length || 0;
@@ -119,28 +120,42 @@ export default function LineageEntityNode({
                     })}
                 </Group>
             ) : null}
-            {node.data.unexploredChildren ? (
-                <Group
-                    onClick={() => {
-                        onExpandClick({ urn: node.data.urn, type: node.data.type, direction });
-                    }}
-                >
-                    <circle
-                        fill="white"
-                        cy={centerY + height / 2}
-                        cx={direction === Direction.Upstream ? centerX - 10 : centerX + width + 10}
-                        r="20"
-                    />
+            {(node.data.unexploredChildren || true) &&
+                (!isExpanding ? (
+                    <Group
+                        onClick={() => {
+                            setIsExpanding(true);
+                            onExpandClick({ urn: node.data.urn, type: node.data.type, direction });
+                        }}
+                    >
+                        <circle
+                            fill="white"
+                            cy={centerY + height / 2}
+                            cx={direction === Direction.Upstream ? centerX - 10 : centerX + width + 10}
+                            r="20"
+                        />
+                        <g
+                            fill={ANTD_GRAY[6]}
+                            transform={`translate(${
+                                direction === Direction.Upstream ? centerX - 52 : width / 2 + 10
+                            } -21.5) scale(0.04 0.04)`}
+                        >
+                            <path d="M512 64C264.6 64 64 264.6 64 512s200.6 448 448 448 448-200.6 448-448S759.4 64 512 64zm192 472c0 4.4-3.6 8-8 8H544v152c0 4.4-3.6 8-8 8h-48c-4.4 0-8-3.6-8-8V544H328c-4.4 0-8-3.6-8-8v-48c0-4.4 3.6-8 8-8h152V328c0-4.4 3.6-8 8-8h48c4.4 0 8 3.6 8 8v152h152c4.4 0 8 3.6 8 8v48z" />
+                        </g>
+                    </Group>
+                ) : (
                     <g
                         fill={ANTD_GRAY[6]}
                         transform={`translate(${
                             direction === Direction.Upstream ? centerX - 52 : width / 2 + 10
                         } -21.5) scale(0.04 0.04)`}
                     >
-                        <path d="M512 64C264.6 64 64 264.6 64 512s200.6 448 448 448 448-200.6 448-448S759.4 64 512 64zm192 472c0 4.4-3.6 8-8 8H544v152c0 4.4-3.6 8-8 8h-48c-4.4 0-8-3.6-8-8V544H328c-4.4 0-8-3.6-8-8v-48c0-4.4 3.6-8 8-8h152V328c0-4.4 3.6-8 8-8h48c4.4 0 8 3.6 8 8v152h152c4.4 0 8 3.6 8 8v48z" />
+                        <path
+                            className="lineageExpandLoading"
+                            d="M988 548c-19.9 0-36-16.1-36-36 0-59.4-11.6-117-34.6-171.3a440.45 440.45 0 00-94.3-139.9 437.71 437.71 0 00-139.9-94.3C629 83.6 571.4 72 512 72c-19.9 0-36-16.1-36-36s16.1-36 36-36c69.1 0 136.2 13.5 199.3 40.3C772.3 66 827 103 874 150c47 47 83.9 101.8 109.7 162.7 26.7 63.1 40.2 130.2 40.2 199.3.1 19.9-16 36-35.9 36z"
+                        />
                     </g>
-                </Group>
-            ) : null}
+                ))}
             <Group
                 onDoubleClick={() => onEntityCenter({ urn: node.data.urn, type: node.data.type })}
                 onClick={(event) => {
