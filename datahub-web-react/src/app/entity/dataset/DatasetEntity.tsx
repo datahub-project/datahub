@@ -22,6 +22,8 @@ import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
 import { capitalizeFirstLetter } from '../../shared/capitalizeFirstLetter';
 import ViewDefinitionTab from '../shared/tabs/Dataset/View/ViewDefinitionTab';
 import { SidebarViewDefinitionSection } from '../shared/containers/profile/sidebar/Dataset/View/SidebarViewDefinitionSection';
+import { SidebarRecommendationsSection } from '../shared/containers/profile/sidebar/Recommendations/SidebarRecommendationsSection';
+import { getDataForEntityType } from '../shared/containers/profile/utils';
 
 const SUBTYPES = {
     VIEW: 'view',
@@ -78,7 +80,7 @@ export class DatasetEntity implements Entity<Dataset> {
             entityType={EntityType.Dataset}
             useEntityQuery={useGetDatasetQuery}
             useUpdateQuery={useUpdateDatasetMutation}
-            getOverrideProperties={this.getOverrideProperties}
+            getOverrideProperties={this.getOverridePropertiesFromEntity}
             tabs={[
                 {
                     name: 'Schema',
@@ -161,15 +163,18 @@ export class DatasetEntity implements Entity<Dataset> {
                 {
                     component: SidebarOwnerSection,
                 },
+                {
+                    component: SidebarRecommendationsSection,
+                },
             ]}
         />
     );
 
-    getOverrideProperties = (dataset: GetDatasetQuery): GenericEntityProperties => {
+    getOverridePropertiesFromEntity = (dataset?: Dataset | null): GenericEntityProperties => {
         // if dataset has subTypes filled out, pick the most specific subtype and return it
-        const subTypes = dataset?.dataset?.subTypes;
+        const subTypes = dataset?.subTypes;
         return {
-            externalUrl: dataset.dataset?.properties?.externalUrl,
+            externalUrl: dataset?.properties?.externalUrl,
             entityTypeOverride: subTypes ? capitalizeFirstLetter(subTypes.typeNames?.[0]) : '',
         };
     };
@@ -247,5 +252,17 @@ export class DatasetEntity implements Entity<Dataset> {
 
     displayName = (data: Dataset) => {
         return data?.name;
+    };
+
+    platformLogoUrl = (data: Dataset) => {
+        return data.platform.info?.logoUrl || undefined;
+    };
+
+    getGenericEntityProperties = (data: Dataset) => {
+        return getDataForEntityType({
+            data,
+            entityType: this.type,
+            getOverrideProperties: this.getOverridePropertiesFromEntity,
+        });
     };
 }

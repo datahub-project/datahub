@@ -20,6 +20,7 @@ import com.linkedin.datahub.graphql.generated.EntityRelationship;
 import com.linkedin.datahub.graphql.generated.EntityRelationshipLegacy;
 import com.linkedin.datahub.graphql.generated.ForeignKeyConstraint;
 import com.linkedin.datahub.graphql.generated.MLModelProperties;
+import com.linkedin.datahub.graphql.generated.RecommendationContent;
 import com.linkedin.datahub.graphql.generated.SearchResult;
 import com.linkedin.datahub.graphql.generated.InstitutionalMemoryMetadata;
 import com.linkedin.datahub.graphql.generated.UsageQueryResult;
@@ -65,6 +66,7 @@ import com.linkedin.datahub.graphql.resolvers.policy.DeletePolicyResolver;
 import com.linkedin.datahub.graphql.resolvers.policy.ListPoliciesResolver;
 import com.linkedin.datahub.graphql.resolvers.config.AppConfigResolver;
 import com.linkedin.datahub.graphql.resolvers.policy.UpsertPolicyResolver;
+import com.linkedin.datahub.graphql.resolvers.recommendation.ListRecommendationsResolver;
 import com.linkedin.datahub.graphql.resolvers.search.SearchAcrossEntitiesResolver;
 import com.linkedin.datahub.graphql.resolvers.type.AspectInterfaceTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.type.HyperParameterValueTypeResolver;
@@ -108,6 +110,7 @@ import com.linkedin.datahub.graphql.types.glossary.GlossaryTermType;
 import com.linkedin.datahub.graphql.types.usage.UsageType;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.recommendation.RecommendationsService;
 import com.linkedin.metadata.graph.GraphClient;
 import graphql.execution.DataFetcherResult;
 import graphql.schema.idl.RuntimeWiring;
@@ -145,6 +148,7 @@ public class GmsGraphQLEngine {
     private final EntityClient entityClient;
     private final EntityService entityService;
     private final GraphClient graphClient;
+    private final RecommendationsService recommendationsService;
 
     private final DatasetType datasetType;
     private final CorpUserType corpUserType;
@@ -196,19 +200,22 @@ public class GmsGraphQLEngine {
     public final List<BrowsableEntityType<?>> browsableTypes;
 
     public GmsGraphQLEngine() {
-        this(null, null, null, null);
+        this(null, null, null, null, null);
     }
 
     public GmsGraphQLEngine(
         final AnalyticsService analyticsService,
         final EntityService entityService,
         final GraphClient graphClient,
-        final EntityClient entityClient
-    ) {
+        final EntityClient entityClient,
+        final RecommendationsService recommendationsService
+
+        ) {
         this.analyticsService = analyticsService;
-        this.entityClient = entityClient;
         this.entityService = entityService;
         this.graphClient = graphClient;
+        this.entityClient = entityClient;
+        this.recommendationsService = recommendationsService;
 
         this.datasetType = new DatasetType(entityClient);
         this.corpUserType = new CorpUserType(entityClient);
@@ -299,6 +306,18 @@ public class GmsGraphQLEngine {
         return analyticsSchemaString;
     }
 
+    public static String recommendationsSchema() {
+        String recommendationsSchemaString;
+        try {
+            InputStream is = Thread.currentThread().getContextClassLoader().getResourceAsStream(RECOMMENDATIONS_SCHEMA_FILE);
+            recommendationsSchemaString = IOUtils.toString(is, StandardCharsets.UTF_8);
+            is.close();
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to find GraphQL Schema with name " + RECOMMENDATIONS_SCHEMA_FILE, e);
+        }
+        return recommendationsSchemaString;
+    }
+
     /**
      * Returns a {@link Supplier} responsible for creating a new {@link DataLoader} from
      * a {@link LoadableType}.
@@ -337,6 +356,7 @@ public class GmsGraphQLEngine {
             .addSchema(searchSchema())
             .addSchema(appSchema())
             .addSchema(analyticsSchema())
+            .addSchema(recommendationsSchema())
             .addDataLoaders(loaderSuppliers(loadableTypes))
             .addDataLoader("Aspect", (context) -> createAspectLoader(context))
             .addDataLoader("UsageQueryResult", (context) -> createUsageLoader(context))
@@ -420,6 +440,8 @@ public class GmsGraphQLEngine {
                 new ListUsersResolver(GmsClientFactory.getEntitiesClient()))
             .dataFetcher("listGroups",
                 new ListGroupsResolver(GmsClientFactory.getEntitiesClient()))
+            .dataFetcher("listRecommendations",
+                new ListRecommendationsResolver(recommendationsService))
             .dataFetcher("getEntityCounts",
                 new EntityCountsResolver(GmsClientFactory.getEntitiesClient()))
         );
@@ -468,6 +490,11 @@ public class GmsGraphQLEngine {
                 .dataFetcher("entity", new EntityTypeResolver(
                     entityTypes.stream().collect(Collectors.toList()),
                     (env) -> ((AggregationMetadata) env.getSource()).getEntity()))
+            )
+            .type("RecommendationContent", typeWiring -> typeWiring
+                .dataFetcher("entity", new EntityTypeResolver(
+                    entityTypes.stream().collect(Collectors.toList()),
+                    (env) -> ((RecommendationContent) env.getSource()).getEntity()))
             )
             .type("BrowseResults", typeWiring -> typeWiring
                 .dataFetcher("entities", new AuthenticatedResolver<>(

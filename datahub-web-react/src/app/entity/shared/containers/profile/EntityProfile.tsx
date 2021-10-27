@@ -137,7 +137,8 @@ export const EntityProfile = <T, U>({
         onCompleted: () => refetch(),
     });
 
-    const entityData = getDataForEntityType({ data, entityType, getOverrideProperties });
+    const entityData =
+        (data && getDataForEntityType({ data: data[Object.keys(data)[0]], entityType, getOverrideProperties })) || null;
 
     const lineage = entityData ? entityRegistry.getLineageVizConfig(entityType, entityData) : undefined;
 

@@ -4,6 +4,7 @@ import { MlModel, EntityType, SearchResult, RelationshipDirection } from '../../
 import { Preview } from './preview/Preview';
 import { MLModelProfile } from './profile/MLModelProfile';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
+import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { getChildrenFromRelationships } from '../../lineage/utils/getChildren';
 
 /**
@@ -82,5 +83,9 @@ export class MLModelEntity implements Entity<MlModel> {
 
     displayName = (data: MlModel) => {
         return data.name;
+    };
+
+    getGenericEntityProperties = (mlModel: MlModel) => {
+        return getDataForEntityType({ data: mlModel, entityType: this.type, getOverrideProperties: (data) => data });
     };
 }

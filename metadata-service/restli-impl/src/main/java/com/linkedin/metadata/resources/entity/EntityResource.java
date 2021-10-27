@@ -243,8 +243,9 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       @ActionParam(PARAM_COUNT) int count) {
     List<String> entityList = entities == null ? Collections.emptyList() : Arrays.asList(entities);
     log.info("GET SEARCH RESULTS ACROSS ENTITIES for {} with query {}", entityList, input);
+    final String finalInput = input.isEmpty() ? "*" : input;
     return RestliUtil.toTask(
-        () -> _searchService.searchAcrossEntities(entityList, input, filter, sortCriterion, start, count),
+        () -> _searchService.searchAcrossEntities(entityList, finalInput, filter, sortCriterion, start, count),
         "searchAcrossEntities");
   }
 
