@@ -52,13 +52,13 @@ export const TagSearchList = ({ content, onClick }: Props) => {
     return (
         <TagSearchListContainer>
             {tags.map((tag, index) => (
-                <TagButton type="link" key={tag.urn} onClick={() => onClickTag(tag, index)}>
-                    <TagContainer>
+                <TagContainer>
+                    <TagButton type="link" key={tag.urn} onClick={() => onClickTag(tag, index)}>
                         <StyledTag $colorHash={tag.urn} closable={false}>
                             {tag.name}
                         </StyledTag>
-                    </TagContainer>
-                </TagButton>
+                    </TagButton>
+                </TagContainer>
             ))}
         </TagSearchListContainer>
     );
