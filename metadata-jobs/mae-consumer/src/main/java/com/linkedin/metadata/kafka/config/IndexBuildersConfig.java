@@ -2,18 +2,6 @@ package com.linkedin.metadata.kafka.config;
 
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.builders.search.BaseIndexBuilder;
-import com.linkedin.metadata.builders.search.ChartIndexBuilder;
-import com.linkedin.metadata.builders.search.CorpGroupIndexBuilder;
-import com.linkedin.metadata.builders.search.CorpUserInfoIndexBuilder;
-import com.linkedin.metadata.builders.search.DashboardIndexBuilder;
-import com.linkedin.metadata.builders.search.DataFlowIndexBuilder;
-import com.linkedin.metadata.builders.search.DataJobIndexBuilder;
-import com.linkedin.metadata.builders.search.DataProcessIndexBuilder;
-import com.linkedin.metadata.builders.search.DatasetIndexBuilder;
-import com.linkedin.metadata.builders.search.MLModelIndexBuilder;
-import com.linkedin.metadata.builders.search.TagIndexBuilder;
-import com.linkedin.metadata.builders.search.GlossaryTermInfoIndexBuilder;
-import com.linkedin.metadata.builders.search.GlossaryNodeInfoIndexBuilder;
 import com.linkedin.metadata.restli.DefaultRestliClientFactory;
 import com.linkedin.restli.client.Client;
 import java.util.HashSet;
