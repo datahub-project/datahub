@@ -20,6 +20,7 @@ const TagContainer = styled.div`
 const TagButton = styled(Button)`
     margin: 0px;
     padding: 0px;
+    font-weight: 500;
 `;
 
 type Props = {
@@ -51,7 +52,7 @@ export const TagSearchList = ({ content, onClick }: Props) => {
     return (
         <TagSearchListContainer>
             {tags.map((tag, index) => (
-                <TagButton type="text" key={tag.urn} onClick={() => onClickTag(tag, index)}>
+                <TagButton type="link" key={tag.urn} onClick={() => onClickTag(tag, index)}>
                     <TagContainer>
                         <StyledTag $colorHash={tag.urn} closable={false}>
                             {tag.name}
