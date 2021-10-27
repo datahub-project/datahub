@@ -6,7 +6,6 @@ plugins {
 
 dependencies {
   compile project(':metadata-utils')
-  compile project(':metadata-builders')
   compile project(':metadata-dao-impl:kafka-producer')
   compile project(':metadata-events:mxe-schemas')
   compile project(':metadata-ingestion-examples:common')
