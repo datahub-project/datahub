@@ -41,10 +41,6 @@ public class GraphQLEngineFactory {
   private EntityService _entityService;
 
   @Autowired
-  @Qualifier("entityService")
-  private EntityService _entityService;
-
-  @Autowired
   private RecommendationsService _recommendationsService;
 
   @Autowired
