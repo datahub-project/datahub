@@ -14,7 +14,7 @@ interface Props {
     logoUrl?: string;
     logoComponent?: JSX.Element;
     url: string;
-    description: string;
+    description?: string;
     type?: string;
     platform?: string;
     qualifier?: string | null;
@@ -24,6 +24,8 @@ interface Props {
     insights?: Array<SearchInsight> | null;
     glossaryTerms?: GlossaryTerms;
     dataTestID?: string;
+    titleSizePx?: number;
+    onClick?: () => void;
 }
 
 const PreviewContainer = styled.div`
@@ -52,10 +54,10 @@ const PreviewImage = styled(Image)`
     background-color: transparent;
 `;
 
-const EntityTitle = styled(Typography.Text)`
+const EntityTitle = styled(Typography.Text)<{ titleSizePx?: number }>`
     &&& {
         margin-bottom: 0;
-        font-size: 18px;
+        font-size: ${(props) => props.titleSizePx || 16}px;
         font-weight: 600;
         vertical-align: middle;
     }
@@ -124,7 +126,9 @@ export default function DefaultPreviewCard({
     snippet,
     insights,
     glossaryTerms,
+    titleSizePx,
     dataTestID,
+    onClick,
 }: Props) {
     const entityRegistry = useEntityRegistry();
     const insightViews: Array<ReactNode> = [
@@ -144,19 +148,21 @@ export default function DefaultPreviewCard({
                 <TitleContainer>
                     <Link to={url}>
                         <PlatformInfo>
-                            {logoComponent && logoComponent}
-                            {!!logoUrl && <PreviewImage preview={false} src={logoUrl} alt={platform} />}
+                            {(logoUrl && <PreviewImage preview={false} src={logoUrl} alt={platform || ''} />) ||
+                                logoComponent}
                             {platform && <PlatformText>{platform}</PlatformText>}
                             <PlatformDivider />
                             <PlatformText>{type}</PlatformText>
                         </PlatformInfo>
-                        <EntityTitle>{name || ' '}</EntityTitle>
+                        <Link to={url} onClick={onClick}>
+                            <EntityTitle titleSizePx={titleSizePx}>{name || ' '}</EntityTitle>
+                        </Link>
+                        <TagContainer>
+                            <TagTermGroup uneditableGlossaryTerms={glossaryTerms} uneditableTags={tags} maxShow={3} />
+                        </TagContainer>
                     </Link>
-                    <TagContainer>
-                        <TagTermGroup uneditableGlossaryTerms={glossaryTerms} uneditableTags={tags} maxShow={3} />
-                    </TagContainer>
                 </TitleContainer>
-                {description.length > 0 && (
+                {description && description.length > 0 && (
                     <DescriptionContainer>
                         <NoMarkdownViewer limit={200}>{description}</NoMarkdownViewer>
                     </DescriptionContainer>

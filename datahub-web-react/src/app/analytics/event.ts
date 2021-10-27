@@ -1,4 +1,4 @@
-import { EntityType } from '../../types.generated';
+import { EntityType, RecommendationRenderType, ScenarioType } from '../../types.generated';
 
 /**
  * Valid event types.
@@ -14,6 +14,8 @@ export enum EventType {
     EntityViewEvent,
     EntitySectionViewEvent,
     EntityActionEvent,
+    RecommendationImpressionEvent,
+    RecommendationClickEvent,
 }
 
 /**
@@ -135,6 +137,24 @@ export interface EntityActionEvent extends BaseEvent {
     entityUrn: string;
 }
 
+export interface RecommendationImpressionEvent extends BaseEvent {
+    type: EventType.RecommendationImpressionEvent;
+    renderId: string; // TODO : Determine whether we need a render id to join with click event.
+    moduleId: string;
+    renderType: RecommendationRenderType;
+    scenarioType: ScenarioType;
+    // TODO: Determine whether we need to collect context parameters.
+}
+
+export interface RecommendationClickEvent extends BaseEvent {
+    type: EventType.RecommendationClickEvent;
+    renderId: string; // TODO : Determine whether we need a render id to join with click event.
+    moduleId: string;
+    renderType: RecommendationRenderType;
+    scenarioType: ScenarioType;
+    index?: number;
+}
+
 /**
  * Event consisting of a union of specific event types.
  */
@@ -148,4 +168,6 @@ export type Event =
     | BrowseResultClickEvent
     | EntityViewEvent
     | EntitySectionViewEvent
-    | EntityActionEvent;
+    | EntityActionEvent
+    | RecommendationImpressionEvent
+    | RecommendationClickEvent;

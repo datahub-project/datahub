@@ -13,7 +13,6 @@ public interface GraphClient {
   /**
    * Returns a list of related entities for a given entity, set of edge types, and direction relative to the
    * source node
-   * @return
    */
   @Nonnull
   EntityRelationships getRelatedEntities(

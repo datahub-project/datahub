@@ -14,6 +14,8 @@ import { EntityProfile } from '../shared/containers/profile/EntityProfile';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
 import { ChartInputsTab } from '../shared/tabs/Entity/ChartInputsTab';
 import { ChartDashboardsTab } from '../shared/tabs/Entity/ChartDashboardsTab';
+import { getDataForEntityType } from '../shared/containers/profile/utils';
+import { capitalizeFirstLetter } from '../../shared/capitalizeFirstLetter';
 import { EntityAndType } from '../../lineage/types';
 
 /**
@@ -67,7 +69,7 @@ export class ChartEntity implements Entity<Chart> {
             entityType={EntityType.Chart}
             useEntityQuery={useGetChartQuery}
             useUpdateQuery={useUpdateChartMutation}
-            getOverrideProperties={this.getOverrideProperties}
+            getOverrideProperties={this.getOverridePropertiesFromEntity}
             tabs={[
                 {
                     name: 'Documentation',
@@ -112,13 +114,12 @@ export class ChartEntity implements Entity<Chart> {
         />
     );
 
-    getOverrideProperties = (res: GetChartQuery): GenericEntityProperties => {
+    getOverridePropertiesFromEntity = (chart?: Chart | null): GenericEntityProperties => {
         // TODO: Get rid of this once we have correctly formed platform coming back.
-        const tool = res.chart?.tool || '';
-        const name = res.chart?.info?.name;
-        const externalUrl = res.chart?.info?.externalUrl;
+        const tool = chart?.tool || '';
+        const name = chart?.info?.name;
+        const externalUrl = chart?.info?.externalUrl;
         return {
-            ...res,
             name,
             externalUrl,
             platform: {
@@ -127,6 +128,7 @@ export class ChartEntity implements Entity<Chart> {
                 name: tool,
                 info: {
                     logoUrl: getLogoFromPlatform(tool),
+                    displayName: capitalizeFirstLetter(tool),
                     type: PlatformType.Others,
                     datasetNameDelimiter: '.',
                 },
@@ -186,5 +188,13 @@ export class ChartEntity implements Entity<Chart> {
 
     displayName = (data: Chart) => {
         return data.info?.name || data.urn;
+    };
+
+    getGenericEntityProperties = (data: Chart) => {
+        return getDataForEntityType({
+            data,
+            entityType: this.type,
+            getOverrideProperties: this.getOverridePropertiesFromEntity,
+        });
     };
 }

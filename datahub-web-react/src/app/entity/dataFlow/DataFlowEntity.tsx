@@ -5,7 +5,7 @@ import { Preview } from './preview/Preview';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
 import { getLogoFromPlatform } from '../../shared/getLogoFromPlatform';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
-import { GetDataFlowQuery, useGetDataFlowQuery, useUpdateDataFlowMutation } from '../../../graphql/dataFlow.generated';
+import { useGetDataFlowQuery, useUpdateDataFlowMutation } from '../../../graphql/dataFlow.generated';
 import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
 import { SidebarAboutSection } from '../shared/containers/profile/sidebar/SidebarAboutSection';
@@ -13,6 +13,8 @@ import { SidebarTagsSection } from '../shared/containers/profile/sidebar/Sidebar
 import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/SidebarOwnerSection';
 import { GenericEntityProperties } from '../shared/types';
 import { DataFlowJobsTab } from '../shared/tabs/Entity/DataFlowJobsTab';
+import { getDataForEntityType } from '../shared/containers/profile/utils';
+import { capitalizeFirstLetter } from '../../shared/capitalizeFirstLetter';
 
 /**
  * Definition of the DataHub DataFlow entity.
@@ -59,7 +61,7 @@ export class DataFlowEntity implements Entity<DataFlow> {
             entityType={EntityType.DataFlow}
             useEntityQuery={useGetDataFlowQuery}
             useUpdateQuery={useUpdateDataFlowMutation}
-            getOverrideProperties={this.getOverrideProperties}
+            getOverrideProperties={this.getOverridePropertiesFromEntity}
             tabs={[
                 {
                     name: 'Documentation',
@@ -92,13 +94,12 @@ export class DataFlowEntity implements Entity<DataFlow> {
         />
     );
 
-    getOverrideProperties = (res: GetDataFlowQuery): GenericEntityProperties => {
+    getOverridePropertiesFromEntity = (dataFlow?: DataFlow | null): GenericEntityProperties => {
         // TODO: Get rid of this once we have correctly formed platform coming back.
-        const tool = res.dataFlow?.orchestrator || '';
-        const name = res.dataFlow?.info?.name;
-        const externalUrl = res.dataFlow?.info?.externalUrl;
+        const tool = dataFlow?.orchestrator || '';
+        const name = dataFlow?.info?.name;
+        const externalUrl = dataFlow?.info?.externalUrl;
         return {
-            ...res,
             name,
             externalUrl,
             platform: {
@@ -107,6 +108,7 @@ export class DataFlowEntity implements Entity<DataFlow> {
                 name: tool,
                 info: {
                     logoUrl: getLogoFromPlatform(tool),
+                    displayName: capitalizeFirstLetter(tool),
                     type: PlatformType.Others,
                     datasetNameDelimiter: '.',
                 },
@@ -148,5 +150,13 @@ export class DataFlowEntity implements Entity<DataFlow> {
 
     displayName = (data: DataFlow) => {
         return data.info?.name || data.urn;
+    };
+
+    getGenericEntityProperties = (data: DataFlow) => {
+        return getDataForEntityType({
+            data,
+            entityType: this.type,
+            getOverrideProperties: this.getOverridePropertiesFromEntity,
+        });
     };
 }
