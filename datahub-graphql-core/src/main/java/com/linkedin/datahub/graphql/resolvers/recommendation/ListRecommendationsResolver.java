@@ -1,6 +1,5 @@
 package com.linkedin.datahub.graphql.resolvers.recommendation;
 
-import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.generated.ContentParams;
 import com.linkedin.datahub.graphql.generated.EntityProfileParams;
