@@ -20,12 +20,7 @@ from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.sql import sqltypes as types
 
-from datahub import __package_name__
-from datahub.configuration.common import (
-    AllowDenyPattern,
-    ConfigModel,
-    ConfigurationError,
-)
+from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -303,12 +298,6 @@ class SQLAlchemySource(Source):
         self.config = config
         self.platform = platform
         self.report = SQLSourceReport()
-
-        if self.config.profiling.enabled and not self._can_run_profiler():
-            raise ConfigurationError(
-                "Table profiles requested but profiler plugin is not enabled. "
-                f"Try running: pip install '{__package_name__}[sql-profiles]'"
-            )
 
     def get_inspectors(self) -> Iterable[Inspector]:
         # This method can be overridden in the case that you want to dynamically
@@ -595,16 +584,6 @@ class SQLAlchemySource(Source):
             wu = SqlWorkUnit(id=dataset_name, mce=mce)
             self.report.report_workunit(wu)
             yield wu
-
-    def _can_run_profiler(self) -> bool:
-        try:
-            from datahub.ingestion.source.ge_data_profiler import (  # noqa: F401
-                DatahubGEProfiler,
-            )
-
-            return True
-        except Exception:
-            return False
 
     def _get_profiler_instance(self, inspector: Inspector) -> "DatahubGEProfiler":
         from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler
