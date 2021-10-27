@@ -101,7 +101,7 @@ plugins: Dict[str, Set[str]] = {
         "acryl-pyhive[hive]>=0.6.11"
     },
     "kafka": kafka_common,
-    "kafka-connect": sql_common | {"requests"},
+    "kafka-connect": sql_common | {"requests","JPype1"},
     "ldap": {"python-ldap>=2.4"},
     "looker": looker_common,
     "lookml": looker_common | {"lkml>=1.1.0", "sql-metadata==2.2.2"},
@@ -235,6 +235,7 @@ full_test_dev_requirements = {
             "snowflake",
             "sql-profiles",
             "redash",
+            "kafka-connect"
         ]
         for dependency in plugins[plugin]
     ),
