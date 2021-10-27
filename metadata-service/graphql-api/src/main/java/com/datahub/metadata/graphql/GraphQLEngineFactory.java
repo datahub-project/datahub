@@ -56,16 +56,12 @@ public class GraphQLEngineFactory {
     if (isAnalyticsEnabled) {
       return new GmsGraphQLEngine(
           new AnalyticsService(elasticClient, indexConvention.getPrefix()),
-          _entityService, _recommendationsService,
+          _entityService,
           _graphClient,
-          _entityClient
-      ).builder().build();
+          _entityClient,
+          _recommendationsService
+          ).builder().build();
     }
-    return new GmsGraphQLEngine(
-        null,
-        _entityService, _recommendationsService,
-        _graphClient,
-        _entityClient
-    ).builder().build();
+    return new GmsGraphQLEngine(null, _entityService, _graphClient, _entityClient, _recommendationsService).builder().build();
   }
 }
