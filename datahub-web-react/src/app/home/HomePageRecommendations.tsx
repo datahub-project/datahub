@@ -47,7 +47,6 @@ export const HomePageRecommendations = ({ userUrn }: Props) => {
     // Entity Types
     const entityRegistry = useEntityRegistry();
     const browseEntityList = entityRegistry.getBrowseEntityTypes();
-    console.log(browseEntityList);
 
     const { data: entityCountData } = useGetEntityCountsQuery({
         variables: {
@@ -89,6 +88,7 @@ export const HomePageRecommendations = ({ userUrn }: Props) => {
                                 entityCount &&
                                 entityCount.count !== 0 && (
                                     <BrowseEntityCard
+                                        key={entityCount.entityType}
                                         entityType={entityCount.entityType}
                                         count={formatNumber(entityCount.count)}
                                     />

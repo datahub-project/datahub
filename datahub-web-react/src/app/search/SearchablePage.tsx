@@ -41,7 +41,6 @@ export const SearchablePage = ({ initialQuery, onSearch, onAutoComplete, childre
 
     const [getAutoCompleteResults, { data: suggestionsData }] = useGetAutoCompleteMultipleResultsLazyQuery();
     const user = useGetAuthenticatedUser()?.corpUser;
-    console.log(user);
 
     const search = (query: string, type?: EntityType) => {
         if (!query || query.trim().length === 0) {

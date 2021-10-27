@@ -7,7 +7,7 @@ import {
     RecommendationModule as RecommendationModuleType,
 } from '../../../../../../../types.generated';
 import { RecommendationModule } from '../../../../../../recommendations/RecommendationModule';
-import { RecommendationDisplayType } from '../../../../../../recommendations/renderer/RecommendationsRenderer';
+import { RecommendationDisplayType } from '../../../../../../recommendations/types';
 import { SidebarHeader } from '../SidebarHeader';
 
 const RecommendationsContainer = styled.div``;
@@ -40,7 +40,6 @@ export const SidebarEntityRecommendations = ({
                 limit: 3,
             },
         },
-        fetchPolicy: 'no-cache',
     });
     const recommendationModules = data?.listRecommendations?.modules;
     return (
@@ -50,6 +49,7 @@ export const SidebarEntityRecommendations = ({
                     <RecommendationContainer>
                         <SidebarHeader title={module.title} />
                         <RecommendationModule
+                            key={module.moduleId}
                             module={module as RecommendationModuleType}
                             scenarioType={scenario}
                             showTitle={false}

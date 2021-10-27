@@ -142,7 +142,6 @@ export const SearchResults = ({
     };
 
     const history = useHistory();
-    const isEmptyResults = !loading && (!searchResponse || searchResponse?.total === 0);
 
     return (
         <>
@@ -176,21 +175,17 @@ export const SearchResults = ({
                                 split={false}
                                 locale={{
                                     emptyText: (
-                                        <>
-                                            <NoDataContainer>
-                                                <Empty
-                                                    style={{ fontSize: 18, color: ANTD_GRAY[8] }}
-                                                    description={`No results found for "${query}"`}
-                                                />
-                                                <Button
-                                                    onClick={() =>
-                                                        navigateToSearchUrl({ query: '*', page: 0, history })
-                                                    }
-                                                >
-                                                    <RocketOutlined /> Explore your metadata
-                                                </Button>
-                                            </NoDataContainer>
-                                        </>
+                                        <NoDataContainer>
+                                            <Empty
+                                                style={{ fontSize: 18, color: ANTD_GRAY[8] }}
+                                                description={`No results found for "${query}"`}
+                                            />
+                                            <Button
+                                                onClick={() => navigateToSearchUrl({ query: '*', page: 0, history })}
+                                            >
+                                                <RocketOutlined /> Explore your metadata
+                                            </Button>
+                                        </NoDataContainer>
                                     ),
                                 }}
                                 renderItem={(item, index) => (
@@ -212,7 +207,7 @@ export const SearchResults = ({
                                     showSizeChanger={false}
                                 />
                             </PaginationControlContainer>
-                            {authenticatedUserUrn && isEmptyResults && (
+                            {authenticatedUserUrn && (
                                 <SearchResultsRecommendationsContainer>
                                     <SearchResultsRecommendations
                                         userUrn={authenticatedUserUrn}

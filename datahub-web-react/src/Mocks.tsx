@@ -2582,10 +2582,13 @@ export const mocks = [
     {
         request: {
             query: GetMeDocument,
+            variables: {},
         },
         result: {
             data: {
+                __typename: 'Query',
                 me: {
+                    __typename: 'AuthenticatedUser',
                     corpUser: { ...user2 },
                     platformPrivileges: {
                         viewAnalytics: true,

@@ -3,8 +3,8 @@ import React, { useMemo } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { RecommendationModule as RecommendationModuleType, ScenarioType } from '../../types.generated';
 import analytics, { EventType } from '../analytics';
-import { RecommendationDisplayType } from './renderer/RecommendationsRenderer';
-import { useRecommendationRenderer } from './useRecommendationRenderer';
+import { renderTypeToRenderer } from './renderers';
+import { RecommendationDisplayType } from './types';
 
 type Props = {
     module: RecommendationModuleType;
@@ -14,9 +14,13 @@ type Props = {
 };
 
 export const RecommendationModule = ({ module, scenarioType, displayType, showTitle }: Props) => {
-    const finalDisplayType = displayType || RecommendationDisplayType.DEFAULT; // Fallback to default item size if not provided.
-    const recommendationRenderer = useRecommendationRenderer();
+    const finalDisplayType = displayType || RecommendationDisplayType.DEFAULT;
     const renderId = useMemo(() => uuidv4(), []);
+    const RecommendationRenderer = renderTypeToRenderer.get(module.renderType);
+    if (!RecommendationRenderer) {
+        console.error(`Failed to find renderer corresponding to renderType ${module.renderType}`);
+        return null;
+    }
     analytics.event({
         type: EventType.RecommendationImpressionEvent,
         renderId,
@@ -27,14 +31,14 @@ export const RecommendationModule = ({ module, scenarioType, displayType, showTi
     return (
         <>
             {showTitle && <Typography.Title level={4}>{module.title}</Typography.Title>}
-            {recommendationRenderer.renderRecommendation(
-                renderId,
-                module.moduleId,
-                scenarioType,
-                module.renderType,
-                module.content,
-                finalDisplayType,
-            )}
+            <RecommendationRenderer
+                renderId={renderId}
+                moduleId={module.moduleId}
+                scenarioType={scenarioType}
+                renderType={module.renderType}
+                content={module.content}
+                displayType={finalDisplayType}
+            />
         </>
     );
 };

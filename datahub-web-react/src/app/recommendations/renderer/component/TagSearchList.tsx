@@ -1,10 +1,10 @@
+import { Button } from 'antd';
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { useHistory } from 'react-router-dom';
 import styled from 'styled-components';
-import { PageRoutes } from '../../../../conf/Global';
 import { RecommendationContent, Tag } from '../../../../types.generated';
 import { StyledTag } from '../../../entity/shared/components/styled/StyledTag';
-import { urlEncodeUrn } from '../../../entity/shared/utils';
+import { navigateToSearchUrl } from '../../../search/utils/navigateToSearchUrl';
 
 const TagSearchListContainer = styled.div`
     display: flex;
@@ -23,24 +23,36 @@ type Props = {
 };
 
 export const TagSearchList = ({ content, onClick }: Props) => {
+    const history = useHistory();
+
     const tags: Array<Tag> = content
         .map((cnt) => cnt.entity)
         .filter((entity) => entity !== null && entity !== undefined)
         .map((entity) => entity as Tag);
+
+    const onClickTag = (tag: any, index: number) => {
+        onClick?.(index);
+        navigateToSearchUrl({
+            filters: [
+                {
+                    field: 'tags',
+                    value: tag.urn,
+                },
+            ],
+            history,
+        });
+    };
+
     return (
         <TagSearchListContainer>
             {tags.map((tag, index) => (
-                <Link
-                    to={{ pathname: `${PageRoutes.SEARCH}`, search: `?filter_tags=${urlEncodeUrn(tag.urn)}` }}
-                    key={tag.urn}
-                    onClick={() => onClick?.(index)}
-                >
+                <Button type="text" key={tag.urn} onClick={() => onClickTag(tag, index)}>
                     <TagContainer>
                         <StyledTag $colorHash={tag.urn} closable={false}>
                             {tag.name}
                         </StyledTag>
                     </TagContainer>
-                </Link>
+                </Button>
             ))}
         </TagSearchListContainer>
     );

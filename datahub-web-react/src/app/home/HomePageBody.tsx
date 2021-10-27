@@ -5,7 +5,7 @@ import { HomePageRecommendations } from './HomePageRecommendations';
 
 const BodyContainer = styled.div`
     padding: 20px 100px;
-    margin: 0 !important;
+    margin: 0;
     background-color: ${(props) => props.theme.styles['homepage-background-lower-fade']};
     > div {
         margin-bottom: 20px;

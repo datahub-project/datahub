@@ -23,6 +23,7 @@ import com.linkedin.metadata.recommendation.SearchRequestContext;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.net.URISyntaxException;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -36,6 +37,9 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 @Slf4j
 @RequiredArgsConstructor
 public class ListRecommendationsResolver implements DataFetcher<CompletableFuture<ListRecommendationsResult>> {
+
+  private static final ListRecommendationsResult EMPTY_RECOMMENDATIONS = new ListRecommendationsResult(Collections.emptyList());
+
   private final RecommendationsService _recommendationsService;
 
   @Override
@@ -57,8 +61,8 @@ public class ListRecommendationsResolver implements DataFetcher<CompletableFutur
                 .collect(Collectors.toList()))
             .build();
       } catch (Exception e) {
-        log.error("Failed to get recommendations for input {}", input);
-        throw new RuntimeException("Failed to get recommendations for input " + input, e);
+        log.error("Failed to get recommendations for input {}", input, e);
+        return EMPTY_RECOMMENDATIONS;
       }
     });
   }

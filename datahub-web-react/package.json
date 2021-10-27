@@ -80,6 +80,7 @@
         "web-vitals": "^0.2.4"
     },
     "scripts": {
+        "analyze": "source-map-explorer 'dist/static/js/*.js'",
         "start": "yarn run generate && BROWSER=none REACT_APP_MOCK=false craco start",
         "start:mock": "yarn run generate && BROWSER=none REACT_APP_MOCK=true craco start",
         "start:e2e": "REACT_APP_MOCK=cy BROWSER=none PORT=3010 craco start",
@@ -133,7 +134,8 @@
         "eslint-plugin-prettier": "^3.4.0",
         "eslint-plugin-react": "^7.23.2",
         "http-proxy-middleware": "2.0.0",
-        "prettier": "^2.3.0"
+        "prettier": "^2.3.0",
+        "source-map-explorer": "^2.5.2"
     },
     "resolutions": {
         "@ant-design/colors": "6.0.0"
