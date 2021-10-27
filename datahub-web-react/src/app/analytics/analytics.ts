@@ -45,8 +45,6 @@ export default {
         if (NODE_ENV === 'test') {
             return Promise.resolve();
         }
-        console.log(modifiedEvent);
-        console.log('calling track');
         return analytics.track(eventTypeName, modifiedEvent, options, callback);
     },
 };
