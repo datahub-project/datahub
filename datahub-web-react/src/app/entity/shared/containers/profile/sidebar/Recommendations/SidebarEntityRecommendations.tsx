@@ -7,7 +7,7 @@ import {
     RecommendationModule as RecommendationModuleType,
 } from '../../../../../../../types.generated';
 import { RecommendationModule } from '../../../../../../recommendations/RecommendationModule';
-import { RecommendationDisplayType } from '../../../../../../recommendations/renderer/RecommendationsRenderer';
+import { RecommendationDisplayType } from '../../../../../../recommendations/types';
 import { SidebarHeader } from '../SidebarHeader';
 
 const RecommendationsContainer = styled.div``;

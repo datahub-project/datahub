@@ -147,7 +147,12 @@ enum RecommendationRenderType {
   """
   Tag search list
   """
-  TAG_SEARCH_LIST
+  TAG_SEARCH_LIST,
+
+  """
+  A list of recommended search queries
+  """
+  SEARCH_QUERY_LIST
 }
 
 """
