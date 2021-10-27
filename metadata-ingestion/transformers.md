@@ -34,7 +34,54 @@ transformers:
       get_tags_to_add: "<your_module>.<your_function>"
 ```
 
-### Setting ownership
+Then define your function to return a list of TagAssociationClass tags, for example:
+
+```python
+import logging
+
+import datahub.emitter.mce_builder as builder
+from datahub.metadata.schema_classes import (
+    DatasetSnapshotClass,
+    TagAssociationClass
+)
+
+def custom_tags(current: DatasetSnapshotClass) -> List[TagAssociationClass]:
+    """ Returns tags to associate to a dataset depending on custom logic
+
+    This function receives a DatasetSnapshotClass, performs custom logic and returns
+    a list of TagAssociationClass-wrapped tags.
+
+    Args:
+        current (DatasetSnapshotClass): Single DatasetSnapshotClass object
+
+    Returns:
+        List of TagAssociationClass objects.
+    """
+
+    tag_strings = []
+
+    ### Add custom logic here
+    tag_strings.append('custom1')
+    tag_strings.append('custom2')
+    
+    tag_strings = [builder.make_tag_urn(tag=n) for n in tag_strings]
+    tags = [TagAssociationClass(tag=tag) for tag in tag_strings]
+    
+    logging.info(f"Tagging dataset {current.urn} with {tag_strings}.")
+    return tags
+```
+
+### Change owners
+
+If we wanted to clear existing owners sent by ingestion source we can use the `simple_remove_dataset_ownership` module which removes all owners sent by the ingestion source.
+
+```yaml
+transformers:
+  - type: "simple_remove_dataset_ownership"
+    config: {}
+```
+
+The main use case of `simple_remove_dataset_ownership` is to remove incorrect owners present in the source. You can use it along with the next `simple_add_dataset_ownership` to remove wrong owners and add the correct ones.
 
 Let’s suppose we’d like to append a series of users who we know to own a dataset but aren't detected during normal ingestion. To do so, we can use the `simple_add_dataset_ownership` module that’s included in the ingestion framework.
 
@@ -48,7 +95,29 @@ transformers:
         - "urn:li:corpuser:username1"
         - "urn:li:corpuser:username2"
         - "urn:li:corpGroup:groupname"
+      ownership_type: "PRODUCER"
 ```
+
+Note `ownership_type` is an optional field with `DATAOWNER` as default value.
+
+### Setting ownership by dataset urn pattern
+
+Let’s suppose we’d like to append a series of users who we know to own different dataset from a data source but aren't detected during normal ingestion. To do so, we can use the `pattern_add_dataset_ownership` module that’s included in the ingestion framework. it match pattern with `urn` of dataset and assign the respective owners
+
+The config, which we’d append to our ingestion recipe YAML, would look like this:
+
+```yaml
+transformers:
+  - type: "pattern_add_dataset_ownership"
+    config:
+      owner_pattern:
+        rules:
+          ".*example1.*": ["urn:li:corpuser:username1"]
+          ".*example2.*": ["urn:li:corpuser:username2"]
+      ownership_type: "DEVELOPER"
+```
+
+Note `ownership_type` is an optional field with `DATAOWNER` as default value.
 
 If you'd like to add more complex logic for assigning ownership, you can use the more generic `add_dataset_ownership` transformer, which calls a user-provided function to determine the ownership of each dataset.
 
@@ -59,6 +128,69 @@ transformers:
       get_owners_to_add: "<your_module>.<your_function>"
 ```
 
+Note that whatever owners you send via this will overwrite the owners present in the UI.
+
+### Mark dataset status
+
+If you would like to stop a dataset from appearing in the UI then you need to mark the status of the dataset as removed. You can use this transformer after filtering for the specific datasets that you want to mark as removed.
+
+```yaml
+transformers:
+  - type: "mark_dataset_status"
+    config:
+      removed: true
+```
+
+### Add dataset browse paths
+
+If you would like to add to browse paths of dataset can use this transformer. There are 3 optional variables that you can use to get information from the dataset `urn`:
+- ENV: env passed (default: prod)
+- PLATFORM: `mysql`, `postgres` or different platform supported by datahub
+- DATASET_PARTS: slash separated parts of dataset name. e.g. `database_name/schema_name/[table_name]` for postgres
+
+e.g. this can be used to create browse paths like `/prod/postgres/superset/public/logs` for table `superset.public.logs` in a `postgres` database
+```yaml
+transformers:
+  - type: "set_dataset_browse_path"
+    config:
+      path_templates:
+        - /ENV/PLATFORM/DATASET_PARTS 
+```
+
+If you don't want the environment but wanted to add something static in the browse path like the database instance name you can use this.
+```yaml
+transformers:
+  - type: "set_dataset_browse_path"
+    config:
+      path_templates:
+        - /PLATFORM/marketing_db/DATASET_PARTS 
+```
+It will create browse path like `/mysql/marketing_db/sales/orders` for a table `sales.orders` in `mysql` database instance.
+
+You can use this to add multiple browse paths. Different people might know same data assets with different name
+```yaml
+transformers:
+  - type: "set_dataset_browse_path"
+    config:
+      path_templates:
+        - /PLATFORM/marketing_db/DATASET_PARTS
+        - /data_warehouse/DATASET_PARTS
+```
+This will add 2 browse paths like `/mysql/marketing_db/sales/orders` and `/data_warehouse/sales/orders` for a table `sales.orders` in `mysql` database instance.
+
+Default behaviour of the transform is to add new browse paths, you can optionally set `replace_existing: True` so 
+the transform becomes a _set_ operation instead of an _append_.
+```yaml
+transformers:
+  - type: "set_dataset_browse_path"
+    config:
+      replace_existing: True
+      path_templates:
+        - /ENV/PLATFORM/DATASET_PARTS
+```
+In this case, the resulting dataset will have only 1 browse path, the one from the transform.
+
+Note that whatever browse paths you send via this will overwrite the browse paths present in the UI.
 ## Writing a custom transformer from scratch
 
 In the above couple of examples, we use classes that have already been implemented in the ingestion framework. However, it’s common for more advanced cases to pop up where custom code is required, for instance if you'd like to utilize conditional logic or rewrite properties. In such cases, we can add our own modules and define the arguments it takes as a custom transformer.

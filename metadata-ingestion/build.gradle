@@ -12,7 +12,7 @@ task checkPythonVersion(type: Exec) {
 }
 
 task environmentSetup(type: Exec, dependsOn: checkPythonVersion) {
-  commandLine 'bash', '-c', "${python_executable} -m venv ${venv_name} && ${venv_name}/bin/python -m pip install --upgrade pip wheel setuptools"
+  commandLine 'bash', '-c', "${python_executable} -m venv ${venv_name} && ${venv_name}/bin/python -m pip install --upgrade pip wheel setuptools==57.5.0"
 }
 
 task installPackage(type: Exec, dependsOn: environmentSetup) {
@@ -29,7 +29,12 @@ task installDev(type: Exec, dependsOn: [install]) {
   commandLine "${venv_name}/bin/pip", 'install', '-e', '.[dev]'
 }
 task lint(type: Exec, dependsOn: installDev) {
+  /*
+    The find/sed combo below is a temporary work-around for the following mypy issue with airflow 2.2.0:
+   "venv/lib/python3.8/site-packages/airflow/_vendor/connexion/spec.py:169: error: invalid syntax".
+   */
   commandLine 'bash', '-x', '-c',
+    "find ${venv_name}/lib -path *airflow/_vendor/connexion/spec.py -exec sed -i.bak -e '169,169s/  # type: List\\[str\\]//g' {} \\; && " +
     "source ${venv_name}/bin/activate && black --check --diff src/ tests/ && isort --check --diff src/ tests/ && flake8 --count --statistics src/ tests/ && mypy src/ tests/"
 }
 task lintFix(type: Exec, dependsOn: installDev) {
@@ -44,14 +49,14 @@ task lintFix(type: Exec, dependsOn: installDev) {
 task testQuick(type: Exec, dependsOn: installDev) {
   // We can't enforce the coverage requirements if we run a subset of the tests.
   commandLine 'bash', '-x', '-c',
-    "source ${venv_name}/bin/activate && pytest -m 'not integration' -vv"
+    "source ${venv_name}/bin/activate && pytest -m 'not integration' -vv --continue-on-collection-errors --junit-xml=junit.quick.xml"
 }
 task installDevTest(type: Exec, dependsOn: [installDev]) {
   commandLine "${venv_name}/bin/pip", 'install', '-e', '.[dev,integration-tests]'
 }
 task testFull(type: Exec, dependsOn: [testQuick, installDevTest]) {
   commandLine 'bash', '-x', '-c',
-    "source ${venv_name}/bin/activate && pytest -vv"
+    "source ${venv_name}/bin/activate && pytest -vv --continue-on-collection-errors --junit-xml=junit.full.xml"
 }
 
 task cleanPythonCache(type: Exec) {

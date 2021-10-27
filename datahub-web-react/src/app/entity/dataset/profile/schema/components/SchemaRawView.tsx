@@ -1,8 +1,8 @@
 import React from 'react';
 import { Typography } from 'antd';
-
+import styled from 'styled-components';
 import { Schema, SchemaMetadata } from '../../../../../../types.generated';
-import { diffJson, getRawSchema } from '../../../../shared/utils';
+import { diffJson, formatRawSchema, getRawSchema } from '../utils/utils';
 
 type Props = {
     schemaDiff: {
@@ -10,26 +10,27 @@ type Props = {
         previous?: SchemaMetadata | null;
     };
     editMode: boolean;
+    showKeySchema: boolean;
 };
 
-export default function SchemaRawView({ schemaDiff, editMode }: Props) {
-    const currentSchemaRaw =
-        schemaDiff.current?.platformSchema?.__typename === 'TableSchema'
-            ? getRawSchema(schemaDiff.current?.platformSchema.schema)
-            : '';
+const SchemaContainer = styled.div`
+    padding: 12px;
+`;
+
+export default function SchemaRawView({ schemaDiff, editMode, showKeySchema }: Props) {
+    const currentSchemaRaw = formatRawSchema(getRawSchema(schemaDiff.current?.platformSchema, showKeySchema));
+
     const schemaRawDiff = editMode
         ? currentSchemaRaw
-        : diffJson(
-              schemaDiff.previous?.platformSchema?.__typename === 'TableSchema'
-                  ? getRawSchema(schemaDiff.previous?.platformSchema.schema)
-                  : '',
-              currentSchemaRaw,
-          );
+        : diffJson(formatRawSchema(getRawSchema(schemaDiff.previous?.platformSchema, showKeySchema)), currentSchemaRaw);
+
     return (
-        <Typography.Text data-testid="schema-raw-view">
-            <pre>
-                <code>{schemaRawDiff}</code>
-            </pre>
-        </Typography.Text>
+        <SchemaContainer>
+            <Typography.Text data-testid="schema-raw-view">
+                <pre>
+                    <code>{schemaRawDiff}</code>
+                </pre>
+            </Typography.Text>
+        </SchemaContainer>
     );
 }

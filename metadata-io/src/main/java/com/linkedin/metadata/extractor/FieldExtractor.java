@@ -6,6 +6,7 @@ import com.linkedin.metadata.dao.utils.RecordUtils;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.FieldSpec;
+import com.linkedin.util.Pair;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -21,6 +22,7 @@ import java.util.stream.Collectors;
 public class FieldExtractor {
 
   private static final String ARRAY_WILDCARD = "*";
+  private static final int MAX_VALUE_LENGTH = 200;
 
   private FieldExtractor() {
   }
@@ -40,7 +42,17 @@ public class FieldExtractor {
         long numArrayWildcards = getNumArrayWildcards(fieldSpec.getPath());
         // Not an array field
         if (numArrayWildcards == 0) {
-          extractedFields.put(fieldSpec, Collections.singletonList(value.get()));
+          // For maps, convert it into a list of the form key=value (Filter out long values)
+          if (value.get() instanceof Map) {
+            extractedFields.put(fieldSpec, ((Map<?, ?>) value.get()).entrySet()
+                .stream()
+                .map(entry -> new Pair<>(entry.getKey().toString(), entry.getValue().toString()))
+                .filter(entry -> entry.getValue().length() < MAX_VALUE_LENGTH)
+                .map(entry -> entry.getKey() + "=" + entry.getValue())
+                .collect(Collectors.toList()));
+          } else {
+            extractedFields.put(fieldSpec, Collections.singletonList(value.get()));
+          }
         } else {
           List<Object> valueList = (List<Object>) value.get();
           // If the field is a nested list of values, flatten it

@@ -1,0 +1,61 @@
+version: 1
+source: DataHub
+owners:
+  users:
+    - mjames
+url: "https://github.com/linkedin/datahub/"
+nodes:
+  - name: Classification
+    description: A set of terms related to Data Classification
+    terms:
+      - name: Sensitive
+        description: Sensitive Data
+        custom_properties:
+          is_confidential: false
+      - name: Confidential
+        description: Confidential Data
+        custom_properties:
+          is_confidential: true
+      - name: HighlyConfidential
+        description: Highly Confidential Data
+        custom_properties:
+          is_confidential: true
+  - name: PersonalInformation
+    description: All terms related to personal information
+    owners:
+      users:
+        - mjames
+    terms:
+      - name: Email
+        description: An individual's email address
+        inherits:
+          - Classification.Confidential
+        owners:
+          groups:
+            - Trust and Safety
+      - name: Address
+        description: A physical address
+      - name: Gender
+        description: The gender identity of the individual
+        inherits:
+          - Classification.Sensitive
+  - name: ClientsAndAccounts
+    description: Provides basic concepts such as account, account holder, account provider, relationship manager that are commonly used by financial services providers to describe customers and to determine counterparty identities
+    owners:
+      groups:
+        - finance
+    terms:
+      - name: Account
+        description: Container for records associated with a business arrangement for regular transactions and services
+        term_source: "EXTERNAL"
+        source_ref: FIBO
+        source_url: "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/Account"
+        inherits:
+          - Classification.HighlyConfidential
+        contains:
+          - ClientsAndAccounts.Balance
+      - name: Balance
+        description: Amount of money available or owed
+        term_source: "EXTERNAL"
+        source_ref: FIBO
+        source_url: "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/Balance"

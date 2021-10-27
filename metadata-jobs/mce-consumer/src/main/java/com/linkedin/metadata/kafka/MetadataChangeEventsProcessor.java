@@ -1,10 +1,14 @@
 package com.linkedin.metadata.kafka;
 
-import com.linkedin.entity.client.EntityClient;
+import com.codahale.metrics.Histogram;
+import com.codahale.metrics.MetricRegistry;
 import com.linkedin.entity.Entity;
+import com.linkedin.entity.client.RestliEntityClient;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.EventUtils;
 import com.linkedin.metadata.kafka.config.MetadataChangeProposalProcessorCondition;
 import com.linkedin.metadata.snapshot.Snapshot;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.FailedMetadataChangeEvent;
 import com.linkedin.mxe.MetadataChangeEvent;
 import com.linkedin.mxe.Topics;
@@ -29,22 +33,26 @@ import org.springframework.stereotype.Component;
 @EnableKafka
 public class MetadataChangeEventsProcessor {
 
-  private EntityClient entityClient;
+  private RestliEntityClient entityClient;
   private KafkaTemplate<String, GenericRecord> kafkaTemplate;
+
+  private final Histogram kafkaLagStats =
+      MetricUtils.get().histogram(MetricRegistry.name(this.getClass(), "kafkaLag"));
 
   @Value("${KAFKA_FMCE_TOPIC_NAME:" + Topics.FAILED_METADATA_CHANGE_EVENT + "}")
   private String fmceTopicName;
 
   public MetadataChangeEventsProcessor(
-      @Nonnull final EntityClient entityClient,
+      @Nonnull final RestliEntityClient entityClient,
       @Nonnull final KafkaTemplate<String, GenericRecord> kafkaTemplate) {
     this.entityClient = entityClient;
     this.kafkaTemplate = kafkaTemplate;
   }
 
-  @KafkaListener(id = "${KAFKA_CONSUMER_GROUP_ID:mce-consumer-job-client}", topics = "${KAFKA_MCE_TOPIC_NAME:"
-      + Topics.METADATA_CHANGE_EVENT + "}", containerFactory = "mceKafkaContainerFactory")
+  @KafkaListener(id = "${METADATA_CHANGE_EVENT_KAFKA_CONSUMER_GROUP_ID:mce-consumer-job-client}", topics =
+      "${KAFKA_MCE_TOPIC_NAME:" + Topics.METADATA_CHANGE_EVENT + "}", containerFactory = "mceKafkaContainerFactory")
   public void consume(final ConsumerRecord<String, GenericRecord> consumerRecord) {
+    kafkaLagStats.update(System.currentTimeMillis() - consumerRecord.timestamp());
     final GenericRecord record = consumerRecord.value();
     log.debug("Record ", record);
 
@@ -88,6 +96,7 @@ public class MetadataChangeEventsProcessor {
   private void processProposedSnapshot(@Nonnull MetadataChangeEvent metadataChangeEvent) throws RemoteInvocationException {
     final Snapshot snapshotUnion = metadataChangeEvent.getProposedSnapshot();
     final Entity entity = new Entity().setValue(snapshotUnion);
-    entityClient.updateWithSystemMetadata(entity, metadataChangeEvent.getSystemMetadata());
+    // TODO: Get the actor identity from the event header itself.
+    entityClient.updateWithSystemMetadata(entity, metadataChangeEvent.getSystemMetadata(), Constants.SYSTEM_ACTOR);
   }
 }

@@ -1,0 +1,35 @@
+{
+  "name" : "analytics",
+  "namespace" : "com.linkedin.analytics",
+  "path" : "/analytics",
+  "schema" : "com.linkedin.analytics.GetTimeseriesAggregatedStatsResponse",
+  "doc" : "Rest.li entry point: /analytics\n\ngenerated from: com.linkedin.metadata.resources.analytics.Analytics",
+  "simple" : {
+    "supports" : [ ],
+    "actions" : [ {
+      "name" : "getTimeseriesStats",
+      "parameters" : [ {
+        "name" : "entityName",
+        "type" : "string"
+      }, {
+        "name" : "aspectName",
+        "type" : "string"
+      }, {
+        "name" : "metrics",
+        "type" : "{ \"type\" : \"array\", \"items\" : \"com.linkedin.timeseries.AggregationSpec\" }"
+      }, {
+        "name" : "filter",
+        "type" : "com.linkedin.metadata.query.filter.Filter",
+        "optional" : true
+      }, {
+        "name" : "buckets",
+        "type" : "{ \"type\" : \"array\", \"items\" : \"com.linkedin.timeseries.GroupingBucket\" }",
+        "optional" : true
+      } ],
+      "returns" : "com.linkedin.analytics.GetTimeseriesAggregatedStatsResponse"
+    } ],
+    "entity" : {
+      "path" : "/analytics"
+    }
+  }
+}

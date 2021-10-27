@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.types.dataplatform;
 
 import com.linkedin.common.urn.Urn;
+
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.types.EntityType;
 import com.linkedin.datahub.graphql.generated.DataPlatform;
@@ -46,7 +47,8 @@ public class DataPlatformType implements EntityType<DataPlatform> {
             final Map<Urn, com.linkedin.entity.Entity> dataPlatformMap = _entityClient.batchGet(dataPlatformUrns
                 .stream()
                 .filter(Objects::nonNull)
-                .collect(Collectors.toSet()));
+                .collect(Collectors.toSet()),
+            context.getActor());
 
             final List<com.linkedin.entity.Entity> gmsResults = new ArrayList<>();
             for (Urn urn : dataPlatformUrns) {

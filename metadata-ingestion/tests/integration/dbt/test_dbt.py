@@ -1,6 +1,8 @@
 from os import PathLike
 from typing import Any, Dict, Optional, Union
 
+import pytest
+
 from datahub.ingestion.run.pipeline import Pipeline
 from tests.test_helpers import mce_helpers
 
@@ -52,6 +54,7 @@ class DbtTestConfig:
         )
 
 
+@pytest.mark.integration
 def test_dbt_ingest(pytestconfig, tmp_path, mock_time):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/dbt"
 
@@ -71,6 +74,19 @@ def test_dbt_ingest(pytestconfig, tmp_path, mock_time):
             "dbt_without_schemas_mces.json",
             "dbt_without_schemas_mces_golden.json",
             source_config_modifiers={"load_schemas": False},
+        ),
+        DbtTestConfig(
+            "dbt-test-without-schemas-with-filter",
+            test_resources_dir,
+            tmp_path,
+            "dbt_without_schemas_with_filter_mces.json",
+            "dbt_without_schemas_with_filter_mces_golden.json",
+            source_config_modifiers={
+                "load_schemas": False,
+                "node_name_pattern": {
+                    "deny": ["source.sample_dbt.pagila.payment_p2020_06"]
+                },
+            },
         ),
     ]
 

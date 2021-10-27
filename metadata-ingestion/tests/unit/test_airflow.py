@@ -8,8 +8,7 @@ import airflow.configuration
 import airflow.version
 import pytest
 from airflow.lineage import apply_lineage, prepare_lineage
-from airflow.models import DAG, Connection, DagBag
-from airflow.models import TaskInstance as TI
+from airflow.models import DAG, Connection, DagBag, TaskInstance
 from airflow.utils.dates import days_ago
 
 try:
@@ -20,7 +19,7 @@ except ModuleNotFoundError:
 import datahub.emitter.mce_builder as builder
 from datahub_provider import get_provider_info
 from datahub_provider.entities import Dataset
-from datahub_provider.hooks.datahub import DatahubKafkaHook, DatahubRestHook
+from datahub_provider.hooks.datahub import AIRFLOW_1, DatahubKafkaHook, DatahubRestHook
 from datahub_provider.operators.datahub import DatahubEmitterOperator
 
 lineage_mce = builder.make_lineage_mce(
@@ -37,6 +36,13 @@ datahub_rest_connection_config = Connection(
     host="http://test_host:8080/",
     extra=None,
 )
+datahub_rest_connection_config_with_timeout = Connection(
+    conn_id="datahub_rest_test",
+    conn_type="datahub_rest",
+    host="http://test_host:8080/",
+    extra=json.dumps({"timeout_sec": 5}),
+)
+
 datahub_kafka_connection_config = Connection(
     conn_id="datahub_kafka_test",
     conn_type="datahub_kafka",
@@ -68,7 +74,7 @@ def test_dags_load_with_no_errors(pytestconfig):
     dag_bag = DagBag(dag_folder=str(airflow_examples_folder), include_examples=False)
 
     import_errors = dag_bag.import_errors
-    if airflow.version.version.startswith("1"):
+    if AIRFLOW_1:
         # The TaskFlow API is new in Airflow 2.x, so we don't expect that demo DAG
         # to work on earlier versions.
         import_errors = {
@@ -97,7 +103,20 @@ def test_datahub_rest_hook(mock_emitter):
         hook = DatahubRestHook(config.conn_id)
         hook.emit_mces([lineage_mce])
 
-        mock_emitter.assert_called_once_with(config.host, None)
+        mock_emitter.assert_called_once_with(config.host, None, None)
+        instance = mock_emitter.return_value
+        instance.emit_mce.assert_called_with(lineage_mce)
+
+
+@mock.patch("datahub.emitter.rest_emitter.DatahubRestEmitter", autospec=True)
+def test_datahub_rest_hook_with_timeout(mock_emitter):
+    with patch_airflow_connection(
+        datahub_rest_connection_config_with_timeout
+    ) as config:
+        hook = DatahubRestHook(config.conn_id)
+        hook.emit_mces([lineage_mce])
+
+        mock_emitter.assert_called_once_with(config.host, None, 5)
         instance = mock_emitter.return_value
         instance.emit_mce.assert_called_with(lineage_mce)
 
@@ -153,12 +172,13 @@ def test_hook_airflow_ui(hook):
 @pytest.mark.parametrize(
     ["inlets", "outlets"],
     [
-        (
+        pytest.param(
             # Airflow 1.10.x uses a dictionary structure for inlets and outlets.
             # We want the lineage backend to support this structure for backwards
             # compatability reasons, so this test is not conditional.
             {"datasets": [Dataset("snowflake", "mydb.schema.tableConsumed")]},
             {"datasets": [Dataset("snowflake", "mydb.schema.tableProduced")]},
+            id="airflow-1-10-lineage-syntax",
         ),
         pytest.param(
             # Airflow 2.x also supports a flattened list for inlets and outlets.
@@ -169,11 +189,8 @@ def test_hook_airflow_ui(hook):
                 airflow.version.version.startswith("1"),
                 reason="list-style lineage is only supported in Airflow 2.x",
             ),
+            id="airflow-2-lineage-syntax",
         ),
-    ],
-    ids=[
-        "airflow-1-10-x-decl",
-        "airflow-2-x-decl",
     ],
 )
 @mock.patch("datahub_provider.hooks.datahub.DatahubRestHook.emit_mces")
@@ -213,7 +230,16 @@ def test_lineage_backend(mock_emit, inlets, outlets):
             )
             op1 >> op2
 
-        ti = TI(task=op2, execution_date=DEFAULT_DATE)
+        # Airflow <= 2.1 requires the execution_date parameter. Newer Airflow
+        # versions do not require it, but will attempt to find the associated
+        # run_id in the database if execution_date is provided. As such, we
+        # must fake the run_id parameter for newer Airflow versions.
+        if any(
+            airflow.version.version.startswith(prefix) for prefix in ["1", "2.0", "2.1"]
+        ):
+            ti = TaskInstance(task=op2, execution_date=DEFAULT_DATE)
+        else:
+            ti = TaskInstance(task=op2, run_id=f"test_airflow-{DEFAULT_DATE}")
         ctx1 = {
             "dag": dag,
             "task": op2,

@@ -74,7 +74,7 @@ function list_markdown_files(): string[] {
     /^datahub-kubernetes\//,
     /^datahub-web\//,
     /^metadata-ingestion-examples\//,
-    /^docker\/(?!README|datahub-upgrade)/, // Drop all but a few docker docs.
+    /^docker\/(?!README|datahub-upgrade|airflow\/local_airflow)/, // Drop all but a few docker docs.
     /^docs\/rfc\/templates\/000-template\.md$/,
     /^docs\/docker\/README\.md/, // This one is just a pointer to another file.
     /^docs\/README\.md/, // This one is just a pointer to the hosted docs site.
@@ -121,6 +121,13 @@ const hardcoded_titles = {
   "README.md": "Introduction",
   "docs/demo.md": "Demo",
 };
+// titles that have been hardcoded in sidebars.js
+// (for cases where doc is reference multiple times with different titles)
+const sidebarsjs_hardcoded_titles = [
+  "metadata-ingestion/README.md",
+  "metadata-ingestion/source_docs/s3.md",
+  "docs/api/graphql/overview.md",
+];
 const hardcoded_hide_title = ["README.md"];
 
 const hardcoded_descriptions = {
@@ -142,6 +149,10 @@ function markdown_guess_title(
   contents: matter.GrayMatterFile<string>,
   filepath: string
 ): void {
+  if (sidebarsjs_hardcoded_titles.includes(filepath)) {
+    return;
+  }
+
   if (contents.data.title) {
     contents.data.sidebar_label = contents.data.title;
     return;
@@ -159,6 +170,13 @@ function markdown_guess_title(
   } else {
     // Find first h1 header and use it as the title.
     const headers = contents.content.match(/^# (.+)$/gm);
+
+    if (!headers) {
+      throw new Error(
+        `${filepath} must have at least one h1 header for setting the title`
+      );
+    }
+
     if (headers.length > 1 && contents.content.indexOf("```") < 0) {
       throw new Error(`too many h1 headers in ${filepath}`);
     }
@@ -284,7 +302,7 @@ function markdown_rewrite_urls(
       //
       // We do a little bit of parenthesis matching here to account for parens in URLs.
       // See https://stackoverflow.com/a/17759264 for explanation of the second capture group.
-      /\[(.+?)\]\(((?:[^)(]+|\((?:[^)(]+|\([^)(]*\))*\))*)\)/g,
+      /\[(.*?)\]\(((?:[^)(]+|\((?:[^)(]+|\([^)(]*\))*\))*)\)/g,
       (_, text, url) => {
         const updated = new_url(url.trim(), filepath);
         return `[${text}](${updated})`;

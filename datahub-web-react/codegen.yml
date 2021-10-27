@@ -1,7 +1,10 @@
 overwrite: true
 schema:
-    - '../datahub-graphql-core/src/main/resources/gms.graphql'
-    - '../datahub-frontend/conf/datahub-frontend.graphql'
+    - '../datahub-graphql-core/src/main/resources/app.graphql'
+    - '../datahub-graphql-core/src/main/resources/entity.graphql'
+    - '../datahub-graphql-core/src/main/resources/search.graphql'
+    - '../datahub-graphql-core/src/main/resources/analytics.graphql'
+    - '../datahub-graphql-core/src/main/resources/recommendation.graphql'
 config:
     scalars:
         Long: number

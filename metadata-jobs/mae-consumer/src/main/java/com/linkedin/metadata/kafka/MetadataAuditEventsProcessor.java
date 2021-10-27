@@ -1,14 +1,14 @@
 package com.linkedin.metadata.kafka;
 
+import com.codahale.metrics.Histogram;
+import com.codahale.metrics.MetricRegistry;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.element.DataElement;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.gms.factory.common.GraphServiceFactory;
 import com.linkedin.gms.factory.common.SystemMetadataServiceFactory;
-import com.linkedin.gms.factory.search.SearchServiceFactory;
-import com.linkedin.gms.factory.usage.UsageServiceFactory;
+import com.linkedin.gms.factory.search.EntitySearchServiceFactory;
 import com.linkedin.metadata.EventUtils;
-import com.linkedin.metadata.PegasusUtils;
 import com.linkedin.metadata.dao.utils.RecordUtils;
 import com.linkedin.metadata.extractor.AspectExtractor;
 import com.linkedin.metadata.extractor.FieldExtractor;
@@ -19,13 +19,14 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.RelationshipFieldSpec;
 import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
-import com.linkedin.metadata.query.CriterionArray;
-import com.linkedin.metadata.query.Filter;
-import com.linkedin.metadata.query.RelationshipDirection;
-import com.linkedin.metadata.search.SearchService;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
+import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.query.filter.RelationshipDirection;
+import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
-import com.linkedin.metadata.usage.UsageService;
+import com.linkedin.metadata.utils.PegasusUtils;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataAuditEvent;
 import com.linkedin.mxe.MetadataAuditOperation;
 import com.linkedin.mxe.SystemMetadata;
@@ -51,39 +52,39 @@ import org.springframework.kafka.annotation.EnableKafka;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 
-import static com.linkedin.metadata.dao.Neo4jUtil.createRelationshipFilter;
+import static com.linkedin.metadata.search.utils.QueryUtils.createRelationshipFilter;
 
 
 @Slf4j
 @Component
 @Conditional(MetadataChangeLogProcessorCondition.class)
-@Import({GraphServiceFactory.class, SearchServiceFactory.class, UsageServiceFactory.class,
-    SystemMetadataServiceFactory.class})
+@Import({GraphServiceFactory.class, EntitySearchServiceFactory.class, SystemMetadataServiceFactory.class})
 @EnableKafka
 public class MetadataAuditEventsProcessor {
 
   private final GraphService _graphService;
-  private final SearchService _searchService;
-  private final UsageService _usageService;
+  private final EntitySearchService _entitySearchService;
   private final SystemMetadataService _systemMetadataService;
 
+  private final Histogram kafkaLagStats = MetricUtils.get().histogram(MetricRegistry.name(this.getClass(), "kafkaLag"));
+
   @Autowired
-  public MetadataAuditEventsProcessor(GraphService graphService, SearchService searchService, UsageService usageService,
+  public MetadataAuditEventsProcessor(GraphService graphService, EntitySearchService entitySearchService,
       SystemMetadataService systemMetadataService) {
     _graphService = graphService;
-    _searchService = searchService;
-    _usageService = usageService;
+    _entitySearchService = entitySearchService;
     _systemMetadataService = systemMetadataService;
 
     _graphService.configure();
-    _searchService.configure();
-    _usageService.configure();
+    _entitySearchService.configure();
     _systemMetadataService.configure();
   }
 
-  @KafkaListener(id = "${KAFKA_CONSUMER_GROUP_ID:mae-consumer-job-client}", topics = "${KAFKA_TOPIC_NAME:"
-      + Topics.METADATA_AUDIT_EVENT + "}", containerFactory = "avroSerializedKafkaListener")
+  @KafkaListener(id = "${METADATA_AUDIT_EVENT_KAFKA_CONSUMER_GROUP_ID:mae-consumer-job-client}", topics =
+      "${KAFKA_TOPIC_NAME:" + Topics.METADATA_AUDIT_EVENT + "}", containerFactory = "avroSerializedKafkaListener")
   public void consume(final ConsumerRecord<String, GenericRecord> consumerRecord) {
+    kafkaLagStats.update(System.currentTimeMillis() - consumerRecord.timestamp());
+
     final GenericRecord record = consumerRecord.value();
     log.debug("Got MAE");
 
@@ -102,7 +103,7 @@ public class MetadataAuditEventsProcessor {
 
         final RecordTemplate snapshot = RecordUtils.getSelectedRecordTemplateFromUnion(event.getOldSnapshot());
 
-        log.info("deleting {}", snapshot.toString());
+        log.info("deleting {}", snapshot);
 
         final EntitySpec entitySpec =
             SnapshotEntityRegistry.getInstance().getEntitySpec(PegasusUtils.getEntityNameFromSchema(snapshot.schema()));
@@ -210,10 +211,15 @@ public class MetadataAuditEventsProcessor {
         }
       }
     }
-    if (edgesToAdd.size() > 0) {
+
+    if (deleteEntity) {
+      new Thread(() -> {
+        _graphService.removeNode(sourceUrn);
+      }).start();
+    } else if (edgesToAdd.size() > 0) {
       new Thread(() -> {
         _graphService.removeEdgesFromNode(sourceUrn, new ArrayList<>(relationshipTypesBeingAdded),
-            createRelationshipFilter(new Filter().setCriteria(new CriterionArray()), RelationshipDirection.OUTGOING));
+            createRelationshipFilter(new Filter().setOr(new ConjunctiveCriterionArray()), RelationshipDirection.OUTGOING));
         if (!delete) {
           edgesToAdd.forEach(edge -> _graphService.addEdge(edge));
         } else if (deleteEntity) {
@@ -253,10 +259,10 @@ public class MetadataAuditEventsProcessor {
     }
 
     if (deleteEntity) {
-      _searchService.deleteDocument(entitySpec.getName(), docId);
+      _entitySearchService.deleteDocument(entitySpec.getName(), docId);
       return;
     }
 
-    _searchService.upsertDocument(entitySpec.getName(), searchDocument.get(), docId);
+    _entitySearchService.upsertDocument(entitySpec.getName(), searchDocument.get(), docId);
   }
 }

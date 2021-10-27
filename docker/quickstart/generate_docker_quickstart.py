@@ -17,8 +17,6 @@ omitted_services = [
 # Note that these are upper bounds on memory usage. Once exceeded, the container is killed.
 # Each service will be configured to use much less Java heap space than allocated here.
 mem_limits = {
-    "datahub-gms": "512m",
-    "datahub-frontend-react": "512m",
     "elasticsearch": "1g",
 }
 
@@ -63,6 +61,16 @@ def modify_docker_config(base_path, docker_yaml_config):
         # 7. Set memory limits
         if name in mem_limits:
             service["mem_limit"] = mem_limits[name]
+
+        # 8. Correct relative paths for volume mounts
+        if "volumes" in service:
+            volumes = service["volumes"]
+            for i in range(len(volumes)):
+                ## Quickstart yaml files are located under quickstart. To get correct paths, need to refer to parent directory
+                if volumes[i].startswith("../"):
+                    volumes[i] = "../" + volumes[i]
+                elif volumes[i].startswith("./"):
+                    volumes[i] = "." + volumes[i]
 
     # 8. Set docker compose version to 2.
     # We need at least this version, since we use features like start_period for

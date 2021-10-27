@@ -28,10 +28,12 @@ public class SchemaFieldMapper implements ModelMapper<com.linkedin.schema.Schema
         result.setType(mapSchemaFieldDataType(input.getType()));
         if (input.hasGlobalTags()) {
             result.setGlobalTags(GlobalTagsMapper.map(input.getGlobalTags()));
+            result.setTags(GlobalTagsMapper.map(input.getGlobalTags()));
         }
         if (input.hasGlossaryTerms()) {
             result.setGlossaryTerms(GlossaryTermsMapper.map(input.getGlossaryTerms()));
         }
+        result.setIsPartOfKey(input.isIsPartOfKey());
         return result;
     }
 

@@ -47,4 +47,9 @@ record GlossaryTermInfo {
    * A key-value map to capture any other non-standardized properties for the glossary term
    */
   customProperties: map[string, string] = { }
+
+  /**
+   * Schema definition of the glossary term
+   */
+  rawSchema: optional string
 }

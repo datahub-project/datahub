@@ -11,9 +11,11 @@ source:
       allow:
         - "^metagalaxy"
         - "^northwind"
+        - "^test_cases"
     profile_pattern:
       allow:
         - "^northwind.*\$"
+        - "^test_cases.*\$"
     profiling:
       enabled: True
 

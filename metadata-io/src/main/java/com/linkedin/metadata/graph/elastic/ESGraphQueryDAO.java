@@ -1,11 +1,14 @@
 package com.linkedin.metadata.graph.elastic;
 
-import com.linkedin.metadata.query.Condition;
-import com.linkedin.metadata.query.CriterionArray;
-import com.linkedin.metadata.query.Filter;
-import com.linkedin.metadata.query.RelationshipDirection;
-import com.linkedin.metadata.query.RelationshipFilter;
+import com.codahale.metrics.Timer;
+import com.linkedin.metadata.query.filter.Condition;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
+import com.linkedin.metadata.query.filter.Criterion;
+import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.query.filter.RelationshipDirection;
+import com.linkedin.metadata.query.filter.RelationshipFilter;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import java.io.IOException;
 import java.util.List;
 import javax.annotation.Nonnull;
@@ -20,7 +23,7 @@ import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 
-import static com.linkedin.metadata.graph.elastic.ElasticSearchGraphService.*;
+import static com.linkedin.metadata.graph.elastic.ElasticSearchGraphService.INDEX_NAME;
 
 
 /**
@@ -33,21 +36,23 @@ public class ESGraphQueryDAO {
   private final RestHighLevelClient client;
   private final IndexConvention indexConvention;
 
-  /**
-   *
-   * @param criterionArray CriterionArray in a Filter
-   */
   @Nonnull
-  public static void addCriterionToQueryBuilder(@Nonnull CriterionArray criterionArray, String node, BoolQueryBuilder finalQuery) {
-    if (!criterionArray.stream().allMatch(criterion -> Condition.EQUAL.equals(criterion.getCondition()))) {
-      throw new RuntimeException("Currently Elastic query filter only supports EQUAL condition " + criterionArray);
+  public static void addFilterToQueryBuilder(@Nonnull Filter filter, String node, BoolQueryBuilder rootQuery) {
+    BoolQueryBuilder orQuery = new BoolQueryBuilder();
+    for (ConjunctiveCriterion conjunction : filter.getOr()) {
+      final BoolQueryBuilder andQuery = new BoolQueryBuilder();
+      final List<Criterion> criterionArray = conjunction.getAnd();
+      if (!criterionArray.stream().allMatch(criterion -> Condition.EQUAL.equals(criterion.getCondition()))) {
+        throw new RuntimeException("Currently Elastic query filter only supports EQUAL condition " + criterionArray);
+      }
+      criterionArray.forEach(
+          criterion -> andQuery.must(
+              QueryBuilders.termQuery(node + "." + criterion.getField(), criterion.getValue())
+          )
+      );
+      orQuery.should(andQuery);
     }
-
-    criterionArray.forEach(
-        criterion -> finalQuery.must(
-            QueryBuilders.termQuery(node + "." + criterion.getField(), criterion.getValue())
-        )
-    );
+    rootQuery.must(orQuery);
   }
 
   public SearchResponse getSearchResponse(
@@ -81,7 +86,7 @@ public class ESGraphQueryDAO {
 
     searchRequest.indices(indexConvention.getIndexName(INDEX_NAME));
 
-    try {
+    try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "esQuery").time()) {
       final SearchResponse searchResponse = client.search(searchRequest, RequestOptions.DEFAULT);
       return searchResponse;
     } catch (IOException e) {
@@ -107,14 +112,14 @@ public class ESGraphQueryDAO {
     if (sourceType != null && sourceType.length() > 0) {
       finalQuery.must(QueryBuilders.termQuery(sourceNode + ".entityType", sourceType));
     }
-    addCriterionToQueryBuilder(sourceEntityFilter.getCriteria(), sourceNode, finalQuery);
+    addFilterToQueryBuilder(sourceEntityFilter, sourceNode, finalQuery);
 
     // set destination filter
     String destinationNode = relationshipDirection == RelationshipDirection.OUTGOING ? "destination" : "source";
     if (destinationType != null && destinationType.length() > 0) {
       finalQuery.must(QueryBuilders.termQuery(destinationNode + ".entityType", destinationType));
     }
-    addCriterionToQueryBuilder(destinationEntityFilter.getCriteria(), destinationNode, finalQuery);
+    addFilterToQueryBuilder(destinationEntityFilter, destinationNode, finalQuery);
 
     // set relationship filter
     if (relationshipTypes.size() > 0) {

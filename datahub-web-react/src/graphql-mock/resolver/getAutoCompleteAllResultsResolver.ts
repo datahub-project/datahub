@@ -1,5 +1,5 @@
 import {
-    AutoCompleteAllResults,
+    AutoCompleteMultipleResults,
     AutoCompleteInput,
     AutoCompleteResultForEntity,
     Chart,
@@ -16,7 +16,7 @@ import { tagDb } from '../fixtures/tag';
 
 type GetAutoCompleteAllResults = {
     data: {
-        autoCompleteForAll: AutoCompleteAllResults;
+        autoCompleteForAll: AutoCompleteMultipleResults;
     };
 };
 
@@ -144,7 +144,7 @@ export const getAutoCompleteAllResultsResolver = {
                     suggestions: suggestions.filter((s, i) => {
                         return suggestions.indexOf(s) === i;
                     }),
-                    __typename: 'AutoCompleteAllResults',
+                    __typename: 'AutoCompleteMultipleResults',
                 },
             },
         };

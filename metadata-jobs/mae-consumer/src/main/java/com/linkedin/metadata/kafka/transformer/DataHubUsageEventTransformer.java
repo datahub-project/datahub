@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
+import com.linkedin.metadata.datahubusage.DataHubUsageEventType;
 import com.linkedin.metadata.kafka.hydrator.EntityHydrator;
 import com.linkedin.metadata.kafka.hydrator.EntityType;
 import java.util.Optional;
@@ -13,11 +14,11 @@ import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
-import static com.linkedin.metadata.kafka.transformer.DataHubUsageEventConstants.ACTOR_URN;
-import static com.linkedin.metadata.kafka.transformer.DataHubUsageEventConstants.ENTITY_TYPE;
-import static com.linkedin.metadata.kafka.transformer.DataHubUsageEventConstants.ENTITY_URN;
-import static com.linkedin.metadata.kafka.transformer.DataHubUsageEventConstants.TIMESTAMP;
-import static com.linkedin.metadata.kafka.transformer.DataHubUsageEventConstants.TYPE;
+import static com.linkedin.metadata.datahubusage.DataHubUsageEventConstants.ACTOR_URN;
+import static com.linkedin.metadata.datahubusage.DataHubUsageEventConstants.ENTITY_TYPE;
+import static com.linkedin.metadata.datahubusage.DataHubUsageEventConstants.ENTITY_URN;
+import static com.linkedin.metadata.datahubusage.DataHubUsageEventConstants.TIMESTAMP;
+import static com.linkedin.metadata.datahubusage.DataHubUsageEventConstants.TYPE;
 
 
 /**

@@ -1,44 +1,39 @@
 package com.linkedin.datahub.graphql.types.tag;
 
-import com.linkedin.common.AuditStamp;
-
-import com.linkedin.common.Owner;
-import com.linkedin.common.OwnerArray;
-import com.linkedin.common.Ownership;
-import com.linkedin.common.OwnershipSource;
-import com.linkedin.common.OwnershipSourceType;
-import com.linkedin.common.OwnershipType;
+import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.TagUrn;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.authorization.ConjunctivePrivilegeGroup;
+import com.linkedin.datahub.graphql.authorization.DisjunctivePrivilegeGroup;
+import com.linkedin.datahub.graphql.generated.TagUpdateInput;
+import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.authorization.PoliciesConfig;
+import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.SearchResults;
 import com.linkedin.datahub.graphql.generated.Tag;
-import com.linkedin.datahub.graphql.generated.TagUpdate;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.MutableType;
 import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.TagSnapshotMapper;
-import com.linkedin.datahub.graphql.types.tag.mappers.TagUpdateMapper;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.datahub.graphql.types.tag.mappers.TagUpdateInputSnapshotMapper;
 import com.linkedin.entity.Entity;
-import com.linkedin.metadata.aspect.TagAspect;
-import com.linkedin.metadata.configs.TagSearchConfig;
-import com.linkedin.metadata.dao.utils.ModelUtils;
 import com.linkedin.metadata.extractor.AspectExtractor;
 import com.linkedin.metadata.query.AutoCompleteResult;
-import com.linkedin.metadata.query.SearchResult;
+import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.metadata.snapshot.TagSnapshot;
 import com.linkedin.r2.RemoteInvocationException;
-import com.linkedin.tag.TagProperties;
 
 import graphql.execution.DataFetcherResult;
+import java.util.Collections;
+import java.util.Set;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.net.URISyntaxException;
@@ -48,14 +43,14 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
-public class TagType implements com.linkedin.datahub.graphql.types.SearchableEntityType<Tag>, MutableType<TagUpdate> {
+public class TagType implements com.linkedin.datahub.graphql.types.SearchableEntityType<Tag>, MutableType<TagUpdateInput> {
 
-    private static final TagSearchConfig TAG_SEARCH_CONFIG = new TagSearchConfig();
+    private static final Set<String> FACET_FIELDS = Collections.emptySet();
 
-    private final EntityClient _tagClient;
+    private final EntityClient _entityClient;
 
-    public TagType(final EntityClient tagClient) {
-        _tagClient = tagClient;
+    public TagType(final EntityClient entityClient) {
+        _entityClient = entityClient;
     }
 
     @Override
@@ -69,8 +64,8 @@ public class TagType implements com.linkedin.datahub.graphql.types.SearchableEnt
     }
 
     @Override
-    public Class<TagUpdate> inputClass() {
-        return TagUpdate.class;
+    public Class<TagUpdateInput> inputClass() {
+        return TagUpdateInput.class;
     }
 
     @Override
@@ -81,10 +76,11 @@ public class TagType implements com.linkedin.datahub.graphql.types.SearchableEnt
                 .collect(Collectors.toList());
 
         try {
-            final Map<Urn, Entity> tagMap = _tagClient.batchGet(tagUrns
+            final Map<Urn, Entity> tagMap = _entityClient.batchGet(tagUrns
                     .stream()
                     .filter(Objects::nonNull)
-                    .collect(Collectors.toSet()));
+                    .collect(Collectors.toSet()),
+                context.getActor());
 
             final List<Entity> gmsResults = new ArrayList<>();
             for (TagUrn urn : tagUrns) {
@@ -108,8 +104,8 @@ public class TagType implements com.linkedin.datahub.graphql.types.SearchableEnt
                                 int start,
                                 int count,
                                 @Nonnull QueryContext context) throws Exception {
-        final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, TAG_SEARCH_CONFIG.getFacetFields());
-        final SearchResult searchResult = _tagClient.search("tag", query, facetFilters, start, count);
+        final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
+        final SearchResult searchResult = _entityClient.search("tag", query, facetFilters, start, count, context.getActor());
         return UrnSearchResultsMapper.map(searchResult);
     }
 
@@ -119,49 +115,29 @@ public class TagType implements com.linkedin.datahub.graphql.types.SearchableEnt
                                             @Nullable List<FacetFilterInput> filters,
                                             int limit,
                                             @Nonnull QueryContext context) throws Exception {
-        final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, TAG_SEARCH_CONFIG.getFacetFields());
-        final AutoCompleteResult result = _tagClient.autoComplete("tag", query, facetFilters, limit);
+        final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
+        final AutoCompleteResult result = _entityClient.autoComplete("tag", query, facetFilters, limit, context.getActor());
         return AutoCompleteResultsMapper.map(result);
     }
 
 
     @Override
-    public Tag update(@Nonnull TagUpdate input, @Nonnull QueryContext context) throws Exception {
-        // TODO: Verify that updater is owner.
-        final CorpuserUrn actor = CorpuserUrn.createFromString(context.getActor());
-        final com.linkedin.tag.Tag partialTag = TagUpdateMapper.map(input, actor);
+    public Tag update(@Nonnull String urn, @Nonnull TagUpdateInput input, @Nonnull QueryContext context) throws Exception {
+        if (isAuthorized(input, context)) {
+            final CorpuserUrn actor = CorpuserUrn.createFromString(context.getActor());
+            final TagSnapshot tagSnapshot = TagUpdateInputSnapshotMapper.map(input, actor);
+            final Snapshot snapshot = Snapshot.create(tagSnapshot);
+            try {
+                Entity entity = new Entity();
+                entity.setValue(snapshot);
+                _entityClient.update(entity, context.getActor());
+            } catch (RemoteInvocationException e) {
+                throw new RuntimeException(String.format("Failed to write entity with urn %s", urn), e);
+            }
 
-        // Create Audit Stamp
-        final AuditStamp auditStamp = new AuditStamp();
-        auditStamp.setActor(actor, SetMode.IGNORE_NULL);
-        auditStamp.setTime(System.currentTimeMillis());
-
-        if (partialTag.hasOwnership()) {
-            partialTag.getOwnership().setLastModified(auditStamp);
-        } else {
-
-            final Ownership ownership = new Ownership();
-            final Owner owner = new Owner();
-            owner.setOwner(actor);
-            owner.setType(OwnershipType.DATAOWNER);
-            owner.setSource(new OwnershipSource().setType(OwnershipSourceType.SERVICE));
-
-            ownership.setOwners(new OwnerArray(owner));
-            ownership.setLastModified(auditStamp);
-            partialTag.setOwnership(ownership);
+            return load(urn, context).getData();
         }
-
-        partialTag.setLastModified(auditStamp);
-
-        try {
-            Entity entity = new Entity();
-            entity.setValue(Snapshot.create(toSnapshot(partialTag, partialTag.getUrn())));
-            _tagClient.update(entity);
-        } catch (RemoteInvocationException e) {
-            throw new RuntimeException(String.format("Failed to write entity with urn %s", input.getUrn()), e);
-        }
-
-        return load(input.getUrn(), context).getData();
+        throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
     }
 
     private TagUrn getTagUrn(final String urnStr) {
@@ -172,17 +148,36 @@ public class TagType implements com.linkedin.datahub.graphql.types.SearchableEnt
         }
     }
 
-    private TagSnapshot toSnapshot(@Nonnull com.linkedin.tag.Tag tag, @Nonnull TagUrn tagUrn) {
-        final List<TagAspect> aspects = new ArrayList<>();
-        if (tag.hasDescription()) {
-            TagProperties tagProperties = new TagProperties();
-            tagProperties.setDescription((tag.getDescription()));
-            tagProperties.setName((tag.getName()));
-            aspects.add(ModelUtils.newAspectUnion(TagAspect.class, tagProperties));
+    private boolean isAuthorized(@Nonnull TagUpdateInput update, @Nonnull QueryContext context) {
+        // Decide whether the current principal should be allowed to update the Dataset.
+        final DisjunctivePrivilegeGroup orPrivilegeGroups = getAuthorizedPrivileges(update);
+        return AuthorizationUtils.isAuthorized(
+            context.getAuthorizer(),
+            context.getActor(),
+            PoliciesConfig.DATASET_PRIVILEGES.getResourceType(),
+            update.getUrn(),
+            orPrivilegeGroups);
+    }
+
+    private DisjunctivePrivilegeGroup getAuthorizedPrivileges(final TagUpdateInput updateInput) {
+
+        final ConjunctivePrivilegeGroup allPrivilegesGroup = new ConjunctivePrivilegeGroup(ImmutableList.of(
+            PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType()
+        ));
+
+        List<String> specificPrivileges = new ArrayList<>();
+        if (updateInput.getOwnership() != null) {
+            specificPrivileges.add(PoliciesConfig.EDIT_ENTITY_OWNERS_PRIVILEGE.getType());
         }
-        if (tag.hasOwnership()) {
-            aspects.add(ModelUtils.newAspectUnion(TagAspect.class, tag.getOwnership()));
+        if (updateInput.getDescription() != null || updateInput.getName() != null) {
+            specificPrivileges.add(PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType());
         }
-        return ModelUtils.newSnapshot(TagSnapshot.class, tagUrn, aspects);
+        final ConjunctivePrivilegeGroup specificPrivilegeGroup = new ConjunctivePrivilegeGroup(specificPrivileges);
+
+        // If you either have all entity privileges, or have the specific privileges required, you are authorized.
+        return new DisjunctivePrivilegeGroup(ImmutableList.of(
+            allPrivilegesGroup,
+            specificPrivilegeGroup
+        ));
     }
 }

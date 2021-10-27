@@ -1,0 +1,35 @@
+mutation removeTag($input: TagAssociationInput!) {
+    removeTag(input: $input)
+}
+
+mutation addTag($input: TagAssociationInput!) {
+    addTag(input: $input)
+}
+
+mutation removeTerm($input: TermAssociationInput!) {
+    removeTerm(input: $input)
+}
+
+mutation addTerm($input: TermAssociationInput!) {
+    addTerm(input: $input)
+}
+
+mutation addLink($input: AddLinkInput!) {
+    addLink(input: $input)
+}
+
+mutation removeLink($input: RemoveLinkInput!) {
+    removeLink(input: $input)
+}
+
+mutation addOwner($input: AddOwnerInput!) {
+    addOwner(input: $input)
+}
+
+mutation removeOwner($input: RemoveOwnerInput!) {
+    removeOwner(input: $input)
+}
+
+mutation updateDescription($input: DescriptionUpdateInput!) {
+    updateDescription(input: $input)
+}

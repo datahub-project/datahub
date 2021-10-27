@@ -1,11 +1,7 @@
 package com.linkedin.metadata.entity.ebean;
 
-import com.google.common.annotations.VisibleForTesting;
-
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.metadata.entity.AspectStorageValidationUtil;
-import com.linkedin.metadata.entity.ListResult;
 import com.linkedin.metadata.dao.exception.ModelConversionException;
 import com.linkedin.metadata.dao.exception.RetryLimitReached;
 import com.linkedin.metadata.dao.retention.IndefiniteRetention;
@@ -13,18 +9,19 @@ import com.linkedin.metadata.dao.retention.Retention;
 import com.linkedin.metadata.dao.retention.TimeBasedRetention;
 import com.linkedin.metadata.dao.retention.VersionBasedRetention;
 import com.linkedin.metadata.dao.utils.QueryUtils;
+import com.linkedin.metadata.entity.AspectStorageValidationUtil;
+import com.linkedin.metadata.entity.ListResult;
 import com.linkedin.metadata.query.ExtraInfo;
 import com.linkedin.metadata.query.ExtraInfoArray;
 import com.linkedin.metadata.query.ListResultMetadata;
 import io.ebean.DuplicateKeyException;
 import io.ebean.EbeanServer;
-import io.ebean.EbeanServerFactory;
 import io.ebean.PagedList;
 import io.ebean.Query;
 import io.ebean.RawSql;
 import io.ebean.RawSqlBuilder;
 import io.ebean.Transaction;
-import io.ebean.config.ServerConfig;
+import io.ebean.annotation.TxIsolation;
 import java.net.URISyntaxException;
 import java.sql.Timestamp;
 import java.time.Clock;
@@ -43,12 +40,11 @@ import javax.persistence.RollbackException;
 import javax.persistence.Table;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.metadata.entity.EntityService.*;
+import static com.linkedin.metadata.Constants.ASPECT_LATEST_VERSION;
 
 @Slf4j
 public class EbeanAspectDao {
 
-  public static final String EBEAN_MODEL_PACKAGE = EbeanAspectV2.class.getPackage().getName();
   private static final IndefiniteRetention INDEFINITE_RETENTION = new IndefiniteRetention();
 
   private final EbeanServer _server;
@@ -56,18 +52,11 @@ public class EbeanAspectDao {
   private final Map<String, Retention> _aspectRetentionMap = new HashMap<>();
   private final Clock _clock = Clock.systemUTC();
 
-  private int _queryKeysCount = 0; // 0 means no pagination on keys
+  // Why 375? From tuning, this seems to be about the largest size we can get without having ebean batch issues.
+  // This may be able to be moved up, 375 is a bit conservative. However, we should be careful to tweak this without
+  // more testing.
+  private int _queryKeysCount = 375; // 0 means no pagination on keys
 
-  /**
-   * Constructor for EntityEbeanDao.
-   *
-   * @param serverConfig {@link ServerConfig} that defines the configuration of EbeanServer instances
-   */
-  public EbeanAspectDao(@Nonnull final ServerConfig serverConfig) {
-    this(createServer(serverConfig));
-  }
-
-  @VisibleForTesting
   public EbeanAspectDao(@Nonnull final EbeanServer server) {
     _server = server;
   }
@@ -133,7 +122,7 @@ public class EbeanAspectDao {
     }
 
     // Save newValue as the latest version (v0)
-    saveAspect(urn, aspectName, newAspectMetadata, newActor, newImpersonator, newTime, newSystemMetadata, LATEST_ASPECT_VERSION, oldAspectMetadata == null);
+    saveAspect(urn, aspectName, newAspectMetadata, newActor, newImpersonator, newTime, newSystemMetadata, ASPECT_LATEST_VERSION, oldAspectMetadata == null);
 
     // Apply retention policy
     applyRetention(urn, aspectName, getRetention(aspectName), largestVersion);
@@ -376,7 +365,7 @@ public class EbeanAspectDao {
         .select(EbeanAspectV2.KEY_ID)
         .where()
         .eq(EbeanAspectV2.ASPECT_COLUMN, aspectName)
-        .eq(EbeanAspectV2.VERSION_COLUMN, LATEST_ASPECT_VERSION)
+        .eq(EbeanAspectV2.VERSION_COLUMN, ASPECT_LATEST_VERSION)
         .setFirstRow(start)
         .setMaxRows(pageSize)
         .orderBy()
@@ -423,7 +412,7 @@ public class EbeanAspectDao {
       @Nonnull final String aspectName,
       final int start,
       final int pageSize) {
-    return listAspectMetadata(entityName, aspectName, LATEST_ASPECT_VERSION, start, pageSize);
+    return listAspectMetadata(entityName, aspectName, ASPECT_LATEST_VERSION, start, pageSize);
   }
 
   @Nonnull
@@ -471,7 +460,7 @@ public class EbeanAspectDao {
 
     T result = null;
     do {
-      try (Transaction transaction = _server.beginTransaction()) {
+      try (Transaction transaction = _server.beginTransaction(TxIsolation.REPEATABLE_READ)) {
         result = block.get();
         transaction.commit();
         lastException = null;
@@ -520,7 +509,7 @@ public class EbeanAspectDao {
         .where()
         .eq(EbeanAspectV2.URN_COLUMN, urn)
         .eq(EbeanAspectV2.ASPECT_COLUMN, aspectName)
-        .ne(EbeanAspectV2.VERSION_COLUMN, LATEST_ASPECT_VERSION)
+        .ne(EbeanAspectV2.VERSION_COLUMN, ASPECT_LATEST_VERSION)
         .le(EbeanAspectV2.VERSION_COLUMN, largestVersion - retention.getMaxVersionsToRetain() + 1)
         .delete();
   }
@@ -609,15 +598,5 @@ public class EbeanAspectDao {
     final ListResultMetadata listResultMetadata = new ListResultMetadata();
     listResultMetadata.setExtraInfos(new ExtraInfoArray(extraInfos));
     return listResultMetadata;
-  }
-
-  @Nonnull
-  private static EbeanServer createServer(@Nonnull final ServerConfig serverConfig) {
-    // Make sure that the serverConfig includes the package that contains DAO's Ebean model.
-    if (!serverConfig.getPackages().contains(EBEAN_MODEL_PACKAGE)) {
-      serverConfig.getPackages().add(EBEAN_MODEL_PACKAGE);
-    }
-    // TODO: Consider supporting SCSI
-    return EbeanServerFactory.create(serverConfig);
   }
 }

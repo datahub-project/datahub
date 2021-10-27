@@ -1,8 +1,8 @@
 {
     "styles": {
-        "border-radius-base": "8px",
-        "layout-header-background": "#333E4C",
-        "layout-header-color": "white",
+        "primary-color": "#1890ff",
+        "layout-header-background": "white",
+        "layout-header-color": "#434343",
         "layout-body-background": "white",
         "component-background": "white",
         "body-background": "white",
@@ -14,8 +14,9 @@
         "divider-color": "fade(black, 6%)",
         "disabled-color": "fade(black, 25%)",
         "steps-nav-arrow-color": "fade(black, 25%)",
-        "homepage-background-upper-fade": "#132935",
+        "homepage-background-upper-fade": "#FFFFFF",
         "homepage-background-lower-fade": "#FFFFFF",
+        "homepage-text-color": "#434343",
         "box-shadow": "0px 0px 30px 0px rgb(239 239 239)",
         "box-shadow-hover": "0px 1px 0px 0.5px rgb(239 239 239)"
     },

@@ -1,15 +1,18 @@
 """Convenience functions for creating MCEs"""
 import logging
+import re
 import time
-from typing import List, Optional, Type, TypeVar, get_type_hints
+from typing import List, Optional, Type, TypeVar, cast, get_type_hints
 
 import typing_inspect
 from avrogen.dict_wrapper import DictWrapper
 
 from datahub.metadata.schema_classes import (
+    DatasetKeyClass,
     DatasetLineageTypeClass,
     DatasetSnapshotClass,
     MetadataChangeEventClass,
+    OwnershipTypeClass,
     UpstreamClass,
     UpstreamLineageClass,
 )
@@ -43,8 +46,22 @@ def make_dataset_urn(platform: str, name: str, env: str = DEFAULT_ENV) -> str:
     return f"urn:li:dataset:({make_data_platform_urn(platform)},{name},{env})"
 
 
+def dataset_urn_to_key(dataset_urn: str) -> Optional[DatasetKeyClass]:
+    pattern = r"urn:li:dataset:\(urn:li:dataPlatform:(.*),(.*),(.*)\)"
+    results = re.search(pattern, dataset_urn)
+    if results is not None:
+        return DatasetKeyClass(
+            platform=results.group(1), name=results.group(2), origin=results.group(3)
+        )
+    return None
+
+
 def make_user_urn(username: str) -> str:
     return f"urn:li:corpuser:{username}"
+
+
+def make_group_urn(groupname: str) -> str:
+    return f"urn:li:corpGroup:{groupname}"
 
 
 def make_tag_urn(tag: str) -> str:
@@ -110,6 +127,24 @@ def make_ml_model_group_urn(platform: str, group_name: str, env: str) -> str:
     return (
         f"urn:li:mlModelGroup:({make_data_platform_urn(platform)},{group_name},{env})"
     )
+
+
+def is_valid_ownership_type(ownership_type: Optional[str]) -> bool:
+    return ownership_type is not None and ownership_type in [
+        OwnershipTypeClass.DEVELOPER,
+        OwnershipTypeClass.DATAOWNER,
+        OwnershipTypeClass.DELEGATE,
+        OwnershipTypeClass.PRODUCER,
+        OwnershipTypeClass.CONSUMER,
+        OwnershipTypeClass.STAKEHOLDER,
+    ]
+
+
+def validate_ownership_type(ownership_type: Optional[str]) -> str:
+    if is_valid_ownership_type(ownership_type):
+        return cast(str, ownership_type)
+    else:
+        raise ValueError(f"Unexpected ownership type: {ownership_type}")
 
 
 def make_lineage_mce(

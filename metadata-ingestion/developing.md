@@ -93,6 +93,9 @@ Also take a look at the guide to [adding a source](./adding-source.md).
 # Install, including all dev requirements.
 pip install -e '.[dev]'
 
+# For running integration tests, you can use 
+pip install -e '.[integration-tests]'
+
 # Run unit tests.
 pytest -m 'not integration'
 
@@ -103,14 +106,28 @@ pytest -m 'integration'
 ### Sanity check code before committing
 
 ```shell
-# Assumes: pip install -e '.[dev]'
-black .
-isort .
-flake8 .
-mypy .
-pytest
+./scripts/codegen.sh
+```
 
-# These steps are all included in the gradle build:
+This will generate some schema related files. These are auto-generated in docker containers. Do not commit these files in source code.
+
+
+```shell
+# Assumes: pip install -e '.[dev]' and venv is activated
+black src/ tests/
+isort src/ tests/
+flake8 src/ tests/
+mypy src/ tests/
+
+# If you want to run only the quicker subtests
+pytest -m 'not integration' -vv
+# Run the full testing suite
+pytest -vv
+
+# You can also run these steps via the gradle build:
+../gradlew :metadata-ingestion:lint
 ../gradlew :metadata-ingestion:lintFix
+../gradlew :metadata-ingestion:testQuick
+../gradlew :metadata-ingestion:testFull
 ../gradlew :metadata-ingestion:check
 ```

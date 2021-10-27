@@ -5,7 +5,7 @@ import com.linkedin.data.it.IterationOrder;
 import com.linkedin.data.it.ObjectIterator;
 import com.linkedin.data.schema.PathSpec;
 import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.metadata.PegasusUtils;
+import com.linkedin.metadata.utils.PegasusUtils;
 import com.linkedin.metadata.dao.utils.ModelUtils;
 import com.linkedin.metadata.models.FieldSpec;
 import java.util.HashMap;
@@ -33,6 +33,9 @@ public class AspectExtractor {
     final Map<String, DataElement> aspectsByName = new HashMap<>();
 
     for (DataElement dataElement = iterator.next(); dataElement != null; dataElement = iterator.next()) {
+      if (dataElement.getSchemaPathSpec() == null) {
+        continue;
+      }
       final PathSpec pathSpec = dataElement.getSchemaPathSpec();
       List<String> pathComponents = pathSpec.getPathComponents();
       // three components representing /aspect/*/<aspectClassName>

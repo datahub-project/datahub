@@ -7,7 +7,7 @@ import { DatasetEntity } from '../../app/entity/dataset/DatasetEntity';
 import { DataFlowEntity } from '../../app/entity/dataFlow/DataFlowEntity';
 import { DataJobEntity } from '../../app/entity/dataJob/DataJobEntity';
 import { UserEntity } from '../../app/entity/user/User';
-import { UserGroupEntity } from '../../app/entity/userGroup/UserGroup';
+import { GroupEntity } from '../../app/entity/group/Group';
 import EntityRegistry from '../../app/entity/EntityRegistry';
 import { EntityRegistryContext } from '../../entityRegistryContext';
 import { TagEntity } from '../../app/entity/tag/Tag';
@@ -17,6 +17,8 @@ import { GlossaryTermEntity } from '../../app/entity/glossaryTerm/GlossaryTermEn
 import { MLFeatureTableEntity } from '../../app/entity/mlFeatureTable/MLFeatureTableEntity';
 import { MLModelEntity } from '../../app/entity/mlModel/MLModelEntity';
 import { MLModelGroupEntity } from '../../app/entity/mlModelGroup/MLModelGroupEntity';
+import { ChartEntity } from '../../app/entity/chart/ChartEntity';
+import { DashboardEntity } from '../../app/entity/dashboard/DashboardEntity';
 
 type Props = {
     children: React.ReactNode;
@@ -26,8 +28,10 @@ type Props = {
 export function getTestEntityRegistry() {
     const entityRegistry = new EntityRegistry();
     entityRegistry.register(new DatasetEntity());
+    entityRegistry.register(new ChartEntity());
+    entityRegistry.register(new DashboardEntity());
     entityRegistry.register(new UserEntity());
-    entityRegistry.register(new UserGroupEntity());
+    entityRegistry.register(new GroupEntity());
     entityRegistry.register(new TagEntity());
     entityRegistry.register(new DataFlowEntity());
     entityRegistry.register(new DataJobEntity());

@@ -5,21 +5,26 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.graph.Edge;
+import com.linkedin.metadata.graph.RelatedEntity;
+import com.linkedin.metadata.graph.RelatedEntitiesResult;
 import com.linkedin.metadata.graph.GraphService;
-import com.linkedin.metadata.query.Condition;
-import com.linkedin.metadata.query.Criterion;
-import com.linkedin.metadata.query.CriterionArray;
-import com.linkedin.metadata.query.Filter;
-import com.linkedin.metadata.query.RelationshipDirection;
-import com.linkedin.metadata.query.RelationshipFilter;
+import com.linkedin.metadata.query.filter.Condition;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
+import com.linkedin.metadata.query.filter.Criterion;
+import com.linkedin.metadata.query.filter.CriterionArray;
+import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.query.filter.RelationshipDirection;
+import com.linkedin.metadata.query.filter.RelationshipFilter;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.IndexBuilder;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
+import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -74,11 +79,11 @@ public class ElasticSearchGraphService implements GraphService {
         edge.getSource().toString() + DOC_DELIMETER + edge.getRelationshipType() + DOC_DELIMETER + edge.getDestination().toString();
 
     try {
-      byte[] bytesOfRawDocID = rawDocId.getBytes("UTF-8");
+      byte[] bytesOfRawDocID = rawDocId.getBytes(StandardCharsets.UTF_8);
       MessageDigest md = MessageDigest.getInstance("MD5");
       byte[] thedigest = md.digest(bytesOfRawDocID);
-      return thedigest.toString();
-    } catch (NoSuchAlgorithmException | UnsupportedEncodingException e) {
+      return Base64.getEncoder().encodeToString(thedigest);
+    } catch (NoSuchAlgorithmException e) {
       e.printStackTrace();
       return rawDocId;
     }
@@ -91,7 +96,7 @@ public class ElasticSearchGraphService implements GraphService {
   }
 
   @Nonnull
-  public List<String> findRelatedUrns(
+  public RelatedEntitiesResult findRelatedEntities(
       @Nullable final String sourceType,
       @Nonnull final Filter sourceEntityFilter,
       @Nullable final String destinationType,
@@ -116,13 +121,25 @@ public class ElasticSearchGraphService implements GraphService {
     );
 
     if (response == null) {
-      return ImmutableList.of();
+      return new RelatedEntitiesResult(offset, 0, 0, ImmutableList.of());
     }
 
-    return Arrays.stream(response.getHits().getHits())
-        .map(hit -> ((HashMap<String, String>) hit.getSourceAsMap().getOrDefault(destinationNode, EMPTY_HASH)).getOrDefault("urn", null))
+    int totalCount = (int) response.getHits().getTotalHits().value;
+    final List<RelatedEntity> relationships = Arrays.stream(response.getHits().getHits())
+        .map(hit -> {
+          final String urnStr = ((HashMap<String, String>) hit.getSourceAsMap().getOrDefault(destinationNode, EMPTY_HASH)).getOrDefault("urn", null);
+          final String relationshipType = (String) hit.getSourceAsMap().get("relationshipType");
+          if (urnStr == null || relationshipType == null) {
+            log.error(String.format(
+                "Found null urn string or relationship type in Elastic index. urnStr: %s, relationshipType: %s", urnStr, relationshipType));
+            return null;
+          }
+          return new RelatedEntity(relationshipType, urnStr);
+        })
         .filter(Objects::nonNull)
         .collect(Collectors.toList());
+
+    return new RelatedEntitiesResult(offset, relationships.size(), totalCount, relationships);
   }
 
   private Filter createUrnFilter(@Nonnull final Urn urn) {
@@ -133,14 +150,14 @@ public class ElasticSearchGraphService implements GraphService {
     criterion.setField("urn");
     criterion.setValue(urn.toString());
     criterionArray.add(criterion);
-    filter.setCriteria(criterionArray);
+    filter.setOr(new ConjunctiveCriterionArray(ImmutableList.of(new ConjunctiveCriterion().setAnd(criterionArray))));
 
     return filter;
   }
 
   public void removeNode(@Nonnull final Urn urn) {
     Filter urnFilter = createUrnFilter(urn);
-    Filter emptyFilter = new Filter().setCriteria(new CriterionArray());
+    Filter emptyFilter = new Filter().setOr(new ConjunctiveCriterionArray());
     List<String> relationshipTypes = new ArrayList<>();
 
     RelationshipFilter outgoingFilter = new RelationshipFilter().setDirection(RelationshipDirection.OUTGOING);
@@ -173,7 +190,7 @@ public class ElasticSearchGraphService implements GraphService {
       @Nonnull final RelationshipFilter relationshipFilter) {
 
     Filter urnFilter = createUrnFilter(urn);
-    Filter emptyFilter = new Filter().setCriteria(new CriterionArray());
+    Filter emptyFilter = new Filter().setOr(new ConjunctiveCriterionArray());
 
     _graphWriteDAO.deleteByQuery(
         null,

@@ -29,7 +29,7 @@ services:
     - DATAHUB_SECRET=YouKnowNothing
     - DATAHUB_APP_VERSION=1.0
     - DATAHUB_PLAY_MEM_BUFFER_SIZE=10MB
-    - JAVA_OPTS=-Xms256m -Xmx256m -Dhttp.port=9002 -Dconfig.file=datahub-frontend/conf/application.conf
+    - JAVA_OPTS=-Xms512m -Xmx512m -Dhttp.port=9002 -Dconfig.file=datahub-frontend/conf/application.conf
       -Djava.security.auth.login.config=datahub-frontend/conf/jaas.conf -Dlogback.configurationFile=datahub-frontend/conf/logback.xml
       -Dlogback.debug=false -Dpidfile.path=/dev/null
     - KAFKA_BOOTSTRAP_SERVER=broker:29092
@@ -38,7 +38,6 @@ services:
     - ELASTIC_CLIENT_PORT=9200
     hostname: datahub-frontend-react
     image: linkedin/datahub-frontend-react:${DATAHUB_VERSION:-head}
-    mem_limit: 512m
     ports:
     - 9002:9002
   datahub-gms:
@@ -60,14 +59,13 @@ services:
     - NEO4J_URI=bolt://neo4j
     - NEO4J_USERNAME=neo4j
     - NEO4J_PASSWORD=datahub
-    - JAVA_OPTS=-Xms256m -Xmx256m
+    - JAVA_OPTS=-Xms1g -Xmx1g
     - GRAPH_SERVICE_IMPL=neo4j
     - ENTITY_REGISTRY_CONFIG_PATH=/datahub/datahub-gms/resources/entity-registry.yml
     - MAE_CONSUMER_ENABLED=true
     - MCE_CONSUMER_ENABLED=true
     hostname: datahub-gms
     image: linkedin/datahub-gms:${DATAHUB_VERSION:-head}
-    mem_limit: 512m
     ports:
     - 8080:8080
   elasticsearch:
@@ -111,7 +109,7 @@ services:
     hostname: kafka-setup
     image: linkedin/datahub-kafka-setup:${DATAHUB_VERSION:-head}
   mysql:
-    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_bin
     container_name: mysql
     environment:
     - MYSQL_DATABASE=datahub
@@ -123,7 +121,7 @@ services:
     ports:
     - 3306:3306
     volumes:
-    - ./mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
+    - ../mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
     - mysqldata:/var/lib/mysql
   mysql-setup:
     container_name: mysql-setup

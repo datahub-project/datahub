@@ -1,5 +1,7 @@
 package com.linkedin.metadata.models.annotation;
 
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.linkedin.data.schema.DataSchema;
 import com.linkedin.metadata.models.ModelValidationException;
 import java.util.Arrays;
@@ -9,8 +11,6 @@ import java.util.Set;
 import javax.annotation.Nonnull;
 import lombok.Value;
 import org.apache.commons.lang3.EnumUtils;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableMap;
 
 
 /**
@@ -20,11 +20,8 @@ import com.google.common.collect.ImmutableMap;
 public class SearchableAnnotation {
 
   public static final String ANNOTATION_NAME = "Searchable";
-  private static final Set<FieldType> DEFAULT_QUERY_FIELD_TYPES = ImmutableSet.of(
-      FieldType.TEXT,
-      FieldType.TEXT_PARTIAL,
-      FieldType.URN,
-      FieldType.URN_PARTIAL);
+  private static final Set<FieldType> DEFAULT_QUERY_FIELD_TYPES =
+      ImmutableSet.of(FieldType.TEXT, FieldType.TEXT_PARTIAL, FieldType.URN, FieldType.URN_PARTIAL);
 
   // Name of the field in the search index. Defaults to the field name in the schema
   String fieldName;
@@ -36,6 +33,8 @@ public class SearchableAnnotation {
   boolean enableAutocomplete;
   // Whether or not to add field to filters.
   boolean addToFilters;
+  // Name of the filter
+  Optional<String> filterNameOverride;
   // Boost multiplier to the match score. Matches on fields with higher boost score ranks higher
   double boostScore;
   // If set, add a index field of the given name that checks whether the field exists
@@ -78,6 +77,7 @@ public class SearchableAnnotation {
     final Optional<Boolean> queryByDefault = AnnotationUtils.getField(map, "queryByDefault", Boolean.class);
     final Optional<Boolean> enableAutocomplete = AnnotationUtils.getField(map, "enableAutocomplete", Boolean.class);
     final Optional<Boolean> addToFilters = AnnotationUtils.getField(map, "addToFilters", Boolean.class);
+    final Optional<String> filterNameOverride = AnnotationUtils.getField(map, "filterNameOverride", String.class);
     final Optional<Double> boostScore = AnnotationUtils.getField(map, "boostScore", Double.class);
     final Optional<String> hasValuesFieldName = AnnotationUtils.getField(map, "hasValuesFieldName", String.class);
     final Optional<String> numValuesFieldName = AnnotationUtils.getField(map, "numValuesFieldName", String.class);
@@ -87,8 +87,8 @@ public class SearchableAnnotation {
 
     final FieldType resolvedFieldType = getFieldType(fieldType, schemaDataType);
     return new SearchableAnnotation(fieldName.orElse(schemaFieldName), resolvedFieldType,
-        getQueryByDefault(queryByDefault, resolvedFieldType), enableAutocomplete.orElse(false), addToFilters.orElse(false),
-        boostScore.orElse(1.0), hasValuesFieldName, numValuesFieldName,
+        getQueryByDefault(queryByDefault, resolvedFieldType), enableAutocomplete.orElse(false),
+        addToFilters.orElse(false), filterNameOverride, boostScore.orElse(1.0), hasValuesFieldName, numValuesFieldName,
         weightsPerFieldValueMap.orElse(ImmutableMap.of()));
   }
 
@@ -104,6 +104,8 @@ public class SearchableAnnotation {
       case INT:
       case FLOAT:
         return FieldType.COUNT;
+      case MAP:
+        return FieldType.KEYWORD;
       default:
         return FieldType.TEXT;
     }
@@ -117,5 +119,9 @@ public class SearchableAnnotation {
       return Boolean.FALSE;
     }
     return maybeQueryByDefault.get();
+  }
+
+  public String getFilterName() {
+    return filterNameOverride.orElse(fieldName);
   }
 }

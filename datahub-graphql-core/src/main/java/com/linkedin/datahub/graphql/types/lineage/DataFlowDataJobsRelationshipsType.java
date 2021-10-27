@@ -1,10 +1,11 @@
 package com.linkedin.datahub.graphql.types.lineage;
 
+import com.google.common.collect.ImmutableList;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.DataFlowDataJobsRelationships;
 import com.linkedin.datahub.graphql.types.LoadableType;
 import com.linkedin.datahub.graphql.types.relationships.mappers.DataFlowDataJobsRelationshipsMapper;
-import com.linkedin.lineage.client.Relationships;
+import com.linkedin.lineage.client.RelationshipClient;
 import com.linkedin.metadata.query.RelationshipDirection;
 import com.linkedin.r2.RemoteInvocationException;
 
@@ -15,11 +16,11 @@ import java.util.stream.Collectors;
 
 public class DataFlowDataJobsRelationshipsType implements LoadableType<DataFlowDataJobsRelationships> {
 
-    private final Relationships _relationshipsClient;
+    private final RelationshipClient _relationshipClientClient;
     private final RelationshipDirection _direction = RelationshipDirection.INCOMING;
 
-    public DataFlowDataJobsRelationshipsType(final Relationships relationshipsClient) {
-        _relationshipsClient = relationshipsClient;
+    public DataFlowDataJobsRelationshipsType(final RelationshipClient relationshipClientClient) {
+        _relationshipClientClient = relationshipClientClient;
     }
 
     @Override
@@ -33,7 +34,13 @@ public class DataFlowDataJobsRelationshipsType implements LoadableType<DataFlowD
             return keys.stream().map(urn -> {
                 try {
                     com.linkedin.common.EntityRelationships relationships =
-                            _relationshipsClient.getRelationships(urn, _direction, "IsPartOf");
+                            _relationshipClientClient.getRelationships(
+                                urn,
+                                _direction,
+                                ImmutableList.of("IsPartOf"),
+                                null,
+                                null,
+                                context.getActor());
                     return DataFetcherResult.<DataFlowDataJobsRelationships>newResult().data(DataFlowDataJobsRelationshipsMapper.map(relationships)).build();
                 } catch (RemoteInvocationException | URISyntaxException e) {
                     throw new RuntimeException(String.format("Failed to batch load DataJobs for DataFlow %s", urn), e);

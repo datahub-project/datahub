@@ -68,5 +68,18 @@ record SchemaField {
   /**
    * Glossary terms associated with the field
    */
+   @Searchable = {
+    "/terms/*/urn": {
+      "fieldName": "fieldGlossaryTerms",
+      "fieldType": "URN_PARTIAL",
+      "boostScore": 0.5
+    }
+  }
   glossaryTerms: optional GlossaryTerms
+
+  /**
+   * For schema fields that are part of complex keys, set this field to true
+   * We do this to easily distinguish between value and key fields
+   */
+  isPartOfKey: boolean = false
 }

@@ -19,14 +19,14 @@ insert into metadata_aspect (urn, aspect, version, metadata, createdon, createdb
   0,
   '{"displayName":"Data Hub","active":true,"fullName":"Data Hub","email":"datahub@linkedin.com"}',
   now(),
-  'urn:li:principal:datahub'
+  'urn:li:corpuser:__datahub_system'
 ), (
   'urn:li:corpuser:datahub',
   'com.linkedin.identity.CorpUserEditableInfo',
   0,
-  '{"skills":[],"teams":[],"pictureLink":"https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web/packages/data-portal/public/assets/images/default_avatar.png"}',
+  '{"skills":[],"teams":[],"pictureLink":"https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/default_avatar.png"}',
   now(),
-  'urn:li:principal:datahub'
+  'urn:li:corpuser:__datahub_system'
 );
 
 -- create metadata index table
@@ -74,6 +74,20 @@ CREATE TABLE IF NOT EXISTS `northwind`.`customers` (
 ENGINE = InnoDB
 DEFAULT CHARACTER SET = utf8;
 
+CREATE TABLE IF NOT EXISTS `northwind`.`orders` (
+  `id` INT(11) NOT NULL AUTO_INCREMENT,
+  `description` VARCHAR(50) NULL DEFAULT NULL,
+  `customer_id` INT(11) NOT NULL,
+  PRIMARY KEY (`id`),
+  CONSTRAINT `fk_order_customer`
+    FOREIGN KEY (`customer_id`)
+    REFERENCES `northwind`.`customers`(`id`)
+    ON DELETE NO ACTION
+    ON UPDATE NO ACTION
+)
+ENGINE = InnoDB
+DEFAULT CHARACTER SET = utf8;
+
 -- Now, the actual sample data.
 
 USE `northwind`;
@@ -88,6 +102,23 @@ INSERT INTO `customers` (`id`, `company`, `last_name`, `first_name`, `email_addr
 INSERT INTO `customers` (`id`, `company`, `last_name`, `first_name`, `email_address`) VALUES (4, 'Company D', 'Lee', 'Christina', NULL);
 INSERT INTO `customers` (`id`, `company`, `last_name`, `first_name`, `email_address`) VALUES (5, 'Company E', 'Donnell', 'Martin', NULL);
 # 5 records
+
+-- -----------------------------------------------------
+-- Schema for testing different scenarios
+-- -----------------------------------------------------
+
+DROP SCHEMA IF EXISTS `test_cases` ;
+CREATE SCHEMA IF NOT EXISTS `test_cases` DEFAULT CHARACTER SET latin1 ;
+USE `test_cases` ;
+
+-- no data in `test_cases`.`test_empty`
+
+CREATE TABLE IF NOT EXISTS `test_cases`.`test_empty` (
+  `dummy` VARCHAR(50) NULL DEFAULT NULL)
+ENGINE = InnoDB
+DEFAULT CHARACTER SET = utf8;
+
+
 
 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS;
 SET UNIQUE_CHECKS=@OLD_UNIQUE_CHECKS;

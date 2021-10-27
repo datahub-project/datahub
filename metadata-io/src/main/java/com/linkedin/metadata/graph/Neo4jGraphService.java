@@ -1,15 +1,19 @@
 package com.linkedin.metadata.graph;
 
+import com.codahale.metrics.Timer;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.dao.exception.RetryLimitReached;
 import com.linkedin.metadata.dao.utils.Statement;
-import com.linkedin.metadata.query.Condition;
-import com.linkedin.metadata.query.CriterionArray;
-import com.linkedin.metadata.query.Filter;
-import com.linkedin.metadata.query.RelationshipDirection;
-import com.linkedin.metadata.query.RelationshipFilter;
+import com.linkedin.metadata.query.filter.Condition;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
+import com.linkedin.metadata.query.filter.CriterionArray;
+import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.query.filter.RelationshipDirection;
+import com.linkedin.metadata.query.filter.RelationshipFilter;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -77,7 +81,7 @@ public class Neo4jGraphService implements GraphService {
   }
 
   @Nonnull
-  public List<String> findRelatedUrns(
+  public RelatedEntitiesResult findRelatedEntities(
       @Nullable final String sourceType,
       @Nonnull final Filter sourceEntityFilter,
       @Nullable final String destinationType,
@@ -100,31 +104,44 @@ public class Neo4jGraphService implements GraphService {
 
     final String srcCriteria = filterToCriteria(sourceEntityFilter);
     final String destCriteria = filterToCriteria(destinationEntityFilter);
-    final String edgeCriteria = criterionToString(relationshipFilter.getCriteria());
+    final String edgeCriteria = relationshipFilterToCriteria(relationshipFilter);
 
     final RelationshipDirection relationshipDirection = relationshipFilter.getDirection();
 
-    String matchTemplate = "MATCH (src%s %s)-[r%s %s]-(dest%s %s) RETURN dest";
+    String matchTemplate = "MATCH (src%s %s)-[r%s %s]-(dest%s %s)";
     if (relationshipDirection == RelationshipDirection.INCOMING) {
-      matchTemplate = "MATCH (src%s %s)<-[r%s %s]-(dest%s %s) RETURN dest";
+      matchTemplate = "MATCH (src%s %s)<-[r%s %s]-(dest%s %s)";
     } else if (relationshipDirection == RelationshipDirection.OUTGOING) {
-      matchTemplate = "MATCH (src%s %s)-[r%s %s]->(dest%s %s) RETURN dest";
+      matchTemplate = "MATCH (src%s %s)-[r%s %s]->(dest%s %s)";
     }
+
+    final String returnNodes = String.format("RETURN dest%s, type(r)", destinationType); // Return both related entity and the relationship type.
+    final String returnCount = "RETURN count(*)"; // For getting the total results.
 
     String relationshipTypeFilter = "";
     if (relationshipTypes.size() > 0) {
       relationshipTypeFilter = ":" + StringUtils.join(relationshipTypes, "|");
     }
 
-    String statementString =
+    // Build Statement strings
+    String baseStatementString =
         String.format(matchTemplate, sourceType, srcCriteria, relationshipTypeFilter, edgeCriteria,
             destinationType, destCriteria);
 
-    statementString += " SKIP $offset LIMIT $count";
+    final String resultStatementString = String.format("%s %s SKIP $offset LIMIT $count", baseStatementString, returnNodes);
+    final String countStatementString = String.format("%s %s", baseStatementString, returnCount);
 
-    final Statement statement = new Statement(statementString, ImmutableMap.of("offset", offset, "count", count));
+    // Build Statements
+    final Statement resultStatement = new Statement(resultStatementString, ImmutableMap.of("offset", offset, "count", count));
+    final Statement countStatement =  new Statement(countStatementString, Collections.emptyMap());
 
-    return runQuery(statement).list(record -> record.values().get(0).asNode().get("urn").asString());
+    // Execute Queries
+    final List<RelatedEntity> relatedEntities = runQuery(resultStatement).list(record ->
+        new RelatedEntity(
+            record.values().get(1).asString(), // Relationship Type
+            record.values().get(0).asNode().get("urn").asString())); // Urn TODO: Validate this works against Neo4j.
+    final int totalCount = runQuery(countStatement).single().get(0).asInt();
+    return new RelatedEntitiesResult(offset, relatedEntities.size(), totalCount, relatedEntities);
   }
 
   public void removeNode(@Nonnull final Urn urn) {
@@ -265,7 +282,9 @@ public class Neo4jGraphService implements GraphService {
   @Nonnull
   private Result runQuery(@Nonnull Statement statement) {
     log.debug(String.format("Running Neo4j query %s", statement.toString()));
-    return _driver.session(_sessionConfig).run(statement.getCommandText(), statement.getParams());
+    try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "runQuery").time()) {
+      return _driver.session(_sessionConfig).run(statement.getCommandText(), statement.getParams());
+    }
   }
 
   // Returns "key:value" String, if value is not primitive, then use toString() and double quote it
@@ -279,6 +298,17 @@ public class Neo4jGraphService implements GraphService {
   }
 
   /**
+   * Converts {@link RelationshipFilter} to neo4j query criteria, filter criterion condition requires to be EQUAL.
+   *
+   * @param filter Query relationship filter
+   * @return Neo4j criteria string
+   */
+  @Nonnull
+  private static String relationshipFilterToCriteria(@Nonnull RelationshipFilter filter) {
+    return disjunctionToCriteria(filter.getOr());
+  }
+
+  /**
    * Converts {@link Filter} to neo4j query criteria, filter criterion condition requires to be EQUAL.
    *
    * @param filter Query Filter
@@ -286,7 +316,16 @@ public class Neo4jGraphService implements GraphService {
    */
   @Nonnull
   private static String filterToCriteria(@Nonnull Filter filter) {
-    return criterionToString(filter.getCriteria());
+    return disjunctionToCriteria(filter.getOr());
+  }
+
+  private static String disjunctionToCriteria(final ConjunctiveCriterionArray disjunction) {
+    if (disjunction.size() > 1) {
+      // TODO: Support disjunctions (ORs).
+      throw new UnsupportedOperationException("Neo4j query filter only supports 1 set of conjunction criteria");
+    }
+    final CriterionArray criterionArray = disjunction.size() > 0 ? disjunction.get(0).getAnd() : new CriterionArray();
+    return criterionToString(criterionArray);
   }
 
   /**

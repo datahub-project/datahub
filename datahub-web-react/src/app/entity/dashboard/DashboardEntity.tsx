@@ -1,23 +1,25 @@
 import { DashboardFilled, DashboardOutlined } from '@ant-design/icons';
 import * as React from 'react';
-import { Dashboard, EntityType, SearchResult } from '../../../types.generated';
-import { Direction } from '../../lineage/types';
+import {
+    GetDashboardQuery,
+    useGetDashboardQuery,
+    useUpdateDashboardMutation,
+} from '../../../graphql/dashboard.generated';
+import { Dashboard, EntityType, PlatformType, SearchResult } from '../../../types.generated';
+import { EntityAndType } from '../../lineage/types';
 import { getLogoFromPlatform } from '../../shared/getLogoFromPlatform';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
+import { EntityProfile } from '../shared/containers/profile/EntityProfile';
+import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/SidebarOwnerSection';
+import { SidebarAboutSection } from '../shared/containers/profile/sidebar/SidebarAboutSection';
+import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
+import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
+import { DashboardChartsTab } from '../shared/tabs/Entity/DashboardChartsTab';
+import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
+import { GenericEntityProperties } from '../shared/types';
 import { DashboardPreview } from './preview/DashboardPreview';
-import DashboardProfile from './profile/DashboardProfile';
-
-export default function getChildren(entity: Dashboard, direction: Direction | null): Array<string> {
-    if (direction === Direction.Upstream) {
-        return entity.info?.charts.map((chart) => chart.urn) || [];
-    }
-
-    if (direction === Direction.Downstream) {
-        return [];
-    }
-
-    return [];
-}
+import { getDataForEntityType } from '../shared/containers/profile/utils';
+import { capitalizeFirstLetter } from '../../shared/capitalizeFirstLetter';
 
 /**
  * Definition of the DataHub Dashboard entity.
@@ -60,9 +62,74 @@ export class DashboardEntity implements Entity<Dashboard> {
 
     getPathName = () => 'dashboard';
 
+    getEntityName = () => 'Dashboard';
+
     getCollectionName = () => 'Dashboards';
 
-    renderProfile = (urn: string) => <DashboardProfile urn={urn} />;
+    renderProfile = (urn: string) => (
+        <EntityProfile
+            urn={urn}
+            entityType={EntityType.Dashboard}
+            useEntityQuery={useGetDashboardQuery}
+            useUpdateQuery={useUpdateDashboardMutation}
+            getOverrideProperties={this.getOverridePropertiesFromEntity}
+            tabs={[
+                {
+                    name: 'Documentation',
+                    component: DocumentationTab,
+                },
+                {
+                    name: 'Properties',
+                    component: PropertiesTab,
+                },
+                {
+                    name: 'Charts',
+                    component: DashboardChartsTab,
+                    display: {
+                        visible: (_, _1) => true,
+                        enabled: (_, dashboard: GetDashboardQuery) => (dashboard?.dashboard?.charts?.total || 0) > 0,
+                    },
+                },
+            ]}
+            sidebarSections={[
+                {
+                    component: SidebarAboutSection,
+                },
+                {
+                    component: SidebarTagsSection,
+                    properties: {
+                        hasTags: true,
+                        hasTerms: true,
+                    },
+                },
+                {
+                    component: SidebarOwnerSection,
+                },
+            ]}
+        />
+    );
+
+    getOverridePropertiesFromEntity = (dashboard?: Dashboard | null): GenericEntityProperties => {
+        // TODO: Get rid of this once we have correctly formed platform coming back.
+        const tool = dashboard?.tool || '';
+        const name = dashboard?.info?.name;
+        const externalUrl = dashboard?.info?.externalUrl;
+        return {
+            name,
+            externalUrl,
+            platform: {
+                urn: `urn:li:dataPlatform:(${tool})`,
+                type: EntityType.DataPlatform,
+                name: tool,
+                info: {
+                    logoUrl: getLogoFromPlatform(tool),
+                    displayName: capitalizeFirstLetter(tool),
+                    type: PlatformType.Others,
+                    datasetNameDelimiter: '.',
+                },
+            },
+        };
+    };
 
     renderPreview = (_: PreviewType, data: Dashboard) => {
         return (
@@ -74,12 +141,26 @@ export class DashboardEntity implements Entity<Dashboard> {
                 access={data.info?.access}
                 tags={data.globalTags || undefined}
                 owners={data.ownership?.owners}
+                glossaryTerms={data?.glossaryTerms}
             />
         );
     };
 
     renderSearch = (result: SearchResult) => {
-        return this.renderPreview(PreviewType.SEARCH, result.entity as Dashboard);
+        const data = result.entity as Dashboard;
+        return (
+            <DashboardPreview
+                urn={data.urn}
+                platform={data.tool}
+                name={data.info?.name}
+                description={data.editableProperties?.description || data.info?.description}
+                access={data.info?.access}
+                tags={data.globalTags || undefined}
+                owners={data.ownership?.owners}
+                glossaryTerms={data?.glossaryTerms}
+                insights={result.insights}
+            />
+        );
     };
 
     getLineageVizConfig = (entity: Dashboard) => {
@@ -87,10 +168,25 @@ export class DashboardEntity implements Entity<Dashboard> {
             urn: entity.urn,
             name: entity.info?.name || '',
             type: EntityType.Dashboard,
-            upstreamChildren: getChildren(entity, Direction.Upstream),
-            downstreamChildren: getChildren(entity, Direction.Downstream),
+            // eslint-disable-next-line @typescript-eslint/dot-notation
+            upstreamChildren: entity?.['charts']?.relationships?.map(
+                (relationship) => ({ entity: relationship.entity, type: relationship.entity.type } as EntityAndType),
+            ),
+            downstreamChildren: undefined,
             icon: getLogoFromPlatform(entity.tool),
             platform: entity.tool,
         };
+    };
+
+    displayName = (data: Dashboard) => {
+        return data.info?.name || data.urn;
+    };
+
+    getGenericEntityProperties = (data: Dashboard) => {
+        return getDataForEntityType({
+            data,
+            entityType: this.type,
+            getOverrideProperties: this.getOverridePropertiesFromEntity,
+        });
     };
 }

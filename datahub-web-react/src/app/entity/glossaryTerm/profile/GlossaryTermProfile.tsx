@@ -1,24 +1,28 @@
 import { Alert } from 'antd';
 import React, { useMemo } from 'react';
-import { useGetGlossaryTermQuery } from '../../../../graphql/glossaryTerm.generated';
+import { GetGlossaryTermQuery, useGetGlossaryTermQuery } from '../../../../graphql/glossaryTerm.generated';
 import { EntityType, GlossaryTerm, SearchResult } from '../../../../types.generated';
 import { useGetEntitySearchResults } from '../../../../utils/customGraphQL/useGetEntitySearchResults';
-import { EntityProfile } from '../../../shared/EntityProfile';
+import { LegacyEntityProfile } from '../../../shared/LegacyEntityProfile';
 import RelatedEntityResults from '../../../shared/entitySearch/RelatedEntityResults';
 import useUserParams from '../../../shared/entitySearch/routingUtils/useUserParams';
 import { Message } from '../../../shared/Message';
 import { useEntityRegistry } from '../../../useEntityRegistry';
-import { Properties as PropertiesView } from '../../shared/Properties';
+import { Properties as PropertiesView } from '../../shared/components/legacy/Properties';
+import GlossayRelatedTerms from './GlossaryRelatedTerms';
 import GlossaryTermHeader from './GlossaryTermHeader';
+import SchemaView from './SchemaView';
 
 const messageStyle = { marginTop: '10%' };
 
 export enum TabType {
     RelatedEntity = 'Related Entities',
+    RelatedGlossaryTerms = 'Related Terms',
+    Schema = 'Schema',
     Properties = 'Properties',
 }
 
-const ENABLED_TAB_TYPES = [TabType.Properties, TabType.RelatedEntity];
+const ENABLED_TAB_TYPES = [TabType.Properties, TabType.RelatedEntity, TabType.RelatedGlossaryTerms, TabType.Schema];
 
 export default function GlossaryTermProfile() {
     const { urn } = useUserParams();
@@ -28,10 +32,10 @@ export default function GlossaryTermProfile() {
     const searchTypes = entityRegistry.getSearchEntityTypes();
     searchTypes.splice(searchTypes.indexOf(EntityType.GlossaryTerm), 1);
 
-    const glossaryTermName = data?.glossaryTerm?.name;
+    const glossaryTermHierarchicalName = data?.glossaryTerm?.hierarchicalName;
     const entitySearchResult = useGetEntitySearchResults(
         {
-            query: `${glossaryTermName}`,
+            query: `glossaryTerms:"${glossaryTermHierarchicalName}" OR fieldGlossaryTerms:"${glossaryTermHierarchicalName}"`,
         },
         searchTypes,
     );
@@ -49,13 +53,14 @@ export default function GlossaryTermProfile() {
         Object.keys(entitySearchResult).forEach((type) => {
             const entities = entitySearchResult[type].data?.search?.searchResults;
             if (entities && entities.length > 0) {
-                filteredSearchResult[type] = entitySearchResult[type].data?.search?.searchResults;
+                filteredSearchResult[type] = entities;
             }
         });
+
         return filteredSearchResult;
     }, [entitySearchResult]);
 
-    const getTabs = ({ glossaryTermInfo }: GlossaryTerm) => {
+    const getTabs = ({ glossaryTerm }: GetGlossaryTermQuery) => {
         return [
             {
                 name: TabType.RelatedEntity,
@@ -63,9 +68,19 @@ export default function GlossaryTermProfile() {
                 content: <RelatedEntityResults searchResult={entitySearchForDetails} />,
             },
             {
+                name: TabType.RelatedGlossaryTerms,
+                path: TabType.RelatedGlossaryTerms.toLocaleLowerCase(),
+                content: <GlossayRelatedTerms glossaryTerm={glossaryTerm || {}} />,
+            },
+            {
+                name: TabType.Schema,
+                path: TabType.Schema.toLocaleLowerCase(),
+                content: <SchemaView rawSchema={glossaryTerm?.glossaryTermInfo?.rawSchema || ''} />,
+            },
+            {
                 name: TabType.Properties,
                 path: TabType.Properties.toLocaleLowerCase(),
-                content: <PropertiesView properties={glossaryTermInfo.customProperties || []} />,
+                content: <PropertiesView properties={glossaryTerm?.glossaryTermInfo?.customProperties || []} />,
             },
         ].filter((tab) => ENABLED_TAB_TYPES.includes(tab.name));
     };
@@ -89,11 +104,11 @@ export default function GlossaryTermProfile() {
         <>
             {contentLoading && <Message type="loading" content="Loading..." style={messageStyle} />}
             {data && data.glossaryTerm && (
-                <EntityProfile
+                <LegacyEntityProfile
                     title={data.glossaryTerm.name}
                     tags={null}
                     header={getHeader(data?.glossaryTerm as GlossaryTerm)}
-                    tabs={getTabs(data.glossaryTerm as GlossaryTerm)}
+                    tabs={getTabs(data)}
                 />
             )}
         </>

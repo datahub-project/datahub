@@ -2,14 +2,11 @@ package com.linkedin.metadata.dao.producer;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.EventUtils;
 import com.linkedin.metadata.dao.exception.ModelConversionException;
-import com.linkedin.metadata.dao.utils.ModelUtils;
 import com.linkedin.metadata.event.EntityEventProducer;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.snapshot.Snapshot;
-import com.linkedin.mxe.Configs;
 import com.linkedin.mxe.MetadataAuditEvent;
 import com.linkedin.mxe.MetadataAuditOperation;
 import com.linkedin.mxe.MetadataChangeLog;
@@ -17,8 +14,8 @@ import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.mxe.TopicConvention;
 import com.linkedin.mxe.TopicConventionImpl;
 import com.linkedin.mxe.Topics;
+import io.opentelemetry.extension.annotations.WithSpan;
 import java.io.IOException;
-import java.lang.reflect.InvocationTargetException;
 import java.util.Arrays;
 import java.util.Optional;
 import javax.annotation.Nonnull;
@@ -26,7 +23,6 @@ import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.generic.IndexedRecord;
-import org.apache.avro.specific.SpecificRecord;
 import org.apache.kafka.clients.producer.Callback;
 import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerRecord;
@@ -69,6 +65,7 @@ public class EntityKafkaMetadataEventProducer implements EntityEventProducer {
   }
 
   @Override
+  @WithSpan
   public void produceMetadataAuditEvent(@Nonnull Urn urn, @Nullable Snapshot oldSnapshot, @Nonnull Snapshot newSnapshot,
       @Nullable SystemMetadata oldSystemMetadata, @Nullable SystemMetadata newSystemMetadata,
       MetadataAuditOperation operation) {
@@ -119,6 +116,7 @@ public class EntityKafkaMetadataEventProducer implements EntityEventProducer {
   }
 
   @Override
+  @WithSpan
   public void produceMetadataChangeLog(@Nonnull final Urn urn, @Nonnull AspectSpec aspectSpec,
       @Nonnull final MetadataChangeLog metadataChangeLog) {
     GenericRecord record;
@@ -150,52 +148,6 @@ public class EntityKafkaMetadataEventProducer implements EntityEventProducer {
               metadata.topic()));
         }
       });
-    }
-  }
-
-  @Override
-  public void produceAspectSpecificMetadataAuditEvent(@Nonnull final Urn urn, @Nullable final RecordTemplate oldValue,
-      @Nonnull final RecordTemplate newValue, @Nullable final SystemMetadata oldSystemMetadata,
-      @Nullable final SystemMetadata newSystemMetadata, @Nonnull final MetadataAuditOperation operation) {
-    // TODO switch to convention once versions are annotated in the schema
-    final String topicKey = ModelUtils.getAspectSpecificMAETopicName(urn, newValue);
-    if (!isValidAspectSpecificTopic(topicKey)) {
-      log.warn("The event topic for entity {} and aspect {}, expected to be {}, has not been registered.",
-          urn.getClass().getCanonicalName(), newValue.getClass().getCanonicalName(), topicKey);
-      return;
-    }
-
-    String topic;
-    Class<? extends SpecificRecord> maeAvroClass;
-    RecordTemplate metadataAuditEvent;
-    try {
-      topic = (String) Topics.class.getField(topicKey).get(null);
-      maeAvroClass = Configs.TOPIC_SCHEMA_CLASS_MAP.get(topic);
-      metadataAuditEvent = (RecordTemplate) EventUtils.getPegasusClass(maeAvroClass).newInstance();
-
-      metadataAuditEvent.getClass().getMethod("setUrn", urn.getClass()).invoke(metadataAuditEvent, urn);
-      metadataAuditEvent.getClass().getMethod("setNewValue", newValue.getClass()).invoke(metadataAuditEvent, newValue);
-      if (oldValue != null) {
-        metadataAuditEvent.getClass()
-            .getMethod("setOldValue", oldValue.getClass())
-            .invoke(metadataAuditEvent, oldValue);
-      }
-    } catch (NoSuchFieldException | IllegalAccessException | ClassNotFoundException | NoSuchMethodException
-        | InstantiationException | InvocationTargetException e) {
-      throw new IllegalArgumentException("Failed to compose the Pegasus aspect specific MAE", e);
-    }
-
-    GenericRecord record;
-    try {
-      record = EventUtils.pegasusToAvroAspectSpecificMXE(maeAvroClass, metadataAuditEvent);
-    } catch (NoSuchFieldException | IOException | IllegalAccessException e) {
-      throw new ModelConversionException("Failed to convert Pegasus aspect specific MAE to Avro", e);
-    }
-
-    if (_callback.isPresent()) {
-      _producer.send(new ProducerRecord(topic, urn.toString(), record), _callback.get());
-    } else {
-      _producer.send(new ProducerRecord(topic, urn.toString(), record));
     }
   }
 

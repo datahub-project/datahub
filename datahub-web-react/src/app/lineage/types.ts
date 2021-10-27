@@ -26,10 +26,11 @@ export type FetchedEntity = {
     urn: string;
     name: string;
     type: EntityType;
+    subtype?: string;
     icon?: string;
     // children?: Array<string>;
-    upstreamChildren?: Array<string>;
-    downstreamChildren?: Array<string>;
+    upstreamChildren?: Array<EntityAndType>;
+    downstreamChildren?: Array<EntityAndType>;
     fullyFetched?: boolean;
     platform?: string;
 };
@@ -38,6 +39,7 @@ export type NodeData = {
     urn?: string;
     name: string;
     type?: EntityType;
+    subtype?: string;
     children?: Array<NodeData>;
     unexploredChildren?: number;
     icon?: string;
@@ -45,6 +47,18 @@ export type NodeData = {
     // Currently our visualization does not support expanding in two directions
     countercurrentChildrenUrns?: string[];
     platform?: string;
+};
+
+export type VizNode = {
+    x: number;
+    y: number;
+    data: NodeData;
+};
+
+export type VizEdge = {
+    source: VizNode;
+    target: VizNode;
+    curve: { x: number; y: number }[];
 };
 
 export type FetchedEntities = { [x: string]: FetchedEntity };

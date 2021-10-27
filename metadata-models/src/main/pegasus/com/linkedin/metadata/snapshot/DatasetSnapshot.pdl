@@ -3,7 +3,7 @@ namespace com.linkedin.metadata.snapshot
 import com.linkedin.common.DatasetUrn
 import com.linkedin.metadata.aspect.DatasetAspect
 
-/*BrowsePathUtils.java*
+/**
  * A metadata snapshot for a specific dataset entity.
  */
 @Entity = {

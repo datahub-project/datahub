@@ -41,7 +41,7 @@ dependencies {
   play externalDependency.playPac4j
   play externalDependency.shiroCore
   play externalDependency.playCache
-
+  play externalDependency.playWs
   play externalDependency.kafkaClients
 
   playTest externalDependency.mockito
@@ -79,7 +79,7 @@ model {
   }
 }
 
-task unzipAssets(type: Copy, dependsOn: configurations.assets) {
+task unzipAssets(type: Copy, dependsOn: [configurations.assets, ':datahub-web-react:yarnBuild']) {
   into "${buildDir}/assets"
   from {
     configurations.assets.collect { zipTree(it) }

@@ -12,10 +12,10 @@ import com.linkedin.datahub.graphql.generated.SearchResults;
 import com.linkedin.datahub.graphql.types.corpgroup.mappers.CorpGroupSnapshotMapper;
 import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
-import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.Entity;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.query.AutoCompleteResult;
-import com.linkedin.metadata.query.SearchResult;
+import com.linkedin.metadata.search.SearchResult;
 
 import graphql.execution.DataFetcherResult;
 import javax.annotation.Nonnull;
@@ -30,10 +30,10 @@ import java.util.stream.Collectors;
 
 public class CorpGroupType implements SearchableEntityType<CorpGroup> {
 
-    private final EntityClient _corpGroupsClient;
+    private final EntityClient _entityClient;
 
-    public CorpGroupType(final EntityClient corpGroupsClient) {
-        _corpGroupsClient = corpGroupsClient;
+    public CorpGroupType(final EntityClient entityClient) {
+        _entityClient = entityClient;
     }
 
     @Override
@@ -54,8 +54,8 @@ public class CorpGroupType implements SearchableEntityType<CorpGroup> {
                     .map(this::getCorpGroupUrn)
                     .collect(Collectors.toList());
 
-            final Map<Urn, Entity> corpGroupMap = _corpGroupsClient
-                    .batchGet(new HashSet<>(corpGroupUrns));
+            final Map<Urn, Entity> corpGroupMap = _entityClient
+                    .batchGet(new HashSet<>(corpGroupUrns), context.getActor());
 
             final List<Entity> results = new ArrayList<>();
             for (CorpGroupUrn urn : corpGroupUrns) {
@@ -77,7 +77,8 @@ public class CorpGroupType implements SearchableEntityType<CorpGroup> {
                                 int count,
                                 @Nonnull final QueryContext context) throws Exception {
         final SearchResult
-            searchResult = _corpGroupsClient.search("corpGroup", query, Collections.emptyMap(), start, count);
+            searchResult = _entityClient.search("corpGroup", query, Collections.emptyMap(), start, count,
+            context.getActor());
         return UrnSearchResultsMapper.map(searchResult);
     }
 
@@ -87,7 +88,8 @@ public class CorpGroupType implements SearchableEntityType<CorpGroup> {
                                             @Nullable List<FacetFilterInput> filters,
                                             int limit,
                                             @Nonnull final QueryContext context) throws Exception {
-        final AutoCompleteResult result = _corpGroupsClient.autoComplete("corpGroup", query, Collections.emptyMap(), limit);
+        final AutoCompleteResult result = _entityClient.autoComplete("corpGroup", query, Collections.emptyMap(), limit,
+            context.getActor());
         return AutoCompleteResultsMapper.map(result);
     }
 

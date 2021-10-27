@@ -4,6 +4,7 @@ import { MlFeature, EntityType, SearchResult } from '../../../types.generated';
 import { Preview } from './preview/Preview';
 import { MLFeatureProfile } from './profile/MLFeatureProfile';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
+import { getDataForEntityType } from '../shared/containers/profile/utils';
 
 /**
  * Definition of the DataHub MLFeature entity.
@@ -40,6 +41,8 @@ export class MLFeatureEntity implements Entity<MlFeature> {
 
     getPathName = () => 'features';
 
+    getEntityName = () => 'Feature';
+
     getCollectionName = () => 'Features';
 
     renderProfile = (urn: string) => <MLFeatureProfile urn={urn} />;
@@ -67,5 +70,13 @@ export class MLFeatureEntity implements Entity<MlFeature> {
                 owners={data.ownership?.owners}
             />
         );
+    };
+
+    displayName = (data: MlFeature) => {
+        return data.name;
+    };
+
+    getGenericEntityProperties = (mlFeature: MlFeature) => {
+        return getDataForEntityType({ data: mlFeature, entityType: this.type, getOverrideProperties: (data) => data });
     };
 }

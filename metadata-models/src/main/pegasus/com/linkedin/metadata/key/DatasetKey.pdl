@@ -13,10 +13,6 @@ record DatasetKey {
   /**
   * Data platform urn associated with the dataset
   */
-  @Searchable = {
-    "fieldType": "URN",
-    "addToFilters": true
-  }
   platform: Urn
 
   /**
@@ -35,6 +31,7 @@ record DatasetKey {
   @Searchable = {
     "fieldType": "TEXT_PARTIAL",
     "addToFilters": true,
+    "filterNameOverride": "Environment",
     "queryByDefault": false
   }
   origin: FabricType

@@ -7,17 +7,18 @@ from typing import Dict, Iterable, List, Optional
 
 import pydantic
 import pydantic.dataclasses
+from pydantic import BaseModel
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 
 import datahub.emitter.mce_builder as builder
+from datahub.configuration.time_window_config import get_time_bucket
 from datahub.ingestion.api.source import Source, SourceReport
-from datahub.ingestion.api.workunit import UsageStatsWorkUnit
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.snowflake import BaseSnowflakeConfig
 from datahub.ingestion.source.usage.usage_common import (
     BaseUsageConfig,
     GenericAggregatedDataset,
-    get_time_bucket,
 )
 
 logger = logging.getLogger(__name__)
@@ -63,16 +64,19 @@ class SnowflakeColumnReference:
     columnName: str
 
 
-@pydantic.dataclasses.dataclass
-class SnowflakeObjectAccessEntry:
+class PermissiveModel(BaseModel):
+    class Config:
+        extra = "allow"
+
+
+class SnowflakeObjectAccessEntry(PermissiveModel):
     columns: List[SnowflakeColumnReference]
     objectDomain: str
     objectId: int
     objectName: str
 
 
-@pydantic.dataclasses.dataclass
-class SnowflakeJoinedAccessEvent:
+class SnowflakeJoinedAccessEvent(PermissiveModel):
     query_start_time: datetime
     query_text: str
     query_type: str
@@ -115,7 +119,7 @@ class SnowflakeUsageSource(Source):
         config = SnowflakeUsageConfig.parse_obj(config_dict)
         return cls(ctx, config)
 
-    def get_workunits(self) -> Iterable[UsageStatsWorkUnit]:
+    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         access_events = self._get_snowflake_history()
         aggregated_info = self._aggregate_access_events(access_events)
 
@@ -142,6 +146,7 @@ class SnowflakeUsageSource(Source):
         engine = self._make_sql_engine()
 
         results = engine.execute(query)
+
         for row in results:
             # Make some minor type conversions.
             if hasattr(row, "_asdict"):
@@ -150,6 +155,11 @@ class SnowflakeUsageSource(Source):
                 event_dict = row._asdict()
             else:
                 event_dict = dict(row)
+
+            # no use processing events that don't have a query text
+            if event_dict["query_text"] is None:
+                continue
+
             event_dict["base_objects_accessed"] = json.loads(
                 event_dict["base_objects_accessed"]
             )
@@ -157,8 +167,13 @@ class SnowflakeUsageSource(Source):
                 event_dict["query_start_time"]
             ).astimezone(tz=timezone.utc)
 
-            event = SnowflakeJoinedAccessEvent(**event_dict)
-            yield event
+            try:  # big hammer try block to ensure we don't fail on parsing events
+                event = SnowflakeJoinedAccessEvent(**event_dict)
+                yield event
+            except Exception:
+                self.report.report_warning(
+                    "usage", f"Failed to parse usage line {event_dict}"
+                )
 
     def _aggregate_access_events(
         self, events: Iterable[SnowflakeJoinedAccessEvent]
@@ -187,7 +202,7 @@ class SnowflakeUsageSource(Source):
 
         return datasets
 
-    def _make_usage_stat(self, agg: AggregatedDataset) -> UsageStatsWorkUnit:
+    def _make_usage_stat(self, agg: AggregatedDataset) -> MetadataWorkUnit:
         return agg.make_usage_workunit(
             self.config.bucket_duration,
             lambda resource: builder.make_dataset_urn(

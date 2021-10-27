@@ -1,13 +1,14 @@
+import logging
 from collections import Counter
 from dataclasses import dataclass, field
 from typing import Any
 from typing import Counter as CounterType
-from typing import Dict, Iterable, List, Optional, Tuple, Type, Union
+from typing import Dict, Iterable, List, Optional, Tuple, Type, Union, ValuesView
 
 import bson
 import pymongo
 from mypy_extensions import TypedDict
-from pydantic import PositiveInt
+from pydantic import PositiveInt, validator
 from pymongo.mongo_client import MongoClient
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
@@ -34,6 +35,8 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 )
 from datahub.metadata.schema_classes import DatasetPropertiesClass
 
+logger = logging.getLogger(__name__)
+
 # These are MongoDB-internal databases, which we want to skip.
 # See https://docs.mongodb.com/manual/reference/local-database/ and
 # https://docs.mongodb.com/manual/reference/config-database/ and
@@ -52,10 +55,20 @@ class MongoDBConfig(ConfigModel):
     enableSchemaInference: bool = True
     schemaSamplingSize: Optional[PositiveInt] = 1000
     useRandomSampling: bool = True
+    maxSchemaSize: Optional[PositiveInt] = 300
+    # mongodb only supports 16MB as max size for documents. However, if we try to retrieve a larger document it
+    # errors out with "16793600" as the maximum size supported.
+    maxDocumentSize: Optional[PositiveInt] = 16793600
     env: str = DEFAULT_ENV
 
     database_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
     collection_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
+
+    @validator("maxDocumentSize")
+    def check_max_doc_size_filter_is_valid(cls, doc_size_filter_value):
+        if doc_size_filter_value > 16793600:
+            raise ValueError("maxDocumentSize must be a positive value <= 16793600.")
+        return doc_size_filter_value
 
 
 @dataclass
@@ -281,6 +294,7 @@ def construct_schema_pymongo(
     collection: pymongo.collection.Collection,
     delimiter: str,
     use_random_sampling: bool,
+    max_document_size: int,
     sample_size: Optional[int] = None,
 ) -> Dict[Tuple[str, ...], SchemaDescription]:
     """
@@ -298,21 +312,27 @@ def construct_schema_pymongo(
         sample_size:
             number of items in the collection to sample
             (reads entire collection if not provided)
+        max_document_size:
+            maximum size of the document that will be considered for generating the schema.
     """
 
-    if sample_size:
-        if use_random_sampling:
-            # get sample documents in collection
-            documents = collection.aggregate(
-                [{"$sample": {"size": sample_size}}], allowDiskUse=True
-            )
-        else:
-            documents = collection.aggregate(
-                [{"$limit": sample_size}], allowDiskUse=True
-            )
+    doc_size_field = "temporary_doc_size_field"
+    # create a temporary field to store the size of the document. filter on it and then remove it.
+    aggregations = [
+        {"$addFields": {doc_size_field: {"$bsonSize": "$$ROOT"}}},
+        {"$match": {doc_size_field: {"$lt": max_document_size}}},
+        {"$project": {doc_size_field: 0}},
+    ]
+    if use_random_sampling:
+        # get sample documents in collection
+        aggregations.append({"$sample": {"size": sample_size}})
+        documents = collection.aggregate(
+            aggregations,
+            allowDiskUse=True,
+        )
     else:
-        # if sample_size is not provided, just take all items in the collection
-        documents = collection.find({})
+        aggregations.append({"$limit": sample_size})
+        documents = collection.aggregate(aggregations, allowDiskUse=True)
 
     return construct_schema(list(documents), delimiter)
 
@@ -422,8 +442,10 @@ class MongoDBSource(Source):
                     self.report.report_dropped(dataset_name)
                     continue
 
+                dataset_urn = f"urn:li:dataset:(urn:li:dataPlatform:{platform},{dataset_name},{self.config.env})"
+
                 dataset_snapshot = DatasetSnapshot(
-                    urn=f"urn:li:dataset:(urn:li:dataPlatform:{platform},{dataset_name},{self.config.env})",
+                    urn=dataset_urn,
                     aspects=[],
                 )
 
@@ -434,20 +456,48 @@ class MongoDBSource(Source):
                 dataset_snapshot.aspects.append(dataset_properties)
 
                 if self.config.enableSchemaInference:
-
+                    assert self.config.maxDocumentSize is not None
                     collection_schema = construct_schema_pymongo(
                         database[collection_name],
                         delimiter=".",
                         use_random_sampling=self.config.useRandomSampling,
+                        max_document_size=self.config.maxDocumentSize,
                         sample_size=self.config.schemaSamplingSize,
                     )
 
                     # initialize the schema for the collection
                     canonical_schema: List[SchemaField] = []
+                    max_schema_size = self.config.maxSchemaSize
+                    collection_schema_size = len(collection_schema.values())
+                    collection_fields: Union[
+                        List[SchemaDescription], ValuesView[SchemaDescription]
+                    ] = collection_schema.values()
+                    assert max_schema_size is not None
+                    if collection_schema_size > max_schema_size:
+                        # downsample the schema, using frequency as the sort key
+                        self.report.report_warning(
+                            key=dataset_urn,
+                            reason=f"Downsampling the collection schema because it has {collection_schema_size} fields. Threshold is {max_schema_size}",
+                        )
+                        collection_fields = sorted(
+                            collection_schema.values(),
+                            key=lambda x: x["count"],
+                            reverse=True,
+                        )[0:max_schema_size]
+                        # Add this information to the custom properties so user can know they are looking at downsampled schema
+                        dataset_properties.customProperties[
+                            "schema.downsampled"
+                        ] = "True"
+                        dataset_properties.customProperties[
+                            "schema.totalFields"
+                        ] = f"{collection_schema_size}"
 
+                    logger.debug(
+                        f"Size of collection fields = {len(collection_fields)}"
+                    )
                     # append each schema field (sort so output is consistent)
                     for schema_field in sorted(
-                        collection_schema.values(), key=lambda x: x["delimited_name"]
+                        collection_fields, key=lambda x: x["delimited_name"]
                     ):
                         field = SchemaField(
                             fieldPath=schema_field["delimited_name"],

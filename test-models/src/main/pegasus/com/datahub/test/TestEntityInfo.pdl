@@ -1,6 +1,7 @@
 namespace com.datahub.test
 
 import com.linkedin.common.Urn
+import com.linkedin.common.CustomProperties
 
 /**
  * Info associated with a Test Entity
@@ -8,7 +9,7 @@ import com.linkedin.common.Urn
 @Aspect = {
   "name": "testEntityInfo"
 }
-record TestEntityInfo {
+record TestEntityInfo includes CustomProperties {
 
   @Searchable = {
     "fieldName": "textFieldOverride",

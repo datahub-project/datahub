@@ -1,7 +1,7 @@
 include: "/included_view_file.view"
 
 view: looker_events {
-  sql_table_name: looker_db.events ;;
+  sql_table_name: looker_schema.events ;;
 }
 
 view: extending_looker_events {

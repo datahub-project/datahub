@@ -3,15 +3,16 @@
 # Defining environment
 ARG APP_ENV=prod
 
-FROM jwilder/dockerize:0.6.1 AS base
-
-RUN apk add --no-cache curl jq
+FROM alpine:3 as base
+ENV DOCKERIZE_VERSION v0.6.1
+RUN apk add --no-cache curl jq tar \
+    && curl -L https://github.com/jwilder/dockerize/releases/download/$DOCKERIZE_VERSION/dockerize-linux-amd64-$DOCKERIZE_VERSION.tar.gz | tar -C /usr/local/bin -xzv
 
 FROM base AS prod-install
 
 COPY docker/elasticsearch-setup/create-indices.sh /
 RUN chmod 755 create-indices.sh
-COPY gms/impl/src/main/resources/index /index
+COPY metadata-service/restli-impl/src/main/resources/index /index
 
 FROM base AS dev-install
 # Dummy stage for development. Use local files for setup
@@ -19,5 +20,5 @@ FROM base AS dev-install
 
 FROM ${APP_ENV}-install AS final
 CMD if [ "$ELASTICSEARCH_USE_SSL" == "true" ]; then ELASTICSEARCH_PROTOCOL=https; else ELASTICSEARCH_PROTOCOL=http; fi \
-    && if [[ -n "$ELASTICSEARCH_USERNAME" ]]; then ELASTICSEARCH_URL=$ELASTICSEARCH_USERNAME:$ELASTICSEARCH_PASSWORD@$ELASTICSEARCH_HOST; else ELASTICSEARCH_URL=$ELASTICSEARCH_HOST; fi \
-    && dockerize -wait $ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_URL:$ELASTICSEARCH_PORT -timeout 120s /create-indices.sh
+    && if [[ -n "$ELASTICSEARCH_USERNAME" ]]; then ELASTICSEARCH_HTTP_HEADERS="Authorization: Basic $(echo -ne "$ELASTICSEARCH_USERNAME:$ELASTICSEARCH_PASSWORD" | base64)"; else ELASTICSEARCH_HTTP_HEADERS="Accept: */*"; fi \
+    && dockerize -wait $ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_HOST:$ELASTICSEARCH_PORT -wait-http-header "${ELASTICSEARCH_HTTP_HEADERS}" -timeout 120s /create-indices.sh

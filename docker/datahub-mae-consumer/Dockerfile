@@ -3,7 +3,9 @@ ARG APP_ENV=prod
 
 FROM adoptopenjdk/openjdk8:alpine-jre as base
 ENV DOCKERIZE_VERSION v0.6.1
-RUN apk --no-cache add curl tar \
+RUN apk --no-cache add curl tar wget \
+    && wget https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v1.4.1/opentelemetry-javaagent-all.jar \
+    && wget https://repo1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaagent/0.16.1/jmx_prometheus_javaagent-0.16.1.jar -O jmx_prometheus_javaagent.jar \
     && curl -L https://github.com/jwilder/dockerize/releases/download/$DOCKERIZE_VERSION/dockerize-linux-amd64-$DOCKERIZE_VERSION.tar.gz | tar -C /usr/local/bin -xzv
 
 FROM adoptopenjdk/openjdk8:alpine-slim as prod-build
@@ -16,6 +18,7 @@ FROM base as prod-install
 COPY --from=prod-build /mae-consumer-job.jar /datahub/datahub-mae-consumer/bin/
 COPY --from=prod-build /datahub-src/metadata-models/src/main/resources/entity-registry.yml /datahub/datahub-mae-consumer/resources/entity-registry.yml
 COPY --from=prod-build /datahub-src/docker/datahub-mae-consumer/start.sh /datahub/datahub-mae-consumer/scripts/
+COPY --from=prod-build /datahub-src/docker/monitoring/client-prometheus-config.yaml /datahub/datahub-mae-consumer/scripts/prometheus-config.yaml
 RUN chmod +x /datahub/datahub-mae-consumer/scripts/start.sh
 
 FROM base as dev-install

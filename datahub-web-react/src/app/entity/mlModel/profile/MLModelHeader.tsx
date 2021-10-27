@@ -5,7 +5,7 @@ import { MlModel } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import CompactContext from '../../../shared/CompactContext';
 import { AvatarsGroup } from '../../../shared/avatar';
-import MarkdownViewer from '../../shared/MarkdownViewer';
+import MarkdownViewer from '../../shared/components/legacy/MarkdownViewer';
 
 const HeaderInfoItem = styled.div`
     display: inline-block;
@@ -58,7 +58,7 @@ export default function MLModelHeader({ mlModel: { ownership, platform, properti
                     ) : null}
                 </Row>
                 <MarkdownViewer isCompact={isCompact} source={properties?.description || ''} />
-                <AvatarsGroup owners={ownership?.owners} entityRegistry={entityRegistry} size="large" />
+                <AvatarsGroup owners={ownership?.owners} entityRegistry={entityRegistry} />
             </Space>
         </>
     );

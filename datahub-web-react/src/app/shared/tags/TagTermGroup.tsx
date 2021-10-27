@@ -1,51 +1,143 @@
-import { Modal, Tag } from 'antd';
+import { Modal, Tag, Typography, Button, message } from 'antd';
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
+import { BookOutlined, PlusOutlined } from '@ant-design/icons';
 
-import { BookOutlined } from '@ant-design/icons';
 import { useEntityRegistry } from '../../useEntityRegistry';
-import { EntityType, GlobalTags, GlobalTagsUpdate, GlossaryTerms } from '../../../types.generated';
-import { convertTagsForUpdate } from './utils/convertTagsForUpdate';
-import AddTagModal from './AddTagModal';
+import { EntityType, GlobalTags, GlossaryTerms, SubResourceType } from '../../../types.generated';
+import AddTagTermModal from './AddTagTermModal';
+import { StyledTag } from '../../entity/shared/components/styled/StyledTag';
+import { EMPTY_MESSAGES } from '../../entity/shared/constants';
+import { useRemoveTagMutation, useRemoveTermMutation } from '../../../graphql/mutations.generated';
 
 type Props = {
     uneditableTags?: GlobalTags | null;
     editableTags?: GlobalTags | null;
-    glossaryTerms?: GlossaryTerms | null;
+    editableGlossaryTerms?: GlossaryTerms | null;
+    uneditableGlossaryTerms?: GlossaryTerms | null;
     canRemove?: boolean;
-    canAdd?: boolean;
-    updateTags?: (update: GlobalTagsUpdate) => Promise<any>;
+    canAddTag?: boolean;
+    canAddTerm?: boolean;
+    showEmptyMessage?: boolean;
+    buttonProps?: Record<string, unknown>;
     onOpenModal?: () => void;
     maxShow?: number;
+    entityUrn?: string;
+    entityType?: EntityType;
+    entitySubresource?: string;
+    refetch?: () => Promise<any>;
 };
 
-const AddNewTag = styled(Tag)`
-    cursor: pointer;
+const TagWrapper = styled.div`
+    margin-bottom: -8px;
+`;
+
+const TagLink = styled(Link)`
+    display: inline-block;
+    margin-bottom: 8px;
+`;
+
+const NoElementButton = styled(Button)`
+    :not(:last-child) {
+        margin-right: 8px;
+    }
 `;
 
 export default function TagTermGroup({
     uneditableTags,
     editableTags,
     canRemove,
-    canAdd,
-    updateTags,
+    canAddTag,
+    canAddTerm,
+    showEmptyMessage,
+    buttonProps,
     onOpenModal,
     maxShow,
-    glossaryTerms,
+    uneditableGlossaryTerms,
+    editableGlossaryTerms,
+    entityUrn,
+    entityType,
+    entitySubresource,
+    refetch,
 }: Props) {
     const entityRegistry = useEntityRegistry();
     const [showAddModal, setShowAddModal] = useState(false);
+    const [addModalType, setAddModalType] = useState(EntityType.Tag);
+    const tagsEmpty =
+        !editableTags?.tags?.length &&
+        !uneditableTags?.tags?.length &&
+        !editableGlossaryTerms?.terms?.length &&
+        !uneditableGlossaryTerms?.terms?.length;
+    const [removeTagMutation] = useRemoveTagMutation();
+    const [removeTermMutation] = useRemoveTermMutation();
 
     const removeTag = (urnToRemove: string) => {
         onOpenModal?.();
         const tagToRemove = editableTags?.tags?.find((tag) => tag.tag.urn === urnToRemove);
-        const newTags = editableTags?.tags?.filter((tag) => tag.tag.urn !== urnToRemove);
         Modal.confirm({
             title: `Do you want to remove ${tagToRemove?.tag.name} tag?`,
             content: `Are you sure you want to remove the ${tagToRemove?.tag.name} tag?`,
             onOk() {
-                updateTags?.({ tags: convertTagsForUpdate(newTags || []) });
+                if (entityUrn) {
+                    removeTagMutation({
+                        variables: {
+                            input: {
+                                tagUrn: urnToRemove,
+                                resourceUrn: entityUrn,
+                                subResource: entitySubresource,
+                                subResourceType: entitySubresource ? SubResourceType.DatasetField : null,
+                            },
+                        },
+                    })
+                        .then(({ errors }) => {
+                            if (!errors) {
+                                message.success({ content: 'Removed Tag!', duration: 2 });
+                            }
+                        })
+                        .then(refetch)
+                        .catch((e) => {
+                            message.destroy();
+                            message.error({ content: `Failed to remove tag: \n ${e.message || ''}`, duration: 3 });
+                        });
+                }
+            },
+            onCancel() {},
+            okText: 'Yes',
+            maskClosable: true,
+            closable: true,
+        });
+    };
+
+    const removeTerm = (urnToRemove: string) => {
+        onOpenModal?.();
+        const termToRemove = editableGlossaryTerms?.terms?.find((term) => term.term.urn === urnToRemove);
+        Modal.confirm({
+            title: `Do you want to remove ${termToRemove?.term.name} term?`,
+            content: `Are you sure you want to remove the ${termToRemove?.term.name} tag?`,
+            onOk() {
+                if (entityUrn) {
+                    removeTermMutation({
+                        variables: {
+                            input: {
+                                termUrn: urnToRemove,
+                                resourceUrn: entityUrn,
+                                subResource: entitySubresource,
+                                subResourceType: entitySubresource ? SubResourceType.DatasetField : null,
+                            },
+                        },
+                    })
+                        .then(({ errors }) => {
+                            if (!errors) {
+                                message.success({ content: 'Removed Term!', duration: 2 });
+                            }
+                        })
+                        .then(refetch)
+                        .catch((e) => {
+                            message.destroy();
+                            message.error({ content: `Failed to remove term: \n ${e.message || ''}`, duration: 3 });
+                        });
+                }
             },
             onCancel() {},
             okText: 'Yes',
@@ -57,28 +149,39 @@ export default function TagTermGroup({
     let renderedTags = 0;
 
     return (
-        <div>
-            {glossaryTerms?.terms?.map((term) => (
-                <Link
-                    to={`/${entityRegistry.getPathName(EntityType.GlossaryTerm)}/${term.term.urn}`}
-                    key={term.term.urn}
-                >
-                    <Tag color="blue" closable={false}>
+        <TagWrapper>
+            {uneditableGlossaryTerms?.terms?.map((term) => (
+                <TagLink to={entityRegistry.getEntityUrl(EntityType.GlossaryTerm, term.term.urn)} key={term.term.urn}>
+                    <Tag closable={false}>
                         {term.term.name}
                         <BookOutlined style={{ marginLeft: '2%' }} />
                     </Tag>
-                </Link>
+                </TagLink>
+            ))}
+            {editableGlossaryTerms?.terms?.map((term) => (
+                <TagLink to={entityRegistry.getEntityUrl(EntityType.GlossaryTerm, term.term.urn)} key={term.term.urn}>
+                    <Tag
+                        closable={canRemove}
+                        onClose={(e) => {
+                            e.preventDefault();
+                            removeTerm(term.term.urn);
+                        }}
+                    >
+                        {term.term.name}
+                        <BookOutlined style={{ marginLeft: '2%' }} />
+                    </Tag>
+                </TagLink>
             ))}
             {/* uneditable tags are provided by ingestion pipelines exclusively */}
             {uneditableTags?.tags?.map((tag) => {
                 renderedTags += 1;
                 if (maxShow && renderedTags > maxShow) return null;
                 return (
-                    <Link to={`/${entityRegistry.getPathName(EntityType.Tag)}/${tag.tag.urn}`} key={tag.tag.urn}>
-                        <Tag color="blue" closable={false}>
+                    <TagLink to={entityRegistry.getEntityUrl(EntityType.Tag, tag.tag.urn)} key={tag.tag.urn}>
+                        <StyledTag $colorHash={tag.tag.urn} closable={false}>
                             {tag.tag.name}
-                        </Tag>
-                    </Link>
+                        </StyledTag>
+                    </TagLink>
                 );
             })}
             {/* editable tags may be provided by ingestion pipelines or the UI */}
@@ -86,9 +189,9 @@ export default function TagTermGroup({
                 renderedTags += 1;
                 if (maxShow && renderedTags > maxShow) return null;
                 return (
-                    <Link to={`/${entityRegistry.getPathName(EntityType.Tag)}/${tag.tag.urn}`} key={tag.tag.urn}>
-                        <Tag
-                            color="blue"
+                    <TagLink to={entityRegistry.getEntityUrl(EntityType.Tag, tag.tag.urn)} key={tag.tag.urn}>
+                        <StyledTag
+                            $colorHash={tag.tag.urn}
                             closable={canRemove}
                             onClose={(e) => {
                                 e.preventDefault();
@@ -96,28 +199,63 @@ export default function TagTermGroup({
                             }}
                         >
                             {tag.tag.name}
-                        </Tag>
-                    </Link>
+                        </StyledTag>
+                    </TagLink>
                 );
             })}
-            {canAdd && (uneditableTags?.tags?.length || 0) + (editableTags?.tags?.length || 0) < 10 && (
-                <>
-                    <AddNewTag color="success" onClick={() => setShowAddModal(true)}>
-                        + Add Tag
-                    </AddNewTag>
-                    {showAddModal && (
-                        <AddTagModal
-                            globalTags={editableTags}
-                            updateTags={updateTags}
-                            visible
-                            onClose={() => {
-                                onOpenModal?.();
-                                setShowAddModal(false);
-                            }}
-                        />
-                    )}
-                </>
+            {showEmptyMessage && canAddTag && tagsEmpty && (
+                <Typography.Paragraph type="secondary">
+                    {EMPTY_MESSAGES.tags.title}. {EMPTY_MESSAGES.tags.description}
+                </Typography.Paragraph>
             )}
-        </div>
+            {showEmptyMessage && canAddTerm && tagsEmpty && (
+                <Typography.Paragraph type="secondary">
+                    {EMPTY_MESSAGES.terms.title}. {EMPTY_MESSAGES.terms.description}
+                </Typography.Paragraph>
+            )}
+            {canAddTag && (uneditableTags?.tags?.length || 0) + (editableTags?.tags?.length || 0) < 10 && (
+                <NoElementButton
+                    type={showEmptyMessage && tagsEmpty ? 'default' : 'text'}
+                    onClick={() => {
+                        setAddModalType(EntityType.Tag);
+                        setShowAddModal(true);
+                    }}
+                    {...buttonProps}
+                >
+                    <PlusOutlined />
+                    Add Tag
+                </NoElementButton>
+            )}
+            {canAddTerm &&
+                (uneditableGlossaryTerms?.terms?.length || 0) + (editableGlossaryTerms?.terms?.length || 0) < 10 && (
+                    <NoElementButton
+                        type={showEmptyMessage && tagsEmpty ? 'default' : 'text'}
+                        onClick={() => {
+                            setAddModalType(EntityType.GlossaryTerm);
+                            setShowAddModal(true);
+                        }}
+                        {...buttonProps}
+                    >
+                        <PlusOutlined />
+                        Add Term
+                    </NoElementButton>
+                )}
+            {showAddModal && !!entityUrn && !!entityType && (
+                <AddTagTermModal
+                    type={addModalType}
+                    globalTags={editableTags}
+                    glossaryTerms={editableGlossaryTerms}
+                    visible
+                    onClose={() => {
+                        onOpenModal?.();
+                        setShowAddModal(false);
+                        refetch?.();
+                    }}
+                    entityUrn={entityUrn}
+                    entityType={entityType}
+                    entitySubresource={entitySubresource}
+                />
+            )}
+        </TagWrapper>
     );
 }
