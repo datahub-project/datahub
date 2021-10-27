@@ -48,6 +48,9 @@ fragment relationshipFields on Entity {
         ownership {
             ...ownershipFields
         }
+        subTypes {
+            typeNames
+        }
         ...datasetRelationshipsLeaf
     }
     ... on MLModelGroup {
