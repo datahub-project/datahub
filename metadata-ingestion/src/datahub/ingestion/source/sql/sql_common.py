@@ -157,6 +157,15 @@ class SQLAlchemyConfig(ConfigModel):
 
     profiling: GEProfilingConfig = GEProfilingConfig()
 
+    @pydantic.root_validator()
+    def ensure_profiling_pattern_is_passed_to_profiling(
+        cls, values: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        profiling = values.get("profiling")
+        if profiling is not None and profiling.enabled:
+            profiling.allow_deny_patterns = values["profile_pattern"]
+        return values
+
     @abstractmethod
     def get_sql_alchemy_url(self):
         pass
@@ -588,7 +597,6 @@ class SQLAlchemySource(Source):
     def _get_profiler_instance(self, inspector: Inspector) -> "DatahubGEProfiler":
         from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler
 
-        self.config.profiling.allow_deny_patterns = self.config.profile_pattern
         return DatahubGEProfiler(
             conn=inspector.bind, report=self.report, config=self.config.profiling
         )
