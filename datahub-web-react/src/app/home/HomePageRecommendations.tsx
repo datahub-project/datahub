@@ -90,7 +90,7 @@ export const HomePageRecommendations = ({ userUrn }: Props) => {
                                     <BrowseEntityCard
                                         key={entityCount.entityType}
                                         entityType={entityCount.entityType}
-                                        count={formatNumber(entityCount.count)}
+                                        count={entityCount.count}
                                     />
                                 ),
                         )}
@@ -103,6 +103,7 @@ export const HomePageRecommendations = ({ userUrn }: Props) => {
                         <RecommendationTitle level={4}>{module.title}</RecommendationTitle>
                         <ThinDivider />
                         <RecommendationModule
+                            key={module.moduleId}
                             module={module as RecommendationModuleType}
                             scenarioType={scenario}
                             showTitle={false}

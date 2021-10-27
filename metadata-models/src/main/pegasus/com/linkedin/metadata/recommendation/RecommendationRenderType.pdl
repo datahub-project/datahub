@@ -18,5 +18,15 @@ enum RecommendationRenderType {
   /**
    * Tag search list
    */
-  TAG_SEARCH_LIST
+  TAG_SEARCH_LIST,
+
+  /**
+   * Glossary term search list
+   */
+  GLOSSARY_TERM_SEARCH_LIST,
+
+  /**
+   * A list of recommended searches
+   */
+  SEARCH_QUERY_LIST
 }

@@ -4,6 +4,7 @@ import { SearchQueryList } from './renderer/component/SearchQueryList';
 import { EntityNameListRenderer } from './renderer/EntityNameListRenderer';
 import { PlatformListRenderer } from './renderer/PlatformListRenderer';
 import { TagSearchListRenderer } from './renderer/TagSearchListRenderer';
+import { GlossaryTermSearchListRenderer } from './renderer/GlossaryTermSearchListRenderer';
 import { RecommendationRenderProps } from './types';
 
 /**
@@ -25,6 +26,10 @@ const renderers: Array<{ renderType: RecommendationRenderType; renderer: React.F
     {
         renderType: RecommendationRenderType.SearchQueryList,
         renderer: SearchQueryList,
+    },
+    {
+        renderType: RecommendationRenderType.GlossaryTermSearchList,
+        renderer: GlossaryTermSearchListRenderer,
     },
 ];
 
