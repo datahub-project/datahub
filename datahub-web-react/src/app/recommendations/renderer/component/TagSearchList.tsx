@@ -17,6 +17,11 @@ const TagContainer = styled.div`
     margin-bottom: 4px;
 `;
 
+const TagButton = styled(Button)`
+    margin: 0px;
+    padding: 0px;
+`;
+
 type Props = {
     content: Array<RecommendationContent>;
     onClick?: (index: number) => void;
@@ -46,13 +51,13 @@ export const TagSearchList = ({ content, onClick }: Props) => {
     return (
         <TagSearchListContainer>
             {tags.map((tag, index) => (
-                <Button type="text" key={tag.urn} onClick={() => onClickTag(tag, index)}>
+                <TagButton type="text" key={tag.urn} onClick={() => onClickTag(tag, index)}>
                     <TagContainer>
                         <StyledTag $colorHash={tag.urn} closable={false}>
                             {tag.name}
                         </StyledTag>
                     </TagContainer>
-                </Button>
+                </TagButton>
             ))}
         </TagSearchListContainer>
     );
