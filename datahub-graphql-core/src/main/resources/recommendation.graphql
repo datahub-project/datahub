@@ -153,6 +153,11 @@ enum RecommendationRenderType {
   A list of recommended search queries
   """
   SEARCH_QUERY_LIST
+
+  """
+  Glossary Term search list
+  """
+  GLOSSARY_TERM_SEARCH_LIST
 }
 
 """
