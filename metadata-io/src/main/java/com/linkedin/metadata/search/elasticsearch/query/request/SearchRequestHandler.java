@@ -96,6 +96,13 @@ public class SearchRequestHandler {
         .collect(Collectors.toSet());
   }
 
+  private BoolQueryBuilder getFilterQuery(@Nullable Filter filter) {
+    BoolQueryBuilder filterQuery = ESUtils.buildFilterQuery(filter);
+    // Filter out entities that are marked "removed"
+    filterQuery.mustNot(QueryBuilders.matchQuery("removed", true));
+    return filterQuery;
+  }
+
   /**
    * Constructs the search query based on the query request.
    *
@@ -119,9 +126,7 @@ public class SearchRequestHandler {
 
     searchSourceBuilder.query(getQuery(input));
 
-    BoolQueryBuilder filterQuery = ESUtils.buildFilterQuery(filter);
-    // Filter out entities that are marked "removed"
-    filterQuery.mustNot(QueryBuilders.matchQuery("removed", true));
+    BoolQueryBuilder filterQuery = getFilterQuery(filter);
     searchSourceBuilder.query(QueryBuilders.boolQuery().must(getQuery(input)).must(filterQuery));
     getAggregations().forEach(searchSourceBuilder::aggregation);
     searchSourceBuilder.highlighter(getHighlights());
@@ -147,20 +152,9 @@ public class SearchRequestHandler {
       int size) {
     SearchRequest searchRequest = new SearchRequest();
 
-    final BoolQueryBuilder orQueryBuilder = new BoolQueryBuilder();
-    if (filters != null) {
-      filters.getOr().forEach(or -> {
-        final BoolQueryBuilder andQueryBuilder = new BoolQueryBuilder();
-        or.getAnd().forEach(criterion -> {
-          if (!criterion.getValue().trim().isEmpty()) {
-            andQueryBuilder.filter(ESUtils.getQueryBuilderFromCriterionForSearch(criterion));
-          }
-        });
-        orQueryBuilder.should(andQueryBuilder);
-      });
-    }
+    BoolQueryBuilder filterQuery = getFilterQuery(filters);
     final SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
-    searchSourceBuilder.query(orQueryBuilder);
+    searchSourceBuilder.query(filterQuery);
     searchSourceBuilder.from(from).size(size);
     ESUtils.buildSortOrder(searchSourceBuilder, sortCriterion);
     searchRequest.source(searchSourceBuilder);
@@ -179,10 +173,10 @@ public class SearchRequestHandler {
   @Nonnull
   public SearchRequest getAggregationRequest(@Nonnull String field, @Nullable Filter filter, int limit) {
     SearchRequest searchRequest = new SearchRequest();
-    QueryBuilder query = filter == null ? QueryBuilders.matchAllQuery() : ESUtils.buildFilterQuery(filter);
+    BoolQueryBuilder filterQuery = getFilterQuery(filter);
 
     final SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
-    searchSourceBuilder.query(query);
+    searchSourceBuilder.query(filterQuery);
     searchSourceBuilder.size(0);
     searchSourceBuilder.aggregation(AggregationBuilders.terms(field).field(field + ".keyword").size(limit));
     searchRequest.source(searchSourceBuilder);
