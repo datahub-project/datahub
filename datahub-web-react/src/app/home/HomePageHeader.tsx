@@ -237,6 +237,7 @@ export const HomePageHeader = () => {
                             <SuggestionTagContainer>
                                 {suggestionsToShow.slice(0, 3).map((suggestion) => (
                                     <SuggestionButton
+                                        key={suggestion}
                                         type="link"
                                         onClick={() =>
                                             navigateToSearchUrl({

@@ -145,8 +145,8 @@ export default function DefaultPreviewCard({
     return (
         <PreviewContainer data-testid={dataTestID}>
             <div>
-                <Link to={url}>
-                    <TitleContainer>
+                <TitleContainer>
+                    <Link to={url}>
                         <PlatformInfo>
                             {(logoUrl && <PreviewImage preview={false} src={logoUrl} alt={platform || ''} />) ||
                                 logoComponent}
@@ -160,8 +160,8 @@ export default function DefaultPreviewCard({
                         <TagContainer>
                             <TagTermGroup uneditableGlossaryTerms={glossaryTerms} uneditableTags={tags} maxShow={3} />
                         </TagContainer>
-                    </TitleContainer>
-                </Link>
+                    </Link>
+                </TitleContainer>
                 {description && description.length > 0 && (
                     <DescriptionContainer>
                         <NoMarkdownViewer limit={200}>{description}</NoMarkdownViewer>

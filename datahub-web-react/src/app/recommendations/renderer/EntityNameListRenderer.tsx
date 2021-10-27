@@ -15,38 +15,22 @@ export class EntityNameListRenderer implements RecommendationsRenderer {
         content: RecommendationContent[],
         displayType: RecommendationDisplayType,
     ): JSX.Element {
-        // todo: track clicks via module type.
         const entities = content.map((cnt) => cnt.entity).filter((entity) => entity !== undefined && entity !== null);
+        const EntityNameListComponent =
+            displayType === RecommendationDisplayType.COMPACT ? CompactEntityNameList : EntityNameList;
         return (
-            <>
-                {displayType === RecommendationDisplayType.COMPACT ? (
-                    <CompactEntityNameList
-                        onClick={(index) =>
-                            recommendationClickEvent({
-                                renderId,
-                                moduleId,
-                                scenarioType,
-                                renderType,
-                                index,
-                            })
-                        }
-                        entities={entities as Array<Entity>}
-                    />
-                ) : (
-                    <EntityNameList
-                        onClick={(index) =>
-                            recommendationClickEvent({
-                                renderId,
-                                moduleId,
-                                scenarioType,
-                                renderType,
-                                index,
-                            })
-                        }
-                        entities={entities as Array<Entity>}
-                    />
-                )}
-            </>
+            <EntityNameListComponent
+                onClick={(index) =>
+                    recommendationClickEvent({
+                        renderId,
+                        moduleId,
+                        scenarioType,
+                        renderType,
+                        index,
+                    })
+                }
+                entities={entities as Array<Entity>}
+            />
         );
     }
 }
