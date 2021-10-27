@@ -7,7 +7,6 @@ import { RecommendationModule } from '../recommendations/RecommendationModule';
 import { BrowseEntityCard } from '../search/BrowseEntityCard';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { useGetEntityCountsQuery } from '../../graphql/app.generated';
-import { formatNumber } from '../shared/formatNumber';
 
 const RecommendationsContainer = styled.div`
     margin-top: 32px;
