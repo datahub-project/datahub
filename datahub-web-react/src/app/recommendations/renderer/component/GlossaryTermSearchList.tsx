@@ -22,6 +22,11 @@ const TermButton = styled(Button)`
     padding: 0px;
 `;
 
+const StyledBook = styled(BookOutlined)`
+    margin-left: 2%;
+    font-size: 20px;
+`;
+
 type Props = {
     content: Array<RecommendationContent>;
     onClick?: (index: number) => void;
@@ -55,7 +60,7 @@ export const GlossaryTermSearchList = ({ content, onClick }: Props) => {
                     <TermContainer>
                         <Tag closable={false}>
                             {term.name}
-                            <BookOutlined style={{ marginLeft: '2%' }} />
+                            <StyledBook />
                         </Tag>
                     </TermContainer>
                 </TermButton>
