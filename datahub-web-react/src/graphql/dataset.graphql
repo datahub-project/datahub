@@ -137,7 +137,7 @@ query getDataset($urn: String!) {
                     }
                 }
             }
-				}
+        }
         incoming: relationships(
             input: { types: ["DownstreamOf", "Consumes", "Produces"], direction: INCOMING, start: 0, count: 100 }
         ) {

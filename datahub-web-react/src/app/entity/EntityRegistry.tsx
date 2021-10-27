@@ -1,6 +1,7 @@
 import { EntityType, SearchResult } from '../../types.generated';
 import { FetchedEntity } from '../lineage/types';
 import { Entity, IconStyleType, PreviewType } from './Entity';
+import { GenericEntityProperties } from './shared/types';
 import { urlEncodeUrn } from './shared/utils';
 
 function validatedGet<K, V>(key: K, map: Map<K, V>): V {
@@ -121,5 +122,10 @@ export default class EntityRegistry {
     getDisplayName<T>(type: EntityType, data: T): string {
         const entity = validatedGet(type, this.entityTypeToEntity);
         return entity.displayName(data);
+    }
+
+    getGenericEntityProperties<T>(type: EntityType, data: T): GenericEntityProperties | null {
+        const entity = validatedGet(type, this.entityTypeToEntity);
+        return entity.getGenericEntityProperties(data);
     }
 }

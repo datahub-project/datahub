@@ -1524,7 +1524,7 @@ def test_list_users(frontend_session):
     assert res_data["data"]["listUsers"]
     assert res_data["data"]["listUsers"]["start"] is 0
     assert res_data["data"]["listUsers"]["count"] is 2
-    assert len(res_data["data"]["listUsers"]["users"]) is 2 # Length of default user set.
+    assert len(res_data["data"]["listUsers"]["users"]) >= 2 # Length of default user set.
 
 @pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
 def test_list_groups(frontend_session):
@@ -1563,7 +1563,7 @@ def test_list_groups(frontend_session):
     assert res_data["data"]["listGroups"]
     assert res_data["data"]["listGroups"]["start"] is 0
     assert res_data["data"]["listGroups"]["count"] is 2
-    assert len(res_data["data"]["listGroups"]["groups"]) is 2 # Length of default group set.
+    assert len(res_data["data"]["listGroups"]["groups"]) >= 2 # Length of default group set.
 
 @pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion", "test_list_groups"])
 def test_add_remove_members_from_group(frontend_session):
@@ -1636,6 +1636,7 @@ def test_add_remove_members_from_group(frontend_session):
     assert res_data
     assert res_data["data"]
     assert res_data["data"]["corpUser"]
+    assert res_data["data"]["corpUser"]["relationships"]
     assert res_data["data"]["corpUser"]["relationships"]["total"] is 1
 
     # Now remove jdoe from the group
@@ -1805,3 +1806,66 @@ def test_create_group(frontend_session):
     assert res_data["data"]
     assert res_data["data"]["corpGroup"]
     assert res_data["data"]["corpGroup"]["properties"]["displayName"] == "Test Group"
+
+@pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
+def test_home_page_recommendations(frontend_session):
+
+    min_expected_recommendation_modules = 0
+
+    json = {
+        "query": """query listRecommendations($input: ListRecommendationsInput!) {\n
+            listRecommendations(input: $input) { modules { title } } }""",
+        "variables": {
+            "input": {
+                "userUrn": "urn:li:corpuser:datahub",
+                "requestContext": {
+                  "scenario": "HOME"
+                },
+                "limit": 5
+            }
+        }
+    }
+
+    response = frontend_session.post(
+        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json
+    )
+    response.raise_for_status()
+    res_data = response.json()
+    print(res_data)
+
+    assert res_data
+    assert res_data["data"]
+    assert res_data["data"]["listRecommendations"]
+    assert "error" not in res_data
+    assert len(res_data["data"]["listRecommendations"]["modules"]) > min_expected_recommendation_modules
+
+@pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
+def test_search_results_recommendations(frontend_session):
+
+    # This test simply ensures that the recommendations endpoint does not return an error.
+    json = {
+        "query": """query listRecommendations($input: ListRecommendationsInput!) {\n
+            listRecommendations(input: $input) { modules { title }  }""",
+        "variables": {
+            "input": {
+                "userUrn": "urn:li:corpuser:datahub",
+                "requestContext": {
+                  "scenario": "SEARCH_RESULTS",
+                  "searchRequestContext": {
+                    "query": "asdsdsdds",
+                    "filters": []
+                  }
+                },
+                "limit": 5
+            }
+        }
+    }
+
+    response = frontend_session.post(
+        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json
+    )
+    response.raise_for_status()
+    res_data = response.json()
+
+    assert res_data
+    assert "error" not in res_data

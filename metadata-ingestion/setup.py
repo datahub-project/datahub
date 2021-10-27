@@ -70,6 +70,11 @@ looker_common = {
     "looker-sdk==21.6.0"
 }
 
+bigquery_common = {
+    # Google cloud logging library
+    "google-cloud-logging"
+}
+
 # Note: for all of these, framework_common will be added.
 plugins: Dict[str, Set[str]] = {
     # Sink plugins.
@@ -82,8 +87,8 @@ plugins: Dict[str, Set[str]] = {
     # Source plugins
     "athena": sql_common | {"PyAthena[SQLAlchemy]"},
     "azure-ad": set(),
-    "bigquery": sql_common | {"pybigquery >= 0.6.0"},
-    "bigquery-usage": {"google-cloud-logging", "cachetools"},
+    "bigquery": sql_common | bigquery_common | {"pybigquery >= 0.6.0"},
+    "bigquery-usage": bigquery_common | {"cachetools"},
     "datahub-business-glossary": set(),
     "dbt": set(),
     "druid": sql_common | {"pydruid>=0.6.2"},

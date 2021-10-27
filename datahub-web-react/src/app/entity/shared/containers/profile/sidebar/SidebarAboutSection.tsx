@@ -92,7 +92,13 @@ export const SidebarAboutSection = () => {
             {links?.length > 0 ? (
                 <SidebarLinkList>
                     {(links || []).map((link) => (
-                        <LinkButton type="link" href={link.url} target="_blank" rel="noreferrer">
+                        <LinkButton
+                            type="link"
+                            href={link.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            key={`${link.label}-${link.url}-${link.author}`}
+                        >
                             <LinkOutlined />
                             {link.description || link.label}
                         </LinkButton>

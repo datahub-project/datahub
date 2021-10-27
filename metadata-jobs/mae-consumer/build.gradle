@@ -16,6 +16,7 @@ dependencies {
         exclude group: 'org.neo4j.test'
     }
     compile project(':metadata-service:restli-client')
+    compile project(':metadata-io')
     compile project(':metadata-utils')
     compile project(":entity-registry")
     compile project(':metadata-builders')
