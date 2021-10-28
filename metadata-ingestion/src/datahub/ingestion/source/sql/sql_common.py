@@ -386,12 +386,12 @@ class SQLAlchemySource(Source):
         )
 
         source_fields = [
-            f"urn:li:schemaField:({datasetUrn}, {f})"
+            f"urn:li:schemaField:({datasetUrn},{f})"
             for f in fk_dict["constrained_columns"]
         ]
         foreign_dataset = f"urn:li:dataset:(urn:li:dataPlatform:{self.platform},{referred_dataset_name},{self.config.env})"
         foreign_fields = [
-            f"urn:li:schemaField:({foreign_dataset}, {f})"
+            f"urn:li:schemaField:({foreign_dataset},{f})"
             for f in fk_dict["referred_columns"]
         ]
 
