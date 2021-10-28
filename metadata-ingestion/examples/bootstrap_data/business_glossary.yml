@@ -10,10 +10,16 @@ nodes:
     terms:
       - name: Sensitive
         description: Sensitive Data
+        custom_properties:
+          is_confidential: false
       - name: Confidential
         description: Confidential Data
+        custom_properties:
+          is_confidential: true
       - name: HighlyConfidential
-        description: Highly Confidential Data  
+        description: Highly Confidential Data
+        custom_properties:
+          is_confidential: true
   - name: PersonalInformation
     description: All terms related to personal information
     owners:

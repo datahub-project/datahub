@@ -33,6 +33,44 @@ transformers:
     config:
       get_tags_to_add: "<your_module>.<your_function>"
 ```
+
+Then define your function to return a list of TagAssociationClass tags, for example:
+
+```python
+import logging
+
+import datahub.emitter.mce_builder as builder
+from datahub.metadata.schema_classes import (
+    DatasetSnapshotClass,
+    TagAssociationClass
+)
+
+def custom_tags(current: DatasetSnapshotClass) -> List[TagAssociationClass]:
+    """ Returns tags to associate to a dataset depending on custom logic
+
+    This function receives a DatasetSnapshotClass, performs custom logic and returns
+    a list of TagAssociationClass-wrapped tags.
+
+    Args:
+        current (DatasetSnapshotClass): Single DatasetSnapshotClass object
+
+    Returns:
+        List of TagAssociationClass objects.
+    """
+
+    tag_strings = []
+
+    ### Add custom logic here
+    tag_strings.append('custom1')
+    tag_strings.append('custom2')
+    
+    tag_strings = [builder.make_tag_urn(tag=n) for n in tag_strings]
+    tags = [TagAssociationClass(tag=tag) for tag in tag_strings]
+    
+    logging.info(f"Tagging dataset {current.urn} with {tag_strings}.")
+    return tags
+```
+
 ### Change owners
 
 If we wanted to clear existing owners sent by ingestion source we can use the `simple_remove_dataset_ownership` module which removes all owners sent by the ingestion source.
@@ -116,7 +154,7 @@ transformers:
   - type: "set_dataset_browse_path"
     config:
       path_templates:
-        - /ENV/PLATFORM/DATASET_PARTS/ 
+        - /ENV/PLATFORM/DATASET_PARTS 
 ```
 
 If you don't want the environment but wanted to add something static in the browse path like the database instance name you can use this.
@@ -125,7 +163,7 @@ transformers:
   - type: "set_dataset_browse_path"
     config:
       path_templates:
-        - /PLATFORM/marketing_db/DATASET_PARTS/ 
+        - /PLATFORM/marketing_db/DATASET_PARTS 
 ```
 It will create browse path like `/mysql/marketing_db/sales/orders` for a table `sales.orders` in `mysql` database instance.
 
@@ -135,8 +173,8 @@ transformers:
   - type: "set_dataset_browse_path"
     config:
       path_templates:
-        - /PLATFORM/marketing_db/DATASET_PARTS/
-        - /data_warehouse/DATASET_PARTS/
+        - /PLATFORM/marketing_db/DATASET_PARTS
+        - /data_warehouse/DATASET_PARTS
 ```
 This will add 2 browse paths like `/mysql/marketing_db/sales/orders` and `/data_warehouse/sales/orders` for a table `sales.orders` in `mysql` database instance.
 
@@ -148,7 +186,7 @@ transformers:
     config:
       replace_existing: True
       path_templates:
-        - /ENV/PLATFORM/DATASET_PARTS/
+        - /ENV/PLATFORM/DATASET_PARTS
 ```
 In this case, the resulting dataset will have only 1 browse path, the one from the transform.
 

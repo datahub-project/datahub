@@ -2,7 +2,7 @@ import json
 import os
 import pprint
 import shutil
-from typing import Any, List, Optional, Union
+from typing import List, Optional, Union
 
 import deepdiff
 
@@ -37,24 +37,6 @@ def assert_mces_equal(
         assert not diff, f"MCEs differ\n{pprint.pformat(diff)}"
 
 
-def mce_mcp_key_extractor(x: Any) -> Any:
-    """A key extractor for MCE / MCP records to help with sorting"""
-    try:
-        if "proposedSnapshot" in x:  # MCE
-            for k in x["proposedSnapshot"]:
-                if k.endswith("Snapshot"):
-                    return x["proposedSnapshot"][k]["urn"]
-        elif "entityUrn" in x:  # MCP
-            return x["entityUrn"]
-        elif "resource" in x:  # legacy Usage event
-            return x["resource"]
-        else:  # something else, unlikely this will end well
-            return x
-    except Exception as e:
-        print(x)
-        raise e
-
-
 def check_golden_file(
     pytestconfig: PytestConfig,
     output_path: Union[str, os.PathLike],
@@ -80,12 +62,6 @@ def check_golden_file(
         golden = load_json_file(golden_path)
 
     try:
-        # Do a stable sort of the output and the golden lists to eliminate spurious diffs
-        if isinstance(output, list):
-            output = sorted(output, key=mce_mcp_key_extractor)
-        if isinstance(golden, list):
-            golden = sorted(golden, key=mce_mcp_key_extractor)
-
         assert_mces_equal(output, golden, ignore_paths)
 
     except AssertionError as e:

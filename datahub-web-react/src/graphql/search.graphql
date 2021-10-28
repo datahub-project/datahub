@@ -272,6 +272,10 @@ fragment searchResults on SearchResults {
             name
             value
         }
+        insights {
+            text
+            icon
+        }
     }
     facets {
         field

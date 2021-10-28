@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Iterable, List, Optional, Union
+from typing import Any, Dict, Iterable, List, Optional, Union
 
 from pydantic import validator
 
@@ -34,6 +34,7 @@ class GlossaryTermConfig(ConfigModel):
     owners: Optional[Owners]
     inherits: Optional[List[str]]
     contains: Optional[List[str]]
+    custom_properties: Optional[Dict[str, str]]
 
 
 class GlossaryNodeConfig(ConfigModel):
@@ -209,6 +210,7 @@ def get_mces_from_term(
         else defaults.source,
         sourceUrl=glossaryTerm.source_url if glossaryTerm.source_url else defaults.url,
         parentNode=parentNode,
+        customProperties=glossaryTerm.custom_properties,
     )
     aspects.append(term_info)
 

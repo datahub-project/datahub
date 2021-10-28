@@ -1,6 +1,5 @@
 import React from 'react';
 import { render } from '@testing-library/react';
-import { hierarchy } from '@vx/hierarchy';
 import { Zoom } from '@vx/zoom';
 
 import { dataset3WithLineage, dataset4WithLineage, dataset5WithLineage, dataset6WithLineage } from '../../../Mocks';
@@ -17,7 +16,6 @@ const [windowWidth, windowHeight] = [1000, 500];
 const height = windowHeight - 125;
 const width = windowWidth;
 const yMax = height - margin.top - margin.bottom;
-const xMax = (width - margin.left - margin.right) / 2;
 const initialTransform = {
     scaleX: 2 / 3,
     scaleY: 2 / 3,
@@ -47,13 +45,11 @@ describe('LineageTree', () => {
             {} as FetchedEntities,
         );
 
-        const downstreamData = hierarchy(
-            constructTree(
-                { entity: dataset3WithLineage, type: EntityType.Dataset },
-                mockFetchedEntities,
-                Direction.Upstream,
-                testEntityRegistry,
-            ),
+        const downstreamData = constructTree(
+            { entity: dataset3WithLineage, type: EntityType.Dataset },
+            mockFetchedEntities,
+            Direction.Upstream,
+            testEntityRegistry,
         );
 
         const { getByTestId } = render(
@@ -75,9 +71,13 @@ describe('LineageTree', () => {
                                 onEntityClick={jest.fn()}
                                 onLineageExpand={jest.fn()}
                                 canvasHeight={yMax}
-                                canvasWidth={xMax}
                                 margin={margin}
                                 direction={Direction.Upstream}
+                                setIsDraggingNode={jest.fn()}
+                                draggedNodes={{}}
+                                setDraggedNodes={jest.fn()}
+                                onEntityCenter={jest.fn()}
+                                setHoveredEntity={jest.fn()}
                             />
                         </svg>
                     )}

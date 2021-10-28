@@ -4,7 +4,6 @@ import {
     DataPlatform,
     DatasetEditableProperties,
     DatasetEditablePropertiesUpdate,
-    DownstreamEntityRelationships,
     EditableSchemaMetadata,
     EditableSchemaMetadataUpdate,
     EntityType,
@@ -18,8 +17,8 @@ import {
     OwnershipUpdate,
     SchemaMetadata,
     StringMapEntry,
-    UpstreamEntityRelationships,
 } from '../../../types.generated';
+import { FetchedEntity } from '../../lineage/types';
 
 export type EntityTab = {
     name: string;
@@ -44,8 +43,6 @@ export type GenericEntityProperties = {
     description?: Maybe<string>;
     globalTags?: Maybe<GlobalTags>;
     glossaryTerms?: Maybe<GlossaryTerms>;
-    upstreamLineage?: Maybe<UpstreamEntityRelationships>;
-    downstreamLineage?: Maybe<DownstreamEntityRelationships>;
     ownership?: Maybe<Ownership>;
     platform?: Maybe<DataPlatform>;
     customProperties?: Maybe<StringMapEntry[]>;
@@ -88,4 +85,9 @@ export type EntityContextType = {
     updateEntity: UpdateEntityType<any>;
     routeToTab: (params: { tabName: string; tabParams?: Record<string, any>; method?: 'push' | 'replace' }) => void;
     refetch: () => Promise<any>;
+    lineage: FetchedEntity | undefined;
+};
+
+export type RequiredAndNotNull<T> = {
+    [P in keyof T]-?: Exclude<T[P], null | undefined>;
 };

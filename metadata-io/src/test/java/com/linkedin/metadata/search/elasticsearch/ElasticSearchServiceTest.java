@@ -5,9 +5,9 @@ import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.urn.TestEntityUrn;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
-import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilders;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder;
@@ -24,14 +24,15 @@ import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestClientBuilder;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.testcontainers.elasticsearch.ElasticsearchContainer;
+import org.testcontainers.shaded.com.google.common.collect.ImmutableMap;
 import org.testng.annotations.AfterTest;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
+import static com.linkedin.metadata.ElasticSearchTestUtils.syncAfterWrite;
 import static org.testng.Assert.assertEquals;
 
-import static com.linkedin.metadata.ElasticSearchTestUtils.syncAfterWrite;
 
 public class ElasticSearchServiceTest {
 
@@ -79,7 +80,8 @@ public class ElasticSearchServiceTest {
 
   @Nonnull
   private ElasticSearchService buildService() {
-    ESIndexBuilders indexBuilders = new ESIndexBuilders(_entityRegistry, _searchClient, _indexConvention, _settingsBuilder);
+    ESIndexBuilders indexBuilders =
+        new ESIndexBuilders(_entityRegistry, _searchClient, _indexConvention, _settingsBuilder);
     ESSearchDAO searchDAO = new ESSearchDAO(_entityRegistry, _searchClient, _indexConvention);
     ESBrowseDAO browseDAO = new ESBrowseDAO(_entityRegistry, _searchClient, _indexConvention);
     ESWriteDAO writeDAO = new ESWriteDAO(_entityRegistry, _searchClient, _indexConvention, 1, 1, 1, 1);
@@ -98,6 +100,7 @@ public class ElasticSearchServiceTest {
     BrowseResult browseResult = _elasticSearchService.browse(ENTITY_NAME, "", null, 0, 10);
     assertEquals(browseResult.getMetadata().getTotalNumEntities().longValue(), 0);
     assertEquals(_elasticSearchService.docCount(ENTITY_NAME), 0);
+    assertEquals(_elasticSearchService.aggregateByValue(ENTITY_NAME, "textField", null, 10).size(), 0);
 
     Urn urn = new TestEntityUrn("test", "testUrn", "VALUE_1");
     ObjectNode document = JsonNodeFactory.instance.objectNode();
@@ -118,6 +121,8 @@ public class ElasticSearchServiceTest {
     assertEquals(browseResult.getMetadata().getTotalNumEntities().longValue(), 1);
     assertEquals(browseResult.getGroups().get(0).getName(), "b");
     assertEquals(_elasticSearchService.docCount(ENTITY_NAME), 1);
+    assertEquals(_elasticSearchService.aggregateByValue(ENTITY_NAME, "textFieldOverride", null, 10),
+        ImmutableMap.of("textFieldOverride", 1L));
 
     Urn urn2 = new TestEntityUrn("test", "testUrn2", "VALUE_2");
     ObjectNode document2 = JsonNodeFactory.instance.objectNode();
@@ -139,6 +144,8 @@ public class ElasticSearchServiceTest {
     assertEquals(browseResult.getMetadata().getTotalNumEntities().longValue(), 1);
     assertEquals(browseResult.getGroups().get(0).getName(), "b");
     assertEquals(_elasticSearchService.docCount(ENTITY_NAME), 2);
+    assertEquals(_elasticSearchService.aggregateByValue(ENTITY_NAME, "textFieldOverride", null, 10),
+        ImmutableMap.of("textFieldOverride", 1L, "textFieldOverride2", 1L));
 
     _elasticSearchService.deleteDocument(ENTITY_NAME, urn.toString());
     _elasticSearchService.deleteDocument(ENTITY_NAME, urn2.toString());
@@ -148,5 +155,6 @@ public class ElasticSearchServiceTest {
     browseResult = _elasticSearchService.browse(ENTITY_NAME, "", null, 0, 10);
     assertEquals(browseResult.getMetadata().getTotalNumEntities().longValue(), 0);
     assertEquals(_elasticSearchService.docCount(ENTITY_NAME), 0);
+    assertEquals(_elasticSearchService.aggregateByValue(ENTITY_NAME, "textField", null, 10).size(), 0);
   }
 }

@@ -7,21 +7,21 @@ import EntityRegistry from '../../../EntityRegistry';
 import { EntityTab, GenericEntityProperties } from '../../types';
 
 export function getDataForEntityType<T>({
-    data,
+    data: entityData,
     getOverrideProperties,
 }: {
     data: T;
     entityType: EntityType;
     getOverrideProperties: (T) => GenericEntityProperties;
 }): GenericEntityProperties | null {
-    if (!data) {
+    if (!entityData) {
         return null;
     }
-    const entityData = data[Object.keys(data)[0]];
+    const anyEntityData = entityData as any;
     let modifiedEntityData = entityData;
     // Bring 'customProperties' field to the root level.
-    if (entityData.properties?.customProperties) {
-        const customProperties = entityData.properties?.customProperties;
+    const customProperties = anyEntityData.properties?.customProperties || anyEntityData.info?.customProperties;
+    if (customProperties) {
         modifiedEntityData = {
             ...entityData,
             customProperties,
@@ -29,7 +29,7 @@ export function getDataForEntityType<T>({
     }
     return {
         ...modifiedEntityData,
-        ...getOverrideProperties(data),
+        ...getOverrideProperties(entityData),
     };
 }
 

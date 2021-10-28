@@ -5,6 +5,7 @@ import com.linkedin.common.GlossaryTerms;
 import com.linkedin.common.InstitutionalMemory;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.Status;
+import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.datahub.graphql.generated.DataPlatform;
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.EntityType;
@@ -21,6 +22,7 @@ import com.linkedin.dataset.DatasetDeprecation;
 import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.dataset.EditableDatasetProperties;
 import com.linkedin.dataset.ViewProperties;
+import com.linkedin.metadata.entity.NewModelUtils;
 import com.linkedin.metadata.snapshot.DatasetSnapshot;
 import com.linkedin.schema.EditableSchemaMetadata;
 import com.linkedin.schema.SchemaMetadata;
@@ -52,11 +54,13 @@ public class DatasetSnapshotMapper implements ModelMapper<DatasetSnapshot, Datas
         partialPlatform.setUrn(dataset.getUrn().getPlatformEntity().toString());
         result.setPlatform(partialPlatform);
 
-        NewModelUtils.getAspectsFromSnapshot(dataset).forEach(aspect -> {
+        NewModelUtils.getAspectsFromSnapshot(dataset).forEach(nameAspectPair -> {
+            RecordTemplate aspect = nameAspectPair.getSecond();
             if (aspect instanceof DatasetProperties) {
                 final DatasetProperties gmsProperties = (DatasetProperties) aspect;
                 final com.linkedin.datahub.graphql.generated.DatasetProperties properties = new com.linkedin.datahub.graphql.generated.DatasetProperties();
                 properties.setDescription(gmsProperties.getDescription());
+                result.setDescription(gmsProperties.getDescription());
                 properties.setOrigin(FabricType.valueOf(dataset.getUrn().getOriginEntity().toString()));
                 if (gmsProperties.hasExternalUrl()) {
                     properties.setExternalUrl(gmsProperties.getExternalUrl().toString());
@@ -65,6 +69,7 @@ public class DatasetSnapshotMapper implements ModelMapper<DatasetSnapshot, Datas
                     properties.setCustomProperties(StringMapMapper.map(gmsProperties.getCustomProperties()));
                 }
                 result.setProperties(properties);
+                result.setDescription(properties.getDescription());
                 if (gmsProperties.hasUri()) {
                     // Deprecated field.
                     result.setUri(gmsProperties.getUri().toString());

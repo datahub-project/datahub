@@ -9,13 +9,14 @@ import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.models.AspectSpec;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.PegasusUtils;
 import com.linkedin.metadata.dao.utils.RecordUtils;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV1;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.models.EntitySpec;
-import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
 import com.linkedin.metadata.search.utils.BrowsePathUtils;
 import io.ebean.EbeanServer;
 import io.ebean.PagedList;
@@ -37,13 +38,13 @@ public class DataMigrationStep implements UpgradeStep {
 
   private final EbeanServer _server;
   private final EntityService _entityService;
-  private final SnapshotEntityRegistry _entityRegistry;
+  private final EntityRegistry _entityRegistry;
   private final Set<Urn> urnsWithBrowsePath = new HashSet<>();
 
   public DataMigrationStep(
       final EbeanServer server,
       final EntityService entityService,
-      final SnapshotEntityRegistry entityRegistry) {
+      final EntityRegistry entityRegistry) {
     _server = server;
     _entityService = entityService;
     _entityRegistry = entityRegistry;
@@ -121,8 +122,9 @@ public class DataMigrationStep implements UpgradeStep {
           }
 
           // 5. Verify that the aspect is a valid aspect associated with the entity
+          AspectSpec aspectSpec;
           try {
-            entitySpec.getAspectSpec(newAspectName);
+            aspectSpec = entitySpec.getAspectSpec(newAspectName);
           } catch (Exception e) {
             context.report().addLine(String.format("Failed to find aspect spec with name %s associated with entity named %s",
                 newAspectName,
@@ -135,7 +137,9 @@ public class DataMigrationStep implements UpgradeStep {
           boolean emitMae = oldAspect.getKey().getVersion() == 0L;
           _entityService.updateAspect(
               urn,
+              entityName,
               newAspectName,
+              aspectSpec,
               aspectRecord,
               toAuditStamp(oldAspect),
               oldAspect.getKey().getVersion(),
