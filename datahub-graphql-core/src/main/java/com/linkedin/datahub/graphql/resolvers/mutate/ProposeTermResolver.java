@@ -3,12 +3,16 @@ package com.linkedin.datahub.graphql.resolvers.mutate;
 import com.datahub.metadata.authorization.AuthorizationManager;
 
 
+
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
+import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
+import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
 import com.linkedin.datahub.graphql.generated.TermAssociationInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.LabelUtils;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.entity.EntityService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -23,6 +27,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 @RequiredArgsConstructor
 public class ProposeTermResolver implements DataFetcher<CompletableFuture<Boolean>> {
   private final EntityService _entityService;
+  private final EntityClient _entityClient;
 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
@@ -44,6 +49,16 @@ public class ProposeTermResolver implements DataFetcher<CompletableFuture<Boolea
           _entityService,
           false
       );
+
+      if (ProposalUtils.isTermAlreadyAttachedToTarget(termUrn, targetUrn, input.getSubResource(), _entityService)) {
+        throw new DataHubGraphQLException("Term has already been applied to target", DataHubGraphQLErrorCode.BAD_REQUEST);
+      }
+
+      if (ProposalUtils.isTermAlreadyProposedToTarget(termUrn, targetUrn, input.getSubResource(), _entityClient,
+          ((QueryContext) environment.getContext()).getActor()
+      )) {
+        throw new DataHubGraphQLException("Term has already been proposed to target", DataHubGraphQLErrorCode.BAD_REQUEST);
+      }
 
       log.info("Proposing Term. input: {}", input.toString());
       try {

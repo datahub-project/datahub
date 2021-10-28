@@ -2,17 +2,16 @@ package com.linkedin.datahub.graphql.resolvers.load;
 
 import com.linkedin.common.urn.Urn;
 
+
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.ActionRequest;
 import com.linkedin.datahub.graphql.generated.ActionRequestStatus;
 import com.linkedin.datahub.graphql.generated.ActionRequestType;
 import com.linkedin.datahub.graphql.resolvers.actionrequest.ActionRequestUtils;
+import com.linkedin.datahub.graphql.resolvers.mutate.ProposalUtils;
 import com.linkedin.datahub.graphql.types.LoadableType;
 import com.linkedin.entity.Entity;
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
-import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
-import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchResult;
 import graphql.schema.DataFetcher;
@@ -23,8 +22,6 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import lombok.AllArgsConstructor;
 import org.dataloader.DataLoader;
 
@@ -57,7 +54,7 @@ public class ProposalsResolver implements DataFetcher<CompletableFuture<List<Act
         final ActionRequestType type = ActionRequestType.valueOf(environment.getArgumentOrDefault("type", null));
         final String urn = _urnProvider.apply(environment);
 
-        Filter filter = createFilter(type, status, urn);
+        Filter filter = ProposalUtils.createActionRequestFilter(type, status, urn, null);
 
         return CompletableFuture.supplyAsync(() -> {
             try {
@@ -78,28 +75,4 @@ public class ProposalsResolver implements DataFetcher<CompletableFuture<List<Act
         });
     }
 
-    private Filter createFilter(
-        final @Nullable ActionRequestType type,
-        final @Nullable ActionRequestStatus status,
-        final @Nonnull String targetUrn
-    ) {
-        final Filter filter = new Filter();
-        final ConjunctiveCriterionArray disjunction = new ConjunctiveCriterionArray();
-
-        final ConjunctiveCriterion conjunction = new ConjunctiveCriterion();
-        final CriterionArray andCriterion = new CriterionArray();
-        if (status != null) {
-            andCriterion.add(ActionRequestUtils.createStatusCriterion(status));
-        }
-        if (type != null) {
-            andCriterion.add(ActionRequestUtils.createTypeCriterion(type));
-        }
-        andCriterion.add(ActionRequestUtils.createResourceCriterion(targetUrn));
-
-        conjunction.setAnd(andCriterion);
-        disjunction.add(conjunction);
-
-        filter.setOr(disjunction);
-        return filter;
-    }
 }

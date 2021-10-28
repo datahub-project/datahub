@@ -40,12 +40,12 @@ public class GraphQLEngineFactory {
   @Qualifier("entityService")
   private EntityService _entityService;
 
-  private RecommendationsService _recommendationsService;
-
   @Autowired
   @Qualifier("graphClient")
   private GraphClient _graphClient;
 
+  @Autowired
+  private RecommendationsService _recommendationsService;
 
   @Value("${ANALYTICS_ENABLED:true}") // TODO: Migrate to DATAHUB_ANALYTICS_ENABLED
   private Boolean isAnalyticsEnabled;
