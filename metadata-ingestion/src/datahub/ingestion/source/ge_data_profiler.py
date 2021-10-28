@@ -357,7 +357,7 @@ class DatahubGEProfiler:
 
         end_time = time.perf_counter()
         logger.info(
-            f"Profiling {len(requests)} table(s) finished in {end_time - start_time} seconds"
+            f"Profiling {len(requests)} table(s) finished in {(end_time - start_time):.3f} seconds"
         )
 
     def generate_profile_from_request(
