@@ -58,6 +58,7 @@ kafka_common = {
 sql_common = {
     # Required for all SQL sources.
     "sqlalchemy==1.3.24",
+    "great-expectations",
 }
 
 aws_common = {
@@ -122,7 +123,6 @@ plugins: Dict[str, Set[str]] = {
     "snowflake": sql_common | {"snowflake-sqlalchemy<=1.2.4"},
     "snowflake-usage": sql_common | {"snowflake-sqlalchemy<=1.2.4"},
     "sqlalchemy": sql_common,
-    "sql-profiles": sql_common | {"great-expectations"},
     "superset": {"requests"},
     "trino": sql_common
     | {
@@ -233,7 +233,6 @@ full_test_dev_requirements = {
             "mysql",
             "mariadb",
             "snowflake",
-            "sql-profiles",
             "redash",
         ]
         for dependency in plugins[plugin]

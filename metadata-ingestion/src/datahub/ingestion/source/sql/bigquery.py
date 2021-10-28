@@ -273,8 +273,6 @@ class BigQuerySource(SQLAlchemySource):
         return dict(
             schema=self.config.project_id,
             table=f"{schema}.{table}",
-            limit=self.config.profiling.limit,
-            offset=self.config.profiling.offset,
         )
 
     @staticmethod
