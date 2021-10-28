@@ -22,8 +22,6 @@ public class MappingsBuilderTest {
     assertTrue(properties.containsKey("browsePaths"));
     // KEYWORD
     assertEquals(properties.get("keyPart3"), ImmutableMap.of("type", "keyword", "normalizer", "keyword_normalizer"));
-    assertEquals(properties.get("customProperties"),
-        ImmutableMap.of("type", "keyword", "normalizer", "keyword_normalizer"));
     // TEXT
     Map<String, Object> nestedArrayStringField = (Map<String, Object>) properties.get("nestedArrayStringField");
     assertEquals(nestedArrayStringField.get("type"), "keyword");
@@ -37,6 +35,12 @@ public class MappingsBuilderTest {
     Map<String, Object> nestedArrayArrayFieldSubfields = (Map<String, Object>) nestedArrayArrayField.get("fields");
     assertEquals(nestedArrayArrayFieldSubfields.size(), 1);
     assertTrue(nestedArrayArrayFieldSubfields.containsKey("delimited"));
+    Map<String, Object> customPropertiesField = (Map<String, Object>) properties.get("customProperties");
+    assertEquals(customPropertiesField.get("type"), "keyword");
+    assertEquals(customPropertiesField.get("normalizer"), "keyword_normalizer");
+    Map<String, Object> customPropertiesFieldSubfields = (Map<String, Object>) customPropertiesField.get("fields");
+    assertEquals(customPropertiesFieldSubfields.size(), 1);
+    assertTrue(customPropertiesFieldSubfields.containsKey("delimited"));
 
     // TEXT with addToFilters
     Map<String, Object> textField = (Map<String, Object>) properties.get("textFieldOverride");
