@@ -339,7 +339,7 @@ class DatahubGEProfiler:
 
         max_workers = min(max_workers, len(requests))
         logger.info(
-            f"Will profile {len(requests)} table(s) with {max_workers} worker(s)"
+            f"Will profile {len(requests)} table(s) with {max_workers} worker(s) - this may take a while"
         )
         with concurrent.futures.ThreadPoolExecutor(
             max_workers=max_workers
@@ -357,7 +357,7 @@ class DatahubGEProfiler:
 
         end_time = time.perf_counter()
         logger.info(
-            f"Profiling {len(requests)} table(s) finished in {end_time - start_time} seconds"
+            f"Profiling {len(requests)} table(s) finished in {(end_time - start_time):.3f} seconds"
         )
 
     def generate_profile_from_request(
@@ -376,7 +376,7 @@ class DatahubGEProfiler:
         **kwargs: Any,
     ) -> Optional[DatasetProfileClass]:
         with self._ge_context() as ge_context:
-            logger.info(f"Profiling {pretty_name} (this may take a while)")
+            logger.info(f"Profiling {pretty_name}")
 
             evrs = self._profile_data_asset(
                 ge_context,
@@ -422,7 +422,7 @@ class DatahubGEProfiler:
             )
             end_time = time.perf_counter()
             logger.info(
-                f"Profiling for {pretty_name} took {end_time - start_time} seconds."
+                f"Profiling for {pretty_name} took {(end_time - start_time):.3f} seconds."
             )
 
             assert profile_results["success"]
