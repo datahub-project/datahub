@@ -20,11 +20,15 @@ const TermContainer = styled.div`
 const TermButton = styled(Button)`
     margin: 0px;
     padding: 0px;
+    font-weight: 500;
 `;
 
 const StyledBook = styled(BookOutlined)`
-    margin-left: 2%;
-    font-size: 20px;
+    && {
+        padding-left: 2px;
+        padding-bottom: 2px;
+        font-size: 10px;
+    }
 `;
 
 type Props = {
@@ -56,14 +60,14 @@ export const GlossaryTermSearchList = ({ content, onClick }: Props) => {
     return (
         <TermSearchListContainer>
             {terms.map((term, index) => (
-                <TermButton type="text" key={term.urn} onClick={() => onClickTerm(term, index)}>
-                    <TermContainer>
+                <TermContainer>
+                    <TermButton type="link" key={term.urn} onClick={() => onClickTerm(term, index)}>
                         <Tag closable={false}>
                             {term.name}
                             <StyledBook />
                         </Tag>
-                    </TermContainer>
-                </TermButton>
+                    </TermButton>
+                </TermContainer>
             ))}
         </TermSearchListContainer>
     );
