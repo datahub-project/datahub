@@ -65,8 +65,9 @@ export default function useSchemaTitleRenderer(
                     {schemaMetadata?.foreignKeys
                         ?.filter(
                             (constraint) =>
-                                (constraint?.sourceFields?.filter((sourceField) => sourceField?.fieldPath === fieldPath)
-                                    .length || 0) > 0,
+                                (constraint?.sourceFields?.filter(
+                                    (sourceField) => sourceField?.fieldPath.trim() === fieldPath.trim(),
+                                ).length || 0) > 0,
                         )
                         .map((constraint) => (
                             <ForeignKeyLabel
