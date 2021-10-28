@@ -35,7 +35,8 @@ const RootSvg = styled.svg<{ isDragging: boolean } & SVGProps<SVGSVGElement>>`
         }
     }
     .lineageExpandLoading {
-        transform-origin: 100px 500px;
+        transform-box: fill-box;
+        transform-origin: 50% 50%;
         animation: spin 2s linear infinite;
     }
 `;
@@ -87,6 +88,12 @@ export default function LineageVizInsideZoom({
 
     useEffect(() => {
         zoom.setTransformMatrix({ ...zoom.transformMatrix, translateY: 0, translateX: width / 2 });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [entityAndType?.entity?.urn]);
+
+    // we want to clear all the dragged nodes after recentering
+    useEffect(() => {
+        setDraggedNodes({});
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [entityAndType?.entity?.urn]);
 
