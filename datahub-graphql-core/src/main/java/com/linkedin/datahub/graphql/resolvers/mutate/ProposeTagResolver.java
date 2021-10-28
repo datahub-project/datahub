@@ -1,12 +1,16 @@
 package com.linkedin.datahub.graphql.resolvers.mutate;
 
 import com.datahub.metadata.authorization.AuthorizationManager;
+
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
+import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
+import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
 import com.linkedin.datahub.graphql.generated.TagAssociationInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.LabelUtils;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.entity.EntityService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -21,6 +25,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 @RequiredArgsConstructor
 public class ProposeTagResolver implements DataFetcher<CompletableFuture<Boolean>> {
   private final EntityService _entityService;
+  private final EntityClient _entityClient;
 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
@@ -43,9 +48,21 @@ public class ProposeTagResolver implements DataFetcher<CompletableFuture<Boolean
           false
       );
 
+      if (ProposalUtils.isTagAlreadyAttachedToTarget(tagUrn, targetUrn, input.getSubResource(), _entityService)) {
+        throw new DataHubGraphQLException("Tag has already been applied to target", DataHubGraphQLErrorCode.BAD_REQUEST);
+      }
+
+      if (ProposalUtils.isTagAlreadyProposedToTarget(tagUrn, targetUrn, input.getSubResource(), _entityClient,
+          ((QueryContext) environment.getContext()).getActor()
+      )) {
+        throw new DataHubGraphQLException("Tag has already been proposed to target", DataHubGraphQLErrorCode.BAD_REQUEST);
+      }
+
       try {
         log.info("Proposing Tag. input: {}", input.toString());
         Urn actor = CorpuserUrn.createFromString(((QueryContext) environment.getContext()).getActor());
+
+
         ProposalUtils.proposeTag(
             actor,
             tagUrn,

@@ -10,6 +10,10 @@ import com.linkedin.actionrequest.ActionRequestStatus;
 import com.linkedin.actionrequest.GlossaryTermProposal;
 import com.linkedin.actionrequest.TagProposal;
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.GlobalTags;
+import com.linkedin.common.GlossaryTermAssociationArray;
+import com.linkedin.common.GlossaryTerms;
+import com.linkedin.common.TagAssociationArray;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.SetMode;
@@ -20,22 +24,43 @@ import com.linkedin.datahub.graphql.authorization.DisjunctivePrivilegeGroup;
 import com.linkedin.datahub.graphql.generated.ActionRequestResult;
 import com.linkedin.datahub.graphql.generated.ActionRequestType;
 import com.linkedin.datahub.graphql.generated.SubResourceType;
+import com.linkedin.datahub.graphql.resolvers.actionrequest.ActionRequestUtils;
+import com.linkedin.datahub.graphql.resolvers.mutate.util.LabelUtils;
 import com.linkedin.entity.Entity;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.aspect.ActionRequestAspect;
 import com.linkedin.metadata.aspect.ActionRequestAspectArray;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
+import com.linkedin.metadata.query.filter.CriterionArray;
+import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.snapshot.ActionRequestSnapshot;
 import com.linkedin.metadata.snapshot.Snapshot;
+import com.linkedin.r2.RemoteInvocationException;
+import com.linkedin.schema.EditableSchemaFieldInfo;
+import com.linkedin.schema.EditableSchemaMetadata;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
+
+import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
+import static com.linkedin.metadata.Constants.*;
 
 
 @Slf4j
+// TODO(Gabe): Unit test this file
 public class ProposalUtils {
   private static final ConjunctivePrivilegeGroup ALL_PRIVILEGES_GROUP = new ConjunctivePrivilegeGroup(ImmutableList.of(
       PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType()
@@ -148,14 +173,13 @@ public class ProposalUtils {
   ) {
     AuthorizationManager.AuthorizedActors actors = null;
 
+    ResourceSpec spec = new ResourceSpec(targetUrn.getEntityType(), targetUrn.toString());
     if (subResource != null && subResource.length() > 0) {
-      ResourceSpec spec = new ResourceSpec(targetUrn.getEntityType(), targetUrn.toString());
       actors = authorizationManager.authorizedActors(
           PoliciesConfig.MANAGE_DATASET_COL_TAGS_PRIVILEGE.getType(),
           Optional.of(spec)
       );
     } else {
-      ResourceSpec spec = new ResourceSpec(targetUrn.getEntityType(), targetUrn.toString());
       actors = authorizationManager.authorizedActors(
           PoliciesConfig.MANAGE_ENTITY_TAGS_PRIVILEGE.getType(),
           Optional.of(spec)
@@ -408,6 +432,187 @@ public class ProposalUtils {
     snapshot.setAspects(aspects);
 
     return snapshot;
+  }
+
+  @SneakyThrows
+  public static Boolean isTagAlreadyProposedToTarget(
+      Urn labelUrn,
+      Urn targetUrn,
+      String subResource,
+      EntityClient entityClient,
+      String actor
+  ) {
+    Filter filter = createActionRequestFilter(
+        ActionRequestType.TAG_ASSOCIATION,
+        com.linkedin.datahub.graphql.generated.ActionRequestStatus.PENDING,
+        targetUrn.toString(),
+        subResource
+    );
+
+    return getActionRequestInfosFromFilter(filter, actor, entityClient).filter(actionRequestInfo ->
+        (subResource != null ? actionRequestInfo.getSubResource().equals(subResource) : !actionRequestInfo.hasSubResource())
+            && actionRequestInfo.getResource().equals(targetUrn.toString())
+            && actionRequestInfo.getParams().hasTagProposal()
+            && actionRequestInfo.getParams().getTagProposal().getTag().equals(labelUrn)
+    ).count() > 0;
+  }
+
+  @SneakyThrows
+  public static Boolean isTermAlreadyProposedToTarget(
+      Urn labelUrn,
+      Urn targetUrn,
+      String subResource,
+      EntityClient entityClient,
+      String actor
+  ) {
+    Filter filter = createActionRequestFilter(
+        ActionRequestType.TERM_ASSOCIATION,
+        com.linkedin.datahub.graphql.generated.ActionRequestStatus.PENDING,
+        targetUrn.toString(),
+        subResource
+    );
+
+    return getActionRequestInfosFromFilter(filter, actor, entityClient).filter(actionRequestInfo ->
+        (subResource != null ? actionRequestInfo.getSubResource().equals(subResource) : !actionRequestInfo.hasSubResource())
+            && actionRequestInfo.getResource().equals(targetUrn.toString())
+            && actionRequestInfo.getParams().hasGlossaryTermProposal()
+            && actionRequestInfo.getParams().getGlossaryTermProposal().getGlossaryTerm().equals(labelUrn)
+    ).count() > 0;
+  }
+
+  public static Stream<ActionRequestInfo> getActionRequestInfosFromFilter(
+      Filter filter,
+      String actor,
+      EntityClient entityClient
+  ) throws RemoteInvocationException {
+    final SearchResult searchResult = entityClient.filter(
+        ACTION_REQUEST_ENTITY_NAME,
+        filter,
+        null,
+        0,
+        20,
+        actor);
+    final Map<Urn, Entity> entities = entityClient.batchGet(new HashSet<>(searchResult.getEntities()
+        .stream().map(result -> result.getEntity()).collect(Collectors.toList())), actor);
+
+    return entities.values()
+        .stream()
+        .map(entity -> entity.getValue()
+            .getActionRequestSnapshot()
+            .getAspects()
+            .stream()
+            .filter(aspect -> aspect.isActionRequestInfo())
+            .map(aspect -> aspect.getActionRequestInfo())
+            .findFirst())
+        .filter(maybeActionRequestInfo -> maybeActionRequestInfo.isPresent())
+        .map(maybeActionRequestInfo -> maybeActionRequestInfo.get());
+  }
+
+  public static Boolean isTagAlreadyAttachedToTarget(
+      Urn labelUrn,
+      Urn targetUrn,
+      String subResource,
+      EntityService entityService
+  ) {
+    if (subResource == null || subResource.equals("")) {
+      com.linkedin.common.GlobalTags tags =
+          (com.linkedin.common.GlobalTags) getAspectFromEntity(targetUrn.toString(), LabelUtils.TAGS_ASPECT_NAME, entityService, new GlobalTags());
+
+      if (!tags.hasTags()) {
+        return false;
+      }
+
+      return doesTagsListContainTag(tags, labelUrn);
+    } else {
+      com.linkedin.schema.EditableSchemaMetadata editableSchemaMetadata =
+          (com.linkedin.schema.EditableSchemaMetadata) getAspectFromEntity(
+              targetUrn.toString(), LabelUtils.EDITABLE_SCHEMA_METADATA, entityService, new EditableSchemaMetadata());
+      EditableSchemaFieldInfo editableFieldInfo = getFieldInfoFromSchema(editableSchemaMetadata, subResource);
+
+      if (!editableFieldInfo.hasGlobalTags()) {
+        return false;
+      }
+
+      return doesTagsListContainTag(editableFieldInfo.getGlobalTags(), labelUrn);
+    }
+  }
+
+  public static Boolean isTermAlreadyAttachedToTarget(
+      Urn labelUrn,
+      Urn targetUrn,
+      String subResource,
+      EntityService entityService
+  ) {
+    if (subResource == null || subResource.equals("")) {
+      com.linkedin.common.GlossaryTerms terms =
+          (com.linkedin.common.GlossaryTerms) getAspectFromEntity(
+              targetUrn.toString(), LabelUtils.GLOSSARY_TERM_ASPECT_NAME, entityService, new GlossaryTerms()
+          );
+
+      if (!terms.hasTerms()) {
+        return false;
+      }
+
+      return doesTermsListContainTerm(terms, labelUrn);
+    } else {
+      com.linkedin.schema.EditableSchemaMetadata editableSchemaMetadata =
+          (com.linkedin.schema.EditableSchemaMetadata) getAspectFromEntity(
+              targetUrn.toString(), LabelUtils.EDITABLE_SCHEMA_METADATA, entityService, new EditableSchemaMetadata());
+
+      EditableSchemaFieldInfo editableFieldInfo = getFieldInfoFromSchema(editableSchemaMetadata, subResource);
+      if (!editableFieldInfo.hasGlossaryTerms()) {
+        return false;
+      }
+
+      return doesTermsListContainTerm(editableFieldInfo.getGlossaryTerms(), labelUrn);
+    }
+  }
+
+  private static Boolean doesTermsListContainTerm(GlossaryTerms terms, Urn termUrn) {
+    if (!terms.hasTerms()) {
+      return false;
+    }
+
+    GlossaryTermAssociationArray termArray = terms.getTerms();
+    return termArray.stream().anyMatch(association -> association.getUrn().equals(termUrn));
+  }
+
+  private static Boolean doesTagsListContainTag(GlobalTags tags, Urn tagUrn) {
+    if (!tags.hasTags()) {
+      return false;
+    }
+
+    TagAssociationArray tagAssociationArray = tags.getTags();
+    return tagAssociationArray.stream().anyMatch(association -> association.getTag().equals(tagUrn));
+  }
+
+  public static Filter createActionRequestFilter(
+      final @Nullable ActionRequestType type,
+      final @Nullable com.linkedin.datahub.graphql.generated.ActionRequestStatus status,
+      final @Nonnull String targetUrn,
+      final @Nullable String targetSubresource
+  ) {
+    final Filter filter = new Filter();
+    final ConjunctiveCriterionArray disjunction = new ConjunctiveCriterionArray();
+
+    final ConjunctiveCriterion conjunction = new ConjunctiveCriterion();
+    final CriterionArray andCriterion = new CriterionArray();
+    if (status != null) {
+      andCriterion.add(ActionRequestUtils.createStatusCriterion(status));
+    }
+    if (type != null) {
+      andCriterion.add(ActionRequestUtils.createTypeCriterion(type));
+    }
+    if (targetSubresource != null) {
+      andCriterion.add(ActionRequestUtils.createSubResourceCriterion(targetSubresource));
+    }
+    andCriterion.add(ActionRequestUtils.createResourceCriterion(targetUrn));
+
+    conjunction.setAnd(andCriterion);
+    disjunction.add(conjunction);
+
+    filter.setOr(disjunction);
+    return filter;
   }
 
   private ProposalUtils() { }
