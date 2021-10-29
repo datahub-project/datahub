@@ -895,6 +895,20 @@ export const dataJob1 = {
             },
         ],
     },
+    incoming: null,
+    outgoing: null,
+    parentFlow: {
+        start: 0,
+        count: 1,
+        total: 1,
+        relationships: [
+            {
+                type: 'IsPartOf',
+                direction: RelationshipDirection.Outgoing,
+                entity: dataFlow1,
+            },
+        ],
+    },
 } as DataJob;
 
 export const dataJob2 = {
