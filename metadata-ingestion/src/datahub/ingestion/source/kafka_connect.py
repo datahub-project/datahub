@@ -11,6 +11,7 @@ from sqlalchemy.engine.url import make_url
 import datahub.emitter.mce_builder as builder
 import datahub.metadata.schema_classes as models
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -610,13 +611,16 @@ class KafkaConnectSource(Source):
                 if connector_manifest.config.get("connector.class").__eq__(
                     "io.confluent.connect.jdbc.JdbcSourceConnector"
                 ):
-                    ConfluentJDBCSourceConnector(
+                    connector_manifest = ConfluentJDBCSourceConnector(
                         connector_manifest=connector_manifest, report=self.report
-                    )
+                    ).connector_manifest
                 else:
                     # Debezium Source Connector lineages
                     try:
-                        DebeziumSourceConnector(connector_manifest=connector_manifest)
+                        connector_manifest = DebeziumSourceConnector(
+                            connector_manifest=connector_manifest
+                        ).connector_manifest
+
                     except ValueError as err:
                         logger.warning(
                             f"Skipping connector {connector_manifest.name} due to error: {err}"
@@ -647,24 +651,24 @@ class KafkaConnectSource(Source):
         flow_urn = builder.make_data_flow_urn(
             "kafka-connect", connector_name, self.config.env
         )
-        mce = models.MetadataChangeEventClass(
-            proposedSnapshot=models.DataFlowSnapshotClass(
-                urn=flow_urn,
-                aspects=[
-                    models.DataFlowInfoClass(
-                        name=connector_name,
-                        description=f"{connector_type.capitalize()} connector using `{connector_class}` plugin.",
-                        customProperties=flow_property_bag,
-                        # externalUrl=connector_url, # NOTE: this will expose connector credential when used
-                    ),
-                    # ownership,
-                    # tags,
-                ],
-            )
+
+        mcp = MetadataChangeProposalWrapper(
+            entityType="dataFlow",
+            entityUrn=flow_urn,
+            changeType=models.ChangeTypeClass.UPSERT,
+            aspectName="dataFlowInfo",
+            aspect=models.DataFlowInfoClass(
+                name=connector_name,
+                description=f"{connector_type.capitalize()} connector using `{connector_class}` plugin.",
+                customProperties=flow_property_bag,
+                # externalUrl=connector_url, # NOTE: this will expose connector credential when used
+            ),
         )
 
-        for c in [connector_name]:
-            wu = MetadataWorkUnit(id=c, mce=mce)
+        for proposal in [mcp]:
+            wu = MetadataWorkUnit(
+                id=f"kafka-connect.{connector_name}.{proposal.aspectName}", mcp=proposal
+            )
             self.report.report_workunit(wu)
             yield wu
 
@@ -700,28 +704,42 @@ class KafkaConnectSource(Source):
                 )
                 outlets = [builder.make_dataset_urn(target_platform, target_dataset)]
 
-                mce = models.MetadataChangeEventClass(
-                    proposedSnapshot=models.DataJobSnapshotClass(
-                        urn=job_urn,
-                        aspects=[
-                            models.DataJobInfoClass(
-                                name=f"{connector_name}:{job_id}",
-                                type="COMMAND",
-                                description=None,
-                                # customProperties=job_property_bag
-                                # externalUrl=job_url,
-                            ),
-                            models.DataJobInputOutputClass(
-                                inputDatasets=inlets or [],
-                                outputDatasets=outlets or [],
-                            ),
-                            # ownership,
-                            # tags,
-                        ],
-                    )
+                mcp = MetadataChangeProposalWrapper(
+                    entityType="dataJob",
+                    entityUrn=job_urn,
+                    changeType=models.ChangeTypeClass.UPSERT,
+                    aspectName="dataJobInfo",
+                    aspect=models.DataJobInfoClass(
+                        name=f"{connector_name}:{job_id}",
+                        type="COMMAND",
+                        description=None,
+                        # customProperties=job_property_bag
+                        # externalUrl=job_url,
+                    ),
                 )
 
-                wu = MetadataWorkUnit(id=f"{connector_name}:{job_id}", mce=mce)
+                wu = MetadataWorkUnit(
+                    id=f"kafka-connect.{connector_name}.{job_id}.{mcp.aspectName}",
+                    mcp=mcp,
+                )
+                self.report.report_workunit(wu)
+                yield wu
+
+                mcp = MetadataChangeProposalWrapper(
+                    entityType="dataJob",
+                    entityUrn=job_urn,
+                    changeType=models.ChangeTypeClass.UPSERT,
+                    aspectName="dataJobInputOutput",
+                    aspect=models.DataJobInputOutputClass(
+                        inputDatasets=inlets,
+                        outputDatasets=outlets,
+                    ),
+                )
+
+                wu = MetadataWorkUnit(
+                    id=f"kafka-connect.{connector_name}.{job_id}.{mcp.aspectName}",
+                    mcp=mcp,
+                )
                 self.report.report_workunit(wu)
                 yield wu
 
@@ -737,29 +755,33 @@ class KafkaConnectSource(Source):
                 target_dataset = lineage.target_dataset
                 target_platform = lineage.target_platform
 
-                mce = models.MetadataChangeEventClass(
-                    proposedSnapshot=models.DatasetSnapshotClass(
-                        urn=builder.make_dataset_urn(
-                            target_platform, target_dataset, self.config.env
-                        ),
-                        aspects=[models.StatusClass(removed=False)],
-                    )
+                mcp = MetadataChangeProposalWrapper(
+                    entityType="dataset",
+                    entityUrn=builder.make_dataset_urn(
+                        target_platform, target_dataset, self.config.env
+                    ),
+                    changeType=models.ChangeTypeClass.UPSERT,
+                    aspectName="dataPlatformInstance",
+                    aspect=models.DataPlatformInstanceClass(platform=target_platform),
                 )
 
-                wu = MetadataWorkUnit(id=target_dataset, mce=mce)
+                wu = MetadataWorkUnit(id=target_dataset, mcp=mcp)
                 self.report.report_workunit(wu)
                 yield wu
                 if source_dataset:
-                    mce = models.MetadataChangeEventClass(
-                        proposedSnapshot=models.DatasetSnapshotClass(
-                            urn=builder.make_dataset_urn(
-                                source_platform, source_dataset, self.config.env
-                            ),
-                            aspects=[models.StatusClass(removed=False)],
-                        )
+                    mcp = MetadataChangeProposalWrapper(
+                        entityType="dataset",
+                        entityUrn=builder.make_dataset_urn(
+                            source_platform, source_dataset, self.config.env
+                        ),
+                        changeType=models.ChangeTypeClass.UPSERT,
+                        aspectName="dataPlatformInstance",
+                        aspect=models.DataPlatformInstanceClass(
+                            platform=source_platform
+                        ),
                     )
 
-                    wu = MetadataWorkUnit(id=source_dataset, mce=mce)
+                    wu = MetadataWorkUnit(id=source_dataset, mcp=mcp)
                     self.report.report_workunit(wu)
                     yield wu
 
