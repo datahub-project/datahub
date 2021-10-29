@@ -135,7 +135,8 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
     // TODO: Use the actor present in the IC.
     final AuditStamp auditStamp =
         new AuditStamp().setTime(_clock.millis()).setActor(Urn.createFromString(Constants.UNKNOWN_ACTOR));
-    final List<MetadataChangeProposal> additionalChanges = getAdditionalChanges(metadataChangeProposal);
+    final List<MetadataChangeProposal> additionalChanges =
+        AspectUtils.getAdditionalChanges(metadataChangeProposal, _entityService);
 
     return RestliUtil.toTask(() -> {
       log.debug("Proposal: {}", metadataChangeProposal);
@@ -149,35 +150,4 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
     }, MetricRegistry.name(this.getClass(), "ingestProposal"));
   }
 
-  private List<MetadataChangeProposal> getAdditionalChanges(@Nonnull MetadataChangeProposal metadataChangeProposal) {
-    // No additional changes for delete operation
-    if (metadataChangeProposal.getChangeType() == ChangeType.DELETE) {
-      return Collections.emptyList();
-    }
-
-    final List<MetadataChangeProposal> additionalChanges = new ArrayList<>();
-
-    final Urn urn = EntityKeyUtils.getUrnFromProposal(metadataChangeProposal,
-        _entityService.getKeyAspectSpec(metadataChangeProposal.getEntityType()));
-
-    return _entityService.generateDefaultAspectsIfMissing(urn, ImmutableSet.of(metadataChangeProposal.getAspectName()))
-        .stream()
-        .map(entry -> getProposalFromAspect(entry.getKey(), entry.getValue(), metadataChangeProposal))
-        .filter(Objects::nonNull)
-        .collect(Collectors.toList());
-  }
-
-  private MetadataChangeProposal getProposalFromAspect(String aspectName, RecordTemplate aspect,
-      MetadataChangeProposal original) {
-    try {
-      MetadataChangeProposal proposal = original.copy();
-      GenericAspect genericAspect = GenericAspectUtils.serializeAspect(aspect);
-      proposal.setAspect(genericAspect);
-      proposal.setAspectName(aspectName);
-      return proposal;
-    } catch (CloneNotSupportedException e) {
-      log.error("Issue while generating additional proposals corresponding to the input proposal", e);
-    }
-    return null;
-  }
 }

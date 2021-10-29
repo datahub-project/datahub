@@ -235,7 +235,7 @@ public class GmsGraphQLEngine {
             GmsClientFactory.getRelationshipsClient()
         );
         this.glossaryTermType = new GlossaryTermType(entityClient);
-        this.aspectType = new AspectType(GmsClientFactory.getAspectsClient());
+        this.aspectType = new AspectType(entityClient);
         this.usageType = new UsageType(GmsClientFactory.getUsageClient());
 
         // Init Lists
