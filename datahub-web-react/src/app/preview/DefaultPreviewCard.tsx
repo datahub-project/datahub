@@ -54,10 +54,10 @@ const PreviewImage = styled(Image)`
     background-color: transparent;
 `;
 
-const EntityTitle = styled(Typography.Text)<{ titleSizePx?: number }>`
+const EntityTitle = styled(Typography.Text)<{ $titleSizePx?: number }>`
     &&& {
         margin-bottom: 0;
-        font-size: ${(props) => props.titleSizePx || 16}px;
+        font-size: ${(props) => props.$titleSizePx || 16}px;
         font-weight: 600;
         vertical-align: middle;
     }
@@ -154,13 +154,13 @@ export default function DefaultPreviewCard({
                             <PlatformDivider />
                             <PlatformText>{type}</PlatformText>
                         </PlatformInfo>
-                        <Link to={url} onClick={onClick}>
-                            <EntityTitle titleSizePx={titleSizePx}>{name || ' '}</EntityTitle>
-                        </Link>
-                        <TagContainer>
-                            <TagTermGroup uneditableGlossaryTerms={glossaryTerms} uneditableTags={tags} maxShow={3} />
-                        </TagContainer>
+                        <EntityTitle onClick={onClick} $titleSizePx={titleSizePx}>
+                            {name || ' '}
+                        </EntityTitle>
                     </Link>
+                    <TagContainer>
+                        <TagTermGroup uneditableGlossaryTerms={glossaryTerms} uneditableTags={tags} maxShow={3} />
+                    </TagContainer>
                 </TitleContainer>
                 {description && description.length > 0 && (
                     <DescriptionContainer>
