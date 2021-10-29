@@ -8,6 +8,28 @@ fragment relationshipFields on Entity {
             description
         }
     }
+    ... on DataFlow {
+        orchestrator
+        flowId
+        cluster
+        info {
+            name
+            description
+            project
+        }
+        ownership {
+            ...ownershipFields
+        }
+        globalTags {
+            ...globalTagsFields
+        }
+        glossaryTerms {
+            ...glossaryTerms
+        }
+        editableProperties {
+            description
+        }
+    }
     ... on Dashboard {
         ...dashboardRelationshipsLeaf
         ...dashboardFields
@@ -47,6 +69,9 @@ fragment relationshipFields on Entity {
         }
         ownership {
             ...ownershipFields
+        }
+        subTypes {
+            typeNames
         }
         ...datasetRelationshipsLeaf
     }

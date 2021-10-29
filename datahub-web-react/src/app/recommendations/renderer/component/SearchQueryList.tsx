@@ -16,6 +16,11 @@ const TagContainer = styled.div`
     margin-bottom: 4px;
 `;
 
+const QueryButton = styled(Button)`
+    margin: 0px;
+    padding: 0px;
+`;
+
 type Props = {
     content: Array<RecommendationContent>;
     onClick?: (index: number) => void;
@@ -41,7 +46,7 @@ export const SearchQueryList = ({ content, onClick }: Props) => {
     return (
         <SearchQueryListContainer>
             {queryParams.map((params, index) => (
-                <Button
+                <QueryButton
                     type="text"
                     key={params.query}
                     onClick={() => onClickQuery(params.query, params.types || [], params.filters || [], index)}
@@ -49,7 +54,7 @@ export const SearchQueryList = ({ content, onClick }: Props) => {
                     <TagContainer>
                         <Tag closable={false}>{params.query}</Tag>
                     </TagContainer>
-                </Button>
+                </QueryButton>
             ))}
         </SearchQueryListContainer>
     );

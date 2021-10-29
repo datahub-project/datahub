@@ -154,7 +154,7 @@ transformers:
   - type: "set_dataset_browse_path"
     config:
       path_templates:
-        - /ENV/PLATFORM/DATASET_PARTS/ 
+        - /ENV/PLATFORM/DATASET_PARTS 
 ```
 
 If you don't want the environment but wanted to add something static in the browse path like the database instance name you can use this.
@@ -163,7 +163,7 @@ transformers:
   - type: "set_dataset_browse_path"
     config:
       path_templates:
-        - /PLATFORM/marketing_db/DATASET_PARTS/ 
+        - /PLATFORM/marketing_db/DATASET_PARTS 
 ```
 It will create browse path like `/mysql/marketing_db/sales/orders` for a table `sales.orders` in `mysql` database instance.
 
@@ -173,8 +173,8 @@ transformers:
   - type: "set_dataset_browse_path"
     config:
       path_templates:
-        - /PLATFORM/marketing_db/DATASET_PARTS/
-        - /data_warehouse/DATASET_PARTS/
+        - /PLATFORM/marketing_db/DATASET_PARTS
+        - /data_warehouse/DATASET_PARTS
 ```
 This will add 2 browse paths like `/mysql/marketing_db/sales/orders` and `/data_warehouse/sales/orders` for a table `sales.orders` in `mysql` database instance.
 
@@ -186,7 +186,7 @@ transformers:
     config:
       replace_existing: True
       path_templates:
-        - /ENV/PLATFORM/DATASET_PARTS/
+        - /ENV/PLATFORM/DATASET_PARTS
 ```
 In this case, the resulting dataset will have only 1 browse path, the one from the transform.
 

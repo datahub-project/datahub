@@ -25,7 +25,7 @@ public class TopTermsSource extends EntitySearchAggregationSource {
 
   @Override
   public String getTitle() {
-    return "Popular Glossary Terms";
+    return "Top Glossary Terms";
   }
 
   @Override
@@ -35,7 +35,7 @@ public class TopTermsSource extends EntitySearchAggregationSource {
 
   @Override
   public RecommendationRenderType getRenderType() {
-    return RecommendationRenderType.TAG_SEARCH_LIST;
+    return RecommendationRenderType.GLOSSARY_TERM_SEARCH_LIST;
   }
 
   @Override

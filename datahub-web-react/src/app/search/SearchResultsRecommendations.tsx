@@ -16,7 +16,7 @@ const RecommendationsContainer = styled.div`
 `;
 
 const RecommendationContainer = styled.div`
-    margin-bottom: 40px;
+    margin-bottom: 20px;
 `;
 
 const ThinDivider = styled(Divider)`
@@ -56,21 +56,19 @@ export const SearchResultsRecommendations = ({ userUrn, query, filters }: Props)
         <>
             {recommendationModules && recommendationModules.length && (
                 <RecommendationsContainer>
-                    <RecommendationContainer>
-                        <RecommendationTitle level={3}>More you may be interested in</RecommendationTitle>
-                        {recommendationModules &&
-                            recommendationModules.map((module) => (
-                                <>
-                                    <RecommendationTitle level={5}>{module.title}</RecommendationTitle>
-                                    <ThinDivider />
-                                    <RecommendationModule
-                                        module={module as RecommendationModuleType}
-                                        scenarioType={scenario}
-                                        showTitle={false}
-                                    />
-                                </>
-                            ))}
-                    </RecommendationContainer>
+                    <RecommendationTitle level={3}>More you may be interested in</RecommendationTitle>
+                    {recommendationModules &&
+                        recommendationModules.map((module) => (
+                            <RecommendationContainer>
+                                <RecommendationTitle level={5}>{module.title}</RecommendationTitle>
+                                <ThinDivider />
+                                <RecommendationModule
+                                    module={module as RecommendationModuleType}
+                                    scenarioType={scenario}
+                                    showTitle={false}
+                                />
+                            </RecommendationContainer>
+                        ))}
                 </RecommendationsContainer>
             )}
         </>

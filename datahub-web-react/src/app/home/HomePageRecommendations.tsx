@@ -7,7 +7,6 @@ import { RecommendationModule } from '../recommendations/RecommendationModule';
 import { BrowseEntityCard } from '../search/BrowseEntityCard';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { useGetEntityCountsQuery } from '../../graphql/app.generated';
-import { formatNumber } from '../shared/formatNumber';
 
 const RecommendationsContainer = styled.div`
     margin-top: 32px;
@@ -90,7 +89,7 @@ export const HomePageRecommendations = ({ userUrn }: Props) => {
                                     <BrowseEntityCard
                                         key={entityCount.entityType}
                                         entityType={entityCount.entityType}
-                                        count={formatNumber(entityCount.count)}
+                                        count={entityCount.count}
                                     />
                                 ),
                         )}
@@ -103,6 +102,7 @@ export const HomePageRecommendations = ({ userUrn }: Props) => {
                         <RecommendationTitle level={4}>{module.title}</RecommendationTitle>
                         <ThinDivider />
                         <RecommendationModule
+                            key={module.moduleId}
                             module={module as RecommendationModuleType}
                             scenarioType={scenario}
                             showTitle={false}
