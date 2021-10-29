@@ -3,6 +3,7 @@ apply plugin: 'java'
 dependencies {
   compile project(path: ':metadata-models')
   compile project(path: ':metadata-service:restli-client')
+  compile project(':authentication');
 
   compile externalDependency.servletApi
   compile externalDependency.lombok

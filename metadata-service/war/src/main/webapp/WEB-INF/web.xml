@@ -88,4 +88,11 @@
     <servlet-name>apiServlet</servlet-name>
     <dispatcher>REQUEST</dispatcher>
   </filter-mapping>
+
+  <!-- filter mappings -->
+  <filter-mapping>
+    <filter-name>AuthenticationFilter</filter-name> <!-- mandatory -->
+    <servlet-name>restliRequestHandler</servlet-name>
+    <dispatcher>REQUEST</dispatcher>
+  </filter-mapping>
 </web-app>
