@@ -7,7 +7,7 @@
                 "aspects": [
                     {
                         "com.linkedin.pegasus2avro.common.Status": {
-                            "removed": true
+                            "removed": false
                         }
                     }
                 ]

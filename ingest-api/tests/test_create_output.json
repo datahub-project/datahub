@@ -43,7 +43,8 @@
                                     "nativeDataType": "string",
                                     "recursive": false,
                                     "globalTags": null,
-                                    "glossaryTerms": null
+                                    "glossaryTerms": null,
+                                    "isPartOfKey": false
                                 },
                                 {
                                     "fieldPath": "field2",
@@ -58,24 +59,14 @@
                                     "nativeDataType": "num",
                                     "recursive": false,
                                     "globalTags": null,
-                                    "glossaryTerms": null
+                                    "glossaryTerms": null,
+                                    "isPartOfKey": false
                                 }
                             ],
                             "primaryKeys": null,
                             "foreignKeysSpecs": null
                         }
-                    }
-                ]
-            }
-        },
-        "proposedDelta": null
-    },
-    {
-        "auditHeader": null,
-        "proposedSnapshot": {
-            "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-                "urn": "urn:li:dataset:(urn:li:dataPlatform:csv,my_test_dataset,PROD)",
-                "aspects": [
+                    },
                     {
                         "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                             "customProperties": {
@@ -87,18 +78,7 @@
                             "uri": null,
                             "tags": []
                         }
-                    }
-                ]
-            }
-        },
-        "proposedDelta": null
-    },
-    {
-        "auditHeader": null,
-        "proposedSnapshot": {
-            "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-                "urn": "urn:li:dataset:(urn:li:dataPlatform:csv,my_test_dataset,PROD)",
-                "aspects": [
+                    },
                     {
                         "com.linkedin.pegasus2avro.common.BrowsePaths": {
                             "paths": [
@@ -109,6 +89,20 @@
                 ]
             }
         },
-        "proposedDelta": null
+        "proposedDelta": null,
+        "systemMetadata": null
+    },
+    {
+        "auditHeader": null,
+        "entityType": "dataset",
+        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:csv,my_test_dataset,PROD)",
+        "entityKeyAspect": null,
+        "changeType": "UPSERT",
+        "aspectName": "datasetProfile",
+        "aspect": {
+            "value": "{\"timestampMillis\": 1625108310242, \"rowCount\": 100, \"columnCount\": 2, \"fieldProfiles\": [{\"fieldPath\": \"field1\", \"sampleValues\": [\"sample_val1\", \"sample_value2\"]}, {\"fieldPath\": \"field2\", \"sampleValues\": [\"123\", \"345\"]}]}",
+            "contentType": "application/json"
+        },
+        "systemMetadata": null
     }
 ]
