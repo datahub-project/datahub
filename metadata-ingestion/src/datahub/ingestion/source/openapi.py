@@ -110,8 +110,12 @@ class APISource(Source, ABC):
         config = self.config
 
         dataset_name = endpoint_k[1:].replace("/", ".")
-        if dataset_name[-1] == ".":
-            dataset_name = dataset_name[:-1]
+
+        if len(dataset_name) > 0:
+            if dataset_name[-1] == ".":
+                dataset_name = dataset_name[:-1]
+        else:
+            dataset_name = 'root'
 
         dataset_snapshot = DatasetSnapshot(
             urn=f"urn:li:dataset:(urn:li:dataPlatform:{self.platform},{config.name}.{dataset_name},PROD)",
