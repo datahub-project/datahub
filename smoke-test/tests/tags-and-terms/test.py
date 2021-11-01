@@ -5,26 +5,17 @@ import requests
 import urllib
 from datahub.cli.docker import check_local_docker_containers
 from datahub.ingestion.run.pipeline import Pipeline
+from tests.testutils import FRONTEND_ENDPOINT
 
-GMS_ENDPOINT = "http://localhost:8080"
-FRONTEND_ENDPOINT = "http://localhost:9002"
-KAFKA_BROKER = "localhost:9092"
+print("loaded test file")
 
-bootstrap_sample_data = "../metadata-ingestion/examples/mce_files/bootstrap_mce.json"
-usage_sample_data = (
-    "../metadata-ingestion/tests/integration/bigquery-usage/bigquery_usages_golden.json"
-)
-bq_sample_data = "./sample_bq_data.json"
-restli_default_headers = {
-    "X-RestLi-Protocol-Version": "2.0.0",
-}
-kafka_post_ingestion_wait_sec = 60
+@pytest.fixture(scope="module", autouse=True)
+def ingest_cleanup_data(request):
+    print("running before test")
+    yield
+    print("running after test")
 
-
-@pytest.fixture(scope="session")
-
-@pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
-def test_add_tag(frontend_session):
+def test_add_tag(frontend_session,wait_for_healthchecks):
     platform = "urn:li:dataPlatform:kafka"
     dataset_name = (
         "SampleKafkaDataset"
@@ -57,6 +48,8 @@ def test_add_tag(frontend_session):
     )
     response.raise_for_status()
     res_data = response.json()
+    print(res_data)
+
 
     assert res_data
     assert res_data["data"]
@@ -135,9 +128,7 @@ def test_add_tag(frontend_session):
     assert res_data["data"]["dataset"]
     assert res_data["data"]["dataset"]["globalTags"] == {'tags-and-terms': [] }
 
-
-@pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
-def test_add_tag_to_chart(frontend_session):
+def test_add_tag_to_chart(frontend_session,wait_for_healthchecks):
     chart_urn = "urn:li:chart:(looker,baz2)"
 
     chart_json = {
@@ -243,8 +234,7 @@ def test_add_tag_to_chart(frontend_session):
     assert res_data["data"]["chart"]
     assert res_data["data"]["chart"]["globalTags"] == {'tags-and-terms': [] }
 
-@pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
-def test_add_term(frontend_session):
+def test_add_term(frontend_session,wait_for_healthchecks):
     platform = "urn:li:dataPlatform:kafka"
     dataset_name = (
         "SampleKafkaDataset"
@@ -354,9 +344,7 @@ def test_add_term(frontend_session):
     assert res_data["data"]["dataset"]
     assert res_data["data"]["dataset"]["glossaryTerms"] == {'terms': []}
 
-
-@pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
-def test_update_schemafield(frontend_session):
+def test_update_schemafield(frontend_session,wait_for_healthchecks):
     platform = "urn:li:dataPlatform:kafka"
     dataset_name = (
         "SampleKafkaDataset"
