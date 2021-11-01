@@ -325,7 +325,7 @@ public abstract class EntityService {
     if (_entityRegistry.getEntitySpec(entityType).getAspectSpecMap().containsKey(BROWSE_PATHS)
         && getLatestAspect(urn, BROWSE_PATHS) == null && !includedAspects.contains(BROWSE_PATHS)) {
       try {
-        BrowsePaths generatedBrowsePath = BrowsePathUtils.buildBrowsePath(urn);
+        BrowsePaths generatedBrowsePath = BrowsePathUtils.buildBrowsePath(urn, getEntityRegistry());
         if (generatedBrowsePath != null) {
           aspects.add(Pair.of(BROWSE_PATHS, generatedBrowsePath));
         }

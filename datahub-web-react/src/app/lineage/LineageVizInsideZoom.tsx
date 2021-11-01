@@ -26,6 +26,19 @@ const ZoomButton = styled(Button)`
 
 const RootSvg = styled.svg<{ isDragging: boolean } & SVGProps<SVGSVGElement>>`
     cursor: ${(props) => (props.isDragging ? 'grabbing' : 'grab')};
+    @keyframes spin {
+        0% {
+            transform: rotate(0deg);
+        }
+        100% {
+            transform: rotate(359deg);
+        }
+    }
+    .lineageExpandLoading {
+        transform-box: fill-box;
+        transform-origin: 50% 50%;
+        animation: spin 2s linear infinite;
+    }
 `;
 
 type Props = {
@@ -75,6 +88,12 @@ export default function LineageVizInsideZoom({
 
     useEffect(() => {
         zoom.setTransformMatrix({ ...zoom.transformMatrix, translateY: 0, translateX: width / 2 });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [entityAndType?.entity?.urn]);
+
+    // we want to clear all the dragged nodes after recentering
+    useEffect(() => {
+        setDraggedNodes({});
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [entityAndType?.entity?.urn]);
 
