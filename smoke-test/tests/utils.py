@@ -1,4 +1,6 @@
 import json
+
+import requests
 from datahub.cli import cli_utils
 from datahub.ingestion.run.pipeline import Pipeline
 
@@ -23,6 +25,14 @@ def ingest_file_via_rest(filename: str):
 
 
 def delete_urns_from_file(filename: str):
+    session = requests.Session()
+    session.headers.update(
+        {
+            "X-RestLi-Protocol-Version": "2.0.0",
+            "Content-Type": "application/json",
+        }
+    )
+
     with open(filename) as f:
         d = json.load(f)
         for entry in d:
@@ -38,6 +48,9 @@ def delete_urns_from_file(filename: str):
             print("About to delete urn")
             print(urn)
             payload_obj = {"urn": urn}
-            cli_utils.post_delete_endpoint(
-                payload_obj, "/entities?action=delete"
+
+            cli_utils.post_delete_endpoint_with_session_and_url(
+                session,
+                GMS_ENDPOINT + "/entities?action=delete",
+                payload_obj,
             )

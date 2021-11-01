@@ -179,6 +179,13 @@ def post_delete_endpoint(
     session, gms_host = get_session_and_host()
     url = gms_host + path
 
+    return post_delete_endpoint_with_session_and_host(session, url, payload_obj)
+
+def post_delete_endpoint_with_session_and_url(
+    session,
+    url,
+    payload_obj: dict,
+) -> typing.Tuple[str, int]:
     payload = json.dumps(payload_obj)
 
     response = session.post(url, payload)
