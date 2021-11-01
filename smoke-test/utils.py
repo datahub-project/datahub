@@ -3,6 +3,8 @@ from datahub.cli import cli_utils
 from datahub.ingestion.run.pipeline import Pipeline
 
 GMS_ENDPOINT = "http://localhost:8080"
+FRONTEND_ENDPOINT = "http://localhost:9002"
+
 
 def ingest_file_via_rest(filename: str):
     pipeline = Pipeline.create(
@@ -19,6 +21,7 @@ def ingest_file_via_rest(filename: str):
     )
     pipeline.run()
     pipeline.raise_from_status()
+
 
 def delete_urns_from_file(filename: str):
     with open(filename) as f:

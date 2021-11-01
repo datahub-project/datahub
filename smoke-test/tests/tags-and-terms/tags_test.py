@@ -1,27 +1,15 @@
-import time
-
 import pytest
-import requests
-import urllib
-from datahub.cli.docker import check_local_docker_containers
-from datahub.ingestion.run.pipeline import Pipeline
 
-GMS_ENDPOINT = "http://localhost:8080"
-FRONTEND_ENDPOINT = "http://localhost:9002"
-KAFKA_BROKER = "localhost:9092"
+frontend_endpoint = "http://localhost:9002"
 
-bootstrap_sample_data = "../metadata-ingestion/examples/mce_files/bootstrap_mce.json"
-usage_sample_data = (
-    "../metadata-ingestion/tests/integration/bigquery-usage/bigquery_usages_golden.json"
-)
-bq_sample_data = "./sample_bq_data.json"
-restli_default_headers = {
-    "X-RestLi-Protocol-Version": "2.0.0",
-}
-kafka_post_ingestion_wait_sec = 60
+@pytest.fixture(autouse=True)
+def run_before_and_after_tests(tmpdir):
+    """Fixture to execute asserts before and after a test is run"""
+    # Setup: fill with any logic you want
 
+    yield # this is where the testing happens
 
-@pytest.fixture(scope="session")
+    # Teardown : fill with any logic you want
 
 @pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
 def test_add_tag(frontend_session):
