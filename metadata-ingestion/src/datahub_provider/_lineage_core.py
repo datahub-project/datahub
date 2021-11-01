@@ -1,7 +1,6 @@
 import json
 from typing import TYPE_CHECKING, Dict, List
 
-import dateutil.parser
 from airflow.configuration import conf
 
 import datahub.emitter.mce_builder as builder
