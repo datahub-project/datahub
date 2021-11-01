@@ -8,6 +8,7 @@ import com.linkedin.metadata.key.ChartKey;
 import com.linkedin.metadata.key.DashboardKey;
 import com.linkedin.metadata.key.DataFlowKey;
 import com.linkedin.metadata.key.DataJobKey;
+import com.linkedin.metadata.key.DataPlatformKey;
 import com.linkedin.metadata.key.DatasetKey;
 import com.linkedin.metadata.key.GlossaryTermKey;
 import com.linkedin.metadata.models.AspectSpec;
@@ -37,7 +38,11 @@ public class BrowsePathUtils {
     switch (urn.getEntityType()) {
       case "dataset":
         DatasetKey dsKey = (DatasetKey) EntityKeyUtils.convertUrnToEntityKey(urn, getKeySchema(urn.getEntityType(), entityRegistry));
-        return ("/" + dsKey.getOrigin() + "/" + dsKey.getPlatform() + "/"
+        DataPlatformKey dpKey = (DataPlatformKey) EntityKeyUtils.convertUrnToEntityKey(
+            dsKey.getPlatform(),
+            getKeySchema(dsKey.getPlatform().getEntityType(),
+                entityRegistry));
+        return ("/" + dsKey.getOrigin() + "/" + dpKey.getPlatformName() + "/"
             + dsKey.getName()).replace('.', '/').toLowerCase();
       case "chart":
         ChartKey chartKey = (ChartKey) EntityKeyUtils.convertUrnToEntityKey(urn, getKeySchema(urn.getEntityType(), entityRegistry));
