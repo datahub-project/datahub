@@ -9,7 +9,6 @@ import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericAspectUtils;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeProposal;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
@@ -19,6 +18,9 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class AspectUtils {
+
+  private AspectUtils() { }
+
   public static List<MetadataChangeProposal> getAdditionalChanges(
       @Nonnull MetadataChangeProposal metadataChangeProposal,
       @Nonnull EntityService entityService
