@@ -210,8 +210,6 @@ def test_add_tag_to_chart(frontend_session,wait_for_healthchecks):
     response.raise_for_status()
     res_data = response.json()
 
-    print(res_data)
-
     assert res_data
     assert res_data["data"]
     assert res_data["data"]["removeTag"] is True
