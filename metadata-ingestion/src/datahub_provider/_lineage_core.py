@@ -191,7 +191,6 @@ def send_lineage_to_datahub(
     }
 
     if config.capture_ownership_info:
-        timestamp = int(dateutil.parser.parse(context["ts"]).timestamp() * 1000)
         ownership = models.OwnershipClass(
             owners=[
                 models.OwnerClass(
@@ -204,7 +203,7 @@ def send_lineage_to_datahub(
                 )
             ],
             lastModified=models.AuditStampClass(
-                time=timestamp, actor=builder.make_user_urn("airflow")
+                time=0, actor=builder.make_user_urn("airflow")
             ),
         )
         # operator.log.info(f"{ownership=}")
