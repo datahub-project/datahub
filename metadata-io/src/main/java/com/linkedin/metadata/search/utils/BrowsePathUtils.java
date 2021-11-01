@@ -38,7 +38,7 @@ public class BrowsePathUtils {
     switch (urn.getEntityType()) {
       case "dataset":
         DatasetKey dsKey = (DatasetKey) EntityKeyUtils.convertUrnToEntityKey(urn, getKeySchema(urn.getEntityType(), entityRegistry));
-        DataPlatformKey dpKey = (DataPlatformKey) EntityKeyUtils.convertUrnToEntityKey(dsKey.getPlatform(), getKeySchema(dsKey.getPlatform().getEntityType(), entityRegistry);
+        DataPlatformKey dpKey = (DataPlatformKey) EntityKeyUtils.convertUrnToEntityKey(dsKey.getPlatform(), getKeySchema(dsKey.getPlatform().getEntityType(), entityRegistry));
         return ("/" + dsKey.getOrigin() + "/" + dpKey.getPlatformName() + "/"
             + dsKey.getName()).replace('.', '/').toLowerCase();
       case "chart":
