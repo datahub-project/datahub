@@ -46,11 +46,16 @@ public class DataHubTokenService {
    * Generates a JWT for an actor with a specific urn.
    *
    * Note that the caller of this method is expected to authorize the action of generating a token.
+   *
+   * TODO: Add scope.
+   * TODO: Return more information.
+   * TODO: Generate a refresh token.
+   * TODO: Accept more. Client type. Need a client ID (__datahub_frontend) & client secret
    */
-  private String generateToken(final String actorUrn) {
+  public String generateToken(final String username) {
     Map<String, Object> claims = new HashMap<>();
-    claims.put("urn", actorUrn);
-    return generateToken(actorUrn, claims);
+    claims.put("username", username);
+    return generateToken(username, claims);
   }
 
   /**
@@ -58,7 +63,7 @@ public class DataHubTokenService {
    *
    * Note that the caller of this method is expected to authorize the action of generating a token.
    */
-  private String generateToken(final String sub, final Map<String, Object> claims) {
+  public String generateToken(final String sub, final Map<String, Object> claims) {
     final JwtBuilder builder = Jwts.builder()
       .addClaims(claims)
       .setExpiration(new Date(System.currentTimeMillis() + this.expiresInMs))

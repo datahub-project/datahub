@@ -1,5 +1,6 @@
 package com.datahub.authentication.authenticators;
 
+import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authentication.AuthenticationResult;
 import com.datahub.authentication.Authenticator;
@@ -16,11 +17,11 @@ import static com.datahub.authentication.Constants.*;
  */
 public class DataHubTokenAuthenticator implements Authenticator {
 
-  private static final String USERNAME_CLAIM = "urn";
+  private static final String ACTOR_URN_CLAIM = "actorUrn";
   private static final String HS_256 = "HS256";
 
   private String signingKey;
-  private String signingAlgorithm; // Supported are HS256 & RS256
+  private String signingAlgorithm; // Supported are HS256
 
   @Override
   public void init(final Map<String, Object> config) {
@@ -34,12 +35,10 @@ public class DataHubTokenAuthenticator implements Authenticator {
 
   @Override
   public AuthenticationResult authenticate(AuthenticationContext context) {
-    final String authorizationHeader = context.headers().get("authorization"); // Case insensitive
+    final String authorizationHeader = context.headers().get("Authorization"); // Case insensitive
     if (authorizationHeader != null) {
-      String token;
       if (authorizationHeader.startsWith("Bearer ") || authorizationHeader.startsWith("bearer ")) {
-          token = authorizationHeader.substring(7);
-          return validateAndExtract(token);
+        return validateAndExtract(authorizationHeader.substring(7));
       } else {
         return FAILURE_AUTHENTICATION_RESULT; // TODO: Qualify this further.
       }
@@ -47,19 +46,23 @@ public class DataHubTokenAuthenticator implements Authenticator {
     return FAILURE_AUTHENTICATION_RESULT;
   }
 
-  private AuthenticationResult validateAndExtract(final String token) {
+  private AuthenticationResult validateAndExtract(final String authorizationHeader) {
+    final String token = authorizationHeader.substring(7);
     final Claims claims = (Claims) Jwts.parserBuilder()
         .setSigningKey(this.signingKey)
         .build()
         .parse(token)
         .getBody();
-    final String username = claims.get(USERNAME_CLAIM, String.class);
-    if (username != null && username.length() > 0) {
+    final String actorUrn = claims.get(ACTOR_URN_CLAIM, String.class);
+    if (actorUrn != null && actorUrn.length() > 0) {
       return new AuthenticationResult(
           AuthenticationResult.Type.SUCCESS,
-          username,
-          Collections.emptySet(),
-          claims
+          new Authentication(
+              authorizationHeader,
+              actorUrn,
+              null,
+              Collections.emptySet(),
+              claims)
       );
     }
     return FAILURE_AUTHENTICATION_RESULT;

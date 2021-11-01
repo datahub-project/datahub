@@ -1,10 +1,5 @@
 package com.datahub.authentication;
 
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
-
-
 /**
  * Stores the result returned by a single {@link Authenticator}.
  */
@@ -14,35 +9,20 @@ public class AuthenticationResult {
     FAILURE
   }
   private final Type type;
-  private final String username; // The resolved DataHub username, (without urn:li:datahub)
-  private final Set<String> groups;
-  private final Map<String, Object> claims;
+  private Authentication authentication;
 
   public AuthenticationResult(
       Type type,
-      String username,
-      Set<String> groups,
-      Map<String, Object> claims) {
+      Authentication authentication) {
     this.type = type;
-    this.username = username;
-    this.groups = groups;
-    this.claims = claims;
+    this.authentication = authentication;
   }
 
   public Type type() {
     return this.type;
   }
 
-  public String username() {
-    return this.username;
+  public Authentication authentication() {
+    return this.authentication;
   }
-
-  public Set<String> groups() {
-    return this.groups;
-  }
-
-  public Optional<Set<String>> maybeGroups() {
-    return Optional.of(this.groups);
-  }
-
 }

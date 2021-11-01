@@ -40,6 +40,7 @@ import static com.linkedin.metadata.Constants.*;
 public class AuthorizationManager implements Authorizer {
 
   // Used for resolving resource ownership.
+  // TODO: Pass an ownership resolver function instead.
   private final OwnershipClient _ownershipClient;
 
   // Maps privilege name to the associated set of policies for fast access.

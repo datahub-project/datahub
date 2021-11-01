@@ -5,7 +5,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
-import static com.datahub.authentication.Constants.*;
 
 
 /**
@@ -15,9 +14,12 @@ public class AuthenticatorChain {
 
   private static final AuthenticationResult SUCCESS_AUTHENTICATION_RESULT = new AuthenticationResult(
     AuthenticationResult.Type.SUCCESS,
-    "urn:li:corpuser:datahub", // TODO Fix this.
-    Collections.emptySet(),
-    Collections.emptyMap()
+      new Authentication(
+          "",
+          "urn:li:corpuser:datahub", // TODO Fix this.
+          null,
+          Collections.emptySet(),
+          Collections.emptyMap())
   );
 
   private final Map<String, Object> config;
@@ -61,7 +63,8 @@ public class AuthenticatorChain {
         }
       } catch (Exception e) {
         // todo add logging.
-        return FAILURE_AUTHENTICATION_RESULT;
+        throw e;
+        // return FAILURE_AUTHENTICATION_RESULT;
       }
     }
     return result;
