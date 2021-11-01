@@ -5,6 +5,7 @@ import requests
 import urllib
 from datahub.cli.docker import check_local_docker_containers
 from datahub.ingestion.run.pipeline import Pipeline
+from utils import ingest_file_via_rest
 
 GMS_ENDPOINT = "http://localhost:8080"
 FRONTEND_ENDPOINT = "http://localhost:9002"
@@ -34,31 +35,14 @@ def test_healthchecks(wait_for_healthchecks):
     pass
 
 
-def ingest_file(filename: str):
-    pipeline = Pipeline.create(
-        {
-            "source": {
-                "type": "file",
-                "config": {"filename": filename},
-            },
-            "sink": {
-                "type": "datahub-rest",
-                "config": {"server": GMS_ENDPOINT},
-            },
-        }
-    )
-    pipeline.run()
-    pipeline.raise_from_status()
-
-
 @pytest.mark.dependency(depends=["test_healthchecks"])
 def test_ingestion_via_rest(wait_for_healthchecks):
-    ingest_file(bootstrap_sample_data)
+    ingest_file_via_rest(bootstrap_sample_data)
 
 
 @pytest.mark.dependency(depends=["test_healthchecks"])
 def test_ingestion_usage_via_rest(wait_for_healthchecks):
-    ingest_file(usage_sample_data)
+    ingest_file_via_rest(usage_sample_data)
 
 
 @pytest.mark.dependency(depends=["test_healthchecks"])
