@@ -7,13 +7,13 @@ from datahub.cli.docker import check_local_docker_containers
 from datahub.ingestion.run.pipeline import Pipeline
 from tests.testutils import FRONTEND_ENDPOINT
 
-print("loaded test file")
-
 @pytest.fixture(scope="module", autouse=True)
 def ingest_cleanup_data(request):
-    print("running before test")
+    print("ingesting test data")
+    # load data.json file and ingest.
     yield
-    print("running after test")
+    print("removing test data")
+    # remove urns from data.json file
 
 def test_add_tag(frontend_session,wait_for_healthchecks):
     platform = "urn:li:dataPlatform:kafka"
