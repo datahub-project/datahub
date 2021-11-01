@@ -1,8 +1,4 @@
 import pytest
-import requests
-import urllib
-from datahub.cli.docker import check_local_docker_containers
-from datahub.ingestion.run.pipeline import Pipeline
 from tests.utils import FRONTEND_ENDPOINT
 from tests.utils import ingest_file_via_rest
 from tests.utils import delete_urns_from_file
@@ -10,10 +6,10 @@ from tests.utils import delete_urns_from_file
 @pytest.fixture(scope="module", autouse=True)
 def ingest_cleanup_data(request):
     print("ingesting test data")
-    ingest_file_via_rest("tags-and-terms/data.json")
+    ingest_file_via_rest("tests/tags-and-terms/data.json")
     yield
     print("removing test data")
-    delete_urns_from_file("tags-and-terms/data.json")
+    delete_urns_from_file("tests/tags-and-terms/data.json")
 
 def test_add_tag(frontend_session,wait_for_healthchecks):
     platform = "urn:li:dataPlatform:kafka"
