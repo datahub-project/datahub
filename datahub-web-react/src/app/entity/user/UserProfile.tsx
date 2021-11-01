@@ -1,6 +1,5 @@
 import { Alert } from 'antd';
 import React, { useMemo } from 'react';
-
 import UserHeader from './UserHeader';
 import useUserParams from '../../shared/entitySearch/routingUtils/useUserParams';
 import { useGetUserQuery } from '../../../graphql/user.generated';
@@ -10,6 +9,7 @@ import RelatedEntityResults from '../../shared/entitySearch/RelatedEntityResults
 import { LegacyEntityProfile } from '../../shared/LegacyEntityProfile';
 import { CorpUser, EntityType, SearchResult, EntityRelationshipsResult } from '../../../types.generated';
 import UserGroups from './UserGroups';
+import { useEntityRegistry } from '../../useEntityRegistry';
 
 const messageStyle = { marginTop: '10%' };
 
@@ -27,6 +27,7 @@ const GROUP_PAGE_SIZE = 20;
 export default function UserProfile() {
     const { urn } = useUserParams();
     const { loading, error, data } = useGetUserQuery({ variables: { urn, groupsCount: GROUP_PAGE_SIZE } });
+    const entityRegistry = useEntityRegistry();
     const username = data?.corpUser?.username;
 
     const ownershipResult = useGetAllEntitySearchResults({
@@ -76,11 +77,13 @@ export default function UserProfile() {
         ].filter((tab) => ENABLED_TAB_TYPES.includes(tab.name));
     };
 
-    const getHeader = ({ editableInfo, info }: CorpUser) => {
+    const getHeader = (user: CorpUser) => {
+        const { editableInfo, info } = user;
+        const displayName = entityRegistry.getDisplayName(EntityType.CorpUser, user);
         return (
             <UserHeader
                 profileSrc={editableInfo?.pictureLink}
-                name={info?.displayName}
+                name={displayName}
                 title={info?.title}
                 email={info?.email}
                 skills={editableInfo?.skills}

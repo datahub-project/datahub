@@ -4,7 +4,8 @@ For context on getting started with ingestion, check out our [metadata ingestion
 
 ## Setup
 
-To install this plugin, run `pip install 'acryl-datahub[sql-profiles]'`.
+To install this plugin, run `pip install 'acryl-datahub[sql-profiles]'` (prior to datahub version `0.8.16.0`).
+In the versions after `0.8.16.0`, this gets installed along with the SQL-based source itself.
 
 The SQL-based profiler does not run alone, but rather can be enabled for other SQL-based sources.
 Enabling profiling will slow down ingestion runs.
@@ -68,16 +69,28 @@ sink:
 
 Note that a `.` is used to denote nested fields in the YAML recipe.
 
-| Field                        | Required | Default            | Description                                                             |
-| ---------------------------- | -------- | ------------------ | ----------------------------------------------------------------------- |
-| `profiling.enabled`          |          | `False`            | Whether profiling should be done.                                       |
-| `profiling.limit`            |          |                    | Max number of documents to profile. By default, profiles all documents. |
-| `profiling.offset`           |          |                    | Offset in documents to profile. By default, uses no offset.             |
-| `profiling.max_workers`      |          | `5*os.cpu_count()` | Number of worker threads to use for profiling. Set to 1 to disable.     |
-| `profile_pattern.allow`      |          |                    | List of regex patterns for tables to profile.                           |
-| `profile_pattern.deny`       |          |                    | List of regex patterns for tables to not profile.                       |
-| `profile_pattern.ignoreCase` |          | `True`             | Whether to ignore case sensitivity during pattern matching.             |
-| `profile.send_sample_values` |          | `True`             | Whether to send sample values or not.                                   |
+| Field                                               | Required | Default                     | Description                                                                          |
+| --------------------------------------------------- | -------- | --------------------------- | ------------------------------------------------------------------------------------ |
+| `profiling.enabled`                                 |          | `False`                     | Whether profiling should be done.                                                    |
+| `profiling.limit`                                   |          |                             | Max number of documents to profile. By default, profiles all documents.              |
+| `profiling.offset`                                  |          |                             | Offset in documents to profile. By default, uses no offset.                          |
+| `profiling.max_workers`                             |          | `5 * (os.cpu_count() or 4)` | Number of worker threads to use for profiling. Set to 1 to disable.                  |
+| `profile_pattern.allow`                             |          | `*`                         | List of regex patterns for tables or table columns to profile. Defaults to all.      |
+| `profile_pattern.deny`                              |          |                             | List of regex patterns for tables or table columns to not profile. Defaults to none. |
+| `profile_pattern.ignoreCase`                        |          | `True`                      | Whether to ignore case sensitivity during pattern matching.                          |
+| `profile.turn_off_expensive_profiling_metrics`      |          | False                       | Whether to turn off expensive profiling or not. This turns off profiling for quantiles, distinct_value_frequencies, histogram & sample_values. This also limits maximum number of fields being profiled to 10.|
+| `profile.max_number_of_fields_to_profile`           |          | `None`                      | A positive integer that specifies the maximum number of columns to profile for any table. `None` implies all columns. The cost of profiling goes up significantly as the number of columns to profile goes up.|
+| `profile.profile_table_level_only`                  |          | False                       | Whether to perform profiling at table-level only, or include column-level profiling as well.|
+| `profile.include_field_null_count`                  |          | `True`                      | Whether to profile for the number of nulls for each column.                          |
+| `profile.include_field_min_value`                   |          | `True`                      | Whether to profile for the min value of numeric columns.                             |
+| `profile.include_field_max_value`                   |          | `True`                      | Whether to profile for the max value of numeric columns.                             |
+| `profile.include_field_mean_value`                  |          | `True`                      | Whether to profile for the mean value of numeric columns.                            |
+| `profile.include_field_median_value`                |          | `True`                      | Whether to profile for the median value of numeric columns.                          |
+| `profile.include_field_stddev_value`                |          | `True`                      | Whether to profile for the standard deviation of numeric columns.                    |
+| `profile.include_field_quantiles`                   |          | `True`                      | Whether to profile for the quantiles of numeric columns.                             |
+| `profile.include_field_distinct_value_frequencies`  |          | `True`                      | Whether to profile for distinct value frequencies.                                   |
+| `profile.include_field_histogram`                   |          | `True`                      | Whether to profile for the histogram for numeric fields.                             |
+| `profile.include_field_sample_values`               |          | `True`                      | Whether to profile for the sample values for all columns.                            |
 
 ## Compatibility
 

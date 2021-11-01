@@ -7,12 +7,10 @@ import pydantic
 
 # This import verifies that the dependencies are available.
 import snowflake.sqlalchemy  # noqa: F401
-import sqlalchemy
 from snowflake.sqlalchemy import custom_types
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.sql import text
-from sqlalchemy.sql.elements import quoted_name
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern
@@ -91,8 +89,8 @@ class SnowflakeConfig(BaseSnowflakeConfig, SQLAlchemyConfig):
         values["database_pattern"].allow = f"^{v}$"
         return None
 
-    def get_sql_alchemy_url(self):
-        return super().get_sql_alchemy_url(database=None)
+    def get_sql_alchemy_url(self, database: str = None) -> str:
+        return super().get_sql_alchemy_url(database=database)
 
 
 class SnowflakeSource(SQLAlchemySource):
@@ -109,27 +107,21 @@ class SnowflakeSource(SQLAlchemySource):
         return cls(config, ctx)
 
     def get_inspectors(self) -> Iterable[Inspector]:
-        url = self.config.get_sql_alchemy_url()
+        url = self.config.get_sql_alchemy_url(database=None)
         logger.debug(f"sql_alchemy_url={url}")
-        engine = create_engine(url, **self.config.options)
+        db_listing_engine = create_engine(url, **self.config.options)
 
-        db = None
-
-        @sqlalchemy.event.listens_for(engine, "connect")
-        def connect(dbapi_connection, connection_record):
-            if db is not None:
-                cursor_obj = dbapi_connection.cursor()
-                cursor_obj.execute((f'USE DATABASE "{quoted_name(db, True)}"'))
-                cursor_obj.close()
-
-        for db_row in engine.execute(text("SHOW DATABASES")):
+        for db_row in db_listing_engine.execute(text("SHOW DATABASES")):
             db = db_row.name
             if self.config.database_pattern.allowed(db):
+                # We create a separate engine for each database in order to ensure that
+                # they are isolated from each other.
                 self.current_database = db
+                engine = create_engine(
+                    self.config.get_sql_alchemy_url(database=db), **self.config.options
+                )
 
                 with engine.connect() as conn:
-                    # TRICKY: the "USE DATABASE" command is actually called by the engine's connect event hook.
-                    # https://docs.sqlalchemy.org/en/14/core/engines.html#modifying-the-dbapi-connection-after-connect-or-running-commands-after-connect
                     inspector = inspect(conn)
                     yield inspector
             else:

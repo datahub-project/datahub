@@ -1,8 +1,8 @@
-from datahub.ingestion.api.registry import Registry
+from datahub.ingestion.api.registry import PluginRegistry
 from datahub.ingestion.api.sink import Sink
 
-sink_registry = Registry[Sink]()
-sink_registry.load("datahub.ingestion.sink.plugins")
+sink_registry = PluginRegistry[Sink]()
+sink_registry.register_from_entrypoint("datahub.ingestion.sink.plugins")
 
 # These sinks are always enabled
 assert sink_registry.get("console")

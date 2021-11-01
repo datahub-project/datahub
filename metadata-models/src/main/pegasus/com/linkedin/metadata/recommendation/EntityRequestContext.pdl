@@ -1,0 +1,18 @@
+namespace com.linkedin.metadata.recommendation
+
+import com.linkedin.common.Urn
+
+/**
+ * Context that defines an entity page requesting recommendations
+ */
+record EntityRequestContext {
+  /**
+   * Type of the entity being displayed
+   */
+  type: string
+
+  /**
+   * Urn of the entity being displayed
+   */
+  urn: Urn
+}

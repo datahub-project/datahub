@@ -32,7 +32,7 @@ export default function TypeLabel({ type, nativeDataType }: Props) {
     const NativeDataTypeTooltip = ({ children }) =>
         nativeDataType ? (
             <Tooltip placement="top" title={capitalizeFirstLetter(nativeDataType)}>
-                {children}
+                <span>{children}</span>
             </Tooltip>
         ) : (
             <>{children}</>

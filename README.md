@@ -48,7 +48,7 @@ HOSTED_DOCS_ONLY-->
 
 ---
 
-> 📣 Next DataHub town hall meeting on Sep 24th, 9am-10am PDT ([convert to your local time](https://greenwichmeantime.com/time/to/pacific-local/))
+> 📣 Next DataHub town hall meeting on Oct 29th, 9am-10am PDT ([convert to your local time](https://greenwichmeantime.com/time/to/pacific-local/))
 >
 > - Topic Proposals: [submit here](https://docs.google.com/forms/d/1v2ynbAXjJlqY97xE_X1DAntNrXDznOFiNfryUkMPtkI/)
 > - Signup to get a calendar invite: [here](https://docs.google.com/forms/d/1r9bObXKS3tgKpISqqO3rw4yQog5zwuaFxg8IrJGUbvQ/)
@@ -57,7 +57,8 @@ HOSTED_DOCS_ONLY-->
 
 > ✨ Latest Update:
 >
-> - Monthly project update: [July 2021 Edition](https://medium.com/datahub-project/datahub-project-updates-f4299cd3602e?source=friends_link&sk=27af7637f7ae44786ede694c3af512a5).
+> - Monthly project update: [August 2021 Edition](https://medium.com/datahub-project/datahub-project-updates-7a0b75cae2b7?source=friends_link&sk=307c9c9983a2d0c778d0455fef12e1e9).
+> - Bringing The Power Of The DataHub Real-Time Metadata Graph To Everyone At Acryl Data: [Data Engineering Podcast](https://www.dataengineeringpodcast.com/acryl-data-datahub-metadata-graph-episode-230/)
 > - Unleashing Excellent DataOps with LinkedIn DataHub: [DataOps Unleashed Talk](https://www.youtube.com/watch?v=ccsIKK9nVxk).
 > - Latest blog post [DataHub: Popular Metadata Architectures Explained](https://engineering.linkedin.com/blog/2020/datahub-popular-metadata-architectures-explained) @ LinkedIn Engineering Blog.
 > - We're on [Slack](docs/slack.md) now! Ask questions and keep up with the latest announcements.
