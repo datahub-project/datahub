@@ -5,6 +5,7 @@ import requests
 import urllib
 from datahub.cli.docker import check_local_docker_containers
 from datahub.ingestion.run.pipeline import Pipeline
+from utils import ingest_file_via_rest
 
 GMS_ENDPOINT = "http://localhost:8080"
 FRONTEND_ENDPOINT = "http://localhost:9002"
@@ -48,31 +49,14 @@ def frontend_session(wait_for_healthchecks):
 
     yield session
 
-def ingest_file(filename: str):
-    pipeline = Pipeline.create(
-        {
-            "source": {
-                "type": "file",
-                "config": {"filename": filename},
-            },
-            "sink": {
-                "type": "datahub-rest",
-                "config": {"server": GMS_ENDPOINT},
-            },
-        }
-    )
-    pipeline.run()
-    pipeline.raise_from_status()
-
-
 @pytest.mark.dependency(depends=["test_healthchecks"])
 def test_ingestion_via_rest(wait_for_healthchecks):
-    ingest_file(bootstrap_sample_data)
+    ingest_file_via_rest(bootstrap_sample_data)
 
 
 @pytest.mark.dependency(depends=["test_healthchecks"])
 def test_ingestion_usage_via_rest(wait_for_healthchecks):
-    ingest_file(usage_sample_data)
+    ingest_file_via_rest(usage_sample_data)
 
 
 @pytest.mark.dependency(depends=["test_healthchecks"])
@@ -859,7 +843,7 @@ def test_add_tag(frontend_session):
         "query": """query getDataset($urn: String!) {\n
             dataset(urn: $urn) {\n
                 globalTags {\n
-                    tags-and-terms {\n
+                    tags {\n
                         tag {\n
                             urn\n
                             name\n
@@ -874,7 +858,7 @@ def test_add_tag(frontend_session):
         }
     }
 
-    # Fetch tags-and-terms
+    # Fetch tags
     response = frontend_session.post(
         f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=dataset_json
     )
@@ -920,7 +904,7 @@ def test_add_tag(frontend_session):
     assert res_data
     assert res_data["data"]
     assert res_data["data"]["dataset"]
-    assert res_data["data"]["dataset"]["globalTags"] == {'tags-and-terms': [{'tag': {'description': 'Indicates the dataset is no longer supported', 'name': 'Legacy', 'urn': 'urn:li:tag:Legacy'}}]}
+    assert res_data["data"]["dataset"]["globalTags"] == {'tags': [{'tag': {'description': 'Indicates the dataset is no longer supported', 'name': 'Legacy', 'urn': 'urn:li:tag:Legacy'}}]}
 
     remove_json = {
         "query": """mutation removeTag($input: TagAssociationInput!) {\n
@@ -956,7 +940,7 @@ def test_add_tag(frontend_session):
     assert res_data
     assert res_data["data"]
     assert res_data["data"]["dataset"]
-    assert res_data["data"]["dataset"]["globalTags"] == {'tags-and-terms': [] }
+    assert res_data["data"]["dataset"]["globalTags"] == {'tags': [] }
 
 
 @pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
@@ -967,7 +951,7 @@ def test_add_tag_to_chart(frontend_session):
         "query": """query getChart($urn: String!) {\n
             chart(urn: $urn) {\n
                 globalTags {\n
-                    tags-and-terms {\n
+                    tags {\n
                         tag {\n
                             urn\n
                             name\n
@@ -982,7 +966,7 @@ def test_add_tag_to_chart(frontend_session):
         }
     }
 
-    # Fetch tags-and-terms
+    # Fetch tags
     response = frontend_session.post(
         f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=chart_json
     )
@@ -1028,7 +1012,7 @@ def test_add_tag_to_chart(frontend_session):
     assert res_data
     assert res_data["data"]
     assert res_data["data"]["chart"]
-    assert res_data["data"]["chart"]["globalTags"] == {'tags-and-terms': [{'tag': {'description': 'Indicates the dataset is no longer supported', 'name': 'Legacy', 'urn': 'urn:li:tag:Legacy'}}]}
+    assert res_data["data"]["chart"]["globalTags"] == {'tags': [{'tag': {'description': 'Indicates the dataset is no longer supported', 'name': 'Legacy', 'urn': 'urn:li:tag:Legacy'}}]}
 
     remove_json = {
         "query": """mutation removeTag($input: TagAssociationInput!) {\n
@@ -1064,7 +1048,7 @@ def test_add_tag_to_chart(frontend_session):
     assert res_data
     assert res_data["data"]
     assert res_data["data"]["chart"]
-    assert res_data["data"]["chart"]["globalTags"] == {'tags-and-terms': [] }
+    assert res_data["data"]["chart"]["globalTags"] == {'tags': [] }
 
 @pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
 def test_add_term(frontend_session):
@@ -1227,7 +1211,7 @@ def test_update_schemafield(frontend_session):
                 editableSchemaMetadata {\n
                     editableSchemaFieldInfo {\n
                         globalTags {\n
-                            tags-and-terms {\n
+                            tags {\n
                                 tag {\n
                                     urn\n
                                     name\n
@@ -1265,7 +1249,7 @@ def test_update_schemafield(frontend_session):
         }
     }
 
-    # dataset schema tags-and-terms
+    # dataset schema tags
     response = frontend_session.post(
         f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=dataset_schema_json_tags
     )
@@ -1313,7 +1297,7 @@ def test_update_schemafield(frontend_session):
     assert res_data
     assert res_data["data"]
     assert res_data["data"]["dataset"]
-    assert res_data["data"]["dataset"]["editableSchemaMetadata"] == {'editableSchemaFieldInfo': [{'globalTags': {'tags-and-terms': [{'tag': {'description': 'Indicates the dataset is no longer supported', 'name': 'Legacy', 'urn': 'urn:li:tag:Legacy'}}]}}]}
+    assert res_data["data"]["dataset"]["editableSchemaMetadata"] == {'editableSchemaFieldInfo': [{'globalTags': {'tags': [{'tag': {'description': 'Indicates the dataset is no longer supported', 'name': 'Legacy', 'urn': 'urn:li:tag:Legacy'}}]}}]}
 
     remove_json = {
         "query": """mutation removeTag($input: TagAssociationInput!) {\n
@@ -1351,7 +1335,7 @@ def test_update_schemafield(frontend_session):
     assert res_data
     assert res_data["data"]
     assert res_data["data"]["dataset"]
-    assert res_data["data"]["dataset"]["editableSchemaMetadata"] == {'editableSchemaFieldInfo': [{'globalTags': {'tags-and-terms': []}}]}
+    assert res_data["data"]["dataset"]["editableSchemaMetadata"] == {'editableSchemaFieldInfo': [{'globalTags': {'tags': []}}]}
 
     add_json = {
         "query": """mutation addTerm($input: TermAssociationInput!) {\n
@@ -1429,7 +1413,7 @@ def test_update_schemafield(frontend_session):
     assert res_data["data"]["dataset"]
     assert res_data["data"]["dataset"]["editableSchemaMetadata"] == {'editableSchemaFieldInfo': [{'glossaryTerms': {'terms': []}}]}
 
-    # dataset schema tags-and-terms
+    # dataset schema tags
     response = frontend_session.post(
         f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=dataset_schema_json_tags
     )
