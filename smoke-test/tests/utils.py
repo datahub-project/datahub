@@ -26,7 +26,7 @@ def delete_urns_from_file(filename: str):
     with open(filename) as f:
         d = json.load(f)
         for entry in d:
-            is_mcp = entry['entityUrn'] is not None
+            is_mcp = 'entityUrn' in entry
             urn = None
             # Kill Snapshot
             if is_mcp:
@@ -35,6 +35,8 @@ def delete_urns_from_file(filename: str):
               snapshot_union = entry['proposedSnapshot']
               snapshot = list(snapshot_union.values())[0]
               urn = snapshot['urn']
+            print("About to delete urn")
+            print(urn)
             payload_obj = {"urn": urn}
             cli_utils.post_delete_endpoint(
                 payload_obj, "/entities?action=delete"

@@ -4,19 +4,21 @@ import urllib
 from datahub.cli.docker import check_local_docker_containers
 from datahub.ingestion.run.pipeline import Pipeline
 from tests.utils import FRONTEND_ENDPOINT
+from tests.utils import ingest_file_via_rest
+from tests.utils import delete_urns_from_file
 
 @pytest.fixture(scope="module", autouse=True)
 def ingest_cleanup_data(request):
     print("ingesting test data")
-    # load data.json file and ingest.
+    ingest_file_via_rest("tags-and-terms/data.json")
     yield
     print("removing test data")
-    # remove urns from data.json file
+    delete_urns_from_file("tags-and-terms/data.json")
 
 def test_add_tag(frontend_session,wait_for_healthchecks):
     platform = "urn:li:dataPlatform:kafka"
     dataset_name = (
-        "SampleKafkaDataset"
+        "test-tags-terms-sample-kafka"
     )
     env = "PROD"
     dataset_urn = f"urn:li:dataset:({platform},{dataset_name},{env})"
@@ -46,8 +48,6 @@ def test_add_tag(frontend_session,wait_for_healthchecks):
     )
     response.raise_for_status()
     res_data = response.json()
-    print(res_data)
-
 
     assert res_data
     assert res_data["data"]
@@ -71,8 +71,6 @@ def test_add_tag(frontend_session,wait_for_healthchecks):
     )
     response.raise_for_status()
     res_data = response.json()
-
-    print(res_data)
 
     assert res_data
     assert res_data["data"]
@@ -127,7 +125,7 @@ def test_add_tag(frontend_session,wait_for_healthchecks):
     assert res_data["data"]["dataset"]["globalTags"] == {'tags': [] }
 
 def test_add_tag_to_chart(frontend_session,wait_for_healthchecks):
-    chart_urn = "urn:li:chart:(looker,baz2)"
+    chart_urn = "urn:li:chart:(looker,test-tags-terms-sample-chart)"
 
     chart_json = {
         "query": """query getChart($urn: String!) {\n
@@ -177,8 +175,6 @@ def test_add_tag_to_chart(frontend_session,wait_for_healthchecks):
     )
     response.raise_for_status()
     res_data = response.json()
-
-    print(res_data)
 
     assert res_data
     assert res_data["data"]
@@ -235,7 +231,7 @@ def test_add_tag_to_chart(frontend_session,wait_for_healthchecks):
 def test_add_term(frontend_session,wait_for_healthchecks):
     platform = "urn:li:dataPlatform:kafka"
     dataset_name = (
-        "SampleKafkaDataset"
+        "test-tags-terms-sample-kafka"
     )
     env = "PROD"
     dataset_urn = f"urn:li:dataset:({platform},{dataset_name},{env})"
@@ -345,7 +341,7 @@ def test_add_term(frontend_session,wait_for_healthchecks):
 def test_update_schemafield(frontend_session,wait_for_healthchecks):
     platform = "urn:li:dataPlatform:kafka"
     dataset_name = (
-        "SampleKafkaDataset"
+        "test-tags-terms-sample-kafka"
     )
     env = "PROD"
     dataset_urn = f"urn:li:dataset:({platform},{dataset_name},{env})"
@@ -460,8 +456,6 @@ def test_update_schemafield(frontend_session,wait_for_healthchecks):
     response.raise_for_status()
     res_data = response.json()
 
-    print(res_data)
-
     assert res_data
     assert res_data["data"]
     assert res_data["data"]["addTag"] is True
@@ -536,8 +530,6 @@ def test_update_schemafield(frontend_session,wait_for_healthchecks):
     response.raise_for_status()
     res_data = response.json()
 
-    print(res_data)
-
     assert res_data
     assert res_data["data"]
     assert res_data["data"]["addTerm"] is True
@@ -573,8 +565,6 @@ def test_update_schemafield(frontend_session,wait_for_healthchecks):
     )
     response.raise_for_status()
     res_data = response.json()
-
-    print(res_data)
 
     assert res_data
     assert res_data["data"]
