@@ -33,6 +33,20 @@ def test_healthchecks(wait_for_healthchecks):
     # Call to wait_for_healthchecks fixture will do the actual functionality.
     pass
 
+@pytest.fixture(scope="session")
+def frontend_session(wait_for_healthchecks):
+    session = requests.Session()
+
+    headers = {
+        "Content-Type": "application/json",
+    }
+    data = '{"username":"datahub", "password":"datahub"}'
+    response = session.post(
+        f"{FRONTEND_ENDPOINT}/logIn", headers=headers, data=data
+    )
+    response.raise_for_status()
+
+    yield session
 
 def ingest_file(filename: str):
     pipeline = Pipeline.create(
@@ -250,23 +264,6 @@ def test_gms_usage_fetch():
         "totalSqlQueries": 7,
         "uniqueUserCount": 1,
     }
-
-
-@pytest.fixture(scope="session")
-def frontend_session(wait_for_healthchecks):
-    session = requests.Session()
-
-    headers = {
-        "Content-Type": "application/json",
-    }
-    data = '{"username":"datahub", "password":"datahub"}'
-    response = session.post(
-        f"{FRONTEND_ENDPOINT}/logIn", headers=headers, data=data
-    )
-    response.raise_for_status()
-
-    yield session
-
 
 @pytest.mark.dependency(depends=["test_healthchecks"])
 def test_frontend_auth(frontend_session):
