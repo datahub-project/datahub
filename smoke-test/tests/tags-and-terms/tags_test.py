@@ -1,11 +1,9 @@
-import time
-
 import pytest
 import requests
 import urllib
 from datahub.cli.docker import check_local_docker_containers
 from datahub.ingestion.run.pipeline import Pipeline
-from tests.testutils import FRONTEND_ENDPOINT
+from tests.utils import FRONTEND_ENDPOINT
 
 @pytest.fixture(scope="module", autouse=True)
 def ingest_cleanup_data(request):

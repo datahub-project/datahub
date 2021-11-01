@@ -5,7 +5,7 @@ import requests
 import urllib
 from datahub.cli.docker import check_local_docker_containers
 from datahub.ingestion.run.pipeline import Pipeline
-from tests.testutils import FRONTEND_ENDPOINT
+from tests.utils import FRONTEND_ENDPOINT
 
 @pytest.fixture(scope="session")
 def wait_for_healthchecks():
@@ -15,7 +15,6 @@ def wait_for_healthchecks():
 
 @pytest.fixture(scope="session")
 def frontend_session(wait_for_healthchecks):
-    print("discovered frontend session fixture")
     session = requests.Session()
 
     headers = {
