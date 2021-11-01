@@ -115,7 +115,7 @@ class APISource(Source, ABC):
             if dataset_name[-1] == ".":
                 dataset_name = dataset_name[:-1]
         else:
-            dataset_name = 'root'
+            dataset_name = "root"
 
         dataset_snapshot = DatasetSnapshot(
             urn=f"urn:li:dataset:(urn:li:dataPlatform:{self.platform},{config.name}.{dataset_name},PROD)",

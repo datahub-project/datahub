@@ -8,6 +8,7 @@ from tests.test_helpers.click_helpers import assert_result_ok
 
 FROZEN_TIME = "2020-04-14 07:00:00"
 
+
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
 def test_openapi_ingest(pytestconfig, tmp_path):
