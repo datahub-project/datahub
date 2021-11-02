@@ -1,7 +1,6 @@
 import json
 from typing import TYPE_CHECKING, Dict, List
 
-import dateutil.parser
 from airflow.configuration import conf
 
 import datahub.emitter.mce_builder as builder
@@ -191,7 +190,6 @@ def send_lineage_to_datahub(
     }
 
     if config.capture_ownership_info:
-        timestamp = int(dateutil.parser.parse(context["ts"]).timestamp() * 1000)
         ownership = models.OwnershipClass(
             owners=[
                 models.OwnerClass(
@@ -204,7 +202,7 @@ def send_lineage_to_datahub(
                 )
             ],
             lastModified=models.AuditStampClass(
-                time=timestamp, actor=builder.make_user_urn("airflow")
+                time=0, actor=builder.make_user_urn("airflow")
             ),
         )
         # operator.log.info(f"{ownership=}")
