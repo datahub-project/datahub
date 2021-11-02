@@ -1,8 +1,11 @@
 package com.linkedin.entity.client;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.Entity;
+import com.linkedin.metadata.aspect.EnvelopedAspect;
+import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.filter.Filter;
@@ -10,10 +13,12 @@ import com.linkedin.metadata.query.ListResult;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.query.ListUrnsResult;
+import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.r2.RemoteInvocationException;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -218,4 +223,39 @@ public interface EntityClient {
       int count,
       @Nonnull String actor)
       throws RemoteInvocationException;
+
+  public VersionedAspect getAspect(
+      @Nonnull String urn,
+      @Nonnull String aspect,
+      @Nonnull Long version,
+      @Nonnull String actor)
+      throws RemoteInvocationException;
+
+  public VersionedAspect getAspectOrNull(
+      @Nonnull String urn,
+      @Nonnull String aspect,
+      @Nonnull Long version,
+      @Nonnull String actor) throws RemoteInvocationException;
+
+  public List<EnvelopedAspect> getTimeseriesAspectValues(
+      @Nonnull String urn,
+      @Nonnull String entity,
+      @Nonnull String aspect,
+      @Nullable Long startTimeMillis,
+      @Nullable Long endTimeMillis,
+      @Nullable Integer limit,
+      @Nullable String actor
+  ) throws RemoteInvocationException;
+
+  public String ingestProposal(
+      @Nonnull final MetadataChangeProposal metadataChangeProposal,
+      @Nonnull final String actor
+  ) throws RemoteInvocationException;
+
+  public <T extends RecordTemplate> Optional<T> getVersionedAspect(
+      @Nonnull String urn,
+      @Nonnull String aspect,
+      @Nonnull Long version,
+      @Nonnull String actor,
+      @Nonnull Class<T> aspectClass) throws RemoteInvocationException;
 }

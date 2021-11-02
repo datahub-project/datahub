@@ -3,7 +3,7 @@ package com.linkedin.datahub.graphql.types.aspect;
 import com.linkedin.datahub.graphql.VersionedAspectKey;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Aspect;
-import com.linkedin.entity.client.AspectClient;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.restli.client.RestLiResponseException;
@@ -14,10 +14,10 @@ import javax.annotation.Nonnull;
 
 
 public class AspectType {
-  private final AspectClient _aspectClient;
+  private final EntityClient _entityClient;
 
-  public AspectType(final AspectClient aspectClient) {
-    _aspectClient = aspectClient;
+  public AspectType(final EntityClient entityClient) {
+    _entityClient = entityClient;
   }
 
   /**
@@ -30,7 +30,7 @@ public class AspectType {
     try {
       return keys.stream().map(key -> {
         try {
-          VersionedAspect entity = _aspectClient.getAspect(key.getUrn(), key.getAspectName(), key.getVersion(), context.getActor());
+          VersionedAspect entity = _entityClient.getAspect(key.getUrn(), key.getAspectName(), key.getVersion(), context.getActor());
           return DataFetcherResult.<Aspect>newResult().data(AspectMapper.map(entity)).build();
         } catch (RemoteInvocationException e) {
           if (e instanceof RestLiResponseException) {
