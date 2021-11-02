@@ -10,6 +10,7 @@ import click
 import requests
 import yaml
 from pydantic import BaseModel, ValidationError
+from requests.sessions import Session
 
 log = logging.getLogger(__name__)
 
@@ -179,6 +180,14 @@ def post_delete_endpoint(
     session, gms_host = get_session_and_host()
     url = gms_host + path
 
+    return post_delete_endpoint_with_session_and_url(session, url, payload_obj)
+
+
+def post_delete_endpoint_with_session_and_url(
+    session: Session,
+    url: str,
+    payload_obj: dict,
+) -> typing.Tuple[str, int]:
     payload = json.dumps(payload_obj)
 
     response = session.post(url, payload)
