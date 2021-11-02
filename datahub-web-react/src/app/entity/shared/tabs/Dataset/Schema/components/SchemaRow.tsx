@@ -15,7 +15,6 @@ const ForeignKeyContent = styled.tr`
     display: flex;
     flex-direction: column;
     width: 100%;
-    z-index: 99999;
     margin-top: -587px;
     box-shadow: inset 0 7px 16px -7px ${ANTD_GRAY[5]};
 `;
