@@ -72,6 +72,8 @@ public class GmsClientFactory {
         return _entities;
     }
 
+    // Deprecated- please use EntityClient from now on for all aspect related calls
+    @Deprecated
     public static AspectClient getAspectsClient() {
         if (_aspects == null) {
             synchronized (GmsClientFactory.class) {
