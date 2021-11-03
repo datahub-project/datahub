@@ -50,7 +50,7 @@ record FailedMetadataChangeEvent {
   /** Kafka audit header */
   auditHeader: optional KafkaAuditHeader
 
-  /** The even that failed to be processed */
+  /** The event that failed to be processed */
   metadataChangeEvent: MetadataChangeEvent
 
   /** The error message or the stacktrace for the failure */
