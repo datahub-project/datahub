@@ -353,9 +353,7 @@ class GlueSource(Source):
 
         return MetadataWorkUnit(id=job["Name"], mce=mce)
 
-    def get_datajob_wu(
-        self, node: Dict[str, Any], job_name: str
-    ) -> MetadataWorkUnit:
+    def get_datajob_wu(self, node: Dict[str, Any], job_name: str) -> MetadataWorkUnit:
         """
         Generate a DataJob workunit for a component (node) in a Glue job.
 
@@ -451,7 +449,7 @@ class GlueSource(Source):
         if self.extract_transforms:
 
             dags = {}
-            flow_names: Dict[str,str] = {}
+            flow_names: Dict[str, str] = {}
 
             for job in self.get_all_jobs():
 
@@ -472,7 +470,7 @@ class GlueSource(Source):
                     dag = self.get_dataflow_graph(job_script_location)
 
                 dags[flow_urn] = dag
-                flow_names[flow_urn] = job['Name']
+                flow_names[flow_urn] = job["Name"]
 
             # run a first pass to pick up s3 bucket names and formats
             # in Glue, it's possible for two buckets to have files of different extensions
