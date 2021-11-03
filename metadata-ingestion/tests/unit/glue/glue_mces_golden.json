@@ -561,7 +561,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {
-        "urn": "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-1,PROD),Filter-Transform0)",
+        "urn": "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-1,PROD),Filter-Transform0_job1)",
         "aspects": [
           {
             "com.linkedin.pegasus2avro.datajob.DataJobInfo": {
@@ -569,10 +569,10 @@
                 "f": "lambda row : ()",
                 "transformation_ctx": "\"Transform0\"",
                 "transformType": "Filter",
-                "nodeId": "Transform0"
+                "nodeId": "Transform0_job1"
               },
-              "externalUrl": "https://us-west-2.console.aws.amazon.com/gluestudio/home?region=us-west-2#/editor/job/test-job-2/graph",
-              "name": "test-job-2:Filter-Transform0",
+              "externalUrl": "https://us-west-2.console.aws.amazon.com/gluestudio/home?region=us-west-2#/editor/job/test-job-1/graph",
+              "name": "test-job-1:Filter-Transform0_job1",
               "description": null,
               "type": {
                 "string": "GLUE"
@@ -586,7 +586,7 @@
               "inputDatasets": [],
               "outputDatasets": [],
               "inputDatajobs": [
-                "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-1,PROD),ApplyMapping-Transform2)"
+                "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-1,PROD),ApplyMapping-Transform2_job1)"
               ]
             }
           }
@@ -600,7 +600,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {
-        "urn": "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-1,PROD),ApplyMapping-Transform1)",
+        "urn": "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-1,PROD),ApplyMapping-Transform1_job1)",
         "aspects": [
           {
             "com.linkedin.pegasus2avro.datajob.DataJobInfo": {
@@ -608,10 +608,10 @@
                 "mappings": "[(\"yr\", \"int\", \"yr\", \"int\"), (\"flightdate\", \"string\", \"flightdate\", \"string\"), (\"uniquecarrier\", \"string\", \"uniquecarrier\", \"string\"), (\"airlineid\", \"int\", \"airlineid\", \"int\"), (\"carrier\", \"string\", \"carrier\", \"string\"), (\"flightnum\", \"string\", \"flightnum\", \"string\"), (\"origin\", \"string\", \"origin\", \"string\"), (\"dest\", \"string\", \"dest\", \"string\"), (\"depdelay\", \"int\", \"depdelay\", \"int\"), (\"carrierdelay\", \"int\", \"carrierdelay\", \"int\"), (\"weatherdelay\", \"int\", \"weatherdelay\", \"int\"), (\"year\", \"string\", \"year\", \"string\")]",
                 "transformation_ctx": "\"Transform1\"",
                 "transformType": "ApplyMapping",
-                "nodeId": "Transform1"
+                "nodeId": "Transform1_job1"
               },
-              "externalUrl": "https://us-west-2.console.aws.amazon.com/gluestudio/home?region=us-west-2#/editor/job/test-job-2/graph",
-              "name": "test-job-2:ApplyMapping-Transform1",
+              "externalUrl": "https://us-west-2.console.aws.amazon.com/gluestudio/home?region=us-west-2#/editor/job/test-job-1/graph",
+              "name": "test-job-1:ApplyMapping-Transform1_job1",
               "description": null,
               "type": {
                 "string": "GLUE"
@@ -625,7 +625,7 @@
               "inputDatasets": [],
               "outputDatasets": [],
               "inputDatajobs": [
-                "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-1,PROD),Filter-Transform0)"
+                "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-1,PROD),Filter-Transform0_job1)"
               ]
             }
           }
@@ -639,7 +639,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {
-        "urn": "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-1,PROD),ApplyMapping-Transform2)",
+        "urn": "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-1,PROD),ApplyMapping-Transform2_job1)",
         "aspects": [
           {
             "com.linkedin.pegasus2avro.datajob.DataJobInfo": {
@@ -647,10 +647,10 @@
                 "mappings": "[(\"yr\", \"int\", \"yr\", \"int\"), (\"flightdate\", \"string\", \"flightdate\", \"string\"), (\"uniquecarrier\", \"string\", \"uniquecarrier\", \"string\"), (\"airlineid\", \"int\", \"airlineid\", \"int\"), (\"carrier\", \"string\", \"carrier\", \"string\"), (\"flightnum\", \"string\", \"flightnum\", \"string\"), (\"origin\", \"string\", \"origin\", \"string\"), (\"dest\", \"string\", \"dest\", \"string\"), (\"depdelay\", \"int\", \"depdelay\", \"int\"), (\"carrierdelay\", \"int\", \"carrierdelay\", \"int\"), (\"weatherdelay\", \"int\", \"weatherdelay\", \"int\"), (\"year\", \"string\", \"year\", \"string\")]",
                 "transformation_ctx": "\"Transform2\"",
                 "transformType": "ApplyMapping",
-                "nodeId": "Transform2"
+                "nodeId": "Transform2_job1"
               },
-              "externalUrl": "https://us-west-2.console.aws.amazon.com/gluestudio/home?region=us-west-2#/editor/job/test-job-2/graph",
-              "name": "test-job-2:ApplyMapping-Transform2",
+              "externalUrl": "https://us-west-2.console.aws.amazon.com/gluestudio/home?region=us-west-2#/editor/job/test-job-1/graph",
+              "name": "test-job-1:ApplyMapping-Transform2_job1",
               "description": null,
               "type": {
                 "string": "GLUE"
@@ -678,7 +678,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {
-        "urn": "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-1,PROD),Join-Transform3)",
+        "urn": "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-1,PROD),Join-Transform3_job1)",
         "aspects": [
           {
             "com.linkedin.pegasus2avro.datajob.DataJobInfo": {
@@ -687,10 +687,10 @@
                 "transformation_ctx": "\"Transform3\"",
                 "keys1": "[\"yr\"]",
                 "transformType": "Join",
-                "nodeId": "Transform3"
+                "nodeId": "Transform3_job1"
               },
-              "externalUrl": "https://us-west-2.console.aws.amazon.com/gluestudio/home?region=us-west-2#/editor/job/test-job-2/graph",
-              "name": "test-job-2:Join-Transform3",
+              "externalUrl": "https://us-west-2.console.aws.amazon.com/gluestudio/home?region=us-west-2#/editor/job/test-job-1/graph",
+              "name": "test-job-1:Join-Transform3_job1",
               "description": null,
               "type": {
                 "string": "GLUE"
@@ -704,7 +704,7 @@
               "inputDatasets": [],
               "outputDatasets": [],
               "inputDatajobs": [
-                "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-1,PROD),ApplyMapping-Transform4)"
+                "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-1,PROD),ApplyMapping-Transform4_job1)"
               ]
             }
           }
@@ -718,7 +718,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {
-        "urn": "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-1,PROD),ApplyMapping-Transform4)",
+        "urn": "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-1,PROD),ApplyMapping-Transform4_job1)",
         "aspects": [
           {
             "com.linkedin.pegasus2avro.datajob.DataJobInfo": {
@@ -726,10 +726,10 @@
                 "mappings": "[(\"yr\", \"int\", \"yr\", \"int\"), (\"flightdate\", \"string\", \"flightdate\", \"string\"), (\"uniquecarrier\", \"string\", \"uniquecarrier\", \"string\"), (\"airlineid\", \"int\", \"airlineid\", \"int\"), (\"carrier\", \"string\", \"carrier\", \"string\"), (\"flightnum\", \"string\", \"flightnum\", \"string\"), (\"origin\", \"string\", \"origin\", \"string\"), (\"dest\", \"string\", \"dest\", \"string\"), (\"depdelay\", \"int\", \"depdelay\", \"int\"), (\"carrierdelay\", \"int\", \"carrierdelay\", \"int\"), (\"weatherdelay\", \"int\", \"weatherdelay\", \"int\"), (\"year\", \"string\", \"year\", \"string\")]",
                 "transformation_ctx": "\"Transform4\"",
                 "transformType": "ApplyMapping",
-                "nodeId": "Transform4"
+                "nodeId": "Transform4_job1"
               },
-              "externalUrl": "https://us-west-2.console.aws.amazon.com/gluestudio/home?region=us-west-2#/editor/job/test-job-2/graph",
-              "name": "test-job-2:ApplyMapping-Transform4",
+              "externalUrl": "https://us-west-2.console.aws.amazon.com/gluestudio/home?region=us-west-2#/editor/job/test-job-1/graph",
+              "name": "test-job-1:ApplyMapping-Transform4_job1",
               "description": null,
               "type": {
                 "string": "GLUE"
@@ -755,7 +755,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {
-        "urn": "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-1,PROD),ApplyMapping-Transform5)",
+        "urn": "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-1,PROD),ApplyMapping-Transform5_job1)",
         "aspects": [
           {
             "com.linkedin.pegasus2avro.datajob.DataJobInfo": {
@@ -763,10 +763,10 @@
                 "mappings": "[(\"yr\", \"int\", \"(right) yr\", \"int\"), (\"flightdate\", \"string\", \"(right) flightdate\", \"string\"), (\"uniquecarrier\", \"string\", \"(right) uniquecarrier\", \"string\"), (\"airlineid\", \"int\", \"(right) airlineid\", \"int\"), (\"carrier\", \"string\", \"(right) carrier\", \"string\"), (\"flightnum\", \"string\", \"(right) flightnum\", \"string\"), (\"origin\", \"string\", \"(right) origin\", \"string\"), (\"dest\", \"string\", \"(right) dest\", \"string\"), (\"depdelay\", \"int\", \"(right) depdelay\", \"int\"), (\"carrierdelay\", \"int\", \"(right) carrierdelay\", \"int\"), (\"weatherdelay\", \"int\", \"(right) weatherdelay\", \"int\"), (\"year\", \"string\", \"(right) year\", \"string\")]",
                 "transformation_ctx": "\"Transform5\"",
                 "transformType": "ApplyMapping",
-                "nodeId": "Transform5"
+                "nodeId": "Transform5_job1"
               },
-              "externalUrl": "https://us-west-2.console.aws.amazon.com/gluestudio/home?region=us-west-2#/editor/job/test-job-2/graph",
-              "name": "test-job-2:ApplyMapping-Transform5",
+              "externalUrl": "https://us-west-2.console.aws.amazon.com/gluestudio/home?region=us-west-2#/editor/job/test-job-1/graph",
+              "name": "test-job-1:ApplyMapping-Transform5_job1",
               "description": null,
               "type": {
                 "string": "GLUE"
@@ -823,7 +823,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {
-        "urn": "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-2,PROD),SplitFields-Transform0)",
+        "urn": "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-2,PROD),SplitFields-Transform0_job2)",
         "aspects": [
           {
             "com.linkedin.pegasus2avro.datajob.DataJobInfo": {
@@ -833,10 +833,10 @@
                 "name1": "\"Transform0Output0\"",
                 "transformation_ctx": "\"Transform0\"",
                 "transformType": "SplitFields",
-                "nodeId": "Transform0"
+                "nodeId": "Transform0_job2"
               },
               "externalUrl": "https://us-west-2.console.aws.amazon.com/gluestudio/home?region=us-west-2#/editor/job/test-job-2/graph",
-              "name": "test-job-2:SplitFields-Transform0",
+              "name": "test-job-2:SplitFields-Transform0_job2",
               "description": null,
               "type": {
                 "string": "GLUE"
@@ -850,7 +850,7 @@
               "inputDatasets": [],
               "outputDatasets": [],
               "inputDatajobs": [
-                "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-2,PROD),ApplyMapping-Transform1)"
+                "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-2,PROD),ApplyMapping-Transform1_job2)"
               ]
             }
           }
@@ -864,7 +864,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {
-        "urn": "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-2,PROD),ApplyMapping-Transform1)",
+        "urn": "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-2,PROD),ApplyMapping-Transform1_job2)",
         "aspects": [
           {
             "com.linkedin.pegasus2avro.datajob.DataJobInfo": {
@@ -872,10 +872,10 @@
                 "mappings": "[(\"yr\", \"int\", \"yr\", \"int\"), (\"quarter\", \"int\", \"quarter\", \"int\"), (\"month\", \"int\", \"month\", \"int\"), (\"dayofmonth\", \"int\", \"dayofmonth\", \"int\"), (\"dayofweek\", \"int\", \"dayofweek\", \"int\"), (\"flightdate\", \"string\", \"flightdate\", \"string\"), (\"uniquecarrier\", \"string\", \"uniquecarrier\", \"string\"), (\"airlineid\", \"int\", \"airlineid\", \"int\"), (\"carrier\", \"string\", \"carrier\", \"string\")]",
                 "transformation_ctx": "\"Transform1\"",
                 "transformType": "ApplyMapping",
-                "nodeId": "Transform1"
+                "nodeId": "Transform1_job2"
               },
               "externalUrl": "https://us-west-2.console.aws.amazon.com/gluestudio/home?region=us-west-2#/editor/job/test-job-2/graph",
-              "name": "test-job-2:ApplyMapping-Transform1",
+              "name": "test-job-2:ApplyMapping-Transform1_job2",
               "description": null,
               "type": {
                 "string": "GLUE"
@@ -903,7 +903,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {
-        "urn": "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-2,PROD),FillMissingValues-Transform2)",
+        "urn": "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-2,PROD),FillMissingValues-Transform2_job2)",
         "aspects": [
           {
             "com.linkedin.pegasus2avro.datajob.DataJobInfo": {
@@ -911,10 +911,10 @@
                 "missing_values_column": "\"dayofmonth\"",
                 "transformation_ctx": "\"Transform2\"",
                 "transformType": "FillMissingValues",
-                "nodeId": "Transform2"
+                "nodeId": "Transform2_job2"
               },
               "externalUrl": "https://us-west-2.console.aws.amazon.com/gluestudio/home?region=us-west-2#/editor/job/test-job-2/graph",
-              "name": "test-job-2:FillMissingValues-Transform2",
+              "name": "test-job-2:FillMissingValues-Transform2_job2",
               "description": null,
               "type": {
                 "string": "GLUE"
@@ -928,7 +928,7 @@
               "inputDatasets": [],
               "outputDatasets": [],
               "inputDatajobs": [
-                "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-2,PROD),ApplyMapping-Transform1)"
+                "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-2,PROD),ApplyMapping-Transform1_job2)"
               ]
             }
           }
@@ -942,7 +942,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {
-        "urn": "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-2,PROD),SelectFields-Transform3)",
+        "urn": "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-2,PROD),SelectFields-Transform3_job2)",
         "aspects": [
           {
             "com.linkedin.pegasus2avro.datajob.DataJobInfo": {
@@ -950,10 +950,10 @@
                 "paths": "[]",
                 "transformation_ctx": "\"Transform3\"",
                 "transformType": "SelectFields",
-                "nodeId": "Transform3"
+                "nodeId": "Transform3_job2"
               },
               "externalUrl": "https://us-west-2.console.aws.amazon.com/gluestudio/home?region=us-west-2#/editor/job/test-job-2/graph",
-              "name": "test-job-2:SelectFields-Transform3",
+              "name": "test-job-2:SelectFields-Transform3_job2",
               "description": null,
               "type": {
                 "string": "GLUE"
@@ -969,7 +969,7 @@
                 "urn:li:dataset:(urn:li:dataPlatform:s3,test-glue-jsons,PROD)"
               ],
               "inputDatajobs": [
-                "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-2,PROD),FillMissingValues-Transform2)"
+                "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-2,PROD),FillMissingValues-Transform2_job2)"
               ]
             }
           }
