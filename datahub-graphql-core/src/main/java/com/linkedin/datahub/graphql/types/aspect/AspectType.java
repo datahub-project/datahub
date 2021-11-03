@@ -31,6 +31,10 @@ public class AspectType {
       return keys.stream().map(key -> {
         try {
           VersionedAspect entity = _entityClient.getAspect(key.getUrn(), key.getAspectName(), key.getVersion(), context.getActor());
+          if (entity == null) {
+            return DataFetcherResult.<Aspect>newResult().data(null).build();
+          }
+
           return DataFetcherResult.<Aspect>newResult().data(AspectMapper.map(entity)).build();
         } catch (RemoteInvocationException e) {
           if (e instanceof RestLiResponseException) {
