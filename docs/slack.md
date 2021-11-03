@@ -2,8 +2,7 @@
 
 The DataHub team has an open source slack workspace to discuss development and support.
 
-[Sign up to join us on Slack and to subscribe to the DataHub Community newsletter](https://slack.datahubproject.io). Already a member? [Log in with an
-existing account](https://slack.datahubproject.io) to `datahubspace` on Slack.
+[Sign up here](https://slack.datahubproject.io) to join us on Slack and to subscribe to the DataHub Community newsletter. Already a member? [Log in here](https://slack.datahubproject.io).
 
 Here are some notable channels and their purposes
 
