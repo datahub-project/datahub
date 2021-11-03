@@ -102,7 +102,7 @@ Note `ownership_type` is an optional field with `DATAOWNER` as default value.
 
 ### Setting ownership by dataset urn pattern
 
-Let’s suppose we’d like to append a series of users who we know to own different dataset from a data source but aren't detected during normal ingestion. To do so, we can use the `pattern_add_dataset_ownership` module that’s included in the ingestion framework. it match pattern with `urn` of dataset and assign the respective owners
+Let’s suppose we’d like to append a series of users who we know to own a different dataset from a data source but aren't detected during normal ingestion. To do so, we can use the `pattern_add_dataset_ownership` module that’s included in the ingestion framework.  This will match the pattern to `urn` of the dataset and assign the respective owners.
 
 The config, which we’d append to our ingestion recipe YAML, would look like this:
 
@@ -132,7 +132,7 @@ Note that whatever owners you send via this will overwrite the owners present in
 
 ### Mark dataset status
 
-If you would like to stop a dataset from appearing in the UI then you need to mark the status of the dataset as removed. You can use this transformer after filtering for the specific datasets that you want to mark as removed.
+If you would like to stop a dataset from appearing in the UI, then you need to mark the status of the dataset as removed. You can use this transformer after filtering for the specific datasets that you want to mark as removed.
 
 ```yaml
 transformers:
@@ -167,7 +167,7 @@ transformers:
 ```
 It will create browse path like `/mysql/marketing_db/sales/orders` for a table `sales.orders` in `mysql` database instance.
 
-You can use this to add multiple browse paths. Different people might know same data assets with different name
+You can use this to add multiple browse paths. Different people might know the same data assets by different names.
 ```yaml
 transformers:
   - type: "set_dataset_browse_path"

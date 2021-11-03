@@ -63,6 +63,14 @@ older version of Python. Try prefixing your `datahub` commands with `python3 -m`
 python3 -m datahub docker quickstart
 ```
 
+Another possibility is that your system PATH does not include pip's `$HOME/.local/bin` directory.  On linux, you can add this to your `~/.bashrc`:
+
+```
+if [ -d "$HOME/.local/bin" ] ; then
+    PATH="$HOME/.local/bin:$PATH"
+fi
+```
+
 ### Miscellaneous Docker issues
 
 There can be misc issues with Docker, like conflicting containers and dangling volumes, that can often be resolved by
