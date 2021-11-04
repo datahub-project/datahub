@@ -253,8 +253,6 @@ class _DatasetProfiler(BasicDatasetProfilerBase):
         res = dataset.expect_column_values_to_be_in_set(
             column, [], result_format="SUMMARY"
         ).result
-        if not res:
-            breakpoint()
         return [str(v) for v in res["partial_unexpected_list"]]
 
     @classmethod
@@ -433,7 +431,7 @@ class DatahubGEProfiler:
 
         # TRICKY: The call to `.engine` is quite important here. Connection.connect()
         # returns a "branched" connection, which does not actually use a new underlying
-        # DBAPI object from the connection pool. Engine.connect() does what we want to
+        # DB-API object from the connection pool. Engine.connect() does what we want to
         # make the threading code work correctly. As such, we need to make sure we've
         # got an engine here.
         self.base_engine = conn.engine
