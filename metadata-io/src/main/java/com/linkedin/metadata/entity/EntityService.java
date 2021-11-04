@@ -362,8 +362,10 @@ public abstract class EntityService {
         aspectRecordsToIngest.stream().map(pair -> pair.getFirst()).collect(Collectors.toSet())
     ));
 
+    String entityName = PegasusUtils.getEntityNameFromSchema(snapshotRecord.schema());
+
     aspectRecordsToIngest.forEach(aspectNamePair -> {
-      ingestAspect(urn, aspectNamePair.getFirst(), aspectNamePair.getSecond(), auditStamp, systemMetadata);
+      ingestAspect(urn, entityName, aspectNamePair.getFirst(), aspectNamePair.getSecond(), auditStamp, systemMetadata);
     });
   }
 

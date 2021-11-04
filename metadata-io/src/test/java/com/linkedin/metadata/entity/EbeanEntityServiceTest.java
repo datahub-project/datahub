@@ -59,6 +59,7 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
+import static org.testng.AssertJUnit.*;
 
 
 public class EbeanEntityServiceTest {
@@ -677,7 +678,7 @@ public class EbeanEntityServiceTest {
   public void testInjestAspectWithChangeProcessorShouldIgnoreUpdate() throws Exception {
     ChangeProcessor changeProcessor = mock(ChangeProcessor.class);
 
-    when(changeProcessor.process(any(), any(), any(), any())).thenReturn(ChangeResult.failure("Fail"));
+    Mockito.when(changeProcessor.process(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any())).thenReturn(ChangeResult.failure("Fail"));
     String entityName = "corpUser";
 
     _changeStreamProcessor.registerPreProcessor(entityName, "corpUserInfo", changeProcessor);
@@ -711,10 +712,10 @@ public class EbeanEntityServiceTest {
 
     // Setup a change processor to allow the initial change
     ChangeProcessor changeProcessor = mock(ChangeProcessor.class);
-    when(changeProcessor.process(entityName, aspectName, null, writeAspect1)).thenReturn(
+    Mockito.when(changeProcessor.process(entityName, aspectName, null, writeAspect1)).thenReturn(
         ChangeResult.success(writeAspect1));
 
-    when(changeProcessor.process(entityName, aspectName, writeAspect1, writeAspect2)).thenReturn(
+    Mockito.when(changeProcessor.process(entityName, aspectName, writeAspect1, writeAspect2)).thenReturn(
         ChangeResult.failure("Fail"));
 
     _changeStreamProcessor.registerPreProcessor(entityName, "corpUserInfo", changeProcessor);
