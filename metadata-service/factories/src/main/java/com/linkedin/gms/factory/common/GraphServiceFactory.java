@@ -1,5 +1,6 @@
 package com.linkedin.gms.factory.common;
 
+import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.Neo4jGraphService;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
@@ -12,9 +13,11 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.DependsOn;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
+import org.springframework.context.annotation.PropertySource;
 
 
 @Configuration
+@PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
 @Import({Neo4jGraphServiceFactory.class, ElasticSearchGraphServiceFactory.class})
 public class GraphServiceFactory {
   @Autowired
@@ -25,7 +28,7 @@ public class GraphServiceFactory {
   @Qualifier("neo4jGraphService")
   private Neo4jGraphService _neo4jGraphService;
 
-  @Value("${GRAPH_SERVICE_IMPL:elasticsearch}")
+  @Value("${graphService.type}")
   private String graphServiceImpl;
 
   @Nonnull

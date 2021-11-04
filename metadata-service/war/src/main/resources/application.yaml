@@ -1,9 +1,0 @@
-elasticsearch:
-  host: ${ELASTICSEARCH_HOST:localhost}
-  port: ${ELASTICSEARCH_PORT:9200}
-  threadCount: ${ELASTICSEARCH_THREAD_COUNT:1}
-  connectionRequestTimeout: ${ELASTICSEARCH_CONNECTION_REQUEST_TIMEOUT:0}
-  username: ${ELASTICSEARCH_USERNAME:#{null}}
-  password: ${ELASTICSEARCH_PASSWORD:#{null}}
-  useSSL: ${ELASTICSEARCH_USE_SSL:false}
-  pathPrefix: ${ELASTICSEARCH_PATH_PREFIX:#{null}}

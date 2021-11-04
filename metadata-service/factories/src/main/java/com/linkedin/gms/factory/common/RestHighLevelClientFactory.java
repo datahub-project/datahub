@@ -1,5 +1,6 @@
 package com.linkedin.gms.factory.common;
 
+import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
 import javax.annotation.Nonnull;
 import javax.net.ssl.SSLContext;
 import lombok.extern.slf4j.Slf4j;
@@ -26,7 +27,7 @@ import org.springframework.context.annotation.PropertySource;
 
 @Slf4j
 @Configuration
-@PropertySource("classpath:/application.yaml")
+@PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
 @Import({ ElasticsearchSSLContextFactory.class })
 public class RestHighLevelClientFactory {
 
