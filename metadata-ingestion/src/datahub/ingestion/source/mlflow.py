@@ -2,21 +2,23 @@ from dataclasses import dataclass, field
 from typing import Iterable, List
 
 import mlflow.sklearn
-
 from datahub.configuration import ConfigModel
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.source.metadata_common import MetadataWorkUnit
+from datahub.metadata import MLModelPropertiesClass
+from datahub.metadata.com.linkedin.pegasus2avro.common import VersionTag
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import MLModelSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
-from datahub.metadata.schema_classes import MLModelPropertiesClass
+from mlflow.entities import ViewType
 
 
 class MlFlowConfig(ConfigModel):
     tracking_uri: str
 
     experiment_pattern: AllowDenyPattern = AllowDenyPattern(deny=["Default"])
+    path_pattern: str = 'model/model.pkl'
 
 
 @dataclass
@@ -44,36 +46,42 @@ class MlFlowSource(Source):
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         platform = 'mlflow'
         env = 'PROD'
+        experiments: List[MLModelPropertiesClass] = self.get_mlflow_objects(self.mlflow_client)
+        for experiment in experiments:
+            if self.config.experiment_pattern.allowed(experiment.name):
+                mce = MetadataChangeEvent()
+                mlmodel_snapshot = MLModelSnapshot()
+                mlmodel_snapshot.urn = f"urn:li:mlModel:(urn:li:dataPlatform:{platform},{experiment.name}_" \
+                    f"{experiment.version.versionTag},{env})"
 
-        experiment_names = self.get_mlflow_objects(self.mlflow_client)
+                mlmodel_snapshot.aspects.append(experiment)
 
-        for experiment_name in experiment_names:
-            if not self.config.experiment_pattern.allowed(experiment_name):
-                self.report.report_dropped(experiment_name)
-                continue
+                mce.proposedSnapshot = mlmodel_snapshot
 
-            mlmodel_snapshot = MLModelSnapshot(
-                urn=f"urn:li:mlModel:(urn:li:dataPlatform:{platform},{experiment_name},{env})",
-                aspects=[])
+                wu = MetadataWorkUnit(id=f"{experiment.name}_{experiment.version.versionTag}", mce=mce)
+                self.report.report_workunit(wu)
+                yield wu
+            else:
+                self.report.report_dropped(experiment.name)
 
-            mlmodel_properties = MLModelPropertiesClass(
-                tags=[],
-                hyperParameters={},
-                mlFeatures=[]
-            )
-            mlmodel_snapshot.aspects.append(mlmodel_properties)
+    def get_mlflow_objects(self, mlflow_client: mlflow.tracking.MlflowClient) -> List[MLModelPropertiesClass]:
+        experiment_list = mlflow_client.list_experiments(view_type=ViewType.ACTIVE_ONLY)
+        print(experiment_list)
 
-            mce = MetadataChangeEvent(proposedSnapshot=mlmodel_snapshot)
+        experiments_ids_list = list(map(lambda x: {'id': x.experiment_id, 'name': x.name}, iter(experiment_list)))
+        experiments_metadata = []
+        for experiment in experiments_ids_list:
+            runs = mlflow_client.search_runs(experiment['id'])
+            for run in runs:
+                experiments_metadata.append(MLModelPropertiesClass(
+                    name=experiment['name'],
+                    date=run.info.end_time,
+                    hyperParameters=run.data.params,
+                    version=VersionTag(versionTag=run.info.run_id),
+                    metrics=run.data.metrics
+                ))
 
-            wu = MetadataWorkUnit(id=experiment_name, mce=mce)
-            self.report.report_workunit(wu)
-            yield wu
-
-    @staticmethod
-    def get_mlflow_objects(mlflow_client: mlflow.tracking.MlflowClient) -> List[str]:
-        experiment_list = mlflow_client.list_experiments()
-        experiment_name_list = [experiment.name for experiment in experiment_list]
-        return experiment_name_list
+        return experiments_metadata
 
     def get_report(self) -> MlFlowSourceReport:
         return self.report

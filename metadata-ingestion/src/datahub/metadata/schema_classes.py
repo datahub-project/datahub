@@ -5628,129 +5628,130 @@ class MLModelFactorsClass(DictWrapper):
     def environment(self, value: Union[None, List[str]]) -> None:
         """Setter: A further factor affecting MLModel performance is the environment in which it is deployed."""
         self._inner_dict['environment'] = value
-    
-    
+
+
 class MLModelPropertiesClass(DictWrapper):
     """Properties associated with a ML Model"""
-    
+
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.ml.metadata.MLModelProperties")
+
+    @overload
     def __init__(self,
-        description: Union[None, str]=None,
-        date: Union[None, int]=None,
-        version: Union[None, "VersionTagClass"]=None,
-        type: Union[None, str]=None,
-        hyperParameters: Union[None, Dict[str, Union[str, int, float, float, bool]]]=None,
-        mlFeatures: Union[None, List[str]]=None,
-        tags: Optional[List[str]]=None,
-    ):
-        super().__init__()
-        
-        self.description = description
-        self.date = date
-        self.version = version
-        self.type = type
-        self.hyperParameters = hyperParameters
-        self.mlFeatures = mlFeatures
-        if tags is None:
-            self.tags = []
-        else:
-            self.tags = tags
-    
-    @classmethod
-    def construct_with_defaults(cls) -> "MLModelPropertiesClass":
-        self = cls.construct({})
-        self._restore_defaults()
-        
-        return self
-    
-    def _restore_defaults(self) -> None:
+                 name: str,
+                 tags: List[str],
+                 description: Union[None, str]=None,
+                 date: Union[None, int]=None,
+                 version: Union[None, "VersionTagClass"]=None,
+                 type: Union[None, str]=None,
+                 hyperParameters: Union[None, Dict[str, Union[str, int, float, float, bool]]]=None,
+                 metrics: Union[None, Dict[str, Union[str, int, float, float, bool]]]=None,
+                 mlFeatures: Union[None, List[str]]=None,
+                 ):
+        ...
+
+    @overload
+    def __init__(self, _inner_dict: Optional[dict]=None):
+        ...
+
+    def __init__(self, _inner_dict=None, **kwargs):
+        super(MLModelPropertiesClass, self).__init__({})
+        self.name = self.RECORD_SCHEMA.field_map["name"].default
         self.description = self.RECORD_SCHEMA.field_map["description"].default
         self.date = self.RECORD_SCHEMA.field_map["date"].default
         self.version = self.RECORD_SCHEMA.field_map["version"].default
         self.type = self.RECORD_SCHEMA.field_map["type"].default
         self.hyperParameters = self.RECORD_SCHEMA.field_map["hyperParameters"].default
         self.mlFeatures = self.RECORD_SCHEMA.field_map["mlFeatures"].default
+        self.metrics = self.RECORD_SCHEMA.field_map["metrics"].default
         self.tags = list()
-    
-    
+        if _inner_dict is not None:
+            for key, value in _inner_dict.items():
+                getattr(self, key)
+                setattr(self, key, value)
+        for key, value in kwargs.items():
+            if value is not None:
+                getattr(self, key)
+                setattr(self, key, value)
+
+
     @property
     def description(self) -> Union[None, str]:
         """Getter: Documentation of the MLModel"""
         return self._inner_dict.get('description')  # type: ignore
-    
-    
+
+
     @description.setter
     def description(self, value: Union[None, str]) -> None:
         """Setter: Documentation of the MLModel"""
         self._inner_dict['description'] = value
-    
-    
+
+
     @property
     def date(self) -> Union[None, int]:
         """Getter: Date when the MLModel was developed"""
         return self._inner_dict.get('date')  # type: ignore
-    
-    
+
+
     @date.setter
     def date(self, value: Union[None, int]) -> None:
         """Setter: Date when the MLModel was developed"""
         self._inner_dict['date'] = value
-    
-    
+
+
     @property
     def version(self) -> Union[None, "VersionTagClass"]:
         """Getter: Version of the MLModel"""
         return self._inner_dict.get('version')  # type: ignore
-    
-    
+
+
     @version.setter
     def version(self, value: Union[None, "VersionTagClass"]) -> None:
         """Setter: Version of the MLModel"""
         self._inner_dict['version'] = value
-    
-    
+
+
     @property
     def type(self) -> Union[None, str]:
         """Getter: Type of Algorithm or MLModel such as whether it is a Naive Bayes classifier, Convolutional Neural Network, etc"""
         return self._inner_dict.get('type')  # type: ignore
-    
-    
+
+
     @type.setter
     def type(self, value: Union[None, str]) -> None:
         """Setter: Type of Algorithm or MLModel such as whether it is a Naive Bayes classifier, Convolutional Neural Network, etc"""
         self._inner_dict['type'] = value
-    
-    
+
+
     @property
     def hyperParameters(self) -> Union[None, Dict[str, Union[str, int, float, float, bool]]]:
         """Getter: Hyper Parameters of the MLModel"""
         return self._inner_dict.get('hyperParameters')  # type: ignore
-    
-    
+
+
     @hyperParameters.setter
     def hyperParameters(self, value: Union[None, Dict[str, Union[str, int, float, float, bool]]]) -> None:
         """Setter: Hyper Parameters of the MLModel"""
         self._inner_dict['hyperParameters'] = value
-    
-    
+
+
     @property
     def mlFeatures(self) -> Union[None, List[str]]:
         """Getter: List of features used for MLModel training"""
         return self._inner_dict.get('mlFeatures')  # type: ignore
-    
-    
+
+
     @mlFeatures.setter
     def mlFeatures(self, value: Union[None, List[str]]) -> None:
         """Setter: List of features used for MLModel training"""
         self._inner_dict['mlFeatures'] = value
-    
-    
+
+
     @property
     def tags(self) -> List[str]:
         """Getter: Tags for the MLModel"""
         return self._inner_dict.get('tags')  # type: ignore
-    
-    
+
+
     @tags.setter
     def tags(self, value: List[str]) -> None:
         """Setter: Tags for the MLModel"""

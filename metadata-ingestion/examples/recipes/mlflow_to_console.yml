@@ -1,0 +1,8 @@
+---
+source:
+  type: mlflow
+  config:
+    tracking_uri: 'http://localhost:5000'
+
+sink:
+  type: console
