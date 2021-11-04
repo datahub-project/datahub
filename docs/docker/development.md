@@ -60,6 +60,10 @@ applies.
 > Note this only removes containers, not images. Should still be fast to switch between these once you've launched both
 > at least once.
 
+### Unexpected character
+
+If you are using Windows WSL (with Ubuntu) and receive an error of "unexpected charadcter "." in variable name..." while executing `docker/dev.sh` it may be a permission issue.  Try `sudo docker/dev.sh`.  If this does not work, try moving the file `~/.docker/config.json` to `~/.docker/config.json.bak` and retry the command with `sudo`.
+
 ### Running a specific service
 
 `docker-compose up` will launch all services in the configuration, including dependencies, unless they're already
