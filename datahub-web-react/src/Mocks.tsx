@@ -21,11 +21,17 @@ import {
     MlModel,
     MlModelGroup,
     SchemaFieldDataType,
+    ScenarioType,
+    RecommendationRenderType,
+    RelationshipDirection,
 } from './types.generated';
 import { GetTagDocument } from './graphql/tag.generated';
 import { GetMlModelDocument } from './graphql/mlModel.generated';
 import { GetMlModelGroupDocument } from './graphql/mlModelGroup.generated';
 import { GetGlossaryTermDocument, GetGlossaryTermQuery } from './graphql/glossaryTerm.generated';
+import { GetEntityCountsDocument } from './graphql/app.generated';
+import { GetMeDocument } from './graphql/me.generated';
+import { ListRecommendationsDocument } from './graphql/recommendations.generated';
 
 const user1 = {
     username: 'sdas',
@@ -318,8 +324,8 @@ export const dataset3 = {
             },
         ],
     },
-    upstreamLineage: null,
-    downstreamLineage: null,
+    incoming: null,
+    outgoing: null,
     institutionalMemory: {
         elements: [
             {
@@ -409,6 +415,7 @@ export const dataset3 = {
         },
     ],
     subTypes: null,
+    viewProperties: null,
 } as Dataset;
 
 export const dataset4 = {
@@ -437,45 +444,53 @@ export const dataset7 = {
 
 export const dataset3WithLineage = {
     ...dataset3,
-    upstreamLineage: {
-        entities: [
+    outgoing: {
+        start: 0,
+        count: 2,
+        total: 2,
+        relationships: [
             {
-                created: {
-                    time: 0,
-                },
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Outgoing,
                 entity: dataset7,
             },
             {
-                created: {
-                    time: 0,
-                },
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Outgoing,
                 entity: dataset4,
             },
         ],
     },
+    incoming: null,
 };
 
 export const dataset4WithLineage = {
     ...dataset4,
-    upstreamLineage: {
-        entities: [
+    outgoing: {
+        start: 0,
+        count: 2,
+        total: 2,
+        relationships: [
             {
-                created: {
-                    time: 0,
-                },
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Outgoing,
                 entity: dataset6,
             },
             {
-                created: {
-                    time: 0,
-                },
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Outgoing,
                 entity: dataset5,
             },
         ],
     },
-    downstreamLineage: {
-        entities: [
+    incoming: {
+        start: 0,
+        count: 1,
+        total: 1,
+        relationships: [
             {
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Incoming,
                 entity: dataset3,
             },
         ],
@@ -484,23 +499,27 @@ export const dataset4WithLineage = {
 
 export const dataset5WithCyclicalLineage = {
     ...dataset5,
-    upstreamLineage: {
-        entities: [
+    outgoing: {
+        start: 0,
+        count: 1,
+        total: 1,
+        relationships: [
             {
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Outgoing,
                 entity: dataset3,
             },
         ],
     },
-    downstreamLineage: {
-        entities: [
+    incoming: {
+        start: 0,
+        count: 1,
+        total: 1,
+        relationships: [
             {
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Incoming,
                 entity: dataset7,
-            },
-            {
-                entity: dataset6,
-            },
-            {
-                entity: dataset4,
             },
         ],
     },
@@ -508,16 +527,25 @@ export const dataset5WithCyclicalLineage = {
 
 export const dataset5WithLineage = {
     ...dataset5,
-    upstreamLineage: null,
-    downstreamLineage: {
-        entities: [
+    outgoing: null,
+    incoming: {
+        start: 0,
+        count: 3,
+        total: 3,
+        relationships: [
             {
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Incoming,
                 entity: dataset7,
             },
             {
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Incoming,
                 entity: dataset6,
             },
             {
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Incoming,
                 entity: dataset4,
             },
         ],
@@ -526,16 +554,26 @@ export const dataset5WithLineage = {
 
 export const dataset6WithLineage = {
     ...dataset6,
-    upstreamLineage: {
-        entities: [
+    outgoing: {
+        start: 0,
+        count: 1,
+        total: 1,
+        relationships: [
             {
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Outgoing,
                 entity: dataset5,
             },
         ],
     },
-    downstreamLineage: {
-        entities: [
+    incoming: {
+        start: 0,
+        count: 1,
+        total: 1,
+        relationships: [
             {
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Incoming,
                 entity: dataset4,
             },
         ],
@@ -544,16 +582,26 @@ export const dataset6WithLineage = {
 
 export const dataset7WithLineage = {
     ...dataset7,
-    upstreamLineage: {
-        entities: [
+    outgoing: {
+        start: 0,
+        count: 1,
+        total: 1,
+        relationships: [
             {
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Outgoing,
                 entity: dataset5,
             },
         ],
     },
-    downstreamLineage: {
-        entities: [
+    incoming: {
+        start: 0,
+        count: 1,
+        total: 1,
+        relationships: [
             {
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Incoming,
                 entity: dataset3,
             },
         ],
@@ -562,22 +610,36 @@ export const dataset7WithLineage = {
 
 export const dataset7WithSelfReferentialLineage = {
     ...dataset7,
-    upstreamLineage: {
-        entities: [
+    outgoing: {
+        start: 0,
+        count: 2,
+        total: 2,
+        relationships: [
             {
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Outgoing,
                 entity: dataset5,
             },
             {
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Outgoing,
                 entity: dataset7,
             },
         ],
     },
-    downstreamLineage: {
-        entities: [
+    incoming: {
+        start: 0,
+        count: 2,
+        total: 2,
+        relationships: [
             {
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Incoming,
                 entity: dataset3,
             },
             {
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Incoming,
                 entity: dataset7,
             },
         ],
@@ -821,8 +883,6 @@ export const dataJob1 = {
         outputDatasets: [dataset3],
         inputDatajobs: [],
     },
-    upstreamLineage: null,
-    downstreamLineage: null,
     globalTags: {
         tags: [
             {
@@ -832,6 +892,20 @@ export const dataJob1 = {
                     name: 'abc-sample-tag',
                     description: 'sample tag',
                 },
+            },
+        ],
+    },
+    incoming: null,
+    outgoing: null,
+    parentFlow: {
+        start: 0,
+        count: 1,
+        total: 1,
+        relationships: [
+            {
+                type: 'IsPartOf',
+                direction: RelationshipDirection.Outgoing,
+                entity: dataFlow1,
             },
         ],
     },
@@ -877,8 +951,6 @@ export const dataJob2 = {
         outputDatasets: [dataset3],
         inputDatajobs: [dataJob1],
     },
-    upstreamLineage: null,
-    downstreamLineage: null,
     globalTags: {
         tags: [
             {
@@ -933,8 +1005,6 @@ export const dataJob3 = {
         outputDatasets: [dataset3],
         inputDatajobs: [dataJob2],
     },
-    upstreamLineage: null,
-    downstreamLineage: null,
     globalTags: {
         tags: [
             {
@@ -948,17 +1018,6 @@ export const dataJob3 = {
         ],
     },
 } as DataJob;
-
-dataJob1.upstreamLineage = {
-    entities: [
-        {
-            created: {
-                time: 0,
-            },
-            entity: dataJob3,
-        },
-    ],
-};
 
 export const mlModel = {
     __typename: 'MLModel',
@@ -1023,6 +1082,8 @@ export const mlModel = {
             },
         ],
     },
+    incoming: null,
+    outgoing: null,
 } as MlModel;
 
 export const mlModelGroup = {
@@ -1076,7 +1137,58 @@ export const mlModelGroup = {
             },
         ],
     },
+    incoming: null,
+    outgoing: null,
 } as MlModelGroup;
+
+export const recommendationModules = [
+    {
+        title: 'Most Popular',
+        moduleId: 'MostPopular',
+        renderType: RecommendationRenderType.EntityNameList,
+        content: [
+            {
+                entity: {
+                    ...dataset2,
+                },
+            },
+        ],
+    },
+    {
+        title: 'Top Platforms',
+        moduleId: 'TopPlatforms',
+        renderType: RecommendationRenderType.PlatformSearchList,
+        content: [
+            {
+                entity: {
+                    urn: 'urn:li:dataPlatform:snowflake',
+                    type: EntityType.DataPlatform,
+                    info: {
+                        displayName: 'Snowflake',
+                    },
+                },
+                params: {
+                    contentParams: {
+                        count: 1,
+                    },
+                },
+            },
+        ],
+    },
+    {
+        title: 'Popular Tags',
+        moduleId: 'PopularTags',
+        renderType: RecommendationRenderType.TagSearchList,
+        content: [
+            {
+                entity: {
+                    urn: 'urn:li:tag:TestTag',
+                    name: 'TestTag',
+                },
+            },
+        ],
+    },
+];
 
 /*
     Define mock data to be returned by Apollo MockProvider. 
@@ -1357,6 +1469,7 @@ export const mocks = [
                                     value: 'fieldValue',
                                 },
                             ],
+                            insights: [],
                         },
                         {
                             entity: {
@@ -1424,6 +1537,7 @@ export const mocks = [
                                 ...dataset3,
                             },
                             matchedFields: [],
+                            insights: [],
                         },
                     ],
                     facets: [
@@ -1480,6 +1594,7 @@ export const mocks = [
                                 ...glossaryTerm1,
                             },
                             matchedFields: [],
+                            insights: [],
                         },
                     ],
                     facets: [
@@ -1571,6 +1686,7 @@ export const mocks = [
                                 ...dataset3,
                             },
                             matchedFields: [],
+                            insights: [],
                         },
                     ],
                     facets: [
@@ -1623,6 +1739,7 @@ export const mocks = [
                                 ...user1,
                             },
                             matchedFields: [],
+                            insights: [],
                         },
                     ],
                 },
@@ -1725,6 +1842,7 @@ export const mocks = [
                                 ...dataset3,
                             },
                             matchedFields: [],
+                            insights: [],
                         },
                     ],
                     facets: [
@@ -1781,6 +1899,7 @@ export const mocks = [
                                 ...dataset3,
                             },
                             matchedFields: [],
+                            insights: [],
                         },
                         {
                             entity: {
@@ -1788,6 +1907,7 @@ export const mocks = [
                                 ...dataset4,
                             },
                             matchedFields: [],
+                            insights: [],
                         },
                     ],
                     facets: [
@@ -1844,6 +1964,7 @@ export const mocks = [
                                 ...dataFlow1,
                             },
                             matchedFields: [],
+                            insights: [],
                         },
                     ],
                     facets: [
@@ -1986,6 +2107,7 @@ export const mocks = [
                                 ...dataJob1,
                             },
                             matchedFields: [],
+                            insights: [],
                         },
                     ],
                     facets: [
@@ -2064,6 +2186,7 @@ export const mocks = [
                                 ...dataset3,
                             },
                             matchedFields: [],
+                            insights: [],
                         },
                     ],
                     facets: [
@@ -2125,6 +2248,7 @@ export const mocks = [
                                 ...dataset3,
                             },
                             matchedFields: [],
+                            insights: [],
                         },
                     ],
                     facets: [],
@@ -2160,6 +2284,7 @@ export const mocks = [
                                 ...dataJob1,
                             },
                             matchedFields: [],
+                            insights: [],
                         },
                     ],
                     facets: [
@@ -2220,6 +2345,7 @@ export const mocks = [
                                 ...dataset3,
                             },
                             matchedFields: [],
+                            insights: [],
                         },
                     ],
                     facets: [
@@ -2276,6 +2402,7 @@ export const mocks = [
                                 ...dataset3,
                             },
                             matchedFields: [],
+                            insights: [],
                         },
                         {
                             entity: {
@@ -2283,6 +2410,7 @@ export const mocks = [
                                 ...dataset4,
                             },
                             matchedFields: [],
+                            insights: [],
                         },
                     ],
                     facets: [
@@ -2348,6 +2476,7 @@ export const mocks = [
                                 ...dataset3,
                             },
                             matchedFields: [],
+                            insights: [],
                         },
                     ],
                     facets: [
@@ -2413,6 +2542,7 @@ export const mocks = [
                                 ...dataset3,
                             },
                             matchedFields: [],
+                            insights: [],
                         },
                     ],
                     facets: [
@@ -2439,6 +2569,175 @@ export const mocks = [
                     ],
                 },
             } as GetSearchResultsForMultipleQuery,
+        },
+    },
+    {
+        request: {
+            query: GetEntityCountsDocument,
+            variables: {
+                input: {
+                    types: [EntityType.Dataset],
+                },
+            },
+        },
+        result: {
+            data: {
+                getEntityCounts: {
+                    counts: [
+                        {
+                            entityType: EntityType.Dataset,
+                            count: 10,
+                        },
+                    ],
+                },
+            },
+        },
+    },
+    {
+        request: {
+            query: GetMeDocument,
+            variables: {},
+        },
+        result: {
+            data: {
+                __typename: 'Query',
+                me: {
+                    __typename: 'AuthenticatedUser',
+                    corpUser: { ...user2 },
+                    platformPrivileges: {
+                        viewAnalytics: true,
+                        managePolicies: true,
+                        manageIdentities: true,
+                    },
+                },
+            },
+        },
+    },
+    {
+        request: {
+            query: ListRecommendationsDocument,
+            variables: {
+                input: {
+                    userUrn: user2.urn,
+                    requestContext: {
+                        scenario: ScenarioType.Home,
+                    },
+                    limit: 5,
+                },
+            },
+        },
+        result: {
+            data: {
+                listRecommendations: {
+                    modules: [...recommendationModules],
+                },
+            },
+        },
+    },
+    {
+        request: {
+            query: ListRecommendationsDocument,
+            variables: {
+                input: {
+                    userUrn: user2.urn,
+                    requestContext: {
+                        scenario: ScenarioType.EntityProfile,
+                        entityRequestContext: {
+                            urn: dataset3.urn,
+                            type: EntityType.Dataset,
+                        },
+                    },
+                    limit: 3,
+                },
+            },
+        },
+        result: {
+            data: {
+                listRecommendations: {
+                    modules: [...recommendationModules],
+                },
+            },
+        },
+    },
+    {
+        request: {
+            query: ListRecommendationsDocument,
+            variables: {
+                input: {
+                    userUrn: user2.urn,
+                    requestContext: {
+                        scenario: ScenarioType.SearchResults,
+                        searchRequestContext: {
+                            query: 'noresults',
+                            filters: [],
+                        },
+                    },
+                    limit: 3,
+                },
+            },
+        },
+        result: {
+            data: {
+                listRecommendations: {
+                    modules: [...recommendationModules],
+                },
+            },
+        },
+    },
+    {
+        request: {
+            query: GetSearchResultsForMultipleDocument,
+            variables: {
+                input: {
+                    types: [],
+                    query: 'noresults',
+                    start: 0,
+                    count: 10,
+                    filters: [],
+                },
+            },
+        },
+        result: {
+            data: {
+                search: {
+                    start: 0,
+                    count: 0,
+                    total: 0,
+                    searchResults: [],
+                    facets: [],
+                },
+            },
+        },
+    },
+    {
+        request: {
+            query: GetEntityCountsDocument,
+            variables: {
+                input: {
+                    types: [
+                        EntityType.Dataset,
+                        EntityType.Chart,
+                        EntityType.Dashboard,
+                        EntityType.DataFlow,
+                        EntityType.GlossaryTerm,
+                        EntityType.MlfeatureTable,
+                        EntityType.Mlmodel,
+                        EntityType.MlmodelGroup,
+                    ],
+                },
+            },
+        },
+        result: {
+            data: {
+                getEntityCounts: {
+                    counts: [
+                        {
+                            entityType: EntityType.Dataset,
+                            count: 670,
+                        },
+                    ],
+                },
+            },
         },
     },
 ];

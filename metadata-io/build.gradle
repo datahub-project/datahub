@@ -7,8 +7,6 @@ configurations {
 dependencies {
   compile project(':entity-registry')
   compile project(':metadata-utils')
-  compile project(':metadata-builders')
-  compile project(':metadata-dao-impl:restli-dao')
   compile project(':metadata-events:mxe-avro-1.7')
   compile project(':metadata-events:mxe-registration')
   compile project(':metadata-events:mxe-utils-avro-1.7')
@@ -22,7 +20,6 @@ dependencies {
   compile externalDependency.elasticSearchTransport
   compile externalDependency.kafkaClients
   compile externalDependency.gmaEbeanDao
-  compile externalDependency.gmaDaoApi
   compile externalDependency.gmaRestliResources
   compile externalDependency.gmaElasticsearchDao
   compile externalDependency.ebean
@@ -38,10 +35,13 @@ dependencies {
   testCompile externalDependency.mockito
   testCompile externalDependency.mockitoInline
   testCompile externalDependency.iStackCommons
+  testCompile externalDependency.resilience4j
   testCompile externalDependency.testContainers
   testCompile externalDependency.testContainersJunit
   testCompile externalDependency.testContainersElasticsearch
   testCompile project(':test-models')
+
+  testAnnotationProcessor externalDependency.lombok
 }
 
 tasks.withType(Test) {

@@ -4,12 +4,12 @@ import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.DoubleMap;
 import com.linkedin.data.template.LongMap;
-import com.linkedin.metadata.dao.utils.ESUtils;
+import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
-import com.linkedin.metadata.query.Filter;
-import com.linkedin.metadata.query.SortCriterion;
+import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.AggregationMetadata;
 import com.linkedin.metadata.search.AggregationMetadataArray;
 import com.linkedin.metadata.search.FilterValueArray;
@@ -51,9 +51,6 @@ import org.elasticsearch.search.aggregations.bucket.terms.Terms;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.elasticsearch.search.fetch.subphase.highlight.HighlightBuilder;
 import org.elasticsearch.search.fetch.subphase.highlight.HighlightField;
-
-import static com.linkedin.metadata.dao.utils.SearchUtils.getQueryBuilderFromCriterion;
-
 
 @Slf4j
 public class SearchRequestHandler {
@@ -99,6 +96,13 @@ public class SearchRequestHandler {
         .collect(Collectors.toSet());
   }
 
+  private BoolQueryBuilder getFilterQuery(@Nullable Filter filter) {
+    BoolQueryBuilder filterQuery = ESUtils.buildFilterQuery(filter);
+    // Filter out entities that are marked "removed"
+    filterQuery.mustNot(QueryBuilders.matchQuery("removed", true));
+    return filterQuery;
+  }
+
   /**
    * Constructs the search query based on the query request.
    *
@@ -122,9 +126,7 @@ public class SearchRequestHandler {
 
     searchSourceBuilder.query(getQuery(input));
 
-    BoolQueryBuilder filterQuery = ESUtils.buildFilterQuery(filter);
-    // Filter out entities that are marked "removed"
-    filterQuery.mustNot(QueryBuilders.matchQuery("removed", true));
+    BoolQueryBuilder filterQuery = getFilterQuery(filter);
     searchSourceBuilder.query(QueryBuilders.boolQuery().must(getQuery(input)).must(filterQuery));
     getAggregations().forEach(searchSourceBuilder::aggregation);
     searchSourceBuilder.highlighter(getHighlights());
@@ -150,18 +152,33 @@ public class SearchRequestHandler {
       int size) {
     SearchRequest searchRequest = new SearchRequest();
 
-    final BoolQueryBuilder boolQueryBuilder = new BoolQueryBuilder();
-    if (filters != null) {
-      filters.getCriteria().forEach(criterion -> {
-        if (!criterion.getValue().trim().isEmpty()) {
-          boolQueryBuilder.filter(getQueryBuilderFromCriterion(criterion));
-        }
-      });
-    }
+    BoolQueryBuilder filterQuery = getFilterQuery(filters);
     final SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
-    searchSourceBuilder.query(boolQueryBuilder);
+    searchSourceBuilder.query(filterQuery);
     searchSourceBuilder.from(from).size(size);
     ESUtils.buildSortOrder(searchSourceBuilder, sortCriterion);
+    searchRequest.source(searchSourceBuilder);
+
+    return searchRequest;
+  }
+
+  /**
+   * Get search request to aggregate and get document counts per field value
+   *
+   * @param field Field to aggregate by
+   * @param filter {@link Filter} list of conditions with fields and values
+   * @param limit number of aggregations to return
+   * @return {@link SearchRequest} that contains the aggregation query
+   */
+  @Nonnull
+  public SearchRequest getAggregationRequest(@Nonnull String field, @Nullable Filter filter, int limit) {
+    SearchRequest searchRequest = new SearchRequest();
+    BoolQueryBuilder filterQuery = getFilterQuery(filter);
+
+    final SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+    searchSourceBuilder.query(filterQuery);
+    searchSourceBuilder.size(0);
+    searchSourceBuilder.aggregation(AggregationBuilders.terms(field).field(field + ".keyword").size(limit));
     searchRequest.source(searchSourceBuilder);
 
     return searchRequest;

@@ -11,7 +11,6 @@ from snowflake.sqlalchemy import custom_types
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.sql import text
-from sqlalchemy.sql.elements import quoted_name
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern
@@ -90,8 +89,8 @@ class SnowflakeConfig(BaseSnowflakeConfig, SQLAlchemyConfig):
         values["database_pattern"].allow = f"^{v}$"
         return None
 
-    def get_sql_alchemy_url(self):
-        return super().get_sql_alchemy_url(database=None)
+    def get_sql_alchemy_url(self, database: str = None) -> str:
+        return super().get_sql_alchemy_url(database=database)
 
 
 class SnowflakeSource(SQLAlchemySource):
@@ -108,20 +107,25 @@ class SnowflakeSource(SQLAlchemySource):
         return cls(config, ctx)
 
     def get_inspectors(self) -> Iterable[Inspector]:
-        url = self.config.get_sql_alchemy_url()
+        url = self.config.get_sql_alchemy_url(database=None)
         logger.debug(f"sql_alchemy_url={url}")
-        engine = create_engine(url, **self.config.options)
+        db_listing_engine = create_engine(url, **self.config.options)
 
-        for db_row in engine.execute(text("SHOW DATABASES")):
-            with engine.connect() as conn:
-                db = db_row.name
-                if self.config.database_pattern.allowed(db):
-                    self.current_database = db
-                    conn.execute((f'USE DATABASE "{quoted_name(db, True)}"'))
+        for db_row in db_listing_engine.execute(text("SHOW DATABASES")):
+            db = db_row.name
+            if self.config.database_pattern.allowed(db):
+                # We create a separate engine for each database in order to ensure that
+                # they are isolated from each other.
+                self.current_database = db
+                engine = create_engine(
+                    self.config.get_sql_alchemy_url(database=db), **self.config.options
+                )
+
+                with engine.connect() as conn:
                     inspector = inspect(conn)
                     yield inspector
-                else:
-                    self.report.report_dropped(db)
+            else:
+                self.report.report_dropped(db)
 
     def get_identifier(self, *, schema: str, entity: str, **kwargs: Any) -> str:
         regular = super().get_identifier(schema=schema, entity=entity, **kwargs)

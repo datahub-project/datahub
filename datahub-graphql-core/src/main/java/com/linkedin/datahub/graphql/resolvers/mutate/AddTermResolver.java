@@ -37,7 +37,8 @@ public class AddTermResolver implements DataFetcher<CompletableFuture<Boolean>> 
           input.getSubResource(),
           input.getSubResourceType(),
           "glossaryTerm",
-          _entityService
+          _entityService,
+          false
       );
 
       try {

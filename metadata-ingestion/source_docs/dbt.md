@@ -30,6 +30,8 @@ This plugin pulls metadata from dbt's artifact files:
   - Prefix added to tags during ingestion.
 - node_type_pattern:
   - Use this filter to exclude and include node types using allow or deny method
+- node_name_pattern
+  - Use this filter to exclude and include node by names using allow or deny method
 
 ## Quickstart recipe
 
@@ -71,6 +73,10 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `node_type_pattern.allow` |          |          | List of regex patterns for dbt nodes to include in ingestion.                                                                                                  |
 | `node_type_pattern.deny`  |          |          | List of regex patterns for dbt nodes to exclude from ingestion.                                                                                                |
 | `node_type_pattern.ignoreCase`  |          | `True` | Whether to ignore case sensitivity during pattern matching.                                                                                                                                  |
+| `node_name_pattern.allow` |          |          | List of regex patterns for dbt model names to include in ingestion.                                                                                                  |
+| `node_name_pattern.deny`  |          |          | List of regex patterns for dbt model names to exclude from ingestion.                                                                                                |
+| `node_name_pattern.ignoreCase`  |          | `True` | Whether to ignore case sensitivity during pattern matching.                                          |
+
 
 ## Compatibility
 

@@ -1,0 +1,16 @@
+.hero {
+  padding: 5vh 0;
+  :global {
+    .hero__subtitle {
+      font-size: 1.25em;
+      margin: 2rem 0 3rem;
+    }
+    .hero__content {
+      padding: 2rem 0;
+      height: 100%;
+    }
+    .button {
+      margin-right: 1rem;
+    }
+  }
+}

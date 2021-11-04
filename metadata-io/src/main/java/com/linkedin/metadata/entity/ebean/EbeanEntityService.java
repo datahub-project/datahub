@@ -2,6 +2,8 @@ package com.linkedin.metadata.entity.ebean;
 
 import com.codahale.metrics.Timer;
 
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterators;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
@@ -29,6 +31,7 @@ import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericAspectUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import com.linkedin.metadata.entity.ValidationUtils;
 import com.linkedin.mxe.MetadataAuditOperation;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -50,8 +53,10 @@ import javax.annotation.Nullable;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.entity.ebean.EbeanUtils.*;
+import static com.linkedin.metadata.Constants.ASPECT_LATEST_VERSION;
+import static com.linkedin.metadata.entity.ebean.EbeanUtils.parseSystemMetadata;
+import static com.linkedin.metadata.entity.ebean.EbeanUtils.toAspectRecord;
+import static com.linkedin.metadata.entity.ebean.EbeanUtils.toJsonAspect;
 
 
 /**
@@ -104,7 +109,12 @@ public class EbeanEntityService extends EntityService {
       urnToAspects.get(key).add(keyAspect);
     });
 
-    _entityDao.batchGet(dbKeys).forEach((key, aspectEntry) -> {
+    Map<EbeanAspectV2.PrimaryKey, EbeanAspectV2> batchGetResults = new HashMap<>();
+    Iterators.partition(dbKeys.iterator(), 500).forEachRemaining(
+        batch -> batchGetResults.putAll(_entityDao.batchGet(ImmutableSet.copyOf(batch)))
+    );
+
+    batchGetResults.forEach((key, aspectEntry) -> {
       final Urn urn = toUrn(key.getUrn());
       final String aspectName = key.getAspect();
       // for now, don't add the key aspect here- we have already added it above
@@ -287,19 +297,21 @@ public class EbeanEntityService extends EntityService {
 
   @Override
   @Nonnull
-  public RecordTemplate updateAspect(@Nonnull final Urn urn, @Nonnull final String aspectName,
-      @Nonnull final RecordTemplate newValue, @Nonnull final AuditStamp auditStamp, @Nonnull final long version,
-      @Nonnull final boolean emitMae) {
+  public RecordTemplate updateAspect(@Nonnull final Urn urn, @Nonnull final String entityName,
+      @Nonnull final String aspectName, @Nonnull final AspectSpec aspectSpec, @Nonnull final RecordTemplate newValue,
+      @Nonnull final AuditStamp auditStamp, @Nonnull final long version, @Nonnull final boolean emitMae) {
     log.debug(
         String.format("Invoked updateAspect with urn: %s, aspectName: %s, newValue: %s, version: %s, emitMae: %s", urn,
             aspectName, newValue, version, emitMae));
-    return updateAspect(urn, aspectName, newValue, auditStamp, version, emitMae, DEFAULT_MAX_TRANSACTION_RETRY);
+    return updateAspect(urn, entityName, aspectName, aspectSpec, newValue, auditStamp, version, emitMae,
+        DEFAULT_MAX_TRANSACTION_RETRY);
   }
 
   @Nonnull
-  private RecordTemplate updateAspect(@Nonnull final Urn urn, @Nonnull final String aspectName,
-      @Nonnull final RecordTemplate value, @Nonnull final AuditStamp auditStamp, @Nonnull final long version,
-      @Nonnull final boolean emitMae, final int maxTransactionRetry) {
+  private RecordTemplate updateAspect(@Nonnull final Urn urn, @Nonnull final String entityName,
+      @Nonnull final String aspectName, @Nonnull final AspectSpec aspectSpec, @Nonnull final RecordTemplate value,
+      @Nonnull final AuditStamp auditStamp, @Nonnull final long version, @Nonnull final boolean emitMae,
+      final int maxTransactionRetry) {
 
     final UpdateAspectResult result = _entityDao.runInTransactionWithRetry(() -> {
 
@@ -328,8 +340,20 @@ public class EbeanEntityService extends EntityService {
 
     if (emitMae) {
       log.debug(String.format("Producing MetadataAuditEvent for updated aspect %s, urn %s", aspectName, urn));
-      produceMetadataAuditEvent(urn, oldValue, newValue, result.getOldSystemMetadata(), result.getNewSystemMetadata(),
-          MetadataAuditOperation.UPDATE);
+      final MetadataChangeLog metadataChangeLog = new MetadataChangeLog();
+      metadataChangeLog.setEntityType(entityName);
+      metadataChangeLog.setEntityUrn(urn);
+      metadataChangeLog.setChangeType(ChangeType.UPSERT);
+      metadataChangeLog.setAspectName(aspectName);
+      metadataChangeLog.setAspect(GenericAspectUtils.serializeAspect(newValue));
+      metadataChangeLog.setSystemMetadata(result.newSystemMetadata);
+      if (oldValue != null) {
+        metadataChangeLog.setPreviousAspectValue(GenericAspectUtils.serializeAspect(oldValue));
+      }
+      if (result.oldSystemMetadata != null) {
+        metadataChangeLog.setPreviousSystemMetadata(result.oldSystemMetadata);
+      }
+      produceMetadataChangeLog(urn, aspectSpec, metadataChangeLog);
     } else {
       log.debug(String.format("Skipped producing MetadataAuditEvent for updated aspect %s, urn %s. emitMAE is false.",
           aspectName, urn));
@@ -353,8 +377,6 @@ public class EbeanEntityService extends EntityService {
 
   @Override
   public Urn ingestProposal(@Nonnull MetadataChangeProposal metadataChangeProposal, AuditStamp auditStamp) {
-
-    // todo: add restli model validation.
 
     log.debug("entity type = {}", metadataChangeProposal.getEntityType());
     EntitySpec entitySpec = getEntityRegistry().getEntitySpec(metadataChangeProposal.getEntityType());
@@ -384,6 +406,7 @@ public class EbeanEntityService extends EntityService {
     try {
       aspect = GenericAspectUtils.deserializeAspect(metadataChangeProposal.getAspect().getValue(),
           metadataChangeProposal.getAspect().getContentType(), aspectSpec);
+      ValidationUtils.validateOrThrow(aspect);
     } catch (ModelConversionException e) {
       throw new RuntimeException(
           String.format("Could not deserialize {} for aspect {}", metadataChangeProposal.getAspect().getValue(),

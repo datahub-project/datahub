@@ -78,7 +78,9 @@ type TagPageParams = {
  * Responsible for displaying metadata about a tag
  */
 export default function TagProfile() {
-    const { urn } = useParams<TagPageParams>();
+    const { urn: encodedUrn } = useParams<TagPageParams>();
+    const urn = decodeURIComponent(encodedUrn);
+
     const { loading, error, data } = useGetTagQuery({ variables: { urn } });
     const entityRegistry = useEntityRegistry();
     const history = useHistory();
@@ -122,11 +124,7 @@ export default function TagProfile() {
                                 <div>
                                     <CreatedByLabel>Created by</CreatedByLabel>
                                 </div>
-                                <AvatarsGroup
-                                    owners={data?.tag?.ownership?.owners}
-                                    entityRegistry={entityRegistry}
-                                    size="large"
-                                />
+                                <AvatarsGroup owners={data?.tag?.ownership?.owners} entityRegistry={entityRegistry} />
                             </div>
                         </div>
                         <StatsBox>

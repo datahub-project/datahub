@@ -6,9 +6,8 @@ import {
     useUpdateDashboardMutation,
 } from '../../../graphql/dashboard.generated';
 import { Dashboard, EntityType, PlatformType, SearchResult } from '../../../types.generated';
-import { Direction } from '../../lineage/types';
+import { EntityAndType } from '../../lineage/types';
 import { getLogoFromPlatform } from '../../shared/getLogoFromPlatform';
-import getChildren from '../../lineage/utils/getChildren';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
 import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/SidebarOwnerSection';
@@ -19,6 +18,8 @@ import { DashboardChartsTab } from '../shared/tabs/Entity/DashboardChartsTab';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
 import { GenericEntityProperties } from '../shared/types';
 import { DashboardPreview } from './preview/DashboardPreview';
+import { getDataForEntityType } from '../shared/containers/profile/utils';
+import { capitalizeFirstLetter } from '../../shared/capitalizeFirstLetter';
 
 /**
  * Definition of the DataHub Dashboard entity.
@@ -71,7 +72,7 @@ export class DashboardEntity implements Entity<Dashboard> {
             entityType={EntityType.Dashboard}
             useEntityQuery={useGetDashboardQuery}
             useUpdateQuery={useUpdateDashboardMutation}
-            getOverrideProperties={this.getOverrideProperties}
+            getOverrideProperties={this.getOverridePropertiesFromEntity}
             tabs={[
                 {
                     name: 'Documentation',
@@ -84,7 +85,10 @@ export class DashboardEntity implements Entity<Dashboard> {
                 {
                     name: 'Charts',
                     component: DashboardChartsTab,
-                    shouldHide: (_, dashboard: GetDashboardQuery) => dashboard?.dashboard?.charts?.total === 0,
+                    display: {
+                        visible: (_, _1) => true,
+                        enabled: (_, dashboard: GetDashboardQuery) => (dashboard?.dashboard?.charts?.total || 0) > 0,
+                    },
                 },
             ]}
             sidebarSections={[
@@ -105,13 +109,12 @@ export class DashboardEntity implements Entity<Dashboard> {
         />
     );
 
-    getOverrideProperties = (res: GetDashboardQuery): GenericEntityProperties => {
+    getOverridePropertiesFromEntity = (dashboard?: Dashboard | null): GenericEntityProperties => {
         // TODO: Get rid of this once we have correctly formed platform coming back.
-        const tool = res.dashboard?.tool || '';
-        const name = res.dashboard?.info?.name;
-        const externalUrl = res.dashboard?.info?.externalUrl;
+        const tool = dashboard?.tool || '';
+        const name = dashboard?.info?.name;
+        const externalUrl = dashboard?.info?.externalUrl;
         return {
-            ...res,
             name,
             externalUrl,
             platform: {
@@ -120,6 +123,7 @@ export class DashboardEntity implements Entity<Dashboard> {
                 name: tool,
                 info: {
                     logoUrl: getLogoFromPlatform(tool),
+                    displayName: capitalizeFirstLetter(tool),
                     type: PlatformType.Others,
                     datasetNameDelimiter: '.',
                 },
@@ -143,7 +147,20 @@ export class DashboardEntity implements Entity<Dashboard> {
     };
 
     renderSearch = (result: SearchResult) => {
-        return this.renderPreview(PreviewType.SEARCH, result.entity as Dashboard);
+        const data = result.entity as Dashboard;
+        return (
+            <DashboardPreview
+                urn={data.urn}
+                platform={data.tool}
+                name={data.info?.name}
+                description={data.editableProperties?.description || data.info?.description}
+                access={data.info?.access}
+                tags={data.globalTags || undefined}
+                owners={data.ownership?.owners}
+                glossaryTerms={data?.glossaryTerms}
+                insights={result.insights}
+            />
+        );
     };
 
     getLineageVizConfig = (entity: Dashboard) => {
@@ -151,12 +168,11 @@ export class DashboardEntity implements Entity<Dashboard> {
             urn: entity.urn,
             name: entity.info?.name || '',
             type: EntityType.Dashboard,
-            upstreamChildren: getChildren({ entity, type: EntityType.Dashboard }, Direction.Upstream).map(
-                (child) => child.entity.urn,
+            // eslint-disable-next-line @typescript-eslint/dot-notation
+            upstreamChildren: entity?.['charts']?.relationships?.map(
+                (relationship) => ({ entity: relationship.entity, type: relationship.entity.type } as EntityAndType),
             ),
-            downstreamChildren: getChildren({ entity, type: EntityType.Dashboard }, Direction.Downstream).map(
-                (child) => child.entity.urn,
-            ),
+            downstreamChildren: undefined,
             icon: getLogoFromPlatform(entity.tool),
             platform: entity.tool,
         };
@@ -164,5 +180,13 @@ export class DashboardEntity implements Entity<Dashboard> {
 
     displayName = (data: Dashboard) => {
         return data.info?.name || data.urn;
+    };
+
+    getGenericEntityProperties = (data: Dashboard) => {
+        return getDataForEntityType({
+            data,
+            entityType: this.type,
+            getOverrideProperties: this.getOverridePropertiesFromEntity,
+        });
     };
 }

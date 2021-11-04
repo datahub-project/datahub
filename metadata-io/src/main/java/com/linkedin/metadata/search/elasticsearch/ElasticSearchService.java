@@ -3,8 +3,8 @@ package com.linkedin.metadata.search.elasticsearch;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
-import com.linkedin.metadata.query.Filter;
-import com.linkedin.metadata.query.SortCriterion;
+import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilders;
@@ -12,6 +12,7 @@ import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import java.util.List;
+import java.util.Map;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
@@ -82,6 +83,15 @@ public class ElasticSearchService implements EntitySearchService {
     log.debug(String.format("Autocompleting query entityName: %s, query: %s, field: %s, requestParams: %s, limit: %s",
         entityName, query, field, requestParams, limit));
     return esSearchDAO.autoComplete(entityName, query, field, requestParams, limit);
+  }
+
+  @Nonnull
+  @Override
+  public Map<String, Long> aggregateByValue(@Nonnull String entityName, @Nonnull String field,
+      @Nullable Filter requestParams, int limit) {
+    log.debug("Aggregating by value: {}, field: {}, requestParams: {}, limit: {}", entityName, field, requestParams,
+        limit);
+    return esSearchDAO.aggregateByValue(entityName, field, requestParams, limit);
   }
 
   @Nonnull

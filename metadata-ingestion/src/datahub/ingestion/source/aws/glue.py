@@ -353,9 +353,7 @@ class GlueSource(Source):
 
         return MetadataWorkUnit(id=job["Name"], mce=mce)
 
-    def get_datajob_wu(
-        self, node: Dict[str, Any], job: Dict[str, Any]
-    ) -> MetadataWorkUnit:
+    def get_datajob_wu(self, node: Dict[str, Any], job_name: str) -> MetadataWorkUnit:
         """
         Generate a DataJob workunit for a component (node) in a Glue job.
 
@@ -374,10 +372,10 @@ class GlueSource(Source):
                 urn=node["urn"],
                 aspects=[
                     DataJobInfoClass(
-                        name=f"{job['Name']}:{node['NodeType']}-{node['Id']}",
+                        name=f"{job_name}:{node['NodeType']}-{node['Id']}",
                         type="GLUE",
                         # there's no way to view an individual job node by link, so just show the graph
-                        externalUrl=f"https://{region}.console.aws.amazon.com/gluestudio/home?region={region}#/editor/job/{job['Name']}/graph",
+                        externalUrl=f"https://{region}.console.aws.amazon.com/gluestudio/home?region={region}#/editor/job/{job_name}/graph",
                         customProperties={
                             **{x["Name"]: x["Value"] for x in node["Args"]},
                             "transformType": node["NodeType"],
@@ -393,7 +391,7 @@ class GlueSource(Source):
             )
         )
 
-        return MetadataWorkUnit(id=f'{job["Name"]}-{node["Id"]}', mce=mce)
+        return MetadataWorkUnit(id=f'{job_name}-{node["Id"]}', mce=mce)
 
     def get_all_tables(self) -> List[dict]:
         def get_tables_from_database(database_name: str) -> List[dict]:
@@ -451,6 +449,7 @@ class GlueSource(Source):
         if self.extract_transforms:
 
             dags = {}
+            flow_names: Dict[str, str] = {}
 
             for job in self.get_all_jobs():
 
@@ -471,6 +470,7 @@ class GlueSource(Source):
                     dag = self.get_dataflow_graph(job_script_location)
 
                 dags[flow_urn] = dag
+                flow_names[flow_urn] = job["Name"]
 
             # run a first pass to pick up s3 bucket names and formats
             # in Glue, it's possible for two buckets to have files of different extensions
@@ -499,7 +499,7 @@ class GlueSource(Source):
                 for node in nodes.values():
 
                     if node["NodeType"] not in ["DataSource", "DataSink"]:
-                        job_wu = self.get_datajob_wu(node, job)
+                        job_wu = self.get_datajob_wu(node, flow_names[flow_urn])
                         self.report.report_workunit(job_wu)
                         yield job_wu
 

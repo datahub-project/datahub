@@ -9,17 +9,17 @@ import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.models.AspectSpec;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.PegasusUtils;
 import com.linkedin.metadata.dao.utils.RecordUtils;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV1;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.models.EntitySpec;
-import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
 import com.linkedin.metadata.search.utils.BrowsePathUtils;
 import io.ebean.EbeanServer;
 import io.ebean.PagedList;
-
 import java.net.URISyntaxException;
 import java.util.HashSet;
 import java.util.Map;
@@ -34,16 +34,17 @@ public class DataMigrationStep implements UpgradeStep {
   private static final int DEFAULT_BATCH_SIZE = 1000;
   private static final long DEFAULT_BATCH_DELAY_MS = 250;
 
-  private static final String BROWSE_PATHS_ASPECT_NAME =
-      PegasusUtils.getAspectNameFromSchema(new BrowsePaths().schema());
+  private static final String BROWSE_PATHS_ASPECT_NAME = PegasusUtils.getAspectNameFromSchema(new BrowsePaths().schema());
 
   private final EbeanServer _server;
   private final EntityService _entityService;
-  private final SnapshotEntityRegistry _entityRegistry;
+  private final EntityRegistry _entityRegistry;
   private final Set<Urn> urnsWithBrowsePath = new HashSet<>();
 
-  public DataMigrationStep(final EbeanServer server, final EntityService entityService,
-      final SnapshotEntityRegistry entityRegistry) {
+  public DataMigrationStep(
+      final EbeanServer server,
+      final EntityService entityService,
+      final EntityRegistry entityRegistry) {
     _server = server;
     _entityService = entityService;
     _entityRegistry = entityRegistry;
@@ -72,8 +73,7 @@ public class DataMigrationStep implements UpgradeStep {
       int count = getBatchSize(context.parsedArgs());
       while (start < rowCount) {
 
-        context.report()
-            .addLine(String.format("Reading rows %s through %s from legacy aspects table.", start, start + count));
+        context.report().addLine(String.format("Reading rows %s through %s from legacy aspects table.", start, start + count));
         PagedList<EbeanAspectV1> rows = getPagedAspects(start, count);
 
         for (EbeanAspectV1 oldAspect : rows.getList()) {
@@ -83,12 +83,11 @@ public class DataMigrationStep implements UpgradeStep {
           // 1. Instantiate the RecordTemplate class associated with the aspect.
           final RecordTemplate aspectRecord;
           try {
-            aspectRecord = RecordUtils.toRecordTemplate(Class.forName(oldAspectName).asSubclass(RecordTemplate.class),
+            aspectRecord = RecordUtils.toRecordTemplate(
+                Class.forName(oldAspectName).asSubclass(RecordTemplate.class),
                 oldAspect.getMetadata());
           } catch (Exception e) {
-            context.report()
-                .addLine(String.format("Failed to convert aspect with name %s into a RecordTemplate class: %s",
-                    oldAspectName, e.getMessage()));
+            context.report().addLine(String.format("Failed to convert aspect with name %s into a RecordTemplate class: %s", oldAspectName, e.getMessage()));
             return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
           }
 
@@ -97,8 +96,7 @@ public class DataMigrationStep implements UpgradeStep {
           try {
             urn = Urn.createFromString(oldAspect.getKey().getUrn());
           } catch (Exception e) {
-            throw new RuntimeException(
-                String.format("Failed to bind Urn with value %s into Urn object", oldAspect.getKey().getUrn(), e));
+            throw new RuntimeException(String.format("Failed to bind Urn with value %s into Urn object", oldAspect.getKey().getUrn(), e));
           }
 
           // 3. Verify that the entity associated with the aspect is found in the registry.
@@ -107,9 +105,7 @@ public class DataMigrationStep implements UpgradeStep {
           try {
             entitySpec = _entityRegistry.getEntitySpec(entityName);
           } catch (Exception e) {
-            context.report()
-                .addLine(String.format("Failed to find Entity with name %s in Entity Registry: %s", entityName,
-                    e.toString()));
+            context.report().addLine(String.format("Failed to find Entity with name %s in Entity Registry: %s", entityName, e.toString()));
             return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
           }
 
@@ -118,34 +114,44 @@ public class DataMigrationStep implements UpgradeStep {
           try {
             newAspectName = PegasusUtils.getAspectNameFromSchema(aspectRecord.schema());
           } catch (Exception e) {
-            context.report()
-                .addLine(String.format("Failed to retrieve @Aspect name from schema %s, urn %s: %s",
-                    aspectRecord.schema().getFullName(), entityName, e.toString()));
+            context.report().addLine(String.format("Failed to retrieve @Aspect name from schema %s, urn %s: %s",
+                aspectRecord.schema().getFullName(),
+                entityName,
+                e.toString()));
             return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
           }
 
           // 5. Verify that the aspect is a valid aspect associated with the entity
+          AspectSpec aspectSpec;
           try {
-            entitySpec.getAspectSpec(newAspectName);
+            aspectSpec = entitySpec.getAspectSpec(newAspectName);
           } catch (Exception e) {
-            context.report()
-                .addLine(String.format("Failed to find aspect spec with name %s associated with entity named %s",
-                    newAspectName, entityName, e.toString()));
+            context.report().addLine(String.format("Failed to find aspect spec with name %s associated with entity named %s",
+                newAspectName,
+                entityName,
+                e.toString()));
             return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
           }
 
           // 6. Write the row back using the EntityService
           boolean emitMae = oldAspect.getKey().getVersion() == 0L;
-          _entityService.updateAspect(urn, newAspectName, aspectRecord, toAuditStamp(oldAspect),
-              oldAspect.getKey().getVersion(), emitMae);
+          _entityService.updateAspect(
+              urn,
+              entityName,
+              newAspectName,
+              aspectSpec,
+              aspectRecord,
+              toAuditStamp(oldAspect),
+              oldAspect.getKey().getVersion(),
+              emitMae
+          );
 
           // 7. If necessary, emit a browse path aspect.
-          if (entitySpec.getAspectSpecMap().containsKey(BROWSE_PATHS_ASPECT_NAME) && !urnsWithBrowsePath.contains(
-              urn)) {
+          if (entitySpec.getAspectSpecMap().containsKey(BROWSE_PATHS_ASPECT_NAME) && !urnsWithBrowsePath.contains(urn)) {
             // Emit a browse path aspect.
             final BrowsePaths browsePaths;
             try {
-              browsePaths = BrowsePathUtils.buildBrowsePath(urn);
+              browsePaths = BrowsePathUtils.buildBrowsePath(urn, _entityService.getEntityRegistry());
 
               final AuditStamp browsePathsStamp = new AuditStamp();
               browsePathsStamp.setActor(Urn.createFromString(Constants.SYSTEM_ACTOR));
@@ -153,6 +159,7 @@ public class DataMigrationStep implements UpgradeStep {
 
               _entityService.ingestAspect(urn, entityName, BROWSE_PATHS_ASPECT_NAME, browsePaths, browsePathsStamp);
               urnsWithBrowsePath.add(urn);
+
             } catch (URISyntaxException e) {
               throw new RuntimeException("Failed to ingest Browse Path", e);
             }
@@ -169,9 +176,9 @@ public class DataMigrationStep implements UpgradeStep {
         }
       }
       if (totalRowsMigrated != rowCount) {
-        context.report()
-            .addLine(String.format("Number of rows migrated %s does not equal the number of input rows %s...",
-                totalRowsMigrated, rowCount));
+        context.report().addLine(String.format("Number of rows migrated %s does not equal the number of input rows %s...",
+            totalRowsMigrated,
+            rowCount));
         return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
       }
       return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.SUCCEEDED);
@@ -193,6 +200,7 @@ public class DataMigrationStep implements UpgradeStep {
     return auditStamp;
   }
 
+
   private PagedList<EbeanAspectV1> getPagedAspects(final int start, final int pageSize) {
     return _server.find(EbeanAspectV1.class)
         .select(EbeanAspectV1.ALL_COLUMNS)
@@ -205,8 +213,8 @@ public class DataMigrationStep implements UpgradeStep {
 
   private int getBatchSize(final Map<String, Optional<String>> parsedArgs) {
     int resolvedBatchSize = DEFAULT_BATCH_SIZE;
-    if (parsedArgs.containsKey(NoCodeUpgrade.BATCH_SIZE_ARG_NAME) && parsedArgs.get(NoCodeUpgrade.BATCH_SIZE_ARG_NAME)
-        .isPresent()) {
+    if (parsedArgs.containsKey(NoCodeUpgrade.BATCH_SIZE_ARG_NAME)
+        && parsedArgs.get(NoCodeUpgrade.BATCH_SIZE_ARG_NAME).isPresent()) {
       resolvedBatchSize = Integer.parseInt(parsedArgs.get(NoCodeUpgrade.BATCH_SIZE_ARG_NAME).get());
     }
     return resolvedBatchSize;
@@ -214,8 +222,8 @@ public class DataMigrationStep implements UpgradeStep {
 
   private long getBatchDelayMs(final Map<String, Optional<String>> parsedArgs) {
     long resolvedBatchDelayMs = DEFAULT_BATCH_DELAY_MS;
-    if (parsedArgs.containsKey(NoCodeUpgrade.BATCH_DELAY_MS_ARG_NAME) && parsedArgs.get(
-        NoCodeUpgrade.BATCH_DELAY_MS_ARG_NAME).isPresent()) {
+    if (parsedArgs.containsKey(NoCodeUpgrade.BATCH_DELAY_MS_ARG_NAME)
+        && parsedArgs.get(NoCodeUpgrade.BATCH_DELAY_MS_ARG_NAME).isPresent()) {
       resolvedBatchDelayMs = Long.parseLong(parsedArgs.get(NoCodeUpgrade.BATCH_DELAY_MS_ARG_NAME).get());
     }
     return resolvedBatchDelayMs;

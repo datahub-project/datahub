@@ -234,7 +234,6 @@ Update the elasticsearch settings under global in the values.yaml as follows.
   elasticsearch:
     host: <<elasticsearch-endpoint>>
     port: "443"
-    indexPrefix: demo
     useSSL: "true"
 ```
 
@@ -244,10 +243,33 @@ You can also allow communication via HTTP (without SSL) by using the settings be
   elasticsearch:
     host: <<elasticsearch-endpoint>>
     port: "80"
-    indexPrefix: demo
 ```
 
-Lastly, you need to set the following env variable for **elasticsearchSetupJob**.
+If you have fine-grained access control enabled with basic authentication, first run the following to create a k8s
+secret with the password.
+
+```
+kubectl delete secret elasticsearch-secrets
+kubectl create secret generic elasticsearch-secrets --from-literal=elasticsearch-password=<<password>>
+```
+
+Then use the settings below.
+
+```
+  elasticsearch:
+    host: <<elasticsearch-endpoint>>
+    port: "443"
+    useSSL: "true"
+    auth:
+      username: <<username>>
+      password:
+        secretRef: elasticsearch-secrets
+        secretName: elasticsearch-password
+```
+
+Lastly, you **NEED** to set the following env variable for **elasticsearchSetupJob**. AWS Elasticsearch/Opensearch
+service uses OpenDistro version of Elasticsearch, which does not support the "datastream" functionality. As such, we use
+a different way of creating time based indices.
 
 ```
   elasticsearchSetupJob:
