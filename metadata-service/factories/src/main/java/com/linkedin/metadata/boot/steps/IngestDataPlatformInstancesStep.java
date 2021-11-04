@@ -11,6 +11,7 @@ import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.utils.DataPlatformInstanceUtils;
 import com.linkedin.metadata.utils.EntityKeyUtils;
+import com.linkedin.metadata.utils.PegasusUtils;
 import io.ebean.EbeanServer;
 import io.ebean.PagedList;
 import java.util.Optional;
@@ -84,8 +85,10 @@ public class IngestDataPlatformInstancesStep implements BootstrapStep {
 
         final AuditStamp aspectAuditStamp =
             new AuditStamp().setActor(Urn.createFromString(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis());
+        String entityName = PegasusUtils.urnToEntityName(urn);
 
-        _entityService.ingestAspect(urn, PLATFORM_INSTANCE_ASPECT_NAME, dataPlatformInstance.get(), aspectAuditStamp);
+        _entityService.ingestAspect(urn, entityName, PLATFORM_INSTANCE_ASPECT_NAME, dataPlatformInstance.get(),
+            aspectAuditStamp);
       }
       log.info("Finished ingesting DataPlaformInstance for urn {} to {}", start, start + BATCH_SIZE);
       start += BATCH_SIZE;
