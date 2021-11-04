@@ -19,11 +19,7 @@ from great_expectations.data_context.types.base import (
 )
 from great_expectations.dataset.dataset import Dataset
 from great_expectations.datasource.sqlalchemy_datasource import SqlAlchemyDatasource
-from great_expectations.profile.base import (
-    DatasetProfiler,
-    ProfilerCardinality,
-    ProfilerDataType,
-)
+from great_expectations.profile.base import ProfilerCardinality, ProfilerDataType
 from great_expectations.profile.basic_dataset_profiler import BasicDatasetProfilerBase
 from sqlalchemy.engine import Connection, Engine
 
@@ -160,42 +156,10 @@ class GEProfilingConfig(ConfigModel):
         return values
 
 
-class DatahubConfigurableProfiler(DatasetProfiler):
-    """
-    DatahubConfigurableProfiler is a wrapper on top of DatahubGECustomProfiler that essentially translates the
-    GEProfilingConfig into a proper GEProfiler's interface and delegates actual profiling to DatahubGECustomProfiler.
-    Column filtering based on our Allow/Deny patterns requires us to intercept the _profile call
-    and compute the list of the columns to profile.
-    """
-
-    # @staticmethod
-    # def _get_excluded_expectations(config: GEProfilingConfig) -> List[str]:
-    #     # Compute excluded expectations
-    #     excluded_expectations: List[str] = []
-    #     if not config.include_field_null_count:
-    #         excluded_expectations.append("expect_column_values_to_not_be_null")
-    #     if not config.include_field_min_value:
-    #         excluded_expectations.append("expect_column_min_to_be_between")
-    #     if not config.include_field_max_value:
-    #         excluded_expectations.append("expect_column_max_to_be_between")
-    #     if not config.include_field_mean_value:
-    #         excluded_expectations.append("expect_column_mean_to_be_between")
-    #     if not config.include_field_median_value:
-    #         excluded_expectations.append("expect_column_median_to_be_between")
-    #     if not config.include_field_stddev_value:
-    #         excluded_expectations.append("expect_column_stdev_to_be_between")
-    #     if not config.include_field_quantiles:
-    #         excluded_expectations.append("expect_column_quantile_values_to_be_between")
-    #     if not config.include_field_distinct_value_frequencies:
-    #         excluded_expectations.append("expect_column_distinct_values_to_be_in_set")
-    #     if not config.include_field_histogram:
-    #         excluded_expectations.append("expect_column_kl_divergence_to_be_less_than")
-    #     if not config.include_field_sample_values:
-    #         excluded_expectations.append("expect_column_values_to_be_in_set")
-    #     return excluded_expectations
-
-    @staticmethod
+class _DatasetProfiler(BasicDatasetProfilerBase):
+    @classmethod
     def _get_columns_to_profile(
+        cls,
         dataset: Dataset,
         dataset_name: str,
         config: GEProfilingConfig,
@@ -236,286 +200,264 @@ class DatahubConfigurableProfiler(DatasetProfiler):
                 )
         return columns_to_profile
 
-    # @staticmethod
-    # def datahub_config_to_ge_config(
-    #     dataset: Dataset,
-    #     dataset_name: str,
-    #     config: GEProfilingConfig,
-    #     report: SQLSourceReport,
-    # ) -> Dict[str, Any]:
-    #     excluded_expectations: List[
-    #         str
-    #     ] = DatahubConfigurableProfiler._get_excluded_expectations(config)
-    #     columns_to_profile: List[
-    #         str
-    #     ] = DatahubConfigurableProfiler._get_columns_to_profile(
-    #         dataset, dataset_name, config, report
-    #     )
-    #     return {
-    #         "excluded_expectations": excluded_expectations,
-    #         "columns_to_profile": columns_to_profile,
-    #     }
+    @classmethod
+    def _get_dataset_column_quantiles(
+        cls, dataset: Dataset, column: str
+    ) -> List[QuantileClass]:
+        quantiles = [0.05, 0.25, 0.5, 0.75, 0.95]
+        values = dataset.get_column_quantiles(column, tuple(quantiles))
+        return [
+            QuantileClass(quantile=str(quantile), value=str(value))
+            for quantile, value in zip(quantiles, values)
+        ]
 
-    # @classmethod
-    # def _profile(
-    #     cls, dataset: Dataset, configuration: Dict[str, Any]
-    # ) -> ExpectationSuite:
-    #     """
-    #     Override method, which returns the expectation suite using the UserConfigurable Profiler.
-    #     """
-    #     profiler_configuration = cls.datahub_config_to_ge_config(
-    #         dataset,
-    #         configuration["dataset_name"],
-    #         configuration["config"],
-    #         configuration["report"],
-    #     )
-    #     return DatahubGECustomProfiler._profile(dataset, profiler_configuration)
+    @classmethod
+    def _get_dataset_column_distinct_value_frequencies(
+        cls, dataset: Dataset, column: str
+    ) -> List[ValueFrequencyClass]:
+        return [
+            ValueFrequencyClass(value=str(value), frequency=count)
+            for value, count in dataset.get_column_value_counts(column).items()
+        ]
 
+    @classmethod
+    def _get_dataset_column_histogram(
+        cls, dataset: Dataset, column: str
+    ) -> Optional[HistogramClass]:
+        res = dataset.expect_column_kl_divergence_to_be_less_than(
+            column,
+            partition_object=None,
+            threshold=None,
+            result_format="COMPLETE",
+        ).result
+        if "details" in res and "observed_partition" in res["details"]:
+            partition = res["details"]["observed_partition"]
+            return HistogramClass(
+                [str(v) for v in partition["bins"]],
+                [
+                    partition["tail_weights"][0],
+                    *partition["weights"],
+                    partition["tail_weights"][1],
+                ],
+            )
+        return None
 
-def _get_dataset_column_quantiles(dataset: Dataset, column: str) -> List[QuantileClass]:
-    quantiles = [0.05, 0.25, 0.5, 0.75, 0.95]
-    values = dataset.get_column_quantiles(column, tuple(quantiles))
-    return [
-        QuantileClass(quantile=str(quantile), value=str(value))
-        for quantile, value in zip(quantiles, values)
-    ]
+    @classmethod
+    def _get_dataset_column_sample_values(
+        cls, dataset: Dataset, column: str
+    ) -> Optional[List[str]]:
+        res = dataset.expect_column_values_to_be_in_set(
+            column, [], result_format="SUMMARY"
+        ).result
+        if not res:
+            breakpoint()
+        return [str(v) for v in res["partial_unexpected_list"]]
 
-
-def _get_dataset_column_distinct_value_frequencies(
-    dataset: Dataset, column: str
-) -> List[ValueFrequencyClass]:
-    return [
-        ValueFrequencyClass(value=str(value), frequency=count)
-        for value, count in dataset.get_column_value_counts(column).items()
-    ]
-
-
-def _get_dataset_column_histogram(
-    dataset: Dataset, column: str
-) -> Optional[HistogramClass]:
-    res = dataset.expect_column_kl_divergence_to_be_less_than(
-        column,
-        partition_object=None,
-        threshold=None,
-        result_format="COMPLETE",
-    ).result
-    if "details" in res and "observed_partition" in res["details"]:
-        partition = res["details"]["observed_partition"]
-        return HistogramClass(
-            [str(v) for v in partition["bins"]],
-            [
-                partition["tail_weights"][0],
-                *partition["weights"],
-                partition["tail_weights"][1],
-            ],
+    @classmethod
+    def generate_dataset_profile(
+        cls,
+        dataset: Dataset,
+        dataset_name: str,
+        config: GEProfilingConfig,
+        report: SQLSourceReport,
+    ) -> DatasetProfileClass:
+        dataset.set_default_expectation_argument(
+            "catch_exceptions", config.catch_exceptions
         )
-    return None
-
-
-def _get_dataset_column_sample_values(
-    dataset: Dataset, column: str
-) -> Optional[List[str]]:
-    res = dataset.expect_column_values_to_be_in_set(
-        column, [], result_format="SUMMARY"
-    ).result
-    if not res:
-        breakpoint()
-    return [str(v) for v in res["partial_unexpected_list"]]
-
-
-def _generate_dataset_profile(
-    dataset: Dataset,
-    dataset_name: str,
-    config: GEProfilingConfig,
-    report: SQLSourceReport,
-) -> DatasetProfileClass:
-    dataset.set_default_expectation_argument(
-        "catch_exceptions", config.catch_exceptions
-    )
-    dataset.set_config_value("interactive_evaluation", True)
-
-    profile = DatasetProfileClass(timestampMillis=get_sys_time())
-
-    all_columns = dataset.get_table_columns()
-    columns_to_profile = DatahubConfigurableProfiler._get_columns_to_profile(
-        dataset, dataset_name, config, report
-    )
-
-    row_count = dataset.get_row_count()
-    profile.rowCount = row_count
-    profile.columnCount = len(all_columns)
-
-    profile.fieldProfiles = []
-    for column in all_columns:
-        column_profile = DatasetFieldProfileClass(fieldPath=column)
-        profile.fieldProfiles.append(column_profile)
-
-        if column not in columns_to_profile:
-            continue
-
-        type_ = BasicDatasetProfilerBase._get_column_type(dataset, column)
-        cardinality = BasicDatasetProfilerBase._get_column_cardinality(dataset, column)
         dataset.set_config_value("interactive_evaluation", True)
 
-        if config.include_field_null_count:
-            non_null_count = dataset.get_column_nonnull_count(column)
-            null_count = row_count - non_null_count
-            assert null_count >= 0
-            column_profile.nullCount = null_count
-            if row_count > 0:
-                column_profile.nullProportion = null_count / row_count
-        else:
-            non_null_count = None
+        profile = DatasetProfileClass(timestampMillis=get_sys_time())
 
-        unique_count = dataset.get_column_unique_count(column)
-        column_profile.uniqueCount = unique_count
-        if non_null_count is not None and non_null_count > 0:
-            column_profile.uniqueProportion = unique_count / non_null_count
+        all_columns = dataset.get_table_columns()
+        columns_to_profile = cls._get_columns_to_profile(
+            dataset, dataset_name, config, report
+        )
 
-        if config.include_field_sample_values:
-            column_profile.sampleValues = _get_dataset_column_sample_values(
-                dataset, column
-            )
+        row_count = dataset.get_row_count()
+        profile.rowCount = row_count
+        profile.columnCount = len(all_columns)
 
-        if type_ == ProfilerDataType.INT:
-            if cardinality == ProfilerCardinality.UNIQUE:
-                # df.expect_column_values_to_be_unique(column)
-                pass
-            elif cardinality in [
-                ProfilerCardinality.ONE,
-                ProfilerCardinality.TWO,
-                ProfilerCardinality.VERY_FEW,
-                ProfilerCardinality.FEW,
-            ]:
-                if config.include_field_distinct_value_frequencies:
-                    column_profile.distinctValueFrequencies = (
-                        _get_dataset_column_distinct_value_frequencies(dataset, column)
-                    )
-            elif cardinality in [
-                ProfilerCardinality.MANY,
-                ProfilerCardinality.VERY_MANY,
-                ProfilerCardinality.UNIQUE,
-            ]:
+        profile.fieldProfiles = []
+        for column in all_columns:
+            column_profile = DatasetFieldProfileClass(fieldPath=column)
+            profile.fieldProfiles.append(column_profile)
+
+            if column not in columns_to_profile:
+                continue
+
+            type_ = cls._get_column_type(dataset, column)
+            cardinality = cls._get_column_cardinality(dataset, column)
+            dataset.set_config_value("interactive_evaluation", True)
+
+            if config.include_field_null_count:
+                non_null_count = dataset.get_column_nonnull_count(column)
+                null_count = row_count - non_null_count
+                assert null_count >= 0
+                column_profile.nullCount = null_count
+                if row_count > 0:
+                    column_profile.nullProportion = null_count / row_count
+            else:
+                non_null_count = None
+
+            unique_count = dataset.get_column_unique_count(column)
+            column_profile.uniqueCount = unique_count
+            if non_null_count is not None and non_null_count > 0:
+                column_profile.uniqueProportion = unique_count / non_null_count
+
+            if config.include_field_sample_values:
+                column_profile.sampleValues = cls._get_dataset_column_sample_values(
+                    dataset, column
+                )
+
+            if type_ == ProfilerDataType.INT:
+                if cardinality == ProfilerCardinality.UNIQUE:
+                    # df.expect_column_values_to_be_unique(column)
+                    pass
+                elif cardinality in [
+                    ProfilerCardinality.ONE,
+                    ProfilerCardinality.TWO,
+                    ProfilerCardinality.VERY_FEW,
+                    ProfilerCardinality.FEW,
+                ]:
+                    if config.include_field_distinct_value_frequencies:
+                        column_profile.distinctValueFrequencies = (
+                            cls._get_dataset_column_distinct_value_frequencies(
+                                dataset, column
+                            )
+                        )
+                elif cardinality in [
+                    ProfilerCardinality.MANY,
+                    ProfilerCardinality.VERY_MANY,
+                    ProfilerCardinality.UNIQUE,
+                ]:
+                    if config.include_field_min_value:
+                        column_profile.min = str(dataset.get_column_min(column))
+                    if config.include_field_max_value:
+                        column_profile.max = str(dataset.get_column_max(column))
+                    if config.include_field_mean_value:
+                        column_profile.mean = str(dataset.get_column_mean(column))
+                    if config.include_field_median_value:
+                        column_profile.median = str(dataset.get_column_median(column))
+                    if config.include_field_stddev_value:
+                        column_profile.stdev = str(dataset.get_column_stdev(column))
+
+                    if config.include_field_quantiles:
+                        column_profile.quantiles = cls._get_dataset_column_quantiles(
+                            dataset, column
+                        )
+                    if config.include_field_histogram:
+                        column_profile.histogram = cls._get_dataset_column_histogram(
+                            dataset, column
+                        )
+                else:  # unknown cardinality - skip
+                    pass
+            elif type_ == ProfilerDataType.FLOAT:
+                if cardinality == ProfilerCardinality.UNIQUE:
+                    # df.expect_column_values_to_be_unique(column)
+                    pass
+
+                elif cardinality in [
+                    ProfilerCardinality.ONE,
+                    ProfilerCardinality.TWO,
+                    ProfilerCardinality.VERY_FEW,
+                    ProfilerCardinality.FEW,
+                ]:
+                    if config.include_field_distinct_value_frequencies:
+                        column_profile.distinctValueFrequencies = (
+                            cls._get_dataset_column_distinct_value_frequencies(
+                                dataset, column
+                            )
+                        )
+
+                elif cardinality in [
+                    ProfilerCardinality.MANY,
+                    ProfilerCardinality.VERY_MANY,
+                    ProfilerCardinality.UNIQUE,
+                ]:
+                    if config.include_field_min_value:
+                        column_profile.min = str(dataset.get_column_min(column))
+                    if config.include_field_max_value:
+                        column_profile.max = str(dataset.get_column_max(column))
+                    if config.include_field_mean_value:
+                        column_profile.mean = str(dataset.get_column_mean(column))
+                    if config.include_field_median_value:
+                        column_profile.median = str(dataset.get_column_median(column))
+                    if config.include_field_quantiles:
+                        column_profile.quantiles = cls._get_dataset_column_quantiles(
+                            dataset, column
+                        )
+                    if config.include_field_histogram:
+                        column_profile.histogram = cls._get_dataset_column_histogram(
+                            dataset, column
+                        )
+                else:  # unknown cardinality - skip
+                    pass
+
+            elif type_ == ProfilerDataType.STRING:
+                if cardinality == ProfilerCardinality.UNIQUE:
+                    # df.expect_column_values_to_be_unique(column)
+                    pass
+
+                elif cardinality in [
+                    ProfilerCardinality.ONE,
+                    ProfilerCardinality.TWO,
+                    ProfilerCardinality.VERY_FEW,
+                    ProfilerCardinality.FEW,
+                ]:
+                    if config.include_field_distinct_value_frequencies:
+                        column_profile.distinctValueFrequencies = (
+                            cls._get_dataset_column_distinct_value_frequencies(
+                                dataset, column
+                            )
+                        )
+                else:
+                    pass
+
+            elif type_ == ProfilerDataType.DATETIME:
                 if config.include_field_min_value:
                     column_profile.min = str(dataset.get_column_min(column))
+
                 if config.include_field_max_value:
                     column_profile.max = str(dataset.get_column_max(column))
-                if config.include_field_mean_value:
-                    column_profile.mean = str(dataset.get_column_mean(column))
-                if config.include_field_median_value:
-                    column_profile.median = str(dataset.get_column_median(column))
-                if config.include_field_stddev_value:
-                    column_profile.stdev = str(dataset.get_column_stdev(column))
 
-                if config.include_field_quantiles:
-                    column_profile.quantiles = _get_dataset_column_quantiles(
-                        dataset, column
-                    )
-                if config.include_field_histogram:
-                    column_profile.histogram = _get_dataset_column_histogram(
-                        dataset, column
-                    )
-            else:  # unknown cardinality - skip
-                pass
-        elif type_ == ProfilerDataType.FLOAT:
-            if cardinality == ProfilerCardinality.UNIQUE:
-                # df.expect_column_values_to_be_unique(column)
-                pass
+                # Re-add once kl_divergence has been modified to support datetimes
+                # df.expect_column_kl_divergence_to_be_less_than(column, partition_object=None,
+                #                                            threshold=None, result_format='COMPLETE')
 
-            elif cardinality in [
-                ProfilerCardinality.ONE,
-                ProfilerCardinality.TWO,
-                ProfilerCardinality.VERY_FEW,
-                ProfilerCardinality.FEW,
-            ]:
-                if config.include_field_distinct_value_frequencies:
-                    column_profile.distinctValueFrequencies = (
-                        _get_dataset_column_distinct_value_frequencies(dataset, column)
-                    )
+                if cardinality in [
+                    ProfilerCardinality.ONE,
+                    ProfilerCardinality.TWO,
+                    ProfilerCardinality.VERY_FEW,
+                    ProfilerCardinality.FEW,
+                ]:
+                    if config.include_field_distinct_value_frequencies:
+                        column_profile.distinctValueFrequencies = (
+                            cls._get_dataset_column_distinct_value_frequencies(
+                                dataset, column
+                            )
+                        )
 
-            elif cardinality in [
-                ProfilerCardinality.MANY,
-                ProfilerCardinality.VERY_MANY,
-                ProfilerCardinality.UNIQUE,
-            ]:
-                if config.include_field_min_value:
-                    column_profile.min = str(dataset.get_column_min(column))
-                if config.include_field_max_value:
-                    column_profile.max = str(dataset.get_column_max(column))
-                if config.include_field_mean_value:
-                    column_profile.mean = str(dataset.get_column_mean(column))
-                if config.include_field_median_value:
-                    column_profile.median = str(dataset.get_column_median(column))
-                if config.include_field_quantiles:
-                    column_profile.quantiles = _get_dataset_column_quantiles(
-                        dataset, column
-                    )
-                if config.include_field_histogram:
-                    column_profile.histogram = _get_dataset_column_histogram(
-                        dataset, column
-                    )
-            else:  # unknown cardinality - skip
-                pass
-
-        elif type_ == ProfilerDataType.STRING:
-            if cardinality == ProfilerCardinality.UNIQUE:
-                # df.expect_column_values_to_be_unique(column)
-                pass
-
-            elif cardinality in [
-                ProfilerCardinality.ONE,
-                ProfilerCardinality.TWO,
-                ProfilerCardinality.VERY_FEW,
-                ProfilerCardinality.FEW,
-            ]:
-                if config.include_field_distinct_value_frequencies:
-                    column_profile.distinctValueFrequencies = (
-                        _get_dataset_column_distinct_value_frequencies(dataset, column)
-                    )
             else:
-                pass
+                if cardinality == ProfilerCardinality.UNIQUE:
+                    # df.expect_column_values_to_be_unique(column)
+                    pass
 
-        elif type_ == ProfilerDataType.DATETIME:
-            if config.include_field_min_value:
-                column_profile.min = str(dataset.get_column_min(column))
+                elif cardinality in [
+                    ProfilerCardinality.ONE,
+                    ProfilerCardinality.TWO,
+                    ProfilerCardinality.VERY_FEW,
+                    ProfilerCardinality.FEW,
+                ]:
+                    if config.include_field_distinct_value_frequencies:
+                        column_profile.distinctValueFrequencies = (
+                            cls._get_dataset_column_distinct_value_frequencies(
+                                dataset, column
+                            )
+                        )
+                else:
+                    pass
 
-            if config.include_field_max_value:
-                column_profile.max = str(dataset.get_column_max(column))
-
-            # Re-add once kl_divergence has been modified to support datetimes
-            # df.expect_column_kl_divergence_to_be_less_than(column, partition_object=None,
-            #                                            threshold=None, result_format='COMPLETE')
-
-            if cardinality in [
-                ProfilerCardinality.ONE,
-                ProfilerCardinality.TWO,
-                ProfilerCardinality.VERY_FEW,
-                ProfilerCardinality.FEW,
-            ]:
-                if config.include_field_distinct_value_frequencies:
-                    column_profile.distinctValueFrequencies = (
-                        _get_dataset_column_distinct_value_frequencies(dataset, column)
-                    )
-
-        else:
-            if cardinality == ProfilerCardinality.UNIQUE:
-                # df.expect_column_values_to_be_unique(column)
-                pass
-
-            elif cardinality in [
-                ProfilerCardinality.ONE,
-                ProfilerCardinality.TWO,
-                ProfilerCardinality.VERY_FEW,
-                ProfilerCardinality.FEW,
-            ]:
-                if config.include_field_distinct_value_frequencies:
-                    column_profile.distinctValueFrequencies = (
-                        _get_dataset_column_distinct_value_frequencies(dataset, column)
-                    )
-            else:
-                pass
-
-    return profile
+        return profile
 
 
 @dataclasses.dataclass
@@ -640,7 +582,7 @@ class DatahubGEProfiler:
                     pretty_name=pretty_name,
                 )
 
-                profile = _generate_dataset_profile(
+                profile = _DatasetProfiler.generate_dataset_profile(
                     batch, pretty_name, self.config, self.report
                 )
                 # expectation_suite = DatahubConfigurableProfiler._profile(
@@ -709,149 +651,3 @@ class DatahubGEProfiler:
             },
         )
         return batch
-
-    # @staticmethod
-    # def _get_column_from_evr(evr: ExpectationValidationResult) -> Optional[str]:
-    #     return evr.expectation_config.kwargs.get("column")
-
-    # # The list of handled expectations has been created by referencing these files:
-    # # - https://github.com/great-expectations/great_expectations/blob/71e9c1eae433a31416a38de1688e2793e9778299/great_expectations/render/renderer/profiling_results_overview_section_renderer.py
-    # # - https://github.com/great-expectations/great_expectations/blob/71e9c1eae433a31416a38de1688e2793e9778299/great_expectations/render/renderer/column_section_renderer.py
-    # # - https://github.com/great-expectations/great_expectations/blob/71e9c1eae433a31416a38de1688e2793e9778299/great_expectations/profile/basic_dataset_profiler.py
-
-    # def _convert_evrs_to_profile(
-    #     self,
-    #     evrs: ExpectationSuiteValidationResult,
-    #     pretty_name: str,
-    # ) -> DatasetProfileClass:
-    #     profile = DatasetProfileClass(timestampMillis=get_sys_time())
-
-    #     for col, evrs_for_col in groupby_unsorted(
-    #         evrs.results, key=self._get_column_from_evr
-    #     ):
-    #         if col is None:
-    #             self._handle_convert_table_evrs(
-    #                 profile, evrs_for_col, pretty_name=pretty_name
-    #             )
-    #         else:
-    #             self._handle_convert_column_evrs(
-    #                 profile,
-    #                 col,
-    #                 evrs_for_col,
-    #                 pretty_name=pretty_name,
-    #             )
-
-    #     return profile
-
-    # def _handle_convert_table_evrs(
-    #     self,
-    #     profile: DatasetProfileClass,
-    #     table_evrs: Iterable[ExpectationValidationResult],
-    #     pretty_name: str,
-    # ) -> None:
-    #     # TRICKY: This method mutates the profile directly.
-
-    #     for evr in table_evrs:
-    #         exp: str = evr.expectation_config.expectation_type
-    #         res: dict = evr.result
-
-    #         if exp == "expect_table_row_count_to_be_between":
-    #             profile.rowCount = res["observed_value"]
-    #         elif exp == "expect_table_columns_to_match_ordered_list":
-    #             profile.columnCount = len(res["observed_value"])
-    #         else:
-    #             self.report.report_warning(
-    #                 f"profile of {pretty_name}", f"unknown table mapper {exp}"
-    #             )
-
-    # def _handle_convert_column_evrs(  # noqa: C901 (complexity)
-    #     self,
-    #     profile: DatasetProfileClass,
-    #     column: str,
-    #     col_evrs: Iterable[ExpectationValidationResult],
-    #     pretty_name: str,
-    # ) -> None:
-    #     # TRICKY: This method mutates the profile directly.
-
-    #     column_profile = DatasetFieldProfileClass(fieldPath=column)
-
-    #     profile.fieldProfiles = profile.fieldProfiles or []
-    #     profile.fieldProfiles.append(column_profile)
-
-    #     for evr in col_evrs:
-    #         exp: str = evr.expectation_config.expectation_type
-    #         res: dict = evr.result
-    #         if not res:
-    #             self.report.report_warning(
-    #                 f"profile of {pretty_name}", f"{exp} did not yield any results"
-    #             )
-    #             continue
-
-    #         if exp == "expect_column_unique_value_count_to_be_between":
-    #             column_profile.uniqueCount = res["observed_value"]
-    #         elif exp == "expect_column_proportion_of_unique_values_to_be_between":
-    #             column_profile.uniqueProportion = res["observed_value"]
-    #         elif exp == "expect_column_values_to_not_be_null":
-    #             column_profile.nullCount = res["unexpected_count"]
-    #             if (
-    #                 "unexpected_percent" in res
-    #                 and res["unexpected_percent"] is not None
-    #             ):
-    #                 column_profile.nullProportion = res["unexpected_percent"] / 100
-    #         elif exp == "expect_column_values_to_not_match_regex":
-    #             # ignore; generally used for whitespace checks using regex r"^\s+|\s+$"
-    #             pass
-    #         elif exp == "expect_column_mean_to_be_between":
-    #             column_profile.mean = str(res["observed_value"])
-    #         elif exp == "expect_column_min_to_be_between":
-    #             column_profile.min = str(res["observed_value"])
-    #         elif exp == "expect_column_max_to_be_between":
-    #             column_profile.max = str(res["observed_value"])
-    #         elif exp == "expect_column_median_to_be_between":
-    #             column_profile.median = str(res["observed_value"])
-    #         elif exp == "expect_column_stdev_to_be_between":
-    #             column_profile.stdev = str(res["observed_value"])
-    #         elif exp == "expect_column_quantile_values_to_be_between":
-    #             if "observed_value" in res:
-    #                 column_profile.quantiles = [
-    #                     QuantileClass(quantile=str(quantile), value=str(value))
-    #                     for quantile, value in zip(
-    #                         res["observed_value"]["quantiles"],
-    #                         res["observed_value"]["values"],
-    #                     )
-    #                 ]
-    #         elif exp == "expect_column_values_to_be_in_set":
-    #             column_profile.sampleValues = [
-    #                 str(v) for v in res["partial_unexpected_list"]
-    #             ]
-    #         elif exp == "expect_column_kl_divergence_to_be_less_than":
-    #             if "details" in res and "observed_partition" in res["details"]:
-    #                 partition = res["details"]["observed_partition"]
-    #                 column_profile.histogram = HistogramClass(
-    #                     [str(v) for v in partition["bins"]],
-    #                     [
-    #                         partition["tail_weights"][0],
-    #                         *partition["weights"],
-    #                         partition["tail_weights"][1],
-    #                     ],
-    #                 )
-    #         elif exp == "expect_column_distinct_values_to_be_in_set":
-    #             if "details" in res and "value_counts" in res["details"]:
-    #                 # This can be used to produce a bar chart since it includes values and frequencies.
-    #                 # As such, it is handled differently from expect_column_values_to_be_in_set, which
-    #                 # is nonexhaustive.
-    #                 column_profile.distinctValueFrequencies = [
-    #                     ValueFrequencyClass(value=str(value), frequency=count)
-    #                     for value, count in res["details"]["value_counts"].items()
-    #                 ]
-    #         elif exp == "expect_column_values_to_be_in_type_list":
-    #             # ignore; we already know the types for each column via ingestion
-    #             pass
-    #         elif exp == "expect_column_values_to_be_unique":
-    #             # ignore; this is generally covered by the unique value count test
-    #             pass
-    #         else:
-    #             self.report.report_warning(
-    #                 f"profile of {pretty_name}",
-    #                 f"warning: unknown column mapper {exp} in col {column}",
-    #             )
