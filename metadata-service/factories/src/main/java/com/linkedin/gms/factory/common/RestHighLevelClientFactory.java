@@ -1,5 +1,6 @@
 package com.linkedin.gms.factory.common;
 
+import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
 import javax.annotation.Nonnull;
 import javax.net.ssl.SSLContext;
 import lombok.extern.slf4j.Slf4j;
@@ -21,34 +22,37 @@ import org.apache.http.client.CredentialsProvider;
 import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.impl.nio.client.HttpAsyncClientBuilder;
 import org.apache.http.auth.AuthScope;
+import org.springframework.context.annotation.PropertySource;
+
 
 @Slf4j
 @Configuration
+@PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
 @Import({ ElasticsearchSSLContextFactory.class })
 public class RestHighLevelClientFactory {
 
-  @Value("${ELASTICSEARCH_HOST:localhost}")
+  @Value("${elasticsearch.host}")
   private String host;
 
-  @Value("${ELASTICSEARCH_PORT:9200}")
+  @Value("${elasticsearch.port}")
   private Integer port;
 
-  @Value("${ELASTICSEARCH_USERNAME:#{null}}")
-  private String username;
-
-  @Value("${ELASTICSEARCH_PASSWORD:#{null}}")
-  private String password;
-
-  @Value("${ELASTICSEARCH_THREAD_COUNT:1}")
+  @Value("${elasticsearch.threadCount}")
   private Integer threadCount;
 
-  @Value("${ELASTICSEARCH_CONNECTION_REQUEST_TIMEOUT:0}")
+  @Value("${elasticsearch.connectionRequestTimeout}")
   private Integer connectionRequestTimeout;
 
-  @Value("${ELASTICSEARCH_USE_SSL:false}")
+  @Value("${elasticsearch.username}")
+  private String username;
+
+  @Value("${elasticsearch.password}")
+  private String password;
+
+  @Value("#{new Boolean('${elasticsearch.useSSL}')}")
   private boolean useSSL;
 
-  @Value("${ELASTICSEARCH_PATH_PREFIX:#{null}}")
+  @Value("${elasticsearch.pathPrefix}")
   private String pathPrefix;
 
   @Autowired
@@ -58,13 +62,17 @@ public class RestHighLevelClientFactory {
   @Bean(name = "elasticSearchRestHighLevelClient")
   @Nonnull
   protected RestHighLevelClient createInstance() {
-    RestClientBuilder restClientBuilder;
 
+    System.out.println(
+        String.format("Hey we created it! %s %s %s %s %s", this.host, this.port, this.useSSL, this.username, this.password));
+
+
+    RestClientBuilder restClientBuilder;
     if (useSSL) {
-      restClientBuilder = loadRestHttpsClient(host, port, pathPrefix, threadCount, connectionRequestTimeout, sslContext, username,
+      restClientBuilder = loadRestHttpsClient(host, port, pathPrefix, 1, connectionRequestTimeout, sslContext, username,
           password);
     } else {
-      restClientBuilder = loadRestHttpClient(host, port, pathPrefix, threadCount, connectionRequestTimeout);
+      restClientBuilder = loadRestHttpClient(host, port, pathPrefix, 1, connectionRequestTimeout);
     }
 
     return new RestHighLevelClient(restClientBuilder);

@@ -47,7 +47,7 @@ public class GraphQLEngineFactory {
   @Qualifier("graphClient")
   private GraphClient _graphClient;
 
-  @Value("${ANALYTICS_ENABLED:true}") // TODO: Migrate to DATAHUB_ANALYTICS_ENABLED
+  @Value("${platformAnalytics.enabled}") // TODO: Migrate to DATAHUB_ANALYTICS_ENABLED
   private Boolean isAnalyticsEnabled;
 
   @Bean(name = "graphQLEngine")
