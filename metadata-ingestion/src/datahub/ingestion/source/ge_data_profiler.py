@@ -15,6 +15,8 @@ from great_expectations.core.expectation_validation_result import (
     ExpectationSuiteValidationResult,
     ExpectationValidationResult,
 )
+from great_expectations.core.id_dict import BatchKwargs
+from great_expectations.core.run_identifier import RunIdentifier
 from great_expectations.data_context import BaseDataContext
 from great_expectations.data_context.types.base import (
     DataContextConfig,
@@ -377,29 +379,39 @@ class DatahubGEProfiler:
         table: str = None,
         **kwargs: Any,
     ) -> Optional[DatasetProfileClass]:
-        with self._ge_context() as ge_context:
-            logger.info(f"Profiling {pretty_name}")
+        with self._ge_context() as ge_context, PerfTimer() as timer:
+            try:
+                logger.info(f"Profiling {pretty_name}")
 
-            evrs = self._profile_data_asset(
-                ge_context,
-                {
-                    "schema": schema,
-                    "table": table,
-                    "limit": self.config.limit,
-                    "offset": self.config.offset,
-                    **kwargs,
-                },
-                pretty_name=pretty_name,
-            )
+                evrs = self._profile_data_asset(
+                    ge_context,
+                    {
+                        "schema": schema,
+                        "table": table,
+                        "limit": self.config.limit,
+                        "offset": self.config.offset,
+                        **kwargs,
+                    },
+                    pretty_name=pretty_name,
+                )
 
-            profile = (
-                self._convert_evrs_to_profile(evrs, pretty_name=pretty_name)
-                if evrs is not None
-                else None
-            )
-            logger.debug(f"Finished profiling {pretty_name}")
+                profile = (
+                    self._convert_evrs_to_profile(evrs, pretty_name=pretty_name)
+                    if evrs is not None
+                    else None
+                )
 
-            return profile
+                logger.info(
+                    f"Finished profiling {pretty_name}; took {(timer.elapsed_seconds()):.3f} seconds."
+                )
+
+                return profile
+            except Exception as e:
+                logger.warning(
+                    f"Encountered exception {e}\nwhile profiling {pretty_name}"
+                )
+                self.report.report_warning(pretty_name, "Exception {e}")
+                return None
 
     def _profile_data_asset(
         self,
@@ -407,35 +419,49 @@ class DatahubGEProfiler:
         batch_kwargs: dict,
         pretty_name: str,
     ) -> ExpectationSuiteValidationResult:
-        try:
-            with PerfTimer() as timer:
-                profile_results = ge_context.data_context.profile_data_asset(
-                    ge_context.datasource_name,
-                    profiler=DatahubConfigurableProfiler,
-                    profiler_configuration={
-                        "config": self.config,
-                        "dataset_name": pretty_name,
-                        "report": self.report,
-                    },
-                    batch_kwargs={
-                        "datasource": ge_context.datasource_name,
-                        **batch_kwargs,
-                    },
-                )
-            logger.info(
-                f"Profiling for {pretty_name} took {(timer.elapsed_seconds()):.3f} seconds."
-            )
+        # profile_results = ge_context.data_context.profile_data_asset(
+        #     ge_context.datasource_name,
+        #     profiler=DatahubConfigurableProfiler,
+        #     profiler_configuration={
+        #         "config": self.config,
+        #         "dataset_name": pretty_name,
+        #         "report": self.report,
+        #     },
+        #     batch_kwargs={
+        #         "datasource": ge_context.datasource_name,
+        #         **batch_kwargs,
+        #     },
+        # )
+        expectation_suite_name = (
+            ge_context.datasource_name + "." + BatchKwargs(batch_kwargs).to_id()
+        )
 
-            assert profile_results["success"]
-            assert len(profile_results["results"]) == 1
-            _suite, evrs = profile_results["results"][0]
-            return evrs
-        except Exception as e:
-            logger.warning(
-                f"Encountered exception {e}\nwhile profiling {pretty_name}, {batch_kwargs}"
-            )
-            self.report.report_warning(pretty_name, "Exception {e}")
-            return None
+        ge_context.data_context.create_expectation_suite(
+            expectation_suite_name=expectation_suite_name,
+            overwrite_existing=True,
+        )
+        batch = ge_context.data_context.get_batch(
+            expectation_suite_name=expectation_suite_name,
+            batch_kwargs={
+                "datasource": ge_context.datasource_name,
+                **batch_kwargs,
+            },
+        )
+
+        expectation_suite = DatahubConfigurableProfiler._profile(
+            batch,
+            {
+                "config": self.config,
+                "dataset_name": pretty_name,
+                "report": self.report,
+            },
+        )
+        run_id = RunIdentifier(run_name="profiling", run_time=None)
+        validation_results = batch.validate(
+            expectation_suite, run_id=run_id, result_format="SUMMARY"
+        )
+
+        return validation_results
 
     @staticmethod
     def _get_column_from_evr(evr: ExpectationValidationResult) -> Optional[str]:
