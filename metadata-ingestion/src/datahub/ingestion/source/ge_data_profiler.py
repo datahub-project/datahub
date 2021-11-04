@@ -10,11 +10,6 @@ import uuid
 from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple, Union
 
 import pydantic
-
-# from great_expectations.core.expectation_validation_result import (
-#     ExpectationSuiteValidationResult,
-#     ExpectationValidationResult,
-# )
 from great_expectations.data_context import BaseDataContext
 from great_expectations.data_context.types.base import (
     DataContextConfig,
@@ -42,8 +37,6 @@ from datahub.metadata.schema_classes import (
     QuantileClass,
     ValueFrequencyClass,
 )
-
-# from datahub.utilities.groupby import groupby_unsorted
 from datahub.utilities.perf_timer import PerfTimer
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -119,6 +112,9 @@ class GEProfilingConfig(ConfigModel):
     # task, it may make sense to increase this default value in the future.
     # https://docs.python.org/3/library/concurrent.futures.html#concurrent.futures.ThreadPoolExecutor
     max_workers: int = 5 * (os.cpu_count() or 4)
+
+    # Hidden option - used for debugging purposes.
+    catch_exceptions: bool = True
 
     @pydantic.root_validator()
     def ensure_field_level_settings_are_normalized(
@@ -333,7 +329,9 @@ def _generate_dataset_profile(
     config: GEProfilingConfig,
     report: SQLSourceReport,
 ) -> DatasetProfileClass:
-    dataset.set_default_expectation_argument("catch_exceptions", True)
+    dataset.set_default_expectation_argument(
+        "catch_exceptions", config.catch_exceptions
+    )
     dataset.set_config_value("interactive_evaluation", True)
 
     profile = DatasetProfileClass(timestampMillis=get_sys_time())
@@ -669,8 +667,8 @@ class DatahubGEProfiler:
                 )
                 return profile
             except Exception as e:
-                # TODO change this
-                raise e
+                if not self.config.catch_exceptions:
+                    raise e
                 logger.warning(
                     f"Encountered exception {e}\nwhile profiling {pretty_name}"
                 )
