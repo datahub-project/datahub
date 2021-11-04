@@ -224,6 +224,8 @@ class _DatasetProfiler(BasicDatasetProfilerBase):
     def _get_dataset_column_histogram(
         cls, dataset: Dataset, column: str
     ) -> Optional[HistogramClass]:
+        dataset.set_config_value("interactive_evaluation", True)
+
         res = dataset.expect_column_kl_divergence_to_be_less_than(
             column,
             partition_object=None,
@@ -246,6 +248,8 @@ class _DatasetProfiler(BasicDatasetProfilerBase):
     def _get_dataset_column_sample_values(
         cls, dataset: Dataset, column: str
     ) -> Optional[List[str]]:
+        dataset.set_config_value("interactive_evaluation", True)
+
         res = dataset.expect_column_values_to_be_in_set(
             column, [], result_format="SUMMARY"
         ).result
@@ -264,7 +268,6 @@ class _DatasetProfiler(BasicDatasetProfilerBase):
         dataset.set_default_expectation_argument(
             "catch_exceptions", config.catch_exceptions
         )
-        dataset.set_config_value("interactive_evaluation", True)
 
         profile = DatasetProfileClass(timestampMillis=get_sys_time())
 
@@ -287,7 +290,6 @@ class _DatasetProfiler(BasicDatasetProfilerBase):
 
             type_ = cls._get_column_type(dataset, column)
             cardinality = cls._get_column_cardinality(dataset, column)
-            dataset.set_config_value("interactive_evaluation", True)
 
             if config.include_field_null_count:
                 non_null_count = dataset.get_column_nonnull_count(column)
@@ -309,9 +311,8 @@ class _DatasetProfiler(BasicDatasetProfilerBase):
                     dataset, column
                 )
 
-            if type_ == ProfilerDataType.INT:
+            if type_ == ProfilerDataType.INT or type_ == ProfilerDataType.FLOAT:
                 if cardinality == ProfilerCardinality.UNIQUE:
-                    # df.expect_column_values_to_be_unique(column)
                     pass
                 elif cardinality in [
                     ProfilerCardinality.ONE,
@@ -338,50 +339,10 @@ class _DatasetProfiler(BasicDatasetProfilerBase):
                         column_profile.mean = str(dataset.get_column_mean(column))
                     if config.include_field_median_value:
                         column_profile.median = str(dataset.get_column_median(column))
-                    if config.include_field_stddev_value:
-                        column_profile.stdev = str(dataset.get_column_stdev(column))
+                    if type_ == ProfilerDataType.INT:
+                        if config.include_field_stddev_value:
+                            column_profile.stdev = str(dataset.get_column_stdev(column))
 
-                    if config.include_field_quantiles:
-                        column_profile.quantiles = cls._get_dataset_column_quantiles(
-                            dataset, column
-                        )
-                    if config.include_field_histogram:
-                        column_profile.histogram = cls._get_dataset_column_histogram(
-                            dataset, column
-                        )
-                else:  # unknown cardinality - skip
-                    pass
-            elif type_ == ProfilerDataType.FLOAT:
-                if cardinality == ProfilerCardinality.UNIQUE:
-                    # df.expect_column_values_to_be_unique(column)
-                    pass
-
-                elif cardinality in [
-                    ProfilerCardinality.ONE,
-                    ProfilerCardinality.TWO,
-                    ProfilerCardinality.VERY_FEW,
-                    ProfilerCardinality.FEW,
-                ]:
-                    if config.include_field_distinct_value_frequencies:
-                        column_profile.distinctValueFrequencies = (
-                            cls._get_dataset_column_distinct_value_frequencies(
-                                dataset, column
-                            )
-                        )
-
-                elif cardinality in [
-                    ProfilerCardinality.MANY,
-                    ProfilerCardinality.VERY_MANY,
-                    ProfilerCardinality.UNIQUE,
-                ]:
-                    if config.include_field_min_value:
-                        column_profile.min = str(dataset.get_column_min(column))
-                    if config.include_field_max_value:
-                        column_profile.max = str(dataset.get_column_max(column))
-                    if config.include_field_mean_value:
-                        column_profile.mean = str(dataset.get_column_mean(column))
-                    if config.include_field_median_value:
-                        column_profile.median = str(dataset.get_column_median(column))
                     if config.include_field_quantiles:
                         column_profile.quantiles = cls._get_dataset_column_quantiles(
                             dataset, column
@@ -394,11 +355,7 @@ class _DatasetProfiler(BasicDatasetProfilerBase):
                     pass
 
             elif type_ == ProfilerDataType.STRING:
-                if cardinality == ProfilerCardinality.UNIQUE:
-                    # df.expect_column_values_to_be_unique(column)
-                    pass
-
-                elif cardinality in [
+                if cardinality in [
                     ProfilerCardinality.ONE,
                     ProfilerCardinality.TWO,
                     ProfilerCardinality.VERY_FEW,
@@ -410,19 +367,14 @@ class _DatasetProfiler(BasicDatasetProfilerBase):
                                 dataset, column
                             )
                         )
-                else:
-                    pass
 
             elif type_ == ProfilerDataType.DATETIME:
                 if config.include_field_min_value:
                     column_profile.min = str(dataset.get_column_min(column))
-
                 if config.include_field_max_value:
                     column_profile.max = str(dataset.get_column_max(column))
 
-                # Re-add once kl_divergence has been modified to support datetimes
-                # df.expect_column_kl_divergence_to_be_less_than(column, partition_object=None,
-                #                                            threshold=None, result_format='COMPLETE')
+                # FIXME: Re-add histogram once kl_divergence has been modified to support datetimes
 
                 if cardinality in [
                     ProfilerCardinality.ONE,
@@ -438,11 +390,7 @@ class _DatasetProfiler(BasicDatasetProfilerBase):
                         )
 
             else:
-                if cardinality == ProfilerCardinality.UNIQUE:
-                    # df.expect_column_values_to_be_unique(column)
-                    pass
-
-                elif cardinality in [
+                if cardinality in [
                     ProfilerCardinality.ONE,
                     ProfilerCardinality.TWO,
                     ProfilerCardinality.VERY_FEW,
@@ -454,8 +402,6 @@ class _DatasetProfiler(BasicDatasetProfilerBase):
                                 dataset, column
                             )
                         )
-                else:
-                    pass
 
         return profile
 
@@ -471,6 +417,8 @@ class DatahubGEProfiler:
     report: SQLSourceReport
     config: GEProfilingConfig
 
+    base_engine: Engine
+
     # The actual value doesn't matter, it just matters that we use it consistently throughout.
     _datasource_name_base: str = "my_sqlalchemy_datasource"
 
@@ -480,17 +428,19 @@ class DatahubGEProfiler:
         report: SQLSourceReport,
         config: GEProfilingConfig,
     ):
-        self.base_engine = conn
         self.report = report
         self.config = config
 
-    @contextlib.contextmanager
-    def _ge_context(self) -> Iterator[GEContext]:
         # TRICKY: The call to `.engine` is quite important here. Connection.connect()
         # returns a "branched" connection, which does not actually use a new underlying
         # DBAPI object from the connection pool. Engine.connect() does what we want to
-        # make the threading code work correctly.
-        with self.base_engine.engine.connect() as conn:
+        # make the threading code work correctly. As such, we need to make sure we've
+        # got an engine here.
+        self.base_engine = conn.engine
+
+    @contextlib.contextmanager
+    def _ge_context(self) -> Iterator[GEContext]:
+        with self.base_engine.connect() as conn:
             data_context = BaseDataContext(
                 project_config=DataContextConfig(
                     # The datasource will be added via add_datasource().
@@ -581,28 +531,9 @@ class DatahubGEProfiler:
                     },
                     pretty_name=pretty_name,
                 )
-
                 profile = _DatasetProfiler.generate_dataset_profile(
                     batch, pretty_name, self.config, self.report
                 )
-                # expectation_suite = DatahubConfigurableProfiler._profile(
-                #     batch,
-                #     {
-                #         "config": self.config,
-                #         "dataset_name": pretty_name,
-                #         "report": self.report,
-                #     },
-                # )
-                # run_id = RunIdentifier(run_name="profiling", run_time=None)
-                # evrs = batch.validate(
-                #     expectation_suite, run_id=run_id, result_format="SUMMARY"
-                # )
-
-                # profile = (
-                #     self._convert_evrs_to_profile(evrs, pretty_name=pretty_name)
-                #     if evrs is not None
-                #     else None
-                # )
 
                 logger.info(
                     f"Finished profiling {pretty_name}; took {(timer.elapsed_seconds()):.3f} seconds"
@@ -623,6 +554,10 @@ class DatahubGEProfiler:
         batch_kwargs: dict,
         pretty_name: str,
     ) -> Dataset:
+        # This is effectively emulating the beginning of the process that
+        # is followed by GE itself. In particular, we simply want to construct
+        # a Dataset object.
+
         # profile_results = ge_context.data_context.profile_data_asset(
         #     ge_context.datasource_name,
         #     profiler=DatahubConfigurableProfiler,
