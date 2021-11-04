@@ -62,7 +62,9 @@ applies.
 
 ### Unexpected character
 
-If you are using Windows WSL (with Ubuntu) and receive an error of "unexpected charadcter "." in variable name..." while executing `docker/dev.sh` it may be a permission issue.  Try `sudo docker/dev.sh`.  If this does not work, try moving the file `~/.docker/config.json` to `~/.docker/config.json.bak` and retry the command with `sudo`.
+If you are using Windows WSL (with Ubuntu) and receive an error of "unexpected character "." in variable name..." while executing `docker/dev.sh` try these steps: 
+- Open up Docker Desktop, click gear icon at top to open the settings and uncheck the "Use Docker Compose V2" option.  Close your terminal, open a new one and try to rerun the command `docker/dev.sh`.
+- Next, try `sudo docker/dev.sh` and finally, try moving the file `~/.docker/config.json` to `~/.docker/config.json.bak` and retry the command with `sudo`.
 
 ### Running a specific service
 
