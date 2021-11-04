@@ -24,3 +24,11 @@ class MySQLSource(SQLAlchemySource):
     def create(cls, config_dict, ctx):
         config = MySQLConfig.parse_obj(config_dict)
         return cls(config, ctx)
+
+    def get_schema_names(self, inspector):
+        assert isinstance(self.config, MySQLConfig)
+        # This condition restricts the ingestion to the specified database.
+        if self.config.database:
+            return [self.config.database]
+        else:
+            return super().get_schema_names(inspector)
