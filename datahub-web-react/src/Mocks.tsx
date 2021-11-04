@@ -805,8 +805,7 @@ export const dataFlow1 = {
     orchestrator: 'Airflow',
     flowId: 'flowId1',
     cluster: 'cluster1',
-    info: {
-        __typename: 'DataFlowInfo',
+    properties: {
         name: 'DataFlowInfoName',
         description: 'DataFlowInfo1 Description',
         project: 'DataFlowInfo1 project',
