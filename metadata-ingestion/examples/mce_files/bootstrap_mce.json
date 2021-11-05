@@ -3096,5 +3096,18 @@
         }
       },
       "proposedDelta": null
-    }
+    },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,logging_events,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "dataQualityRules",
+    "aspect": {
+      "value": "{rules: [{ \"field\": \"event_data\", \"isFieldLevel\": true, \"type\": \"nonNull\", \"checkDefinition\": null, \"url\": \"https://github.com/linkedin/datahub\" }] }",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  }
 ]

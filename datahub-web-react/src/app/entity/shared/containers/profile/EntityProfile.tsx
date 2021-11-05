@@ -3,7 +3,7 @@ import { Alert, Divider } from 'antd';
 import { MutationHookOptions, MutationTuple, QueryHookOptions, QueryResult } from '@apollo/client/react/types/types';
 import styled from 'styled-components';
 import { useHistory } from 'react-router';
-import { EntityType, Exact } from '../../../../../types.generated';
+import { EntityType, Exact, DynamicAspectsInput } from '../../../../../types.generated';
 import { Message } from '../../../../shared/Message';
 import { getDataForEntityType, getEntityPath, useRoutedTab } from './utils';
 import { EntitySidebarSection, EntityTab, GenericEntityProperties, GenericEntityUpdate } from '../../types';
@@ -26,6 +26,7 @@ type Props<T, U> = {
             T,
             Exact<{
                 urn: string;
+                aspectsInput?: DynamicAspectsInput;
             }>
         >,
     ) => QueryResult<
@@ -131,7 +132,9 @@ export const EntityProfile = <T, U>({
         [history, entityType, urn, entityRegistry],
     );
 
-    const { loading, error, data, refetch } = useEntityQuery({ variables: { urn } });
+    const { loading, error, data, refetch } = useEntityQuery({
+        variables: { urn, aspectsInput: { aspects: ['dataQualityRules'] } },
+    });
 
     const [updateEntity] = useUpdateQuery({
         onCompleted: () => refetch(),

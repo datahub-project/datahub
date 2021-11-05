@@ -30,7 +30,7 @@ public class DynamicAspectsResolver implements DataFetcher<CompletableFuture<Lis
 
     @Override
     public CompletableFuture<List<DynamicAspectResult>> get(DataFetchingEnvironment environment) throws Exception {
-        final DynamicAspectsInput input = bindArgument(environment.getArgument("aspects"), DynamicAspectsInput.class);
+        final DynamicAspectsInput input = bindArgument(environment.getArgument("input"), DynamicAspectsInput.class);
         return CompletableFuture.supplyAsync(() -> {
             List<DynamicAspectResult> results = new ArrayList<>();
 
