@@ -6,8 +6,10 @@ import com.linkedin.datahub.graphql.analytics.service.AnalyticsService;
 import com.linkedin.entity.client.JavaEntityClient;
 import com.linkedin.gms.factory.common.IndexConventionFactory;
 import com.linkedin.gms.factory.common.RestHighLevelClientFactory;
+import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.gms.factory.recommendation.RecommendationServiceFactory;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.recommendation.RecommendationsService;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
@@ -22,7 +24,8 @@ import org.springframework.context.annotation.Import;
 
 
 @Configuration
-@Import({RestHighLevelClientFactory.class, IndexConventionFactory.class, RestliEntityClientFactory.class, RecommendationServiceFactory.class})
+@Import({RestHighLevelClientFactory.class, IndexConventionFactory.class, RestliEntityClientFactory.class, RecommendationServiceFactory.class,
+    EntityRegistryFactory.class})
 public class GraphQLEngineFactory {
   @Autowired
   @Qualifier("elasticSearchRestHighLevelClient")
@@ -47,6 +50,10 @@ public class GraphQLEngineFactory {
   @Qualifier("graphClient")
   private GraphClient _graphClient;
 
+  @Autowired
+  @Qualifier("entityRegistry")
+  private EntityRegistry _entityRegistry;
+
   @Value("${ANALYTICS_ENABLED:true}") // TODO: Migrate to DATAHUB_ANALYTICS_ENABLED
   private Boolean isAnalyticsEnabled;
 
@@ -59,9 +66,9 @@ public class GraphQLEngineFactory {
           _entityService,
           _graphClient,
           _entityClient,
-          _recommendationsService
-          ).builder().build();
+          _recommendationsService, _entityRegistry).builder().build();
     }
-    return new GmsGraphQLEngine(null, _entityService, _graphClient, _entityClient, _recommendationsService).builder().build();
+    return new GmsGraphQLEngine(null, _entityService, _graphClient, _entityClient, _recommendationsService,
+        _entityRegistry).builder().build();
   }
 }

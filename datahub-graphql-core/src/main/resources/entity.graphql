@@ -626,6 +626,7 @@ type DynamicAspectResult {
     aspectName: String!
     payload: String
     displayType: String
+    displayName: String
 }
 
 """

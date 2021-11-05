@@ -110,6 +110,7 @@ import com.linkedin.datahub.graphql.types.glossary.GlossaryTermType;
 import com.linkedin.datahub.graphql.types.usage.UsageType;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.recommendation.RecommendationsService;
 import com.linkedin.metadata.graph.GraphClient;
 import graphql.execution.DataFetcherResult;
@@ -149,6 +150,7 @@ public class GmsGraphQLEngine {
     private final EntityService entityService;
     private final GraphClient graphClient;
     private final RecommendationsService recommendationsService;
+    private final EntityRegistry entityRegistry;
 
     private final DatasetType datasetType;
     private final CorpUserType corpUserType;
@@ -200,17 +202,12 @@ public class GmsGraphQLEngine {
     public final List<BrowsableEntityType<?>> browsableTypes;
 
     public GmsGraphQLEngine() {
-        this(null, null, null, null, null);
+        this(null, null, null, null, null, null);
     }
 
-    public GmsGraphQLEngine(
-        final AnalyticsService analyticsService,
-        final EntityService entityService,
-        final GraphClient graphClient,
-        final EntityClient entityClient,
-        final RecommendationsService recommendationsService
-
-        ) {
+    public GmsGraphQLEngine(final AnalyticsService analyticsService, final EntityService entityService,
+        final GraphClient graphClient, final EntityClient entityClient,
+        final RecommendationsService recommendationsService, EntityRegistry entityRegistry) {
         this.analyticsService = analyticsService;
         this.entityService = entityService;
         this.graphClient = graphClient;
@@ -231,6 +228,7 @@ public class GmsGraphQLEngine {
         this.mlPrimaryKeyType = new MLPrimaryKeyType(entityClient);
         this.dataFlowType = new DataFlowType(entityClient);
         this.dataJobType = new DataJobType(entityClient);
+        this.entityRegistry = entityRegistry;
         this.dataFlowDataJobsRelationshipType = new DataFlowDataJobsRelationshipsType(
             GmsClientFactory.getRelationshipsClient()
         );
@@ -548,7 +546,7 @@ public class GmsGraphQLEngine {
                            "dataset",
                        "subTypes")))
                .dataFetcher("dynamicAspects", new AuthenticatedResolver<>(
-                   new DynamicAspectsResolver(entityClient))
+                   new DynamicAspectsResolver(entityClient, entityRegistry))
                )
             )
             .type("Owner", typeWiring -> typeWiring

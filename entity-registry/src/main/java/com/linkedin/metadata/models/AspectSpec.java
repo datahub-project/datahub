@@ -1,5 +1,6 @@
 package com.linkedin.metadata.models;
 
+import com.linkedin.data.DataMap;
 import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.metadata.models.annotation.AspectAnnotation;
 import java.util.ArrayList;
@@ -48,6 +49,14 @@ public class AspectSpec {
     return _aspectAnnotation.isTimeseries();
   }
 
+  public Boolean isAutoRender() {
+    return _aspectAnnotation.isAutoRender();
+  }
+
+  public DataMap getRenderSpec() {
+    return _aspectAnnotation.getRenderSpec();
+  }
+
   public Map<String, SearchableFieldSpec> getSearchableFieldSpecMap() {
     return _searchableFieldSpecs;
   }
@@ -84,5 +93,3 @@ public class AspectSpec {
     return _schema;
   }
 }
-
-
