@@ -1,6 +1,7 @@
 package com.linkedin.metadata.entity.ebean;
 
 import com.codahale.metrics.Timer;
+
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterators;
 import com.linkedin.common.AuditStamp;
@@ -541,13 +542,13 @@ public class EbeanEntityService extends EntityService {
     aspectRows.forEach(aspectToRemove -> {
 
       RollbackResult result = deleteAspect(aspectToRemove.getUrn(), aspectToRemove.getAspectName(), runId);
-      Optional<AspectSpec> aspectSpec = getAspectSpec(result.entityName, result.aspectName);
-      if (!aspectSpec.isPresent()) {
-        log.error("Issue while rolling back: unknown aspect {} for entity {}", result.entityName, result.aspectName);
-        return;
-      }
-
       if (result != null) {
+        Optional<AspectSpec> aspectSpec = getAspectSpec(result.entityName, result.aspectName);
+        if (!aspectSpec.isPresent()) {
+          log.error("Issue while rolling back: unknown aspect {} for entity {}", result.entityName, result.aspectName);
+          return;
+        }
+
         rowsDeletedFromEntityDeletion.addAndGet(result.additionalRowsAffected);
         removedAspects.add(aspectToRemove);
         produceMetadataChangeLog(result.getUrn(), result.getEntityName(), result.getAspectName(), aspectSpec.get(),
