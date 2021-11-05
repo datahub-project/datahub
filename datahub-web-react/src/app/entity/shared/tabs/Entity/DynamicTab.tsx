@@ -5,6 +5,7 @@ import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 
 import { ANTD_GRAY } from '../../constants';
 import DynamicTabularTab from './DynamicTabularTab';
+import DynamicPropertiesTab from './DynamicPropertiesTab';
 
 type Props = {
     payload: string | undefined | null;
@@ -29,6 +30,9 @@ const NestedSyntax = styled(SyntaxHighlighter)`
 export default function DynamicTab({ payload, type }: Props) {
     if (type === 'tabular') {
         return <DynamicTabularTab payload={payload} />;
+    }
+    if (type === 'properties') {
+        return <DynamicPropertiesTab payload={payload} />;
     }
 
     return (
