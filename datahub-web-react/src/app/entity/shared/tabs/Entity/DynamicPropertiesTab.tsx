@@ -4,6 +4,9 @@ import styled from 'styled-components';
 
 import { StyledTable } from '../../components/styled/StyledTable';
 import { ANTD_GRAY } from '../../constants';
+import EntityRegistry from '../../../EntityRegistry';
+import { useEntityRegistry } from '../../../../useEntityRegistry';
+import { EntityType } from '../../../../../types.generated';
 
 type Props = {
     payload: string | undefined | null;
@@ -27,13 +30,25 @@ function isValidHttpUrl(string) {
     return url.protocol === 'http:' || url.protocol === 'https:';
 }
 
-const TableValueRenderer = ({ value }: { value: any }) => {
+function isValidUrn(string: string) {
+    return string.indexOf('urn:li:') === 0;
+}
+
+const TableValueRenderer = ({ value, entityRegistry }: { value: any; entityRegistry: EntityRegistry }) => {
     if (typeof value === 'boolean') {
         return <span>{String(value)}</span>;
     }
     if (typeof value === 'string') {
         if (isValidHttpUrl(value)) {
             return <a href={value}>{value}</a>;
+        }
+        if (isValidUrn(value)) {
+            const urnWithoutPrefix = value.slice(7);
+            const nextColonIndex = urnWithoutPrefix.indexOf(':');
+            const entityType = urnWithoutPrefix.substr(0, nextColonIndex);
+            if (entityType === 'corpuser') {
+                return <a href={entityRegistry.getEntityUrl(EntityType.CorpUser, value)}>{value}</a>;
+            }
         }
         return <span>{value}</span>;
     }
@@ -47,6 +62,7 @@ export default function DynamicTabularTab({ payload: rawPayload }: Props) {
     const payload = JSON.parse(rawPayload || '{}');
     const aspectData = payload[Object.keys(payload)[0]];
     const transformedRowData = Object.keys(aspectData).map((key) => ({ key, value: aspectData[key] }));
+    const entityRegistry = useEntityRegistry();
 
     const propertyTableColumns = [
         {
@@ -60,7 +76,7 @@ export default function DynamicTabularTab({ payload: rawPayload }: Props) {
         {
             title: 'Value',
             dataIndex: 'value',
-            render: (value: string) => <TableValueRenderer value={value} />,
+            render: (value: string) => <TableValueRenderer entityRegistry={entityRegistry} value={value} />,
         },
     ];
 
