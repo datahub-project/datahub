@@ -43,6 +43,10 @@ public class DynamicAspectsResolver implements DataFetcher<CompletableFuture<Lis
                     DynamicAspectResult result = new DynamicAspectResult();
                     DataMap resolvedAspect =
                         _aspectClient.getRawAspect(urn, aspectSpec.getName(), 0L, context.getActor());
+                    if (resolvedAspect == null) {
+                        return;
+                    }
+
                     result.setPayload(CODEC.mapToString(resolvedAspect));
                     result.setAspectName(aspectSpec.getName());
 

@@ -1,0 +1,15 @@
+namespace com.linkedin.common
+
+@Aspect = {
+  "name": "certification",
+  "autoRender": true,
+  "renderSpec": {
+    "displayType": "properties", // or properties, markdown, syntax
+    "displayName": "Certification Status"
+  }
+}
+record Certification {
+  status: string
+  certifiedBy: Urn
+  certifiedOn: long
+}

@@ -3109,5 +3109,18 @@
       "contentType": "application/json"
     },
     "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,logging_events,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "certification",
+    "aspect": {
+      "value": "{\"status\": \"certified\", \"certifiedBy\": \"urn:li:corpuser:datahub\", \"certifiedOn\": 16361507520000 }",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
   }
 ]
