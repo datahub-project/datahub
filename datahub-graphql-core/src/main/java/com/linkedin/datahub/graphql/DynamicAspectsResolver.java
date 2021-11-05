@@ -24,12 +24,12 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
 @Slf4j
 @AllArgsConstructor
-public class DynamicAspectsResolver implements DataFetcher<CompletableFuture<SubTypes>> {
+public class DynamicAspectsResolver implements DataFetcher<CompletableFuture<List<DynamicAspectResult>>> {
 
     EntityClient _aspectClient;
 
     @Override
-    public CompletableFuture<SubTypes> get(DataFetchingEnvironment environment) throws Exception {
+    public CompletableFuture<List<DynamicAspectResult>> get(DataFetchingEnvironment environment) throws Exception {
         final DynamicAspectsInput input = bindArgument(environment.getArgument("aspects"), DynamicAspectsInput.class);
         return CompletableFuture.supplyAsync(() -> {
             List<DynamicAspectResult> results = new ArrayList<>();

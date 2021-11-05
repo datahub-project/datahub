@@ -260,7 +260,7 @@ public interface EntityClient {
       @Nonnull String actor,
       @Nonnull Class<T> aspectClass) throws RemoteInvocationException;
 
-  public <T extends RecordTemplate> DataMap getRawAspect(
+  public DataMap getRawAspect(
       @Nonnull String urn,
       @Nonnull String aspect,
       @Nonnull Long version,

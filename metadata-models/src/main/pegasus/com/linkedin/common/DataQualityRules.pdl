@@ -1,0 +1,8 @@
+namespace com.linkedin.common
+
+@Aspect = {
+  "name": "dataQualityRules"
+}
+record DataQualityRules {
+  rules: array[DataQualityRule]
+}

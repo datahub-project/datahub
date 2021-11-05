@@ -4,6 +4,7 @@ entities:
     aspects:
       - viewProperties
       - subTypes
+      - dataQualityRules
       - datasetProfile
       - datasetUsageStatistics
   - name: dataHubPolicy

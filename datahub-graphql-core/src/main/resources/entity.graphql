@@ -618,7 +618,7 @@ type Dataset implements EntityWithRelationships & Entity {
     dynamicAspects(input: DynamicAspectsInput): [DynamicAspectResult]
 }
 
-type DynamicAspectsInput {
+input DynamicAspectsInput {
     aspects: [String]
 }
 

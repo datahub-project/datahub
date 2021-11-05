@@ -1,0 +1,9 @@
+namespace com.linkedin.common
+
+record DataQualityRule {
+  field: optional string
+  isFieldLevel: boolean
+  type: string
+  checkDefinition: optional string
+  url: optional string
+}
