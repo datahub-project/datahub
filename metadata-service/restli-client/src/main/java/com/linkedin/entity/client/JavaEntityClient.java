@@ -15,7 +15,6 @@ import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.aspect.EnvelopedAspectArray;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.browse.BrowseResult;
-import com.linkedin.metadata.dao.utils.RecordUtils;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.filter.Filter;
@@ -34,7 +33,6 @@ import com.linkedin.r2.RemoteInvocationException;
 import java.time.Clock;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -356,17 +354,13 @@ public class JavaEntityClient implements EntityClient {
     }
 
     @SneakyThrows
-    @Override
-    public <T extends RecordTemplate> Optional<T> getVersionedAspect(@Nonnull String urn, @Nonnull String aspect,
-        @Nonnull Long version, @Nonnull String actor, @Nonnull Class<T> aspectClass) throws RemoteInvocationException {
+    public <T extends RecordTemplate> DataMap getRawAspect(@Nonnull String urn, @Nonnull String aspect,
+        @Nonnull Long version, @Nonnull String actor) throws RemoteInvocationException {
         VersionedAspect entity = _entityService.getVersionedAspect(Urn.createFromString(urn), aspect, version);
         if (entity.hasAspect()) {
             DataMap rawAspect = ((DataMap) entity.data().get("aspect"));
-            if (rawAspect.containsKey(aspectClass.getCanonicalName())) {
-                DataMap aspectDataMap = rawAspect.getDataMap(aspectClass.getCanonicalName());
-                return Optional.of(RecordUtils.toRecordTemplate(aspectClass, aspectDataMap));
-            }
+            return rawAspect;
         }
-        return Optional.empty();
+        return null;
     }
 }

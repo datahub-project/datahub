@@ -22,7 +22,7 @@ query getDataProfiles($urn: String!, $limit: Int, $startTime: Long, $endTime: Lo
     }
 }
 
-query getDataset($urn: String!) {
+query getDataset($urn: String!, $aspectsInput: DynamicAspectsInput) {
     dataset(urn: $urn) {
         ...nonRecursiveDatasetFields
         schemaMetadata(version: 0) {
@@ -115,6 +115,11 @@ query getDataset($urn: String!) {
             ...fullRelationshipResults
         }
         ...viewProperties
+        dynamicAspects(input: $aspectsInput) {
+            aspectName
+            payload
+            displayType
+        }
     }
 }
 

@@ -1,6 +1,7 @@
 package com.linkedin.entity.client;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.Entity;
@@ -258,4 +259,10 @@ public interface EntityClient {
       @Nonnull Long version,
       @Nonnull String actor,
       @Nonnull Class<T> aspectClass) throws RemoteInvocationException;
+
+  public <T extends RecordTemplate> DataMap getRawAspect(
+      @Nonnull String urn,
+      @Nonnull String aspect,
+      @Nonnull Long version,
+      @Nonnull String actor) throws RemoteInvocationException;
 }

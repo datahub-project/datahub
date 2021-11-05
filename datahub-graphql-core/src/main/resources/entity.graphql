@@ -611,6 +611,21 @@ type Dataset implements EntityWithRelationships & Entity {
     View related properties. Only relevant if subtypes field contains VIEW.
     """
     viewProperties: ViewProperties
+
+    """
+    fetches extra entities that do not have custom UI code yet
+    """
+    dynamicAspects(input: DynamicAspectsInput): [DynamicAspectResult]
+}
+
+type DynamicAspectsInput {
+    aspects: [String]
+}
+
+type DynamicAspectResult {
+    aspectName: String
+    payload: String
+    displayType: String
 }
 
 """
