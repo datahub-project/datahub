@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql;
 
 import com.linkedin.common.SubTypes;
 import com.linkedin.data.DataMap;
+import com.linkedin.data.codec.JacksonDataCodec;
 import com.linkedin.datahub.graphql.generated.DynamicAspectResult;
 import com.linkedin.datahub.graphql.generated.DynamicAspectsInput;
 import com.linkedin.datahub.graphql.generated.Entity;
@@ -12,6 +13,7 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -27,6 +29,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 public class DynamicAspectsResolver implements DataFetcher<CompletableFuture<List<DynamicAspectResult>>> {
 
     EntityClient _aspectClient;
+    private static final JacksonDataCodec CODEC = new JacksonDataCodec();
 
     @Override
     public CompletableFuture<List<DynamicAspectResult>> get(DataFetchingEnvironment environment) throws Exception {
@@ -42,12 +45,14 @@ public class DynamicAspectsResolver implements DataFetcher<CompletableFuture<Lis
                     DynamicAspectResult result = new DynamicAspectResult();
                     DataMap resolvedAspect =
                         _aspectClient.getRawAspect(urn, aspectName, 0L, context.getActor());
-                    result.setPayload(resolvedAspect.toString());
+                    result.setPayload(CODEC.mapToString(resolvedAspect));
                     result.setAspectName(aspectName);
                     result.setDisplayType("TODO");
                     results.add(result);
                 } catch (RemoteInvocationException e) {
                     throw new RuntimeException("Failed to fetch aspect " + aspectName + " for urn " + urn + " ", e);
+                } catch (IOException e) {
+                    e.printStackTrace();
                 }
             }
             return results;

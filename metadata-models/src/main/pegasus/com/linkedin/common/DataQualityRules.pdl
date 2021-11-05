@@ -1,7 +1,13 @@
 namespace com.linkedin.common
 
 @Aspect = {
-  "name": "dataQualityRules"
+  "name": "dataQualityRules",
+  "autoRender": true,
+  "renderSpec": {
+    "displayType": "tabular", // or properties, markdown, syntax
+    "key": "rules",
+    "displayName": "Data Quality Rules"
+  }
 }
 record DataQualityRules {
   rules: array[DataQualityRule]

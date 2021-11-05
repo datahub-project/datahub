@@ -17,6 +17,7 @@ import useIsLineageMode from '../../../../lineage/utils/useIsLineageMode';
 import { useEntityRegistry } from '../../../../useEntityRegistry';
 import LineageExplorer from '../../../../lineage/LineageExplorer';
 import CompactContext from '../../../../shared/CompactContext';
+import DynamicTab from '../../tabs/Entity/DynamicTab';
 
 type Props<T, U> = {
     urn: string;
@@ -106,7 +107,6 @@ export const EntityProfile = <T, U>({
     tabs,
     sidebarSections,
 }: Props<T, U>): JSX.Element => {
-    const routedTab = useRoutedTab(tabs);
     const isLineageMode = useIsLineageMode();
     const entityRegistry = useEntityRegistry();
     const history = useHistory();
@@ -144,6 +144,18 @@ export const EntityProfile = <T, U>({
         (data && getDataForEntityType({ data: data[Object.keys(data)[0]], entityType, getOverrideProperties })) || null;
 
     const lineage = entityData ? entityRegistry.getLineageVizConfig(entityType, entityData) : undefined;
+
+    const dynamicTabs: EntityTab[] =
+        entityData?.dynamicAspects?.map((aspect) => ({
+            name: aspect.aspectName,
+            component: () => <DynamicTab payload={aspect.payload} type="tabular" />,
+            display: {
+                visible: () => true,
+                enabled: () => true,
+            },
+        })) || [];
+
+    const routedTab = useRoutedTab([...tabsWithDefaults, ...dynamicTabs]);
 
     if (isCompact) {
         return (
@@ -204,7 +216,10 @@ export const EntityProfile = <T, U>({
                                 <HeaderAndTabsFlex>
                                     <Header>
                                         <EntityHeader />
-                                        <EntityTabs tabs={tabsWithDefaults} selectedTab={routedTab} />
+                                        <EntityTabs
+                                            tabs={[...tabsWithDefaults, ...dynamicTabs]}
+                                            selectedTab={routedTab}
+                                        />
                                     </Header>
                                     <TabContent>{routedTab && <routedTab.component />}</TabContent>
                                 </HeaderAndTabsFlex>

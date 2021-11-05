@@ -615,7 +615,7 @@ type Dataset implements EntityWithRelationships & Entity {
     """
     fetches extra entities that do not have custom UI code yet
     """
-    dynamicAspects(input: DynamicAspectsInput): [DynamicAspectResult]
+    dynamicAspects(input: DynamicAspectsInput): [DynamicAspectResult!]
 }
 
 input DynamicAspectsInput {
@@ -623,7 +623,7 @@ input DynamicAspectsInput {
 }
 
 type DynamicAspectResult {
-    aspectName: String
+    aspectName: String!
     payload: String
     displayType: String
 }
