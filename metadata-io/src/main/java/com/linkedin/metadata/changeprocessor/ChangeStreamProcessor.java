@@ -1,6 +1,7 @@
 package com.linkedin.metadata.changeprocessor;
 
 import com.linkedin.data.template.RecordTemplate;
+import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
@@ -19,8 +20,8 @@ import java.util.TreeSet;
 public class ChangeStreamProcessor {
 
   private final Comparator<ChangeProcessor> _processorComparator = Comparator.comparing(ChangeProcessor::getPriority);
-  private final Map<String, SortedSet<ChangeProcessor>> _preProcessors = new HashMap<>();
-  private final Map<String, SortedSet<ChangeProcessor>> _postProcessors = new HashMap<>();
+  private final Map<String, SortedSet<ChangeProcessor>> _preProcessors = new ConcurrentHashMap<>();
+  private final Map<String, SortedSet<ChangeProcessor>> _postProcessors = new ConcurrentHashMap<>();
 
   public void registerPreProcessor(String entityName, String aspectName, ChangeProcessor processor) {
     registerProcessor(entityName, aspectName, processor, _preProcessors);
