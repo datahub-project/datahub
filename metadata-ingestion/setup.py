@@ -128,6 +128,7 @@ plugins: Dict[str, Set[str]] = {
     "snowflake-usage": sql_common | {"snowflake-sqlalchemy<=1.2.4"},
     "sqlalchemy": sql_common,
     "superset": {"requests"},
+    "metabase": {"requests"},
     "trino": sql_common
     | {
         # SQLAlchemy support is coming up in trino python client
@@ -288,6 +289,7 @@ entry_points = {
         "snowflake-usage = datahub.ingestion.source.usage.snowflake_usage:SnowflakeUsageSource",
         "superset = datahub.ingestion.source.superset:SupersetSource",
         "openapi = datahub.ingestion.source.openapi:OpenApiSource",
+        "metabase = datahub.ingestion.source.metabase:MetabaseSource",
         "trino = datahub.ingestion.source.sql.trino:TrinoSource",
         "starburst-trino-usage = datahub.ingestion.source.usage.starburst_trino_usage:TrinoUsageSource",
 
