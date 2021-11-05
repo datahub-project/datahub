@@ -119,6 +119,7 @@ query getDataset($urn: String!, $aspectsInput: DynamicAspectsInput) {
             aspectName
             payload
             displayType
+            displayName
         }
     }
 }

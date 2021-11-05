@@ -6,7 +6,7 @@ namespace com.linkedin.common
   "renderSpec": {
     "displayType": "tabular", // or properties, markdown, syntax
     "key": "rules",
-    "displayName": "Data Quality Rules"
+    "displayName": "DQ Rules"
   }
 }
 record DataQualityRules {

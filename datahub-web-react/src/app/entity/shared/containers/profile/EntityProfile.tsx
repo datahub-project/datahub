@@ -147,8 +147,8 @@ export const EntityProfile = <T, U>({
 
     const dynamicTabs: EntityTab[] =
         entityData?.dynamicAspects?.map((aspect) => ({
-            name: aspect.aspectName,
-            component: () => <DynamicTab payload={aspect.payload} type="tabular" />,
+            name: aspect.displayName || aspect.aspectName,
+            component: () => <DynamicTab type={aspect.displayType || 'properties'} payload={aspect.payload} />,
             display: {
                 visible: () => true,
                 enabled: () => true,
