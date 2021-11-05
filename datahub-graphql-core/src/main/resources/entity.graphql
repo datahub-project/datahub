@@ -615,11 +615,7 @@ type Dataset implements EntityWithRelationships & Entity {
     """
     fetches extra entities that do not have custom UI code yet
     """
-    dynamicAspects(input: DynamicAspectsInput): [DynamicAspectResult!]
-}
-
-input DynamicAspectsInput {
-    aspects: [String]
+    dynamicAspects: [DynamicAspectResult!]
 }
 
 type DynamicAspectResult {
