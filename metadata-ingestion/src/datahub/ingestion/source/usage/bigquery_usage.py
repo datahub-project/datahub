@@ -363,20 +363,24 @@ class BigQueryUsageSource(Source):
             )
         ):
             if i == 0:
-                logger.debug("starting log load from BigQuery")
+                logger.info("Starting log load from BigQuery")
             yield entry
-        logger.debug("finished loading log entries from BigQuery")
+        logger.info(f"Finished loading {i} log entries from BigQuery")
 
     def _parse_bigquery_log_entries(
         self, entries: Iterable[AuditLogEntry]
     ) -> Iterable[Union[ReadEvent, QueryEvent]]:
+        num_read_events: int = 0
+        num_query_events: int = 0
         for entry in entries:
             event: Optional[Union[ReadEvent, QueryEvent]] = None
             try:
                 if ReadEvent.can_parse_entry(entry):
                     event = ReadEvent.from_entry(entry)
+                    num_read_events += 1
                 elif QueryEvent.can_parse_entry(entry):
                     event = QueryEvent.from_entry(entry)
+                    num_query_events += 1
                 else:
                     self.report.report_warning(
                         f"{entry.log_name}-{entry.insert_id}",
@@ -394,6 +398,10 @@ class BigQueryUsageSource(Source):
 
             if event:
                 yield event
+
+        logger.info(
+            f"Parsed {num_read_events} ReadEvents and {num_query_events} QueryEvents"
+        )
 
     def _join_events_by_job_id(
         self, events: Iterable[Union[ReadEvent, QueryEvent]]
@@ -426,6 +434,7 @@ class BigQueryUsageSource(Source):
             original_read_events, self.config.query_log_delay
         )
 
+        num_joined: int = 0
         for event in delayed_read_events:
             if (
                 event.timestamp < self.config.start_time
@@ -436,6 +445,7 @@ class BigQueryUsageSource(Source):
             if event.jobName:
                 if event.jobName in query_jobs:
                     # Join the query log event into the table read log event.
+                    num_joined += 1
                     event.query = query_jobs[event.jobName].query
 
                     # TODO also join into the query itself for column references
@@ -445,6 +455,8 @@ class BigQueryUsageSource(Source):
                         "failed to match table read event with job; try increasing `query_log_delay` or `max_query_duration`",
                     )
             yield event
+
+        logger.info(f"Number of read events joined with query events: {num_joined}")
 
     def _aggregate_enriched_read_events(
         self, events: Iterable[ReadEvent]
@@ -457,6 +469,7 @@ class BigQueryUsageSource(Source):
             datetime, Dict[BigQueryTableRef, AggregatedDataset]
         ] = collections.defaultdict(dict)
 
+        num_aggregated: int = 0
         for event in events:
             floored_ts = get_time_bucket(event.timestamp, self.config.bucket_duration)
             resource: Optional[BigQueryTableRef] = None
@@ -479,6 +492,17 @@ class BigQueryUsageSource(Source):
                 AggregatedDataset(bucket_start_time=floored_ts, resource=resource),
             )
             agg_bucket.add_read_entry(event.actor_email, event.query, event.fieldsRead)
+            num_aggregated += 1
+        logger.info(f"Total number of events aggregated = {num_aggregated}.")
+        bucket_level_stats: str = "\n\t" + "\n\t".join(
+            [
+                f'bucket:{db.strftime("%m-%d-%Y:%H:%M:%S")}, size={len(ads)}'
+                for db, ads in datasets.items()
+            ]
+        )
+        logger.debug(
+            f"Number of buckets created = {len(datasets)}. Per-bucket details:{bucket_level_stats}"
+        )
 
         return datasets
 
