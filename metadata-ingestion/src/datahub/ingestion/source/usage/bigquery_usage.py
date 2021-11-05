@@ -73,27 +73,36 @@ class BigQueryTableRef:
 
     @classmethod
     def from_spec_obj(cls, spec: dict) -> "BigQueryTableRef":
-        return BigQueryTableRef(spec["projectId"], spec["datasetId"], spec["tableId"])
+        return cls(spec["projectId"], spec["datasetId"], spec["tableId"])
 
     @classmethod
     def from_string_name(cls, ref: str) -> "BigQueryTableRef":
         parts = ref.split("/")
         if parts[0] != "projects" or parts[2] != "datasets" or parts[4] != "tables":
             raise ValueError(f"invalid BigQuery table reference: {ref}")
-        return BigQueryTableRef(parts[1], parts[3], parts[5])
+        return cls(parts[1], parts[3], parts[5])
 
     def is_anonymous(self) -> bool:
         # Temporary tables will have a dataset that begins with an underscore.
         return self.dataset.startswith("_")
 
     def remove_extras(self) -> "BigQueryTableRef":
-        if "$" in self.table or "@" in self.table:
-            raise ValueError(f"cannot handle {self} - poorly formatted table name")
+        invalid_chars_in_table_name: List[str] = [
+            c for c in {"$", "@"} if c in self.table
+        ]
+        if invalid_chars_in_table_name:
+            raise ValueError(
+                f"Cannot handle {self} - poorly formatted table name, contains {invalid_chars_in_table_name}"
+            )
 
         # Handle partitioned and sharded tables.
         matches = PARTITIONED_TABLE_REGEX.match(self.table)
         if matches:
-            return BigQueryTableRef(self.project, self.dataset, matches.group(1))
+            table_name = matches.group(1)
+            logger.debug(
+                f"Found partitioned table {self.table}. Using {table_name} as the table name."
+            )
+            return BigQueryTableRef(self.project, self.dataset, table_name)
 
         return self
 
@@ -329,13 +338,27 @@ class BigQueryUsageSource(Source):
         def get_entry_timestamp(entry: AuditLogEntry) -> datetime:
             return entry.timestamp
 
+        list_entry_generators_across_clients: List[Iterable[AuditLogEntry]] = list()
+        for client in clients:
+            try:
+                list_entries: Iterable[AuditLogEntry] = client.list_entries(
+                    filter_=filter, page_size=GCP_LOGGING_PAGE_SIZE
+                )
+                list_entry_generators_across_clients.append(list_entries)
+            except Exception as e:
+                logger.warning(
+                    f"Encountered exception retrieving AuditLogEntires for project {client.project}",
+                    e,
+                )
+                self.report.report_failure(
+                    f"{client.project}", f"unable to retrive log entrires {e}"
+                )
+
+        i: int
         entry: AuditLogEntry
         for i, entry in enumerate(
             heapq.merge(
-                *(
-                    client.list_entries(filter_=filter, page_size=GCP_LOGGING_PAGE_SIZE)
-                    for client in clients
-                ),
+                *list_entry_generators_across_clients,
                 key=get_entry_timestamp,
             )
         ):
@@ -348,20 +371,24 @@ class BigQueryUsageSource(Source):
         self, entries: Iterable[AuditLogEntry]
     ) -> Iterable[Union[ReadEvent, QueryEvent]]:
         for entry in entries:
-            event: Union[None, ReadEvent, QueryEvent] = None
+            event: Optional[Union[ReadEvent, QueryEvent]] = None
             try:
                 if ReadEvent.can_parse_entry(entry):
                     event = ReadEvent.from_entry(entry)
                 elif QueryEvent.can_parse_entry(entry):
                     event = QueryEvent.from_entry(entry)
                 else:
-                    raise RuntimeError(
-                        "Log entry cannot be parsed as either ReadEvent or QueryEvent."
+                    self.report.report_warning(
+                        f"{entry.log_name}-{entry.insert_id}",
+                        "Log entry cannot be parsed as either ReadEvent or QueryEvent.",
+                    )
+                    logger.warning(
+                        f"Log entry cannot be parsed as either ReadEvent or QueryEvent: {entry!r}"
                     )
             except Exception as e:
                 self.report.report_failure(
                     f"{entry.log_name}-{entry.insert_id}",
-                    f"unable to parse log entry: {entry!r}",
+                    f"unable to parse log entry: {entry!r}, exception: {e}",
                 )
                 logger.error("Error while parsing GCP log entries", e)
 
@@ -432,9 +459,18 @@ class BigQueryUsageSource(Source):
 
         for event in events:
             floored_ts = get_time_bucket(event.timestamp, self.config.bucket_duration)
-            resource = event.resource.remove_extras()
+            resource: Optional[BigQueryTableRef] = None
+            try:
+                resource = event.resource.remove_extras()
+            except Exception as e:
+                self.report.report_warning(
+                    str(event.resource), f"Failed to clean up resource, {e}"
+                )
+                logger.warning(f"Failed to process event {str(event.resource)}", e)
+                continue
 
             if resource.is_anonymous():
+                logger.debug(f"Dropping temporary table {resource}")
                 self.report.report_dropped(str(resource))
                 continue
 
