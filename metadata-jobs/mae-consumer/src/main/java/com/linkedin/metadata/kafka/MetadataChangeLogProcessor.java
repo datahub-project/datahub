@@ -1,7 +1,6 @@
 package com.linkedin.metadata.kafka;
 
 import com.codahale.metrics.Histogram;
-
 import com.codahale.metrics.MetricRegistry;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
