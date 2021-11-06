@@ -54,6 +54,9 @@ services:
     image: elasticsearch:7.9.3
     env_file: elasticsearch/env/docker.env
     container_name: elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
     hostname: elasticsearch
     ports:
       - "9200:9200"
