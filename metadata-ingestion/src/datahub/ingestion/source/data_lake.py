@@ -2,9 +2,15 @@ import dataclasses
 import os
 from dataclasses import field as dataclass_field
 from typing import Any, Dict, List, Optional
+from enum import Enum
+from datahub.ingestion.api.common import PipelineContext
+
+from pyspark.sql import SparkSession, Row
+import pydeequ
 
 import pydantic
 from pydeequ.analyzers import (
+    AnalysisRunner,
     ApproxCountDistinct,
     ApproxQuantiles,
     Completeness,
@@ -14,9 +20,9 @@ from pydeequ.analyzers import (
     Maximum,
     Mean,
     Minimum,
-    QuantileClass,
     StandardDeviation,
     UniqueValueRatio,
+    Size,
 )
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
@@ -24,7 +30,10 @@ from datahub.ingestion.api.source import Source, SourceReport
 
 
 class DataLakeSourceConfig(ConfigModel):
-    enabled: bool = False
+
+    file: str
+    file_type: Optional[str] = None
+
     limit: Optional[int] = None
     offset: Optional[int] = None
 
@@ -55,17 +64,55 @@ class DataLakeSourceConfig(ConfigModel):
 
 @dataclasses.dataclass
 class DataLakeSourceReport(SourceReport):
-    tables_scanned = 0
+    files_scanned = 0
     filtered: List[str] = dataclass_field(default_factory=list)
 
-    def report_table_scanned(self) -> None:
-        self.tables_scanned += 1
+    def report_file_scanned(self) -> None:
+        self.file_scanned += 1
 
-    def report_table_dropped(self, table: str) -> None:
-        self.filtered.append(table)
+    def report_file_dropped(self, file: str) -> None:
+        self.filtered.append(file)
 
+
+class FileType(Enum):
+    PARQUET = "parquet"
+    CSV = "csv"
 
 class DataLakeSource(Source):
     source_config: DataLakeSourceConfig
     report = DataLakeSourceReport()
 
+    def __init__(self, config: DataLakeSourceConfig, ctx: PipelineContext):
+        super().__init__(config, ctx)
+        self.source_config = config
+
+        self.spark = (SparkSession
+            .builder
+            .config("spark.jars.packages", pydeequ.deequ_maven_coord)
+            .config("spark.jars.excludes", pydeequ.f2j_maven_coord)
+            .getOrCreate())
+
+    def read_file(self, file: str, file_type:FileType):
+        
+        if file_type == FileType.PARQUET:
+            df = self.spark.read.parquet(file)
+        elif file_type == FileType.CSV:
+            df = self.spark.read.csv(file)
+
+        return df
+
+    def generate_profiles(self):
+        
+        df = self.read_file(self.source_config.file, self.source_config.file_type)
+
+        columns = df.columns
+            
+
+        analyzer = AnalysisRunner(self.spark) \
+            .onData(df) \
+            .addAnalyzer(Size())
+
+        for column in columns:
+            analyzer.addAnalyzer(Completeness(column))
+
+        analyzer_result = analyzer.run()

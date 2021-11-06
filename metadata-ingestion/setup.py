@@ -92,7 +92,7 @@ plugins: Dict[str, Set[str]] = {
     "bigquery-usage": bigquery_common | {"cachetools"},
     "datahub-business-glossary": set(),
     "dbt": set(),
-    "data-lake": {"pydeequ"},
+    "data-lake": {"pydeequ", "pyspark==3.0.3"},
     "druid": sql_common | {"pydruid>=0.6.2"},
     "feast": {"docker"},
     "glue": aws_common,
@@ -194,7 +194,8 @@ base_dev_requirements = {
             "datahub-rest",
             "redash",
             "redshift",
-            "redshift-usage"
+            "redshift-usage",
+            "data-lake"
             # airflow is added below
         ]
         for dependency in plugins[plugin]

@@ -1,0 +1,11 @@
+name,weight,height,color,healthy
+apple,50,32,red,1
+cookie,23,21,brown,0
+lasagna,49,40,red,0
+pasta,72,24,yellow,0
+spinach,10,21,green,1
+chicken,36,47,white,1
+orange,43,29,orange,1
+hamburger,2,92,brown,0
+sushi,53,25,orange,1
+water,32,80,blue,1
