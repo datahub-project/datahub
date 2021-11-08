@@ -87,14 +87,6 @@ class BigQueryTableRef:
         return self.dataset.startswith("_")
 
     def remove_extras(self) -> "BigQueryTableRef":
-        invalid_chars_in_table_name: List[str] = [
-            c for c in {"$", "@"} if c in self.table
-        ]
-        if invalid_chars_in_table_name:
-            raise ValueError(
-                f"Cannot handle {self} - poorly formatted table name, contains {invalid_chars_in_table_name}"
-            )
-
         # Handle partitioned and sharded tables.
         matches = PARTITIONED_TABLE_REGEX.match(self.table)
         if matches:
@@ -103,6 +95,15 @@ class BigQueryTableRef:
                 f"Found partitioned table {self.table}. Using {table_name} as the table name."
             )
             return BigQueryTableRef(self.project, self.dataset, table_name)
+        
+        # Handle exceptions
+        invalid_chars_in_table_name: List[str] = [
+            c for c in {"$", "@"} if c in self.table
+        ]
+        if invalid_chars_in_table_name:
+            raise ValueError(
+                f"Cannot handle {self} - poorly formatted table name, contains {invalid_chars_in_table_name}"
+            )
 
         return self
 
