@@ -1,6 +1,8 @@
 from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass
-from typing import Generic, TypeVar
+from typing import Generic, Optional, TypeVar
+
+from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
 
 T = TypeVar("T")
 
@@ -25,6 +27,12 @@ class WorkUnit(_WorkUnitId, metaclass=ABCMeta):
         pass
 
 
-@dataclass
 class PipelineContext:
     run_id: str
+    graph: Optional[DataHubGraph]
+
+    def __init__(
+        self, run_id: str, datahub_api: Optional[DatahubClientConfig] = None
+    ) -> None:
+        self.run_id = run_id
+        self.graph = DataHubGraph(datahub_api) if datahub_api is not None else None
