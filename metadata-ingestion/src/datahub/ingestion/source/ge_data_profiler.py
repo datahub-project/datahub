@@ -276,8 +276,9 @@ class _DatasetProfiler(BasicDatasetProfilerBase):
         ).result
         return [str(v) for v in res["partial_unexpected_list"]]
 
+    # For some reason Flake8 really wants the complexity annotation on both lines.
     @classmethod  # noqa: C901 (complexity)
-    def generate_dataset_profile(
+    def generate_dataset_profile(  # noqa: C901 (complexity)
         cls,
         dataset: Dataset,
         dataset_name: str,
