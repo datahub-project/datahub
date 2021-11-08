@@ -138,8 +138,7 @@ public class MetadataChangeLogProcessor {
         updateGraphService(urn, aspectSpec, aspect);
         updateSystemMetadata(event.getSystemMetadata(), urn, aspectSpec);
       }
-    }
-    if (event.getChangeType() == ChangeType.DELETE) {
+    } else if (event.getChangeType() == ChangeType.DELETE) {
       if (!event.hasAspectName() || !event.hasAspect()) {
         log.error("Aspect or aspect name is missing");
         return;
