@@ -219,6 +219,7 @@ dev_requirements_airflow_1 = {
     "apache-airflow==1.10.15",
     "apache-airflow-backport-providers-snowflake",
     "snowflake-sqlalchemy<=1.2.4",  # make constraint consistent with extras
+    "WTForms==2.3.3", # make constraint consistent with extras
 }
 
 full_test_dev_requirements = {
