@@ -102,7 +102,7 @@ Note `ownership_type` is an optional field with `DATAOWNER` as default value.
 
 ### Setting ownership by dataset urn pattern
 
-Let’s suppose we’d like to append a series of users who we know to own different dataset from a data source but aren't detected during normal ingestion. To do so, we can use the `pattern_add_dataset_ownership` module that’s included in the ingestion framework. it match pattern with `urn` of dataset and assign the respective owners
+Let’s suppose we’d like to append a series of users who we know to own a different dataset from a data source but aren't detected during normal ingestion. To do so, we can use the `pattern_add_dataset_ownership` module that’s included in the ingestion framework.  This will match the pattern to `urn` of the dataset and assign the respective owners.
 
 The config, which we’d append to our ingestion recipe YAML, would look like this:
 
@@ -132,7 +132,7 @@ Note that whatever owners you send via this will overwrite the owners present in
 
 ### Mark dataset status
 
-If you would like to stop a dataset from appearing in the UI then you need to mark the status of the dataset as removed. You can use this transformer after filtering for the specific datasets that you want to mark as removed.
+If you would like to stop a dataset from appearing in the UI, then you need to mark the status of the dataset as removed. You can use this transformer after filtering for the specific datasets that you want to mark as removed.
 
 ```yaml
 transformers:
@@ -167,7 +167,7 @@ transformers:
 ```
 It will create browse path like `/mysql/marketing_db/sales/orders` for a table `sales.orders` in `mysql` database instance.
 
-You can use this to add multiple browse paths. Different people might know same data assets with different name
+You can use this to add multiple browse paths. Different people might know the same data assets by different names.
 ```yaml
 transformers:
   - type: "set_dataset_browse_path"
@@ -322,6 +322,60 @@ def transform_one(self, mce: MetadataChangeEventClass) -> MetadataChangeEventCla
         ownership.owners.extend(owners_to_add)
 
     return mce
+```
+
+### More Sophistication: Making calls to DataHub during Transformation
+
+In some advanced cases, you might want to check with DataHub before performing a transformation. A good example for this might be retrieving the current set of owners of a dataset before providing the new set of owners during an ingestion process. To allow transformers to always be able to query the graph, the framework provides them access to the graph through the context object `ctx`. Connectivity to the graph is automatically instantiated anytime the pipeline uses a REST sink. In case you are using the Kafka sink, you can additionally provide access to the graph by configuring it in your pipeline. 
+
+Here is an example of a recipe that uses Kafka as the sink, but provides access to the graph by explicitly configuring the `datahub_api`. 
+
+```yaml
+source:
+  type: mysql
+  config: 
+     # ..source configs
+     
+sink: 
+  type: datahub-kafka
+  config:
+     connection:
+        bootstrap: localhost:9092
+	schema_registry_url: "http://localhost:8081"
+
+datahub_api:
+  server: http://localhost:8080
+  # standard configs accepted by datahub rest client ... 
+```
+
+#### Advanced Use-Case: Patching Owners
+
+With the above capability, we can now build more powerful transformers that can check with the server-side state before issuing changes in metadata. 
+e.g. Here is how the AddDatasetOwnership transformer can now support PATCH semantics by ensuring that it never deletes any owners that are stored on the server. 
+
+```python
+def transform_one(self, mce: MetadataChangeEventClass) -> MetadataChangeEventClass:
+        if not isinstance(mce.proposedSnapshot, DatasetSnapshotClass):
+            return mce
+        owners_to_add = self.config.get_owners_to_add(mce.proposedSnapshot)
+        if owners_to_add:
+            ownership = builder.get_or_add_aspect(
+                mce,
+                OwnershipClass(
+                    owners=[],
+                ),
+            )
+            ownership.owners.extend(owners_to_add)
+
+            if self.config.semantics == Semantics.PATCH:
+                assert self.ctx.graph
+                patch_ownership = AddDatasetOwnership.get_ownership_to_set(
+                    self.ctx.graph, mce.proposedSnapshot.urn, ownership
+                )
+                builder.set_aspect(
+                    mce, aspect=patch_ownership, aspect_type=OwnershipClass
+                )
+        return mce
 ```
 
 ### Installing the package

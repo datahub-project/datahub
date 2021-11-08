@@ -1,3 +1,6 @@
+from typing import List, Union
+from unittest import mock
+
 import pytest
 
 import datahub.emitter.mce_builder as builder
@@ -7,6 +10,7 @@ from datahub.ingestion.transformer.add_dataset_browse_path import (
     AddDatasetBrowsePathTransformer,
 )
 from datahub.ingestion.transformer.add_dataset_ownership import (
+    AddDatasetOwnership,
     PatternAddDatasetOwnership,
     SimpleAddDatasetOwnership,
 )
@@ -434,3 +438,108 @@ def test_pattern_dataset_ownership_with_invalid_type_transformation(mock_time):
             },
             PipelineContext(run_id="test"),
         )
+
+
+def gen_owners(
+    owners: List[str],
+    ownership_type: Union[
+        str, models.OwnershipTypeClass
+    ] = models.OwnershipTypeClass.DATAOWNER,
+) -> models.OwnershipClass:
+    return models.OwnershipClass(
+        owners=[models.OwnerClass(owner=owner, type=ownership_type) for owner in owners]
+    )
+
+
+def test_ownership_patching_intersect(mock_time):
+    mock_graph = mock.MagicMock()
+    server_ownership = gen_owners(["foo", "bar"])
+    mce_ownership = gen_owners(["baz", "foo"])
+    mock_graph.get_ownership.return_value = server_ownership
+
+    test_ownership = AddDatasetOwnership.get_ownership_to_set(
+        mock_graph, "test_urn", mce_ownership
+    )
+    assert test_ownership and test_ownership.owners
+    assert "foo" in [o.owner for o in test_ownership.owners]
+    assert "bar" in [o.owner for o in test_ownership.owners]
+    assert "baz" in [o.owner for o in test_ownership.owners]
+
+
+def test_ownership_patching_with_nones(mock_time):
+    mock_graph = mock.MagicMock()
+    mce_ownership = gen_owners(["baz", "foo"])
+    mock_graph.get_ownership.return_value = None
+    test_ownership = AddDatasetOwnership.get_ownership_to_set(
+        mock_graph, "test_urn", mce_ownership
+    )
+    assert test_ownership and test_ownership.owners
+    assert "foo" in [o.owner for o in test_ownership.owners]
+    assert "baz" in [o.owner for o in test_ownership.owners]
+
+    server_ownership = gen_owners(["baz", "foo"])
+    mock_graph.get_ownership.return_value = server_ownership
+    test_ownership = AddDatasetOwnership.get_ownership_to_set(
+        mock_graph, "test_urn", None
+    )
+    assert not test_ownership
+
+
+def test_ownership_patching_with_empty_mce_none_server(mock_time):
+    mock_graph = mock.MagicMock()
+    mce_ownership = gen_owners([])
+    mock_graph.get_ownership.return_value = None
+    test_ownership = AddDatasetOwnership.get_ownership_to_set(
+        mock_graph, "test_urn", mce_ownership
+    )
+    # nothing to add, so we omit writing
+    assert test_ownership is None
+
+
+def test_ownership_patching_with_empty_mce_nonempty_server(mock_time):
+    mock_graph = mock.MagicMock()
+    server_ownership = gen_owners(["baz", "foo"])
+    mce_ownership = gen_owners([])
+    mock_graph.get_ownership.return_value = server_ownership
+    test_ownership = AddDatasetOwnership.get_ownership_to_set(
+        mock_graph, "test_urn", mce_ownership
+    )
+    # nothing to add, so we omit writing
+    assert test_ownership is None
+
+
+def test_ownership_patching_with_different_types_1(mock_time):
+    mock_graph = mock.MagicMock()
+    server_ownership = gen_owners(["baz", "foo"], models.OwnershipTypeClass.PRODUCER)
+    mce_ownership = gen_owners(["foo"], models.OwnershipTypeClass.DATAOWNER)
+    mock_graph.get_ownership.return_value = server_ownership
+    test_ownership = AddDatasetOwnership.get_ownership_to_set(
+        mock_graph, "test_urn", mce_ownership
+    )
+    assert test_ownership and test_ownership.owners
+    # nothing to add, so we omit writing
+    assert ("foo", models.OwnershipTypeClass.DATAOWNER) in [
+        (o.owner, o.type) for o in test_ownership.owners
+    ]
+    assert ("baz", models.OwnershipTypeClass.PRODUCER) in [
+        (o.owner, o.type) for o in test_ownership.owners
+    ]
+
+
+def test_ownership_patching_with_different_types_2(mock_time):
+    mock_graph = mock.MagicMock()
+    server_ownership = gen_owners(["baz", "foo"], models.OwnershipTypeClass.PRODUCER)
+    mce_ownership = gen_owners(["foo", "baz"], models.OwnershipTypeClass.DATAOWNER)
+    mock_graph.get_ownership.return_value = server_ownership
+    test_ownership = AddDatasetOwnership.get_ownership_to_set(
+        mock_graph, "test_urn", mce_ownership
+    )
+    assert test_ownership and test_ownership.owners
+    assert len(test_ownership.owners) == 2
+    # nothing to add, so we omit writing
+    assert ("foo", models.OwnershipTypeClass.DATAOWNER) in [
+        (o.owner, o.type) for o in test_ownership.owners
+    ]
+    assert ("baz", models.OwnershipTypeClass.DATAOWNER) in [
+        (o.owner, o.type) for o in test_ownership.owners
+    ]

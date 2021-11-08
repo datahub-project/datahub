@@ -16,6 +16,7 @@ from datahub.ingestion.api.sink import Sink, WriteCallback
 from datahub.ingestion.api.source import Extractor, Source
 from datahub.ingestion.api.transform import Transformer
 from datahub.ingestion.extractor.extractor_registry import extractor_registry
+from datahub.ingestion.graph.client import DatahubClientConfig
 from datahub.ingestion.sink.sink_registry import sink_registry
 from datahub.ingestion.source.source_registry import source_registry
 from datahub.ingestion.transformer.transform_registry import transform_registry
@@ -36,6 +37,7 @@ class PipelineConfig(ConfigModel):
     sink: DynamicTypedConfig
     transformers: Optional[List[DynamicTypedConfig]]
     run_id: str = "__DEFAULT_RUN_ID"
+    datahub_api: Optional[DatahubClientConfig] = None
 
     @validator("run_id", pre=True, always=True)
     def run_id_should_be_semantic(
@@ -52,6 +54,18 @@ class PipelineConfig(ConfigModel):
         else:
             assert v is not None
             return v
+
+    @validator("datahub_api", always=True)
+    def datahub_api_should_use_rest_sink_as_default(
+        cls, v: Optional[DatahubClientConfig], values: Dict[str, Any], **kwargs: Any
+    ) -> Optional[DatahubClientConfig]:
+        if v is None:
+            if values["sink"].type is not None:
+                sink_type = values["sink"].type
+                if sink_type == "datahub-rest":
+                    sink_config = values["sink"].config
+                    v = DatahubClientConfig.parse_obj(sink_config)
+        return v
 
 
 class LoggingCallback(WriteCallback):
@@ -81,7 +95,9 @@ class Pipeline:
 
     def __init__(self, config: PipelineConfig):
         self.config = config
-        self.ctx = PipelineContext(run_id=self.config.run_id)
+        self.ctx = PipelineContext(
+            run_id=self.config.run_id, datahub_api=self.config.datahub_api
+        )
 
         source_type = self.config.source.type
         source_class = source_registry.get(source_type)
