@@ -37,7 +37,7 @@ GCP_LOGGING_PAGE_SIZE = 1000
 
 # Handle yearly, monthly, daily, or hourly partitioning.
 # See https://cloud.google.com/bigquery/docs/partitioned-tables.
-PARTITIONED_TABLE_REGEX = re.compile(r"^(.+)_(\d{4}|\d{6}|\d{8}|\d{10})$")
+PARTITIONED_TABLE_REGEX = re.compile(r"^(.+)\$(\d{4}|\d{6}|\d{8}|\d{10})$")
 
 BQ_DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 BQ_FILTER_RULE_TEMPLATE = """
