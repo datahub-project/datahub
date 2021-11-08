@@ -8,6 +8,7 @@ dependencies {
     compile project(':metadata-service:auth')
     compile project(':metadata-io')
     compile project(':metadata-utils')
+    compile project(':authentication')
 
     compile externalDependency.graphqlJava
     compile externalDependency.antlr4Runtime
@@ -28,6 +29,7 @@ graphqlCodegen {
         "$projectDir/src/main/resources/search.graphql".toString(),
         "$projectDir/src/main/resources/analytics.graphql".toString(),
         "$projectDir/src/main/resources/recommendation.graphql".toString(),
+        "$projectDir/src/main/resources/auth.graphql".toString(),
     ]
     outputDir = new File("$projectDir/src/mainGeneratedGraphQL/java")
     packageName = "com.linkedin.datahub.graphql.generated"

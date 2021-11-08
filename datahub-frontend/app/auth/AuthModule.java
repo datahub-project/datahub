@@ -83,11 +83,32 @@ public class AuthModule extends AbstractModule {
         return manager;
     }
 
+    @Provides @Singleton
+    protected AuthClient provideAuthClient() {
+        // Init a GMS auth client
+        // TODO: Pull GMS host and port into here.
+        AuthClient client = null;
+        if (isGmsAuthEnabled(_configs)) {
+            String systemClientId = _configs.getString("systemClientId");
+            String systemSecret = _configs.getString("systemSecret");
+            client = new AuthClient(systemClientId, systemSecret);
+        }
+        return client;
+    }
+
     protected boolean isSsoEnabled(com.typesafe.config.Config configs) {
         // If OIDC is enabled, we infer SSO to be enabled.
         return configs.hasPath(OIDC_ENABLED_CONFIG_PATH)
             && Boolean.TRUE.equals(
             Boolean.parseBoolean(configs.getString(OIDC_ENABLED_CONFIG_PATH)));
+    }
+
+
+    protected boolean isGmsAuthEnabled(com.typesafe.config.Config configs) {
+        // If OIDC is enabled, we infer SSO to be enabled.
+        return configs.hasPath("gms.auth.enabled")
+            && Boolean.TRUE.equals(
+            Boolean.parseBoolean(configs.getString("gms.auth.enabled")));
     }
 }
 

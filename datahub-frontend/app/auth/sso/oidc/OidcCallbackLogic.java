@@ -1,5 +1,7 @@
 package auth.sso.oidc;
 
+import auth.AuthClient;
+import auth.AuthUtils;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.CorpGroupUrnArray;
 import com.linkedin.common.CorpuserUrnArray;
@@ -75,9 +77,11 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
   private final EntityClient _entityClient = GmsClientFactory.getEntitiesClient();
   private final AspectClient _aspectClient = GmsClientFactory.getAspectsClient();
   private final SsoManager _ssoManager;
+  private final AuthClient _authClient;
 
-  public OidcCallbackLogic(final SsoManager ssoManager) {
+  public OidcCallbackLogic(final SsoManager ssoManager, final AuthClient authClient) {
     _ssoManager = ssoManager;
+    _authClient = authClient;
   }
 
   @Override
@@ -146,6 +150,9 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
         return internalServerError(String.format("Failed to perform post authentication steps. Error message: %s", e.getMessage()));
       }
 
+      // Generate GMS login token
+      final String token = AuthUtils.generateGmsSessionToken(this._authClient, corpUserUrn.toString());
+      context.getJavaSession().put("token",  token);
       context.getJavaSession().put(ACTOR, corpUserUrn.toString());
       return result.withCookies(createActorCookie(corpUserUrn.toString(), oidcConfigs.getSessionTtlInHours()));
     }

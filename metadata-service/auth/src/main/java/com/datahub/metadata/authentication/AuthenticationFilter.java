@@ -44,12 +44,15 @@ public class AuthenticationFilter implements Filter {
     AuthenticationResult result = this.chain.authenticate(context);
     if (AuthenticationResult.Type.SUCCESS.equals(result.type())) {
       // Successfully authenticated.
+      System.out.println(String.format("Setting authentication context %s", result.authentication().getCredentials()));
+
       AuthenticationContext.setAuthentication(result.authentication());
       chain.doFilter(request, response);
     } else {
       // Reject request
       // TODO: Return 401.
       ((HttpServletResponse) response).sendError(HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized to perform this action.");
+      return;
     }
     AuthenticationContext.remove();
   }

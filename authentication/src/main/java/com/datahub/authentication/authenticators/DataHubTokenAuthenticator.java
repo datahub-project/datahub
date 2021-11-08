@@ -4,8 +4,8 @@ import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authentication.AuthenticationResult;
 import com.datahub.authentication.Authenticator;
-import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.Jwts;
+import com.datahub.authentication.token.DataHubAccessTokenClaims;
+import com.datahub.authentication.token.DataHubTokenService;
 import java.util.Collections;
 import java.util.Map;
 
@@ -17,20 +17,13 @@ import static com.datahub.authentication.Constants.*;
  */
 public class DataHubTokenAuthenticator implements Authenticator {
 
-  private static final String ACTOR_URN_CLAIM = "actorUrn";
-  private static final String HS_256 = "HS256";
-
-  private String signingKey;
-  private String signingAlgorithm; // Supported are HS256
+  private DataHubTokenService tokenService;
 
   @Override
   public void init(final Map<String, Object> config) {
-    this.signingKey = (String) config.getOrDefault("signing_key", "YouKnowNothing");
-    this.signingAlgorithm = (String) config.getOrDefault("signing_alg", "HS256");
-    if (!HS_256.equals(this.signingAlgorithm)) {
-      throw new UnsupportedOperationException(
-          String.format("Failed to create token authenticator. Unsupported signing algorithm %s", this.signingAlgorithm));
-    }
+    final String signingKey = (String) config.getOrDefault("signing_key", "YouKnowNothing");
+    final String signingAlgorithm = (String) config.getOrDefault("signing_alg", "HS256");
+    this.tokenService = new DataHubTokenService(signingKey, signingAlgorithm, "datahubapp");
   }
 
   @Override
@@ -38,7 +31,8 @@ public class DataHubTokenAuthenticator implements Authenticator {
     final String authorizationHeader = context.headers().get("Authorization"); // Case insensitive
     if (authorizationHeader != null) {
       if (authorizationHeader.startsWith("Bearer ") || authorizationHeader.startsWith("bearer ")) {
-        return validateAndExtract(authorizationHeader.substring(7));
+        final String token = authorizationHeader.substring(7);
+        return validateAndExtract(token);
       } else {
         return FAILURE_AUTHENTICATION_RESULT; // TODO: Qualify this further.
       }
@@ -46,25 +40,21 @@ public class DataHubTokenAuthenticator implements Authenticator {
     return FAILURE_AUTHENTICATION_RESULT;
   }
 
-  private AuthenticationResult validateAndExtract(final String authorizationHeader) {
-    final String token = authorizationHeader.substring(7);
-    final Claims claims = (Claims) Jwts.parserBuilder()
-        .setSigningKey(this.signingKey)
-        .build()
-        .parse(token)
-        .getBody();
-    final String actorUrn = claims.get(ACTOR_URN_CLAIM, String.class);
-    if (actorUrn != null && actorUrn.length() > 0) {
+  private AuthenticationResult validateAndExtract(final String token) {
+    try {
+      final DataHubAccessTokenClaims claims = this.tokenService.validateAccessToken(token);
       return new AuthenticationResult(
           AuthenticationResult.Type.SUCCESS,
           new Authentication(
-              authorizationHeader,
-              actorUrn,
+              token,
+              claims.getActorUrn(),
               null,
               Collections.emptySet(),
-              claims)
+              Collections.emptyMap())
       );
+    } catch (Exception e) {
+      // Failed to validate the token
+      return FAILURE_AUTHENTICATION_RESULT;
     }
-    return FAILURE_AUTHENTICATION_RESULT;
   }
 }

@@ -107,6 +107,7 @@ public class Application extends Controller {
   @Security.Authenticated(Authenticator.class)
   public CompletableFuture<Result> proxy(String path) throws ExecutionException, InterruptedException {
     final String resolvedUri = PATH_REMAP.getOrDefault(request().uri(), request().uri());
+    final String authorizationHeaderValue = getAuthorizationHeader();
     return _ws.url(String.format("http://%s:%s%s", GMS_HOST, GMS_PORT, resolvedUri))
         .setMethod(request().method())
         .setHeaders(request()
@@ -115,9 +116,10 @@ public class Application extends Controller {
             .entrySet()
             .stream()
             .filter(entry -> !Http.HeaderNames.CONTENT_LENGTH.equals(entry.getKey()))
+            .filter(entry -> !Http.HeaderNames.AUTHORIZATION.equals(entry.getKey()))
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))
         )
-        .addHeader(Constants.ACTOR_HEADER_NAME, ctx().session().get(ACTOR)) // TODO: Replace with a token to GMS.
+        .addHeader("Authorization", authorizationHeaderValue)
         .setBody(new InMemoryBodyWritable(ByteString.fromByteBuffer(request().body().asBytes().asByteBuffer()), "application/json"))
         .execute()
         .thenApply(apiResponse -> {
@@ -129,6 +131,18 @@ public class Application extends Controller {
           final HttpEntity body = new HttpEntity.Strict(apiResponse.getBodyAsBytes(), Optional.ofNullable(apiResponse.getContentType()));
           return new Result(header, body);
         }).toCompletableFuture();
+  }
+
+  private String getAuthorizationHeader() {
+    // If the session cookie has an authorization token, use that. If there's an authorization header provided, simply
+    // use that.
+    String value = "";
+    if (ctx().session().containsKey("token")) {
+      value = "Bearer " + ctx().session().get("token");
+    } else if (request().getHeaders().contains("Authorization")) {
+      value = request().getHeaders().get("Authorization").get();
+    }
+    return value;
   }
 
   /**

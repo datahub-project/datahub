@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql;
 
+import com.datahub.authentication.token.DataHubTokenService;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.datahub.graphql.analytics.resolver.AnalyticsChartTypeResolver;
 import com.linkedin.datahub.graphql.analytics.resolver.GetChartsResolver;
@@ -38,6 +39,7 @@ import com.linkedin.datahub.graphql.generated.MLFeatureProperties;
 import com.linkedin.datahub.graphql.generated.MLPrimaryKey;
 import com.linkedin.datahub.graphql.generated.MLPrimaryKeyProperties;
 import com.linkedin.datahub.graphql.resolvers.MeResolver;
+import com.linkedin.datahub.graphql.resolvers.auth.GetAccessTokenResolver;
 import com.linkedin.datahub.graphql.resolvers.group.AddGroupMembersResolver;
 import com.linkedin.datahub.graphql.resolvers.group.CreateGroupResolver;
 import com.linkedin.datahub.graphql.resolvers.group.EntityCountsResolver;
@@ -149,6 +151,7 @@ public class GmsGraphQLEngine {
     private final EntityService entityService;
     private final GraphClient graphClient;
     private final RecommendationsService recommendationsService;
+    private final DataHubTokenService tokenService;
 
     private final DatasetType datasetType;
     private final CorpUserType corpUserType;
@@ -200,7 +203,7 @@ public class GmsGraphQLEngine {
     public final List<BrowsableEntityType<?>> browsableTypes;
 
     public GmsGraphQLEngine() {
-        this(null, null, null, null, null);
+        this(null, null, null, null, null, null);
     }
 
     public GmsGraphQLEngine(
@@ -208,14 +211,14 @@ public class GmsGraphQLEngine {
         final EntityService entityService,
         final GraphClient graphClient,
         final EntityClient entityClient,
-        final RecommendationsService recommendationsService
-
-        ) {
+        final RecommendationsService recommendationsService,
+        final DataHubTokenService tokenService) {
         this.analyticsService = analyticsService;
         this.entityService = entityService;
         this.graphClient = graphClient;
         this.entityClient = entityClient;
         this.recommendationsService = recommendationsService;
+        this.tokenService = tokenService;
 
         this.datasetType = new DatasetType(entityClient);
         this.corpUserType = new CorpUserType(entityClient);
@@ -294,6 +297,18 @@ public class GmsGraphQLEngine {
         return defaultSchemaString;
     }
 
+    public static String authSchema() {
+        String defaultSchemaString;
+        try {
+            InputStream is = Thread.currentThread().getContextClassLoader().getResourceAsStream(AUTH_SCHEMA_FILE);
+            defaultSchemaString = IOUtils.toString(is, StandardCharsets.UTF_8);
+            is.close();
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to find GraphQL Schema with name " + AUTH_SCHEMA_FILE, e);
+        }
+        return defaultSchemaString;
+    }
+
     public static String analyticsSchema() {
         String analyticsSchemaString;
         try {
@@ -355,6 +370,7 @@ public class GmsGraphQLEngine {
             .addSchema(entitySchema())
             .addSchema(searchSchema())
             .addSchema(appSchema())
+            .addSchema(authSchema())
             .addSchema(analyticsSchema())
             .addSchema(recommendationsSchema())
             .addDataLoaders(loaderSuppliers(loadableTypes))
@@ -444,6 +460,8 @@ public class GmsGraphQLEngine {
                 new ListRecommendationsResolver(recommendationsService))
             .dataFetcher("getEntityCounts",
                 new EntityCountsResolver(GmsClientFactory.getEntitiesClient()))
+            .dataFetcher("getAccessToken",
+                new GetAccessTokenResolver(tokenService))
         );
     }
 

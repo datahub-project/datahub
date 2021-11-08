@@ -1,5 +1,6 @@
 package controllers;
 
+import auth.AuthClient;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.urn.CorpuserUrn;
@@ -52,6 +53,9 @@ public class AuthenticationController extends Controller {
     private SsoManager _ssoManager;
 
     @Inject
+    AuthClient _authClient;
+
+    @Inject
     public AuthenticationController(@Nonnull Config configs) {
         _configs = configs;
         _jaasConfigs = new JAASConfigs(configs);
@@ -66,10 +70,12 @@ public class AuthenticationController extends Controller {
     @Nonnull
     public Result authenticate() {
 
+        // TODO: Call getAuthenticatedUser and then generate a session cookie for the UI if the user is authenticated.
+
         final Optional<String> maybeRedirectPath = Optional.ofNullable(ctx().request().getQueryString(AUTH_REDIRECT_URI_PARAM));
         final String redirectPath = maybeRedirectPath.orElse("/");
 
-        if (AuthUtils.isAuthenticated(ctx())) {
+        if (AuthUtils.hasValidSessionCookie(ctx())) {
             return redirect(redirectPath);
         }
 
@@ -84,6 +90,9 @@ public class AuthenticationController extends Controller {
         }
 
         // 3. If no auth enabled, fallback to using default user account & redirect.
+        // Generate GMS session token, TODO:
+        final String gmsToken = AuthUtils.generateGmsSessionToken(this._authClient, DEFAULT_ACTOR_URN.toString());
+        session().put("token", gmsToken);
         session().put(ACTOR, DEFAULT_ACTOR_URN.toString());
         return redirect(redirectPath).withCookies(createActorCookie(DEFAULT_ACTOR_URN.toString(), _configs.hasPath(SESSION_TTL_CONFIG_PATH)
                 ? _configs.getInt(SESSION_TTL_CONFIG_PATH)
@@ -124,9 +133,18 @@ public class AuthenticationController extends Controller {
             return badRequest(invalidCredsJson);
         }
 
-        final String actorUrn = new CorpuserUrn(username).toString();
-        ctx().session().put(ACTOR, actorUrn);
 
+        // Generate GMS session token,
+
+
+
+        final String actorUrn = new CorpuserUrn(username).toString();
+        final String gmsToken = AuthUtils.generateGmsSessionToken(this._authClient, actorUrn);
+
+        ctx().session().put(ACTOR, actorUrn);
+        if (gmsToken != null) {
+            ctx().session().put("token", gmsToken);
+        }
         return ok().withCookies(Http.Cookie.builder(ACTOR, actorUrn)
             .withHttpOnly(false)
             .withMaxAge(Duration.of(30, ChronoUnit.DAYS))

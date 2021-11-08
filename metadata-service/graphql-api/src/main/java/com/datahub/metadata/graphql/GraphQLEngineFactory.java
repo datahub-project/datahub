@@ -1,9 +1,11 @@
 package com.datahub.metadata.graphql;
 
+import com.datahub.authentication.token.DataHubTokenService;
 import com.linkedin.datahub.graphql.GmsGraphQLEngine;
 import com.linkedin.datahub.graphql.GraphQLEngine;
 import com.linkedin.datahub.graphql.analytics.service.AnalyticsService;
 import com.linkedin.entity.client.JavaEntityClient;
+import com.linkedin.gms.factory.auth.DataHubTokenServiceFactory;
 import com.linkedin.gms.factory.common.IndexConventionFactory;
 import com.linkedin.gms.factory.common.RestHighLevelClientFactory;
 import com.linkedin.gms.factory.recommendation.RecommendationServiceFactory;
@@ -22,7 +24,8 @@ import org.springframework.context.annotation.Import;
 
 
 @Configuration
-@Import({RestHighLevelClientFactory.class, IndexConventionFactory.class, RestliEntityClientFactory.class, RecommendationServiceFactory.class})
+@Import({RestHighLevelClientFactory.class, IndexConventionFactory.class, RestliEntityClientFactory.class, RecommendationServiceFactory.class,
+    DataHubTokenServiceFactory.class})
 public class GraphQLEngineFactory {
   @Autowired
   @Qualifier("elasticSearchRestHighLevelClient")
@@ -44,6 +47,10 @@ public class GraphQLEngineFactory {
   private RecommendationsService _recommendationsService;
 
   @Autowired
+  @Qualifier("dataHubTokenService")
+  private DataHubTokenService _tokenService;
+
+  @Autowired
   @Qualifier("graphClient")
   private GraphClient _graphClient;
 
@@ -59,9 +66,10 @@ public class GraphQLEngineFactory {
           _entityService,
           _graphClient,
           _entityClient,
-          _recommendationsService
+          _recommendationsService,
+          _tokenService
           ).builder().build();
     }
-    return new GmsGraphQLEngine(null, _entityService, _graphClient, _entityClient, _recommendationsService).builder().build();
+    return new GmsGraphQLEngine(null, _entityService, _graphClient, _entityClient, _recommendationsService, _tokenService).builder().build();
   }
 }

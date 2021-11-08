@@ -1,4 +1,4 @@
-package com.datahub.authentication;
+package com.linkedin.gms.factory.auth;
 
 import com.datahub.authentication.token.DataHubTokenService;
 import javax.annotation.Nonnull;
@@ -16,8 +16,8 @@ public class DataHubTokenServiceFactory {
     return new DataHubTokenService(
         "WnEdIeTG/VVCLQqGwC/BAkqyY0k+H8NEAtWGejrBI94=",
         "HS256",
-        6000000,
-        "acryl.io"
+        "datahubapp"
     );
   }
 }
+

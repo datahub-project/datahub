@@ -1,5 +1,6 @@
 package controllers;
 
+import auth.AuthClient;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import javax.inject.Inject;
@@ -25,13 +26,13 @@ import auth.sso.SsoProvider;
 @Slf4j
 public class SsoCallbackController extends CallbackController {
 
-  private SsoManager _ssoManager;
+  private final SsoManager _ssoManager;
 
   @Inject
-  public SsoCallbackController(SsoManager ssoManager) {
+  public SsoCallbackController(SsoManager ssoManager, AuthClient authClient) {
     _ssoManager = ssoManager;
     setDefaultUrl("/"); // By default, redirects to Home Page on log in.
-    setCallbackLogic(new SsoCallbackLogic(ssoManager));
+    setCallbackLogic(new SsoCallbackLogic(ssoManager, authClient));
   }
 
   public CompletionStage<Result> handleCallback(String protocol) {
@@ -50,8 +51,8 @@ public class SsoCallbackController extends CallbackController {
 
     private final OidcCallbackLogic _oidcCallbackLogic;
 
-    SsoCallbackLogic(final SsoManager ssoManager) {
-      _oidcCallbackLogic = new OidcCallbackLogic(ssoManager);
+    SsoCallbackLogic(final SsoManager ssoManager, final AuthClient authClient) {
+      _oidcCallbackLogic = new OidcCallbackLogic(ssoManager, authClient);
     }
 
     @Override

@@ -1,5 +1,6 @@
 package com.datahub.authentication;
 
+import com.datahub.authentication.token.DataHubAccessTokenType;
 import com.datahub.authentication.token.DataHubTokenService;
 import com.datahub.metadata.authentication.AuthenticationContext;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -13,13 +14,16 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.HttpClientErrorException;
 
 
 @Slf4j
 @RestController
-public class TokenServiceController {
+public class AuthServiceController {
+
+  private static final long SESSION_DURATION_MS = 2592000000L;  // 30 day session
 
   // DataHub frontend Client ID
   private static final String CLIENT_ID_CONFIG_PATH = "system_client_id";
@@ -33,8 +37,20 @@ public class TokenServiceController {
   @Inject
   ConfigProvider _configProvider;
 
-  @GetMapping(value = "/generateUserToken", produces = "application/json;charset=utf-8")
-  CompletableFuture<ResponseEntity<String>> generateTokenForUser(final HttpEntity<String> httpEntity) {
+  /**
+   * Returns the currently authenticated actor urn for a given request, assuming the request
+   * has been authenticated.
+   */
+  @GetMapping(value = "/getAuthenticatedActor", produces = "application/json;charset=utf-8")
+  CompletableFuture<ResponseEntity<String>> getAuthenticatedActor(final HttpEntity<String> httpEntity) {
+    return CompletableFuture.supplyAsync(() -> new ResponseEntity<>(AuthenticationContext.getAuthentication().getActorUrn(), HttpStatus.OK));
+  }
+
+  /**
+   * Generates a JWT access token for as user UI session.
+   */
+  @PostMapping(value = "/generateSessionToken", produces = "application/json;charset=utf-8")
+  CompletableFuture<ResponseEntity<String>> generateSessionToken(final HttpEntity<String> httpEntity) {
     String jsonStr = httpEntity.getBody();
     ObjectMapper mapper = new ObjectMapper();
     JsonNode bodyJson = null;
@@ -55,11 +71,12 @@ public class TokenServiceController {
       return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.BAD_REQUEST));
     }
 
+    final String actorUrn = AuthenticationContext.getAuthentication().getActorUrn();
     return CompletableFuture.supplyAsync(() -> {
       // 1. Verify that only those authorized to generate a token are able to.
-      if (isAuthorizedToGenerateUserToken()) {
+      if (isAuthorizedToGenerateSessionToken(actorUrn)) {
         // 2. Generate a new DataHub JWT
-        final String token = _tokenService.generateToken(userUrn.asText());
+        final String token = _tokenService.generateAccessToken(DataHubAccessTokenType.SESSION, userUrn.asText(), SESSION_DURATION_MS);
         return new ResponseEntity<>(buildTokenResponse(token), HttpStatus.OK);
       }
       throw HttpClientErrorException.create(HttpStatus.UNAUTHORIZED, "Unauthorized to perform this action.", new HttpHeaders(), null, null);
@@ -67,10 +84,8 @@ public class TokenServiceController {
   }
 
   // Currently only internal system is authorized to generate a user token!
-  private boolean isAuthorizedToGenerateUserToken() {
-    final Authentication authentication = AuthenticationContext.getAuthentication();
+  private boolean isAuthorizedToGenerateSessionToken(final String actorUrn) {
     final String systemActorUrn = (String) this._configProvider.getConfigOrDefault(CLIENT_ID_CONFIG_PATH, Constants.SYSTEM_ACTOR);
-    final String actorUrn = authentication.getActorUrn();
     return systemActorUrn.equals(actorUrn);
   }
 

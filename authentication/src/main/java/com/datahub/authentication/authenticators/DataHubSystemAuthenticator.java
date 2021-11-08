@@ -24,7 +24,7 @@ public class DataHubSystemAuthenticator implements Authenticator {
 
   @Override
   public void init(final Map<String, Object> config) {
-    this.systemClientId = (String) config.getOrDefault("system_secret", SYSTEM_ACTOR);
+    this.systemClientId = (String) config.getOrDefault("system_client_id", SYSTEM_ACTOR);
     this.systemSecret = (String) config.getOrDefault("system_secret", "YouKnowNothing");
   }
 

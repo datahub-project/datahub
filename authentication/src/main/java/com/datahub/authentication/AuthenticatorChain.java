@@ -5,6 +5,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
+import static com.datahub.authentication.Constants.*;
 
 
 /**
@@ -62,9 +63,10 @@ public class AuthenticatorChain {
           return result;
         }
       } catch (Exception e) {
+        // THIS IS DANERGOUS - IF ANY AUTHENTICATOR THROWS THE WHOLE CHAIN IS DESTROYED.
         // todo add logging.
-        throw e;
-        // return FAILURE_AUTHENTICATION_RESULT;
+        // log.error(e);
+        return FAILURE_AUTHENTICATION_RESULT;
       }
     }
     return result;
