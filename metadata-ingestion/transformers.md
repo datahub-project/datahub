@@ -324,6 +324,60 @@ def transform_one(self, mce: MetadataChangeEventClass) -> MetadataChangeEventCla
     return mce
 ```
 
+### More Sophistication: Making calls to DataHub during Transformation
+
+In some advanced cases, you might want to check with DataHub before performing a transformation. A good example for this might be retrieving the current set of owners of a dataset before providing the new set of owners during an ingestion process. To allow transformers to always be able to query the graph, the framework provides them access to the graph through the context object `ctx`. Connectivity to the graph is automatically instantiated anytime the pipeline uses a REST sink. In case you are using the Kafka sink, you can additionally provide access to the graph by configuring it in your pipeline. 
+
+Here is an example of a recipe that uses Kafka as the sink, but provides access to the graph by explicitly configuring the `datahub_api`. 
+
+```yaml
+source:
+  type: mysql
+  config: 
+     # ..source configs
+     
+sink: 
+  type: datahub-kafka
+  config:
+     connection:
+        bootstrap: localhost:9092
+	schema_registry_url: "http://localhost:8081"
+
+datahub_api:
+  server: http://localhost:8080
+  # standard configs accepted by datahub rest client ... 
+```
+
+#### Advanced Use-Case: Patching Owners
+
+With the above capability, we can now build more powerful transformers that can check with the server-side state before issuing changes in metadata. 
+e.g. Here is how the AddDatasetOwnership transformer can now support PATCH semantics by ensuring that it never deletes any owners that are stored on the server. 
+
+```python
+def transform_one(self, mce: MetadataChangeEventClass) -> MetadataChangeEventClass:
+        if not isinstance(mce.proposedSnapshot, DatasetSnapshotClass):
+            return mce
+        owners_to_add = self.config.get_owners_to_add(mce.proposedSnapshot)
+        if owners_to_add:
+            ownership = builder.get_or_add_aspect(
+                mce,
+                OwnershipClass(
+                    owners=[],
+                ),
+            )
+            ownership.owners.extend(owners_to_add)
+
+            if self.config.semantics == Semantics.PATCH:
+                assert self.ctx.graph
+                patch_ownership = AddDatasetOwnership.get_ownership_to_set(
+                    self.ctx.graph, mce.proposedSnapshot.urn, ownership
+                )
+                builder.set_aspect(
+                    mce, aspect=patch_ownership, aspect_type=OwnershipClass
+                )
+        return mce
+```
+
 ### Installing the package
 
 Now that we've defined the transformer, we need to make it visible to DataHub. The easiest way to do this is to just place it in the same directory as your recipe, in which case the module name is the same as the file – in this case, `custom_transform_example`.

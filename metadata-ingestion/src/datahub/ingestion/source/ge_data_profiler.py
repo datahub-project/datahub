@@ -355,7 +355,10 @@ class DatahubGEProfiler:
                     for request in requests
                 ]
 
-                for async_profile in concurrent.futures.as_completed(async_profiles):
+                # Avoid using as_completed so that the results are yielded in the
+                # same order as the requests.
+                # for async_profile in concurrent.futures.as_completed(async_profiles):
+                for async_profile in async_profiles:
                     yield async_profile.result()
 
             logger.info(

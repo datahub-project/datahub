@@ -43,6 +43,7 @@ framework_common = {
     "python-dateutil>=2.8.0",
     "stackprinter",
     "tabulate",
+    "progressbar2",
 }
 
 kafka_common = {
@@ -102,7 +103,7 @@ plugins: Dict[str, Set[str]] = {
         "acryl-pyhive[hive]>=0.6.11"
     },
     "kafka": kafka_common,
-    "kafka-connect": sql_common | {"requests"},
+    "kafka-connect": sql_common | {"requests","JPype1"},
     "ldap": {"python-ldap>=2.4"},
     "looker": looker_common,
     "lookml": looker_common | {"lkml>=1.1.0", "sql-metadata==2.2.2"},
@@ -218,6 +219,7 @@ dev_requirements_airflow_1 = {
     "apache-airflow==1.10.15",
     "apache-airflow-backport-providers-snowflake",
     "snowflake-sqlalchemy<=1.2.4",  # make constraint consistent with extras
+    "WTForms==2.3.3", # make constraint consistent with extras
 }
 
 full_test_dev_requirements = {
@@ -234,6 +236,7 @@ full_test_dev_requirements = {
             "mariadb",
             "snowflake",
             "redash",
+            "kafka-connect"
         ]
         for dependency in plugins[plugin]
     ),
