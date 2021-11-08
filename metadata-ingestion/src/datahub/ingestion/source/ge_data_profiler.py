@@ -255,8 +255,8 @@ class _DatasetProfiler(BasicDatasetProfilerBase):
         ).result
         return [str(v) for v in res["partial_unexpected_list"]]
 
-    @classmethod
-    def generate_dataset_profile(  # noqa: C901 (complexity)
+    @classmethod  # noqa: C901 (complexity)
+    def generate_dataset_profile(
         cls,
         dataset: Dataset,
         dataset_name: str,
