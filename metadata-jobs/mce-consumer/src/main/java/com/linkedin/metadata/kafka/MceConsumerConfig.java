@@ -12,10 +12,10 @@ import org.springframework.web.bind.annotation.ResponseBody;
 
 @Controller
 @Import(GitVersionFactory.class)
-public class MaeConsumerConfig {
+public class MceConsumerConfig {
   private final Map<String, String> config;
 
-  public MaeConsumerConfig(GitVersion gitVersion) {
+  public MceConsumerConfig(GitVersion gitVersion) {
     config = new HashMap<>();
     config.put("noCode", "true");
 
