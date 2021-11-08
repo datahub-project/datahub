@@ -203,13 +203,34 @@ class _DatasetProfiler(BasicDatasetProfilerBase):
     @classmethod
     def _get_dataset_column_quantiles(
         cls, dataset: Dataset, column: str
-    ) -> List[QuantileClass]:
-        quantiles = [0.05, 0.25, 0.5, 0.75, 0.95]
-        values = dataset.get_column_quantiles(column, tuple(quantiles))
-        return [
-            QuantileClass(quantile=str(quantile), value=str(value))
-            for quantile, value in zip(quantiles, values)
-        ]
+    ) -> Optional[List[QuantileClass]]:
+        # FIXME: Eventually we'd like to switch to using the quantile method directly.
+        # values = dataset.get_column_quantiles(column, tuple(quantiles))
+
+        dataset.set_config_value("interactive_evaluation", True)
+
+        res = dataset.expect_column_quantile_values_to_be_between(
+            column,
+            quantile_ranges={
+                "quantiles": [0.05, 0.25, 0.5, 0.75, 0.95],
+                "value_ranges": [
+                    [None, None],
+                    [None, None],
+                    [None, None],
+                    [None, None],
+                    [None, None],
+                ],
+            },
+        ).result
+        if "observed_value" in res:
+            return [
+                QuantileClass(quantile=str(quantile), value=str(value))
+                for quantile, value in zip(
+                    res["observed_value"]["quantiles"],
+                    res["observed_value"]["values"],
+                )
+            ]
+        return None
 
     @classmethod
     def _get_dataset_column_distinct_value_frequencies(
@@ -546,7 +567,7 @@ class DatahubGEProfiler:
                 logger.warning(
                     f"Encountered exception {e}\nwhile profiling {pretty_name}"
                 )
-                self.report.report_warning(pretty_name, f"Exception {e}")
+                self.report.report_failure(pretty_name, f"Exception {e}")
                 return None
 
     def _get_ge_dataset(
