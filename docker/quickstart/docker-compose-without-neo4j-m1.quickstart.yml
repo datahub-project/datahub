@@ -37,8 +37,7 @@ services:
     - ELASTIC_CLIENT_HOST=elasticsearch
     - ELASTIC_CLIENT_PORT=9200
     hostname: datahub-frontend-react
-    #image: linkedin/datahub-frontend-react:${DATAHUB_VERSION:-head}
-    image: treff7es/datahub-frontend:latest
+    image: linkedin/datahub-frontend-react:${DATAHUB_VERSION:-head}
     ports:
     - 9002:9002
   datahub-gms:
@@ -62,7 +61,7 @@ services:
     - MAE_CONSUMER_ENABLED=true
     - MCE_CONSUMER_ENABLED=true
     hostname: datahub-gms
-    image: treff7es/datahub-gms:latest
+    image: linkedin/datahub-gms:${DATAHUB_VERSION:-head}
     ports:
     - 8080:8080
   elasticsearch:
@@ -104,8 +103,7 @@ services:
     - KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181
     - KAFKA_BOOTSTRAP_SERVER=broker:29092
     hostname: kafka-setup
-    #image: linkedin/datahub-kafka-setup:${DATAHUB_VERSION:-head}
-    image: treff7es/kafka-setup:latest
+    image: linkedin/datahub-kafka-setup:${DATAHUB_VERSION:-head}
   mysql:
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_bin
     container_name: mysql
@@ -142,7 +140,6 @@ services:
     - SCHEMA_REGISTRY_HOST_NAME=schemaregistry
     - SCHEMA_REGISTRY_KAFKASTORE_CONNECTION_URL=zookeeper:2181
     hostname: schema-registry
-    #image: confluentinc/cp-schema-registry:5.4.0
     image: eugenetea/schema-registry-arm64:latest
     ports:
     - 8081:8081

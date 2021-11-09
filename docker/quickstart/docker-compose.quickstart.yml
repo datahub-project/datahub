@@ -117,7 +117,7 @@ services:
     - MYSQL_PASSWORD=datahub
     - MYSQL_ROOT_PASSWORD=datahub
     hostname: mysql
-    image: mariadb:10.5.8
+    image: mysql:5.7
     ports:
     - 3306:3306
     volumes:
@@ -142,7 +142,7 @@ services:
     - NEO4J_dbms_default__database=graph.db
     - NEO4J_dbms_allow__upgrade=true
     hostname: neo4j
-    image: neo4j/neo4j-arm64-experimental:4.0.6-arm64
+    image: neo4j:4.0.6
     ports:
     - 7474:7474
     - 7687:7687
