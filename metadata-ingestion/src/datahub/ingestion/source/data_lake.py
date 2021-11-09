@@ -1,14 +1,11 @@
 import dataclasses
 import os
 from dataclasses import field as dataclass_field
-from typing import Any, Dict, List, Optional
 from enum import Enum
-from datahub.ingestion.api.common import PipelineContext
-
-from pyspark.sql import SparkSession, Row
-import pydeequ
+from typing import Any, Dict, Iterable, List, Optional
 
 import pydantic
+import pydeequ
 from pydeequ.analyzers import (
     AnalysisRunner,
     ApproxCountDistinct,
@@ -20,13 +17,16 @@ from pydeequ.analyzers import (
     Maximum,
     Mean,
     Minimum,
+    Size,
     StandardDeviation,
     UniqueValueRatio,
-    Size,
 )
+from pyspark.sql import Row, SparkSession
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 
 
 class DataLakeSourceConfig(ConfigModel):
@@ -83,7 +83,7 @@ class DataLakeSource(Source):
     report = DataLakeSourceReport()
 
     def __init__(self, config: DataLakeSourceConfig, ctx: PipelineContext):
-        super().__init__(config, ctx)
+        super().__init__(ctx)
         self.source_config = config
 
         self.spark = (SparkSession
@@ -91,6 +91,11 @@ class DataLakeSource(Source):
             .config("spark.jars.packages", pydeequ.deequ_maven_coord)
             .config("spark.jars.excludes", pydeequ.f2j_maven_coord)
             .getOrCreate())
+        
+    @classmethod
+    def create(cls, config_dict, ctx):
+        config = DataLakeSourceConfig.parse_obj(config_dict)
+        return cls(config, ctx)
 
     def read_file(self, file: str, file_type:FileType):
         
@@ -116,3 +121,12 @@ class DataLakeSource(Source):
             analyzer.addAnalyzer(Completeness(column))
 
         analyzer_result = analyzer.run()
+
+    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+        return []
+
+    def get_report(self):
+        return self.report
+
+    def close(self):
+        pass
