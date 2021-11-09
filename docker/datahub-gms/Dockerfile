@@ -28,9 +28,6 @@ FROM --platform=$BUILDPLATFORM alpine:3.14.2 AS prod-build
 RUN apk --no-cache --update-cache --available upgrade \
     && apk --no-cache add openjdk8 perl
 
-#RUN export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-$(arch)
-#RUN export PATH=$PATH:$JAVA_HOME/bin
-
 COPY . /datahub-src
 RUN cd /datahub-src && ./gradlew :metadata-service:war:build -x test
 RUN cp /datahub-src/metadata-service/war/build/libs/war.war /war.war
