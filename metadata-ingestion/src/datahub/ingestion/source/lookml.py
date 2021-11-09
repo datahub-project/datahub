@@ -1,4 +1,5 @@
 import glob
+import importlib
 import itertools
 import logging
 import pathlib
@@ -8,15 +9,16 @@ from dataclasses import dataclass
 from dataclasses import field as dataclass_field
 from dataclasses import replace
 from enum import Enum
-from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Type
 
 import pydantic
+
+from datahub.utilities.sql_parser import SQLParser
 
 if sys.version_info >= (3, 7):
     import lkml
 else:
     raise ModuleNotFoundError("The lookml plugin requires Python 3.7 or newer.")
-from sql_metadata import Parser as SQLParser
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration import ConfigModel
@@ -66,6 +68,7 @@ class LookMLSourceConfig(ConfigModel):
     view_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
     env: str = builder.DEFAULT_ENV
     parse_table_names_from_sql: bool = False
+    sql_parser: str = "datahub.utilities.sql_parser.DefaultSQLParser"
 
 
 @dataclass
@@ -252,8 +255,23 @@ class LookerView:
     fields: List[ViewField]
 
     @classmethod
-    def _get_sql_table_names(cls, sql: str) -> List[str]:
-        sql_table_names: List[str] = SQLParser(sql).tables
+    def _import_sql_parser_cls(cls, sql_parser_path: str) -> Type[SQLParser]:
+        assert "." in sql_parser_path, "sql_parser-path must contain a ."
+        module_name, cls_name = sql_parser_path.rsplit(".", 1)
+        import sys
+
+        logger.info(sys.path)
+        parser_cls = getattr(importlib.import_module(module_name), cls_name)
+        if not issubclass(parser_cls, SQLParser):
+            raise ValueError(f"must be derived from {SQLParser}; got {parser_cls}")
+
+        return parser_cls
+
+    @classmethod
+    def _get_sql_table_names(cls, sql: str, sql_parser_path: str) -> List[str]:
+        parser_cls = cls._import_sql_parser_cls(sql_parser_path)
+
+        sql_table_names: List[str] = parser_cls(sql).get_tables()
 
         # Remove quotes from table names
         sql_table_names = [t.replace('"', "") for t in sql_table_names]
@@ -290,6 +308,7 @@ class LookerView:
         looker_viewfile_loader: LookerViewFileLoader,
         reporter: LookMLSourceReport,
         parse_table_names_from_sql: bool = False,
+        sql_parser_path: str = "datahub.utilities.sql_parser.DefaultSQLParser",
     ) -> Optional["LookerView"]:
         view_name = looker_view["name"]
         logger.debug(f"Handling view {view_name}")
@@ -330,7 +349,9 @@ class LookerView:
             sql_table_names = []
             if parse_table_names_from_sql and "sql" in derived_table:
                 # Get the list of tables in the query
-                sql_table_names = cls._get_sql_table_names(derived_table["sql"])
+                sql_table_names = cls._get_sql_table_names(
+                    derived_table["sql"], sql_parser_path
+                )
 
             return LookerView(
                 absolute_file_path=looker_viewfile.absolute_file_path,
@@ -686,6 +707,7 @@ class LookMLSource(Source):
                                 viewfile_loader,
                                 self.reporter,
                                 self.source_config.parse_table_names_from_sql,
+                                self.source_config.sql_parser,
                             )
                         except Exception as e:
                             self.reporter.report_warning(

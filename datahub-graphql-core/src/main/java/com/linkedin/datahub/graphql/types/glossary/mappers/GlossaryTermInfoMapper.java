@@ -33,6 +33,9 @@ public class GlossaryTermInfoMapper implements ModelMapper<com.linkedin.glossary
         if (glossaryTermInfo.hasCustomProperties()) {
             glossaryTermInfoResult.setCustomProperties(StringMapMapper.map(glossaryTermInfo.getCustomProperties()));
         }
+        if (glossaryTermInfo.hasRawSchema()) {
+            glossaryTermInfoResult.setRawSchema(glossaryTermInfo.getRawSchema());
+        }
         return glossaryTermInfoResult;
     }
 }

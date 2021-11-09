@@ -5,9 +5,9 @@ import com.linkedin.metadata.key.GlossaryTermKey
 import com.linkedin.common.Ownership
 import com.linkedin.common.Status
 import com.linkedin.common.BrowsePaths
-
+import com.linkedin.glossary.GlossaryRelatedTerms
 
 /**
  * A union of all supported metadata aspects for a CorpUser
  */
-typeref GlossaryTermAspect = union[GlossaryTermKey, GlossaryTermInfo, Ownership, Status,BrowsePaths]
+typeref GlossaryTermAspect = union[GlossaryTermKey, GlossaryTermInfo, Ownership, Status,BrowsePaths, GlossaryRelatedTerms]
