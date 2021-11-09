@@ -16,3 +16,8 @@ entities:
       - corpUserInfo
       - corpUserEditableInfo
       - corpUserStatus
+  - name: ingestionSource
+    keyAspect: ingestionSourceKey
+    aspects:
+      - ingestionSourceProperties
+      - ingestionSourceRecipe

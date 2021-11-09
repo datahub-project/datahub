@@ -1,0 +1,27 @@
+namespace com.linkedin.ingestion
+
+import com.linkedin.common.AuditStamp
+import com.linkedin.common.Urn
+
+/**
+ * Recipe associated with an ingestion source of type RECIPE.
+ */
+@Aspect = {
+  "name": "ingestionSourceRecipe"
+}
+record IngestionSourceRecipe {
+  /**
+   * An encrypted version of the JSON representation of an ingestion recipe
+   */
+  recipe: string
+
+  /**
+   * An optional platform URN associated with the recipe
+   */
+  platform: optional Urn
+
+  /**
+   * Audit stamp regarding creation of the ingestion source
+   */
+  lastModified: AuditStamp
+}

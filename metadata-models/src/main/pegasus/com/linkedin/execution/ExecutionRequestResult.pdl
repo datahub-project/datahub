@@ -1,0 +1,24 @@
+namespace com.linkedin.execution
+
+/**
+ * The result of an execution request
+ */
+@Aspect = {
+  "name": "executionRequestResult"
+}
+record ExecutionRequestResult {
+  /**
+  * The result
+  */
+  result: string
+
+  /**
+  * Time at which the request was created
+  */
+  startedAt: long
+
+ /**
+  * Duration in milliseconds
+  */
+  durationMs: long
+}
