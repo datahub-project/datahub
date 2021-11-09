@@ -5,20 +5,11 @@ FROM --platform=$BUILDPLATFORM alpine:3.14 AS base
 
 RUN addgroup -S datahub && adduser -S datahub -G datahub
 
-RUN \
-    echo "@main http://dl-cdn.alpinelinux.org/alpine/v${ALPINE_VERSION}/main" >> /etc/apk/repositories && \
-    echo "@community http://dl-cdn.alpinelinux.org/alpine/v${ALPINE_VERSION}/community" >> /etc/apk/repositories && \
-    echo "@edge http://dl-cdn.alpinelinux.org/alpine/edge/main" >> /etc/apk/repositories
-
 # Upgrade Alpine and base packages
 RUN apk --no-cache --update-cache --available upgrade \
     && apk --no-cache add curl openjdk8-jre
 
 FROM --platform=$BUILDPLATFORM node:16.13.0-alpine3.14 AS prod-build
-RUN \
-    echo "@main http://dl-cdn.alpinelinux.org/alpine/v${ALPINE_VERSION}/main" >> /etc/apk/repositories && \
-    echo "@community http://dl-cdn.alpinelinux.org/alpine/v${ALPINE_VERSION}/community" >> /etc/apk/repositories && \
-    echo "@edge http://dl-cdn.alpinelinux.org/alpine/edge/main" >> /etc/apk/repositories
 
 # Upgrade Alpine and base packages
 RUN apk --no-cache --update-cache --available upgrade \

@@ -5,12 +5,6 @@ FROM --platform=$BUILDPLATFORM alpine:3.14.2 AS base
 
 ENV DOCKERIZE_VERSION v0.6.1
 
-# Add tagged repos as well as the edge repo so that we can selectively install edge packages
-RUN \
-    echo "@main http://dl-cdn.alpinelinux.org/alpine/v${ALPINE_VERSION}/main" >> /etc/apk/repositories && \
-    echo "@community http://dl-cdn.alpinelinux.org/alpine/v${ALPINE_VERSION}/community" >> /etc/apk/repositories && \
-    echo "@edge http://dl-cdn.alpinelinux.org/alpine/edge/main" >> /etc/apk/repositories
-
 # Upgrade Alpine and base packages
 RUN apk --no-cache --update-cache --available upgrade \
     && if [ $(arch) = "aarch64" ]; then \
@@ -29,10 +23,6 @@ RUN apk --no-cache --update-cache --available upgrade \
     && curl -L https://github.com/treff7es/dockerize/releases/download/$DOCKERIZE_VERSION/dockerize-linux-${DOCKERIZE_ARCH}-$DOCKERIZE_VERSION.tar.gz | tar -C /usr/local/bin -xzv
 
 FROM --platform=$BUILDPLATFORM alpine:3.14.2 AS prod-build
-RUN \
-    echo "@main http://dl-cdn.alpinelinux.org/alpine/v${ALPINE_VERSION}/main" >> /etc/apk/repositories && \
-    echo "@community http://dl-cdn.alpinelinux.org/alpine/v${ALPINE_VERSION}/community" >> /etc/apk/repositories && \
-    echo "@edge http://dl-cdn.alpinelinux.org/alpine/edge/main" >> /etc/apk/repositories
 
 # Upgrade Alpine and base packages
 RUN apk --no-cache --update-cache --available upgrade \
