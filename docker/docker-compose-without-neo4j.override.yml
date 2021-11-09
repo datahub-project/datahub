@@ -4,7 +4,7 @@ services:
   mysql:
     container_name: mysql
     hostname: mysql
-    image: mariadb:10.5.8
+    image: mysql:5.7
     env_file: mysql/env/docker.env
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_bin
     ports:
