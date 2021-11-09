@@ -9,9 +9,9 @@ create a new entity or add an aspect to an existing entity? Read [metadata-model
 these two concepts prior to making changes.
 
 We will outline what the experience of adding a new Entity should look like through a real example of adding the
-Dashboard Entity. If you want to extend an existing Entity, you can skip directly to Step 4.
+Dashboard Entity. If you want to extend an existing Entity, you can skip directly to [Step 4](#step_4).
 
-At a high level, an entity is made up of
+At a high level, an entity is made up of:
 
 1. a union of Aspects, or bundles of related metadata,
 2. a Key Aspect, which uniquely identifies an instance of an entity,
@@ -22,7 +22,7 @@ At a high level, an entity is made up of
 Now we'll walk through the steps required to create, ingest, and view your extensions to the metadata model. We will use
 the existing "Dashboard" entity for purposes of illustration.
 
-### Step 1: Define the Entity Key Aspect
+### <a name="step_1"></a>Step 1: Define the Entity Key Aspect
 
 A key represents the fields that uniquely identify the entity. For those familiar with DataHub’s legacy architecture,
 these fields were previously part of the Urn Java Class that was defined for each entity.
@@ -67,13 +67,13 @@ urn:li:dashboard:(<tool>,<id>)
 Because they are aspects, keys need to be annotated with an @Aspect annotation, This instructs DataHub that this struct
 can be a part of.
 
-The key can also be annotated with the two index annotations: @Searchable and @Relationship. This instructs DataHub
-infra to use the fields in the key to create relationships and index fields for search. See Step 4 for more details on
+The key can also be annotated with the two index annotations: @Relationship and @Searchable. This instructs DataHub
+infra to use the fields in the key to create relationships and index fields for search. See [Step 4](#step_4) for more details on
 the annotation model.
 
 **Constraints**: Note that each field in a Key Aspect MUST be of String or Enum type.
 
-### Step 2: Define custom aspects
+### <a name="step_2"></a>Step 2: Define custom aspects
 
 Some aspects, like Ownership and GlobalTags, are reusable across entities. They can be included in an entity’s set of
 aspects freely. To include attributes that are not included in an existing Aspect, a new Aspect must be created.
@@ -158,32 +158,31 @@ record DashboardInfo includes CustomProperties, ExternalReference {
 ```
 
 The Aspect has four key components: its properties, the @Aspect annotation, the @Searchable annotation and the
-@Relationship annotation. Let’s break down each of these.
+@Relationship annotation. Let’s break down each of these:
 
-- The Aspect’s properties. The record’s properties can be declared as a field on the record, or by including another
+- **Aspect properties**: The record’s properties can be declared as a field on the record, or by including another
   record in the Aspect’s definition (`record DashboardInfo includes CustomProperties, ExternalReference {`). Properties
   can be defined as PDL primitives, enums, records, or collections (
   see [pdl schema documentation](https://linkedin.github.io/rest.li/pdl_schema))
   references to other entities, of type Urn or optionally `<Entity>Urn`
-- The @Aspect annotation. This is used to declare that the record is an Aspect and can be included in an entity’s
-  Snapshot. Unlike the other two annotations, @Aspect is applied to the entire record rather than a specific field.
-  Note, you can mark an aspect as a timeseries aspect. Check out this [doc](metadata-model.md#timeseries-aspects) for
-  details.
-- The @Searchable annotation. This annotation can be applied to any primitive field or a map field to indicate that it
+- **@Aspect annotation**: Declares record is an Aspect and includes it in an entity’s Snapshot. Unlike the following 
+  two annotations, @Aspect is applied to the entire record, rather than a specific field.  Note, you can mark an aspect 
+  as a timeseries aspect. Check out this [doc](metadata-model.md#timeseries-aspects) for details.
+- **@Searchable annotation**: This annotation can be applied to any primitive field or a map field to indicate that it
   should be indexed in Elasticsearch and can be searched on. For a complete guide on using the search annotation, see
   the annotation docs further down in this document.
-- The @Relationship annotations. These annotations create edges between the Snapshot’s Urn and the destination of the
+- **@Relationship annotation**: These annotations create edges between the Snapshot’s Urn and the destination of the
   annotated field when the snapshots are ingested. @Relationship annotations must be applied to fields of type Urn. In
   the case of DashboardInfo, the `charts` field is an Array of Urns. The @Relationship annotation cannot be applied
   directly to an array of Urns. That’s why you see the use of an Annotation override (`”/*”:) to apply the @Relationship
   annotation to the Urn directly. Read more about overrides in the annotation docs further down on this page.
 
 After you create your Aspect, you need to add it into the Aspect Union of each entity you’d like to attach the aspect
-to. Refer back to Step 2 for how Aspects are added to Aspect Unions.
+to. Refer back to [Step 2](#step_2) for how Aspects are added to Aspect Unions.
 
 **Constraints**: Note that all aspects MUST be of type Record.
 
-### Step 3: Define the Entity Aspect Union
+### <a name="step_3"></a>Step 3: Define the Entity Aspect Union
 
 You must create an Aspect union to define what aspects an Entity is associated with. An aspect represents a related
 record of metadata about an entity. Any record appearing in the Union should be annotated with @Aspect.
@@ -213,16 +212,17 @@ typeref DashboardAspect = union[
 
 The first aspect will be by convention the Entity’s key aspect. Other aspects can be Dashboard specific, like
 DashboardInfo, or common, such as Ownership. This union can be extended over time as you expand the metadata model. You
-can include any existing type with the @Aspect annotation in your entity’s aspect union or create new ones- Step 4 goes
-into detail about how to create a new Aspect.
+can include any existing type with the @Aspect annotation in your entity’s aspect union or create new ones- The next step 
+goes into detail about how to create a new Aspect.
 
 To extend an existing entity, simply add your new Aspect to the Entity's list of aspect via the Aspect Union model.
 
-### Step 4: Define an Entity Snapshot
+### <a name="step_4"></a>Step 4: Define an Entity Snapshot
 
-The snapshot describes the format of how an entity is serialized for read and write operations to GMS, the generic
-metadata store. All snapshots have two fields, `urn` of type `Urn` and `snapshot`
-of type `union[Aspect1, Aspect2, ...]`.
+The snapshot describes the format of how an entity is serialized for read and write operations to GMS, the Generic
+Metadata Store. All snapshots have two fields:
+- `urn` of type `Urn` 
+- `snapshot` of type `union[Aspect1, Aspect2, ...]`.
 
 The snapshot needs an `@Entity` annotation with the entity’s name. The name is used for specifying entity type when
 searching, using autocomplete, etc.
@@ -255,7 +255,7 @@ record DashboardSnapshot {
 
 If you're extending an existing Entity, you can skip this step.
 
-### Step 5: Re-build DataHub to have access to your new or updated entity
+### <a name="step_5"></a>Step 5: Re-build DataHub to have access to your new or updated entity
 
 If you have updated any existing types or see an `Incompatible changes` warning when building, you will need to run
 `./gradlew :gms:impl:build -Prest.model.compatibility=ignore`
@@ -274,7 +274,7 @@ your new event using the local datahub cli.
 
 Now you are ready to start ingesting metadata for your new entity!
 
-### (Optional) Step 6: Extend the DataHub frontend to view your entity in GraphQL & React
+### <a name="step_6"></a>(Optional) Step 6: Extend the DataHub frontend to view your entity in GraphQL & React
 
 At the moment, custom React and Grapqhl code needs to be written to view your entity in GraphQL or React. For
 instructions on how to start extending the GraphQL graph, see [graphql docs](../../datahub-graphql-core/README.md). Once
@@ -283,7 +283,7 @@ UI.
 
 ## Metadata Annotations
 
-There are four core annotations that DataHub recognizes.
+There are four core annotations that DataHub recognizes:
 
 #### @Entity
 
