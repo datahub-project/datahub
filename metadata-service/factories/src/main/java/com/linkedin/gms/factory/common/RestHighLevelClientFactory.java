@@ -62,17 +62,12 @@ public class RestHighLevelClientFactory {
   @Bean(name = "elasticSearchRestHighLevelClient")
   @Nonnull
   protected RestHighLevelClient createInstance() {
-
-    System.out.println(
-        String.format("Hey we created it! %s %s %s %s %s", this.host, this.port, this.useSSL, this.username, this.password));
-
-
     RestClientBuilder restClientBuilder;
     if (useSSL) {
-      restClientBuilder = loadRestHttpsClient(host, port, pathPrefix, 1, connectionRequestTimeout, sslContext, username,
+      restClientBuilder = loadRestHttpsClient(host, port, pathPrefix, threadCount, connectionRequestTimeout, sslContext, username,
           password);
     } else {
-      restClientBuilder = loadRestHttpClient(host, port, pathPrefix, 1, connectionRequestTimeout);
+      restClientBuilder = loadRestHttpClient(host, port, pathPrefix, threadCount, connectionRequestTimeout);
     }
 
     return new RestHighLevelClient(restClientBuilder);
