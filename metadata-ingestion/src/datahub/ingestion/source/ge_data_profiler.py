@@ -321,10 +321,15 @@ class _DatasetProfiler(BasicDatasetProfilerBase):
             else:
                 non_null_count = None
 
-            unique_count = dataset.get_column_unique_count(column)
-            column_profile.uniqueCount = unique_count
-            if non_null_count is not None and non_null_count > 0:
-                column_profile.uniqueProportion = unique_count / non_null_count
+            try:
+                unique_count = dataset.get_column_unique_count(column)
+                column_profile.uniqueCount = unique_count
+                if non_null_count is not None and non_null_count > 0:
+                    column_profile.uniqueProportion = unique_count / non_null_count
+            except Exception:
+                logger.exception(
+                    f"Failed to get unique count for column {dataset_name}.{column}"
+                )
 
             if config.include_field_sample_values:
                 column_profile.sampleValues = cls._get_dataset_column_sample_values(
@@ -565,10 +570,8 @@ class DatahubGEProfiler:
             except Exception as e:
                 if not self.config.catch_exceptions:
                     raise e
-                logger.warning(
-                    f"Encountered exception {e}\nwhile profiling {pretty_name}"
-                )
-                self.report.report_failure(pretty_name, f"Exception {e}")
+                logger.exception(f"Encountered exception while profiling {pretty_name}")
+                self.report.report_failure(pretty_name, f"Profiling exception {e}")
                 return None
 
     def _get_ge_dataset(
