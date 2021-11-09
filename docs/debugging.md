@@ -153,7 +153,7 @@ Run the following script to remove all the containers and volumes created during
 This is related to a SQL column collation issue. The default collation we previously used (prior to Oct 26, 2021) for URN fields was case-insensitive (utf8mb4_unicode_ci). We've recently moved
 to deploying with a case-sensitive collation (utf8mb4_bin) by default. In order to update a deployment that was started before Oct 26, 2021 (v0.8.16 and below) to have the new collation, you must run this command against your SQL DB directly:
 
-```aidl
+```
 ALTER TABLE metadata_aspect_v2 CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_bin;
 ```
 
@@ -165,7 +165,7 @@ ingest additional metadata about the user. For that, you'll need to ingest some 
 For an example of a file that ingests user information, check out [single_mce.json](https://github.com/linkedin/datahub/blob/master/metadata-ingestion/examples/mce_files/single_mce.json), which ingests a single user object into DataHub. Notice that the "urn" field provided
 will need to align with the custom username you've provided in user.props file. For example, if your user.props file contains:
 
-```aidl
+```
 my-custom-user:my-custom-password
 ```
 
