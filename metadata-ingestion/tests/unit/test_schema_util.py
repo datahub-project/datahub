@@ -642,3 +642,20 @@ def test_key_schema_handling():
     assret_field_paths_match(fields, expected_field_paths)
     for f in fields:
         assert f.isPartOfKey
+
+
+def test_ignore_exceptions():
+    schema: str = """
+{
+  "name": "event_ts",
+  "type": {
+    "type": "long",
+    "logicalType": "timestamp-millis"
+  },
+  "tags": [
+    "business-timestamp"
+  ]
+}
+    """
+    fields: List[SchemaField] = avro_schema_to_mce_fields(schema, is_key_schema=False)
+    assert not fields

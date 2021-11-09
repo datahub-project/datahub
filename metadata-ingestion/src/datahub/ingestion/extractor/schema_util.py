@@ -421,10 +421,13 @@ class AvroToMceSchemaConverter:
         :return: An MCE SchemaField generator.
         """
         # Prefer the `parse` function over the deprecated `Parse` function.
-        avro_schema_parse_fn = getattr(avro.schema, "parse", "Parse")
-        avro_schema = avro_schema_parse_fn(avro_schema_string)
-        converter = cls(is_key_schema, default_nullable)
-        yield from converter._to_mce_fields(avro_schema)
+        try:
+            avro_schema_parse_fn = getattr(avro.schema, "parse", "Parse")
+            avro_schema = avro_schema_parse_fn(avro_schema_string)
+            converter = cls(is_key_schema, default_nullable)
+            yield from converter._to_mce_fields(avro_schema)
+        except Exception:
+            logger.exception(f"Failed to parse {avro_schema_string} to mce_fields.")
 
 
 # ------------------------------------------------------------------------------
