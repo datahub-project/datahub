@@ -646,16 +646,15 @@ def test_key_schema_handling():
 
 def test_ignore_exceptions():
     schema: str = """
+["string",
 {
   "name": "event_ts",
-  "type": {
-    "type": "long",
-    "logicalType": "timestamp-millis"
-  },
+  "type": "long",
+  "logicalType": "timestamp-millis",
   "tags": [
     "business-timestamp"
   ]
-}
+}]
     """
     fields: List[SchemaField] = avro_schema_to_mce_fields(schema, is_key_schema=False)
     assert not fields
