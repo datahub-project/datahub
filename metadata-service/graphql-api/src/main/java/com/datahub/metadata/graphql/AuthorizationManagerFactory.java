@@ -27,10 +27,10 @@ public class AuthorizationManagerFactory {
   @Qualifier("aspectClient")
   private AspectClient aspectClient;
 
-  @Value("${POLICY_CACHE_REFRESH_INTERVAL_SECONDS:120}")
+  @Value("${authorizationManager.cacheRefreshIntervalSecs}")
   private Integer policyCacheRefreshIntervalSeconds;
 
-  @Value("${AUTH_POLICIES_ENABLED:true}")
+  @Value("${authorizationManager.enabled:true}")
   private Boolean policiesEnabled;
 
   @Bean(name = "authorizationManager")
