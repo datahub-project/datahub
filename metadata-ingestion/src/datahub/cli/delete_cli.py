@@ -55,7 +55,7 @@ class DeletionResult:
 @click.option("-p", "--platform", required=False, type=str)
 @click.option("--entity_type", required=False, type=str, default="dataset")
 @click.option("--query", required=False, type=str)
-@click.option("-n", "--dry", required=False, is_flag=True)
+@click.option("-n", "--dry-run", required=False, is_flag=True)
 def delete(
     urn: str,
     force: bool,
@@ -64,7 +64,7 @@ def delete(
     platform: str,
     entity_type: str,
     query: str,
-    dry: bool,
+    dry_run: bool,
 ) -> None:
     """Delete a provided URN from datahub"""
 
@@ -87,7 +87,7 @@ def delete(
     # default query is set to "*" if not provided
     query = "*" if query is None else query
 
-    if not force and not soft and not dry:
+    if not force and not soft and not dry_run:
         click.confirm(
             "This will permanently delete data from DataHub. Do you want to continue?",
             abort=True,
@@ -100,11 +100,11 @@ def delete(
         deletion_result: DeletionResult = delete_one_urn(
             urn,
             soft=soft,
-            dry_run=dry,
+            dry_run=dry_run,
             cached_session_host=(session, host),
         )
 
-        if not dry:
+        if not dry_run:
             if deletion_result.num_records == 0:
                 click.echo(f"Nothing deleted for {urn}")
             else:
@@ -116,14 +116,14 @@ def delete(
         deletion_result = delete_with_filters(
             env=env,
             platform=platform,
-            dry_run=dry,
+            dry_run=dry_run,
             soft=soft,
             entity_type=entity_type,
             search_query=query,
             force=force,
         )
 
-    if not dry:
+    if not dry_run:
         message = "soft delete" if soft else "delete"
         click.echo(
             f"Took {(deletion_result.end_time_millis-deletion_result.start_time_millis)/1000.0} seconds to {message} {deletion_result.num_records} rows for {deletion_result.num_entities} entities"
