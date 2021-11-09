@@ -24,7 +24,7 @@ const DocumentationContainer = styled.div`
 export const DocumentationTab = () => {
     const { entityData } = useEntityData();
     const refetch = useRefetch();
-    const description = entityData?.editableProperties?.description || entityData?.description || '';
+    const description = entityData?.editableProperties?.description || entityData?.properties?.description || '';
     const links = entityData?.institutionalMemory?.elements || [];
 
     const routeToTab = useRouteToTab();
