@@ -13,6 +13,10 @@ buildscript {
   }
 }
 
+plugins {
+  id 'com.gorylenko.gradle-git-properties' version '2.3.1'
+}
+
 project.ext.spec = [
     'product' : [
         'pegasus' : [
@@ -138,10 +142,19 @@ allprojects {
 
 subprojects {
   apply plugin: 'maven'
+  apply plugin: 'com.gorylenko.gradle-git-properties'
 
   configurations.all {
     exclude group: "io.netty", module: "netty"
     exclude group: "log4j", module: "log4j"
+  }
+
+  gitProperties {
+    keys = ['git.commit.id','git.commit.id.describe','git.commit.time']
+    // using any tags (not limited to annotated tags) for "git.commit.id.describe" property
+    // see http://ajoberstar.org/grgit/grgit-describe.html for more info about the describe method and available parameters
+    // 'it' is an instance of org.ajoberstar.grgit.Grgit
+    customProperty 'git.commit.id.describe', { it.describe(tags: true) }
   }
 
   plugins.withType(JavaPlugin) {
