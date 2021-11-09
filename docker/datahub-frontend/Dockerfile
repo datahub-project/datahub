@@ -1,17 +1,26 @@
 # Defining environment
 ARG APP_ENV=prod
 
-FROM adoptopenjdk/openjdk8:alpine-jre as base
-RUN addgroup -S datahub && adduser -S datahub -G datahub
-RUN apk --no-cache add curl
+FROM --platform=$BUILDPLATFORM alpine:3.14 AS base
 
-FROM adoptopenjdk/openjdk8:alpine-slim as prod-build
-RUN apk --no-cache add perl
+RUN addgroup -S datahub && adduser -S datahub -G datahub
+
+# Upgrade Alpine and base packages
+RUN apk --no-cache --update-cache --available upgrade \
+    && apk --no-cache add curl openjdk8-jre
+
+FROM --platform=$BUILDPLATFORM node:16.13.0-alpine3.14 AS prod-build
+
+# Upgrade Alpine and base packages
+RUN apk --no-cache --update-cache --available upgrade \
+    && apk --no-cache add perl openjdk8
+
 ARG ENABLE_EMBER="false"
+ARG USE_SYSTEM_NODE="true"
 ENV CI=true
 ENV GRADLE_OPTS="-Xms256m -Xmx512m"
 COPY . datahub-src
-RUN cd datahub-src && ./gradlew :datahub-frontend:dist -PenableEmber=${ENABLE_EMBER} -x test -x yarnTest -x yarnLint \
+RUN cd datahub-src && ./gradlew :datahub-frontend:dist -PenableEmber=${ENABLE_EMBER} -PuseSystemNode=${USE_SYSTEM_NODE} -x test -x yarnTest -x yarnLint \
     && cp datahub-frontend/build/distributions/datahub-frontend.zip ../datahub-frontend.zip \
     && cd .. && rm -rf datahub-src && unzip datahub-frontend.zip
 
