@@ -19,6 +19,7 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ListResult;
 import com.linkedin.metadata.entity.RollbackResult;
 import com.linkedin.metadata.entity.RollbackRunResult;
+import com.linkedin.metadata.entity.ValidationUtils;
 import com.linkedin.metadata.event.EntityEventProducer;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
@@ -28,7 +29,6 @@ import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericAspectUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
-import com.linkedin.metadata.entity.ValidationUtils;
 import com.linkedin.mxe.MetadataAuditOperation;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -106,9 +106,8 @@ public class EbeanEntityService extends EntityService {
     });
 
     Map<EbeanAspectV2.PrimaryKey, EbeanAspectV2> batchGetResults = new HashMap<>();
-    Iterators.partition(dbKeys.iterator(), 500).forEachRemaining(
-        batch -> batchGetResults.putAll(_entityDao.batchGet(ImmutableSet.copyOf(batch)))
-    );
+    Iterators.partition(dbKeys.iterator(), 500)
+        .forEachRemaining(batch -> batchGetResults.putAll(_entityDao.batchGet(ImmutableSet.copyOf(batch))));
 
     batchGetResults.forEach((key, aspectEntry) -> {
       final Urn urn = toUrn(key.getUrn());
@@ -337,20 +336,8 @@ public class EbeanEntityService extends EntityService {
 
     if (emitMae) {
       log.debug(String.format("Producing MetadataAuditEvent for updated aspect %s, urn %s", aspectName, urn));
-      final MetadataChangeLog metadataChangeLog = new MetadataChangeLog();
-      metadataChangeLog.setEntityType(entityName);
-      metadataChangeLog.setEntityUrn(urn);
-      metadataChangeLog.setChangeType(ChangeType.UPSERT);
-      metadataChangeLog.setAspectName(aspectName);
-      metadataChangeLog.setAspect(GenericAspectUtils.serializeAspect(newValue));
-      metadataChangeLog.setSystemMetadata(result.newSystemMetadata);
-      if (oldValue != null) {
-        metadataChangeLog.setPreviousAspectValue(GenericAspectUtils.serializeAspect(oldValue));
-      }
-      if (result.oldSystemMetadata != null) {
-        metadataChangeLog.setPreviousSystemMetadata(result.oldSystemMetadata);
-      }
-      produceMetadataChangeLog(urn, aspectSpec, metadataChangeLog);
+      produceMetadataChangeLog(urn, entityName, aspectName, aspectSpec, oldValue, newValue, result.oldSystemMetadata,
+          result.newSystemMetadata, ChangeType.UPSERT);
     } else {
       log.debug(String.format("Skipped producing MetadataAuditEvent for updated aspect %s, urn %s. emitMAE is false.",
           aspectName, urn));
@@ -532,11 +519,11 @@ public class EbeanEntityService extends EntityService {
             : toAspectRecord(Urn.createFromString(previousAspect.getKey().getUrn()),
                 previousAspect.getKey().getAspect(), previousMetadata, getEntityRegistry());
 
-        return new RollbackResult(Urn.createFromString(urn), latestValue,
+        final Urn urnObj = Urn.createFromString(urn);
+        return new RollbackResult(urnObj, urnObj.getEntityType(), latest.getAspect(), latestValue,
             previousValue == null ? latestValue : previousValue, latestSystemMetadata,
             previousValue == null ? null : parseSystemMetadata(previousAspect.getSystemMetadata()),
-            previousAspect == null ? MetadataAuditOperation.DELETE : MetadataAuditOperation.UPDATE, isKeyAspect,
-            additionalRowsDeleted);
+            previousAspect == null ? ChangeType.DELETE : ChangeType.UPSERT, isKeyAspect, additionalRowsDeleted);
       } catch (URISyntaxException e) {
         e.printStackTrace();
       }
@@ -555,12 +542,18 @@ public class EbeanEntityService extends EntityService {
     aspectRows.forEach(aspectToRemove -> {
 
       RollbackResult result = deleteAspect(aspectToRemove.getUrn(), aspectToRemove.getAspectName(), runId);
-
       if (result != null) {
+        Optional<AspectSpec> aspectSpec = getAspectSpec(result.entityName, result.aspectName);
+        if (!aspectSpec.isPresent()) {
+          log.error("Issue while rolling back: unknown aspect {} for entity {}", result.entityName, result.aspectName);
+          return;
+        }
+
         rowsDeletedFromEntityDeletion.addAndGet(result.additionalRowsAffected);
         removedAspects.add(aspectToRemove);
-        produceMetadataAuditEvent(result.getUrn(), result.getOldValue(), result.getNewValue(),
-            result.getOldSystemMetadata(), result.getNewSystemMetadata(), result.getOperation());
+        produceMetadataChangeLog(result.getUrn(), result.getEntityName(), result.getAspectName(), aspectSpec.get(),
+            result.getOldValue(), result.getNewValue(), result.getOldSystemMetadata(), result.getNewSystemMetadata(),
+            result.getChangeType());
       }
     });
 
@@ -581,8 +574,12 @@ public class EbeanEntityService extends EntityService {
     SystemMetadata latestKeySystemMetadata = parseSystemMetadata(latestKey.getSystemMetadata());
 
     RollbackResult result = deleteAspect(urn.toString(), keyAspectName, latestKeySystemMetadata.getRunId());
+    Optional<AspectSpec> aspectSpec = getAspectSpec(result.entityName, result.aspectName);
+    if (!aspectSpec.isPresent()) {
+      log.error("Issue while rolling back: unknown aspect {} for entity {}", result.entityName, result.aspectName);
+    }
 
-    if (result != null) {
+    if (result != null && aspectSpec.isPresent()) {
       AspectRowSummary summary = new AspectRowSummary();
       summary.setUrn(urn.toString());
       summary.setKeyAspect(true);
@@ -592,8 +589,9 @@ public class EbeanEntityService extends EntityService {
 
       rowsDeletedFromEntityDeletion = result.additionalRowsAffected;
       removedAspects.add(summary);
-      produceMetadataAuditEvent(result.getUrn(), result.getOldValue(), result.getNewValue(),
-          result.getOldSystemMetadata(), result.getNewSystemMetadata(), result.getOperation());
+      produceMetadataChangeLog(result.getUrn(), result.getEntityName(), result.getAspectName(), aspectSpec.get(),
+          result.getOldValue(), result.getNewValue(), result.getOldSystemMetadata(), result.getNewSystemMetadata(),
+          result.getChangeType());
     }
 
     return new RollbackRunResult(removedAspects, rowsDeletedFromEntityDeletion);
