@@ -214,7 +214,7 @@ class CDH_HiveSource(Source):
         else:
             with krbContext(
                 using_keytab=True,
-                principal=sql_config.service_principal,
+                principal=sql_config.keytab_principal,
                 keytab_file=sql_config.keytab_location,
             ):
                 jvm_path = jpype.getDefaultJVMPath()
@@ -347,12 +347,20 @@ class CDH_HiveSource(Source):
             # map out the schema
             db_cursor.execute(f"describe {schema}.{table}")
             schema_info_raw = db_cursor.fetchall()
-            table_schema = [(item[0], item[1], item[2]) for item in schema_info_raw]
+            table_schema = [
+                (item[0], item[1], item[2])
+                for item in schema_info_raw
+                if (item[0].strip() != "")
+                and (item[0].strip() != "# Partition Information")
+                and (item[0].strip() != "# col_name")
+            ]
 
             db_cursor.execute(f"describe formatted {schema}.{table}")
             table_info_raw = db_cursor.fetchall()
-
-            table_info = table_info_raw[len(table_schema) + 3 :]
+            for partition_ind, item in enumerate(table_info_raw):
+                if item[0].strip() == "# Partition Information":
+                    break
+            table_info = table_info_raw[partition_ind + 2 :]
 
             properties = {}
 
