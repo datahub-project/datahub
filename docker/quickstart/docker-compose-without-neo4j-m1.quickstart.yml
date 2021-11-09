@@ -15,7 +15,7 @@ services:
     - KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS=0
     - KAFKA_HEAP_OPTS=-Xms256m -Xmx256m
     hostname: broker
-    image: confluentinc/cp-kafka:5.4.0
+    image: kymeric/cp-kafka:latest
     ports:
     - 29092:29092
     - 9092:9092
@@ -37,7 +37,8 @@ services:
     - ELASTIC_CLIENT_HOST=elasticsearch
     - ELASTIC_CLIENT_PORT=9200
     hostname: datahub-frontend-react
-    image: linkedin/datahub-frontend-react:${DATAHUB_VERSION:-head}
+    #image: linkedin/datahub-frontend-react:${DATAHUB_VERSION:-head}
+    image: treff7es/datahub-frontend:latest
     ports:
     - 9002:9002
   datahub-gms:
@@ -49,23 +50,19 @@ services:
     - EBEAN_DATASOURCE_USERNAME=datahub
     - EBEAN_DATASOURCE_PASSWORD=datahub
     - EBEAN_DATASOURCE_HOST=mysql:3306
-    - EBEAN_DATASOURCE_URL=jdbc:mysql://mysql:3306/datahub?verifyServerCertificate=false&useSSL=true&useUnicode=yes&characterEncoding=UTF-8&enabledTLSProtocols=TLSv1.2
+    - EBEAN_DATASOURCE_URL=jdbc:mysql://mysql:3306/datahub?verifyServerCertificate=false&useSSL=true&useUnicode=yes&characterEncoding=UTF-8
     - EBEAN_DATASOURCE_DRIVER=com.mysql.jdbc.Driver
     - KAFKA_BOOTSTRAP_SERVER=broker:29092
     - KAFKA_SCHEMAREGISTRY_URL=http://schema-registry:8081
     - ELASTICSEARCH_HOST=elasticsearch
     - ELASTICSEARCH_PORT=9200
-    - NEO4J_HOST=http://neo4j:7474
-    - NEO4J_URI=bolt://neo4j
-    - NEO4J_USERNAME=neo4j
-    - NEO4J_PASSWORD=datahub
+    - GRAPH_SERVICE_IMPL=elasticsearch
     - JAVA_OPTS=-Xms1g -Xmx1g
-    - GRAPH_SERVICE_IMPL=neo4j
     - ENTITY_REGISTRY_CONFIG_PATH=/datahub/datahub-gms/resources/entity-registry.yml
     - MAE_CONSUMER_ENABLED=true
     - MCE_CONSUMER_ENABLED=true
     hostname: datahub-gms
-    image: linkedin/datahub-gms:${DATAHUB_VERSION:-head}
+    image: treff7es/datahub-gms:latest
     ports:
     - 8080:8080
   elasticsearch:
@@ -107,7 +104,8 @@ services:
     - KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181
     - KAFKA_BOOTSTRAP_SERVER=broker:29092
     hostname: kafka-setup
-    image: linkedin/datahub-kafka-setup:${DATAHUB_VERSION:-head}
+    #image: linkedin/datahub-kafka-setup:${DATAHUB_VERSION:-head}
+    image: treff7es/kafka-setup:latest
   mysql:
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_bin
     container_name: mysql
@@ -135,19 +133,6 @@ services:
     - DATAHUB_DB_NAME=datahub
     hostname: mysql-setup
     image: acryldata/datahub-mysql-setup:head
-  neo4j:
-    container_name: neo4j
-    environment:
-    - NEO4J_AUTH=neo4j/datahub
-    - NEO4J_dbms_default__database=graph.db
-    - NEO4J_dbms_allow__upgrade=true
-    hostname: neo4j
-    image: neo4j/neo4j-arm64-experimental:4.0.6-arm64
-    ports:
-    - 7474:7474
-    - 7687:7687
-    volumes:
-    - neo4jdata:/data
   schema-registry:
     container_name: schema-registry
     depends_on:
@@ -157,7 +142,8 @@ services:
     - SCHEMA_REGISTRY_HOST_NAME=schemaregistry
     - SCHEMA_REGISTRY_KAFKASTORE_CONNECTION_URL=zookeeper:2181
     hostname: schema-registry
-    image: confluentinc/cp-schema-registry:5.4.0
+    #image: confluentinc/cp-schema-registry:5.4.0
+    image: eugenetea/schema-registry-arm64:latest
     ports:
     - 8081:8081
   zookeeper:
@@ -166,7 +152,7 @@ services:
     - ZOOKEEPER_CLIENT_PORT=2181
     - ZOOKEEPER_TICK_TIME=2000
     hostname: zookeeper
-    image: confluentinc/cp-zookeeper:5.4.0
+    image: kymeric/cp-zookeeper:latest
     ports:
     - 2181:2181
     volumes:
@@ -175,5 +161,4 @@ version: '2.3'
 volumes:
   esdata: null
   mysqldata: null
-  neo4jdata: null
   zkdata: null
