@@ -1,4 +1,4 @@
-docker/kafka-setup/Dockerfile# This "container" is a workaround to pre-create topics
+# This "container" is a workaround to pre-create topics
 FROM kymeric/cp-kafka:latest
 
 ENV METADATA_AUDIT_EVENT_NAME="MetadataAuditEvent_v4"
