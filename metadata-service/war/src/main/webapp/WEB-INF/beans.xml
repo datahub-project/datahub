@@ -24,4 +24,12 @@
         </constructor-arg>
         <constructor-arg ref="injectResourceFactory" />
     </bean>
+
+    <context:annotation-config/>
+
+    <bean id="yamlProperties" class="org.springframework.beans.factory.config.YamlPropertiesFactoryBean">
+        <property name="resources" value="classpath:/application.yml"/>
+    </bean>
+
+    <context:property-placeholder properties-ref="yamlProperties"/>
 </beans>

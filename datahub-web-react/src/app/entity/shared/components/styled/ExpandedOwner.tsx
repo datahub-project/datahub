@@ -1,4 +1,4 @@
-import { message, Modal, Tag } from 'antd';
+import { message, Modal, Tag, Tooltip } from 'antd';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
@@ -75,7 +75,9 @@ export const ExpandedOwner = ({ entityUrn, owner, refetch }: Props) => {
         <OwnerTag onClose={onClose} closable>
             <Link to={`/${entityRegistry.getPathName(owner.owner.type)}/${owner.owner.urn}`}>
                 <CustomAvatar name={name} photoUrl={pictureLink} useDefaultAvatar={false} />
-                {name}
+                <Tooltip placement="top" title={owner.type}>
+                    {name}
+                </Tooltip>
             </Link>
         </OwnerTag>
     );

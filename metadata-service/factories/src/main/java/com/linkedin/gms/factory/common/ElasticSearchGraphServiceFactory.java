@@ -1,5 +1,6 @@
 package com.linkedin.gms.factory.common;
 
+import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
 import com.linkedin.metadata.graph.elastic.ESGraphQueryDAO;
 import com.linkedin.metadata.graph.elastic.ESGraphWriteDAO;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
@@ -12,9 +13,11 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.PropertySource;
 
 
 @Configuration
+@PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
 @Import({RestHighLevelClientFactory.class, IndexConventionFactory.class})
 public class ElasticSearchGraphServiceFactory {
   @Autowired
@@ -25,16 +28,16 @@ public class ElasticSearchGraphServiceFactory {
   @Qualifier(IndexConventionFactory.INDEX_CONVENTION_BEAN)
   private IndexConvention indexConvention;
 
-  @Value("${ES_BULK_REQUESTS_LIMIT:1}")
+  @Value("${elasticsearch.bulkProcessor.requestsLimit}")
   private Integer bulkRequestsLimit;
 
-  @Value("${ES_BULK_FLUSH_PERIOD:1}")
+  @Value("${elasticsearch.bulkProcessor.flushPeriod}")
   private Integer bulkFlushPeriod;
 
-  @Value("${ES_BULK_NUM_RETRIES:3}")
+  @Value("${elasticsearch.bulkProcessor.numRetries}")
   private Integer numRetries;
 
-  @Value("${ES_BULK_RETRY_INTERVAL:1}")
+  @Value("${elasticsearch.bulkProcessor.retryInterval}")
   private Long retryInterval;
 
   @Bean(name = "elasticSearchGraphService")
