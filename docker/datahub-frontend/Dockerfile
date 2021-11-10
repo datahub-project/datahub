@@ -10,7 +10,6 @@ RUN apk --no-cache --update-cache --available upgrade \
     && apk --no-cache add curl openjdk8-jre
 
 FROM node:16.13.0-alpine3.14 AS prod-build
-
 # Upgrade Alpine and base packages
 RUN apk --no-cache --update-cache --available upgrade \
     && apk --no-cache add perl openjdk8
@@ -20,7 +19,7 @@ ARG USE_SYSTEM_NODE="true"
 ENV CI=true
 ENV GRADLE_OPTS="-Xms256m -Xmx512m"
 COPY . datahub-src
-RUN cd datahub-src && ./gradlew :datahub-frontend:dist -PenableEmber=${ENABLE_EMBER} -PuseSystemNode=${USE_SYSTEM_NODE} -x test -x yarnTest -x yarnLint \
+RUN yarn config set network-timeout 600000 -g && cd datahub-src && ./gradlew :datahub-frontend:dist -PenableEmber=${ENABLE_EMBER} -PuseSystemNode=${USE_SYSTEM_NODE} -x test -x yarnTest -x yarnLint \
     && cp datahub-frontend/build/distributions/datahub-frontend.zip ../datahub-frontend.zip \
     && cd .. && rm -rf datahub-src && unzip datahub-frontend.zip
 
