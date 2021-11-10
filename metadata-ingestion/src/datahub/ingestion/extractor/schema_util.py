@@ -440,8 +440,14 @@ def avro_schema_to_mce_fields(
     :param is_key_schema: True if it is a key-schema. Default is False (value-schema).
     :return: The list of MCE compatible SchemaFields.
     """
-    return list(
-        AvroToMceSchemaConverter.to_mce_fields(
-            avro_schema_string, is_key_schema, default_nullable
+    schema_fields: List[SchemaField] = []
+    try:
+        schema_fields = list(
+            AvroToMceSchemaConverter.to_mce_fields(
+                avro_schema_string, is_key_schema, default_nullable
+            )
         )
-    )
+    except Exception:
+        logger.exception(f"Failed to parse {avro_schema_string} to mce_fields.")
+
+    return schema_fields
