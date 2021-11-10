@@ -9,7 +9,7 @@ RUN addgroup -S datahub && adduser -S datahub -G datahub
 RUN apk --no-cache --update-cache --available upgrade \
     && apk --no-cache add curl openjdk8-jre
 
-FROM node:16.13.0-alpine3.14 AS prod-build
+FROM --platform=$BUILDPLATFORM node:16.13.0-alpine3.14 AS prod-build
 
 # Upgrade Alpine and base packages
 RUN apk --no-cache --update-cache --available upgrade \
