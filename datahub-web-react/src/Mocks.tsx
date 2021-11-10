@@ -21,12 +21,17 @@ import {
     MlModel,
     MlModelGroup,
     SchemaFieldDataType,
+    ScenarioType,
+    RecommendationRenderType,
     RelationshipDirection,
 } from './types.generated';
 import { GetTagDocument } from './graphql/tag.generated';
 import { GetMlModelDocument } from './graphql/mlModel.generated';
 import { GetMlModelGroupDocument } from './graphql/mlModelGroup.generated';
 import { GetGlossaryTermDocument, GetGlossaryTermQuery } from './graphql/glossaryTerm.generated';
+import { GetEntityCountsDocument } from './graphql/app.generated';
+import { GetMeDocument } from './graphql/me.generated';
+import { ListRecommendationsDocument } from './graphql/recommendations.generated';
 
 const user1 = {
     username: 'sdas',
@@ -106,18 +111,20 @@ const dataset1 = {
     name: 'The Great Test Dataset',
     origin: 'PROD',
     tags: ['Private', 'PII'],
-    description: 'This is the greatest dataset in the world, youre gonna love it!',
     uri: 'www.google.com',
-    properties: [
-        {
-            key: 'TestProperty',
-            value: 'My property value.',
-        },
-        {
-            key: 'AnotherTestProperty',
-            value: 'My other property value.',
-        },
-    ],
+    properties: {
+        description: 'This is the greatest dataset in the world, youre gonna love it!',
+        customProperties: [
+            {
+                key: 'TestProperty',
+                value: 'My property value.',
+            },
+            {
+                key: 'AnotherTestProperty',
+                value: 'My other property value.',
+            },
+        ],
+    },
     editableProperties: null,
     created: {
         time: 0,
@@ -189,9 +196,11 @@ const dataset2 = {
     name: 'Some Other Dataset',
     origin: 'PROD',
     tags: ['Outdated'],
-    description: 'This is some other dataset, so who cares!',
     uri: 'www.google.com',
-    properties: [],
+    properties: {
+        description: 'This is some other dataset, so who cares!',
+        customProperties: [],
+    },
     editableProperties: null,
     created: {
         time: 0,
@@ -257,9 +266,9 @@ export const dataset3 = {
     platformNativeType: 'STREAM',
     name: 'Yet Another Dataset',
     origin: 'PROD',
-    description: 'This and here we have yet another Dataset (YAN). Are there more?',
     uri: 'www.google.com',
     properties: {
+        description: 'This and here we have yet another Dataset (YAN). Are there more?',
         origin: 'PROD',
         customProperties: [{ key: 'propertyAKey', value: 'propertyAValue' }],
         externalUrl: 'https://data.hub',
@@ -796,8 +805,7 @@ export const dataFlow1 = {
     orchestrator: 'Airflow',
     flowId: 'flowId1',
     cluster: 'cluster1',
-    info: {
-        __typename: 'DataFlowInfo',
+    properties: {
         name: 'DataFlowInfoName',
         description: 'DataFlowInfo1 Description',
         project: 'DataFlowInfo1 project',
@@ -864,8 +872,7 @@ export const dataJob1 = {
             time: 0,
         },
     },
-    info: {
-        __typename: 'DataJobInfo',
+    properties: {
         name: 'DataJobInfoName',
         description: 'DataJobInfo1 Description',
         externalUrl: null,
@@ -887,6 +894,20 @@ export const dataJob1 = {
                     name: 'abc-sample-tag',
                     description: 'sample tag',
                 },
+            },
+        ],
+    },
+    incoming: null,
+    outgoing: null,
+    parentFlow: {
+        start: 0,
+        count: 1,
+        total: 1,
+        relationships: [
+            {
+                type: 'IsPartOf',
+                direction: RelationshipDirection.Outgoing,
+                entity: dataFlow1,
             },
         ],
     },
@@ -918,8 +939,7 @@ export const dataJob2 = {
             time: 0,
         },
     },
-    info: {
-        __typename: 'DataJobInfo',
+    properties: {
         name: 'DataJobInfoName2',
         description: 'DataJobInfo2 Description',
         externalUrl: null,
@@ -972,8 +992,7 @@ export const dataJob3 = {
             time: 0,
         },
     },
-    info: {
-        __typename: 'DataJobInfo',
+    properties: {
         name: 'DataJobInfoName3',
         description: 'DataJobInfo3 Description',
         externalUrl: null,
@@ -1121,6 +1140,55 @@ export const mlModelGroup = {
     incoming: null,
     outgoing: null,
 } as MlModelGroup;
+
+export const recommendationModules = [
+    {
+        title: 'Most Popular',
+        moduleId: 'MostPopular',
+        renderType: RecommendationRenderType.EntityNameList,
+        content: [
+            {
+                entity: {
+                    ...dataset2,
+                },
+            },
+        ],
+    },
+    {
+        title: 'Top Platforms',
+        moduleId: 'TopPlatforms',
+        renderType: RecommendationRenderType.PlatformSearchList,
+        content: [
+            {
+                entity: {
+                    urn: 'urn:li:dataPlatform:snowflake',
+                    type: EntityType.DataPlatform,
+                    info: {
+                        displayName: 'Snowflake',
+                    },
+                },
+                params: {
+                    contentParams: {
+                        count: 1,
+                    },
+                },
+            },
+        ],
+    },
+    {
+        title: 'Popular Tags',
+        moduleId: 'PopularTags',
+        renderType: RecommendationRenderType.TagSearchList,
+        content: [
+            {
+                entity: {
+                    urn: 'urn:li:tag:TestTag',
+                    name: 'TestTag',
+                },
+            },
+        ],
+    },
+];
 
 /*
     Define mock data to be returned by Apollo MockProvider. 
@@ -2501,6 +2569,175 @@ export const mocks = [
                     ],
                 },
             } as GetSearchResultsForMultipleQuery,
+        },
+    },
+    {
+        request: {
+            query: GetEntityCountsDocument,
+            variables: {
+                input: {
+                    types: [EntityType.Dataset],
+                },
+            },
+        },
+        result: {
+            data: {
+                getEntityCounts: {
+                    counts: [
+                        {
+                            entityType: EntityType.Dataset,
+                            count: 10,
+                        },
+                    ],
+                },
+            },
+        },
+    },
+    {
+        request: {
+            query: GetMeDocument,
+            variables: {},
+        },
+        result: {
+            data: {
+                __typename: 'Query',
+                me: {
+                    __typename: 'AuthenticatedUser',
+                    corpUser: { ...user2 },
+                    platformPrivileges: {
+                        viewAnalytics: true,
+                        managePolicies: true,
+                        manageIdentities: true,
+                    },
+                },
+            },
+        },
+    },
+    {
+        request: {
+            query: ListRecommendationsDocument,
+            variables: {
+                input: {
+                    userUrn: user2.urn,
+                    requestContext: {
+                        scenario: ScenarioType.Home,
+                    },
+                    limit: 5,
+                },
+            },
+        },
+        result: {
+            data: {
+                listRecommendations: {
+                    modules: [...recommendationModules],
+                },
+            },
+        },
+    },
+    {
+        request: {
+            query: ListRecommendationsDocument,
+            variables: {
+                input: {
+                    userUrn: user2.urn,
+                    requestContext: {
+                        scenario: ScenarioType.EntityProfile,
+                        entityRequestContext: {
+                            urn: dataset3.urn,
+                            type: EntityType.Dataset,
+                        },
+                    },
+                    limit: 3,
+                },
+            },
+        },
+        result: {
+            data: {
+                listRecommendations: {
+                    modules: [...recommendationModules],
+                },
+            },
+        },
+    },
+    {
+        request: {
+            query: ListRecommendationsDocument,
+            variables: {
+                input: {
+                    userUrn: user2.urn,
+                    requestContext: {
+                        scenario: ScenarioType.SearchResults,
+                        searchRequestContext: {
+                            query: 'noresults',
+                            filters: [],
+                        },
+                    },
+                    limit: 3,
+                },
+            },
+        },
+        result: {
+            data: {
+                listRecommendations: {
+                    modules: [...recommendationModules],
+                },
+            },
+        },
+    },
+    {
+        request: {
+            query: GetSearchResultsForMultipleDocument,
+            variables: {
+                input: {
+                    types: [],
+                    query: 'noresults',
+                    start: 0,
+                    count: 10,
+                    filters: [],
+                },
+            },
+        },
+        result: {
+            data: {
+                search: {
+                    start: 0,
+                    count: 0,
+                    total: 0,
+                    searchResults: [],
+                    facets: [],
+                },
+            },
+        },
+    },
+    {
+        request: {
+            query: GetEntityCountsDocument,
+            variables: {
+                input: {
+                    types: [
+                        EntityType.Dataset,
+                        EntityType.Chart,
+                        EntityType.Dashboard,
+                        EntityType.DataFlow,
+                        EntityType.GlossaryTerm,
+                        EntityType.MlfeatureTable,
+                        EntityType.Mlmodel,
+                        EntityType.MlmodelGroup,
+                    ],
+                },
+            },
+        },
+        result: {
+            data: {
+                getEntityCounts: {
+                    counts: [
+                        {
+                            entityType: EntityType.Dataset,
+                            count: 670,
+                        },
+                    ],
+                },
+            },
         },
     },
 ];

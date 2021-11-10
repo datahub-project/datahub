@@ -1,48 +1,67 @@
 package com.linkedin.entity.client;
 
 import com.google.common.collect.ImmutableList;
+
 import com.google.common.collect.ImmutableSet;
+import com.linkedin.aspect.GetTimeseriesAspectValuesResponse;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.DataMap;
+import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.Entity;
+import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aspect.EnvelopedAspect;
+import com.linkedin.metadata.aspect.EnvelopedAspectArray;
+import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.browse.BrowseResult;
+import com.linkedin.metadata.dao.utils.RecordUtils;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.ListResult;
 import com.linkedin.metadata.query.ListUrnsResult;
+import com.linkedin.metadata.resources.entity.AspectUtils;
 import com.linkedin.metadata.resources.entity.EntityResource;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchService;
+import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.r2.RemoteInvocationException;
 import java.time.Clock;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.SneakyThrows;
+import lombok.extern.slf4j.Slf4j;
 
 import static com.linkedin.metadata.search.utils.QueryUtils.*;
 
 
+@Slf4j
 public class JavaEntityClient implements EntityClient {
+
+    private final Clock _clock = Clock.systemUTC();
 
     private EntityService _entityService;
     private EntitySearchService _entitySearchService;
     private SearchService _searchService;
+    private TimeseriesAspectService _timeseriesAspectService;
 
     public JavaEntityClient(@Nonnull final EntityService entityService, @Nonnull final EntitySearchService entitySearchService, @Nonnull final
-        SearchService searchService) {
+        SearchService searchService, @Nonnull final TimeseriesAspectService timeseriesAspectService) {
       _entityService = entityService;
       _entitySearchService = entitySearchService;
       _searchService = searchService;
+      _timeseriesAspectService = timeseriesAspectService;
     }
 
     @Nonnull
@@ -284,5 +303,70 @@ public class JavaEntityClient implements EntityClient {
     public SearchResult filter(@Nonnull String entity, @Nonnull Filter filter, @Nullable SortCriterion sortCriterion,
         int start, int count, @Nonnull String actor) throws RemoteInvocationException {
         return _entitySearchService.filter(entity, filter, sortCriterion, start, count);
+    }
+
+    @SneakyThrows
+    @Override
+    public VersionedAspect getAspect(@Nonnull String urn, @Nonnull String aspect, @Nonnull Long version,
+        @Nonnull String actor) throws RemoteInvocationException {
+        return _entityService.getVersionedAspect(Urn.createFromString(urn), aspect, version);
+    }
+
+    @SneakyThrows
+    @Override
+    public VersionedAspect getAspectOrNull(@Nonnull String urn, @Nonnull String aspect, @Nonnull Long version,
+        @Nonnull String actor) throws RemoteInvocationException {
+        return _entityService.getVersionedAspect(Urn.createFromString(urn), aspect, version);
+    }
+
+    @SneakyThrows
+    @Override
+    public List<EnvelopedAspect> getTimeseriesAspectValues(@Nonnull String urn, @Nonnull String entity,
+        @Nonnull String aspect, @Nullable Long startTimeMillis, @Nullable Long endTimeMillis, @Nullable Integer limit,
+        @Nullable String actor) throws RemoteInvocationException {
+        GetTimeseriesAspectValuesResponse response = new GetTimeseriesAspectValuesResponse();
+        response.setEntityName(entity);
+        response.setAspectName(aspect);
+        if (startTimeMillis != null) {
+            response.setStartTimeMillis(startTimeMillis);
+        }
+        if (endTimeMillis != null) {
+            response.setEndTimeMillis(endTimeMillis);
+        }
+        response.setLimit(limit);
+        response.setValues(new EnvelopedAspectArray(
+            _timeseriesAspectService.getAspectValues(Urn.createFromString(urn), entity, aspect, startTimeMillis, endTimeMillis,
+                limit)));
+        return response.getValues();
+    }
+
+    // TODO: Factor out ingest logic into a util that can be accessed by the java client and the resource
+    @SneakyThrows
+    @Override
+    public String ingestProposal(@Nonnull MetadataChangeProposal metadataChangeProposal,
+        @Nonnull String actor) throws RemoteInvocationException {
+        final AuditStamp auditStamp =
+            new AuditStamp().setTime(_clock.millis()).setActor(Urn.createFromString(Constants.UNKNOWN_ACTOR));
+        final List<MetadataChangeProposal> additionalChanges =
+            AspectUtils.getAdditionalChanges(metadataChangeProposal, _entityService);
+
+        Urn urn = _entityService.ingestProposal(metadataChangeProposal, auditStamp);
+        additionalChanges.forEach(proposal -> _entityService.ingestProposal(proposal, auditStamp));
+        return urn.toString();
+    }
+
+    @SneakyThrows
+    @Override
+    public <T extends RecordTemplate> Optional<T> getVersionedAspect(@Nonnull String urn, @Nonnull String aspect,
+        @Nonnull Long version, @Nonnull String actor, @Nonnull Class<T> aspectClass) throws RemoteInvocationException {
+        VersionedAspect entity = _entityService.getVersionedAspect(Urn.createFromString(urn), aspect, version);
+        if (entity.hasAspect()) {
+            DataMap rawAspect = ((DataMap) entity.data().get("aspect"));
+            if (rawAspect.containsKey(aspectClass.getCanonicalName())) {
+                DataMap aspectDataMap = rawAspect.getDataMap(aspectClass.getCanonicalName());
+                return Optional.of(RecordUtils.toRecordTemplate(aspectClass, aspectDataMap));
+            }
+        }
+        return Optional.empty();
     }
 }

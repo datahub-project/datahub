@@ -14,6 +14,8 @@ import { EntityProfile } from '../shared/containers/profile/EntityProfile';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
 import { ChartInputsTab } from '../shared/tabs/Entity/ChartInputsTab';
 import { ChartDashboardsTab } from '../shared/tabs/Entity/ChartDashboardsTab';
+import { getDataForEntityType } from '../shared/containers/profile/utils';
+import { capitalizeFirstLetter } from '../../shared/capitalizeFirstLetter';
 import { EntityAndType } from '../../lineage/types';
 
 /**
@@ -67,7 +69,7 @@ export class ChartEntity implements Entity<Chart> {
             entityType={EntityType.Chart}
             useEntityQuery={useGetChartQuery}
             useUpdateQuery={useUpdateChartMutation}
-            getOverrideProperties={this.getOverrideProperties}
+            getOverrideProperties={this.getOverridePropertiesFromEntity}
             tabs={[
                 {
                     name: 'Documentation',
@@ -112,13 +114,12 @@ export class ChartEntity implements Entity<Chart> {
         />
     );
 
-    getOverrideProperties = (res: GetChartQuery): GenericEntityProperties => {
+    getOverridePropertiesFromEntity = (chart?: Chart | null): GenericEntityProperties => {
         // TODO: Get rid of this once we have correctly formed platform coming back.
-        const tool = res.chart?.tool || '';
-        const name = res.chart?.info?.name;
-        const externalUrl = res.chart?.info?.externalUrl;
+        const tool = chart?.tool || '';
+        const name = chart?.properties?.name;
+        const externalUrl = chart?.properties?.externalUrl;
         return {
-            ...res,
             name,
             externalUrl,
             platform: {
@@ -127,6 +128,7 @@ export class ChartEntity implements Entity<Chart> {
                 name: tool,
                 info: {
                     logoUrl: getLogoFromPlatform(tool),
+                    displayName: capitalizeFirstLetter(tool),
                     type: PlatformType.Others,
                     datasetNameDelimiter: '.',
                 },
@@ -139,9 +141,9 @@ export class ChartEntity implements Entity<Chart> {
             <ChartPreview
                 urn={data.urn}
                 platform={data.tool}
-                name={data.info?.name}
-                description={data.editableProperties?.description || data.info?.description}
-                access={data.info?.access}
+                name={data.properties?.name}
+                description={data.editableProperties?.description || data.properties?.description}
+                access={data.properties?.access}
                 owners={data.ownership?.owners}
                 tags={data?.globalTags || undefined}
                 glossaryTerms={data?.glossaryTerms}
@@ -155,9 +157,9 @@ export class ChartEntity implements Entity<Chart> {
             <ChartPreview
                 urn={data.urn}
                 platform={data.tool}
-                name={data.info?.name}
-                description={data.editableProperties?.description || data.info?.description}
-                access={data.info?.access}
+                name={data.properties?.name}
+                description={data.editableProperties?.description || data.properties?.description}
+                access={data.properties?.access}
                 owners={data.ownership?.owners}
                 tags={data?.globalTags || undefined}
                 glossaryTerms={data?.glossaryTerms}
@@ -169,7 +171,7 @@ export class ChartEntity implements Entity<Chart> {
     getLineageVizConfig = (entity: Chart) => {
         return {
             urn: entity.urn,
-            name: entity.info?.name || '',
+            name: entity.properties?.name || '',
             type: EntityType.Chart,
             // eslint-disable-next-line @typescript-eslint/dot-notation
             upstreamChildren: entity?.['inputs']?.relationships?.map(
@@ -185,6 +187,14 @@ export class ChartEntity implements Entity<Chart> {
     };
 
     displayName = (data: Chart) => {
-        return data.info?.name || data.urn;
+        return data.properties?.name || data.urn;
+    };
+
+    getGenericEntityProperties = (data: Chart) => {
+        return getDataForEntityType({
+            data,
+            entityType: this.type,
+            getOverrideProperties: this.getOverridePropertiesFromEntity,
+        });
     };
 }

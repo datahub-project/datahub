@@ -17,7 +17,9 @@ describe('SchemaDescriptionField', () => {
                             urn: 'urn:li:dataset:123',
                             entityType: EntityType.Dataset,
                             entityData: {
-                                description: 'This is a description',
+                                properties: {
+                                    description: 'This is a description',
+                                },
                             },
                             baseEntity: {},
                             updateEntity: jest.fn(),

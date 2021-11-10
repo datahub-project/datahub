@@ -15,6 +15,8 @@ import { SidebarTagsSection } from '../shared/containers/profile/sidebar/Sidebar
 import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/SidebarOwnerSection';
 import { GenericEntityProperties } from '../shared/types';
 import { DataJobFlowTab } from '../shared/tabs/Entity/DataJobFlowTab';
+import { getDataForEntityType } from '../shared/containers/profile/utils';
+import { capitalizeFirstLetter } from '../../shared/capitalizeFirstLetter';
 
 /**
  * Definition of the DataHub DataJob entity.
@@ -61,7 +63,7 @@ export class DataJobEntity implements Entity<DataJob> {
             entityType={EntityType.DataJob}
             useEntityQuery={useGetDataJobQuery}
             useUpdateQuery={useUpdateDataJobMutation}
-            getOverrideProperties={this.getOverrideProperties}
+            getOverrideProperties={this.getOverridePropertiesFromEntity}
             tabs={[
                 {
                     name: 'Documentation',
@@ -104,13 +106,12 @@ export class DataJobEntity implements Entity<DataJob> {
         />
     );
 
-    getOverrideProperties = (res: GetDataJobQuery): GenericEntityProperties => {
+    getOverridePropertiesFromEntity = (dataJob?: DataJob | null): GenericEntityProperties => {
         // TODO: Get rid of this once we have correctly formed platform coming back.
-        const tool = res.dataJob?.dataFlow?.orchestrator || '';
-        const name = res.dataJob?.info?.name;
-        const externalUrl = res.dataJob?.info?.externalUrl;
+        const tool = dataJob?.dataFlow?.orchestrator || '';
+        const name = dataJob?.properties?.name;
+        const externalUrl = dataJob?.properties?.externalUrl;
         return {
-            ...res,
             name,
             externalUrl,
             platform: {
@@ -119,6 +120,7 @@ export class DataJobEntity implements Entity<DataJob> {
                 name: tool,
                 info: {
                     logoUrl: getLogoFromPlatform(tool),
+                    displayName: capitalizeFirstLetter(tool),
                     type: PlatformType.Others,
                     datasetNameDelimiter: '.',
                 },
@@ -133,8 +135,8 @@ export class DataJobEntity implements Entity<DataJob> {
         return (
             <Preview
                 urn={data.urn}
-                name={data.info?.name || ''}
-                description={data.editableProperties?.description || data.info?.description}
+                name={data.properties?.name || ''}
+                description={data.editableProperties?.description || data.properties?.description}
                 platformName={platformName}
                 platformLogo={getLogoFromPlatform(data.dataFlow?.orchestrator || '')}
                 owners={data.ownership?.owners}
@@ -151,8 +153,8 @@ export class DataJobEntity implements Entity<DataJob> {
         return (
             <Preview
                 urn={data.urn}
-                name={data.info?.name || ''}
-                description={data.editableProperties?.description || data.info?.description}
+                name={data.properties?.name || ''}
+                description={data.editableProperties?.description || data.properties?.description}
                 platformName={platformName}
                 platformLogo={getLogoFromPlatform(data.dataFlow?.orchestrator || '')}
                 owners={data.ownership?.owners}
@@ -165,7 +167,7 @@ export class DataJobEntity implements Entity<DataJob> {
     getLineageVizConfig = (entity: DataJob) => {
         return {
             urn: entity?.urn,
-            name: entity?.info?.name || '',
+            name: entity?.properties?.name || '',
             type: EntityType.DataJob,
             downstreamChildren: getChildrenFromRelationships({
                 // eslint-disable-next-line @typescript-eslint/dot-notation
@@ -187,6 +189,14 @@ export class DataJobEntity implements Entity<DataJob> {
     };
 
     displayName = (data: DataJob) => {
-        return data.info?.name || data.urn;
+        return data.properties?.name || data.urn;
+    };
+
+    getGenericEntityProperties = (data: DataJob) => {
+        return getDataForEntityType({
+            data,
+            entityType: this.type,
+            getOverrideProperties: this.getOverridePropertiesFromEntity,
+        });
     };
 }

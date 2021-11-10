@@ -15,8 +15,7 @@ const AnnouncementSection = () => (
         enterprise
       </p>
       <Link
-        to={useBaseUrl("/docs/saas")}
-        target="_blank"
+        to={useBaseUrl("/managed")}
         class="button button--primary button--lg"
       >
         Sign up for Managed DataHub →

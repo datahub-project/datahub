@@ -642,3 +642,45 @@ def test_key_schema_handling():
     assret_field_paths_match(fields, expected_field_paths)
     for f in fields:
         assert f.isPartOfKey
+
+
+def test_logical_types():
+    schema: str = """
+{
+    "type": "record",
+    "name": "test_logical_types",
+    "fields":  [
+        {"name": "decimal_logical", "type": "bytes", "logicalType": "decimal", "precision": 4, "scale": 2},
+        {"name": "uuid_logical", "type": "string", "logicalType": "uuid"},
+        {"name": "date_logical", "type": "int", "logicalType": "date"},
+        {"name": "time_millis_logical", "type": "int", "logicalType": "time-millis"},
+        {"name": "time_micros_logical", "type": "long", "logicalType": "time-micros"},
+        {"name": "timestamp_millis_logical", "type": "long", "logicalType": "timestamp-millis"},
+        {"name": "timestamp_micros_logical", "type": "long", "logicalType": "timestamp-micros"}
+    ]
+}
+    """
+    fields: List[SchemaField] = avro_schema_to_mce_fields(schema, is_key_schema=False)
+    expected_field_paths: List[str] = [
+        "[version=2.0].[type=test_logical_types].[type=bytes].decimal_logical",
+        "[version=2.0].[type=test_logical_types].[type=string].uuid_logical",
+        "[version=2.0].[type=test_logical_types].[type=int].date_logical",
+        "[version=2.0].[type=test_logical_types].[type=int].time_millis_logical",
+        "[version=2.0].[type=test_logical_types].[type=long].time_micros_logical",
+        "[version=2.0].[type=test_logical_types].[type=long].timestamp_millis_logical",
+        "[version=2.0].[type=test_logical_types].[type=long].timestamp_micros_logical",
+    ]
+    assret_field_paths_match(fields, expected_field_paths)
+
+
+def test_ignore_exceptions():
+    malformed_schema: str = """
+  "name": "event_ts",
+  "type": "long",
+  "logicalType": "timestamp-millis",
+  "tags": [
+    "business-timestamp"
+  ]
+"""
+    fields: List[SchemaField] = avro_schema_to_mce_fields(malformed_schema)
+    assert not fields

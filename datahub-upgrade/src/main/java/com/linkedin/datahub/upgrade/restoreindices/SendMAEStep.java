@@ -14,8 +14,6 @@ import com.linkedin.metadata.entity.ebean.EbeanUtils;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.utils.GenericAspectUtils;
-import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
 import io.ebean.EbeanServer;
 import io.ebean.PagedList;
@@ -108,16 +106,9 @@ public class SendMAEStep implements UpgradeStep {
 
           SystemMetadata latestSystemMetadata = EbeanUtils.parseSystemMetadata(aspect.getSystemMetadata());
 
-          final MetadataChangeLog metadataChangeLog = new MetadataChangeLog();
-          metadataChangeLog.setEntityType(entityName);
-          metadataChangeLog.setEntityUrn(urn);
-          metadataChangeLog.setChangeType(ChangeType.UPSERT);
-          metadataChangeLog.setAspectName(aspectName);
-          metadataChangeLog.setAspect(GenericAspectUtils.serializeAspect(aspectRecord));
-          metadataChangeLog.setSystemMetadata(latestSystemMetadata);
-
           // 5. Produce MAE events for the aspect record
-          _entityService.produceMetadataChangeLog(urn, aspectSpec, metadataChangeLog);
+          _entityService.produceMetadataChangeLog(urn, entityName, aspectName, aspectSpec, null, aspectRecord, null,
+              latestSystemMetadata, ChangeType.UPSERT);
 
           totalRowsMigrated++;
         }

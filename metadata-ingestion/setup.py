@@ -43,6 +43,7 @@ framework_common = {
     "python-dateutil>=2.8.0",
     "stackprinter",
     "tabulate",
+    "progressbar2",
 }
 
 kafka_common = {
@@ -58,16 +59,25 @@ kafka_common = {
 sql_common = {
     # Required for all SQL sources.
     "sqlalchemy==1.3.24",
+    "great-expectations",
 }
 
 aws_common = {
     # AWS Python SDK
-    "boto3"
+    "boto3",
+    # Deal with a version incompatibility between botocore (used by boto3) and urllib3.
+    # See https://github.com/boto/botocore/pull/2563.
+    "botocore!=1.23.0",
 }
 
 looker_common = {
     # Looker Python SDK
     "looker-sdk==21.6.0"
+}
+
+bigquery_common = {
+    # Google cloud logging library
+    "google-cloud-logging"
 }
 
 # Note: for all of these, framework_common will be added.
@@ -82,8 +92,8 @@ plugins: Dict[str, Set[str]] = {
     # Source plugins
     "athena": sql_common | {"PyAthena[SQLAlchemy]"},
     "azure-ad": set(),
-    "bigquery": sql_common | {"pybigquery >= 0.6.0"},
-    "bigquery-usage": {"google-cloud-logging", "cachetools"},
+    "bigquery": sql_common | bigquery_common | {"pybigquery >= 0.6.0"},
+    "bigquery-usage": bigquery_common | {"cachetools"},
     "datahub-business-glossary": set(),
     "dbt": set(),
     "druid": sql_common | {"pydruid>=0.6.2"},
@@ -96,10 +106,10 @@ plugins: Dict[str, Set[str]] = {
         "acryl-pyhive[hive]>=0.6.11"
     },
     "kafka": kafka_common,
-    "kafka-connect": sql_common | {"requests"},
+    "kafka-connect": sql_common | {"requests", "JPype1"},
     "ldap": {"python-ldap>=2.4"},
     "looker": looker_common,
-    "lookml": looker_common | {"lkml>=1.1.0", "sql-metadata==2.2.1"},
+    "lookml": looker_common | {"lkml>=1.1.0", "sql-metadata==2.2.2"},
     "mongodb": {"pymongo>=3.11"},
     "mssql": sql_common | {"sqlalchemy-pytds>=0.3"},
     "mssql-odbc": sql_common | {"pyodbc"},
@@ -117,7 +127,6 @@ plugins: Dict[str, Set[str]] = {
     "snowflake": sql_common | {"snowflake-sqlalchemy<=1.2.4"},
     "snowflake-usage": sql_common | {"snowflake-sqlalchemy<=1.2.4"},
     "sqlalchemy": sql_common,
-    "sql-profiles": sql_common | {"great-expectations"},
     "superset": {"requests"},
     "trino": sql_common
     | {
@@ -213,6 +222,7 @@ dev_requirements_airflow_1 = {
     "apache-airflow==1.10.15",
     "apache-airflow-backport-providers-snowflake",
     "snowflake-sqlalchemy<=1.2.4",  # make constraint consistent with extras
+    "WTForms==2.3.3",  # make constraint consistent with extras
 }
 
 full_test_dev_requirements = {
@@ -228,8 +238,8 @@ full_test_dev_requirements = {
             "mysql",
             "mariadb",
             "snowflake",
-            "sql-profiles",
             "redash",
+            "kafka-connect",
         ]
         for dependency in plugins[plugin]
     ),
@@ -269,6 +279,7 @@ entry_points = {
         "snowflake = datahub.ingestion.source.sql.snowflake:SnowflakeSource",
         "snowflake-usage = datahub.ingestion.source.usage.snowflake_usage:SnowflakeUsageSource",
         "superset = datahub.ingestion.source.superset:SupersetSource",
+        "openapi = datahub.ingestion.source.openapi:OpenApiSource",
         "trino = datahub.ingestion.source.sql.trino:TrinoSource",
     ],
     "datahub.ingestion.sink.plugins": [

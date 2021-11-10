@@ -14,6 +14,9 @@ import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.io.IOException;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
@@ -132,5 +135,28 @@ public class ESSearchDAO {
       log.error("Auto complete query failed:" + e.getMessage());
       throw new ESQueryException("Auto complete query failed:", e);
     }
+  }
+
+  /**
+   * Returns number of documents per field value given the field and filters
+   *
+   * @param entityName name of the entity
+   * @param field the field name for aggregate
+   * @param requestParams filters to apply before aggregating
+   * @param limit the number of aggregations to return
+   * @return
+   */
+  @Nonnull
+  public Map<String, Long> aggregateByValue(@Nonnull String entityName, @Nonnull String field,
+      @Nullable Filter requestParams, int limit) {
+    EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
+    final SearchRequest searchRequest =
+        SearchRequestHandler.getBuilder(entitySpec).getAggregationRequest(field, requestParams, limit);
+    searchRequest.indices(indexConvention.getIndexName(entitySpec));
+    return executeAndExtract(entitySpec, searchRequest, 0, 0).getMetadata()
+        .getAggregations()
+        .stream()
+        .findFirst().<Map<String, Long>>map(aggregationMetadata -> new HashMap<>(aggregationMetadata.getAggregations()))
+        .orElse(Collections.emptyMap());
   }
 }
