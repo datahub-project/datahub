@@ -1,6 +1,5 @@
 package com.linkedin.datahub.graphql.resolvers.load;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.linkedin.datahub.graphql.generated.Entity;
 import graphql.schema.DataFetcher;
@@ -22,7 +21,6 @@ import java.util.stream.Collectors;
  */
 public class EntityTypeResolver implements DataFetcher<CompletableFuture<Entity>> {
 
-    private static final List<String> IDENTITY_FIELDS = ImmutableList.of("__typename", "urn", "type");
     private final List<com.linkedin.datahub.graphql.types.EntityType<?>> _entityTypes;
     private final Function<DataFetchingEnvironment, Entity> _entityProvider;
 
@@ -34,16 +32,6 @@ public class EntityTypeResolver implements DataFetcher<CompletableFuture<Entity>
         _entityProvider = entity;
     }
 
-
-    private boolean isOnlySelectingIdentityFields(DataFetchingEnvironment environment) {
-        return environment.getField().getSelectionSet().getSelections().stream().filter(selection -> {
-            if (!(selection instanceof graphql.language.Field)) {
-                return true;
-            }
-            return !IDENTITY_FIELDS.contains(((graphql.language.Field) selection).getName());
-        }).count() == 0;
-    }
-
     @Override
     public CompletableFuture get(DataFetchingEnvironment environment) {
         final Entity resolvedEntity = _entityProvider.apply(environment);
@@ -53,11 +41,6 @@ public class EntityTypeResolver implements DataFetcher<CompletableFuture<Entity>
 
         final String urn = resolvedEntity.getUrn();
         final Object javaObject = _entityProvider.apply(environment);
-
-        if (isOnlySelectingIdentityFields(environment)) {
-            return CompletableFuture.completedFuture(javaObject);
-        }
-
         final com.linkedin.datahub.graphql.types.EntityType<?> filteredEntity = Iterables.getOnlyElement(_entityTypes.stream()
                 .filter(entity -> javaObject.getClass().isAssignableFrom(entity.objectClass()))
                 .collect(Collectors.toList()));

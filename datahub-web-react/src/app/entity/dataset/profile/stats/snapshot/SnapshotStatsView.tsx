@@ -121,7 +121,7 @@ export default function DataProfileView({ profile }: Props) {
                         (sampleValues &&
                             sampleValues
                                 .slice(0, sampleValues.length < 3 ? sampleValues?.length : 3)
-                                .map((value) => <Tag key={value}>{value}</Tag>)) ||
+                                .map((value) => <Tag>{value}</Tag>)) ||
                         unknownValue()
                     );
                 },
@@ -171,8 +171,6 @@ export default function DataProfileView({ profile }: Props) {
                     pagination={false}
                     columns={columnStatsColumns}
                     dataSource={columnStatsTableData}
-                    // TODO: this table's types should be cleaned up so `any` is not needed here or in the column definitions
-                    rowKey={(record: any) => record.name}
                 />
             </StatsSection>
         </>

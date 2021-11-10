@@ -1,5 +1,5 @@
 import React from 'react';
-import { EntityType, FabricType, Owner, GlobalTags, GlossaryTerms, SearchInsight } from '../../../../types.generated';
+import { EntityType, FabricType, Owner, GlobalTags, GlossaryTerms } from '../../../../types.generated';
 import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { capitalizeFirstLetter } from '../../../shared/capitalizeFirstLetter';
@@ -14,7 +14,6 @@ export const Preview = ({
     owners,
     globalTags,
     snippet,
-    insights,
     glossaryTerms,
     subtype,
 }: {
@@ -27,7 +26,6 @@ export const Preview = ({
     owners?: Array<Owner> | null;
     globalTags?: GlobalTags | null;
     snippet?: React.ReactNode | null;
-    insights?: Array<SearchInsight> | null;
     glossaryTerms?: GlossaryTerms | null;
     subtype?: string | null;
 }): JSX.Element => {
@@ -46,7 +44,6 @@ export const Preview = ({
             owners={owners}
             snippet={snippet}
             glossaryTerms={glossaryTerms || undefined}
-            insights={insights}
         />
     );
 };

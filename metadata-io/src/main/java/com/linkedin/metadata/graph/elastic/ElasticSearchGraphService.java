@@ -8,23 +8,20 @@ import com.linkedin.metadata.graph.Edge;
 import com.linkedin.metadata.graph.RelatedEntity;
 import com.linkedin.metadata.graph.RelatedEntitiesResult;
 import com.linkedin.metadata.graph.GraphService;
-import com.linkedin.metadata.query.filter.Condition;
-import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
-import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
-import com.linkedin.metadata.query.filter.Criterion;
-import com.linkedin.metadata.query.filter.CriterionArray;
-import com.linkedin.metadata.query.filter.Filter;
-import com.linkedin.metadata.query.filter.RelationshipDirection;
-import com.linkedin.metadata.query.filter.RelationshipFilter;
+import com.linkedin.metadata.query.Condition;
+import com.linkedin.metadata.query.Criterion;
+import com.linkedin.metadata.query.CriterionArray;
+import com.linkedin.metadata.query.Filter;
+import com.linkedin.metadata.query.RelationshipDirection;
+import com.linkedin.metadata.query.RelationshipFilter;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.IndexBuilder;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
+import java.io.UnsupportedEncodingException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Base64;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -79,11 +76,11 @@ public class ElasticSearchGraphService implements GraphService {
         edge.getSource().toString() + DOC_DELIMETER + edge.getRelationshipType() + DOC_DELIMETER + edge.getDestination().toString();
 
     try {
-      byte[] bytesOfRawDocID = rawDocId.getBytes(StandardCharsets.UTF_8);
+      byte[] bytesOfRawDocID = rawDocId.getBytes("UTF-8");
       MessageDigest md = MessageDigest.getInstance("MD5");
       byte[] thedigest = md.digest(bytesOfRawDocID);
-      return Base64.getEncoder().encodeToString(thedigest);
-    } catch (NoSuchAlgorithmException e) {
+      return thedigest.toString();
+    } catch (NoSuchAlgorithmException | UnsupportedEncodingException e) {
       e.printStackTrace();
       return rawDocId;
     }
@@ -150,14 +147,14 @@ public class ElasticSearchGraphService implements GraphService {
     criterion.setField("urn");
     criterion.setValue(urn.toString());
     criterionArray.add(criterion);
-    filter.setOr(new ConjunctiveCriterionArray(ImmutableList.of(new ConjunctiveCriterion().setAnd(criterionArray))));
+    filter.setCriteria(criterionArray);
 
     return filter;
   }
 
   public void removeNode(@Nonnull final Urn urn) {
     Filter urnFilter = createUrnFilter(urn);
-    Filter emptyFilter = new Filter().setOr(new ConjunctiveCriterionArray());
+    Filter emptyFilter = new Filter().setCriteria(new CriterionArray());
     List<String> relationshipTypes = new ArrayList<>();
 
     RelationshipFilter outgoingFilter = new RelationshipFilter().setDirection(RelationshipDirection.OUTGOING);
@@ -190,7 +187,7 @@ public class ElasticSearchGraphService implements GraphService {
       @Nonnull final RelationshipFilter relationshipFilter) {
 
     Filter urnFilter = createUrnFilter(urn);
-    Filter emptyFilter = new Filter().setOr(new ConjunctiveCriterionArray());
+    Filter emptyFilter = new Filter().setCriteria(new CriterionArray());
 
     _graphWriteDAO.deleteByQuery(
         null,

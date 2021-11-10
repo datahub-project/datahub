@@ -41,6 +41,10 @@ record DataJobInfo includes CustomProperties, ExternalReference {
   /**
    * DataFlow urn that this job is part of
    */
+  @Relationship = {
+    "name": "IsPartOf",
+    "entityTypes": [ "dataFlow" ]
+  }
   flowUrn: optional DataFlowUrn
 
   /**

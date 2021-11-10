@@ -78,9 +78,7 @@ type TagPageParams = {
  * Responsible for displaying metadata about a tag
  */
 export default function TagProfile() {
-    const { urn: encodedUrn } = useParams<TagPageParams>();
-    const urn = decodeURIComponent(encodedUrn);
-
+    const { urn } = useParams<TagPageParams>();
     const { loading, error, data } = useGetTagQuery({ variables: { urn } });
     const entityRegistry = useEntityRegistry();
     const history = useHistory();

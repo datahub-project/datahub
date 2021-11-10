@@ -1,5 +1,5 @@
 import React from 'react';
-import { AccessLevel, EntityType, GlobalTags, GlossaryTerms, Owner, SearchInsight } from '../../../../types.generated';
+import { AccessLevel, EntityType, GlobalTags, GlossaryTerms, Owner } from '../../../../types.generated';
 import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { getLogoFromPlatform } from '../../../shared/getLogoFromPlatform';
@@ -14,7 +14,6 @@ export const DashboardPreview = ({
     owners,
     tags,
     glossaryTerms,
-    insights,
 }: {
     urn: string;
     platform: string;
@@ -24,7 +23,6 @@ export const DashboardPreview = ({
     owners?: Array<Owner> | null;
     tags?: GlobalTags;
     glossaryTerms?: GlossaryTerms | null;
-    insights?: Array<SearchInsight> | null;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     const capitalizedPlatform = capitalizeFirstLetter(platform);
@@ -41,7 +39,6 @@ export const DashboardPreview = ({
             owners={owners}
             tags={tags}
             glossaryTerms={glossaryTerms || undefined}
-            insights={insights}
         />
     );
 };

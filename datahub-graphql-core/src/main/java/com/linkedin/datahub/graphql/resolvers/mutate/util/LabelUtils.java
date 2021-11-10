@@ -271,8 +271,7 @@ public class LabelUtils {
       String subResource,
       SubResourceType subResourceType,
       String labelEntityType,
-      EntityService entityService,
-      Boolean isRemoving
+      EntityService entityService
   ) {
     if (!labelUrn.getEntityType().equals(labelEntityType)) {
       throw new IllegalArgumentException(String.format("Failed to update %s on %s. Was expecting a %s.", labelUrn, targetUrn, labelEntityType));
@@ -282,8 +281,7 @@ public class LabelUtils {
       throw new IllegalArgumentException(String.format("Failed to update %s on %s. %s does not exist.", labelUrn, targetUrn, targetUrn));
     }
 
-    // Datahub allows removing tags & terms it is not familiar with- however these terms must exist to be added back
-    if (!entityService.exists(labelUrn) && !isRemoving) {
+    if (!entityService.exists(labelUrn)) {
       throw new IllegalArgumentException(String.format("Failed to update %s on %s. %s does not exist.", labelUrn, targetUrn, labelUrn));
     }
 

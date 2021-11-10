@@ -1,6 +1,5 @@
 package com.linkedin.datahub.upgrade.restorebackup.backupreader;
 
-import com.google.common.collect.ImmutableList;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import java.io.IOException;
 import java.util.Optional;
@@ -42,7 +41,7 @@ public class LocalParquetReader implements BackupReader {
 
     try {
       ParquetReader<GenericRecord> reader = AvroParquetReader.<GenericRecord>builder(new Path(path.get())).build();
-      return new ParquetEbeanAspectBackupIterator(ImmutableList.of(reader));
+      return new ParquetEbeanAspectBackupIterator(reader);
     } catch (IOException e) {
       throw new RuntimeException(String.format("Failed to build ParquetReader: %s", e));
     }

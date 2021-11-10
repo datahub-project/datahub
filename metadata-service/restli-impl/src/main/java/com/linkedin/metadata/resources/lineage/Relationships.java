@@ -8,9 +8,10 @@ import com.linkedin.common.EntityRelationships;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.graph.RelatedEntitiesResult;
 import com.linkedin.metadata.graph.GraphService;
-import com.linkedin.metadata.query.filter.RelationshipDirection;
+import com.linkedin.metadata.query.CriterionArray;
+import com.linkedin.metadata.query.Filter;
+import com.linkedin.metadata.query.RelationshipDirection;
 import com.linkedin.metadata.restli.RestliUtil;
-import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.parseq.Task;
 import com.linkedin.restli.common.HttpStatus;
 import com.linkedin.restli.server.UpdateResponse;
@@ -30,8 +31,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import static com.linkedin.metadata.search.utils.QueryUtils.newFilter;
-import static com.linkedin.metadata.search.utils.QueryUtils.newRelationshipFilter;
+import static com.linkedin.metadata.dao.utils.QueryUtils.newFilter;
+import static com.linkedin.metadata.dao.utils.QueryUtils.newRelationshipFilter;
 
 
 /**
@@ -40,6 +41,7 @@ import static com.linkedin.metadata.search.utils.QueryUtils.newRelationshipFilte
 @RestLiSimpleResource(name = "relationships", namespace = "com.linkedin.lineage")
 public final class Relationships extends SimpleResourceTemplate<EntityRelationships> {
 
+    private static final Filter EMPTY_FILTER = new Filter().setCriteria(new CriterionArray());
     private static final Integer MAX_DOWNSTREAM_CNT = 100;
 
     @Inject
@@ -61,8 +63,8 @@ public final class Relationships extends SimpleResourceTemplate<EntityRelationsh
         count = count == null ? MAX_DOWNSTREAM_CNT : count;
 
         return _graphService.findRelatedEntities("", newFilter("urn", rawUrn),
-            "", QueryUtils.EMPTY_FILTER,
-            relationshipTypes, newRelationshipFilter(QueryUtils.EMPTY_FILTER, direction),
+            "", EMPTY_FILTER,
+            relationshipTypes, newRelationshipFilter(EMPTY_FILTER, direction),
             start, count);
     }
 

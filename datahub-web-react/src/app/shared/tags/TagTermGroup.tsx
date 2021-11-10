@@ -151,7 +151,10 @@ export default function TagTermGroup({
     return (
         <TagWrapper>
             {uneditableGlossaryTerms?.terms?.map((term) => (
-                <TagLink to={entityRegistry.getEntityUrl(EntityType.GlossaryTerm, term.term.urn)} key={term.term.urn}>
+                <TagLink
+                    to={`/${entityRegistry.getPathName(EntityType.GlossaryTerm)}/${term.term.urn}`}
+                    key={term.term.urn}
+                >
                     <Tag closable={false}>
                         {term.term.name}
                         <BookOutlined style={{ marginLeft: '2%' }} />
@@ -159,7 +162,10 @@ export default function TagTermGroup({
                 </TagLink>
             ))}
             {editableGlossaryTerms?.terms?.map((term) => (
-                <TagLink to={entityRegistry.getEntityUrl(EntityType.GlossaryTerm, term.term.urn)} key={term.term.urn}>
+                <TagLink
+                    to={`/${entityRegistry.getPathName(EntityType.GlossaryTerm)}/${term.term.urn}`}
+                    key={term.term.urn}
+                >
                     <Tag
                         closable={canRemove}
                         onClose={(e) => {
@@ -177,7 +183,7 @@ export default function TagTermGroup({
                 renderedTags += 1;
                 if (maxShow && renderedTags > maxShow) return null;
                 return (
-                    <TagLink to={entityRegistry.getEntityUrl(EntityType.Tag, tag.tag.urn)} key={tag.tag.urn}>
+                    <TagLink to={`/${entityRegistry.getPathName(EntityType.Tag)}/${tag.tag.urn}`} key={tag.tag.urn}>
                         <StyledTag $colorHash={tag.tag.urn} closable={false}>
                             {tag.tag.name}
                         </StyledTag>
@@ -189,7 +195,7 @@ export default function TagTermGroup({
                 renderedTags += 1;
                 if (maxShow && renderedTags > maxShow) return null;
                 return (
-                    <TagLink to={entityRegistry.getEntityUrl(EntityType.Tag, tag.tag.urn)} key={tag.tag.urn}>
+                    <TagLink to={`/${entityRegistry.getPathName(EntityType.Tag)}/${tag.tag.urn}`} key={tag.tag.urn}>
                         <StyledTag
                             $colorHash={tag.tag.urn}
                             closable={canRemove}

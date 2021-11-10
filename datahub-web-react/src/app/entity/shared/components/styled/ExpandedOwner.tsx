@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 import { useRemoveOwnerMutation } from '../../../../../graphql/mutations.generated';
 
-import { EntityType, Owner } from '../../../../../types.generated';
+import { Owner } from '../../../../../types.generated';
 import { CustomAvatar } from '../../../../shared/avatar';
 import { useEntityRegistry } from '../../../../useEntityRegistry';
 
@@ -28,10 +28,10 @@ export const ExpandedOwner = ({ entityUrn, owner, refetch }: Props) => {
 
     let name = '';
     if (owner.owner.__typename === 'CorpGroup') {
-        name = entityRegistry.getDisplayName(EntityType.CorpGroup, owner.owner);
+        name = owner.owner.name || owner.owner.info?.displayName || '';
     }
     if (owner.owner.__typename === 'CorpUser') {
-        name = entityRegistry.getDisplayName(EntityType.CorpUser, owner.owner);
+        name = owner.owner.info?.displayName || owner.owner.info?.fullName || owner.owner.info?.email || '';
     }
 
     const pictureLink = (owner.owner.__typename === 'CorpUser' && owner.owner.editableInfo?.pictureLink) || undefined;
@@ -74,7 +74,7 @@ export const ExpandedOwner = ({ entityUrn, owner, refetch }: Props) => {
     return (
         <OwnerTag onClose={onClose} closable>
             <Link to={`/${entityRegistry.getPathName(owner.owner.type)}/${owner.owner.urn}`}>
-                <CustomAvatar name={name} photoUrl={pictureLink} useDefaultAvatar={false} />
+                <CustomAvatar name={name} photoUrl={pictureLink} />
                 {name}
             </Link>
         </OwnerTag>

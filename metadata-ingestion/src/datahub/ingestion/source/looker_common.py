@@ -575,15 +575,10 @@ class LookerExplore:
                 upstream_views=list(views),
                 source_file=explore.source_file,
             )
-        except SDKError as e:
+        except SDKError:
             logger.warn(
                 "Failed to extract explore {} from model {}.".format(
                     explore_name, model
-                )
-            )
-            logger.debug(
-                "Failed to extract explore {} from model {} with {}".format(
-                    explore_name, model, e
                 )
             )
         except AssertionError:

@@ -49,7 +49,6 @@ export const SearchFilters = ({ facets, selectedFilters, onFilterSelect, loading
         <>
             {cachedProps.facets.map((facet) => (
                 <SearchFilter
-                    key={`${facet.displayName}-${facet.field}`}
                     facet={facet}
                     selectedFilters={cachedProps.selectedFilters}
                     onFilterSelect={onFilterSelectAndSetCache}

@@ -2998,10 +2998,7 @@
         "quoting": {},
         "schema": null,
         "tags": [],
-        "vars": {},
-        "meta": {
-          "owner": "@alice2"
-        }
+        "vars": {}
       },
       "database": "pagila",
       "deferred": false,
@@ -3024,7 +3021,9 @@
         "transform",
         "customer_details"
       ],
-      "meta": {},
+      "meta": {
+        "owner": "@alice"
+      },
       "name": "customer_details",
       "original_file_path": "models/transform/customer_details.sql",
       "package_name": "sample_dbt",
@@ -3391,8 +3390,8 @@
       "loader": "",
       "meta": {
         "model_maturity": "in dev",
-        "some_other_property": "test 1",
-        "owner": "@alice1"
+        "owner": "@alice",
+        "some_other_property": "test 1"
       },
       "name": "actor",
       "original_file_path": "models/base.yml",

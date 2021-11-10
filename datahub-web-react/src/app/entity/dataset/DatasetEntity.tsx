@@ -1,11 +1,13 @@
 import * as React from 'react';
 import { DatabaseFilled, DatabaseOutlined } from '@ant-design/icons';
-import { Typography } from 'antd';
-import { Dataset, EntityType, RelationshipDirection, SearchResult } from '../../../types.generated';
+import { Tag, Typography } from 'antd';
+import styled from 'styled-components';
+import { Dataset, EntityType, SearchResult } from '../../../types.generated';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
 import { Preview } from './preview/Preview';
 import { FIELDS_TO_HIGHLIGHT } from './search/highlights';
-import { getChildrenFromRelationships } from '../../lineage/utils/getChildren';
+import { Direction } from '../../lineage/types';
+import getChildren from '../../lineage/utils/getChildren';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
 import { GetDatasetQuery, useGetDatasetQuery, useUpdateDatasetMutation } from '../../../graphql/dataset.generated';
 import { GenericEntityProperties } from '../shared/types';
@@ -22,8 +24,13 @@ import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
 import { capitalizeFirstLetter } from '../../shared/capitalizeFirstLetter';
 import ViewDefinitionTab from '../shared/tabs/Dataset/View/ViewDefinitionTab';
 import { SidebarViewDefinitionSection } from '../shared/containers/profile/sidebar/Dataset/View/SidebarViewDefinitionSection';
-import { SidebarRecommendationsSection } from '../shared/containers/profile/sidebar/Recommendations/SidebarRecommendationsSection';
-import { getDataForEntityType } from '../shared/containers/profile/utils';
+
+const MatchTag = styled(Tag)`
+    &&& {
+        margin-bottom: 0px;
+        margin-top: 10px;
+    }
+`;
 
 const SUBTYPES = {
     VIEW: 'view',
@@ -80,7 +87,7 @@ export class DatasetEntity implements Entity<Dataset> {
             entityType={EntityType.Dataset}
             useEntityQuery={useGetDatasetQuery}
             useUpdateQuery={useUpdateDatasetMutation}
-            getOverrideProperties={this.getOverridePropertiesFromEntity}
+            getOverrideProperties={this.getOverrideProperties}
             tabs={[
                 {
                     name: 'Schema',
@@ -110,8 +117,8 @@ export class DatasetEntity implements Entity<Dataset> {
                     display: {
                         visible: (_, _1) => true,
                         enabled: (_, dataset: GetDatasetQuery) =>
-                            (dataset?.dataset?.incoming?.count || 0) > 0 ||
-                            (dataset?.dataset?.outgoing?.count || 0) > 0,
+                            (dataset?.dataset?.upstreamLineage?.entities?.length || 0) > 0 ||
+                            (dataset?.dataset?.downstreamLineage?.entities?.length || 0) > 0,
                     },
                 },
                 {
@@ -163,18 +170,15 @@ export class DatasetEntity implements Entity<Dataset> {
                 {
                     component: SidebarOwnerSection,
                 },
-                {
-                    component: SidebarRecommendationsSection,
-                },
             ]}
         />
     );
 
-    getOverridePropertiesFromEntity = (dataset?: Dataset | null): GenericEntityProperties => {
+    getOverrideProperties = (dataset: GetDatasetQuery): GenericEntityProperties => {
         // if dataset has subTypes filled out, pick the most specific subtype and return it
-        const subTypes = dataset?.subTypes;
+        const subTypes = dataset?.dataset?.subTypes;
         return {
-            externalUrl: dataset?.properties?.externalUrl,
+            externalUrl: dataset.dataset?.properties?.externalUrl,
             entityTypeOverride: subTypes ? capitalizeFirstLetter(subTypes.typeNames?.[0]) : '',
         };
     };
@@ -214,55 +218,36 @@ export class DatasetEntity implements Entity<Dataset> {
                     // Add match highlights only if all the matched fields are in the FIELDS_TO_HIGHLIGHT
                     result.matchedFields.length > 0 &&
                     result.matchedFields.every((field) => FIELDS_TO_HIGHLIGHT.has(field.name)) && (
-                        <Typography.Text>
-                            Matches {FIELDS_TO_HIGHLIGHT.get(result.matchedFields[0].name)}{' '}
-                            <b>{result.matchedFields[0].value}</b>
-                        </Typography.Text>
+                        <MatchTag>
+                            <Typography.Text>
+                                Matches {FIELDS_TO_HIGHLIGHT.get(result.matchedFields[0].name)}{' '}
+                                <b>{result.matchedFields[0].value}</b>
+                            </Typography.Text>
+                        </MatchTag>
                     )
                 }
-                insights={result.insights}
             />
         );
     };
 
     getLineageVizConfig = (entity: Dataset) => {
         return {
-            urn: entity?.urn,
-            name: entity?.name,
+            urn: entity.urn,
+            name: entity.name,
             type: EntityType.Dataset,
             subtype: entity.subTypes?.typeNames?.[0] || undefined,
-            downstreamChildren: getChildrenFromRelationships({
-                // eslint-disable-next-line @typescript-eslint/dot-notation
-                incomingRelationships: entity?.['incoming'],
-                // eslint-disable-next-line @typescript-eslint/dot-notation
-                outgoingRelationships: entity?.['outgoing'],
-                direction: RelationshipDirection.Incoming,
-            }),
-            upstreamChildren: getChildrenFromRelationships({
-                // eslint-disable-next-line @typescript-eslint/dot-notation
-                incomingRelationships: entity?.['incoming'],
-                // eslint-disable-next-line @typescript-eslint/dot-notation
-                outgoingRelationships: entity?.['outgoing'],
-                direction: RelationshipDirection.Outgoing,
-            }),
-            icon: entity?.platform?.info?.logoUrl || undefined,
-            platform: entity?.platform?.name,
+            upstreamChildren: getChildren({ entity, type: EntityType.Dataset }, Direction.Upstream).map(
+                (child) => child.entity.urn,
+            ),
+            downstreamChildren: getChildren({ entity, type: EntityType.Dataset }, Direction.Downstream).map(
+                (child) => child.entity.urn,
+            ),
+            icon: entity.platform.info?.logoUrl || undefined,
+            platform: entity.platform.name,
         };
     };
 
     displayName = (data: Dataset) => {
-        return data?.name;
-    };
-
-    platformLogoUrl = (data: Dataset) => {
-        return data.platform.info?.logoUrl || undefined;
-    };
-
-    getGenericEntityProperties = (data: Dataset) => {
-        return getDataForEntityType({
-            data,
-            entityType: this.type,
-            getOverrideProperties: this.getOverridePropertiesFromEntity,
-        });
+        return data.name;
     };
 }

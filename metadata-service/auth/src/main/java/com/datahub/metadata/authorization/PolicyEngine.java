@@ -3,7 +3,7 @@ package com.datahub.metadata.authorization;
 import com.linkedin.common.Owner;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.entity.client.RestliEntityClient;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.OwnershipClient;
 import com.linkedin.identity.GroupMembership;
 import com.linkedin.metadata.aspect.CorpUserAspect;
@@ -29,11 +29,11 @@ import static com.linkedin.metadata.Constants.*;
 @Slf4j
 public class PolicyEngine {
 
-  private final RestliEntityClient _entityClient;
+  private final EntityClient _entityClient;
   private final OwnershipClient _ownershipClient;
 
   public PolicyEngine(
-      final RestliEntityClient entityClient,
+      final EntityClient entityClient,
       final OwnershipClient ownershipClient) {
     _entityClient = entityClient;
     _ownershipClient = ownershipClient;

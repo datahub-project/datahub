@@ -4,7 +4,6 @@ import { MlPrimaryKey, EntityType, SearchResult } from '../../../types.generated
 import { Preview } from './preview/Preview';
 import { MLPrimaryKeyProfile } from './profile/MLPrimaryKeyProfile';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
-import { getDataForEntityType } from '../shared/containers/profile/utils';
 
 /**
  * Definition of the DataHub MLPrimaryKey entity.
@@ -74,13 +73,5 @@ export class MLPrimaryKeyEntity implements Entity<MlPrimaryKey> {
 
     displayName = (data: MlPrimaryKey) => {
         return data.name;
-    };
-
-    getGenericEntityProperties = (mlPrimaryKey: MlPrimaryKey) => {
-        return getDataForEntityType({
-            data: mlPrimaryKey,
-            entityType: this.type,
-            getOverrideProperties: (data) => data,
-        });
     };
 }

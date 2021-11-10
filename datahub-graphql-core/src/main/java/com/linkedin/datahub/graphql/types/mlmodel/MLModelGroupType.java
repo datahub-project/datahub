@@ -1,7 +1,6 @@
 package com.linkedin.datahub.graphql.types.mlmodel;
 
 import com.google.common.collect.ImmutableSet;
-
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -41,10 +40,10 @@ import static com.linkedin.datahub.graphql.Constants.BROWSE_PATH_DELIMITER;
 public class MLModelGroupType implements SearchableEntityType<MLModelGroup>, BrowsableEntityType<MLModelGroup> {
 
     private static final Set<String> FACET_FIELDS = ImmutableSet.of("origin", "platform");
-    private final EntityClient _entityClient;
+    private final EntityClient _mlModelGroupClient;
 
-    public MLModelGroupType(final EntityClient entityClient) {
-        _entityClient = entityClient;
+    public MLModelGroupType(final EntityClient mlModelGroupClient) {
+        _mlModelGroupClient = mlModelGroupClient;
     }
 
     @Override
@@ -64,7 +63,7 @@ public class MLModelGroupType implements SearchableEntityType<MLModelGroup>, Bro
             .collect(Collectors.toList());
 
         try {
-            final Map<Urn, Entity> mlModelMap = _entityClient.batchGet(mlModelGroupUrns
+            final Map<Urn, Entity> mlModelMap = _mlModelGroupClient.batchGet(mlModelGroupUrns
                 .stream()
                 .filter(Objects::nonNull)
                 .collect(Collectors.toSet()),
@@ -92,7 +91,7 @@ public class MLModelGroupType implements SearchableEntityType<MLModelGroup>, Bro
                                 int count,
                                 @Nonnull final QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
-        final SearchResult searchResult = _entityClient.search("mlModelGroup", query, facetFilters, start, count, context.getActor());
+        final SearchResult searchResult = _mlModelGroupClient.search("mlModelGroup", query, facetFilters, start, count, context.getActor());
         return UrnSearchResultsMapper.map(searchResult);
     }
 
@@ -103,7 +102,7 @@ public class MLModelGroupType implements SearchableEntityType<MLModelGroup>, Bro
                                             int limit,
                                             @Nonnull final QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
-        final AutoCompleteResult result = _entityClient.autoComplete("mlModelGroup", query, facetFilters, limit, context.getActor());
+        final AutoCompleteResult result = _mlModelGroupClient.autoComplete("mlModelGroup", query, facetFilters, limit, context.getActor());
         return AutoCompleteResultsMapper.map(result);
     }
 
@@ -115,7 +114,7 @@ public class MLModelGroupType implements SearchableEntityType<MLModelGroup>, Bro
                                 @Nonnull final QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
         final String pathStr = path.size() > 0 ? BROWSE_PATH_DELIMITER + String.join(BROWSE_PATH_DELIMITER, path) : "";
-        final BrowseResult result = _entityClient.browse(
+        final BrowseResult result = _mlModelGroupClient.browse(
                 "mlModelGroup",
                 pathStr,
                 facetFilters,
@@ -127,7 +126,7 @@ public class MLModelGroupType implements SearchableEntityType<MLModelGroup>, Bro
 
     @Override
     public List<BrowsePath> browsePaths(@Nonnull String urn, @Nonnull final QueryContext context) throws Exception {
-        final StringArray result = _entityClient.getBrowsePaths(MLModelUtils.getMLModelGroupUrn(urn), context.getActor());
+        final StringArray result = _mlModelGroupClient.getBrowsePaths(MLModelUtils.getMLModelGroupUrn(urn), context.getActor());
         return BrowsePathsMapper.map(result);
     }
 }

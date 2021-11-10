@@ -38,8 +38,7 @@ public class RemoveTagResolver implements DataFetcher<CompletableFuture<Boolean>
           input.getSubResource(),
           input.getSubResourceType(),
           "tag",
-          _entityService,
-          true
+          _entityService
       );
       try {
 

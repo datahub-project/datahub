@@ -15,16 +15,15 @@ Of course, you always have access to our community through [Slack](https://slack
 
 #### Data Profiling and Dataset Previews
 Use Case: See sample data for a dataset and statistics on the shape of the data (column distribution, nullability etc.)
-- [x] Support for data profiling and preview extraction through ingestion pipeline (column samples, not rows)
+- [ ] Support for data profiling and preview extraction through ingestion pipeline
 
 #### Data Quality
-- [x] Support for data profiling and time-series views
 - [ ] Support for data quality visualization
 - [ ] Support for data health score based on data quality results and pipeline observability
 - [ ] Integration with systems like Great Expectations, AWS deequ, dbt test etc.
 
 #### Fine-grained Access Control for Metadata
-- [x] Support for role-based access control to edit metadata
+- [ ] Support for role-based access control on metadata (view, edit etc.)
 - Scope: Access control on entity-level, aspect-level and within aspects as well.
 
 #### Column-level lineage
@@ -49,8 +48,8 @@ Use Case: See sample data for a dataset and statistics on the shape of the data 
 - [ ] Slack integration
 
 #### ML Ecosystem
-- [x] Features (Feast)
-- [x] Models (Sagemaker)
+- [ ] Features
+- [ ] Models
 - [ ] Notebooks
 
 #### Metrics Ecosystem

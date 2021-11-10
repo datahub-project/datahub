@@ -1,111 +1,84 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { HierarchyNode } from '@vx/hierarchy/lib/types';
+import React, { useCallback, useEffect, useState } from 'react';
+import debounce from 'lodash.debounce';
+import { Tree } from '@vx/hierarchy';
 import { TransformMatrix } from '@vx/zoom/lib/types';
 
 import { NodeData, Direction, EntitySelectParams, TreeProps } from './types';
 import LineageTreeNodeAndEdgeRenderer from './LineageTreeNodeAndEdgeRenderer';
-import layoutTree from './utils/layoutTree';
 
 type LineageTreeProps = {
-    data: NodeData;
+    data: HierarchyNode<NodeData>;
     zoom: {
         transformMatrix: TransformMatrix;
     };
+    canvasHeight: number;
+    canvasWidth: number;
     onEntityClick: (EntitySelectParams) => void;
     onEntityCenter: (EntitySelectParams) => void;
     onLineageExpand: (LineageExpandParams) => void;
     selectedEntity?: EntitySelectParams;
-    hoveredEntity?: EntitySelectParams;
-    setHoveredEntity: (EntitySelectParams) => void;
     margin: TreeProps['margin'];
     direction: Direction;
-    canvasHeight: number;
-    setIsDraggingNode: (isDraggingNode: boolean) => void;
-    draggedNodes: Record<string, { x: number; y: number }>;
-    setDraggedNodes: (draggedNodes: Record<string, { x: number; y: number }>) => void;
 };
 
 export default function LineageTree({
     data,
     zoom,
     margin,
+    canvasWidth,
+    canvasHeight,
     onEntityClick,
     onEntityCenter,
     onLineageExpand,
     selectedEntity,
-    hoveredEntity,
-    setHoveredEntity,
     direction,
-    canvasHeight,
-    setIsDraggingNode,
-    draggedNodes,
-    setDraggedNodes,
 }: LineageTreeProps) {
     const [xCanvasScale, setXCanvasScale] = useState(1);
+    const [yCanvasScale, setYCanvasScale] = useState(1);
 
     useEffect(() => {
         setXCanvasScale(1);
-    }, [data.urn]);
+        setYCanvasScale(1);
+    }, [data.data.urn]);
 
-    let dragState: { urn: string; x: number; y: number } | undefined;
-
-    const { nodesToRender, edgesToRender, nodesByUrn, layers } = useMemo(
-        () => layoutTree(data, direction, draggedNodes, canvasHeight),
-        [data, direction, draggedNodes, canvasHeight],
+    // Need to disable exhaustive-deps because react has trouble introspecting the debounce call's dependencies
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const debouncedSetYCanvasScale = useCallback(
+        debounce((newValue) => {
+            setYCanvasScale(newValue);
+        }, 6),
+        [setYCanvasScale],
     );
-
-    const dragContinue = (event: MouseEvent) => {
-        if (!dragState || !dragState.urn) {
-            return;
-        }
-
-        const realY =
-            (event.clientX - (dragState.x || 0)) * (1 / zoom.transformMatrix.scaleY) + nodesByUrn[dragState.urn].y;
-        const realX =
-            (event.clientY - (dragState.y || 0)) * (1 / zoom.transformMatrix.scaleX) + nodesByUrn[dragState.urn].x;
-        setDraggedNodes({
-            ...draggedNodes,
-            [dragState?.urn]: { x: realX, y: realY },
-        });
-    };
-
-    const stopDragging = () => {
-        setIsDraggingNode(false);
-        window.removeEventListener('mousemove', dragContinue, false);
-        window.removeEventListener('mouseup', stopDragging, false);
-    };
-
-    const onDrag = ({ urn }, event: React.MouseEvent) => {
-        const { clientX, clientY } = event;
-        dragState = { urn, x: clientX, y: clientY };
-        setIsDraggingNode(true);
-
-        window.addEventListener('mousemove', dragContinue, false);
-        window.addEventListener('mouseup', stopDragging, false);
-    };
 
     useEffect(() => {
         // as our tree height grows, we need to expand our canvas so the nodes do not become increasingly squished together
-        if (layers > xCanvasScale) {
-            setXCanvasScale(layers);
+        if (data.height > xCanvasScale) {
+            setXCanvasScale(data.height);
         }
-    }, [layers, xCanvasScale, setXCanvasScale]);
+    }, [data.height, xCanvasScale, setXCanvasScale]);
 
+    // The <Tree /> component takes in the data we've prepared and lays out each node by providing it an x & y coordinate.
+    // However, we need to make a few adjustments to the layout before rendering
+    // TODO(gabe-lyons): Abstract the interior of <Tree />'s render into its own FC to further optimize
     return (
-        <LineageTreeNodeAndEdgeRenderer
-            data={data}
-            onDrag={onDrag}
-            nodesToRender={nodesToRender}
-            edgesToRender={edgesToRender}
-            nodesByUrn={nodesByUrn}
-            zoom={zoom}
-            margin={margin}
-            onEntityClick={onEntityClick}
-            onEntityCenter={onEntityCenter}
-            onLineageExpand={onLineageExpand}
-            selectedEntity={selectedEntity}
-            hoveredEntity={hoveredEntity}
-            setHoveredEntity={setHoveredEntity}
-            direction={direction}
-        />
+        <Tree<NodeData> root={data} size={[yCanvasScale * canvasHeight, xCanvasScale * canvasWidth]}>
+            {(tree) => (
+                <LineageTreeNodeAndEdgeRenderer
+                    tree={tree}
+                    zoom={zoom}
+                    margin={margin}
+                    canvasHeight={canvasHeight}
+                    onEntityClick={onEntityClick}
+                    onEntityCenter={onEntityCenter}
+                    onLineageExpand={onLineageExpand}
+                    selectedEntity={selectedEntity}
+                    direction={direction}
+                    debouncedSetYCanvasScale={debouncedSetYCanvasScale}
+                    yCanvasScale={yCanvasScale}
+                    xCanvasScale={xCanvasScale}
+                />
+            )}
+        </Tree>
     );
 }

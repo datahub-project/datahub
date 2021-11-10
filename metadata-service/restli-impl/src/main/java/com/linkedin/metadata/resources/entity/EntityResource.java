@@ -11,12 +11,11 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.RollbackRunResult;
-import com.linkedin.metadata.entity.ValidationException;
 import com.linkedin.metadata.query.AutoCompleteResult;
-import com.linkedin.metadata.query.filter.Filter;
-import com.linkedin.metadata.query.filter.SortCriterion;
+import com.linkedin.metadata.query.Filter;
 import com.linkedin.metadata.query.ListResult;
 import com.linkedin.metadata.query.ListUrnsResult;
+import com.linkedin.metadata.query.SortCriterion;
 import com.linkedin.metadata.restli.RestliUtil;
 import com.linkedin.metadata.run.DeleteEntityResponse;
 import com.linkedin.metadata.search.EntitySearchService;
@@ -27,7 +26,6 @@ import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.parseq.Task;
 import com.linkedin.restli.common.HttpStatus;
 import com.linkedin.restli.internal.server.methods.AnyRecord;
-import com.linkedin.restli.server.RestLiServiceException;
 import com.linkedin.restli.server.annotations.Action;
 import com.linkedin.restli.server.annotations.ActionParam;
 import com.linkedin.restli.server.annotations.Optional;
@@ -52,7 +50,7 @@ import javax.inject.Inject;
 import javax.inject.Named;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.metadata.entity.ValidationUtils.validateOrThrow;
+import static com.linkedin.metadata.resources.ResourceUtils.validateOrThrow;
 import static com.linkedin.metadata.restli.RestliConstants.ACTION_AUTOCOMPLETE;
 import static com.linkedin.metadata.restli.RestliConstants.ACTION_BROWSE;
 import static com.linkedin.metadata.restli.RestliConstants.ACTION_GET_BROWSE_PATHS;
@@ -82,7 +80,6 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   private static final String ACTION_SEARCH_ACROSS_ENTITIES = "searchAcrossEntities";
   private static final String ACTION_BATCH_INGEST = "batchIngest";
   private static final String ACTION_LIST_URNS = "listUrns";
-  private static final String ACTION_FILTER = "filter";
   private static final String PARAM_ENTITY = "entity";
   private static final String PARAM_ENTITIES = "entities";
   private static final String PARAM_COUNT = "count";
@@ -165,11 +162,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   public Task<Void> ingest(@ActionParam(PARAM_ENTITY) @Nonnull Entity entity,
       @ActionParam(SYSTEM_METADATA) @Optional @Nullable SystemMetadata providedSystemMetadata)
       throws URISyntaxException {
-    try {
-      validateOrThrow(entity);
-    } catch (ValidationException e) {
-      throw new RestLiServiceException(HttpStatus.S_422_UNPROCESSABLE_ENTITY, e);
-    }
+    validateOrThrow(entity, HttpStatus.S_422_UNPROCESSABLE_ENTITY);
 
     SystemMetadata systemMetadata = populateDefaultFieldsIfEmpty(providedSystemMetadata);
 
@@ -192,11 +185,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       @ActionParam(SYSTEM_METADATA) @Optional @Nullable SystemMetadata[] systemMetadataList) throws URISyntaxException {
 
     for (Entity entity : entities) {
-      try {
-        validateOrThrow(entity);
-      } catch (ValidationException e) {
-        throw new RestLiServiceException(HttpStatus.S_422_UNPROCESSABLE_ENTITY, e);
-      }
+      validateOrThrow(entity, HttpStatus.S_422_UNPROCESSABLE_ENTITY);
     }
 
     final AuditStamp auditStamp =
@@ -243,9 +232,8 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       @ActionParam(PARAM_COUNT) int count) {
     List<String> entityList = entities == null ? Collections.emptyList() : Arrays.asList(entities);
     log.info("GET SEARCH RESULTS ACROSS ENTITIES for {} with query {}", entityList, input);
-    final String finalInput = input.isEmpty() ? "*" : input;
     return RestliUtil.toTask(
-        () -> _searchService.searchAcrossEntities(entityList, finalInput, filter, sortCriterion, start, count),
+        () -> _searchService.searchAcrossEntities(entityList, input, filter, sortCriterion, start, count),
         "searchAcrossEntities");
   }
 
@@ -357,7 +345,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     return RestliUtil.toTask(() -> _entityService.listUrns(entityName, start, count), "listUrns");
   }
 
-  public static ListResult toListResult(final SearchResult searchResult) {
+  private ListResult toListResult(final SearchResult searchResult) {
     if (searchResult == null) {
       return null;
     }
@@ -371,20 +359,5 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
         .map(SearchEntity::getEntity)
         .collect(Collectors.toList())));
     return listResult;
-  }
-
-  @Action(name = ACTION_FILTER)
-  @Nonnull
-  @WithSpan
-  public Task<SearchResult> filter(
-      @ActionParam(PARAM_ENTITY) @Nonnull String entityName,
-      @ActionParam(PARAM_FILTER) Filter filter,
-      @ActionParam(PARAM_SORT) @Optional @Nullable SortCriterion sortCriterion,
-      @ActionParam(PARAM_START) int start,
-      @ActionParam(PARAM_COUNT) int count) {
-
-    log.info("FILTER RESULTS for {} with filter {}", entityName, filter);
-    return RestliUtil.toTask(() -> _entitySearchService.filter(entityName, filter, sortCriterion, start, count),
-        MetricRegistry.name(this.getClass(), "search"));
   }
 }

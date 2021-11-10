@@ -1,25 +1,11 @@
 query getMLModel($urn: String!) {
     mlModel(urn: $urn) {
         ...nonRecursiveMLModel
-        incoming: relationships(
-            input: {
-                types: ["DownstreamOf", "Consumes", "Produces", "TrainedBy", "MemberOf"]
-                direction: INCOMING
-                start: 0
-                count: 100
-            }
-        ) {
-            ...fullRelationshipResults
+        downstreamLineage {
+            ...downstreamRelationshipFields
         }
-        outgoing: relationships(
-            input: {
-                types: ["DownstreamOf", "Consumes", "Produces", "TrainedBy", "MemberOf"]
-                direction: OUTGOING
-                start: 0
-                count: 100
-            }
-        ) {
-            ...fullRelationshipResults
+        upstreamLineage {
+            ...upstreamRelationshipFields
         }
     }
 }

@@ -1,3 +1,15 @@
+mutation updateDataset($urn: String!, $input: DatasetUpdateInput!) {
+    updateDataset(urn: $urn, input: $input) {
+        ...nonRecursiveDatasetFields
+        downstreamLineage {
+            ...downstreamRelationshipFields
+        }
+        upstreamLineage {
+            ...upstreamRelationshipFields
+        }
+    }
+}
+
 query getDataProfiles($urn: String!, $limit: Int, $startTime: Long, $endTime: Long) {
     dataset(urn: $urn) {
         urn
@@ -25,6 +37,12 @@ query getDataProfiles($urn: String!, $limit: Int, $startTime: Long, $endTime: Lo
 query getDataset($urn: String!) {
     dataset(urn: $urn) {
         ...nonRecursiveDatasetFields
+        downstreamLineage {
+            ...downstreamRelationshipFields
+        }
+        upstreamLineage {
+            ...upstreamRelationshipFields
+        }
         schemaMetadata(version: 0) {
             ...schemaMetadataFields
         }
@@ -104,23 +122,33 @@ query getDataset($urn: String!) {
                 sampleValues
             }
         }
-        incoming: relationships(
-            input: { types: ["DownstreamOf", "Consumes", "Produces"], direction: INCOMING, start: 0, count: 100 }
-        ) {
-            ...fullRelationshipResults
-        }
-        outgoing: relationships(
-            input: { types: ["DownstreamOf", "Consumes", "Produces"], direction: OUTGOING, start: 0, count: 100 }
-        ) {
-            ...fullRelationshipResults
-        }
         ...viewProperties
     }
 }
 
-mutation updateDataset($urn: String!, $input: DatasetUpdateInput!) {
-    updateDataset(urn: $urn, input: $input) {
+query getDatasetSchemaVersions($urn: String!, $version1: Long, $version2: Long) {
+    dataset(urn: $urn) {
         urn
+        name
+        type
+        origin
+        description
+        uri
+        schemaMetadata(version: $version1) {
+            ...schemaMetadataFields
+        }
+        previousSchemaMetadata: schemaMetadata(version: $version2) {
+            ...schemaMetadataFields
+        }
+        editableSchemaMetadata {
+            editableSchemaFieldInfo {
+                fieldPath
+                description
+                globalTags {
+                    ...globalTagsFields
+                }
+            }
+        }
     }
 }
 

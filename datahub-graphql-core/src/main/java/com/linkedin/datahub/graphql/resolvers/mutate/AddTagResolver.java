@@ -39,8 +39,7 @@ public class AddTagResolver implements DataFetcher<CompletableFuture<Boolean>> {
           input.getSubResource(),
           input.getSubResourceType(),
           "tag",
-          _entityService,
-          false
+          _entityService
       );
       try {
 

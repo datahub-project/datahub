@@ -19,14 +19,7 @@ describe('HomePage', () => {
 
     it('renders browsable entities', async () => {
         const { getByText } = render(
-            <MockedProvider
-                mocks={mocks}
-                addTypename={false}
-                defaultOptions={{
-                    watchQuery: { fetchPolicy: 'no-cache' },
-                    query: { fetchPolicy: 'no-cache' },
-                }}
-            >
+            <MockedProvider mocks={mocks} addTypename={false}>
                 <TestPageContainer>
                     <HomePage />
                 </TestPageContainer>
@@ -66,7 +59,7 @@ describe('HomePage', () => {
                 </TestPageContainer>
             </MockedProvider>,
         );
-        await waitFor(() => expect(getByText('Try searching for')).toBeInTheDocument());
+        await waitFor(() => expect(getByText('Try searching for...')).toBeInTheDocument());
         expect(queryAllByText('Yet Another Dataset').length).toBeGreaterThanOrEqual(1);
         expect(queryAllByText('Fourth Test Dataset').length).toBeGreaterThanOrEqual(1);
     });

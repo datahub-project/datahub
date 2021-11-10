@@ -4,14 +4,53 @@ query getDashboard($urn: String!) {
         editableProperties {
             description
         }
+        downstreamLineage {
+            ...downstreamRelationshipFields
+        }
+        upstreamLineage {
+            ...upstreamRelationshipFields
+        }
         charts: relationships(input: { types: ["Contains"], direction: OUTGOING, start: 0, count: 100 }) {
-            ...fullRelationshipResults
+            start
+            count
+            total
+            relationships {
+                entity {
+                    ... on Chart {
+                        urn
+                        type
+                        tool
+                        info {
+                            name
+                            description
+                        }
+                        ownership {
+                            ...ownershipFields
+                        }
+                        globalTags {
+                            ...globalTagsFields
+                        }
+                        glossaryTerms {
+                            ...glossaryTerms
+                        }
+                    }
+                }
+            }
         }
     }
 }
 
 mutation updateDashboard($urn: String!, $input: DashboardUpdateInput!) {
     updateDashboard(urn: $urn, input: $input) {
-        urn
+        ...dashboardFields
+        editableProperties {
+            description
+        }
+        downstreamLineage {
+            ...downstreamRelationshipFields
+        }
+        upstreamLineage {
+            ...upstreamRelationshipFields
+        }
     }
 }

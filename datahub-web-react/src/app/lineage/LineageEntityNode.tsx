@@ -1,16 +1,13 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { Group } from '@vx/group';
 import { LinkHorizontal } from '@vx/shape';
 import styled from 'styled-components';
 
 import { useEntityRegistry } from '../useEntityRegistry';
 import { IconStyleType } from '../entity/Entity';
-import { NodeData, Direction, VizNode, EntitySelectParams } from './types';
+import { NodeData, Direction } from './types';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { capitalizeFirstLetter } from '../shared/capitalizeFirstLetter';
-
-const CLICK_DELAY_THRESHOLD = 1000;
-const DRAG_DISTANCE_THRESHOLD = 20;
 
 function truncate(input, length) {
     if (!input) return '';
@@ -20,9 +17,7 @@ function truncate(input, length) {
     return input;
 }
 
-function getLastTokenOfTitle(title?: string): string {
-    if (!title) return '';
-
+function getLastTokenOfTitle(title: string): string {
     const lastToken = title?.split('.').slice(-1)[0];
 
     // if the last token does not contain any content, the string should not be tokenized on `.`
@@ -47,10 +42,6 @@ const PointerGroup = styled(Group)`
     cursor: pointer;
 `;
 
-const UnselectableText = styled.text`
-    user-select: none;
-`;
-
 export default function LineageEntityNode({
     node,
     isSelected,
@@ -58,7 +49,6 @@ export default function LineageEntityNode({
     onEntityClick,
     onEntityCenter,
     onHover,
-    onDrag,
     onExpandClick,
     direction,
     isCenterNode,
@@ -71,29 +61,17 @@ export default function LineageEntityNode({
     onEntityClick: (EntitySelectParams) => void;
     onEntityCenter: (EntitySelectParams) => void;
     onHover: (EntitySelectParams) => void;
-    onDrag: (params: EntitySelectParams, event: React.MouseEvent) => void;
     onExpandClick: (LineageExpandParams) => void;
     direction: Direction;
-    nodesToRenderByUrn: Record<string, VizNode>;
+    nodesToRenderByUrn: { [key: string]: { x: number; y: number; data: Omit<NodeData, 'children'> }[] };
 }) {
     const entityRegistry = useEntityRegistry();
     const unexploredHiddenChildren =
         node?.data?.countercurrentChildrenUrns?.filter((urn) => !(urn in nodesToRenderByUrn))?.length || 0;
 
-    // we need to track lastMouseDownCoordinates to differentiate between clicks and drags. It doesn't use useState because
-    // it shouldn't trigger re-renders
-    const lastMouseDownCoordinates = useMemo(
-        () => ({
-            ts: 0,
-            x: 0,
-            y: 0,
-        }),
-        [],
-    );
-
     return (
         <PointerGroup data-testid={`node-${node.data.urn}-${direction}`} top={node.x} left={node.y}>
-            {unexploredHiddenChildren && (isHovered || isSelected) ? (
+            {unexploredHiddenChildren ? (
                 <Group>
                     {[...Array(unexploredHiddenChildren)].map((_, index) => {
                         const link = {
@@ -108,8 +86,7 @@ export default function LineageEntityNode({
                         };
                         return (
                             <LinkHorizontal
-                                // eslint-disable-next-line  react/no-array-index-key
-                                key={`link-${index}-${direction}`}
+                                key={`node-${_}-${direction}`}
                                 data={link}
                                 stroke={`url(#gradient-${direction})`}
                                 strokeWidth="1"
@@ -143,30 +120,14 @@ export default function LineageEntityNode({
             ) : null}
             <Group
                 onDoubleClick={() => onEntityCenter({ urn: node.data.urn, type: node.data.type })}
-                onClick={(event) => {
-                    if (
-                        event.timeStamp < lastMouseDownCoordinates.ts + CLICK_DELAY_THRESHOLD &&
-                        Math.sqrt(
-                            (event.clientX - lastMouseDownCoordinates.x) ** 2 +
-                                (event.clientY - lastMouseDownCoordinates.y) ** 2,
-                        ) < DRAG_DISTANCE_THRESHOLD
-                    ) {
-                        onEntityClick({ urn: node.data.urn, type: node.data.type });
-                    }
+                onClick={() => {
+                    onEntityClick({ urn: node.data.urn, type: node.data.type });
                 }}
                 onMouseOver={() => {
                     onHover({ urn: node.data.urn, type: node.data.type });
                 }}
                 onMouseOut={() => {
                     onHover(undefined);
-                }}
-                onMouseDown={(event) => {
-                    lastMouseDownCoordinates.ts = event.timeStamp;
-                    lastMouseDownCoordinates.x = event.clientX;
-                    lastMouseDownCoordinates.y = event.clientY;
-                    if (node.data.urn && node.data.type) {
-                        onDrag({ urn: node.data.urn, type: node.data.type }, event);
-                    }
                 }}
             >
                 <rect
@@ -204,7 +165,7 @@ export default function LineageEntityNode({
                     )
                 )}
                 <Group>
-                    <UnselectableText
+                    <text
                         dy="-1em"
                         x={textX}
                         fontSize={8}
@@ -221,8 +182,8 @@ export default function LineageEntityNode({
                         <tspan dx=".25em" dy="-2px">
                             {capitalizeFirstLetter(node.data.subtype || node.data.type)}
                         </tspan>
-                    </UnselectableText>
-                    <UnselectableText
+                    </text>
+                    <text
                         dy="1em"
                         x={textX}
                         fontSize={14}
@@ -231,10 +192,10 @@ export default function LineageEntityNode({
                         fill={isCenterNode ? '#1890FF' : 'black'}
                     >
                         {truncate(getLastTokenOfTitle(node.data.name), 16)}
-                    </UnselectableText>
+                    </text>
                 </Group>
                 {unexploredHiddenChildren && isHovered ? (
-                    <UnselectableText
+                    <text
                         dy=".33em"
                         dx={textX}
                         fontSize={16}
@@ -245,7 +206,7 @@ export default function LineageEntityNode({
                     >
                         {unexploredHiddenChildren} hidden {direction === Direction.Upstream ? 'downstream' : 'upstream'}{' '}
                         {unexploredHiddenChildren > 1 ? 'dependencies' : 'dependency'}
-                    </UnselectableText>
+                    </text>
                 ) : null}
             </Group>
         </PointerGroup>

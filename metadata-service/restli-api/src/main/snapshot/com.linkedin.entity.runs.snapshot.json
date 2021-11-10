@@ -557,7 +557,7 @@
               "addToFilters" : true,
               "fieldName" : "tags",
               "fieldType" : "URN_PARTIAL",
-              "filterNameOverride" : "Tag",
+              "filterNameOverride" : "Tags",
               "hasValuesFieldName" : "hasTags"
             }
           } ]
@@ -634,7 +634,7 @@
         "addToFilters" : true,
         "fieldName" : "glossaryTerms",
         "fieldType" : "URN_PARTIAL",
-        "filterNameOverride" : "Glossary Term"
+        "filterNameOverride" : "Glossary Terms"
       }
     } ]
   }, "com.linkedin.common.GlossaryTermUrn", {

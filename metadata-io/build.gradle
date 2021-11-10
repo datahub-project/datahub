@@ -22,6 +22,7 @@ dependencies {
   compile externalDependency.elasticSearchTransport
   compile externalDependency.kafkaClients
   compile externalDependency.gmaEbeanDao
+  compile externalDependency.gmaDaoApi
   compile externalDependency.gmaRestliResources
   compile externalDependency.gmaElasticsearchDao
   compile externalDependency.ebean
@@ -42,8 +43,6 @@ dependencies {
   testCompile externalDependency.testContainersJunit
   testCompile externalDependency.testContainersElasticsearch
   testCompile project(':test-models')
-
-  testAnnotationProcessor externalDependency.lombok
 }
 
 tasks.withType(Test) {

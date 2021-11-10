@@ -70,7 +70,6 @@ export default function useSchemaTitleRenderer(
                         )
                         .map((constraint) => (
                             <ForeignKeyLabel
-                                key={constraint?.name}
                                 fieldPath={fieldPath}
                                 constraint={constraint}
                                 highlight={constraint?.name === highlightedConstraint}

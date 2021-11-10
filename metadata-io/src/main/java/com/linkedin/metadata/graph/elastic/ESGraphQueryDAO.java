@@ -1,12 +1,11 @@
 package com.linkedin.metadata.graph.elastic;
 
 import com.codahale.metrics.Timer;
-import com.linkedin.metadata.query.filter.Condition;
-import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
-import com.linkedin.metadata.query.filter.Criterion;
-import com.linkedin.metadata.query.filter.Filter;
-import com.linkedin.metadata.query.filter.RelationshipDirection;
-import com.linkedin.metadata.query.filter.RelationshipFilter;
+import com.linkedin.metadata.query.Condition;
+import com.linkedin.metadata.query.CriterionArray;
+import com.linkedin.metadata.query.Filter;
+import com.linkedin.metadata.query.RelationshipDirection;
+import com.linkedin.metadata.query.RelationshipFilter;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import java.io.IOException;
@@ -36,23 +35,21 @@ public class ESGraphQueryDAO {
   private final RestHighLevelClient client;
   private final IndexConvention indexConvention;
 
+  /**
+   *
+   * @param criterionArray CriterionArray in a Filter
+   */
   @Nonnull
-  public static void addFilterToQueryBuilder(@Nonnull Filter filter, String node, BoolQueryBuilder rootQuery) {
-    BoolQueryBuilder orQuery = new BoolQueryBuilder();
-    for (ConjunctiveCriterion conjunction : filter.getOr()) {
-      final BoolQueryBuilder andQuery = new BoolQueryBuilder();
-      final List<Criterion> criterionArray = conjunction.getAnd();
-      if (!criterionArray.stream().allMatch(criterion -> Condition.EQUAL.equals(criterion.getCondition()))) {
-        throw new RuntimeException("Currently Elastic query filter only supports EQUAL condition " + criterionArray);
-      }
-      criterionArray.forEach(
-          criterion -> andQuery.must(
-              QueryBuilders.termQuery(node + "." + criterion.getField(), criterion.getValue())
-          )
-      );
-      orQuery.should(andQuery);
+  public static void addCriterionToQueryBuilder(@Nonnull CriterionArray criterionArray, String node, BoolQueryBuilder finalQuery) {
+    if (!criterionArray.stream().allMatch(criterion -> Condition.EQUAL.equals(criterion.getCondition()))) {
+      throw new RuntimeException("Currently Elastic query filter only supports EQUAL condition " + criterionArray);
     }
-    rootQuery.must(orQuery);
+
+    criterionArray.forEach(
+        criterion -> finalQuery.must(
+            QueryBuilders.termQuery(node + "." + criterion.getField(), criterion.getValue())
+        )
+    );
   }
 
   public SearchResponse getSearchResponse(
@@ -112,14 +109,14 @@ public class ESGraphQueryDAO {
     if (sourceType != null && sourceType.length() > 0) {
       finalQuery.must(QueryBuilders.termQuery(sourceNode + ".entityType", sourceType));
     }
-    addFilterToQueryBuilder(sourceEntityFilter, sourceNode, finalQuery);
+    addCriterionToQueryBuilder(sourceEntityFilter.getCriteria(), sourceNode, finalQuery);
 
     // set destination filter
     String destinationNode = relationshipDirection == RelationshipDirection.OUTGOING ? "destination" : "source";
     if (destinationType != null && destinationType.length() > 0) {
       finalQuery.must(QueryBuilders.termQuery(destinationNode + ".entityType", destinationType));
     }
-    addFilterToQueryBuilder(destinationEntityFilter, destinationNode, finalQuery);
+    addCriterionToQueryBuilder(destinationEntityFilter.getCriteria(), destinationNode, finalQuery);
 
     // set relationship filter
     if (relationshipTypes.size() > 0) {

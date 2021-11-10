@@ -38,8 +38,7 @@ public class RemoveTermResolver implements DataFetcher<CompletableFuture<Boolean
           input.getSubResource(),
           input.getSubResourceType(),
           "glossaryTerm",
-          _entityService,
-          true
+          _entityService
       );
 
       try {
