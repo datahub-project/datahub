@@ -40,7 +40,7 @@ class DatahubGECustomProfiler(BasicDatasetProfilerBase):
 
         number_of_columns = len(columns_to_profile)
         for i, column in enumerate(columns_to_profile):
-            logger.info(
+            logger.debug(
                 "            Preparing column {} of {}: {}".format(
                     i + 1, number_of_columns, column
                 )

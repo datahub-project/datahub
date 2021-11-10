@@ -61,6 +61,11 @@ Automated functional testing is powered by Cypress and MirageJS. When running th
 
 `yarn test:e2e:ci`
 
+#### Troubleshooting
+`Error: error:0308010C:digital envelope routines::unsupported`: This error message shows up when using Node 17, due to an OpenSSL update related to md5.  
+The best workaround is to revert to the Active LTS version of Node, 16.13.0 with the command `nvm install 16.13.0` and if necessary reinstall yarn `npm install --global yarn`.
+
+
 ### Theming
 
 #### Selecting a theme

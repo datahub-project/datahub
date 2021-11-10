@@ -117,8 +117,8 @@ export class ChartEntity implements Entity<Chart> {
     getOverridePropertiesFromEntity = (chart?: Chart | null): GenericEntityProperties => {
         // TODO: Get rid of this once we have correctly formed platform coming back.
         const tool = chart?.tool || '';
-        const name = chart?.info?.name;
-        const externalUrl = chart?.info?.externalUrl;
+        const name = chart?.properties?.name;
+        const externalUrl = chart?.properties?.externalUrl;
         return {
             name,
             externalUrl,
@@ -141,9 +141,9 @@ export class ChartEntity implements Entity<Chart> {
             <ChartPreview
                 urn={data.urn}
                 platform={data.tool}
-                name={data.info?.name}
-                description={data.editableProperties?.description || data.info?.description}
-                access={data.info?.access}
+                name={data.properties?.name}
+                description={data.editableProperties?.description || data.properties?.description}
+                access={data.properties?.access}
                 owners={data.ownership?.owners}
                 tags={data?.globalTags || undefined}
                 glossaryTerms={data?.glossaryTerms}
@@ -157,9 +157,9 @@ export class ChartEntity implements Entity<Chart> {
             <ChartPreview
                 urn={data.urn}
                 platform={data.tool}
-                name={data.info?.name}
-                description={data.editableProperties?.description || data.info?.description}
-                access={data.info?.access}
+                name={data.properties?.name}
+                description={data.editableProperties?.description || data.properties?.description}
+                access={data.properties?.access}
                 owners={data.ownership?.owners}
                 tags={data?.globalTags || undefined}
                 glossaryTerms={data?.glossaryTerms}
@@ -171,7 +171,7 @@ export class ChartEntity implements Entity<Chart> {
     getLineageVizConfig = (entity: Chart) => {
         return {
             urn: entity.urn,
-            name: entity.info?.name || '',
+            name: entity.properties?.name || '',
             type: EntityType.Chart,
             // eslint-disable-next-line @typescript-eslint/dot-notation
             upstreamChildren: entity?.['inputs']?.relationships?.map(
@@ -187,7 +187,7 @@ export class ChartEntity implements Entity<Chart> {
     };
 
     displayName = (data: Chart) => {
-        return data.info?.name || data.urn;
+        return data.properties?.name || data.urn;
     };
 
     getGenericEntityProperties = (data: Chart) => {
