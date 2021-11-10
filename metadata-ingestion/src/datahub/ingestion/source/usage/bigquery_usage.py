@@ -40,7 +40,7 @@ GCP_LOGGING_PAGE_SIZE = 1000
 PARTITIONED_TABLE_REGEX = re.compile(r"^(.+)\$(\d{4}|\d{6}|\d{8}|\d{10})$")
 
 # Handle table snapshots
-# See https://cloud.google.com/bigquery/docs/table-snapshots-intro. 
+# See https://cloud.google.com/bigquery/docs/table-snapshots-intro.
 SNAPSHOT_TABLE_REGEX = re.compile(r"^(.+)@(\d{13})$")
 
 BQ_DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
@@ -108,7 +108,7 @@ class BigQueryTableRef:
                 f"Found table snapshot {self.table}. Using {table_name} as the table name."
             )
             return BigQueryTableRef(self.project, self.dataset, table_name)
-        
+
         # Handle exceptions
         invalid_chars_in_table_name: List[str] = [
             c for c in {"$", "@"} if c in self.table
