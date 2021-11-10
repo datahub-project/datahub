@@ -15,7 +15,7 @@ const Hero = ({}) => (
           <div className="hero__content">
             <div>
               <h1 className={clsx("hero__title")}>
-                A Metadata Platform for the Modern Data Stack
+                The Metadata Platform for the Modern Data Stack
               </h1>
               <p className={clsx("hero__subtitle")}>
                 Data ecosystems are diverse &#8212; too diverse. DataHub's
