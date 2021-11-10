@@ -1,5 +1,6 @@
 import datetime
 import itertools
+import logging
 import os
 import pathlib
 import subprocess
@@ -17,12 +18,18 @@ from datahub.cli.docker_check import (
 )
 from datahub.ingestion.run.pipeline import Pipeline
 
+logger = logging.getLogger(__name__)
+
 NEO4J_AND_ELASTIC_QUICKSTART_COMPOSE_FILE = (
     "docker/quickstart/docker-compose.quickstart.yml"
 )
 ELASTIC_QUICKSTART_COMPOSE_FILE = (
     "docker/quickstart/docker-compose-without-neo4j.quickstart.yml"
 )
+M1_QUICKSTART_COMPOSE_FILE = (
+    "docker/quickstart/docker-compose-without-neo4j-m1.quickstart.yml"
+)
+
 BOOTSTRAP_MCES_FILE = "metadata-ingestion/examples/mce_files/bootstrap_mce.json"
 
 GITHUB_BASE_URL = "https://raw.githubusercontent.com/linkedin/datahub/master"
@@ -32,6 +39,7 @@ GITHUB_NEO4J_AND_ELASTIC_QUICKSTART_COMPOSE_URL = (
 GITHUB_ELASTIC_QUICKSTART_COMPOSE_URL = (
     f"{GITHUB_BASE_URL}/{ELASTIC_QUICKSTART_COMPOSE_FILE}"
 )
+GITHUB_M1_QUICKSTART_COMPOSE_URL = f"{GITHUB_BASE_URL}/{M1_QUICKSTART_COMPOSE_FILE}"
 GITHUB_BOOTSTRAP_MCES_URL = f"{GITHUB_BASE_URL}/{BOOTSTRAP_MCES_FILE}"
 
 
@@ -66,6 +74,11 @@ def docker_check_impl() -> None:
 def check() -> None:
     """Check that the Docker containers are healthy"""
     docker_check_impl()
+
+
+def is_m1() -> bool:
+    """Check whether we are running on an M1 machine"""
+    return os.uname().machine == "arm64" and os.uname().sysname == "Darwin"
 
 
 def should_use_neo4j_for_graph_service(graph_service_override: Optional[str]) -> bool:
@@ -157,6 +170,10 @@ def quickstart(
     locally, and dump logs to the console or to a file if something goes wrong.
     """
 
+    running_on_m1 = is_m1()
+    if running_on_m1:
+        click.echo("Detected M1 machine")
+
     # Run pre-flight checks.
     issues = check_local_docker_containers(preflight_only=True)
     if issues:
@@ -166,19 +183,29 @@ def quickstart(
         quickstart_compose_file
     )  # convert to list from tuple
     if not quickstart_compose_file:
-        click.echo("Fetching docker-compose file from GitHub")
+        should_use_neo4j = should_use_neo4j_for_graph_service(graph_service_impl)
+        if should_use_neo4j and running_on_m1:
+            click.secho(
+                "Running with neo4j on M1 is not currently supported, will be using elasticsearch as graph",
+                fg="red",
+            )
+        github_file = (
+            GITHUB_NEO4J_AND_ELASTIC_QUICKSTART_COMPOSE_URL
+            if should_use_neo4j and not running_on_m1
+            else GITHUB_ELASTIC_QUICKSTART_COMPOSE_URL
+            if not running_on_m1
+            else GITHUB_M1_QUICKSTART_COMPOSE_URL
+        )
+
         with tempfile.NamedTemporaryFile(suffix=".yml", delete=False) as tmp_file:
             path = pathlib.Path(tmp_file.name)
             quickstart_compose_file.append(path)
-
+            click.echo(f"Fetching docker-compose file {github_file} from GitHub")
             # Download the quickstart docker-compose file from GitHub.
-            quickstart_download_response = requests.get(
-                GITHUB_NEO4J_AND_ELASTIC_QUICKSTART_COMPOSE_URL
-                if should_use_neo4j_for_graph_service(graph_service_impl)
-                else GITHUB_ELASTIC_QUICKSTART_COMPOSE_URL
-            )
+            quickstart_download_response = requests.get(github_file)
             quickstart_download_response.raise_for_status()
             tmp_file.write(quickstart_download_response.content)
+            logger.debug(f"Copied to {path}")
 
     # set version
     os.environ["DATAHUB_VERSION"] = version
