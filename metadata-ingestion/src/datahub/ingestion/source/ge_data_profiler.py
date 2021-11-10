@@ -203,79 +203,112 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                 )
         return columns_to_profile
 
-    def _get_column_type(self, column: str) -> Optional[ProfilerDataType]:
+    def _get_column_type(self, column: str) -> ProfilerDataType:
         return BasicDatasetProfilerBase._get_column_type(self.dataset, column)
 
-    def _get_column_cardinality(self, column: str) -> Optional[ProfilerCardinality]:
+    def _get_column_cardinality(self, column: str) -> ProfilerCardinality:
         return BasicDatasetProfilerBase._get_column_cardinality(self.dataset, column)
 
+    def _get_dataset_column_min(
+        self, column_profile: DatasetFieldProfileClass, column: str
+    ) -> None:
+        if self.config.include_field_min_value:
+            column_profile.min = str(self.dataset.get_column_min(column))
+
+    def _get_dataset_column_max(
+        self, column_profile: DatasetFieldProfileClass, column: str
+    ) -> None:
+        if self.config.include_field_max_value:
+            column_profile.max = str(self.dataset.get_column_max(column))
+
+    def _get_dataset_column_mean(
+        self, column_profile: DatasetFieldProfileClass, column: str
+    ) -> None:
+        if self.config.include_field_mean_value:
+            column_profile.mean = str(self.dataset.get_column_mean(column))
+
+    def _get_dataset_column_median(
+        self, column_profile: DatasetFieldProfileClass, column: str
+    ) -> None:
+        if self.config.include_field_median_value:
+            column_profile.median = str(self.dataset.get_column_median(column))
+
+    def _get_dataset_column_stdev(
+        self, column_profile: DatasetFieldProfileClass, column: str
+    ) -> None:
+        if self.config.include_field_stddev_value:
+            column_profile.stdev = str(self.dataset.get_column_stdev(column))
+
     def _get_dataset_column_quantiles(
-        self, column: str
-    ) -> Optional[List[QuantileClass]]:
-        # FIXME: Eventually we'd like to switch to using the quantile method directly.
-        # values = dataset.get_column_quantiles(column, tuple(quantiles))
+        self, column_profile: DatasetFieldProfileClass, column: str
+    ) -> None:
+        if self.config.include_field_quantiles:
+            # FIXME: Eventually we'd like to switch to using the quantile method directly.
+            # values = dataset.get_column_quantiles(column, tuple(quantiles))
 
-        self.dataset.set_config_value("interactive_evaluation", True)
+            self.dataset.set_config_value("interactive_evaluation", True)
+            quantiles = [0.05, 0.25, 0.5, 0.75, 0.95]
 
-        res = self.dataset.expect_column_quantile_values_to_be_between(
-            column,
-            quantile_ranges={
-                "quantiles": [0.05, 0.25, 0.5, 0.75, 0.95],
-                "value_ranges": [
-                    [None, None],
-                    [None, None],
-                    [None, None],
-                    [None, None],
-                    [None, None],
-                ],
-            },
-        ).result
-        if "observed_value" in res:
-            return [
-                QuantileClass(quantile=str(quantile), value=str(value))
-                for quantile, value in zip(
-                    res["observed_value"]["quantiles"],
-                    res["observed_value"]["values"],
-                )
-            ]
-        return None
+            res = self.dataset.expect_column_quantile_values_to_be_between(
+                column,
+                quantile_ranges={
+                    "quantiles": quantiles,
+                    "value_ranges": [[None, None]] * len(quantiles),
+                },
+            ).result
+            if "observed_value" in res:
+                column_profile.quantiles = [
+                    QuantileClass(quantile=str(quantile), value=str(value))
+                    for quantile, value in zip(
+                        res["observed_value"]["quantiles"],
+                        res["observed_value"]["values"],
+                    )
+                ]
 
     def _get_dataset_column_distinct_value_frequencies(
-        self, column: str
-    ) -> List[ValueFrequencyClass]:
-        return [
-            ValueFrequencyClass(value=str(value), frequency=count)
-            for value, count in self.dataset.get_column_value_counts(column).items()
-        ]
+        self, column_profile: DatasetFieldProfileClass, column: str
+    ) -> None:
+        if self.config.include_field_distinct_value_frequencies:
+            column_profile.distinctValueFrequencies = [
+                ValueFrequencyClass(value=str(value), frequency=count)
+                for value, count in self.dataset.get_column_value_counts(column).items()
+            ]
 
-    def _get_dataset_column_histogram(self, column: str) -> Optional[HistogramClass]:
-        self.dataset.set_config_value("interactive_evaluation", True)
+    def _get_dataset_column_histogram(
+        self, column_profile: DatasetFieldProfileClass, column: str
+    ) -> None:
+        if self.config.include_field_histogram:
+            self.dataset.set_config_value("interactive_evaluation", True)
 
-        res = self.dataset.expect_column_kl_divergence_to_be_less_than(
-            column,
-            partition_object=None,
-            threshold=None,
-            result_format="COMPLETE",
-        ).result
-        if "details" in res and "observed_partition" in res["details"]:
-            partition = res["details"]["observed_partition"]
-            return HistogramClass(
-                [str(v) for v in partition["bins"]],
-                [
-                    partition["tail_weights"][0],
-                    *partition["weights"],
-                    partition["tail_weights"][1],
-                ],
-            )
-        return None
+            res = self.dataset.expect_column_kl_divergence_to_be_less_than(
+                column,
+                partition_object=None,
+                threshold=None,
+                result_format="COMPLETE",
+            ).result
+            if "details" in res and "observed_partition" in res["details"]:
+                partition = res["details"]["observed_partition"]
+                column_profile.histogram = HistogramClass(
+                    [str(v) for v in partition["bins"]],
+                    [
+                        partition["tail_weights"][0],
+                        *partition["weights"],
+                        partition["tail_weights"][1],
+                    ],
+                )
 
-    def _get_dataset_column_sample_values(self, column: str) -> Optional[List[str]]:
-        self.dataset.set_config_value("interactive_evaluation", True)
+    def _get_dataset_column_sample_values(
+        self, column_profile: DatasetFieldProfileClass, column: str
+    ) -> None:
+        if self.config.include_field_sample_values:
+            self.dataset.set_config_value("interactive_evaluation", True)
 
-        res = self.dataset.expect_column_values_to_be_in_set(
-            column, [], result_format="SUMMARY"
-        ).result
-        return [str(v) for v in res["partial_unexpected_list"]]
+            res = self.dataset.expect_column_values_to_be_in_set(
+                column, [], result_format="SUMMARY"
+            ).result
+            column_profile.sampleValues = [
+                str(v) for v in res["partial_unexpected_list"]
+            ]
 
     def generate_dataset_profile(  # noqa: C901 (complexity)
         self,
@@ -324,10 +357,7 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                     f"Failed to get unique count for column {self.dataset_name}.{column}"
                 )
 
-            if self.config.include_field_sample_values:
-                column_profile.sampleValues = self._get_dataset_column_sample_values(
-                    column
-                )
+            self._get_dataset_column_sample_values(column_profile, column)
 
             if type_ == ProfilerDataType.INT or type_ == ProfilerDataType.FLOAT:
                 if cardinality == ProfilerCardinality.UNIQUE:
@@ -338,39 +368,24 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                     ProfilerCardinality.VERY_FEW,
                     ProfilerCardinality.FEW,
                 ]:
-                    if self.config.include_field_distinct_value_frequencies:
-                        column_profile.distinctValueFrequencies = (
-                            self._get_dataset_column_distinct_value_frequencies(column)
-                        )
+                    self._get_dataset_column_distinct_value_frequencies(
+                        column_profile,
+                        column,
+                    )
                 elif cardinality in [
                     ProfilerCardinality.MANY,
                     ProfilerCardinality.VERY_MANY,
                     ProfilerCardinality.UNIQUE,
                 ]:
-                    if self.config.include_field_min_value:
-                        column_profile.min = str(self.dataset.get_column_min(column))
-                    if self.config.include_field_max_value:
-                        column_profile.max = str(self.dataset.get_column_max(column))
-                    if self.config.include_field_mean_value:
-                        column_profile.mean = str(self.dataset.get_column_mean(column))
-                    if self.config.include_field_median_value:
-                        column_profile.median = str(
-                            self.dataset.get_column_median(column)
-                        )
+                    self._get_dataset_column_min(column_profile, column)
+                    self._get_dataset_column_max(column_profile, column)
+                    self._get_dataset_column_mean(column_profile, column)
+                    self._get_dataset_column_median(column_profile, column)
                     if type_ == ProfilerDataType.INT:
-                        if self.config.include_field_stddev_value:
-                            column_profile.stdev = str(
-                                self.dataset.get_column_stdev(column)
-                            )
+                        self._get_dataset_column_stdev(column_profile, column)
 
-                    if self.config.include_field_quantiles:
-                        column_profile.quantiles = self._get_dataset_column_quantiles(
-                            column
-                        )
-                    if self.config.include_field_histogram:
-                        column_profile.histogram = self._get_dataset_column_histogram(
-                            column
-                        )
+                    self._get_dataset_column_quantiles(column_profile, column)
+                    self._get_dataset_column_histogram(column_profile, column)
                 else:  # unknown cardinality - skip
                     pass
 
@@ -381,16 +396,14 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                     ProfilerCardinality.VERY_FEW,
                     ProfilerCardinality.FEW,
                 ]:
-                    if self.config.include_field_distinct_value_frequencies:
-                        column_profile.distinctValueFrequencies = (
-                            self._get_dataset_column_distinct_value_frequencies(column)
-                        )
+                    self._get_dataset_column_distinct_value_frequencies(
+                        column_profile,
+                        column,
+                    )
 
             elif type_ == ProfilerDataType.DATETIME:
-                if self.config.include_field_min_value:
-                    column_profile.min = str(self.dataset.get_column_min(column))
-                if self.config.include_field_max_value:
-                    column_profile.max = str(self.dataset.get_column_max(column))
+                self._get_dataset_column_min(column_profile, column)
+                self._get_dataset_column_max(column_profile, column)
 
                 # FIXME: Re-add histogram once kl_divergence has been modified to support datetimes
 
@@ -400,10 +413,10 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                     ProfilerCardinality.VERY_FEW,
                     ProfilerCardinality.FEW,
                 ]:
-                    if self.config.include_field_distinct_value_frequencies:
-                        column_profile.distinctValueFrequencies = (
-                            self._get_dataset_column_distinct_value_frequencies(column)
-                        )
+                    self._get_dataset_column_distinct_value_frequencies(
+                        column_profile,
+                        column,
+                    )
 
             else:
                 if cardinality in [
@@ -412,10 +425,10 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                     ProfilerCardinality.VERY_FEW,
                     ProfilerCardinality.FEW,
                 ]:
-                    if self.config.include_field_distinct_value_frequencies:
-                        column_profile.distinctValueFrequencies = (
-                            self._get_dataset_column_distinct_value_frequencies(column)
-                        )
+                    self._get_dataset_column_distinct_value_frequencies(
+                        column_profile,
+                        column,
+                    )
 
         return profile
 
