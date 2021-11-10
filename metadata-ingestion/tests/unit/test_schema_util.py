@@ -681,7 +681,6 @@ def test_ignore_exceptions():
   "tags": [
     "business-timestamp"
   ]
-}
 """
     fields: List[SchemaField] = avro_schema_to_mce_fields(malformed_schema)
     assert not fields
