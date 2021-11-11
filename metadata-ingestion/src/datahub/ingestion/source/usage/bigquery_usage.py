@@ -255,8 +255,8 @@ class BigQueryUsageConfig(BaseUsageConfig):
     project_id: Optional[str] = None  # deprecated in favor of `projects`
     extra_client_options: dict = {}
     env: str = builder.DEFAULT_ENV
-    log_page_size: pydantic.PositiveInt = 1000
 
+    log_page_size: pydantic.PositiveInt = 1000
     query_log_delay: Optional[pydantic.PositiveInt] = None
     max_query_duration: timedelta = timedelta(minutes=15)
 
