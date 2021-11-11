@@ -617,6 +617,12 @@ type Dataset implements EntityWithRelationships & Entity {
 Additional read only properties about a Dataset
 """
 type DatasetProperties {
+
+    """
+    The name of the dataset used in display
+    """
+    name: String
+
     """
     Environment in which the dataset belongs to or where it was generated
     Note that this field will soon be deprecated in favor of a more standardized concept of Environment
