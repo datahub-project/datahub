@@ -71,7 +71,8 @@ import static com.linkedin.metadata.utils.PegasusUtils.urnToEntityName;
  * of a given aspect + 1.
  *
  * Note that currently, implementations of this interface are responsible for producing Metadata Audit Events on
- * ingestion using {@link #produceMetadataAuditEvent(
+ * ingestion using {@link #
+ * produceMetadataAuditEvent(
  *Urn, RecordTemplate, RecordTemplate, SystemMetadata, SystemMetadata, MetadataAuditOperation)}.
  *
  * TODO: Consider whether we can abstract away virtual versioning semantics to subclasses of this class.
