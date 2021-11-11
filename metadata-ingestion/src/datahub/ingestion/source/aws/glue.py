@@ -229,7 +229,7 @@ class GlueSource(Source):
                         f"{node['Nodetype']}-{node['Id']}",
                         f"Could not find script path for job {node['Nodetype']}-{node['Id']} in flow {flow_urn}. Skipping",
                     )
-                    return
+                    return None
 
                 # append S3 format if different ones exist
                 if len(s3_formats[s3_uri]) > 1:
