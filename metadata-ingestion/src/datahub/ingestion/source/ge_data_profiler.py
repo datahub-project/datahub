@@ -5,11 +5,13 @@ import itertools
 import logging
 import os
 import threading
+import traceback
 import unittest.mock
 import uuid
-from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple, Union
+from typing import Any, ClassVar, Dict, Iterable, Iterator, List, Optional, Tuple, Union
 
 import pydantic
+import sqlalchemy.engine
 from great_expectations.data_context import BaseDataContext
 from great_expectations.data_context.types.base import (
     DataContextConfig,
@@ -152,6 +154,103 @@ class GEProfilingConfig(ConfigModel):
                 values[max_num_fields_to_profile_key] = 10
 
         return values
+
+
+@dataclasses.dataclass
+class _SQLAlchemyQueryCoalescenceManager:
+    # TODO this must be a singleton, should not be set up per-thread
+
+    # Without the staticmethod decorator, Python thinks that this is an instance
+    # method and attempts to bind self to it.
+    _underlying_sa_execute_method: ClassVar = staticmethod(
+        sqlalchemy.engine.Connection.execute
+    )
+
+    _allowed_single_row_query_methods: ClassVar = [
+        (
+            "great_expectations/dataset/sqlalchemy_dataset.py",
+            {
+                "get_row_count",
+                "get_column_min",
+                "get_column_max",
+                "get_column_mean",
+                "get_column_median",
+                "get_column_stdev",
+                "get_column_stdev",
+                "get_column_nonnull_count",
+                "get_column_unique_count",
+            },
+        ),
+    ]
+
+    catch_exceptions: bool
+
+    def _is_single_row_query_method(
+        self, stack: traceback.StackSummary, query: Any
+    ) -> bool:
+        # We'll do this the inefficient way since the arrays are pretty small.
+        for frame in stack:
+            for file_suffix, allowed_methods in self._allowed_single_row_query_methods:
+                if not frame.filename.endswith(file_suffix):
+                    continue
+                if frame.name in allowed_methods:
+                    return True
+        return False
+
+    def _handle_execute(
+        self, conn: Connection, query: Any, multiparams: Any, params: Any
+    ) -> Tuple[bool, Any]:
+        # Returns True with result if the query was handled, False if it
+        # should be executed normally using the fallback method.
+
+        # Don't attempt to handle if these are set.
+        if multiparams or params:
+            return False, None
+
+        # Attempt to match against the known single-row query methods.
+        stack = traceback.extract_stack()
+        if not self._is_single_row_query_method(stack, query):
+            return False, None
+
+        # Figure out how many columns this query returns.
+        # TODO add escape hatch
+        if not hasattr(query, "columns"):
+            return False, None
+        columns = list(query.columns)
+        assert len(columns) > 0
+
+        # TODO add columns to queue and repeatedly yield back to main greenlet until result is available
+
+        breakpoint()
+
+        return True, None
+
+    @contextlib.contextmanager
+    def activate(self) -> Iterator["_SQLAlchemyQueryCoalescenceManager"]:
+        def _sa_execute_fake(conn, query, *args, **kwargs):
+            try:
+                handled, result = self._handle_execute(conn, query, args, kwargs)
+            except Exception as e:
+                if not self.catch_exceptions:
+                    raise e
+                logger.exception(
+                    f"Failed to execute query normally, using fallback: {str(query)}"
+                )
+                return self._underlying_sa_execute_method(conn, query, *args, **kwargs)
+            else:
+                if handled:
+                    logger.info(f"Query was handled: {str(query)}")
+                    return result
+                else:
+                    logger.info(f"Executing query normally: {str(query)}")
+                    return self._underlying_sa_execute_method(
+                        conn, query, *args, **kwargs
+                    )
+
+        with unittest.mock.patch(
+            "sqlalchemy.engine.Connection.execute", _sa_execute_fake
+        ):
+            yield self
 
 
 @dataclasses.dataclass
@@ -509,7 +608,9 @@ class DatahubGEProfiler:
     def generate_profiles(
         self, requests: List[GEProfilerRequest], max_workers: int
     ) -> Iterable[Tuple[GEProfilerRequest, Optional[DatasetProfileClass]]]:
-        with PerfTimer() as timer:
+        with PerfTimer() as timer, _SQLAlchemyQueryCoalescenceManager(
+            catch_exceptions=self.config.catch_exceptions
+        ).activate() as query_combiner:
             max_workers = min(max_workers, len(requests))
             logger.info(
                 f"Will profile {len(requests)} table(s) with {max_workers} worker(s) - this may take a while"
@@ -520,6 +621,7 @@ class DatahubGEProfiler:
                 async_profiles = [
                     async_executor.submit(
                         self._generate_profile_from_request,
+                        query_combiner,
                         request,
                     )
                     for request in requests
@@ -536,15 +638,19 @@ class DatahubGEProfiler:
             )
 
     def _generate_profile_from_request(
-        self, request: GEProfilerRequest
+        self,
+        query_combiner: _SQLAlchemyQueryCoalescenceManager,
+        request: GEProfilerRequest,
     ) -> Tuple[GEProfilerRequest, Optional[DatasetProfileClass]]:
         return request, self._generate_single_profile(
+            query_combiner,
             request.pretty_name,
             **request.batch_kwargs,
         )
 
     def _generate_single_profile(
         self,
+        query_combiner: _SQLAlchemyQueryCoalescenceManager,
         pretty_name: str,
         schema: str = None,
         table: str = None,
@@ -565,6 +671,7 @@ class DatahubGEProfiler:
                     },
                     pretty_name=pretty_name,
                 )
+                # TODO add query_combiner
                 profile = _SingleDatasetProfiler(
                     batch, pretty_name, self.config, self.report
                 ).generate_dataset_profile()
