@@ -1,0 +1,19 @@
+---
+# see https://datahubproject.io/docs/metadata-ingestion/source_docs/kafka for complete documentation
+source:
+  type: "bigquery-usage"
+  config:
+    # Coordinates
+    projects:
+      - project_id_1
+      - project_id_2
+
+    # Options
+    top_n_queries: 10
+
+# see https://datahubproject.io/docs/metadata-ingestion/sink_docs/datahub for complete documentation
+sink:
+  type: "datahub-rest"
+  config:
+    server: "http://localhost:8080"
+
