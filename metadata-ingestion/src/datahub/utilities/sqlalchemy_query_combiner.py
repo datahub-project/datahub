@@ -1,9 +1,11 @@
+import collections
 import contextlib
 import dataclasses
 import logging
 import traceback
 import unittest.mock
-from typing import Any, Callable, ClassVar, Dict, Iterator, List, Tuple
+import uuid
+from typing import Any, Callable, ClassVar, Dict, Iterator, Set, Tuple
 
 import greenlet
 import sqlalchemy.engine
@@ -54,11 +56,18 @@ class SQLAlchemyQueryCombiner:
         ),
     ]
 
+    # TODO add an "enabled" flag
     catch_exceptions: bool
 
     # There will be one main greenlet per thread. As such, queries will be
-    # queued according to the main greenlet's thread ID.
-    _queries_by_thread: Dict[greenlet.greenlet, List[_QueryFuture]] = {}
+    # queued according to the main greenlet's thread ID. We also keep track
+    # of the greenlets we spawn for bookkeeping purposes.
+    _queries_by_thread: Dict[
+        greenlet.greenlet, Dict[str, _QueryFuture]
+    ] = dataclasses.field(default_factory=dict)
+    _greenlets_by_thread: Dict[
+        greenlet.greenlet, Set[greenlet.greenlet]
+    ] = dataclasses.field(default_factory=lambda: collections.defaultdict(set))
 
     def _is_single_row_query_method(
         self, stack: traceback.StackSummary, query: Any
@@ -78,7 +87,7 @@ class SQLAlchemyQueryCombiner:
             let = let.parent
         return let
 
-    def _get_queue(self, main_greenlet: greenlet.greenlet) -> List[_QueryFuture]:
+    def _get_queue(self, main_greenlet: greenlet.greenlet) -> Dict[str, _QueryFuture]:
         assert main_greenlet.parent is None
 
         # Because of the GIL, this operation is thread-safe. Hence, we can
@@ -86,7 +95,15 @@ class SQLAlchemyQueryCombiner:
         # https://stackoverflow.com/a/6953515/5004662
         # https://docs.python.org/3/glossary.html#term-global-interpreter-lock
 
-        return self._queries_by_thread.setdefault(main_greenlet, [])
+        return self._queries_by_thread.setdefault(main_greenlet, {})
+
+    def _get_greenlet_pool(
+        self, main_greenlet: greenlet.greenlet
+    ) -> Set[greenlet.greenlet]:
+        assert main_greenlet.parent is None
+
+        # Threading concerns as above.
+        return self._greenlets_by_thread[main_greenlet]
 
     def _handle_execute(
         self, conn: Connection, query: Any, multiparams: Any, params: Any
@@ -97,7 +114,6 @@ class SQLAlchemyQueryCombiner:
         # Must handle synchronously if the query was issued from the main greenlet.
         main_greenlet = self._get_main_greenlet()
         if greenlet.getcurrent() == main_greenlet:
-            breakpoint()
             return False, None
 
         # Don't attempt to handle if these are set.
@@ -118,14 +134,18 @@ class SQLAlchemyQueryCombiner:
 
         # Add query to the queue.
         queue = self._get_queue(main_greenlet)
+        query_id = str(uuid.uuid4())
         query_future = _QueryFuture(conn, query, multiparams, params)
-        queue.append(query_future)
+        queue[query_id] = query_future
+
+        # TODO breakpoint()
 
         # Yield control back to the main greenlet until the query is done.
         # We assume that the main greenlet will be the one that actually executes the query.
         while not query_future.done:
             main_greenlet.switch()
 
+        del queue[query_id]
         return True, query_future.res
 
     @contextlib.contextmanager
@@ -157,6 +177,46 @@ class SQLAlchemyQueryCombiner:
         ):
             yield self
 
-    # mypy does not yet support ParamSpec. See https://github.com/python/mypy/issues/8645.
-    def run(self, method: Callable[P, None], *args: P.args, **kwargs: P.kwargs) -> None:  # type: ignore
-        pass
+    def run(self, method: Callable[[], None]) -> None:
+        let = greenlet.greenlet(method)
+
+        pool = self._get_greenlet_pool(self._get_main_greenlet())
+        pool.add(let)
+
+        let.switch()
+
+    def _execute_queue(self, main_greenlet: greenlet.greenlet) -> None:
+        queue = self._get_queue(main_greenlet)
+
+        # TODO actually combine these queries
+        for query_future in queue.values():
+            if query_future.done:
+                continue
+
+            res = self._underlying_sa_execute_method(
+                query_future.conn,
+                query_future.query,
+                *query_future.args,  # type: ignore
+                **query_future.kwargs,  # type: ignore
+            )
+            # TODO figure out typing later
+
+            query_future.res = res
+            query_future.done = True
+
+    def flush(self) -> None:
+        # Executes until the queue and pool are empty.
+
+        main_greenlet = self._get_main_greenlet()
+        pool = self._get_greenlet_pool(main_greenlet)
+
+        while pool:
+            self._execute_queue(main_greenlet)
+
+            for let in pool:
+                if let.dead:
+                    pool.remove(let)
+                else:
+                    let.switch()
+
+        assert len(self._get_queue(main_greenlet)) == 0

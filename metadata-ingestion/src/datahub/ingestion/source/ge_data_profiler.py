@@ -167,7 +167,7 @@ def _run_with_query_combiner(  # type: ignore
     def inner(
         self: "_SingleDatasetProfiler", *args: P.args, **kwargs: P.kwargs  # type: ignore
     ) -> None:
-        return self.query_combiner.run(method, *args, **kwargs)
+        return self.query_combiner.run(lambda: method(self, *args, **kwargs))
 
     return inner
 
