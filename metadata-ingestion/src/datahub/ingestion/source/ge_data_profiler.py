@@ -173,6 +173,15 @@ def _run_with_query_combiner(  # type: ignore
 
 
 @dataclasses.dataclass
+class _SingleColumnSpec:
+    column: str
+    column_profile: DatasetFieldProfileClass
+
+    type_: ProfilerDataType = ProfilerDataType.UNKNOWN
+    cardinality: ProfilerCardinality = ProfilerCardinality.VERY_MANY
+
+
+@dataclasses.dataclass
 class _SingleDatasetProfiler(BasicDatasetProfilerBase):
     dataset: Dataset
     dataset_name: str
@@ -221,11 +230,25 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                 )
         return columns_to_profile
 
-    def _get_column_type(self, column: str) -> ProfilerDataType:
-        return BasicDatasetProfilerBase._get_column_type(self.dataset, column)
+    @_run_with_query_combiner
+    def _get_column_type(
+        self, column_spec: _SingleColumnSpec, column: str
+    ) -> ProfilerDataType:
+        column_spec.type_ = BasicDatasetProfilerBase._get_column_type(
+            self.dataset, column
+        )
 
-    def _get_column_cardinality(self, column: str) -> ProfilerCardinality:
-        return BasicDatasetProfilerBase._get_column_cardinality(self.dataset, column)
+    @_run_with_query_combiner
+    def _get_column_cardinality(
+        self, column_spec: _SingleColumnSpec, column: str
+    ) -> ProfilerCardinality:
+        column_spec.cardinality = BasicDatasetProfilerBase._get_column_cardinality(
+            self.dataset, column
+        )
+
+    @_run_with_query_combiner
+    def _get_dataset_rows(self, dataset_profile: DatasetProfileClass) -> None:
+        dataset_profile.rowCount = self.dataset.get_row_count()
 
     @_run_with_query_combiner
     def _get_dataset_column_min(
@@ -346,30 +369,36 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
 
         profile = DatasetProfileClass(timestampMillis=get_sys_time())
         profile.fieldProfiles = []
+        self._get_dataset_rows(profile)
 
         all_columns = self.dataset.get_table_columns()
         profile.columnCount = len(all_columns)
         columns_to_profile = set(self._get_columns_to_profile())
 
-        columns_profiling_queue: List[
-            Tuple[str, DatasetFieldProfileClass, ProfilerDataType, ProfilerCardinality]
-        ] = []
+        columns_profiling_queue: List[_SingleColumnSpec] = []
         for column in all_columns:
             column_profile = DatasetFieldProfileClass(fieldPath=column)
             profile.fieldProfiles.append(column_profile)
 
             if column in columns_to_profile:
-                type_ = self._get_column_type(column)
-                cardinality = self._get_column_cardinality(column)
+                column_spec = _SingleColumnSpec(column, column_profile)
+                columns_profiling_queue.append(column_spec)
 
-                columns_profiling_queue.append(
-                    (column, column_profile, type_, cardinality)
-                )
+                self._get_column_type(column_spec, column)
+                self._get_column_cardinality(column_spec, column)
 
-        row_count = self.dataset.get_row_count()
-        profile.rowCount = row_count
+        self.query_combiner.flush()
 
-        for column, column_profile, type_, cardinality in columns_profiling_queue:
+        assert profile.rowCount is not None
+        row_count: int = profile.rowCount
+
+        for column_spec in columns_profiling_queue:
+            column = column_spec.column
+            column_profile = column_spec.column_profile
+            type_ = column_spec.type_
+            cardinality = column_spec.cardinality
+
+            # TODO convert to non-returning methods
             if self.config.include_field_null_count:
                 non_null_count = self.dataset.get_column_nonnull_count(column)
                 null_count = row_count - non_null_count
@@ -463,6 +492,7 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                         column,
                     )
 
+        self.query_combiner.flush()
         return profile
 
 
@@ -601,7 +631,6 @@ class DatahubGEProfiler:
                     },
                     pretty_name=pretty_name,
                 )
-                # TODO add query_combiner
                 profile = _SingleDatasetProfiler(
                     batch, pretty_name, self.config, self.report, query_combiner
                 ).generate_dataset_profile()

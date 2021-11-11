@@ -193,6 +193,7 @@ class SQLAlchemyQueryCombiner:
             if query_future.done:
                 continue
 
+            breakpoint()
             res = self._underlying_sa_execute_method(
                 query_future.conn,
                 query_future.query,
