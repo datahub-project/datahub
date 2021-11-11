@@ -202,7 +202,7 @@ class GlueSource(Source):
         new_dataset_ids: List[str],
         new_dataset_mces: List[MetadataChangeEvent],
         s3_formats: typing.DefaultDict[str, Set[Union[str, None]]],
-    ) -> Dict[str, Any]:
+    ) -> Optional[Dict[str, Any]]:
 
         node_type = node["NodeType"]
 
@@ -305,9 +305,12 @@ class GlueSource(Source):
         # iterate through each node to populate processed nodes
         for node in dataflow_graph["DagNodes"]:
 
-            nodes[node["Id"]] = self.process_dataflow_node(
+            processed_node = self.process_dataflow_node(
                 node, flow_urn, new_dataset_ids, new_dataset_mces, s3_formats
             )
+
+            if processed_node is not None:
+                nodes[node["Id"]] = processed_node
 
         # traverse edges to fill in node properties
         for edge in dataflow_graph["DagEdges"]:
