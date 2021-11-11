@@ -10,6 +10,7 @@ import unittest.mock
 import uuid
 from typing import Any, ClassVar, Dict, Iterable, Iterator, List, Optional, Tuple, Union
 
+import greenlet
 import pydantic
 import sqlalchemy.engine
 from great_expectations.data_context import BaseDataContext
@@ -157,6 +158,17 @@ class GEProfilingConfig(ConfigModel):
 
 
 @dataclasses.dataclass
+class _QueryFuture:
+    conn: Connection
+    query: Any
+    multiparams: Any
+    params: Any
+
+    done: bool = False
+    res: Any = None
+
+
+@dataclasses.dataclass
 class _SQLAlchemyQueryCoalescenceManager:
     # TODO this must be a singleton, should not be set up per-thread
 
@@ -185,6 +197,10 @@ class _SQLAlchemyQueryCoalescenceManager:
 
     catch_exceptions: bool
 
+    # There will be one main greenlet per thread. As such, queries will be
+    # queued according to the main greenlet's thread ID.
+    _queries_by_thread: Dict[greenlet.greenlet, List[_QueryFuture]] = {}
+
     def _is_single_row_query_method(
         self, stack: traceback.StackSummary, query: Any
     ) -> bool:
@@ -197,11 +213,33 @@ class _SQLAlchemyQueryCoalescenceManager:
                     return True
         return False
 
+    def _get_main_greenlet(self) -> greenlet.greenlet:
+        let = greenlet.getcurrent()
+        while let.parent is not None:
+            let = let.parent
+        return let
+
+    def _get_queue(self, main_greenlet: greenlet.greenlet) -> List[_QueryFuture]:
+        assert main_greenlet.parent is None
+
+        # Because of the GIL, this operation is thread-safe. Hence, we can
+        # just add the main greenlet here without any special consideration.
+        # https://stackoverflow.com/a/6953515/5004662
+        # https://docs.python.org/3/glossary.html#term-global-interpreter-lock
+
+        return self._queries_by_thread.setdefault(main_greenlet, [])
+
     def _handle_execute(
         self, conn: Connection, query: Any, multiparams: Any, params: Any
     ) -> Tuple[bool, Any]:
         # Returns True with result if the query was handled, False if it
         # should be executed normally using the fallback method.
+
+        # Must handle synchronously if the query was issued from the main greenlet.
+        main_greenlet = self._get_main_greenlet()
+        if greenlet.getcurrent() == main_greenlet:
+            breakpoint()
+            return False, None
 
         # Don't attempt to handle if these are set.
         if multiparams or params:
@@ -219,11 +257,17 @@ class _SQLAlchemyQueryCoalescenceManager:
         columns = list(query.columns)
         assert len(columns) > 0
 
-        # TODO add columns to queue and repeatedly yield back to main greenlet until result is available
+        # Add query to the queue.
+        queue = self._get_queue(main_greenlet)
+        query_future = _QueryFuture(conn, query, multiparams, params)
+        queue.append(query_future)
 
-        breakpoint()
+        # Yield control back to the main greenlet until the query is done.
+        # We assume that the main greenlet will be the one that actually executes the query.
+        while not query_future.done:
+            main_greenlet.switch()
 
-        return True, None
+        return True, query_future.res
 
     @contextlib.contextmanager
     def activate(self) -> Iterator["_SQLAlchemyQueryCoalescenceManager"]:
