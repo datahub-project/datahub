@@ -193,14 +193,12 @@ class SQLAlchemyQueryCombiner:
             if query_future.done:
                 continue
 
-            breakpoint()
             res = self._underlying_sa_execute_method(
                 query_future.conn,
                 query_future.query,
-                *query_future.args,  # type: ignore
-                **query_future.kwargs,  # type: ignore
+                *query_future.multiparams,
+                **query_future.params,
             )
-            # TODO figure out typing later
 
             query_future.res = res
             query_future.done = True
@@ -214,7 +212,7 @@ class SQLAlchemyQueryCombiner:
         while pool:
             self._execute_queue(main_greenlet)
 
-            for let in pool:
+            for let in list(pool):
                 if let.dead:
                     pool.remove(let)
                 else:
