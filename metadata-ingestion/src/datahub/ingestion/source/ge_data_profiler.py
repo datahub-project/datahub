@@ -68,8 +68,6 @@ def _inject_connection_into_datasource(conn: Connection) -> Iterator[None]:
         with unittest.mock.patch(
             "great_expectations.datasource.sqlalchemy_datasource.SqlAlchemyDatasource.__init__",
             sqlalchemy_datasource_init,
-        ), unittest.mock.patch(
-            "great_expectations.data_context.store.validations_store.ValidationsStore.set"
         ):
             yield
 
@@ -335,7 +333,9 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                 type_ = self._get_column_type(column)
                 cardinality = self._get_column_cardinality(column)
 
-                columns_profiling_queue.append((column, column_profile, type_, cardinality))
+                columns_profiling_queue.append(
+                    (column, column_profile, type_, cardinality)
+                )
 
         row_count = self.dataset.get_row_count()
         profile.rowCount = row_count
@@ -519,7 +519,7 @@ class DatahubGEProfiler:
             ) as async_executor:
                 async_profiles = [
                     async_executor.submit(
-                        self.generate_profile_from_request,
+                        self._generate_profile_from_request,
                         request,
                     )
                     for request in requests
@@ -535,15 +535,15 @@ class DatahubGEProfiler:
                 f"Profiling {len(requests)} table(s) finished in {(timer.elapsed_seconds()):.3f} seconds"
             )
 
-    def generate_profile_from_request(
+    def _generate_profile_from_request(
         self, request: GEProfilerRequest
     ) -> Tuple[GEProfilerRequest, Optional[DatasetProfileClass]]:
-        return request, self.generate_profile(
+        return request, self._generate_single_profile(
             request.pretty_name,
             **request.batch_kwargs,
         )
 
-    def generate_profile(
+    def _generate_single_profile(
         self,
         pretty_name: str,
         schema: str = None,
