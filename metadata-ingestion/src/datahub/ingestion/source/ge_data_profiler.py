@@ -318,25 +318,29 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
         )
 
         profile = DatasetProfileClass(timestampMillis=get_sys_time())
+        profile.fieldProfiles = []
 
         all_columns = self.dataset.get_table_columns()
-        columns_to_profile = self._get_columns_to_profile()
-
-        row_count = self.dataset.get_row_count()
-        profile.rowCount = row_count
         profile.columnCount = len(all_columns)
+        columns_to_profile = set(self._get_columns_to_profile())
 
-        profile.fieldProfiles = []
+        columns_profiling_queue: List[
+            Tuple[str, DatasetFieldProfileClass, ProfilerDataType, ProfilerCardinality]
+        ] = []
         for column in all_columns:
             column_profile = DatasetFieldProfileClass(fieldPath=column)
             profile.fieldProfiles.append(column_profile)
 
-            if column not in columns_to_profile:
-                continue
+            if column in columns_to_profile:
+                type_ = self._get_column_type(column)
+                cardinality = self._get_column_cardinality(column)
 
-            type_ = self._get_column_type(column)
-            cardinality = self._get_column_cardinality(column)
+                columns_profiling_queue.append((column, column_profile, type_, cardinality))
 
+        row_count = self.dataset.get_row_count()
+        profile.rowCount = row_count
+
+        for column, column_profile, type_, cardinality in columns_profiling_queue:
             if self.config.include_field_null_count:
                 non_null_count = self.dataset.get_column_nonnull_count(column)
                 null_count = row_count - non_null_count
