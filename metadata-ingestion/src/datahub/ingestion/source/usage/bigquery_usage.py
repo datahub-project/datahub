@@ -73,27 +73,36 @@ class BigQueryTableRef:
 
     @classmethod
     def from_spec_obj(cls, spec: dict) -> "BigQueryTableRef":
-        return BigQueryTableRef(spec["projectId"], spec["datasetId"], spec["tableId"])
+        return cls(spec["projectId"], spec["datasetId"], spec["tableId"])
 
     @classmethod
     def from_string_name(cls, ref: str) -> "BigQueryTableRef":
         parts = ref.split("/")
         if parts[0] != "projects" or parts[2] != "datasets" or parts[4] != "tables":
             raise ValueError(f"invalid BigQuery table reference: {ref}")
-        return BigQueryTableRef(parts[1], parts[3], parts[5])
+        return cls(parts[1], parts[3], parts[5])
 
     def is_anonymous(self) -> bool:
         # Temporary tables will have a dataset that begins with an underscore.
         return self.dataset.startswith("_")
 
     def remove_extras(self) -> "BigQueryTableRef":
-        if "$" in self.table or "@" in self.table:
-            raise ValueError(f"cannot handle {self} - poorly formatted table name")
+        invalid_chars_in_table_name: List[str] = [
+            c for c in {"$", "@"} if c in self.table
+        ]
+        if invalid_chars_in_table_name:
+            raise ValueError(
+                f"Cannot handle {self} - poorly formatted table name, contains {invalid_chars_in_table_name}"
+            )
 
         # Handle partitioned and sharded tables.
         matches = PARTITIONED_TABLE_REGEX.match(self.table)
         if matches:
-            return BigQueryTableRef(self.project, self.dataset, matches.group(1))
+            table_name = matches.group(1)
+            logger.debug(
+                f"Found partitioned table {self.table}. Using {table_name} as the table name."
+            )
+            return BigQueryTableRef(self.project, self.dataset, table_name)
 
         return self
 
@@ -329,44 +338,70 @@ class BigQueryUsageSource(Source):
         def get_entry_timestamp(entry: AuditLogEntry) -> datetime:
             return entry.timestamp
 
+        list_entry_generators_across_clients: List[Iterable[AuditLogEntry]] = list()
+        for client in clients:
+            try:
+                list_entries: Iterable[AuditLogEntry] = client.list_entries(
+                    filter_=filter, page_size=GCP_LOGGING_PAGE_SIZE
+                )
+                list_entry_generators_across_clients.append(list_entries)
+            except Exception as e:
+                logger.warning(
+                    f"Encountered exception retrieving AuditLogEntires for project {client.project}",
+                    e,
+                )
+                self.report.report_failure(
+                    f"{client.project}", f"unable to retrive log entrires {e}"
+                )
+
+        i: int
         entry: AuditLogEntry
         for i, entry in enumerate(
             heapq.merge(
-                *(
-                    client.list_entries(filter_=filter, page_size=GCP_LOGGING_PAGE_SIZE)
-                    for client in clients
-                ),
+                *list_entry_generators_across_clients,
                 key=get_entry_timestamp,
             )
         ):
             if i == 0:
-                logger.debug("starting log load from BigQuery")
+                logger.info("Starting log load from BigQuery")
             yield entry
-        logger.debug("finished loading log entries from BigQuery")
+        logger.info(f"Finished loading {i} log entries from BigQuery")
 
     def _parse_bigquery_log_entries(
         self, entries: Iterable[AuditLogEntry]
     ) -> Iterable[Union[ReadEvent, QueryEvent]]:
+        num_read_events: int = 0
+        num_query_events: int = 0
         for entry in entries:
-            event: Union[None, ReadEvent, QueryEvent] = None
+            event: Optional[Union[ReadEvent, QueryEvent]] = None
             try:
                 if ReadEvent.can_parse_entry(entry):
                     event = ReadEvent.from_entry(entry)
+                    num_read_events += 1
                 elif QueryEvent.can_parse_entry(entry):
                     event = QueryEvent.from_entry(entry)
+                    num_query_events += 1
                 else:
-                    raise RuntimeError(
-                        "Log entry cannot be parsed as either ReadEvent or QueryEvent."
+                    self.report.report_warning(
+                        f"{entry.log_name}-{entry.insert_id}",
+                        "Log entry cannot be parsed as either ReadEvent or QueryEvent.",
+                    )
+                    logger.warning(
+                        f"Log entry cannot be parsed as either ReadEvent or QueryEvent: {entry!r}"
                     )
             except Exception as e:
                 self.report.report_failure(
                     f"{entry.log_name}-{entry.insert_id}",
-                    f"unable to parse log entry: {entry!r}",
+                    f"unable to parse log entry: {entry!r}, exception: {e}",
                 )
                 logger.error("Error while parsing GCP log entries", e)
 
             if event:
                 yield event
+
+        logger.info(
+            f"Parsed {num_read_events} ReadEvents and {num_query_events} QueryEvents"
+        )
 
     def _join_events_by_job_id(
         self, events: Iterable[Union[ReadEvent, QueryEvent]]
@@ -399,6 +434,7 @@ class BigQueryUsageSource(Source):
             original_read_events, self.config.query_log_delay
         )
 
+        num_joined: int = 0
         for event in delayed_read_events:
             if (
                 event.timestamp < self.config.start_time
@@ -409,6 +445,7 @@ class BigQueryUsageSource(Source):
             if event.jobName:
                 if event.jobName in query_jobs:
                     # Join the query log event into the table read log event.
+                    num_joined += 1
                     event.query = query_jobs[event.jobName].query
 
                     # TODO also join into the query itself for column references
@@ -418,6 +455,8 @@ class BigQueryUsageSource(Source):
                         "failed to match table read event with job; try increasing `query_log_delay` or `max_query_duration`",
                     )
             yield event
+
+        logger.info(f"Number of read events joined with query events: {num_joined}")
 
     def _aggregate_enriched_read_events(
         self, events: Iterable[ReadEvent]
@@ -430,11 +469,21 @@ class BigQueryUsageSource(Source):
             datetime, Dict[BigQueryTableRef, AggregatedDataset]
         ] = collections.defaultdict(dict)
 
+        num_aggregated: int = 0
         for event in events:
             floored_ts = get_time_bucket(event.timestamp, self.config.bucket_duration)
-            resource = event.resource.remove_extras()
+            resource: Optional[BigQueryTableRef] = None
+            try:
+                resource = event.resource.remove_extras()
+            except Exception as e:
+                self.report.report_warning(
+                    str(event.resource), f"Failed to clean up resource, {e}"
+                )
+                logger.warning(f"Failed to process event {str(event.resource)}", e)
+                continue
 
             if resource.is_anonymous():
+                logger.debug(f"Dropping temporary table {resource}")
                 self.report.report_dropped(str(resource))
                 continue
 
@@ -443,6 +492,17 @@ class BigQueryUsageSource(Source):
                 AggregatedDataset(bucket_start_time=floored_ts, resource=resource),
             )
             agg_bucket.add_read_entry(event.actor_email, event.query, event.fieldsRead)
+            num_aggregated += 1
+        logger.info(f"Total number of events aggregated = {num_aggregated}.")
+        bucket_level_stats: str = "\n\t" + "\n\t".join(
+            [
+                f'bucket:{db.strftime("%m-%d-%Y:%H:%M:%S")}, size={len(ads)}'
+                for db, ads in datasets.items()
+            ]
+        )
+        logger.debug(
+            f"Number of buckets created = {len(datasets)}. Per-bucket details:{bucket_level_stats}"
+        )
 
         return datasets
 

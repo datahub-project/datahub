@@ -1,4 +1,4 @@
-from typing import List, Union
+from typing import Dict, List, Union
 from unittest import mock
 
 import pytest
@@ -14,6 +14,10 @@ from datahub.ingestion.transformer.add_dataset_ownership import (
     PatternAddDatasetOwnership,
     SimpleAddDatasetOwnership,
 )
+from datahub.ingestion.transformer.add_dataset_properties import (
+    AddDatasetProperties,
+    AddDatasetPropertiesResolverBase,
+)
 from datahub.ingestion.transformer.add_dataset_tags import (
     AddDatasetTags,
     SimpleAddDatasetTags,
@@ -22,9 +26,10 @@ from datahub.ingestion.transformer.mark_dataset_status import MarkDatasetStatus
 from datahub.ingestion.transformer.remove_dataset_ownership import (
     SimpleRemoveDatasetOwnership,
 )
+from datahub.metadata.schema_classes import DatasetSnapshotClass
 
 
-def make_generic_dataset():
+def make_generic_dataset() -> models.MetadataChangeEventClass:
     return models.MetadataChangeEventClass(
         proposedSnapshot=models.DatasetSnapshotClass(
             urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,example1,PROD)",
@@ -35,7 +40,7 @@ def make_generic_dataset():
     )
 
 
-def make_dataset_with_owner():
+def make_dataset_with_owner() -> models.MetadataChangeEventClass:
     return models.MetadataChangeEventClass(
         proposedSnapshot=models.DatasetSnapshotClass(
             urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,example2,PROD)",
@@ -51,6 +56,21 @@ def make_dataset_with_owner():
                         time=1625266033123, actor="urn:li:corpuser:datahub"
                     ),
                 )
+            ],
+        ),
+    )
+
+
+EXISTING_PROPERTIES = {"my_existing_property": "existing property value"}
+
+
+def make_dataset_with_properties() -> models.MetadataChangeEventClass:
+    return models.MetadataChangeEventClass(
+        proposedSnapshot=models.DatasetSnapshotClass(
+            urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,example1,PROD)",
+            aspects=[
+                models.StatusClass(removed=False),
+                models.DatasetPropertiesClass(customProperties=EXISTING_PROPERTIES),
             ],
         ),
     )
@@ -543,3 +563,39 @@ def test_ownership_patching_with_different_types_2(mock_time):
     assert ("baz", models.OwnershipTypeClass.DATAOWNER) in [
         (o.owner, o.type) for o in test_ownership.owners
     ]
+
+
+PROPERTIES_TO_ADD = {"my_new_property": "property value"}
+
+
+class DummyPropertiesResolverClass(AddDatasetPropertiesResolverBase):
+    def get_properties_to_add(self, current: DatasetSnapshotClass) -> Dict[str, str]:
+        return PROPERTIES_TO_ADD
+
+
+def test_add_dataset_properties(mock_time):
+    dataset_mce = make_dataset_with_properties()
+
+    transformer = AddDatasetProperties.create(
+        {
+            "add_properties_resolver_class": "tests.unit.test_transform_dataset.DummyPropertiesResolverClass"
+        },
+        PipelineContext(run_id="test-properties"),
+    )
+
+    outputs = list(
+        transformer.transform(
+            [RecordEnvelope(input, metadata={}) for input in [dataset_mce]]
+        )
+    )
+    assert len(outputs) == 1
+
+    custom_properties = builder.get_aspect_if_available(
+        outputs[0].record, models.DatasetPropertiesClass
+    )
+
+    assert custom_properties is not None
+    assert custom_properties.customProperties == {
+        **EXISTING_PROPERTIES,
+        **PROPERTIES_TO_ADD,
+    }

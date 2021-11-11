@@ -29,14 +29,7 @@ For example, to retrieve a User entity, you can issue the following GraphQL Quer
 curl --location --request POST 'http://localhost:8080/api/graphql' \
 --header 'X-DataHub-Actor: urn:li:corpuser:datahub' \
 --header 'Content-Type: application/json' \
---data-raw '{
-   "query":"{
-   \n  corpUser(urn: \"urn:li:corpuser:datahub\") {
-   \n    username
-   \n    urn
-   \n  }
-   \n}",
-   "variables":{}}'
+--data-raw '{ "query":"{ corpUser(urn: \"urn:li:corpuser:datahub\") { username urn } }", "variables":{}}'
 ```
 
 ### Searching for a Metadata Entity 
@@ -70,24 +63,7 @@ As CURL:
 curl --location --request POST 'http://localhost:8080/api/graphql' \
 --header 'X-DataHub-Actor: urn:li:corpuser:datahub' \
 --header 'Content-Type: application/json' \
---data-raw '{
-      "query":"{
-      \n  search(input: { type: \"DATASET\", query: \"my sql dataset\", start: 0, count: 10 }) {
-      \n    start
-      \n    count
-      \n    total
-      \n    searchResults {
-      \n      entity {
-      \n         urn
-      \n         type
-      \n         ...on Dataset {
-      \n            name
-      \n         }
-      \n      }
-      \n    }
-      \n  }
-      \n}",
-      "variables":{}}'
+--data-raw '{ "query":"{ search(input: { type: DATASET, query: \"my sql dataset\", start: 0, count: 10 }) { start count total searchResults { entity { urn type ...on Dataset { name } } } } }", "variables":{}}'
 ```
 
 Note that per-field filtering criteria may additionally be provided. 
@@ -138,21 +114,7 @@ mutation updateDashboard {
 curl --location --request POST 'http://localhost:8080/api/graphql' \
 --header 'X-DataHub-Actor: urn:li:corpuser:datahub' \
 --header 'Content-Type: application/json' \
---data-raw '{
-    "query":
-        "mutation updateDashboard {
-        \n    updateDashboard(
-        \n        urn:\"urn:li:dashboard:(looker,baz)\",
-        \n        input: {
-        \n            editableProperties: {
-        \n                description: \"My new desription\"
-        \n            }
-        \n        }
-        \n    ) {
-        \n        urn
-        \n    }
-        \n}",
-        "variables":{}}'
+--data-raw '{ "query": "mutation updateDashboard { updateDashboard(urn:\"urn:li:dashboard:(looker,baz)\", input: { editableProperties: { description: \"My new desription\" } } ) { urn } }", "variables":{}}'
 ```
 
 **Be careful**: these APIs allow you to make significant changes to a Metadata Entity, often including
@@ -179,17 +141,11 @@ mutation addTag {
 curl --location --request POST 'http://localhost:8080/api/graphql' \
 --header 'X-DataHub-Actor: urn:li:corpuser:datahub' \
 --header 'Content-Type: application/json' \
---data-raw '{
-    "query":
-        "mutation addTag {
-        \n    addTag(input: { tagUrn: \"urn:li:tag:NewTag\", resourceUrn: \"urn:li:dataFlow:(airflow,dag_abc,PROD)\" })
-        \n}",
-        "variables":{}}'
+--data-raw '{ "query": "mutation addTag { addTag(input: { tagUrn: \"urn:li:tag:NewTag\", resourceUrn: \"urn:li:dataFlow:(airflow,dag_abc,PROD)\" }) }", "variables":{}}'
 ```
 
 ### Coming soon 
 
-**Ownership Addition & Removal**: addOwner, removeOwner. 
 **Entity Creation**: createDataset, createDashboard, createChart, etc. 
 **Entity Removal**: removeDataset, removeDashboard, removeChart, etc.
 

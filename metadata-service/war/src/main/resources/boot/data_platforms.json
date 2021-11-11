@@ -148,6 +148,16 @@
     }
   },
   {
+    "urn": "urn:li:dataPlatform:openapi",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "openapi",
+      "displayName": "OpenAPI",
+      "type": "OTHERS",
+      "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/openapilogo.png"
+    }
+  },
+  {
     "urn": "urn:li:dataPlatform:oracle",
     "aspect": {
       "datasetNameDelimiter": ".",
