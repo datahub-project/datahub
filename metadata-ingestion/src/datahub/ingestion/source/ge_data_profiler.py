@@ -1,13 +1,14 @@
 import concurrent.futures
 import contextlib
 import dataclasses
+import functools
 import itertools
 import logging
 import os
 import threading
 import unittest.mock
 import uuid
-from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, Tuple, Union
 
 import pydantic
 from great_expectations.data_context import BaseDataContext
@@ -22,6 +23,7 @@ from great_expectations.datasource.sqlalchemy_datasource import SqlAlchemyDataso
 from great_expectations.profile.base import ProfilerCardinality, ProfilerDataType
 from great_expectations.profile.basic_dataset_profiler import BasicDatasetProfilerBase
 from sqlalchemy.engine import Connection, Engine
+from typing_extensions import Concatenate, ParamSpec
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.emitter.mce_builder import get_sys_time
@@ -37,6 +39,8 @@ from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.sqlalchemy_query_combiner import SQLAlchemyQueryCombiner
 
 logger: logging.Logger = logging.getLogger(__name__)
+
+P = ParamSpec("P")
 
 # The reason for this wacky structure is quite fun. GE basically assumes that
 # the config structures were generated directly from YML and further assumes that
@@ -155,12 +159,27 @@ class GEProfilingConfig(ConfigModel):
         return values
 
 
+# mypy does not yet support ParamSpec. See https://github.com/python/mypy/issues/8645.
+def _run_with_query_combiner(  # type: ignore
+    method: Callable[Concatenate["_SingleDatasetProfiler", P], None]  # type: ignore
+) -> Callable[Concatenate["_SingleDatasetProfiler", P], None]:  # type: ignore
+    @functools.wraps(method)
+    def inner(
+        self: "_SingleDatasetProfiler", *args: P.args, **kwargs: P.kwargs  # type: ignore
+    ) -> None:
+        return self.query_combiner.run(method, *args, **kwargs)
+
+    return inner
+
+
 @dataclasses.dataclass
 class _SingleDatasetProfiler(BasicDatasetProfilerBase):
     dataset: Dataset
     dataset_name: str
     config: GEProfilingConfig
     report: SQLSourceReport
+
+    query_combiner: SQLAlchemyQueryCombiner
 
     def _get_columns_to_profile(self) -> List[str]:
         if self.config.profile_table_level_only:
@@ -208,36 +227,42 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
     def _get_column_cardinality(self, column: str) -> ProfilerCardinality:
         return BasicDatasetProfilerBase._get_column_cardinality(self.dataset, column)
 
+    @_run_with_query_combiner
     def _get_dataset_column_min(
         self, column_profile: DatasetFieldProfileClass, column: str
     ) -> None:
         if self.config.include_field_min_value:
             column_profile.min = str(self.dataset.get_column_min(column))
 
+    @_run_with_query_combiner
     def _get_dataset_column_max(
         self, column_profile: DatasetFieldProfileClass, column: str
     ) -> None:
         if self.config.include_field_max_value:
             column_profile.max = str(self.dataset.get_column_max(column))
 
+    @_run_with_query_combiner
     def _get_dataset_column_mean(
         self, column_profile: DatasetFieldProfileClass, column: str
     ) -> None:
         if self.config.include_field_mean_value:
             column_profile.mean = str(self.dataset.get_column_mean(column))
 
+    @_run_with_query_combiner
     def _get_dataset_column_median(
         self, column_profile: DatasetFieldProfileClass, column: str
     ) -> None:
         if self.config.include_field_median_value:
             column_profile.median = str(self.dataset.get_column_median(column))
 
+    @_run_with_query_combiner
     def _get_dataset_column_stdev(
         self, column_profile: DatasetFieldProfileClass, column: str
     ) -> None:
         if self.config.include_field_stddev_value:
             column_profile.stdev = str(self.dataset.get_column_stdev(column))
 
+    @_run_with_query_combiner
     def _get_dataset_column_quantiles(
         self, column_profile: DatasetFieldProfileClass, column: str
     ) -> None:
@@ -264,6 +289,7 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                     )
                 ]
 
+    @_run_with_query_combiner
     def _get_dataset_column_distinct_value_frequencies(
         self, column_profile: DatasetFieldProfileClass, column: str
     ) -> None:
@@ -273,6 +299,7 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                 for value, count in self.dataset.get_column_value_counts(column).items()
             ]
 
+    @_run_with_query_combiner
     def _get_dataset_column_histogram(
         self, column_profile: DatasetFieldProfileClass, column: str
     ) -> None:
@@ -296,6 +323,7 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                     ],
                 )
 
+    @_run_with_query_combiner
     def _get_dataset_column_sample_values(
         self, column_profile: DatasetFieldProfileClass, column: str
     ) -> None:
@@ -575,7 +603,7 @@ class DatahubGEProfiler:
                 )
                 # TODO add query_combiner
                 profile = _SingleDatasetProfiler(
-                    batch, pretty_name, self.config, self.report
+                    batch, pretty_name, self.config, self.report, query_combiner
                 ).generate_dataset_profile()
 
                 logger.info(

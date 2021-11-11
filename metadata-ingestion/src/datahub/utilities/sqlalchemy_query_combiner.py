@@ -3,13 +3,16 @@ import dataclasses
 import logging
 import traceback
 import unittest.mock
-from typing import Any, ClassVar, Dict, Iterator, List, Tuple
+from typing import Any, Callable, ClassVar, Dict, Iterator, List, Tuple
 
 import greenlet
 import sqlalchemy.engine
 from sqlalchemy.engine import Connection
+from typing_extensions import ParamSpec
 
 logger: logging.Logger = logging.getLogger(__name__)
+
+P = ParamSpec("P")  # type: ignore
 
 
 @dataclasses.dataclass
@@ -33,6 +36,7 @@ class SQLAlchemyQueryCombiner:
         sqlalchemy.engine.Connection.execute
     )
 
+    # TODO refactor this into argument
     _allowed_single_row_query_methods: ClassVar = [
         (
             "great_expectations/dataset/sqlalchemy_dataset.py",
@@ -152,3 +156,7 @@ class SQLAlchemyQueryCombiner:
             "sqlalchemy.engine.Connection.execute", _sa_execute_fake
         ):
             yield self
+
+    # mypy does not yet support ParamSpec. See https://github.com/python/mypy/issues/8645.
+    def run(self, method: Callable[P, None], *args: P.args, **kwargs: P.kwargs) -> None:  # type: ignore
+        pass
