@@ -20,7 +20,7 @@ from great_expectations.data_context.types.base import (
 )
 from great_expectations.dataset.dataset import Dataset
 from great_expectations.datasource.sqlalchemy_datasource import SqlAlchemyDatasource
-from great_expectations.profile.base import ProfilerCardinality, ProfilerDataType
+from great_expectations.profile.base import OrderedProfilerCardinality, ProfilerDataType
 from great_expectations.profile.basic_dataset_profiler import BasicDatasetProfilerBase
 from sqlalchemy.engine import Connection, Engine
 from typing_extensions import Concatenate, ParamSpec
@@ -180,7 +180,7 @@ class _SingleColumnSpec:
     column_profile: DatasetFieldProfileClass
 
     type_: ProfilerDataType = ProfilerDataType.UNKNOWN
-    cardinality: ProfilerCardinality = ProfilerCardinality.VERY_MANY
+    cardinality: OrderedProfilerCardinality = OrderedProfilerCardinality.MANY
 
 
 @dataclasses.dataclass
@@ -233,9 +233,7 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
         return columns_to_profile
 
     @_run_with_query_combiner
-    def _get_column_type(
-        self, column_spec: _SingleColumnSpec, column: str
-    ) -> ProfilerDataType:
+    def _get_column_type(self, column_spec: _SingleColumnSpec, column: str) -> None:
         column_spec.type_ = BasicDatasetProfilerBase._get_column_type(
             self.dataset, column
         )
@@ -243,9 +241,15 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
     @_run_with_query_combiner
     def _get_column_cardinality(
         self, column_spec: _SingleColumnSpec, column: str
-    ) -> ProfilerCardinality:
-        column_spec.cardinality = BasicDatasetProfilerBase._get_column_cardinality(
-            self.dataset, column
+    ) -> None:
+        num_unique = self.dataset.get_column_unique_count(column)
+        nonnull_count = self.dataset.get_column_nonnull_count(column)
+        pct_unique = float(num_unique) / nonnull_count
+
+        column_spec.cardinality = (
+            OrderedProfilerCardinality.get_basic_column_cardinality(
+                num_unique=num_unique, pct_unique=pct_unique
+            )
         )
 
     @_run_with_query_combiner
@@ -377,6 +381,9 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
         profile.columnCount = len(all_columns)
         columns_to_profile = set(self._get_columns_to_profile())
 
+        logger.info("Finished profiling stage 1 - flushing queries")
+        self.query_combiner.flush()
+
         columns_profiling_queue: List[_SingleColumnSpec] = []
         for column in all_columns:
             column_profile = DatasetFieldProfileClass(fieldPath=column)
@@ -389,6 +396,7 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                 self._get_column_type(column_spec, column)
                 self._get_column_cardinality(column_spec, column)
 
+        logger.info("Finished profiling stage 2 - flushing queries")
         self.query_combiner.flush()
 
         assert profile.rowCount is not None
@@ -424,22 +432,22 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
             self._get_dataset_column_sample_values(column_profile, column)
 
             if type_ == ProfilerDataType.INT or type_ == ProfilerDataType.FLOAT:
-                if cardinality == ProfilerCardinality.UNIQUE:
+                if cardinality == OrderedProfilerCardinality.UNIQUE:
                     pass
                 elif cardinality in [
-                    ProfilerCardinality.ONE,
-                    ProfilerCardinality.TWO,
-                    ProfilerCardinality.VERY_FEW,
-                    ProfilerCardinality.FEW,
+                    OrderedProfilerCardinality.ONE,
+                    OrderedProfilerCardinality.TWO,
+                    OrderedProfilerCardinality.VERY_FEW,
+                    OrderedProfilerCardinality.FEW,
                 ]:
                     self._get_dataset_column_distinct_value_frequencies(
                         column_profile,
                         column,
                     )
                 elif cardinality in [
-                    ProfilerCardinality.MANY,
-                    ProfilerCardinality.VERY_MANY,
-                    ProfilerCardinality.UNIQUE,
+                    OrderedProfilerCardinality.MANY,
+                    OrderedProfilerCardinality.VERY_MANY,
+                    OrderedProfilerCardinality.UNIQUE,
                 ]:
                     self._get_dataset_column_min(column_profile, column)
                     self._get_dataset_column_max(column_profile, column)
@@ -455,10 +463,10 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
 
             elif type_ == ProfilerDataType.STRING:
                 if cardinality in [
-                    ProfilerCardinality.ONE,
-                    ProfilerCardinality.TWO,
-                    ProfilerCardinality.VERY_FEW,
-                    ProfilerCardinality.FEW,
+                    OrderedProfilerCardinality.ONE,
+                    OrderedProfilerCardinality.TWO,
+                    OrderedProfilerCardinality.VERY_FEW,
+                    OrderedProfilerCardinality.FEW,
                 ]:
                     self._get_dataset_column_distinct_value_frequencies(
                         column_profile,
@@ -472,10 +480,10 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                 # FIXME: Re-add histogram once kl_divergence has been modified to support datetimes
 
                 if cardinality in [
-                    ProfilerCardinality.ONE,
-                    ProfilerCardinality.TWO,
-                    ProfilerCardinality.VERY_FEW,
-                    ProfilerCardinality.FEW,
+                    OrderedProfilerCardinality.ONE,
+                    OrderedProfilerCardinality.TWO,
+                    OrderedProfilerCardinality.VERY_FEW,
+                    OrderedProfilerCardinality.FEW,
                 ]:
                     self._get_dataset_column_distinct_value_frequencies(
                         column_profile,
@@ -484,16 +492,17 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
 
             else:
                 if cardinality in [
-                    ProfilerCardinality.ONE,
-                    ProfilerCardinality.TWO,
-                    ProfilerCardinality.VERY_FEW,
-                    ProfilerCardinality.FEW,
+                    OrderedProfilerCardinality.ONE,
+                    OrderedProfilerCardinality.TWO,
+                    OrderedProfilerCardinality.VERY_FEW,
+                    OrderedProfilerCardinality.FEW,
                 ]:
                     self._get_dataset_column_distinct_value_frequencies(
                         column_profile,
                         column,
                     )
 
+        logger.info("Finished profiling stage 3 - flushing queries")
         self.query_combiner.flush()
         return profile
 
