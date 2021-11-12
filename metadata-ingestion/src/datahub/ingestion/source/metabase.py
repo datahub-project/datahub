@@ -144,7 +144,7 @@ class MetabaseSource(Source):
         cards_data = dashboard_details.get("ordered_cards", "{}")
         for card_info in cards_data:
             card_urns.append(
-                f"urn:li:card:({self.platform},{card_info['id']})"
+                f"urn:li:chart:({self.platform},{card_info['id']})"
             )
 
         dashboard_info = DashboardInfoClass(
@@ -177,7 +177,7 @@ class MetabaseSource(Source):
         card_response = self.session.get(card_url)
         card_details = card_response.json()
 
-        card_urn = f"urn:li:card:({self.platform},{card_data['id']})"
+        card_urn = f"urn:li:chart:({self.platform},{card_data['id']})"
         card_snapshot = ChartSnapshot(
             urn=card_urn,
             aspects=[],

@@ -3,15 +3,15 @@ source:
   type: "metabase"
   config:
     username: admin@metabase.com
-    password: 712330q
+    password: admin12345
     connect_uri: http://localhost:3000/
 
-## see https://datahubproject.io/docs/metadata-ingestion/sink_docs/datahub for complete documentation
-#sink:
-#  type: "datahub-rest"
-#  config:
-#    server: "http://localhost:8080"
-
-# see https://datahubproject.io/docs/metadata-ingestion/sink_docs/console for complete documentation
+# see https://datahubproject.io/docs/metadata-ingestion/sink_docs/datahub for complete documentation
 sink:
-  type: "console"
+  type: "datahub-rest"
+  config:
+    server: "http://localhost:8080"
+
+## see https://datahubproject.io/docs/metadata-ingestion/sink_docs/console for complete documentation
+#sink:
+#  type: "console"
