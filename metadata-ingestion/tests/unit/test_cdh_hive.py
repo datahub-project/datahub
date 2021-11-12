@@ -219,7 +219,7 @@ class CDHHiveSourceTest(unittest.TestCase):
                             max=str(1),
                             median="",
                             mean=str(1.0),
-                            sampleValues=["1"],
+                            sampleValues=["1","1","1"],
                         ),
                         DatasetFieldProfileClass(
                             fieldPath="name",
@@ -231,7 +231,7 @@ class CDHHiveSourceTest(unittest.TestCase):
                             max="",
                             median="",
                             mean="",
-                            sampleValues=["mary"],
+                            sampleValues=["mary","mary","mary"],
                         ),
                     ],
                 ),

@@ -2,6 +2,7 @@
 import json
 import logging
 import time
+from datetime import datetime, timedelta
 from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, List, Optional, Type
 
@@ -247,6 +248,9 @@ class KuduSource(Source):
         db_cursor.execute(f"show tables in {schema}")
         all_tables_raw = db_cursor.fetchall()
         all_tables = [item[0] for item in all_tables_raw]
+        if sql_config.profiling.query_date:
+            upper_date_limit = (datetime.strptime(sql_config.profiling.query_date, '%Y-%m-%d') +
+            timedelta(days=1)).strftime('%Y-%m-%d')
         for table in all_tables:
             dataset_name = f"{schema}.{table}"
             self.report.report_entity_scanned(f"profile of {dataset_name}")
@@ -263,12 +267,14 @@ class KuduSource(Source):
                 if sql_config.profiling.query_date and not sql_config.profiling.limit:
                     db_cursor.execute(
                         f"""select * from {dataset_name} where 
-                        {sql_config.profiling.query_date_field}='{sql_config.profiling.query_date}'"""  # noqa
+                        {sql_config.profiling.query_date_field}>='{sql_config.profiling.query_date}'
+                        and {sql_config.profiling.query_date_field} < {upper_date_limit}"""  # noqa
                     )
                 else:
                     db_cursor.execute(
                         f"""select * from {dataset_name} where 
-                        {sql_config.profiling.query_date_field}='{sql_config.profiling.query_date}' 
+                        {sql_config.profiling.query_date_field}>='{sql_config.profiling.query_date}'
+                        and {sql_config.profiling.query_date_field} < {upper_date_limit} 
                         limit {sql_config.profiling.limit}"""  # noqa
                     )
             columns = [desc[0] for desc in db_cursor.description]
@@ -276,13 +282,14 @@ class KuduSource(Source):
             profile = ProfileReport(
                 df,
                 minimal=True,
-                samples={"random": 3},
+                samples=None,
                 correlations=None,
                 missing_diagrams=None,
                 duplicates=None,
                 interactions=None,
             )
-            dataset_profile = self.populate_table_profile(profile)
+            data_samples = self.getDFSamples(df)
+            dataset_profile = self.populate_table_profile(profile, data_samples)
             mcp = MetadataChangeProposalWrapper(
                 entityType="dataset",
                 entityUrn=f"urn:li:dataset:(urn:li:dataPlatform:{self.platform},{dataset_name},{self.config.env})",
@@ -296,10 +303,19 @@ class KuduSource(Source):
             logger.debug(f"Finished profiling {dataset_name}")
             yield wu
 
+    def getDFSamples(self, df) -> Dict:
+        """
+        random sample in pandas profiling came out only in v2.10. however, finding a valid version for py36
+        is quite tricky due to other libraries requirements and it kept failing the build tests
+        so i decided to just build my own sample. Anyway its just sample rows and assemble into dict
+        """
+        return df.sample(3 if len(df) > 3 else len(df)).to_dict(orient="records")
+
     def populate_table_profile(
-        self, pandas_profile: ProfileReport
+        self, pandas_profile: ProfileReport, samples: Dict
     ) -> DatasetProfileClass:
         profile_dict = json.loads(pandas_profile.to_json())
+        profile_dict["sample"] = samples
         all_fields = []
         for field_variable in profile_dict["variables"].keys():
             field_data = profile_dict["variables"][field_variable]
@@ -314,8 +330,7 @@ class KuduSource(Source):
                 median=str(field_data.get("median", "")),
                 mean=str(field_data.get("mean", "")),
                 sampleValues=[
-                    str(item["data"][0][field_variable])
-                    for item in profile_dict["sample"]
+                    str(item[field_variable]) for item in profile_dict["sample"]
                 ],
             )
             all_fields.append(field_profile)

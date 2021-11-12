@@ -2,6 +2,7 @@
 import json
 import logging
 import time
+from datetime import datetime, timedelta
 from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, List, Type
 
@@ -249,6 +250,9 @@ class CDH_HiveSource(Source):
         db_cursor.execute(f"show tables in {schema}")
         all_tables_raw = db_cursor.fetchall()
         all_tables = [item[0] for item in all_tables_raw]
+        if sql_config.profiling.query_date:
+            upper_date_limit = (datetime.strptime(sql_config.profiling.query_date, '%Y-%m-%d') +
+            timedelta(days=1)).strftime('%Y-%m-%d')
         for table in all_tables:
             dataset_name = f"{schema}.{table}"
             self.report.report_entity_scanned(f"profile of {dataset_name}")
@@ -264,13 +268,15 @@ class CDH_HiveSource(Source):
             else:  # flake8: noqa
                 if sql_config.profiling.query_date and not sql_config.profiling.limit:
                     db_cursor.execute(
-                        f"""select * from {dataset_name} where  
-                        {sql_config.profiling.query_date_field}='{sql_config.profiling.query_date}'"""  # noqa
+                        f"""select * from {dataset_name} where 
+                        {sql_config.profiling.query_date_field}>='{sql_config.profiling.query_date}'
+                        and {sql_config.profiling.query_date_field} < {upper_date_limit}"""  # noqa
                     )
                 else:
                     db_cursor.execute(
                         f"""select * from {dataset_name} where 
-                        {sql_config.profiling.query_date_field}='{sql_config.profiling.query_date}' 
+                        {sql_config.profiling.query_date_field}>='{sql_config.profiling.query_date}'
+                        and {sql_config.profiling.query_date_field} < {upper_date_limit} 
                         limit {sql_config.profiling.limit}"""  # noqa
                     )
             columns = [desc[0] for desc in db_cursor.description]
@@ -278,13 +284,14 @@ class CDH_HiveSource(Source):
             profile = ProfileReport(
                 df,
                 minimal=True,
-                samples={"random": 3},
+                samples=None,
                 correlations=None,
                 missing_diagrams=None,
                 duplicates=None,
                 interactions=None,
             )
-            dataset_profile = self.populate_table_profile(profile)
+            data_samples = self.getDFSamples(df)
+            dataset_profile = self.populate_table_profile(profile, data_samples)
             mcp = MetadataChangeProposalWrapper(
                 entityType="dataset",
                 entityUrn=f"urn:li:dataset:(urn:li:dataPlatform:{self.platform},{dataset_name},{self.config.env})",
@@ -298,10 +305,19 @@ class CDH_HiveSource(Source):
             logger.debug(f"Finished profiling {dataset_name}")
             yield wu
 
+    def getDFSamples(self, df) -> Dict:
+        """
+        random sample in pandas profiling came out only in v2.10. however, finding a valid version for py36
+        is quite tricky due to other libraries requirements and it kept failing the build tests
+        so i decided to just build my own sample. Anyway its just sample rows and assemble into dict
+        """
+        return df.sample(3 if len(df) > 3 else len(df)).to_dict(orient="records")
+
     def populate_table_profile(
-        self, pandas_profile: ProfileReport
+        self, pandas_profile: ProfileReport, samples: Dict
     ) -> DatasetProfileClass:
         profile_dict = json.loads(pandas_profile.to_json())
+        profile_dict["sample"] = samples
         all_fields = []
         for field_variable in profile_dict["variables"].keys():
             field_data = profile_dict["variables"][field_variable]
@@ -357,12 +373,15 @@ class CDH_HiveSource(Source):
 
             db_cursor.execute(f"describe formatted {schema}.{table}")
             table_info_raw = db_cursor.fetchall()
-            for partition_ind, item in enumerate(table_info_raw):
-                if item[0].strip() == "# Partition Information":
-                    break
-            table_info = table_info_raw[partition_ind + 2 :]
+            # for partition_ind, item in enumerate(table_info_raw):
+            #     if item[0].strip() == "# Partition Information":
+            #         mark
+            #         break
+            # table_info = table_info_raw[partition_ind + 2 :]
+            table_info = table_info_raw
 
             properties = {}
+            logger.error("grrr",table_info)
 
             for item in table_info:
                 if item[0].strip() == "Location:":
