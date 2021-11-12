@@ -246,6 +246,7 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
         nonnull_count = self.dataset.get_column_nonnull_count(column)
         pct_unique = float(num_unique) / nonnull_count
 
+        # Adopted from Great Expectations.
         cardinality = None
         if num_unique is None or num_unique == 0 or pct_unique is None:
             cardinality = OrderedProfilerCardinality.NONE

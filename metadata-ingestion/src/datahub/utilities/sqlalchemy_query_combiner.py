@@ -5,16 +5,87 @@ import logging
 import traceback
 import unittest.mock
 import uuid
-from typing import Any, Callable, ClassVar, Dict, Iterator, Set, Tuple
+from typing import Any, Callable, ClassVar, Dict, Iterator, List, Optional, Set, Tuple
 
 import greenlet
 import sqlalchemy.engine
 from sqlalchemy.engine import Connection
+from sqlalchemy.orm.exc import MultipleResultsFound, NoResultFound
 from typing_extensions import ParamSpec
 
 logger: logging.Logger = logging.getLogger(__name__)
 
-P = ParamSpec("P")  # type: ignore
+P = ParamSpec("P")
+
+
+class _RowProxyFake(collections.OrderedDict):
+    def __getitem__(self, k):  # type: ignore
+        if isinstance(k, int):
+            k = list(self.keys())[k]
+        return super().__getitem__(k)
+
+
+RowType = _RowProxyFake
+
+
+class _ResultProxyFake:
+    # This imitates the interface provided by sqlalchemy.engine.result.ResultProxy.
+    # Adapted from https://github.com/rajivsarvepalli/mock-alchemy/blob/2eba95588e7693aab973a6d60441d2bc3c4ea35d/src/mock_alchemy/mocking.py#L213
+
+    def __init__(self, result: List[RowType]) -> None:
+        self._result = result
+
+    def fetchall(self) -> List[RowType]:
+        return self._result
+
+    def __iter__(self) -> Iterator[RowType]:
+        return iter(self._result)
+
+    def count(self) -> int:
+        return len(self._result)
+
+    def first(self) -> Optional[RowType]:
+        return next(iter(self._result), None)
+
+    def one(self) -> Any:
+        if len(self._result) == 1:
+            return self._result[0]
+        elif self._result:
+            raise MultipleResultsFound("Multiple rows returned for one()")
+        else:
+            raise NoResultFound("No rows returned for one()")
+
+    def one_or_none(self) -> Optional[Any]:
+        if len(self._result) == 1:
+            return self._result[0]
+        elif self._result:
+            raise MultipleResultsFound("Multiple rows returned for one_or_none()")
+        else:
+            return None
+
+    def scalar(self) -> Any:
+        if len(self._result) == 1:
+            row = self._result[0]
+            try:
+                return row[0]
+            except TypeError:
+                return row
+        elif self._result:
+            raise MultipleResultsFound(
+                "Multiple rows were found when exactly one was required"
+            )
+        return None
+
+    def update(self) -> None:
+        # No-op.
+        pass
+
+    def close(self) -> None:
+        # No-op.
+        pass
+
+    all = fetchall
+    fetchone = one
 
 
 @dataclasses.dataclass
@@ -25,7 +96,7 @@ class _QueryFuture:
     params: Any
 
     done: bool = False
-    res: Any = None
+    res: Optional[_ResultProxyFake] = None
 
 
 @dataclasses.dataclass
@@ -141,8 +212,6 @@ class SQLAlchemyQueryCombiner:
         query_future = _QueryFuture(conn, query, multiparams, params)
         queue[query_id] = query_future
 
-        # TODO breakpoint()
-
         # Yield control back to the main greenlet until the query is done.
         # We assume that the main greenlet will be the one that actually executes the query.
         while not query_future.done:
@@ -168,7 +237,6 @@ class SQLAlchemyQueryCombiner:
             else:
                 if handled:
                     logger.info(f"Query was handled: {str(query)} -> {result}")
-                    breakpoint()
                     return result
                 else:
                     logger.info(f"Executing query normally: {str(query)}")
@@ -201,12 +269,15 @@ class SQLAlchemyQueryCombiner:
             if query_future.done:
                 continue
 
-            res = self._underlying_sa_execute_method(
+            sa_res = self._underlying_sa_execute_method(
                 query_future.conn,
                 query_future.query,
                 *query_future.multiparams,
                 **query_future.params,
             )
+
+            data = [_RowProxyFake(row) for row in sa_res.fetchall()]
+            res = _ResultProxyFake(data)
 
             query_future.res = res
             query_future.done = True
