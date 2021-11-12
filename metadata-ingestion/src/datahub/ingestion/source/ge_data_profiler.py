@@ -180,7 +180,7 @@ class _SingleColumnSpec:
     column_profile: DatasetFieldProfileClass
 
     type_: ProfilerDataType = ProfilerDataType.UNKNOWN
-    cardinality: OrderedProfilerCardinality = OrderedProfilerCardinality.MANY
+    cardinality: Optional[OrderedProfilerCardinality] = None
 
 
 @dataclasses.dataclass
@@ -246,11 +246,28 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
         nonnull_count = self.dataset.get_column_nonnull_count(column)
         pct_unique = float(num_unique) / nonnull_count
 
-        column_spec.cardinality = (
-            OrderedProfilerCardinality.get_basic_column_cardinality(
-                num_unique=num_unique, pct_unique=pct_unique
-            )
-        )
+        cardinality = None
+        if num_unique is None or num_unique == 0 or pct_unique is None:
+            cardinality = OrderedProfilerCardinality.NONE
+        elif pct_unique == 1.0:
+            cardinality = OrderedProfilerCardinality.UNIQUE
+        elif pct_unique > 0.1:
+            cardinality = OrderedProfilerCardinality.VERY_MANY
+        elif pct_unique > 0.02:
+            cardinality = OrderedProfilerCardinality.MANY
+        else:
+            if num_unique == 1:
+                cardinality = OrderedProfilerCardinality.ONE
+            elif num_unique == 2:
+                cardinality = OrderedProfilerCardinality.TWO
+            elif num_unique < 60:
+                cardinality = OrderedProfilerCardinality.VERY_FEW
+            elif num_unique < 1000:
+                cardinality = OrderedProfilerCardinality.FEW
+            else:
+                cardinality = OrderedProfilerCardinality.MANY
+
+        column_spec.cardinality = cardinality
 
     @_run_with_query_combiner
     def _get_dataset_rows(self, dataset_profile: DatasetProfileClass) -> None:
