@@ -40,6 +40,14 @@ GCP_LOGGING_PAGE_SIZE = 1000
 PARTITIONED_TABLE_REGEX = re.compile(r"^(.+)_(\d{4}|\d{6}|\d{8}|\d{10})$")
 
 BQ_DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
+BQ_FILTER_REGEX_ALLOW_TEMPLATE = """
+AND
+protoPayload.serviceData.jobCompletedEvent.job.jobStatistics.referencedTables.tableId =~ "{allow_pattern}"
+"""
+BQ_FILTER_REGEX_DENY_TEMPLATE = """
+AND
+protoPayload.serviceData.jobCompletedEvent.job.jobStatistics.referencedTables.tableId !~ "{deny_pattern}"
+"""
 BQ_FILTER_RULE_TEMPLATE = """
 protoPayload.serviceName="bigquery.googleapis.com"
 AND
@@ -58,6 +66,8 @@ AND
         protoPayload.metadata.tableDataRead:*
     )
 )
+{allow_regex}
+{deny_regex}
 AND
 timestamp >= "{start_time}"
 AND
@@ -256,6 +266,8 @@ class BigQueryUsageConfig(BaseUsageConfig):
     project_id: Optional[str] = None  # deprecated in favor of `projects`
     extra_client_options: dict = {}
     env: str = builder.DEFAULT_ENV
+    table_allow_pattern: Optional[str] = None
+    table_deny_pattern: Optional[str] = None
 
     query_log_delay: Optional[pydantic.PositiveInt] = None
     max_query_duration: timedelta = timedelta(minutes=15)
@@ -332,6 +344,20 @@ class BigQueryUsageSource(Source):
             ).strftime(BQ_DATETIME_FORMAT),
             end_time=(self.config.end_time + self.config.max_query_duration).strftime(
                 BQ_DATETIME_FORMAT
+            ),
+            allow_regex=(
+                BQ_FILTER_REGEX_ALLOW_TEMPLATE.format(
+                    allow_pattern=self.config.table_allow_pattern
+                )
+                if self.config.table_allow_pattern
+                else ""
+            ),
+            deny_regex=(
+                BQ_FILTER_REGEX_DENY_TEMPLATE.format(
+                    deny_pattern=self.config.table_deny_pattern
+                )
+                if self.config.table_deny_pattern
+                else ""
             ),
         )
 
