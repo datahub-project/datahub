@@ -112,6 +112,8 @@ class GEProfilingConfig(ConfigModel):
     # https://docs.python.org/3/library/concurrent.futures.html#concurrent.futures.ThreadPoolExecutor
     max_workers: int = 5 * (os.cpu_count() or 4)
 
+    query_combiner_enabled: bool = True
+
     # Hidden option - used for debugging purposes.
     catch_exceptions: bool = True
 
@@ -569,7 +571,8 @@ class DatahubGEProfiler:
         self, requests: List[GEProfilerRequest], max_workers: int
     ) -> Iterable[Tuple[GEProfilerRequest, Optional[DatasetProfileClass]]]:
         with PerfTimer() as timer, SQLAlchemyQueryCombiner(
-            catch_exceptions=self.config.catch_exceptions
+            enabled=self.config.query_combiner_enabled,
+            catch_exceptions=self.config.catch_exceptions,
         ).activate() as query_combiner:
             max_workers = min(max_workers, len(requests))
             logger.info(

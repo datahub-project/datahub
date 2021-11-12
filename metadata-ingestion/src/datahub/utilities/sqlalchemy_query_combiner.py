@@ -56,7 +56,7 @@ class SQLAlchemyQueryCombiner:
         ),
     ]
 
-    # TODO add an "enabled" flag
+    enabled: bool
     catch_exceptions: bool
 
     # There will be one main greenlet per thread. As such, queries will be
@@ -111,6 +111,9 @@ class SQLAlchemyQueryCombiner:
         # Returns True with result if the query was handled, False if it
         # should be executed normally using the fallback method.
 
+        if not self.enabled:
+            return False, None
+
         # Must handle synchronously if the query was issued from the main greenlet.
         main_greenlet = self._get_main_greenlet()
         if greenlet.getcurrent() == main_greenlet:
@@ -164,7 +167,8 @@ class SQLAlchemyQueryCombiner:
                 return self._underlying_sa_execute_method(conn, query, *args, **kwargs)
             else:
                 if handled:
-                    logger.info(f"Query was handled: {str(query)}")
+                    logger.info(f"Query was handled: {str(query)} -> {result}")
+                    breakpoint()
                     return result
                 else:
                     logger.info(f"Executing query normally: {str(query)}")
@@ -178,12 +182,16 @@ class SQLAlchemyQueryCombiner:
             yield self
 
     def run(self, method: Callable[[], None]) -> None:
-        let = greenlet.greenlet(method)
+        if self.enabled:
+            let = greenlet.greenlet(method)
 
-        pool = self._get_greenlet_pool(self._get_main_greenlet())
-        pool.add(let)
+            pool = self._get_greenlet_pool(self._get_main_greenlet())
+            pool.add(let)
 
-        let.switch()
+            let.switch()
+        else:
+            # If not enabled, run immediately.
+            method()
 
     def _execute_queue(self, main_greenlet: greenlet.greenlet) -> None:
         queue = self._get_queue(main_greenlet)
@@ -205,6 +213,9 @@ class SQLAlchemyQueryCombiner:
 
     def flush(self) -> None:
         # Executes until the queue and pool are empty.
+
+        if not self.enabled:
+            return
 
         main_greenlet = self._get_main_greenlet()
         pool = self._get_greenlet_pool(main_greenlet)
