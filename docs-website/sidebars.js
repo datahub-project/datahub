@@ -189,6 +189,7 @@ module.exports = {
       "datahub-web-react/src/app/analytics/README",
       "metadata-ingestion/developing",
       "docker/airflow/local_airflow",
+      "docs/how/add-custom-data-platform",
     ],
     Components: [
       "datahub-web-react/README",

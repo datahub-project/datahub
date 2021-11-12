@@ -1,0 +1,22 @@
+[
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DataPlatformSnapshot": {
+        "urn": "urn:li:dataPlatform:MyCustomDataPlatform",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataplatform.DataPlatformInfo": {
+              "datasetNameDelimiter": "/",
+              "name": "myCustomDataPlatform",
+              "displayName": "My Custom Data Platform",
+              "type": "FILE_SYSTEM",
+              "logoUrl": "https://<your-logo-url>"
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  }
+]
