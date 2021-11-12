@@ -163,8 +163,20 @@ Check out the [transformers guide](./transformers.md) for more info!
 
 In some cases, you might want to construct the MetadataChangeEvents yourself but still use this framework to emit that metadata to DataHub. In this case, take a look at the emitter interfaces, which can easily be imported and called from your own code.
 
-- [DataHub emitter via REST](./src/datahub/emitter/rest_emitter.py) (same requirements as `datahub-rest`). Basic usage [example](./examples/library/lineage_emitter_rest.py).
-- [DataHub emitter via Kafka](./src/datahub/emitter/kafka_emitter.py) (same requirements as `datahub-kafka`). Basic usage [example](./examples/library/lineage_emitter_kafka.py).
+- [DataHub emitter via REST](./src/datahub/emitter/rest_emitter.py) (same requirements as `datahub-rest`).
+- [DataHub emitter via Kafka](./src/datahub/emitter/kafka_emitter.py) (same requirements as `datahub-kafka`).
+### Sample code
+#### Lineage
+- [Emitting simple lineage via REST as MetadataChangeEvent](./examples/library/lineage_emitter_rest.py).
+- [Emitting simple lineage via Kafka as MetadataChangeEvent](./examples/library/lineage_emitter_kafka.py).
+- [Emitting simple lineage via REST as MetadataChangeProposalWrapper](./examples/library/lineage_emitter_mcpw_rest.py)
+- [Datahub's Snowflake lineage as MetadataChangeProposalWrapper](https://github.com/linkedin/datahub/blob/master/metadata-ingestion/src/datahub/ingestion/source/sql/snowflake.py#L249)
+- [Datahub's DBT lineage as MetadataChangeEvent](https://github.com/linkedin/datahub/blob/a9754ebe83b6b73bc2bfbf49d9ebf5dbd2ca5a8f/metadata-ingestion/src/datahub/ingestion/source/dbt.py#L625,L630)
+- [Datahub's Bigquery lineage as MetadataChangeProposalWrapper](https://github.com/linkedin/datahub/blob/a1bf95307b040074c8d65ebb86b5eb177fdcd591/metadata-ingestion/src/datahub/ingestion/source/sql/bigquery.py#L229)
+#### Programmatic Pipeline
+In some cases, you might want to configure and run a pipeline entirely from within your custom python script. Here is an example of how to do it.
+ - [programmatic_pipeline.py](./examples/library/programatic_pipeline.py) - a basic mysql to REST programmatic pipeline.
+
 
 ## Lineage with Airflow
 
