@@ -106,6 +106,7 @@ public class Application extends Controller {
             .entrySet()
             .stream()
             .filter(entry -> !Http.HeaderNames.CONTENT_LENGTH.equals(entry.getKey()))
+            .filter(entry -> !Http.HeaderNames.CONTENT_TYPE.equals(entry.getKey()))
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))
         )
         .addHeader(Constants.ACTOR_HEADER_NAME, ctx().session().get(ACTOR)) // TODO: Replace with a token to GMS.
@@ -115,6 +116,8 @@ public class Application extends Controller {
           final ResponseHeader header = new ResponseHeader(apiResponse.getStatus(), apiResponse.getHeaders()
               .entrySet()
               .stream()
+              .filter(entry -> !Http.HeaderNames.CONTENT_LENGTH.equals(entry.getKey()))
+              .filter(entry -> !Http.HeaderNames.CONTENT_TYPE.equals(entry.getKey()))
               .map(entry -> Pair.of(entry.getKey(), String.join(";", entry.getValue())))
               .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond)));
           final HttpEntity body = new HttpEntity.Strict(apiResponse.getBodyAsBytes(), Optional.ofNullable(apiResponse.getContentType()));
