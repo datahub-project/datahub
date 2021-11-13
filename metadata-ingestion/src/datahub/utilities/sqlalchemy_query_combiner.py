@@ -1,14 +1,18 @@
 import collections
 import contextlib
 import dataclasses
+import itertools
 import logging
+import random
+import string
 import traceback
 import unittest.mock
-import uuid
 from typing import Any, Callable, ClassVar, Dict, Iterator, List, Optional, Set, Tuple
 
 import greenlet
+import sqlalchemy
 import sqlalchemy.engine
+import sqlalchemy.sql
 from sqlalchemy.engine import Connection
 from sqlalchemy.orm.exc import MultipleResultsFound, NoResultFound
 from typing_extensions import ParamSpec
@@ -16,6 +20,11 @@ from typing_extensions import ParamSpec
 logger: logging.Logger = logging.getLogger(__name__)
 
 P = ParamSpec("P")
+
+
+def _generate_sql_safe_identifier() -> str:
+    # See https://stackoverflow.com/a/30779367/5004662.
+    return "".join(random.choices(string.ascii_lowercase, k=16))
 
 
 class _RowProxyFake(collections.OrderedDict):
@@ -91,7 +100,7 @@ class _ResultProxyFake:
 @dataclasses.dataclass
 class _QueryFuture:
     conn: Connection
-    query: Any
+    query: sqlalchemy.sql.Select
     multiparams: Any
     params: Any
 
@@ -102,12 +111,12 @@ class _QueryFuture:
 @dataclasses.dataclass
 class SQLAlchemyQueryCombiner:
     # TODO this must be a singleton, should not be set up per-thread
+    # at minimum the activate method should check for other activations and
+    # bail out if already active.
 
     # Without the staticmethod decorator, Python thinks that this is an instance
     # method and attempts to bind self to it.
-    _underlying_sa_execute_method: ClassVar = staticmethod(
-        sqlalchemy.engine.Connection.execute
-    )
+    _underlying_sa_execute_method = staticmethod(sqlalchemy.engine.Connection.execute)
 
     # TODO refactor this into argument
     _allowed_single_row_query_methods: ClassVar = [
@@ -118,11 +127,13 @@ class SQLAlchemyQueryCombiner:
                 "get_column_min",
                 "get_column_max",
                 "get_column_mean",
-                "get_column_median",
+                # "get_column_median",  # This actually returns two rows, not a single row.
                 "get_column_stdev",
                 "get_column_stdev",
                 "get_column_nonnull_count",
                 "get_column_unique_count",
+                # TODO document this and also figure out when it would actually work
+                # "inner_wrapper",
             },
         ),
     ]
@@ -182,6 +193,10 @@ class SQLAlchemyQueryCombiner:
         # Returns True with result if the query was handled, False if it
         # should be executed normally using the fallback method.
 
+        # TODO remove this
+        # if str(query).startswith("SELECT count(*) AS element_count, sum(CASE WHEN"):
+        #     breakpoint()
+
         if not self.enabled:
             return False, None
 
@@ -208,7 +223,7 @@ class SQLAlchemyQueryCombiner:
 
         # Add query to the queue.
         queue = self._get_queue(main_greenlet)
-        query_id = str(uuid.uuid4())
+        query_id = _generate_sql_safe_identifier()
         query_future = _QueryFuture(conn, query, multiparams, params)
         queue[query_id] = query_future
 
@@ -236,7 +251,7 @@ class SQLAlchemyQueryCombiner:
                 return self._underlying_sa_execute_method(conn, query, *args, **kwargs)
             else:
                 if handled:
-                    logger.info(f"Query was handled: {str(query)} -> {result}")
+                    logger.info(f"Query was handled: {str(query)}")
                     return result
                 else:
                     logger.info(f"Executing query normally: {str(query)}")
@@ -262,25 +277,68 @@ class SQLAlchemyQueryCombiner:
             method()
 
     def _execute_queue(self, main_greenlet: greenlet.greenlet) -> None:
-        queue = self._get_queue(main_greenlet)
+        full_queue = self._get_queue(main_greenlet)
 
-        # TODO actually combine these queries
-        for query_future in queue.values():
-            if query_future.done:
-                continue
+        pending_queue = {k: v for k, v in full_queue.items() if not v.done}
+        if pending_queue:
+            queue_item = next(iter(pending_queue.values()))
 
-            sa_res = self._underlying_sa_execute_method(
-                query_future.conn,
-                query_future.query,
-                *query_future.multiparams,
-                **query_future.params,
+            # Actually combine these queries together. We do this by (1) putting
+            # each query into its own CTE, (2) selecting all the columns we need
+            # and (3) extracting the results once the query finishes.
+
+            ctes = {
+                k: query_future.query.cte(k)
+                for k, query_future in pending_queue.items()
+            }
+
+            # TODO: determine if we need to use col.label() here.
+            combined_cols = itertools.chain(
+                *[[col for col in cte.columns] for _, cte in ctes.items()]
             )
+            combined_query = sqlalchemy.select(combined_cols)
+            for cte in ctes.values():
+                combined_query.append_from(cte)
 
-            data = [_RowProxyFake(row) for row in sa_res.fetchall()]
-            res = _ResultProxyFake(data)
+            logger.info(f"Executing combined query: {str(combined_query)}")
+            sa_res = self._underlying_sa_execute_method(queue_item.conn, combined_query)
 
-            query_future.res = res
-            query_future.done = True
+            row = sa_res.fetchone()
+            # TODO verify that only one row is returned
+
+            index = 0
+            for _, query_future in pending_queue.items():
+                cols = query_future.query.columns
+
+                data = {}
+                for col in cols:
+                    data[col.name] = row[index]
+                    index += 1
+
+                res = _ResultProxyFake([_RowProxyFake(data)])
+
+                query_future.res = res
+                query_future.done = True
+
+            # Verify that we consumed all the columns.
+            assert index == len(row)
+
+        # for query_future in full_queue.values():
+        #     if query_future.done:
+        #         continue
+
+        #     sa_res = self._underlying_sa_execute_method(
+        #         query_future.conn,
+        #         query_future.query,
+        #         *query_future.multiparams,
+        #         **query_future.params,
+        #     )
+
+        #     data = [_RowProxyFake(row) for row in sa_res.fetchall()]
+        #     res = _ResultProxyFake(data)
+
+        #     query_future.res = res
+        #     query_future.done = True
 
     def flush(self) -> None:
         # Executes until the queue and pool are empty.
