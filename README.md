@@ -24,7 +24,7 @@ HOSTED_DOCS_ONLY-->
 <!-- -->
 
 # DataHub: The Metadata Platform for the Modern Data Stack
-## Built with ❤️ by <img src="./docs-website/static/img/acryl-logo-light-mark.png" width="25"/> [Acryl Data](https://acryldata.io) and <img src="./docs-website/static/img/LI-In-Bug.png" width="25"/> [LinkedIn](https://engineering.linkedin.com)
+## Built with ❤️ by <img src="docs/imgs/acryl-logo-light-mark.png" width="25"/> [Acryl Data](https://acryldata.io) and <img src="docs/imgs/LI-In-Bug.png" width="25"/> [LinkedIn](https://engineering.linkedin.com)
 [![Version](https://img.shields.io/github/v/release/linkedin/datahub?include_prereleases)](https://github.com/linkedin/datahub/releases/latest)
 [![PyPI version](https://badge.fury.io/py/acryl-datahub.svg)](https://badge.fury.io/py/acryl-datahub)
 [![build & test](https://github.com/linkedin/datahub/workflows/build%20&%20test/badge.svg?branch=master&event=push)](https://github.com/linkedin/datahub/actions?query=workflow%3A%22build+%26+test%22+branch%3Amaster+event%3Apush)
