@@ -48,10 +48,11 @@ public class RestoreAspectStep implements UpgradeStep {
 
       Optional<String> urnToRestore = context.parsedArgs().get("URN");
       Optional<String> aspectToRestore = context.parsedArgs().get("ASPECT_NAME");
-      Optional<String> backupFile = context.parsedArgs().get("BACKUP_FILE");
+      Optional<String> bucket = context.parsedArgs().get("BACKUP_S3_BUCKET");
+      Optional<String> path = context.parsedArgs().get("BACKUP_S3_PATH");
 
-      if (!urnToRestore.isPresent() || !aspectToRestore.isPresent() || !backupFile.isPresent()) {
-        context.report().addLine("Missing required arguments. This upgrade requires URN, ASPECT_NAME, and BACKUP_FILE");
+      if (!urnToRestore.isPresent() || !aspectToRestore.isPresent() || !bucket.isPresent() || !path.isPresent()) {
+        context.report().addLine("Missing required arguments. This upgrade requires URN, ASPECT_NAME, BACKUP_S3_BUCKET, BACKUP_S3_PATH");
         return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
       }
 
