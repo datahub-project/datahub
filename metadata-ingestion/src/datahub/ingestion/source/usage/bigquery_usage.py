@@ -286,6 +286,7 @@ class BigQueryUsageConfig(BaseUsageConfig):
     def get_deny_pattern_string(self) -> str:
         return "|".join(self.table_pattern.deny) if self.table_pattern else ""
 
+
 @dataclass
 class BigQueryUsageSourceReport(SourceReport):
     dropped_table: Counter[str] = dataclasses.field(default_factory=collections.Counter)
@@ -345,8 +346,13 @@ class BigQueryUsageSource(Source):
         # completion event is delayed and happens after the configured end time.
 
         # Can safely access the first index of the allow list as it by default contains ".*"
-        use_allow_filter = self.config.table_pattern and (len(self.config.table_pattern.allow) > 1 or self.config.table_pattern.allow[0] != ".*")
-        use_deny_filter = self.config.table_pattern and len(self.config.table_pattern.deny) > 0
+        use_allow_filter = self.config.table_pattern and (
+            len(self.config.table_pattern.allow) > 1
+            or self.config.table_pattern.allow[0] != ".*"
+        )
+        use_deny_filter = (
+            self.config.table_pattern and len(self.config.table_pattern.deny) > 0
+        )
         filter = BQ_FILTER_RULE_TEMPLATE.format(
             start_time=(
                 self.config.start_time - self.config.max_query_duration
