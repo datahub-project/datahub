@@ -5,6 +5,7 @@ import itertools
 import logging
 import random
 import string
+import threading
 import traceback
 import unittest.mock
 from typing import Any, Callable, ClassVar, Dict, Iterator, List, Optional, Set, Tuple
@@ -150,6 +151,9 @@ class SQLAlchemyQueryCombiner:
     _greenlets_by_thread: Dict[
         greenlet.greenlet, Set[greenlet.greenlet]
     ] = dataclasses.field(default_factory=lambda: collections.defaultdict(set))
+    _thread_unsafe_operation_lock = dataclasses.field(
+        default_factory=lambda: threading.Lock()
+    )
 
     def _is_single_row_query_method(
         self, stack: traceback.StackSummary, query: Any
@@ -172,20 +176,16 @@ class SQLAlchemyQueryCombiner:
     def _get_queue(self, main_greenlet: greenlet.greenlet) -> Dict[str, _QueryFuture]:
         assert main_greenlet.parent is None
 
-        # Because of the GIL, this operation is thread-safe. Hence, we can
-        # just add the main greenlet here without any special consideration.
-        # https://stackoverflow.com/a/6953515/5004662
-        # https://docs.python.org/3/glossary.html#term-global-interpreter-lock
-
-        return self._queries_by_thread.setdefault(main_greenlet, {})
+        with self._thread_unsafe_operation_lock:
+            return self._queries_by_thread.setdefault(main_greenlet, {})
 
     def _get_greenlet_pool(
         self, main_greenlet: greenlet.greenlet
     ) -> Set[greenlet.greenlet]:
         assert main_greenlet.parent is None
 
-        # Threading concerns as above.
-        return self._greenlets_by_thread[main_greenlet]
+        with self._thread_unsafe_operation_lock:
+            return self._greenlets_by_thread[main_greenlet]
 
     def _handle_execute(
         self, conn: Connection, query: Any, multiparams: Any, params: Any
@@ -215,11 +215,10 @@ class SQLAlchemyQueryCombiner:
             return False, None
 
         # Figure out how many columns this query returns.
-        # TODO add escape hatch
+        # This also implicitly ensures that the typing is generally correct.
         if not hasattr(query, "columns"):
             return False, None
-        columns = list(query.columns)
-        assert len(columns) > 0
+        assert len(query.columns) > 0
 
         # Add query to the queue.
         queue = self._get_queue(main_greenlet)
