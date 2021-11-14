@@ -23,8 +23,17 @@ logger: logging.Logger = logging.getLogger(__name__)
 P = ParamSpec("P")
 
 
+# We need to make sure that only one query combiner attempts to patch
+# the SQLAlchemy execute method at a time so that they don't interfere.
+# Generally speaking, there will only be one query combiner in existence
+# at a time anyways, so this lock shouldn't really be doing much.
+_sa_execute_method_patching_lock = threading.Lock()
+_sa_execute_underlying_method = sqlalchemy.engine.Connection.execute
+
+
 def _generate_sql_safe_identifier() -> str:
-    # See https://stackoverflow.com/a/30779367/5004662.
+    # The value of k=16 should be more than enough to ensure uniqueness.
+    # Adapted from https://stackoverflow.com/a/30779367/5004662.
     return "".join(random.choices(string.ascii_lowercase, k=16))
 
 
@@ -35,26 +44,23 @@ class _RowProxyFake(collections.OrderedDict):
         return super().__getitem__(k)
 
 
-RowType = _RowProxyFake
-
-
 class _ResultProxyFake:
     # This imitates the interface provided by sqlalchemy.engine.result.ResultProxy.
     # Adapted from https://github.com/rajivsarvepalli/mock-alchemy/blob/2eba95588e7693aab973a6d60441d2bc3c4ea35d/src/mock_alchemy/mocking.py#L213
 
-    def __init__(self, result: List[RowType]) -> None:
+    def __init__(self, result: List[_RowProxyFake]) -> None:
         self._result = result
 
-    def fetchall(self) -> List[RowType]:
+    def fetchall(self) -> List[_RowProxyFake]:
         return self._result
 
-    def __iter__(self) -> Iterator[RowType]:
+    def __iter__(self) -> Iterator[_RowProxyFake]:
         return iter(self._result)
 
     def count(self) -> int:
         return len(self._result)
 
-    def first(self) -> Optional[RowType]:
+    def first(self) -> Optional[_RowProxyFake]:
         return next(iter(self._result), None)
 
     def one(self) -> Any:
@@ -111,14 +117,6 @@ class _QueryFuture:
 
 @dataclasses.dataclass
 class SQLAlchemyQueryCombiner:
-    # TODO this must be a singleton, should not be set up per-thread
-    # at minimum the activate method should check for other activations and
-    # bail out if already active.
-
-    # Without the staticmethod decorator, Python thinks that this is an instance
-    # method and attempts to bind self to it.
-    _underlying_sa_execute_method = staticmethod(sqlalchemy.engine.Connection.execute)
-
     # TODO refactor this into argument
     _allowed_single_row_query_methods: ClassVar = [
         (
@@ -247,21 +245,20 @@ class SQLAlchemyQueryCombiner:
                 logger.exception(
                     f"Failed to execute query normally, using fallback: {str(query)}"
                 )
-                return self._underlying_sa_execute_method(conn, query, *args, **kwargs)
+                return _sa_execute_underlying_method(conn, query, *args, **kwargs)
             else:
                 if handled:
                     logger.info(f"Query was handled: {str(query)}")
                     return result
                 else:
                     logger.info(f"Executing query normally: {str(query)}")
-                    return self._underlying_sa_execute_method(
-                        conn, query, *args, **kwargs
-                    )
+                    return _sa_execute_underlying_method(conn, query, *args, **kwargs)
 
-        with unittest.mock.patch(
-            "sqlalchemy.engine.Connection.execute", _sa_execute_fake
-        ):
-            yield self
+        with _sa_execute_method_patching_lock:
+            with unittest.mock.patch(
+                "sqlalchemy.engine.Connection.execute", _sa_execute_fake
+            ):
+                yield self
 
     def run(self, method: Callable[[], None]) -> None:
         if self.enabled:
@@ -300,7 +297,7 @@ class SQLAlchemyQueryCombiner:
                 combined_query.append_from(cte)
 
             logger.info(f"Executing combined query: {str(combined_query)}")
-            sa_res = self._underlying_sa_execute_method(queue_item.conn, combined_query)
+            sa_res = _sa_execute_underlying_method(queue_item.conn, combined_query)
 
             row = sa_res.fetchone()
             # TODO verify that only one row is returned
@@ -321,23 +318,6 @@ class SQLAlchemyQueryCombiner:
 
             # Verify that we consumed all the columns.
             assert index == len(row)
-
-        # for query_future in full_queue.values():
-        #     if query_future.done:
-        #         continue
-
-        #     sa_res = self._underlying_sa_execute_method(
-        #         query_future.conn,
-        #         query_future.query,
-        #         *query_future.multiparams,
-        #         **query_future.params,
-        #     )
-
-        #     data = [_RowProxyFake(row) for row in sa_res.fetchall()]
-        #     res = _ResultProxyFake(data)
-
-        #     query_future.res = res
-        #     query_future.done = True
 
     def flush(self) -> None:
         # Executes until the queue and pool are empty.

@@ -315,6 +315,8 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
     ) -> None:
         if self.config.include_field_quantiles:
             # FIXME: Eventually we'd like to switch to using the quantile method directly.
+            # However, that method seems to be throwing an error in some cases whereas
+            # this does not.
             # values = dataset.get_column_quantiles(column, tuple(quantiles))
 
             self.dataset.set_config_value("interactive_evaluation", True)
