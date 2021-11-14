@@ -180,6 +180,9 @@ class _SingleColumnSpec:
     column_profile: DatasetFieldProfileClass
 
     type_: ProfilerDataType = ProfilerDataType.UNKNOWN
+
+    unique_count: Optional[int] = None
+    nonnull_count: Optional[int] = None
     cardinality: Optional[OrderedProfilerCardinality] = None
 
 
@@ -242,13 +245,22 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
     def _get_column_cardinality(
         self, column_spec: _SingleColumnSpec, column: str
     ) -> None:
-        num_unique = self.dataset.get_column_unique_count(column)
         nonnull_count = self.dataset.get_column_nonnull_count(column)
-        pct_unique = float(num_unique) / nonnull_count
+        column_spec.nonnull_count = nonnull_count
 
-        # Adopted from Great Expectations.
+        unique_count = None
+        try:
+            unique_count = self.dataset.get_column_unique_count(column)
+            pct_unique = float(unique_count) / nonnull_count
+        except Exception:
+            logger.exception(
+                f"Failed to get unique count for column {self.dataset_name}.{column}"
+            )
+        column_spec.unique_count = unique_count
+
+        # Logic adopted from Great Expectations.
         cardinality = None
-        if num_unique is None or num_unique == 0 or pct_unique is None:
+        if unique_count is None or unique_count == 0 or pct_unique is None:
             cardinality = OrderedProfilerCardinality.NONE
         elif pct_unique == 1.0:
             cardinality = OrderedProfilerCardinality.UNIQUE
@@ -257,13 +269,13 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
         elif pct_unique > 0.02:
             cardinality = OrderedProfilerCardinality.MANY
         else:
-            if num_unique == 1:
+            if unique_count == 1:
                 cardinality = OrderedProfilerCardinality.ONE
-            elif num_unique == 2:
+            elif unique_count == 2:
                 cardinality = OrderedProfilerCardinality.TWO
-            elif num_unique < 60:
+            elif unique_count < 60:
                 cardinality = OrderedProfilerCardinality.VERY_FEW
-            elif num_unique < 1000:
+            elif unique_count < 1000:
                 cardinality = OrderedProfilerCardinality.FEW
             else:
                 cardinality = OrderedProfilerCardinality.MANY
@@ -428,26 +440,20 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
             type_ = column_spec.type_
             cardinality = column_spec.cardinality
 
-            # TODO convert to non-returning methods
-            if self.config.include_field_null_count:
-                non_null_count = self.dataset.get_column_nonnull_count(column)
+            non_null_count = column_spec.nonnull_count
+            unique_count = column_spec.unique_count
+
+            if self.config.include_field_null_count and non_null_count is not None:
                 null_count = row_count - non_null_count
                 assert null_count >= 0
                 column_profile.nullCount = null_count
                 if row_count > 0:
                     column_profile.nullProportion = null_count / row_count
-            else:
-                non_null_count = None
 
-            try:
-                unique_count = self.dataset.get_column_unique_count(column)
+            if unique_count is not None:
                 column_profile.uniqueCount = unique_count
                 if non_null_count is not None and non_null_count > 0:
                     column_profile.uniqueProportion = unique_count / non_null_count
-            except Exception:
-                logger.exception(
-                    f"Failed to get unique count for column {self.dataset_name}.{column}"
-                )
 
             self._get_dataset_column_sample_values(column_profile, column)
 

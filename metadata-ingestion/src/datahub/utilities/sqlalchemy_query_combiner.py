@@ -149,7 +149,7 @@ class SQLAlchemyQueryCombiner:
     _greenlets_by_thread: Dict[
         greenlet.greenlet, Set[greenlet.greenlet]
     ] = dataclasses.field(default_factory=lambda: collections.defaultdict(set))
-    _thread_unsafe_operation_lock = dataclasses.field(
+    _thread_unsafe_operation_lock: threading.Lock = dataclasses.field(
         default_factory=lambda: threading.Lock()
     )
 
