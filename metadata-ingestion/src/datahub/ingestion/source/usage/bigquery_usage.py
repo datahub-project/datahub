@@ -12,6 +12,7 @@ import pydantic
 from google.cloud.logging_v2.client import Client as GCPLoggingClient
 
 import datahub.emitter.mce_builder as builder
+from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.time_window_config import get_time_bucket
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
@@ -266,8 +267,7 @@ class BigQueryUsageConfig(BaseUsageConfig):
     project_id: Optional[str] = None  # deprecated in favor of `projects`
     extra_client_options: dict = {}
     env: str = builder.DEFAULT_ENV
-    table_allow_pattern: Optional[str] = None
-    table_deny_pattern: Optional[str] = None
+    table_pattern: Optional[AllowDenyPattern] = None
 
     query_log_delay: Optional[pydantic.PositiveInt] = None
     max_query_duration: timedelta = timedelta(minutes=15)
@@ -280,6 +280,11 @@ class BigQueryUsageConfig(BaseUsageConfig):
         values["projects"] = [v]
         return None
 
+    def get_allow_pattern_string(self) -> str:
+        return "|".join(self.table_pattern.allow) if self.table_pattern else ""
+
+    def get_deny_pattern_string(self) -> str:
+        return "|".join(self.table_pattern.deny) if self.table_pattern else ""
 
 @dataclass
 class BigQueryUsageSourceReport(SourceReport):
@@ -338,6 +343,10 @@ class BigQueryUsageSource(Source):
         # between query events and read events is complete. For example, this helps us
         # handle the case where the read happens within our time range but the query
         # completion event is delayed and happens after the configured end time.
+
+        # Can safely access the first index of the allow list as it by default contains ".*"
+        use_allow_filter = self.config.table_pattern and (len(self.config.table_pattern.allow) > 1 or self.config.table_pattern.allow[0] != ".*")
+        use_deny_filter = self.config.table_pattern and len(self.config.table_pattern.deny) > 0
         filter = BQ_FILTER_RULE_TEMPLATE.format(
             start_time=(
                 self.config.start_time - self.config.max_query_duration
@@ -347,16 +356,16 @@ class BigQueryUsageSource(Source):
             ),
             allow_regex=(
                 BQ_FILTER_REGEX_ALLOW_TEMPLATE.format(
-                    allow_pattern=self.config.table_allow_pattern
+                    allow_pattern=self.config.get_allow_pattern_string()
                 )
-                if self.config.table_allow_pattern
+                if use_allow_filter
                 else ""
             ),
             deny_regex=(
                 BQ_FILTER_REGEX_DENY_TEMPLATE.format(
-                    deny_pattern=self.config.table_deny_pattern
+                    deny_pattern=self.config.get_deny_pattern_string()
                 )
-                if self.config.table_deny_pattern
+                if use_deny_filter
                 else ""
             ),
         )

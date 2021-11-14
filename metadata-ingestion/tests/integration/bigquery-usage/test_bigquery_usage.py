@@ -23,8 +23,14 @@ def test_bq_usage_config():
             project_id="sample-bigquery-project-name-1234",
             bucket_duration="HOUR",
             end_time="2021-07-20T00:00:00Z",
+            table_pattern={
+                "allow": ["test-regex", "test-regex-1"],
+                "deny": []
+            },
         )
     )
+    assert config.get_allow_pattern_string() == "test-regex|test-regex-1"
+    assert config.get_deny_pattern_string() == ""
     assert (config.end_time - config.start_time) == timedelta(hours=1)
     assert config.projects == ["sample-bigquery-project-name-1234"]
 
@@ -43,7 +49,7 @@ def test_bq_usage_source(pytestconfig, tmp_path):
     # from google.cloud.logging_v2 import ProtobufEntry
 
     test_resources_dir: pathlib.Path = (
-        pytestconfig.rootpath / "tests/integration/bigquery-usage"
+            pytestconfig.rootpath / "tests/integration/bigquery-usage"
     )
     bigquery_reference_logs_path = test_resources_dir / "bigquery_logs.json"
 
@@ -67,7 +73,7 @@ def test_bq_usage_source(pytestconfig, tmp_path):
             logs.write(log_entries)
 
     with unittest.mock.patch(
-        "datahub.ingestion.source.usage.bigquery_usage.GCPLoggingClient", autospec=True
+            "datahub.ingestion.source.usage.bigquery_usage.GCPLoggingClient", autospec=True
     ) as MockClient:
         # Add mock BigQuery API responses.
         with bigquery_reference_logs_path.open() as logs:
