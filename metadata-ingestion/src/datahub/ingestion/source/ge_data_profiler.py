@@ -6,6 +6,7 @@ import itertools
 import logging
 import os
 import threading
+import traceback
 import unittest.mock
 import uuid
 from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, Tuple, Union
@@ -159,6 +160,47 @@ class GEProfilingConfig(ConfigModel):
                 values[max_num_fields_to_profile_key] = 10
 
         return values
+
+
+def _is_single_row_query_method(query: Any) -> bool:
+    SINGLE_ROW_QUERY_FILE = "great_expectations/dataset/sqlalchemy_dataset.py"
+    SINGLE_ROW_QUERY_METHODS = {
+        "get_row_count",
+        "get_column_min",
+        "get_column_max",
+        "get_column_mean",
+        "get_column_stdev",
+        "get_column_stdev",
+        "get_column_nonnull_count",
+        "get_column_unique_count",
+        # This actually returns two rows, not a single row, so we can't combine it with other queries.
+        # "get_column_median",
+    }
+    COLUMN_MAP_QUERY_METHOD = "inner_wrapper"
+    COLUMN_MAP_QUERY_SINGLE_ROW_COLUMNS = [
+        "element_count",
+        "null_count",
+        "unexpected_count",
+    ]
+
+    # We'll do this the inefficient way since the arrays are pretty small.
+    stack = traceback.extract_stack()
+    for frame in stack:
+        if not frame.filename.endswith(SINGLE_ROW_QUERY_FILE):
+            continue
+        if frame.name in SINGLE_ROW_QUERY_METHODS:
+            return True
+
+        if frame.name == COLUMN_MAP_QUERY_METHOD:
+            # Some column map expectations are single-row.
+            # We can disambiguate by checking the column names.
+            query_columns = query.columns
+            column_names = [column.name for column in query_columns]
+
+            if column_names == COLUMN_MAP_QUERY_SINGLE_ROW_COLUMNS:
+                return True
+
+    return False
 
 
 # mypy does not yet support ParamSpec. See https://github.com/python/mypy/issues/8645.
@@ -608,6 +650,7 @@ class DatahubGEProfiler:
         with PerfTimer() as timer, SQLAlchemyQueryCombiner(
             enabled=self.config.query_combiner_enabled,
             catch_exceptions=self.config.catch_exceptions,
+            is_single_row_query_method=_is_single_row_query_method,
         ).activate() as query_combiner:
             max_workers = min(max_workers, len(requests))
             logger.info(

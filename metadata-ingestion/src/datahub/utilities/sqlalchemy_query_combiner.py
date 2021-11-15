@@ -6,9 +6,8 @@ import logging
 import random
 import string
 import threading
-import traceback
 import unittest.mock
-from typing import Any, Callable, ClassVar, Dict, Iterator, List, Optional, Set, Tuple
+from typing import Any, Callable, Dict, Iterator, List, Optional, Set, Tuple
 
 import greenlet
 import sqlalchemy
@@ -117,28 +116,15 @@ class _QueryFuture:
 
 @dataclasses.dataclass
 class SQLAlchemyQueryCombiner:
-    # TODO refactor this into argument
-    _allowed_single_row_query_methods: ClassVar = [
-        (
-            "great_expectations/dataset/sqlalchemy_dataset.py",
-            {
-                "get_row_count",
-                "get_column_min",
-                "get_column_max",
-                "get_column_mean",
-                # "get_column_median",  # This actually returns two rows, not a single row.
-                "get_column_stdev",
-                "get_column_stdev",
-                "get_column_nonnull_count",
-                "get_column_unique_count",
-                # TODO document this and also figure out when it would actually work
-                # "inner_wrapper",
-            },
-        ),
-    ]
+    """
+    This class adds support for dynamically combining multiple SQL queries into
+    a single query. Specifically, it can combine queries which each return a
+    single row. It uses greenlets to manage the execution lifecycle of the queries.
+    """
 
     enabled: bool
     catch_exceptions: bool
+    is_single_row_query_method: Callable[[Any], bool]
 
     # There will be one main greenlet per thread. As such, queries will be
     # queued according to the main greenlet's thread ID. We also keep track
@@ -152,18 +138,6 @@ class SQLAlchemyQueryCombiner:
     _thread_unsafe_operation_lock: threading.Lock = dataclasses.field(
         default_factory=lambda: threading.Lock()
     )
-
-    def _is_single_row_query_method(
-        self, stack: traceback.StackSummary, query: Any
-    ) -> bool:
-        # We'll do this the inefficient way since the arrays are pretty small.
-        for frame in stack:
-            for file_suffix, allowed_methods in self._allowed_single_row_query_methods:
-                if not frame.filename.endswith(file_suffix):
-                    continue
-                if frame.name in allowed_methods:
-                    return True
-        return False
 
     def _get_main_greenlet(self) -> greenlet.greenlet:
         let = greenlet.getcurrent()
@@ -191,10 +165,6 @@ class SQLAlchemyQueryCombiner:
         # Returns True with result if the query was handled, False if it
         # should be executed normally using the fallback method.
 
-        # TODO remove this
-        # if str(query).startswith("SELECT count(*) AS element_count, sum(CASE WHEN"):
-        #     breakpoint()
-
         if not self.enabled:
             return False, None
 
@@ -208,8 +178,7 @@ class SQLAlchemyQueryCombiner:
             return False, None
 
         # Attempt to match against the known single-row query methods.
-        stack = traceback.extract_stack()
-        if not self._is_single_row_query_method(stack, query):
+        if not self.is_single_row_query_method(query):
             return False, None
 
         # Figure out how many columns this query returns.
