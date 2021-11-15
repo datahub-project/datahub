@@ -685,7 +685,7 @@ type GlossaryTerm implements Entity {
     Deprecated, use properties field instead
     Details of the Glossary Term
     """
-    glossaryTermInfo: GlossaryTermInfo!
+    glossaryTermInfo: GlossaryTermInfo
 
     """
     Edges extending from this entity
