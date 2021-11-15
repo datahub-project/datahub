@@ -6,7 +6,7 @@ slug: /metadata-modeling/metadata-model
 
 # How does DataHub model metadata?
 
-DataHub uses the Pegasus schema (PDL) language extended with a custom set of annotations to model metadata.
+DataHub takes a schema-first approach to modeling metadata. We use the Pegasus schema (PDL) language extended with a custom set of annotations to model metadata. The DataHub serving and indexing layer operates directly on top of the metadata model and supports strong-types all the way from the client to the storage layer. 
 
 Conceptually, metadata is modeled using the following abstractions
 
