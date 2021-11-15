@@ -383,6 +383,7 @@ public class DgraphGraphService implements GraphService {
         }
 
         // TODO: Remove once gms client code uses null instead of "" for any type
+        // https://github.com/linkedin/datahub/issues/3143
         if (sourceType != null && sourceType.isEmpty()) {
             sourceType = null;
         }
