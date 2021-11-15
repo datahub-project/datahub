@@ -42,11 +42,10 @@ PARTITIONED_TABLE_REGEX = re.compile(r"^(.+)_(\d{4}|\d{6}|\d{8}|\d{10})$")
 
 BQ_DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 BQ_FILTER_REGEX_ALLOW_TEMPLATE = """
-AND
 protoPayload.serviceData.jobCompletedEvent.job.jobStatistics.referencedTables.tableId =~ "{allow_pattern}"
 """
 BQ_FILTER_REGEX_DENY_TEMPLATE = """
-AND
+{logical_operator}
 protoPayload.serviceData.jobCompletedEvent.job.jobStatistics.referencedTables.tableId !~ "{deny_pattern}"
 """
 BQ_FILTER_RULE_TEMPLATE = """
@@ -67,8 +66,12 @@ AND
         protoPayload.metadata.tableDataRead:*
     )
 )
-{allow_regex}
-{deny_regex}
+AND (
+    {allow_regex}
+    {deny_regex}
+    OR
+    protoPayload.metadata.tableDataRead.reason = "JOB"
+)
 AND
 timestamp >= "{start_time}"
 AND
@@ -259,6 +262,7 @@ class QueryEvent:
                 "jobName from query events is absent. "
                 "Auditlog entry - {logEntry}".format(logEntry=entry)
             )
+
         return queryEvent
 
 
@@ -369,12 +373,14 @@ class BigQueryUsageSource(Source):
             ),
             deny_regex=(
                 BQ_FILTER_REGEX_DENY_TEMPLATE.format(
-                    deny_pattern=self.config.get_deny_pattern_string()
+                    deny_pattern=self.config.get_deny_pattern_string(),
+                    logical_operator="AND" if use_allow_filter else "",
                 )
                 if use_deny_filter
                 else ""
             ),
         )
+        logger.debug(filter)
 
         def get_entry_timestamp(entry: AuditLogEntry) -> datetime:
             return entry.timestamp
@@ -495,6 +501,8 @@ class BigQueryUsageSource(Source):
                         str(event.resource),
                         "failed to match table read event with job; try increasing `query_log_delay` or `max_query_duration`",
                     )
+                    # continue to avoid processing read events that aren't matched by query events
+                    continue
             yield event
 
         logger.info(f"Number of read events joined with query events: {num_joined}")
