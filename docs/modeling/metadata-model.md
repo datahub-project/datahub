@@ -26,6 +26,16 @@ Here is an example graph consisting of 3 types of entity (CorpUser, Chart, Dashb
 
 ![metadata-modeling](../imgs/metadata-model-chart.png)
 
+## Exploring DataHub's Metadata Model
+
+To explore the current DataHub metadata model, you can inspect this high-level picture that shows the different entities and edges between them showing the relationships between them. 
+![Metadata Model Graph](../imgs/datahub-metadata-model.png)
+
+To explore the aspect model for the specific entities and explore relationships using the `foreign-key` concept, you can view them in our demo environment. 
+e.g. Here are the most popular entities in DataHub's metadata model. 
+* Dataset: [Entity Profile](https://demo.datahubproject.io/dataset/urn:li:dataset:(urn:li:dataPlatform:datahub,Dataset,PROD)/Schema?is_lineage_mode=false) [Documentation](https://demo.datahubproject.io/dataset/urn:li:dataset:(urn:li:dataPlatform:datahub,Dataset,PROD)/Documentation?is_lineage_mode=false)
+* Dashboard: [Entity Profile](https://demo.datahubproject.io/dataset/urn:li:dataset:(urn:li:dataPlatform:datahub,Dashboard,PROD)/Schema?is_lineage_mode=false) [Documentation](https://demo.datahubproject.io/dataset/urn:li:dataset:(urn:li:dataPlatform:datahub,Dashboard,PROD)/Documentation?is_lineage_mode=false)
+
 ## Querying the Metadata Graph 
 
 DataHub’s modeling language allows you to optimize metadata persistence to align with query patterns.
