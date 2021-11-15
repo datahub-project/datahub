@@ -59,6 +59,11 @@ input SearchInput {
 	Facet filters to apply to search results
 	"""
 	filters: [FacetFilterInput!]
+
+    """
+    Specifies the field to sort on (if any)
+    """
+    sort: FieldSortInput
 }
 
 """
@@ -104,6 +109,29 @@ input FacetFilterInput {
 	Value of the field to filter by
 	"""
 	value: String!
+}
+
+"""
+Sort filters specify the field to sort by
+"""
+input FieldSortInput {
+    """
+    Field to sort on
+    """
+    field: String!
+
+    """
+    Direction to sort
+    """
+    sortOrder: Sort!
+}
+
+"""
+Enum for specifying the sort order
+"""
+enum Sort {
+    asc
+    desc
 }
 
 """

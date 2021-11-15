@@ -9,6 +9,7 @@ import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.query.ListResult;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.SearchResult;
@@ -99,6 +100,8 @@ public interface EntityClient {
    *
    * @param input search query
    * @param requestFilters search filters
+   * @param sortField field to sort results on
+   * @param sortOrder order to sort the sortField on
    * @param start start offset for search results
    * @param count max number of search results requested
    * @return a set of search results
@@ -109,6 +112,8 @@ public interface EntityClient {
       @Nonnull String entity,
       @Nonnull String input,
       @Nullable Map<String, String> requestFilters,
+      @Nullable String sortField,
+      @Nullable SortOrder sortOrder,
       int start,
       int count,
       @Nonnull String actor)
@@ -137,6 +142,8 @@ public interface EntityClient {
    *
    * @param input search query
    * @param filter search filters
+   * @param sortField field to sort results on
+   * @param sortOrder order to sort the sortField on
    * @param start start offset for search results
    * @param count max number of search results requested
    * @return Snapshot key
@@ -147,6 +154,8 @@ public interface EntityClient {
       @Nonnull String entity,
       @Nonnull String input,
       @Nullable Filter filter,
+      @Nullable String sortField,
+      @Nullable SortOrder sortOrder,
       int start,
       int count,
       @Nonnull String actor)

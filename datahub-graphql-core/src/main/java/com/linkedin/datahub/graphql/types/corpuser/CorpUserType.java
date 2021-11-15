@@ -4,18 +4,21 @@ import com.linkedin.common.urn.CorpuserUrn;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.generated.EntityType;
-import com.linkedin.datahub.graphql.types.SearchableEntityType;
 import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
 import com.linkedin.datahub.graphql.generated.CorpUser;
+import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
+import com.linkedin.datahub.graphql.generated.FieldSortInput;
 import com.linkedin.datahub.graphql.generated.SearchResults;
+import com.linkedin.datahub.graphql.generated.Sort;
+import com.linkedin.datahub.graphql.types.SearchableEntityType;
 import com.linkedin.datahub.graphql.types.corpuser.mappers.CorpUserSnapshotMapper;
 import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
 import com.linkedin.entity.Entity;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.query.AutoCompleteResult;
+import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.SearchResult;
 
 import graphql.execution.DataFetcherResult;
@@ -74,10 +77,13 @@ public class CorpUserType implements SearchableEntityType<CorpUser> {
     @Override
     public SearchResults search(@Nonnull String query,
                                 @Nullable List<FacetFilterInput> filters,
+                                @Nullable FieldSortInput sort,
                                 int start,
                                 int count,
                                 @Nonnull final QueryContext context) throws Exception {
-        final SearchResult searchResult = _entityClient.search("corpuser", query, Collections.emptyMap(), start, count,
+        String sortField = sort != null ? sort.getField() : null;
+        SortOrder sortOrder = sort != null ? (sort.getSortOrder().equals(Sort.asc) ? SortOrder.ASCENDING : SortOrder.DESCENDING) : null;
+        final SearchResult searchResult = _entityClient.search("corpuser", query, Collections.emptyMap(), sortField, sortOrder, start, count,
             context.getActor());
         return UrnSearchResultsMapper.map(searchResult);
     }

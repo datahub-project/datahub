@@ -1,12 +1,15 @@
 package com.linkedin.datahub.graphql.resolvers.search;
 
 import com.linkedin.datahub.graphql.exception.ValidationException;
+import com.linkedin.datahub.graphql.generated.FieldSortInput;
 import com.linkedin.datahub.graphql.generated.SearchInput;
 import com.linkedin.datahub.graphql.generated.SearchResults;
+import com.linkedin.datahub.graphql.generated.Sort;
 import com.linkedin.datahub.graphql.resolvers.EntityTypeMapper;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
 import com.linkedin.entity.client.RestliEntityClient;
+import com.linkedin.metadata.query.filter.SortOrder;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletableFuture;
@@ -45,17 +48,20 @@ public class SearchResolver implements DataFetcher<CompletableFuture<SearchResul
 
     return CompletableFuture.supplyAsync(() -> {
       try {
-        log.debug("Executing search. entity type {}, query {}, filters: {}, start: {}, count: {}", input.getType(),
-            input.getQuery(), input.getFilters(), start, count);
+        log.debug("Executing search. entity type {}, query {}, filters: {}, start: {}, count: {}, sort: {}", input.getType(),
+            input.getQuery(), input.getFilters(), start, count, input.getSort());
+        FieldSortInput sort = input.getSort();
+        String sortField = sort != null ? sort.getField() : null;
+        SortOrder sortOrder = sort != null ? (sort.getSortOrder().equals(Sort.asc) ? SortOrder.ASCENDING : SortOrder.DESCENDING) : null;
         return UrnSearchResultsMapper.map(
-            _entityClient.search(entityName, sanitizedQuery, ResolverUtils.buildFilter(input.getFilters()), start,
+            _entityClient.search(entityName, sanitizedQuery, ResolverUtils.buildFilter(input.getFilters()), sortField, sortOrder, start,
                 count, ResolverUtils.getActor(environment)));
       } catch (Exception e) {
-        log.error("Failed to execute search: entity type {}, query {}, filters: {}, start: {}, count: {}",
-            input.getType(), input.getQuery(), input.getFilters(), start, count);
+        log.error("Failed to execute search: entity type {}, query {}, filters: {}, start: {}, count: {}, sort: {}",
+            input.getType(), input.getQuery(), input.getFilters(), start, count, input.getSort());
         throw new RuntimeException(
-            "Failed to execute search: " + String.format("entity type %s, query %s, filters: %s, start: %s, count: %s",
-                input.getType(), input.getQuery(), input.getFilters(), start, count), e);
+            "Failed to execute search: " + String.format("entity type %s, query %s, filters: %s, start: %s, count: %s, sort: %s",
+                input.getType(), input.getQuery(), input.getFilters(), start, count, input.getSort()), e);
       }
     });
   }

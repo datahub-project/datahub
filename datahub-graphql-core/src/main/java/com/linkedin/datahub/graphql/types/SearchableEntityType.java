@@ -4,6 +4,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
+import com.linkedin.datahub.graphql.generated.FieldSortInput;
 import com.linkedin.datahub.graphql.generated.SearchResults;
 
 import javax.annotation.Nonnull;
@@ -28,6 +29,7 @@ public interface SearchableEntityType<T extends Entity> extends EntityType<T> {
      */
     SearchResults search(@Nonnull String query,
                          @Nullable List<FacetFilterInput> filters,
+                         @Nullable FieldSortInput sort,
                          int start,
                          int count,
                          @Nonnull final QueryContext context) throws Exception;

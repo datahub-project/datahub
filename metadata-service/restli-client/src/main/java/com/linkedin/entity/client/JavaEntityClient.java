@@ -22,6 +22,7 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.ListResult;
 import com.linkedin.metadata.query.ListUrnsResult;
+import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.resources.entity.AspectUtils;
 import com.linkedin.metadata.resources.entity.EntityResource;
 import com.linkedin.metadata.search.EntitySearchService;
@@ -184,11 +185,20 @@ public class JavaEntityClient implements EntityClient {
         @Nonnull String entity,
         @Nonnull String input,
         @Nullable Map<String, String> requestFilters,
+        @Nullable String sortField,
+        @Nullable SortOrder sortOrder,
         int start,
         int count,
         @Nonnull String actor)
         throws RemoteInvocationException {
-        return _entitySearchService.search(entity, input, newFilter(requestFilters), null, start, count);
+        SortCriterion sortCriterion = null;
+
+        if (sortField != null) {
+            sortCriterion.setField(sortField);
+            SortOrder order = sortOrder != null ? sortOrder : SortOrder.DESCENDING;
+            sortCriterion.setOrder(order);
+        }
+        return _entitySearchService.search(entity, input, newFilter(requestFilters), sortCriterion, start, count);
     }
 
     /**
@@ -227,11 +237,21 @@ public class JavaEntityClient implements EntityClient {
         @Nonnull String entity,
         @Nonnull String input,
         @Nullable Filter filter,
+        @Nullable String sortField,
+        @Nullable SortOrder sortOrder,
         int start,
         int count,
         @Nonnull String actor)
         throws RemoteInvocationException {
-        return _entitySearchService.search(entity, input, filter, null, start, count);
+        SortCriterion sortCriterion = null;
+
+        if (sortField != null) {
+            sortCriterion.setField(sortField);
+            SortOrder order = sortOrder != null ? sortOrder : SortOrder.DESCENDING;
+            sortCriterion.setOrder(order);
+        }
+
+        return _entitySearchService.search(entity, input, filter, sortCriterion, start, count);
     }
 
     /**

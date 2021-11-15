@@ -33,6 +33,7 @@ import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.dao.utils.RecordUtils;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.ListResult;
+import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.SearchResult;
@@ -223,6 +224,8 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
      *
      * @param input search query
      * @param requestFilters search filters
+     * @param sortField field to sort results on
+     * @param sortOrder order to sort the sortField on
      * @param start start offset for search results
      * @param count max number of search results requested
      * @return a set of search results
@@ -230,13 +233,23 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
      */
     @Nonnull
     public SearchResult search(
-        @Nonnull String entity,
-        @Nonnull String input,
-        @Nullable Map<String, String> requestFilters,
-        int start,
-        int count,
-        @Nonnull String actor)
+            @Nonnull String entity,
+            @Nonnull String input,
+            @Nullable Map<String, String> requestFilters,
+            @Nullable String sortField,
+            @Nullable SortOrder sortOrder,
+            int start,
+            int count,
+            @Nonnull String actor)
         throws RemoteInvocationException {
+
+        SortCriterion sortCriterion = new SortCriterion();
+
+        if (sortField != null) {
+            sortCriterion.setField(sortField);
+            SortOrder order = sortOrder != null ? sortOrder : SortOrder.DESCENDING;
+            sortCriterion.setOrder(order);
+        }
 
         final EntitiesDoSearchRequestBuilder requestBuilder = ENTITIES_REQUEST_BUILDERS.actionSearch()
             .entityParam(entity)
@@ -244,6 +257,10 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
             .filterParam(newFilter(requestFilters))
             .startParam(start)
             .countParam(count);
+
+        if (sortField != null) {
+            requestBuilder.sortParam(sortCriterion);
+        }
 
         return sendClientRequest(requestBuilder, actor).getEntity();
     }
@@ -286,13 +303,23 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
      */
     @Nonnull
     public SearchResult search(
-        @Nonnull String entity,
-        @Nonnull String input,
-        @Nullable Filter filter,
-        int start,
-        int count,
-        @Nonnull String actor)
+            @Nonnull String entity,
+            @Nonnull String input,
+            @Nullable Filter filter,
+            @Nullable String sortField,
+            @Nullable SortOrder sortOrder,
+            int start,
+            int count,
+            @Nonnull String actor)
         throws RemoteInvocationException {
+
+        SortCriterion sortCriterion = new SortCriterion();
+
+        if (sortField != null) {
+            sortCriterion.setField(sortField);
+            SortOrder order = sortOrder != null ? sortOrder : SortOrder.DESCENDING;
+            sortCriterion.setOrder(order);
+        }
 
         final EntitiesDoSearchRequestBuilder requestBuilder = ENTITIES_REQUEST_BUILDERS.actionSearch()
             .entityParam(entity)
@@ -302,6 +329,10 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
 
         if (filter != null) {
             requestBuilder.filterParam(filter);
+        }
+
+        if (sortField != null) {
+            requestBuilder.sortParam(sortCriterion);
         }
 
         return sendClientRequest(requestBuilder, actor).getEntity();
