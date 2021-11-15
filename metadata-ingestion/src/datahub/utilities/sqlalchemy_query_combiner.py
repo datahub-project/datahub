@@ -129,15 +129,15 @@ class SQLAlchemyQueryCombiner:
     # There will be one main greenlet per thread. As such, queries will be
     # queued according to the main greenlet's thread ID. We also keep track
     # of the greenlets we spawn for bookkeeping purposes.
+    _thread_unsafe_operation_lock: threading.Lock = dataclasses.field(
+        default_factory=lambda: threading.Lock()
+    )
     _queries_by_thread: Dict[
         greenlet.greenlet, Dict[str, _QueryFuture]
     ] = dataclasses.field(default_factory=dict)
     _greenlets_by_thread: Dict[
         greenlet.greenlet, Set[greenlet.greenlet]
     ] = dataclasses.field(default_factory=lambda: collections.defaultdict(set))
-    _thread_unsafe_operation_lock: threading.Lock = dataclasses.field(
-        default_factory=lambda: threading.Lock()
-    )
 
     def _get_main_greenlet(self) -> greenlet.greenlet:
         let = greenlet.getcurrent()
@@ -230,6 +230,11 @@ class SQLAlchemyQueryCombiner:
                 yield self
 
     def run(self, method: Callable[[], None]) -> None:
+        """
+        Run a method inside of a greenlet. The method is guaranteed to have finished
+        after a call to flush() returns.
+        """
+
         if self.enabled:
             let = greenlet.greenlet(method)
 
@@ -292,7 +297,7 @@ class SQLAlchemyQueryCombiner:
             assert index == len(row)
 
     def flush(self) -> None:
-        # Executes until the queue and pool are empty.
+        """Executes until the queue and pool are empty."""
 
         if not self.enabled:
             return
