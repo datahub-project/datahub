@@ -31,9 +31,7 @@ DGRAPH_AND_ELASTIC_QUICKSTART_COMPOSE_FILE = (
 ELASTIC_QUICKSTART_COMPOSE_FILE = (
     "docker/quickstart/docker-compose-with-elasticsearch.quickstart.yml"
 )
-M1_QUICKSTART_COMPOSE_FILE = (
-    "docker/quickstart/docker-compose-m1.quickstart.yml"
-)
+M1_QUICKSTART_COMPOSE_FILE = "docker/quickstart/docker-compose-m1.quickstart.yml"
 
 BOOTSTRAP_MCES_FILE = "metadata-ingestion/examples/mce_files/bootstrap_mce.json"
 
@@ -100,9 +98,9 @@ def which_graph_service_to_use(graph_service_override: Optional[str]) -> str:
     if graph_service_override is not None:
         if graph_service_override == "elasticsearch":
             click.echo("Starting with elasticsearch due to graph-service-impl param\n")
-        if graph_service_override == "neo4j":
+        elif graph_service_override == "neo4j":
             click.echo("Starting with neo4j due to graph-service-impl param\n")
-        if graph_service_override == "dgraph":
+        elif graph_service_override == "dgraph":
             click.echo("Starting with dgraph due to graph-service-impl param\n")
         else:
             click.secho(
@@ -221,11 +219,15 @@ def quickstart(
                 github_file = GITHUB_NEO4J_AND_ELASTIC_QUICKSTART_COMPOSE_URL
         elif graph_service_impl == "dgraph":
             github_file = GITHUB_DGRAPH_AND_ELASTIC_QUICKSTART_COMPOSE_URL
-        elif:
+        elif graph_service_impl == "elasticsearch":
             if not running_on_m1:
                 github_file = GITHUB_ELASTIC_QUICKSTART_COMPOSE_URL
             else:
                 github_file = GITHUB_M1_QUICKSTART_COMPOSE_URL
+        else:
+            raise ValueError(
+                f"Unsupported graph service implementation: {graph_service_impl}"
+            )
 
         with tempfile.NamedTemporaryFile(suffix=".yml", delete=False) as tmp_file:
             path = pathlib.Path(tmp_file.name)
