@@ -12,9 +12,14 @@ import javax.annotation.Nonnull;
 
 public class UsageClient extends BaseClient {
 
-    public UsageClient(@Nonnull Client restliClient) {
-        super(restliClient);
+    public UsageClient(@Nonnull final Client restliClient) {
+        this(restliClient, null, null);
     }
+
+    public UsageClient(@Nonnull final Client restliClient, String systemClientId, String systemSecret) {
+        super(restliClient, systemClientId, systemSecret);
+    }
+
     private static final UsageStatsRequestBuilders USAGE_STATS_REQUEST_BUILDERS =
             new UsageStatsRequestBuilders();
 

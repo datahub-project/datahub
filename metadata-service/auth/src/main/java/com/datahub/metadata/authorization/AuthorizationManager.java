@@ -5,7 +5,7 @@ import com.linkedin.common.Owner;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.Entity;
-import com.linkedin.entity.client.RestliEntityClient;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.OwnershipClient;
 import com.linkedin.metadata.aspect.DataHubPolicyAspect;
 import com.linkedin.metadata.authorization.PoliciesConfig;
@@ -54,7 +54,7 @@ public class AuthorizationManager implements Authorizer {
   private AuthorizationMode _mode;
 
   public AuthorizationManager(
-      final RestliEntityClient entityClient,
+      final EntityClient entityClient,
       final OwnershipClient ownershipClient,
       final int delayIntervalSeconds,
       final int refreshIntervalSeconds,
@@ -143,7 +143,7 @@ public class AuthorizationManager implements Authorizer {
     }
     final PolicyEngine.PolicyEvaluationResult result = _policyEngine.evaluatePolicy(
         policy,
-        request.actor(),
+        request.actorUrn(),
         request.privilege(),
         request.resourceSpec()
     );
@@ -161,11 +161,11 @@ public class AuthorizationManager implements Authorizer {
 
     private static final String POLICY_ENTITY_NAME = "dataHubPolicy";
 
-    private final RestliEntityClient _entityClient;
+    private final EntityClient _entityClient;
     private final Map<String, List<DataHubPolicyInfo>> _policyCache;
 
     public PolicyRefreshRunnable(
-        final RestliEntityClient entityClient,
+        final EntityClient entityClient,
         final Map<String, List<DataHubPolicyInfo>> policyCache) {
       _entityClient = entityClient;
       _policyCache = policyCache;

@@ -11,9 +11,7 @@ import com.linkedin.common.urn.CorpGroupUrn;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.SetMode;
-import com.linkedin.datahub.graphql.GmsClientFactory;
 import com.linkedin.entity.Entity;
-import com.linkedin.entity.client.AspectClient;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.identity.CorpGroupInfo;
@@ -74,13 +72,17 @@ import static auth.AuthUtils.*;
 public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebContext> {
 
   private static final String SYSTEM_ACTOR = Constants.SYSTEM_ACTOR;
-  private final EntityClient _entityClient = GmsClientFactory.getEntitiesClient();
-  private final AspectClient _aspectClient = GmsClientFactory.getAspectsClient();
+
+  private final EntityClient _entityClient;
   private final SsoManager _ssoManager;
   private final AuthClient _authClient;
 
-  public OidcCallbackLogic(final SsoManager ssoManager, final AuthClient authClient) {
+  public OidcCallbackLogic(
+      final SsoManager ssoManager,
+      final EntityClient entityClient,
+      final AuthClient authClient) {
     _ssoManager = ssoManager;
+    _entityClient = entityClient;
     _authClient = authClient;
   }
 
@@ -151,7 +153,7 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
       }
 
       // Generate GMS login token
-      final String token = AuthUtils.generateGmsSessionToken(this._authClient, corpUserUrn.toString());
+      final String token = AuthUtils.generateMetadataServiceAccessToken(this._authClient, corpUserUrn.toString());
       context.getJavaSession().put("token",  token);
       context.getJavaSession().put(ACTOR, corpUserUrn.toString());
       return result.withCookies(createActorCookie(corpUserUrn.toString(), oidcConfigs.getSessionTtlInHours()));
@@ -398,7 +400,7 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
     proposal.setAspectName(Constants.CORP_USER_STATUS_ASPECT_NAME);
     proposal.setAspect(GenericAspectUtils.serializeAspect(newStatus));
     proposal.setChangeType(ChangeType.UPSERT);
-    _aspectClient.ingestProposal(proposal, Constants.SYSTEM_ACTOR).getEntity();
+    _entityClient.ingestProposal(proposal, Constants.SYSTEM_ACTOR);
   }
 
   private Optional<String> extractRegexGroup(final String patternStr, final String target) {

@@ -1,33 +1,27 @@
 package com.datahub.authentication;
 
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-
-import static com.datahub.authentication.Constants.*;
-
+import java.util.Objects;
+import lombok.extern.slf4j.Slf4j;
 
 /**
- * A chain of {@link Authenticator}s executed in series on receiving an inbound request.
+ * A configurable chain of {@link Authenticator}s executed in series to attempt to authenticate an inbound request.
+ *
+ * Individual {@link Authenticator}s are registered with the chain using {@link #register(Authenticator)}.
+ * The chain can be executed by invoking {@link #authenticate(AuthenticationContext)} with an instance of {@link AuthenticationContext}.
  */
+@Slf4j
 public class AuthenticatorChain {
-
-  private static final AuthenticationResult SUCCESS_AUTHENTICATION_RESULT = new AuthenticationResult(
-    AuthenticationResult.Type.SUCCESS,
-      new Authentication(
-          "",
-          "urn:li:corpuser:datahub", // TODO Fix this.
-          null,
-          Collections.emptySet(),
-          Collections.emptyMap())
-  );
 
   private final Map<String, Object> config;
   private final List<Authenticator> authenticators = new ArrayList<>();
 
-  public AuthenticatorChain(final Map<String, Object> config) {
-    // TODO: Figure out config format.
+  public AuthenticatorChain(@Nonnull final Map<String, Object> config) {
+    Objects.requireNonNull(config);
     this.config = config;
   }
 
@@ -36,10 +30,8 @@ public class AuthenticatorChain {
    *
    * @param authenticator the authenticator to register
    */
-  public void register(final Authenticator authenticator) {
-    if (authenticator == null) {
-      throw new IllegalArgumentException("authenticator must not be null!");
-    }
+  public void register(@Nonnull final Authenticator authenticator) {
+    Objects.requireNonNull(authenticator);
     try {
       authenticator.init(this.config);
       authenticators.add(authenticator);
@@ -51,24 +43,26 @@ public class AuthenticatorChain {
   }
 
   /**
-   * Executes a set of {@link Authenticator}s and returns the first succesful authentication result.
+   * Executes a set of {@link Authenticator}s and returns the first successful authentication result.
+   *
+   * Returns an instance of {@link Authentication} if the incoming request is successfully authenticated.
+   * Returns null if {@link Authentication} cannot be resolved for the incoming request.
    */
-  public AuthenticationResult authenticate(final AuthenticationContext context) {
-    AuthenticationResult result = SUCCESS_AUTHENTICATION_RESULT;
+  @Nullable
+  public Authentication authenticate(@Nonnull final AuthenticationContext context) {
+    Objects.requireNonNull(context);
     for (final Authenticator authenticator : this.authenticators) {
       try {
-        result = authenticator.authenticate(context);
-        if (AuthenticationResult.Type.SUCCESS.equals(result.type())) {
+        Authentication result = authenticator.authenticate(context);
+        if (result != null) {
           // Short circuit on success.
           return result;
         }
       } catch (Exception e) {
-        // THIS IS DANERGOUS - IF ANY AUTHENTICATOR THROWS THE WHOLE CHAIN IS DESTROYED.
-        // todo add logging.
-        // log.error(e);
-        return FAILURE_AUTHENTICATION_RESULT;
+        log.error(String.format("Failed to authenticate request using Authenticator %s", authenticator.getClass().getCanonicalName()), e);
       }
     }
-    return result;
+    // No authentication resolved. Return null.
+    return null;
   }
 }

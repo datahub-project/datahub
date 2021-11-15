@@ -8,6 +8,28 @@ fragment relationshipFields on Entity {
             description
         }
     }
+    ... on DataFlow {
+        orchestrator
+        flowId
+        cluster
+        properties {
+            name
+            description
+            project
+        }
+        ownership {
+            ...ownershipFields
+        }
+        globalTags {
+            ...globalTagsFields
+        }
+        glossaryTerms {
+            ...glossaryTerms
+        }
+        editableProperties {
+            description
+        }
+    }
     ... on Dashboard {
         ...dashboardRelationshipsLeaf
         ...dashboardFields
@@ -18,12 +40,9 @@ fragment relationshipFields on Entity {
     ... on Chart {
         tool
         chartId
-        info {
+        properties {
             name
             description
-            inputs {
-                urn
-            }
         }
         editableProperties {
             description
@@ -35,7 +54,9 @@ fragment relationshipFields on Entity {
     }
     ... on Dataset {
         name
-        description
+        properties {
+            description
+        }
         editableProperties {
             description
         }

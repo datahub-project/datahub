@@ -1,64 +1,56 @@
 package com.datahub.authentication;
 
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 
 
 /**
- * Class representing an authenticated actor inside DataHub.
- *
- * Each actor, regardless of whether they are users or systems, are given an actor urn.
- *
- * TODO: Add reference to authenticator name for tracking.
+ * Class representing an authenticated actor accessing DataHub.
  */
 public class Authentication {
 
+  private final Actor authenticatedActor;
   private final String credentials;
-  private final String actorUrn;
-  private final String delegatorUrn;
   private final Set<String> groups;
   private final Map<String, Object> claims;
-
-  public Authentication(final String credentials, final String actorUrn) {
-    this.credentials = credentials;
-    this.actorUrn = actorUrn;
-    this.delegatorUrn = null;
-    this.groups = null;
-    this.claims = null;
-  }
+  private final Actor delegatedForActor;
 
   public Authentication(
-      final String credentials,
-      final String actorUrn,
-      final String delegatorUrn,
-      final Set<String> groups,
-      final Map<String, Object> claims) {
-    this.credentials = credentials;
-    this.actorUrn = actorUrn;
-    this.delegatorUrn = delegatorUrn;
-    this.groups = groups;
-    this.claims = claims;
+      @Nonnull final Actor authenticatedActor,
+      @Nonnull final String credentials,
+      @Nonnull final Set<String> groups,
+      @Nonnull final Map<String, Object> claims,
+      @Nullable final Actor delegatedForActor) {
+    this.authenticatedActor = Objects.requireNonNull(authenticatedActor);
+    this.credentials = Objects.requireNonNull(credentials);
+    this.groups = Objects.requireNonNull(groups);
+    this.claims = Objects.requireNonNull(claims);
+    this.delegatedForActor = delegatedForActor;
   }
 
   /**
-   * Returns the urn associated with the current actor.
+   * Returns the authenticated actor
    */
-  public String getActorUrn() {
-    return this.actorUrn;
+  public Actor getAuthenticatedActor() {
+    return this.authenticatedActor;
   }
 
   /**
-   * Returns the credentials (Authorization header) associated with the current request.
+   * Returns the credentials associated with the current request (e.g. the value of the Authorization header)
    */
   public String getCredentials() {
     return this.credentials;
   }
 
   /**
-   * Returns the urn associated with the user that the request is delegated on behalf of.
-   * Only used in system internal calls.
+   * Returns an optional "delegated for" actor, which is an actor who is being accessed on behalf of.
+   * This can occur if the internal system is making a call on behalf of an external user.
    */
-  public String getDelegatorUrn() {
-    return this.delegatorUrn;
+  public Optional<Actor> getDelegatedForActor() {
+    return Optional.ofNullable(this.delegatedForActor);
   }
 }

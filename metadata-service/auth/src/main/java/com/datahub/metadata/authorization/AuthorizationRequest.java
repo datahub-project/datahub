@@ -5,21 +5,21 @@ import java.util.Optional;
 
 public class AuthorizationRequest {
 
-  private final String _actor;
+  private final String _actorUrn;
   private final String _privilege;
   private final Optional<ResourceSpec> _resourceSpec;
 
   public AuthorizationRequest(
-      final String actor, // urn:li:corpuser:datahub
+      final String actorUrn, // urn:li:corpuser:datahub, urn:li:corpGroup:engineering
       final String privilege,
       final Optional<ResourceSpec> resourceSpec) {
-    _actor = actor;
+    _actorUrn = actorUrn;
     _privilege = privilege;
     _resourceSpec = resourceSpec;
   }
 
-  public String actor() {
-    return _actor;
+  public String actorUrn() {
+    return _actorUrn;
   }
 
   public String privilege() {

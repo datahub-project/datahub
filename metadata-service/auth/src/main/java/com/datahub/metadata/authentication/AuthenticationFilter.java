@@ -1,6 +1,6 @@
 package com.datahub.metadata.authentication;
 
-import com.datahub.authentication.AuthenticationResult;
+import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticatorChain;
 import com.datahub.authentication.authenticators.DataHubTokenAuthenticator;
 import com.datahub.authentication.authenticators.DataHubSystemAuthenticator;
@@ -22,16 +22,17 @@ public class AuthenticationFilter implements Filter {
 
   // TODO: Figure out the best way to handle filter chain configuration.
   private final AuthenticatorChain chain = new AuthenticatorChain(ImmutableMap.of(
-      "signing_key", "WnEdIeTG/VVCLQqGwC/BAkqyY0k+H8NEAtWGejrBI94=",
-      "signing_alg", "HS256",
-      "system_client_id","__datahub_frontend",
-      "system_client_secret","YouKnowNothing"
+      "signingKey", "WnEdIeTG/VVCLQqGwC/BAkqyY0k+H8NEAtWGejrBI94=",
+      "signingAlg", "HS256",
+      "systemClientId","__datahub_frontend",
+      "systemClientSecret","YouKnowNothing"
   ));
 
   @Override
   public void init(FilterConfig filterConfig) throws ServletException {
     chain.register(new DataHubTokenAuthenticator());
     chain.register(new DataHubSystemAuthenticator());
+    // TODO Create chain dynamically in here. Also, find a way to extract the yml configs.
   }
 
   @Override
@@ -41,16 +42,13 @@ public class AuthenticationFilter implements Filter {
       FilterChain chain)
       throws IOException, ServletException {
     com.datahub.authentication.AuthenticationContext context = buildAuthContext((HttpServletRequest) request);
-    AuthenticationResult result = this.chain.authenticate(context);
-    if (AuthenticationResult.Type.SUCCESS.equals(result.type())) {
+    Authentication authentication = this.chain.authenticate(context);
+    if (authentication != null) {
       // Successfully authenticated.
-      System.out.println(String.format("Setting authentication context %s", result.authentication().getCredentials()));
-
-      AuthenticationContext.setAuthentication(result.authentication());
+      AuthenticationContext.setAuthentication(authentication);
       chain.doFilter(request, response);
     } else {
       // Reject request
-      // TODO: Return 401.
       ((HttpServletResponse) response).sendError(HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized to perform this action.");
       return;
     }

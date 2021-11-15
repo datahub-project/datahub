@@ -1,7 +1,10 @@
 package com.linkedin.datahub.graphql.resolvers.auth;
 
-import com.datahub.authentication.token.DataHubAccessTokenType;
-import com.datahub.authentication.token.DataHubTokenService;
+import com.datahub.authentication.Actor;
+import com.datahub.authentication.ActorType;
+import com.datahub.authentication.token.TokenType;
+import com.datahub.authentication.token.TokenService;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.AccessToken;
@@ -10,9 +13,11 @@ import com.linkedin.datahub.graphql.generated.AccessTokenType;
 import com.linkedin.datahub.graphql.generated.GetAccessTokenInput;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import java.net.URISyntaxException;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.concurrent.CompletableFuture;
+import lombok.extern.slf4j.Slf4j;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
@@ -20,11 +25,12 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 /**
  * Resolver for generating personal & service principal access tokens
  */
+@Slf4j
 public class GetAccessTokenResolver implements DataFetcher<CompletableFuture<AccessToken>> {
 
-  private final DataHubTokenService _tokenService;
+  private final TokenService _tokenService;
 
-  public GetAccessTokenResolver(final DataHubTokenService tokenService) {
+  public GetAccessTokenResolver(final TokenService tokenService) {
     _tokenService = tokenService;
   }
 
@@ -36,10 +42,10 @@ public class GetAccessTokenResolver implements DataFetcher<CompletableFuture<Acc
       final GetAccessTokenInput input = bindArgument(environment.getArgument("input"), GetAccessTokenInput.class);
 
       if (isAuthorizedToGenerateToken(authenticatedActor, input)) {
-        final DataHubAccessTokenType type = DataHubAccessTokenType.valueOf(input.getType().toString()); // warn: if we are out of sync here there are problems.
+        final TokenType type = TokenType.valueOf(input.getType().toString()); // warn: if we are out of sync here there are problems.
         final String actorUrn = input.getActorUrn();
         final long expiresInMs = mapDurationToMs(input.getDuration());
-        final String accessToken = _tokenService.generateAccessToken(type, actorUrn, expiresInMs);
+        final String accessToken = _tokenService.generateAccessToken(type, createActor(input.getType(), actorUrn), expiresInMs);
         AccessToken result = new AccessToken();
         result.setAccessToken(accessToken);
         return result;
@@ -70,6 +76,25 @@ public class GetAccessTokenResolver implements DataFetcher<CompletableFuture<Acc
         return Duration.of(365, ChronoUnit.DAYS).toMillis();
       default:
         throw new RuntimeException(String.format("Unrecognized access token duration %s provided", duration));
+    }
+  }
+
+  private Actor createActor(AccessTokenType tokenType, String actorUrn) {
+    if (AccessTokenType.PERSONAL.equals(tokenType)) {
+      // If we are generating a personal access token, then the actor will be of "CORP_USER" type.
+      return new Actor(
+          ActorType.CORP_USER,
+          createUrn(actorUrn).getId()
+      );
+    }
+    throw new IllegalArgumentException(String.format("Unsupported token type %s provided", tokenType));
+  }
+
+  private Urn createUrn(final String urnStr) {
+    try {
+      return Urn.createFromString(urnStr);
+    } catch (URISyntaxException e) {
+      throw new IllegalArgumentException(String.format("Failed to validate provided urn %s", urnStr));
     }
   }
 }

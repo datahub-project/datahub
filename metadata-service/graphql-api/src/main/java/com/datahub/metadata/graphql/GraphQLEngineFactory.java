@@ -1,6 +1,6 @@
 package com.datahub.metadata.graphql;
 
-import com.datahub.authentication.token.DataHubTokenService;
+import com.datahub.authentication.token.TokenService;
 import com.linkedin.datahub.graphql.GmsGraphQLEngine;
 import com.linkedin.datahub.graphql.GraphQLEngine;
 import com.linkedin.datahub.graphql.analytics.service.AnalyticsService;
@@ -13,6 +13,7 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.recommendation.RecommendationsService;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import com.linkedin.usage.UsageClient;
 import javax.annotation.Nonnull;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -40,6 +41,14 @@ public class GraphQLEngineFactory {
   private JavaEntityClient _entityClient;
 
   @Autowired
+  @Qualifier("graphClient")
+  private GraphClient _graphClient;
+
+  @Autowired
+  @Qualifier("usageClient")
+  private UsageClient _usageClient;
+
+  @Autowired
   @Qualifier("entityService")
   private EntityService _entityService;
 
@@ -48,13 +57,9 @@ public class GraphQLEngineFactory {
 
   @Autowired
   @Qualifier("dataHubTokenService")
-  private DataHubTokenService _tokenService;
+  private TokenService _tokenService;
 
-  @Autowired
-  @Qualifier("graphClient")
-  private GraphClient _graphClient;
-
-  @Value("${ANALYTICS_ENABLED:true}") // TODO: Migrate to DATAHUB_ANALYTICS_ENABLED
+  @Value("${platformAnalytics.enabled}") // TODO: Migrate to DATAHUB_ANALYTICS_ENABLED
   private Boolean isAnalyticsEnabled;
 
   @Bean(name = "graphQLEngine")
@@ -62,14 +67,22 @@ public class GraphQLEngineFactory {
   protected GraphQLEngine getInstance() {
     if (isAnalyticsEnabled) {
       return new GmsGraphQLEngine(
+          _entityClient,
+          _graphClient,
+          _usageClient,
           new AnalyticsService(elasticClient, indexConvention.getPrefix()),
           _entityService,
-          _graphClient,
-          _entityClient,
           _recommendationsService,
           _tokenService
           ).builder().build();
     }
-    return new GmsGraphQLEngine(null, _entityService, _graphClient, _entityClient, _recommendationsService, _tokenService).builder().build();
+    return new GmsGraphQLEngine(
+        _entityClient,
+        _graphClient,
+        _usageClient,
+        null,
+        _entityService,
+        _recommendationsService,
+        _tokenService).builder().build();
   }
 }

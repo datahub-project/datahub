@@ -23,13 +23,22 @@ import java.util.Optional;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
+
+/**
+ * Deprecated, use {@link EntityClient} instead.
+ */
 @Slf4j
+@Deprecated
 public class AspectClient extends BaseClient {
 
   private static final AspectsRequestBuilders ASPECTS_REQUEST_BUILDERS = new AspectsRequestBuilders();
 
   public AspectClient(@Nonnull final Client restliClient) {
-    super(restliClient);
+    this(restliClient, null, null);
+  }
+
+  public AspectClient(@Nonnull final Client restliClient, String systemClientId, String systemSecret) {
+    super(restliClient, systemClientId, systemSecret);
   }
 
   /**

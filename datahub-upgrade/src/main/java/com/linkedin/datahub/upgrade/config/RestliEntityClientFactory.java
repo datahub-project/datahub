@@ -10,6 +10,7 @@ import org.springframework.context.annotation.Configuration;
 
 @Configuration
 public class RestliEntityClientFactory {
+
   @Value("${DATAHUB_GMS_HOST:localhost}")
   private String gmsHost;
   @Value("${DATAHUB_GMS_PORT:8080}")

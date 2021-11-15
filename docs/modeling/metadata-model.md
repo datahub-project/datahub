@@ -13,7 +13,7 @@ Conceptually, metadata is modeled using the following abstractions
 - **Entities**: An entity is the primary node in the metadata graph. For example, an instance of a Dataset or a CorpUser is an Entity. An entity is made up of a unique identifier (a primary key) and groups of metadata which we call aspects.
 
 
-- **Aspects**: An aspect is a collection of attributes that describes a particular facet of an entity. They are the smallest atomic unit of write in DataHub. That is, Multiple aspects associated with the same Entity can be updated independently. For example, DatasetProperties contains a collection of attributes that describes a Dataset. Aspects can be shared across entities, for example the "Ownership" an aspect is re-used across all the Entities that have owners. 
+- **Aspects**: An aspect is a collection of attributes that describes a particular facet of an entity. They are the smallest atomic unit of write in DataHub. That is, multiple aspects associated with the same Entity can be updated independently. For example, DatasetProperties contains a collection of attributes that describes a Dataset. Aspects can be shared across entities, for example "Ownership" is an aspect that is re-used across all the Entities that have owners. 
 
 
 - **Keys & Urns**: A key is a special type of aspect that contains the fields that uniquely identify an individual Entity. Key aspects can be serialized into *Urns*, which represent a stringified form of the key fields used for primary-key lookup. Moreover, *Urns* can be converted back into key aspect structs, making key aspects a type of "virtual" aspect. Key aspects provide a mechanism for clients to easily read fields comprising the primary key, which are usually generally useful like Dataset names, platform names etc. Urns provide a friendly handle by which Entities can be queried without requiring a fully materialized struct. 
@@ -39,13 +39,13 @@ There are three supported ways to query the metadata graph: by primary key looku
 Querying an Entity by primary key means using the "entities" endpoint, passing in the 
 urn of the entity to retrieve. 
 
-For example, to fetch a Chart entity, we can use the following CURL: 
+For example, to fetch a Chart entity, we can use the following `curl`: 
 
 ```
 curl --location --request GET 'http://localhost:8080/entities/urn%3Ali%3Achart%3Acustomers
 ```
 
-The type of request will return a set of versioned aspects, each at the latest version. 
+This request will return a set of versioned aspects, each at the latest version. 
 
 As you'll notice, we perform the lookup using the url-encoded *Urn* associated with an entity. 
 The response would be an "Entity" record containing the Entity Snapshot (which in turn contains the latest aspects associated with the Entity).
@@ -178,10 +178,10 @@ chart.
 
 ### Special Aspects
 
-There are 2 "special" aspects worth mentioning: 
+There are 3 "special" aspects worth mentioning: 
 
 1. Key aspects
-2. Browse aspect
+2. BrowsePaths aspect
 3. Timeseries aspects
 
 #### Key aspects
@@ -307,10 +307,9 @@ curl --location --request POST 'http://localhost:8080/entities?action=browse' \
 }'
 ```
 
-Notice that you must provide 
-
-a. A "/"-delimited root path for which to fetch results.
-b. An entity "type" using its common name ("dataset" in the example above). 
+Please note you must provide: 
+- The "/"-delimited root path for which to fetch results.
+- An entity "type" using its common name ("dataset" in the example above). 
 
 #### Timeseries aspects
 
@@ -436,20 +435,20 @@ accepts the following params.
   to use for grouping. The `type` field specifies the kind of grouping bucket.
 
 We support three kinds of aggregations that can be specified in an aggregation query on the Timeseries annotated fields.
-The values that `aggregationType` can take are
+The values that `aggregationType` can take are:
 
 * `LATEST`: The latest value of the field in each bucket. Supported for any type of field.
 * `SUM`: The cumulative sum of the field in each bucket. Supported only for integral types.
 * `CARDINALITY`: The number of unique values or the cardinality of the set in each bucket. Supported for string and
   record types.
 
-We support two types of grouping for defining the buckets to perform aggregations against.
+We support two types of grouping for defining the buckets to perform aggregations against:
 
 * `DATE_GROUPING_BUCKET`: Allows for creating time-based buckets such as by second, minute, hour, day, week, month,
   quarter, year etc. Should be used in conjunction with a timestamp field whose value is in milliseconds since *epoch*.
   The `timeWindowSize` param specifies the date histogram bucket width.
-* `STRING_GROUPING_BUCKET`: Allows for creating buckets grouped by the unique values of a field. Should be used in
-  conjunction with a string type field always.
+* `STRING_GROUPING_BUCKET`: Allows for creating buckets grouped by the unique values of a field. Should always be used in
+  conjunction with a string type field.
 
 The API returns a generic SQL like table as the `table` member of the output that contains the results of
 the `group-by/aggregate` query, in addition to echoing the input params.
@@ -460,7 +459,7 @@ the `group-by/aggregate` query, in addition to echoing the input params.
 * `columnTypes`: the data types of the columns.
 * `rows`: the data values, each row corresponding to the respective bucket(s).
 
-Example1: Latest unique user count for each day.
+Example: Latest unique user count for each day.
 ```shell
 # QUERY
 curl --location --request POST 'http://localhost:8080/analytics?action=getTimeseriesStats' \

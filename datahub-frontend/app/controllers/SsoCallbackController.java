@@ -1,8 +1,10 @@
 package controllers;
 
 import auth.AuthClient;
+import com.linkedin.entity.client.EntityClient;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import javax.annotation.Nonnull;
 import javax.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
 import org.pac4j.core.config.Config;
@@ -29,10 +31,13 @@ public class SsoCallbackController extends CallbackController {
   private final SsoManager _ssoManager;
 
   @Inject
-  public SsoCallbackController(SsoManager ssoManager, AuthClient authClient) {
+  public SsoCallbackController(
+      @Nonnull SsoManager ssoManager,
+      @Nonnull EntityClient entityClient,
+      @Nonnull AuthClient authClient) {
     _ssoManager = ssoManager;
     setDefaultUrl("/"); // By default, redirects to Home Page on log in.
-    setCallbackLogic(new SsoCallbackLogic(ssoManager, authClient));
+    setCallbackLogic(new SsoCallbackLogic(ssoManager, entityClient, authClient));
   }
 
   public CompletionStage<Result> handleCallback(String protocol) {
@@ -51,8 +56,8 @@ public class SsoCallbackController extends CallbackController {
 
     private final OidcCallbackLogic _oidcCallbackLogic;
 
-    SsoCallbackLogic(final SsoManager ssoManager, final AuthClient authClient) {
-      _oidcCallbackLogic = new OidcCallbackLogic(ssoManager, authClient);
+    SsoCallbackLogic(final SsoManager ssoManager, final EntityClient entityClient, final AuthClient authClient) {
+      _oidcCallbackLogic = new OidcCallbackLogic(ssoManager, entityClient, authClient);
     }
 
     @Override

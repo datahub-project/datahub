@@ -11,8 +11,7 @@ import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.Entity;
-import com.linkedin.entity.client.AspectClient;
-import com.linkedin.entity.client.RestliEntityClient;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.OwnershipClient;
 import com.linkedin.identity.CorpUserInfo;
 import com.linkedin.identity.GroupMembership;
@@ -47,15 +46,13 @@ public class PolicyEngineTest {
 
   private static final String RESOURCE_URN = "urn:li:dataset:test";
 
-  private RestliEntityClient _entityClient;
-  private AspectClient _aspectClient;
+  private EntityClient _entityClient;
   private PolicyEngine _policyEngine;
 
   @BeforeMethod
   public void setupTest() throws Exception {
-    _entityClient = Mockito.mock(RestliEntityClient.class);
-    _aspectClient = Mockito.mock(AspectClient.class);
-    _policyEngine = new PolicyEngine(_entityClient, new OwnershipClient(_aspectClient));
+    _entityClient = Mockito.mock(EntityClient.class);
+    _policyEngine = new PolicyEngine(_entityClient, new OwnershipClient(_entityClient));
 
     // Init mocks.
     final CorpUserSnapshot authorizedUser = createDataHubSnapshot();
@@ -70,7 +67,7 @@ public class PolicyEngineTest {
     );
 
     final Ownership ownershipAspect = createOwnershipAspect(true, true);
-    when(_aspectClient.getAspect(eq(RESOURCE_URN), eq(OWNERSHIP_ASPECT_NAME), eq(ASPECT_LATEST_VERSION), any())).thenReturn(
+    when(_entityClient.getAspect(eq(RESOURCE_URN), eq(OWNERSHIP_ASPECT_NAME), eq(ASPECT_LATEST_VERSION), any())).thenReturn(
         new VersionedAspect().setAspect(Aspect.create(ownershipAspect))
     );
   }
@@ -144,7 +141,7 @@ public class PolicyEngineTest {
     assertFalse(result.isGranted());
 
     // Verify no network calls
-    verify(_aspectClient, times(0)).getAspect(
+    verify(_entityClient, times(0)).getAspect(
         any(), any(), any(), any());
     verify(_entityClient, times(0)).get(eq(Urn.createFromString(AUTHORIZED_PRINCIPAL)), any());
   }
@@ -174,7 +171,7 @@ public class PolicyEngineTest {
     assertTrue(result.isGranted());
 
     // Verify no network calls
-    verify(_aspectClient, times(0)).getAspect(
+    verify(_entityClient, times(0)).getAspect(
         any(), any(), any(), any());
     verify(_entityClient, times(0)).get(eq(Urn.createFromString(AUTHORIZED_PRINCIPAL)), any());
   }
@@ -217,7 +214,7 @@ public class PolicyEngineTest {
     assertTrue(result1.isGranted());
 
     // Verify we are not making any network calls for these predicates.
-    verify(_aspectClient, times(0)).getAspect(any(), any(), any(), any());
+    verify(_entityClient, times(0)).getAspect(any(), any(), any(), any());
     verify(_entityClient, times(0)).get(any(), any());
   }
 
@@ -260,7 +257,7 @@ public class PolicyEngineTest {
     assertFalse(result2.isGranted());
 
     // Verify we are not making any network calls for these predicates.
-    verify(_aspectClient, times(0)).getAspect(any(), any(), any(), any());
+    verify(_entityClient, times(0)).getAspect(any(), any(), any(), any());
     verify(_entityClient, times(0)).get(any(), any());
   }
 
@@ -301,7 +298,7 @@ public class PolicyEngineTest {
     assertTrue(result1.isGranted());
 
     // Verify we are only calling for group during these requests.
-    verify(_aspectClient, times(0)).getAspect(any(), any(), any(), any());
+    verify(_entityClient, times(0)).getAspect(any(), any(), any(), any());
     verify(_entityClient, times(1)).get(eq(Urn.createFromString(AUTHORIZED_PRINCIPAL)), any());
   }
 
@@ -343,7 +340,7 @@ public class PolicyEngineTest {
     assertFalse(result2.isGranted());
 
     // Verify we are only calling for group during these requests.
-    verify(_aspectClient, times(0)).getAspect(any(), any(), any(), any());
+    verify(_entityClient, times(0)).getAspect(any(), any(), any(), any());
     verify(_entityClient, times(1)).get(eq(Urn.createFromString(UNAUTHORIZED_PRINCIPAL)), any());
   }
 
@@ -393,7 +390,7 @@ public class PolicyEngineTest {
     assertTrue(result2.isGranted());
 
     // Verify no network calls
-    verify(_aspectClient, times(0)).getAspect(any(), any(), any(), any());
+    verify(_entityClient, times(0)).getAspect(any(), any(), any(), any());
     verify(_entityClient, times(0)).get(eq(Urn.createFromString(AUTHORIZED_PRINCIPAL)), any());
     verify(_entityClient, times(0)).get(eq(Urn.createFromString(UNAUTHORIZED_PRINCIPAL)), any());
   }
@@ -444,7 +441,7 @@ public class PolicyEngineTest {
     assertTrue(result2.isGranted());
 
     // Verify we are only calling for group during these requests.
-    verify(_aspectClient, times(0)).getAspect(any(), any(), any(), any());
+    verify(_entityClient, times(0)).getAspect(any(), any(), any(), any());
     verify(_entityClient, times(1)).get(eq(Urn.createFromString(AUTHORIZED_PRINCIPAL)), any());
     verify(_entityClient, times(1)).get(eq(Urn.createFromString(UNAUTHORIZED_PRINCIPAL)), any());
   }
@@ -483,7 +480,7 @@ public class PolicyEngineTest {
     assertTrue(result1.isGranted());
 
     // Verify we are calling for the resource ownership aspect
-    verify(_aspectClient, times(1)).getAspect(
+    verify(_entityClient, times(1)).getAspect(
         eq(RESOURCE_URN),
         eq(OWNERSHIP_ASPECT_NAME),
         eq(ASPECT_LATEST_VERSION), any());
@@ -515,7 +512,7 @@ public class PolicyEngineTest {
 
     // Overwrite the Ownership of the Resource to only include a single group.
     final Ownership ownershipAspect = createOwnershipAspect(false, true);
-    when(_aspectClient.getAspect(eq(RESOURCE_URN), eq(OWNERSHIP_ASPECT_NAME), eq(ASPECT_LATEST_VERSION), any())).thenReturn(
+    when(_entityClient.getAspect(eq(RESOURCE_URN), eq(OWNERSHIP_ASPECT_NAME), eq(ASPECT_LATEST_VERSION), any())).thenReturn(
         new VersionedAspect().setAspect(Aspect.create(ownershipAspect))
     );
 
@@ -531,7 +528,7 @@ public class PolicyEngineTest {
     assertTrue(result1.isGranted());
 
     // Verify we are calling for the resource ownership aspect
-    verify(_aspectClient, times(1)).getAspect(
+    verify(_entityClient, times(1)).getAspect(
         eq(RESOURCE_URN),
         eq(OWNERSHIP_ASPECT_NAME),
         eq(ASPECT_LATEST_VERSION), any());
@@ -573,7 +570,7 @@ public class PolicyEngineTest {
     assertFalse(result2.isGranted());
 
     // Verify we are calling for the resource ownership aspect
-    verify(_aspectClient, times(1)).getAspect(
+    verify(_entityClient, times(1)).getAspect(
         eq(RESOURCE_URN),
         eq(OWNERSHIP_ASPECT_NAME),
         eq(ASPECT_LATEST_VERSION), any());
@@ -614,7 +611,7 @@ public class PolicyEngineTest {
     assertTrue(result.isGranted());
 
     // Verify no network calls
-    verify(_aspectClient, times(0)).getAspect(any(), any(), any(), any());
+    verify(_entityClient, times(0)).getAspect(any(), any(), any(), any());
     verify(_entityClient, times(0)).get(eq(Urn.createFromString(AUTHORIZED_PRINCIPAL)), any());
   }
 
@@ -651,7 +648,7 @@ public class PolicyEngineTest {
     assertFalse(result.isGranted());
 
     // Verify no network calls
-    verify(_aspectClient, times(0)).getAspect(any(), any(), any(), any());
+    verify(_entityClient, times(0)).getAspect(any(), any(), any(), any());
     verify(_entityClient, times(0)).get(eq(Urn.createFromString(AUTHORIZED_PRINCIPAL)), any());
   }
 
@@ -692,7 +689,7 @@ public class PolicyEngineTest {
     assertTrue(result.isGranted());
 
     // Verify no network calls
-    verify(_aspectClient, times(0)).getAspect(any(), any(), any(), any());
+    verify(_entityClient, times(0)).getAspect(any(), any(), any(), any());
     verify(_entityClient, times(0)).get(eq(Urn.createFromString(AUTHORIZED_PRINCIPAL)), any());
   }
 
@@ -733,7 +730,7 @@ public class PolicyEngineTest {
     assertFalse(result.isGranted());
 
     // Verify no network calls
-    verify(_aspectClient, times(0)).getAspect(any(), any(), any(), any());
+    verify(_entityClient, times(0)).getAspect(any(), any(), any(), any());
     verify(_entityClient, times(0)).get(eq(Urn.createFromString(AUTHORIZED_PRINCIPAL)), any());
   }
 
@@ -798,7 +795,7 @@ public class PolicyEngineTest {
     ));
 
     // Verify aspect client called, entity client not called.
-    verify(_aspectClient, times(1)).getAspect(any(), any(), any(), any());
+    verify(_entityClient, times(1)).getAspect(any(), any(), any(), any());
     verify(_entityClient, times(0)).get(eq(Urn.createFromString(AUTHORIZED_PRINCIPAL)), any());
   }
 
@@ -853,7 +850,7 @@ public class PolicyEngineTest {
     assertEquals(actors.getGroups(), Collections.emptyList());
 
     // Verify no network calls
-    verify(_aspectClient, times(0)).getAspect(any(), any(), any(), any());
+    verify(_entityClient, times(0)).getAspect(any(), any(), any(), any());
     verify(_entityClient, times(0)).get(eq(Urn.createFromString(AUTHORIZED_PRINCIPAL)), any());
   }
 

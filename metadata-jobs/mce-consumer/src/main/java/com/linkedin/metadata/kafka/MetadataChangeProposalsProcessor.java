@@ -2,7 +2,7 @@ package com.linkedin.metadata.kafka;
 
 import com.codahale.metrics.Histogram;
 import com.codahale.metrics.MetricRegistry;
-import com.linkedin.entity.client.AspectClient;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.EventUtils;
 import com.linkedin.metadata.kafka.config.MetadataChangeProposalProcessorCondition;
@@ -30,7 +30,7 @@ import org.springframework.stereotype.Component;
 @EnableKafka
 public class MetadataChangeProposalsProcessor {
 
-  private AspectClient aspectClient;
+  private EntityClient entityClient;
   private KafkaTemplate<String, GenericRecord> kafkaTemplate;
 
   private final Histogram kafkaLagStats =
@@ -40,9 +40,9 @@ public class MetadataChangeProposalsProcessor {
   private String fmcpTopicName;
 
   public MetadataChangeProposalsProcessor(
-      @Nonnull final AspectClient aspectClient,
+      @Nonnull final EntityClient entityClient,
       @Nonnull final KafkaTemplate<String, GenericRecord> kafkaTemplate) {
-    this.aspectClient = aspectClient;
+    this.entityClient = entityClient;
     this.kafkaTemplate = kafkaTemplate;
   }
 
@@ -59,7 +59,7 @@ public class MetadataChangeProposalsProcessor {
       event = EventUtils.avroToPegasusMCP(record);
       log.debug("MetadataChangeProposal {}", event);
       // TODO: Get this from the event itself.
-      aspectClient.ingestProposal(event, Constants.SYSTEM_ACTOR);
+      entityClient.ingestProposal(event, Constants.SYSTEM_ACTOR);
     } catch (Throwable throwable) {
       log.error("MCP Processor Error", throwable);
       log.error("Message: {}", record);

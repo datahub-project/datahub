@@ -1,11 +1,15 @@
 package com.datahub.authentication.authenticators;
 
+import com.datahub.authentication.Actor;
+import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
-import com.datahub.authentication.AuthenticationResult;
+import com.datahub.authentication.AuthenticationException;
 import com.datahub.authentication.Authenticator;
+import javax.annotation.Nonnull;
 import java.util.Collections;
 import java.util.Map;
+import java.util.Objects;
 
 import static com.datahub.authentication.Constants.*;
 
@@ -19,18 +23,26 @@ import static com.datahub.authentication.Constants.*;
  */
 public class DataHubSystemAuthenticator implements Authenticator {
 
+  /**
+   * Configs required to authenticate an internal system caller, such as datahub-frontend server.
+   */
+  private static final String SYSTEM_CLIENT_ID_CONFIG = "systemClientId";
+  private static final String SYSTEM_CLIENT_SECRET_CONFIG = "systemClientSecret";
+
   private String systemClientId;
   private String systemSecret;
 
   @Override
-  public void init(final Map<String, Object> config) {
-    this.systemClientId = (String) config.getOrDefault("system_client_id", SYSTEM_ACTOR);
-    this.systemSecret = (String) config.getOrDefault("system_secret", "YouKnowNothing");
+  public void init(@Nonnull final Map<String, Object> config) {
+    Objects.requireNonNull(config);
+    this.systemClientId = (String) config.get(SYSTEM_CLIENT_ID_CONFIG);
+    this.systemSecret = (String) config.get(SYSTEM_CLIENT_SECRET_CONFIG);
   }
 
   @Override
-  public AuthenticationResult authenticate(AuthenticationContext context) {
-    final String authorizationHeader = context.headers().get("Authorization"); // Case insensitive
+  public Authentication authenticate(@Nonnull AuthenticationContext context) throws AuthenticationException {
+    Objects.requireNonNull(context);
+    final String authorizationHeader = context.getRequestHeaders().get(AUTHORIZATION_HEADER_NAME);
     if (authorizationHeader != null) {
       if (authorizationHeader.startsWith("Basic ") || authorizationHeader.startsWith("basic ")) {
         String credentials = authorizationHeader.substring(6);
@@ -39,22 +51,30 @@ public class DataHubSystemAuthenticator implements Authenticator {
             && this.systemClientId.equals(splitCredentials[0])
             && this.systemSecret.equals(splitCredentials[1])
         ) {
-          final String delegatedActorUrn = context.headers().get("X-DataHub-Actor"); // If this request was made internally.
-          return new AuthenticationResult(
-              AuthenticationResult.Type.SUCCESS,
-              new Authentication(
-                  authorizationHeader,
-                  this.systemClientId,
-                  delegatedActorUrn,
-                  Collections.emptySet(),
-                  Collections.emptyMap()
-              )
+          // If this request was made internally, there may be a delegated id.
+          final Actor maybeDelegatedForActor = getDelegatedForActor(context);
+          return new Authentication(
+              new Actor(ActorType.CORP_USER, this.systemClientId), // todo: replace this with service actor type once those urns exist.
+              authorizationHeader,
+              Collections.emptySet(),
+              Collections.emptyMap(),
+              maybeDelegatedForActor
           );
         }
       } else {
-        return FAILURE_AUTHENTICATION_RESULT; // TODO: Qualify this further.
+        throw new AuthenticationException("Authorization header is missing 'Basic' prefix.");
       }
     }
-    return FAILURE_AUTHENTICATION_RESULT;
+    throw new AuthenticationException("Authorization header is missing 'Basic' prefix.");
+  }
+
+  private Actor getDelegatedForActor(final AuthenticationContext context) {
+    Actor delegatedForActor = null;
+    if (context.getRequestHeaders().containsKey("X-DataHub-Delegated-For-Id") && context.getRequestHeaders().containsKey("X-DataHub-Delegated-For-Type")) {
+      final ActorType actorType = ActorType.valueOf(context.getRequestHeaders().get("X-DataHub-Delegated-For-Id"));
+      final String actorId = context.getRequestHeaders().get("X-DataHub-Delegated-For-Id");
+      delegatedForActor = new Actor(actorType, actorId);
+    }
+    return delegatedForActor;
   }
 }

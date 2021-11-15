@@ -4,7 +4,7 @@ import com.datahub.metadata.authorization.AuthorizationManager;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
-import com.linkedin.entity.client.RestliEntityClient;
+import com.linkedin.entity.client.EntityClient;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletableFuture;
@@ -15,9 +15,9 @@ import java.util.concurrent.CompletableFuture;
  */
 public class DeletePolicyResolver implements DataFetcher<CompletableFuture<String>> {
 
-  private final RestliEntityClient _entityClient;
+  private final EntityClient _entityClient;
 
-  public DeletePolicyResolver(final RestliEntityClient entityClient) {
+  public DeletePolicyResolver(final EntityClient entityClient) {
     _entityClient = entityClient;
   }
 

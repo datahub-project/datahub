@@ -1,7 +1,6 @@
 package com.datahub.metadata.graphql;
 
 import com.datahub.metadata.authorization.AuthorizationManager;
-import com.linkedin.entity.client.AspectClient;
 import com.linkedin.entity.client.RestliEntityClient;
 import com.linkedin.entity.client.OwnershipClient;
 import javax.annotation.Nonnull;
@@ -16,21 +15,17 @@ import org.springframework.context.annotation.Scope;
 
 // TODO: move this to gms factories module.
 @Configuration
-@Import({RestliEntityClientFactory.class, AspectClientFactory.class})
+@Import({RestliEntityClientFactory.class})
 public class AuthorizationManagerFactory {
 
   @Autowired
   @Qualifier("restliEntityClient")
   private RestliEntityClient entityClient;
 
-  @Autowired
-  @Qualifier("aspectClient")
-  private AspectClient aspectClient;
-
-  @Value("${POLICY_CACHE_REFRESH_INTERVAL_SECONDS:120}")
+  @Value("${authorizationManager.cacheRefreshIntervalSecs}")
   private Integer policyCacheRefreshIntervalSeconds;
 
-  @Value("${AUTH_POLICIES_ENABLED:true}")
+  @Value("${authorizationManager.enabled:true}")
   private Boolean policiesEnabled;
 
   @Bean(name = "authorizationManager")
@@ -42,7 +37,7 @@ public class AuthorizationManagerFactory {
         ? AuthorizationManager.AuthorizationMode.DEFAULT
         : AuthorizationManager.AuthorizationMode.ALLOW_ALL;
 
-    final OwnershipClient ownershipClient = new OwnershipClient(aspectClient);
+    final OwnershipClient ownershipClient = new OwnershipClient(entityClient);
 
     return new AuthorizationManager(entityClient, ownershipClient, 10, policyCacheRefreshIntervalSeconds, mode);
   }

@@ -8,7 +8,11 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 
+/**
+ * Deprecated, use {@link EntityClientConfig} instead.
+ */
 @Configuration
+@Deprecated
 public class AspectClientConfig {
 
   @Value("${GMS_HOST:localhost}")

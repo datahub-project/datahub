@@ -8,6 +8,10 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 
+/**
+ * Deprecated, use {@link JavaEntityClientFactory} or {@link RestliEntityClientFactory} instead.
+ */
+@Deprecated
 @Configuration
 public class AspectClientFactory {
 
@@ -24,7 +28,7 @@ public class AspectClientFactory {
   private String gmsSslProtocol;
 
   @Bean("aspectClient")
-  public AspectClient getEntityClient() {
+  public AspectClient getAspectClient() {
     Client restClient = DefaultRestliClientFactory.getRestLiClient(gmsHost, gmsPort, gmsUseSSL, gmsSslProtocol);
     return new AspectClient(restClient);
   }

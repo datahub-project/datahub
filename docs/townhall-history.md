@@ -2,6 +2,17 @@
 
 A list of previous Town Halls, their planned schedule, and the recording of the meeting.
 
+## 10/29/2021
+[Full YouTube video](https://youtu.be/GrS_uZhYNm0)
+
+## Agenda
+- DataHub Community & Roadmap Update - Maggie Hays (Acryl Data)
+- October Project Updates - Shirshanka Das (Acryl Data)
+- Introducing Recommendations - John Joyce & Dexter Lee (Acryl Data)
+- Case Study: DataHub @ hipages - Chris Coulson (hipages) 
+- Data Profiling Improvements - Surya Lanka & Harshal Sheth (Acryl Data)
+- Lineage Improvements & BigQuery Dataset Lineage by Gabe Lyons & Varun Bharill (Acryl Data)
+
 ## 9/24/2021
 [Full YouTube video](https://youtu.be/nQDiKPKnLLQ)
 

@@ -91,7 +91,7 @@ public class AuthenticationController extends Controller {
 
         // 3. If no auth enabled, fallback to using default user account & redirect.
         // Generate GMS session token, TODO:
-        final String gmsToken = AuthUtils.generateGmsSessionToken(this._authClient, DEFAULT_ACTOR_URN.toString());
+        final String gmsToken = AuthUtils.generateMetadataServiceAccessToken(this._authClient, DEFAULT_ACTOR_URN.toString());
         session().put("token", gmsToken);
         session().put(ACTOR, DEFAULT_ACTOR_URN.toString());
         return redirect(redirectPath).withCookies(createActorCookie(DEFAULT_ACTOR_URN.toString(), _configs.hasPath(SESSION_TTL_CONFIG_PATH)
@@ -139,7 +139,7 @@ public class AuthenticationController extends Controller {
 
 
         final String actorUrn = new CorpuserUrn(username).toString();
-        final String gmsToken = AuthUtils.generateGmsSessionToken(this._authClient, actorUrn);
+        final String gmsToken = AuthUtils.generateMetadataServiceAccessToken(this._authClient, actorUrn);
 
         ctx().session().put(ACTOR, actorUrn);
         if (gmsToken != null) {

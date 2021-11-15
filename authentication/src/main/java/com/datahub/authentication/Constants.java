@@ -1,21 +1,11 @@
 package com.datahub.authentication;
 
-import java.util.Collections;
-
-
+/**
+ * A set of shared constants.
+ */
 public class Constants {
-  public static final String SYSTEM_ACTOR = "urn:li:corpuser:__datahub_system"; // DataHub internal service principal.
 
-  public static final AuthenticationResult FAILURE_AUTHENTICATION_RESULT = new AuthenticationResult(
-      AuthenticationResult.Type.FAILURE,
-      new Authentication(
-          "",
-          null,
-          null,
-          Collections.emptySet(),
-          Collections.emptyMap()
-      )
-  );
+  public static final String AUTHORIZATION_HEADER_NAME = "Authorization";
 
   private Constants() { }
 }

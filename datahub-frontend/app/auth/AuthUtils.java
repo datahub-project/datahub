@@ -10,6 +10,34 @@ import java.time.temporal.ChronoUnit;
 @Slf4j
 public class AuthUtils {
 
+    /**
+     * The config path that determines whether Metadata Service Authentication is enabled.
+     *
+     * When enabled, the frontend server will proxy requests to the Metadata Service without requiring them to have a valid
+     * frontend-issued Session Cookie. This effectively means delegating the act of authentication to the Metadata Service. It
+     * is critical that if Metadata Service authentication is enabled at the frontend service layer, it is also enabled in the
+     * Metadata Service itself. Otherwise, unauthenticated traffic may reach the Metadata itself.
+     *
+     * When disabled, the frontend server will require that all requests have a valid Session Cookie associated with them. Otherwise,
+     * requests will be denied with an Unauthorized error.
+     */
+    public static final String METADATA_SERVICE_AUTH_ENABLED_CONFIG_PATH = "metadataService.auth.enabled";
+
+    /**
+     * The attribute inside session cookie representing a GMS-issued access token
+     */
+    public static final String SESSION_COOKIE_GMS_TOKEN_NAME = "token";
+
+    /**
+     * An ID used to identify system callers that are internal to DataHub. Provided via configuration.
+     */
+    public static final String SYSTEM_CLIENT_ID_CONFIG_PATH = "systemClientId";
+
+    /**
+     * An Secret used to authenticate system callers that are internal to DataHub. Provided via configuration.
+     */
+    public static final String SYSTEM_CLIENT_SECRET_CONFIG_PATH = "systemClientSecret";
+
     public static final String SESSION_TTL_CONFIG_PATH = "auth.session.ttlInHours";
     public static final Integer DEFAULT_SESSION_TTL_HOURS = 720;
     public static final CorpuserUrn DEFAULT_ACTOR_URN = new CorpuserUrn("datahub");
@@ -27,7 +55,7 @@ public class AuthUtils {
      * Note that this method DOES NOT actually verify the authentication token of an inbound request. That will
      * be handled by the downstream GMS service. Until then, the request should be treated as UNAUTHENTICATED.
      *
-     * returns true if the request is eligible to be forwarded to GMS, false otherwise.
+     * Returns true if the request is eligible to be forwarded to GMS, false otherwise.
      */
     public static boolean isEligibleForForwarding(Http.Context ctx) {
         return hasValidSessionCookie(ctx) || hasAuthHeader(ctx);
@@ -75,7 +103,7 @@ public class AuthUtils {
      *
      * Notice that the method that is
      */
-    public static String generateGmsSessionToken(final AuthClient authClient, final String userUrn) {
+    public static String generateMetadataServiceAccessToken(final AuthClient authClient, final String userUrn) {
         try {
             return authClient.generateSessionTokenForUser(userUrn);
         } catch (Exception e) {

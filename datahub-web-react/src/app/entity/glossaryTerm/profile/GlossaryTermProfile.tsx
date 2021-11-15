@@ -35,7 +35,7 @@ export default function GlossaryTermProfile() {
     const glossaryTermHierarchicalName = data?.glossaryTerm?.hierarchicalName;
     const entitySearchResult = useGetEntitySearchResults(
         {
-            query: `glossaryTerms:"${glossaryTermHierarchicalName}" OR fieldGlossaryTerms:"${glossaryTermHierarchicalName}"`,
+            query: `glossaryTerms:"${glossaryTermHierarchicalName}" OR fieldGlossaryTerms:"${glossaryTermHierarchicalName}" OR editedFieldGlossaryTerms:"${glossaryTermHierarchicalName}"`,
         },
         searchTypes,
     );

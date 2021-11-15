@@ -3,7 +3,7 @@ package com.linkedin.datahub.graphql.resolvers.load;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.TimeSeriesAspect;
-import com.linkedin.entity.client.AspectClient;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetcher;
@@ -29,12 +29,12 @@ import java.util.stream.Collectors;
  */
 public class TimeSeriesAspectResolver implements DataFetcher<CompletableFuture<List<TimeSeriesAspect>>> {
 
-  private final AspectClient _client;
+  private final EntityClient _client;
   private final String _entityName;
   private final String _aspectName;
   private final Function<EnvelopedAspect, TimeSeriesAspect> _aspectMapper;
 
-  public TimeSeriesAspectResolver(final AspectClient client, final String entityName, final String aspectName,
+  public TimeSeriesAspectResolver(final EntityClient client, final String entityName, final String aspectName,
       final Function<EnvelopedAspect, TimeSeriesAspect> aspectMapper) {
     _client = client;
     _entityName = entityName;

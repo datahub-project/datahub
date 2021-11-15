@@ -1,5 +1,6 @@
 package com.linkedin.gms.factory.search;
 
+import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.SearchService;
@@ -12,9 +13,11 @@ import org.springframework.cache.CacheManager;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
+import org.springframework.context.annotation.PropertySource;
 
 
 @Configuration
+@PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
 public class SearchServiceFactory {
 
   @Autowired
@@ -32,7 +35,7 @@ public class SearchServiceFactory {
   @Autowired
   private CacheManager cacheManager;
 
-  @Value("${SEARCH_SERVICE_BATCH_SIZE:100}")
+  @Value("${searchService.resultBatchSize}")
   private Integer batchSize;
 
   @Bean(name = "searchService")

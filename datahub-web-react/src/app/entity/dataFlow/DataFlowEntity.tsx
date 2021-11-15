@@ -97,8 +97,8 @@ export class DataFlowEntity implements Entity<DataFlow> {
     getOverridePropertiesFromEntity = (dataFlow?: DataFlow | null): GenericEntityProperties => {
         // TODO: Get rid of this once we have correctly formed platform coming back.
         const tool = dataFlow?.orchestrator || '';
-        const name = dataFlow?.info?.name;
-        const externalUrl = dataFlow?.info?.externalUrl;
+        const name = dataFlow?.properties?.name;
+        const externalUrl = dataFlow?.properties?.externalUrl;
         return {
             name,
             externalUrl,
@@ -121,8 +121,8 @@ export class DataFlowEntity implements Entity<DataFlow> {
         return (
             <Preview
                 urn={data.urn}
-                name={data.info?.name || ''}
-                description={data.editableProperties?.description || data.info?.description}
+                name={data.properties?.name || ''}
+                description={data.editableProperties?.description || data.properties?.description}
                 platformName={platformName}
                 platformLogo={getLogoFromPlatform(data.orchestrator)}
                 owners={data.ownership?.owners}
@@ -137,8 +137,8 @@ export class DataFlowEntity implements Entity<DataFlow> {
         return (
             <Preview
                 urn={data.urn}
-                name={data.info?.name || ''}
-                description={data.editableProperties?.description || data.info?.description || ''}
+                name={data.properties?.name || ''}
+                description={data.editableProperties?.description || data.properties?.description || ''}
                 platformName={platformName}
                 platformLogo={getLogoFromPlatform(data.orchestrator)}
                 owners={data.ownership?.owners}
@@ -149,7 +149,7 @@ export class DataFlowEntity implements Entity<DataFlow> {
     };
 
     displayName = (data: DataFlow) => {
-        return data.info?.name || data.urn;
+        return data.properties?.name || data.urn;
     };
 
     getGenericEntityProperties = (data: DataFlow) => {

@@ -14,9 +14,9 @@ public class ConfigProviderFactory {
   @Nonnull
   protected ConfigProvider getInstance() {
     return new ConfigProvider(ImmutableMap.of(
-        "system_client_id",
+        "systemClientId",
         "__datahub_frontend",
-        "system_client_secret",
+        "systemClientSecret",
         "YouKnowNothing"
     ));
   }

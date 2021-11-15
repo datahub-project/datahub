@@ -11,8 +11,7 @@ import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.Entity;
-import com.linkedin.entity.client.AspectClient;
-import com.linkedin.entity.client.RestliEntityClient;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.OwnershipClient;
 import com.linkedin.metadata.aspect.Aspect;
 import com.linkedin.metadata.aspect.DataHubPolicyAspect;
@@ -40,14 +39,12 @@ import static com.linkedin.metadata.authorization.PoliciesConfig.*;
 
 public class AuthorizationManagerTest {
 
-  private RestliEntityClient _entityClient;
-  private AspectClient _aspectClient;
+  private EntityClient _entityClient;
   private AuthorizationManager _authorizationManager;
 
   @BeforeMethod
   public void setupTest() throws Exception {
-    _entityClient = Mockito.mock(RestliEntityClient.class);
-    _aspectClient = Mockito.mock(AspectClient.class);
+    _entityClient = Mockito.mock(EntityClient.class);
 
     // Init mocks.
     final Urn activePolicyUrn = Urn.createFromString("urn:li:dataHubPolicy:0");
@@ -86,13 +83,13 @@ public class AuthorizationManagerTest {
     final List<Urn> userUrns = ImmutableList.of(Urn.createFromString("urn:li:corpuser:user3"), Urn.createFromString("urn:li:corpuser:user4"));
     final List<Urn> groupUrns = ImmutableList.of(Urn.createFromString("urn:li:corpGroup:group3"), Urn.createFromString("urn:li:corpGroup:group4"));
     final Ownership ownershipAspect = createOwnershipAspect(userUrns, groupUrns);
-    when(_aspectClient.getAspect(any(), eq(OWNERSHIP_ASPECT_NAME), eq(ASPECT_LATEST_VERSION), any())).thenReturn(
+    when(_entityClient.getAspect(any(), eq(OWNERSHIP_ASPECT_NAME), eq(ASPECT_LATEST_VERSION), any())).thenReturn(
         new VersionedAspect().setAspect(Aspect.create(ownershipAspect))
     );
 
     _authorizationManager = new AuthorizationManager(
         _entityClient,
-        new OwnershipClient(_aspectClient),
+        new OwnershipClient(_entityClient),
         10,
         10,
         Authorizer.AuthorizationMode.DEFAULT
