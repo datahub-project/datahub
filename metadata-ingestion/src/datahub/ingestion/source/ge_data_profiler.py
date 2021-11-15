@@ -10,11 +10,6 @@ import uuid
 from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple, Union
 
 import pydantic
-from great_expectations.core import ExpectationSuite
-from great_expectations.core.expectation_validation_result import (
-    ExpectationSuiteValidationResult,
-    ExpectationValidationResult,
-)
 from great_expectations.data_context import BaseDataContext
 from great_expectations.data_context.types.base import (
     DataContextConfig,
@@ -24,12 +19,12 @@ from great_expectations.data_context.types.base import (
 )
 from great_expectations.dataset.dataset import Dataset
 from great_expectations.datasource.sqlalchemy_datasource import SqlAlchemyDatasource
-from great_expectations.profile.base import DatasetProfiler
+from great_expectations.profile.base import ProfilerCardinality, ProfilerDataType
+from great_expectations.profile.basic_dataset_profiler import BasicDatasetProfilerBase
 from sqlalchemy.engine import Connection, Engine
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.emitter.mce_builder import get_sys_time
-from datahub.ingestion.source.datahub_custom_ge_profiler import DatahubGECustomProfiler
 from datahub.ingestion.source.sql.sql_common import SQLSourceReport
 from datahub.metadata.schema_classes import (
     DatasetFieldProfileClass,
@@ -38,7 +33,6 @@ from datahub.metadata.schema_classes import (
     QuantileClass,
     ValueFrequencyClass,
 )
-from datahub.utilities.groupby import groupby_unsorted
 from datahub.utilities.perf_timer import PerfTimer
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -115,6 +109,9 @@ class GEProfilingConfig(ConfigModel):
     # https://docs.python.org/3/library/concurrent.futures.html#concurrent.futures.ThreadPoolExecutor
     max_workers: int = 5 * (os.cpu_count() or 4)
 
+    # Hidden option - used for debugging purposes.
+    catch_exceptions: bool = True
+
     @pydantic.root_validator()
     def ensure_field_level_settings_are_normalized(
         cls: "GEProfilingConfig", values: Dict[str, Any]
@@ -159,42 +156,10 @@ class GEProfilingConfig(ConfigModel):
         return values
 
 
-class DatahubConfigurableProfiler(DatasetProfiler):
-    """
-    DatahubConfigurableProfiler is a wrapper on top of DatahubGECustomProfiler that essentially translates the
-    GEProfilingConfig into a proper GEProfiler's interface and delegates actual profiling to DatahubGECustomProfiler.
-    Column filtering based on our Allow/Deny patterns requires us to intercept the _profile call
-    and compute the list of the columns to profile.
-    """
-
-    @staticmethod
-    def _get_excluded_expectations(config: GEProfilingConfig) -> List[str]:
-        # Compute excluded expectations
-        excluded_expectations: List[str] = []
-        if not config.include_field_null_count:
-            excluded_expectations.append("expect_column_values_to_not_be_null")
-        if not config.include_field_min_value:
-            excluded_expectations.append("expect_column_min_to_be_between")
-        if not config.include_field_max_value:
-            excluded_expectations.append("expect_column_max_to_be_between")
-        if not config.include_field_mean_value:
-            excluded_expectations.append("expect_column_mean_to_be_between")
-        if not config.include_field_median_value:
-            excluded_expectations.append("expect_column_median_to_be_between")
-        if not config.include_field_stddev_value:
-            excluded_expectations.append("expect_column_stdev_to_be_between")
-        if not config.include_field_quantiles:
-            excluded_expectations.append("expect_column_quantile_values_to_be_between")
-        if not config.include_field_distinct_value_frequencies:
-            excluded_expectations.append("expect_column_distinct_values_to_be_in_set")
-        if not config.include_field_histogram:
-            excluded_expectations.append("expect_column_kl_divergence_to_be_less_than")
-        if not config.include_field_sample_values:
-            excluded_expectations.append("expect_column_values_to_be_in_set")
-        return excluded_expectations
-
-    @staticmethod
+class _DatasetProfiler(BasicDatasetProfilerBase):
+    @classmethod
     def _get_columns_to_profile(
+        cls,
         dataset: Dataset,
         dataset_name: str,
         config: GEProfilingConfig,
@@ -235,40 +200,235 @@ class DatahubConfigurableProfiler(DatasetProfiler):
                 )
         return columns_to_profile
 
-    @staticmethod
-    def datahub_config_to_ge_config(
+    @classmethod
+    def _get_dataset_column_quantiles(
+        cls, dataset: Dataset, column: str
+    ) -> Optional[List[QuantileClass]]:
+        # FIXME: Eventually we'd like to switch to using the quantile method directly.
+        # values = dataset.get_column_quantiles(column, tuple(quantiles))
+
+        dataset.set_config_value("interactive_evaluation", True)
+
+        res = dataset.expect_column_quantile_values_to_be_between(
+            column,
+            quantile_ranges={
+                "quantiles": [0.05, 0.25, 0.5, 0.75, 0.95],
+                "value_ranges": [
+                    [None, None],
+                    [None, None],
+                    [None, None],
+                    [None, None],
+                    [None, None],
+                ],
+            },
+        ).result
+        if "observed_value" in res:
+            return [
+                QuantileClass(quantile=str(quantile), value=str(value))
+                for quantile, value in zip(
+                    res["observed_value"]["quantiles"],
+                    res["observed_value"]["values"],
+                )
+            ]
+        return None
+
+    @classmethod
+    def _get_dataset_column_distinct_value_frequencies(
+        cls, dataset: Dataset, column: str
+    ) -> List[ValueFrequencyClass]:
+        return [
+            ValueFrequencyClass(value=str(value), frequency=count)
+            for value, count in dataset.get_column_value_counts(column).items()
+        ]
+
+    @classmethod
+    def _get_dataset_column_histogram(
+        cls, dataset: Dataset, column: str
+    ) -> Optional[HistogramClass]:
+        dataset.set_config_value("interactive_evaluation", True)
+
+        res = dataset.expect_column_kl_divergence_to_be_less_than(
+            column,
+            partition_object=None,
+            threshold=None,
+            result_format="COMPLETE",
+        ).result
+        if "details" in res and "observed_partition" in res["details"]:
+            partition = res["details"]["observed_partition"]
+            return HistogramClass(
+                [str(v) for v in partition["bins"]],
+                [
+                    partition["tail_weights"][0],
+                    *partition["weights"],
+                    partition["tail_weights"][1],
+                ],
+            )
+        return None
+
+    @classmethod
+    def _get_dataset_column_sample_values(
+        cls, dataset: Dataset, column: str
+    ) -> Optional[List[str]]:
+        dataset.set_config_value("interactive_evaluation", True)
+
+        res = dataset.expect_column_values_to_be_in_set(
+            column, [], result_format="SUMMARY"
+        ).result
+        return [str(v) for v in res["partial_unexpected_list"]]
+
+    # For some reason Flake8 really wants the complexity annotation on both lines.
+    @classmethod  # noqa: C901 (complexity)
+    def generate_dataset_profile(  # noqa: C901 (complexity)
+        cls,
         dataset: Dataset,
         dataset_name: str,
         config: GEProfilingConfig,
         report: SQLSourceReport,
-    ) -> Dict[str, Any]:
-        excluded_expectations: List[
-            str
-        ] = DatahubConfigurableProfiler._get_excluded_expectations(config)
-        columns_to_profile: List[
-            str
-        ] = DatahubConfigurableProfiler._get_columns_to_profile(
+    ) -> DatasetProfileClass:
+        dataset.set_default_expectation_argument(
+            "catch_exceptions", config.catch_exceptions
+        )
+
+        profile = DatasetProfileClass(timestampMillis=get_sys_time())
+
+        all_columns = dataset.get_table_columns()
+        columns_to_profile = cls._get_columns_to_profile(
             dataset, dataset_name, config, report
         )
-        return {
-            "excluded_expectations": excluded_expectations,
-            "columns_to_profile": columns_to_profile,
-        }
 
-    @classmethod
-    def _profile(
-        cls, dataset: Dataset, configuration: Dict[str, Any]
-    ) -> ExpectationSuite:
-        """
-        Override method, which returns the expectation suite using the UserConfigurable Profiler.
-        """
-        profiler_configuration = cls.datahub_config_to_ge_config(
-            dataset,
-            configuration["dataset_name"],
-            configuration["config"],
-            configuration["report"],
-        )
-        return DatahubGECustomProfiler._profile(dataset, profiler_configuration)
+        row_count = dataset.get_row_count()
+        profile.rowCount = row_count
+        profile.columnCount = len(all_columns)
+
+        profile.fieldProfiles = []
+        for column in all_columns:
+            column_profile = DatasetFieldProfileClass(fieldPath=column)
+            profile.fieldProfiles.append(column_profile)
+
+            if column not in columns_to_profile:
+                continue
+
+            type_ = cls._get_column_type(dataset, column)
+            cardinality = cls._get_column_cardinality(dataset, column)
+
+            if config.include_field_null_count:
+                non_null_count = dataset.get_column_nonnull_count(column)
+                null_count = row_count - non_null_count
+                assert null_count >= 0
+                column_profile.nullCount = null_count
+                if row_count > 0:
+                    column_profile.nullProportion = null_count / row_count
+            else:
+                non_null_count = None
+
+            try:
+                unique_count = dataset.get_column_unique_count(column)
+                column_profile.uniqueCount = unique_count
+                if non_null_count is not None and non_null_count > 0:
+                    column_profile.uniqueProportion = unique_count / non_null_count
+            except Exception:
+                logger.exception(
+                    f"Failed to get unique count for column {dataset_name}.{column}"
+                )
+
+            if config.include_field_sample_values:
+                column_profile.sampleValues = cls._get_dataset_column_sample_values(
+                    dataset, column
+                )
+
+            if type_ == ProfilerDataType.INT or type_ == ProfilerDataType.FLOAT:
+                if cardinality == ProfilerCardinality.UNIQUE:
+                    pass
+                elif cardinality in [
+                    ProfilerCardinality.ONE,
+                    ProfilerCardinality.TWO,
+                    ProfilerCardinality.VERY_FEW,
+                    ProfilerCardinality.FEW,
+                ]:
+                    if config.include_field_distinct_value_frequencies:
+                        column_profile.distinctValueFrequencies = (
+                            cls._get_dataset_column_distinct_value_frequencies(
+                                dataset, column
+                            )
+                        )
+                elif cardinality in [
+                    ProfilerCardinality.MANY,
+                    ProfilerCardinality.VERY_MANY,
+                    ProfilerCardinality.UNIQUE,
+                ]:
+                    if config.include_field_min_value:
+                        column_profile.min = str(dataset.get_column_min(column))
+                    if config.include_field_max_value:
+                        column_profile.max = str(dataset.get_column_max(column))
+                    if config.include_field_mean_value:
+                        column_profile.mean = str(dataset.get_column_mean(column))
+                    if config.include_field_median_value:
+                        column_profile.median = str(dataset.get_column_median(column))
+                    if type_ == ProfilerDataType.INT:
+                        if config.include_field_stddev_value:
+                            column_profile.stdev = str(dataset.get_column_stdev(column))
+
+                    if config.include_field_quantiles:
+                        column_profile.quantiles = cls._get_dataset_column_quantiles(
+                            dataset, column
+                        )
+                    if config.include_field_histogram:
+                        column_profile.histogram = cls._get_dataset_column_histogram(
+                            dataset, column
+                        )
+                else:  # unknown cardinality - skip
+                    pass
+
+            elif type_ == ProfilerDataType.STRING:
+                if cardinality in [
+                    ProfilerCardinality.ONE,
+                    ProfilerCardinality.TWO,
+                    ProfilerCardinality.VERY_FEW,
+                    ProfilerCardinality.FEW,
+                ]:
+                    if config.include_field_distinct_value_frequencies:
+                        column_profile.distinctValueFrequencies = (
+                            cls._get_dataset_column_distinct_value_frequencies(
+                                dataset, column
+                            )
+                        )
+
+            elif type_ == ProfilerDataType.DATETIME:
+                if config.include_field_min_value:
+                    column_profile.min = str(dataset.get_column_min(column))
+                if config.include_field_max_value:
+                    column_profile.max = str(dataset.get_column_max(column))
+
+                # FIXME: Re-add histogram once kl_divergence has been modified to support datetimes
+
+                if cardinality in [
+                    ProfilerCardinality.ONE,
+                    ProfilerCardinality.TWO,
+                    ProfilerCardinality.VERY_FEW,
+                    ProfilerCardinality.FEW,
+                ]:
+                    if config.include_field_distinct_value_frequencies:
+                        column_profile.distinctValueFrequencies = (
+                            cls._get_dataset_column_distinct_value_frequencies(
+                                dataset, column
+                            )
+                        )
+
+            else:
+                if cardinality in [
+                    ProfilerCardinality.ONE,
+                    ProfilerCardinality.TWO,
+                    ProfilerCardinality.VERY_FEW,
+                    ProfilerCardinality.FEW,
+                ]:
+                    if config.include_field_distinct_value_frequencies:
+                        column_profile.distinctValueFrequencies = (
+                            cls._get_dataset_column_distinct_value_frequencies(
+                                dataset, column
+                            )
+                        )
+
+        return profile
 
 
 @dataclasses.dataclass
@@ -282,6 +442,8 @@ class DatahubGEProfiler:
     report: SQLSourceReport
     config: GEProfilingConfig
 
+    base_engine: Engine
+
     # The actual value doesn't matter, it just matters that we use it consistently throughout.
     _datasource_name_base: str = "my_sqlalchemy_datasource"
 
@@ -291,17 +453,19 @@ class DatahubGEProfiler:
         report: SQLSourceReport,
         config: GEProfilingConfig,
     ):
-        self.base_engine = conn
         self.report = report
         self.config = config
 
-    @contextlib.contextmanager
-    def _ge_context(self) -> Iterator[GEContext]:
         # TRICKY: The call to `.engine` is quite important here. Connection.connect()
         # returns a "branched" connection, which does not actually use a new underlying
-        # DBAPI object from the connection pool. Engine.connect() does what we want to
-        # make the threading code work correctly.
-        with self.base_engine.engine.connect() as conn:
+        # DB-API object from the connection pool. Engine.connect() does what we want to
+        # make the threading code work correctly. As such, we need to make sure we've
+        # got an engine here.
+        self.base_engine = conn.engine
+
+    @contextlib.contextmanager
+    def _ge_context(self) -> Iterator[GEContext]:
+        with self.base_engine.connect() as conn:
             data_context = BaseDataContext(
                 project_config=DataContextConfig(
                     # The datasource will be added via add_datasource().
@@ -380,208 +544,71 @@ class DatahubGEProfiler:
         table: str = None,
         **kwargs: Any,
     ) -> Optional[DatasetProfileClass]:
-        with self._ge_context() as ge_context:
-            logger.info(f"Profiling {pretty_name}")
+        with self._ge_context() as ge_context, PerfTimer() as timer:
+            try:
+                logger.info(f"Profiling {pretty_name}")
 
-            evrs = self._profile_data_asset(
-                ge_context,
-                {
-                    "schema": schema,
-                    "table": table,
-                    "limit": self.config.limit,
-                    "offset": self.config.offset,
-                    **kwargs,
-                },
-                pretty_name=pretty_name,
-            )
+                batch = self._get_ge_dataset(
+                    ge_context,
+                    {
+                        "schema": schema,
+                        "table": table,
+                        "limit": self.config.limit,
+                        "offset": self.config.offset,
+                        **kwargs,
+                    },
+                    pretty_name=pretty_name,
+                )
+                profile = _DatasetProfiler.generate_dataset_profile(
+                    batch, pretty_name, self.config, self.report
+                )
 
-            profile = (
-                self._convert_evrs_to_profile(evrs, pretty_name=pretty_name)
-                if evrs is not None
-                else None
-            )
-            logger.debug(f"Finished profiling {pretty_name}")
+                logger.info(
+                    f"Finished profiling {pretty_name}; took {(timer.elapsed_seconds()):.3f} seconds"
+                )
+                return profile
+            except Exception as e:
+                if not self.config.catch_exceptions:
+                    raise e
+                logger.exception(f"Encountered exception while profiling {pretty_name}")
+                self.report.report_failure(pretty_name, f"Profiling exception {e}")
+                return None
 
-            return profile
-
-    def _profile_data_asset(
+    def _get_ge_dataset(
         self,
         ge_context: GEContext,
         batch_kwargs: dict,
         pretty_name: str,
-    ) -> ExpectationSuiteValidationResult:
-        try:
-            with PerfTimer() as timer:
-                profile_results = ge_context.data_context.profile_data_asset(
-                    ge_context.datasource_name,
-                    profiler=DatahubConfigurableProfiler,
-                    profiler_configuration={
-                        "config": self.config,
-                        "dataset_name": pretty_name,
-                        "report": self.report,
-                    },
-                    batch_kwargs={
-                        "datasource": ge_context.datasource_name,
-                        **batch_kwargs,
-                    },
-                )
-            logger.info(
-                f"Profiling for {pretty_name} took {(timer.elapsed_seconds()):.3f} seconds."
-            )
+    ) -> Dataset:
+        # This is effectively emulating the beginning of the process that
+        # is followed by GE itself. In particular, we simply want to construct
+        # a Dataset object.
 
-            assert profile_results["success"]
-            assert len(profile_results["results"]) == 1
-            _suite, evrs = profile_results["results"][0]
-            return evrs
-        except Exception as e:
-            logger.warning(
-                f"Encountered exception {e}\nwhile profiling {pretty_name}, {batch_kwargs}"
-            )
-            self.report.report_warning(pretty_name, "Exception {e}")
-            return None
+        # profile_results = ge_context.data_context.profile_data_asset(
+        #     ge_context.datasource_name,
+        #     profiler=DatahubConfigurableProfiler,
+        #     profiler_configuration={
+        #         "config": self.config,
+        #         "dataset_name": pretty_name,
+        #         "report": self.report,
+        #     },
+        #     batch_kwargs={
+        #         "datasource": ge_context.datasource_name,
+        #         **batch_kwargs,
+        #     },
+        # )
 
-    @staticmethod
-    def _get_column_from_evr(evr: ExpectationValidationResult) -> Optional[str]:
-        return evr.expectation_config.kwargs.get("column")
+        expectation_suite_name = ge_context.datasource_name + "." + pretty_name
 
-    # The list of handled expectations has been created by referencing these files:
-    # - https://github.com/great-expectations/great_expectations/blob/71e9c1eae433a31416a38de1688e2793e9778299/great_expectations/render/renderer/profiling_results_overview_section_renderer.py
-    # - https://github.com/great-expectations/great_expectations/blob/71e9c1eae433a31416a38de1688e2793e9778299/great_expectations/render/renderer/column_section_renderer.py
-    # - https://github.com/great-expectations/great_expectations/blob/71e9c1eae433a31416a38de1688e2793e9778299/great_expectations/profile/basic_dataset_profiler.py
-
-    def _convert_evrs_to_profile(
-        self,
-        evrs: ExpectationSuiteValidationResult,
-        pretty_name: str,
-    ) -> DatasetProfileClass:
-        profile = DatasetProfileClass(timestampMillis=get_sys_time())
-
-        for col, evrs_for_col in groupby_unsorted(
-            evrs.results, key=self._get_column_from_evr
-        ):
-            if col is None:
-                self._handle_convert_table_evrs(
-                    profile, evrs_for_col, pretty_name=pretty_name
-                )
-            else:
-                self._handle_convert_column_evrs(
-                    profile,
-                    col,
-                    evrs_for_col,
-                    pretty_name=pretty_name,
-                )
-
-        return profile
-
-    def _handle_convert_table_evrs(
-        self,
-        profile: DatasetProfileClass,
-        table_evrs: Iterable[ExpectationValidationResult],
-        pretty_name: str,
-    ) -> None:
-        # TRICKY: This method mutates the profile directly.
-
-        for evr in table_evrs:
-            exp: str = evr.expectation_config.expectation_type
-            res: dict = evr.result
-
-            if exp == "expect_table_row_count_to_be_between":
-                profile.rowCount = res["observed_value"]
-            elif exp == "expect_table_columns_to_match_ordered_list":
-                profile.columnCount = len(res["observed_value"])
-            else:
-                self.report.report_warning(
-                    f"profile of {pretty_name}", f"unknown table mapper {exp}"
-                )
-
-    def _handle_convert_column_evrs(  # noqa: C901 (complexity)
-        self,
-        profile: DatasetProfileClass,
-        column: str,
-        col_evrs: Iterable[ExpectationValidationResult],
-        pretty_name: str,
-    ) -> None:
-        # TRICKY: This method mutates the profile directly.
-
-        column_profile = DatasetFieldProfileClass(fieldPath=column)
-
-        profile.fieldProfiles = profile.fieldProfiles or []
-        profile.fieldProfiles.append(column_profile)
-
-        for evr in col_evrs:
-            exp: str = evr.expectation_config.expectation_type
-            res: dict = evr.result
-            if not res:
-                self.report.report_warning(
-                    f"profile of {pretty_name}", f"{exp} did not yield any results"
-                )
-                continue
-
-            if exp == "expect_column_unique_value_count_to_be_between":
-                column_profile.uniqueCount = res["observed_value"]
-            elif exp == "expect_column_proportion_of_unique_values_to_be_between":
-                column_profile.uniqueProportion = res["observed_value"]
-            elif exp == "expect_column_values_to_not_be_null":
-                column_profile.nullCount = res["unexpected_count"]
-                if (
-                    "unexpected_percent" in res
-                    and res["unexpected_percent"] is not None
-                ):
-                    column_profile.nullProportion = res["unexpected_percent"] / 100
-            elif exp == "expect_column_values_to_not_match_regex":
-                # ignore; generally used for whitespace checks using regex r"^\s+|\s+$"
-                pass
-            elif exp == "expect_column_mean_to_be_between":
-                column_profile.mean = str(res["observed_value"])
-            elif exp == "expect_column_min_to_be_between":
-                column_profile.min = str(res["observed_value"])
-            elif exp == "expect_column_max_to_be_between":
-                column_profile.max = str(res["observed_value"])
-            elif exp == "expect_column_median_to_be_between":
-                column_profile.median = str(res["observed_value"])
-            elif exp == "expect_column_stdev_to_be_between":
-                column_profile.stdev = str(res["observed_value"])
-            elif exp == "expect_column_quantile_values_to_be_between":
-                if "observed_value" in res:
-                    column_profile.quantiles = [
-                        QuantileClass(quantile=str(quantile), value=str(value))
-                        for quantile, value in zip(
-                            res["observed_value"]["quantiles"],
-                            res["observed_value"]["values"],
-                        )
-                    ]
-            elif exp == "expect_column_values_to_be_in_set":
-                column_profile.sampleValues = [
-                    str(v) for v in res["partial_unexpected_list"]
-                ]
-            elif exp == "expect_column_kl_divergence_to_be_less_than":
-                if "details" in res and "observed_partition" in res["details"]:
-                    partition = res["details"]["observed_partition"]
-                    column_profile.histogram = HistogramClass(
-                        [str(v) for v in partition["bins"]],
-                        [
-                            partition["tail_weights"][0],
-                            *partition["weights"],
-                            partition["tail_weights"][1],
-                        ],
-                    )
-            elif exp == "expect_column_distinct_values_to_be_in_set":
-                if "details" in res and "value_counts" in res["details"]:
-                    # This can be used to produce a bar chart since it includes values and frequencies.
-                    # As such, it is handled differently from expect_column_values_to_be_in_set, which
-                    # is nonexhaustive.
-                    column_profile.distinctValueFrequencies = [
-                        ValueFrequencyClass(value=str(value), frequency=count)
-                        for value, count in res["details"]["value_counts"].items()
-                    ]
-            elif exp == "expect_column_values_to_be_in_type_list":
-                # ignore; we already know the types for each column via ingestion
-                pass
-            elif exp == "expect_column_values_to_be_unique":
-                # ignore; this is generally covered by the unique value count test
-                pass
-            else:
-                self.report.report_warning(
-                    f"profile of {pretty_name}",
-                    f"warning: unknown column mapper {exp} in col {column}",
-                )
+        ge_context.data_context.create_expectation_suite(
+            expectation_suite_name=expectation_suite_name,
+            overwrite_existing=True,
+        )
+        batch = ge_context.data_context.get_batch(
+            expectation_suite_name=expectation_suite_name,
+            batch_kwargs={
+                "datasource": ge_context.datasource_name,
+                **batch_kwargs,
+            },
+        )
+        return batch

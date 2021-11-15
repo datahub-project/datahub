@@ -37,7 +37,12 @@ GCP_LOGGING_PAGE_SIZE = 1000
 
 # Handle yearly, monthly, daily, or hourly partitioning.
 # See https://cloud.google.com/bigquery/docs/partitioned-tables.
-PARTITIONED_TABLE_REGEX = re.compile(r"^(.+)_(\d{4}|\d{6}|\d{8}|\d{10})$")
+# This REGEX handles both Partitioned Tables ($ separator) and Sharded Tables (_ separator)
+PARTITIONED_TABLE_REGEX = re.compile(r"^(.+)[\$_](\d{4}|\d{6}|\d{8}|\d{10})$")
+
+# Handle table snapshots
+# See https://cloud.google.com/bigquery/docs/table-snapshots-intro.
+SNAPSHOT_TABLE_REGEX = re.compile(r"^(.+)@(\d{13})$")
 
 BQ_DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 BQ_FILTER_RULE_TEMPLATE = """
@@ -87,14 +92,6 @@ class BigQueryTableRef:
         return self.dataset.startswith("_")
 
     def remove_extras(self) -> "BigQueryTableRef":
-        invalid_chars_in_table_name: List[str] = [
-            c for c in {"$", "@"} if c in self.table
-        ]
-        if invalid_chars_in_table_name:
-            raise ValueError(
-                f"Cannot handle {self} - poorly formatted table name, contains {invalid_chars_in_table_name}"
-            )
-
         # Handle partitioned and sharded tables.
         matches = PARTITIONED_TABLE_REGEX.match(self.table)
         if matches:
@@ -103,6 +100,24 @@ class BigQueryTableRef:
                 f"Found partitioned table {self.table}. Using {table_name} as the table name."
             )
             return BigQueryTableRef(self.project, self.dataset, table_name)
+
+        # Handle table snapshots.
+        matches = SNAPSHOT_TABLE_REGEX.match(self.table)
+        if matches:
+            table_name = matches.group(1)
+            logger.debug(
+                f"Found table snapshot {self.table}. Using {table_name} as the table name."
+            )
+            return BigQueryTableRef(self.project, self.dataset, table_name)
+
+        # Handle exceptions
+        invalid_chars_in_table_name: List[str] = [
+            c for c in {"$", "@"} if c in self.table
+        ]
+        if invalid_chars_in_table_name:
+            raise ValueError(
+                f"Cannot handle {self} - poorly formatted table name, contains {invalid_chars_in_table_name}"
+            )
 
         return self
 
