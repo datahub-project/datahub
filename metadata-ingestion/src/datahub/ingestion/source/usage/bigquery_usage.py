@@ -12,6 +12,7 @@ import pydantic
 from google.cloud.logging_v2.client import Client as GCPLoggingClient
 
 import datahub.emitter.mce_builder as builder
+from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.time_window_config import get_time_bucket
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
@@ -128,9 +129,9 @@ class BigQueryTableRef:
 AggregatedDataset = GenericAggregatedDataset[BigQueryTableRef]
 
 
-def _table_ref_to_urn(ref: BigQueryTableRef, env: str) -> str:
+def _table_ref_to_urn(ref: BigQueryTableRef, env: str, platform: str) -> str:
     return builder.make_dataset_urn(
-        "bigquery", f"{ref.project}.{ref.dataset}.{ref.table}", env
+        platform, f"{ref.project}.{ref.dataset}.{ref.table}", env
     )
 
 
@@ -271,6 +272,8 @@ class BigQueryUsageConfig(BaseUsageConfig):
     project_id: Optional[str] = None  # deprecated in favor of `projects`
     extra_client_options: dict = {}
     env: str = builder.DEFAULT_ENV
+    platform: str = "bigquery"
+    resource_name_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
 
     query_log_delay: Optional[pydantic.PositiveInt] = None
     max_query_duration: timedelta = timedelta(minutes=15)
@@ -349,6 +352,15 @@ class BigQueryUsageSource(Source):
                 BQ_DATETIME_FORMAT
             ),
         )
+
+        if self.config.resource_name_pattern.is_fully_specified_allow_list():
+            resource_name_pattern = self.config.resource_name_pattern.get_allowed_list()
+            for idx, table in enumerate(resource_name_pattern):
+                if idx == 0:
+                    filter += f" AND protoPayload.resourceName = ({table}"
+                else:
+                    filter += f" OR {table}"
+            filter += ")"
 
         def get_entry_timestamp(entry: AuditLogEntry) -> datetime:
             return entry.timestamp
@@ -524,7 +536,9 @@ class BigQueryUsageSource(Source):
     def _make_usage_stat(self, agg: AggregatedDataset) -> MetadataWorkUnit:
         return agg.make_usage_workunit(
             self.config.bucket_duration,
-            lambda resource: _table_ref_to_urn(resource, self.config.env),
+            lambda resource: _table_ref_to_urn(
+                resource, self.config.env, self.config.platform
+            ),
             self.config.top_n_queries,
         )
 
