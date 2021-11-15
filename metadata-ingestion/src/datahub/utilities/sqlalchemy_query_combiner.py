@@ -299,9 +299,12 @@ class SQLAlchemyQueryCombiner:
             logger.info(f"Executing combined query: {str(combined_query)}")
             sa_res = _sa_execute_underlying_method(queue_item.conn, combined_query)
 
-            row = sa_res.fetchone()
-            # TODO verify that only one row is returned
+            # Fetch the results and ensure that exactly one row is returned.
+            results = sa_res.fetchall()
+            assert len(results) == 1
+            row = results[0]
 
+            # Extract the results into a result for each query.
             index = 0
             for _, query_future in pending_queue.items():
                 cols = query_future.query.columns
