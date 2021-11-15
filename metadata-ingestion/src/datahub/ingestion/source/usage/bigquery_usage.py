@@ -354,9 +354,7 @@ class BigQueryUsageSource(Source):
             len(self.config.table_pattern.allow) > 1
             or self.config.table_pattern.allow[0] != ".*"
         )
-        use_deny_filter = (
-            self.config.table_pattern and len(self.config.table_pattern.deny) > 0
-        )
+        use_deny_filter = self.config.table_pattern and self.config.table_pattern.deny
         filter = BQ_FILTER_RULE_TEMPLATE.format(
             start_time=(
                 self.config.start_time - self.config.max_query_duration
