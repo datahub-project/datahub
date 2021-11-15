@@ -1,4 +1,5 @@
 import datetime
+import itertools
 import logging
 import uuid
 from typing import Any, Dict, Iterable, List, Optional
@@ -93,8 +94,13 @@ class Pipeline:
     sink: Sink
     transformers: List[Transformer]
 
-    def __init__(self, config: PipelineConfig):
+    def __init__(
+        self, config: PipelineConfig, dry_run: bool = False, preview_mode: bool = False
+    ):
         self.config = config
+        self.dry_run = dry_run
+        self.preview_mode = preview_mode
+        self.max_workunits_to_process: Optional[int] = 10 if preview_mode else None
         self.ctx = PipelineContext(
             run_id=self.config.run_id, datahub_api=self.config.datahub_api
         )
@@ -131,21 +137,26 @@ class Pipeline:
                 )
 
     @classmethod
-    def create(cls, config_dict: dict) -> "Pipeline":
+    def create(
+        cls, config_dict: dict, dry_run: bool = False, preview_mode: bool = False
+    ) -> "Pipeline":
         config = PipelineConfig.parse_obj(config_dict)
-        return cls(config)
+        return cls(config, dry_run=dry_run, preview_mode=preview_mode)
 
     def run(self) -> None:
         callback = LoggingCallback()
         extractor: Extractor = self.extractor_class()
-        for wu in self.source.get_workunits():
+        for wu in itertools.islice(
+            self.source.get_workunits(), self.max_workunits_to_process
+        ):
             # TODO: change extractor interface
             extractor.configure({}, self.ctx)
 
             self.sink.handle_work_unit_start(wu)
             record_envelopes = extractor.get_records(wu)
             for record_envelope in self.transform(record_envelopes):
-                self.sink.write_record_async(record_envelope, callback)
+                if not self.dry_run:
+                    self.sink.write_record_async(record_envelope, callback)
 
             extractor.close()
             self.sink.handle_work_unit_end(wu)
