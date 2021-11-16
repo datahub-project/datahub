@@ -56,9 +56,6 @@ class _ResultProxyFake:
     def __iter__(self) -> Iterator[_RowProxyFake]:
         return iter(self._result)
 
-    def count(self) -> int:
-        return len(self._result)
-
     def first(self) -> Optional[_RowProxyFake]:
         return next(iter(self._result), None)
 
@@ -81,10 +78,7 @@ class _ResultProxyFake:
     def scalar(self) -> Any:
         if len(self._result) == 1:
             row = self._result[0]
-            try:
-                return row[0]
-            except TypeError:
-                return row
+            return row[0]
         elif self._result:
             raise MultipleResultsFound(
                 "Multiple rows were found when exactly one was required"
@@ -112,6 +106,7 @@ class _QueryFuture:
 
     done: bool = False
     res: Optional[_ResultProxyFake] = None
+    exc: Optional[Exception] = None
 
 
 @dataclasses.dataclass
@@ -125,6 +120,7 @@ class SQLAlchemyQueryCombiner:
     enabled: bool
     catch_exceptions: bool
     is_single_row_query_method: Callable[[Any], bool]
+    serial_execution_fallback_enabled: bool = True
 
     # There will be one main greenlet per thread. As such, queries will be
     # queued according to the main greenlet's thread ID. We also keep track
@@ -199,6 +195,8 @@ class SQLAlchemyQueryCombiner:
             main_greenlet.switch()
 
         del queue[query_id]
+        if query_future.exc is not None:
+            raise query_future.exc
         return True, query_future.res
 
     @contextlib.contextmanager
@@ -296,6 +294,27 @@ class SQLAlchemyQueryCombiner:
             # Verify that we consumed all the columns.
             assert index == len(row)
 
+    def _execute_queue_fallback(self, main_greenlet: greenlet.greenlet) -> None:
+        full_queue = self._get_queue(main_greenlet)
+
+        for _, query_future in full_queue.items():
+            if query_future.done:
+                continue
+
+            logger.info(f"Executing query via fallback: {str(query_future.query)}")
+            try:
+                res = _sa_execute_underlying_method(
+                    query_future.conn,
+                    query_future.query,
+                    *query_future.multiparams,
+                    **query_future.params,
+                )
+                query_future.res = res
+            except Exception as e:
+                query_future.exc = e
+            finally:
+                query_future.done = True
+
     def flush(self) -> None:
         """Executes until the queue and pool are empty."""
 
@@ -306,7 +325,13 @@ class SQLAlchemyQueryCombiner:
         pool = self._get_greenlet_pool(main_greenlet)
 
         while pool:
-            self._execute_queue(main_greenlet)
+            try:
+                self._execute_queue(main_greenlet)
+            except Exception as e:
+                if not self.serial_execution_fallback_enabled:
+                    raise e
+                logger.exception(f"Failed to execute queue using combiner: {str(e)}")
+                self._execute_queue_fallback(main_greenlet)
 
             for let in list(pool):
                 if let.dead:
