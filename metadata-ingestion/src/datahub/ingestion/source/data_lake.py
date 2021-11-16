@@ -21,6 +21,7 @@ from pydeequ.analyzers import (
     StandardDeviation,
 )
 from pyspark.sql import Row, SparkSession
+from pyspark.sql.dataframe import DataFrame
 from pyspark.sql.functions import col, count, isnan, when
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
@@ -82,13 +83,15 @@ class DataLakeSourceReport(SourceReport):
 
 
 class TableWrapper:
-    table: pydeequ.Table
+    spark: SparkSession
+    dataframe: DataFrame
     analyzer: AnalysisRunBuilder
     columns: List[str]
-
-    def __init__(self, table):
-        self.table = table
-        self.analyzer = AnalysisRunner(self.spark).onData(table).addAnalyzer(Size())
+    
+    def __init__(self, table, spark):
+        self.spark = spark
+        self.dataframe = table
+        self.analyzer = AnalysisRunner(spark).onData(table).addAnalyzer(Size())
         self.columns = table.columns
 
 
@@ -115,7 +118,7 @@ class DataLakeSource(Source):
     def calculate_null_count(self, table: TableWrapper):
         if self.config.include_field_null_count:
             # Deequ only has methods for getting null fraction, so we use Spark to get null count
-            null_counts = table.table.select(
+            null_counts = table.dataframe.select(
                 [count(when(isnan(c), c)).alias(c) for c in table.columns]
             ).show()
 
@@ -175,7 +178,7 @@ class DataLakeSource(Source):
         num_rows_to_sample = 3
 
         if self.config.include_field_sample_values:
-            rdd_sample = table.table.rdd.takeSample(False, num_rows_to_sample, seed=0)
+            rdd_sample = table.dataframe.rdd.takeSample(False, num_rows_to_sample, seed=0)
 
         return
 
@@ -194,9 +197,9 @@ class DataLakeSource(Source):
 
         table = self.read_file(self.source_config.file, self.source_config.file_type)
 
-        analysis_table = TableWrapper(table)
+        analysis_table = TableWrapper(table, self.spark)
 
-        analyzer_result = analysis_table.analyer.run()
+        analyzer_result = analysis_table.analyzer.run()
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         self.generate_profiles()
