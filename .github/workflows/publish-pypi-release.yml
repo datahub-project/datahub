@@ -5,7 +5,7 @@ on:
 
 jobs:
   setup:
-    if: ${{ github.ref == 'refs/heads/master' }}
+    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
