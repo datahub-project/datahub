@@ -53,73 +53,7 @@ You can run below command to see the Kafka topics created in your Kafka broker.
 kafkacat -L -b localhost:9092
 ```
 
-Confirm that `MetadataChangeEvent` & `MetadataAuditEvent` topics exist besides the default ones. Example response as below:
-
-```bash
-Metadata for all topics (from broker 1: localhost:9092/1):
- 1 brokers:
-  broker 1 at localhost:9092
- 5 topics:
-  topic "_schemas" with 1 partitions:
-    partition 0, leader 1, replicas: 1, isrs: 1
-  topic "__consumer_offsets" with 50 partitions:
-    partition 0, leader 1, replicas: 1, isrs: 1
-    partition 1, leader 1, replicas: 1, isrs: 1
-    partition 2, leader 1, replicas: 1, isrs: 1
-    partition 3, leader 1, replicas: 1, isrs: 1
-    partition 4, leader 1, replicas: 1, isrs: 1
-    partition 5, leader 1, replicas: 1, isrs: 1
-    partition 6, leader 1, replicas: 1, isrs: 1
-    partition 7, leader 1, replicas: 1, isrs: 1
-    partition 8, leader 1, replicas: 1, isrs: 1
-    partition 9, leader 1, replicas: 1, isrs: 1
-    partition 10, leader 1, replicas: 1, isrs: 1
-    partition 11, leader 1, replicas: 1, isrs: 1
-    partition 12, leader 1, replicas: 1, isrs: 1
-    partition 13, leader 1, replicas: 1, isrs: 1
-    partition 14, leader 1, replicas: 1, isrs: 1
-    partition 15, leader 1, replicas: 1, isrs: 1
-    partition 16, leader 1, replicas: 1, isrs: 1
-    partition 17, leader 1, replicas: 1, isrs: 1
-    partition 18, leader 1, replicas: 1, isrs: 1
-    partition 19, leader 1, replicas: 1, isrs: 1
-    partition 20, leader 1, replicas: 1, isrs: 1
-    partition 21, leader 1, replicas: 1, isrs: 1
-    partition 22, leader 1, replicas: 1, isrs: 1
-    partition 23, leader 1, replicas: 1, isrs: 1
-    partition 24, leader 1, replicas: 1, isrs: 1
-    partition 25, leader 1, replicas: 1, isrs: 1
-    partition 26, leader 1, replicas: 1, isrs: 1
-    partition 27, leader 1, replicas: 1, isrs: 1
-    partition 28, leader 1, replicas: 1, isrs: 1
-    partition 29, leader 1, replicas: 1, isrs: 1
-    partition 30, leader 1, replicas: 1, isrs: 1
-    partition 31, leader 1, replicas: 1, isrs: 1
-    partition 32, leader 1, replicas: 1, isrs: 1
-    partition 33, leader 1, replicas: 1, isrs: 1
-    partition 34, leader 1, replicas: 1, isrs: 1
-    partition 35, leader 1, replicas: 1, isrs: 1
-    partition 36, leader 1, replicas: 1, isrs: 1
-    partition 37, leader 1, replicas: 1, isrs: 1
-    partition 38, leader 1, replicas: 1, isrs: 1
-    partition 39, leader 1, replicas: 1, isrs: 1
-    partition 40, leader 1, replicas: 1, isrs: 1
-    partition 41, leader 1, replicas: 1, isrs: 1
-    partition 42, leader 1, replicas: 1, isrs: 1
-    partition 43, leader 1, replicas: 1, isrs: 1
-    partition 44, leader 1, replicas: 1, isrs: 1
-    partition 45, leader 1, replicas: 1, isrs: 1
-    partition 46, leader 1, replicas: 1, isrs: 1
-    partition 47, leader 1, replicas: 1, isrs: 1
-    partition 48, leader 1, replicas: 1, isrs: 1
-    partition 49, leader 1, replicas: 1, isrs: 1
-  topic "MetadataChangeEvent" with 1 partitions:
-    partition 0, leader 1, replicas: 1, isrs: 1
-  topic "__confluent.support.metrics" with 1 partitions:
-    partition 0, leader 1, replicas: 1, isrs: 1
-  topic "MetadataAuditEvent" with 1 partitions:
-    partition 0, leader 1, replicas: 1, isrs: 1
-```
+Confirm that `MetadataChangeEvent`, `MetadataAuditEvent`, `MetadataChangeProposal_v1` and `MetadataChangeLog_v1` topics exist besides the default ones.
 
 ## How can I check if search indices are created in Elasticsearch?
 
@@ -129,29 +63,45 @@ You can run below command to see the search indices created in your Elasticsearc
 curl http://localhost:9200/_cat/indices
 ```
 
-Confirm that `datasetdocument` & `corpuserinfodocument` indices exist besides the default ones. Example response as below:
+Confirm that `datasetindex_v2` & `corpuserindex_v2` indices exist besides the default ones. Example response as below:
 
 ```bash
-yellow open .monitoring-es-6-2020.01.27     hNu-jjU3Tl2SKKFdXzjxHQ 1 1 27279 34  14.8mb  14.8mb
-yellow open .watcher-history-6-2020.01.27   70BeSxOkQiCsBCGNtZNfAw 1 1  1210  0     1mb     1mb
-yellow open corpuserinfodocument            VCupUjstS4SrZHLDruwVzg 5 1     2  0    11kb    11kb
-yellow open .monitoring-kibana-6-2020.01.27 pfJy8HOxRQKG-RQKexMKkA 1 1  1456  0 688.3kb 688.3kb
-yellow open .watches                        jmJxYOjrSamqlTi-UIrxTA 1 1     4  0  19.6kb  19.6kb
-yellow open datasetdocument                 5HB_IpjYSbOh3QUSUeuwgA 5 1     3  0  27.9kb  27.9kb
-yellow open .monitoring-alerts-6            qEAoSNpTRRyqO7fqAzwpeg 1 1     1  0   6.2kb   6.2kb
-yellow open .triggered_watches              7g7_MGXFR7mBx0FwQzxpUg 1 1     0  0  48.1kb  48.1kb
-yellow open .kibana                         HEQj4GnTQauN3HkwM8CPng 1 1     1  0   3.2kb   3.2kb
+yellow open dataset_datasetprofileaspect_v1         HnfYZgyvS9uPebEQDjA1jg 1 1   0  0   208b   208b
+yellow open datajobindex_v2                         A561PfNsSFmSg1SiR0Y0qQ 1 1   2  9 34.1kb 34.1kb
+yellow open mlmodelindex_v2                         WRJpdj2zT4ePLSAuEvFlyQ 1 1   1 12 24.2kb 24.2kb
+yellow open dataflowindex_v2                        FusYIc1VQE-5NaF12uS8dA 1 1   1  3 23.3kb 23.3kb
+yellow open mlmodelgroupindex_v2                    QOzAaVx7RJ2ovt-eC0hg1w 1 1   0  0   208b   208b
+yellow open datahubpolicyindex_v2                   luXfXRlSRoS2-S_tvfLjHA 1 1   0  0   208b   208b
+yellow open corpuserindex_v2                        gbNXtnIJTzqh3vHSZS0Fwg 1 1   2  2 18.4kb 18.4kb
+yellow open dataprocessindex_v2                     9fL_4iCNTLyFv8MkDc6nIg 1 1   0  0   208b   208b
+yellow open chartindex_v2                           wYKlG5ylQe2dVKHOaswTww 1 1   2  7 29.4kb 29.4kb
+yellow open tagindex_v2                             GBQSZEvuRy62kpnh2cu1-w 1 1   2  2 19.7kb 19.7kb
+yellow open mlmodeldeploymentindex_v2               UWA2ltxrSDyev7Tmu5OLmQ 1 1   0  0   208b   208b
+yellow open dashboardindex_v2                       lUjGAVkRRbuwz2NOvMWfMg 1 1   1  0  9.4kb  9.4kb
+yellow open .ds-datahub_usage_event-000001          Q6NZEv1UQ4asNHYRywxy3A 1 1  36  0 54.8kb 54.8kb
+yellow open datasetindex_v2                         bWE3mN7IRy2Uj0QzeCt1KQ 1 1   7 47 93.7kb 93.7kb
+yellow open mlfeatureindex_v2                       fvjML5xoQpy8oxPIwltm8A 1 1  20 39 59.3kb 59.3kb
+yellow open dataplatformindex_v2                    GihumZfvRo27vt9yRpoE_w 1 1   0  0   208b   208b
+yellow open glossarynodeindex_v2                    ABKeekWTQ2urPWfGDsS4NQ 1 1   1  1 18.1kb 18.1kb
+yellow open graph_service_v1                        k6q7xV8OTIaRIkCjrzdufA 1 1 116 25 77.1kb 77.1kb
+yellow open system_metadata_service_v1              9-FKAqp7TY2hs3RQuAtVMw 1 1 303  0 55.9kb 55.9kb
+yellow open schemafieldindex_v2                     Mi_lqA-yQnKWSleKEXSWeg 1 1   0  0   208b   208b
+yellow open mlfeaturetableindex_v2                  pk98zrSOQhGr5gPYUQwvvQ 1 1   5 14 36.4kb 36.4kb
+yellow open glossarytermindex_v2                    NIyi3WWiT0SZr8PtECo0xQ 1 1   3  8 23.1kb 23.1kb
+yellow open mlprimarykeyindex_v2                    R1WFxD9sQiapIZcXnDtqMA 1 1   7  6 35.5kb 35.5kb
+yellow open corpgroupindex_v2                       AYxVtFAEQ02BsJdahYYvlA 1 1   2  1 13.3kb 13.3kb
+yellow open dataset_datasetusagestatisticsaspect_v1 WqPpDCKZRLaMIcYAAkS_1Q 1 1   0  0   208b   208b
 ```
 
 ## How can I check if data has been loaded into MySQL properly?
 
-Once the mysql container is up and running, you should be able to connect to it dirctly on `localhost:3306` using tools such as [MySQL Workbench](https://www.mysql.com/products/workbench/). You can also run the following command to invoke [MySQL Command-Line Client](https://dev.mysql.com/doc/refman/8.0/en/mysql.html) inside the mysql container.
+Once the mysql container is up and running, you should be able to connect to it directly on `localhost:3306` using tools such as [MySQL Workbench](https://www.mysql.com/products/workbench/). You can also run the following command to invoke [MySQL Command-Line Client](https://dev.mysql.com/doc/refman/8.0/en/mysql.html) inside the mysql container.
 
 ```
 docker exec -it mysql /usr/bin/mysql datahub --user=datahub --password=datahub
 ```
 
-Inspect the content of `metadata_aspect` table, which contains the ingested aspects for all entities.
+Inspect the content of `metadata_aspect_v2` table, which contains the ingested aspects for all entities.
 
 ## Getting error while starting Docker containers
 There can be different reasons why a container fails during initialization. Below are the most common reasons:
@@ -197,4 +147,61 @@ docker exec -i mysql sh -c 'exec mysql datahub -udatahub -pdatahub' < docker/mys
 Run the following script to remove all the containers and volumes created during the quickstart tutorial. Note that you'll also lose all the data as a result.
 ```
 ./docker/nuke.sh
+```
+## I'm seeing exceptions in DataHub GMS container like "Caused by: java.lang.IllegalStateException: Duplicate key com.linkedin.metadata.entity.ebean.EbeanAspectV2@dd26e011". What do I do?
+
+This is related to a SQL column collation issue. The default collation we previously used (prior to Oct 26, 2021) for URN fields was case-insensitive (utf8mb4_unicode_ci). We've recently moved
+to deploying with a case-sensitive collation (utf8mb4_bin) by default. In order to update a deployment that was started before Oct 26, 2021 (v0.8.16 and below) to have the new collation, you must run this command against your SQL DB directly:
+
+```
+ALTER TABLE metadata_aspect_v2 CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_bin;
+```
+
+## I've modified the default user.props file to include a custom username and password, but I don't see the new user(s) inside the Users & Groups tab. Why not? 
+
+Currently, `user.props` is a file used by the JAAS PropertyFileLoginModule solely for the purpose of **Authentication**. The file is not used as an source from which to
+ingest additional metadata about the user. For that, you'll need to ingest some custom information about your new user using the Rest.li APIs or the [File-based ingestion source](https://datahubproject.io/docs/metadata-ingestion/source_docs/file).
+
+For an example of a file that ingests user information, check out [single_mce.json](https://github.com/linkedin/datahub/blob/master/metadata-ingestion/examples/mce_files/single_mce.json), which ingests a single user object into DataHub. Notice that the "urn" field provided
+will need to align with the custom username you've provided in user.props file. For example, if your user.props file contains:
+
+```
+my-custom-user:my-custom-password
+```
+
+You'll need to ingest some metadata of the following form to see it inside the DataHub UI:
+
+```
+{
+  "auditHeader": null,
+  "proposedSnapshot": {
+    "com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot": {
+      "urn": "urn:li:corpuser:my-custom-user",
+      "aspects": [
+        {
+          "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
+            "active": true,
+            "displayName": {
+              "string": "The name of the custom user"
+            },
+            "email": "my-custom-user-email@example.io",
+            "title": {
+              "string": "Engineer"
+            },
+            "managerUrn": null,
+            "departmentId": null,
+            "departmentName": null,
+            "firstName": null,
+            "lastName": null,
+            "fullName": {
+              "string": "My Custom User"
+            },
+            "countryCode": null
+          }
+        }
+      ]
+    }
+  },
+  "proposedDelta": null
+}
 ```

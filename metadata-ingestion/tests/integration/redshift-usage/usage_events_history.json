@@ -46,5 +46,17 @@
         "table": null,
         "starttime": "2021-09-14 00:00:00",
         "endtime": "2021-09-15 00:00:00"
+    },
+    {
+        "userid": 5,
+        "query": 293102,
+        "usename": "real_shirshanka@acryl.io",
+        "tbl": 101588,
+        "querytxt": "select catid from category",
+        "database": "db1",
+        "schema": "schema1",
+        "table": "category",
+        "starttime": "2021-09-14 00:00:00",
+        "endtime": "2021-09-15 00:00:00"
     }
 ]

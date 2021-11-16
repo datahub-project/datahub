@@ -58,6 +58,7 @@ import org.springframework.stereotype.Component;
 
 import static com.linkedin.metadata.search.utils.QueryUtils.*;
 
+
 @Slf4j
 @Component
 @Conditional(MetadataChangeLogProcessorCondition.class)
