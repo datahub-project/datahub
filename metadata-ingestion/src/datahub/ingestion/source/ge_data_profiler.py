@@ -161,6 +161,35 @@ class GEProfilingConfig(ConfigModel):
         return values
 
 
+def _convert_to_cardinality(
+    unique_count: Optional[int], pct_unique: Optional[float]
+) -> Optional[OrderedProfilerCardinality]:
+    # Logic adopted from Great Expectations.
+
+    cardinality = None
+    if unique_count is None or unique_count == 0 or pct_unique is None:
+        cardinality = OrderedProfilerCardinality.NONE
+    elif pct_unique == 1.0:
+        cardinality = OrderedProfilerCardinality.UNIQUE
+    elif pct_unique > 0.1:
+        cardinality = OrderedProfilerCardinality.VERY_MANY
+    elif pct_unique > 0.02:
+        cardinality = OrderedProfilerCardinality.MANY
+    else:
+        if unique_count == 1:
+            cardinality = OrderedProfilerCardinality.ONE
+        elif unique_count == 2:
+            cardinality = OrderedProfilerCardinality.TWO
+        elif unique_count < 60:
+            cardinality = OrderedProfilerCardinality.VERY_FEW
+        elif unique_count < 1000:
+            cardinality = OrderedProfilerCardinality.FEW
+        else:
+            cardinality = OrderedProfilerCardinality.MANY
+
+    return cardinality
+
+
 def _is_single_row_query_method(query: Any) -> bool:
     SINGLE_ROW_QUERY_FILE = "great_expectations/dataset/sqlalchemy_dataset.py"
     SINGLE_ROW_QUERY_METHODS = {
@@ -294,29 +323,7 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
             )
         column_spec.unique_count = unique_count
 
-        # Logic adopted from Great Expectations.
-        cardinality = None
-        if unique_count is None or unique_count == 0 or pct_unique is None:
-            cardinality = OrderedProfilerCardinality.NONE
-        elif pct_unique == 1.0:
-            cardinality = OrderedProfilerCardinality.UNIQUE
-        elif pct_unique > 0.1:
-            cardinality = OrderedProfilerCardinality.VERY_MANY
-        elif pct_unique > 0.02:
-            cardinality = OrderedProfilerCardinality.MANY
-        else:
-            if unique_count == 1:
-                cardinality = OrderedProfilerCardinality.ONE
-            elif unique_count == 2:
-                cardinality = OrderedProfilerCardinality.TWO
-            elif unique_count < 60:
-                cardinality = OrderedProfilerCardinality.VERY_FEW
-            elif unique_count < 1000:
-                cardinality = OrderedProfilerCardinality.FEW
-            else:
-                cardinality = OrderedProfilerCardinality.MANY
-
-        column_spec.cardinality = cardinality
+        column_spec.cardinality = _convert_to_cardinality(unique_count, pct_unique)
 
     @_run_with_query_combiner
     def _get_dataset_rows(self, dataset_profile: DatasetProfileClass) -> None:
@@ -449,7 +456,7 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
         profile.columnCount = len(all_columns)
         columns_to_profile = set(self._get_columns_to_profile())
 
-        logger.info("Finished profiling stage 1 - flushing queries")
+        logger.debug(f"profiling {self.dataset_name}: flushing stage 1 queries")
         self.query_combiner.flush()
 
         columns_profiling_queue: List[_SingleColumnSpec] = []
@@ -464,7 +471,7 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                 self._get_column_type(column_spec, column)
                 self._get_column_cardinality(column_spec, column)
 
-        logger.info("Finished profiling stage 2 - flushing queries")
+        logger.debug(f"profiling {self.dataset_name}: flushing stage 2 queries")
         self.query_combiner.flush()
 
         assert profile.rowCount is not None
@@ -564,7 +571,7 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                         column,
                     )
 
-        logger.info("Finished profiling stage 3 - flushing queries")
+        logger.debug(f"profiling {self.dataset_name}: flushing stage 3 queries")
         self.query_combiner.flush()
         return profile
 
@@ -645,6 +652,7 @@ class DatahubGEProfiler:
             enabled=self.config.query_combiner_enabled,
             catch_exceptions=self.config.catch_exceptions,
             is_single_row_query_method=_is_single_row_query_method,
+            serial_execution_fallback_enabled=True,
         ).activate() as query_combiner:
             max_workers = min(max_workers, len(requests))
             logger.info(
@@ -733,12 +741,6 @@ class DatahubGEProfiler:
 
         # profile_results = ge_context.data_context.profile_data_asset(
         #     ge_context.datasource_name,
-        #     profiler=DatahubConfigurableProfiler,
-        #     profiler_configuration={
-        #         "config": self.config,
-        #         "dataset_name": pretty_name,
-        #         "report": self.report,
-        #     },
         #     batch_kwargs={
         #         "datasource": ge_context.datasource_name,
         #         **batch_kwargs,

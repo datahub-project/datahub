@@ -120,7 +120,7 @@ class SQLAlchemyQueryCombiner:
     enabled: bool
     catch_exceptions: bool
     is_single_row_query_method: Callable[[Any], bool]
-    serial_execution_fallback_enabled: bool = True
+    serial_execution_fallback_enabled: bool
 
     # There will be one main greenlet per thread. As such, queries will be
     # queued according to the main greenlet's thread ID. We also keep track
@@ -218,10 +218,10 @@ class SQLAlchemyQueryCombiner:
                 return _sa_execute_underlying_method(conn, query, *args, **kwargs)
             else:
                 if handled:
-                    logger.info(f"Query was handled: {str(query)}")
+                    logger.debug(f"Query was handled: {str(query)}")
                     return result
                 else:
-                    logger.info(f"Executing query normally: {str(query)}")
+                    logger.debug(f"Executing query normally: {str(query)}")
                     return _sa_execute_underlying_method(conn, query, *args, **kwargs)
 
         with _sa_execute_method_patching_lock:
@@ -271,7 +271,7 @@ class SQLAlchemyQueryCombiner:
             for cte in ctes.values():
                 combined_query.append_from(cte)
 
-            logger.info(f"Executing combined query: {str(combined_query)}")
+            logger.debug(f"Executing combined query: {str(combined_query)}")
             sa_res = _sa_execute_underlying_method(queue_item.conn, combined_query)
 
             # Fetch the results and ensure that exactly one row is returned.
@@ -304,7 +304,7 @@ class SQLAlchemyQueryCombiner:
             if query_future.done:
                 continue
 
-            logger.info(f"Executing query via fallback: {str(query_future.query)}")
+            logger.debug(f"Executing query via fallback: {str(query_future.query)}")
             try:
                 res = _sa_execute_underlying_method(
                     query_future.conn,
