@@ -3,6 +3,7 @@ import itertools
 import logging
 import os
 import pathlib
+import platform
 import subprocess
 import sys
 import tempfile
@@ -78,7 +79,13 @@ def check() -> None:
 
 def is_m1() -> bool:
     """Check whether we are running on an M1 machine"""
-    return os.uname().machine == "arm64" and os.uname().sysname == "Darwin"
+    try:
+        return (
+            platform.uname().machine == "arm64" and platform.uname().system == "Darwin"
+        )
+    except Exception:
+        # Catch-all
+        return False
 
 
 def should_use_neo4j_for_graph_service(graph_service_override: Optional[str]) -> bool:
