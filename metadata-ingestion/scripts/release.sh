@@ -16,7 +16,7 @@ fi
 
 rm -rf build dist || true
 python -m build
-if [[ ! {RELEASE_SKIP_UPLOAD:-} ]]; then
+if [[ ! ${RELEASE_SKIP_UPLOAD:-} ]]; then
     python -m twine upload 'dist/*'
 fi
 git restore src/datahub/__init__.py
