@@ -5,6 +5,7 @@ on:
 
 jobs:
   setup:
+    if: ${{ github.ref == 'refs/heads/master' }}
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
@@ -16,7 +17,7 @@ jobs:
         run: |
           echo "GITHUB_REF: $GITHUB_REF"
           SHORT_SHA=$(git rev-parse --short "$GITHUB_SHA")
-          TAG=$(echo ${GITHUB_REF} | sed -e 's,refs/tags/v,,g' -e 's,refs/tags/acryl,,g')
+          TAG=$(echo ${GITHUB_REF} | sed -e 's,refs/tags/v,,g')
           echo "tag=$TAG"
           echo "::set-output name=tag::$TAG"
   push_to_pypi:
