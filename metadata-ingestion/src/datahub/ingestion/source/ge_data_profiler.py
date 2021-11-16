@@ -2,7 +2,6 @@ import concurrent.futures
 import contextlib
 import dataclasses
 import functools
-import itertools
 import logging
 import os
 import threading
@@ -259,19 +258,14 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
             )
 
         if self.config.max_number_of_fields_to_profile is not None:
-            columns_being_dropped: List[str] = list(
-                itertools.islice(
-                    columns_to_profile,
-                    self.config.max_number_of_fields_to_profile,
-                    None,
-                )
-            )
-            columns_to_profile = list(
-                itertools.islice(
-                    columns_to_profile, self.config.max_number_of_fields_to_profile
-                )
-            )
-            if columns_being_dropped:
+            if len(columns_to_profile) > self.config.max_number_of_fields_to_profile:
+                columns_being_dropped = columns_to_profile[
+                    self.config.max_number_of_fields_to_profile :
+                ]
+                columns_to_profile = columns_to_profile[
+                    : self.config.max_number_of_fields_to_profile
+                ]
+
                 self.report.report_dropped(
                     f"The max_number_of_fields_to_profile={self.config.max_number_of_fields_to_profile} reached. Profile of columns {self.dataset_name}({', '.join(sorted(columns_being_dropped))})"
                 )

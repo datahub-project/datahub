@@ -169,7 +169,10 @@ class SQLAlchemyQueryCombiner:
         if greenlet.getcurrent() == main_greenlet:
             return False, None
 
-        # Don't attempt to handle if these are set.
+        # It's unclear what the expected behavior of the query combiner should
+        # be if the query has one of these set. As such, we'll just serialize these
+        # queries for now. This clause was not hit during my testing and probably
+        # doesn't do anything, but it's better to ensure correct behavior.
         if multiparams or params:
             return False, None
 
