@@ -12,6 +12,7 @@ import pydantic
 from google.cloud.logging_v2.client import Client as GCPLoggingClient
 
 import datahub.emitter.mce_builder as builder
+from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.time_window_config import get_time_bucket
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
@@ -45,6 +46,13 @@ PARTITIONED_TABLE_REGEX = re.compile(r"^(.+)[\$_](\d{4}|\d{6}|\d{8}|\d{10})$")
 SNAPSHOT_TABLE_REGEX = re.compile(r"^(.+)@(\d{13})$")
 
 BQ_DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
+BQ_FILTER_REGEX_ALLOW_TEMPLATE = """
+protoPayload.serviceData.jobCompletedEvent.job.jobStatistics.referencedTables.tableId =~ "{allow_pattern}"
+"""
+BQ_FILTER_REGEX_DENY_TEMPLATE = """
+{logical_operator}
+protoPayload.serviceData.jobCompletedEvent.job.jobStatistics.referencedTables.tableId !~ "{deny_pattern}"
+"""
 BQ_FILTER_RULE_TEMPLATE = """
 protoPayload.serviceName="bigquery.googleapis.com"
 AND
@@ -62,6 +70,12 @@ AND
     (
         protoPayload.metadata.tableDataRead:*
     )
+)
+AND (
+    {allow_regex}
+    {deny_regex}
+    OR
+    protoPayload.metadata.tableDataRead.reason = "JOB"
 )
 AND
 timestamp >= "{start_time}"
@@ -263,6 +277,7 @@ class QueryEvent:
                 "jobName from query events is absent. "
                 "Auditlog entry - {logEntry}".format(logEntry=entry)
             )
+
         return queryEvent
 
 
@@ -271,6 +286,7 @@ class BigQueryUsageConfig(BaseUsageConfig):
     project_id: Optional[str] = None  # deprecated in favor of `projects`
     extra_client_options: dict = {}
     env: str = builder.DEFAULT_ENV
+    table_pattern: Optional[AllowDenyPattern] = None
 
     query_log_delay: Optional[pydantic.PositiveInt] = None
     max_query_duration: timedelta = timedelta(minutes=15)
@@ -282,6 +298,12 @@ class BigQueryUsageConfig(BaseUsageConfig):
         )
         values["projects"] = [v]
         return None
+
+    def get_allow_pattern_string(self) -> str:
+        return "|".join(self.table_pattern.allow) if self.table_pattern else ""
+
+    def get_deny_pattern_string(self) -> str:
+        return "|".join(self.table_pattern.deny) if self.table_pattern else ""
 
 
 @dataclass
@@ -341,6 +363,13 @@ class BigQueryUsageSource(Source):
         # between query events and read events is complete. For example, this helps us
         # handle the case where the read happens within our time range but the query
         # completion event is delayed and happens after the configured end time.
+
+        # Can safely access the first index of the allow list as it by default contains ".*"
+        use_allow_filter = self.config.table_pattern and (
+            len(self.config.table_pattern.allow) > 1
+            or self.config.table_pattern.allow[0] != ".*"
+        )
+        use_deny_filter = self.config.table_pattern and self.config.table_pattern.deny
         filter = BQ_FILTER_RULE_TEMPLATE.format(
             start_time=(
                 self.config.start_time - self.config.max_query_duration
@@ -348,7 +377,23 @@ class BigQueryUsageSource(Source):
             end_time=(self.config.end_time + self.config.max_query_duration).strftime(
                 BQ_DATETIME_FORMAT
             ),
+            allow_regex=(
+                BQ_FILTER_REGEX_ALLOW_TEMPLATE.format(
+                    allow_pattern=self.config.get_allow_pattern_string()
+                )
+                if use_allow_filter
+                else ""
+            ),
+            deny_regex=(
+                BQ_FILTER_REGEX_DENY_TEMPLATE.format(
+                    deny_pattern=self.config.get_deny_pattern_string(),
+                    logical_operator="AND" if use_allow_filter else "",
+                )
+                if use_deny_filter
+                else ""
+            ),
         )
+        logger.debug(filter)
 
         def get_entry_timestamp(entry: AuditLogEntry) -> datetime:
             return entry.timestamp
@@ -469,6 +514,8 @@ class BigQueryUsageSource(Source):
                         str(event.resource),
                         "failed to match table read event with job; try increasing `query_log_delay` or `max_query_duration`",
                     )
+                    # continue to avoid processing read events that aren't matched by query events
+                    continue
             yield event
 
         logger.info(f"Number of read events joined with query events: {num_joined}")
