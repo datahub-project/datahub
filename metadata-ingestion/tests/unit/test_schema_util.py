@@ -73,7 +73,7 @@ def assert_field_paths_are_unique(fields: List[SchemaField]) -> None:
         assert len(avro_fields_paths) == len(set(avro_fields_paths))
 
 
-def assret_field_paths_match(
+def assert_field_paths_match(
     fields: List[SchemaField], expected_field_paths: List[str]
 ) -> None:
     log_field_paths(fields)
