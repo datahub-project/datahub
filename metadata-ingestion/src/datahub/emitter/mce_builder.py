@@ -11,8 +11,10 @@ from datahub.metadata.schema_classes import (
     DatasetKeyClass,
     DatasetLineageTypeClass,
     DatasetSnapshotClass,
+    GlobalTagsClass,
     MetadataChangeEventClass,
     OwnershipTypeClass,
+    TagAssociationClass,
     UpstreamClass,
     UpstreamLineageClass,
 )
@@ -233,10 +235,17 @@ def get_or_add_aspect(mce: MetadataChangeEventClass, default: Aspect) -> Aspect:
     return default
 
 
+def make_global_tag_aspect_with_tag_list(tags: List[str]) -> GlobalTagsClass:
+    return GlobalTagsClass(
+        tags=[TagAssociationClass(f"urn:li:tag:{tag}") for tag in tags]
+    )
+
+
 def set_aspect(
     mce: MetadataChangeEventClass, aspect: Optional[Aspect], aspect_type: Type[Aspect]
 ) -> None:
-    """Sets the aspect to the provided aspect, overwriting any previous aspect value that might have existed before. If passed in aspect is None, then the existing aspect value will be removed"""
+    """Sets the aspect to the provided aspect, overwriting any previous aspect value that might have existed before.
+    If passed in aspect is None, then the existing aspect value will be removed"""
     remove_aspect_if_available(mce, aspect_type)
     if aspect is not None:
         mce.proposedSnapshot.aspects.append(aspect)  # type: ignore

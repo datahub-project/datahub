@@ -111,18 +111,20 @@ const dataset1 = {
     name: 'The Great Test Dataset',
     origin: 'PROD',
     tags: ['Private', 'PII'],
-    description: 'This is the greatest dataset in the world, youre gonna love it!',
     uri: 'www.google.com',
-    properties: [
-        {
-            key: 'TestProperty',
-            value: 'My property value.',
-        },
-        {
-            key: 'AnotherTestProperty',
-            value: 'My other property value.',
-        },
-    ],
+    properties: {
+        description: 'This is the greatest dataset in the world, youre gonna love it!',
+        customProperties: [
+            {
+                key: 'TestProperty',
+                value: 'My property value.',
+            },
+            {
+                key: 'AnotherTestProperty',
+                value: 'My other property value.',
+            },
+        ],
+    },
     editableProperties: null,
     created: {
         time: 0,
@@ -194,9 +196,11 @@ const dataset2 = {
     name: 'Some Other Dataset',
     origin: 'PROD',
     tags: ['Outdated'],
-    description: 'This is some other dataset, so who cares!',
     uri: 'www.google.com',
-    properties: [],
+    properties: {
+        description: 'This is some other dataset, so who cares!',
+        customProperties: [],
+    },
     editableProperties: null,
     created: {
         time: 0,
@@ -262,9 +266,9 @@ export const dataset3 = {
     platformNativeType: 'STREAM',
     name: 'Yet Another Dataset',
     origin: 'PROD',
-    description: 'This and here we have yet another Dataset (YAN). Are there more?',
     uri: 'www.google.com',
     properties: {
+        description: 'This and here we have yet another Dataset (YAN). Are there more?',
         origin: 'PROD',
         customProperties: [{ key: 'propertyAKey', value: 'propertyAValue' }],
         externalUrl: 'https://data.hub',
@@ -801,8 +805,7 @@ export const dataFlow1 = {
     orchestrator: 'Airflow',
     flowId: 'flowId1',
     cluster: 'cluster1',
-    info: {
-        __typename: 'DataFlowInfo',
+    properties: {
         name: 'DataFlowInfoName',
         description: 'DataFlowInfo1 Description',
         project: 'DataFlowInfo1 project',
@@ -869,8 +872,7 @@ export const dataJob1 = {
             time: 0,
         },
     },
-    info: {
-        __typename: 'DataJobInfo',
+    properties: {
         name: 'DataJobInfoName',
         description: 'DataJobInfo1 Description',
         externalUrl: null,
@@ -937,8 +939,7 @@ export const dataJob2 = {
             time: 0,
         },
     },
-    info: {
-        __typename: 'DataJobInfo',
+    properties: {
         name: 'DataJobInfoName2',
         description: 'DataJobInfo2 Description',
         externalUrl: null,
@@ -991,8 +992,7 @@ export const dataJob3 = {
             time: 0,
         },
     },
-    info: {
-        __typename: 'DataJobInfo',
+    properties: {
         name: 'DataJobInfoName3',
         description: 'DataJobInfo3 Description',
         externalUrl: null,

@@ -10,7 +10,6 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.util.Configuration;
 import com.linkedin.util.Pair;
 import com.typesafe.config.Config;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -51,14 +50,6 @@ public class Application extends Controller {
   private static final Integer GMS_PORT = Integer.valueOf(Configuration.getEnvironmentVariable(GMS_PORT_ENV_VAR, "8080"));
   private static final Boolean GMS_USE_SSL = Boolean.parseBoolean(Configuration.getEnvironmentVariable(GMS_USE_SSL_ENV_VAR, "False"));
   private static final String GMS_SSL_PROTOCOL = Configuration.getEnvironmentVariable(GMS_SSL_PROTOCOL_VAR, null);
-
-  /**
-   * Custom mappings from frontend server paths to metadata-service paths.
-   */
-  private static final Map<String, String> PATH_REMAP = new HashMap<>();
-  static {
-    PATH_REMAP.put("/api/v2/graphql", "/api/graphql");
-  }
 
   private final Config _config;
   private final StandaloneWSClient _ws;
@@ -106,7 +97,7 @@ public class Application extends Controller {
    */
   @Security.Authenticated(Authenticator.class)
   public CompletableFuture<Result> proxy(String path) throws ExecutionException, InterruptedException {
-    final String resolvedUri = PATH_REMAP.getOrDefault(request().uri(), request().uri());
+    final String resolvedUri = mapPath(request().uri());
     return _ws.url(String.format("http://%s:%s%s", GMS_HOST, GMS_PORT, resolvedUri))
         .setMethod(request().method())
         .setHeaders(request()
@@ -115,6 +106,7 @@ public class Application extends Controller {
             .entrySet()
             .stream()
             .filter(entry -> !Http.HeaderNames.CONTENT_LENGTH.equals(entry.getKey()))
+            .filter(entry -> !Http.HeaderNames.CONTENT_TYPE.equals(entry.getKey()))
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))
         )
         .addHeader(Constants.ACTOR_HEADER_NAME, ctx().session().get(ACTOR)) // TODO: Replace with a token to GMS.
@@ -124,6 +116,8 @@ public class Application extends Controller {
           final ResponseHeader header = new ResponseHeader(apiResponse.getStatus(), apiResponse.getHeaders()
               .entrySet()
               .stream()
+              .filter(entry -> !Http.HeaderNames.CONTENT_LENGTH.equals(entry.getKey()))
+              .filter(entry -> !Http.HeaderNames.CONTENT_TYPE.equals(entry.getKey()))
               .map(entry -> Pair.of(entry.getKey(), String.join(";", entry.getValue())))
               .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond)));
           final HttpEntity body = new HttpEntity.Strict(apiResponse.getBodyAsBytes(), Optional.ofNullable(apiResponse.getContentType()));
@@ -238,5 +232,21 @@ public class Application extends Controller {
             .build();
     AsyncHttpClient asyncHttpClient = new DefaultAsyncHttpClient(asyncHttpClientConfig);
     return new StandaloneAhcWSClient(asyncHttpClient, materializer);
+  }
+
+  private String mapPath(@Nonnull final String path) {
+    // Case 1: Map legacy GraphQL path to GMS GraphQL API (for compatibility)
+    if (path.equals("/api/v2/graphql")) {
+      return "/api/graphql";
+    }
+
+    // Case 2: Map requests to /gms to / (Rest.li API)
+    final String gmsApiPath = "/api/gms";
+    if (path.startsWith(gmsApiPath)) {
+      return String.format("%s", path.substring(gmsApiPath.length()));
+    }
+
+    // Otherwise, return original path
+    return path;
   }
 }

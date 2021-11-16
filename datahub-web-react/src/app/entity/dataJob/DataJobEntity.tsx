@@ -109,8 +109,8 @@ export class DataJobEntity implements Entity<DataJob> {
     getOverridePropertiesFromEntity = (dataJob?: DataJob | null): GenericEntityProperties => {
         // TODO: Get rid of this once we have correctly formed platform coming back.
         const tool = dataJob?.dataFlow?.orchestrator || '';
-        const name = dataJob?.info?.name;
-        const externalUrl = dataJob?.info?.externalUrl;
+        const name = dataJob?.properties?.name;
+        const externalUrl = dataJob?.properties?.externalUrl;
         return {
             name,
             externalUrl,
@@ -135,8 +135,8 @@ export class DataJobEntity implements Entity<DataJob> {
         return (
             <Preview
                 urn={data.urn}
-                name={data.info?.name || ''}
-                description={data.editableProperties?.description || data.info?.description}
+                name={data.properties?.name || ''}
+                description={data.editableProperties?.description || data.properties?.description}
                 platformName={platformName}
                 platformLogo={getLogoFromPlatform(data.dataFlow?.orchestrator || '')}
                 owners={data.ownership?.owners}
@@ -153,8 +153,8 @@ export class DataJobEntity implements Entity<DataJob> {
         return (
             <Preview
                 urn={data.urn}
-                name={data.info?.name || ''}
-                description={data.editableProperties?.description || data.info?.description}
+                name={data.properties?.name || ''}
+                description={data.editableProperties?.description || data.properties?.description}
                 platformName={platformName}
                 platformLogo={getLogoFromPlatform(data.dataFlow?.orchestrator || '')}
                 owners={data.ownership?.owners}
@@ -167,7 +167,7 @@ export class DataJobEntity implements Entity<DataJob> {
     getLineageVizConfig = (entity: DataJob) => {
         return {
             urn: entity?.urn,
-            name: entity?.info?.name || '',
+            name: entity?.properties?.name || '',
             type: EntityType.DataJob,
             downstreamChildren: getChildrenFromRelationships({
                 // eslint-disable-next-line @typescript-eslint/dot-notation
@@ -189,7 +189,7 @@ export class DataJobEntity implements Entity<DataJob> {
     };
 
     displayName = (data: DataJob) => {
-        return data.info?.name || data.urn;
+        return data.properties?.name || data.urn;
     };
 
     getGenericEntityProperties = (data: DataJob) => {
