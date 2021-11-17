@@ -82,7 +82,7 @@ public class GetAccessTokenResolver implements DataFetcher<CompletableFuture<Acc
 
   private Actor createActor(AccessTokenType tokenType, String actorUrn) {
     if (AccessTokenType.PERSONAL.equals(tokenType)) {
-      // If we are generating a personal access token, then the actor will be of "CORP_USER" type.
+      // If we are generating a personal access token, then the actor will be of "USER" type.
       return new Actor(
           ActorType.USER,
           createUrn(actorUrn).getId()
