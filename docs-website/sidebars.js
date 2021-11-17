@@ -79,6 +79,7 @@ module.exports = {
           "metadata-ingestion/source_docs/s3": "S3",
         }),
       },
+      "metadata-ingestion/transformers",
       {
         Sinks: list_ids_in_directory("metadata-ingestion/sink_docs"),
       },
@@ -172,7 +173,6 @@ module.exports = {
         id: "metadata-ingestion/source_docs/s3",
       },
       //"metadata-ingestion/examples/transforms/README"
-      "metadata-ingestion/transformers",
       //"docs/what/graph",
       //"docs/what/search-index",
       //"docs/how/add-new-aspect",
