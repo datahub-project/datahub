@@ -100,7 +100,6 @@ class Pipeline:
         self.config = config
         self.dry_run = dry_run
         self.preview_mode = preview_mode
-        self.max_workunits_to_process: Optional[int] = 10 if preview_mode else None
         self.ctx = PipelineContext(
             run_id=self.config.run_id, datahub_api=self.config.datahub_api
         )
@@ -147,19 +146,21 @@ class Pipeline:
         callback = LoggingCallback()
         extractor: Extractor = self.extractor_class()
         for wu in itertools.islice(
-            self.source.get_workunits(), self.max_workunits_to_process
+            self.source.get_workunits(), 10 if self.preview_mode else None
         ):
             # TODO: change extractor interface
             extractor.configure({}, self.ctx)
 
-            self.sink.handle_work_unit_start(wu)
+            if not self.dry_run:
+                self.sink.handle_work_unit_start(wu)
             record_envelopes = extractor.get_records(wu)
             for record_envelope in self.transform(record_envelopes):
                 if not self.dry_run:
                     self.sink.write_record_async(record_envelope, callback)
 
             extractor.close()
-            self.sink.handle_work_unit_end(wu)
+            if not self.dry_run:
+                self.sink.handle_work_unit_end(wu)
         self.source.close()
         self.sink.close()
 
