@@ -37,6 +37,11 @@ public class PoliciesConfig {
       "View Analytics",
       "View the DataHub analytics dashboard.");
 
+  public static final Privilege GENERATE_PERSONAL_ACCESS_TOKEN_PRIVILEGE = Privilege.of(
+      "GENERATE_PERSONAL_ACCESS_TOKEN",
+      "Generate Personal Access Token",
+      "Generate a personal access token for use with DataHub APIs.");
+
   public static final List<Privilege> PLATFORM_PRIVILEGES = ImmutableList.of(
       MANAGE_POLICIES_PRIVILEGE,
       MANAGE_USERS_AND_GROUPS_PRIVILEGE,

@@ -1,6 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.policy;
 
-import com.datahub.metadata.authorization.AuthorizationManager;
+import com.datahub.authorization.AuthorizationManager;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;

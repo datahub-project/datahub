@@ -1,6 +1,6 @@
 package com.linkedin.datahub.graphql;
 
-import com.datahub.metadata.authorization.Authorizer;
+import com.datahub.authorization.Authorizer;
 
 
 /**

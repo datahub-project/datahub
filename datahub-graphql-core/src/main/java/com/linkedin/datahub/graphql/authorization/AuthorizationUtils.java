@@ -1,9 +1,9 @@
 package com.linkedin.datahub.graphql.authorization;
 
-import com.datahub.metadata.authorization.AuthorizationRequest;
-import com.datahub.metadata.authorization.AuthorizationResult;
-import com.datahub.metadata.authorization.Authorizer;
-import com.datahub.metadata.authorization.ResourceSpec;
+import com.datahub.authorization.AuthorizationRequest;
+import com.datahub.authorization.AuthorizationResult;
+import com.datahub.authorization.Authorizer;
+import com.datahub.authorization.ResourceSpec;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.metadata.authorization.PoliciesConfig;
@@ -17,6 +17,14 @@ public class AuthorizationUtils {
     final Authorizer authorizer = context.getAuthorizer();
     final String actor = context.getActor();
     final ConjunctivePrivilegeGroup andGroup = new ConjunctivePrivilegeGroup(ImmutableList.of(PoliciesConfig.MANAGE_USERS_AND_GROUPS_PRIVILEGE.getType()));
+    return isAuthorized(authorizer, actor, new DisjunctivePrivilegeGroup(ImmutableList.of(andGroup)));
+  }
+
+  public static boolean canGeneratePersonalAccessToken(@Nonnull QueryContext context) {
+    final Authorizer authorizer = context.getAuthorizer();
+    final String actor = context.getActor();
+    final ConjunctivePrivilegeGroup andGroup = new ConjunctivePrivilegeGroup(
+        ImmutableList.of(PoliciesConfig.GENERATE_PERSONAL_ACCESS_TOKEN_PRIVILEGE.getType()));
     return isAuthorized(authorizer, actor, new DisjunctivePrivilegeGroup(ImmutableList.of(andGroup)));
   }
 

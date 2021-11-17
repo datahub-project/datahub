@@ -46,6 +46,7 @@ public class AuthClient {
   /**
    * Generate a session token for a particular actor, or throws an exception if generation fails.
    */
+  @Nonnull
   public String generateSessionTokenForUser(@Nonnull final String userUrn) {
     Objects.requireNonNull(userUrn);
     CloseableHttpClient httpClient = HttpClients.createDefault();
@@ -62,22 +63,19 @@ public class AuthClient {
       // Add authorization header with DataHub frontend system id and secret.
       request.addHeader(Http.HeaderNames.AUTHORIZATION, String.format("Basic %s:%s", this.systemId, this.systemSecret));
 
-      try (CloseableHttpResponse response = httpClient.execute(request)) {
-        final HttpEntity entity = response.getEntity();
-        if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK && entity != null) {
-          // Successfully generated a token for the User
-          final String jsonStr = EntityUtils.toString(entity);
-          return getAccessTokenFromJson(jsonStr);
-        } else {
-          throw new RuntimeException(
-              String.format("Failed to generated a session token for user. Bad response from the Metadata Service: %s %s",
-                  response.getStatusLine().toString(), response.getEntity().toString()));
-        }
-      } catch (Exception e) {
-        throw new RuntimeException("Failed to generate session token for user!", e);
+      CloseableHttpResponse response = httpClient.execute(request);
+      final HttpEntity entity = response.getEntity();
+      if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK && entity != null) {
+        // Successfully generated a token for the User
+        final String jsonStr = EntityUtils.toString(entity);
+        return getAccessTokenFromJson(jsonStr);
+      } else {
+        throw new RuntimeException(
+            String.format("Bad response from the Metadata Service: %s %s",
+                response.getStatusLine().toString(), response.getEntity().toString()));
       }
     } catch (Exception e) {
-      throw new RuntimeException("Failed to generate session token for user!", e);
+      throw new RuntimeException("Failed to generate session token for user", e);
     } finally {
       try {
         httpClient.close();

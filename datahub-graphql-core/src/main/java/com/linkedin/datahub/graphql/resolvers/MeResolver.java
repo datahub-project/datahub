@@ -1,8 +1,8 @@
 package com.linkedin.datahub.graphql.resolvers;
 
-import com.datahub.metadata.authorization.AuthorizationRequest;
-import com.datahub.metadata.authorization.AuthorizationResult;
-import com.datahub.metadata.authorization.Authorizer;
+import com.datahub.authorization.AuthorizationRequest;
+import com.datahub.authorization.AuthorizationResult;
+import com.datahub.authorization.Authorizer;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.PlatformPrivileges;
@@ -52,6 +52,7 @@ public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUs
         platformPrivileges.setViewAnalytics(canViewAnalytics(context));
         platformPrivileges.setManagePolicies(canManagePolicies(context));
         platformPrivileges.setManageIdentities(canManageUsersGroups(context));
+        platformPrivileges.setGeneratePersonalAccessTokens(canGeneratePersonalAccessToken(context));
 
         // Construct and return authenticated user object.
         final AuthenticatedUser authUser = new AuthenticatedUser();
@@ -83,6 +84,13 @@ public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUs
    */
   private boolean canManageUsersGroups(final QueryContext context) {
     return isAuthorized(context.getAuthorizer(), context.getActor(), PoliciesConfig.MANAGE_USERS_AND_GROUPS_PRIVILEGE);
+  }
+
+  /**
+   * Returns true if the authenticated user has privileges to manage users & groups.
+   */
+  private boolean canGeneratePersonalAccessToken(final QueryContext context) {
+    return isAuthorized(context.getAuthorizer(), context.getActor(), PoliciesConfig.GENERATE_PERSONAL_ACCESS_TOKEN_PRIVILEGE);
   }
 
   /**

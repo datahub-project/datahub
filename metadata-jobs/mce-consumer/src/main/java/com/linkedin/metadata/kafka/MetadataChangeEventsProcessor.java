@@ -3,7 +3,9 @@ package com.linkedin.metadata.kafka;
 import com.codahale.metrics.Histogram;
 import com.codahale.metrics.MetricRegistry;
 import com.linkedin.entity.Entity;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.RestliEntityClient;
+import com.linkedin.gms.factory.entity.RestliEntityClientFactory;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.EventUtils;
 import com.linkedin.metadata.kafka.config.MetadataChangeProposalProcessorCondition;
@@ -21,6 +23,7 @@ import org.apache.commons.lang.exception.ExceptionUtils;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Conditional;
+import org.springframework.context.annotation.Import;
 import org.springframework.kafka.annotation.EnableKafka;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -30,10 +33,11 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @Component
 @Conditional(MetadataChangeProposalProcessorCondition.class)
+@Import({RestliEntityClientFactory.class})
 @EnableKafka
 public class MetadataChangeEventsProcessor {
 
-  private RestliEntityClient entityClient;
+  private EntityClient entityClient;
   private KafkaTemplate<String, GenericRecord> kafkaTemplate;
 
   private final Histogram kafkaLagStats =
@@ -96,7 +100,7 @@ public class MetadataChangeEventsProcessor {
   private void processProposedSnapshot(@Nonnull MetadataChangeEvent metadataChangeEvent) throws RemoteInvocationException {
     final Snapshot snapshotUnion = metadataChangeEvent.getProposedSnapshot();
     final Entity entity = new Entity().setValue(snapshotUnion);
-    // TODO: Get the actor identity from the event header itself.
+    // TODO: GMS Auth Part 2: Get the actor identity from the event header itself.
     entityClient.updateWithSystemMetadata(entity, metadataChangeEvent.getSystemMetadata(), Constants.SYSTEM_ACTOR);
   }
 }

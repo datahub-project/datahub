@@ -360,7 +360,7 @@ public class JavaEntityClient implements EntityClient {
     public <T extends RecordTemplate> Optional<T> getVersionedAspect(@Nonnull String urn, @Nonnull String aspect,
         @Nonnull Long version, @Nonnull String actor, @Nonnull Class<T> aspectClass) throws RemoteInvocationException {
         VersionedAspect entity = _entityService.getVersionedAspect(Urn.createFromString(urn), aspect, version);
-        if (entity.hasAspect()) {
+        if (entity != null && entity.hasAspect()) {
             DataMap rawAspect = ((DataMap) entity.data().get("aspect"));
             if (rawAspect.containsKey(aspectClass.getCanonicalName())) {
                 DataMap aspectDataMap = rawAspect.getDataMap(aspectClass.getCanonicalName());

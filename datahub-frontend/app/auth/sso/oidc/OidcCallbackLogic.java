@@ -1,7 +1,6 @@
 package auth.sso.oidc;
 
 import auth.AuthClient;
-import auth.AuthUtils;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.CorpGroupUrnArray;
 import com.linkedin.common.CorpuserUrnArray;
@@ -152,9 +151,9 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
         return internalServerError(String.format("Failed to perform post authentication steps. Error message: %s", e.getMessage()));
       }
 
-      // Generate GMS login token
-      final String token = AuthUtils.generateMetadataServiceAccessToken(this._authClient, corpUserUrn.toString());
-      context.getJavaSession().put("token",  token);
+      // Successfully logged in - Generate GMS login token
+      final String accessToken = _authClient.generateSessionTokenForUser(corpUserUrn.toString());
+      context.getJavaSession().put(ACCESS_TOKEN,  accessToken);
       context.getJavaSession().put(ACTOR, corpUserUrn.toString());
       return result.withCookies(createActorCookie(corpUserUrn.toString(), oidcConfigs.getSessionTtlInHours()));
     }

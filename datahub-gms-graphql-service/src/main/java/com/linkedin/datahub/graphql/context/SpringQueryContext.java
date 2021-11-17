@@ -1,6 +1,6 @@
 package com.linkedin.datahub.graphql.context;
 
-import com.datahub.metadata.authorization.Authorizer;
+import com.datahub.authorization.Authorizer;
 import org.springframework.stereotype.Component;
 import com.linkedin.datahub.graphql.QueryContext;
 import lombok.AllArgsConstructor;

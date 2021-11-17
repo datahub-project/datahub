@@ -1,7 +1,7 @@
 package com.linkedin.common.client;
 
+import com.datahub.authentication.AuthenticationConstants;
 import com.linkedin.common.callback.FutureCallback;
-import com.linkedin.metadata.Constants;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.restli.client.AbstractRequestBuilder;
 import com.linkedin.restli.client.Client;
@@ -32,9 +32,10 @@ public abstract class BaseClient implements AutoCloseable {
       final String actor) throws RemoteInvocationException {
     // Add an authorization header for system internal call on behalf of a user.
     requestBuilder.addHeader(HttpHeaders.AUTHORIZATION, String.format("Basic %s:%s", _systemClientId, _systemSecret));
+
     // Add a delegation header indicating the original actor who initiated the request.
-    // TODO: Consider passing the original authentication along in the context instead.
-    requestBuilder.addHeader(Constants.INTERNAL_ACTOR_HEADER_NAME, actor);
+    // TODO: Auth Part 2: Propagate the underlying actor privileges instead of the legacy actor urn header. (authentication info)
+    requestBuilder.addHeader(AuthenticationConstants.DELEGATED_FOR_ACTOR_HEADER_NAME, actor);
     return _client.sendRequest(requestBuilder.build()).getResponse();
   }
 

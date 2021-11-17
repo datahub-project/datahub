@@ -24,9 +24,12 @@ import auth.sso.oidc.OidcConfigs;
 import auth.sso.SsoConfigs;
 import auth.sso.SsoManager;
 import controllers.SsoCallbackController;
+import utils.ConfigUtil;
 
 import static auth.AuthUtils.*;
 import static auth.sso.oidc.OidcConfigs.*;
+import static utils.ConfigUtil.*;
+
 
 /**
  * Responsible for configuring, validating, and providing authentication related components.
@@ -101,13 +104,8 @@ public class AuthModule extends AbstractModule {
     @Provides @Singleton
     protected EntityClient provideEntityClient() {
 
-        String systemClientId = "";
-        String systemSecret = "";
-
-        if (isMetadataServiceAuthEnabled(_configs)) {
-            systemClientId = _configs.getString(SYSTEM_CLIENT_ID_CONFIG_PATH);
-            systemSecret = _configs.getString(SYSTEM_CLIENT_SECRET_CONFIG_PATH);
-        }
+        String systemClientId = _configs.getString(SYSTEM_CLIENT_ID_CONFIG_PATH);
+        String systemSecret = _configs.getString(SYSTEM_CLIENT_SECRET_CONFIG_PATH);
 
         return new RestliEntityClient(buildRestliClient(), systemClientId, systemSecret);
     }
@@ -115,45 +113,42 @@ public class AuthModule extends AbstractModule {
     @Provides @Singleton
     protected AuthClient provideAuthClient() {
         // Init a GMS auth client
-        final String metadataServiceHost = _configs.hasPath("metadataService.host")
-            ? _configs.getString("metadataService.host")
+        final String metadataServiceHost = _configs.hasPath(METADATA_SERVICE_HOST_CONFIG_PATH)
+            ? _configs.getString(METADATA_SERVICE_HOST_CONFIG_PATH)
             : Configuration.getEnvironmentVariable(GMS_HOST_ENV_VAR, "localhost");
 
-        final int metadataServicePort = _configs.hasPath("metadataService.host")
-            ? _configs.getInt("metadataService.host")
+        final int metadataServicePort = _configs.hasPath(METADATA_SERVICE_PORT_CONFIG_PATH)
+            ? _configs.getInt(METADATA_SERVICE_PORT_CONFIG_PATH)
             : Integer.parseInt(Configuration.getEnvironmentVariable(GMS_PORT_ENV_VAR, "8080"));
 
-        final Boolean metadataServiceUseSsl = _configs.hasPath("metadataService.useSsl")
-            ? _configs.getBoolean("metadataService.useSsl")
+        final Boolean metadataServiceUseSsl = _configs.hasPath(METADATA_SERVICE_USE_SSL_CONFIG_PATH)
+            ? _configs.getBoolean(METADATA_SERVICE_USE_SSL_CONFIG_PATH)
             : Boolean.parseBoolean(Configuration.getEnvironmentVariable(GMS_USE_SSL_ENV_VAR, "False"));
 
-        String systemClientId = "";
-        String systemSecret = "";
-
-        if (isMetadataServiceAuthEnabled(_configs)) {
-            systemClientId = _configs.getString(SYSTEM_CLIENT_ID_CONFIG_PATH);
-            systemSecret = _configs.getString(SYSTEM_CLIENT_SECRET_CONFIG_PATH);
-        }
-        return new AuthClient(metadataServiceHost, metadataServicePort, metadataServiceUseSsl, systemClientId, systemSecret);
+        String systemClientId = _configs.getString(SYSTEM_CLIENT_ID_CONFIG_PATH);
+        String systemClientSecret = _configs.getString(SYSTEM_CLIENT_SECRET_CONFIG_PATH);
+        return new AuthClient(metadataServiceHost, metadataServicePort, metadataServiceUseSsl, systemClientId, systemClientSecret);
     }
 
     private com.linkedin.restli.client.Client buildRestliClient() {
-        final String metadataServiceHost = _configs.hasPath("metadataService.host")
-            ? _configs.getString("metadataService.host")
-            : Configuration.getEnvironmentVariable(GMS_HOST_ENV_VAR, "localhost");
-
-        final int metadataServicePort = _configs.hasPath("metadataService.host")
-            ? _configs.getInt("metadataService.host")
-            : Integer.parseInt(Configuration.getEnvironmentVariable(GMS_PORT_ENV_VAR, "8080"));
-
-        final Boolean metadataServiceUseSsl = _configs.hasPath("metadataService.useSsl")
-            ? _configs.getBoolean("metadataService.useSsl")
-            : Boolean.parseBoolean(Configuration.getEnvironmentVariable(GMS_USE_SSL_ENV_VAR, "False"));
-
-        final String metadataServiceSslProtocol = _configs.hasPath("metadataService.sslProtocol")
-            ? _configs.getString("metadataService.sslProtocol")
-            : Configuration.getEnvironmentVariable(GMS_SSL_PROTOCOL_VAR);
-
+        final String metadataServiceHost = utils.ConfigUtil.getString(
+            _configs,
+            METADATA_SERVICE_HOST_CONFIG_PATH,
+            utils.ConfigUtil.DEFAULT_METADATA_SERVICE_HOST);
+        final int metadataServicePort = utils.ConfigUtil.getInt(
+            _configs,
+            utils.ConfigUtil.METADATA_SERVICE_PORT_CONFIG_PATH,
+            utils.ConfigUtil.DEFAULT_METADATA_SERVICE_PORT);
+        final boolean metadataServiceUseSsl = utils.ConfigUtil.getBoolean(
+            _configs,
+            utils.ConfigUtil.METADATA_SERVICE_USE_SSL_CONFIG_PATH,
+            ConfigUtil.DEFAULT_METADATA_SERVICE_USE_SSL
+        );
+        final String metadataServiceSslProtocol = utils.ConfigUtil.getString(
+            _configs,
+            utils.ConfigUtil.METADATA_SERVICE_SSL_PROTOCOL_CONFIG_PATH,
+            ConfigUtil.DEFAULT_METADATA_SERVICE_SSL_PROTOCOL
+        );
         return DefaultRestliClientFactory.getRestLiClient(metadataServiceHost, metadataServicePort, metadataServiceUseSsl, metadataServiceSslProtocol);
     }
 

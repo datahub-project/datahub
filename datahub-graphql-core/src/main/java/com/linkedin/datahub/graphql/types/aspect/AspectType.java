@@ -34,7 +34,6 @@ public class AspectType {
           if (entity == null) {
             return DataFetcherResult.<Aspect>newResult().data(null).build();
           }
-
           return DataFetcherResult.<Aspect>newResult().data(AspectMapper.map(entity)).build();
         } catch (RemoteInvocationException e) {
           if (e instanceof RestLiResponseException) {

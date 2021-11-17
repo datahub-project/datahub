@@ -224,6 +224,7 @@ public interface EntityClient {
       @Nonnull String actor)
       throws RemoteInvocationException;
 
+  @Nullable
   public VersionedAspect getAspect(
       @Nonnull String urn,
       @Nonnull String aspect,
@@ -231,6 +232,7 @@ public interface EntityClient {
       @Nonnull String actor)
       throws RemoteInvocationException;
 
+  @Nullable
   public VersionedAspect getAspectOrNull(
       @Nonnull String urn,
       @Nonnull String aspect,
@@ -252,6 +254,7 @@ public interface EntityClient {
       @Nonnull final String actor
   ) throws RemoteInvocationException;
 
+  @Nonnull
   public <T extends RecordTemplate> Optional<T> getVersionedAspect(
       @Nonnull String urn,
       @Nonnull String aspect,

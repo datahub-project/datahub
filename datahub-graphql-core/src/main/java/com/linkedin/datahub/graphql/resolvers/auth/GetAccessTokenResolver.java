@@ -6,6 +6,7 @@ import com.datahub.authentication.token.TokenType;
 import com.datahub.authentication.token.TokenService;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.AccessToken;
 import com.linkedin.datahub.graphql.generated.AccessTokenDuration;
@@ -38,10 +39,9 @@ public class GetAccessTokenResolver implements DataFetcher<CompletableFuture<Acc
   public CompletableFuture<AccessToken> get(final DataFetchingEnvironment environment) throws Exception {
     return CompletableFuture.supplyAsync(() -> {
       final QueryContext context = environment.getContext();
-      final String authenticatedActor = context.getActor();
       final GetAccessTokenInput input = bindArgument(environment.getArgument("input"), GetAccessTokenInput.class);
 
-      if (isAuthorizedToGenerateToken(authenticatedActor, input)) {
+      if (isAuthorizedToGenerateToken(context, input)) {
         final TokenType type = TokenType.valueOf(input.getType().toString()); // warn: if we are out of sync here there are problems.
         final String actorUrn = input.getActorUrn();
         final long expiresInMs = mapDurationToMs(input.getDuration());
@@ -54,10 +54,11 @@ public class GetAccessTokenResolver implements DataFetcher<CompletableFuture<Acc
     });
   }
 
-  private boolean isAuthorizedToGenerateToken(final String actor, GetAccessTokenInput input) {
+  private boolean isAuthorizedToGenerateToken(final QueryContext context, final GetAccessTokenInput input) {
     // TODO: Add a privilege for generating service access tokens.
     // Currently only an actor can generate a personal token for themselves.
-    return input.getActorUrn().equals(actor) && AccessTokenType.PERSONAL.equals(input.getType());
+    return AuthorizationUtils.canGeneratePersonalAccessToken(context)
+      && input.getActorUrn().equals(context.getActor()) && AccessTokenType.PERSONAL.equals(input.getType());
   }
 
   private long mapDurationToMs(final AccessTokenDuration duration) {
@@ -83,7 +84,7 @@ public class GetAccessTokenResolver implements DataFetcher<CompletableFuture<Acc
     if (AccessTokenType.PERSONAL.equals(tokenType)) {
       // If we are generating a personal access token, then the actor will be of "CORP_USER" type.
       return new Actor(
-          ActorType.CORP_USER,
+          ActorType.USER,
           createUrn(actorUrn).getId()
       );
     }

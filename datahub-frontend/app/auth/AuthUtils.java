@@ -46,14 +46,15 @@ public class AuthUtils {
     public static final String USER_NAME = "username";
     public static final String PASSWORD = "password";
     public static final String ACTOR = "actor";
+    public static final String ACCESS_TOKEN = "token";
 
     /**
-     * Determines whether the inbound request should be forward to downstream GMS. Today, this simply
+     * Determines whether the inbound request should be forward to downstream Metadata Service. Today, this simply
      * checks for the presence of an "Authorization" header or the presence of a valid session cookie issued
      * by the frontend.
      *
      * Note that this method DOES NOT actually verify the authentication token of an inbound request. That will
-     * be handled by the downstream GMS service. Until then, the request should be treated as UNAUTHENTICATED.
+     * be handled by the downstream Metadata Service. Until then, the request should be treated as UNAUTHENTICATED.
      *
      * Returns true if the request is eligible to be forwarded to GMS, false otherwise.
      */
@@ -76,13 +77,10 @@ public class AuthUtils {
     }
 
     /**
-     * Returns true if a request is authenticated, false otherwise.
-     *
-     * Note that we depend on the presence of 2 cookies, one accessible to the browser and one not,
-     * as well as their agreement to determine authentication status.
+     * Returns true if a request includes the Authorization header, false otherwise
      */
     public static boolean hasAuthHeader(final Http.Context ctx) {
-        return ctx.request().getHeaders().contains("Authorization");
+        return ctx.request().getHeaders().contains(Http.HeaderNames.AUTHORIZATION);
     }
 
     /**
@@ -96,19 +94,6 @@ public class AuthUtils {
                 .withHttpOnly(false)
                 .withMaxAge(Duration.of(ttlInHours, ChronoUnit.HOURS))
                 .build();
-    }
-
-    /**
-     * Attempt to generate a GMS session token for a particular user after they've been successfully logged in.
-     *
-     * Notice that the method that is
-     */
-    public static String generateMetadataServiceAccessToken(final AuthClient authClient, final String userUrn) {
-        try {
-            return authClient.generateSessionTokenForUser(userUrn);
-        } catch (Exception e) {
-            return null;
-        }
     }
 
     private AuthUtils() { }

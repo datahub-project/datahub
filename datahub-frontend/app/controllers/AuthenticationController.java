@@ -91,8 +91,8 @@ public class AuthenticationController extends Controller {
 
         // 3. If no auth enabled, fallback to using default user account & redirect.
         // Generate GMS session token, TODO:
-        final String gmsToken = AuthUtils.generateMetadataServiceAccessToken(this._authClient, DEFAULT_ACTOR_URN.toString());
-        session().put("token", gmsToken);
+        final String accessToken = _authClient.generateSessionTokenForUser(DEFAULT_ACTOR_URN.toString());
+        session().put(ACCESS_TOKEN, accessToken);
         session().put(ACTOR, DEFAULT_ACTOR_URN.toString());
         return redirect(redirectPath).withCookies(createActorCookie(DEFAULT_ACTOR_URN.toString(), _configs.hasPath(SESSION_TTL_CONFIG_PATH)
                 ? _configs.getInt(SESSION_TTL_CONFIG_PATH)
@@ -134,17 +134,10 @@ public class AuthenticationController extends Controller {
         }
 
 
-        // Generate GMS session token,
-
-
-
         final String actorUrn = new CorpuserUrn(username).toString();
-        final String gmsToken = AuthUtils.generateMetadataServiceAccessToken(this._authClient, actorUrn);
-
+        final String accessToken = _authClient.generateSessionTokenForUser(actorUrn);
         ctx().session().put(ACTOR, actorUrn);
-        if (gmsToken != null) {
-            ctx().session().put("token", gmsToken);
-        }
+        ctx().session().put(ACCESS_TOKEN, accessToken);
         return ok().withCookies(Http.Cookie.builder(ACTOR, actorUrn)
             .withHttpOnly(false)
             .withMaxAge(Duration.of(30, ChronoUnit.DAYS))

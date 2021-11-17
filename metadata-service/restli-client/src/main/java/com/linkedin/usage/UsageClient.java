@@ -12,6 +12,10 @@ import javax.annotation.Nonnull;
 
 public class UsageClient extends BaseClient {
 
+    private static final UsageStatsRequestBuilders USAGE_STATS_REQUEST_BUILDERS =
+        new UsageStatsRequestBuilders();
+
+
     public UsageClient(@Nonnull final Client restliClient) {
         this(restliClient, null, null);
     }
@@ -19,9 +23,6 @@ public class UsageClient extends BaseClient {
     public UsageClient(@Nonnull final Client restliClient, String systemClientId, String systemSecret) {
         super(restliClient, systemClientId, systemSecret);
     }
-
-    private static final UsageStatsRequestBuilders USAGE_STATS_REQUEST_BUILDERS =
-            new UsageStatsRequestBuilders();
 
     /**
      * Gets a specific version of downstream {@link EntityRelationships} for the given dataset.
