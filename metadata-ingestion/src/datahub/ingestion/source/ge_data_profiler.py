@@ -112,6 +112,8 @@ class GEProfilingConfig(ConfigModel):
     # https://docs.python.org/3/library/concurrent.futures.html#concurrent.futures.ThreadPoolExecutor
     max_workers: int = 5 * (os.cpu_count() or 4)
 
+    # The query combiner enables us to combine multiple queries into a single query,
+    # reducing the number of round-trips to the database and speeding up profiling.
     query_combiner_enabled: bool = True
 
     # Hidden option - used for debugging purposes.
@@ -314,6 +316,7 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
         column_spec.nonnull_count = nonnull_count
 
         unique_count = None
+        pct_unique = None
         try:
             unique_count = self.dataset.get_column_unique_count(column)
             pct_unique = float(unique_count) / nonnull_count
