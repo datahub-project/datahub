@@ -55,10 +55,15 @@ public class GetAccessTokenResolver implements DataFetcher<CompletableFuture<Acc
   }
 
   private boolean isAuthorizedToGenerateToken(final QueryContext context, final GetAccessTokenInput input) {
-    // TODO: Add a privilege for generating service access tokens.
     // Currently only an actor can generate a personal token for themselves.
-    return AuthorizationUtils.canGeneratePersonalAccessToken(context)
-      && input.getActorUrn().equals(context.getActor()) && AccessTokenType.PERSONAL.equals(input.getType());
+    if (AccessTokenType.PERSONAL.equals(input.getType())) {
+      return isAuthorizedToGeneratePersonalAccessToken(context, input);
+    }
+    throw new UnsupportedOperationException(String.format("Unsupported AccessTokenType %s provided", input.getType()));
+  }
+
+  private boolean isAuthorizedToGeneratePersonalAccessToken(final QueryContext context, final GetAccessTokenInput input) {
+    return input.getActorUrn().equals(context.getActor()) && AuthorizationUtils.canGeneratePersonalAccessToken(context);
   }
 
   private long mapDurationToMs(final AccessTokenDuration duration) {
