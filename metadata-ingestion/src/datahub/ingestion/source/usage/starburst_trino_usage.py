@@ -4,6 +4,7 @@ import json
 import logging
 import sys
 from datetime import datetime
+from email.utils import parseaddr
 from typing import Dict, Iterable, List
 
 from dateutil import parser
@@ -178,7 +179,7 @@ if sys.version_info >= (3, 7):  # noqa: C901
                     event_dict["accessed_metadata"]
                 )
 
-                if not event_dict.get("usr") or event_dict["usr"] == "":
+                if not event_dict.get("usr"):
                     logging.info("The username parameter is missing. Skipping ....")
                     continue
 
@@ -220,7 +221,11 @@ if sys.version_info >= (3, 7):  # noqa: C901
 
                     # add @unknown.com to username
                     # current limitation in user stats UI, we need to provide email to show users
-                    username = f"{event.usr if event.usr else 'unknown'}@{self.config.email_domain}"
+                    if "@" in parseaddr(event.usr)[1]:
+                        username = event.usr
+                    else:
+                        username = f"{event.usr if event.usr else 'unknown'}@{self.config.email_domain}"
+
                     agg_bucket.add_read_entry(
                         username,
                         event.query,
