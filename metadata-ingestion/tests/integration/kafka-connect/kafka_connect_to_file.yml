@@ -5,8 +5,12 @@ run_id: kafka-connect-run
 source:
   type: "kafka-connect"
   config:
-    connect_uri: "http://localhost:58083"
-    construct_lineage_workunits: False
+    connect_uri: "http://localhost:58083"    
+    provided_configs:
+      - provider: env
+        path_key: MYSQL_CONNECTION_URL
+        value: jdbc:mysql://test_mysql:3306/librarydb
+    construct_lineage_workunits: false
 
 # see https://datahubproject.io/docs/metadata-ingestion/sink_docs/datahub for complete documentation
 sink:
