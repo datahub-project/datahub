@@ -3,10 +3,13 @@ import os
 import pprint
 import shutil
 from typing import List, Optional, Union
+import logging
 
 import deepdiff
 
 from tests.test_helpers.type_helpers import PytestConfig
+
+logger = logging.getLogger(__name__)
 
 IGNORE_PATH_TIMESTAMPS = [
     # Ignore timestamps from the ETL pipeline. A couple examples:
@@ -25,6 +28,21 @@ def load_json_file(filename: Union[str, os.PathLike]) -> object:
         a = json.load(f)
     return a
 
+def clean_nones(value):
+    """
+    Recursively remove all None values from dictionaries and lists, and returns
+    the result as a new dictionary or list.
+    """
+    if isinstance(value, list):
+        return [clean_nones(x) for x in value if x is not None]
+    elif isinstance(value, dict):
+        return {
+            key: clean_nones(val)
+            for key, val in value.items()
+            if val is not None
+        }
+    else:
+        return value
 
 def assert_mces_equal(
     output: object, golden: object, ignore_paths: Optional[List[str]] = None
@@ -34,7 +52,16 @@ def assert_mces_equal(
         golden, output, exclude_regex_paths=ignore_paths, ignore_order=True
     )
     if diff:
-        assert not diff, f"MCEs differ\n{pprint.pformat(diff)}"
+        # Attempt a clean diff (removing None-s)
+        clean_output = [ clean_nones(o) for o in output]
+        clean_golden = [ clean_nones(g) for g in golden]
+        clean_diff = deepdiff.DeepDiff(
+        clean_golden, clean_output, exclude_regex_paths=ignore_paths, ignore_order=True)
+        if clean_diff != diff:
+            logger.warning(f"MCE-s differ, clean MCE-s are fine\n{pprint.pformat(diff)}")
+        diff = clean_diff
+
+    assert not diff, f"MCEs differ\n{pprint.pformat(diff)}"
 
 
 def check_golden_file(
