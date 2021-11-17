@@ -108,7 +108,7 @@ def test_kafka_connect_ingest(docker_compose_runner, pytestconfig, tmp_path, moc
                             "mode": "incrementing",
                             "incrementing.column.name": "id",
                             "query": "select * from member",
-                            "topic.prefix": "query-topic",                            
+                            "topic.prefix": "query-topic",
                             "tasks.max": "1",
                             "connection.url": "${env:MYSQL_CONNECTION_URL}"
                         }
