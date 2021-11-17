@@ -95,6 +95,15 @@ div[class^="announcementBarContent"] {
   }
 }
 
+@media only screen and (max-width: 1050px) {
+  .navbar__toggle {
+    display: inherit;
+  }
+  .navbar__item {
+    display: none;
+  }
+}
+
 .navbar {
   .navbar__logo {
     height: 3rem;
