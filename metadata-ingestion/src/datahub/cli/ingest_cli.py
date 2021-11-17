@@ -41,6 +41,7 @@ def ingest() -> None:
     required=True,
 )
 @click.option(
+    "-n",
     "--dry-run",
     type=bool,
     is_flag=True,
@@ -48,13 +49,13 @@ def ingest() -> None:
     help="Perform a dry run of the ingestion, essentially skipping writing to sink.",
 )
 @click.option(
-    "--preview-mode",
+    "--preview",
     type=bool,
     is_flag=True,
     default=False,
     help="Perform limited ingestion from the source to the sink to get a quick preview.",
 )
-def run(config: str, dry_run: bool, preview_mode: bool) -> None:
+def run(config: str, dry_run: bool, preview: bool) -> None:
     """Ingest metadata into DataHub."""
     logger.debug("DataHub CLI version: %s", datahub_package.nice_version_name())
 
@@ -63,7 +64,7 @@ def run(config: str, dry_run: bool, preview_mode: bool) -> None:
 
     try:
         logger.debug(f"Using config: {pipeline_config}")
-        pipeline = Pipeline.create(pipeline_config, dry_run, preview_mode)
+        pipeline = Pipeline.create(pipeline_config, dry_run, preview)
     except ValidationError as e:
         click.echo(e, err=True)
         sys.exit(1)
