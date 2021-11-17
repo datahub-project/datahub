@@ -58,6 +58,16 @@ module.exports = {
           position: "right",
         },
         {
+          href: "https://blog.datahubproject.io/",
+          label: "Blog",
+          position: "right",
+        },
+        {
+          href: "https://feature-requests.datahubproject.io/",
+          label: "Feature Requests",
+          position: "right",
+        },
+        {
           href: "https://slack.datahubproject.io",
           "aria-label": "Slack",
           position: "right",
@@ -119,6 +129,11 @@ module.exports = {
               href: "https://www.youtube.com/channel/UC3qFQC5IiwR5fvWEqi_tJ5w",
             },
             {
+              href: "https://blog.datahubproject.io/",
+              label: "Blog",
+              position: "right",
+            },
+            {
               label: "Town Halls",
               to: "docs/townhalls",
             },
@@ -146,6 +161,10 @@ module.exports = {
             {
               label: "GitHub",
               href: "https://github.com/linkedin/datahub",
+            },
+            {
+              href: "https://feature-requests.datahubproject.io/",
+              label: "Feature Requests",
             },
           ],
         },

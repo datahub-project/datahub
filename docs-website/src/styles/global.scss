@@ -28,6 +28,7 @@
 
   /* Navbar */
   --ifm-navbar-height: 70px;
+  --ifm-navbar-item-padding-horizontal: 1rem;
 
   /* Announcement Bar */
   --docusaurus-announcement-bar-height: 60px !important;
@@ -99,6 +100,9 @@ div[class^="announcementBarContent"] {
     height: 3rem;
   }
   .navbar__item {
+    svg[class*="iconExternalLink"] {
+      display: none;
+    }
     &.item__icon {
       height: 34px;
       width: 46px;
