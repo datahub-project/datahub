@@ -44,7 +44,7 @@ public class IngestRootUserStep implements BootstrapStep {
           userObj.getNodeType()));
     }
 
-    // 2. Ingest the user info if it does not yet exist.
+    // 2. Ingest the user info
     final Urn urn;
     try {
       urn = Urn.createFromString(userObj.get("urn").asText());
