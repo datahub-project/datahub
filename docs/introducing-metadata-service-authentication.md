@@ -251,24 +251,26 @@ sink:
 
 ### The Role of DataHub Frontend Proxy Going Forward
 
-With these changes, DataHub Frontend will continue to play a vital part in the complex dance of Authentication. It will serve as the place
-where UI-based session authentication, i.e. "login", originates and will continue to support 3rd Party SSO configuration (OIDC)
-and JAAS configuration as it does today. The major improvement is that the Frontend Service will exchange credentials provided at "login" time
-for a *DataHub Access Token* (described below), standing in replacement of the traditional session cookie (which will continue to work as well).
+With these changes, DataHub Frontend Proxy will continue to play a vital part in the complex dance of Authentication. It will serve as the place
+where UI-based session authentication originates and will continue to support 3rd Party SSO configuration (OIDC)
+and JAAS configuration as it does today. 
 
-To accomplish this, DataHub Frontend issues requests to the Metadata Service to generate an Access Token *on behalf of* a
-user who has logged in with the DataHub UI.
+The major improvement is that the Frontend Service will exchange credentials provided at UI login time
+for a DataHub **Access Token**, standing in replacement of the traditional session cookie (which will continue to work).
+
+In summary, DataHub Frontend Service will continue to play a vital role to Authentication. It's scope, however, will likely
+remain limited to concerns specific to the React UI.
 
 ## The Opportunities Ahead
 
-These changes represent the first milestone in Metadata Service Authentication. They will serve as a foundation upon which we can build new features as requested by the community:
+These changes represent the first milestone in Metadata Service Authentication. They will serve as a foundation upon which we can build new features, prioritized based on Community demand:
 
 1. **Custom Authenticator Plugins**: Configure + register custom Authenticator implementations, without forking DataHub. 
 2. **Service Accounts**: Create service accounts and generate Access tokens on their behalf. 
 3. **Kafka Ingestion Authentication**: Authenticate ingestion requests coming from the Kafka ingestion sink inside the Metadata Service.
 4. **Access Token Management**: Ability to view, manage, and revoke access tokens that have been generated. (Currently, access tokens inlcude no server side state, and thus cannot be revoked once granted)
 
-...and more! To request prioritization of these authentication features or others, let us know on [Slack](https://datahubspace.slack.com/join/shared_invite/zt-nx7i0dj7-I3IJYC551vpnvvjIaNRRGw#/shared-invite/email). 
+...and more! To advocate for these features or others, reach out on [Slack](https://datahubspace.slack.com/join/shared_invite/zt-nx7i0dj7-I3IJYC551vpnvvjIaNRRGw#/shared-invite/email). 
 
 ## Q&As 
 
