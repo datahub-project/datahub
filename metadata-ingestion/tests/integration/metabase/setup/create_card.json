@@ -1,0 +1,77 @@
+{
+	"name": "People, Count, Grouped by Created At (month)",
+	"dataset_query": {
+		"type": "query",
+		"database": 1,
+		"query": {
+			"source-table": 3,
+			"breakout": [
+				["field", 18, {
+					"temporal-unit": "month"
+				}]
+			],
+			"aggregation": [
+				["count"]
+			]
+		}
+	},
+	"display": "line",
+	"description": null,
+	"visualization_settings": {
+		"graph.series_labels": ["number"],
+		"graph.metrics": ["count"],
+		"graph.dimensions": ["CREATED_AT"],
+		"graph.colors": ["#f9d45c"]
+	},
+	"collection_id": null,
+	"result_metadata": [{
+		"description": "The date the user record was created. Also referred to as the user’s \"join date\"",
+		"semantic_type": "type/CreationTimestamp",
+		"coercion_strategy": null,
+		"unit": "month",
+		"name": "CREATED_AT",
+		"field_ref": ["field", 18, {
+			"temporal-unit": "month"
+		}],
+		"effective_type": "type/DateTime",
+		"id": 18,
+		"display_name": "Created At",
+		"fingerprint": {
+			"global": {
+				"distinct-count": 2500,
+				"nil%": 0
+			},
+			"type": {
+				"type/DateTime": {
+					"earliest": "2016-04-19T21:35:18.752Z",
+					"latest": "2019-04-19T14:06:27.3Z"
+				}
+			}
+		},
+		"base_type": "type/DateTime"
+	}, {
+		"name": "count",
+		"display_name": "Count",
+		"base_type": "type/BigInteger",
+		"effective_type": "type/BigInteger",
+		"semantic_type": "type/Quantity",
+		"field_ref": ["aggregation", 0],
+		"fingerprint": {
+			"global": {
+				"distinct-count": 23,
+				"nil%": 0
+			},
+			"type": {
+				"type/Number": {
+					"min": 26,
+					"q1": 64.12917130661303,
+					"q3": 72.375,
+					"max": 91,
+					"sd": 10.356266327796531,
+					"avg": 67.56756756756756
+				}
+			}
+		}
+	}],
+	"metadata_checksum": "ijDh5KpMWMJbgpI8Cwu7CA=="
+}

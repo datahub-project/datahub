@@ -1,0 +1,95 @@
+[
+{
+    "auditHeader": null,
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DashboardSnapshot": {
+            "urn": "urn:li:dashboard:(metabase,1)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.dashboard.DashboardInfo": {
+                        "customProperties": {},
+                        "externalUrl": null,
+                        "title": "Dashboard",
+                        "description": "",
+                        "charts": [
+                            "urn:li:chart:(metabase,1)"
+                        ],
+                        "lastModified": {
+                            "created": {
+                                "time": null,
+                                "actor": "urn:li:corpuser:admin@metabase.com",
+                                "impersonator": null
+                            },
+                            "lastModified": {
+                                "time": null,
+                                "actor": "urn:li:corpuser:admin@metabase.com",
+                                "impersonator": null
+                            },
+                            "deleted": null
+                        },
+                        "dashboardUrl": "http://localhost:3000/api/dashboard/1",
+                        "access": null,
+                        "lastRefreshed": null
+                    }
+                }
+            ]
+        }
+    },
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1636614000000,
+        "runId": "mysql-test",
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
+            "urn": "urn:li:chart:(metabase,1)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.chart.ChartInfo": {
+                        "customProperties": {
+                            "Metrics": "Count",
+                            "Filters": "[, ]",
+                            "Dimensions": "Created At"
+                        },
+                        "externalUrl": null,
+                        "title": "People, Count, Grouped by Created At (month)",
+                        "description": "",
+                        "lastModified": {
+                            "created": {
+                                "time": null,
+                                "actor": "urn:li:corpuser:admin@metabase.com",
+                                "impersonator": null
+                            },
+                            "lastModified": {
+                                "time": null,
+                                "actor": "urn:li:corpuser:admin@metabase.com",
+                                "impersonator": null
+                            },
+                            "deleted": null
+                        },
+                        "chartUrl": "http://localhost:3000/api/card/1",
+                        "inputs": [
+                            {
+                                "string": "urn:li:dataset:(urn:li:dataPlatform:h2,Sample Dataset.PUBLIC.PEOPLE,PROD)"
+                            }
+                        ],
+                        "type": "LINE",
+                        "access": null,
+                        "lastRefreshed": null
+                    }
+                }
+            ]
+        }
+    },
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1636614000000,
+        "runId": "mysql-test",
+        "properties": null
+    }
+}
+]

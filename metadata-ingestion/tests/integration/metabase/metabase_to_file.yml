@@ -1,0 +1,13 @@
+run_id: mysql-test
+
+source:
+  type: "metabase"
+  config:
+    username: admin@metabase.com
+    password: admin12345
+    connect_uri: http://localhost:3000/
+
+sink:
+  type: file
+  config:
+    filename: "./metabase_mces.json"
