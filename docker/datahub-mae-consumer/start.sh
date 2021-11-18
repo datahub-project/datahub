@@ -5,14 +5,9 @@ if ! echo $NEO4J_HOST | grep -q "://" ; then
     NEO4J_HOST="http://$NEO4J_HOST"
 fi
 
-if [[ -z $ELASTICSEARCH_USERNAME ]]; then
-    ELASTICSEARCH_HOST_URL=$ELASTICSEARCH_HOST
-else
-  if [[ -z $ELASTICSEARCH_AUTH_HEADER ]]; then
-    ELASTICSEARCH_HOST_URL=$ELASTICSEARCH_USERNAME:$ELASTICSEARCH_PASSWORD@$ELASTICSEARCH_HOST
-  else
-    ELASTICSEARCH_HOST_URL=$ELASTICSEARCH_HOST
-  fi
+if [[ ! -z $ELASTICSEARCH_USERNAME ]] && [[ -z $ELASTICSEARCH_AUTH_HEADER ]]; then
+  AUTH_TOKEN=$(echo -ne "$ELASTICSEARCH_USERNAME:$ELASTICSEARCH_PASSWORD" | base64 --wrap 0)
+  ELASTICSEARCH_AUTH_HEADER="Authorization:Basic $AUTH_TOKEN"
 fi
 
 # Add default header if needed
@@ -44,7 +39,7 @@ fi
 
 dockerize \
   -wait tcp://$(echo $KAFKA_BOOTSTRAP_SERVER | sed 's/,/ -wait tcp:\/\//g') \
-  -wait $ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_HOST_URL:$ELASTICSEARCH_PORT -wait-http-header "$ELASTICSEARCH_AUTH_HEADER" \
+  -wait $ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_HOST:$ELASTICSEARCH_PORT -wait-http-header "$ELASTICSEARCH_AUTH_HEADER" \
   $WAIT_FOR_NEO4J \
   -timeout 240s \
   java $JAVA_OPTS $JMX_OPTS $OTEL_AGENT $PROMETHEUS_AGENT -jar /datahub/datahub-mae-consumer/bin/mae-consumer-job.jar
