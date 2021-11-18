@@ -1242,7 +1242,6 @@ def test_generate_personal_access_token(frontend_session):
     response.raise_for_status()
     res_data = response.json()
 
-    print(res_data)
     assert res_data
     assert res_data["data"]
     assert res_data["data"]["getAccessToken"]["accessToken"] is not None
@@ -1269,4 +1268,4 @@ def test_generate_personal_access_token(frontend_session):
     res_data = response.json()
 
     assert res_data
-    assert "error" in res_data # Assert the request fails
+    assert "errors" in res_data # Assert the request fails
