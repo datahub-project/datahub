@@ -1,4 +1,3 @@
-import json
 from functools import lru_cache
 
 from datahub.configuration.common import ConfigModel
@@ -6,6 +5,7 @@ from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.utilities import config_clean
 
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
     AuditStamp,
@@ -26,10 +26,8 @@ from datahub.metadata.schema_classes import (
 from typing import (
     Dict,
     Iterable,
-    List,
     Optional
 )
-from datahub.utilities import config_clean
 
 import dateutil.parser as dp
 import requests

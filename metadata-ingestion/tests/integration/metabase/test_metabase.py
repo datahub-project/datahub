@@ -1,6 +1,7 @@
 import time
 
 import pytest
+import requests
 from click.testing import CliRunner
 from freezegun import freeze_time
 
@@ -8,7 +9,7 @@ from datahub.entrypoints import datahub
 from tests.test_helpers import fs_helpers, mce_helpers
 from tests.test_helpers.click_helpers import assert_result_ok
 from tests.test_helpers.docker_helpers import wait_for_port
-import requests
+
 
 FROZEN_TIME = "2021-11-11 07:00:00"
 METABASE_URL = "http://localhost:3000"
@@ -48,7 +49,7 @@ def test_metabase_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_tim
     ) as docker_services:
         wait_for_port(docker_services, "testmetabase", 3000)
 
-        # sleep for few seconds. Metabase is not usually ready to accept connections
+        # Delay API call for few seconds. Metabase is not usually ready to accept connections
         # even when port is available
         time.sleep(8)
 
