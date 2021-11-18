@@ -24,7 +24,7 @@ const SettingsBarHeader = styled.div`
 
 const PageTitle = styled(Typography.Title)`
     && {
-        margin-bottom: 12px;
+        margin-bottom: 8px;
     }
 `;
 
