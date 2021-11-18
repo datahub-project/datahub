@@ -64,7 +64,7 @@ In following sections, we'll take a closer look at each individually.
 
 #### What is an Actor?
 
-An "Actor" is a concept within the new Authentication subsystem to represent a unique identity / principal that is initiating actions (e.g. read / write requests) 
+An **Actor** is a concept within the new Authentication subsystem to represent a unique identity / principal that is initiating actions (e.g. read & write requests) 
 on the platform. 
 
 An actor can be characterized by 2 attributes:
@@ -142,13 +142,13 @@ If an Actor is unable to be resolved by the AuthenticatorChain, then a 401 unaut
 
 #### What is a DataHub Token Service? What are Access Tokens?  
 
-Along with Metadata Service Authentication comes an important new component called the `DataHub Token Service`. The purpose of this
+Along with Metadata Service Authentication comes an important new component called the **DataHub Token Service**. The purpose of this
 component is twofold:
 
-1. Generate **Access Tokens** that grant access to the Metadata Service 
-2. Verify the validity of **Access Tokens** presented to the Metadata Service
+1. Generate Access Tokens that grant access to the Metadata Service 
+2. Verify the validity of Access Tokens presented to the Metadata Service
 
-Access Tokens granted by the Token Service take the form of [Json Web Tokens](https://jwt.io/introduction), a type of stateless token which
+**Access Tokens** granted by the Token Service take the form of [Json Web Tokens](https://jwt.io/introduction), a type of stateless token which
 has a finite lifespan & is verified using a unique signature. JWTs can also contain a set of claims embedded within them. Tokens issued by the Token
 Service contain the following claims:
 
