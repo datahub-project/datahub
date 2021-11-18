@@ -47,10 +47,8 @@ def test_kafka_connect_ingest(docker_compose_runner, pytestconfig, tmp_path, moc
                             "mode": "incrementing",
                             "incrementing.column.name": "id",
                             "topic.prefix": "test-mysql-jdbc-",
-                            "connection.password": "datahub",
-                            "connection.user": "foo",
                             "tasks.max": "1",
-                            "connection.url": "jdbc:mysql://test_mysql:3306/librarydb"
+                            "connection.url": "${env:MYSQL_CONNECTION_URL}"
                         }
                     }
                     """,
@@ -66,10 +64,8 @@ def test_kafka_connect_ingest(docker_compose_runner, pytestconfig, tmp_path, moc
                             "connector.class": "io.confluent.connect.jdbc.JdbcSourceConnector",
                             "mode": "incrementing",
                             "incrementing.column.name": "id",
-                            "connection.password": "datahub",
-                            "connection.user": "foo",
                             "tasks.max": "1",
-                            "connection.url": "jdbc:mysql://test_mysql:3306/librarydb",
+                            "connection.url": "${env:MYSQL_CONNECTION_URL}",
                             "transforms": "TotalReplacement",
                             "transforms.TotalReplacement.type": "org.apache.kafka.connect.transforms.RegexRouter",
                             "transforms.TotalReplacement.regex": ".*(book)",
@@ -90,10 +86,8 @@ def test_kafka_connect_ingest(docker_compose_runner, pytestconfig, tmp_path, moc
                             "mode": "incrementing",
                             "incrementing.column.name": "id",
                             "table.whitelist": "book",
-                            "connection.password": "datahub",
-                            "connection.user": "foo",
                             "tasks.max": "1",
-                            "connection.url": "jdbc:mysql://test_mysql:3306/librarydb",
+                            "connection.url": "${env:MYSQL_CONNECTION_URL}",
                             "transforms": "TotalReplacement",
                             "transforms.TotalReplacement.type": "org.apache.kafka.connect.transforms.RegexRouter",
                             "transforms.TotalReplacement.regex": ".*",
@@ -115,10 +109,8 @@ def test_kafka_connect_ingest(docker_compose_runner, pytestconfig, tmp_path, moc
                             "incrementing.column.name": "id",
                             "query": "select * from member",
                             "topic.prefix": "query-topic",
-                            "connection.password": "datahub",
-                            "connection.user": "foo",
                             "tasks.max": "1",
-                            "connection.url": "jdbc:mysql://test_mysql:3306/librarydb"
+                            "connection.url": "${env:MYSQL_CONNECTION_URL}"
                         }
                     }
                     """,
@@ -134,12 +126,10 @@ def test_kafka_connect_ingest(docker_compose_runner, pytestconfig, tmp_path, moc
                         "connector.class": "io.confluent.connect.jdbc.JdbcSourceConnector",
                         "mode": "incrementing",
                         "incrementing.column.name": "id",
-                        "connection.password": "datahub",
-                        "connection.user": "foo",
                         "table.whitelist": "book",
                         "topic.prefix": "test-mysql-jdbc2-",
                         "tasks.max": "1",
-                        "connection.url": "jdbc:mysql://test_mysql:3306/librarydb",
+                        "connection.url": "${env:MYSQL_CONNECTION_URL}",
                         "transforms": "changetopic",
                         "transforms.changetopic.type": "io.confluent.connect.transforms.ExtractTopic$Value",
                         "transforms.changetopic.field": "name"
@@ -159,10 +149,8 @@ def test_kafka_connect_ingest(docker_compose_runner, pytestconfig, tmp_path, moc
                             "insert.mode": "insert",
                             "auto.create": true,
                             "topics": "my-topic",
-                            "connection.password": "datahub",
-                            "connection.user": "foo",
                             "tasks.max": "1",
-                            "connection.url": "jdbc:mysql://test_mysql:3306/librarydb"
+                            "connection.url": "${env:MYSQL_CONNECTION_URL}"
                         }
                     }
                     """,
@@ -193,7 +181,7 @@ def test_kafka_connect_ingest(docker_compose_runner, pytestconfig, tmp_path, moc
         assert r.status_code == 201  # Created
 
         # Give time for connectors to process the table data
-        time.sleep(60)
+        time.sleep(45)
 
         # Run the metadata ingestion pipeline.
         runner = CliRunner()
