@@ -396,11 +396,17 @@ def get_upstreams(
         # create lineages for platform nodes otherwise, for dbt node, we connect it to another dbt node or a platform
         # node.
         platform_value = DBT_PLATFORM
+
         if disable_dbt_node_creation:
             platform_value = target_platform
         else:
             materialized = upstream_manifest_node.get("config", {}).get("materialized")
-            if materialized in {"view", "table", "incremental"}:
+            resource_type = upstream_manifest_node["resource_type"]
+
+            if (
+                materialized in {"view", "table", "incremental"}
+                or resource_type == "source"
+            ):
                 platform_value = target_platform
 
         upstream_urns.append(
