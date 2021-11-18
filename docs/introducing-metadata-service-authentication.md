@@ -217,11 +217,12 @@ is enabled.
 Metadata Service Authentication is currently **opt-in**. This means that you may continue to use DataHub without Metadata Service Authentication without interruption.
 To enable Metadata Service Authentication:
 
-- set the `METADATA_SERVICE_AUTH_ENABLED` environment variable to "true" for the `datahub-gms` container / pod. 
+- set the `METADATA_SERVICE_AUTH_ENABLED` environment variable to "true" for the `datahub-gms` AND `datahub-frontend` containers / pods. 
   
 OR
 
-- directly change the `application.yml` configuration file to set `authentication.enabled` to "true". 
+- change the Metadata Service `application.yml` configuration file to set `authentication.enabled` to "true" AND
+- change the Frontend Proxy Service `application.config` configuration file to set `metadataService.auth.enabled` to "true"
 
 After setting the configuration flag, simply restart the Metadata Service to start enforcing Authentication. 
 
