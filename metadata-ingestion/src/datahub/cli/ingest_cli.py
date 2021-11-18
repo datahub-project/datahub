@@ -40,7 +40,22 @@ def ingest() -> None:
     help="Config file in .toml or .yaml format.",
     required=True,
 )
-def run(config: str) -> None:
+@click.option(
+    "-n",
+    "--dry-run",
+    type=bool,
+    is_flag=True,
+    default=False,
+    help="Perform a dry run of the ingestion, essentially skipping writing to sink.",
+)
+@click.option(
+    "--preview",
+    type=bool,
+    is_flag=True,
+    default=False,
+    help="Perform limited ingestion from the source to the sink to get a quick preview.",
+)
+def run(config: str, dry_run: bool, preview: bool) -> None:
     """Ingest metadata into DataHub."""
     logger.debug("DataHub CLI version: %s", datahub_package.nice_version_name())
 
@@ -49,7 +64,7 @@ def run(config: str) -> None:
 
     try:
         logger.debug(f"Using config: {pipeline_config}")
-        pipeline = Pipeline.create(pipeline_config)
+        pipeline = Pipeline.create(pipeline_config, dry_run, preview)
     except ValidationError as e:
         click.echo(e, err=True)
         sys.exit(1)
