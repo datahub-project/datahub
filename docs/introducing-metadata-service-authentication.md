@@ -167,7 +167,12 @@ Today, Access Tokens are granted by the Token Service under two scenarios:
 
 > At present, the Token Service supports the symmetric signing method `HS256` to generate and verify tokens. 
 
-### New Capability: Personal Access Tokens
+Now that we're familiar with the concepts, we will talk concretely about what new capabilities have been built on top
+of Metadata Service Authentication. 
+
+### New Capabilities
+
+#### Personal Access Tokens
 
 With these changes, we introduced a way to generate a "Personal Access Token" suitable for programmatic use with both the DataHub GraphQL
 and DataHub Rest.li (Ingestion) APIs. 
@@ -176,7 +181,7 @@ Personal Access Tokens have a finite lifespan (default 3 months) and currently c
 DataHub uses to generate these tokens (via the TokenService described above). Most importantly, they inherit the permissions
 granted to the user who generates them. 
 
-#### Generating Personal Access Tokens
+##### Generating Personal Access Tokens
 
 To generate a personal access token, users must have been granted the "Generate Personal Access Tokens" (GENERATE_PERSONAL_ACCESS_TOKENS) Privilege via a [DataHub Policy](./policies.md). Once
 they have this permission, users can navigate to **'Settings'** > **'Access Tokens'** > **'Generate Personal Access Token'** to generate a token.
@@ -261,7 +266,7 @@ for a DataHub **Access Token**, standing in replacement of the traditional sessi
 In summary, DataHub Frontend Service will continue to play a vital role to Authentication. It's scope, however, will likely
 remain limited to concerns specific to the React UI.
 
-## The Opportunities Ahead
+## Where to go from here
 
 These changes represent the first milestone in Metadata Service Authentication. They will serve as a foundation upon which we can build new features, prioritized based on Community demand:
 
