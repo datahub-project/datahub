@@ -270,7 +270,7 @@ remain limited to concerns specific to the React UI.
 
 These changes represent the first milestone in Metadata Service Authentication. They will serve as a foundation upon which we can build new features, prioritized based on Community demand:
 
-1. **Custom Authenticator Plugins**: Configure + register custom Authenticator implementations, without forking DataHub. 
+1. **Dynamic Authenticator Plugins**: Configure + register custom Authenticator implementations, without forking DataHub. 
 2. **Service Accounts**: Create service accounts and generate Access tokens on their behalf. 
 3. **Kafka Ingestion Authentication**: Authenticate ingestion requests coming from the Kafka ingestion sink inside the Metadata Service.
 4. **Access Token Management**: Ability to view, manage, and revoke access tokens that have been generated. (Currently, access tokens inlcude no server side state, and thus cannot be revoked once granted)
