@@ -2,10 +2,8 @@ package com.datahub.authentication;
 
 import java.util.Collections;
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 
 
 /**

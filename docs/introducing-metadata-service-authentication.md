@@ -15,7 +15,7 @@ Let's recall 2 critical components of DataHub's architecture:
 Previously, Authentication was exclusively handled by the frontend proxy. This service would perform the following steps 
 when a user navigated to `http://localhost:9002/`, where the UI app was served:
 
-a. Check for the presence of a special PLAY_SESSION cookie.
+a. Check for the presence of a special `PLAY_SESSION` cookie.
 b. If cookie was present + valid, redirect to the home page
 c. If cookie was invalid, redirect to either a) the DataHub login screen (for [JAAS authentication](https://datahubproject.io/docs/how/auth/jaas/) or b) a [configured OIDC Identity Provider](https://datahubproject.io/docs/how/auth/sso/configure-oidc-react/) to perform authentication.
 
@@ -37,45 +37,77 @@ clunky & unscalable. On top of that, extending the authentication system was dif
 ## Introducing Authentication in DataHub Metadata Service
 
 To address these problems, we've introduced configurable Authentication inside the **Metadata Service** itself, 
-meaning that requests are no longer considered authenticated until they reach the Metadata Service.
+meaning that requests are no longer considered trusted until they are authenticated by the Metadata Service.
 
 Why push Authentication down? In addition to the problems described in the previous section, the rationale for pushing authentication deeper in the stack, as opposed to keeping it at the proxy layer, 
 was in part locality (keeping shared components in the same place) and in part planning for a future where incoming Kafka writes 
-can be validated using the same mechanisms as normal Rest API requests.
+can be validated using the same mechanisms as normal Rest operations.
 
-Next, we'll cover the new components introduced to support Authentication inside the Metadata Service. 
+Next, we'll cover the new components being introduced to support Authentication inside the Metadata Service. 
 
-### Key Components
+### Concepts & Key Components 
 
-So how does this work? We've introduced a few important concepts to the Metadata Service to make things work:
+We've introduced a few important concepts to the Metadata Service to make authentication work:
 
-1. Authenticator
-2. AuthenticationChain
-3. AuthenticationFilter
-4. DataHub Access Token
-5. DataHub Token Service
+1. Actor
+2. Authenticator
+3. AuthenticationChain
+4. AuthenticationFilter
+5. DataHub Access Token
+6. DataHub Token Service
  
-We'll take a closer look at each individually. 
+In following sections, we'll take a closer look at each individually. 
 
 ![](./imgs/metadata-service-auth.png)
 *High level overview of Metadata Service Authentication*
 
+#### What is an Actor?
+
+An "Actor" is a concept within the new Authentication subsystem to represent a unique identity / principal that is initiating actions (e.g. read / write requests) 
+on the platform. 
+
+An actor can be characterized by 2 attributes:
+
+1. **Type**: The "type" of the actor making a request. The purpose is to for example distinguish between a "user" & "service" actor. Currently, the "user" actor type is the only one 
+formally supported.
+2. **Id**: A unique identifier for the actor within DataHub. This is commonly known as a "principal" in other systems. In the case of users, this
+represents a unique "username". This username is in turn used when converting from the "Actor" concept into a Metadata Entity Urn (e.g. CorpUserUrn).
+   
+For example, the root "datahub" super user would have the following attributes:
+
+```
+{
+   "type": "USER",
+   "id": "datahub"
+}
+```
+
+Which is mapped to the CorpUser urn:
+
+```
+urn:li:corpuser:datahub
+```
+
+for Metadata retrieval. 
+
 #### What is an Authenticator? 
 
-An **Authenticator** is an abstract, pluggable component inside the Metadata Service that is responsible for authenticating an inbound request given the request context (e.g. headers, etc). 
-Authenticating basically boils down to resolving a 1) user type (e.g. the normal "corp user") and 2) unique user identifier used to identify a given actor 
-within the DataHub ecosystem. 
+An **Authenticator** is an abstract, pluggable component inside the Metadata Service that is responsible for authenticating an inbound request provided context about the request (currently, the request headers).
+Authentication boils down to successfully resolving an **Actor** to associate with the request.
 
-There can be any number of different flavors of Authenticator. You could have one that verifies LDAP credentials provided in an HTTP header, or another that uses a remote Database to verify a username + password combination, and many more.
+There can be many types of Authenticator. For example, there can be Authenticators that
 
-A few concrete examples that ship with DataHub by default are
+- Verify the authenticity of access tokens (ie. issued by either DataHub itself or a 3rd-party IdP)
+- Authenticate username / password credentials against a remote database (ie. LDAP)
+
+DataHub will ship with 2 by default:
+
+- **DataHubSystemAuthenticator**: Verifies that inbound requests have originated from inside DataHub itself using a shared system identifier
+  and secret. This authenticator is always present. 
 
 - **DataHubTokenAuthenticator**: Verifies that inbound requests contain a DataHub-issued Access Token (discussed below) in their 
-'Authorization' header.
+'Authorization' header. This authenticator is required if Metadata Service Authentication is enabled. 
   
-- **DataHubSystemAuthenticator**: Verifies that inbound requests have originated from inside DataHub itself using a shared system identifier
-and secret. 
-
 #### What is an AuthenticationChain?
 
 An **AuthenticationChain** is a series of **Authenticators** that are configured to run one-after-another. This abstractions allows
@@ -221,7 +253,7 @@ This recommendation is in effort to minimize the exposed surface area of DataHub
 the platform simpler.
 
 In practice, this will require migrating Metadata Ingestion Recipes use the `datahub-rest` sink to pointing at a slightly different
-host + path: 
+host + path.
 
 Example recipe that proxies through DataHub Frontend 
 
@@ -232,7 +264,7 @@ sink:
   type: "datahub-rest"
   config:
     ...
-    token: <your-personal-access-token> 
+    token: <your-personal-access-token-here!> 
 ```
 
 ## Feedback / Questions / Concerns

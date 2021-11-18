@@ -2,7 +2,7 @@ package com.datahub.authentication.authenticator;
 
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
-import com.datahub.authentication.AuthenticationException;;
+import com.datahub.authentication.AuthenticationException;
 import com.datahub.authentication.AuthenticatorContext;
 import com.google.common.collect.ImmutableMap;
 import java.util.Collections;
@@ -29,7 +29,7 @@ public class DataHubSystemAuthenticatorTest {
   }
 
   @Test
-  public void testAuthenticateFailure_missingAuthorizationHeader() {
+  public void testAuthenticateFailureMissingAuthorizationHeader() {
     final DataHubSystemAuthenticator authenticator = new DataHubSystemAuthenticator();
     authenticator.init(ImmutableMap.of(SYSTEM_CLIENT_ID_CONFIG, TEST_CLIENT_ID, SYSTEM_CLIENT_SECRET_CONFIG, TEST_CLIENT_SECRET));
 
@@ -38,7 +38,7 @@ public class DataHubSystemAuthenticatorTest {
   }
 
   @Test
-  public void testAuthenticateFailure_missingBasicCredentials() {
+  public void testAuthenticateFailureMissingBasicCredentials() {
     final DataHubSystemAuthenticator authenticator = new DataHubSystemAuthenticator();
     authenticator.init(ImmutableMap.of(SYSTEM_CLIENT_ID_CONFIG, TEST_CLIENT_ID, SYSTEM_CLIENT_SECRET_CONFIG, TEST_CLIENT_SECRET));
 
@@ -49,7 +49,7 @@ public class DataHubSystemAuthenticatorTest {
   }
 
   @Test
-  public void testAuthenticateFailure_mismatchingCredentials() {
+  public void testAuthenticateFailureMismatchingCredentials() {
     final DataHubSystemAuthenticator authenticator = new DataHubSystemAuthenticator();
     authenticator.init(ImmutableMap.of(SYSTEM_CLIENT_ID_CONFIG, TEST_CLIENT_ID, SYSTEM_CLIENT_SECRET_CONFIG, TEST_CLIENT_SECRET));
 
@@ -60,7 +60,7 @@ public class DataHubSystemAuthenticatorTest {
   }
 
   @Test
-  public void testAuthenticateSuccess_noDelegatedActor() throws Exception {
+  public void testAuthenticateSuccessNoDelegatedActor() throws Exception {
 
     final DataHubSystemAuthenticator authenticator = new DataHubSystemAuthenticator();
     authenticator.init(ImmutableMap.of(SYSTEM_CLIENT_ID_CONFIG, TEST_CLIENT_ID, SYSTEM_CLIENT_SECRET_CONFIG, TEST_CLIENT_SECRET));
@@ -81,7 +81,7 @@ public class DataHubSystemAuthenticatorTest {
   }
 
   @Test
-  public void testAuthenticateSuccess_delegatedActor() throws Exception {
+  public void testAuthenticateSuccessDelegatedActor() throws Exception {
 
     final DataHubSystemAuthenticator authenticator = new DataHubSystemAuthenticator();
     authenticator.init(ImmutableMap.of(SYSTEM_CLIENT_ID_CONFIG, TEST_CLIENT_ID, SYSTEM_CLIENT_SECRET_CONFIG, TEST_CLIENT_SECRET));

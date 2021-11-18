@@ -372,7 +372,9 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
     }
 
     @Nonnull
-    public Map<String, Long> batchGetTotalEntityCount(@Nonnull List<String> entityName, @Nonnull final Authentication authentication) throws RemoteInvocationException {
+    public Map<String, Long> batchGetTotalEntityCount(
+        @Nonnull List<String> entityName,
+        @Nonnull final Authentication authentication) throws RemoteInvocationException {
         EntitiesDoBatchGetTotalEntityCountRequestBuilder requestBuilder =
             ENTITIES_REQUEST_BUILDERS.actionBatchGetTotalEntityCount().entitiesParam(new StringArray(entityName));
         return sendClientRequest(requestBuilder, authentication).getEntity();

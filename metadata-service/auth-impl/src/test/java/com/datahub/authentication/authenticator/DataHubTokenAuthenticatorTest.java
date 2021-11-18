@@ -33,7 +33,7 @@ public class DataHubTokenAuthenticatorTest {
   }
 
   @Test
-  public void testAuthenticateFailure_missingAuthorizationHeader() {
+  public void testAuthenticateFailureMissingAuthorizationHeader() {
     final DataHubTokenAuthenticator authenticator = new DataHubTokenAuthenticator();
     authenticator.init(ImmutableMap.of(SIGNING_KEY_CONFIG_NAME, TEST_SIGNING_KEY, SIGNING_ALG_CONFIG_NAME, "HS256"));
 
@@ -42,7 +42,7 @@ public class DataHubTokenAuthenticatorTest {
   }
 
   @Test
-  public void testAuthenticateFailure_missingBearerCredentials() {
+  public void testAuthenticateFailureMissingBearerCredentials() {
     final DataHubTokenAuthenticator authenticator = new DataHubTokenAuthenticator();
     authenticator.init(ImmutableMap.of(SIGNING_KEY_CONFIG_NAME, TEST_SIGNING_KEY, SIGNING_ALG_CONFIG_NAME, "HS256"));
 
@@ -53,7 +53,7 @@ public class DataHubTokenAuthenticatorTest {
   }
 
   @Test
-  public void testAuthenticateFailure_invalidToken() {
+  public void testAuthenticateFailureInvalidToken() {
     final DataHubTokenAuthenticator authenticator = new DataHubTokenAuthenticator();
     authenticator.init(ImmutableMap.of(SIGNING_KEY_CONFIG_NAME, TEST_SIGNING_KEY, SIGNING_ALG_CONFIG_NAME, "HS256"));
 

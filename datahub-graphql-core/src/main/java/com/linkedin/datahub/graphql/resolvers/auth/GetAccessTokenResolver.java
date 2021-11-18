@@ -63,7 +63,7 @@ public class GetAccessTokenResolver implements DataFetcher<CompletableFuture<Acc
   }
 
   private boolean isAuthorizedToGeneratePersonalAccessToken(final QueryContext context, final GetAccessTokenInput input) {
-    return AuthorizationUtils.canGeneratePersonalAccessToken(context);
+    return input.getActorUrn().equals(context.getActorUrn()) && AuthorizationUtils.canGeneratePersonalAccessToken(context);
   }
 
   private long mapDurationToMs(final AccessTokenDuration duration) {

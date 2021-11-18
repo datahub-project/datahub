@@ -54,7 +54,9 @@ public class AuthenticatorChain {
         log.debug(String.format("Unable to authenticate request using Authenticator %s", authenticator.getClass().getCanonicalName()), e);
       } catch (Exception e) {
         // Log as a normal error otherwise.
-        log.error(String.format("Caught exception while attempting to authenticate request using Authenticator %s", authenticator.getClass().getCanonicalName()), e);
+        log.error(String.format(
+            "Caught exception while attempting to authenticate request using Authenticator %s",
+            authenticator.getClass().getCanonicalName()), e);
       }
     }
     // No authentication resolved. Return null.

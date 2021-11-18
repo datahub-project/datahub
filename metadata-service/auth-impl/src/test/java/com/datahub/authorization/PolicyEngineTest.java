@@ -1,5 +1,6 @@
 package com.datahub.authorization;
 
+import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.Owner;
@@ -52,7 +53,7 @@ public class PolicyEngineTest {
   @BeforeMethod
   public void setupTest() throws Exception {
     _entityClient = Mockito.mock(EntityClient.class);
-    _policyEngine = new PolicyEngine(_entityClient, new OwnershipClient(_entityClient));
+    _policyEngine = new PolicyEngine(Mockito.mock(Authentication.class), _entityClient, new OwnershipClient(_entityClient));
 
     // Init mocks.
     final CorpUserSnapshot authorizedUser = createDataHubSnapshot();

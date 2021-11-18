@@ -27,7 +27,7 @@ public class TokenServiceTest {
   }
 
   @Test
-  public void testGenerateAccessToken_personalToken() throws Exception {
+  public void testGenerateAccessTokenPersonalToken() throws Exception {
     TokenService tokenService = new TokenService(TEST_SIGNING_KEY, "HS256");
     String token = tokenService.generateAccessToken(TokenType.PERSONAL, new Actor(ActorType.USER, "datahub"));
     assertNotNull(token);
@@ -50,7 +50,7 @@ public class TokenServiceTest {
   }
 
   @Test
-  public void testGenerateAccessToken_sessionToken() throws Exception {
+  public void testGenerateAccessTokenSessionToken() throws Exception {
     TokenService tokenService = new TokenService(TEST_SIGNING_KEY, "HS256");
     String token = tokenService.generateAccessToken(TokenType.SESSION, new Actor(ActorType.USER, "datahub"));
     assertNotNull(token);
@@ -72,7 +72,7 @@ public class TokenServiceTest {
   }
 
   @Test
-  public void testValidateAccessToken_failsDueToExpiration() {
+  public void testValidateAccessTokenFailsDueToExpiration() {
     TokenService tokenService = new TokenService(TEST_SIGNING_KEY, "HS256");
     // Generate token that expires immediately.
     String token = tokenService.generateAccessToken(TokenType.PERSONAL, new Actor(ActorType.USER, "datahub"), 0L);
@@ -83,7 +83,7 @@ public class TokenServiceTest {
   }
 
   @Test
-  public void testValidateAccessToken_failsDueToManipulation() {
+  public void testValidateAccessTokenFailsDueToManipulation() {
     TokenService tokenService = new TokenService(TEST_SIGNING_KEY, "HS256");
     String token = tokenService.generateAccessToken(TokenType.PERSONAL, new Actor(ActorType.USER, "datahub"));
     assertNotNull(token);

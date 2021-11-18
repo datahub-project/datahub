@@ -282,7 +282,9 @@ public class JavaEntityClient implements EntityClient {
     }
 
     @Nonnull
-    public Map<String, Long> batchGetTotalEntityCount(@Nonnull List<String> entityName, @Nonnull final Authentication authentication) throws RemoteInvocationException {
+    public Map<String, Long> batchGetTotalEntityCount(
+        @Nonnull List<String> entityName,
+        @Nonnull final Authentication authentication) throws RemoteInvocationException {
         return entityName.stream().collect(Collectors.toMap(Function.identity(), _searchService::docCount));
     }
 

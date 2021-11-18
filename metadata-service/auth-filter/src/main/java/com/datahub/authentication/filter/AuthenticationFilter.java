@@ -121,7 +121,9 @@ public class AuthenticationFilter implements Filter {
         // Ensure class conforms to the correct type.
         if (!Authenticator.class.isAssignableFrom(clazz)) {
           throw new IllegalArgumentException(
-              String.format("Failed to instantiate invalid Authenticator with class name %s. Class does not implement the 'Authenticator' interface", clazz.getCanonicalName()));
+              String.format(
+                  "Failed to instantiate invalid Authenticator with class name %s. Class does not implement the 'Authenticator' interface",
+                  clazz.getCanonicalName()));
         }
 
         // Else construct an instance of the class, each class should have an empty constructor.
