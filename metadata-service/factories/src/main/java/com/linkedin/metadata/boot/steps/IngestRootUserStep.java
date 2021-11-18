@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.identity.CorpUserInfo;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.boot.BootstrapStep;
@@ -54,17 +53,10 @@ public class IngestRootUserStep implements BootstrapStep {
       throw new RuntimeException("Malformed urn", e);
     }
 
-    if (!rootUserExists(urn)) {
-      final CorpUserInfo info =
-          RecordUtils.toRecordTemplate(CorpUserInfo.class, userObj.get("info").toString());
-      final AuditStamp aspectAuditStamp =
-          new AuditStamp().setActor(Urn.createFromString(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis());
-      _entityService.ingestAspect(urn, USER_INFO_ASPECT_NAME, info, aspectAuditStamp);
-    }
-  }
-
-  private boolean rootUserExists(Urn urn) {
-    RecordTemplate aspect = _entityService.getAspect(urn, USER_INFO_ASPECT_NAME, 0);
-    return aspect != null;
+    final CorpUserInfo info =
+        RecordUtils.toRecordTemplate(CorpUserInfo.class, userObj.get("info").toString());
+    final AuditStamp aspectAuditStamp =
+        new AuditStamp().setActor(Urn.createFromString(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis());
+    _entityService.ingestAspect(urn, USER_INFO_ASPECT_NAME, info, aspectAuditStamp);
   }
 }
