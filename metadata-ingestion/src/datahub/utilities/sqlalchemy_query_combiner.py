@@ -30,12 +30,6 @@ _sa_execute_method_patching_lock = threading.Lock()
 _sa_execute_underlying_method = sqlalchemy.engine.Connection.execute
 
 
-def _generate_sql_safe_identifier() -> str:
-    # The value of k=16 should be more than enough to ensure uniqueness.
-    # Adapted from https://stackoverflow.com/a/30779367/5004662.
-    return "".join(random.choices(string.ascii_lowercase, k=16))
-
-
 class _RowProxyFake(collections.OrderedDict):
     def __getitem__(self, k):  # type: ignore
         if isinstance(k, int):
@@ -135,6 +129,12 @@ class SQLAlchemyQueryCombiner:
         greenlet.greenlet, Set[greenlet.greenlet]
     ] = dataclasses.field(default_factory=lambda: collections.defaultdict(set))
 
+    @staticmethod
+    def _generate_sql_safe_identifier() -> str:
+        # The value of k=16 should be more than enough to ensure uniqueness.
+        # Adapted from https://stackoverflow.com/a/30779367/5004662.
+        return "".join(random.choices(string.ascii_lowercase, k=16))
+
     def _get_main_greenlet(self) -> greenlet.greenlet:
         let = greenlet.getcurrent()
         while let.parent is not None:
@@ -188,7 +188,7 @@ class SQLAlchemyQueryCombiner:
 
         # Add query to the queue.
         queue = self._get_queue(main_greenlet)
-        query_id = _generate_sql_safe_identifier()
+        query_id = SQLAlchemyQueryCombiner._generate_sql_safe_identifier()
         query_future = _QueryFuture(conn, query, multiparams, params)
         queue[query_id] = query_future
 
