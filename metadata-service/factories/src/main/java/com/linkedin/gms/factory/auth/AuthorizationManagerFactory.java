@@ -1,5 +1,6 @@
 package com.linkedin.gms.factory.auth;
 
+import com.datahub.authentication.Authentication;
 import com.datahub.authorization.AuthorizationManager;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.gms.factory.entity.RestliEntityClientFactory;
@@ -22,6 +23,10 @@ import org.springframework.context.annotation.Scope;
 public class AuthorizationManagerFactory {
 
   @Autowired
+  @Qualifier("systemAuthentication")
+  private Authentication systemAuthentication;
+
+  @Autowired
   @Qualifier("javaEntityClient")
   private EntityClient entityClient;
 
@@ -42,6 +47,6 @@ public class AuthorizationManagerFactory {
 
     final OwnershipClient ownershipClient = new OwnershipClient(entityClient);
 
-    return new AuthorizationManager(entityClient, ownershipClient, 10, policyCacheRefreshIntervalSeconds, mode);
+    return new AuthorizationManager(systemAuthentication, entityClient, ownershipClient, 10, policyCacheRefreshIntervalSeconds, mode);
   }
 }

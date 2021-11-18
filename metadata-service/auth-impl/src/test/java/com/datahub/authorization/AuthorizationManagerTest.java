@@ -1,5 +1,6 @@
 package com.datahub.authorization;
 
+import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.AuditStamp;
@@ -88,6 +89,7 @@ public class AuthorizationManagerTest {
     );
 
     _authorizationManager = new AuthorizationManager(
+        Mockito.mock(Authentication.class),
         _entityClient,
         new OwnershipClient(_entityClient),
         10,

@@ -9,7 +9,6 @@ import com.datahub.authentication.token.TokenType;
 import com.google.common.collect.ImmutableMap;
 import java.util.Collections;
 import java.util.Map;
-import java.util.Optional;
 import org.testng.annotations.Test;
 
 import static com.datahub.authentication.AuthenticationConstants.*;
@@ -83,10 +82,9 @@ public class DataHubTokenAuthenticatorTest {
 
     // Validate the resulting authentication object
     assertNotNull(authentication);
-    assertEquals(authentication.getAuthenticatedActor().getType(), ActorType.USER);
-    assertEquals(authentication.getAuthenticatedActor().getId(), "datahub");
+    assertEquals(authentication.getActor().getType(), ActorType.USER);
+    assertEquals(authentication.getActor().getId(), "datahub");
     assertEquals(authentication.getCredentials(), authorizationHeaderValue);
-    assertEquals(authentication.getDelegatedForActorUrn(), Optional.empty());
 
     Map<String, Object> claimsMap = authentication.getClaims();
     assertEquals(claimsMap.get(TOKEN_VERSION_CLAIM_NAME), 1);

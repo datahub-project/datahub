@@ -113,14 +113,14 @@ public class Application extends Controller {
             .toMap()
             .entrySet()
             .stream()
-            .filter(entry -> !AuthenticationConstants.DELEGATED_FOR_ACTOR_HEADER_NAME.equals(entry.getKey())) // Remove X-DataHub-Actor to prevent malicious delegation.
+            .filter(entry -> !AuthenticationConstants.LEGACY_X_DATAHUB_ACTOR_HEADER.equals(entry.getKey())) // Remove X-DataHub-Actor to prevent malicious delegation.
             .filter(entry -> !Http.HeaderNames.CONTENT_LENGTH.equals(entry.getKey()))
             .filter(entry -> !Http.HeaderNames.CONTENT_TYPE.equals(entry.getKey()))
             .filter(entry -> !Http.HeaderNames.AUTHORIZATION.equals(entry.getKey()))
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))
         )
         .addHeader(Http.HeaderNames.AUTHORIZATION, authorizationHeaderValue)
-        .addHeader(AuthenticationConstants.DELEGATED_FOR_ACTOR_HEADER_NAME, getDelegatedForActorHeader())
+        .addHeader(AuthenticationConstants.LEGACY_X_DATAHUB_ACTOR_HEADER, getDataHubActorHeader())
         .setBody(new InMemoryBodyWritable(ByteString.fromByteBuffer(request().body().asBytes().asByteBuffer()), "application/json"))
         .execute()
         .thenApply(apiResponse -> {
@@ -274,13 +274,13 @@ public class Application extends Controller {
   }
 
   /**
-   * Returns the value of the X-DataHub-Actor header to forward to the Metadata Service. This is sent along
+   * Returns the value of the legacy X-DataHub-Actor header to forward to the Metadata Service. This is sent along
    * with any requests that have a valid frontend session cookie to identify the calling actor, for backwards compatibility.
    *
    * If Metadata Service authentication is enabled, this value is not required because Actor context will most often come
    * from the authentication credentials provided in the Authorization header.
    */
-  private String getDelegatedForActorHeader() {
+  private String getDataHubActorHeader() {
     String actor = ctx().session().get(ACTOR);
     return actor == null ? "" : actor;
   }

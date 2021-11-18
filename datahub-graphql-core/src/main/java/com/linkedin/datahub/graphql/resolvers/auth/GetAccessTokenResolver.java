@@ -42,7 +42,7 @@ public class GetAccessTokenResolver implements DataFetcher<CompletableFuture<Acc
       final GetAccessTokenInput input = bindArgument(environment.getArgument("input"), GetAccessTokenInput.class);
 
       if (isAuthorizedToGenerateToken(context, input)) {
-        final TokenType type = TokenType.valueOf(input.getType().toString()); // warn: if we are out of sync here there are problems.
+        final TokenType type = TokenType.valueOf(input.getType().toString()); // warn: if we are out of sync with AccessTokenType there are problems.
         final String actorUrn = input.getActorUrn();
         final long expiresInMs = mapDurationToMs(input.getDuration());
         final String accessToken = _tokenService.generateAccessToken(type, createActor(input.getType(), actorUrn), expiresInMs);
@@ -63,7 +63,7 @@ public class GetAccessTokenResolver implements DataFetcher<CompletableFuture<Acc
   }
 
   private boolean isAuthorizedToGeneratePersonalAccessToken(final QueryContext context, final GetAccessTokenInput input) {
-    return input.getActorUrn().equals(context.getActor()) && AuthorizationUtils.canGeneratePersonalAccessToken(context);
+    return AuthorizationUtils.canGeneratePersonalAccessToken(context);
   }
 
   private long mapDurationToMs(final AccessTokenDuration duration) {

@@ -41,7 +41,6 @@ public class DataHubSystemAuthenticator implements Authenticator {
 
   @Override
   public void init(@Nonnull final Map<String, Object> config) {
-    System.out.println(String.format("%s", config.toString()));
     Objects.requireNonNull(config, "Config parameter cannot be null");
     this.systemClientId = Objects.requireNonNull((String) config.get(SYSTEM_CLIENT_ID_CONFIG),
         String.format("Missing required config %s", SYSTEM_CLIENT_ID_CONFIG));
@@ -64,11 +63,9 @@ public class DataHubSystemAuthenticator implements Authenticator {
             && this.systemClientSecret.equals(splitCredentials[1])
         ) {
           // If this request was made internally, there may be a delegated id.
-          final String maybeDelegatedForActorUrn = getDelegatedForActorUrn(context);
           return new Authentication(
               new Actor(ActorType.USER, this.systemClientId), // todo: replace this with service actor type once they exist.
               authorizationHeader,
-              maybeDelegatedForActorUrn,
               Collections.emptyMap()
           );
         } else {
@@ -79,13 +76,5 @@ public class DataHubSystemAuthenticator implements Authenticator {
       }
     }
     throw new AuthenticationException("Authorization header is missing Authorization header.");
-  }
-
-  private String getDelegatedForActorUrn(final AuthenticatorContext context) {
-    String delegatedForActorUrn = null;
-    if (context.getRequestHeaders().containsKey(DELEGATED_FOR_ACTOR_HEADER_NAME)) {
-      delegatedForActorUrn = context.getRequestHeaders().get(DELEGATED_FOR_ACTOR_HEADER_NAME);
-    }
-    return delegatedForActorUrn;
   }
 }

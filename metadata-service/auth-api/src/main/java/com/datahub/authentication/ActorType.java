@@ -8,7 +8,7 @@ package com.datahub.authentication;
  */
 public enum ActorType {
   /**
-   * A user actor, e.g. urn:li:corpuser:johnsmith
+   * A user actor, e.g. john smith
    */
   USER,
 }

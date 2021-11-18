@@ -30,7 +30,7 @@ public class AspectType {
     try {
       return keys.stream().map(key -> {
         try {
-          VersionedAspect entity = _entityClient.getAspect(key.getUrn(), key.getAspectName(), key.getVersion(), context.getActor());
+          VersionedAspect entity = _entityClient.getAspect(key.getUrn(), key.getAspectName(), key.getVersion(), context.getAuthentication());
           if (entity == null) {
             return DataFetcherResult.<Aspect>newResult().data(null).build();
           }

@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.context;
 
+import com.datahub.authentication.Authentication;
 import com.datahub.authorization.Authorizer;
 import org.springframework.stereotype.Component;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -13,7 +14,7 @@ public class SpringQueryContext implements QueryContext {
 
     boolean isAuthenticated;
 
-    String actor;
+    Authentication authentication;
 
     Authorizer authorizer;
 

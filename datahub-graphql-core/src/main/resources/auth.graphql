@@ -22,11 +22,6 @@ enum AccessTokenType {
   Generates a personal access token
   """
   PERSONAL
-
-  """
-  Generates a service access token
-  """
-  SERVICE
 }
 
 enum AccessTokenDuration {

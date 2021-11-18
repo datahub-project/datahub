@@ -1,6 +1,7 @@
 package controllers;
 
-import auth.AuthClient;
+import client.AuthServiceClient;
+import com.datahub.authentication.Authentication;
 import com.linkedin.entity.client.EntityClient;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
@@ -33,11 +34,12 @@ public class SsoCallbackController extends CallbackController {
   @Inject
   public SsoCallbackController(
       @Nonnull SsoManager ssoManager,
+      @Nonnull Authentication systemAuthentication,
       @Nonnull EntityClient entityClient,
-      @Nonnull AuthClient authClient) {
+      @Nonnull AuthServiceClient authClient) {
     _ssoManager = ssoManager;
     setDefaultUrl("/"); // By default, redirects to Home Page on log in.
-    setCallbackLogic(new SsoCallbackLogic(ssoManager, entityClient, authClient));
+    setCallbackLogic(new SsoCallbackLogic(ssoManager, systemAuthentication, entityClient, authClient));
   }
 
   public CompletionStage<Result> handleCallback(String protocol) {
@@ -56,8 +58,8 @@ public class SsoCallbackController extends CallbackController {
 
     private final OidcCallbackLogic _oidcCallbackLogic;
 
-    SsoCallbackLogic(final SsoManager ssoManager, final EntityClient entityClient, final AuthClient authClient) {
-      _oidcCallbackLogic = new OidcCallbackLogic(ssoManager, entityClient, authClient);
+    SsoCallbackLogic(final SsoManager ssoManager, final Authentication systemAuthentication, final EntityClient entityClient, final AuthServiceClient authClient) {
+      _oidcCallbackLogic = new OidcCallbackLogic(ssoManager, systemAuthentication, entityClient, authClient);
     }
 
     @Override

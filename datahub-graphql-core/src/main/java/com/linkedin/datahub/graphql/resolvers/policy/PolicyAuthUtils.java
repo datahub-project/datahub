@@ -15,7 +15,7 @@ public class PolicyAuthUtils {
 
   static boolean canManagePolicies(@Nonnull QueryContext context) {
     final Authorizer authorizer = context.getAuthorizer();
-    final String principal = context.getActor();
+    final String principal = context.getActorUrn();
     return isAuthorized(principal, ImmutableList.of(PoliciesConfig.MANAGE_POLICIES_PRIVILEGE.getType()), authorizer);
   }
 

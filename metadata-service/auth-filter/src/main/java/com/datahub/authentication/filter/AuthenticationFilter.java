@@ -7,7 +7,9 @@ import com.datahub.authentication.Authenticator;
 import com.datahub.authentication.AuthenticatorConfiguration;
 import com.datahub.authentication.authenticator.AuthenticatorChain;
 import com.datahub.authentication.AuthenticatorContext;
+import com.datahub.authentication.authenticator.DataHubSystemAuthenticator;
 import com.datahub.authentication.authenticator.NoOpAuthenticator;
+import com.google.common.collect.ImmutableMap;
 import com.linkedin.gms.factory.auth.ConfigurationProvider;
 import java.io.IOException;
 import java.util.Collections;
@@ -25,6 +27,8 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.context.support.SpringBeanAutowiringSupport;
+
+import static com.datahub.authentication.AuthenticationConstants.*;
 
 
 /**
@@ -56,8 +60,8 @@ public class AuthenticationFilter implements Filter {
     if (authentication != null) {
       // Successfully authenticated.
       log.debug(String.format("Successfully authenticated request for Actor with type: %s, id: %s",
-          authentication.getAuthenticatedActor().getType(),
-          authentication.getAuthenticatedActor().getId()));
+          authentication.getActor().getType(),
+          authentication.getActor().getId()));
       AuthenticationContext.setAuthentication(authentication);
       chain.doFilter(request, response);
     } else {
@@ -88,6 +92,15 @@ public class AuthenticationFilter implements Filter {
     boolean isAuthEnabled = this.configurationProvider.getAuthentication().isEnabled();
     if (isAuthEnabled) {
       log.info("Auth is enabled. Building authenticator chain...");
+
+      // First register the required system authenticator
+      DataHubSystemAuthenticator systemAuthenticator = new DataHubSystemAuthenticator();
+      systemAuthenticator.init(ImmutableMap.of(
+          SYSTEM_CLIENT_ID_CONFIG, this.configurationProvider.getAuthentication().getSystemClientId(),
+          SYSTEM_CLIENT_SECRET_CONFIG, this.configurationProvider.getAuthentication().getSystemClientSecret()
+      ));
+      authenticatorChain.register(systemAuthenticator); // Always register authenticator for internal system.
+
       // Then create a list of authenticators based on provided configs.
       final List<AuthenticatorConfiguration> authenticatorConfigurations = this.configurationProvider.getAuthentication().getAuthenticators();
       for (AuthenticatorConfiguration config : authenticatorConfigurations) {
@@ -124,9 +137,13 @@ public class AuthenticationFilter implements Filter {
         }
       }
     } else {
-      // Fallback to creating a "no-op" authenticator for backwards compatibility.
+      // Authentication is not enabled. Populate authenticator chain with a purposely permissive Authenticator.
       log.info("Auth is disabled. Building no-op authenticator chain...");
-      authenticatorChain.register(new NoOpAuthenticator());
+      final NoOpAuthenticator noOpAuthenticator = new NoOpAuthenticator();
+      noOpAuthenticator.init(ImmutableMap.of(
+          SYSTEM_CLIENT_ID_CONFIG,
+          this.configurationProvider.getAuthentication().getSystemClientId()));
+      authenticatorChain.register(noOpAuthenticator);
     }
   }
 

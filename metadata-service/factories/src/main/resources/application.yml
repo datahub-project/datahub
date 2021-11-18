@@ -5,13 +5,7 @@ authentication:
 
   # Required if enabled is true! A configurable chain of Authenticators
   authenticators:
-      # Required for authenticating internal system requests (e.g. from datahub-frontend)
-    - type: com.datahub.authentication.authenticator.DataHubSystemAuthenticator
-      configs:
-        # Credentials to identify internal system callers.
-        systemClientId: ${DATAHUB_SYSTEM_CLIENT_ID:__datahub_system}
-        systemClientSecret: ${DATAHUB_SYSTEM_CLIENT_SECRET:JohnSnowKnowsNothing}
-      # Required for authenticating DataHub-issued Access Tokens
+      # Required for authenticating requests with DataHub-issued Access Tokens - best not to remove.
     - type: com.datahub.authentication.authenticator.DataHubTokenAuthenticator
       configs:
         # Key used to validate incoming tokens. Should typically be the same as authentication.tokenService.signingKey

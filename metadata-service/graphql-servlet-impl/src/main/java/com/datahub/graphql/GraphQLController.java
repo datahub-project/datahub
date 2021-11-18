@@ -78,14 +78,9 @@ public class GraphQLController {
      * Init QueryContext
      */
     Authentication authentication = AuthenticationContext.getAuthentication();
-    // If a delegated urn, the request is originating internally (e.g. datahub-frontend), trust that. Else use the original authentication.
-    String actorUrn = authentication.getDelegatedForActorUrn().isPresent()
-        ? authentication.getDelegatedForActorUrn().get()
-        : authentication.getAuthenticatedActor().toUrnStr();
-
     SpringQueryContext context = new SpringQueryContext(
         true,
-        actorUrn,
+        authentication,
         _authManager);
 
     return CompletableFuture.supplyAsync(() -> {

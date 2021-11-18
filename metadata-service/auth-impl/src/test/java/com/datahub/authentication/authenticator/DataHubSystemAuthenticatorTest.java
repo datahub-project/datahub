@@ -6,7 +6,6 @@ import com.datahub.authentication.AuthenticationException;;
 import com.datahub.authentication.AuthenticatorContext;
 import com.google.common.collect.ImmutableMap;
 import java.util.Collections;
-import java.util.Optional;
 import org.testng.annotations.Test;
 
 import static com.datahub.authentication.AuthenticationConstants.*;
@@ -75,10 +74,9 @@ public class DataHubSystemAuthenticatorTest {
 
     // Validate the resulting authentication object
     assertNotNull(authentication);
-    assertEquals(authentication.getAuthenticatedActor().getType(), ActorType.USER);
-    assertEquals(authentication.getAuthenticatedActor().getId(), TEST_CLIENT_ID);
+    assertEquals(authentication.getActor().getType(), ActorType.USER);
+    assertEquals(authentication.getActor().getId(), TEST_CLIENT_ID);
     assertEquals(authentication.getCredentials(), authorizationHeaderValue);
-    assertEquals(authentication.getDelegatedForActorUrn(), Optional.empty());
     assertEquals(authentication.getClaims(), Collections.emptyMap());
   }
 
@@ -91,18 +89,16 @@ public class DataHubSystemAuthenticatorTest {
     final String authorizationHeaderValue = String.format("Basic %s:%s", TEST_CLIENT_ID, TEST_CLIENT_SECRET);
     final AuthenticatorContext context = new AuthenticatorContext(
         ImmutableMap.of(
-            AUTHORIZATION_HEADER_NAME, authorizationHeaderValue,
-            DELEGATED_FOR_ACTOR_HEADER_NAME, "urn:li:corpuser:datahub")
+            AUTHORIZATION_HEADER_NAME, authorizationHeaderValue, LEGACY_X_DATAHUB_ACTOR_HEADER, "urn:li:corpuser:datahub")
     );
 
     final Authentication authentication = authenticator.authenticate(context);
 
     // Validate the resulting authentication object
     assertNotNull(authentication);
-    assertEquals(authentication.getAuthenticatedActor().getType(), ActorType.USER);
-    assertEquals(authentication.getAuthenticatedActor().getId(), TEST_CLIENT_ID);
+    assertEquals(authentication.getActor().getType(), ActorType.USER);
+    assertEquals(authentication.getActor().getId(), TEST_CLIENT_ID);
     assertEquals(authentication.getCredentials(), authorizationHeaderValue);
-    assertEquals(authentication.getDelegatedForActorUrn(), Optional.of("urn:li:corpuser:datahub"));
     assertEquals(authentication.getClaims(), Collections.emptyMap());
   }
 }

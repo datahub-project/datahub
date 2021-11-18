@@ -1,5 +1,6 @@
 package com.datahub.authorization;
 
+import com.datahub.authentication.Authentication;
 import com.linkedin.common.Owner;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.urn.Urn;
@@ -29,12 +30,15 @@ import static com.linkedin.metadata.Constants.*;
 @Slf4j
 public class PolicyEngine {
 
+  private final Authentication _systemAuthentication;
   private final EntityClient _entityClient;
   private final OwnershipClient _ownershipClient;
 
   public PolicyEngine(
+      final Authentication systemAuthentication,
       final EntityClient entityClient,
       final OwnershipClient ownershipClient) {
+    _systemAuthentication = systemAuthentication;
     _entityClient = entityClient;
     _ownershipClient = ownershipClient;
   }
@@ -281,7 +285,7 @@ public class PolicyEngine {
   // TODO: Optimization - Cache the group membership. Refresh periodically.
   private Optional<GroupMembership> resolveGroupMembership(final Urn actor) {
     try {
-      final CorpUserSnapshot corpUser = _entityClient.get(actor, SYSTEM_ACTOR).getValue().getCorpUserSnapshot();
+      final CorpUserSnapshot corpUser = _entityClient.get(actor, _systemAuthentication).getValue().getCorpUserSnapshot();
       for (CorpUserAspect aspect : corpUser.getAspects()) {
         if (aspect.isGroupMembership()) {
           // Found group membership.

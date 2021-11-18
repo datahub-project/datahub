@@ -28,7 +28,7 @@ public class RemoveGroupResolver implements DataFetcher<CompletableFuture<Boolea
       final Urn urn = Urn.createFromString(groupUrn);
       return CompletableFuture.supplyAsync(() -> {
         try {
-          _entityClient.deleteEntity(urn, context.getActor());
+          _entityClient.deleteEntity(urn, context.getAuthentication());
           return true;
         } catch (Exception e) {
           throw new RuntimeException(String.format("Failed to perform delete against group with urn %s", groupUrn), e);

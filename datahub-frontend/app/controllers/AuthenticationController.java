@@ -1,9 +1,10 @@
 package controllers;
 
-import auth.AuthClient;
+import client.AuthServiceClient;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.urn.CorpuserUrn;
+import com.linkedin.common.urn.Urn;
 import com.typesafe.config.Config;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
@@ -53,7 +54,7 @@ public class AuthenticationController extends Controller {
     private SsoManager _ssoManager;
 
     @Inject
-    AuthClient _authClient;
+    AuthServiceClient _authClient;
 
     @Inject
     public AuthenticationController(@Nonnull Config configs) {
@@ -91,7 +92,7 @@ public class AuthenticationController extends Controller {
 
         // 3. If no auth enabled, fallback to using default user account & redirect.
         // Generate GMS session token, TODO:
-        final String accessToken = _authClient.generateSessionTokenForUser(DEFAULT_ACTOR_URN.toString());
+        final String accessToken = _authClient.generateSessionTokenForUser(DEFAULT_ACTOR_URN.getId());
         session().put(ACCESS_TOKEN, accessToken);
         session().put(ACTOR, DEFAULT_ACTOR_URN.toString());
         return redirect(redirectPath).withCookies(createActorCookie(DEFAULT_ACTOR_URN.toString(), _configs.hasPath(SESSION_TTL_CONFIG_PATH)
@@ -134,11 +135,11 @@ public class AuthenticationController extends Controller {
         }
 
 
-        final String actorUrn = new CorpuserUrn(username).toString();
-        final String accessToken = _authClient.generateSessionTokenForUser(actorUrn);
-        ctx().session().put(ACTOR, actorUrn);
+        final Urn actorUrn = new CorpuserUrn(username);
+        final String accessToken = _authClient.generateSessionTokenForUser(actorUrn.getId());
+        ctx().session().put(ACTOR, actorUrn.toString());
         ctx().session().put(ACCESS_TOKEN, accessToken);
-        return ok().withCookies(Http.Cookie.builder(ACTOR, actorUrn)
+        return ok().withCookies(Http.Cookie.builder(ACTOR, actorUrn.toString())
             .withHttpOnly(false)
             .withMaxAge(Duration.of(30, ChronoUnit.DAYS))
             .build());

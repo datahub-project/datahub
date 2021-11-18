@@ -1,6 +1,7 @@
 package auth.sso.oidc;
 
-import auth.AuthClient;
+import client.AuthServiceClient;
+import com.datahub.authentication.Authentication;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.CorpGroupUrnArray;
 import com.linkedin.common.CorpuserUrnArray;
@@ -70,18 +71,19 @@ import static auth.AuthUtils.*;
 @Slf4j
 public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebContext> {
 
-  private static final String SYSTEM_ACTOR = Constants.SYSTEM_ACTOR;
-
-  private final EntityClient _entityClient;
   private final SsoManager _ssoManager;
-  private final AuthClient _authClient;
+  private final EntityClient _systemEntityClient;
+  private final Authentication _systemAuthentication;
+  private final AuthServiceClient _authClient;
 
   public OidcCallbackLogic(
       final SsoManager ssoManager,
-      final EntityClient entityClient,
-      final AuthClient authClient) {
+      final Authentication systemAuthentication,
+      final EntityClient systemEntityClient,
+      final AuthServiceClient authClient) {
     _ssoManager = ssoManager;
-    _entityClient = entityClient;
+    _systemAuthentication = systemAuthentication;
+    _systemEntityClient = systemEntityClient;
     _authClient = authClient;
   }
 
@@ -152,7 +154,7 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
       }
 
       // Successfully logged in - Generate GMS login token
-      final String accessToken = _authClient.generateSessionTokenForUser(corpUserUrn.toString());
+      final String accessToken = _authClient.generateSessionTokenForUser(corpUserUrn.getId());
       context.getJavaSession().put(ACCESS_TOKEN,  accessToken);
       context.getJavaSession().put(ACTOR, corpUserUrn.toString());
       return result.withCookies(createActorCookie(corpUserUrn.toString(), oidcConfigs.getSessionTtlInHours()));
@@ -295,7 +297,7 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
 
     // 1. Check if this user already exists.
     try {
-      final Entity corpUser = _entityClient.get(corpUserSnapshot.getUrn(), SYSTEM_ACTOR);
+      final Entity corpUser = _systemEntityClient.get(corpUserSnapshot.getUrn(), _systemAuthentication);
       final CorpUserSnapshot existingCorpUserSnapshot = corpUser.getValue().getCorpUserSnapshot();
 
       log.debug(String.format("Fetched GMS user with urn %s",corpUserSnapshot.getUrn()));
@@ -306,7 +308,7 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
         // 2. The user does not exist. Provision them.
         final Entity newEntity = new Entity();
         newEntity.setValue(Snapshot.create(corpUserSnapshot));
-        _entityClient.update(newEntity, SYSTEM_ACTOR);
+        _systemEntityClient.update(newEntity, _systemAuthentication);
         log.debug(String.format("Successfully provisioned user %s", corpUserSnapshot.getUrn()));
       }
       log.debug(String.format("User %s already exists. Skipping provisioning", corpUserSnapshot.getUrn()));
@@ -326,7 +328,7 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
     // 1. Check if this user already exists.
     try {
       final Set<Urn> urnsToFetch = corpGroups.stream().map(CorpGroupSnapshot::getUrn).collect(Collectors.toSet());
-      final Map<Urn, Entity> existingGroups = _entityClient.batchGet(urnsToFetch, SYSTEM_ACTOR);
+      final Map<Urn, Entity> existingGroups = _systemEntityClient.batchGet(urnsToFetch, _systemAuthentication);
 
       log.debug(String.format("Fetched GMS groups with urns %s", existingGroups.keySet()));
 
@@ -357,9 +359,9 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
       log.debug(String.format("Provisioning groups with urns %s", groupsToCreateUrns));
 
       // Now batch create all entities identified to create.
-      _entityClient.batchUpdate(groupsToCreate.stream().map(groupSnapshot ->
+      _systemEntityClient.batchUpdate(groupsToCreate.stream().map(groupSnapshot ->
           new Entity().setValue(Snapshot.create(groupSnapshot))
-      ).collect(Collectors.toSet()), SYSTEM_ACTOR);
+      ).collect(Collectors.toSet()), _systemAuthentication);
 
       log.debug(String.format("Successfully provisioned groups with urns %s", groupsToCreateUrns));
 
@@ -373,7 +375,7 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
   private void verifyPreProvisionedUser(CorpuserUrn urn) {
     // Validate that the user exists in the system (there is more than just a key aspect for them, as of today).
     try {
-      final Entity corpUser = _entityClient.get(urn, SYSTEM_ACTOR);
+      final Entity corpUser = _systemEntityClient.get(urn, _systemAuthentication);
 
       log.debug(String.format("Fetched GMS user with urn %s", urn));
 
@@ -399,7 +401,7 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
     proposal.setAspectName(Constants.CORP_USER_STATUS_ASPECT_NAME);
     proposal.setAspect(GenericAspectUtils.serializeAspect(newStatus));
     proposal.setChangeType(ChangeType.UPSERT);
-    _entityClient.ingestProposal(proposal, Constants.SYSTEM_ACTOR);
+    _systemEntityClient.ingestProposal(proposal, _systemAuthentication);
   }
 
   private Optional<String> extractRegexGroup(final String patternStr, final String target) {

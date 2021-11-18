@@ -64,7 +64,7 @@ public class AddGroupMembersResolver implements DataFetcher<CompletableFuture<Bo
       // First, fetch user's group membership aspect.
       final VersionedAspect gmsAspect =
           _entityClient.getAspectOrNull(userUrnStr, Constants.GROUP_MEMBERSHIP_ASPECT_NAME,
-              Constants.ASPECT_LATEST_VERSION, context.getActor());
+              Constants.ASPECT_LATEST_VERSION, context.getAuthentication());
 
       GroupMembership groupMembership;
       if (gmsAspect == null) {
@@ -90,7 +90,7 @@ public class AddGroupMembersResolver implements DataFetcher<CompletableFuture<Bo
       proposal.setAspectName(Constants.GROUP_MEMBERSHIP_ASPECT_NAME);
       proposal.setAspect(GenericAspectUtils.serializeAspect(groupMembership));
       proposal.setChangeType(ChangeType.UPSERT);
-      _entityClient.ingestProposal(proposal, context.getActor());
+      _entityClient.ingestProposal(proposal, context.getAuthentication());
     } catch (Exception e) {
       throw new RuntimeException("Failed to add member to group", e);
     }
@@ -102,7 +102,7 @@ public class AddGroupMembersResolver implements DataFetcher<CompletableFuture<Bo
           groupUrnStr,
           Constants.CORP_GROUP_KEY_ASPECT_NAME,
           Constants.ASPECT_LATEST_VERSION,
-          context.getActor());
+          context.getAuthentication());
       return keyAspect != null;
     } catch (Exception e) {
       throw new DataHubGraphQLException("Failed to fetch group!", DataHubGraphQLErrorCode.SERVER_ERROR);
@@ -115,7 +115,7 @@ public class AddGroupMembersResolver implements DataFetcher<CompletableFuture<Bo
           userUrnStr,
           Constants.CORP_USER_KEY_ASPECT_NAME,
           Constants.ASPECT_LATEST_VERSION,
-          context.getActor());
+          context.getAuthentication());
       return keyAspect != null;
     } catch (Exception e) {
       throw new DataHubGraphQLException("Failed to fetch user!", DataHubGraphQLErrorCode.SERVER_ERROR);

@@ -26,15 +26,9 @@ public class RestliEntityClientFactory {
   @Value("${DATAHUB_GMS_SSL_PROTOCOL:#{null}}")
   private String gmsSslProtocol;
 
-  @Value("${authentication.systemClientId:#{null}}")
-  private String systemClientId; // Required if Metadata Service authentication is enabled.
-
-  @Value("${authentication.systemClientSecret:#{null}}")
-  private String systemSecret; // Required if Metadata Service authentication is enabled.
-
   @Bean("restliEntityClient")
   public RestliEntityClient getRestliEntityClient() {
     Client restClient = DefaultRestliClientFactory.getRestLiClient(gmsHost, gmsPort, gmsUseSSL, gmsSslProtocol);
-    return new RestliEntityClient(restClient, systemClientId, systemSecret);
+    return new RestliEntityClient(restClient);
   }
 }

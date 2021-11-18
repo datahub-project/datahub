@@ -49,7 +49,7 @@ public class SearchResolver implements DataFetcher<CompletableFuture<SearchResul
             input.getQuery(), input.getFilters(), start, count);
         return UrnSearchResultsMapper.map(
             _entityClient.search(entityName, sanitizedQuery, ResolverUtils.buildFilter(input.getFilters()), start,
-                count, ResolverUtils.getActor(environment)));
+                count, ResolverUtils.getAuthentication(environment)));
       } catch (Exception e) {
         log.error("Failed to execute search: entity type {}, query {}, filters: {}, start: {}, count: {}",
             input.getType(), input.getQuery(), input.getFilters(), start, count);

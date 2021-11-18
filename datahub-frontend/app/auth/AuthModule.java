@@ -1,5 +1,8 @@
 package auth;
 
+import client.AuthServiceClient;
+import com.datahub.authentication.Actor;
+import com.datahub.authentication.ActorType;
 import com.google.inject.AbstractModule;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
@@ -7,6 +10,8 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.RestliEntityClient;
 import com.linkedin.metadata.restli.DefaultRestliClientFactory;
 import com.linkedin.util.Configuration;
+import com.datahub.authentication.Authentication;
+import java.util.Collections;
 import org.pac4j.core.client.Client;
 import org.pac4j.core.client.Clients;
 import org.pac4j.core.config.Config;
@@ -60,7 +65,10 @@ public class AuthModule extends AbstractModule {
 
         try {
             bind(SsoCallbackController.class).toConstructor(SsoCallbackController.class.getConstructor(
-                SsoManager.class, EntityClient.class, AuthClient.class));
+                SsoManager.class,
+                Authentication.class,
+                EntityClient.class,
+                AuthServiceClient.class));
         } catch (NoSuchMethodException | SecurityException e) {
             System.out.println("Required constructor missing");
         }
@@ -102,16 +110,25 @@ public class AuthModule extends AbstractModule {
     }
 
     @Provides @Singleton
-    protected EntityClient provideEntityClient() {
-
+    protected Authentication provideSystemAuthentication() {
+        // Returns an instance of Authentication used to authenticate system initiated calls to Metadata Service.
         String systemClientId = _configs.getString(SYSTEM_CLIENT_ID_CONFIG_PATH);
         String systemSecret = _configs.getString(SYSTEM_CLIENT_SECRET_CONFIG_PATH);
-
-        return new RestliEntityClient(buildRestliClient(), systemClientId, systemSecret);
+        final Actor systemActor = new Actor(ActorType.USER, systemClientId); // TODO: Change to service actor once supported.
+        return new Authentication(
+            systemActor,
+            String.format("Basic %s:%s", systemClientId, systemSecret),
+            Collections.emptyMap()
+        );
     }
 
     @Provides @Singleton
-    protected AuthClient provideAuthClient() {
+    protected EntityClient provideEntityClient() {
+        return new RestliEntityClient(buildRestliClient());
+    }
+
+    @Provides @Singleton
+    protected AuthServiceClient provideAuthClient(Authentication systemAuthentication) {
         // Init a GMS auth client
         final String metadataServiceHost = _configs.hasPath(METADATA_SERVICE_HOST_CONFIG_PATH)
             ? _configs.getString(METADATA_SERVICE_HOST_CONFIG_PATH)
@@ -125,9 +142,11 @@ public class AuthModule extends AbstractModule {
             ? _configs.getBoolean(METADATA_SERVICE_USE_SSL_CONFIG_PATH)
             : Boolean.parseBoolean(Configuration.getEnvironmentVariable(GMS_USE_SSL_ENV_VAR, "False"));
 
-        String systemClientId = _configs.getString(SYSTEM_CLIENT_ID_CONFIG_PATH);
-        String systemClientSecret = _configs.getString(SYSTEM_CLIENT_SECRET_CONFIG_PATH);
-        return new AuthClient(metadataServiceHost, metadataServicePort, metadataServiceUseSsl, systemClientId, systemClientSecret);
+        return new AuthServiceClient(
+            metadataServiceHost,
+            metadataServicePort,
+            metadataServiceUseSsl,
+            systemAuthentication);
     }
 
     private com.linkedin.restli.client.Client buildRestliClient() {

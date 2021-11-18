@@ -35,13 +35,13 @@ public class UpdateUserStatusResolver implements DataFetcher<CompletableFuture<S
       // Create ths status aspect
       final com.linkedin.identity.CorpUserStatus statusAspect = new com.linkedin.identity.CorpUserStatus();
       statusAspect.setStatus(newStatus.toString());
-      statusAspect.setLastModified(new AuditStamp().setTime(System.currentTimeMillis()).setActor(Urn.createFromString(context.getActor())));
+      statusAspect.setLastModified(new AuditStamp().setTime(System.currentTimeMillis()).setActor(Urn.createFromString(context.getActorUrn())));
 
       return CompletableFuture.supplyAsync(() -> {
         try {
           final MetadataChangeProposal proposal = new MetadataChangeProposal();
           proposal.setEntityUrn(Urn.createFromString(userUrn));
-          return _entityClient.ingestProposal(proposal, context.getActor());
+          return _entityClient.ingestProposal(proposal, context.getAuthentication());
         } catch (Exception e) {
           throw new RuntimeException(String.format("Failed to update user status for urn", userUrn), e);
         }

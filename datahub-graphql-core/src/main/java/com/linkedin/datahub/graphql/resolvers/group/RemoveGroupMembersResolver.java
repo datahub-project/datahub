@@ -46,7 +46,7 @@ public class RemoveGroupMembersResolver implements DataFetcher<CompletableFuture
               userUrnStr,
               Constants.GROUP_MEMBERSHIP_ASPECT_NAME,
               Constants.ASPECT_LATEST_VERSION,
-              context.getActor());
+              context.getAuthentication());
 
           if (gmsAspect == null) {
             // Nothing to do, as the user is not in the group. Return false as the user was
@@ -62,7 +62,7 @@ public class RemoveGroupMembersResolver implements DataFetcher<CompletableFuture
             proposal.setAspectName(Constants.GROUP_MEMBERSHIP_ASPECT_NAME);
             proposal.setAspect(GenericAspectUtils.serializeAspect(groupMembership));
             proposal.setChangeType(ChangeType.UPSERT);
-            _entityClient.ingestProposal(proposal, context.getActor());
+            _entityClient.ingestProposal(proposal, context.getAuthentication());
             return true;
           }
           return false;

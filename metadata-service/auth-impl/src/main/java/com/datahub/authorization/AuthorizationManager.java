@@ -1,5 +1,6 @@
 package com.datahub.authorization;
 
+import com.datahub.authentication.Authentication;
 import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.Owner;
 import com.linkedin.common.Ownership;
@@ -39,10 +40,6 @@ import static com.linkedin.metadata.Constants.*;
 @Slf4j
 public class AuthorizationManager implements Authorizer {
 
-  // Used for resolving resource ownership.
-  // TODO: Pass an ownership resolver function instead.
-  private final OwnershipClient _ownershipClient;
-
   // Maps privilege name to the associated set of policies for fast access.
   // Not concurrent data structure because writes are always against the entire thing.
   private final Map<String, List<DataHubPolicyInfo>> _policyCache = new HashMap<>(); // Shared Policy Cache.
@@ -54,16 +51,16 @@ public class AuthorizationManager implements Authorizer {
   private AuthorizationMode _mode;
 
   public AuthorizationManager(
+      final Authentication systemAuthentication,
       final EntityClient entityClient,
       final OwnershipClient ownershipClient,
       final int delayIntervalSeconds,
       final int refreshIntervalSeconds,
       final AuthorizationMode mode) {
-    _ownershipClient = ownershipClient;
-    _policyRefreshRunnable = new PolicyRefreshRunnable(entityClient, _policyCache);
+    _policyRefreshRunnable = new PolicyRefreshRunnable(systemAuthentication, entityClient, _policyCache);
     _refreshExecutorService.scheduleAtFixedRate(_policyRefreshRunnable, delayIntervalSeconds, refreshIntervalSeconds, TimeUnit.SECONDS);
     _mode = mode;
-    _policyEngine = new PolicyEngine(entityClient, ownershipClient);
+    _policyEngine = new PolicyEngine(systemAuthentication, entityClient, ownershipClient);
   }
 
   public AuthorizationResult authorize(final AuthorizationRequest request) {
@@ -161,12 +158,15 @@ public class AuthorizationManager implements Authorizer {
 
     private static final String POLICY_ENTITY_NAME = "dataHubPolicy";
 
+    private final Authentication _systemAuthentication;
     private final EntityClient _entityClient;
     private final Map<String, List<DataHubPolicyInfo>> _policyCache;
 
     public PolicyRefreshRunnable(
+        final Authentication systemAuthentication,
         final EntityClient entityClient,
         final Map<String, List<DataHubPolicyInfo>> policyCache) {
+      _systemAuthentication = systemAuthentication;
       _entityClient = entityClient;
       _policyCache = policyCache;
     }
@@ -184,9 +184,8 @@ public class AuthorizationManager implements Authorizer {
         while (start < total) {
           try {
             log.debug(String.format("Batch fetching policies. start: %s, count: %s ", start, count));
-            final ListUrnsResult policyUrns = _entityClient.listUrns(POLICY_ENTITY_NAME, start, count, SYSTEM_ACTOR);
-            final Map<Urn, Entity> policyEntities = _entityClient.batchGet(new HashSet<>(policyUrns.getEntities()),
-                SYSTEM_ACTOR);
+            final ListUrnsResult policyUrns = _entityClient.listUrns(POLICY_ENTITY_NAME, start, count, _systemAuthentication);
+            final Map<Urn, Entity> policyEntities = _entityClient.batchGet(new HashSet<>(policyUrns.getEntities()), _systemAuthentication);
 
             addPoliciesToCache(newCache, policyEntities
                 .values()

@@ -7,9 +7,7 @@ import com.datahub.authentication.AuthenticationException;
 import com.datahub.authentication.Authenticator;
 import com.datahub.authentication.token.TokenClaims;
 import com.datahub.authentication.token.TokenService;
-import com.google.common.collect.ImmutableMap;
 import javax.annotation.Nonnull;
-import java.util.Collections;
 import java.util.Map;
 import java.util.Objects;
 import lombok.extern.slf4j.Slf4j;
@@ -67,7 +65,6 @@ public class DataHubTokenAuthenticator implements Authenticator {
       return new Authentication(
           new Actor(claims.getActorType(), claims.getActorId()),
           credentials,
-          null,
           claims.asMap());
     } catch (Exception e) {
       // Failed to validate the token

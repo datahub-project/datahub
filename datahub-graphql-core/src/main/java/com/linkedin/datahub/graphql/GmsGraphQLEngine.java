@@ -138,8 +138,6 @@ import static graphql.Scalars.GraphQLLong;
 
 /**
  * A {@link GraphQLEngine} configured to provide access to the entities and aspects on the the GMS graph.
- *
- * TODO: Accept GMS clients as constructor arguments.
  */
 @Slf4j
 public class GmsGraphQLEngine {

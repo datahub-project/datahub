@@ -68,7 +68,7 @@ public class UpsertPolicyResolver implements DataFetcher<CompletableFuture<Strin
       return CompletableFuture.supplyAsync(() -> {
         try {
           // TODO: We should also provide SystemMetadata.
-          String urn = _entityClient.ingestProposal(proposal, context.getActor());
+          String urn = _entityClient.ingestProposal(proposal, context.getAuthentication());
           if (context.getAuthorizer() instanceof AuthorizationManager) {
             ((AuthorizationManager) context.getAuthorizer()).invalidateCache();
           }

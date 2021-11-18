@@ -29,7 +29,7 @@ public class DeletePolicyResolver implements DataFetcher<CompletableFuture<Strin
       final Urn urn = Urn.createFromString(policyUrn);
       return CompletableFuture.supplyAsync(() -> {
         try {
-          _entityClient.deleteEntity(urn, context.getActor());
+          _entityClient.deleteEntity(urn, context.getAuthentication());
           if (context.getAuthorizer() instanceof AuthorizationManager) {
             ((AuthorizationManager) context.getAuthorizer()).invalidateCache();
           }

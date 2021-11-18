@@ -27,7 +27,7 @@ public class SubTypesResolver implements DataFetcher<CompletableFuture<SubTypes>
             final String urn = ((Entity) environment.getSource()).getUrn();
             Optional<SubTypes> subType;
             try {
-                subType = _entityClient.getVersionedAspect(urn, _aspectName, 0L, context.getActor(), SubTypes.class);
+                subType = _entityClient.getVersionedAspect(urn, _aspectName, 0L, SubTypes.class,  context.getAuthentication());
             } catch (RemoteInvocationException e) {
                 throw new RuntimeException("Failed to fetch aspect " + _aspectName + " for urn " + urn + " ", e);
             }

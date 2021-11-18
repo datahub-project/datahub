@@ -41,8 +41,8 @@ public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUs
     return CompletableFuture.supplyAsync(() -> {
       try {
         // 1. Get currently logged in user profile.
-        final Urn userUrn = Urn.createFromString(context.getActor());
-        final CorpUserSnapshot gmsUser = _entityClient.get(userUrn, userUrn.toString())
+        final Urn userUrn = Urn.createFromString(context.getActorUrn());
+        final CorpUserSnapshot gmsUser = _entityClient.get(userUrn, context.getAuthentication())
             .getValue()
             .getCorpUserSnapshot();
         final CorpUser corpUser = CorpUserSnapshotMapper.map(gmsUser);
@@ -69,28 +69,28 @@ public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUs
    * Returns true if the authenticated user has privileges to view analytics.
    */
   private boolean canViewAnalytics(final QueryContext context) {
-    return isAuthorized(context.getAuthorizer(), context.getActor(), PoliciesConfig.VIEW_ANALYTICS_PRIVILEGE);
+    return isAuthorized(context.getAuthorizer(), context.getActorUrn(), PoliciesConfig.VIEW_ANALYTICS_PRIVILEGE);
   }
 
   /**
    * Returns true if the authenticated user has privileges to manage policies analytics.
    */
   private boolean canManagePolicies(final QueryContext context) {
-    return isAuthorized(context.getAuthorizer(), context.getActor(), PoliciesConfig.MANAGE_POLICIES_PRIVILEGE);
+    return isAuthorized(context.getAuthorizer(), context.getActorUrn(), PoliciesConfig.MANAGE_POLICIES_PRIVILEGE);
   }
 
   /**
    * Returns true if the authenticated user has privileges to manage users & groups.
    */
   private boolean canManageUsersGroups(final QueryContext context) {
-    return isAuthorized(context.getAuthorizer(), context.getActor(), PoliciesConfig.MANAGE_USERS_AND_GROUPS_PRIVILEGE);
+    return isAuthorized(context.getAuthorizer(), context.getActorUrn(), PoliciesConfig.MANAGE_USERS_AND_GROUPS_PRIVILEGE);
   }
 
   /**
    * Returns true if the authenticated user has privileges to manage users & groups.
    */
   private boolean canGeneratePersonalAccessToken(final QueryContext context) {
-    return isAuthorized(context.getAuthorizer(), context.getActor(), PoliciesConfig.GENERATE_PERSONAL_ACCESS_TOKEN_PRIVILEGE);
+    return isAuthorized(context.getAuthorizer(), context.getActorUrn(), PoliciesConfig.GENERATE_PERSONAL_ACCESS_TOKENS_PRIVILEGE);
   }
 
   /**

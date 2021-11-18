@@ -59,7 +59,7 @@ public class CreateGroupResolver implements DataFetcher<CompletableFuture<String
           proposal.setAspectName(Constants.CORP_GROUP_INFO_ASPECT_NAME);
           proposal.setAspect(GenericAspectUtils.serializeAspect(info));
           proposal.setChangeType(ChangeType.UPSERT);
-          return _entityClient.ingestProposal(proposal, context.getActor());
+          return _entityClient.ingestProposal(proposal, context.getAuthentication());
         } catch (Exception e) {
           throw new RuntimeException("Failed to create group", e);
         }

@@ -2,11 +2,12 @@ package com.linkedin.metadata.kafka;
 
 import com.codahale.metrics.Histogram;
 import com.codahale.metrics.MetricRegistry;
+import com.datahub.authentication.Authentication;
 import com.linkedin.entity.Entity;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.RestliEntityClient;
+import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;
 import com.linkedin.gms.factory.entity.RestliEntityClientFactory;
-import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.EventUtils;
 import com.linkedin.metadata.kafka.config.MetadataChangeProposalProcessorCondition;
 import com.linkedin.metadata.snapshot.Snapshot;
@@ -33,10 +34,11 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @Component
 @Conditional(MetadataChangeProposalProcessorCondition.class)
-@Import({RestliEntityClientFactory.class})
+@Import({RestliEntityClientFactory.class, SystemAuthenticationFactory.class})
 @EnableKafka
 public class MetadataChangeEventsProcessor {
 
+  private Authentication systemAuthentication;
   private EntityClient entityClient;
   private KafkaTemplate<String, GenericRecord> kafkaTemplate;
 
@@ -47,8 +49,10 @@ public class MetadataChangeEventsProcessor {
   private String fmceTopicName;
 
   public MetadataChangeEventsProcessor(
+      @Nonnull final Authentication systemAuthentication,
       @Nonnull final RestliEntityClient entityClient,
       @Nonnull final KafkaTemplate<String, GenericRecord> kafkaTemplate) {
+    this.systemAuthentication = systemAuthentication;
     this.entityClient = entityClient;
     this.kafkaTemplate = kafkaTemplate;
   }
@@ -101,6 +105,6 @@ public class MetadataChangeEventsProcessor {
     final Snapshot snapshotUnion = metadataChangeEvent.getProposedSnapshot();
     final Entity entity = new Entity().setValue(snapshotUnion);
     // TODO: GMS Auth Part 2: Get the actor identity from the event header itself.
-    entityClient.updateWithSystemMetadata(entity, metadataChangeEvent.getSystemMetadata(), Constants.SYSTEM_ACTOR);
+    entityClient.updateWithSystemMetadata(entity, metadataChangeEvent.getSystemMetadata(), this.systemAuthentication);
   }
 }

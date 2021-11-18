@@ -1,5 +1,6 @@
 package com.datahub.graphql;
 
+import com.datahub.authentication.Authentication;
 import com.datahub.authorization.Authorizer;
 import com.linkedin.datahub.graphql.QueryContext;
 
@@ -7,12 +8,12 @@ import com.linkedin.datahub.graphql.QueryContext;
 public class SpringQueryContext implements QueryContext {
 
   private final boolean isAuthenticated;
-  private final String actor;
+  private final Authentication authentication;
   private final Authorizer authorizer;
 
-  public SpringQueryContext(final boolean isAuthenticated, final String actor, final Authorizer authorizer) {
+  public SpringQueryContext(final boolean isAuthenticated, final Authentication authentication, final Authorizer authorizer) {
     this.isAuthenticated = isAuthenticated;
-    this.actor = actor;
+    this.authentication = authentication;
     this.authorizer = authorizer;
   }
 
@@ -22,8 +23,8 @@ public class SpringQueryContext implements QueryContext {
   }
 
   @Override
-  public String getActor() {
-    return this.actor;
+  public Authentication getAuthentication() {
+    return this.authentication;
   }
 
   @Override
