@@ -2,8 +2,8 @@
 
 ## Introduction
 
-We've recently introduced Authentication in the Metadata Service layer. This document will provide a technical overview of the feature aimed at developers
-evaluating or operating DataHub for their companies. It will include a characterization of the motivations forthe feature, the key components in its design, the new capabilities it provides, & instructions on configuring Authentication in the Metadata Service. 
+We recently introduced Authentication in the Metadata Service layer. This document will provide a technical overview of the feature aimed at developers
+evaluating or operating DataHub. It will include a characterization of the motivations for the feature, the key components in its design, the new capabilities it provides, & configuration instructions. 
 
 ## Background
 
@@ -12,12 +12,14 @@ Let's recall 2 critical components of DataHub's architecture:
 - **DataHub Frontend Proxy** (datahub-frontend) - Resource server that routes requests to downstream Metadata Service
 - **DataHub Metadata Service** (datahub-gms) - Source of truth for storing and serving DataHub Metadata Graph. 
 
-Previously, Authentication was exclusively handled by the frontend proxy. This service would perform the following steps 
-when a user navigated to `http://localhost:9002/`, where the UI app was served:
+Previously, Authentication was exclusively handled by the Frontend Proxy. This service would perform the following steps 
+when a user navigated to `http://localhost:9002/`:
 
-a. Check for the presence of a special `PLAY_SESSION` cookie.
-b. If cookie was present + valid, redirect to the home page
-c. If cookie was invalid, redirect to either a) the DataHub login screen (for [JAAS authentication](https://datahubproject.io/docs/how/auth/jaas/) or b) a [configured OIDC Identity Provider](https://datahubproject.io/docs/how/auth/sso/configure-oidc-react/) to perform authentication.
+  a. Check for the presence of a special `PLAY_SESSION` cookie.
+
+  b. If cookie was present + valid, redirect to the home page
+
+  c. If cookie was invalid, redirect to either a) the DataHub login screen (for [JAAS authentication](https://datahubproject.io/docs/how/auth/jaas/) or b) a [configured OIDC Identity Provider](https://datahubproject.io/docs/how/auth/sso/configure-oidc-react/) to perform authentication.
 
 Once authentication had succeeded at the frontend proxy layer, a stateless (token-based) session cookie (PLAY_SESSION) would be set in the users browser.
 All subsequent requests, including the GraphQL requests issued by the React UI, would be authenticated using this session cookie. Once a request had made it beyond
@@ -28,26 +30,25 @@ the frontend service layer, it was assumed to have been already authenticated. H
 The major challenge with this situation is that requests to the backend Metadata Service were completely unauthenticated. There were 2 options for folks who required authentication at the Metadata Service layer:
 
 1. Set up a proxy in front of Metadata Service that performed authentication
-2. (A more recent possibility) Route requests to Metadata Service through DataHub Frontend Proxy, including the PLAY_SESSION
+2. [A more recent possibility] Route requests to Metadata Service through DataHub Frontend Proxy, including the PLAY_SESSION
 Cookie with every request.
    
-Neither of which are ideal. Setting up a proxy to do authentication takes time & expertise. Extracting and setting a session cookie for programmatic is
-clunky & unscalable. On top of that, extending the authentication system was difficult, requiring implementing a new Play module within DataHub Frontend.
+Neither of which are ideal. Setting up a proxy to do authentication takes time & expertise. Extracting and setting a session cookie from the browser for programmatic is
+clunky & unscalable. On top of that, extending the authentication system was difficult, requiring implementing a new [Play module](https://www.playframework.com/documentation/2.8.8/api/java/play/mvc/Security.Authenticator.html) within DataHub Frontend.
 
 ## Introducing Authentication in DataHub Metadata Service
 
-To address these problems, we've introduced configurable Authentication inside the **Metadata Service** itself, 
+To address these problems, we introduced configurable Authentication inside the **Metadata Service** itself, 
 meaning that requests are no longer considered trusted until they are authenticated by the Metadata Service.
 
-Why push Authentication down? In addition to the problems described in the previous section, the rationale for pushing authentication deeper in the stack, as opposed to keeping it at the proxy layer, 
-was in part locality (keeping shared components in the same place) and in part planning for a future where incoming Kafka writes 
-can be validated using the same mechanisms as normal Rest operations.
+Why push Authentication down? In addition to the problems described above, we wanted to plan for a future
+where Authentication of Kafka-based-writes could be performed in the same manner as Rest writes. 
 
-Next, we'll cover the new components being introduced to support Authentication inside the Metadata Service. 
+Next, we'll cover the components being introduced to support Authentication inside the Metadata Service. 
 
 ### Concepts & Key Components 
 
-We've introduced a few important concepts to the Metadata Service to make authentication work:
+We introduced a few important concepts to the Metadata Service to make authentication work:
 
 1. Actor
 2. Authenticator
@@ -168,7 +169,7 @@ Today, Access Tokens are granted by the Token Service under two scenarios:
 
 ### New Capability: Personal Access Tokens
 
-With these changes, we've introduced a way to generate a "Personal Access Token" suitable for programmatic use with both the DataHub GraphQL
+With these changes, we introduced a way to generate a "Personal Access Token" suitable for programmatic use with both the DataHub GraphQL
 and DataHub Rest.li (Ingestion) APIs. 
 
 Personal Access Tokens have a finite lifespan (default 3 months) and currently cannot be revoked without changing the signing key that
