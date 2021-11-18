@@ -558,7 +558,7 @@
               },
               "fields": [
                 {
-                  "fieldPath": "field_foo_hoo_hoo_hoo",
+                  "fieldPath": "field_foo",
                   "jsonPath": null,
                   "nullable": false,
                   "description": {
@@ -3096,31 +3096,5 @@
         }
       },
       "proposedDelta": null
-    },
-  {
-    "auditHeader": null,
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,logging_events,PROD)",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "dataQualityRules",
-    "aspect": {
-      "value": "{\"rules\": [{ \"field\": \"event_data\", \"isFieldLevel\": true, \"type\": \"nonNull\", \"checkDefinition\": \"n/a\", \"url\": \"https://github.com/linkedin/datahub/blob/master/checks/nonNull.sql\" }, { \"field\": \"timestamp\", \"isFieldLevel\": true, \"type\": \"increasing\", \"checkDefinition\": \"n/a\", \"url\": \"https://github.com/linkedin/datahub/blob/master/checks/increasing.sql\" }] }",
-      "contentType": "application/json"
-    },
-    "systemMetadata": null
-  },
-  {
-    "auditHeader": null,
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,logging_events,PROD)",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "certification",
-    "aspect": {
-      "value": "{\"status\": \"certified\", \"certifiedBy\": \"urn:li:corpuser:datahub\", \"certifiedOn\": 16361507520000 }",
-      "contentType": "application/json"
-    },
-    "systemMetadata": null
-  }
+    }
 ]
