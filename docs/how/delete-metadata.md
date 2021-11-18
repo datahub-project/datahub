@@ -10,7 +10,7 @@ _Note: Deleting metadata should only be done with care. Always use `--dry-run` t
 
 ## Accessing datahub CLI
 
-To use the datahub CLI you need to have the datahub Python package installed as explained in [Metadata Ingestion](../../metadata-ingestion/README.md) or you can use the `metadata-ingestion` docker image as explained in [Docker Images](../../docker/README.md). In case you are using Kubernetes you can start a pod with the metadata-ingestion docker image, get in the shell of the pod and you will have the access to datahub CLI in your kubernetes cluster.
+To use the datahub CLI you need to have the datahub Python package installed as explained in [Metadata Ingestion](../../metadata-ingestion/README.md) or you can use the `datahub-ingestion` docker image as explained in [Docker Images](../../docker/README.md). In case you are using Kubernetes you can start a pod with the `datahub-ingestion` docker image, get in the shell of the pod and you will have the access to datahub CLI in your kubernetes cluster.
 
 ## Configuring DataHub CLI
 
