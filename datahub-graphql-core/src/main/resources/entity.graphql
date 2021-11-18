@@ -643,6 +643,16 @@ type RawAspect {
     payload: String
 
     """
+    Details for the frontend on how the raw aspect should be rendered
+    """
+    renderSpec: AspectRenderSpec
+}
+
+"""
+Details for the frontend on how the raw aspect should be rendered
+"""
+type AspectRenderSpec {
+    """
     Format the aspect should be displayed in for the UI. Powered by the renderSpec annotation on the aspect model
     """
     displayType: String
@@ -651,6 +661,11 @@ type RawAspect {
     Name to refer to the aspect type by for the UI. Powered by the renderSpec annotation on the aspect model
     """
     displayName: String
+
+    """
+    Field in the aspect payload to index into for rendering.
+    """
+    key: String
 }
 
 """
