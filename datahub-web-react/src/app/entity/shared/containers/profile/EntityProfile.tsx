@@ -144,17 +144,17 @@ export const EntityProfile = <T, U>({
 
     const lineage = entityData ? entityRegistry.getLineageVizConfig(entityType, entityData) : undefined;
 
-    const dynamicTabs: EntityTab[] =
+    const autoRenderTabs: EntityTab[] =
         entityData?.autoRenderAspects?.map((aspect) => ({
             name: aspect.displayName || aspect.aspectName,
-            component: () => <DynamicTab type={aspect.displayType || 'properties'} payload={aspect.payload} />,
+            component: () => <DynamicTab type={aspect.displayType} payload={aspect.payload} />,
             display: {
                 visible: () => true,
                 enabled: () => true,
             },
         })) || [];
 
-    const routedTab = useRoutedTab([...tabsWithDefaults, ...dynamicTabs]);
+    const routedTab = useRoutedTab([...tabsWithDefaults, ...autoRenderTabs]);
 
     if (isCompact) {
         return (
@@ -216,7 +216,7 @@ export const EntityProfile = <T, U>({
                                     <Header>
                                         <EntityHeader />
                                         <EntityTabs
-                                            tabs={[...tabsWithDefaults, ...dynamicTabs]}
+                                            tabs={[...tabsWithDefaults, ...autoRenderTabs]}
                                             selectedTab={routedTab}
                                         />
                                     </Header>

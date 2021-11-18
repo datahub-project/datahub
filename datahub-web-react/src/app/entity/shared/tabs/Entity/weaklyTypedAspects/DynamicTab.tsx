@@ -9,7 +9,7 @@ import DynamicPropertiesTab from './DynamicPropertiesTab';
 
 type Props = {
     payload: string | undefined | null;
-    type: string;
+    type: string | undefined | null;
 };
 
 const QueryText = styled(Typography.Paragraph)`
@@ -35,6 +35,7 @@ export default function DynamicTab({ payload, type }: Props) {
         return <DynamicPropertiesTab payload={payload} />;
     }
 
+    // Default fallback behavior
     return (
         <>
             <QueryText>
