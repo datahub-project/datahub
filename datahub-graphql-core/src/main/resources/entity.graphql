@@ -613,15 +613,43 @@ type Dataset implements EntityWithRelationships & Entity {
     viewProperties: ViewProperties
 
     """
-    fetches extra entities that do not have custom UI code yet
+    Experimental API.
+    For fetching extra entities that do not have custom UI code yet
     """
-    dynamicAspects: [DynamicAspectResult!]
+    aspects(input: AspectParams): [RawAspect!]
 }
 
-type DynamicAspectResult {
+
+"""
+Params to configure what list of aspects should be fetched by the aspects property
+"""
+input AspectParams {
+    autoRender: Boolean
+}
+
+
+"""
+Payload representing data about a single aspect
+"""
+type RawAspect {
+    """
+    The name of the aspect
+    """
     aspectName: String!
+
+    """
+    JSON string containing the aspect's payload
+    """
     payload: String
+
+    """
+    Format the aspect should be displayed in for the UI. Powered by the renderSpec annotation on the aspect model
+    """
     displayType: String
+
+    """
+    Name to refer to the aspect type by for the UI. Powered by the renderSpec annotation on the aspect model
+    """
     displayName: String
 }
 

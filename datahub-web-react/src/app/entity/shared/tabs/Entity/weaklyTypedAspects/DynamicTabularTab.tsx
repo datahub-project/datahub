@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyledTable } from '../../components/styled/StyledTable';
+import { StyledTable } from '../../../components/styled/StyledTable';
 
 type Props = {
     payload: string | undefined | null;
@@ -34,8 +34,7 @@ const TableValueRenderer = ({ value }: { value: any }) => {
 };
 
 export default function DynamicTabularTab({ payload: rawPayload }: Props) {
-    const payload = JSON.parse(rawPayload || '{}');
-    const aspectData = payload[Object.keys(payload)[0]];
+    const aspectData = JSON.parse(rawPayload || '{}');
     const rowData = aspectData[Object.keys(aspectData)[0]];
     const columns = Object.keys(rowData[0]).map((columnName) => ({
         title: columnName,

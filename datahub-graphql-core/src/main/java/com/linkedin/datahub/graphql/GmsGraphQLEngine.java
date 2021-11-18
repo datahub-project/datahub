@@ -545,8 +545,8 @@ public class GmsGraphQLEngine {
                .dataFetcher("subTypes", new AuthenticatedResolver(new SubTypesResolver(GmsClientFactory.getAspectsClient(),
                            "dataset",
                        "subTypes")))
-               .dataFetcher("dynamicAspects", new AuthenticatedResolver<>(
-                   new DynamicAspectsResolver(entityClient, entityRegistry))
+               .dataFetcher("aspects", new AuthenticatedResolver<>(
+                   new WeaklyTypedAspectsResolver(entityClient, entityRegistry))
                )
             )
             .type("Owner", typeWiring -> typeWiring

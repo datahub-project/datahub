@@ -2,10 +2,8 @@ import React from 'react';
 import { Typography } from 'antd';
 import styled from 'styled-components';
 
-import { StyledTable } from '../../components/styled/StyledTable';
-import { ANTD_GRAY } from '../../constants';
-import EntityRegistry from '../../../EntityRegistry';
-import { useEntityRegistry } from '../../../../useEntityRegistry';
+import { StyledTable } from '../../../components/styled/StyledTable';
+import { ANTD_GRAY } from '../../../constants';
 
 type Props = {
     payload: string | undefined | null;
@@ -29,7 +27,7 @@ function isValidHttpUrl(string) {
     return url.protocol === 'http:' || url.protocol === 'https:';
 }
 
-const TableValueRenderer = ({ value, entityRegistry }: { value: any; entityRegistry: EntityRegistry }) => {
+const TableValueRenderer = ({ value }: { value: any }) => {
     if (typeof value === 'boolean') {
         return <span>{String(value)}</span>;
     }
@@ -46,10 +44,8 @@ const TableValueRenderer = ({ value, entityRegistry }: { value: any; entityRegis
 };
 
 export default function DynamicTabularTab({ payload: rawPayload }: Props) {
-    const payload = JSON.parse(rawPayload || '{}');
-    const aspectData = payload[Object.keys(payload)[0]];
+    const aspectData = JSON.parse(rawPayload || '{}');
     const transformedRowData = Object.keys(aspectData).map((key) => ({ key, value: aspectData[key] }));
-    const entityRegistry = useEntityRegistry();
 
     const propertyTableColumns = [
         {
@@ -63,7 +59,7 @@ export default function DynamicTabularTab({ payload: rawPayload }: Props) {
         {
             title: 'Value',
             dataIndex: 'value',
-            render: (value: string) => <TableValueRenderer entityRegistry={entityRegistry} value={value} />,
+            render: (value: string) => <TableValueRenderer value={value} />,
         },
     ];
 

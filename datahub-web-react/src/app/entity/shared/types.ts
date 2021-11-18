@@ -4,7 +4,7 @@ import {
     DataPlatform,
     DatasetEditableProperties,
     DatasetEditablePropertiesUpdate,
-    DynamicAspectResult,
+    RawAspect,
     EditableSchemaMetadata,
     EditableSchemaMetadataUpdate,
     EntityType,
@@ -55,7 +55,7 @@ export type GenericEntityProperties = {
     /** Dataset specific- TODO, migrate these out */
     editableSchemaMetadata?: Maybe<EditableSchemaMetadata>;
     editableProperties?: Maybe<DatasetEditableProperties>;
-    dynamicAspects?: Maybe<Array<DynamicAspectResult>>;
+    autoRenderAspects?: Maybe<Array<RawAspect>>;
 };
 
 export type GenericEntityUpdate = {

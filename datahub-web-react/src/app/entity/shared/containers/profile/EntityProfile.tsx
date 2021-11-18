@@ -17,7 +17,7 @@ import useIsLineageMode from '../../../../lineage/utils/useIsLineageMode';
 import { useEntityRegistry } from '../../../../useEntityRegistry';
 import LineageExplorer from '../../../../lineage/LineageExplorer';
 import CompactContext from '../../../../shared/CompactContext';
-import DynamicTab from '../../tabs/Entity/DynamicTab';
+import DynamicTab from '../../tabs/Entity/weaklyTypedAspects/DynamicTab';
 
 type Props<T, U> = {
     urn: string;
@@ -145,7 +145,7 @@ export const EntityProfile = <T, U>({
     const lineage = entityData ? entityRegistry.getLineageVizConfig(entityType, entityData) : undefined;
 
     const dynamicTabs: EntityTab[] =
-        entityData?.dynamicAspects?.map((aspect) => ({
+        entityData?.autoRenderAspects?.map((aspect) => ({
             name: aspect.displayName || aspect.aspectName,
             component: () => <DynamicTab type={aspect.displayType || 'properties'} payload={aspect.payload} />,
             display: {
