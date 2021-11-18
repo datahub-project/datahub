@@ -260,8 +260,8 @@ With these changes, DataHub Frontend Proxy will continue to play a vital part in
 where UI-based session authentication originates and will continue to support 3rd Party SSO configuration (OIDC)
 and JAAS configuration as it does today. 
 
-The major improvement is that the Frontend Service will exchange credentials provided at UI login time
-for a DataHub **Access Token**, standing in replacement of the traditional session cookie (which will continue to work).
+The major improvement is that the Frontend Service will validate credentials provided at UI login time
+and generate a DataHub **Access Token**, embedding it into traditional session cookie (which will continue to work).
 
 In summary, DataHub Frontend Service will continue to play a vital role to Authentication. It's scope, however, will likely
 remain limited to concerns specific to the React UI.
