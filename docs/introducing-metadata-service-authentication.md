@@ -51,7 +51,7 @@ We've introduced a few important concepts to the Metadata Service to make authen
 
 1. Actor
 2. Authenticator
-3. AuthenticationChain
+3. AuthenticatorChain
 4. AuthenticationFilter
 5. DataHub Access Token
 6. DataHub Token Service
@@ -92,42 +92,79 @@ for Metadata retrieval.
 
 #### What is an Authenticator? 
 
-An **Authenticator** is an abstract, pluggable component inside the Metadata Service that is responsible for authenticating an inbound request provided context about the request (currently, the request headers).
-Authentication boils down to successfully resolving an **Actor** to associate with the request.
+An **Authenticator** is a pluggable component inside the Metadata Service that is responsible for authenticating an inbound request provided context about the request (currently, the request headers).
+Authentication boils down to successfully resolving an **Actor** to associate with the inbound request.
 
 There can be many types of Authenticator. For example, there can be Authenticators that
 
 - Verify the authenticity of access tokens (ie. issued by either DataHub itself or a 3rd-party IdP)
 - Authenticate username / password credentials against a remote database (ie. LDAP)
 
-DataHub will ship with 2 by default:
+and more! A key goal of the abstraction is *extensibility*: a custom Authenticator can be developed to authenticate requests
+based on an organization's unique needs. 
+
+DataHub ships with 2 Authenticators by default:
 
 - **DataHubSystemAuthenticator**: Verifies that inbound requests have originated from inside DataHub itself using a shared system identifier
   and secret. This authenticator is always present. 
 
-- **DataHubTokenAuthenticator**: Verifies that inbound requests contain a DataHub-issued Access Token (discussed below) in their 
+- **DataHubTokenAuthenticator**: Verifies that inbound requests contain a DataHub-issued Access Token (discussed further in the "DataHub Access Token" section below) in their 
 'Authorization' header. This authenticator is required if Metadata Service Authentication is enabled. 
   
-#### What is an AuthenticationChain?
+#### What is an AuthenticatorChain?
 
-An **AuthenticationChain** is a series of **Authenticators** that are configured to run one-after-another. This abstractions allows
-for configuring multiple ways to authenticate an inbound request, for example via LDAP and via local key file. 
+An **AuthenticatorChain** is a series of **Authenticators** that are configured to run one-after-another. This allows
+for configuring multiple ways to authenticate a given request, for example via LDAP OR via local key file. 
 
-DataHub supports configuring (described below) arbitrary authenticators to be executing for each inbound request received by the 
-Metadata Service. 
+Only if each Authenticator within the chain fails to authenticate a request will it be rejected. 
 
+The Authenticator Chain can be configured in the `application.yml` file under `authentication.authenticators`:
+
+```
+authentication:
+  .... 
+  authenticators:
+    # Configure the Authenticators in the chain 
+    - type: com.datahub.authentication.Authenticator1
+      ...
+    - type: com.datahub.authentication.Authenticator2 
+    .... 
+```
 
 #### What is the AuthenticationFilter?
 
-The **AuthenticationFilter** is a servlet filter that authenticates each and every inbound request to the Metadata Service, aside from the normal /health and /config utility endpoints. 
-It does so by invoking a
+The **AuthenticationFilter** is a [servlet filter](http://tutorials.jenkov.com/java-servlets/servlet-filters.html) that authenticates each and requests to the Metadata Service. 
+It does so by constructing and invoking an **AuthenticatorChain**, described above. 
+
+If an Actor is unable to be resolved by the AuthenticatorChain, then a 401 unauthorized exception will be returned by the filter. 
 
 
-#### What is a DataHub Access Token? 
+#### What is a DataHub Token Service? What are Access Tokens?  
 
+Along with Metadata Service Authentication comes an important new component called the `DataHub Token Service`. The purpose of this
+component is twofold:
 
-#### What is the DataHub Token Service? 
+1. Generate **Access Tokens** that grant access to the Metadata Service 
+2. Verify the validity of **Access Tokens** presented to the Metadata Service
 
+Access Tokens granted by the Token Service take the form of [Json Web Tokens](https://jwt.io/introduction), a type of stateless token which
+has a finite lifespan & is verified using a unique signature. JWTs can also contain a set of claims embedded within them. Tokens issued by the Token
+Service contain the following claims:
+
+- exp: the expiration time of the token
+- version: version of the DataHub Access Token for purposes of evolvability (currently 1)
+- type: The type of token, currently SESSION (used for UI-based sessions) or PERSONAL (used for personal access tokens)
+- actorType: The type of the **Actor** associated with the token. Currently, USER is the only type supported.
+- actorId: The id of the **Actor** associated with the token.
+
+Today, Access Tokens are granted by the Token Service under two scenarios:
+
+1. **UI Login**: When a user logs into the DataHub UI, for example via [JaaS](https://datahubproject.io/docs/how/auth/jaas/) or 
+   [OIDC](https://datahubproject.io/docs/how/auth/sso/configure-oidc-react/), the `datahub-frontend` service issues an 
+   request to the Metadata Service to generate a SESSION token *on behalf of* of the user logging in. (*Only the frontend service is authorized to perform this action).
+2. **Generating Personal Access Tokens**: When a user requests to generate a Personal Access Token (described below) from the UI. 
+
+> At present, the Token Service supports the symmetric signing method `HS256` to generate and verify tokens. 
 
 ### New Capability: Personal Access Tokens
 
@@ -138,12 +175,15 @@ Personal Access Tokens have a finite lifespan (default 3 months) and currently c
 DataHub uses to generate these tokens (via the TokenService described above). Most importantly, they inherit the permissions
 granted to the user who generates them. 
 
-#### Generating a Personal Access Token
+#### Generating Personal Access Tokens
 
-To generate a personal access token, users must have been granted the "Generate Personal Access Token" (GENERATE_PERSONAL_ACCESS_TOKEN) Privilege via a [DataHub Policy](./policies.md). Once
-they have this permission, they can navigate to 'Settings' > 'Access Tokens' > 'Generate Personal Access Token' to generate a token.
+To generate a personal access token, users must have been granted the "Generate Personal Access Tokens" (GENERATE_PERSONAL_ACCESS_TOKENS) Privilege via a [DataHub Policy](./policies.md). Once
+they have this permission, users can navigate to **'Settings'** > **'Access Tokens'** > **'Generate Personal Access Token'** to generate a token.
 
 ![](./imgs/generate-personal-access-token.png)
+
+The token expiration dictates how long the token will be valid for. We recommend setting the shortest duration possible, as tokens are not currently
+revokable once granted (without changing the signing key). 
 
 
 #### Using a Personal Access Token
@@ -168,6 +208,44 @@ is enabled.
 
 ### Configuring Metadata Service Authentication
 
+Metadata Service Authentication is currently **opt-in**. This means that you may continue to use DataHub without Metadata Service Authentication without interruption.
+To enable Metadata Service Authentication:
+
+- set the `METADATA_SERVICE_AUTH_ENABLED` environment variable to "true" for the `datahub-gms` container / pod. 
+  
+OR
+
+- directly change the `application.yml` configuration file to set `authentication.enabled` to "true". 
+
+After setting the configuration flag, simply restart the Metadata Service to start enforcing Authentication. 
+
+Once enabled, all requests to the Metadata Service will need to be authenticated; if you're using the default Authenticators
+that ship with DataHub, this means that all requests will need to present an Access Token in the Authorization Header as follows:
+
+```
+Authorization: Bearer <access-token> 
+```
+
+For users logging into the UI, this process will be handled for you. When logging in, a cookie will be set in your browser that internally
+contains a valid Access Token for the Metadata Service. When browsing the UI, this token will be extracted and sent to the Metadata Service
+to authenticate each request.
+
+For users who want to access the Metadata Service programmatically, i.e. for running ingestion, the current recommendation is to generate
+a **Personal Access Token** (described above) from the root "datahub" user account, and using this token when configuring your [Ingestion Recipes](https://datahubproject.io/docs/metadata-ingestion/#recipes). 
+To configure the token for use in ingestion, simply populate the "token" configuration for the `datahub-rest` sink:
+
+```
+source:
+  # source configs
+sink:
+  type: "datahub-rest"
+  config:
+    ...
+    token: <your-personal-access-token-here!> 
+```
+
+> Note that ingestion occurring via `datahub-kafka` sink will continue to be Unauthenticated *for now*. Soon, we will be introducing
+> support for providing an access token in the event payload itself to authenticate ingestion requests over Kafka. 
 
 
 ### The Role of DataHub Frontend Proxy Going Forward
@@ -180,7 +258,7 @@ for a *DataHub Access Token* (described below), standing in replacement of the t
 To accomplish this, DataHub Frontend issues requests to the Metadata Service to generate an Access Token *on behalf of* a
 user who has logged in with the DataHub UI.
 
-## The Future is Bright for Authentication 
+## The Opportunities Ahead
 
 These changes represent the first milestone in Metadata Service Authentication. They will serve as a foundation upon which we can build new features as requested by the community:
 
@@ -252,7 +330,7 @@ to the **DataHub Frontend Proxy**, as routing to Metadata Service endpoints is c
 This recommendation is in effort to minimize the exposed surface area of DataHub to make securing, operating, maintaining, and developing
 the platform simpler.
 
-In practice, this will require migrating Metadata Ingestion Recipes use the `datahub-rest` sink to pointing at a slightly different
+In practice, this will require migrating Metadata [Ingestion Recipes](https://datahubproject.io/docs/metadata-ingestion/#recipes) use the `datahub-rest` sink to pointing at a slightly different
 host + path.
 
 Example recipe that proxies through DataHub Frontend 
