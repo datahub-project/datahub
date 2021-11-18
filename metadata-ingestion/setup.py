@@ -110,6 +110,7 @@ plugins: Dict[str, Set[str]] = {
     "ldap": {"python-ldap>=2.4"},
     "looker": looker_common,
     "lookml": looker_common | {"lkml>=1.1.0", "sql-metadata==2.2.2"},
+    "metabase": {"requests"},
     "mongodb": {"pymongo>=3.11"},
     "mssql": sql_common | {"sqlalchemy-pytds>=0.3"},
     "mssql-odbc": sql_common | {"pyodbc"},
@@ -128,7 +129,6 @@ plugins: Dict[str, Set[str]] = {
     "snowflake-usage": sql_common | {"snowflake-sqlalchemy<=1.2.4"},
     "sqlalchemy": sql_common,
     "superset": {"requests"},
-    "metabase": {"requests"},
     "trino": sql_common
     | {
         # SQLAlchemy support is coming up in trino python client
