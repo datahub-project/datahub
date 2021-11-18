@@ -8,6 +8,10 @@ Read on to find out how to perform these kinds of deletes.
 
 _Note: Deleting metadata should only be done with care. Always use `--dry-run` to understand what will be deleted before proceeding. Prefer soft-deletes (`--soft`) unless you really want to nuke metadata rows. Hard deletes will actually delete rows in the primary store and recovering them will require using backups of the primary metadata store. Make sure you understand the implications of issuing soft-deletes versus hard-deletes before proceeding._ 
 
+## Accessing datahub CLI
+
+To use the datahub CLI you need to have the datahub Python package installed as explained in [Metadata Ingestion](../../metadata-ingestion/README.md) or you can use the `datahub-ingestion` docker image as explained in [Docker Images](../../docker/README.md). In case you are using Kubernetes you can start a pod with the `datahub-ingestion` docker image, get in the shell of the pod and you will have the access to datahub CLI in your kubernetes cluster.
+
 ## Configuring DataHub CLI
 
 The CLI will point to localhost DataHub by default. Running

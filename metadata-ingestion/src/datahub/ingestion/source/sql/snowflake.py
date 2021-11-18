@@ -42,6 +42,8 @@ register_custom_type(custom_types.VARIANT, RecordTypeClass)
 
 logger: logging.Logger = logging.getLogger(__name__)
 
+APPLICATION_NAME = "acryl_datahub"
+
 
 class BaseSnowflakeConfig(BaseTimeWindowConfig):
     # Note: this config model is also used by the snowflake-usage source.
@@ -68,6 +70,7 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
                 for (key, value) in {
                     "warehouse": self.warehouse,
                     "role": self.role,
+                    "application": APPLICATION_NAME,
                 }.items()
                 if value
             },
