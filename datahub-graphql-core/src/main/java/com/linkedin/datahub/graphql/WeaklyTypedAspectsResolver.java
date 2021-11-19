@@ -1,13 +1,13 @@
 package com.linkedin.datahub.graphql;
 
 import com.linkedin.data.DataMap;
+
 import com.linkedin.data.codec.JacksonDataCodec;
 import com.linkedin.datahub.graphql.generated.AspectParams;
 import com.linkedin.datahub.graphql.generated.AspectRenderSpec;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.RawAspect;
-import com.linkedin.datahub.graphql.generated.RelationshipsInput;
 import com.linkedin.datahub.graphql.resolvers.EntityTypeMapper;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.models.AspectSpec;
@@ -35,13 +35,7 @@ public class WeaklyTypedAspectsResolver implements DataFetcher<CompletableFuture
     private static final JacksonDataCodec CODEC = new JacksonDataCodec();
 
     private boolean shouldReturnAspect(AspectSpec aspectSpec, AspectParams params) {
-      if (params.getAutoRender() == true) {
-        if (aspectSpec.isAutoRender() == false) {
-            return false;
-        }
-      }
-
-      return true;
+      return !params.getAutoRender() || aspectSpec.isAutoRender();
     }
 
     @Override
