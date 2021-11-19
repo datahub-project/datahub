@@ -63,7 +63,6 @@ public class AuthServiceClient {
       request.setEntity(new StringEntity(json));
 
       // Add authorization header with DataHub frontend system id and secret.
-      System.out.println("Heres the creds %s".format(this.systemAuthentication.getCredentials()));
       request.addHeader(Http.HeaderNames.AUTHORIZATION, this.systemAuthentication.getCredentials());
 
       CloseableHttpResponse response = httpClient.execute(request);

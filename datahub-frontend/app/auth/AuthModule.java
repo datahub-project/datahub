@@ -70,7 +70,7 @@ public class AuthModule extends AbstractModule {
                 EntityClient.class,
                 AuthServiceClient.class));
         } catch (NoSuchMethodException | SecurityException e) {
-            System.out.println("Required constructor missing");
+            throw new RuntimeException("Failed to bind to SsoCallbackController. Cannot find constructor, e");
         }
         // logout
         final LogoutController logoutController = new LogoutController();

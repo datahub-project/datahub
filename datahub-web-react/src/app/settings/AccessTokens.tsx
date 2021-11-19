@@ -67,7 +67,7 @@ export const AccessTokens = () => {
     const [selectedTokenDuration, setSelectedTokenDuration] = useState(ACCESS_TOKEN_DURATIONS[0].duration);
 
     const authenticatedUser = useGetAuthenticatedUser();
-    const canGeneratePersonalAccessTokens = authenticatedUser?.platformPrivileges?.viewAnalytics;
+    const canGeneratePersonalAccessTokens = authenticatedUser?.platformPrivileges.generatePersonalAccessTokens;
     const currentUserUrn = authenticatedUser?.corpUser.urn;
 
     const [getAccessToken, { data, error }] = useGetAccessTokenLazyQuery({
@@ -153,7 +153,7 @@ export const AccessTokens = () => {
             {!canGeneratePersonalAccessTokens && (
                 <Typography.Paragraph type="secondary">
                     Looks like you are not authorized to generate Personal Access Tokens. If you think this is
-                    incorrect, please your DataHub administrator.
+                    incorrect, please contact your DataHub administrator.
                 </Typography.Paragraph>
             )}
 
