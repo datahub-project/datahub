@@ -16,7 +16,7 @@ const StatSection = styled.div`
 `;
 
 const NameText = styled(Typography.Text)`
-    font-family: 'Roboto Mono';
+    font-family: 'Roboto Mono', monospace;
     font-weight: 600;
     font-size: 12px;
     color: ${ANTD_GRAY[9]};
