@@ -118,8 +118,11 @@ query getDataset($urn: String!) {
         autoRenderAspects: aspects(input: { autoRender: true }) {
             aspectName
             payload
-            displayType
-            displayName
+            renderSpec {
+                displayType
+                displayName
+                key
+            }
         }
     }
 }

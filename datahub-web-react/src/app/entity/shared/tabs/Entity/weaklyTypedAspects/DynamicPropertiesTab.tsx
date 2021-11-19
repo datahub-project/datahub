@@ -4,6 +4,7 @@ import styled from 'styled-components';
 
 import { StyledTable } from '../../../components/styled/StyledTable';
 import { ANTD_GRAY } from '../../../constants';
+import TableValueElement from './TableValueElement';
 
 type Props = {
     payload: string | undefined | null;
@@ -14,34 +15,6 @@ const NameText = styled(Typography.Text)`
     font-size: 12px;
     color: ${ANTD_GRAY[9]};
 `;
-
-function isValidHttpUrl(string) {
-    let url;
-
-    try {
-        url = new URL(string);
-    } catch (_) {
-        return false;
-    }
-
-    return url.protocol === 'http:' || url.protocol === 'https:';
-}
-
-const TableValueRenderer = ({ value }: { value: any }) => {
-    if (typeof value === 'boolean') {
-        return <span>{String(value)}</span>;
-    }
-    if (typeof value === 'string') {
-        if (isValidHttpUrl(value)) {
-            return <a href={value}>{value}</a>;
-        }
-        return <span>{value}</span>;
-    }
-    if (typeof value === 'number') {
-        return <span>{value}</span>;
-    }
-    return null;
-};
 
 export default function DynamicTabularTab({ payload: rawPayload }: Props) {
     const aspectData = JSON.parse(rawPayload || '{}');
@@ -59,7 +32,7 @@ export default function DynamicTabularTab({ payload: rawPayload }: Props) {
         {
             title: 'Value',
             dataIndex: 'value',
-            render: (value: string) => <TableValueRenderer value={value} />,
+            render: (value: string) => <TableValueElement value={value} />,
         },
     ];
 

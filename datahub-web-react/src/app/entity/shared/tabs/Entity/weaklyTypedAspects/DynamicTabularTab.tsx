@@ -1,45 +1,19 @@
 import React from 'react';
 import { StyledTable } from '../../../components/styled/StyledTable';
+import TableValueElement from './TableValueElement';
 
 type Props = {
     payload: string | undefined | null;
+    tableKey: string | undefined | null;
 };
 
-function isValidHttpUrl(string) {
-    let url;
-
-    try {
-        url = new URL(string);
-    } catch (_) {
-        return false;
-    }
-
-    return url.protocol === 'http:' || url.protocol === 'https:';
-}
-
-const TableValueRenderer = ({ value }: { value: any }) => {
-    if (typeof value === 'boolean') {
-        return <span>{String(value)}</span>;
-    }
-    if (typeof value === 'string') {
-        if (isValidHttpUrl(value)) {
-            return <a href={value}>{value}</a>;
-        }
-        return <span>{value}</span>;
-    }
-    if (typeof value === 'number') {
-        return <span>{value}</span>;
-    }
-    return null;
-};
-
-export default function DynamicTabularTab({ payload: rawPayload }: Props) {
+export default function DynamicTabularTab({ payload: rawPayload, tableKey }: Props) {
     const aspectData = JSON.parse(rawPayload || '{}');
-    const rowData = aspectData[Object.keys(aspectData)[0]];
+    const rowData = tableKey ? aspectData[tableKey] : aspectData[Object.keys(aspectData)[0]];
     const columns = Object.keys(rowData[0]).map((columnName) => ({
         title: columnName,
         dataIndex: columnName,
-        render: (value: any) => <TableValueRenderer value={value} />,
+        render: (value: any) => <TableValueElement value={value} />,
     }));
 
     return (

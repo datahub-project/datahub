@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.codec.JacksonDataCodec;
 import com.linkedin.datahub.graphql.generated.AspectParams;
+import com.linkedin.datahub.graphql.generated.AspectRenderSpec;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.RawAspect;
@@ -71,8 +72,12 @@ public class WeaklyTypedAspectsResolver implements DataFetcher<CompletableFuture
 
                     DataMap renderSpec = aspectSpec.getRenderSpec();
 
-                    result.setDisplayType(renderSpec.getString("displayType"));
-                    result.setDisplayName(renderSpec.getString("displayName"));
+                    AspectRenderSpec resultRenderSpec = new AspectRenderSpec();
+
+                    resultRenderSpec.setDisplayType(renderSpec.getString("displayType"));
+                    resultRenderSpec.setDisplayName(renderSpec.getString("displayName"));
+                    resultRenderSpec.setKey(renderSpec.getString("key"));
+                    result.setRenderSpec(resultRenderSpec);
 
                     results.add(result);
                 } catch (IOException | RemoteInvocationException e) {

@@ -146,8 +146,14 @@ export const EntityProfile = <T, U>({
 
     const autoRenderTabs: EntityTab[] =
         entityData?.autoRenderAspects?.map((aspect) => ({
-            name: aspect.displayName || aspect.aspectName,
-            component: () => <DynamicTab type={aspect.displayType} payload={aspect.payload} />,
+            name: aspect.renderSpec?.displayName || aspect.aspectName,
+            component: () => (
+                <DynamicTab
+                    renderSpec={aspect.renderSpec}
+                    type={aspect.renderSpec?.displayType}
+                    payload={aspect.payload}
+                />
+            ),
             display: {
                 visible: () => true,
                 enabled: () => true,
