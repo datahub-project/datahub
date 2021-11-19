@@ -1,12 +1,15 @@
 from functools import lru_cache
+from typing import Dict, Iterable, Optional
+
+import dateutil.parser as dp
+import requests
+from pydantic.class_validators import validator
 
 from datahub.configuration.common import ConfigModel
 from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.utilities import config_clean
-
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
     AuditStamp,
     ChangeAuditStamps,
@@ -18,20 +21,12 @@ from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
     ChartInfoClass,
-    ChartTypeClass,
     ChartQueryClass,
     ChartQueryTypeClass,
+    ChartTypeClass,
     DashboardInfoClass,
 )
-from typing import (
-    Dict,
-    Iterable,
-    Optional
-)
-
-import dateutil.parser as dp
-import requests
-from pydantic.class_validators import validator
+from datahub.utilities import config_clean
 
 
 class MetabaseConfig(ConfigModel):
@@ -95,7 +90,7 @@ class MetabaseSource(Source):
     def close(self) -> None:
         response = requests.delete(
             f"{self.config.connect_uri}/api/session",
-            headers={'X-Metabase-Session': self.access_token}
+            headers={"X-Metabase-Session": self.access_token},
         )
         if response.status_code != 204:
             self.report.report_failure(
@@ -117,8 +112,12 @@ class MetabaseSource(Source):
 
             yield wu
 
-    def construct_dashboard_from_api_data(self, dashboard_info) -> DashboardSnapshot:
-        dashboard_url = f"{self.config.connect_uri}/api/dashboard/{dashboard_info['id']}"
+    def construct_dashboard_from_api_data(
+        self, dashboard_info: dict
+    ) -> DashboardSnapshot:
+        dashboard_url = (
+            f"{self.config.connect_uri}/api/dashboard/{dashboard_info['id']}"
+        )
         dashboard_response = self.session.get(dashboard_url)
         dashboard_details = dashboard_response.json()
         dashboard_urn = f"urn:li:dashboard:({self.platform},{dashboard_details['id']})"
@@ -126,7 +125,7 @@ class MetabaseSource(Source):
             urn=dashboard_urn,
             aspects=[],
         )
-        last_edit_by = (dashboard_details.get('last-edit-info') or {})
+        last_edit_by = dashboard_details.get("last-edit-info") or {}
         modified_actor = f"urn:li:corpuser:{last_edit_by.get('email', 'unknown')}"
         modified_ts = int(
             dp.parse(f"{last_edit_by.get('timestamp', 'now')}").timestamp() * 1000
@@ -141,11 +140,9 @@ class MetabaseSource(Source):
         card_urns = []
         cards_data = dashboard_details.get("ordered_cards", "{}")
         for card_info in cards_data:
-            card_urns.append(
-                f"urn:li:chart:({self.platform},{card_info['id']})"
-            )
+            card_urns.append(f"urn:li:chart:({self.platform},{card_info['id']})")
 
-        dashboard_info = DashboardInfoClass(
+        dashboard_info_class = DashboardInfoClass(
             description=description,
             title=title,
             charts=card_urns,
@@ -153,13 +150,11 @@ class MetabaseSource(Source):
             dashboardUrl=dashboard_url,
             customProperties={},
         )
-        dashboard_snapshot.aspects.append(dashboard_info)
+        dashboard_snapshot.aspects.append(dashboard_info_class)
         return dashboard_snapshot
 
     def emit_card_mces(self) -> Iterable[MetadataWorkUnit]:
-        card_response = self.session.get(
-            f"{self.config.connect_uri}/api/card"
-        )
+        card_response = self.session.get(f"{self.config.connect_uri}/api/card")
         payload = card_response.json()
         for card_info in payload:
             card_snapshot = self.construct_card_from_api_data(card_info)
@@ -170,7 +165,7 @@ class MetabaseSource(Source):
 
             yield wu
 
-    def construct_card_from_api_data(self, card_data) -> ChartSnapshot:
+    def construct_card_from_api_data(self, card_data: dict) -> ChartSnapshot:
         card_url = f"{self.config.connect_uri}/api/card/{card_data['id']}"
         card_response = self.session.get(card_url)
         card_details = card_response.json()
@@ -181,7 +176,7 @@ class MetabaseSource(Source):
             aspects=[],
         )
 
-        last_edit_by = (card_details.get('last-edit-info') or {})
+        last_edit_by = card_details.get("last-edit-info") or {}
         modified_actor = f"urn:li:corpuser:{last_edit_by.get('email', 'unknown')}"
         modified_ts = int(
             dp.parse(f"{last_edit_by.get('timestamp', 'now')}").timestamp() * 1000
@@ -191,9 +186,9 @@ class MetabaseSource(Source):
             lastModified=AuditStamp(time=modified_ts, actor=modified_actor),
         )
 
-        card_type = self._get_card_type(card_details['id'], card_details.get('display'))
-        description = card_details.get('description') or ""
-        title = card_details.get('name') or ""
+        card_type = self._get_card_type(card_details["id"], card_details.get("display"))
+        description = card_details.get("description") or ""
+        title = card_details.get("name") or ""
         datasource_urn = self.get_datasource_urn(card_details)
         custom_properties = self.construct_card_custom_properties(card_details)
 
@@ -208,10 +203,12 @@ class MetabaseSource(Source):
         )
         card_snapshot.aspects.append(card_info)
 
-        if card_details['query_type'] == 'native':
+        if card_details["query_type"] == "native":
             card_query_native = ChartQueryClass(
-                rawQuery=card_details['dataset_query'].get('native', {}).get('query', ''),
-                type=ChartQueryTypeClass.SQL
+                rawQuery=card_details["dataset_query"]
+                .get("native", {})
+                .get("query", ""),
+                type=ChartQueryTypeClass.SQL,
             )
             card_snapshot.aspects.append(card_query_native)
 
@@ -234,7 +231,7 @@ class MetabaseSource(Source):
             "progress": None,
             "combo": None,
             "gauge": None,
-            "map": None
+            "map": None,
         }
         if not display_type:
             self.report.report_warning(
@@ -253,15 +250,18 @@ class MetabaseSource(Source):
 
         return card_type
 
-    def construct_card_custom_properties(self, card_details) -> Dict:
-        result_metadata = card_details.get('result_metadata', [])
-        metrics, dimensions, filters = [], [], []
+    def construct_card_custom_properties(self, card_details: dict) -> Dict:
+        result_metadata = card_details.get("result_metadata", [])
+        metrics, dimensions = [], []
         for meta_data in result_metadata:
-            display_name = meta_data['display_name'] or ""
-            metrics.append(display_name) if 'aggregation' in meta_data.get('field_ref', '') \
-                else dimensions.append(display_name)
+            display_name = meta_data["display_name"] or ""
+            metrics.append(display_name) if "aggregation" in meta_data.get(
+                "field_ref", ""
+            ) else dimensions.append(display_name)
 
-        filters = str((card_details['dataset_query'].get('query', {})).get('filter', []))
+        filters = str(
+            (card_details["dataset_query"].get("query", {})).get("filter", [])
+        )
 
         custom_properties = {
             "Metrics": ", ".join(metrics),
@@ -272,10 +272,16 @@ class MetabaseSource(Source):
         return custom_properties
 
     def get_datasource_urn(self, card_details):
-        platform, database_name = self.get_datasource_from_id(card_details['database_id'])
-        query_type = card_details.get('dataset_query', {}).get('type', {})
-        if query_type == 'query':
-            source_table_id = card_details.get('dataset_query', {}).get('query', {}).get('source-table', {})
+        platform, database_name = self.get_datasource_from_id(
+            card_details["database_id"]
+        )
+        query_type = card_details.get("dataset_query", {}).get("type", {})
+        if query_type == "query":
+            source_table_id = (
+                card_details.get("dataset_query", {})
+                .get("query", {})
+                .get("source-table", {})
+            )
             schema_name, table_name = self.get_source_table_from_id(source_table_id)
             if table_name:
                 platform_urn = f"urn:li:dataPlatform:{platform}"
@@ -289,7 +295,7 @@ class MetabaseSource(Source):
         else:
             self.report.report_warning(
                 key=f"metabase-card-{card_details['id']}",
-                reason=f"Cannot create datasource urn from query type: {query_type}"
+                reason=f"Cannot create datasource urn from query type: {query_type}",
             )
 
         return None
@@ -300,8 +306,8 @@ class MetabaseSource(Source):
             f"{self.config.connect_uri}/api/table/{table_id}"
         ).json()
 
-        schema = dataset_response.get('schema', '')
-        name = dataset_response.get('name', '')
+        schema = dataset_response.get("schema", "")
+        name = dataset_response.get("name", "")
 
         return schema, name
 
@@ -311,7 +317,7 @@ class MetabaseSource(Source):
             f"{self.config.connect_uri}/api/database/{datasource_id}"
         ).json()
 
-        return dataset_response['engine'], dataset_response['name']
+        return dataset_response["engine"], dataset_response["name"]
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> Source:
