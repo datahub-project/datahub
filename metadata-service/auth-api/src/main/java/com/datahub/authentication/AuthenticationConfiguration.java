@@ -24,4 +24,9 @@ public class AuthenticationConfiguration {
    * Unique secret to authenticate internal system callers
    */
   private String systemClientSecret;
+
+  /**
+   * The lifespan of a UI session token.
+   */
+  private long sessionTokenDurationMs;
 }

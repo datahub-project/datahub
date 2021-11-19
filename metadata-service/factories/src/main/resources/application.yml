@@ -21,6 +21,10 @@ authentication:
     # Key used to sign new tokens.
     signingKey: ${DATAHUB_TOKEN_SERVICE_SIGNING_KEY:WnEdIeTG/VVCLQqGwC/BAkqyY0k+H8NEAtWGejrBI94=}
 
+  # The max duration of a UI session in milliseconds. Defaults to 1 day.
+  sessionTokenDurationMs: ${SESSION_TOKEN_DURATION_MS:86400000}
+
+
 
 graphService:
   type: ${GRAPH_SERVICE_IMPL:elasticsearch}

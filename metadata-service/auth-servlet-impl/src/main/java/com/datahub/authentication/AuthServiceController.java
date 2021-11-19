@@ -5,6 +5,7 @@ import com.datahub.authentication.token.TokenService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.linkedin.gms.factory.auth.ConfigurationProvider;
 import java.util.concurrent.CompletableFuture;
 import javax.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
@@ -22,7 +23,6 @@ import org.springframework.web.client.HttpClientErrorException;
 @RestController
 public class AuthServiceController {
 
-  private static final long SESSION_DURATION_MS = 2592000000L;  // 30 day session, by default, TODO: Make this configurable.
   private static final String USER_ID_FIELD_NAME = "userId";
   private static final String ACCESS_TOKEN_FIELD_NAME = "accessToken";
 
@@ -31,6 +31,9 @@ public class AuthServiceController {
 
   @Inject
   Authentication _systemAuthentication;
+
+  @Inject
+  ConfigurationProvider _configProvider;
 
   /**
    * Generates a JWT access token for as user UI session, provided a unique "user id" to generate the token for inside a JSON
@@ -73,8 +76,6 @@ public class AuthServiceController {
 
     log.debug(String.format("Attempting to generate session token for user %s", userId.asText()));
     final String actorId = AuthenticationContext.getAuthentication().getActor().getId();
-    log.info(String.format("The actor id is %s", actorId));
-    log.info(String.format("The actor creds %s", AuthenticationContext.getAuthentication().getCredentials()));
     return CompletableFuture.supplyAsync(() -> {
       // 1. Verify that only those authorized to generate a token (datahub system) are able to.
       if (isAuthorizedToGenerateSessionToken(actorId)) {
@@ -83,7 +84,7 @@ public class AuthServiceController {
           final String token = _tokenService.generateAccessToken(
               TokenType.SESSION,
               new Actor(ActorType.USER, userId.asText()),
-              SESSION_DURATION_MS);
+              _configProvider.getAuthentication().getSessionTokenDurationMs());
           return new ResponseEntity<>(buildTokenResponse(token), HttpStatus.OK);
         } catch (Exception e) {
           log.error("Failed to generate session token for user", e);

@@ -1,4 +1,4 @@
-import { Button, Divider, Modal, Typography } from 'antd';
+import { Button, Divider, Modal, Select, Typography } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { useGetAccessTokenLazyQuery } from '../../graphql/auth.generated';
@@ -42,13 +42,37 @@ const ModalSectionParagraph = styled(Typography.Paragraph)`
     }
 `;
 
+const ExpirationSelectConainer = styled.div`
+    padding-top: 12px;
+    padding-bottom: 12px;
+`;
+
+const ExpirationDurationSelect = styled(Select)`
+    && {
+        width: 120px;
+        margin-right: 20px;
+    }
+`;
+
+const ACCESS_TOKEN_DURATIONS = [
+    { text: '1 hour', duration: AccessTokenDuration.OneHour },
+    { text: '1 day', duration: AccessTokenDuration.OneDay },
+    { text: '1 month', duration: AccessTokenDuration.OneMonth },
+    { text: '3 months', duration: AccessTokenDuration.ThreeMonths },
+    { text: '6 months', duration: AccessTokenDuration.SixMonths },
+];
+
 export const AccessTokens = () => {
     const [showModal, setShowModal] = useState(false);
+    const [selectedTokenDuration, setSelectedTokenDuration] = useState(ACCESS_TOKEN_DURATIONS[0].duration);
+
+    const authenticatedUser = useGetAuthenticatedUser();
+    const canGeneratePersonalAccessTokens = authenticatedUser?.platformPrivileges?.viewAnalytics;
+    const currentUserUrn = authenticatedUser?.corpUser.urn;
 
     const [getAccessToken, { data, error }] = useGetAccessTokenLazyQuery({
         fetchPolicy: 'no-cache',
     });
-    const currentUserUrn = useGetAuthenticatedUser()?.corpUser?.urn;
 
     useEffect(() => {
         if (data?.getAccessToken?.accessToken) {
@@ -58,13 +82,12 @@ export const AccessTokens = () => {
 
     const generateAccessToken = () => {
         if (currentUserUrn) {
-            // TODO: Make expiration configurable.
             getAccessToken({
                 variables: {
                     input: {
                         type: AccessTokenType.Personal,
                         actorUrn: currentUserUrn,
-                        duration: AccessTokenDuration.OneMonth, // Default to one month.
+                        duration: selectedTokenDuration,
                     },
                 },
             });
@@ -81,6 +104,10 @@ export const AccessTokens = () => {
 --header 'Authorization: Bearer ${accessToken}' \\
 --header 'Content-Type: application/json' \\
 --data-raw '{"query":"{\\n  me {\\n    corpUser {\\n        username\\n    }\\n  }\\n}","variables":{}}'`;
+
+    const selectedExpiresInText = ACCESS_TOKEN_DURATIONS.find(
+        (duration) => duration.duration === selectedTokenDuration,
+    )?.text;
 
     return (
         <ContentContainer>
@@ -100,16 +127,36 @@ export const AccessTokens = () => {
                     Failed to generate token. Please contact your DataHub administrator.
                 </Typography.Paragraph>
             )}
-            <Button
-                onClick={() => {
-                    generateAccessToken();
-                }}
-            >
-                Generate Personal Access Token
-            </Button>
-            <PersonTokenDescriptionText type="secondary">
-                Notice that Metadata Service Authentication must be <b>enabled</b> to use Access Tokens.
-            </PersonTokenDescriptionText>
+            <Typography.Text strong>Expires in</Typography.Text>
+            <ExpirationSelectConainer>
+                <span>
+                    <ExpirationDurationSelect
+                        value={selectedTokenDuration}
+                        onSelect={(duration) => setSelectedTokenDuration(duration as AccessTokenDuration)}
+                    >
+                        {ACCESS_TOKEN_DURATIONS.map((duration) => (
+                            <Select.Option key={duration.text} value={duration.duration}>
+                                {duration.text}
+                            </Select.Option>
+                        ))}
+                    </ExpirationDurationSelect>
+                    <Button
+                        disabled={!canGeneratePersonalAccessTokens}
+                        onClick={() => {
+                            generateAccessToken();
+                        }}
+                    >
+                        Generate Personal Access Token
+                    </Button>
+                </span>
+            </ExpirationSelectConainer>
+            {!canGeneratePersonalAccessTokens && (
+                <Typography.Paragraph type="secondary">
+                    Looks like you are not authorized to generate Personal Access Tokens. If you think this is
+                    incorrect, please your DataHub administrator.
+                </Typography.Paragraph>
+            )}
+
             <Modal
                 width={700}
                 footer={null}
@@ -123,6 +170,9 @@ export const AccessTokens = () => {
             >
                 <ModalSection>
                     <ModalSectionHeader strong>Token</ModalSectionHeader>
+                    <ModalSectionParagraph>
+                        This token will expire in <b>{selectedExpiresInText}.</b>
+                    </ModalSectionParagraph>
                     <Typography.Paragraph copyable={{ text: accessToken }}>
                         <pre>{accessToken}</pre>
                     </Typography.Paragraph>
@@ -130,8 +180,8 @@ export const AccessTokens = () => {
                 <ModalSection>
                     <ModalSectionHeader strong>Usage</ModalSectionHeader>
                     <ModalSectionParagraph>
-                        To use the token, provide it as a `Bearer` token in the <b>Authorization</b> header when making
-                        API requests:
+                        To use the token, provide it as a <Typography.Text keyboard>Bearer</Typography.Text> token in
+                        the <Typography.Text keyboard>Authorization</Typography.Text> header when making API requests:
                     </ModalSectionParagraph>
                     <Typography.Paragraph copyable={{ text: accessTokenCurl }}>
                         <pre>{accessTokenCurl}</pre>
