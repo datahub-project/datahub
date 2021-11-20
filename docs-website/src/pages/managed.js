@@ -11,7 +11,15 @@ function Managed() {
           style={{ padding: "5vh 2rem", justifyContent: "center" }}
         >
           <div className="col col--6">
-            <HubspotForm formId="ae8c7cd1-1db3-4483-b1db-b169813b9129" />
+            <div
+              style={{
+                background: "white",
+                padding: "2rem",
+                borderRadius: "10px",
+              }}
+            >
+              <HubspotForm formId="ae8c7cd1-1db3-4483-b1db-b169813b9129" />
+            </div>
           </div>
         </div>
       </div>
