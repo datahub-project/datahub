@@ -18,7 +18,7 @@ fi
 
 # Add default header if needed
 if [[ -z $ELASTICSEARCH_AUTH_HEADER ]]; then
-    ELASTICSEARCH_AUTH_HEADER="Accept: */*"
+  ELASTICSEARCH_AUTH_HEADER="Accept: */*"
 fi
 
 function create_datahub_usage_event_datastream() {

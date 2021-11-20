@@ -21,4 +21,5 @@ FROM base AS dev-install
 FROM ${APP_ENV}-install AS final
 CMD if [ "$ELASTICSEARCH_USE_SSL" == "true" ]; then ELASTICSEARCH_PROTOCOL=https; else ELASTICSEARCH_PROTOCOL=http; fi \
     && if [[ -n "$ELASTICSEARCH_USERNAME" ]]; then ELASTICSEARCH_HTTP_HEADERS="Authorization: Basic $(echo -ne "$ELASTICSEARCH_USERNAME:$ELASTICSEARCH_PASSWORD" | base64)"; else ELASTICSEARCH_HTTP_HEADERS="Accept: */*"; fi \
-    && dockerize -wait $ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_HOST:$ELASTICSEARCH_PORT -wait-http-header "${ELASTICSEARCH_HTTP_HEADERS}" -timeout 120s /create-indices.sh
+    && if [[ "$SKIP_ELASTICSEARCH_CHECK" != "true" ]]; then WAIT_FOR_ELASTICSEARCH=" -wait "$ELASTICSEARCH_PROTOCOL"://"$ELASTICSEARCH_HOST:$ELASTICSEARCH_PORT" -wait-http-header "$ELASTICSEARCH_HTTP_HEADERS" "; else WAIT_FOR_ELASTICSEARCH=""; fi \
+    && dockerize $WAIT_FOR_ELASTICSEARCH -timeout 120s /create-indices.sh

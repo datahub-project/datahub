@@ -21,9 +21,18 @@ else
     ELASTICSEARCH_PROTOCOL=http
 fi
 
-WAIT_FOR_NEO4J=""
+WAIT_FOR_KAFKA=""
+if [[ $SKIP_KAFKA_CHECK != true ]]; then
+  WAIT_FOR_KAFKA=" -wait tcp://$(echo $KAFKA_BOOTSTRAP_SERVER | sed 's/,/ -wait tcp:\/\//g') "
+fi
 
-if [[ $GRAPH_SERVICE_IMPL != elasticsearch ]]; then
+WAIT_FOR_ELASTICSEARCH=""
+if [[ $SKIP_ELASTICSEARCH_CHECK != true ]]; then
+  WAIT_FOR_ELASTICSEARCH=" -wait $ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_HOST:$ELASTICSEARCH_PORT -wait-http-header \"$ELASTICSEARCH_AUTH_HEADER\""
+fi
+
+WAIT_FOR_NEO4J=""
+if [[ $GRAPH_SERVICE_IMPL != elasticsearch ]] && [[ $SKIP_NEO4J_CHECK != true ]]; then
   WAIT_FOR_NEO4J=" -wait $NEO4J_HOST "
 fi
 
@@ -38,8 +47,8 @@ if [[ $ENABLE_PROMETHEUS == true ]]; then
 fi
 
 dockerize \
-  -wait tcp://$(echo $KAFKA_BOOTSTRAP_SERVER | sed 's/,/ -wait tcp:\/\//g') \
-  -wait $ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_HOST:$ELASTICSEARCH_PORT -wait-http-header "$ELASTICSEARCH_AUTH_HEADER" \
+  $WAIT_FOR_KAFKA \
+  $WAIT_FOR_ELASTICSEARCH \
   $WAIT_FOR_NEO4J \
   -timeout 240s \
   java $JAVA_OPTS $JMX_OPTS $OTEL_AGENT $PROMETHEUS_AGENT -jar /datahub/datahub-mae-consumer/bin/mae-consumer-job.jar
