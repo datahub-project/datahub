@@ -3,6 +3,7 @@ import logging
 from typing import Any, List, Optional
 
 import click
+from click.exceptions import UsageError
 
 from datahub.cli.cli_utils import get_entity
 
@@ -20,7 +21,10 @@ logger = logging.getLogger(__name__)
 @click.option("-a", "--aspect", required=False, multiple=True, type=str)
 @click.pass_context
 def get(ctx: Any, urn: Optional[str], aspect: List[str]) -> None:
+    """Get metadata for an entity with an optional list of aspects to project"""
     if urn is None:
+        if not ctx.args:
+            raise UsageError("Nothing for me to get. Maybe provide an urn?")
         urn = ctx.args[0]
         logger.debug(f"Using urn from args {urn}")
     click.echo(json.dumps(get_entity(urn=urn, aspect=aspect), sort_keys=True, indent=2))
