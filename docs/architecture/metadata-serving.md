@@ -1,5 +1,5 @@
 ---
-title: "Metadata Serving Tier"
+title: "Serving Tier"
 ---
 
 # DataHub Serving Architecture

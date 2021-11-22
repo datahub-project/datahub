@@ -1,5 +1,5 @@
 ---
-title: "Metadata Ingestion Framework"
+title: "Ingestion Framework"
 ---
 
 # Metadata Ingestion Architecture
