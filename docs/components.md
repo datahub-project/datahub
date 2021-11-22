@@ -16,7 +16,8 @@ The DataHub platform consists of the components shown in the following diagram.
 
 The Metadata Store is responsible for storing the [Entities & Aspects](https://datahubproject.io/docs/metadata-modeling/metadata-model/) comprising the Metadata Graph. This includes
 exposing an API for [ingesting metadata](https://datahubproject.io/docs/metadata-service#ingesting-entities), [fetching Metadata by primary key](https://datahubproject.io/docs/metadata-service#retrieving-entities), [searching entities](https://datahubproject.io/docs/metadata-service#search-an-entity), and [fetching Relationships](https://datahubproject.io/docs/metadata-service#get-relationships-edges) between
-entities. It consists of a Spring Java Service hosting a set of [Rest.li](https://linkedin.github.io/rest.li/) API endpoints. 
+entities. It consists of a Spring Java Service hosting a set of [Rest.li](https://linkedin.github.io/rest.li/) API endpoints, along with
+MySQL, Elasticsearch, & Kafka for primary storage & indexing. 
 
 Get started with the Metadata Store by following the [Quickstart Guide](https://datahubproject.io/docs/quickstart/). 
 
