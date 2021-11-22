@@ -1,6 +1,7 @@
 package com.linkedin.metadata.resources.entity;
 
 import com.codahale.metrics.MetricRegistry;
+import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.Entity;
 import com.linkedin.entity.EntityResponse;
@@ -62,14 +63,14 @@ public class EntityV2Resource extends CollectionResourceTaskTemplate<String, Ent
     return RestliUtil.toTask(() -> {
       final String entityName = urnToEntityName(urn);
       final Set<String> projectedAspects = aspectNames == null ? getAllAspectNames(entityName) : new HashSet<>(Arrays.asList(aspectNames));
-      final List<EnvelopedAspect> latestAspects;
+      Map<Urn, EntityResponse> entities;
       try {
-        latestAspects = _entityService.getLatestEnvelopedAspects(entityName, urn, projectedAspects);
+        entities = _entityService.getEntitiesV2(entityName, ImmutableSet.of(urn), projectedAspects);
       } catch (Exception e) {
         throw new RuntimeException(
             String.format("Failed to get entity with urn: %s, aspects: %s", urn, projectedAspects), e);
       }
-      return toEntityResponse(urn, latestAspects);
+      return entities.get(urn);
 
     }, MetricRegistry.name(this.getClass(), "get"));
   }
@@ -77,7 +78,7 @@ public class EntityV2Resource extends CollectionResourceTaskTemplate<String, Ent
   @RestMethod.BatchGet
   @Nonnull
   @WithSpan
-  public Task<Map<String, EntityResponse>> batchGet(
+  public Task<Map<Urn, EntityResponse>> batchGet(
       @Nonnull Set<String> urnStrs,
       @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) throws URISyntaxException {
     log.debug("BATCH GET {}", urnStrs.toString());
@@ -93,10 +94,7 @@ public class EntityV2Resource extends CollectionResourceTaskTemplate<String, Ent
       final Set<String> projectedAspects =
           aspectNames == null ? getAllAspectNames(entityName) : new HashSet<>(Arrays.asList(aspectNames));
       try {
-        return _entityService.getLatestEnvelopedAspects(entityName, urns, projectedAspects)
-            .entrySet()
-            .stream()
-            .collect(Collectors.toMap(entry -> entry.getKey().toString(), entry -> toEntityResponse(entry.getKey(), entry.getValue())));
+        return _entityService.getEntitiesV2(entityName, urns, projectedAspects);
       } catch (Exception e) {
         throw new RuntimeException(String.format("Failed to batch get entities with urns: %s, projectedAspects: %s", urns, projectedAspects), e);
       }
@@ -105,16 +103,5 @@ public class EntityV2Resource extends CollectionResourceTaskTemplate<String, Ent
 
   private Set<String> getAllAspectNames(final String entityName) {
     return _entityService.getEntityAspectNames(entityName);
-  }
-
-  private EntityResponse toEntityResponse(final Urn urn, final List<EnvelopedAspect> envelopedAspects) {
-    final EntityResponse response = new EntityResponse();
-    response.setUrn(urn);
-    response.setEntityName(urnToEntityName(urn));
-    log.info(envelopedAspects.toString());
-    response.setAspects(new EnvelopedAspectMap(
-        envelopedAspects.stream().collect(Collectors.toMap(EnvelopedAspect::getName, aspect -> aspect))
-    ));
-    return response;
   }
 }

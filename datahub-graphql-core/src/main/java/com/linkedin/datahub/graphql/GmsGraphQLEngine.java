@@ -318,6 +318,18 @@ public class GmsGraphQLEngine {
         return recommendationsSchemaString;
     }
 
+    public static String ingestionSchema() {
+        String ingestionSchema;
+        try {
+            InputStream is = Thread.currentThread().getContextClassLoader().getResourceAsStream(INGESTION_SCHEMA_FILE);
+            ingestionSchema = IOUtils.toString(is, StandardCharsets.UTF_8);
+            is.close();
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to find GraphQL Schema with name " + INGESTION_SCHEMA_FILE, e);
+        }
+        return ingestionSchema;
+    }
+
     /**
      * Returns a {@link Supplier} responsible for creating a new {@link DataLoader} from
      * a {@link LoadableType}.
@@ -357,6 +369,7 @@ public class GmsGraphQLEngine {
             .addSchema(appSchema())
             .addSchema(analyticsSchema())
             .addSchema(recommendationsSchema())
+            .addSchema(ingestionSchema())
             .addDataLoaders(loaderSuppliers(loadableTypes))
             .addDataLoader("Aspect", (context) -> createAspectLoader(context))
             .addDataLoader("UsageQueryResult", (context) -> createUsageLoader(context))

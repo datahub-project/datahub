@@ -10,13 +10,13 @@ import java.util.concurrent.CompletableFuture;
 
 
 /**
- * Resolver responsible for hard deleting a particular DataHub Ingestion Source.
+ * Resolver responsible for hard deleting a particular DataHub secret.
  */
-public class DeleteIngestionSourceResolver implements DataFetcher<CompletableFuture<String>> {
+public class DeleteSecretResolver implements DataFetcher<CompletableFuture<String>> {
 
   private final EntityClient _entityClient;
 
-  public DeleteIngestionSourceResolver(final EntityClient entityClient) {
+  public DeleteSecretResolver(final EntityClient entityClient) {
     _entityClient = entityClient;
   }
 
@@ -24,14 +24,14 @@ public class DeleteIngestionSourceResolver implements DataFetcher<CompletableFut
   public CompletableFuture<String> get(final DataFetchingEnvironment environment) throws Exception {
     final QueryContext context = environment.getContext();
     if (IngestionAuthUtils.canManageSecrets(context)) {
-      final String ingestionSourceUrn = environment.getArgument("urn");
-      final Urn urn = Urn.createFromString(ingestionSourceUrn);
+      final String secretUrn = environment.getArgument("urn");
+      final Urn urn = Urn.createFromString(secretUrn);
       return CompletableFuture.supplyAsync(() -> {
         try {
           _entityClient.deleteEntity(urn, context.getActor());
-          return ingestionSourceUrn;
+          return secretUrn;
         } catch (Exception e) {
-          throw new RuntimeException(String.format("Failed to perform delete against ingestion source with urn %s", ingestionSourceUrn), e);
+          throw new RuntimeException(String.format("Failed to perform delete against secret with urn %s", secretUrn), e);
         }
       });
     }

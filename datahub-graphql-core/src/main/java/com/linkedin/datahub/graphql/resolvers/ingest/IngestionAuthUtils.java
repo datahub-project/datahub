@@ -19,6 +19,12 @@ public class IngestionAuthUtils {
     return isAuthorized(principal, ImmutableList.of(PoliciesConfig.MANAGE_INGESTION_PRIVILEGE.getType()), authorizer);
   }
 
+  static boolean canManageSecrets(@Nonnull QueryContext context) {
+    final Authorizer authorizer = context.getAuthorizer();
+    final String principal = context.getActor();
+    return isAuthorized(principal, ImmutableList.of(PoliciesConfig.MANAGE_SECRETS_PRIVILEGE.getType()), authorizer);
+  }
+
   static boolean isAuthorized(
       String principal,
       List<String> privilegeGroup,

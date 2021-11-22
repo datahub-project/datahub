@@ -1,0 +1,215 @@
+# DataHub UI Application-Specific GraphQL Types
+
+extend type Query {
+  """
+  List all secrets stored in DataHub
+  """
+  listSecrets(input: ListSecretsInput!): ListSecretsResult
+
+  """
+  List all ingestion sources
+  """
+  listIngestionSources(input: ListIngestionSourcesInput!): ListIngestionSourcesResult
+}
+
+extend type Mutation {
+  """
+  Create a new Secret
+  """
+  createSecret(input: CreateSecretInput!): String
+
+  """
+  Delete a Secret
+  """
+  deleteSecret(urn: String!): String
+
+  """
+  Create a new ingestion source
+  """
+  createIngestionSource(input: UpdateIngestionSourceInput!): String
+
+  """
+  Update an existing ingestion source
+  """
+  updateIngestionSource(urn: String!, input: UpdateIngestionSourceInput!): String
+
+  """
+  Delete an existing ingestion source
+  """
+  deleteIngestionSource(urn: String!): String
+}
+
+"""
+Input for listing DataHub Secrets
+"""
+input ListSecretsInput {
+  """
+  The starting offset of the result set
+  """
+  start: Int
+
+  """
+  The number of results to be returned
+  """
+  count: Int
+}
+
+"""
+A referencible secret stored in DataHub's system. Notice that we do not return the actual secret value.
+"""
+type Secret {
+  """
+  The urn of the secret
+  """
+  urn: String!
+
+  """
+  The name of the secret
+  """
+  name: String!
+}
+
+"""
+Input for listing DataHub Secrets
+"""
+type ListSecretsResult {
+  """
+  The starting offset of the result set
+  """
+  start: Int
+
+  """
+  The number of results to be returned
+  """
+  count: Int
+
+  """
+  The total number of results in the result set
+  """
+  total: Int
+
+  """
+  The secrets themselves
+  """
+  secrets: [Secret!]!
+}
+
+"""
+The type of an ingestion source
+"""
+enum IngestionSourceType {
+  """
+  Ingestion Source that uses a raw recipe as input.
+  """
+  RECIPE
+}
+
+"""
+An Ingestion Source Entity
+"""
+type IngestionSource {
+  """
+  The primary key of the Ingestion Source
+  """
+  urn: String!
+
+  """
+  The type of the Ingestion Source
+  """
+  type: IngestionSourceType!
+}
+
+"""
+Input arguments for listing Ingestion Sources
+"""
+input ListIngestionSourcesInput {
+  """
+  The starting offset of the result set
+  """
+  start: Int
+
+  """
+  The number of results to be returned
+  """
+  count: Int
+}
+
+"""
+Results returned when listing ingestion sources
+"""
+type ListIngestionSourcesResult {
+  """
+  The starting offset of the result set
+  """
+  start: Int
+
+  """
+  The number of results to be returned
+  """
+  count: Int
+
+  """
+  The total number of results in the result set
+  """
+  total: Int
+
+  """
+  The Ingestion Sources themselves
+  """
+  ingestionSources: [IngestionSource!]!
+}
+
+"""
+Input parameters for creating / updating an Ingestion Source
+"""
+input UpdateIngestionSourceParamsInput {
+  """
+  A raw recipe.yml file represented as a JSON string
+  """
+  recipeJson: String
+}
+
+"""
+Input arguments for creating / updating an Ingestion Source
+"""
+input UpdateIngestionSourceInput {
+  """
+  A name associated with the ingestion source
+  """
+  name: String!
+
+  """
+  The type of the Ingestion Source
+  """
+  type: IngestionSourceType!
+
+  """
+  An optional description associated with the ingestion source
+  """
+  description: String
+
+  """
+  An optional schedule for the ingestion source. If not provided, the source is only available for run on-demand.
+  """
+  schedule: RunSchedule
+
+  """
+  A set of type-specific ingestion source parameters
+  """
+  params: UpdateIngestionSourceParamsInput!
+}
+
+"""
+Input arguments for creating a new Secret
+"""
+input CreateSecretInput {
+  """
+  The name of the secret for reference in ingestion recipes
+  """
+  name: String!
+
+  """
+  The value of the secret, to be encrypted and stored
+  """
+  value: String!
+}

@@ -27,6 +27,7 @@ import com.linkedin.entity.EntitiesDoSetWritableRequestBuilder;
 import com.linkedin.entity.EntitiesRequestBuilders;
 import com.linkedin.entity.Entity;
 import com.linkedin.entity.EntityArray;
+import com.linkedin.entity.EntityResponse;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.browse.BrowseResult;
@@ -106,6 +107,12 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
             response.putAll(batchResponse);
         }
         return response;
+    }
+
+    @Nonnull
+    public Map<Urn, EntityResponse> batchGetV2(@Nonnull String entityName, @Nonnull final Set<Urn> urns, @Nonnull final String actor) throws Exception {
+        // For now, throw new unsupported exception. TODO Fix this.
+        throw new UnsupportedOperationException("Unsupported operation!");
     }
 
     /**

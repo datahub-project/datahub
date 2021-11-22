@@ -32,6 +32,11 @@ public class PoliciesConfig {
       "Manage Metadata Ingestion",
       "Create, remove, and update Metadata Ingestion sources.");
 
+  public static final Privilege MANAGE_SECRETS_PRIVILEGE = Privilege.of(
+      "MANAGE_SECRETS",
+      "Manage Secrets",
+      "Create & remove Secrets stored inside DataHub.");
+
   public static final Privilege MANAGE_USERS_AND_GROUPS_PRIVILEGE = Privilege.of(
       "MANAGE_USERS_AND_GROUPS",
       "Manage Users & Groups",
@@ -46,7 +51,8 @@ public class PoliciesConfig {
       MANAGE_POLICIES_PRIVILEGE,
       MANAGE_USERS_AND_GROUPS_PRIVILEGE,
       VIEW_ANALYTICS_PRIVILEGE,
-      MANAGE_INGESTION_PRIVILEGE
+      MANAGE_INGESTION_PRIVILEGE,
+      MANAGE_SECRETS_PRIVILEGE
   );
 
   // Resource Privileges //
