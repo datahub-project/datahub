@@ -9,14 +9,11 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.AccessToken;
-import com.linkedin.datahub.graphql.generated.AccessTokenDuration;
 import com.linkedin.datahub.graphql.generated.AccessTokenType;
 import com.linkedin.datahub.graphql.generated.GetAccessTokenInput;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.net.URISyntaxException;
-import java.time.Duration;
-import java.time.temporal.ChronoUnit;
 import java.util.concurrent.CompletableFuture;
 import lombok.extern.slf4j.Slf4j;
 
