@@ -74,7 +74,6 @@ project.ext.externalDependency = [
     'jacksonDataBind': 'com.fasterxml.jackson.core:jackson-databind:2.9.10.7',
     'jacksonDataFormatYaml': 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.9.10',
     'javatuples': 'org.javatuples:javatuples:1.2',
-    'javaxAnnotation' : 'javax.annotation:javax.annotation-api:1.3.2',
     'javaxInject' : 'javax.inject:javax.inject:1',
     'jerseyCore': 'org.glassfish.jersey.core:jersey-client:2.25.1',
     'jerseyGuava': 'org.glassfish.jersey.bundles.repackaged:jersey-guava:2.25.1',

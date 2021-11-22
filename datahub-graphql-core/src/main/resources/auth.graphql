@@ -7,16 +7,31 @@ extend type Query {
     getAccessToken(input: GetAccessTokenInput!): AccessToken
 }
 
+"""
+Input required to fetch a new Access Token.
+"""
 input GetAccessTokenInput {
 
+  """
+  The type of the Access Token.
+  """
   type: AccessTokenType!
 
+  """
+  The actor associated with the Access Token.
+  """
   actorUrn: String!
 
+  """
+  The duration for which the Access Token is valid.
+  """
   duration: AccessTokenDuration!
 
 }
 
+"""
+A type of DataHub Access Token.
+"""
 enum AccessTokenType {
   """
   Generates a personal access token
@@ -24,6 +39,9 @@ enum AccessTokenType {
   PERSONAL
 }
 
+"""
+The duration for which an Access Token is valid.
+"""
 enum AccessTokenDuration {
   """
   1 hour

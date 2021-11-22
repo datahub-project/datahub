@@ -41,16 +41,6 @@ import static utils.ConfigUtil.*;
  */
 public class AuthModule extends AbstractModule {
 
-    /**
-     * The following environment variables are expected to be provided.
-     * They are used in establishing the connection to the downstream GMS.
-     * Currently, only 1 downstream GMS is supported.
-     */
-    private static final String GMS_HOST_ENV_VAR = "DATAHUB_GMS_HOST";
-    private static final String GMS_PORT_ENV_VAR = "DATAHUB_GMS_PORT";
-    private static final String GMS_USE_SSL_ENV_VAR = "DATAHUB_GMS_USE_SSL";
-    private static final String GMS_SSL_PROTOCOL_VAR = "DATAHUB_GMS_SSL_PROTOCOL";
-
     private final com.typesafe.config.Config _configs;
 
     public AuthModule(final Environment environment, final com.typesafe.config.Config configs) {
@@ -132,15 +122,15 @@ public class AuthModule extends AbstractModule {
         // Init a GMS auth client
         final String metadataServiceHost = _configs.hasPath(METADATA_SERVICE_HOST_CONFIG_PATH)
             ? _configs.getString(METADATA_SERVICE_HOST_CONFIG_PATH)
-            : Configuration.getEnvironmentVariable(GMS_HOST_ENV_VAR, "localhost");
+            : Configuration.getEnvironmentVariable(GMS_HOST_ENV_VAR, DEFAULT_GMS_HOST);
 
         final int metadataServicePort = _configs.hasPath(METADATA_SERVICE_PORT_CONFIG_PATH)
             ? _configs.getInt(METADATA_SERVICE_PORT_CONFIG_PATH)
-            : Integer.parseInt(Configuration.getEnvironmentVariable(GMS_PORT_ENV_VAR, "8080"));
+            : Integer.parseInt(Configuration.getEnvironmentVariable(GMS_PORT_ENV_VAR, DEFAULT_GMS_PORT));
 
         final Boolean metadataServiceUseSsl = _configs.hasPath(METADATA_SERVICE_USE_SSL_CONFIG_PATH)
             ? _configs.getBoolean(METADATA_SERVICE_USE_SSL_CONFIG_PATH)
-            : Boolean.parseBoolean(Configuration.getEnvironmentVariable(GMS_USE_SSL_ENV_VAR, "False"));
+            : Boolean.parseBoolean(Configuration.getEnvironmentVariable(GMS_USE_SSL_ENV_VAR, DEFAULT_GMS_USE_SSL));
 
         return new AuthServiceClient(
             metadataServiceHost,

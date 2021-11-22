@@ -18,6 +18,11 @@ public class ConfigUtil {
   public static final String GMS_USE_SSL_ENV_VAR = "DATAHUB_GMS_USE_SSL";
   public static final String GMS_SSL_PROTOCOL_VAR = "DATAHUB_GMS_SSL_PROTOCOL";
 
+  // Default values
+  public static final String DEFAULT_GMS_HOST = "localhost";
+  public static final String DEFAULT_GMS_PORT = "8080";
+  public static final String DEFAULT_GMS_USE_SSL = "False";
+
   public static final String DEFAULT_METADATA_SERVICE_HOST = Configuration.getEnvironmentVariable(GMS_HOST_ENV_VAR, "localhost");
   public static final Integer DEFAULT_METADATA_SERVICE_PORT = Integer.parseInt(Configuration.getEnvironmentVariable(GMS_PORT_ENV_VAR, "8080"));
   public static final Boolean DEFAULT_METADATA_SERVICE_USE_SSL = Boolean.parseBoolean(Configuration.getEnvironmentVariable(GMS_USE_SSL_ENV_VAR, "False"));

@@ -1,9 +1,10 @@
-import { Button, Divider, Modal, Select, Typography } from 'antd';
+import { Button, Divider, Select, Typography } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { useGetAccessTokenLazyQuery } from '../../graphql/auth.generated';
 import { AccessTokenDuration, AccessTokenType } from '../../types.generated';
 import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
+import { AccessTokenModal } from './AccessTokenModal';
 
 const ContentContainer = styled.div`
     padding-top: 20px;
@@ -11,34 +12,18 @@ const ContentContainer = styled.div`
     padding-left: 40px;
     width: 100%;
 `;
+
 const PageTitle = styled(Typography.Title)`
     && {
         margin-bottom: 12px;
     }
 `;
+
 const PersonTokenDescriptionText = styled(Typography.Paragraph)`
     && {
         max-width: 700px;
         margin-top: 12px;
         margin-bottom: 16px;
-    }
-`;
-const ModalSection = styled.div`
-    display: flex;
-    flex-direction: column;
-    padding-bottom: 12px;
-`;
-const ModalSectionHeader = styled(Typography.Text)`
-    &&&& {
-        padding: 0px;
-        margin: 0px;
-        margin-bottom: 4px;
-    }
-`;
-const ModalSectionParagraph = styled(Typography.Paragraph)`
-    &&&& {
-        padding: 0px;
-        margin: 0px;
     }
 `;
 
@@ -65,7 +50,6 @@ const ACCESS_TOKEN_DURATIONS = [
 export const AccessTokens = () => {
     const [showModal, setShowModal] = useState(false);
     const [selectedTokenDuration, setSelectedTokenDuration] = useState(ACCESS_TOKEN_DURATIONS[0].duration);
-
     const authenticatedUser = useGetAuthenticatedUser();
     const canGeneratePersonalAccessTokens = authenticatedUser?.platformPrivileges.generatePersonalAccessTokens;
     const currentUserUrn = authenticatedUser?.corpUser.urn;
@@ -99,12 +83,6 @@ export const AccessTokens = () => {
     };
 
     const accessToken = data?.getAccessToken?.accessToken;
-    const baseUrl = window.location.origin;
-    const accessTokenCurl = `curl -X POST '${baseUrl}/api/graphql' \\
---header 'Authorization: Bearer ${accessToken}' \\
---header 'Content-Type: application/json' \\
---data-raw '{"query":"{\\n  me {\\n    corpUser {\\n        username\\n    }\\n  }\\n}","variables":{}}'`;
-
     const selectedExpiresInText = ACCESS_TOKEN_DURATIONS.find(
         (duration) => duration.duration === selectedTokenDuration,
     )?.text;
@@ -156,45 +134,12 @@ export const AccessTokens = () => {
                     incorrect, please contact your DataHub administrator.
                 </Typography.Paragraph>
             )}
-
-            <Modal
-                width={700}
-                footer={null}
-                title={
-                    <Typography.Text>
-                        Generate a new <b>Personal Access Token</b>
-                    </Typography.Text>
-                }
+            <AccessTokenModal
                 visible={showModal}
-                onCancel={onClose}
-            >
-                <ModalSection>
-                    <ModalSectionHeader strong>Token</ModalSectionHeader>
-                    <ModalSectionParagraph>
-                        This token will expire in <b>{selectedExpiresInText}.</b>
-                    </ModalSectionParagraph>
-                    <Typography.Paragraph copyable={{ text: accessToken }}>
-                        <pre>{accessToken}</pre>
-                    </Typography.Paragraph>
-                </ModalSection>
-                <ModalSection>
-                    <ModalSectionHeader strong>Usage</ModalSectionHeader>
-                    <ModalSectionParagraph>
-                        To use the token, provide it as a <Typography.Text keyboard>Bearer</Typography.Text> token in
-                        the <Typography.Text keyboard>Authorization</Typography.Text> header when making API requests:
-                    </ModalSectionParagraph>
-                    <Typography.Paragraph copyable={{ text: accessTokenCurl }}>
-                        <pre>{accessTokenCurl}</pre>
-                    </Typography.Paragraph>
-                </ModalSection>
-                <ModalSection>
-                    <ModalSectionHeader strong>Learn More</ModalSectionHeader>
-                    <ModalSectionParagraph>
-                        To learn more about the DataHub APIs, check out the
-                        <a href="https://www.datahubproject.io/docs/"> DataHub Docs.</a>
-                    </ModalSectionParagraph>
-                </ModalSection>
-            </Modal>
+                onClose={onClose}
+                accessToken={accessToken || ''}
+                expiresInText={selectedExpiresInText || ''}
+            />
         </ContentContainer>
     );
 };

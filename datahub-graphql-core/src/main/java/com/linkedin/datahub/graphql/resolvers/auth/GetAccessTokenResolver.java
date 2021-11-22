@@ -44,7 +44,7 @@ public class GetAccessTokenResolver implements DataFetcher<CompletableFuture<Acc
       if (isAuthorizedToGenerateToken(context, input)) {
         final TokenType type = TokenType.valueOf(input.getType().toString()); // warn: if we are out of sync with AccessTokenType there are problems.
         final String actorUrn = input.getActorUrn();
-        final long expiresInMs = mapDurationToMs(input.getDuration());
+        final long expiresInMs = AccessTokenUtil.mapDurationToMs(input.getDuration());
         final String accessToken = _tokenService.generateAccessToken(type, createActor(input.getType(), actorUrn), expiresInMs);
         AccessToken result = new AccessToken();
         result.setAccessToken(accessToken);
@@ -64,25 +64,6 @@ public class GetAccessTokenResolver implements DataFetcher<CompletableFuture<Acc
 
   private boolean isAuthorizedToGeneratePersonalAccessToken(final QueryContext context, final GetAccessTokenInput input) {
     return input.getActorUrn().equals(context.getActorUrn()) && AuthorizationUtils.canGeneratePersonalAccessToken(context);
-  }
-
-  private long mapDurationToMs(final AccessTokenDuration duration) {
-    switch (duration) {
-      case ONE_HOUR:
-        return Duration.of(1, ChronoUnit.HOURS).toMillis();
-      case ONE_DAY:
-        return Duration.of(1, ChronoUnit.DAYS).toMillis();
-      case ONE_MONTH:
-        return Duration.of(30, ChronoUnit.DAYS).toMillis();
-      case THREE_MONTHS:
-        return Duration.of(90, ChronoUnit.DAYS).toMillis();
-      case SIX_MONTHS:
-        return Duration.of(180, ChronoUnit.DAYS).toMillis();
-      case ONE_YEAR:
-        return Duration.of(365, ChronoUnit.DAYS).toMillis();
-      default:
-        throw new RuntimeException(String.format("Unrecognized access token duration %s provided", duration));
-    }
   }
 
   private Actor createActor(AccessTokenType tokenType, String actorUrn) {
