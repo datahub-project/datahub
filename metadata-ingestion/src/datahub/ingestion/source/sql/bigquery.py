@@ -85,6 +85,8 @@ assert pybigquery.sqlalchemy_bigquery._type_map
 class BigQueryConfig(BaseTimeWindowConfig, SQLAlchemyConfig):
     scheme: str = "bigquery"
     project_id: Optional[str] = None
+
+    log_page_size: Optional[pydantic.PositiveInt] = 1000
     # extra_client_options, include_table_lineage and max_query_duration are relevant only when computing the lineage.
     extra_client_options: Dict[str, Any] = {}
     include_table_lineage: Optional[bool] = True
@@ -150,7 +152,7 @@ class BigQuerySource(SQLAlchemySource):
         logger.debug("Start loading log entries from BigQuery")
         for client in clients:
             yield from client.list_entries(
-                filter_=filter, page_size=GCP_LOGGING_PAGE_SIZE
+                filter_=filter, page_size=self.config.log_page_size
             )
         logger.debug("finished loading log entries from BigQuery")
 
