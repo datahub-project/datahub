@@ -15,6 +15,7 @@ public class Constants {
    */
   public static final String CORP_USER_ENTITY_NAME = "corpuser";
   public static final String CORP_GROUP_ENTITY_NAME = "corpGroup";
+  public static final String INGESTION_SOURCE_ENTITY_NAME = "ingestionSource";
 
   /**
    * Aspects

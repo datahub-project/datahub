@@ -35,6 +35,7 @@ export const ProtectedRoutes = (): JSX.Element => {
                         <Route path={PageRoutes.ANALYTICS} render={() => <AnalyticsPage />} />
                         <Route path={PageRoutes.POLICIES} render={() => <PoliciesPage />} />
                         <Route path={PageRoutes.IDENTITIES} render={() => <ManageIdentitiesPage />} />
+                        <Route path={PageRoutes.INGESTION} render={() => <ManageIngestionPage />} />
                     </Switch>
                 </Layout>
             </Layout>

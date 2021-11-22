@@ -27,6 +27,11 @@ public class PoliciesConfig {
       "Manage Policies",
       "Create and remove access control policies. Be careful - Actors with this privilege are effectively super users.");
 
+  public static final Privilege MANAGE_INGESTION_PRIVILEGE = Privilege.of(
+      "MANAGE_INGESTION",
+      "Manage Metadata Ingestion",
+      "Create, remove, and update Metadata Ingestion sources.");
+
   public static final Privilege MANAGE_USERS_AND_GROUPS_PRIVILEGE = Privilege.of(
       "MANAGE_USERS_AND_GROUPS",
       "Manage Users & Groups",
@@ -40,7 +45,8 @@ public class PoliciesConfig {
   public static final List<Privilege> PLATFORM_PRIVILEGES = ImmutableList.of(
       MANAGE_POLICIES_PRIVILEGE,
       MANAGE_USERS_AND_GROUPS_PRIVILEGE,
-      VIEW_ANALYTICS_PRIVILEGE
+      VIEW_ANALYTICS_PRIVILEGE,
+      MANAGE_INGESTION_PRIVILEGE
   );
 
   // Resource Privileges //
