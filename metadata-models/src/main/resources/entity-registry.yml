@@ -16,8 +16,11 @@ entities:
       - corpUserInfo
       - corpUserEditableInfo
       - corpUserStatus
-  - name: ingestionSource
-    keyAspect: ingestionSourceKey
+  - name: dataHubIngestionSource
+    keyAspect: dataHubIngestionSourceKey
     aspects:
-      - ingestionSourceProperties
-      - ingestionSourceRecipe
+      - dataHubIngestionSourceInfo
+  - name: dataHubSecret
+    keyAspect: dataHubSecretKey
+    aspects:
+      - dataHubSecretValue

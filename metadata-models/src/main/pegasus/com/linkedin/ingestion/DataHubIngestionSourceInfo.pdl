@@ -1,0 +1,45 @@
+namespace com.linkedin.ingestion
+
+import com.linkedin.common.AuditStamp
+import com.linkedin.common.Urn
+
+/**
+ * Info about a DataHub ingestion source
+ */
+@Aspect = {
+  "name": "dataHubIngestionSourceInfo"
+}
+record DataHubIngestionSourceInfo {
+  /**
+   * The display name of the ingestion source
+   */
+  @Searchable = {
+   "fieldType": "TEXT_PARTIAL"
+  }
+  displayName: string
+
+  /**
+   * The type of the Ingestion Source, e.g. RECIPE vs TEMPLATE
+   */
+  type: string
+
+  /**
+   * Data Platform URN associated with the source
+   */
+  platform: optional Urn
+
+  /**
+  * The schedule on which the ingestion source is executed
+  */
+  schedule: optional DataHubIngestionSourceSchedule
+
+  /**
+  * Type-specific parameters associated with the Ingestion Source
+  */
+  config: record DataHubIngestionSourceConfig {
+    /**
+     * Information about the recipe to use in ingestion, if the Type is INGESTION
+     */
+     recipe: optional DataHubIngestionSourceRecipe
+  }
+}

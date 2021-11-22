@@ -3,11 +3,18 @@ package com.linkedin.datahub.graphql.resolvers.ingest;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
+import com.linkedin.datahub.graphql.generated.UpdateIngestionSourceConfigInput;
 import com.linkedin.datahub.graphql.generated.UpdateIngestionSourceInput;
+import com.linkedin.datahub.graphql.generated.UpdateIngestionSourceRecipeInput;
+import com.linkedin.datahub.graphql.generated.UpdateIngestionSourceScheduleInput;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.ingestion.DataHubIngestionSourceConfig;
+import com.linkedin.ingestion.DataHubIngestionSourceInfo;
+import com.linkedin.ingestion.DataHubIngestionSourceRecipe;
+import com.linkedin.ingestion.DataHubIngestionSourceSchedule;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.key.IngestionSourceKey;
+import com.linkedin.metadata.key.DataHubIngestionSourceKey;
 import com.linkedin.metadata.utils.GenericAspectUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetcher;
@@ -48,15 +55,15 @@ public class UpsertIngestionSourceResolver implements DataFetcher<CompletableFut
         final String uuidStr = uuid.toString();
 
         // Create the Ingestion source key
-        final IngestionSourceKey key = new IngestionSourceKey();
+        final DataHubIngestionSourceKey key = new DataHubIngestionSourceKey();
         key.setId(uuidStr);
         proposal.setEntityKeyAspect(GenericAspectUtils.serializeAspect(key));
       }
 
       // Create the policy info.
-      final IngestionSourceInfo info = UpdateIngestionSourceInputMapper.map(input);
+      final DataHubIngestionSourceInfo info = mapIngestionSourceInfo(input);
       proposal.setEntityType(Constants.INGESTION_SOURCE_ENTITY_NAME);
-      proposal.setAspectName("ingestionSourceInfo");
+      proposal.setAspectName(Constants.INGESTION_INFO_ASPECT_NAME);
       proposal.setAspect(GenericAspectUtils.serializeAspect(info));
       proposal.setChangeType(ChangeType.UPSERT);
 
@@ -69,5 +76,36 @@ public class UpsertIngestionSourceResolver implements DataFetcher<CompletableFut
       });
     }
     throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
+  }
+
+  private DataHubIngestionSourceInfo mapIngestionSourceInfo(final UpdateIngestionSourceInput input) {
+    final DataHubIngestionSourceInfo result = new DataHubIngestionSourceInfo();
+    result.setType(input.getType().toString());
+    result.setDisplayName(input.getDisplayName());
+    result.setSchedule(mapSchedule(input.getSchedule()));
+    result.setConfig(mapConfig(input.getConfig()));
+    return result;
+  }
+
+  private DataHubIngestionSourceConfig mapConfig(final UpdateIngestionSourceConfigInput input) {
+    final DataHubIngestionSourceConfig result = new DataHubIngestionSourceConfig();
+    if (input.getRecipe() != null) {
+      result.setRecipe(mapRecipe(input.getRecipe()));
+    }
+    return result;
+  }
+
+  private DataHubIngestionSourceRecipe mapRecipe(final UpdateIngestionSourceRecipeInput input) {
+    final DataHubIngestionSourceRecipe result = new DataHubIngestionSourceRecipe();
+    result.setJson(input.getJson());
+    return result;
+  }
+
+  private DataHubIngestionSourceSchedule mapSchedule(final UpdateIngestionSourceScheduleInput input) {
+    final DataHubIngestionSourceSchedule result = new DataHubIngestionSourceSchedule();
+    result.setStartTimeMs(input.getStartTimeMs());
+    result.setEndTimeMs(input.getEndTimeMs());
+    result.setInterval(input.getInterval());
+    return result;
   }
 }

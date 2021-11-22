@@ -1,0 +1,21 @@
+namespace com.linkedin.ingestion
+
+/**
+ * The schedule associated with an ingestion source.
+ */
+record DataHubIngestionSourceSchedule {
+  /**
+   * The start date, in milliseconds since epoch
+   */
+  startTimeMs: long
+
+  /**
+   * The end date, in milliseconds since epoch
+   */
+  endTimeMs: long
+
+  /**
+   * A cron-formatted execution interval, as a cron string, e.g. "0 * * * *"
+   */
+  interval: string
+}

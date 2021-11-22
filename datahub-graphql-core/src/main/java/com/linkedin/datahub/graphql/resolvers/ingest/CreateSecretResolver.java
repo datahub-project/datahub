@@ -6,8 +6,10 @@ import com.linkedin.datahub.graphql.generated.CreateSecretInput;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.key.DataHubSecretKey;
 import com.linkedin.metadata.utils.GenericAspectUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.secret.DataHubSecretValue;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletableFuture;
@@ -35,17 +37,17 @@ public class CreateSecretResolver implements DataFetcher<CompletableFuture<Strin
 
       // Create a new DataHub secret. The secret name is part of the urn, and cannot be changed post creation.
 
-      // Create the Ingestion source key
+      // Create the Ingestion source key --> use the display name as a unique id to ensure it's not duplicated.
       final DataHubSecretKey key = new DataHubSecretKey();
-      key.setId(input.getName());
+      key.setId(input.getValue());
       proposal.setEntityKeyAspect(GenericAspectUtils.serializeAspect(key));
 
       // Create the policy info.
       final DataHubSecretValue value = new DataHubSecretValue();
+      value.setValue(input.getValue()); // TODO: Add encryption here.
 
-      // TODO: Encrypt the secret, then store it.
       proposal.setEntityType(Constants.SECRETS_ENTITY_NAME);
-      proposal.setAspectName("secretValue");
+      proposal.setAspectName(Constants.SECRET_VALUE_ASPECT_NAME);
       proposal.setAspect(GenericAspectUtils.serializeAspect(value));
       proposal.setChangeType(ChangeType.UPSERT);
 

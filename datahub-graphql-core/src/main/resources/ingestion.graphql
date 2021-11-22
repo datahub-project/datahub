@@ -66,7 +66,7 @@ type Secret {
   """
   The name of the secret
   """
-  name: String!
+  displayName: String!
 }
 
 """
@@ -105,6 +105,46 @@ enum IngestionSourceType {
 }
 
 """
+A schedule associated with an Ingestion Source
+"""
+type IngestionSchedule {
+  """
+  The start time associated with the schedule
+  """
+  startTimeMs: Long!
+
+  """
+  The end time associated with the schedule
+  """
+  endTimeMs: Long!
+
+  """
+  The cron-formatted interval to execute the ingestion source on
+  """
+  interval: String!
+}
+
+"""
+A schedule associated with an Ingestion Source
+"""
+type IngestionRecipe {
+  """
+  A json-ified representation of a normal ingestion recipe YML
+  """
+  json: String!
+}
+
+"""
+A set of configurations for an Ingestion Source
+"""
+type IngestionConfig {
+  """
+  The recipe to use for ingestion
+  """
+  recipe: IngestionRecipe
+}
+
+"""
 An Ingestion Source Entity
 """
 type IngestionSource {
@@ -117,6 +157,21 @@ type IngestionSource {
   The type of the Ingestion Source
   """
   type: IngestionSourceType!
+
+  """
+  The display name of the Ingestion Source
+  """
+  displayName: String!
+
+  """
+  An optional schedule associated with the Ingestion Source
+  """
+  schedule: IngestionSchedule
+
+  """
+  An type-specific set of configurations for the ingestion source
+  """
+  config: IngestionConfig!
 }
 
 """
@@ -141,17 +196,17 @@ type ListIngestionSourcesResult {
   """
   The starting offset of the result set
   """
-  start: Int
+  start: Int!
 
   """
   The number of results to be returned
   """
-  count: Int
+  count: Int!
 
   """
   The total number of results in the result set
   """
-  total: Int
+  total: Int!
 
   """
   The Ingestion Sources themselves
@@ -159,14 +214,45 @@ type ListIngestionSourcesResult {
   ingestionSources: [IngestionSource!]!
 }
 
+
 """
 Input parameters for creating / updating an Ingestion Source
 """
-input UpdateIngestionSourceParamsInput {
+input UpdateIngestionSourceRecipeInput {
   """
   A raw recipe.yml file represented as a JSON string
   """
-  recipeJson: String
+  json: String!
+}
+
+"""
+Input parameters for creating / updating an Ingestion Source
+"""
+input UpdateIngestionSourceConfigInput {
+  """
+  Recipe configurations to use with the Ingestion Source
+  """
+  recipe: UpdateIngestionSourceRecipeInput
+}
+
+"""
+Input arguments for creating / updating the schedule of an Ingestion Source
+"""
+input UpdateIngestionSourceScheduleInput {
+  """
+  The epoch (ms) Date Time when the job should start
+  """
+  startTimeMs: Long!
+
+  """
+  The epoch (ms) Date Time when the job should end
+  """
+  endTimeMs: Long!
+
+  """
+  The cron-formatted inverval describing when the job should be executed
+  """
+  interval: String!
 }
 
 """
@@ -176,7 +262,7 @@ input UpdateIngestionSourceInput {
   """
   A name associated with the ingestion source
   """
-  name: String!
+  displayName: String!
 
   """
   The type of the Ingestion Source
@@ -191,12 +277,12 @@ input UpdateIngestionSourceInput {
   """
   An optional schedule for the ingestion source. If not provided, the source is only available for run on-demand.
   """
-  schedule: RunSchedule
+  schedule: UpdateIngestionSourceScheduleInput
 
   """
-  A set of type-specific ingestion source parameters
+  A set of type-specific ingestion source configurations
   """
-  params: UpdateIngestionSourceParamsInput!
+  config: UpdateIngestionSourceConfigInput!
 }
 
 """
@@ -206,7 +292,7 @@ input CreateSecretInput {
   """
   The name of the secret for reference in ingestion recipes
   """
-  name: String!
+  displayName: String!
 
   """
   The value of the secret, to be encrypted and stored
