@@ -19,5 +19,5 @@ record EntityResponse {
   /**
    * A map of aspect name to aspect
    **/
-   aspects: map[string, EnvelopedAspect]
+  aspects: map[string, EnvelopedAspect]
 }
