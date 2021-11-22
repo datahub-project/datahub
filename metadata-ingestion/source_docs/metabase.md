@@ -1,4 +1,4 @@
-# Superset
+# Metabase
 
 For context on getting started with ingestion, check out our [metadata ingestion guide](../README.md).
 
@@ -15,6 +15,16 @@ for more details on Metabase's login api.
 This plugin extracts the following:
 
 - Charts, dashboards, and associated metadata
+
+### Dashboard
+
+[/api/dashboard](https://www.metabase.com/docs/latest/api-documentation.html#dashboard) endpoint is used to
+retrieve dashboard information.
+
+### Chart
+
+[/api/card](hhttps://www.metabase.com/docs/latest/api-documentation.html#card) endpoint is used to
+retrieve chart information.
 
 ## Quickstart recipe
 
