@@ -4,10 +4,6 @@ title: "Components"
 
 # DataHub Components Overview
 
-DataHub is a [3rd generation](https://engineering.linkedin.com/blog/2020/datahub-popular-metadata-architectures-explained) Metadata Platform that enables Data Discovery, Collaboration, Governance, and end-to-end Observability
-that is built for the Modern Data Stack. DataHub employs a model-first philosophy, with a focus on unlocking interoperability between
-disparate tools & systems. 
-
 The DataHub platform consists of the components shown in the following diagram. 
 
 ![DataHub Component Overview](./imgs/datahub-components.png)
@@ -54,6 +50,10 @@ DataHub comes with a React UI including an ever-evolving set of features to make
 For a full overview of the capabilities currently supported, take a look at the [Features](https://datahubproject.io/docs/features/) overview. For a look at what's coming next,
 head over to the [Roadmap](https://datahubproject.io/docs/roadmap/). 
 
+## Learn More
+
+Learn more about the specifics of the [DataHub Architecture](./architecture/architecture.md) in the Architecture Overview. Learn about using & developing the components
+of the Platform by visiting the Module READMEs. 
 
 ## Feedback / Questions / Concerns
 
