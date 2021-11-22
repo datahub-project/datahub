@@ -46,6 +46,7 @@ module.exports = {
       "README",
       // "docs/faq", // hide from sidebar: out of date
       "docs/features",
+      "docs/components",
       "docs/roadmap",
       "docs/CONTRIBUTING",
       "docs/demo",
