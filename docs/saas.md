@@ -5,7 +5,7 @@ Sign up for fully managed, hassle-free and secure SaaS service for DataHub, prov
 <p>
 <a
     className="button button--primary button--lg"
-    href="https://www.acryldata.io/beta?utm_source=datahubproject" 
+    href="https://www.acryldata.io/datahub-beta" 
     target="_blank" >
     Sign up
 </a>

@@ -14,7 +14,7 @@ const AnnouncementSection = () => (
         enterprise
       </p>
       <a
-        href="https://www.acryldata.io/beta?utm_source=datahubproject"
+        href="https://www.acryldata.io/datahub-beta"
         target="_blank"
         class="button button--primary button--lg"
       >
