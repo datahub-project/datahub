@@ -20,6 +20,7 @@ import play.http.HttpEntity;
 import play.libs.ws.InMemoryBodyWritable;
 import play.libs.ws.StandaloneWSClient;
 import play.libs.Json;
+import play.libs.ws.ahc.AhcCurlRequestLogger;
 import play.libs.ws.ahc.StandaloneAhcWSClient;
 import play.mvc.Controller;
 import play.mvc.Http;
@@ -106,7 +107,9 @@ public class Application extends Controller {
   @Security.Authenticated(Authenticator.class)
   public CompletableFuture<Result> proxy(String path) throws ExecutionException, InterruptedException {
     final String resolvedUri = PATH_REMAP.getOrDefault(request().uri(), request().uri());
-    return _ws.url(String.format("http://%s:%s%s", GMS_HOST, GMS_PORT, resolvedUri))
+    final String protocol = GMS_USE_SSL ? "https" : "http";
+    return _ws.url(String.format("%s://%s:%s%s", protocol, GMS_HOST, GMS_PORT, resolvedUri))
+        .setRequestFilter(new AhcCurlRequestLogger())
         .setMethod(request().method())
         .setHeaders(request()
             .getHeaders()
