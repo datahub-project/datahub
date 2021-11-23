@@ -9,7 +9,7 @@ import com.linkedin.datahub.graphql.generated.ListGroupsInput;
 import com.linkedin.datahub.graphql.generated.ListGroupsResult;
 import com.linkedin.datahub.graphql.types.corpgroup.mappers.CorpGroupSnapshotMapper;
 import com.linkedin.entity.Entity;
-import com.linkedin.entity.client.RestliEntityClient;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.query.ListResult;
 import com.linkedin.metadata.snapshot.CorpGroupSnapshot;
@@ -30,9 +30,9 @@ public class ListGroupsResolver implements DataFetcher<CompletableFuture<ListGro
   private static final Integer DEFAULT_START = 0;
   private static final Integer DEFAULT_COUNT = 20;
 
-  private final RestliEntityClient _entityClient;
+  private final EntityClient _entityClient;
 
-  public ListGroupsResolver(final RestliEntityClient entityClient) {
+  public ListGroupsResolver(final EntityClient entityClient) {
     _entityClient = entityClient;
   }
 
@@ -50,10 +50,10 @@ public class ListGroupsResolver implements DataFetcher<CompletableFuture<ListGro
         try {
           // First, get all group Urns.
           final ListResult gmsResult =
-              _entityClient.list(Constants.CORP_GROUP_ENTITY_NAME, Collections.emptyMap(), start, count, context.getActor());
+              _entityClient.list(Constants.CORP_GROUP_ENTITY_NAME, Collections.emptyMap(), start, count, context.getAuthentication());
 
           // Then, get hydrate all groups.
-          final Map<Urn, Entity> entities = _entityClient.batchGet(new HashSet<>(gmsResult.getEntities()), context.getActor());
+          final Map<Urn, Entity> entities = _entityClient.batchGet(new HashSet<>(gmsResult.getEntities()), context.getAuthentication());
 
           // Now that we have entities we can bind this to a result.
           final ListGroupsResult result = new ListGroupsResult();
