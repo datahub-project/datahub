@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 set -e
 
@@ -79,4 +79,3 @@ if [[ $DATAHUB_ANALYTICS_ENABLED == true ]]; then
     create_datahub_usage_event_aws_elasticsearch || exit 1
   fi
 fi
-

@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 WAIT_FOR_KAFKA=""
 if [[ $SKIP_KAFKA_CHECK != true ]]; then

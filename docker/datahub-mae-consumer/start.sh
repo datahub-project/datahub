@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # Add default URI (http) scheme if needed
 if ! echo $NEO4J_HOST | grep -q "://" ; then

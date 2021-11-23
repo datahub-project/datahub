@@ -37,6 +37,8 @@ services:
       dockerfile: Dockerfile
       args:
         APP_ENV: dev
+    environment:
+      - SKIP_ELASTICSEARCH_CHECK=false
     volumes:
       - ./datahub-gms/start.sh:/datahub/datahub-gms/scripts/start.sh
       - ./monitoring/client-prometheus-config.yaml:/datahub/datahub-gms/scripts/prometheus-config.yaml

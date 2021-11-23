@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 set -x
 # Add default URI (http) scheme if needed
 if ! echo $NEO4J_HOST | grep -q "://" ; then
@@ -31,11 +31,6 @@ if [[ $SKIP_KAFKA_CHECK != true ]]; then
   WAIT_FOR_KAFKA=" -wait tcp://$(echo $KAFKA_BOOTSTRAP_SERVER | sed 's/,/ -wait tcp:\/\//g') "
 fi
 
-WAIT_FOR_ELASTICSEARCH=""
-if [[ $SKIP_ELASTICSEARCH_CHECK != true ]]; then
-  WAIT_FOR_ELASTICSEARCH=" -wait $ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_HOST:$ELASTICSEARCH_PORT -wait-http-header \"$ELASTICSEARCH_AUTH_HEADER\""
-fi
-
 WAIT_FOR_NEO4J=""
 if [[ $GRAPH_SERVICE_IMPL != elasticsearch ]] && [[ $SKIP_NEO4J_CHECK != true ]]; then
   WAIT_FOR_NEO4J=" -wait $NEO4J_HOST "
@@ -51,16 +46,31 @@ if [[ $ENABLE_PROMETHEUS == true ]]; then
   PROMETHEUS_AGENT="-javaagent:jmx_prometheus_javaagent.jar=4318:/datahub/datahub-gms/scripts/prometheus-config.yaml "
 fi
 
-dockerize \
-  $WAIT_FOR_EBEAN \
-  $WAIT_FOR_KAFKA \
-  $WAIT_FOR_ELASTICSEARCH \
-  $WAIT_FOR_NEO4J \
-  -timeout 240s \
-  java $JAVA_OPTS $JMX_OPTS \
-  $OTEL_AGENT \
-  $PROMETHEUS_AGENT \
-  -jar /jetty-runner.jar \
-  --jar jetty-util.jar \
-  --jar jetty-jmx.jar \
-  /datahub/datahub-gms/bin/war.war
+if [[ $SKIP_ELASTICSEARCH_CHECK != true ]]; then
+  dockerize \
+    $WAIT_FOR_EBEAN \
+    $WAIT_FOR_KAFKA \
+    -wait $ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_HOST:$ELASTICSEARCH_PORT -wait-http-header "$ELASTICSEARCH_AUTH_HEADER" \
+    $WAIT_FOR_NEO4J \
+    -timeout 240s \
+    java $JAVA_OPTS $JMX_OPTS \
+    $OTEL_AGENT \
+    $PROMETHEUS_AGENT \
+    -jar /jetty-runner.jar \
+    --jar jetty-util.jar \
+    --jar jetty-jmx.jar \
+    /datahub/datahub-gms/bin/war.war
+else
+  dockerize \
+    $WAIT_FOR_EBEAN \
+    $WAIT_FOR_KAFKA \
+    $WAIT_FOR_NEO4J \
+    -timeout 240s \
+    java $JAVA_OPTS $JMX_OPTS \
+    $OTEL_AGENT \
+    $PROMETHEUS_AGENT \
+    -jar /jetty-runner.jar \
+    --jar jetty-util.jar \
+    --jar jetty-jmx.jar \
+    /datahub/datahub-gms/bin/war.war
+fi
