@@ -111,7 +111,11 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
     }
 
     @Nonnull
-    public Map<Urn, EntityResponse> batchGetV2(@Nonnull String entityName, @Nonnull final Set<Urn> urns, @Nonnull final String actor) throws Exception {
+    public Map<Urn, EntityResponse> batchGetV2(
+        @Nonnull String entityName,
+        @Nonnull final Set<Urn> urns,
+        @Nullable final Set<String> aspectNames,
+        @Nonnull final Authentication authentication) throws Exception {
         // For now, throw new unsupported exception. TODO Fix this.
         throw new UnsupportedOperationException("Unsupported operation!");
     }

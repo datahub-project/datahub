@@ -28,7 +28,7 @@ public class DeleteIngestionSourceResolver implements DataFetcher<CompletableFut
       final Urn urn = Urn.createFromString(ingestionSourceUrn);
       return CompletableFuture.supplyAsync(() -> {
         try {
-          _entityClient.deleteEntity(urn, context.getActor());
+          _entityClient.deleteEntity(urn, context.getAuthentication());
           return ingestionSourceUrn;
         } catch (Exception e) {
           throw new RuntimeException(String.format("Failed to perform delete against ingestion source with urn %s", ingestionSourceUrn), e);

@@ -69,7 +69,7 @@ public class UpsertIngestionSourceResolver implements DataFetcher<CompletableFut
 
       return CompletableFuture.supplyAsync(() -> {
         try {
-          return _entityClient.ingestProposal(proposal, context.getActor());
+          return _entityClient.ingestProposal(proposal, context.getAuthentication());
         } catch (Exception e) {
           throw new RuntimeException(String.format("Failed to perform update against input %s", input.toString()), e);
         }

@@ -28,7 +28,7 @@ public class DeleteSecretResolver implements DataFetcher<CompletableFuture<Strin
       final Urn urn = Urn.createFromString(secretUrn);
       return CompletableFuture.supplyAsync(() -> {
         try {
-          _entityClient.deleteEntity(urn, context.getActor());
+          _entityClient.deleteEntity(urn, context.getAuthentication());
           return secretUrn;
         } catch (Exception e) {
           throw new RuntimeException(String.format("Failed to perform delete against secret with urn %s", secretUrn), e);

@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.ingest;
 
+import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
@@ -22,9 +23,11 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import lombok.extern.slf4j.Slf4j;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
+@Slf4j
 public class ListSecretsResolver implements DataFetcher<CompletableFuture<ListSecretsResult>> {
 
   private static final Integer DEFAULT_START = 0;
@@ -49,10 +52,14 @@ public class ListSecretsResolver implements DataFetcher<CompletableFuture<ListSe
       return CompletableFuture.supplyAsync(() -> {
         try {
           // First, get all secrets
-          final ListResult gmsResult = _entityClient.list(Constants.SECRETS_ENTITY_NAME, Collections.emptyMap(), start, count, context.getActor());
+          final ListResult gmsResult = _entityClient.list(Constants.SECRETS_ENTITY_NAME, Collections.emptyMap(), start, count, context.getAuthentication());
 
           // Then, resolve all secrets
-          final Map<Urn, EntityResponse> entities = _entityClient.batchGetV2(Constants.SECRETS_ENTITY_NAME, new HashSet<>(gmsResult.getEntities()), context.getActor());
+          final Map<Urn, EntityResponse> entities = _entityClient.batchGetV2(
+              Constants.SECRETS_ENTITY_NAME,
+              new HashSet<>(gmsResult.getEntities()),
+              ImmutableSet.of(Constants.SECRET_VALUE_ASPECT_NAME),
+              context.getAuthentication());
 
           // Now that we have entities we can bind this to a result.
           final ListSecretsResult result = new ListSecretsResult();

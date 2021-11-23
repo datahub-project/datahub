@@ -31,7 +31,11 @@ public interface EntityClient {
   public Entity get(@Nonnull final Urn urn, @Nonnull final Authentication authentication) throws RemoteInvocationException;
 
   @Nonnull
-  public Map<Urn, EntityResponse> batchGetV2(@Nonnull String entityName, @Nonnull final Set<Urn> urns, @Nonnull final Authentication authentication) throws Exception;
+  public Map<Urn, EntityResponse> batchGetV2(
+      @Nonnull String entityName,
+      @Nonnull final Set<Urn> urns,
+      @Nullable final Set<String> aspectNames,
+      @Nonnull final Authentication authentication) throws Exception;
 
   public Map<Urn, Entity> batchGet(@Nonnull final Set<Urn> urns, @Nonnull final Authentication authentication) throws RemoteInvocationException;
 

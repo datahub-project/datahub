@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.ingest;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
@@ -56,10 +58,14 @@ public class ListIngestionSourcesResolver implements DataFetcher<CompletableFutu
       return CompletableFuture.supplyAsync(() -> {
         try {
           // First, get all ingestion sources Urns.
-          final ListResult gmsResult = _entityClient.list(Constants.INGESTION_SOURCE_ENTITY_NAME, Collections.emptyMap(), start, count, context.getActor());
+          final ListResult gmsResult = _entityClient.list(Constants.INGESTION_SOURCE_ENTITY_NAME, Collections.emptyMap(), start, count, context.getAuthentication());
 
           // Then, resolve all ingestion sources
-          final Map<Urn, EntityResponse> entities = _entityClient.batchGetV2(Constants.INGESTION_SOURCE_ENTITY_NAME, new HashSet<>(gmsResult.getEntities()), context.getActor());
+          final Map<Urn, EntityResponse> entities = _entityClient.batchGetV2(
+              Constants.INGESTION_SOURCE_ENTITY_NAME,
+              new HashSet<>(gmsResult.getEntities()),
+              ImmutableSet.of(Constants.INGESTION_INFO_ASPECT_NAME),
+              context.getAuthentication());
 
           // Now that we have entities we can bind this to a result.
           final ListIngestionSourcesResult result = new ListIngestionSourcesResult();

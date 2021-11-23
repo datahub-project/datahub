@@ -34,6 +34,8 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.r2.RemoteInvocationException;
 import java.time.Clock;
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -73,13 +75,21 @@ public class JavaEntityClient implements EntityClient {
     }
 
     @Nonnull
-    public Map<Urn, Entity> batchGet(@Nonnull final Set<Urn> urns, @Nonnull final Authentication authentication) {
-      return _entityService.getEntities(urns, ImmutableSet.of());
+    @Override
+    public Map<Urn, EntityResponse> batchGetV2(
+        @Nonnull String entityName,
+        @Nonnull Set<Urn> urns,
+        @Nullable Set<String> aspectNames,
+        @Nonnull Authentication authentication) throws Exception {
+        final Set<String> projectedAspects = aspectNames == null
+            ? _entityService.getEntityAspectNames(entityName)
+            : aspectNames;
+        return _entityService.getEntitiesV2(entityName, urns, projectedAspects);
     }
 
     @Nonnull
-    public Map<Urn, EntityResponse> batchGetV2(@Nonnull String entityName, @Nonnull final Set<Urn> urns, @Nonnull final String actor) throws Exception {
-        return _entityService.getEntitiesV2(entityName, urns, ImmutableSet.of());
+    public Map<Urn, Entity> batchGet(@Nonnull final Set<Urn> urns, @Nonnull final Authentication authentication) {
+      return _entityService.getEntities(urns, ImmutableSet.of());
     }
 
     /**

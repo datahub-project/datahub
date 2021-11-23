@@ -1,8 +1,8 @@
 package com.linkedin.datahub.graphql.resolvers.ingest;
 
-import com.datahub.metadata.authorization.AuthorizationRequest;
-import com.datahub.metadata.authorization.AuthorizationResult;
-import com.datahub.metadata.authorization.Authorizer;
+import com.datahub.authorization.AuthorizationRequest;
+import com.datahub.authorization.AuthorizationResult;
+import com.datahub.authorization.Authorizer;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.metadata.authorization.PoliciesConfig;
@@ -15,13 +15,13 @@ public class IngestionAuthUtils {
 
   static boolean canManageIngestion(@Nonnull QueryContext context) {
     final Authorizer authorizer = context.getAuthorizer();
-    final String principal = context.getActor();
+    final String principal = context.getActorUrn();
     return isAuthorized(principal, ImmutableList.of(PoliciesConfig.MANAGE_INGESTION_PRIVILEGE.getType()), authorizer);
   }
 
   static boolean canManageSecrets(@Nonnull QueryContext context) {
     final Authorizer authorizer = context.getAuthorizer();
-    final String principal = context.getActor();
+    final String principal = context.getActorUrn();
     return isAuthorized(principal, ImmutableList.of(PoliciesConfig.MANAGE_SECRETS_PRIVILEGE.getType()), authorizer);
   }
 

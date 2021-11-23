@@ -173,9 +173,13 @@ public class EbeanEntityService extends EntityService {
       @Nonnull Set<Urn> urns,
       @Nonnull Set<String> aspectNames) throws Exception {
 
-    final Set<EbeanAspectV2.PrimaryKey> dbKeys = urns.stream().map(urn -> aspectNames.stream()
-        .map(aspectName -> new EbeanAspectV2.PrimaryKey(urn.toString(), aspectName, ASPECT_LATEST_VERSION))
-        .collect(Collectors.toList())).flatMap(List::stream).collect(Collectors.toSet());
+    final Set<EbeanAspectV2.PrimaryKey> dbKeys = urns
+        .stream()
+        .map(urn -> aspectNames.stream().map(aspectName -> new EbeanAspectV2.PrimaryKey(urn.toString(), aspectName, ASPECT_LATEST_VERSION))
+        .collect(Collectors.toList()))
+        .flatMap(List::stream)
+        .collect(Collectors.toSet());
+
     final Map<EbeanAspectV2.PrimaryKey, EnvelopedAspect> envelopedAspectMap = getEnvelopedAspects(dbKeys);
 
     final Map<String, List<EnvelopedAspect>> urnToAspects = new HashMap<>();
@@ -711,6 +715,7 @@ public class EbeanEntityService extends EntityService {
   private Map<EbeanAspectV2.PrimaryKey, EnvelopedAspect> getEnvelopedAspects(final Set<EbeanAspectV2.PrimaryKey> dbKeys) throws Exception {
     final Map<EbeanAspectV2.PrimaryKey, EnvelopedAspect> result = new HashMap<>();
     final Map<EbeanAspectV2.PrimaryKey, EbeanAspectV2> dbEntries = _entityDao.batchGet(dbKeys);
+
     for (EbeanAspectV2.PrimaryKey currKey : dbKeys) {
 
       final EbeanAspectV2 currAspectEntry = dbEntries.get(currKey);

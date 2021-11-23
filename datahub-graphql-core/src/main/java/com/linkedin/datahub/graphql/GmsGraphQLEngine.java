@@ -46,7 +46,12 @@ import com.linkedin.datahub.graphql.resolvers.group.ListGroupsResolver;
 import com.linkedin.datahub.graphql.resolvers.group.RemoveGroupMembersResolver;
 import com.linkedin.datahub.graphql.resolvers.group.RemoveGroupResolver;
 import com.linkedin.datahub.graphql.resolvers.group.UpdateUserStatusResolver;
+import com.linkedin.datahub.graphql.resolvers.ingest.CreateSecretResolver;
+import com.linkedin.datahub.graphql.resolvers.ingest.DeleteIngestionSourceResolver;
+import com.linkedin.datahub.graphql.resolvers.ingest.DeleteSecretResolver;
+import com.linkedin.datahub.graphql.resolvers.ingest.ListIngestionSourcesResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.ListSecretsResolver;
+import com.linkedin.datahub.graphql.resolvers.ingest.UpsertIngestionSourceResolver;
 import com.linkedin.datahub.graphql.resolvers.load.AspectResolver;
 import com.linkedin.datahub.graphql.resolvers.load.EntityTypeBatchResolver;
 import com.linkedin.datahub.graphql.resolvers.load.EntityTypeResolver;
@@ -474,6 +479,10 @@ public class GmsGraphQLEngine {
                 new EntityCountsResolver(this.entityClient))
             .dataFetcher("getAccessToken",
                 new GetAccessTokenResolver(tokenService))
+            .dataFetcher("listSecrets",
+                new ListSecretsResolver(this.entityClient))
+            .dataFetcher("listIngestionSources",
+                new ListIngestionSourcesResolver(this.entityClient))
         );
     }
 
@@ -503,6 +512,11 @@ public class GmsGraphQLEngine {
             .dataFetcher("removeUser", new RemoveUserResolver(this.entityClient))
             .dataFetcher("removeGroup", new RemoveGroupResolver(this.entityClient))
             .dataFetcher("updateUserStatus", new UpdateUserStatusResolver(this.entityClient))
+            .dataFetcher("createSecret", new CreateSecretResolver(this.entityClient))
+            .dataFetcher("deleteSecret", new DeleteSecretResolver(this.entityClient))
+            .dataFetcher("createIngestionSource", new UpsertIngestionSourceResolver(this.entityClient))
+            .dataFetcher("updateIngestionSource", new UpsertIngestionSourceResolver(this.entityClient))
+            .dataFetcher("deleteIngestionSource", new DeleteIngestionSourceResolver(this.entityClient))
         );
     }
 

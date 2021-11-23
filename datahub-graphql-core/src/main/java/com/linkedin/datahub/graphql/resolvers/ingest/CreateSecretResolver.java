@@ -39,11 +39,12 @@ public class CreateSecretResolver implements DataFetcher<CompletableFuture<Strin
 
       // Create the Ingestion source key --> use the display name as a unique id to ensure it's not duplicated.
       final DataHubSecretKey key = new DataHubSecretKey();
-      key.setId(input.getValue());
+      key.setId(input.getDisplayName());
       proposal.setEntityKeyAspect(GenericAspectUtils.serializeAspect(key));
 
       // Create the policy info.
       final DataHubSecretValue value = new DataHubSecretValue();
+      value.setDisplayName(input.getDisplayName());
       value.setValue(input.getValue()); // TODO: Add encryption here.
 
       proposal.setEntityType(Constants.SECRETS_ENTITY_NAME);
@@ -53,7 +54,7 @@ public class CreateSecretResolver implements DataFetcher<CompletableFuture<Strin
 
       return CompletableFuture.supplyAsync(() -> {
         try {
-          return _entityClient.ingestProposal(proposal, context.getActor());
+          return _entityClient.ingestProposal(proposal, context.getAuthentication());
         } catch (Exception e) {
           throw new RuntimeException(String.format("Failed to perform update against input %s", input.toString()), e);
         }
