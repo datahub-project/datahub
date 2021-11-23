@@ -10,36 +10,22 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 
 import lombok.ToString;
 
+
 @ToString
-public class DefaultEntitySpec implements EntitySpec {
+public class ConfigEntitySpec implements EntitySpec {
 
   private final EntityAnnotation _entityAnnotation;
   private final Map<String, AspectSpec> _aspectSpecs;
 
-  // Classpath & Pegasus-specific: Temporary.
-  private final RecordDataSchema _snapshotSchema;
-  private final TyperefDataSchema _aspectTyperefSchema;
-
-  public DefaultEntitySpec(
-      @Nonnull final Collection<AspectSpec> aspectSpecs,
-      @Nonnull final EntityAnnotation entityAnnotation,
-      @Nonnull final RecordDataSchema snapshotSchema,
-      @Nullable final TyperefDataSchema aspectTyperefSchema) {
+  public ConfigEntitySpec(
+      @Nonnull final String entityName,
+      @Nonnull final String keyAspect,
+      @Nonnull final Collection<AspectSpec> aspectSpecs) {
     _aspectSpecs = aspectSpecs.stream().collect(Collectors.toMap(AspectSpec::getName, Function.identity()));
-    _entityAnnotation = entityAnnotation;
-    _snapshotSchema = snapshotSchema;
-    _aspectTyperefSchema = aspectTyperefSchema;
-  }
-
-  public DefaultEntitySpec(
-      @Nonnull final List<AspectSpec> aspectSpecs,
-      @Nonnull final EntityAnnotation entityAnnotation,
-      @Nonnull final RecordDataSchema snapshotSchema) {
-    this(aspectSpecs, entityAnnotation, snapshotSchema, null);
+    _entityAnnotation = new EntityAnnotation(entityName, keyAspect);
   }
 
   @Override
@@ -84,12 +70,12 @@ public class DefaultEntitySpec implements EntitySpec {
 
   @Override
   public RecordDataSchema getSnapshotSchema() {
-    return _snapshotSchema;
+    throw new UnsupportedOperationException("Failed to find Snapshot associated with Config-based Entity");
   }
 
   @Override
   public TyperefDataSchema getAspectTyperefSchema() {
-    return _aspectTyperefSchema;
+    throw new UnsupportedOperationException("Failed to find Typeref schema associated with Config-based Entity");
   }
 
   @Override
@@ -101,3 +87,4 @@ public class DefaultEntitySpec implements EntitySpec {
         .collect(Collectors.toList());
   }
 }
+

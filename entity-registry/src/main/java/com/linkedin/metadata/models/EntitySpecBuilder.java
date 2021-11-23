@@ -147,6 +147,16 @@ public class EntitySpecBuilder {
     return null;
   }
 
+  /**
+   * Build a config-based {@link EntitySpec}, as opposed to a Snapshot-based {@link EntitySpec}
+   */
+  public EntitySpec buildConfigEntitySpec(
+      @Nonnull final String entityName,
+      @Nonnull final String keyAspect,
+      @Nonnull final List<AspectSpec> aspectSpecs) {
+    return new ConfigEntitySpec(entityName, keyAspect, aspectSpecs);
+  }
+
   public AspectSpec buildAspectSpec(@Nonnull final DataSchema aspectDataSchema) {
 
     final RecordDataSchema aspectRecordSchema = validateAspect(aspectDataSchema);

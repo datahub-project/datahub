@@ -7,11 +7,15 @@ import com.linkedin.datahub.graphql.generated.ListSecretsInput;
 import com.linkedin.datahub.graphql.generated.ListSecretsResult;
 import com.linkedin.datahub.graphql.generated.Secret;
 import com.linkedin.entity.EntityResponse;
+import com.linkedin.entity.EnvelopedAspect;
+import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.query.ListResult;
+import com.linkedin.secret.DataHubSecretValue;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
@@ -67,6 +71,27 @@ public class ListSecretsResolver implements DataFetcher<CompletableFuture<ListSe
   }
 
   private List<Secret> mapEntities(final Collection<EntityResponse> entities) {
-    return null;
+    final List<Secret> results = new ArrayList<>();
+    for (EntityResponse response : entities) {
+      final Urn entityUrn = response.getUrn();
+      final EnvelopedAspectMap aspects = response.getAspects();
+
+      // There should ALWAYS be a value aspect.
+      final EnvelopedAspect envelopedInfo = aspects.get(Constants.SECRET_VALUE_ASPECT_NAME);
+
+      // Bind into a strongly typed object.
+      final DataHubSecretValue secretValue = new DataHubSecretValue(envelopedInfo.getValue().data());
+
+      // Map using the strongly typed object.
+      results.add(mapSecretValue(entityUrn, secretValue));
+    }
+    return results;
+  }
+
+  private Secret mapSecretValue(final Urn urn, final DataHubSecretValue value) {
+    final Secret result = new Secret();
+    result.setUrn(urn.toString());
+    result.setDisplayName(value.getDisplayName());
+    return result;
   }
 }
