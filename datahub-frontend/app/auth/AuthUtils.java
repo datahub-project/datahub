@@ -1,12 +1,42 @@
 package auth;
 
 import com.linkedin.common.urn.CorpuserUrn;
+import lombok.extern.slf4j.Slf4j;
 import play.mvc.Http;
 
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 
+@Slf4j
 public class AuthUtils {
+
+    /**
+     * The config path that determines whether Metadata Service Authentication is enabled.
+     *
+     * When enabled, the frontend server will proxy requests to the Metadata Service without requiring them to have a valid
+     * frontend-issued Session Cookie. This effectively means delegating the act of authentication to the Metadata Service. It
+     * is critical that if Metadata Service authentication is enabled at the frontend service layer, it is also enabled in the
+     * Metadata Service itself. Otherwise, unauthenticated traffic may reach the Metadata itself.
+     *
+     * When disabled, the frontend server will require that all requests have a valid Session Cookie associated with them. Otherwise,
+     * requests will be denied with an Unauthorized error.
+     */
+    public static final String METADATA_SERVICE_AUTH_ENABLED_CONFIG_PATH = "metadataService.auth.enabled";
+
+    /**
+     * The attribute inside session cookie representing a GMS-issued access token
+     */
+    public static final String SESSION_COOKIE_GMS_TOKEN_NAME = "token";
+
+    /**
+     * An ID used to identify system callers that are internal to DataHub. Provided via configuration.
+     */
+    public static final String SYSTEM_CLIENT_ID_CONFIG_PATH = "systemClientId";
+
+    /**
+     * An Secret used to authenticate system callers that are internal to DataHub. Provided via configuration.
+     */
+    public static final String SYSTEM_CLIENT_SECRET_CONFIG_PATH = "systemClientSecret";
 
     public static final String SESSION_TTL_CONFIG_PATH = "auth.session.ttlInHours";
     public static final Integer DEFAULT_SESSION_TTL_HOURS = 720;
@@ -16,17 +46,41 @@ public class AuthUtils {
     public static final String USER_NAME = "username";
     public static final String PASSWORD = "password";
     public static final String ACTOR = "actor";
+    public static final String ACCESS_TOKEN = "token";
 
     /**
-     * Returns true if a request is authenticated, false otherwise.
+     * Determines whether the inbound request should be forward to downstream Metadata Service. Today, this simply
+     * checks for the presence of an "Authorization" header or the presence of a valid session cookie issued
+     * by the frontend.
+     *
+     * Note that this method DOES NOT actually verify the authentication token of an inbound request. That will
+     * be handled by the downstream Metadata Service. Until then, the request should be treated as UNAUTHENTICATED.
+     *
+     * Returns true if the request is eligible to be forwarded to GMS, false otherwise.
+     */
+    public static boolean isEligibleForForwarding(Http.Context ctx) {
+        return hasValidSessionCookie(ctx) || hasAuthHeader(ctx);
+    }
+
+    /**
+     * Returns true if a request has a valid session cookie issued by the frontend server.
+     * Note that this DOES NOT verify whether the token within the session cookie will be accepted
+     * by the downstream GMS service.
      *
      * Note that we depend on the presence of 2 cookies, one accessible to the browser and one not,
      * as well as their agreement to determine authentication status.
      */
-    public static boolean isAuthenticated(final Http.Context ctx) {
+    public static boolean hasValidSessionCookie(final Http.Context ctx) {
         return ctx.session().containsKey(ACTOR)
                 && ctx.request().cookie(ACTOR) != null
                 && ctx.session().get(ACTOR).equals(ctx.request().cookie(ACTOR).value());
+    }
+
+    /**
+     * Returns true if a request includes the Authorization header, false otherwise
+     */
+    public static boolean hasAuthHeader(final Http.Context ctx) {
+        return ctx.request().getHeaders().contains(Http.HeaderNames.AUTHORIZATION);
     }
 
     /**

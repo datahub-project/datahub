@@ -15,15 +15,15 @@ import static com.linkedin.metadata.Constants.*;
  */
 public class OwnershipClient {
 
-  private final AspectClient _aspectClient;
+  private final EntityClient _entityClient;
 
-  public OwnershipClient(final AspectClient aspectClient) {
-    _aspectClient = aspectClient;
+  public OwnershipClient(final EntityClient entityClient) {
+    _entityClient = entityClient;
   }
 
   /**
    * Retrieve the latest version of the standard {@link Ownership} aspect from the Metadata Service,
-   * using a raw {@link AspectClient}.
+   * using a raw {@link EntityClient}.
    *
    * @param urn stringified urn associated with the entity to fetch Ownership for.
    * @return an instance of {@link Ownership} if one is found, or null if one is not found.
@@ -33,11 +33,11 @@ public class OwnershipClient {
   public Ownership getLatestOwnership(final String urn) throws RemoteInvocationException {
     // Fetch the latest version of "ownership" aspect for the resource.
     try {
-      final VersionedAspect aspect = _aspectClient.getAspect(
+      final VersionedAspect aspect = _entityClient.getAspect(
           urn,
           OWNERSHIP_ASPECT_NAME,
           ASPECT_LATEST_VERSION,
-          SYSTEM_ACTOR);
+          null);
       return aspect.getAspect().getOwnership();
     } catch (RestLiServiceException e) {
       if (HttpStatus.S_404_NOT_FOUND.equals(e.getStatus())) {

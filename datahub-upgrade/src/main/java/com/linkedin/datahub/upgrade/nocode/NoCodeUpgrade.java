@@ -1,5 +1,6 @@
 package com.linkedin.datahub.upgrade.nocode;
 
+import com.datahub.authentication.Authentication;
 import com.linkedin.datahub.upgrade.Upgrade;
 import com.linkedin.datahub.upgrade.UpgradeCleanupStep;
 import com.linkedin.datahub.upgrade.UpgradeStep;
@@ -28,11 +29,13 @@ public class NoCodeUpgrade implements Upgrade {
       final EbeanServer server,
       final EntityService entityService,
       final EntityRegistry entityRegistry,
+      final Authentication systemAuthentication,
       final EntityClient entityClient) {
     _steps = buildUpgradeSteps(
         server,
         entityService,
         entityRegistry,
+        systemAuthentication,
         entityClient);
     _cleanupSteps = buildCleanupSteps(server);
   }
@@ -60,6 +63,7 @@ public class NoCodeUpgrade implements Upgrade {
       final EbeanServer server,
       final EntityService entityService,
       final EntityRegistry entityRegistry,
+      final Authentication systemAuthentication,
       final EntityClient entityClient) {
     final List<UpgradeStep> steps = new ArrayList<>();
     steps.add(new RemoveAspectV2TableStep(server));
@@ -67,7 +71,7 @@ public class NoCodeUpgrade implements Upgrade {
     steps.add(new UpgradeQualificationStep(server));
     steps.add(new CreateAspectTableStep(server));
     steps.add(new DataMigrationStep(server, entityService, entityRegistry));
-    steps.add(new GMSEnableWriteModeStep(entityClient));
+    steps.add(new GMSEnableWriteModeStep(systemAuthentication, entityClient));
     return steps;
   }
 }

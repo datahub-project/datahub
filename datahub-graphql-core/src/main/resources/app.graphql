@@ -46,6 +46,11 @@ type PlatformPrivileges {
   Whether the user should be able to manage users & groups
   """
   manageIdentities: Boolean!
+
+  """
+  Whether the user should be able to generate personal access tokens
+  """
+  generatePersonalAccessTokens: Boolean!
 }
 
 """
