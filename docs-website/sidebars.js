@@ -189,13 +189,13 @@ module.exports = {
       "datahub-web-react/src/app/analytics/README",
       "metadata-ingestion/developing",
       "docker/airflow/local_airflow",
+      "docs/how/add-custom-data-platform",
     ],
     Components: [
       "datahub-web-react/README",
       "datahub-frontend/README",
       "datahub-graphql-core/README",
       "metadata-service/README",
-      "datahub-gms-graphql-service/README",
       // "metadata-jobs/README",
       "metadata-jobs/mae-consumer-job/README",
       "metadata-jobs/mce-consumer-job/README",
@@ -226,7 +226,6 @@ module.exports = {
       "docs/deploy/confluent-cloud",
       // Purposely not including the following:
       // - "docker/datahub-frontend/README",
-      // - "docker/datahub-gms-graphql-service/README",
       // - "docker/datahub-gms/README",
       // - "docker/datahub-mae-consumer/README",
       // - "docker/datahub-mce-consumer/README",

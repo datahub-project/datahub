@@ -5,10 +5,15 @@ node {
 
   // If true, it will download node using above parameters.
   // If false, it will try to use globally installed node.
-  download = true
+
+  if (project.hasProperty('useSystemNode') && project.getProperty('useSystemNode').toBoolean()) {
+    download = false
+  } else {
+    download = true
+  }
 
   // Version of node to use.
-  version = '14.15.3'
+  version = '16.8.0'
 
   // Version of Yarn to use.
   yarnVersion = '1.22.0'

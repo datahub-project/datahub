@@ -1,8 +1,12 @@
 package com.linkedin.entity.client;
 
+import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.Entity;
+import com.linkedin.metadata.aspect.EnvelopedAspect;
+import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.filter.Filter;
@@ -10,10 +14,12 @@ import com.linkedin.metadata.query.ListResult;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.query.ListUrnsResult;
+import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.r2.RemoteInvocationException;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -21,10 +27,10 @@ import javax.annotation.Nullable;
 public interface EntityClient {
 
   @Nonnull
-  public Entity get(@Nonnull final Urn urn, @Nonnull final String actor) throws RemoteInvocationException;
+  public Entity get(@Nonnull final Urn urn, @Nonnull final Authentication authentication) throws RemoteInvocationException;
 
   @Nonnull
-  public Map<Urn, Entity> batchGet(@Nonnull final Set<Urn> urns, @Nonnull final String actor) throws RemoteInvocationException;
+  public Map<Urn, Entity> batchGet(@Nonnull final Set<Urn> urns, @Nonnull final Authentication authentication) throws RemoteInvocationException;
   /**
    * Gets browse snapshot of a given path
    *
@@ -41,7 +47,7 @@ public interface EntityClient {
       @Nonnull Map<String, String> requestFilters,
       @Nonnull int limit,
       @Nullable String field,
-      @Nonnull String actor) throws RemoteInvocationException;
+      @Nonnull Authentication authentication) throws RemoteInvocationException;
 
   /**
    * Gets browse snapshot of a given path
@@ -57,7 +63,7 @@ public interface EntityClient {
       @Nonnull String query,
       @Nonnull Map<String, String> requestFilters,
       @Nonnull int limit,
-      @Nonnull String actor) throws RemoteInvocationException;
+      @Nonnull Authentication authentication) throws RemoteInvocationException;
 
   /**
    * Gets browse snapshot of a given path
@@ -76,17 +82,17 @@ public interface EntityClient {
       @Nullable Map<String, String> requestFilters,
       int start,
       int limit,
-      @Nonnull String actor) throws RemoteInvocationException;
+      @Nonnull Authentication authentication) throws RemoteInvocationException;
 
-  public void update(@Nonnull final Entity entity, @Nonnull final String actor)
+  public void update(@Nonnull final Entity entity, @Nonnull final Authentication authentication)
       throws RemoteInvocationException;
 
   public void updateWithSystemMetadata(
       @Nonnull final Entity entity,
       @Nullable final SystemMetadata systemMetadata,
-      @Nonnull final String actor) throws RemoteInvocationException;
+      @Nonnull final Authentication authentication) throws RemoteInvocationException;
 
-  public void batchUpdate(@Nonnull final Set<Entity> entities, final String actor)
+  public void batchUpdate(@Nonnull final Set<Entity> entities, @Nonnull final Authentication authentication)
       throws RemoteInvocationException;
 
   /**
@@ -106,7 +112,7 @@ public interface EntityClient {
       @Nullable Map<String, String> requestFilters,
       int start,
       int count,
-      @Nonnull String actor)
+      @Nonnull Authentication authentication)
       throws RemoteInvocationException;
 
   /**
@@ -124,7 +130,7 @@ public interface EntityClient {
       @Nullable Map<String, String> requestFilters,
       int start,
       int count,
-      @Nonnull String actor)
+      @Nonnull Authentication authentication)
       throws RemoteInvocationException;
 
   /**
@@ -144,7 +150,7 @@ public interface EntityClient {
       @Nullable Filter filter,
       int start,
       int count,
-      @Nonnull String actor)
+      @Nonnull Authentication authentication)
       throws RemoteInvocationException;
 
   /**
@@ -165,7 +171,7 @@ public interface EntityClient {
       @Nullable Filter filter,
       int start,
       int count,
-      @Nonnull String actor) throws RemoteInvocationException;
+      @Nonnull Authentication authentication) throws RemoteInvocationException;
 
   /**
    * Gets browse path(s) given dataset urn
@@ -175,28 +181,28 @@ public interface EntityClient {
    * @throws RemoteInvocationException
    */
   @Nonnull
-  public StringArray getBrowsePaths(@Nonnull Urn urn, @Nonnull String actor) throws RemoteInvocationException;
+  public StringArray getBrowsePaths(@Nonnull Urn urn, @Nonnull Authentication authentication) throws RemoteInvocationException;
 
-  public void setWritable(boolean canWrite, @Nonnull String actor) throws RemoteInvocationException;
-
-  @Nonnull
-  public long getTotalEntityCount(@Nonnull String entityName, @Nonnull String actor) throws RemoteInvocationException;
-
+  public void setWritable(boolean canWrite, @Nonnull Authentication authentication) throws RemoteInvocationException;
 
   @Nonnull
-  public Map<String, Long> batchGetTotalEntityCount(@Nonnull List<String> entityName, @Nonnull String actor)
+  public long getTotalEntityCount(@Nonnull String entityName, @Nonnull Authentication authentication) throws RemoteInvocationException;
+
+
+  @Nonnull
+  public Map<String, Long> batchGetTotalEntityCount(@Nonnull List<String> entityName, @Nonnull Authentication authentication)
       throws RemoteInvocationException;
 
   /**
    * List all urns existing for a particular Entity type.
    */
-  public ListUrnsResult listUrns(@Nonnull final String entityName, final int start, final int count, @Nonnull final String actor)
+  public ListUrnsResult listUrns(@Nonnull final String entityName, final int start, final int count, @Nonnull final Authentication authentication)
       throws RemoteInvocationException;
 
   /**
    * Hard delete an entity with a particular urn.
    */
-  public void deleteEntity(@Nonnull final Urn urn, @Nonnull final String actor) throws RemoteInvocationException;
+  public void deleteEntity(@Nonnull final Urn urn, @Nonnull final Authentication authentication) throws RemoteInvocationException;
 
   /**
    * Filters entities based on a particular Filter and Sort criterion
@@ -216,6 +222,44 @@ public interface EntityClient {
       @Nullable SortCriterion sortCriterion,
       int start,
       int count,
-      @Nonnull String actor)
+      @Nonnull Authentication authentication)
       throws RemoteInvocationException;
+
+  @Nullable
+  public VersionedAspect getAspect(
+      @Nonnull String urn,
+      @Nonnull String aspect,
+      @Nonnull Long version,
+      @Nonnull Authentication authentication)
+      throws RemoteInvocationException;
+
+  @Nullable
+  public VersionedAspect getAspectOrNull(
+      @Nonnull String urn,
+      @Nonnull String aspect,
+      @Nonnull Long version,
+      @Nonnull Authentication authentication) throws RemoteInvocationException;
+
+  public List<EnvelopedAspect> getTimeseriesAspectValues(
+      @Nonnull String urn,
+      @Nonnull String entity,
+      @Nonnull String aspect,
+      @Nullable Long startTimeMillis,
+      @Nullable Long endTimeMillis,
+      @Nullable Integer limit,
+      @Nonnull Authentication authentication
+  ) throws RemoteInvocationException;
+
+  public String ingestProposal(
+      @Nonnull final MetadataChangeProposal metadataChangeProposal,
+      @Nonnull final Authentication authentication
+  ) throws RemoteInvocationException;
+
+  @Nonnull
+  public <T extends RecordTemplate> Optional<T> getVersionedAspect(
+      @Nonnull String urn,
+      @Nonnull String aspect,
+      @Nonnull Long version,
+      @Nonnull Class<T> aspectClass,
+      @Nonnull Authentication authentication) throws RemoteInvocationException;
 }

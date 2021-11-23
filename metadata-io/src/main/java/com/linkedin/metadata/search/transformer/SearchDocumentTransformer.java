@@ -44,7 +44,12 @@ public class SearchDocumentTransformer {
     return Optional.of(searchDocument.toString());
   }
 
-  public static Optional<String> transformAspect(final Urn urn, final RecordTemplate aspect, final AspectSpec aspectSpec) {
+  public static Optional<String> transformAspect(
+      final Urn urn,
+      final RecordTemplate aspect,
+      final AspectSpec aspectSpec,
+      final Boolean forDelete
+  ) {
     final Map<SearchableFieldSpec, List<Object>> extractedFields =
         FieldExtractor.extractFields(aspect, aspectSpec.getSearchableFieldSpecs());
     if (extractedFields.isEmpty()) {
@@ -52,7 +57,7 @@ public class SearchDocumentTransformer {
     }
     final ObjectNode searchDocument = JsonNodeFactory.instance.objectNode();
     searchDocument.put("urn", urn.toString());
-    extractedFields.forEach((key, value) -> setValue(key, value, searchDocument, false));
+    extractedFields.forEach((key, value) -> setValue(key, value, searchDocument, forDelete));
     return Optional.of(searchDocument.toString());
   }
 

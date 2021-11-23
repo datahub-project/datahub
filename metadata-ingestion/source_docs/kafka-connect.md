@@ -16,7 +16,9 @@ This plugin extracts the following:
 
 Current limitations:
 
-- Currently works for JDBC and Debezium source connectors only.
+- works only for 
+  - JDBC and Debezium source connectors
+  - BigQuery sink connector
 
 ## Quickstart recipe
 
@@ -31,6 +33,10 @@ source:
     # Coordinates
     connect_uri: "http://localhost:8083"
     cluster_name: "connect-cluster"
+    provided_configs:     
+      - provider: env
+        path_key: MYSQL_CONNECTION_URL
+        value: jdbc:mysql://test_mysql:3306/librarydb
 
     # Credentials
     username: admin
@@ -46,10 +52,11 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 
 | Field                      | Required | Default                    | Description                                             |
 | -------------------------- | -------- | -------------------------- | ------------------------------------------------------- |
-| `connect_uri`              |          | `"http://localhost:8083/"` | URI to connect to.                                      |
+| `connect_uri`              |    ✅    | `"http://localhost:8083/"` | URI to connect to.                                      |
 | `username`                 |          |                            | Kafka Connect username.                                 |
 | `password`                 |          |                            | Kafka Connect password.                                 |
 | `cluster_name`             |          | `"connect-cluster"`        | Cluster to ingest from.                                 |
+| `provided_configs`         |          |                            | Provided Configurations                                 |
 | `construct_lineage_workunits`    |    | `True`                     | Whether to create the input and output Dataset entities |
 | `connector_patterns.deny`  |          |                            | List of regex patterns for connectors to include in ingestion.   |
 | `connector_patterns.allow` |          |                            | List of regex patterns for connectors to exclude from ingestion. |

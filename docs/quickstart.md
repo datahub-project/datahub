@@ -4,7 +4,7 @@
 
 To deploy a new instance of DataHub, perform the following steps.
 
-1. Install [docker](https://docs.docker.com/install/) and [docker-compose](https://docs.docker.com/compose/install/) (if
+1. Install [docker](https://docs.docker.com/install/), [jq](https://stedolan.github.io/jq/download/) and [docker-compose](https://docs.docker.com/compose/install/) (if
    using Linux). Make sure to allocate enough hardware resources for Docker engine. Tested & confirmed config: 2 CPUs,
    8GB RAM, 2GB Swap area, and 10GB disk space.
 
@@ -61,6 +61,14 @@ older version of Python. Try prefixing your `datahub` commands with `python3 -m`
 
 ```
 python3 -m datahub docker quickstart
+```
+
+Another possibility is that your system PATH does not include pip's `$HOME/.local/bin` directory.  On linux, you can add this to your `~/.bashrc`:
+
+```
+if [ -d "$HOME/.local/bin" ] ; then
+    PATH="$HOME/.local/bin:$PATH"
+fi
 ```
 
 ### Miscellaneous Docker issues
