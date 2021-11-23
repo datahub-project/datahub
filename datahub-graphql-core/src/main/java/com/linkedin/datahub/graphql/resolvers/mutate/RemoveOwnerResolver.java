@@ -41,7 +41,7 @@ public class RemoveOwnerResolver implements DataFetcher<CompletableFuture<Boolea
       try {
         log.debug("Removing Link input: {}", input);
 
-        Urn actor = CorpuserUrn.createFromString(((QueryContext) environment.getContext()).getActor());
+        Urn actor = CorpuserUrn.createFromString(((QueryContext) environment.getContext()).getActorUrn());
         OwnerUtils.removeOwner(
             ownerUrn,
             targetUrn,

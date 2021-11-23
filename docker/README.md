@@ -23,6 +23,7 @@ You can easily download and run all these images and their dependencies with our
 
 DataHub Docker Images:
 
+* [linkedin/datahub-ingestion](https://hub.docker.com/r/linkedin/datahub-ingestion)
 * [linkedin/datahub-gms](https://cloud.docker.com/repository/docker/linkedin/datahub-gms/)
 * [linkedin/datahub-frontend-react](https://cloud.docker.com/repository/docker/linkedin/datahub-frontend-react/)
 * [linkedin/datahub-mae-consumer](https://cloud.docker.com/repository/docker/linkedin/datahub-mae-consumer/)

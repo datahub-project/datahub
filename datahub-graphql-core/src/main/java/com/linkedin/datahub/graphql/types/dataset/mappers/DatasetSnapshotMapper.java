@@ -68,6 +68,7 @@ public class DatasetSnapshotMapper implements ModelMapper<DatasetSnapshot, Datas
                 if (gmsProperties.hasCustomProperties()) {
                     properties.setCustomProperties(StringMapMapper.map(gmsProperties.getCustomProperties()));
                 }
+                properties.setName(dataset.getUrn().getDatasetNameEntity()); // TODO: Move to using a display name produced by ingestion soures
                 result.setProperties(properties);
                 result.setDescription(properties.getDescription());
                 if (gmsProperties.hasUri()) {
