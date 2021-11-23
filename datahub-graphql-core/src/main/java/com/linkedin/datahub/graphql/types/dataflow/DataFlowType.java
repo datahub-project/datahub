@@ -89,7 +89,7 @@ public class DataFlowType implements SearchableEntityType<DataFlow>, BrowsableEn
                 .stream()
                 .filter(Objects::nonNull)
                 .collect(Collectors.toSet()),
-            context.getActor());
+            context.getAuthentication());
 
             final List<Entity> gmsResults = dataFlowUrns.stream()
                 .map(flowUrn -> dataFlowMap.getOrDefault(flowUrn, null)).collect(Collectors.toList());
@@ -112,7 +112,7 @@ public class DataFlowType implements SearchableEntityType<DataFlow>, BrowsableEn
                                 int count,
                                 @Nonnull final QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
-        final SearchResult searchResult = _entityClient.search("dataFlow", query, facetFilters, start, count, context.getActor());
+        final SearchResult searchResult = _entityClient.search("dataFlow", query, facetFilters, start, count, context.getAuthentication());
         return UrnSearchResultsMapper.map(searchResult);
     }
 
@@ -123,7 +123,7 @@ public class DataFlowType implements SearchableEntityType<DataFlow>, BrowsableEn
                                             int limit,
                                             @Nonnull final QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
-        final AutoCompleteResult result = _entityClient.autoComplete("dataFlow", query, facetFilters, limit, context.getActor());
+        final AutoCompleteResult result = _entityClient.autoComplete("dataFlow", query, facetFilters, limit, context.getAuthentication());
         return AutoCompleteResultsMapper.map(result);
     }
 
@@ -146,13 +146,13 @@ public class DataFlowType implements SearchableEntityType<DataFlow>, BrowsableEn
                 facetFilters,
                 start,
                 count,
-            context.getActor());
+            context.getAuthentication());
         return BrowseResultMapper.map(result);
     }
 
     @Override
     public List<BrowsePath> browsePaths(@Nonnull String urn, @Nonnull QueryContext context) throws Exception {
-        final StringArray result = _entityClient.getBrowsePaths(DataFlowUrn.createFromString(urn), context.getActor());
+        final StringArray result = _entityClient.getBrowsePaths(DataFlowUrn.createFromString(urn), context.getAuthentication());
         return BrowsePathsMapper.map(result);
     }
 
@@ -160,7 +160,7 @@ public class DataFlowType implements SearchableEntityType<DataFlow>, BrowsableEn
     public DataFlow update(@Nonnull String urn, @Nonnull DataFlowUpdateInput input, @Nonnull QueryContext context) throws Exception {
 
         if (isAuthorized(urn, input, context)) {
-            final CorpuserUrn actor = CorpuserUrn.createFromString(context.getActor());
+            final CorpuserUrn actor = CorpuserUrn.createFromString(context.getAuthentication().getActor().toUrnStr());
             final DataFlowSnapshot dataFlowSnapshot = DataFlowUpdateInputSnapshotMapper.map(input, actor);
             dataFlowSnapshot.setUrn(DataFlowUrn.createFromString(urn));
             final Snapshot snapshot = Snapshot.create(dataFlowSnapshot);
@@ -168,7 +168,7 @@ public class DataFlowType implements SearchableEntityType<DataFlow>, BrowsableEn
             try {
                 Entity entity = new Entity();
                 entity.setValue(snapshot);
-                _entityClient.update(entity, context.getActor());
+                _entityClient.update(entity, context.getAuthentication());
             } catch (RemoteInvocationException e) {
                 throw new RuntimeException(String.format("Failed to write entity with urn %s", urn), e);
             }
@@ -183,7 +183,7 @@ public class DataFlowType implements SearchableEntityType<DataFlow>, BrowsableEn
         final DisjunctivePrivilegeGroup orPrivilegeGroups = getAuthorizedPrivileges(update);
         return AuthorizationUtils.isAuthorized(
             context.getAuthorizer(),
-            context.getActor(),
+            context.getAuthentication().getActor().toUrnStr(),
             PoliciesConfig.DATA_FLOW_PRIVILEGES.getResourceType(),
             urn,
             orPrivilegeGroups);

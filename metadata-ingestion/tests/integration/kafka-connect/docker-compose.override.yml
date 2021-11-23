@@ -17,6 +17,7 @@ services:
 #      - ./../kafka-connect/setup/confluentinc-kafka-connect-jdbc-10.2.5:/usr/local/share/kafka/plugins/confluentinc-kafka-connect-jdbc-10.2.5
 #      - ./../kafka-connect/setup/confluentinc-connect-transforms-1.4.1:/usr/local/share/kafka/plugins/confluentinc-connect-transforms-1.4.1
 #      - ./../kafka-connect/setup/debezium-debezium-connector-mysql-1.7.0:/usr/local/share/kafka/plugins/debezium-debezium-connector-mysql-1.7.0
+#      - ./../kafka-connect/setup/gcp-bigquery-project-keyfile.json:/usr/local/share/gcp-bigquery-project-keyfile.json
     command:
       - bash
       - -c
@@ -29,10 +30,15 @@ services:
         #
         confluent-hub install --no-prompt debezium/debezium-connector-mysql:1.7.0
         #
+        #confluent-hub install --no-prompt wepay/kafka-connect-bigquery:1.6.8
+        #
         curl -k -SL "https://dev.mysql.com/get/Downloads/Connector-J/mysql-connector-java-8.0.27.tar.gz" \
              | tar -xzf - -C /usr/share/confluent-hub-components/confluentinc-kafka-connect-jdbc/lib \
              --strip-components=1 mysql-connector-java-8.0.27/mysql-connector-java-8.0.27.jar
         #
+        curl -k -SL "https://repo1.maven.org/maven2/io/strimzi/kafka-env-var-config-provider/0.1.1/kafka-env-var-config-provider-0.1.1.tar.gz" \
+             | tar -xzf - -C /usr/share/confluent-hub-components/
+        #             
         echo "Launching Kafka Connect worker"
         #
         /etc/confluent/docker/run &

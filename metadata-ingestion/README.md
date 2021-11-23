@@ -53,6 +53,7 @@ Sources:
 | [mssql](./source_docs/mssql.md)                 | `pip install 'acryl-datahub[mssql]'`                       | SQL Server source                   |
 | [mysql](./source_docs/mysql.md)                 | `pip install 'acryl-datahub[mysql]'`                       | MySQL source                        |
 | [mariadb](./source_docs/mariadb.md)             | `pip install 'acryl-datahub[mariadb]'`                     | MariaDB source                      |
+| [openapi](./source_docs/openapi.md)             | `pip install 'acryl-datahub[openapi]'`                     | OpenApi Source                      |
 | [oracle](./source_docs/oracle.md)               | `pip install 'acryl-datahub[oracle]'`                      | Oracle source                       |
 | [postgres](./source_docs/postgres.md)           | `pip install 'acryl-datahub[postgres]'`                    | Postgres source                     |
 | [redash](./source_docs/redash.md)               | `pip install 'acryl-datahub[redash]'`                      | Redash source                       |
@@ -64,6 +65,7 @@ Sources:
 | [sqlalchemy](./source_docs/sqlalchemy.md)       | `pip install 'acryl-datahub[sqlalchemy]'`                  | Generic SQLAlchemy source           |
 | [superset](./source_docs/superset.md)           | `pip install 'acryl-datahub[superset]'`                    | Superset source                     |
 | [trino](./source_docs/trino.md)                 | `pip install 'acryl-datahub[trino]`                        | Trino source                     |
+| [starburst-trino-usage](./source_docs/trino.md) | `pip install 'acryl-datahub[starburst-trino-usage]'`       | Starburst Trino usage statistics source   |
 
 Sinks
 
@@ -93,6 +95,26 @@ datahub check plugins
 ```shell
 pip install 'acryl-datahub[datahub-rest]'  # install the required plugin
 datahub ingest -c ./examples/recipes/example_to_datahub_rest.yml
+```
+
+The `--dry-run` option of the `ingest` command performs all of the ingestion steps, except writing to the sink. This is useful to ensure that the
+ingestion recipe is producing the desired workunits before ingesting them into datahub.
+
+```shell
+# Dry run
+datahub ingest -c ./examples/recipes/example_to_datahub_rest.yml --dry-run
+# Short-form
+datahub ingest -c ./examples/recipes/example_to_datahub_rest.yml -n
+```
+
+The `--preview` option of the `ingest` command performs all of the ingestion steps, but limits the processing to only the first 10 workunits produced by the source.
+This option helps with quick end-to-end smoke testing of the ingestion recipe.
+
+```shell
+# Preview
+datahub ingest -c ./examples/recipes/example_to_datahub_rest.yml --preview
+# Preview with dry-run
+datahub ingest -c ./examples/recipes/example_to_datahub_rest.yml -n --preview
 ```
 
 ### Install using Docker
@@ -162,8 +184,31 @@ Check out the [transformers guide](./transformers.md) for more info!
 
 In some cases, you might want to construct the MetadataChangeEvents yourself but still use this framework to emit that metadata to DataHub. In this case, take a look at the emitter interfaces, which can easily be imported and called from your own code.
 
-- [DataHub emitter via REST](./src/datahub/emitter/rest_emitter.py) (same requirements as `datahub-rest`). Basic usage [example](./examples/library/lineage_emitter_rest.py).
-- [DataHub emitter via Kafka](./src/datahub/emitter/kafka_emitter.py) (same requirements as `datahub-kafka`). Basic usage [example](./examples/library/lineage_emitter_kafka.py).
+- [DataHub emitter via REST](./src/datahub/emitter/rest_emitter.py) (same requirements as `datahub-rest`).
+- [DataHub emitter via Kafka](./src/datahub/emitter/kafka_emitter.py) (same requirements as `datahub-kafka`).
+### Sample code
+#### Lineage
+The following samples will cover emitting dataset-to-dataset, dataset-to-job-to-dataset, chart-to-dataset, dashboard-to-chart and job-to-dataflow lineages.
+- [lineage_emitter_mcpw_rest.py](./examples/library/lineage_emitter_mcpw_rest.py) - emits simple bigquery table-to-table (dataset-to-dataset) lineage via REST as MetadataChangeProposalWrapper.
+- [lineage_dataset_job_dataset.py](./examples/library/lineage_dataset_job_dataset.py) - emits mysql-to-airflow-to-kafka (dataset-to-job-to-dataset) lineage via REST as MetadataChangeProposalWrapper.
+- [lineage_dataset_chart.py](./examples/library/lineage_dataset_chart.py) - emits the dataset-to-chart lineage via REST as MetadataChangeProposalWrapper.
+- [lineage_chart_dashboard.py](./examples/library/lineage_chart_dashboard.py) - emits the chart-to-dashboard lineage via REST as MetadataChangeProposalWrapper.
+- [lineage_job_dataflow.py](./examples/library/lineage_job_dataflow.py) - emits the job-to-dataflow lineage via REST as MetadataChangeProposalWrapper.
+- [lineage_emitter_rest.py](./examples/library/lineage_emitter_rest.py) - emits simple dataset-to-dataset lineage via REST as MetadataChangeEvent.
+- [lineage_emitter_kafka.py](./examples/library/lineage_emitter_kafka.py) - emits simple dataset-to-dataset lineage via Kafka as MetadataChangeEvent.
+- [Datahub Snowflake Lineage](https://github.com/linkedin/datahub/blob/master/metadata-ingestion/src/datahub/ingestion/source/sql/snowflake.py#L249) - emits Datahub's Snowflake lineage as MetadataChangeProposalWrapper.
+- [Datahub Bigquery Lineage](https://github.com/linkedin/datahub/blob/a1bf95307b040074c8d65ebb86b5eb177fdcd591/metadata-ingestion/src/datahub/ingestion/source/sql/bigquery.py#L229) - emits Datahub's Bigquery lineage as MetadataChangeProposalWrapper.
+- [Datahub Dbt Lineage](https://github.com/linkedin/datahub/blob/a9754ebe83b6b73bc2bfbf49d9ebf5dbd2ca5a8f/metadata-ingestion/src/datahub/ingestion/source/dbt.py#L625,L630) - emits Datahub's DBT lineage as MetadataChangeEvent.
+
+NOTE:
+- Emitting aspects as MetadataChangeProposalWrapper is recommended over emitting aspects via the
+MetadataChangeEvent.
+- Emitting any aspect associated with an entity completely overwrites the previous
+value of the aspect associated with the entity. This means that emitting a lineage aspect associated with a dataset will overwrite lineage edges that already exist.
+#### Programmatic Pipeline
+In some cases, you might want to configure and run a pipeline entirely from within your custom python script. Here is an example of how to do it.
+ - [programmatic_pipeline.py](./examples/library/programatic_pipeline.py) - a basic mysql to REST programmatic pipeline.
+
 
 ## Lineage with Airflow
 

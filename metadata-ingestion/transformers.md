@@ -2,13 +2,13 @@
 
 ## What’s a transformer?
 
-Oftentimes we want to modify metadata before it reaches the ingestion sink – for instance, we might want to add custom tags, ownership, or patch some fields. A transformer allows us to do exactly these things.
+Oftentimes we want to modify metadata before it reaches the ingestion sink – for instance, we might want to add custom tags, ownership, properties, or patch some fields. A transformer allows us to do exactly these things.
 
 Moreover, a transformer allows one to have fine-grained control over the metadata that’s ingested without having to modify the ingestion framework's code yourself. Instead, you can write your own module that can take MCEs however you like. To configure the recipe, all that's needed is a module name as well as any arguments.
 
 ## Provided transformers
 
-Aside from the option of writing your own transformer (see below), we provide two simple transformers for the use cases of adding dataset tags and ownership information.
+Aside from the option of writing your own transformer (see below), we provide some simple transformers for the use cases of adding: dataset tags, dataset properties and ownership information.
 
 ### Adding a set of tags
 
@@ -191,6 +191,37 @@ transformers:
 In this case, the resulting dataset will have only 1 browse path, the one from the transform.
 
 Note that whatever browse paths you send via this will overwrite the browse paths present in the UI.
+
+
+### Adding a set of properties
+
+If you'd like to add more complex logic for assigning properties, you can use the `add_dataset_properties` transformer, which calls a user-provided class (that extends from `AddDatasetPropertiesResolverBase` class) to determine the properties for each dataset.
+
+The config, which we’d append to our ingestion recipe YAML, would look like this:
+
+```yaml
+transformers:
+  - type: "add_dataset_properties"
+    config:
+      add_properties_resolver_class: "<your_module>.<your_class>"
+```
+
+Then define your class to return a list of custom properties, for example:
+
+```python
+import logging
+from typing import Dict
+from datahub.ingestion.transformer.add_dataset_properties import AddDatasetPropertiesResolverBase
+from datahub.metadata.schema_classes import DatasetSnapshotClass
+
+class MyPropertiesResolver(AddDatasetPropertiesResolverBase):
+    def get_properties_to_add(self, current: DatasetSnapshotClass) -> Dict[str, str]:
+        ### Add custom logic here        
+        properties= {'my_custom_property': 'property value'}
+        logging.info(f"Adding properties: {properties} to dataset: {current.urn}.")
+        return properties
+```
+
 ## Writing a custom transformer from scratch
 
 In the above couple of examples, we use classes that have already been implemented in the ingestion framework. However, it’s common for more advanced cases to pop up where custom code is required, for instance if you'd like to utilize conditional logic or rewrite properties. In such cases, we can add our own modules and define the arguments it takes as a custom transformer.

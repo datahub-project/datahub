@@ -64,7 +64,10 @@ sql_common = {
 
 aws_common = {
     # AWS Python SDK
-    "boto3"
+    "boto3",
+    # Deal with a version incompatibility between botocore (used by boto3) and urllib3.
+    # See https://github.com/boto/botocore/pull/2563.
+    "botocore!=1.23.0",
 }
 
 looker_common = {
@@ -103,7 +106,7 @@ plugins: Dict[str, Set[str]] = {
         "acryl-pyhive[hive]>=0.6.11"
     },
     "kafka": kafka_common,
-    "kafka-connect": sql_common | {"requests","JPype1"},
+    "kafka-connect": sql_common | {"requests", "JPype1"},
     "ldap": {"python-ldap>=2.4"},
     "looker": looker_common,
     "lookml": looker_common | {"lkml>=1.1.0", "sql-metadata==2.2.2"},
@@ -132,6 +135,14 @@ plugins: Dict[str, Set[str]] = {
         # PR is from same author as that of sqlalchemy-trino library below.
         "sqlalchemy-trino"
     },
+    "starburst-trino-usage": sql_common
+    | {
+        # SQLAlchemy support is coming up in trino python client
+        # subject to PR merging - https://github.com/trinodb/trino-python-client/pull/81.
+        # PR is from same author as that of sqlalchemy-trino library below.
+        "sqlalchemy-trino"
+    },
+
 }
 
 all_exclude_plugins: Set[str] = {
@@ -206,7 +217,7 @@ if is_py37_or_newer:
     # The trino plugin only works on Python 3.7 or newer.
     # The trino plugin can be supported on Python 3.6 with minimal changes to opensource sqlalchemy-trino sourcecode.
     base_dev_requirements = base_dev_requirements.union(
-        {dependency for plugin in ["lookml", "trino"] for dependency in plugins[plugin]}
+        {dependency for plugin in ["lookml", "trino", "starburst-trino-usage"] for dependency in plugins[plugin]}
     )
 
 dev_requirements = {
@@ -219,7 +230,7 @@ dev_requirements_airflow_1 = {
     "apache-airflow==1.10.15",
     "apache-airflow-backport-providers-snowflake",
     "snowflake-sqlalchemy<=1.2.4",  # make constraint consistent with extras
-    "WTForms==2.3.3", # make constraint consistent with extras
+    "WTForms==2.3.3",  # make constraint consistent with extras
 }
 
 full_test_dev_requirements = {
@@ -236,7 +247,7 @@ full_test_dev_requirements = {
             "mariadb",
             "snowflake",
             "redash",
-            "kafka-connect"
+            "kafka-connect",
         ]
         for dependency in plugins[plugin]
     ),
@@ -276,7 +287,10 @@ entry_points = {
         "snowflake = datahub.ingestion.source.sql.snowflake:SnowflakeSource",
         "snowflake-usage = datahub.ingestion.source.usage.snowflake_usage:SnowflakeUsageSource",
         "superset = datahub.ingestion.source.superset:SupersetSource",
+        "openapi = datahub.ingestion.source.openapi:OpenApiSource",
         "trino = datahub.ingestion.source.sql.trino:TrinoSource",
+        "starburst-trino-usage = datahub.ingestion.source.usage.starburst_trino_usage:TrinoUsageSource",
+
     ],
     "datahub.ingestion.sink.plugins": [
         "file = datahub.ingestion.sink.file:FileSink",

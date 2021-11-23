@@ -2,7 +2,7 @@ package com.linkedin.datahub.graphql;
 
 import com.linkedin.common.SubTypes;
 import com.linkedin.datahub.graphql.generated.Entity;
-import com.linkedin.entity.client.AspectClient;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -16,7 +16,7 @@ import java.util.concurrent.CompletableFuture;
 @AllArgsConstructor
 public class SubTypesResolver implements DataFetcher<CompletableFuture<SubTypes>> {
 
-    AspectClient _aspectClient;
+    EntityClient _entityClient;
     String _entityType;
     String _aspectName;
 
@@ -27,7 +27,7 @@ public class SubTypesResolver implements DataFetcher<CompletableFuture<SubTypes>
             final String urn = ((Entity) environment.getSource()).getUrn();
             Optional<SubTypes> subType;
             try {
-                subType = _aspectClient.getVersionedAspect(urn, _aspectName, 0L, context.getActor(), SubTypes.class);
+                subType = _entityClient.getVersionedAspect(urn, _aspectName, 0L, SubTypes.class,  context.getAuthentication());
             } catch (RemoteInvocationException e) {
                 throw new RuntimeException("Failed to fetch aspect " + _aspectName + " for urn " + urn + " ", e);
             }

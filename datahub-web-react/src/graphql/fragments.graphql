@@ -96,7 +96,6 @@ fragment nonRecursiveDatasetFields on Dataset {
     name
     type
     origin
-    description
     uri
     platform {
         name
@@ -107,6 +106,7 @@ fragment nonRecursiveDatasetFields on Dataset {
     }
     platformNativeType
     properties {
+        description
         customProperties {
             key
             value
@@ -171,7 +171,7 @@ fragment nonRecursiveDataFlowFields on DataFlow {
     orchestrator
     flowId
     cluster
-    info {
+    properties {
         name
         description
         project
@@ -191,7 +191,7 @@ fragment nonRecursiveDataFlowFields on DataFlow {
 
 fragment nonRecursiveDataJobFields on DataJob {
     urn
-    info {
+    properties {
         name
         description
         externalUrl
@@ -226,7 +226,7 @@ fragment dataJobFields on DataJob {
             ...nonRecursiveDataJobFields
         }
     }
-    info {
+    properties {
         name
         description
         externalUrl
@@ -265,7 +265,7 @@ fragment dashboardFields on Dashboard {
     type
     tool
     dashboardId
-    info {
+    properties {
         name
         description
         customProperties {
@@ -500,8 +500,10 @@ fragment schemaMetadataFields on SchemaMetadata {
             name
             type
             origin
-            description
             uri
+            properties {
+                description
+            }
             platform {
                 name
                 info {

@@ -6,7 +6,7 @@ import com.linkedin.datahub.graphql.generated.SearchResults;
 import com.linkedin.datahub.graphql.resolvers.EntityTypeMapper;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
-import com.linkedin.entity.client.RestliEntityClient;
+import com.linkedin.entity.client.EntityClient;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletableFuture;
@@ -27,7 +27,7 @@ public class SearchResolver implements DataFetcher<CompletableFuture<SearchResul
   private static final int DEFAULT_START = 0;
   private static final int DEFAULT_COUNT = 10;
 
-  private final RestliEntityClient _entityClient;
+  private final EntityClient _entityClient;
 
   @Override
   public CompletableFuture<SearchResults> get(DataFetchingEnvironment environment) {
@@ -49,7 +49,7 @@ public class SearchResolver implements DataFetcher<CompletableFuture<SearchResul
             input.getQuery(), input.getFilters(), start, count);
         return UrnSearchResultsMapper.map(
             _entityClient.search(entityName, sanitizedQuery, ResolverUtils.buildFilter(input.getFilters()), start,
-                count, ResolverUtils.getActor(environment)));
+                count, ResolverUtils.getAuthentication(environment)));
       } catch (Exception e) {
         log.error("Failed to execute search: entity type {}, query {}, filters: {}, start: {}, count: {}",
             input.getType(), input.getQuery(), input.getFilters(), start, count);
