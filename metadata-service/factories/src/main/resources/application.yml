@@ -1,4 +1,31 @@
 # App Layer
+authentication:
+  # Enable if you want all requests to the Metadata Service to be authenticated. Disabled by default.
+  enabled: ${METADATA_SERVICE_AUTH_ENABLED:false}
+
+  # Required if enabled is true! A configurable chain of Authenticators
+  authenticators:
+      # Required for authenticating requests with DataHub-issued Access Tokens - best not to remove.
+    - type: com.datahub.authentication.authenticator.DataHubTokenAuthenticator
+      configs:
+        # Key used to validate incoming tokens. Should typically be the same as authentication.tokenService.signingKey
+        signingKey: ${DATAHUB_TOKEN_SERVICE_SIGNING_KEY:WnEdIeTG/VVCLQqGwC/BAkqyY0k+H8NEAtWGejrBI94=}
+
+  # Required separately from the DataHubTokenAuthenticator as this is used by the AuthServiceController to authorize token generation
+  # at user login time.
+  systemClientId: ${DATAHUB_SYSTEM_CLIENT_ID:__datahub_system}
+  systemClientSecret: ${DATAHUB_SYSTEM_CLIENT_SECRET:JohnSnowKnowsNothing}
+
+  # Configurations for DataHub token service
+  tokenService:
+    # Key used to sign new tokens.
+    signingKey: ${DATAHUB_TOKEN_SERVICE_SIGNING_KEY:WnEdIeTG/VVCLQqGwC/BAkqyY0k+H8NEAtWGejrBI94=}
+
+  # The max duration of a UI session in milliseconds. Defaults to 1 day.
+  sessionTokenDurationMs: ${SESSION_TOKEN_DURATION_MS:86400000}
+
+
+
 graphService:
   type: ${GRAPH_SERVICE_IMPL:elasticsearch}
 

@@ -1,8 +1,8 @@
 package com.linkedin.datahub.graphql.service;
 
-import com.datahub.metadata.authorization.AuthorizationRequest;
-import com.datahub.metadata.authorization.AuthorizationResult;
-import com.datahub.metadata.authorization.Authorizer;
+import com.datahub.authorization.AuthorizationRequest;
+import com.datahub.authorization.AuthorizationResult;
+import com.datahub.authorization.Authorizer;
 
 
 /**

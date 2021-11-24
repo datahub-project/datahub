@@ -1,7 +1,7 @@
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional, Tuple
 
 import jpype
 import jpype.imports
@@ -19,6 +19,12 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 logger = logging.getLogger(__name__)
 
 
+class ProvidedConfig(ConfigModel):
+    provider: str
+    path_key: str
+    value: str
+
+
 class KafkaConnectSourceConfig(ConfigModel):
     # See the Connect REST Interface for details
     # https://docs.confluent.io/platform/current/connect/references/restapi.html#
@@ -29,6 +35,7 @@ class KafkaConnectSourceConfig(ConfigModel):
     env: str = builder.DEFAULT_ENV
     construct_lineage_workunits: bool = True
     connector_patterns: AllowDenyPattern = AllowDenyPattern.allow_all()
+    provided_configs: Optional[List[ProvidedConfig]] = None
 
 
 @dataclass
@@ -533,6 +540,166 @@ class DebeziumSourceConnector:
         self.connector_manifest.lineages = lineages
 
 
+@dataclass
+class BigQuerySinkConnector:
+    connector_manifest: ConnectorManifest
+    report: KafkaConnectSourceReport
+
+    def __init__(
+        self, connector_manifest: ConnectorManifest, report: KafkaConnectSourceReport
+    ) -> None:
+        self.connector_manifest = connector_manifest
+        self.report = report
+        self._extract_lineages()
+
+    @dataclass
+    class BQParser:
+        project: str
+        target_platform: str
+        sanitizeTopics: str
+        topicsToTables: Optional[str] = None
+        datasets: Optional[str] = None
+        defaultDataset: Optional[str] = None
+        version: str = "v1"
+
+    def report_warning(self, key: str, reason: str) -> None:
+        logger.warning(f"{key}: {reason}")
+        self.report.report_warning(key, reason)
+
+    def get_parser(
+        self,
+        connector_manifest: ConnectorManifest,
+    ) -> BQParser:
+        project = connector_manifest.config["project"]
+        sanitizeTopics = connector_manifest.config.get("sanitizeTopics", "false")
+
+        if "defaultDataset" in connector_manifest.config:
+            defaultDataset = connector_manifest.config["defaultDataset"]
+            return self.BQParser(
+                project=project,
+                defaultDataset=defaultDataset,
+                target_platform="bigquery",
+                sanitizeTopics=sanitizeTopics.lower() == "true",
+                version="v2",
+            )
+        else:
+            # version 1.6.x and similar configs supported
+            datasets = connector_manifest.config["datasets"]
+            topicsToTables = connector_manifest.config.get("topicsToTables")
+
+            return self.BQParser(
+                project=project,
+                topicsToTables=topicsToTables,
+                datasets=datasets,
+                target_platform="bigquery",
+                sanitizeTopics=sanitizeTopics.lower() == "true",
+            )
+
+    def get_list(self, property: str) -> Iterable[Tuple[str, str]]:
+        entries = property.split(",")
+        for entry in entries:
+            key, val = entry.rsplit("=")
+            yield (key.strip(), val.strip())
+
+    def get_dataset_for_topic_v1(self, topic: str, parser: BQParser) -> Optional[str]:
+        topicregex_dataset_map: Dict[str, str] = dict(self.get_list(parser.datasets))  # type: ignore
+        from java.util.regex import Pattern
+
+        for pattern, dataset in topicregex_dataset_map.items():
+            patternMatcher = Pattern.compile(pattern).matcher(topic)
+            if patternMatcher.matches():
+                return dataset
+        return None
+
+    def sanitize_table_name(self, table_name):
+        table_name = re.sub("[^a-zA-Z0-9_]", "_", table_name)
+        if re.match("^[^a-zA-Z_].*", table_name):
+            table_name = "_" + table_name
+
+        return table_name
+
+    def get_dataset_table_for_topic(
+        self, topic: str, parser: BQParser
+    ) -> Optional[str]:
+        if parser.version == "v2":
+            dataset = parser.defaultDataset
+            parts = topic.split(":")
+            if len(parts) == 2:
+                dataset = parts[0]
+                table = parts[1]
+            else:
+                table = parts[0]
+        else:
+            dataset = self.get_dataset_for_topic_v1(topic, parser)
+            if dataset is None:
+                return None
+
+            table = topic
+            if parser.topicsToTables:
+                topicregex_table_map: Dict[str, str] = dict(
+                    self.get_list(parser.topicsToTables)  # type: ignore
+                )
+                from java.util.regex import Pattern
+
+                for pattern, tbl in topicregex_table_map.items():
+                    patternMatcher = Pattern.compile(pattern).matcher(topic)
+                    if patternMatcher.matches():
+                        table = tbl
+                        break
+
+        if parser.sanitizeTopics:
+            table = self.sanitize_table_name(table)
+        return f"{dataset}.{table}"
+
+    def _extract_lineages(self):
+        lineages: List[KafkaConnectLineage] = list()
+        parser = self.get_parser(self.connector_manifest)
+        if not parser:
+            return lineages
+        target_platform = parser.target_platform
+        project = parser.project
+
+        self.connector_manifest.flow_property_bag = self.connector_manifest.config
+
+        # Mask/Remove properties that may reveal credentials
+        if "keyfile" in self.connector_manifest.flow_property_bag:
+            del self.connector_manifest.flow_property_bag["keyfile"]
+
+        for topic in self.connector_manifest.topic_names:
+            dataset_table = self.get_dataset_table_for_topic(topic, parser)
+            if dataset_table is None:
+                self.report_warning(
+                    self.connector_manifest.name,
+                    f"could not find target dataset for topic {topic}, please check your connector configuration",
+                )
+                continue
+            target_dataset = f"{project}.{dataset_table}"
+
+            lineages.append(
+                KafkaConnectLineage(
+                    source_dataset=topic,
+                    source_platform="kafka",
+                    target_dataset=target_dataset,
+                    target_platform=target_platform,
+                )
+            )
+        self.connector_manifest.lineages = lineages
+        return
+
+
+def transform_connector_config(
+    connector_config: Dict, provided_configs: List[ProvidedConfig]
+) -> None:
+    """This method will update provided configs in connector config values, if any"""
+    lookupsByProvider = {}
+    for pconfig in provided_configs:
+        lookupsByProvider[f"${{{pconfig.provider}:{pconfig.path_key}}}"] = pconfig.value
+    for k, v in connector_config.items():
+        for key, value in lookupsByProvider.items():
+            if key in v:
+                connector_config[k] = v.replace(key, value)
+
+
 class KafkaConnectSource(Source):
     """The class for Kafka Connect source.
 
@@ -589,17 +756,22 @@ class KafkaConnectSource(Source):
 
             manifest = connector_response.json()
             connector_manifest = ConnectorManifest(**manifest)
+            if self.config.provided_configs:
+                transform_connector_config(
+                    connector_manifest.config, self.config.provided_configs
+                )
             # Initialize connector lineages
             connector_manifest.lineages = list()
             connector_manifest.url = connector_url
 
+            topics = self.session.get(
+                f"{self.config.connect_uri}/connectors/{c}/topics",
+            ).json()
+
+            connector_manifest.topic_names = topics[c]["topics"]
+
             # Populate Source Connector metadata
             if connector_manifest.type == "source":
-                topics = self.session.get(
-                    f"{self.config.connect_uri}/connectors/{c}/topics",
-                ).json()
-
-                connector_manifest.topic_names = topics[c]["topics"]
 
                 tasks = self.session.get(
                     f"{self.config.connect_uri}/connectors/{c}/tasks",
@@ -629,11 +801,17 @@ class KafkaConnectSource(Source):
                         continue
 
             if connector_manifest.type == "sink":
-                # TODO: Sink Connector not yet implemented
-                self.report.report_dropped(connector_manifest.name)
-                logger.warning(
-                    f"Skipping connector {connector_manifest.name}. Lineage for Sink Connector not yet implemented"
-                )
+                if connector_manifest.config.get("connector.class").__eq__(
+                    "com.wepay.kafka.connect.bigquery.BigQuerySinkConnector"
+                ):
+                    connector_manifest = BigQuerySinkConnector(
+                        connector_manifest=connector_manifest, report=self.report
+                    ).connector_manifest
+                else:
+                    self.report.report_dropped(connector_manifest.name)
+                    logger.warning(
+                        f"Skipping connector {connector_manifest.name}. Lineage for  Connector not yet implemented"
+                    )
                 pass
 
             connectors_manifest.append(connector_manifest)
@@ -688,7 +866,7 @@ class KafkaConnectSource(Source):
                 source_platform = lineage.source_platform
                 target_dataset = lineage.target_dataset
                 target_platform = lineage.target_platform
-                # job_property_bag = lineage.job_property_bag
+                job_property_bag = lineage.job_property_bag
 
                 job_id = (
                     source_dataset
@@ -713,7 +891,7 @@ class KafkaConnectSource(Source):
                         name=f"{connector_name}:{job_id}",
                         type="COMMAND",
                         description=None,
-                        # customProperties=job_property_bag
+                        customProperties=job_property_bag
                         # externalUrl=job_url,
                     ),
                 )

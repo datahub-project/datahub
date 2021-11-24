@@ -58,7 +58,7 @@ public class MLPrimaryKeyType implements SearchableEntityType<MLPrimaryKey> {
                 .stream()
                 .filter(Objects::nonNull)
                 .collect(Collectors.toSet()),
-            context.getActor());
+            context.getAuthentication());
 
             final List<Entity> gmsResults = mlPrimaryKeyUrns.stream()
                 .map(primaryKeyUrn -> mlPrimaryKeyMap.getOrDefault(primaryKeyUrn, null)).collect(Collectors.toList());
@@ -82,7 +82,7 @@ public class MLPrimaryKeyType implements SearchableEntityType<MLPrimaryKey> {
                                 int count,
                                 @Nonnull final QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
-        final SearchResult searchResult = _entityClient.search("mlPrimaryKey", query, facetFilters, start, count, context.getActor());
+        final SearchResult searchResult = _entityClient.search("mlPrimaryKey", query, facetFilters, start, count, context.getAuthentication());
         return UrnSearchResultsMapper.map(searchResult);
     }
 
@@ -93,7 +93,7 @@ public class MLPrimaryKeyType implements SearchableEntityType<MLPrimaryKey> {
                                             int limit,
                                             @Nonnull final QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
-        final AutoCompleteResult result = _entityClient.autoComplete("mlPrimaryKey", query, facetFilters, limit, context.getActor());
+        final AutoCompleteResult result = _entityClient.autoComplete("mlPrimaryKey", query, facetFilters, limit, context.getAuthentication());
         return AutoCompleteResultsMapper.map(result);
     }
 }
