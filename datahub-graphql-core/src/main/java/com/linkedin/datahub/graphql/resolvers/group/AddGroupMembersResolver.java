@@ -8,7 +8,7 @@ import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
 import com.linkedin.datahub.graphql.generated.AddGroupMembersInput;
-import com.linkedin.entity.client.AspectClient;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.identity.GroupMembership;
 import com.linkedin.metadata.Constants;
@@ -28,10 +28,10 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
  */
 public class AddGroupMembersResolver implements DataFetcher<CompletableFuture<Boolean>> {
 
-  private final AspectClient _aspectClient;
+  private final EntityClient _entityClient;
 
-  public AddGroupMembersResolver(final AspectClient aspectClient) {
-    _aspectClient = aspectClient;
+  public AddGroupMembersResolver(final EntityClient entityClient) {
+    _entityClient = entityClient;
   }
 
   @Override
@@ -63,8 +63,8 @@ public class AddGroupMembersResolver implements DataFetcher<CompletableFuture<Bo
     try {
       // First, fetch user's group membership aspect.
       final VersionedAspect gmsAspect =
-          _aspectClient.getAspectOrNull(userUrnStr, Constants.GROUP_MEMBERSHIP_ASPECT_NAME,
-              Constants.ASPECT_LATEST_VERSION, context.getActor());
+          _entityClient.getAspectOrNull(userUrnStr, Constants.GROUP_MEMBERSHIP_ASPECT_NAME,
+              Constants.ASPECT_LATEST_VERSION, context.getAuthentication());
 
       GroupMembership groupMembership;
       if (gmsAspect == null) {
@@ -90,7 +90,7 @@ public class AddGroupMembersResolver implements DataFetcher<CompletableFuture<Bo
       proposal.setAspectName(Constants.GROUP_MEMBERSHIP_ASPECT_NAME);
       proposal.setAspect(GenericAspectUtils.serializeAspect(groupMembership));
       proposal.setChangeType(ChangeType.UPSERT);
-      _aspectClient.ingestProposal(proposal, context.getActor());
+      _entityClient.ingestProposal(proposal, context.getAuthentication());
     } catch (Exception e) {
       throw new RuntimeException("Failed to add member to group", e);
     }
@@ -98,11 +98,11 @@ public class AddGroupMembersResolver implements DataFetcher<CompletableFuture<Bo
 
   private boolean groupExists(final String groupUrnStr, final QueryContext context) {
     try {
-      final VersionedAspect keyAspect = _aspectClient.getAspectOrNull(
+      final VersionedAspect keyAspect = _entityClient.getAspectOrNull(
           groupUrnStr,
           Constants.CORP_GROUP_KEY_ASPECT_NAME,
           Constants.ASPECT_LATEST_VERSION,
-          context.getActor());
+          context.getAuthentication());
       return keyAspect != null;
     } catch (Exception e) {
       throw new DataHubGraphQLException("Failed to fetch group!", DataHubGraphQLErrorCode.SERVER_ERROR);
@@ -111,11 +111,11 @@ public class AddGroupMembersResolver implements DataFetcher<CompletableFuture<Bo
 
   private boolean userExists(final String userUrnStr, final QueryContext context) {
     try {
-      final VersionedAspect keyAspect = _aspectClient.getAspectOrNull(
+      final VersionedAspect keyAspect = _entityClient.getAspectOrNull(
           userUrnStr,
           Constants.CORP_USER_KEY_ASPECT_NAME,
           Constants.ASPECT_LATEST_VERSION,
-          context.getActor());
+          context.getAuthentication());
       return keyAspect != null;
     } catch (Exception e) {
       throw new DataHubGraphQLException("Failed to fetch user!", DataHubGraphQLErrorCode.SERVER_ERROR);

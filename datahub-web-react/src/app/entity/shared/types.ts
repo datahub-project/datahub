@@ -41,7 +41,9 @@ export type EntitySidebarSection = {
 export type GenericEntityProperties = {
     urn?: string;
     name?: Maybe<string>;
-    description?: Maybe<string>;
+    properties?: {
+        description?: string;
+    };
     globalTags?: Maybe<GlobalTags>;
     glossaryTerms?: Maybe<GlossaryTerms>;
     ownership?: Maybe<Ownership>;

@@ -418,9 +418,17 @@ class SQLAlchemySource(Source):
                 self.report.report_dropped(dataset_name)
                 continue
 
-            columns = inspector.get_columns(table, schema)
-            if len(columns) == 0:
-                self.report.report_warning(dataset_name, "missing column information")
+            try:
+                columns = inspector.get_columns(table, schema)
+                if len(columns) == 0:
+                    self.report.report_warning(
+                        dataset_name, "missing column information"
+                    )
+            except Exception as e:
+                self.report.report_warning(
+                    dataset_name,
+                    f"unable to get column information due to an error -> {e}",
+                )
 
             try:
                 # SQLALchemy stubs are incomplete and missing this method.

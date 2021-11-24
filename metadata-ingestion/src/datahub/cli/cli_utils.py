@@ -3,13 +3,15 @@ import logging
 import os.path
 import sys
 import typing
+import urllib.parse
 from datetime import datetime
-from typing import List, Optional, Tuple
+from typing import Dict, Iterable, List, Optional, Tuple
 
 import click
 import requests
 import yaml
 from pydantic import BaseModel, ValidationError
+from requests.models import Response
 from requests.sessions import Session
 
 log = logging.getLogger(__name__)
@@ -121,6 +123,13 @@ def get_session_and_host():
     return session, gms_host
 
 
+def test_connection():
+    (session, host) = get_session_and_host()
+    url = host + "/config"
+    response = session.get(url)
+    response.raise_for_status()
+
+
 def parse_run_restli_response(response):
     response_json = response.json()
 
@@ -176,8 +185,12 @@ def post_rollback_endpoint(
 def post_delete_endpoint(
     payload_obj: dict,
     path: str,
+    cached_session_host: Optional[Tuple[Session, str]] = None,
 ) -> typing.Tuple[str, int]:
-    session, gms_host = get_session_and_host()
+    if not cached_session_host:
+        session, gms_host = get_session_and_host()
+    else:
+        session, gms_host = cached_session_host
     url = gms_host + path
 
     return post_delete_endpoint_with_session_and_url(session, url, payload_obj)
@@ -197,3 +210,97 @@ def post_delete_endpoint_with_session_and_url(
     rows_affected = summary.get("rows")
 
     return urn, rows_affected
+
+
+def get_urns_by_filter(
+    platform: Optional[str],
+    env: Optional[str],
+    entity_type: str = "dataset",
+    search_query: str = "*",
+) -> Iterable[str]:
+    session, gms_host = get_session_and_host()
+    endpoint: str = "/entities?action=search"
+    url = gms_host + endpoint
+    filter_criteria = []
+    if env:
+        filter_criteria.append({"field": "origin", "value": env, "condition": "EQUAL"})
+
+    if (
+        platform is not None
+        and entity_type == "dataset"
+        or entity_type == "dataflow"
+        or entity_type == "datajob"
+    ):
+        filter_criteria.append(
+            {
+                "field": "platform",
+                "value": f"urn:li:dataPlatform:{platform}",
+                "condition": "EQUAL",
+            }
+        )
+    if platform is not None and (
+        entity_type.lower() == "chart" or entity_type.lower() == "dashboard"
+    ):
+        filter_criteria.append(
+            {
+                "field": "tool",
+                "value": platform,
+                "condition": "EQUAL",
+            }
+        )
+    if platform is not None and (
+        entity_type.lower() == "dataflow" or entity_type.lower() == "dashboard"
+    ):
+        filter_criteria.append(
+            {
+                "field": "tool",
+                "value": platform,
+                "condition": "EQUAL",
+            }
+        )
+
+    search_body = {
+        "input": search_query,
+        "entity": entity_type,
+        "start": 0,
+        "count": 10000,
+        "filter": {"or": [{"and": filter_criteria}]},
+    }
+    payload = json.dumps(search_body)
+    log.debug(payload)
+    response: Response = session.post(url, payload)
+    if response.status_code == 200:
+        assert response._content
+        results = json.loads(response._content)
+        num_entities = results["value"]["numEntities"]
+        entities_yielded: int = 0
+        for x in results["value"]["entities"]:
+            entities_yielded += 1
+            log.debug(f"yielding {x['entity']}")
+            yield x["entity"]
+        assert (
+            entities_yielded == num_entities
+        ), "Did not delete all entities, try running this command again!"
+    else:
+        log.error(f"Failed to execute search query with {str(response.content)}")
+        response.raise_for_status()
+
+
+def get_entity(
+    urn: str,
+    aspect: Optional[List],
+    cached_session_host: Optional[Tuple[Session, str]] = None,
+) -> Dict:
+    if not cached_session_host:
+        session, gms_host = get_session_and_host()
+    else:
+        session, gms_host = cached_session_host
+
+    encoded_urn = urllib.parse.quote(urn)
+    endpoint: str = f"/entities/{encoded_urn}"
+
+    if aspect is not None:
+        endpoint = endpoint + "?aspects=List(" + ",".join(aspect) + ")"
+
+    response = session.get(gms_host + endpoint)
+    return response.json()

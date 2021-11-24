@@ -11,6 +11,7 @@ import org.testng.annotations.Test;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.net.URISyntaxException;
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -126,6 +127,13 @@ abstract public class GraphServiceTestBase {
    * Any source and destination type value.
    */
   protected static @Nullable String anyType = null;
+
+  /**
+   * Timeout used to test concurrent ops in doTestConcurrentOp.
+   */
+  protected Duration getTestConcurrentOpTimeout() {
+      return Duration.ofMinutes(1);
+  }
 
   @Test
   public void testStaticUrns() {
@@ -1293,7 +1301,7 @@ abstract public class GraphServiceTestBase {
       // too many edges may cause too many threads throwing
       // java.util.concurrent.RejectedExecutionException: Thread limit exceeded replacing blocked worker
       int nodes = 5;
-      int relationshipTypes = 5;
+      int relationshipTypes = 3;
       List<String> allRelationships = IntStream.range(1, relationshipTypes + 1).mapToObj(id -> "relationship" + id).collect(Collectors.toList());
       List<Edge> edges = getFullyConnectedGraph(nodes, allRelationships);
 
@@ -1324,8 +1332,8 @@ abstract public class GraphServiceTestBase {
   public void testConcurrentRemoveEdgesFromNode() throws Exception {
     final GraphService service = getGraphService();
 
-    int nodes = 10;
-    int relationshipTypes = 5;
+    int nodes = 5;
+    int relationshipTypes = 3;
     List<String> allRelationships = IntStream.range(1, relationshipTypes + 1).mapToObj(id -> "relationship" + id).collect(Collectors.toList());
     List<Edge> edges = getFullyConnectedGraph(nodes, allRelationships);
 
@@ -1368,8 +1376,8 @@ abstract public class GraphServiceTestBase {
 
     // too many edges may cause too many threads throwing
     // java.util.concurrent.RejectedExecutionException: Thread limit exceeded replacing blocked worker
-    int nodes = 10;
-    int relationshipTypes = 5;
+    int nodes = 5;
+    int relationshipTypes = 3;
     List<String> allRelationships = IntStream.range(1, relationshipTypes + 1).mapToObj(id -> "relationship" + id).collect(Collectors.toList());
     List<Edge> edges = getFullyConnectedGraph(nodes, allRelationships);
 
@@ -1426,15 +1434,16 @@ abstract public class GraphServiceTestBase {
                   }
 
                   operation.run();
-                  finished.countDown();
               } catch (Throwable t) {
                   t.printStackTrace();
                   throwables.add(t);
               }
+              finished.countDown();
           }
       }).start());
 
-      assertTrue(finished.await(10, TimeUnit.SECONDS));
+      assertTrue(finished.await(getTestConcurrentOpTimeout().toMillis(), TimeUnit.MILLISECONDS));
+      throwables.forEach(throwable -> System.err.printf(System.currentTimeMillis() + ": exception occurred: %s%n", throwable));
       assertEquals(throwables.size(), 0);
   }
 
