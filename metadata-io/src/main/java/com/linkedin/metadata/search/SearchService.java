@@ -56,8 +56,7 @@ public class SearchService {
   @Nonnull
   public SearchResult search(@Nonnull String entityName, @Nonnull String input, @Nullable Filter postFilters,
       @Nullable SortCriterion sortCriterion, int from, int size) {
-    final String finalInput = input.isEmpty() ? "*" : input;
-    SearchResult result = _entitySearchServiceCache.getSearcher(entityName, finalInput, postFilters, sortCriterion)
+    SearchResult result = _entitySearchServiceCache.getSearcher(entityName, input, postFilters, sortCriterion)
         .getSearchResults(from, size);
     try {
       return result.copy().setEntities(new SearchEntityArray(_searchRanker.rank(result.getEntities())));
@@ -85,8 +84,7 @@ public class SearchService {
     log.debug(String.format(
         "Searching Search documents entities: %s, input: %s, postFilters: %s, sortCriterion: %s, from: %s, size: %s",
         entities, input, postFilters, sortCriterion, from, size));
-    final String finalInput = input.isEmpty() ? "*" : input;
-    return _allEntitiesSearchAggregatorCache.getSearcher(entities, finalInput, postFilters, sortCriterion)
+    return _allEntitiesSearchAggregatorCache.getSearcher(entities, input, postFilters, sortCriterion)
         .getSearchResults(from, size);
   }
 }
