@@ -1,6 +1,7 @@
 package com.linkedin.gms.factory.graphql;
 
 import com.datahub.authentication.token.TokenService;
+
 import com.linkedin.datahub.graphql.GmsGraphQLEngine;
 import com.linkedin.datahub.graphql.GraphQLEngine;
 import com.linkedin.datahub.graphql.analytics.service.AnalyticsService;
@@ -28,7 +29,7 @@ import org.springframework.context.annotation.Import;
 
 
 @Configuration
-@Import({RestHighLevelClientFactory.class, IndexConventionFactory.class, RestliEntityClientFactory.class, RecommendationServiceFactory.class, EntityRegistryFactory.class DataHubTokenServiceFactory.class})
+@Import({RestHighLevelClientFactory.class, IndexConventionFactory.class, RestliEntityClientFactory.class, RecommendationServiceFactory.class, EntityRegistryFactory.class, DataHubTokenServiceFactory.class})
 public class GraphQLEngineFactory {
   @Autowired
   @Qualifier("elasticSearchRestHighLevelClient")
@@ -78,11 +79,9 @@ public class GraphQLEngineFactory {
           _usageClient,
           new AnalyticsService(elasticClient, indexConvention.getPrefix()),
           _entityService,
-          _graphClient,
-          _entityClient,
           _recommendationsService, _entityRegistry, _tokenService).builder().build();
     }
-    return new GmsGraphQLEngine(null, _entityService, _graphClient, _entityClient, _recommendationsService,
+    return new GmsGraphQLEngine(_entityClient, _graphClient, _usageClient, null, _entityService, _recommendationsService,
         _entityRegistry, _tokenService).builder().build();
   }
 }

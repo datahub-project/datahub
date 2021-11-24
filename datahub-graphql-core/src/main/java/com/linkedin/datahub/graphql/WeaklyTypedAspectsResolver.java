@@ -54,7 +54,7 @@ public class WeaklyTypedAspectsResolver implements DataFetcher<CompletableFuture
                 try {
                     RawAspect result = new RawAspect();
                     DataMap resolvedAspect =
-                        _aspectClient.getRawAspect(urn, aspectSpec.getName(), 0L, context.getActor());
+                        _aspectClient.getRawAspect(urn, aspectSpec.getName(), 0L, context.getAuthentication());
                     if (resolvedAspect == null || resolvedAspect.keySet().size() != 1) {
                         return;
                     }

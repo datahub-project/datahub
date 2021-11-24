@@ -561,7 +561,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
     @SneakyThrows
     @Override
     public DataMap getRawAspect(@Nonnull String urn, @Nonnull String aspect, @Nonnull Long version,
-        @Nonnull String actor) throws RemoteInvocationException {
+        @Nonnull Authentication authentication) throws RemoteInvocationException {
         throw new MethodNotSupportedException();
     }
 }

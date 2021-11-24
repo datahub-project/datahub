@@ -377,7 +377,7 @@ public class JavaEntityClient implements EntityClient {
 
     @SneakyThrows
     public DataMap getRawAspect(@Nonnull String urn, @Nonnull String aspect,
-        @Nonnull Long version, @Nonnull String actor) throws RemoteInvocationException {
+        @Nonnull Long version, @Nonnull Authentication authentication) throws RemoteInvocationException {
         VersionedAspect entity = _entityService.getVersionedAspect(Urn.createFromString(urn), aspect, version);
         if (entity == null) {
             return null;
