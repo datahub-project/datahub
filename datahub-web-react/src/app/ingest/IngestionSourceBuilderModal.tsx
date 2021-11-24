@@ -11,7 +11,7 @@ type Props = {
 };
 
 export const IngestionSourceBuilderModal = ({ urn, visible, onSubmit, onCancel }: Props) => {
-    const isEditing = urn === undefined;
+    const isEditing = urn !== undefined;
     const titleText = isEditing ? 'Edit Ingestion Source' : 'Create new Ingestion Source';
 
     const [createIngestionSource] = useCreateIngestionSourceMutation();

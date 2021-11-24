@@ -1,5 +1,5 @@
-import { message, Modal, Typography } from 'antd';
-import React from 'react';
+import { Button, Form, Input, message, Modal, Typography } from 'antd';
+import React, { useState } from 'react';
 import { useCreateSecretMutation } from '../../graphql/ingestion.generated';
 import { CreateSecretInput } from '../../types.generated';
 
@@ -11,8 +11,16 @@ type Props = {
 
 export const SecretBuilderModal = ({ visible, onSubmit, onCancel }: Props) => {
     const [createSecretMutation] = useCreateSecretMutation();
+    const [stagedName, setStagedName] = useState('');
+    // TODO: Support adding a description to a secret. const [stagedDescription, setStagedDescription] = useState('');
+    const [stagedValue, setStagedValue] = useState('');
 
-    const createSecret = (input: CreateSecretInput) => {
+    const onCreateSecret = () => {
+        const input = {
+            displayName: stagedName,
+            value: stagedValue,
+        };
+
         // Move this down.
         createSecretMutation({ variables: { input } })
             .catch((e) => {
@@ -28,17 +36,46 @@ export const SecretBuilderModal = ({ visible, onSubmit, onCancel }: Props) => {
             });
     };
 
-    console.log(createSecret);
-
     return (
         <Modal
             width={800}
-            footer={null}
             title={<Typography.Text>Create a new Secret</Typography.Text>}
             visible={visible}
             onCancel={onCancel}
+            footer={
+                <>
+                    <Button onClick={onCancel} type="text">
+                        Cancel
+                    </Button>
+                    <Button onClick={onCreateSecret} disabled={stagedName === '' || stagedValue === ''}>
+                        Create
+                    </Button>
+                </>
+            }
         >
-            Steps go here
+            <Form layout="vertical">
+                <Form.Item name="name" label={<Typography.Text strong>Name</Typography.Text>}>
+                    <Typography.Paragraph>
+                        Give your secret a name. This is what you&apos;ll use to reference the secret from your recipes.
+                        Names should not contain any spaces.
+                    </Typography.Paragraph>
+                    <Input
+                        placeholder="A name for your secret"
+                        value={stagedName}
+                        onChange={(event) => setStagedName(event.target.value)}
+                    />
+                </Form.Item>
+                <Form.Item name="value" label={<Typography.Text strong>Value</Typography.Text>}>
+                    <Typography.Paragraph>
+                        The value of your secret, which will be encrypted and stored securely within DataHub.
+                    </Typography.Paragraph>
+                    <Input
+                        placeholder="The value of your secret"
+                        value={stagedValue}
+                        onChange={(event) => setStagedValue(event.target.value)}
+                    />
+                </Form.Item>
+            </Form>
         </Modal>
     );
 };

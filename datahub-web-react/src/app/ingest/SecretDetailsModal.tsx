@@ -32,6 +32,7 @@ type Props = {
 
 export const SecretDetailsModal = ({ secret, visible, onClose }: Props) => {
     // TODO: We should add created by etc.
+    // TODO: Add the length of the secret at least.
     return (
         <Modal
             width={800}

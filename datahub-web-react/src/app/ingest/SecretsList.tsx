@@ -72,8 +72,8 @@ export const SecretsList = () => {
         setFocusSecretUrn(urn);
     };
 
-    const handleSubmit = (input: CreateSecretInput) => {
-        console.log(input);
+    const handleSubmit = (_: CreateSecretInput) => {
+        setIsCreatingSecret(false);
     };
 
     return (
@@ -121,7 +121,7 @@ export const SecretsList = () => {
             />
             {focusSecret && (
                 <SecretDetailsModal
-                    secret={focusSecret[0]}
+                    secret={focusSecret}
                     visible={focusSecretUrn !== undefined}
                     onClose={() => setFocusSecretUrn(undefined)}
                 />
