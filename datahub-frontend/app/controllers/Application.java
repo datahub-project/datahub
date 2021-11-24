@@ -117,6 +117,7 @@ public class Application extends Controller {
             .entrySet()
             .stream()
             .filter(entry -> !Http.HeaderNames.CONTENT_LENGTH.equals(entry.getKey()))
+            .filter(entry -> !Http.HeaderNames.HOST.equals(entry.getKey()))
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))
         )
         .addHeader("X-DataHub-Principal", ctx().session().get(ACTOR)) // TODO: Replace with a token to GMS.
