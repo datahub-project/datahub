@@ -25,9 +25,13 @@ from pyspark.sql.dataframe import DataFrame
 from pyspark.sql.functions import col, count, isnan, when
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
+from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
+from datahub.metadata.schema_classes import DatasetPropertiesClass
 
 logging.getLogger("py4j").setLevel(logging.ERROR)
 
@@ -38,9 +42,12 @@ class FileType(Enum):
 
 
 class DataLakeSourceConfig(ConfigModel):
+    
+    env: str = DEFAULT_ENV
 
     file: str
     file_type: Optional[FileType] = None
+    platform: str
 
     limit: Optional[int] = None
     offset: Optional[int] = None
@@ -63,11 +70,6 @@ class DataLakeSourceConfig(ConfigModel):
     allow_deny_patterns: AllowDenyPattern = AllowDenyPattern.allow_all()
     max_number_of_fields_to_profile: Optional[pydantic.PositiveInt] = None
 
-    # The default of (5 * cpu_count) is adopted from the default max_workers
-    # parameter of ThreadPoolExecutor. Given that profiling is often an I/O-bound
-    # task, it may make sense to increase this default value in the future.
-    # https://docs.python.org/3/library/concurrent.futures.html#concurrent.futures.ThreadPoolExecutor
-    max_workers: int = 5 * (os.cpu_count() or 4)
 
 
 @dataclasses.dataclass
@@ -200,10 +202,44 @@ class DataLakeSource(Source):
         analysis_table = TableWrapper(table, self.spark)
 
         analyzer_result = analysis_table.analyzer.run()
+        
+        datasetUrn = f"urn:li:dataset:(urn:li:dataPlatform:{self.source_config.platform},{self.source_config.file},{self.source_config.env})"
+        dataset_snapshot = DatasetSnapshot(
+            urn=datasetUrn,
+            aspects=[],
+        )
+        
+        dataset_properties = DatasetPropertiesClass(
+                    description="",
+                    customProperties={},
+                )
+        dataset_snapshot.aspects.append(dataset_properties)
+        
+        # schema_metadata = SchemaMetadata(
+        #     schemaName=dataset_name,
+        #     platform=f"urn:li:dataPlatform:{platform}",
+        #     version=0,
+        #     hash="",
+        #     platformSchema=MySqlDDL(tableSchema=""),
+        #     fields=canonical_schema,
+        # )
+        
+        # field = SchemaField(
+        #     fieldPath=column["name"],
+        #     type=get_column_type(self.report, dataset_name, column["type"]),
+        #     nativeDataType=column.get("full_type", repr(column["type"])),
+        #     description=column.get("comment", None),
+        #     nullable=column["nullable"],
+        #     recursive=False,
+        # )
+        
+        mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
+        wu = MetadataWorkUnit(id=self.source_config.file, mce=mce)
+        self.report.report_workunit(wu)
+        yield wu
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        self.generate_profiles()
-        return []
+        yield from self.generate_profiles()
 
     def get_report(self):
         return self.report

@@ -1,3 +1,27 @@
 [
-
+{
+    "auditHeader": null,
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:local,/Users/kevinhu/github/datahub/metadata-ingestion/tests/integration/data_lake/test.csv,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {},
+                        "externalUrl": null,
+                        "description": "",
+                        "uri": null,
+                        "tags": []
+                    }
+                }
+            ]
+        }
+    },
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "data-lake-test",
+        "properties": null
+    }
+}
 ]

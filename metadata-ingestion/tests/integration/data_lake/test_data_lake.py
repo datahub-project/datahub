@@ -24,6 +24,7 @@ def test_data_lake_ingest(pytestconfig, tmp_path, mock_time):
                 "config": {
                     "file": str(test_resources_dir / "test.csv"),
                     "file_type": "csv",
+                    "platform": "local"
                 },
             },
             "sink": {
