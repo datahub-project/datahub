@@ -56,7 +56,8 @@ public class SearchService {
   @Nonnull
   public SearchResult search(@Nonnull String entityName, @Nonnull String input, @Nullable Filter postFilters,
       @Nullable SortCriterion sortCriterion, int from, int size) {
-    SearchResult result = _entitySearchServiceCache.getSearcher(entityName, input, postFilters, sortCriterion)
+    final String finalInput = input.isEmpty() ? "*" : input;
+    SearchResult result = _entitySearchServiceCache.getSearcher(entityName, finalInput, postFilters, sortCriterion)
         .getSearchResults(from, size);
     try {
       return result.copy().setEntities(new SearchEntityArray(_searchRanker.rank(result.getEntities())));
