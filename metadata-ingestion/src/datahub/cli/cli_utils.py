@@ -255,16 +255,6 @@ def get_urns_by_filter(
                 "condition": "EQUAL",
             }
         )
-    if platform is not None and (
-        entity_type.lower() == "dataflow" or entity_type.lower() == "dashboard"
-    ):
-        filter_criteria.append(
-            {
-                "field": "tool",
-                "value": platform,
-                "condition": "EQUAL",
-            }
-        )
 
     search_body = {
         "input": search_query,
