@@ -199,7 +199,6 @@ module.exports = {
           "datahub-frontend/README",
           "datahub-graphql-core/README",
           "metadata-service/README",
-          "datahub-gms-graphql-service/README",
           // "metadata-jobs/README",
           "metadata-jobs/mae-consumer-job/README",
           "metadata-jobs/mce-consumer-job/README",
