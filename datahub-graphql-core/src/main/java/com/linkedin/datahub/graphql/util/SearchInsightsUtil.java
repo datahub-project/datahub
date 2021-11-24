@@ -24,7 +24,7 @@ public class SearchInsightsUtil {
     if (features.containsKey(Features.Name.QUERY_COUNT.toString())) {
       // Search result has query count.
       Double queryCount = features.get(Features.Name.QUERY_COUNT.toString());
-      if (queryCount > 20) {
+      if (queryCount > 0) {
         // Show the query count insight.
         String queryCountStr = queryCount > 1000 ? "1000+" : String.valueOf((int) queryCount.doubleValue());
         return Optional.of(new SearchInsight(String.format("Queried %s times in the past month", queryCountStr), "\uD83D\uDE80"));
