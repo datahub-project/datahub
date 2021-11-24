@@ -84,7 +84,8 @@ public class SearchService {
     log.debug(String.format(
         "Searching Search documents entities: %s, input: %s, postFilters: %s, sortCriterion: %s, from: %s, size: %s",
         entities, input, postFilters, sortCriterion, from, size));
-    return _allEntitiesSearchAggregatorCache.getSearcher(entities, input, postFilters, sortCriterion)
+    final String finalInput = input.isEmpty() ? "*" : input;
+    return _allEntitiesSearchAggregatorCache.getSearcher(entities, finalInput, postFilters, sortCriterion)
         .getSearchResults(from, size);
   }
 }
