@@ -48,7 +48,7 @@ public class DataPlatformType implements EntityType<DataPlatform> {
                 .stream()
                 .filter(Objects::nonNull)
                 .collect(Collectors.toSet()),
-            context.getActor());
+            context.getAuthentication());
 
             final List<com.linkedin.entity.Entity> gmsResults = new ArrayList<>();
             for (Urn urn : dataPlatformUrns) {

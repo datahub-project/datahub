@@ -8,7 +8,7 @@ import com.linkedin.datahub.graphql.generated.ListPoliciesResult;
 import com.linkedin.datahub.graphql.generated.Policy;
 import com.linkedin.datahub.graphql.resolvers.policy.mappers.PolicyInfoPolicyMapper;
 import com.linkedin.entity.Entity;
-import com.linkedin.entity.client.RestliEntityClient;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.aspect.DataHubPolicyAspect;
 import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.snapshot.DataHubPolicySnapshot;
@@ -29,9 +29,9 @@ public class ListPoliciesResolver implements DataFetcher<CompletableFuture<ListP
   private static final Integer DEFAULT_COUNT = 20;
   private static final String POLICY_ENTITY_NAME = "dataHubPolicy";
 
-  private final RestliEntityClient _entityClient;
+  private final EntityClient _entityClient;
 
-  public ListPoliciesResolver(final RestliEntityClient entityClient) {
+  public ListPoliciesResolver(final EntityClient entityClient) {
     _entityClient = entityClient;
   }
 
@@ -48,10 +48,10 @@ public class ListPoliciesResolver implements DataFetcher<CompletableFuture<ListP
       return CompletableFuture.supplyAsync(() -> {
         try {
           // First, get all policy Urns.
-          final ListUrnsResult gmsResult = _entityClient.listUrns(POLICY_ENTITY_NAME, start, count, context.getActor());
+          final ListUrnsResult gmsResult = _entityClient.listUrns(POLICY_ENTITY_NAME, start, count, context.getAuthentication());
 
           // Then, get all policies. TODO: Migrate batchGet to return GenericAspects, to avoid requiring a snapshot.
-          final Map<Urn, Entity> entities = _entityClient.batchGet(new HashSet<>(gmsResult.getEntities()), context.getActor());
+          final Map<Urn, Entity> entities = _entityClient.batchGet(new HashSet<>(gmsResult.getEntities()), context.getAuthentication());
 
           // Now that we have entities we can bind this to a result.
           final ListPoliciesResult result = new ListPoliciesResult();

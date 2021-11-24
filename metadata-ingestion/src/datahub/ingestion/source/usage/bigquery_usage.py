@@ -370,6 +370,26 @@ class BigQueryUsageSource(Source):
             or self.config.table_pattern.allow[0] != ".*"
         )
         use_deny_filter = self.config.table_pattern and self.config.table_pattern.deny
+        allow_regex = (
+            BQ_FILTER_REGEX_ALLOW_TEMPLATE.format(
+                allow_pattern=self.config.get_allow_pattern_string()
+            )
+            if use_allow_filter
+            else ""
+        )
+        deny_regex = (
+            BQ_FILTER_REGEX_DENY_TEMPLATE.format(
+                deny_pattern=self.config.get_deny_pattern_string(),
+                logical_operator="AND" if use_allow_filter else "",
+            )
+            if use_deny_filter
+            else ("" if use_allow_filter else "FALSE")
+        )
+
+        logger.debug(
+            f"use_allow_filter={use_allow_filter}, use_deny_filter={use_deny_filter}, "
+            f"allow_regex={allow_regex}, deny_regex={deny_regex}"
+        )
         filter = BQ_FILTER_RULE_TEMPLATE.format(
             start_time=(
                 self.config.start_time - self.config.max_query_duration
@@ -377,21 +397,8 @@ class BigQueryUsageSource(Source):
             end_time=(self.config.end_time + self.config.max_query_duration).strftime(
                 BQ_DATETIME_FORMAT
             ),
-            allow_regex=(
-                BQ_FILTER_REGEX_ALLOW_TEMPLATE.format(
-                    allow_pattern=self.config.get_allow_pattern_string()
-                )
-                if use_allow_filter
-                else ""
-            ),
-            deny_regex=(
-                BQ_FILTER_REGEX_DENY_TEMPLATE.format(
-                    deny_pattern=self.config.get_deny_pattern_string(),
-                    logical_operator="AND" if use_allow_filter else "",
-                )
-                if use_deny_filter
-                else ""
-            ),
+            allow_regex=allow_regex,
+            deny_regex=deny_regex,
         )
         logger.debug(filter)
 
@@ -414,7 +421,7 @@ class BigQueryUsageSource(Source):
                     f"{client.project}", f"unable to retrive log entrires {e}"
                 )
 
-        i: int
+        i: int = 0
         entry: AuditLogEntry
         for i, entry in enumerate(
             heapq.merge(
@@ -514,8 +521,6 @@ class BigQueryUsageSource(Source):
                         str(event.resource),
                         "failed to match table read event with job; try increasing `query_log_delay` or `max_query_duration`",
                     )
-                    # continue to avoid processing read events that aren't matched by query events
-                    continue
             yield event
 
         logger.info(f"Number of read events joined with query events: {num_joined}")

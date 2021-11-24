@@ -1,7 +1,6 @@
 import React from "react";
 import clsx from "clsx";
 import useBaseUrl from "@docusaurus/useBaseUrl";
-import Link from "@docusaurus/Link";
 
 import styles from "../styles/section.module.scss";
 
@@ -14,12 +13,13 @@ const AnnouncementSection = () => (
         Acryl Data delivers an easy to consume DataHub platform for the
         enterprise
       </p>
-      <Link
-        to={useBaseUrl("/managed")}
+      <a
+        href="https://www.acryldata.io/datahub-beta"
+        target="_blank"
         class="button button--primary button--lg"
       >
         Sign up for Managed DataHub →
-      </Link>
+      </a>
     </div>
   </section>
 );
