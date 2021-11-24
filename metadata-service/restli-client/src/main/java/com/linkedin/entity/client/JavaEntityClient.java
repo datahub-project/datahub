@@ -250,7 +250,7 @@ public class JavaEntityClient implements EntityClient {
      */
     @Nonnull
     public SearchResult searchAcrossEntities(
-        @Nullable List<String> entities,
+        @Nonnull List<String> entities,
         @Nonnull String input,
         @Nullable Filter filter,
         int start,
@@ -273,7 +273,6 @@ public class JavaEntityClient implements EntityClient {
 
     public void setWritable(boolean canWrite, @Nonnull final Authentication authentication) throws RemoteInvocationException {
         _entityService.setWritable(canWrite);
-        return;
     }
 
     @Nonnull
