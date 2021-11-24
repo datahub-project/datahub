@@ -10,6 +10,7 @@ import progressbar
 from requests import sessions
 
 from datahub.cli import cli_utils
+from datahub.cli.cli_utils import guess_entity_type
 from datahub.emitter import rest_emitter
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import ChangeTypeClass, StatusClass
@@ -50,7 +51,7 @@ class DeletionResult:
 @click.command()
 @click.option("--urn", required=False, type=str)
 @click.option("-f", "--force", required=False, is_flag=True)
-@click.option("--soft", required=False, is_flag=True)
+@click.option("--soft/--hard", required=False, is_flag=True, default=True)
 @click.option("-e", "--env", required=False, type=str)
 @click.option("-p", "--platform", required=False, type=str)
 @click.option("--entity_type", required=False, type=str, default="dataset")
@@ -66,7 +67,7 @@ def delete(
     query: str,
     dry_run: bool,
 ) -> None:
-    """Delete a provided URN from datahub"""
+    """Delete metadata from datahub using a single urn or a combination of filters"""
 
     # First test connectivity
     try:
@@ -96,11 +97,13 @@ def delete(
     if urn:
         # Single urn based delete
         session, host = cli_utils.get_session_and_host()
+        entity_type = guess_entity_type(urn=urn)
         logger.info(f"DataHub configured with {host}")
         deletion_result: DeletionResult = delete_one_urn(
             urn,
             soft=soft,
             dry_run=dry_run,
+            entity_type=entity_type,
             cached_session_host=(session, host),
         )
 
@@ -124,7 +127,7 @@ def delete(
         )
 
     if not dry_run:
-        message = "soft delete" if soft else "delete"
+        message = "soft delete" if soft else "hard delete"
         click.echo(
             f"Took {(deletion_result.end_time_millis-deletion_result.start_time_millis)/1000.0} seconds to {message} {deletion_result.num_records} rows for {deletion_result.num_entities} entities"
         )
@@ -182,6 +185,7 @@ def delete_one_urn(
     urn: str,
     soft: bool = False,
     dry_run: bool = False,
+    entity_type: str = "dataset",
     cached_session_host: Optional[Tuple[sessions.Session, str]] = None,
     cached_emitter: Optional[rest_emitter.DatahubRestEmitter] = None,
 ) -> DeletionResult:
@@ -199,7 +203,7 @@ def delete_one_urn(
         if not dry_run:
             emitter.emit_mcp(
                 MetadataChangeProposalWrapper(
-                    entityType="dataset",
+                    entityType=entity_type,
                     changeType=ChangeTypeClass.UPSERT,
                     entityUrn=urn,
                     aspectName="status",
