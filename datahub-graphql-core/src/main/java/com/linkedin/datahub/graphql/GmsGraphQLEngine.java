@@ -216,7 +216,7 @@ public class GmsGraphQLEngine {
         final AnalyticsService analyticsService,
         final EntityService entityService,
         final RecommendationsService recommendationsService,
-				final EntityRegistry entityRegistry,
+        final EntityRegistry entityRegistry,
         final TokenService tokenService) {
 
         this.entityClient = entityClient;
