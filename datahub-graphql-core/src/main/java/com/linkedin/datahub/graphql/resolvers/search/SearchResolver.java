@@ -35,10 +35,6 @@ public class SearchResolver implements DataFetcher<CompletableFuture<SearchResul
     final String entityName = EntityTypeMapper.getName(input.getType());
     // escape forward slash since it is a reserved character in Elasticsearch
     final String sanitizedQuery = ResolverUtils.escapeForwardSlash(input.getQuery());
-    if (isBlank(sanitizedQuery)) {
-      log.error("'query' parameter cannot was null or empty");
-      throw new ValidationException("'query' parameter cannot be null or empty");
-    }
 
     final int start = input.getStart() != null ? input.getStart() : DEFAULT_START;
     final int count = input.getCount() != null ? input.getCount() : DEFAULT_COUNT;
