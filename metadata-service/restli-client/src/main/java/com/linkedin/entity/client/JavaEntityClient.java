@@ -338,7 +338,6 @@ public class JavaEntityClient implements EntityClient {
         if (endTimeMillis != null) {
             response.setEndTimeMillis(endTimeMillis);
         }
-        response.setLimit(limit);
         response.setValues(new EnvelopedAspectArray(
             _timeseriesAspectService.getAspectValues(Urn.createFromString(urn), entity, aspect, startTimeMillis, endTimeMillis,
                 limit)));
