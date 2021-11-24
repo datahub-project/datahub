@@ -55,6 +55,7 @@ module.exports = {
     "Getting Started": [
       // Serves as user guides.
       "docs/quickstart",
+      "docs/cli",
       "docs/debugging",
       "metadata-ingestion/README",
       "docs/policies",
@@ -210,6 +211,7 @@ module.exports = {
       "docs/advanced/mcp-mcl",
       "docs/advanced/field-path-spec-v2",
       "docs/advanced/monitoring",
+      "docs/how/add-custom-ingestion-source",
       // WIP "docs/advanced/backfilling",
       // WIP "docs/advanced/derived-aspects",
       // WIP "docs/advanced/entity-hierarchy",
