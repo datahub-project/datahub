@@ -46,6 +46,16 @@ module.exports = {
       "README",
       // "docs/faq", // hide from sidebar: out of date
       "docs/features",
+      {
+        Architecture: [
+          "docs/architecture/architecture",
+          "docs/components",
+          "docs/architecture/metadata-ingestion",
+          "docs/architecture/metadata-serving",
+          // "docs/what/gma",
+          // "docs/what/gms",
+        ],
+      },
       "docs/roadmap",
       "docs/CONTRIBUTING",
       "docs/demo",
@@ -53,19 +63,10 @@ module.exports = {
       "releases",
     ],
     "Getting Started": [
-      // Serves as user guides.
       "docs/quickstart",
       "docs/cli",
-      "docs/debugging",
       "metadata-ingestion/README",
-      "docs/policies",
-    ],
-    Architecture: [
-      "docs/architecture/architecture",
-      "docs/architecture/metadata-ingestion",
-      //"docs/what/gma",
-      "docs/architecture/metadata-serving",
-      //"docs/what/gms",
+      "docs/debugging",
     ],
     "Metadata Ingestion": [
       // add a custom label since the default is 'Metadata Ingestion'
@@ -163,6 +164,7 @@ module.exports = {
         ],
       },
     ],
+    "Usage Guides": ["docs/policies"],
     "Developer Guides": [
       // TODO: the titles of these should not be in question form in the sidebar
       "docs/developers",
@@ -191,34 +193,38 @@ module.exports = {
       "metadata-ingestion/developing",
       "docker/airflow/local_airflow",
       "docs/how/add-custom-data-platform",
-    ],
-    Components: [
-      "datahub-web-react/README",
-      "datahub-frontend/README",
-      "datahub-graphql-core/README",
-      "metadata-service/README",
-      // "metadata-jobs/README",
-      "metadata-jobs/mae-consumer-job/README",
-      "metadata-jobs/mce-consumer-job/README",
-    ],
-    "Advanced Guides": [
-      "docs/advanced/no-code-modeling",
-      "docs/advanced/aspect-versioning",
-      "docs/advanced/es-7-upgrade",
-      "docs/advanced/high-cardinality",
-      "docs/advanced/no-code-upgrade",
-      "docs/how/migrating-graph-service-implementation",
-      "docs/advanced/mcp-mcl",
-      "docs/advanced/field-path-spec-v2",
-      "docs/advanced/monitoring",
       "docs/how/add-custom-ingestion-source",
-      // WIP "docs/advanced/backfilling",
-      // WIP "docs/advanced/derived-aspects",
-      // WIP "docs/advanced/entity-hierarchy",
-      // WIP "docs/advanced/partial-update",
-      // WIP "docs/advanced/pdl-best-practices",
+      {
+        "Module READMEs": [
+          "datahub-web-react/README",
+          "datahub-frontend/README",
+          "datahub-graphql-core/README",
+          "metadata-service/README",
+          // "metadata-jobs/README",
+          "metadata-jobs/mae-consumer-job/README",
+          "metadata-jobs/mce-consumer-job/README",
+        ],
+      },
+      {
+        Advanced: [
+          "docs/advanced/no-code-modeling",
+          "docs/advanced/aspect-versioning",
+          "docs/advanced/es-7-upgrade",
+          "docs/advanced/high-cardinality",
+          "docs/advanced/no-code-upgrade",
+          "docs/how/migrating-graph-service-implementation",
+          "docs/advanced/mcp-mcl",
+          "docs/advanced/field-path-spec-v2",
+          "docs/advanced/monitoring",
+          // WIP "docs/advanced/backfilling",
+          // WIP "docs/advanced/derived-aspects",
+          // WIP "docs/advanced/entity-hierarchy",
+          // WIP "docs/advanced/partial-update",
+          // WIP "docs/advanced/pdl-best-practices",
+        ],
+      },
     ],
-    Deployment: [
+    "Deployment Guides": [
       "docs/how/kafka-config",
       "docker/README",
       "docs/deploy/kubernetes",
