@@ -14,6 +14,8 @@ from pydantic import BaseModel, ValidationError
 from requests.models import Response
 from requests.sessions import Session
 
+from datahub.emitter.rest_emitter import _make_curl_command
+
 log = logging.getLogger(__name__)
 
 DEFAULT_GMS_HOST = "http://localhost:8080"
@@ -88,6 +90,11 @@ def get_details_from_env() -> Tuple[Optional[str], Optional[str]]:
 
 def first_non_null(ls: List[Optional[str]]) -> Optional[str]:
     return next((el for el in ls if el is not None and el.strip() != ""), None)
+
+
+def guess_entity_type(urn: str) -> str:
+    assert urn.startswith("urn:li:"), "urns must start with urn:li:"
+    return urn.split(":")[2]
 
 
 def get_session_and_host():
@@ -304,3 +311,41 @@ def get_entity(
 
     response = session.get(gms_host + endpoint)
     return response.json()
+
+
+def post_entity(
+    urn: str,
+    entity_type: str,
+    aspect_name: str,
+    aspect_value: Dict,
+    cached_session_host: Optional[Tuple[Session, str]] = None,
+) -> Dict:
+    if not cached_session_host:
+        session, gms_host = get_session_and_host()
+    else:
+        session, gms_host = cached_session_host
+
+    endpoint: str = "/aspects/?action=ingestProposal"
+
+    proposal = {
+        "proposal": {
+            "entityType": entity_type,
+            "entityUrn": urn,
+            "aspectName": aspect_name,
+            "changeType": "UPSERT",
+            "aspect": {
+                "contentType": "application/json",
+                "value": json.dumps(aspect_value),
+            },
+        }
+    }
+    payload = json.dumps(proposal)
+    url = gms_host + endpoint
+    curl_command = _make_curl_command(session, "POST", url, payload)
+    log.debug(
+        "Attempting to emit to DataHub GMS; using curl equivalent to:\n%s",
+        curl_command,
+    )
+    response = session.post(url, payload)
+    response.raise_for_status()
+    return response.status_code
