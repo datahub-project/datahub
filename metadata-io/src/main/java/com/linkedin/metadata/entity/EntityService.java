@@ -119,10 +119,15 @@ public abstract class EntityService {
    * @param urn an urn associated with the requested aspect
    * @param aspectName name of the aspect requested
    * @param version specific version of the aspect being requests
-   * @return the {@link RecordTemplate} representation of the requested aspect object
+   * @return the {@link RecordTemplate} representation of the requested aspect object, or null if one cannot be found
    */
+  @Nullable
   public abstract RecordTemplate getAspect(@Nonnull final Urn urn, @Nonnull final String aspectName, long version);
 
+  /**
+   * Retrieves an {@link VersionedAspect}, or null if one cannot be found.
+   */
+  @Nullable
   public abstract VersionedAspect getVersionedAspect(@Nonnull final Urn urn, @Nonnull final String aspectName,
       long version);
 
