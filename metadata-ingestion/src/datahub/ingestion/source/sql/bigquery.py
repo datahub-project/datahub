@@ -8,6 +8,7 @@ from unittest.mock import patch
 # This import verifies that the dependencies are available.
 import pybigquery  # noqa: F401
 import pybigquery.sqlalchemy_bigquery
+import pydantic
 from google.cloud.logging_v2.client import Client as GCPLoggingClient
 from sqlalchemy.engine.reflection import Inspector
 
@@ -24,7 +25,6 @@ from datahub.ingestion.source.sql.sql_common import (
 )
 from datahub.ingestion.source.usage.bigquery_usage import (
     BQ_DATETIME_FORMAT,
-    GCP_LOGGING_PAGE_SIZE,
     AuditLogEntry,
     BigQueryTableRef,
     QueryEvent,
