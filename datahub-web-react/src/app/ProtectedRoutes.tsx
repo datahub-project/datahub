@@ -12,6 +12,7 @@ import { PoliciesPage } from './policy/PoliciesPage';
 import AppConfigProvider from '../AppConfigProvider';
 import { ManageIdentitiesPage } from './identity/ManageIdentitiesPage';
 import { SettingsPage } from './settings/SettingsPage';
+import { ManageIngestionPage } from './ingest/ManageIngestionPage';
 
 /**
  * Container for all views behind an authentication wall.

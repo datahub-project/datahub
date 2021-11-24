@@ -4,7 +4,7 @@ namespace com.linkedin.metadata.key
  * Key for an DataHub Execution Request
  */
 @Aspect = {
-  "name": "executionRequestKey"
+  "name": "dataHubExecutionRequestKey"
 }
 record ExecutionRequestKey {
   /**

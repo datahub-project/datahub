@@ -1,6 +1,6 @@
 import styled from 'styled-components';
 import * as React from 'react';
-import { BankOutlined, BarChartOutlined, SettingOutlined, UsergroupAddOutlined } from '@ant-design/icons';
+import { ApiOutlined, BankOutlined, BarChartOutlined, SettingOutlined, UsergroupAddOutlined } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
 import { Button } from 'antd';
 
@@ -19,6 +19,7 @@ export function AdminHeaderLinks() {
     const isPoliciesEnabled = config?.policiesConfig.enabled;
     const isIdentityManagementEnabled = config?.identityManagementConfig.enabled;
 
+    const showIngestion = true; // TODO
     const showAnalytics = (isAnalyticsEnabled && me && me.platformPrivileges.viewAnalytics) || false;
     const showPolicyBuilder = (isPoliciesEnabled && me && me.platformPrivileges.managePolicies) || false;
     const showIdentityManagement =
@@ -50,6 +51,15 @@ export function AdminHeaderLinks() {
                     <Link to="/identities">
                         <Button type="text">
                             <UsergroupAddOutlined /> Users & Groups
+                        </Button>
+                    </Link>
+                </AdminLink>
+            )}
+            {showIngestion && (
+                <AdminLink>
+                    <Link to="/ingestion">
+                        <Button type="text">
+                            <ApiOutlined /> Ingestion
                         </Button>
                     </Link>
                 </AdminLink>

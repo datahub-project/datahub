@@ -42,7 +42,7 @@ public class CreateSecretResolver implements DataFetcher<CompletableFuture<Strin
       key.setId(input.getDisplayName());
       proposal.setEntityKeyAspect(GenericAspectUtils.serializeAspect(key));
 
-      // Create the policy info.
+      // Create the secret value.
       final DataHubSecretValue value = new DataHubSecretValue();
       value.setDisplayName(input.getDisplayName());
       value.setValue(input.getValue()); // TODO: Add encryption here.

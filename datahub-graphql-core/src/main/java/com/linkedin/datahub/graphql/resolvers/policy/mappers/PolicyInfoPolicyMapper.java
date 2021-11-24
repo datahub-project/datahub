@@ -73,5 +73,4 @@ public class PolicyInfoPolicyMapper implements ModelMapper<DataHubPolicyInfo, Po
     }
     return result;
   }
-
 }

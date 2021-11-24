@@ -4,7 +4,7 @@ namespace com.linkedin.execution
  * The result of an execution request
  */
 @Aspect = {
-  "name": "executionRequestResult"
+  "name": "dataHubExecutionRequestResult"
 }
 record ExecutionRequestResult {
   /**
@@ -15,7 +15,7 @@ record ExecutionRequestResult {
   /**
   * Time at which the request was created
   */
-  startedAt: long
+  startTimeMs: long
 
  /**
   * Duration in milliseconds

@@ -24,3 +24,8 @@ entities:
     keyAspect: dataHubSecretKey
     aspects:
       - dataHubSecretValue
+  - name: dataHubExecutionRequest
+    keyAspect: dataHubExecutionRequestKey
+    aspects:
+      - dataHubExecutionRequestInput
+      - dataHubExecutionRequestResult

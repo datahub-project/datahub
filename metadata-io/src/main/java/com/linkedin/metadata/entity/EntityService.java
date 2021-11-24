@@ -510,7 +510,6 @@ public abstract class EntityService {
     final EntityResponse response = new EntityResponse();
     response.setUrn(urn);
     response.setEntityName(urnToEntityName(urn));
-    log.info(envelopedAspects.toString());
     response.setAspects(new EnvelopedAspectMap(
         envelopedAspects.stream().collect(Collectors.toMap(EnvelopedAspect::getName, aspect -> aspect))
     ));

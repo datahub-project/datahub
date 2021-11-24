@@ -6,6 +6,7 @@ schema:
     - '../datahub-graphql-core/src/main/resources/analytics.graphql'
     - '../datahub-graphql-core/src/main/resources/recommendation.graphql'
     - '../datahub-graphql-core/src/main/resources/auth.graphql'
+    - '../datahub-graphql-core/src/main/resources/ingestion.graphql'
 config:
     scalars:
         Long: number

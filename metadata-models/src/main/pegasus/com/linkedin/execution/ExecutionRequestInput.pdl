@@ -5,7 +5,7 @@ namespace com.linkedin.execution
  * TODO: Determine who is responsible for emitting execution request success or failure. Executor?
  */
 @Aspect = {
-  "name": "executionRequestInput"
+  "name": "dataHubExecutionRequestInput"
 }
 record ExecutionRequestInput {
   /**
@@ -21,10 +21,5 @@ record ExecutionRequestInput {
   /**
   * Source which created the execution request
   */
-  source: string
-
-  /**
-  * Time at which the request was created
-  */
-  createdAt: long
+  source: ExecutionRequestSource
 }

@@ -46,9 +46,12 @@ import com.linkedin.datahub.graphql.resolvers.group.ListGroupsResolver;
 import com.linkedin.datahub.graphql.resolvers.group.RemoveGroupMembersResolver;
 import com.linkedin.datahub.graphql.resolvers.group.RemoveGroupResolver;
 import com.linkedin.datahub.graphql.resolvers.group.UpdateUserStatusResolver;
+import com.linkedin.datahub.graphql.resolvers.ingest.CreateIngestionExecutionRequestResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.CreateSecretResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.DeleteIngestionSourceResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.DeleteSecretResolver;
+import com.linkedin.datahub.graphql.resolvers.ingest.GetIngestionSourceResolver;
+import com.linkedin.datahub.graphql.resolvers.ingest.IngestionSourceRunsResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.ListIngestionSourcesResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.ListSecretsResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.UpsertIngestionSourceResolver;
@@ -249,9 +252,22 @@ public class GmsGraphQLEngine {
         this.usageType = new UsageType(this.usageClient);
 
         // Init Lists
-        this.entityTypes = ImmutableList.of(datasetType, corpUserType, corpGroupType,
-            dataPlatformType, chartType, dashboardType, tagType, mlModelType, mlModelGroupType, mlFeatureType,
-            mlFeatureTableType, mlPrimaryKeyType, dataFlowType, dataJobType, glossaryTermType
+        this.entityTypes = ImmutableList.of(
+            datasetType,
+            corpUserType,
+            corpGroupType,
+            dataPlatformType,
+            chartType,
+            dashboardType,
+            tagType,
+            mlModelType,
+            mlModelGroupType,
+            mlFeatureType,
+            mlFeatureTableType,
+            mlPrimaryKeyType,
+            dataFlowType,
+            dataJobType,
+            glossaryTermType
         );
         this.loadableTypes = new ArrayList<>(entityTypes);
         this.ownerTypes = ImmutableList.of(corpUserType, corpGroupType);
@@ -378,6 +394,7 @@ public class GmsGraphQLEngine {
         configureDataFlowResolvers(builder);
         configureMLFeatureTableResolvers(builder);
         configureGlossaryRelationshipResolvers(builder);
+        configureIngestionSourceResolvers(builder);
         configureAnalyticsResolvers(builder);
     }
 
@@ -483,6 +500,8 @@ public class GmsGraphQLEngine {
                 new ListSecretsResolver(this.entityClient))
             .dataFetcher("listIngestionSources",
                 new ListIngestionSourcesResolver(this.entityClient))
+            .dataFetcher("ingestionSource",
+                new GetIngestionSourceResolver(this.entityClient))
         );
     }
 
@@ -517,6 +536,8 @@ public class GmsGraphQLEngine {
             .dataFetcher("createIngestionSource", new UpsertIngestionSourceResolver(this.entityClient))
             .dataFetcher("updateIngestionSource", new UpsertIngestionSourceResolver(this.entityClient))
             .dataFetcher("deleteIngestionSource", new DeleteIngestionSourceResolver(this.entityClient))
+            .dataFetcher("createIngestionExecutionRequest", new CreateIngestionExecutionRequestResolver(this.entityClient))
+
         );
     }
 
@@ -881,13 +902,8 @@ public class GmsGraphQLEngine {
     }
 
     private void configureGlossaryRelationshipResolvers(final RuntimeWiring.Builder builder) {
-        builder.type("GlossaryTerm", typeWiring -> typeWiring
-            .dataFetcher("relationships", new AuthenticatedResolver<>(
-                new EntityRelationshipsResultResolver(graphClient)
-            ))
-        );
+        builder.type("GlossaryTerm", typeWiring -> typeWiring.dataFetcher("relationships", new AuthenticatedResolver<>(new EntityRelationshipsResultResolver(graphClient))));
     }
-
 
     private <T> DataLoader<String, DataFetcherResult<T>> createDataLoader(final LoadableType<T> graphType, final QueryContext queryContext) {
         BatchLoaderContextProvider contextProvider = () -> queryContext;
@@ -901,6 +917,10 @@ public class GmsGraphQLEngine {
                 throw new RuntimeException(String.format("Failed to retrieve entities of type %s", graphType.name()), e);
             }
         }), loaderOptions);
+    }
+
+    private void configureIngestionSourceResolvers(final RuntimeWiring.Builder builder) {
+        builder.type("IngestionSource", typeWiring -> typeWiring.dataFetcher("runs", new IngestionSourceRunsResolver(graphClient, entityClient)));
     }
 
     private DataLoader<VersionedAspectKey, DataFetcherResult<Aspect>> createAspectLoader(final QueryContext queryContext) {
