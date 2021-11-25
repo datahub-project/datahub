@@ -940,7 +940,9 @@ class KafkaConnectSource(Source):
                     ),
                     changeType=models.ChangeTypeClass.UPSERT,
                     aspectName="dataPlatformInstance",
-                    aspect=models.DataPlatformInstanceClass(platform=target_platform),
+                    aspect=models.DataPlatformInstanceClass(
+                        platform=builder.make_data_platform_urn(target_platform)
+                    ),
                 )
 
                 wu = MetadataWorkUnit(id=target_dataset, mcp=mcp)
@@ -955,7 +957,7 @@ class KafkaConnectSource(Source):
                         changeType=models.ChangeTypeClass.UPSERT,
                         aspectName="dataPlatformInstance",
                         aspect=models.DataPlatformInstanceClass(
-                            platform=source_platform
+                            platform=builder.make_data_platform_urn(source_platform)
                         ),
                     )
 
