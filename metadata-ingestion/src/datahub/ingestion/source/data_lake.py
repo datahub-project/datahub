@@ -23,6 +23,25 @@ from pydeequ.analyzers import (
 from pyspark.sql import Row, SparkSession
 from pyspark.sql.dataframe import DataFrame
 from pyspark.sql.functions import col, count, isnan, when
+from pyspark.sql.types import (
+    ArrayType,
+    BinaryType,
+    BooleanType,
+    ByteType,
+    DateType,
+    DecimalType,
+    DoubleType,
+    FloatType,
+    IntegerType,
+    LongType,
+    MapType,
+    NullType,
+    ShortType,
+    StringType,
+    StructField,
+    StructType,
+    TimestampType,
+)
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.emitter.mce_builder import DEFAULT_ENV
@@ -31,7 +50,28 @@ from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
-from datahub.metadata.schema_classes import DatasetPropertiesClass
+from datahub.metadata.com.linkedin.pegasus2avro.schema import (
+    ArrayTypeClass,
+    BooleanTypeClass,
+    BytesTypeClass,
+    DateTypeClass,
+    EnumTypeClass,
+    ForeignKeyConstraint,
+    MySqlDDL,
+    NullTypeClass,
+    NumberTypeClass,
+    RecordTypeClass,
+    SchemaField,
+    SchemaFieldDataType,
+    SchemaMetadata,
+    StringTypeClass,
+    TimeTypeClass,
+)
+from datahub.metadata.schema_classes import (
+    DatasetPropertiesClass,
+    MapTypeClass,
+    OtherSchemaClass,
+)
 
 logging.getLogger("py4j").setLevel(logging.ERROR)
 
@@ -42,7 +82,7 @@ class FileType(Enum):
 
 
 class DataLakeSourceConfig(ConfigModel):
-    
+
     env: str = DEFAULT_ENV
 
     file: str
@@ -71,7 +111,6 @@ class DataLakeSourceConfig(ConfigModel):
     max_number_of_fields_to_profile: Optional[pydantic.PositiveInt] = None
 
 
-
 @dataclasses.dataclass
 class DataLakeSourceReport(SourceReport):
     files_scanned = 0
@@ -89,12 +128,53 @@ class TableWrapper:
     dataframe: DataFrame
     analyzer: AnalysisRunBuilder
     columns: List[str]
-    
+
     def __init__(self, table, spark):
         self.spark = spark
         self.dataframe = table
         self.analyzer = AnalysisRunner(spark).onData(table).addAnalyzer(Size())
         self.columns = table.columns
+
+
+# for a list of all types, see https://spark.apache.org/docs/3.0.3/api/python/_modules/pyspark/sql/types.html
+_field_type_mapping = {
+    NullType: NullTypeClass,
+    StringType: StringTypeClass,
+    BinaryType: BytesTypeClass,
+    BooleanType: BooleanTypeClass,
+    DateType: DateTypeClass,
+    TimestampType: DateTypeClass,
+    DecimalType: NumberTypeClass,
+    DoubleType: NumberTypeClass,
+    FloatType: NumberTypeClass,
+    ByteType: BytesTypeClass,
+    IntegerType: NumberTypeClass,
+    LongType: NumberTypeClass,
+    ShortType: NumberTypeClass,
+    ArrayType: NullTypeClass,
+    MapType: MapTypeClass,
+    StructField: RecordTypeClass,
+    StructType: RecordTypeClass,
+}
+
+
+def get_column_type(
+    report: SourceReport, dataset_name: str, column_type: str
+) -> SchemaFieldDataType:
+    """
+    Maps known Spark types to datahub types
+    """
+    TypeClass: Any = _field_type_mapping.get(column_type)
+
+    # if still not found, report the warning
+    if TypeClass is None:
+
+        report.report_warning(
+            dataset_name, f"unable to map type {column_type} to metadata schema"
+        )
+        TypeClass = NullTypeClass
+
+    return SchemaFieldDataType(type=TypeClass())
 
 
 class DataLakeSource(Source):
@@ -180,7 +260,9 @@ class DataLakeSource(Source):
         num_rows_to_sample = 3
 
         if self.config.include_field_sample_values:
-            rdd_sample = table.dataframe.rdd.takeSample(False, num_rows_to_sample, seed=0)
+            rdd_sample = table.dataframe.rdd.takeSample(
+                False, num_rows_to_sample, seed=0
+            )
 
         return
 
@@ -189,7 +271,8 @@ class DataLakeSource(Source):
         if file_type is FileType.PARQUET:
             df = self.spark.read.parquet(file)
         elif file_type is FileType.CSV:
-            df = self.spark.read.csv(file)
+            # see https://sparkbyexamples.com/pyspark/pyspark-read-csv-file-into-dataframe
+            df = self.spark.read.csv(file, header="True", inferSchema="True")
         else:
             raise ValueError("File type not found")
 
@@ -201,38 +284,44 @@ class DataLakeSource(Source):
 
         analysis_table = TableWrapper(table, self.spark)
 
-        analyzer_result = analysis_table.analyzer.run()
-        
+        # analyzer_result = analysis_table.analyzer.run()
+
         datasetUrn = f"urn:li:dataset:(urn:li:dataPlatform:{self.source_config.platform},{self.source_config.file},{self.source_config.env})"
         dataset_snapshot = DatasetSnapshot(
             urn=datasetUrn,
             aspects=[],
         )
-        
+
         dataset_properties = DatasetPropertiesClass(
-                    description="",
-                    customProperties={},
-                )
+            description="",
+            customProperties={},
+        )
         dataset_snapshot.aspects.append(dataset_properties)
-        
-        # schema_metadata = SchemaMetadata(
-        #     schemaName=dataset_name,
-        #     platform=f"urn:li:dataPlatform:{platform}",
-        #     version=0,
-        #     hash="",
-        #     platformSchema=MySqlDDL(tableSchema=""),
-        #     fields=canonical_schema,
-        # )
-        
-        # field = SchemaField(
-        #     fieldPath=column["name"],
-        #     type=get_column_type(self.report, dataset_name, column["type"]),
-        #     nativeDataType=column.get("full_type", repr(column["type"])),
-        #     description=column.get("comment", None),
-        #     nullable=column["nullable"],
-        #     recursive=False,
-        # )
-        
+
+        column_fields = []
+
+        for column in analysis_table.dataframe.schema.fields:
+
+            field = SchemaField(
+                fieldPath=column.name,
+                type=get_column_type(self.report, "test", column.dataType),
+                nativeDataType=str(column.dataType),
+                recursive=False,
+            )
+
+            column_fields.append(field)
+
+        schema_metadata = SchemaMetadata(
+            schemaName="test",
+            platform=f"urn:li:dataPlatform:{self.source_config.platform}",
+            version=0,
+            hash="",
+            fields=column_fields,
+            platformSchema=OtherSchemaClass(rawSchema=""),
+        )
+
+        dataset_snapshot.aspects.append(schema_metadata)
+
         mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
         wu = MetadataWorkUnit(id=self.source_config.file, mce=mce)
         self.report.report_workunit(wu)
