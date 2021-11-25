@@ -30,12 +30,12 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 @AllArgsConstructor
 public class WeaklyTypedAspectsResolver implements DataFetcher<CompletableFuture<List<RawAspect>>> {
 
-    EntityClient _aspectClient;
-    EntityRegistry _entityRegistry;
+    private final EntityClient _entityClient;
+    private final EntityRegistry _entityRegistry;
     private static final JacksonDataCodec CODEC = new JacksonDataCodec();
 
     private boolean shouldReturnAspect(AspectSpec aspectSpec, AspectParams params) {
-      return !params.getAutoRender() || aspectSpec.isAutoRender();
+      return !params.getAutoRenderOnly() || aspectSpec.isAutoRender();
     }
 
     @Override
@@ -54,7 +54,7 @@ public class WeaklyTypedAspectsResolver implements DataFetcher<CompletableFuture
                 try {
                     RawAspect result = new RawAspect();
                     DataMap resolvedAspect =
-                        _aspectClient.getRawAspect(urn, aspectSpec.getName(), 0L, context.getAuthentication());
+                        _entityClient.getRawAspect(urn, aspectSpec.getName(), 0L, context.getAuthentication());
                     if (resolvedAspect == null || resolvedAspect.keySet().size() != 1) {
                         return;
                     }

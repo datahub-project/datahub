@@ -624,7 +624,10 @@ type Dataset implements EntityWithRelationships & Entity {
 Params to configure what list of aspects should be fetched by the aspects property
 """
 input AspectParams {
-    autoRender: Boolean
+    """
+    Only fetch auto render aspects
+    """
+    autoRenderOnly: Boolean
 }
 
 

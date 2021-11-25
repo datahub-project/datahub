@@ -216,8 +216,9 @@ public class GmsGraphQLEngine {
         final AnalyticsService analyticsService,
         final EntityService entityService,
         final RecommendationsService recommendationsService,
-        final EntityRegistry entityRegistry,
-        final TokenService tokenService) {
+        final TokenService tokenService,
+        final EntityRegistry entityRegistry
+        ) {
 
         this.entityClient = entityClient;
         this.graphClient = graphClient;
@@ -227,6 +228,7 @@ public class GmsGraphQLEngine {
         this.entityService = entityService;
         this.recommendationsService = recommendationsService;
         this.tokenService = tokenService;
+        this.entityRegistry = entityRegistry;
 
         this.datasetType = new DatasetType(entityClient);
         this.corpUserType = new CorpUserType(entityClient);
@@ -242,7 +244,6 @@ public class GmsGraphQLEngine {
         this.mlPrimaryKeyType = new MLPrimaryKeyType(entityClient);
         this.dataFlowType = new DataFlowType(entityClient);
         this.dataJobType = new DataJobType(entityClient);
-        this.entityRegistry = entityRegistry;
         this.glossaryTermType = new GlossaryTermType(entityClient);
         this.aspectType = new AspectType(entityClient);
         this.usageType = new UsageType(this.usageClient);
