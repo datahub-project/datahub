@@ -49,7 +49,6 @@ def assert_mces_equal(
     diff = deepdiff.DeepDiff(
         golden, output, exclude_regex_paths=ignore_paths, ignore_order=True
     )
-    print(diff.to_json())
     if diff:
         # Attempt a clean diff (removing None-s)
         assert isinstance(output, list)
