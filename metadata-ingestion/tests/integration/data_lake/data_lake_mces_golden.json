@@ -113,7 +113,7 @@
                                         "com.linkedin.pegasus2avro.schema.NullType": {}
                                     }
                                 },
-                                "nativeDataType": "IntegerType",
+                                "nativeDataType": "BooleanType",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,

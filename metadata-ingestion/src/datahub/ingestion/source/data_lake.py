@@ -1,33 +1,31 @@
 import dataclasses
 import logging
-import os
 from dataclasses import field as dataclass_field
 from enum import Enum
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Iterable, List, Optional
 
 import pydantic
 import pydeequ
 from pydeequ.analyzers import (
     AnalysisRunBuilder,
     AnalysisRunner,
+    AnalyzerContext,
     ApproxCountDistinct,
     ApproxQuantile,
     ApproxQuantiles,
+    CountDistinct,
     Histogram,
     Maximum,
     Mean,
     Minimum,
-    Size,
     StandardDeviation,
 )
-from pyspark.sql import Row, SparkSession
+from pyspark.sql import SparkSession
 from pyspark.sql.dataframe import DataFrame
 from pyspark.sql.functions import col, count, isnan, when
+from pyspark.sql.types import ArrayType, BinaryType, BooleanType, ByteType
+from pyspark.sql.types import DataType as SparkDataType
 from pyspark.sql.types import (
-    ArrayType,
-    BinaryType,
-    BooleanType,
-    ByteType,
     DateType,
     DecimalType,
     DoubleType,
@@ -51,13 +49,9 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
-    ArrayTypeClass,
     BooleanTypeClass,
     BytesTypeClass,
     DateTypeClass,
-    EnumTypeClass,
-    ForeignKeyConstraint,
-    MySqlDDL,
     NullTypeClass,
     NumberTypeClass,
     RecordTypeClass,
@@ -68,6 +62,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     TimeTypeClass,
 )
 from datahub.metadata.schema_classes import (
+    DatasetFieldProfileClass,
     DatasetPropertiesClass,
     MapTypeClass,
     OtherSchemaClass,
@@ -117,23 +112,121 @@ class DataLakeSourceReport(SourceReport):
     filtered: List[str] = dataclass_field(default_factory=list)
 
     def report_file_scanned(self) -> None:
-        self.file_scanned += 1
+        self.files_scanned += 1
 
     def report_file_dropped(self, file: str) -> None:
         self.filtered.append(file)
+
+
+class Cardinality(Enum):
+    NONE = 0
+    ONE = 1
+    TWO = 2
+    VERY_FEW = 3
+    FEW = 4
+    MANY = 5
+    VERY_MANY = 6
+    UNIQUE = 7
+
+
+def _convert_to_cardinality(
+    unique_count: Optional[int], pct_unique: Optional[float]
+) -> Optional[Cardinality]:
+    # Logic adopted from Great Expectations.
+
+    # See https://github.com/great-expectations/great_expectations/blob/develop/great_expectations/profile/base.py
+
+    if unique_count is None:
+        return Cardinality.NONE
+
+    if pct_unique == 1.0:
+        cardinality = Cardinality.UNIQUE
+    elif unique_count == 1:
+        cardinality = Cardinality.ONE
+    elif unique_count == 2:
+        cardinality = Cardinality.TWO
+    elif 0 < unique_count < 20:
+        cardinality = Cardinality.VERY_FEW
+    elif 0 < unique_count < 60:
+        cardinality = Cardinality.FEW
+    elif unique_count is None or unique_count == 0 or pct_unique is None:
+        cardinality = Cardinality.NONE
+    elif pct_unique > 0.1:
+        cardinality = Cardinality.VERY_MANY
+    else:
+        cardinality = Cardinality.MANY
+    return cardinality
+
+
+@dataclasses.dataclass
+class _SingleColumnSpec:
+    column: str
+    column_profile: DatasetFieldProfileClass
+
+    type_: SparkDataType = NullType
+
+    unique_count: Optional[int] = None
+    non_null_count: Optional[int] = None
+    cardinality: Optional[Cardinality] = None
 
 
 class TableWrapper:
     spark: SparkSession
     dataframe: DataFrame
     analyzer: AnalysisRunBuilder
-    columns: List[str]
+    column_specs: List[_SingleColumnSpec]
+    row_count: int
 
-    def __init__(self, table, spark):
+    def __init__(self, dataframe, spark):
         self.spark = spark
-        self.dataframe = table
-        self.analyzer = AnalysisRunner(spark).onData(table).addAnalyzer(Size())
-        self.columns = table.columns
+        self.dataframe = dataframe
+        self.analyzer = AnalysisRunner(spark).onData(dataframe)
+        self.column_specs = []
+        self.row_count = dataframe.count()
+
+        # get column distinct counts
+        for column in dataframe.columns:
+            # TODO: add option for ApproxCountDistinct
+            self.analyzer.addAnalyzer(CountDistinct(column))
+        analysis_result = self.analyzer.run()
+        analysis_metrics = AnalyzerContext.successMetricsAsJson(
+            self.spark, analysis_result
+        )
+
+        # reshape distinct counts into dictionary
+        column_distinct_counts = {
+            x["instance"]: int(x["value"])
+            for x in analysis_metrics
+            if x["name"] == "CountDistinct"
+        }
+
+        # compute null counts and fractions
+        # cast to integer to allow isnan() – this is what Deequ does for completeness
+        # see https://github.com/awslabs/deequ/blob/master/src/main/scala/com/amazon/deequ/analyzers/Completeness.scala
+        # (this works for strings somehow)
+        null_counts = dataframe.select(
+            [
+                count(when(isnan(col(c).astype("int")) | col(c).isNull(), c)).alias(c)
+                for c in dataframe.columns
+            ]
+        )
+        column_null_counts = null_counts.toPandas().T[0].to_dict()
+        column_null_fractions = {
+            c: column_null_counts[c] / self.row_count for c in dataframe.columns
+        }
+
+        # init column specs with profiles
+        for column in dataframe.schema.fields:
+            column_profile = DatasetFieldProfileClass(fieldPath=column.name)
+
+            column_spec = _SingleColumnSpec(column.name, column_profile)
+
+            column_spec.type_ = column.dataType
+            column_spec.cardinality = _convert_to_cardinality(
+                column_distinct_counts[column.name], column_null_fractions[column.name]
+            )
+
+            self.column_specs.append(column_spec)
 
 
 # for a list of all types, see https://spark.apache.org/docs/3.0.3/api/python/_modules/pyspark/sql/types.html
@@ -197,76 +290,59 @@ class DataLakeSource(Source):
         config = DataLakeSourceConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
-    def calculate_null_count(self, table: TableWrapper):
-        if self.config.include_field_null_count:
-            # Deequ only has methods for getting null fraction, so we use Spark to get null count
-            null_counts = table.dataframe.select(
-                [count(when(isnan(c), c)).alias(c) for c in table.columns]
-            ).show()
-
+    def prep_min_value(self, table: TableWrapper, column: str) -> None:
+        if self.source_config.include_field_min_value:
+            table.analyzer.addAnalyzer(Minimum(column))
         return
 
-    def prep_min_value(self, table: TableWrapper):
-        if self.config.include_field_min_value:
-            for column in table.columns:
-                table.analyzer.addAnalyzer(Minimum(column))
+    def prep_max_value(self, table: TableWrapper, column: str) -> None:
+        if self.source_config.include_field_max_value:
+            table.analyzer.addAnalyzer(Maximum(column))
         return
 
-    def prep_max_value(self, table: TableWrapper):
-        if self.config.include_field_max_value:
-            for column in table.columns:
-                table.analyzer.addAnalyzer(Maximum(column))
+    def prep_mean_value(self, table: TableWrapper, column: str) -> None:
+        if self.source_config.include_field_mean_value:
+            table.analyzer.addAnalyzer(Mean(column))
         return
 
-    def prep_mean_value(self, table: TableWrapper):
-        if self.config.include_field_mean_value:
-            for column in table.columns:
-                table.analyzer.addAnalyzer(Mean(column))
+    def prep_median_value(self, table: TableWrapper, column: str) -> None:
+        if self.source_config.include_field_median_value:
+            table.analyzer.addAnalyzer(ApproxQuantile(column, 0.5))
         return
 
-    def prep_median_value(self, table: TableWrapper):
-        if self.config.include_field_median_value:
-            for column in table.columns:
-                table.analyzer.addAnalyzer(ApproxQuantile(column, 0.5))
+    def prep_stdev_value(self, table: TableWrapper, column: str) -> None:
+        if self.source_config.include_field_stddev_value:
+            table.analyzer.addAnalyzer(StandardDeviation(column))
         return
 
-    def prep_stdev_value(self, table: TableWrapper):
-        if self.config.include_field_stddev_value:
-            for column in table.columns:
-                table.analyzer.addAnalyzer(StandardDeviation(column))
+    def prep_quantiles(self, table: TableWrapper, column: str) -> None:
+        if self.source_config.include_field_quantiles:
+            table.analyzer.addAnalyzer(
+                ApproxQuantiles(column, [0.05, 0.25, 0.5, 0.75, 0.95])
+            )
         return
 
-    def prep_quantiles(self, table: TableWrapper):
-        if self.config.include_field_quantiles:
-            for column in table.columns:
-                table.analyzer.addAnalyzer(
-                    ApproxQuantiles(column, [0.05, 0.25, 0.5, 0.75, 0.95])
-                )
+    def prep_distinct_value_frequencies(self, table: TableWrapper, column: str) -> None:
+        if self.source_config.include_field_distinct_value_frequencies:
+            table.analyzer.addAnalyzer(Histogram(column))
         return
 
-    def prep_distinct_value_frequencies(self, table: TableWrapper):
-        if self.config.include_field_distinct_value_frequencies:
-            for column in table.columns:
-                table.analyzer.addAnalyzer(ApproxCountDistinct(column))
+    def prep_field_histogram(self, table: TableWrapper, column: str) -> None:
+        if self.source_config.include_field_histogram:
+            table.analyzer.addAnalyzer(Histogram(column))
         return
 
-    def prep_field_histogram(self, table: TableWrapper):
-        if self.config.include_field_histogram:
-            for column in table.columns:
-                table.analyzer.addAnalyzer(Histogram(column))
-        return
-
-    def calculate_sample_values(self, table: TableWrapper):
+    def calculate_sample_values(self, table: TableWrapper) -> None:
         num_rows_to_sample = 3
 
-        if self.config.include_field_sample_values:
+        if self.source_config.include_field_sample_values:
             rdd_sample = table.dataframe.rdd.takeSample(
                 False, num_rows_to_sample, seed=0
             )
 
-        return
+        return rdd_sample
 
-    def read_file(self, file: str, file_type: FileType):
+    def read_file(self, file: str, file_type: Optional[FileType]) -> DataFrame:
 
         if file_type is FileType.PARQUET:
             df = self.spark.read.parquet(file)
@@ -282,9 +358,110 @@ class DataLakeSource(Source):
 
         table = self.read_file(self.source_config.file, self.source_config.file_type)
 
+        # init PySpark analysis object
         analysis_table = TableWrapper(table, self.spark)
 
-        # analyzer_result = analysis_table.analyzer.run()
+        row_count = analysis_table.row_count
+
+        # loop through the columns and add the analyzers
+        for column_spec in analysis_table.column_specs:
+            column = column_spec.column
+            column_profile = column_spec.column_profile
+            type_ = column_spec.type_
+            cardinality = column_spec.cardinality
+
+            non_null_count = column_spec.non_null_count
+            unique_count = column_spec.unique_count
+
+            if (
+                self.source_config.include_field_null_count
+                and non_null_count is not None
+            ):
+                null_count = row_count - non_null_count
+                assert null_count >= 0
+                column_profile.nullCount = null_count
+                if row_count > 0:
+                    column_profile.nullProportion = null_count / row_count
+
+            if unique_count is not None:
+                column_profile.uniqueCount = unique_count
+                if non_null_count is not None and non_null_count > 0:
+                    column_profile.uniqueProportion = unique_count / non_null_count
+
+            # TODO: get sample values
+            if isinstance(
+                type_,
+                (
+                    DecimalType,
+                    DoubleType,
+                    FloatType,
+                    IntegerType,
+                    LongType,
+                    ShortType,
+                ),
+            ):
+                if cardinality == Cardinality.UNIQUE:
+                    pass
+                elif cardinality in [
+                    Cardinality.ONE,
+                    Cardinality.TWO,
+                    Cardinality.VERY_FEW,
+                    Cardinality.FEW,
+                ]:
+                    self.prep_distinct_value_frequencies(analysis_table, column)
+                elif cardinality in [
+                    Cardinality.MANY,
+                    Cardinality.VERY_MANY,
+                    Cardinality.UNIQUE,
+                ]:
+                    self.prep_min_value(analysis_table, column)
+                    self.prep_max_value(analysis_table, column)
+                    self.prep_mean_value(analysis_table, column)
+                    self.prep_median_value(analysis_table, column)
+                    self.prep_stdev_value(analysis_table, column)
+                    self.prep_quantiles(analysis_table, column)
+                    self.prep_field_histogram(analysis_table, column)
+                else:  # unknown cardinality - skip
+                    pass
+
+            elif isinstance(type_, StringType):
+                if cardinality in [
+                    Cardinality.ONE,
+                    Cardinality.TWO,
+                    Cardinality.VERY_FEW,
+                    Cardinality.FEW,
+                ]:
+                    self.prep_distinct_value_frequencies(
+                        analysis_table,
+                        column,
+                    )
+
+            elif isinstance(type_, (DateType, TimestampType)):
+                self.prep_min_value(analysis_table, column)
+                self.prep_max_value(analysis_table, column)
+
+                # FIXME: Re-add histogram once kl_divergence has been modified to support datetimes
+
+                if cardinality in [
+                    Cardinality.ONE,
+                    Cardinality.TWO,
+                    Cardinality.VERY_FEW,
+                    Cardinality.FEW,
+                ]:
+                    self.prep_distinct_value_frequencies(
+                        analysis_table,
+                        column,
+                    )
+
+        # run the analysis
+        analysis_result = analysis_table.analyzer.run()
+        analysis_metrics = AnalyzerContext.successMetricsAsDataFrame(
+            self.spark, analysis_result
+        )
+
+        from pprint import pprint
+
+        pprint(analysis_metrics.toPandas())
 
         datasetUrn = f"urn:li:dataset:(urn:li:dataPlatform:{self.source_config.platform},{self.source_config.file},{self.source_config.env})"
         dataset_snapshot = DatasetSnapshot(
@@ -300,12 +477,12 @@ class DataLakeSource(Source):
 
         column_fields = []
 
-        for column in analysis_table.dataframe.schema.fields:
+        for field in analysis_table.dataframe.schema.fields:
 
             field = SchemaField(
-                fieldPath=column.name,
-                type=get_column_type(self.report, "test", column.dataType),
-                nativeDataType=str(column.dataType),
+                fieldPath=field.name,
+                type=get_column_type(self.report, "test", field.dataType),
+                nativeDataType=str(field.dataType),
                 recursive=False,
             )
 

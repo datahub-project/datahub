@@ -22,9 +22,10 @@ def test_data_lake_ingest(pytestconfig, tmp_path, mock_time):
             "source": {
                 "type": "data-lake",
                 "config": {
+                    # from https://depmap.org/portal/download/, "Cell Line Sample Info"
                     "file": str(test_resources_dir / "test.csv"),
                     "file_type": "csv",
-                    "platform": "local"
+                    "platform": "local",
                 },
             },
             "sink": {
