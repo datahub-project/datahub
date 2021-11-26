@@ -10,7 +10,6 @@ from pydeequ.analyzers import (
     AnalysisRunBuilder,
     AnalysisRunner,
     AnalyzerContext,
-    ApproxCountDistinct,
     ApproxQuantile,
     ApproxQuantiles,
     CountDistinct,
@@ -42,7 +41,8 @@ from pyspark.sql.types import (
 )
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
-from datahub.emitter.mce_builder import DEFAULT_ENV
+from datahub.emitter.mce_builder import DEFAULT_ENV, get_sys_time
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -62,10 +62,15 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     TimeTypeClass,
 )
 from datahub.metadata.schema_classes import (
+    ChangeTypeClass,
     DatasetFieldProfileClass,
+    DatasetProfileClass,
     DatasetPropertiesClass,
+    HistogramClass,
     MapTypeClass,
     OtherSchemaClass,
+    QuantileClass,
+    ValueFrequencyClass,
 )
 
 logging.getLogger("py4j").setLevel(logging.ERROR)
@@ -200,7 +205,7 @@ class TableWrapper:
             if x["name"] == "CountDistinct"
         }
 
-        # compute null counts and fractions
+        # compute null counts and fractions manually since Deequ only reports fractions
         # cast to integer to allow isnan() – this is what Deequ does for completeness
         # see https://github.com/awslabs/deequ/blob/master/src/main/scala/com/amazon/deequ/analyzers/Completeness.scala
         # (this works for strings somehow)
@@ -236,7 +241,7 @@ _field_type_mapping = {
     BinaryType: BytesTypeClass,
     BooleanType: BooleanTypeClass,
     DateType: DateTypeClass,
-    TimestampType: DateTypeClass,
+    TimestampType: TimeTypeClass,
     DecimalType: NumberTypeClass,
     DoubleType: NumberTypeClass,
     FloatType: NumberTypeClass,
@@ -249,6 +254,18 @@ _field_type_mapping = {
     StructField: RecordTypeClass,
     StructType: RecordTypeClass,
 }
+
+# _deequ_profiler_to_profile = {
+#     "ApproxCountDistinct" : "uniqueCount",
+#     "ApproxQuantile": "median",
+#     "ApproxQuantiles": "quantiles",
+#     "CountDistinct": "",
+#     # "Histogram" : "histogram",
+#     "Maximum" : "max",
+#     "Mean" : "mean",
+#     "Minimum" :
+#     "StandardDeviation" :
+# }
 
 
 def get_column_type(
@@ -354,12 +371,68 @@ class DataLakeSource(Source):
 
         return df
 
-    def generate_profiles(self):
+    def get_table_schema(
+        self, analysis_table: TableWrapper
+    ) -> Iterable[MetadataWorkUnit]:
+
+        datasetUrn = f"urn:li:dataset:(urn:li:dataPlatform:{self.source_config.platform},{self.source_config.file},{self.source_config.env})"
+        dataset_snapshot = DatasetSnapshot(
+            urn=datasetUrn,
+            aspects=[],
+        )
+
+        dataset_properties = DatasetPropertiesClass(
+            description="",
+            customProperties={},
+        )
+        dataset_snapshot.aspects.append(dataset_properties)
+
+        column_fields = []
+
+        for field in analysis_table.dataframe.schema.fields:
+
+            field = SchemaField(
+                fieldPath=field.name,
+                type=get_column_type(self.report, "test", field.dataType),
+                nativeDataType=str(field.dataType),
+                recursive=False,
+            )
+
+            column_fields.append(field)
+
+        schema_metadata = SchemaMetadata(
+            schemaName="test",
+            platform=f"urn:li:dataPlatform:{self.source_config.platform}",
+            version=0,
+            hash="",
+            fields=column_fields,
+            platformSchema=OtherSchemaClass(rawSchema=""),
+        )
+
+        dataset_snapshot.aspects.append(schema_metadata)
+
+        mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
+        wu = MetadataWorkUnit(id=self.source_config.file, mce=mce)
+        self.report.report_workunit(wu)
+        yield wu
+
+    def generate_dataset_profile(self) -> Iterable[MetadataWorkUnit]:
+
+        profile = DatasetProfileClass(timestampMillis=get_sys_time())
+        profile.fieldProfiles = []
 
         table = self.read_file(self.source_config.file, self.source_config.file_type)
 
         # init PySpark analysis object
         analysis_table = TableWrapper(table, self.spark)
+
+        profile.rowCount = analysis_table.row_count
+        profile.columnCount = len(analysis_table.column_specs)
+
+        # yield the table schema first
+        yield from self.get_table_schema(analysis_table)
+
+        # TODO: implement ignored columns and max number of fields to profile
 
         row_count = analysis_table.row_count
 
@@ -458,54 +531,88 @@ class DataLakeSource(Source):
         analysis_metrics = AnalyzerContext.successMetricsAsDataFrame(
             self.spark, analysis_result
         )
+        analysis_metrics = analysis_metrics.toPandas()
+        # DataFrame with following columns:
+        #   entity: "Column" for column profile, "Table" for table profile
+        #   instance: name of column being profiled. "*" for table profiles
+        #   name: name of metric. Histogram metrics are formatted as "Histogram.<metric>.<value>"
+        #   value: value of metric
 
-        from pprint import pprint
+        column_metrics = analysis_metrics[analysis_metrics["entity"] == "Column"]
 
-        pprint(analysis_metrics.toPandas())
-
-        datasetUrn = f"urn:li:dataset:(urn:li:dataPlatform:{self.source_config.platform},{self.source_config.file},{self.source_config.env})"
-        dataset_snapshot = DatasetSnapshot(
-            urn=datasetUrn,
-            aspects=[],
+        # resolve histogram types for grouping
+        column_metrics["kind"] = column_metrics["name"].apply(
+            lambda x: "Histogram" if x.startswith("Histogram.") else x
         )
 
-        dataset_properties = DatasetPropertiesClass(
-            description="",
-            customProperties={},
-        )
-        dataset_snapshot.aspects.append(dataset_properties)
+        column_histogram_metrics = column_metrics[column_metrics["kind"] == "Histogram"]
+        column_nonhistogram_metrics = column_metrics[
+            column_metrics["kind"] != "Histogram"
+        ]
 
-        column_fields = []
-
-        for field in analysis_table.dataframe.schema.fields:
-
-            field = SchemaField(
-                fieldPath=field.name,
-                type=get_column_type(self.report, "test", field.dataType),
-                nativeDataType=str(field.dataType),
-                recursive=False,
+        # we only want the absolute counts for each histogram for now
+        column_histogram_metrics = column_histogram_metrics[
+            column_histogram_metrics["name"].apply(
+                lambda x: x.startswith("Histogram.abs.")
             )
-
-            column_fields.append(field)
-
-        schema_metadata = SchemaMetadata(
-            schemaName="test",
-            platform=f"urn:li:dataPlatform:{self.source_config.platform}",
-            version=0,
-            hash="",
-            fields=column_fields,
-            platformSchema=OtherSchemaClass(rawSchema=""),
+        ]
+        # get the histogram bins by chopping off the "Histogram.abs." prefix
+        column_histogram_metrics["bin"] = column_histogram_metrics["name"].apply(
+            lambda x: x[14:]
         )
 
-        dataset_snapshot.aspects.append(schema_metadata)
+        # reshape histogram counts for easier access
+        # histogram_counts = column_histogram_metrics.set_index(["instance", "bin"])[
+        # "value"
+        # ]
+        # reshape other metrics for easier access
+        nonhistogram_metrics = column_nonhistogram_metrics.set_index(
+            ["instance", "name"]
+        )["value"]
 
-        mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-        wu = MetadataWorkUnit(id=self.source_config.file, mce=mce)
+        profiled_columns = set(nonhistogram_metrics.index.get_level_values(0))
+        # histogram_columns = set(histogram_counts.index.get_level_values(0))
+
+        for column_spec in analysis_table.column_specs:
+            column = column_spec.column
+            column_profile = column_spec.column_profile
+
+            if column not in profiled_columns:
+                continue
+
+            # convert to Dict so we can use .get
+            deequ_column_profile = nonhistogram_metrics.loc[column].to_dict()
+
+            # column_profile.uniqueCount = deequ_column_profile.get("CountDistinct")
+            # column_profile.uniqueProportion = deequ_column_profile.get("CountDistinctProportion")
+            # column_profile.nullCount = deequ_column_profile.get("NullCount")
+            # column_profile.nullProportion = deequ_column_profile.get("NullProportion")
+            column_profile.min = deequ_column_profile.get("Minimum")
+            column_profile.max = deequ_column_profile.get("Maximum")
+            column_profile.mean = deequ_column_profile.get("Mean")
+            # column_profile.median = deequ_column_profile.get("Quantile")
+            column_profile.stdev = deequ_column_profile.get("StandardDeviation")
+            # column_profile.quantiles = deequ_column_profile.get("Quantiles")
+            # column_profile.distinctValueFrequencies = deequ_column_profile.get("DistinctValueFrequencies")
+            # column_profile.histogram = deequ_column_profile.get("Histogram")
+            # column_profile.sampleValues = deequ_column_profile.get("SampleValues")
+
+            # append the column profile to the dataset profile
+            profile.fieldProfiles.append(column_profile)
+
+        mcp = MetadataChangeProposalWrapper(
+            entityType="dataset",
+            entityUrn=f"urn:li:dataset:(urn:li:dataPlatform:{self.source_config.platform},{'test'},{self.source_config.env})",
+            changeType=ChangeTypeClass.UPSERT,
+            aspectName="datasetProfile",
+            aspect=profile,
+        )
+        wu = MetadataWorkUnit(id=f"profile-{'test'}", mcp=mcp)
         self.report.report_workunit(wu)
         yield wu
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        yield from self.generate_profiles()
+        yield from self.generate_dataset_profile()
 
     def get_report(self):
         return self.report
