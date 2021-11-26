@@ -166,7 +166,7 @@ public interface EntityClient {
    */
   @Nonnull
   public SearchResult searchAcrossEntities(
-      @Nullable List<String> entities,
+      @Nonnull List<String> entities,
       @Nonnull String input,
       @Nullable Filter filter,
       int start,
