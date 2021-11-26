@@ -26,9 +26,17 @@ f. Below, add a **Login Redirect URI**. This should be formatted as
 https://your-datahub-domain.com/callback/oidc
 ```
 
-If you're just testing locally, this can be `http://localhost:9002/callback/oidc`. 
+If you're just testing locally, this can be `http://localhost:9002/callback/oidc`.
 
-f. Click **Save**
+f. Below, add a **Logout Redirect URI**. This should be formatted as
+
+```
+https://your-datahub-domain.com
+```
+
+If you're just testing locally, this can be `http://localhost:9002`.
+
+g. Click **Save**
 
 
 ### 2. Obtain Client Credentials
