@@ -1,4 +1,4 @@
-run_id: mysql-test
+run_id: metabase-test
 
 source:
   type: "metabase"
@@ -6,6 +6,8 @@ source:
     username: admin@metabase.com
     password: admin12345
     connect_uri: http://localhost:3000/
+    database_alias_map:
+      h2: sample-dataset.db
 
 sink:
   type: file

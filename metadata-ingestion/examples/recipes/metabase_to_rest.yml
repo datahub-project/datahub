@@ -5,13 +5,11 @@ source:
     username: admin@metabase.com
     password: admin12345
     connect_uri: http://localhost:3000/
+    database_alias_map:
+      h2: sample-dataset.db
 
 # see https://datahubproject.io/docs/metadata-ingestion/sink_docs/datahub for complete documentation
 sink:
   type: "datahub-rest"
   config:
     server: "http://localhost:8080"
-
-## see https://datahubproject.io/docs/metadata-ingestion/sink_docs/console for complete documentation
-#sink:
-#  type: "console"

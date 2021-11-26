@@ -27,9 +27,25 @@
                             },
                             "deleted": null
                         },
-                        "dashboardUrl": "http://localhost:3000/api/dashboard/1",
+                        "dashboardUrl": "http://localhost:3000/dashboard/1",
                         "access": null,
                         "lastRefreshed": null
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [
+                            {
+                                "owner": "urn:li:corpuser:admin@metabase.com",
+                                "type": "DATAOWNER",
+                                "source": null
+                            }
+                        ],
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown",
+                            "impersonator": null
+                        }
                     }
                 }
             ]
@@ -38,7 +54,7 @@
     "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1636614000000,
-        "runId": "mysql-test",
+        "runId": "metabase-test",
         "properties": null
     }
 },
@@ -52,7 +68,7 @@
                     "com.linkedin.pegasus2avro.chart.ChartInfo": {
                         "customProperties": {
                             "Metrics": "Count",
-                            "Filters": "[, ]",
+                            "Filters": "",
                             "Dimensions": "Created At"
                         },
                         "externalUrl": null,
@@ -71,15 +87,31 @@
                             },
                             "deleted": null
                         },
-                        "chartUrl": "http://localhost:3000/api/card/1",
+                        "chartUrl": "http://localhost:3000/card/1",
                         "inputs": [
                             {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:h2,Sample Dataset.PUBLIC.PEOPLE,PROD)"
+                                "string": "urn:li:dataset:(urn:li:dataPlatform:h2,sample-dataset.db.PUBLIC.PEOPLE,PROD)"
                             }
                         ],
                         "type": "LINE",
                         "access": null,
                         "lastRefreshed": null
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [
+                            {
+                                "owner": "urn:li:corpuser:admin@metabase.com",
+                                "type": "DATAOWNER",
+                                "source": null
+                            }
+                        ],
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown",
+                            "impersonator": null
+                        }
                     }
                 }
             ]
@@ -88,7 +120,7 @@
     "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1636614000000,
-        "runId": "mysql-test",
+        "runId": "metabase-test",
         "properties": null
     }
 }

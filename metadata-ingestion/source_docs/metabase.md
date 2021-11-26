@@ -12,19 +12,42 @@ for more details on Metabase's login api.
 
 ## Capabilities
 
-This plugin extracts the following:
-
-- Charts, dashboards, and associated metadata
+This plugin extracts Charts, dashboards, and associated metadata. This plugin is in beta and has only been tested
+on PostgreSQL and H2 database.
 
 ### Dashboard
 
 [/api/dashboard](https://www.metabase.com/docs/latest/api-documentation.html#dashboard) endpoint is used to
-retrieve dashboard information.
+retrieve the following dashboard information.
+
+- Title and description
+- Last edited by
+- Owner
+- Link to the dashboard in Metabase
+- Associated charts
 
 ### Chart
 
 [/api/card](hhttps://www.metabase.com/docs/latest/api-documentation.html#card) endpoint is used to
-retrieve chart information.
+retrieve the following information.
+
+- Title and description
+- Last edited by
+- Owner
+- Link to the chart in Metabase
+- Datasource and lineage
+
+Lineage information is only available for charts having a direct single source, i.e table or view.
+For now lineage information for charts sourcing their data from a native SQL query is not supported.
+
+The following properties for a chart are ingested in DataHub.
+
+| Name          | Description                                     |
+| ------------- | ----------------------------------------------- |
+| `Dimensions`  | Column names                                    |
+| `Filters`     | Any filters applied to the chart                |
+| `Metrics`     | All columns that are being used for aggregation |
+
 
 ## Quickstart recipe
 
@@ -36,12 +59,16 @@ For general pointers on writing and running a recipe, see our [main recipe guide
 source:
   type: metabase
   config:
-    # Connection
+    # Coordinates
     connect_uri: http://localhost:3000
 
     # Credentials
     username: user
     password: pass
+    
+    # Options
+    database_alias_map:
+      h2: sample-dataset.db
 
 sink:
   # sink configs
@@ -49,18 +76,22 @@ sink:
 
 ## Config details
 
-Note that a `.` is used to denote nested fields in the YAML recipe.
 
-| Field         | Required | Default            | Description                                             |
-| ------------- | -------- | ------------------ | ------------------------------------------------------- |
-| `connect_uri` |          | `"localhost:8088"` | Metabase host URL.                                      |
-| `username`    |          |                    | Metabase username.                                      |
-| `password`    |          |                    | Metabase password.                                      |
-| `env`         |          | `"PROD"`           | Environment to use in namespace when constructing URNs. |
+| Field                 | Required | Default            | Description                                             |
+| --------------------- | -------- | ------------------ | ------------------------------------------------------- |
+| `connect_uri`         |    ✅     | `"localhost:8088"` | Metabase host URL.                                      |
+| `username`            |    ✅     |                    | Metabase username.                                      |
+| `password`            |    ✅     |                    | Metabase password.                                      |
+| `database_alias_map`* |          |                    | Database name map to use when constructing dataset URN. |
+| `env`                 |          | `"PROD"`           | Environment to use in namespace when constructing URNs. |
+
+DataHub will try to determine database name from Metabase [api/database](https://www.metabase.com/docs/latest/api-documentation.html#database)
+payload. However, the name can be overridden from this map for a given database connected to Metabase.
 
 ## Compatibility
 
-Coming soon!
+Metabase version [v0.41.2](https://www.metabase.com/start/oss/)
+
 
 ## Questions
 

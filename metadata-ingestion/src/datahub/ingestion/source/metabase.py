@@ -5,8 +5,8 @@ import dateutil.parser as dp
 import requests
 from pydantic.class_validators import validator
 
+import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigModel
-from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -25,6 +25,9 @@ from datahub.metadata.schema_classes import (
     ChartQueryTypeClass,
     ChartTypeClass,
     DashboardInfoClass,
+    OwnerClass,
+    OwnershipClass,
+    OwnershipTypeClass,
 )
 from datahub.utilities import config_clean
 
@@ -35,8 +38,9 @@ class MetabaseConfig(ConfigModel):
     connect_uri: str = "localhost:3000"
     username: Optional[str] = None
     password: Optional[str] = None
+    database_alias_map: Optional[dict] = None
     options: Dict = {}
-    env: str = DEFAULT_ENV
+    env: str = builder.DEFAULT_ENV
 
     @validator("connect_uri")
     def remove_trailing_slash(cls, v):
@@ -137,30 +141,55 @@ class MetabaseSource(Source):
             lastModified=AuditStamp(time=modified_ts, actor=modified_actor),
         )
 
-        card_urns = []
+        chart_urns = []
         cards_data = dashboard_details.get("ordered_cards", "{}")
         for card_info in cards_data:
-            card_urns.append(f"urn:li:chart:({self.platform},{card_info['id']})")
+            chart_urns.append(f"urn:li:chart:({self.platform},{card_info['id']})")
 
         dashboard_info_class = DashboardInfoClass(
             description=description,
             title=title,
-            charts=card_urns,
+            charts=chart_urns,
             lastModified=last_modified,
-            dashboardUrl=dashboard_url,
+            dashboardUrl=f"{self.config.connect_uri}/dashboard/{dashboard_info['id']}",
             customProperties={},
         )
         dashboard_snapshot.aspects.append(dashboard_info_class)
+
+        # Ownership
+        ownership = self._get_ownership(dashboard_details["creator_id"])
+        if ownership is not None:
+            dashboard_snapshot.aspects.append(ownership)
+
         return dashboard_snapshot
+
+    @lru_cache(maxsize=None)
+    def _get_ownership(self, creator_id: int) -> Optional[OwnershipClass]:
+        user_info_url = f"{self.config.connect_uri}/api/user/{creator_id}"
+        user_info_response = self.session.get(user_info_url)
+        user_details = user_info_response.json()
+        owner_urn = builder.make_user_urn(user_details["email"])
+        if owner_urn is not None:
+            ownership: OwnershipClass = OwnershipClass(
+                owners=[
+                    OwnerClass(
+                        owner=owner_urn,
+                        type=OwnershipTypeClass.DATAOWNER,
+                    )
+                ]
+            )
+            return ownership
+
+        return None
 
     def emit_card_mces(self) -> Iterable[MetadataWorkUnit]:
         card_response = self.session.get(f"{self.config.connect_uri}/api/card")
         payload = card_response.json()
         for card_info in payload:
-            card_snapshot = self.construct_card_from_api_data(card_info)
+            chart_snapshot = self.construct_card_from_api_data(card_info)
 
-            mce = MetadataChangeEvent(proposedSnapshot=card_snapshot)
-            wu = MetadataWorkUnit(id=card_snapshot.urn, mce=mce)
+            mce = MetadataChangeEvent(proposedSnapshot=chart_snapshot)
+            wu = MetadataWorkUnit(id=chart_snapshot.urn, mce=mce)
             self.report.report_workunit(wu)
 
             yield wu
@@ -170,9 +199,9 @@ class MetabaseSource(Source):
         card_response = self.session.get(card_url)
         card_details = card_response.json()
 
-        card_urn = f"urn:li:chart:({self.platform},{card_data['id']})"
-        card_snapshot = ChartSnapshot(
-            urn=card_urn,
+        chart_urn = f"urn:li:chart:({self.platform},{card_data['id']})"
+        chart_snapshot = ChartSnapshot(
+            urn=chart_urn,
             aspects=[],
         )
 
@@ -186,35 +215,42 @@ class MetabaseSource(Source):
             lastModified=AuditStamp(time=modified_ts, actor=modified_actor),
         )
 
-        card_type = self._get_card_type(card_details["id"], card_details.get("display"))
+        chart_type = self._get_chart_type(
+            card_details["id"], card_details.get("display")
+        )
         description = card_details.get("description") or ""
         title = card_details.get("name") or ""
         datasource_urn = self.get_datasource_urn(card_details)
         custom_properties = self.construct_card_custom_properties(card_details)
 
-        card_info = ChartInfoClass(
-            type=card_type,
+        chart_info = ChartInfoClass(
+            type=chart_type,
             description=description,
             title=title,
             lastModified=last_modified,
-            chartUrl=card_url,
-            inputs=[datasource_urn] if datasource_urn else None,
+            chartUrl=f"{self.config.connect_uri}/card/{card_data['id']}",
+            inputs=datasource_urn,
             customProperties=custom_properties,
         )
-        card_snapshot.aspects.append(card_info)
+        chart_snapshot.aspects.append(chart_info)
 
         if card_details["query_type"] == "native":
-            card_query_native = ChartQueryClass(
+            chart_query_native = ChartQueryClass(
                 rawQuery=card_details["dataset_query"]
                 .get("native", {})
                 .get("query", ""),
                 type=ChartQueryTypeClass.SQL,
             )
-            card_snapshot.aspects.append(card_query_native)
+            chart_snapshot.aspects.append(chart_query_native)
 
-        return card_snapshot
+        # Ownership
+        ownership = self._get_ownership(card_details["creator_id"])
+        if ownership is not None:
+            chart_snapshot.aspects.append(ownership)
 
-    def _get_card_type(self, card_id: int, display_type: str) -> Optional[str]:
+        return chart_snapshot
+
+    def _get_chart_type(self, card_id: int, display_type: str) -> Optional[str]:
         type_mapping = {
             "table": ChartTypeClass.TABLE,
             "bar": ChartTypeClass.BAR,
@@ -240,15 +276,15 @@ class MetabaseSource(Source):
             )
             return None
         try:
-            card_type = type_mapping[display_type]
+            chart_type = type_mapping[display_type]
         except KeyError:
             self.report.report_warning(
                 key=f"metabase-card-{card_id}",
                 reason=f"Chart type {display_type} not supported. Setting to None",
             )
-            card_type = None
+            chart_type = None
 
-        return card_type
+        return chart_type
 
     def construct_card_custom_properties(self, card_details: dict) -> Dict:
         result_metadata = card_details.get("result_metadata", [])
@@ -259,13 +295,11 @@ class MetabaseSource(Source):
                 "field_ref", ""
             ) else dimensions.append(display_name)
 
-        filters = str(
-            (card_details["dataset_query"].get("query", {})).get("filter", [])
-        )
+        filters = (card_details["dataset_query"].get("query", {})).get("filter", [])
 
         custom_properties = {
             "Metrics": ", ".join(metrics),
-            "Filters": ", ".join(filters),
+            "Filters": f"{filters}" if len(filters) else "",
             "Dimensions": ", ".join(dimensions),
         }
 
@@ -291,7 +325,7 @@ class MetabaseSource(Source):
                     f"{schema_name + '.' if schema_name else ''}"
                     f"{table_name},{self.config.env})"
                 )
-                return dataset_urn
+                return [dataset_urn]
         else:
             self.report.report_warning(
                 key=f"metabase-card-{card_details['id']}",
@@ -317,7 +351,48 @@ class MetabaseSource(Source):
             f"{self.config.connect_uri}/api/database/{datasource_id}"
         ).json()
 
-        return dataset_response["engine"], dataset_response["name"]
+        # Map engine names to what datahub expects in
+        # https://github.com/linkedin/datahub/blob/master/metadata-service/war/src/main/resources/boot/data_platforms.json
+        engine = dataset_response["engine"]
+        platform = engine
+
+        engine_mapping = {
+            "sparksql": "spark",
+            "mongo": "mongodb",
+            "presto-jdbc": "presto",
+            "sqlserver": "mssql",
+            "bigquery-cloud-sdk": "bigquery",
+        }
+        if engine in engine_mapping:
+            platform = engine_mapping[dataset_response["engine"]]
+
+        field_for_dbname_mapping = {
+            "postgres": "dbname",
+            "sparksql": "dbname",
+            "mongo": "dbname",
+            "redshift": "db",
+            "snowflake": "db",
+            "presto-jdbc": "catalog",
+            "presto": "catalog",
+            "mysql": "dbname",
+            "sqlserver": "db",
+        }
+
+        dbname = (
+            dataset_response.get("details", {}).get(
+                field_for_dbname_mapping[dataset_response["engine"]]
+            )
+            if engine in field_for_dbname_mapping
+            else None
+        )
+
+        if (
+            self.config.database_alias_map is not None
+            and platform in self.config.database_alias_map
+        ):
+            dbname = self.config.database_alias_map[platform]
+
+        return platform, dbname
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> Source:
