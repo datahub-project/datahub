@@ -284,6 +284,8 @@ _field_type_mapping = {
 #     "StandardDeviation" :
 # }
 
+QUANTILES = [0.05, 0.25, 0.5, 0.75, 0.95]
+
 
 def get_column_type(
     report: SourceReport, dataset_name: str, column_type: str
@@ -351,9 +353,7 @@ class DataLakeSource(Source):
 
     def prep_quantiles(self, table: TableWrapper, column: str) -> None:
         if self.source_config.include_field_quantiles:
-            table.analyzer.addAnalyzer(
-                ApproxQuantiles(column, [0.05, 0.25, 0.5, 0.75, 0.95])
-            )
+            table.analyzer.addAnalyzer(ApproxQuantiles(column, QUANTILES))
         return
 
     def prep_distinct_value_frequencies(self, table: TableWrapper, column: str) -> None:
@@ -597,6 +597,8 @@ class DataLakeSource(Source):
             if column not in profiled_columns:
                 continue
 
+            # breakpoint()
+
             # convert to Dict so we can use .get
             deequ_column_profile = nonhistogram_metrics.loc[column].to_dict()
 
@@ -604,11 +606,23 @@ class DataLakeSource(Source):
             column_profile.min = null_str(deequ_column_profile.get("Minimum"))
             column_profile.max = null_str(deequ_column_profile.get("Maximum"))
             column_profile.mean = null_str(deequ_column_profile.get("Mean"))
-            # column_profile.median = deequ_column_profile.get("Quantile")
+            column_profile.median = null_str(
+                deequ_column_profile.get("ApproxQuantiles-0.5")
+            )
             column_profile.stdev = null_str(
                 deequ_column_profile.get("StandardDeviation")
             )
-            # column_profile.quantiles = deequ_column_profile.get("Quantiles")
+            if all(
+                deequ_column_profile.get(f"ApproxQuantiles-{quantile}") is not None
+                for quantile in QUANTILES
+            ):
+                column_profile.quantiles = [
+                    QuantileClass(
+                        quantile=str(quantile),
+                        value=str(deequ_column_profile[f"ApproxQuantiles-{quantile}"]),
+                    )
+                    for quantile in QUANTILES
+                ]
             # column_profile.distinctValueFrequencies = deequ_column_profile.get("DistinctValueFrequencies")
             # column_profile.histogram = deequ_column_profile.get("Histogram")
             # column_profile.sampleValues = deequ_column_profile.get("SampleValues")
