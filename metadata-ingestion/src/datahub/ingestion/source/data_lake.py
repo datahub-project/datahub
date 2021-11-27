@@ -219,12 +219,24 @@ class TableWrapper:
         column_null_fractions = {
             c: column_null_counts[c] / self.row_count for c in dataframe.columns
         }
+        column_nonnull_counts = {
+            c: self.row_count - column_null_counts[c] for c in dataframe.columns
+        }
+        column_unique_proportions = {
+            c: column_distinct_counts[c] / column_nonnull_counts[c]
+            for c in dataframe.columns
+        }
 
         # init column specs with profiles
         for column in dataframe.schema.fields:
             column_profile = DatasetFieldProfileClass(fieldPath=column.name)
 
             column_spec = _SingleColumnSpec(column.name, column_profile)
+
+            column_profile.uniqueCount = column_distinct_counts.get(column.name)
+            column_profile.uniqueProportion = column_unique_proportions.get(column.name)
+            column_profile.nullCount = column_null_counts.get(column.name)
+            column_profile.nullProportion = column_null_fractions.get(column.name)
 
             column_spec.type_ = column.dataType
             column_spec.cardinality = _convert_to_cardinality(
@@ -583,10 +595,7 @@ class DataLakeSource(Source):
             # convert to Dict so we can use .get
             deequ_column_profile = nonhistogram_metrics.loc[column].to_dict()
 
-            # column_profile.uniqueCount = deequ_column_profile.get("CountDistinct")
-            # column_profile.uniqueProportion = deequ_column_profile.get("CountDistinctProportion")
-            # column_profile.nullCount = deequ_column_profile.get("NullCount")
-            # column_profile.nullProportion = deequ_column_profile.get("NullProportion")
+            # uniqueCount, uniqueProportion, nullCount, nullProportion already set in TableWrapper
             column_profile.min = deequ_column_profile.get("Minimum")
             column_profile.max = deequ_column_profile.get("Maximum")
             column_profile.mean = deequ_column_profile.get("Mean")
