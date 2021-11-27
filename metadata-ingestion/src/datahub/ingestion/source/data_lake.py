@@ -175,6 +175,11 @@ class _SingleColumnSpec:
     cardinality: Optional[Cardinality] = None
 
 
+def null_str(value: Any) -> Optional[str]:
+    # str() with a passthrough for None.
+    return str(value) if value is not None else None
+
+
 class TableWrapper:
     spark: SparkSession
     dataframe: DataFrame
@@ -596,11 +601,13 @@ class DataLakeSource(Source):
             deequ_column_profile = nonhistogram_metrics.loc[column].to_dict()
 
             # uniqueCount, uniqueProportion, nullCount, nullProportion already set in TableWrapper
-            column_profile.min = deequ_column_profile.get("Minimum")
-            column_profile.max = deequ_column_profile.get("Maximum")
-            column_profile.mean = deequ_column_profile.get("Mean")
+            column_profile.min = null_str(deequ_column_profile.get("Minimum"))
+            column_profile.max = null_str(deequ_column_profile.get("Maximum"))
+            column_profile.mean = null_str(deequ_column_profile.get("Mean"))
             # column_profile.median = deequ_column_profile.get("Quantile")
-            column_profile.stdev = deequ_column_profile.get("StandardDeviation")
+            column_profile.stdev = null_str(
+                deequ_column_profile.get("StandardDeviation")
+            )
             # column_profile.quantiles = deequ_column_profile.get("Quantiles")
             # column_profile.distinctValueFrequencies = deequ_column_profile.get("DistinctValueFrequencies")
             # column_profile.histogram = deequ_column_profile.get("Histogram")

@@ -1,5 +1,7 @@
 from typing import Iterable, Union
 
+from black import FileMode, format_str
+
 from datahub.emitter.mce_builder import get_sys_time
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api import RecordEnvelope
@@ -44,7 +46,7 @@ class WorkUnitRecordExtractor(Extractor):
                     raise AttributeError("every mce must have at least one aspect")
             if not workunit.metadata.validate():
                 raise ValueError(
-                    f"source produced an invalid metadata work unit: {workunit.metadata}"
+                    f"source produced an invalid metadata work unit: {format_str(str(workunit.metadata), mode=FileMode())}"
                 )
             yield RecordEnvelope(
                 workunit.metadata,
@@ -55,7 +57,7 @@ class WorkUnitRecordExtractor(Extractor):
         elif isinstance(workunit, UsageStatsWorkUnit):
             if not workunit.usageStats.validate():
                 raise ValueError(
-                    f"source produced an invalid usage stat: {workunit.usageStats}"
+                    f"source produced an invalid usage stat: {format_str(str(workunit.usageStats), mode=FileMode())}"
                 )
             yield RecordEnvelope(
                 workunit.usageStats,
