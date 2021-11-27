@@ -168,6 +168,9 @@ class _SingleColumnSpec:
     column: str
     column_profile: DatasetFieldProfileClass
 
+    # if the histogram is a list of value frequencies (discrete data) or bins (continuous data)
+    histogram_distinct: Optional[bool] = None
+
     type_: SparkDataType = NullType
 
     unique_count: Optional[int] = None
@@ -498,12 +501,14 @@ class DataLakeSource(Source):
                     Cardinality.VERY_FEW,
                     Cardinality.FEW,
                 ]:
+                    column_spec.histogram_distinct = True
                     self.prep_distinct_value_frequencies(analysis_table, column)
                 elif cardinality in [
                     Cardinality.MANY,
                     Cardinality.VERY_MANY,
                     Cardinality.UNIQUE,
                 ]:
+                    column_spec.histogram_distinct = False
                     self.prep_min_value(analysis_table, column)
                     self.prep_max_value(analysis_table, column)
                     self.prep_mean_value(analysis_table, column)
@@ -579,9 +584,9 @@ class DataLakeSource(Source):
         )
 
         # reshape histogram counts for easier access
-        # histogram_counts = column_histogram_metrics.set_index(["instance", "bin"])[
-        # "value"
-        # ]
+        histogram_counts = column_histogram_metrics.set_index(["instance", "bin"])[
+            "value"
+        ]
         # reshape other metrics for easier access
         nonhistogram_metrics = column_nonhistogram_metrics.set_index(
             ["instance", "name"]
@@ -623,8 +628,23 @@ class DataLakeSource(Source):
                     )
                     for quantile in QUANTILES
                 ]
-            # column_profile.distinctValueFrequencies = deequ_column_profile.get("DistinctValueFrequencies")
-            # column_profile.histogram = deequ_column_profile.get("Histogram")
+
+            if column in histogram_counts.index.get_level_values(0):
+
+                column_histogram = histogram_counts.loc[column]
+
+                if column_spec.histogram_distinct:
+
+                    column_profile.distinctValueFrequencies = [
+                        ValueFrequencyClass(
+                            value=value, frequency=int(column_histogram.loc[value])
+                        )
+                        for value in column_histogram.index
+                    ]
+
+                # column_profile.distinctValueFrequencies = deequ_column_profile.get("DistinctValueFrequencies")
+                # column_profile.histogram = deequ_column_profile.get("Histogram")
+
             # column_profile.sampleValues = deequ_column_profile.get("SampleValues")
 
             # append the column profile to the dataset profile
