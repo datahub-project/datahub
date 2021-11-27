@@ -366,7 +366,7 @@ class DataLakeSource(Source):
 
     def prep_field_histogram(self, table: TableWrapper, column: str) -> None:
         if self.source_config.include_field_histogram:
-            table.analyzer.addAnalyzer(Histogram(column))
+            table.analyzer.addAnalyzer(Histogram(column, maxDetailBins=100))
         return
 
     def calculate_sample_values(self, table: TableWrapper) -> None:
@@ -641,6 +641,13 @@ class DataLakeSource(Source):
                         )
                         for value in column_histogram.index
                     ]
+
+                else:
+
+                    column_profile.histogram = HistogramClass(
+                        [str(x) for x in column_histogram.index],
+                        [float(x) for x in column_histogram],
+                    )
 
                 # column_profile.distinctValueFrequencies = deequ_column_profile.get("DistinctValueFrequencies")
                 # column_profile.histogram = deequ_column_profile.get("Histogram")
