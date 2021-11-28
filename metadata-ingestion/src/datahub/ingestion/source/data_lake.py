@@ -73,54 +73,21 @@ from datahub.metadata.schema_classes import (
     ValueFrequencyClass,
 )
 
+# hide annoying debug errors from py4j
 logging.getLogger("py4j").setLevel(logging.ERROR)
+logger: logging.Logger = logging.getLogger(__name__)
+
+
+NUM_SAMPLE_ROWS = 3
+QUANTILES = [0.05, 0.25, 0.5, 0.75, 0.95]
 
 
 class FileType(Enum):
     PARQUET = "parquet"
     CSV = "csv"
-
-
-class DataLakeSourceConfig(ConfigModel):
-
-    env: str = DEFAULT_ENV
-
-    file: str
-    file_type: Optional[FileType] = None
-    platform: str
-
-    limit: Optional[int] = None
-    offset: Optional[int] = None
-
-    # These settings will override the ones below.
-    turn_off_expensive_profiling_metrics: bool = False
-    profile_table_level_only: bool = False
-
-    include_field_null_count: bool = True
-    include_field_min_value: bool = True
-    include_field_max_value: bool = True
-    include_field_mean_value: bool = True
-    include_field_median_value: bool = True
-    include_field_stddev_value: bool = True
-    include_field_quantiles: bool = True
-    include_field_distinct_value_frequencies: bool = True
-    include_field_histogram: bool = True
-    include_field_sample_values: bool = True
-
-    allow_deny_patterns: AllowDenyPattern = AllowDenyPattern.allow_all()
-    max_number_of_fields_to_profile: Optional[pydantic.PositiveInt] = None
-
-
-@dataclasses.dataclass
-class DataLakeSourceReport(SourceReport):
-    files_scanned = 0
-    filtered: List[str] = dataclass_field(default_factory=list)
-
-    def report_file_scanned(self) -> None:
-        self.files_scanned += 1
-
-    def report_file_dropped(self, file: str) -> None:
-        self.filtered.append(file)
+    JSON = "json"
+    AVRO = "avro"
+    ORC = "orc"
 
 
 class Cardinality(Enum):
@@ -137,9 +104,19 @@ class Cardinality(Enum):
 def _convert_to_cardinality(
     unique_count: Optional[int], pct_unique: Optional[float]
 ) -> Optional[Cardinality]:
-    # Logic adopted from Great Expectations.
+    """
+    Resolve the cardinality of a column based on the unique count and the percentage of unique values.
 
-    # See https://github.com/great-expectations/great_expectations/blob/develop/great_expectations/profile/base.py
+    Logic adopted from Great Expectations.
+    See https://github.com/great-expectations/great_expectations/blob/develop/great_expectations/profile/base.py
+
+    Args:
+        unique_count: raw number of unique values
+        pct_unique: raw proportion of unique values
+
+    Returns:
+        Optional[Cardinality]: resolved cardinality
+    """
 
     if unique_count is None:
         return Cardinality.NONE
@@ -163,6 +140,52 @@ def _convert_to_cardinality(
     return cardinality
 
 
+def null_str(value: Any) -> Optional[str]:
+    # str() with a passthrough for None.
+    return str(value) if value is not None else None
+
+
+# for a list of all types, see https://spark.apache.org/docs/3.0.3/api/python/_modules/pyspark/sql/types.html
+_field_type_mapping = {
+    NullType: NullTypeClass,
+    StringType: StringTypeClass,
+    BinaryType: BytesTypeClass,
+    BooleanType: BooleanTypeClass,
+    DateType: DateTypeClass,
+    TimestampType: TimeTypeClass,
+    DecimalType: NumberTypeClass,
+    DoubleType: NumberTypeClass,
+    FloatType: NumberTypeClass,
+    ByteType: BytesTypeClass,
+    IntegerType: NumberTypeClass,
+    LongType: NumberTypeClass,
+    ShortType: NumberTypeClass,
+    ArrayType: NullTypeClass,
+    MapType: MapTypeClass,
+    StructField: RecordTypeClass,
+    StructType: RecordTypeClass,
+}
+
+
+def get_column_type(
+    report: SourceReport, dataset_name: str, column_type: str
+) -> SchemaFieldDataType:
+    """
+    Maps known Spark types to datahub types
+    """
+    TypeClass: Any = _field_type_mapping.get(column_type)
+
+    # if still not found, report the warning
+    if TypeClass is None:
+
+        report.report_warning(
+            dataset_name, f"unable to map type {column_type} to metadata schema"
+        )
+        TypeClass = NullTypeClass
+
+    return SchemaFieldDataType(type=TypeClass())
+
+
 @dataclasses.dataclass
 class _SingleColumnSpec:
     column: str
@@ -176,14 +199,6 @@ class _SingleColumnSpec:
     unique_count: Optional[int] = None
     non_null_count: Optional[int] = None
     cardinality: Optional[Cardinality] = None
-
-
-def null_str(value: Any) -> Optional[str]:
-    # str() with a passthrough for None.
-    return str(value) if value is not None else None
-
-
-NUM_SAMPLE_ROWS = 3
 
 
 class TableWrapper:
@@ -262,59 +277,46 @@ class TableWrapper:
             self.column_specs.append(column_spec)
 
 
-# for a list of all types, see https://spark.apache.org/docs/3.0.3/api/python/_modules/pyspark/sql/types.html
-_field_type_mapping = {
-    NullType: NullTypeClass,
-    StringType: StringTypeClass,
-    BinaryType: BytesTypeClass,
-    BooleanType: BooleanTypeClass,
-    DateType: DateTypeClass,
-    TimestampType: TimeTypeClass,
-    DecimalType: NumberTypeClass,
-    DoubleType: NumberTypeClass,
-    FloatType: NumberTypeClass,
-    ByteType: BytesTypeClass,
-    IntegerType: NumberTypeClass,
-    LongType: NumberTypeClass,
-    ShortType: NumberTypeClass,
-    ArrayType: NullTypeClass,
-    MapType: MapTypeClass,
-    StructField: RecordTypeClass,
-    StructType: RecordTypeClass,
-}
+class DataLakeSourceConfig(ConfigModel):
 
-# _deequ_profiler_to_profile = {
-#     "ApproxCountDistinct" : "uniqueCount",
-#     "ApproxQuantile": "median",
-#     "ApproxQuantiles": "quantiles",
-#     "CountDistinct": "",
-#     # "Histogram" : "histogram",
-#     "Maximum" : "max",
-#     "Mean" : "mean",
-#     "Minimum" :
-#     "StandardDeviation" :
-# }
+    env: str = DEFAULT_ENV
 
-QUANTILES = [0.05, 0.25, 0.5, 0.75, 0.95]
+    file: str
+    file_type: Optional[FileType] = None
+    platform: str
+
+    limit: Optional[int] = None
+    offset: Optional[int] = None
+
+    # These settings will override the ones below.
+    turn_off_expensive_profiling_metrics: bool = False
+    profile_table_level_only: bool = False
+
+    include_field_null_count: bool = True
+    include_field_min_value: bool = True
+    include_field_max_value: bool = True
+    include_field_mean_value: bool = True
+    include_field_median_value: bool = True
+    include_field_stddev_value: bool = True
+    include_field_quantiles: bool = True
+    include_field_distinct_value_frequencies: bool = True
+    include_field_histogram: bool = True
+    include_field_sample_values: bool = True
+
+    allow_deny_patterns: AllowDenyPattern = AllowDenyPattern.allow_all()
+    max_number_of_fields_to_profile: Optional[pydantic.PositiveInt] = None
 
 
-def get_column_type(
-    report: SourceReport, dataset_name: str, column_type: str
-) -> SchemaFieldDataType:
-    """
-    Maps known Spark types to datahub types
-    """
-    TypeClass: Any = _field_type_mapping.get(column_type)
+@dataclasses.dataclass
+class DataLakeSourceReport(SourceReport):
+    files_scanned = 0
+    filtered: List[str] = dataclass_field(default_factory=list)
 
-    # if still not found, report the warning
-    if TypeClass is None:
+    def report_file_scanned(self) -> None:
+        self.files_scanned += 1
 
-        report.report_warning(
-            dataset_name, f"unable to map type {column_type} to metadata schema"
-        )
-        TypeClass = NullTypeClass
-
-    return SchemaFieldDataType(type=TypeClass())
+    def report_file_dropped(self, file: str) -> None:
+        self.filtered.append(file)
 
 
 class DataLakeSource(Source):
@@ -377,16 +379,6 @@ class DataLakeSource(Source):
             table.analyzer.addAnalyzer(Histogram(column, maxDetailBins=100))
         return
 
-    # def calculate_sample_values(self, table: TableWrapper) -> None:
-    #     num_rows_to_sample = 3
-
-    #     if self.source_config.include_field_sample_values:
-    #         rdd_sample = table.dataframe.rdd.takeSample(
-    #             False, num_rows_to_sample, seed=0
-    #         )
-
-    #     return rdd_sample
-
     def read_file(self, file: str, file_type: Optional[FileType]) -> DataFrame:
 
         if file_type is FileType.PARQUET:
@@ -444,23 +436,7 @@ class DataLakeSource(Source):
         self.report.report_workunit(wu)
         yield wu
 
-    def generate_dataset_profile(self) -> Iterable[MetadataWorkUnit]:
-
-        profile = DatasetProfileClass(timestampMillis=get_sys_time())
-        profile.fieldProfiles = []
-
-        table = self.read_file(self.source_config.file, self.source_config.file_type)
-
-        # init PySpark analysis object
-        analysis_table = TableWrapper(table, self.spark)
-
-        profile.rowCount = analysis_table.row_count
-        profile.columnCount = len(analysis_table.column_specs)
-
-        # yield the table schema first
-        yield from self.get_table_schema(analysis_table)
-
-        # TODO: implement ignored columns and max number of fields to profile
+    def prepare_table_profiles(self, analysis_table: TableWrapper) -> None:
 
         row_count = analysis_table.row_count
 
@@ -556,11 +532,14 @@ class DataLakeSource(Source):
                         column,
                     )
 
-        # run the analysis
-        analysis_result = analysis_table.analyzer.run()
-        analysis_metrics = AnalyzerContext.successMetricsAsDataFrame(
-            self.spark, analysis_result
-        )
+    def extract_table_profiles(
+        self,
+        analysis_table: TableWrapper,
+        analysis_metrics: DataFrame,
+        profile: DatasetProfileClass,
+    ) -> None:
+        profile.fieldProfiles = []
+
         analysis_metrics = analysis_metrics.toPandas()
         # DataFrame with following columns:
         #   entity: "Column" for column profile, "Table" for table profile
@@ -613,7 +592,7 @@ class DataLakeSource(Source):
             # convert to Dict so we can use .get
             deequ_column_profile = nonhistogram_metrics.loc[column].to_dict()
 
-            # uniqueCount, uniqueProportion, nullCount, nullProportion already set in TableWrapper
+            # uniqueCount, uniqueProportion, nullCount, nullProportion, sampleValues already set in TableWrapper
             column_profile.min = null_str(deequ_column_profile.get("Minimum"))
             column_profile.max = null_str(deequ_column_profile.get("Maximum"))
             column_profile.mean = null_str(deequ_column_profile.get("Mean"))
@@ -655,13 +634,41 @@ class DataLakeSource(Source):
                         [float(x) for x in column_histogram],
                     )
 
-                # column_profile.distinctValueFrequencies = deequ_column_profile.get("DistinctValueFrequencies")
-                # column_profile.histogram = deequ_column_profile.get("Histogram")
-
-            # column_profile.sampleValues = deequ_column_profile.get("SampleValues")
-
             # append the column profile to the dataset profile
             profile.fieldProfiles.append(column_profile)
+
+    def profile_table(self) -> Iterable[MetadataWorkUnit]:
+
+        profile = DatasetProfileClass(timestampMillis=get_sys_time())
+
+        table = self.read_file(self.source_config.file, self.source_config.file_type)
+
+        # init PySpark analysis object
+        logger.debug(
+            f"Profiling {self.source_config.file}: reading file and computing nulls+uniqueness"
+        )
+        analysis_table = TableWrapper(table, self.spark)
+
+        profile.rowCount = analysis_table.row_count
+        profile.columnCount = len(analysis_table.column_specs)
+
+        # yield the table schema first
+        logger.debug(f"Profiling {self.source_config.file}: making table schemas")
+        yield from self.get_table_schema(analysis_table)
+
+        # TODO: implement ignored columns and max number of fields to profile
+        logger.debug(f"Profiling {self.source_config.file}: preparing profilers to run")
+        self.prepare_table_profiles(analysis_table)
+
+        # compute the profiles
+        logger.debug(f"Profiling {self.source_config.file}: computing profiles")
+        analysis_result = analysis_table.analyzer.run()
+        analysis_metrics = AnalyzerContext.successMetricsAsDataFrame(
+            self.spark, analysis_result
+        )
+
+        logger.debug(f"Profiling {self.source_config.file}: extracting profiles")
+        self.extract_table_profiles(analysis_table, analysis_metrics, profile)
 
         mcp = MetadataChangeProposalWrapper(
             entityType="dataset",
@@ -675,7 +682,7 @@ class DataLakeSource(Source):
         yield wu
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        yield from self.generate_dataset_profile()
+        yield from self.profile_table()
 
     def get_report(self):
         return self.report
