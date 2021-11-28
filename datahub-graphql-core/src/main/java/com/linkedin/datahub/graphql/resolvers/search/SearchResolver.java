@@ -1,6 +1,5 @@
 package com.linkedin.datahub.graphql.resolvers.search;
 
-import com.linkedin.datahub.graphql.exception.ValidationException;
 import com.linkedin.datahub.graphql.generated.SearchInput;
 import com.linkedin.datahub.graphql.generated.SearchResults;
 import com.linkedin.datahub.graphql.resolvers.EntityTypeMapper;
@@ -14,7 +13,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
-import static org.apache.commons.lang3.StringUtils.isBlank;
 
 
 /**
