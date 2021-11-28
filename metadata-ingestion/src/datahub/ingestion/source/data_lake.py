@@ -183,6 +183,9 @@ def null_str(value: Any) -> Optional[str]:
     return str(value) if value is not None else None
 
 
+NUM_SAMPLE_ROWS = 3
+
+
 class TableWrapper:
     spark: SparkSession
     dataframe: DataFrame
@@ -235,6 +238,10 @@ class TableWrapper:
             for c in dataframe.columns
         }
 
+        # take sample and convert to Pandas DataFrame
+        rdd_sample = dataframe.rdd.takeSample(False, NUM_SAMPLE_ROWS, seed=0)
+        rdd_sample = spark.sparkContext.parallelize(rdd_sample).toDF().toPandas()
+
         # init column specs with profiles
         for column in dataframe.schema.fields:
             column_profile = DatasetFieldProfileClass(fieldPath=column.name)
@@ -245,6 +252,7 @@ class TableWrapper:
             column_profile.uniqueProportion = column_unique_proportions.get(column.name)
             column_profile.nullCount = column_null_counts.get(column.name)
             column_profile.nullProportion = column_null_fractions.get(column.name)
+            column_profile.sampleValues = [str(x) for x in rdd_sample[column.name]]
 
             column_spec.type_ = column.dataType
             column_spec.cardinality = _convert_to_cardinality(
@@ -369,15 +377,15 @@ class DataLakeSource(Source):
             table.analyzer.addAnalyzer(Histogram(column, maxDetailBins=100))
         return
 
-    def calculate_sample_values(self, table: TableWrapper) -> None:
-        num_rows_to_sample = 3
+    # def calculate_sample_values(self, table: TableWrapper) -> None:
+    #     num_rows_to_sample = 3
 
-        if self.source_config.include_field_sample_values:
-            rdd_sample = table.dataframe.rdd.takeSample(
-                False, num_rows_to_sample, seed=0
-            )
+    #     if self.source_config.include_field_sample_values:
+    #         rdd_sample = table.dataframe.rdd.takeSample(
+    #             False, num_rows_to_sample, seed=0
+    #         )
 
-        return rdd_sample
+    #     return rdd_sample
 
     def read_file(self, file: str, file_type: Optional[FileType]) -> DataFrame:
 
@@ -601,8 +609,6 @@ class DataLakeSource(Source):
 
             if column not in profiled_columns:
                 continue
-
-            # breakpoint()
 
             # convert to Dict so we can use .get
             deequ_column_profile = nonhistogram_metrics.loc[column].to_dict()
