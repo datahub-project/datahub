@@ -59,9 +59,7 @@ kafka_common = {
 sql_common = {
     # Required for all SQL sources.
     "sqlalchemy==1.3.24",
-    # Required for SQL profiling.
     "great-expectations",
-    "greenlet",
 }
 
 aws_common = {
