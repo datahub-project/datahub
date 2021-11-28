@@ -201,19 +201,61 @@ class _SingleColumnSpec:
     cardinality: Optional[Cardinality] = None
 
 
-class TableWrapper:
+class DataLakeSourceConfig(ConfigModel):
+
+    env: str = DEFAULT_ENV
+
+    file: str
+    file_type: Optional[FileType] = None
+    platform: str
+
+    limit: Optional[int] = None
+    offset: Optional[int] = None
+
+    # These settings will override the ones below.
+    turn_off_expensive_profiling_metrics: bool = False
+    profile_table_level_only: bool = False
+
+    include_field_null_count: bool = True
+    include_field_min_value: bool = True
+    include_field_max_value: bool = True
+    include_field_mean_value: bool = True
+    include_field_median_value: bool = True
+    include_field_stddev_value: bool = True
+    include_field_quantiles: bool = True
+    include_field_distinct_value_frequencies: bool = True
+    include_field_histogram: bool = True
+    include_field_sample_values: bool = True
+
+    allow_deny_patterns: AllowDenyPattern = AllowDenyPattern.allow_all()
+    max_number_of_fields_to_profile: Optional[pydantic.PositiveInt] = None
+
+
+class _SingleTableProfiler:
     spark: SparkSession
     dataframe: DataFrame
     analyzer: AnalysisRunBuilder
     column_specs: List[_SingleColumnSpec]
     row_count: int
+    source_config: DataLakeSourceConfig
+    columns_to_profile: List[str] = []
+    profile = DatasetProfileClass(timestampMillis=get_sys_time())
 
-    def __init__(self, dataframe, spark):
+    def __init__(
+        self,
+        dataframe: DataFrame,
+        spark: SparkSession,
+        source_config: DataLakeSourceConfig,
+    ):
         self.spark = spark
         self.dataframe = dataframe
         self.analyzer = AnalysisRunner(spark).onData(dataframe)
         self.column_specs = []
         self.row_count = dataframe.count()
+        self.source_config = source_config
+
+        self.profile.rowCount = self.row_count
+        self.profile.columnCount = len(dataframe.columns)
 
         # get column distinct counts
         for column in dataframe.columns:
@@ -276,172 +318,52 @@ class TableWrapper:
 
             self.column_specs.append(column_spec)
 
-
-class DataLakeSourceConfig(ConfigModel):
-
-    env: str = DEFAULT_ENV
-
-    file: str
-    file_type: Optional[FileType] = None
-    platform: str
-
-    limit: Optional[int] = None
-    offset: Optional[int] = None
-
-    # These settings will override the ones below.
-    turn_off_expensive_profiling_metrics: bool = False
-    profile_table_level_only: bool = False
-
-    include_field_null_count: bool = True
-    include_field_min_value: bool = True
-    include_field_max_value: bool = True
-    include_field_mean_value: bool = True
-    include_field_median_value: bool = True
-    include_field_stddev_value: bool = True
-    include_field_quantiles: bool = True
-    include_field_distinct_value_frequencies: bool = True
-    include_field_histogram: bool = True
-    include_field_sample_values: bool = True
-
-    allow_deny_patterns: AllowDenyPattern = AllowDenyPattern.allow_all()
-    max_number_of_fields_to_profile: Optional[pydantic.PositiveInt] = None
-
-
-@dataclasses.dataclass
-class DataLakeSourceReport(SourceReport):
-    files_scanned = 0
-    filtered: List[str] = dataclass_field(default_factory=list)
-
-    def report_file_scanned(self) -> None:
-        self.files_scanned += 1
-
-    def report_file_dropped(self, file: str) -> None:
-        self.filtered.append(file)
-
-
-class DataLakeSource(Source):
-    source_config: DataLakeSourceConfig
-    report = DataLakeSourceReport()
-
-    def __init__(self, config: DataLakeSourceConfig, ctx: PipelineContext):
-        super().__init__(ctx)
-        self.source_config = config
-        self.spark = (
-            SparkSession.builder.config(
-                "spark.jars.packages", pydeequ.deequ_maven_coord
-            )
-            .config("spark.jars.excludes", pydeequ.f2j_maven_coord)
-            .getOrCreate()
-        )
-
-    @classmethod
-    def create(cls, config_dict, ctx):
-        config = DataLakeSourceConfig.parse_obj(config_dict)
-        return cls(config, ctx)
-
-    def prep_min_value(self, table: TableWrapper, column: str) -> None:
+    def prep_min_value(self, column: str) -> None:
         if self.source_config.include_field_min_value:
-            table.analyzer.addAnalyzer(Minimum(column))
+            self.analyzer.addAnalyzer(Minimum(column))
         return
 
-    def prep_max_value(self, table: TableWrapper, column: str) -> None:
+    def prep_max_value(self, column: str) -> None:
         if self.source_config.include_field_max_value:
-            table.analyzer.addAnalyzer(Maximum(column))
+            self.analyzer.addAnalyzer(Maximum(column))
         return
 
-    def prep_mean_value(self, table: TableWrapper, column: str) -> None:
+    def prep_mean_value(self, column: str) -> None:
         if self.source_config.include_field_mean_value:
-            table.analyzer.addAnalyzer(Mean(column))
+            self.analyzer.addAnalyzer(Mean(column))
         return
 
-    def prep_median_value(self, table: TableWrapper, column: str) -> None:
+    def prep_median_value(self, column: str) -> None:
         if self.source_config.include_field_median_value:
-            table.analyzer.addAnalyzer(ApproxQuantile(column, 0.5))
+            self.analyzer.addAnalyzer(ApproxQuantile(column, 0.5))
         return
 
-    def prep_stdev_value(self, table: TableWrapper, column: str) -> None:
+    def prep_stdev_value(self, column: str) -> None:
         if self.source_config.include_field_stddev_value:
-            table.analyzer.addAnalyzer(StandardDeviation(column))
+            self.analyzer.addAnalyzer(StandardDeviation(column))
         return
 
-    def prep_quantiles(self, table: TableWrapper, column: str) -> None:
+    def prep_quantiles(self, column: str) -> None:
         if self.source_config.include_field_quantiles:
-            table.analyzer.addAnalyzer(ApproxQuantiles(column, QUANTILES))
+            self.analyzer.addAnalyzer(ApproxQuantiles(column, QUANTILES))
         return
 
-    def prep_distinct_value_frequencies(self, table: TableWrapper, column: str) -> None:
+    def prep_distinct_value_frequencies(self, column: str) -> None:
         if self.source_config.include_field_distinct_value_frequencies:
-            table.analyzer.addAnalyzer(Histogram(column))
+            self.analyzer.addAnalyzer(Histogram(column))
         return
 
-    def prep_field_histogram(self, table: TableWrapper, column: str) -> None:
+    def prep_field_histogram(self, column: str) -> None:
         if self.source_config.include_field_histogram:
-            table.analyzer.addAnalyzer(Histogram(column, maxDetailBins=100))
+            self.analyzer.addAnalyzer(Histogram(column, maxDetailBins=100))
         return
 
-    def read_file(self, file: str, file_type: Optional[FileType]) -> DataFrame:
+    def prepare_table_profiles(self) -> None:
 
-        if file_type is FileType.PARQUET:
-            df = self.spark.read.parquet(file)
-        elif file_type is FileType.CSV:
-            # see https://sparkbyexamples.com/pyspark/pyspark-read-csv-file-into-dataframe
-            df = self.spark.read.csv(file, header="True", inferSchema="True")
-        else:
-            raise ValueError("File type not found")
-
-        return df
-
-    def get_table_schema(
-        self, analysis_table: TableWrapper
-    ) -> Iterable[MetadataWorkUnit]:
-
-        datasetUrn = f"urn:li:dataset:(urn:li:dataPlatform:{self.source_config.platform},{self.source_config.file},{self.source_config.env})"
-        dataset_snapshot = DatasetSnapshot(
-            urn=datasetUrn,
-            aspects=[],
-        )
-
-        dataset_properties = DatasetPropertiesClass(
-            description="",
-            customProperties={},
-        )
-        dataset_snapshot.aspects.append(dataset_properties)
-
-        column_fields = []
-
-        for field in analysis_table.dataframe.schema.fields:
-
-            field = SchemaField(
-                fieldPath=field.name,
-                type=get_column_type(self.report, "test", field.dataType),
-                nativeDataType=str(field.dataType),
-                recursive=False,
-            )
-
-            column_fields.append(field)
-
-        schema_metadata = SchemaMetadata(
-            schemaName="test",
-            platform=f"urn:li:dataPlatform:{self.source_config.platform}",
-            version=0,
-            hash="",
-            fields=column_fields,
-            platformSchema=OtherSchemaClass(rawSchema=""),
-        )
-
-        dataset_snapshot.aspects.append(schema_metadata)
-
-        mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-        wu = MetadataWorkUnit(id=self.source_config.file, mce=mce)
-        self.report.report_workunit(wu)
-        yield wu
-
-    def prepare_table_profiles(self, analysis_table: TableWrapper) -> None:
-
-        row_count = analysis_table.row_count
+        row_count = self.row_count
 
         # loop through the columns and add the analyzers
-        for column_spec in analysis_table.column_specs:
+        for column_spec in self.column_specs:
             column = column_spec.column
             column_profile = column_spec.column_profile
             type_ = column_spec.type_
@@ -465,7 +387,6 @@ class DataLakeSource(Source):
                 if non_null_count is not None and non_null_count > 0:
                     column_profile.uniqueProportion = unique_count / non_null_count
 
-            # TODO: get sample values
             if isinstance(
                 type_,
                 (
@@ -486,20 +407,20 @@ class DataLakeSource(Source):
                     Cardinality.FEW,
                 ]:
                     column_spec.histogram_distinct = True
-                    self.prep_distinct_value_frequencies(analysis_table, column)
+                    self.prep_distinct_value_frequencies(column)
                 elif cardinality in [
                     Cardinality.MANY,
                     Cardinality.VERY_MANY,
                     Cardinality.UNIQUE,
                 ]:
                     column_spec.histogram_distinct = False
-                    self.prep_min_value(analysis_table, column)
-                    self.prep_max_value(analysis_table, column)
-                    self.prep_mean_value(analysis_table, column)
-                    self.prep_median_value(analysis_table, column)
-                    self.prep_stdev_value(analysis_table, column)
-                    self.prep_quantiles(analysis_table, column)
-                    self.prep_field_histogram(analysis_table, column)
+                    self.prep_min_value(column)
+                    self.prep_max_value(column)
+                    self.prep_mean_value(column)
+                    self.prep_median_value(column)
+                    self.prep_stdev_value(column)
+                    self.prep_quantiles(column)
+                    self.prep_field_histogram(column)
                 else:  # unknown cardinality - skip
                     pass
 
@@ -511,13 +432,12 @@ class DataLakeSource(Source):
                     Cardinality.FEW,
                 ]:
                     self.prep_distinct_value_frequencies(
-                        analysis_table,
                         column,
                     )
 
             elif isinstance(type_, (DateType, TimestampType)):
-                self.prep_min_value(analysis_table, column)
-                self.prep_max_value(analysis_table, column)
+                self.prep_min_value(column)
+                self.prep_max_value(column)
 
                 # FIXME: Re-add histogram once kl_divergence has been modified to support datetimes
 
@@ -528,17 +448,14 @@ class DataLakeSource(Source):
                     Cardinality.FEW,
                 ]:
                     self.prep_distinct_value_frequencies(
-                        analysis_table,
                         column,
                     )
 
     def extract_table_profiles(
         self,
-        analysis_table: TableWrapper,
         analysis_metrics: DataFrame,
-        profile: DatasetProfileClass,
     ) -> None:
-        profile.fieldProfiles = []
+        self.profile.fieldProfiles = []
 
         analysis_metrics = analysis_metrics.toPandas()
         # DataFrame with following columns:
@@ -582,7 +499,7 @@ class DataLakeSource(Source):
         profiled_columns = set(nonhistogram_metrics.index.get_level_values(0))
         # histogram_columns = set(histogram_counts.index.get_level_values(0))
 
-        for column_spec in analysis_table.column_specs:
+        for column_spec in self.column_specs:
             column = column_spec.column
             column_profile = column_spec.column_profile
 
@@ -635,11 +552,99 @@ class DataLakeSource(Source):
                     )
 
             # append the column profile to the dataset profile
-            profile.fieldProfiles.append(column_profile)
+            self.profile.fieldProfiles.append(column_profile)
+
+
+@dataclasses.dataclass
+class DataLakeSourceReport(SourceReport):
+    files_scanned = 0
+    filtered: List[str] = dataclass_field(default_factory=list)
+
+    def report_file_scanned(self) -> None:
+        self.files_scanned += 1
+
+    def report_file_dropped(self, file: str) -> None:
+        self.filtered.append(file)
+
+
+class DataLakeSource(Source):
+    source_config: DataLakeSourceConfig
+    report = DataLakeSourceReport()
+
+    def __init__(self, config: DataLakeSourceConfig, ctx: PipelineContext):
+        super().__init__(ctx)
+        self.source_config = config
+        self.spark = (
+            SparkSession.builder.config(
+                "spark.jars.packages", pydeequ.deequ_maven_coord
+            )
+            .config("spark.jars.excludes", pydeequ.f2j_maven_coord)
+            .getOrCreate()
+        )
+
+    @classmethod
+    def create(cls, config_dict, ctx):
+        config = DataLakeSourceConfig.parse_obj(config_dict)
+        return cls(config, ctx)
+
+    def read_file(self, file: str, file_type: Optional[FileType]) -> DataFrame:
+
+        if file_type is FileType.PARQUET:
+            df = self.spark.read.parquet(file)
+        elif file_type is FileType.CSV:
+            # see https://sparkbyexamples.com/pyspark/pyspark-read-csv-file-into-dataframe
+            df = self.spark.read.csv(file, header="True", inferSchema="True")
+        else:
+            raise ValueError("File type not found")
+
+        return df
+
+    def get_table_schema(
+        self, analysis_table: _SingleTableProfiler
+    ) -> Iterable[MetadataWorkUnit]:
+
+        datasetUrn = f"urn:li:dataset:(urn:li:dataPlatform:{self.source_config.platform},{self.source_config.file},{self.source_config.env})"
+        dataset_snapshot = DatasetSnapshot(
+            urn=datasetUrn,
+            aspects=[],
+        )
+
+        dataset_properties = DatasetPropertiesClass(
+            description="",
+            customProperties={},
+        )
+        dataset_snapshot.aspects.append(dataset_properties)
+
+        column_fields = []
+
+        for field in analysis_table.dataframe.schema.fields:
+
+            field = SchemaField(
+                fieldPath=field.name,
+                type=get_column_type(self.report, "test", field.dataType),
+                nativeDataType=str(field.dataType),
+                recursive=False,
+            )
+
+            column_fields.append(field)
+
+        schema_metadata = SchemaMetadata(
+            schemaName="test",
+            platform=f"urn:li:dataPlatform:{self.source_config.platform}",
+            version=0,
+            hash="",
+            fields=column_fields,
+            platformSchema=OtherSchemaClass(rawSchema=""),
+        )
+
+        dataset_snapshot.aspects.append(schema_metadata)
+
+        mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
+        wu = MetadataWorkUnit(id=self.source_config.file, mce=mce)
+        self.report.report_workunit(wu)
+        yield wu
 
     def profile_table(self) -> Iterable[MetadataWorkUnit]:
-
-        profile = DatasetProfileClass(timestampMillis=get_sys_time())
 
         table = self.read_file(self.source_config.file, self.source_config.file_type)
 
@@ -647,35 +652,32 @@ class DataLakeSource(Source):
         logger.debug(
             f"Profiling {self.source_config.file}: reading file and computing nulls+uniqueness"
         )
-        analysis_table = TableWrapper(table, self.spark)
-
-        profile.rowCount = analysis_table.row_count
-        profile.columnCount = len(analysis_table.column_specs)
+        table_profiler = _SingleTableProfiler(table, self.spark, self.source_config)
 
         # yield the table schema first
         logger.debug(f"Profiling {self.source_config.file}: making table schemas")
-        yield from self.get_table_schema(analysis_table)
+        yield from self.get_table_schema(table_profiler)
 
         # TODO: implement ignored columns and max number of fields to profile
         logger.debug(f"Profiling {self.source_config.file}: preparing profilers to run")
-        self.prepare_table_profiles(analysis_table)
+        table_profiler.prepare_table_profiles()
 
         # compute the profiles
         logger.debug(f"Profiling {self.source_config.file}: computing profiles")
-        analysis_result = analysis_table.analyzer.run()
+        analysis_result = table_profiler.analyzer.run()
         analysis_metrics = AnalyzerContext.successMetricsAsDataFrame(
             self.spark, analysis_result
         )
 
         logger.debug(f"Profiling {self.source_config.file}: extracting profiles")
-        self.extract_table_profiles(analysis_table, analysis_metrics, profile)
+        table_profiler.extract_table_profiles(analysis_metrics)
 
         mcp = MetadataChangeProposalWrapper(
             entityType="dataset",
             entityUrn=f"urn:li:dataset:(urn:li:dataPlatform:{self.source_config.platform},{'test'},{self.source_config.env})",
             changeType=ChangeTypeClass.UPSERT,
             aspectName="datasetProfile",
-            aspect=profile,
+            aspect=table_profiler.profile,
         )
         wu = MetadataWorkUnit(id=f"profile-{'test'}", mcp=mcp)
         self.report.report_workunit(wu)
