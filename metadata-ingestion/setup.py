@@ -98,7 +98,7 @@ plugins: Dict[str, Set[str]] = {
     "bigquery-usage": bigquery_common | {"cachetools"},
     "datahub-business-glossary": set(),
     "dbt": set(),
-    "data-lake": {"pydeequ", "pyspark==3.0.3"},
+    "data-lake": {"pydeequ==1.0.1", "pyspark==3.0.3"},
     "druid": sql_common | {"pydruid>=0.6.2"},
     "feast": {"docker"},
     "glue": aws_common,
@@ -145,7 +145,6 @@ plugins: Dict[str, Set[str]] = {
         # PR is from same author as that of sqlalchemy-trino library below.
         "sqlalchemy-trino"
     },
-
 }
 
 all_exclude_plugins: Set[str] = {
@@ -221,7 +220,11 @@ if is_py37_or_newer:
     # The trino plugin only works on Python 3.7 or newer.
     # The trino plugin can be supported on Python 3.6 with minimal changes to opensource sqlalchemy-trino sourcecode.
     base_dev_requirements = base_dev_requirements.union(
-        {dependency for plugin in ["lookml", "trino", "starburst-trino-usage"] for dependency in plugins[plugin]}
+        {
+            dependency
+            for plugin in ["lookml", "trino", "starburst-trino-usage"]
+            for dependency in plugins[plugin]
+        }
     )
 
 dev_requirements = {
@@ -295,7 +298,6 @@ entry_points = {
         "openapi = datahub.ingestion.source.openapi:OpenApiSource",
         "trino = datahub.ingestion.source.sql.trino:TrinoSource",
         "starburst-trino-usage = datahub.ingestion.source.usage.starburst_trino_usage:TrinoUsageSource",
-
     ],
     "datahub.ingestion.sink.plugins": [
         "file = datahub.ingestion.sink.file:FileSink",
