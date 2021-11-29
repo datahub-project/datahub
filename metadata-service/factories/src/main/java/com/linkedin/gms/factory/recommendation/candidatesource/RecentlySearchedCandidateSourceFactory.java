@@ -2,6 +2,7 @@ package com.linkedin.gms.factory.recommendation.candidatesource;
 
 import com.linkedin.gms.factory.common.IndexConventionFactory;
 import com.linkedin.gms.factory.common.RestHighLevelClientFactory;
+import com.linkedin.metadata.recommendation.candidatesource.RecentlySearchedSource;
 import com.linkedin.metadata.recommendation.candidatesource.RecentlyViewedSource;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import javax.annotation.Nonnull;
@@ -15,7 +16,7 @@ import org.springframework.context.annotation.Import;
 
 @Configuration
 @Import({RestHighLevelClientFactory.class, IndexConventionFactory.class})
-public class RecentlyViewedCandidateSourceFactory {
+public class RecentlySearchedCandidateSourceFactory {
   @Autowired
   @Qualifier("elasticSearchRestHighLevelClient")
   private RestHighLevelClient searchClient;
@@ -24,9 +25,9 @@ public class RecentlyViewedCandidateSourceFactory {
   @Qualifier(IndexConventionFactory.INDEX_CONVENTION_BEAN)
   private IndexConvention indexConvention;
 
-  @Bean(name = "recentlyViewedCandidateSource")
+  @Bean(name = "recentlySearchedCandidateSource")
   @Nonnull
-  protected RecentlyViewedSource getInstance() {
-    return new RecentlyViewedSource(searchClient, indexConvention);
+  protected RecentlySearchedSource getInstance() {
+    return new RecentlySearchedSource(searchClient, indexConvention);
   }
 }
