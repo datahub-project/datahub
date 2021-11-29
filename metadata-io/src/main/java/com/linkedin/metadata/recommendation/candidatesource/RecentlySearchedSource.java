@@ -5,16 +5,15 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.dao.exception.ESQueryException;
 import com.linkedin.metadata.datahubusage.DataHubUsageEventConstants;
 import com.linkedin.metadata.datahubusage.DataHubUsageEventType;
-import com.linkedin.metadata.recommendation.EntityProfileParams;
 import com.linkedin.metadata.recommendation.RecommendationContent;
 import com.linkedin.metadata.recommendation.RecommendationParams;
 import com.linkedin.metadata.recommendation.RecommendationRenderType;
 import com.linkedin.metadata.recommendation.RecommendationRequestContext;
 import com.linkedin.metadata.recommendation.ScenarioType;
+import com.linkedin.metadata.recommendation.SearchParams;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import java.io.IOException;
-import java.net.URISyntaxException;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -57,7 +56,7 @@ public class RecentlySearchedSource implements RecommendationSource {
 
   @Override
   public RecommendationRenderType getRenderType() {
-    return RecommendationRenderType.ENTITY_NAME_LIST;
+    return RecommendationRenderType.SEARCH_QUERY_LIST;
   }
 
   @Override
@@ -98,9 +97,9 @@ public class RecentlySearchedSource implements RecommendationSource {
     BoolQueryBuilder query = QueryBuilders.boolQuery();
     // Filter for the entity view events of the user requesting recommendation
     query.must(QueryBuilders.termQuery(DataHubUsageEventConstants.ACTOR_URN + ".keyword", userUrn.toString()));
-    query.must(
-        QueryBuilders.termQuery(DataHubUsageEventConstants.TYPE, DataHubUsageEventType.SEARCH_RESULTS_VIEW_EVENT.getType()));
-    query.must(QueryBuilders.rangeQuery("non_empty").gt(0));
+    query.must(QueryBuilders.termQuery(DataHubUsageEventConstants.TYPE,
+        DataHubUsageEventType.SEARCH_RESULTS_VIEW_EVENT.getType()));
+    query.must(QueryBuilders.rangeQuery("total").gt(0));
     query.must(QueryBuilders.existsQuery(DataHubUsageEventConstants.QUERY));
     source.query(query);
 
@@ -119,16 +118,8 @@ public class RecentlySearchedSource implements RecommendationSource {
     return request;
   }
 
-  private Optional<RecommendationContent> buildContent(@Nonnull String entityUrn) {
-    Urn entity;
-    try {
-      entity = Urn.createFromString(entityUrn);
-    } catch (URISyntaxException e) {
-      log.error("Error decoding entity URN: {}", entityUrn, e);
-      return Optional.empty();
-    }
-    return Optional.of(new RecommendationContent().setEntity(entity)
-        .setValue(entityUrn)
-        .setParams(new RecommendationParams().setEntityProfileParams(new EntityProfileParams().setUrn(entity))));
+  private Optional<RecommendationContent> buildContent(@Nonnull String query) {
+    return Optional.of(new RecommendationContent().setValue(query)
+        .setParams(new RecommendationParams().setSearchParams(new SearchParams().setQuery(query))));
   }
 }
