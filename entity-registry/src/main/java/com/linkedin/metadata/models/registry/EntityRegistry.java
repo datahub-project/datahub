@@ -13,6 +13,10 @@ import javax.annotation.Nonnull;
  */
 public interface EntityRegistry {
 
+  default String getIdentifier() {
+    return "Unknown";
+  }
+
   /**
    * Given an entity name, returns an instance of {@link DefaultEntitySpec}
    * @param entityName the name of the entity to be retrieved

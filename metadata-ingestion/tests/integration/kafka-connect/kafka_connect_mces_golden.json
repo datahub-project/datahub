@@ -79,6 +79,58 @@
     },
     {
         "auditHeader": null,
+        "entityType": "dataset",
+        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,debezium.topics.librarydb.member,PROD)",
+        "entityKeyAspect": null,
+        "changeType": "UPSERT",
+        "aspectName": "dataPlatformInstance",
+        "aspect": {
+            "value": "{\"platform\": \"urn:li:dataPlatform:kafka\"}",
+            "contentType": "application/json"
+        },
+        "systemMetadata": null
+    },
+    {
+        "auditHeader": null,
+        "entityType": "dataset",
+        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,librarydb.member,PROD)",
+        "entityKeyAspect": null,
+        "changeType": "UPSERT",
+        "aspectName": "dataPlatformInstance",
+        "aspect": {
+            "value": "{\"platform\": \"urn:li:dataPlatform:mysql\"}",
+            "contentType": "application/json"
+        },
+        "systemMetadata": null
+    },
+    {
+        "auditHeader": null,
+        "entityType": "dataset",
+        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,debezium.topics.librarydb.book,PROD)",
+        "entityKeyAspect": null,
+        "changeType": "UPSERT",
+        "aspectName": "dataPlatformInstance",
+        "aspect": {
+            "value": "{\"platform\": \"urn:li:dataPlatform:kafka\"}",
+            "contentType": "application/json"
+        },
+        "systemMetadata": null
+    },
+    {
+        "auditHeader": null,
+        "entityType": "dataset",
+        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,librarydb.book,PROD)",
+        "entityKeyAspect": null,
+        "changeType": "UPSERT",
+        "aspectName": "dataPlatformInstance",
+        "aspect": {
+            "value": "{\"platform\": \"urn:li:dataPlatform:mysql\"}",
+            "contentType": "application/json"
+        },
+        "systemMetadata": null
+    },
+    {
+        "auditHeader": null,
         "entityType": "dataFlow",
         "entityUrn": "urn:li:dataFlow:(kafka-connect,mysql_source3,PROD)",
         "entityKeyAspect": null,
@@ -112,6 +164,32 @@
         "aspectName": "dataJobInputOutput",
         "aspect": {
             "value": "{\"inputDatasets\": [\"urn:li:dataset:(urn:li:dataPlatform:mysql,librarydb.book,PROD)\"], \"outputDatasets\": [\"urn:li:dataset:(urn:li:dataPlatform:kafka,my-new-topic,PROD)\"]}",
+            "contentType": "application/json"
+        },
+        "systemMetadata": null
+    },
+    {
+        "auditHeader": null,
+        "entityType": "dataset",
+        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,my-new-topic,PROD)",
+        "entityKeyAspect": null,
+        "changeType": "UPSERT",
+        "aspectName": "dataPlatformInstance",
+        "aspect": {
+            "value": "{\"platform\": \"urn:li:dataPlatform:kafka\"}",
+            "contentType": "application/json"
+        },
+        "systemMetadata": null
+    },
+    {
+        "auditHeader": null,
+        "entityType": "dataset",
+        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,librarydb.book,PROD)",
+        "entityKeyAspect": null,
+        "changeType": "UPSERT",
+        "aspectName": "dataPlatformInstance",
+        "aspect": {
+            "value": "{\"platform\": \"urn:li:dataPlatform:mysql\"}",
             "contentType": "application/json"
         },
         "systemMetadata": null
@@ -183,6 +261,58 @@
     },
     {
         "auditHeader": null,
+        "entityType": "dataset",
+        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,my-new-topic-book,PROD)",
+        "entityKeyAspect": null,
+        "changeType": "UPSERT",
+        "aspectName": "dataPlatformInstance",
+        "aspect": {
+            "value": "{\"platform\": \"urn:li:dataPlatform:kafka\"}",
+            "contentType": "application/json"
+        },
+        "systemMetadata": null
+    },
+    {
+        "auditHeader": null,
+        "entityType": "dataset",
+        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,librarydb.book,PROD)",
+        "entityKeyAspect": null,
+        "changeType": "UPSERT",
+        "aspectName": "dataPlatformInstance",
+        "aspect": {
+            "value": "{\"platform\": \"urn:li:dataPlatform:mysql\"}",
+            "contentType": "application/json"
+        },
+        "systemMetadata": null
+    },
+    {
+        "auditHeader": null,
+        "entityType": "dataset",
+        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,member,PROD)",
+        "entityKeyAspect": null,
+        "changeType": "UPSERT",
+        "aspectName": "dataPlatformInstance",
+        "aspect": {
+            "value": "{\"platform\": \"urn:li:dataPlatform:kafka\"}",
+            "contentType": "application/json"
+        },
+        "systemMetadata": null
+    },
+    {
+        "auditHeader": null,
+        "entityType": "dataset",
+        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,librarydb.member,PROD)",
+        "entityKeyAspect": null,
+        "changeType": "UPSERT",
+        "aspectName": "dataPlatformInstance",
+        "aspect": {
+            "value": "{\"platform\": \"urn:li:dataPlatform:mysql\"}",
+            "contentType": "application/json"
+        },
+        "systemMetadata": null
+    },
+    {
+        "auditHeader": null,
         "entityType": "dataFlow",
         "entityUrn": "urn:li:dataFlow:(kafka-connect,mysql_source1,PROD)",
         "entityKeyAspect": null,
@@ -242,6 +372,58 @@
         "aspectName": "dataJobInputOutput",
         "aspect": {
             "value": "{\"inputDatasets\": [\"urn:li:dataset:(urn:li:dataPlatform:mysql,librarydb.member,PROD)\"], \"outputDatasets\": [\"urn:li:dataset:(urn:li:dataPlatform:kafka,test-mysql-jdbc-member,PROD)\"]}",
+            "contentType": "application/json"
+        },
+        "systemMetadata": null
+    },
+    {
+        "auditHeader": null,
+        "entityType": "dataset",
+        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,test-mysql-jdbc-book,PROD)",
+        "entityKeyAspect": null,
+        "changeType": "UPSERT",
+        "aspectName": "dataPlatformInstance",
+        "aspect": {
+            "value": "{\"platform\": \"urn:li:dataPlatform:kafka\"}",
+            "contentType": "application/json"
+        },
+        "systemMetadata": null
+    },
+    {
+        "auditHeader": null,
+        "entityType": "dataset",
+        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,librarydb.book,PROD)",
+        "entityKeyAspect": null,
+        "changeType": "UPSERT",
+        "aspectName": "dataPlatformInstance",
+        "aspect": {
+            "value": "{\"platform\": \"urn:li:dataPlatform:mysql\"}",
+            "contentType": "application/json"
+        },
+        "systemMetadata": null
+    },
+    {
+        "auditHeader": null,
+        "entityType": "dataset",
+        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,test-mysql-jdbc-member,PROD)",
+        "entityKeyAspect": null,
+        "changeType": "UPSERT",
+        "aspectName": "dataPlatformInstance",
+        "aspect": {
+            "value": "{\"platform\": \"urn:li:dataPlatform:kafka\"}",
+            "contentType": "application/json"
+        },
+        "systemMetadata": null
+    },
+    {
+        "auditHeader": null,
+        "entityType": "dataset",
+        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,librarydb.member,PROD)",
+        "entityKeyAspect": null,
+        "changeType": "UPSERT",
+        "aspectName": "dataPlatformInstance",
+        "aspect": {
+            "value": "{\"platform\": \"urn:li:dataPlatform:mysql\"}",
             "contentType": "application/json"
         },
         "systemMetadata": null
@@ -339,6 +521,45 @@
     },
     {
         "auditHeader": null,
+        "entityType": "dataset",
+        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,Book3,PROD)",
+        "entityKeyAspect": null,
+        "changeType": "UPSERT",
+        "aspectName": "dataPlatformInstance",
+        "aspect": {
+            "value": "{\"platform\": \"urn:li:dataPlatform:kafka\"}",
+            "contentType": "application/json"
+        },
+        "systemMetadata": null
+    },
+    {
+        "auditHeader": null,
+        "entityType": "dataset",
+        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,Book1,PROD)",
+        "entityKeyAspect": null,
+        "changeType": "UPSERT",
+        "aspectName": "dataPlatformInstance",
+        "aspect": {
+            "value": "{\"platform\": \"urn:li:dataPlatform:kafka\"}",
+            "contentType": "application/json"
+        },
+        "systemMetadata": null
+    },
+    {
+        "auditHeader": null,
+        "entityType": "dataset",
+        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,Book2,PROD)",
+        "entityKeyAspect": null,
+        "changeType": "UPSERT",
+        "aspectName": "dataPlatformInstance",
+        "aspect": {
+            "value": "{\"platform\": \"urn:li:dataPlatform:kafka\"}",
+            "contentType": "application/json"
+        },
+        "systemMetadata": null
+    },
+    {
+        "auditHeader": null,
         "entityType": "dataFlow",
         "entityUrn": "urn:li:dataFlow:(kafka-connect,mysql_source4,PROD)",
         "entityKeyAspect": null,
@@ -375,5 +596,18 @@
             "contentType": "application/json"
         },
         "systemMetadata": null
+    },
+    {
+        "auditHeader": null,
+        "entityType": "dataset",
+        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,query-topic,PROD)",
+        "entityKeyAspect": null,
+        "changeType": "UPSERT",
+        "aspectName": "dataPlatformInstance",
+        "aspect": {
+            "value": "{\"platform\": \"urn:li:dataPlatform:kafka\"}",
+            "contentType": "application/json"
+        },
+        "systemMetadata": null
     }
-]
+    ]

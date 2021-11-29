@@ -1,3 +1,7 @@
+---
+title: "metadata-service"
+---
+
 # DataHub Metadata Service (Also known as GMS)
 DataHub Metadata Service is a service written in Java consisting of multiple servlets: 
 

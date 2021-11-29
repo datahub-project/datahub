@@ -507,7 +507,12 @@ public abstract class EntityService {
 
   public abstract Urn ingestProposal(MetadataChangeProposal metadataChangeProposal, AuditStamp auditStamp);
 
-  public abstract RollbackRunResult rollbackRun(List<AspectRowSummary> aspectRows, String runId);
+  public RollbackRunResult rollbackRun(List<AspectRowSummary> aspectRows, String runId) {
+    return rollbackWithConditions(aspectRows, Collections.singletonMap("runId", runId));
+  }
+
+  public abstract RollbackRunResult rollbackWithConditions(List<AspectRowSummary> aspectRows,
+      Map<String, String> conditions);
 
   public abstract RollbackRunResult deleteUrn(Urn urn);
 

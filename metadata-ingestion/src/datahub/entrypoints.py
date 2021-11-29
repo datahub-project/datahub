@@ -12,6 +12,7 @@ from datahub.cli.delete_cli import delete
 from datahub.cli.docker import docker
 from datahub.cli.get_cli import get
 from datahub.cli.ingest_cli import ingest
+from datahub.cli.put_cli import put
 
 logger = logging.getLogger(__name__)
 
@@ -85,6 +86,7 @@ datahub.add_command(docker)
 datahub.add_command(ingest)
 datahub.add_command(delete)
 datahub.add_command(get)
+datahub.add_command(put)
 
 
 def main(**kwargs):

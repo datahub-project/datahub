@@ -1,24 +1,18 @@
+---
+title: "Overview"
+---
+
 # DataHub Architecture Overview
 
-We highly recommend that you read the excellent [metadata architectures blog post] that describes the three generations of metadata architectures, and goes into a 
-lot of detail around the motivations and evolution of the DataHub architecture in comparison with other data discovery solutions and catalogs.
+DataHub is a [3rd generation](https://engineering.linkedin.com/blog/2020/datahub-popular-metadata-architectures-explained) Metadata Platform that enables Data Discovery, Collaboration, Governance, and end-to-end Observability
+that is built for the Modern Data Stack. DataHub employs a model-first philosophy, with a focus on unlocking interoperability between
+disparate tools & systems.
 
-The figure below describes the high-level architecture of DataHub, a third-generation metadata platform.
+The figure below describes the high-level architecture of DataHub.
 
 ![datahub-architecture](../imgs/datahub-architecture.png)
 
-## The Components
-The DataHub deployables are split into three components:
-
-### Ingestion
-This component controls how metadata is integrated with DataHub. Read [datahub-ingestion] to learn more.
-
-### Serving
-The component is responsible for storing and querying data within DataHub. Read [datahub-serving] to learn more. 
-
-### Frontend
-This is the user-facing application that powers search and discovery over the metadata graph. Read [react-frontend] to learn more. 
-
+For a more detailed look at the components that make up the Architecture, check out [Components](../components.md).
 
 ## Architecture Highlights
 There are three main highlights of DataHub's architecture. 

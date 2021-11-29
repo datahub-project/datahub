@@ -1,3 +1,7 @@
+---
+title: "Ingestion Framework"
+---
+
 # Metadata Ingestion Architecture
 
 DataHub supports an extremely flexible ingestion architecture that can support push, pull, asynchronous and synchronous models. 
