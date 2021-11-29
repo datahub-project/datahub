@@ -4712,6 +4712,32 @@
     } ]
   }, "com.linkedin.metadata.query.filter.SortOrder", {
     "type" : "record",
+    "name" : "AspectRowSummary",
+    "namespace" : "com.linkedin.metadata.run",
+    "fields" : [ {
+      "name" : "runId",
+      "type" : "string"
+    }, {
+      "name" : "aspectName",
+      "type" : "string"
+    }, {
+      "name" : "urn",
+      "type" : "string"
+    }, {
+      "name" : "timestamp",
+      "type" : "long"
+    }, {
+      "name" : "metadata",
+      "type" : "string"
+    }, {
+      "name" : "version",
+      "type" : "long"
+    }, {
+      "name" : "keyAspect",
+      "type" : "boolean"
+    } ]
+  }, {
+    "type" : "record",
     "name" : "DeleteEntityResponse",
     "namespace" : "com.linkedin.metadata.run",
     "fields" : [ {
@@ -4720,6 +4746,27 @@
     }, {
       "name" : "rows",
       "type" : "long"
+    } ]
+  }, {
+    "type" : "record",
+    "name" : "RollbackResponse",
+    "namespace" : "com.linkedin.metadata.run",
+    "fields" : [ {
+      "name" : "aspectRowSummaries",
+      "type" : {
+        "type" : "array",
+        "items" : "AspectRowSummary"
+      }
+    }, {
+      "name" : "entitiesAffected",
+      "type" : "long"
+    }, {
+      "name" : "aspectsAffected",
+      "type" : "long"
+    }, {
+      "name" : "entitiesDeleted",
+      "type" : "long",
+      "optional" : true
     } ]
   }, {
     "type" : "record",
@@ -4846,7 +4893,7 @@
     "type" : "record",
     "name" : "SystemMetadata",
     "namespace" : "com.linkedin.mxe",
-    "doc" : "Kafka event for proposing a metadata change for an entity. A corresponding MetadataAuditEvent is emitted when the change is accepted and committed, otherwise a FailedMetadataChangeEvent will be emitted instead.",
+    "doc" : "Metadata associated with each metadata change that is processed by the system",
     "fields" : [ {
       "name" : "lastObserved",
       "type" : "long",
@@ -4856,8 +4903,18 @@
     }, {
       "name" : "runId",
       "type" : "string",
-      "doc" : "The run id that produced the metadata",
+      "doc" : "The run id that produced the metadata. Populated in case of batch-ingestion.",
       "default" : "no-run-id-provided",
+      "optional" : true
+    }, {
+      "name" : "registryName",
+      "type" : "string",
+      "doc" : "The model registry name that was used to process this event",
+      "optional" : true
+    }, {
+      "name" : "registryVersion",
+      "type" : "string",
+      "doc" : "The model registry version that was used to process this event",
       "optional" : true
     }, {
       "name" : "properties",
@@ -4962,6 +5019,18 @@
           "type" : "string"
         } ],
         "returns" : "com.linkedin.metadata.run.DeleteEntityResponse"
+      }, {
+        "name" : "deleteAll",
+        "parameters" : [ {
+          "name" : "registryId",
+          "type" : "string",
+          "optional" : true
+        }, {
+          "name" : "dryRun",
+          "type" : "boolean",
+          "optional" : true
+        } ],
+        "returns" : "com.linkedin.metadata.run.RollbackResponse"
       }, {
         "name" : "filter",
         "parameters" : [ {
