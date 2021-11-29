@@ -36,6 +36,9 @@ configEntityRegistry:
   # TODO: Change to read from resources on classpath.
   path: ${ENTITY_REGISTRY_CONFIG_PATH:../../metadata-models/src/main/resources/entity-registry.yml}
 
+pluginEntityRegistry:
+  path: ${ENTITY_REGISTRY_PLUGIN_PATH:$HOME/.datahub/plugins/models}
+
 authorizationManager:
   enabled: ${AUTH_POLICIES_ENABLED:true}
   cacheRefreshIntervalSecs: ${POLICY_CACHE_REFRESH_INTERVAL_SECONDS:120}

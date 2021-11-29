@@ -1,3 +1,4 @@
+id: test-registry
 entities:
   - name: dataset
     keyAspect: datasetKey

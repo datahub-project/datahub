@@ -345,5 +345,15 @@
       "type": "OTHERS",
       "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/dbtlogo.png"
     }
+  },
+  {
+    "urn": "urn:li:dataPlatform:elasticsearch",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "elasticsearch",
+      "displayName": "Elasticsearch",
+      "type": "OTHERS",
+      "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/elasticsearchlogo.png"
+    }
   }
 ]
