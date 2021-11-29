@@ -1,3 +1,4 @@
+
 # Redshift
 
 For context on getting started with ingestion, check out our [metadata ingestion guide](../README.md).
@@ -97,6 +98,68 @@ As a SQL-based service, the Athena integration is also supported by our SQL prof
 ## Compatibility
 
 Coming soon!
+
+# Redshift-Usage
+This plugin extracts usage statistics for datasets in Amazon Redshift. For context on getting started with ingestion, check out our [metadata ingestion guide](../README.md).
+
+Note: Usage information is computed by querying the following system tables - 
+1. stl_scan
+2. svv_table_info
+3. stl_query
+4. svl_user_info
+
+##Setup
+To install this plugin, run `pip install 'acryl-datahub[redshift-usage]'`.
+
+##Capabilities
+This plugin has the below functionalities -
+1. For a specific dataset this plugin ingests the following statistics - 
+   1. top n queries.
+   2. top users.
+   3. usage of each column in the dataset.
+2. Aggregation of these statistics into buckets, by day or hour granularity.
+
+## Sample usage recipe
+
+Check out the following recipe to get started with ingestion! See [below](#config-details) for full configuration options.
+
+For general pointers on writing and running a recipe, see our [main recipe guide](../README.md#recipes).
+
+```yml
+source:
+  type: redshift-usage
+  config:
+    # Coordinates
+    host_port: db_host:port
+    database: dev
+    email_domain: acryl.io
+
+    # Credentials
+    username: username
+    password: "password"
+
+sink:
+# sink configs
+```
+
+### Config details
+Note that a `.` is used to denote nested fields in the YAML recipe.
+
+By default, we extract usage stats for the last day, with the recommendation that this source is executed every day.
+
+| Field                       | Required | Default                                                        | Description                                                                                                                                                                             |
+| --------------------------- | -------- | ---------------------------------------------------------------| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `username`                  |          |                                                                | Redshift username.                                                                                                                                                                      |
+| `password`                  |          |                                                                | Redshift password.                                                                                                                                                                      |
+| `host_port`                 | ✅       |                                                                | Redshift host URL.                                                                                                                                                                      |
+| `database`                  |          |                                                                | Redshift database.                                                                                                                                                                      |
+| `env`                       |          | `"PROD"`                                                       | Environment to use in namespace when constructing URNs.                                                                                                                                 |
+| `options.<option>`          |          |                                                                | Any options specified here will be passed to SQLAlchemy's `create_engine` as kwargs.<br />See https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine for details. |
+| `email_domain`              | ✅       |                                                                | Email domain of your organisation so users can be displayed on UI appropriately.                                                                                                        |
+| `start_time`                |          | Last full day in UTC (or hour, depending on `bucket_duration`) | Earliest date of usage to consider.                                                                                                                                                     |   
+| `end_time`                  |          | Last full day in UTC (or hour, depending on `bucket_duration`) | Latest date of usage to consider.                                                                                                                                                       |
+| `top_n_queries`             |          | `10`                                                           | Number of top queries to save to each table.                                                                                                                                            |
+| `bucket_duration`           |          | `"DAY"`                                                        | Size of the time window to aggregate usage stats.                                                                                                                                       |
 
 ## Questions
 
