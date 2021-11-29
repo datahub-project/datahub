@@ -97,18 +97,20 @@ public class RecentlySearchedSource implements RecommendationSource {
     SearchSourceBuilder source = new SearchSourceBuilder();
     BoolQueryBuilder query = QueryBuilders.boolQuery();
     // Filter for the entity view events of the user requesting recommendation
-    query.must(QueryBuilders.termQuery(DataHubUsageEventConstants.ACTOR_URN, userUrn.toString()));
+    query.must(QueryBuilders.termQuery(DataHubUsageEventConstants.ACTOR_URN + ".keyword", userUrn.toString()));
     query.must(
         QueryBuilders.termQuery(DataHubUsageEventConstants.TYPE, DataHubUsageEventType.SEARCH_RESULTS_VIEW_EVENT.getType()));
+    query.must(QueryBuilders.rangeQuery("non_empty").gt(0));
+    query.must(QueryBuilders.existsQuery(DataHubUsageEventConstants.QUERY));
     source.query(query);
 
     // Find the entity with the largest last viewed timestamp
-    String lastViewed = "last_viewed";
+    String lastSearched = "last_searched";
     AggregationBuilder aggregation = AggregationBuilders.terms(ENTITY_AGG_NAME)
-        .field(DataHubUsageEventConstants.ENTITY_URN + ".keyword")
+        .field(DataHubUsageEventConstants.QUERY + ".keyword")
         .size(MAX_CONTENT)
-        .order(BucketOrder.aggregation(lastViewed, false))
-        .subAggregation(AggregationBuilders.max(lastViewed).field(DataHubUsageEventConstants.TIMESTAMP));
+        .order(BucketOrder.aggregation(lastSearched, false))
+        .subAggregation(AggregationBuilders.max(lastSearched).field(DataHubUsageEventConstants.TIMESTAMP));
     source.aggregation(aggregation);
     source.size(0);
 
