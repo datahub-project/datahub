@@ -37,7 +37,7 @@ def test_data_lake_ingest(pytestconfig, tmp_path, mock_time):
     mce_helpers.check_golden_file(
         pytestconfig,
         output_path=tmp_path / "data_lake_mces.json",
-        golden_path=test_resources_dir / "data_lake_mces_golden.json",
+        golden_path=tmp_path / "data_lake_mces_golden.json",
     )
 
     # # Run the metadata ingestion pipeline.

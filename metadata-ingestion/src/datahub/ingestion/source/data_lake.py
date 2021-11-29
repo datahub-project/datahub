@@ -2,6 +2,7 @@ import dataclasses
 import logging
 import os
 from dataclasses import field as dataclass_field
+from datetime import datetime
 from enum import Enum
 from typing import Any, Iterable, List, Optional
 
@@ -672,27 +673,37 @@ class DataLakeSource(Source):
             return
 
         # init PySpark analysis object
-        logger.debug(f"Profiling {file}: reading file and computing nulls+uniqueness")
+        logger.debug(
+            f"Profiling {file}: reading file and computing nulls+uniqueness {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
+        )
         table_profiler = _SingleTableProfiler(
             table, self.spark, self.source_config, file
         )
 
         # yield the table schema first
-        logger.debug(f"Profiling {file}: making table schemas")
+        logger.debug(
+            f"Profiling {file}: making table schemas {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
+        )
         yield from self.get_table_schema(table_profiler)
 
         # TODO: implement ignored columns and max number of fields to profile
-        logger.debug(f"Profiling {file}: preparing profilers to run")
+        logger.debug(
+            f"Profiling {file}: preparing profilers to run {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
+        )
         table_profiler.prepare_table_profiles()
 
         # compute the profiles
-        logger.debug(f"Profiling {file}: computing profiles")
+        logger.debug(
+            f"Profiling {file}: computing profiles {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
+        )
         analysis_result = table_profiler.analyzer.run()
         analysis_metrics = AnalyzerContext.successMetricsAsDataFrame(
             self.spark, analysis_result
         )
 
-        logger.debug(f"Profiling {file}: extracting profiles")
+        logger.debug(
+            f"Profiling {file}: extracting profiles {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
+        )
         table_profiler.extract_table_profiles(analysis_metrics)
 
         mcp = MetadataChangeProposalWrapper(
