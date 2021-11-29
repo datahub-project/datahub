@@ -13,16 +13,20 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.RollbackRunResult;
 import com.linkedin.metadata.entity.ValidationException;
 import com.linkedin.metadata.query.AutoCompleteResult;
-import com.linkedin.metadata.query.filter.Filter;
-import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.ListResult;
 import com.linkedin.metadata.query.ListUrnsResult;
+import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.restli.RestliUtil;
+import com.linkedin.metadata.run.AspectRowSummary;
+import com.linkedin.metadata.run.AspectRowSummaryArray;
 import com.linkedin.metadata.run.DeleteEntityResponse;
+import com.linkedin.metadata.run.RollbackResponse;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchService;
+import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.parseq.Task;
 import com.linkedin.restli.common.HttpStatus;
@@ -40,6 +44,7 @@ import java.net.URISyntaxException;
 import java.time.Clock;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -51,23 +56,11 @@ import javax.annotation.Nullable;
 import javax.inject.Inject;
 import javax.inject.Named;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.maven.artifact.versioning.ComparableVersion;
 
-import static com.linkedin.metadata.entity.ValidationUtils.validateOrThrow;
-import static com.linkedin.metadata.restli.RestliConstants.ACTION_AUTOCOMPLETE;
-import static com.linkedin.metadata.restli.RestliConstants.ACTION_BROWSE;
-import static com.linkedin.metadata.restli.RestliConstants.ACTION_GET_BROWSE_PATHS;
-import static com.linkedin.metadata.restli.RestliConstants.ACTION_INGEST;
-import static com.linkedin.metadata.restli.RestliConstants.PARAM_ASPECTS;
-import static com.linkedin.metadata.restli.RestliConstants.PARAM_FIELD;
-import static com.linkedin.metadata.restli.RestliConstants.PARAM_FILTER;
-import static com.linkedin.metadata.restli.RestliConstants.PARAM_INPUT;
-import static com.linkedin.metadata.restli.RestliConstants.PARAM_LIMIT;
-import static com.linkedin.metadata.restli.RestliConstants.PARAM_PATH;
-import static com.linkedin.metadata.restli.RestliConstants.PARAM_QUERY;
-import static com.linkedin.metadata.restli.RestliConstants.PARAM_SORT;
-import static com.linkedin.metadata.restli.RestliConstants.PARAM_START;
-import static com.linkedin.metadata.restli.RestliConstants.PARAM_URN;
-import static com.linkedin.metadata.utils.PegasusUtils.urnToEntityName;
+import static com.linkedin.metadata.entity.ValidationUtils.*;
+import static com.linkedin.metadata.restli.RestliConstants.*;
+import static com.linkedin.metadata.utils.PegasusUtils.*;
 
 
 /**
@@ -103,6 +96,10 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   @Named("entitySearchService")
   private EntitySearchService _entitySearchService;
 
+  @Inject
+  @Named("systemMetadataService")
+  private SystemMetadataService _systemMetadataService;
+
   /**
    * Retrieves the value for an entity that is made up of latest versions of specified aspects.
    */
@@ -110,8 +107,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   @Nonnull
   @WithSpan
   public Task<AnyRecord> get(@Nonnull String urnStr,
-                             @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames)
-      throws URISyntaxException {
+      @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) throws URISyntaxException {
     log.info("GET {}", urnStr);
     final Urn urn = Urn.createFromString(urnStr);
     return RestliUtil.toTask(() -> {
@@ -129,7 +125,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   @Nonnull
   @WithSpan
   public Task<Map<String, AnyRecord>> batchGet(@Nonnull Set<String> urnStrs,
-                                         @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) throws URISyntaxException {
+      @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) throws URISyntaxException {
     log.info("BATCH GET {}", urnStrs.toString());
     final Set<Urn> urns = new HashSet<>();
     for (final String urnStr : urnStrs) {
@@ -141,8 +137,8 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       return _entityService.getEntities(urns, projectedAspects)
           .entrySet()
           .stream()
-          .collect(Collectors.toMap(entry -> entry.getKey().toString(),
-                  entry -> new AnyRecord(entry.getValue().data())));
+          .collect(
+              Collectors.toMap(entry -> entry.getKey().toString(), entry -> new AnyRecord(entry.getValue().data())));
     }, MetricRegistry.name(this.getClass(), "batchGet"));
   }
 
@@ -251,15 +247,14 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   @Action(name = ACTION_LIST)
   @Nonnull
   @WithSpan
-  public Task<ListResult> list(
-      @ActionParam(PARAM_ENTITY) @Nonnull String entityName,
+  public Task<ListResult> list(@ActionParam(PARAM_ENTITY) @Nonnull String entityName,
       @ActionParam(PARAM_FILTER) @Optional @Nullable Filter filter,
-      @ActionParam(PARAM_SORT) @Optional @Nullable SortCriterion sortCriterion,
-      @ActionParam(PARAM_START) int start,
+      @ActionParam(PARAM_SORT) @Optional @Nullable SortCriterion sortCriterion, @ActionParam(PARAM_START) int start,
       @ActionParam(PARAM_COUNT) int count) {
 
     log.info("GET LIST RESULTS for {} with filter {}", entityName, filter);
-    return RestliUtil.toTask(() -> toListResult(_entitySearchService.filter(entityName, filter, sortCriterion, start, count)),
+    return RestliUtil.toTask(
+        () -> toListResult(_entitySearchService.filter(entityName, filter, sortCriterion, start, count)),
         MetricRegistry.name(this.getClass(), "filter"));
   }
 
@@ -296,6 +291,61 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
         MetricRegistry.name(this.getClass(), "getBrowsePaths"));
   }
 
+  private static final Integer ELASTIC_MAX_PAGE_SIZE = 10000;
+
+  private String stringifyRowCount(int size) {
+    if (size < ELASTIC_MAX_PAGE_SIZE) {
+      return String.valueOf(size);
+    } else {
+      return "at least " + String.valueOf(size);
+    }
+  }
+
+  /*
+  Used to delete all data related to a filter criteria based on registryId, runId etc.
+   */
+  @Action(name = "deleteAll")
+  @Nonnull
+  @WithSpan
+  public Task<RollbackResponse> deleteEntities(@ActionParam("registryId") @Optional String registryId,
+      @ActionParam("dryRun") @Optional Boolean dryRun) {
+    String registryName = null;
+    ComparableVersion registryVersion = new ComparableVersion("0.0.0-dev");
+
+    if (registryId != null) {
+      try {
+        registryName = registryId.split(":")[0];
+        registryVersion = new ComparableVersion(registryId.split(":")[1]);
+      } catch (Exception e) {
+        throw new RestLiServiceException(HttpStatus.S_500_INTERNAL_SERVER_ERROR,
+            "Failed to parse registry id: " + registryId, e);
+      }
+    }
+    String finalRegistryName = registryName;
+    ComparableVersion finalRegistryVersion = registryVersion;
+    String finalRegistryName1 = registryName;
+    ComparableVersion finalRegistryVersion1 = registryVersion;
+    return RestliUtil.toTask(() -> {
+      RollbackResponse response = new RollbackResponse();
+      List<AspectRowSummary> aspectRowsToDelete =
+          _systemMetadataService.findByRegistry(finalRegistryName, finalRegistryVersion.toString());
+      log.info("found {} rows to delete...", stringifyRowCount(aspectRowsToDelete.size()));
+      response.setAspectsAffected(aspectRowsToDelete.size());
+      response.setEntitiesAffected(
+          aspectRowsToDelete.stream().collect(Collectors.groupingBy(AspectRowSummary::getUrn)).keySet().size());
+      response.setEntitiesDeleted(aspectRowsToDelete.stream().filter(row -> row.isKeyAspect()).count());
+      response.setAspectRowSummaries(
+          new AspectRowSummaryArray(aspectRowsToDelete.subList(0, Math.min(100, aspectRowsToDelete.size()))));
+      if ((dryRun == null) || (!dryRun)) {
+        Map<String, String> conditions = new HashMap();
+        conditions.put("registryName", finalRegistryName1);
+        conditions.put("registryVersion", finalRegistryVersion1.toString());
+        _entityService.rollbackWithConditions(aspectRowsToDelete, conditions);
+      }
+      return response;
+    }, MetricRegistry.name(this.getClass(), "deleteAll"));
+  }
+
   /*
   Used to delete all data related to an individual urn
    */
@@ -305,7 +355,6 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   public Task<DeleteEntityResponse> deleteEntity(@ActionParam(PARAM_URN) @Nonnull String urnStr)
       throws URISyntaxException {
     Urn urn = Urn.createFromString(urnStr);
-
     return RestliUtil.toTask(() -> {
       DeleteEntityResponse response = new DeleteEntityResponse();
 
@@ -364,22 +413,17 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     listResult.setStart(searchResult.getFrom());
     listResult.setCount(searchResult.getPageSize());
     listResult.setTotal(searchResult.getNumEntities());
-    listResult.setEntities(new UrnArray(
-      searchResult.getEntities()
-        .stream()
-        .map(SearchEntity::getEntity)
-        .collect(Collectors.toList())));
+    listResult.setEntities(
+        new UrnArray(searchResult.getEntities().stream().map(SearchEntity::getEntity).collect(Collectors.toList())));
     return listResult;
   }
 
   @Action(name = ACTION_FILTER)
   @Nonnull
   @WithSpan
-  public Task<SearchResult> filter(
-      @ActionParam(PARAM_ENTITY) @Nonnull String entityName,
+  public Task<SearchResult> filter(@ActionParam(PARAM_ENTITY) @Nonnull String entityName,
       @ActionParam(PARAM_FILTER) Filter filter,
-      @ActionParam(PARAM_SORT) @Optional @Nullable SortCriterion sortCriterion,
-      @ActionParam(PARAM_START) int start,
+      @ActionParam(PARAM_SORT) @Optional @Nullable SortCriterion sortCriterion, @ActionParam(PARAM_START) int start,
       @ActionParam(PARAM_COUNT) int count) {
 
     log.info("FILTER RESULTS for {} with filter {}", entityName, filter);

@@ -1,13 +1,14 @@
 import logging
-import sys
 import time
 from dataclasses import dataclass
 from random import choices
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple
 
 import click
 import progressbar
+from pydantic import Field
 from requests import sessions
+from tabulate import tabulate
 
 from datahub.cli import cli_utils
 from datahub.cli.cli_utils import guess_entity_type
@@ -31,6 +32,7 @@ class DeletionResult:
     end_time_millis: int = 0
     num_records: int = 0
     num_entities: int = 0
+    sample_records: List[List[str]] = Field(default_factory=list)
 
     def start(self) -> None:
         self.start_time_millis = int(time.time() * 1000.0)
@@ -46,6 +48,31 @@ class DeletionResult:
             else UNKNOWN_NUM_RECORDS
         )
         self.num_entities += another_result.num_entities
+        self.sample_records.extend(another_result.sample_records)
+
+
+def delete_for_registry(
+    registry_id: str,
+    soft: bool,
+    dry_run: bool,
+) -> DeletionResult:
+    deletion_result = DeletionResult()
+    deletion_result.num_entities = 1
+    deletion_result.num_records = UNKNOWN_NUM_RECORDS  # Default is unknown
+    registry_delete = {
+        "registryId": registry_id,
+        "dryRun": dry_run,
+    }
+    (
+        structured_rows,
+        entities_affected,
+        aspects_affected,
+    ) = cli_utils.post_rollback_endpoint(registry_delete, "/entities?action=deleteAll")
+    deletion_result.num_entities = entities_affected
+    deletion_result.num_records = aspects_affected
+    deletion_result.sample_records = structured_rows
+    deletion_result.end()
+    return deletion_result
 
 
 @click.command()
@@ -56,6 +83,7 @@ class DeletionResult:
 @click.option("-p", "--platform", required=False, type=str)
 @click.option("--entity_type", required=False, type=str, default="dataset")
 @click.option("--query", required=False, type=str)
+@click.option("--registry-id", required=False, type=str)
 @click.option("-n", "--dry-run", required=False, is_flag=True)
 def delete(
     urn: str,
@@ -65,22 +93,14 @@ def delete(
     platform: str,
     entity_type: str,
     query: str,
+    registry_id: str,
     dry_run: bool,
 ) -> None:
     """Delete metadata from datahub using a single urn or a combination of filters"""
 
-    # First test connectivity
-    try:
-        cli_utils.test_connection()
-    except Exception as e:
-        click.echo(
-            f"Failed to connect to DataHub server at {cli_utils.get_session_and_host()[1]}. Run with datahub --debug delete ... to get more information."
-        )
-        logger.debug(f"Failed to connect with {e}")
-        sys.exit(1)
-
+    cli_utils.test_connectivity_complain_exit("delete")
     # one of urn / platform / env / query must be provided
-    if not urn and not platform and not env and not query:
+    if not urn and not platform and not env and not query and not registry_id:
         raise click.UsageError(
             "You must provide either an urn or a platform or an env or a query for me to delete anything"
         )
@@ -114,6 +134,15 @@ def delete(
                 click.echo(
                     f"Successfully deleted {urn}. {deletion_result.num_records} rows deleted"
                 )
+    elif registry_id:
+        # Registry-id based delete
+        if soft and not dry_run:
+            raise click.UsageError(
+                "Soft-deleting with a registry-id is not yet supported. Try --dry-run to see what you will be deleting, before issuing a hard-delete using the --hard flag"
+            )
+        deletion_result = delete_for_registry(
+            registry_id=registry_id, soft=soft, dry_run=dry_run
+        )
     else:
         # Filter based delete
         deletion_result = delete_with_filters(
@@ -134,6 +163,10 @@ def delete(
     else:
         click.echo(
             f"{deletion_result.num_entities} entities with {deletion_result.num_records if deletion_result.num_records != UNKNOWN_NUM_RECORDS else 'unknown'} rows will be affected. Took {(deletion_result.end_time_millis-deletion_result.start_time_millis)/1000.0} seconds to evaluate."
+        )
+    if deletion_result.sample_records:
+        click.echo(
+            tabulate(deletion_result.sample_records, RUN_TABLE_COLUMNS, tablefmt="grid")
         )
 
 

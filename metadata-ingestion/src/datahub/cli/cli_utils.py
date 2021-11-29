@@ -137,8 +137,32 @@ def test_connection():
     response.raise_for_status()
 
 
-def parse_run_restli_response(response):
+def test_connectivity_complain_exit(operation_name: str) -> None:
+    """Test connectivty to metadata-service, log operation name and exit"""
+    # First test connectivity
+    try:
+        test_connection()
+    except Exception as e:
+        click.secho(
+            f"Failed to connect to DataHub server at {get_session_and_host()[1]}. Run with datahub --debug {operation_name} ... to get more information.",
+            fg="red",
+        )
+        log.debug(f"Failed to connect with {e}")
+        sys.exit(1)
+
+
+def parse_run_restli_response(response: requests.Response) -> dict:
     response_json = response.json()
+    if response.status_code != 200:
+        if isinstance(response_json, dict):
+            if "message" in response_json:
+                click.secho("Failed to execute operation", fg="red")
+                click.secho(f"{response_json['message']}", fg="red")
+            else:
+                click.secho(f"Failed with \n{response_json}", fg="red")
+        else:
+            response.raise_for_status()
+        exit()
 
     if not isinstance(response_json, dict):
         click.echo(f"Received error, please check your {CONDENSED_DATAHUB_CONFIG_PATH}")
@@ -168,20 +192,22 @@ def post_rollback_endpoint(
     response = session.post(url, payload)
 
     summary = parse_run_restli_response(response)
-    rows = summary.get("aspectRowSummaries")
-    entities_affected = summary.get("entitiesAffected")
-    aspects_affected = summary.get("aspectsAffected")
+    rows = summary.get("aspectRowSummaries", [])
+    entities_affected = summary.get("entitiesAffected", 0)
+    aspects_affected = summary.get("aspectsAffected", 0)
 
     if len(rows) == 0:
-        click.echo("No entities touched by this run. Double check your run id?")
+        click.secho(f"No entities found. Payload used: {payload}", fg="yellow")
 
+    local_timezone = datetime.now().astimezone().tzinfo
     structured_rows = [
         [
             row.get("urn"),
             row.get("aspectName"),
-            datetime.utcfromtimestamp(row.get("timestamp") / 1000).strftime(
+            datetime.fromtimestamp(row.get("timestamp") / 1000).strftime(
                 "%Y-%m-%d %H:%M:%S"
-            ),
+            )
+            + f" ({local_timezone})",
         ]
         for row in rows
     ]
@@ -213,8 +239,8 @@ def post_delete_endpoint_with_session_and_url(
     response = session.post(url, payload)
 
     summary = parse_run_restli_response(response)
-    urn = summary.get("urn")
-    rows_affected = summary.get("rows")
+    urn = summary.get("urn", "")
+    rows_affected = summary.get("rows", 0)
 
     return urn, rows_affected
 
