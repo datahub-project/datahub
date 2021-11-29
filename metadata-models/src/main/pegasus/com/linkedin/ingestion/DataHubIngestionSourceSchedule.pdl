@@ -10,9 +10,9 @@ record DataHubIngestionSourceSchedule {
   startTimeMs: long
 
   /**
-   * The end date, in milliseconds since epoch
+   * The end date, in milliseconds since epoch (optional)
    */
-  endTimeMs: long
+  endTimeMs: optional long
 
   /**
    * A cron-formatted execution interval, as a cron string, e.g. "0 * * * *"

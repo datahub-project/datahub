@@ -96,8 +96,9 @@ export const IngestionSourceList = () => {
     };
 
     const handleSubmit = (ingestionSource: any) => {
-        console.log('new source');
         console.log(ingestionSource);
+        setIsEditingSource(false);
+        setFocusSourceUrn(undefined);
     };
 
     return (

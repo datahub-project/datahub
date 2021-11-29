@@ -44,11 +44,12 @@ type Props = {
     logoComponent?: React.ReactNode;
     name: string;
     count?: number;
+    onClick?: () => void;
 };
 
-export const LogoCountCard = ({ logoUrl, logoComponent, name, count }: Props) => {
+export const LogoCountCard = ({ logoUrl, logoComponent, name, count, onClick }: Props) => {
     return (
-        <Container>
+        <Container onClick={onClick}>
             <LogoContainer>
                 {(logoUrl && <PlatformLogo preview={false} src={logoUrl} alt={name} />) || logoComponent}
             </LogoContainer>

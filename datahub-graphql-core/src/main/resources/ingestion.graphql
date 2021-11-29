@@ -249,7 +249,7 @@ type IngestionSchedule {
   """
   The end time associated with the schedule
   """
-  endTimeMs: Long!
+  endTimeMs: Long
 
   """
   The cron-formatted interval to execute the ingestion source on
@@ -421,7 +421,7 @@ input UpdateIngestionSourceScheduleInput {
   """
   The epoch (ms) Date Time when the job should end
   """
-  endTimeMs: Long!
+  endTimeMs: Long
 
   """
   The cron-formatted inverval describing when the job should be executed
