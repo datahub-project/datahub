@@ -41,6 +41,7 @@ class DatahubRestSink(Sink):
             connect_timeout_sec=self.config.timeout_sec,  # reuse timeout_sec for connect timeout
             read_timeout_sec=self.config.timeout_sec,
             extra_headers=self.config.extra_headers,
+            ca_certificate_path=self.config.ca_certificate_path,
         )
         self.emitter.test_connection()
         self.executor = concurrent.futures.ThreadPoolExecutor(
