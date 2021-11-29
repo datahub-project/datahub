@@ -60,7 +60,7 @@ sql_common = {
     # Required for all SQL sources.
     "sqlalchemy==1.3.24",
     # Required for SQL profiling.
-    "great-expectations",
+    "great-expectations==0.13.43",
     "greenlet",
 }
 

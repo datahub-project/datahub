@@ -300,6 +300,7 @@ def test_frontend_browse_datasets(frontend_session):
     [
         ("covid", 1),
         ("sample", 3),
+        ("", 1),
     ],
 )
 @pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
@@ -349,6 +350,7 @@ def test_frontend_search_datasets(frontend_session, query, min_expected_results)
     [
         ("covid", 1),
         ("sample", 3),
+        ("", 1),
     ],
 )
 @pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
