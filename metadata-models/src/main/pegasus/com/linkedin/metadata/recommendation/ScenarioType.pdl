@@ -18,5 +18,10 @@ enum ScenarioType {
   /**
    * Recommendations to show on an Entity Profile page
    */
-  ENTITY_PROFILE
+  ENTITY_PROFILE,
+
+  /**
+   * Recommendations to show on the search bar when clicked
+   */
+  SEARCH_BAR
 }
