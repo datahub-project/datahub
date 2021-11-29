@@ -1,19 +1,14 @@
 import pytest
-from click.testing import CliRunner
-from freezegun import freeze_time
 
-from datahub.entrypoints import datahub
 from datahub.ingestion.run.pipeline import Pipeline
-from tests.test_helpers import fs_helpers, mce_helpers
-from tests.test_helpers.click_helpers import assert_result_ok
-from tests.test_helpers.docker_helpers import wait_for_port
+from tests.test_helpers import mce_helpers
 
 FROZEN_TIME = "2020-04-14 07:00:00"
 
 
 @pytest.mark.integration
 def test_data_lake_ingest(pytestconfig, tmp_path, mock_time):
-    test_resources_dir = pytestconfig.rootpath / "tests/integration/data_lake"
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/data_lake/test_data"
 
     # Run the metadata ingestion pipeline.
     pipeline = Pipeline.create(
@@ -22,10 +17,8 @@ def test_data_lake_ingest(pytestconfig, tmp_path, mock_time):
             "source": {
                 "type": "data-lake",
                 "config": {
-                    # from https://depmap.org/portal/download/, "Cell Line Sample Info"
-                    "file": str(test_resources_dir / "test.csv"),
-                    "file_type": "csv",
-                    "platform": "local",
+                    "include_path": str(test_resources_dir),
+                    "platform": "test",
                 },
             },
             "sink": {

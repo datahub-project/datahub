@@ -1,5 +1,6 @@
 import dataclasses
 import logging
+import os
 from dataclasses import field as dataclass_field
 from enum import Enum
 from typing import Any, Iterable, List, Optional
@@ -80,14 +81,6 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 NUM_SAMPLE_ROWS = 3
 QUANTILES = [0.05, 0.25, 0.5, 0.75, 0.95]
-
-
-class FileType(Enum):
-    PARQUET = "parquet"
-    CSV = "csv"
-    JSON = "json"
-    AVRO = "avro"
-    ORC = "orc"
 
 
 class Cardinality(Enum):
@@ -205,12 +198,11 @@ class DataLakeSourceConfig(ConfigModel):
 
     env: str = DEFAULT_ENV
 
-    file: str
-    file_type: Optional[FileType] = None
     platform: str
 
-    limit: Optional[int] = None
-    offset: Optional[int] = None
+    include_path: str
+    table_allow_deny_patterns: AllowDenyPattern = AllowDenyPattern.allow_all()
+    column_allow_deny_patterns: AllowDenyPattern = AllowDenyPattern.allow_all()
 
     # These settings will override the ones below.
     turn_off_expensive_profiling_metrics: bool = False
@@ -227,7 +219,6 @@ class DataLakeSourceConfig(ConfigModel):
     include_field_histogram: bool = True
     include_field_sample_values: bool = True
 
-    allow_deny_patterns: AllowDenyPattern = AllowDenyPattern.allow_all()
     max_number_of_fields_to_profile: Optional[pydantic.PositiveInt] = None
 
 
@@ -238,6 +229,7 @@ class _SingleTableProfiler:
     column_specs: List[_SingleColumnSpec]
     row_count: int
     source_config: DataLakeSourceConfig
+    file_path: str
     columns_to_profile: List[str] = []
     profile = DatasetProfileClass(timestampMillis=get_sys_time())
 
@@ -246,6 +238,7 @@ class _SingleTableProfiler:
         dataframe: DataFrame,
         spark: SparkSession,
         source_config: DataLakeSourceConfig,
+        file_path: str,
     ):
         self.spark = spark
         self.dataframe = dataframe
@@ -253,6 +246,7 @@ class _SingleTableProfiler:
         self.column_specs = []
         self.row_count = dataframe.count()
         self.source_config = source_config
+        self.file_path = file_path
 
         self.profile.rowCount = self.row_count
         self.profile.columnCount = len(dataframe.columns)
@@ -291,13 +285,16 @@ class _SingleTableProfiler:
             c: self.row_count - column_null_counts[c] for c in dataframe.columns
         }
         column_unique_proportions = {
-            c: column_distinct_counts[c] / column_nonnull_counts[c]
+            c: (
+                column_distinct_counts[c] / column_nonnull_counts[c]
+                if column_nonnull_counts[c] > 0
+                else 0
+            )
             for c in dataframe.columns
         }
 
         # take sample and convert to Pandas DataFrame
         rdd_sample = dataframe.rdd.takeSample(False, NUM_SAMPLE_ROWS, seed=0)
-        rdd_sample = spark.sparkContext.parallelize(rdd_sample).toDF().toPandas()
 
         # init column specs with profiles
         for column in dataframe.schema.fields:
@@ -309,7 +306,7 @@ class _SingleTableProfiler:
             column_profile.uniqueProportion = column_unique_proportions.get(column.name)
             column_profile.nullCount = column_null_counts.get(column.name)
             column_profile.nullProportion = column_null_fractions.get(column.name)
-            column_profile.sampleValues = [str(x) for x in rdd_sample[column.name]]
+            column_profile.sampleValues = [str(x[column.name]) for x in rdd_sample]
 
             column_spec.type_ = column.dataType
             column_spec.cardinality = _convert_to_cardinality(
@@ -587,15 +584,24 @@ class DataLakeSource(Source):
         config = DataLakeSourceConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
-    def read_file(self, file: str, file_type: Optional[FileType]) -> DataFrame:
+    def read_file(self, file: str) -> Optional[DataFrame]:
 
-        if file_type is FileType.PARQUET:
+        if file.endswith(".parquet"):
             df = self.spark.read.parquet(file)
-        elif file_type is FileType.CSV:
+        elif file.endswith(".csv"):
             # see https://sparkbyexamples.com/pyspark/pyspark-read-csv-file-into-dataframe
-            df = self.spark.read.csv(file, header="True", inferSchema="True")
+            df = self.spark.read.csv(file, header="True", inferSchema="True", sep=",")
+        elif file.endswith(".tsv"):
+            df = self.spark.read.csv(file, header="True", inferSchema="True", sep="\t")
+        elif file.endswith(".json"):
+            df = self.spark.read.json(file)
+        elif file.endswith(".orc"):
+            df = self.spark.read.orc(file)
+        elif file.endswith(".avro"):
+            df = self.spark.read.avro(file)
         else:
-            raise ValueError("File type not found")
+            self.report.report_warning(file, f"file {file} has unsupported extension")
+            return None
 
         return df
 
@@ -603,7 +609,7 @@ class DataLakeSource(Source):
         self, analysis_table: _SingleTableProfiler
     ) -> Iterable[MetadataWorkUnit]:
 
-        datasetUrn = f"urn:li:dataset:(urn:li:dataPlatform:{self.source_config.platform},{self.source_config.file},{self.source_config.env})"
+        datasetUrn = f"urn:li:dataset:(urn:li:dataPlatform:{self.source_config.platform},{analysis_table.file_path},{self.source_config.env})"
         dataset_snapshot = DatasetSnapshot(
             urn=datasetUrn,
             aspects=[],
@@ -640,51 +646,60 @@ class DataLakeSource(Source):
         dataset_snapshot.aspects.append(schema_metadata)
 
         mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-        wu = MetadataWorkUnit(id=self.source_config.file, mce=mce)
+        wu = MetadataWorkUnit(id=analysis_table.file_path, mce=mce)
         self.report.report_workunit(wu)
         yield wu
 
-    def profile_table(self) -> Iterable[MetadataWorkUnit]:
+    def profile_table(self, file: str) -> Iterable[MetadataWorkUnit]:
 
-        table = self.read_file(self.source_config.file, self.source_config.file_type)
+        table = self.read_file(file)
+
+        # if table is not readable, skip
+        if table is None:
+            return
 
         # init PySpark analysis object
-        logger.debug(
-            f"Profiling {self.source_config.file}: reading file and computing nulls+uniqueness"
+        logger.debug(f"Profiling {file}: reading file and computing nulls+uniqueness")
+        table_profiler = _SingleTableProfiler(
+            table, self.spark, self.source_config, file
         )
-        table_profiler = _SingleTableProfiler(table, self.spark, self.source_config)
 
         # yield the table schema first
-        logger.debug(f"Profiling {self.source_config.file}: making table schemas")
+        logger.debug(f"Profiling {file}: making table schemas")
         yield from self.get_table_schema(table_profiler)
 
         # TODO: implement ignored columns and max number of fields to profile
-        logger.debug(f"Profiling {self.source_config.file}: preparing profilers to run")
+        logger.debug(f"Profiling {file}: preparing profilers to run")
         table_profiler.prepare_table_profiles()
 
         # compute the profiles
-        logger.debug(f"Profiling {self.source_config.file}: computing profiles")
+        logger.debug(f"Profiling {file}: computing profiles")
         analysis_result = table_profiler.analyzer.run()
         analysis_metrics = AnalyzerContext.successMetricsAsDataFrame(
             self.spark, analysis_result
         )
 
-        logger.debug(f"Profiling {self.source_config.file}: extracting profiles")
+        logger.debug(f"Profiling {file}: extracting profiles")
         table_profiler.extract_table_profiles(analysis_metrics)
 
         mcp = MetadataChangeProposalWrapper(
             entityType="dataset",
-            entityUrn=f"urn:li:dataset:(urn:li:dataPlatform:{self.source_config.platform},{'test'},{self.source_config.env})",
+            entityUrn=f"urn:li:dataset:(urn:li:dataPlatform:{self.source_config.platform},{file},{self.source_config.env})",
             changeType=ChangeTypeClass.UPSERT,
             aspectName="datasetProfile",
             aspect=table_profiler.profile,
         )
-        wu = MetadataWorkUnit(id=f"profile-{'test'}", mcp=mcp)
+        wu = MetadataWorkUnit(
+            id=f"profile-{self.source_config.platform}-{file}", mcp=mcp
+        )
         self.report.report_workunit(wu)
         yield wu
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        yield from self.profile_table()
+
+        for root, dirs, files in os.walk(self.source_config.include_path):
+            for file in files:
+                yield from self.profile_table(os.path.join(root, file))
 
     def get_report(self):
         return self.report
