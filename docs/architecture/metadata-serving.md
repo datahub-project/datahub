@@ -1,3 +1,7 @@
+---
+title: "Serving Tier"
+---
+
 # DataHub Serving Architecture
 
 The figure below shows the high-level system diagram for DataHub's Serving Tier. 

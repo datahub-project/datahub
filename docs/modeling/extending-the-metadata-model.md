@@ -8,14 +8,25 @@ You can extend the metadata model by either creating a new Entity or extending a
 create a new entity or add an aspect to an existing entity? Read [metadata-model](./metadata-model.md) to understand
 these two concepts prior to making changes.
 
-We will outline what the experience of adding a new Entity should look like through a real example of adding the
+## To fork or not to fork?
+
+An important question that will arise once you've decided to extend the metadata model is whether you need to fork the main repo or not. Use the diagram below to understand how to make this decision.
+![Metadata Model To Fork or Not](../imgs/metadata-model-to-fork-or-not-to.png)
+
+The green lines represent pathways that will lead to lesser friction for you to maintain your code long term. The red lines represent higher risk of conflicts in the future. We are working hard to move the majority of model extension use-cases to no-code / low-code pathways to ensure that you can extend the core metadata model without having to maintain a custom fork of DataHub.
+
+We will refer to the two options as the **open-source fork** and **custom repository** approaches in the rest of the document below.
+
+## This Guide
+
+This guide will outline what the experience of adding a new Entity should look like through a real example of adding the
 Dashboard Entity. If you want to extend an existing Entity, you can skip directly to [Step 4](#step_4).
 
 At a high level, an entity is made up of:
 
-1. a union of Aspects, or bundles of related metadata,
-2. a Key Aspect, which uniquely identifies an instance of an entity,
-3. A snapshot, which pairs a group of aspects with a serialized key, or urn.
+1. A Key Aspect, which uniquely identifies an instance of an entity,
+2. A Snapshot, which combines the key aspect with a serialized key, or urn.
+3. Additional bundles of Aspects, groups of related attributes that are attached to an entity.
 
 ## Defining an Entity
 
@@ -73,7 +84,69 @@ the annotation model.
 
 **Constraints**: Note that each field in a Key Aspect MUST be of String or Enum type.
 
-### <a name="step_2"></a>Step 2: Define custom aspects
+### <a name="step_2"></a>Step 2: Create the new entity with its key aspect
+
+Create an Aspect union to define the key aspects an Entity is associated with. An aspect represents a related
+record of metadata about an entity. Any record appearing in the Union should be annotated with @Aspect. In this example below, we take the DashboardKey aspect and the BrowsePaths aspect and include them in this `DashboardAspect` union. For all other aspects, we will utilize a much more flexible way of attaching aspects to entities using a `yaml` file.
+
+```
+namespace com.linkedin.metadata.aspect
+
+import com.linkedin.metadata.key.DashboardKey
+import com.linkedin.common.BrowsePaths
+
+/**
+ * A union of all supported metadata aspects for a Dashboard
+ */
+typeref DashboardAspect = union[
+    DashboardKey,
+    BrowsePaths
+]
+```
+
+The first aspect will be by convention the Entity’s key aspect.
+Previously, you were required to add all aspects for the entity into this Aspect union. You will see examples of this pattern throughout the code-base (e.g. `DatasetAspect`, `DashboardAspect` etc.). This is no longer required.
+
+### <a name="step_3"></a>Step 3: Define the Entity Snapshot
+
+The snapshot describes the format of how an entity is serialized (as a single snapshot record) for read and write operations to DataHub's metadata service (f.k.a. GMS). All snapshots have two fields:
+- `urn` of type `Urn`
+- `snapshot` of type `union[Aspect1, Aspect2, ...]`.
+
+The snapshot needs an `@Entity` annotation with the entity’s name. The name is used for specifying entity type when
+searching, using autocomplete, etc.
+
+```
+namespace com.linkedin.metadata.snapshot
+
+import com.linkedin.common.DashboardUrn
+import com.linkedin.metadata.aspect.DashboardAspect
+
+/**
+ * A metadata snapshot for a specific Dashboard entity.
+ */
+@Entity = {
+  "name": "dashboard"
+}
+record DashboardSnapshot {
+
+  /**
+   * URN for the entity the metadata snapshot is associated with.
+   */
+  urn: DashboardUrn
+
+  /**
+   * The list of metadata aspects associated with the dashboard.
+   */
+  aspects: array[DashboardAspect]
+}
+```
+
+If you're extending an existing Entity, you can skip this step and go straight to step 4.
+
+#
+
+### <a name="step_4"></a>Step 4: Define custom aspects or attach existing aspects to your entity
 
 Some aspects, like Ownership and GlobalTags, are reusable across entities. They can be included in an entity’s set of
 aspects freely. To include attributes that are not included in an existing Aspect, a new Aspect must be created.
@@ -130,7 +203,7 @@ record DashboardInfo includes CustomProperties, ExternalReference {
     }
   }
   charts: array[ChartUrn] = [ ]
- 
+
   /**
    * Captures information about who created/last modified/deleted this dashboard and when
    */
@@ -177,95 +250,46 @@ The Aspect has four key components: its properties, the @Aspect annotation, the 
   directly to an array of Urns. That’s why you see the use of an Annotation override (`”/*”:) to apply the @Relationship
   annotation to the Urn directly. Read more about overrides in the annotation docs further down on this page.
 
-After you create your Aspect, you need to add it into the Aspect Union of each entity you’d like to attach the aspect
-to. Refer back to [Step 2](#step_2) for how Aspects are added to Aspect Unions.
+After you create your Aspect, you need to attach to all the entities that it applies to.
 
 **Constraints**: Note that all aspects MUST be of type Record.
 
-### <a name="step_3"></a>Step 3: Define the Entity Aspect Union
+### <a name="step_5"></a> Step 5: Choose a place to store your model extension
 
-You must create an Aspect union to define what aspects an Entity is associated with. An aspect represents a related
-record of metadata about an entity. Any record appearing in the Union should be annotated with @Aspect.
+At the beginning of this document, we walked you through a flow-chart that should help you decide whether you need to maintain a fork of the open source DataHub repo for your model extensions, or whether you can just use a model extension repository that can stay independent of the DataHub repo. Depending on what path you took, the place you store your aspect model files (the .pdl files) and the entity-registry files (the yaml file called `entity-registry.yaml` or `entity-registry.yml`) will vary.
 
-```
-namespace com.linkedin.metadata.aspect
+- Open source Fork: Aspect files go under [`metadata-models`](../../metadata-models) module in the main repo, entity registry goes into `metadata-models/src/resources/entity-registry.yml`. Read on for more details in Step 6.
+- Custom repository: Read the [metadata-models-custom](../../metadata-models-custom/README.md) documentation to figure out how to store and version your aspect models and registry.
 
-import com.linkedin.metadata.key.DashboardKey
-import com.linkedin.dashboard.DashboardInfo
-import com.linkedin.common.Ownership
-import com.linkedin.common.Status
-import com.linkedin.common.GlobalTags
-import com.linkedin.common.BrowsePaths
+### <a name="step_6"></a>Step 6: Attaching your non-key Aspect(s) to the Entity
 
-/**
- * A union of all supported metadata aspects for a Dashboard
- */
-typeref DashboardAspect = union[
-    DashboardKey,
-    DashboardInfo,
-    Ownership,
-    Status,
-    GlobalTags,
-    BrowsePaths
-]
+Attaching non-key aspects to an entity can be done simply by editing the `entity-registry.yml` file located under the metadata-models module [here](../../metadata-models/src/main/resources).
+
+Here is an minimal example of adding our new `DashboardInfo` aspect to the `Dashboard` entity.
+
+```yaml
+entities:
+   - name: dashboard
+   aspects:
+     - dashboardInfo  # the name of the aspect must be the same as that on the @Aspect annotation on the class
 ```
 
-The first aspect will be by convention the Entity’s key aspect. Other aspects can be Dashboard specific, like
-DashboardInfo, or common, such as Ownership. This union can be extended over time as you expand the metadata model. You
-can include any existing type with the @Aspect annotation in your entity’s aspect union or create new ones- The next step 
-goes into detail about how to create a new Aspect.
+Store this entity registry in the appropriate place depending on whether you are following the open-source fork approach or the custom repository approach.
 
-To extend an existing entity, simply add your new Aspect to the Entity's list of aspect via the Aspect Union model.
+### <a name="step_7"></a>Step 7 (Oss-Fork only): Re-build DataHub to have access to your new or updated entity
 
-### <a name="step_4"></a>Step 4: Define an Entity Snapshot
+If you opted for the open-source fork approach, where you are editing models in the `metadata-models` repository of DataHub, you will need to re-build the DataHub metadata service using the steps below. If you are following the custom model repository approach, you just need to build your custom model repository and deploy it to a running metadata service instance to read and write metadata using your new model extensions.
 
-The snapshot describes the format of how an entity is serialized for read and write operations to GMS, the Generic
-Metadata Store. All snapshots have two fields:
-- `urn` of type `Urn` 
-- `snapshot` of type `union[Aspect1, Aspect2, ...]`.
+Read on to understand how to re-build DataHub for the oss-fork option.
 
-The snapshot needs an `@Entity` annotation with the entity’s name. The name is used for specifying entity type when
-searching, using autocomplete, etc.
-
-```
-namespace com.linkedin.metadata.snapshot
-
-import com.linkedin.common.DashboardUrn
-import com.linkedin.metadata.aspect.DashboardAspect
-
-/**
- * A metadata snapshot for a specific Dashboard entity.
- */
-@Entity = {
-  "name": "dashboard"
-}
-record DashboardSnapshot {
-
-  /**
-   * URN for the entity the metadata snapshot is associated with.
-   */
-  urn: DashboardUrn
-
-  /**
-   * The list of metadata aspects associated with the dashboard.
-   */
-  aspects: array[DashboardAspect]
-}
-```
-
-If you're extending an existing Entity, you can skip this step.
-
-### <a name="step_5"></a>Step 5: Re-build DataHub to have access to your new or updated entity
-
-If you have updated any existing types or see an `Incompatible changes` warning when building, you will need to run
+**_NOTE_**: If you have updated any existing types or see an `Incompatible changes` warning when building, you will need to run
 `./gradlew :gms:impl:build -Prest.model.compatibility=ignore`
 before running `build`.
 
 Then, run `./gradlew build` from the repository root to rebuild Datahub with access to your new entity.
 
-Then, re-deploy gms, mae-consumer and mce-consumer (see [docker development](../../docker/README.md) for details on how
-to deploy during development). This will allow Datahub to read and write Snapshots of your new entity, along with server
-search and graph queries for that entity type.
+Then, re-deploy metadata-service (gms), and mae-consumer and mce-consumer (optionally if you are running them unbundled). See [docker development](../../docker/README.md) for details on how
+to deploy during development. This will allow Datahub to read and write Snapshots of your new entity or extensions to existing entities, along with serving search and graph queries for that entity type.
 
 To emit snapshots to ingest from the Datahub CLI tool, first install datahub cli
 locally [following the instructions here](../../metadata-ingestion/developing.md). `./gradlew build` generated the avro
@@ -274,12 +298,12 @@ your new event using the local datahub cli.
 
 Now you are ready to start ingesting metadata for your new entity!
 
-### <a name="step_6"></a>(Optional) Step 6: Extend the DataHub frontend to view your entity in GraphQL & React
+### <a name="step_8"></a>(Optional) Step 8: Extend the DataHub frontend to view your entity in GraphQL & React
 
-At the moment, custom React and Grapqhl code needs to be written to view your entity in GraphQL or React. For
-instructions on how to start extending the GraphQL graph, see [graphql docs](../../datahub-graphql-core/README.md). Once
-you’ve done that, you can follow the guide [here](../../datahub-web-react/README.md) to add your entity into the React
-UI.
+If you are extending an entity with additional aspects, and you can use the auto-render specifications to automatically render these aspects to your satisfaction, you do not need to write any custom code.
+
+However, if you want to write specific code to render your model extensions, or if you introduced a whole new entity and want to give it its own page, you will need to write custom React and Grapqhl code to view and mutate your entity in GraphQL or React. For
+instructions on how to start extending the GraphQL graph, see [graphql docs](../../datahub-graphql-core/README.md). Once you’ve done that, you can follow the guide [here](../../datahub-web-react/README.md) to add your entity into the React UI.
 
 ## Metadata Annotations
 
