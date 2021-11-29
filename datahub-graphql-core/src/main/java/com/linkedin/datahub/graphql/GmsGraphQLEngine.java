@@ -43,6 +43,7 @@ import com.linkedin.datahub.graphql.generated.MLPrimaryKey;
 import com.linkedin.datahub.graphql.generated.MLPrimaryKeyProperties;
 import com.linkedin.datahub.graphql.resolvers.MeResolver;
 import com.linkedin.datahub.graphql.resolvers.actionrequest.ListActionRequestsResolver;
+import com.linkedin.datahub.graphql.resolvers.constraint.CreateTermConstraintResolver;
 import com.linkedin.datahub.graphql.resolvers.group.AddGroupMembersResolver;
 import com.linkedin.datahub.graphql.resolvers.group.CreateGroupResolver;
 import com.linkedin.datahub.graphql.resolvers.group.EntityCountsResolver;
@@ -51,6 +52,7 @@ import com.linkedin.datahub.graphql.resolvers.group.RemoveGroupMembersResolver;
 import com.linkedin.datahub.graphql.resolvers.group.RemoveGroupResolver;
 import com.linkedin.datahub.graphql.resolvers.group.UpdateUserStatusResolver;
 import com.linkedin.datahub.graphql.resolvers.load.AspectResolver;
+import com.linkedin.datahub.graphql.resolvers.constraint.ConstraintsResolver;
 import com.linkedin.datahub.graphql.resolvers.load.EntityTypeBatchResolver;
 import com.linkedin.datahub.graphql.resolvers.load.EntityTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.load.LoadableTypeBatchResolver;
@@ -328,6 +330,30 @@ public class GmsGraphQLEngine {
         return recommendationsSchemaString;
     }
 
+    public static String actionsSchema() {
+        String actionsSchemaString;
+        try {
+            InputStream is = Thread.currentThread().getContextClassLoader().getResourceAsStream(ACTIONS_SCHEMA_FILE);
+            actionsSchemaString = IOUtils.toString(is, StandardCharsets.UTF_8);
+            is.close();
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to find GraphQL Schema with name " + ACTIONS_SCHEMA_FILE, e);
+        }
+        return actionsSchemaString;
+    }
+
+    public static String constraintsSchema() {
+        String actionsSchemaString;
+        try {
+            InputStream is = Thread.currentThread().getContextClassLoader().getResourceAsStream(CONSTRAINTS_SCHEMA_FILE);
+            actionsSchemaString = IOUtils.toString(is, StandardCharsets.UTF_8);
+            is.close();
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to find GraphQL Schema with name " + CONSTRAINTS_SCHEMA_FILE, e);
+        }
+        return actionsSchemaString;
+    }
+
     /**
      * Returns a {@link Supplier} responsible for creating a new {@link DataLoader} from
      * a {@link LoadableType}.
@@ -369,6 +395,8 @@ public class GmsGraphQLEngine {
             .addSchema(appSchema())
             .addSchema(analyticsSchema())
             .addSchema(recommendationsSchema())
+            .addSchema(actionsSchema())
+            .addSchema(constraintsSchema())
             .addDataLoaders(loaderSuppliers(loadableTypes))
             .addDataLoader("Aspect", (context) -> createAspectLoader(context))
             .addDataLoader("UsageQueryResult", (context) -> createUsageLoader(context))
@@ -512,6 +540,7 @@ public class GmsGraphQLEngine {
             .dataFetcher("removeUser", new RemoveUserResolver(GmsClientFactory.getEntitiesClient()))
             .dataFetcher("removeGroup", new RemoveGroupResolver(GmsClientFactory.getEntitiesClient()))
             .dataFetcher("updateUserStatus", new UpdateUserStatusResolver(GmsClientFactory.getAspectsClient()))
+            .dataFetcher("createTermConstraint", new CreateTermConstraintResolver(GmsClientFactory.getAspectsClient()))
         );
     }
 
@@ -579,6 +608,10 @@ public class GmsGraphQLEngine {
                 )
                 .dataFetcher("proposals", new AuthenticatedResolver<>(
                     new ProposalsResolver(
+                        (env) -> ((Entity) env.getSource()).getUrn(), entityClient))
+                )
+                .dataFetcher("constraints", new AuthenticatedResolver<>(
+                    new ConstraintsResolver(
                         (env) -> ((Entity) env.getSource()).getUrn(), entityClient))
                 )
                 .dataFetcher("datasetProfiles", new AuthenticatedResolver<>(

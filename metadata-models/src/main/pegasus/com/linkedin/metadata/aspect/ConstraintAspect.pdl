@@ -1,0 +1,9 @@
+namespace com.linkedin.metadata.aspect
+
+import com.linkedin.metadata.key.ConstraintKey
+import com.linkedin.constraint.ConstraintInfo
+
+/**
+ * A union of all supported metadata aspects for a tag
+ */
+typeref ConstraintAspect = union[ConstraintKey, ConstraintInfo]

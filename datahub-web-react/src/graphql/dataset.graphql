@@ -149,6 +149,16 @@ query getDataset($urn: String!) {
             ...fullRelationshipResults
         }
         ...viewProperties
+        constraints {
+            displayName
+            description
+            type
+            params {
+                hasGlossaryTermInNodeParams {
+                    nodeName
+                }
+            }
+        }
     }
 }
 

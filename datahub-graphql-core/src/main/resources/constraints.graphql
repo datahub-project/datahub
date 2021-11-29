@@ -1,0 +1,90 @@
+extend type Dataset {
+    """
+    Active Constraints that have not been met
+    """
+    constraints: [Constraint!]
+}
+
+extend type Query {
+    """
+    Fetch all action requests for the authenticated user
+    """
+    listActionRequests(input: ListActionRequestsInput!): ListActionRequestsResult
+}
+
+extend type Mutation {
+    """
+    Create a new glossary term constraint
+    """
+    createTermConstraint(input: CreateTermConstraintInput!): String
+}
+
+"""
+Input for creating a new Glossary Term Constraint
+"""
+input CreateTermConstraintInput {
+    """
+    Name of the constraint
+    """
+    name: String
+    """
+    description of the constraint
+    """
+    description: String
+    """
+    URN of the glossary node the constraint should cover
+    """
+    nodeUrn: String
+}
+
+"""
+A constraint applied to a set of entities in datahub that must meet some requirements
+"""
+type Constraint {
+    """
+    The type of the constriant
+    """
+    type: ConstraintType
+
+    """
+    Optional set of constraint arguments specific to the constraint type
+    """
+    params: ConstraintParams
+
+    """
+    Optional name of the constraint
+    """
+    displayName: String
+
+    """
+    Optional description of the constraint
+    """
+    description: String
+}
+
+"""
+Enum of all constraint types
+"""
+enum ConstraintType {
+   HAS_GLOSSARY_TERM_IN_NODE
+}
+
+"""
+Umbrella Object containing all constraint param types
+"""
+type ConstraintParams {
+    """
+    Glossary Term specific arguments
+    """
+    hasGlossaryTermInNodeParams: GlossaryTermInNodeConstraintParams
+}
+
+"""
+Glossary Term specific arguments
+"""
+type GlossaryTermInNodeConstraintParams {
+    """
+    The glossary node from which a term must be selected
+    """
+    nodeName: String
+}

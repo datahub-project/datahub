@@ -42,11 +42,17 @@ public class PoliciesConfig {
       "View Metadata Proposals",
       "View the requests tab for viewing metadata proposals.");
 
+  public static final Privilege CREATE_CONSTRAINTS_PRIVILEGE = Privilege.of(
+      "CREATE_CONSTRAINTS",
+      "Create metadata constraints",
+      "Create metadata constraints.");
+
   public static final List<Privilege> PLATFORM_PRIVILEGES = ImmutableList.of(
       MANAGE_POLICIES_PRIVILEGE,
       MANAGE_USERS_AND_GROUPS_PRIVILEGE,
       VIEW_ANALYTICS_PRIVILEGE,
-      VIEW_METADATA_PROPOSALS_PRIVILEGE
+      VIEW_METADATA_PROPOSALS_PRIVILEGE,
+      CREATE_CONSTRAINTS_PRIVILEGE
   );
 
   // Resource Privileges //
