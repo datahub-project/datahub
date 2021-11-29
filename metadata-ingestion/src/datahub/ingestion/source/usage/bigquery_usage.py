@@ -34,7 +34,6 @@ logger = logging.getLogger(__name__)
 AuditLogEntry = Any
 
 DEBUG_INCLUDE_FULL_PAYLOADS = False
-GCP_LOGGING_PAGE_SIZE = 1000
 
 # Handle yearly, monthly, daily, or hourly partitioning.
 # See https://cloud.google.com/bigquery/docs/partitioned-tables.
@@ -288,6 +287,7 @@ class BigQueryUsageConfig(BaseUsageConfig):
     env: str = builder.DEFAULT_ENV
     table_pattern: Optional[AllowDenyPattern] = None
 
+    log_page_size: Optional[pydantic.PositiveInt] = 1000
     query_log_delay: Optional[pydantic.PositiveInt] = None
     max_query_duration: timedelta = timedelta(minutes=15)
 
@@ -409,7 +409,7 @@ class BigQueryUsageSource(Source):
         for client in clients:
             try:
                 list_entries: Iterable[AuditLogEntry] = client.list_entries(
-                    filter_=filter, page_size=GCP_LOGGING_PAGE_SIZE
+                    filter_=filter, page_size=self.config.log_page_size
                 )
                 list_entry_generators_across_clients.append(list_entries)
             except Exception as e:
