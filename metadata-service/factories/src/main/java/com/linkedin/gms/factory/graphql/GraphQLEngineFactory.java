@@ -29,7 +29,14 @@ import org.springframework.context.annotation.Import;
 
 
 @Configuration
-@Import({RestHighLevelClientFactory.class, IndexConventionFactory.class, RestliEntityClientFactory.class, RecommendationServiceFactory.class, EntityRegistryFactory.class, DataHubTokenServiceFactory.class})
+@Import({
+    RestHighLevelClientFactory.class,
+    IndexConventionFactory.class,
+    RestliEntityClientFactory.class,
+    RecommendationServiceFactory.class,
+    EntityRegistryFactory.class,
+    DataHubTokenServiceFactory.class
+})
 public class GraphQLEngineFactory {
   @Autowired
   @Qualifier("elasticSearchRestHighLevelClient")
