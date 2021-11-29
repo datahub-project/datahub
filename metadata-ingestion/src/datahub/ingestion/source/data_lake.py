@@ -230,8 +230,9 @@ class _SingleTableProfiler:
     row_count: int
     source_config: DataLakeSourceConfig
     file_path: str
-    columns_to_profile: List[str] = []
-    profile = DatasetProfileClass(timestampMillis=get_sys_time())
+    columns_to_profile: List[str]
+    ignored_columns: List[str]
+    profile: DatasetProfileClass
 
     def __init__(
         self,
@@ -247,14 +248,24 @@ class _SingleTableProfiler:
         self.row_count = dataframe.count()
         self.source_config = source_config
         self.file_path = file_path
+        self.columns_to_profile = []
+        self.ignored_columns = []
+        self.profile = DatasetProfileClass(timestampMillis=get_sys_time())
 
         self.profile.rowCount = self.row_count
         self.profile.columnCount = len(dataframe.columns)
 
         # get column distinct counts
         for column in dataframe.columns:
+
+            if not self.source_config.column_allow_deny_patterns.allowed(column):
+                self.ignored_columns.append(column)
+                continue
+
+            self.columns_to_profile.append(column)
             # TODO: add option for ApproxCountDistinct
             self.analyzer.addAnalyzer(CountDistinct(column))
+
         analysis_result = self.analyzer.run()
         analysis_metrics = AnalyzerContext.successMetricsAsJson(
             self.spark, analysis_result
@@ -274,15 +285,15 @@ class _SingleTableProfiler:
         null_counts = dataframe.select(
             [
                 count(when(isnan(col(c).astype("int")) | col(c).isNull(), c)).alias(c)
-                for c in dataframe.columns
+                for c in self.columns_to_profile
             ]
         )
         column_null_counts = null_counts.toPandas().T[0].to_dict()
         column_null_fractions = {
-            c: column_null_counts[c] / self.row_count for c in dataframe.columns
+            c: column_null_counts[c] / self.row_count for c in self.columns_to_profile
         }
         column_nonnull_counts = {
-            c: self.row_count - column_null_counts[c] for c in dataframe.columns
+            c: self.row_count - column_null_counts[c] for c in self.columns_to_profile
         }
         column_unique_proportions = {
             c: (
@@ -290,27 +301,29 @@ class _SingleTableProfiler:
                 if column_nonnull_counts[c] > 0
                 else 0
             )
-            for c in dataframe.columns
+            for c in self.columns_to_profile
         }
 
         # take sample and convert to Pandas DataFrame
         rdd_sample = dataframe.rdd.takeSample(False, NUM_SAMPLE_ROWS, seed=0)
 
+        column_types = {x.name: x.dataType for x in dataframe.schema.fields}
+
         # init column specs with profiles
-        for column in dataframe.schema.fields:
-            column_profile = DatasetFieldProfileClass(fieldPath=column.name)
+        for column in self.columns_to_profile:
+            column_profile = DatasetFieldProfileClass(fieldPath=column)
 
-            column_spec = _SingleColumnSpec(column.name, column_profile)
+            column_spec = _SingleColumnSpec(column, column_profile)
 
-            column_profile.uniqueCount = column_distinct_counts.get(column.name)
-            column_profile.uniqueProportion = column_unique_proportions.get(column.name)
-            column_profile.nullCount = column_null_counts.get(column.name)
-            column_profile.nullProportion = column_null_fractions.get(column.name)
-            column_profile.sampleValues = [str(x[column.name]) for x in rdd_sample]
+            column_profile.uniqueCount = column_distinct_counts.get(column)
+            column_profile.uniqueProportion = column_unique_proportions.get(column)
+            column_profile.nullCount = column_null_counts.get(column)
+            column_profile.nullProportion = column_null_fractions.get(column)
+            column_profile.sampleValues = [str(x[column]) for x in rdd_sample]
 
-            column_spec.type_ = column.dataType
+            column_spec.type_ = column_types[column]
             column_spec.cardinality = _convert_to_cardinality(
-                column_distinct_counts[column.name], column_null_fractions[column.name]
+                column_distinct_counts[column], column_null_fractions[column]
             )
 
             self.column_specs.append(column_spec)

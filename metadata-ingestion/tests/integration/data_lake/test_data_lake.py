@@ -19,6 +19,7 @@ def test_data_lake_ingest(pytestconfig, tmp_path, mock_time):
                 "config": {
                     "include_path": str(test_resources_dir),
                     "platform": "test",
+                    # "column_allow_deny_patterns" : ["exclude"],
                 },
             },
             "sink": {
