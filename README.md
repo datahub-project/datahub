@@ -115,6 +115,7 @@ Here are the companies that have officially adopted DataHub. Please feel free to
 - [Experius](https://www.experius.nl)
 - [Geotab](https://www.geotab.com)
 - [Grofers](https://grofers.com)
+- [hipages](https://hipages.com.au/)
 - [Klarna](https://www.klarna.com)
 - [LinkedIn](http://linkedin.com)
 - [Peloton](https://www.onepeloton.com)
