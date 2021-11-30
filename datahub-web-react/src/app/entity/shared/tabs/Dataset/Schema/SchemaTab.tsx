@@ -45,7 +45,7 @@ export const SchemaTab = () => {
         [schemaMetadata],
     );
 
-    const [showKeySchema, setShowKeySchema] = useState(!hasValueSchema);
+    const [showKeySchema, setShowKeySchema] = useState(false);
 
     // if there is no value schema, default the selected schema to Key
     useEffect(() => {
@@ -53,7 +53,6 @@ export const SchemaTab = () => {
             setShowKeySchema(true);
         }
     }, [hasValueSchema, hasKeySchema, setShowKeySchema]);
-
     const rows = useMemo(() => {
         return groupByFieldPath(schemaMetadata?.fields, { showKeySchema });
     }, [schemaMetadata, showKeySchema]);
