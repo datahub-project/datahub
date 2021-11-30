@@ -2,6 +2,7 @@ package com.linkedin.entity.client;
 
 import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.Entity;
@@ -261,5 +262,11 @@ public interface EntityClient {
       @Nonnull String aspect,
       @Nonnull Long version,
       @Nonnull Class<T> aspectClass,
+      @Nonnull Authentication authentication) throws RemoteInvocationException;
+
+  public DataMap getRawAspect(
+      @Nonnull String urn,
+      @Nonnull String aspect,
+      @Nonnull Long version,
       @Nonnull Authentication authentication) throws RemoteInvocationException;
 }

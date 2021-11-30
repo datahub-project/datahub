@@ -337,6 +337,12 @@ It takes the following parameters:
 - **name**: string - A common name used to identify the Aspect. Must be unique among all aspects DataHub is aware of.
 - **type**: string (optional) - set to "timeseries" to mark this aspect as timeseries. Check out
   this [doc](metadata-model.md#timeseries-aspects) for details.
+- **autoRender**: boolean (optional) - defaults to false. When set to true, the aspect will automatically be displayed
+  on entity pages in a tab using a default renderer.
+- **renderSpec**: RenderSpec (optional) - config for autoRender aspects that controls how they are displayed. Contains three fields:
+    - **displayType**: One of `tabular`, `properties`. Tabular should be uesd for a list of data elements- proprties for a single data bag.
+    - **displayName**: How the aspect should be referred to in the UI. Determines the name of the tab on the entity page.
+    - **key**: For `tabular` aspects only. Specifies the key in which the array to render may be found.
 
 ##### Example
 
