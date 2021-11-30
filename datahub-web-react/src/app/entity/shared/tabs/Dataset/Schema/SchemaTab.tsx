@@ -32,11 +32,16 @@ export const SchemaTab = () => {
         [schemaMetadata],
     );
     const hasKeySchema = useMemo(
-        () => schemaMetadata?.fields?.findIndex((field) => field.fieldPath.indexOf(KEY_SCHEMA_PREFIX) > -1) !== -1,
+        () =>
+            (schemaMetadata?.fields?.length || 0) > 0 &&
+            schemaMetadata?.fields?.findIndex((field) => field.fieldPath.indexOf(KEY_SCHEMA_PREFIX) > -1) !== -1,
         [schemaMetadata],
     );
+
     const hasValueSchema = useMemo(
-        () => schemaMetadata?.fields?.findIndex((field) => field.fieldPath.indexOf(KEY_SCHEMA_PREFIX) === -1) !== -1,
+        () =>
+            (schemaMetadata?.fields?.length || 0) > 0 &&
+            schemaMetadata?.fields?.findIndex((field) => field.fieldPath.indexOf(KEY_SCHEMA_PREFIX) === -1) !== -1,
         [schemaMetadata],
     );
 
