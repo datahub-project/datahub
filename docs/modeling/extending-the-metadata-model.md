@@ -258,12 +258,12 @@ After you create your Aspect, you need to attach to all the entities that it app
 
 At the beginning of this document, we walked you through a flow-chart that should help you decide whether you need to maintain a fork of the open source DataHub repo for your model extensions, or whether you can just use a model extension repository that can stay independent of the DataHub repo. Depending on what path you took, the place you store your aspect model files (the .pdl files) and the entity-registry files (the yaml file called `entity-registry.yaml` or `entity-registry.yml`) will vary.
 
-- Open source Fork: Aspect files go under [`metadata-models`](../../metadata-models) module in the main repo, entity registry goes into `metadata-models/src/resources/entity-registry.yml`. Read on for more details in Step 6.
-- Custom repository: Read the [metadata-models-custom](../../metadata-models-custom/README.md) documentation to figure out how to store and version your aspect models and registry.
+- Open source Fork: Aspect files go under [`metadata-models`](../../metadata-models) module in the main repo, entity registry goes into [`metadata-models/src/main/resources/entity-registry.yml`](../../metadata-models/src/main/resources/entity-registry.yml). Read on for more details in [Step 6](#step_6).
+- Custom repository: Read the [metadata-models-custom](../../metadata-models-custom/README.md) documentation to learn how to store and version your aspect models and registry.
 
 ### <a name="step_6"></a>Step 6: Attaching your non-key Aspect(s) to the Entity
 
-Attaching non-key aspects to an entity can be done simply by editing the `entity-registry.yml` file located under the metadata-models module [here](../../metadata-models/src/main/resources).
+Attaching non-key aspects to an entity can be done simply by adding them to the entity registry yaml file. The location of this file differs based on whether you are following the oss-fork path or the custom-repository path.
 
 Here is an minimal example of adding our new `DashboardInfo` aspect to the `Dashboard` entity.
 
@@ -271,12 +271,11 @@ Here is an minimal example of adding our new `DashboardInfo` aspect to the `Dash
 entities:
    - name: dashboard
    aspects:
-     - dashboardInfo  # the name of the aspect must be the same as that on the @Aspect annotation on the class
+     # the name of the aspect must be the same as that on the @Aspect annotation on the class
+     - dashboardInfo  
 ```
 
-Store this entity registry in the appropriate place depending on whether you are following the open-source fork approach or the custom repository approach.
-
-### <a name="step_7"></a>Step 7 (Oss-Fork only): Re-build DataHub to have access to your new or updated entity
+### <a name="step_7"></a>Step 7 (Oss-Fork approach): Re-build DataHub to have access to your new or updated entity
 
 If you opted for the open-source fork approach, where you are editing models in the `metadata-models` repository of DataHub, you will need to re-build the DataHub metadata service using the steps below. If you are following the custom model repository approach, you just need to build your custom model repository and deploy it to a running metadata service instance to read and write metadata using your new model extensions.
 
@@ -337,6 +336,12 @@ It takes the following parameters:
 - **name**: string - A common name used to identify the Aspect. Must be unique among all aspects DataHub is aware of.
 - **type**: string (optional) - set to "timeseries" to mark this aspect as timeseries. Check out
   this [doc](metadata-model.md#timeseries-aspects) for details.
+- **autoRender**: boolean (optional) - defaults to false. When set to true, the aspect will automatically be displayed
+  on entity pages in a tab using a default renderer.
+- **renderSpec**: RenderSpec (optional) - config for autoRender aspects that controls how they are displayed. Contains three fields:
+    - **displayType**: One of `tabular`, `properties`. Tabular should be uesd for a list of data elements- proprties for a single data bag.
+    - **displayName**: How the aspect should be referred to in the UI. Determines the name of the tab on the entity page.
+    - **key**: For `tabular` aspects only. Specifies the key in which the array to render may be found.
 
 ##### Example
 
