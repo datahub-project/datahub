@@ -69,6 +69,7 @@ The business glossary source file should be a `.yml` file with the following top
 - **source_url**: (optional) If external, what is the url of the source definition?
 - **inherits**: (optional) List of **GlossaryTerm** that this term inherits from
 - **contains**: (optional) List of **GlossaryTerm** that this term contains
+- **custom_properties**: A map of key/value pairs of arbitrary custom properties
 
 You can also view an example business glossary file checked in [here](../examples/bootstrap_data/business_glossary.yml)
 
