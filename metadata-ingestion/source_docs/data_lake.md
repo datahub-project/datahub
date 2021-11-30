@@ -6,7 +6,10 @@ For context on getting started with ingestion, check out our [metadata ingestion
 
 To install this plugin, run `pip install 'acryl-datahub[data-lake]'`.
 
-The SQL-based profiler does not run alone, but rather can be enabled for other SQL-based sources.
+The data lake profiler reads files stored in a number of file types (see below for an exhaustive list).
+For each file, the module will also generate profiles on the table itself as well as any columns similar to the
+[SQL profiler](./sql_profiles.md).
+
 Enabling profiling will slow down ingestion runs.
 
 :::caution
@@ -45,10 +48,8 @@ For general pointers on writing and running a recipe, see our [main recipe guide
 
 ```yml
 source:
-  type: <sql-source> # can be bigquery, snowflake, etc - see above for the list
+  type: data-lake
   config:
-    # ... any other source-specific options ...
-
     # Options
     profiling:
       enabled: true

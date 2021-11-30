@@ -15,7 +15,6 @@ from pydeequ.analyzers import (
     ApproxCountDistinct,
     ApproxQuantile,
     ApproxQuantiles,
-    CountDistinct,
     Histogram,
     Maximum,
     Mean,
@@ -197,15 +196,10 @@ class _SingleColumnSpec:
     cardinality: Optional[Cardinality] = None
 
 
-class DataLakeSourceConfig(ConfigModel):
+class DataLakeProfilerConfig(ConfigModel):
+    enabled: bool = False
 
-    env: str = DEFAULT_ENV
-
-    platform: str
-
-    include_path: str
-    table_allow_deny_patterns: AllowDenyPattern = AllowDenyPattern.allow_all()
-    column_allow_deny_patterns: AllowDenyPattern = AllowDenyPattern.allow_all()
+    allow_deny_patterns: AllowDenyPattern = AllowDenyPattern.allow_all()
 
     # These settings will override the ones below.
     turn_off_expensive_profiling_metrics: bool = False
@@ -226,7 +220,7 @@ class DataLakeSourceConfig(ConfigModel):
 
     @pydantic.root_validator()
     def ensure_field_level_settings_are_normalized(
-        cls: "DataLakeSourceConfig", values: Dict[str, Any]
+        cls: "DataLakeProfilerConfig", values: Dict[str, Any]
     ) -> Dict[str, Any]:
         max_num_fields_to_profile_key = "max_number_of_fields_to_profile"
         table_level_profiling_only_key = "profile_table_level_only"
@@ -268,6 +262,27 @@ class DataLakeSourceConfig(ConfigModel):
         return values
 
 
+class DataLakeSourceConfig(ConfigModel):
+
+    env: str = DEFAULT_ENV
+    platform: str
+    include_path: str
+
+    table_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
+    profile_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
+
+    profiling: DataLakeProfilerConfig = DataLakeProfilerConfig()
+
+    @pydantic.root_validator()
+    def ensure_profiling_pattern_is_passed_to_profiling(
+        cls, values: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        profiling = values.get("profiling")
+        if profiling is not None and profiling.enabled:
+            profiling.allow_deny_patterns = values["profile_pattern"]
+        return values
+
+
 @dataclasses.dataclass
 class DataLakeSourceReport(SourceReport):
     files_scanned = 0
@@ -286,7 +301,7 @@ class _SingleTableProfiler:
     analyzer: AnalysisRunBuilder
     column_specs: List[_SingleColumnSpec]
     row_count: int
-    source_config: DataLakeSourceConfig
+    profiling_config: DataLakeProfilerConfig
     file_path: str
     columns_to_profile: List[str]
     ignored_columns: List[str]
@@ -297,7 +312,7 @@ class _SingleTableProfiler:
         self,
         dataframe: DataFrame,
         spark: SparkSession,
-        source_config: DataLakeSourceConfig,
+        source_config: DataLakeProfilerConfig,
         report: DataLakeSourceReport,
         file_path: str,
     ):
@@ -306,7 +321,7 @@ class _SingleTableProfiler:
         self.analyzer = AnalysisRunner(spark).onData(dataframe)
         self.column_specs = []
         self.row_count = dataframe.count()
-        self.source_config = source_config
+        self.profiling_config = source_config
         self.file_path = file_path
         self.columns_to_profile = []
         self.ignored_columns = []
@@ -319,7 +334,7 @@ class _SingleTableProfiler:
         # get column distinct counts
         for column in dataframe.columns:
 
-            if not self.source_config.column_allow_deny_patterns.allowed(column):
+            if not self.profiling_config.allow_deny_patterns.allowed(column):
                 self.ignored_columns.append(column)
                 continue
 
@@ -327,20 +342,20 @@ class _SingleTableProfiler:
             # Normal CountDistinct is ridiculously slow
             self.analyzer.addAnalyzer(ApproxCountDistinct(column))
 
-        if self.source_config.max_number_of_fields_to_profile is not None:
+        if self.profiling_config.max_number_of_fields_to_profile is not None:
             if (
                 len(self.columns_to_profile)
-                > self.source_config.max_number_of_fields_to_profile
+                > self.profiling_config.max_number_of_fields_to_profile
             ):
                 columns_being_dropped = self.columns_to_profile[
-                    self.source_config.max_number_of_fields_to_profile :
+                    self.profiling_config.max_number_of_fields_to_profile :
                 ]
                 self.columns_to_profile = self.columns_to_profile[
-                    : self.source_config.max_number_of_fields_to_profile
+                    : self.profiling_config.max_number_of_fields_to_profile
                 ]
 
                 self.report.report_file_dropped(
-                    f"The max_number_of_fields_to_profile={self.source_config.max_number_of_fields_to_profile} reached. Profile of columns {self.file_path}({', '.join(sorted(columns_being_dropped))})"
+                    f"The max_number_of_fields_to_profile={self.profiling_config.max_number_of_fields_to_profile} reached. Profile of columns {self.file_path}({', '.join(sorted(columns_being_dropped))})"
                 )
 
         analysis_result = self.analyzer.run()
@@ -387,7 +402,7 @@ class _SingleTableProfiler:
             for c in self.columns_to_profile
         }
 
-        if self.source_config.include_field_sample_values:
+        if self.profiling_config.include_field_sample_values:
             # take sample and convert to Pandas DataFrame
             rdd_sample = dataframe.rdd.takeSample(False, NUM_SAMPLE_ROWS, seed=0)
 
@@ -403,7 +418,7 @@ class _SingleTableProfiler:
             column_profile.uniqueProportion = column_unique_proportions.get(column)
             column_profile.nullCount = column_null_counts.get(column)
             column_profile.nullProportion = column_null_fractions.get(column)
-            if self.source_config.include_field_sample_values:
+            if self.profiling_config.include_field_sample_values:
                 column_profile.sampleValues = [str(x[column]) for x in rdd_sample]
 
             column_spec.type_ = column_types[column]
@@ -415,42 +430,42 @@ class _SingleTableProfiler:
             self.column_specs.append(column_spec)
 
     def prep_min_value(self, column: str) -> None:
-        if self.source_config.include_field_min_value:
+        if self.profiling_config.include_field_min_value:
             self.analyzer.addAnalyzer(Minimum(column))
         return
 
     def prep_max_value(self, column: str) -> None:
-        if self.source_config.include_field_max_value:
+        if self.profiling_config.include_field_max_value:
             self.analyzer.addAnalyzer(Maximum(column))
         return
 
     def prep_mean_value(self, column: str) -> None:
-        if self.source_config.include_field_mean_value:
+        if self.profiling_config.include_field_mean_value:
             self.analyzer.addAnalyzer(Mean(column))
         return
 
     def prep_median_value(self, column: str) -> None:
-        if self.source_config.include_field_median_value:
+        if self.profiling_config.include_field_median_value:
             self.analyzer.addAnalyzer(ApproxQuantile(column, 0.5))
         return
 
     def prep_stdev_value(self, column: str) -> None:
-        if self.source_config.include_field_stddev_value:
+        if self.profiling_config.include_field_stddev_value:
             self.analyzer.addAnalyzer(StandardDeviation(column))
         return
 
     def prep_quantiles(self, column: str) -> None:
-        if self.source_config.include_field_quantiles:
+        if self.profiling_config.include_field_quantiles:
             self.analyzer.addAnalyzer(ApproxQuantiles(column, QUANTILES))
         return
 
     def prep_distinct_value_frequencies(self, column: str) -> None:
-        if self.source_config.include_field_distinct_value_frequencies:
+        if self.profiling_config.include_field_distinct_value_frequencies:
             self.analyzer.addAnalyzer(Histogram(column))
         return
 
     def prep_field_histogram(self, column: str) -> None:
-        if self.source_config.include_field_histogram:
+        if self.profiling_config.include_field_histogram:
             self.analyzer.addAnalyzer(Histogram(column, maxDetailBins=MAX_HIST_BINS))
         return
 
@@ -469,7 +484,7 @@ class _SingleTableProfiler:
             unique_count = column_spec.unique_count
 
             if (
-                self.source_config.include_field_null_count
+                self.profiling_config.include_field_null_count
                 and non_null_count is not None
             ):
                 null_count = row_count - non_null_count
@@ -777,7 +792,7 @@ class DataLakeSource(Source):
             f"Profiling {file}: reading file and computing nulls+uniqueness {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
         )
         table_profiler = _SingleTableProfiler(
-            table, self.spark, self.source_config, self.report, file
+            table, self.spark, self.source_config.profiling, self.report, file
         )
 
         # yield the table schema first
