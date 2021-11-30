@@ -2,7 +2,6 @@ import logging
 import unittest
 from unittest.mock import Mock, patch
 
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.kudu import KuduConfig, KuduSource
@@ -16,9 +15,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 )
 from datahub.metadata.schema_classes import (
     AuditStampClass,
-    ChangeTypeClass,
-    DatasetFieldProfileClass,
-    DatasetProfileClass,
     DatasetPropertiesClass,
     OwnerClass,
     OwnershipClass,
@@ -226,47 +222,9 @@ class KuduSourceTest(unittest.TestCase):
                 )
             ),
         )
-        expected_profile = MetadataWorkUnit(
-            id="profile-default.my_first_table",
-            mcp=MetadataChangeProposalWrapper(
-                entityType="dataset",
-                entityUrn="urn:li:dataset:(urn:li:dataPlatform:kudu,default.my_first_table,PROD)",
-                changeType=ChangeTypeClass.UPSERT,
-                aspectName="datasetProfile",
-                aspect=DatasetProfileClass(
-                    timestampMillis=0,
-                    rowCount=4,
-                    columnCount=2,
-                    fieldProfiles=[
-                        DatasetFieldProfileClass(
-                            fieldPath="id",
-                            uniqueCount=0,
-                            uniqueProportion=0.0,
-                            nullCount=0,
-                            nullProportion=0.0,
-                            min=str(1),
-                            max=str(1),
-                            median="",
-                            mean=str(1.0),
-                            sampleValues=["1", "1", "1"],
-                        ),
-                        DatasetFieldProfileClass(
-                            fieldPath="name",
-                            uniqueCount=0,
-                            uniqueProportion=0.0,
-                            nullCount=0,
-                            nullProportion=0.0,
-                            min="",
-                            max="",
-                            median="",
-                            mean="",
-                            sampleValues=["mary", "mary", "mary"],
-                        ),
-                    ],
-                ),
-            ),
-        )
-
         generated_profile.metadata.aspect.timestampMillis = 0
         self.assertEqual(generated_dataset, expected_dataset)
-        # self.assertEqual(generated_profile, expected_profile)
+        # self.assertEqual(generated_profile.metadata.aspect.rowCount, expected_profile.metadata.aspect.rowCount)
+        gen_mcp = generated_profile.metadata
+        gen_mcp_aspect = gen_mcp.aspect
+        self.assertTrue(gen_mcp_aspect.validate())
