@@ -110,6 +110,7 @@ import com.linkedin.datahub.graphql.types.glossary.GlossaryTermType;
 import com.linkedin.datahub.graphql.types.usage.UsageType;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.recommendation.RecommendationsService;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.usage.UsageClient;
@@ -149,6 +150,7 @@ public class GmsGraphQLEngine {
     private final EntityService entityService;
     private final AnalyticsService analyticsService;
     private final RecommendationsService recommendationsService;
+    private final EntityRegistry entityRegistry;
     private final TokenService tokenService;
 
     private final DatasetType datasetType;
@@ -203,6 +205,7 @@ public class GmsGraphQLEngine {
             null,
             null,
             null,
+            null,
             null);
     }
 
@@ -213,7 +216,9 @@ public class GmsGraphQLEngine {
         final AnalyticsService analyticsService,
         final EntityService entityService,
         final RecommendationsService recommendationsService,
-        final TokenService tokenService) {
+        final TokenService tokenService,
+        final EntityRegistry entityRegistry
+        ) {
 
         this.entityClient = entityClient;
         this.graphClient = graphClient;
@@ -223,6 +228,7 @@ public class GmsGraphQLEngine {
         this.entityService = entityService;
         this.recommendationsService = recommendationsService;
         this.tokenService = tokenService;
+        this.entityRegistry = entityRegistry;
 
         this.datasetType = new DatasetType(entityClient);
         this.corpUserType = new CorpUserType(entityClient);
@@ -559,6 +565,9 @@ public class GmsGraphQLEngine {
                 .dataFetcher("schemaMetadata", new AuthenticatedResolver<>(
                     new AspectResolver())
                 )
+               .dataFetcher("aspects", new AuthenticatedResolver<>(
+                   new WeaklyTypedAspectsResolver(entityClient, entityRegistry))
+               )
                .dataFetcher("subTypes", new AuthenticatedResolver(new SubTypesResolver(
                    this.entityClient,
                    "dataset",
