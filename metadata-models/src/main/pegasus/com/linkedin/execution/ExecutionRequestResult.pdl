@@ -8,9 +8,24 @@ namespace com.linkedin.execution
 }
 record ExecutionRequestResult {
   /**
-  * The result
+  * The status of the execution request
   */
-  result: string
+  status: string
+
+  /**
+  * The stdOut collected from executing the request
+  */
+  stdOut: optional string
+
+  /**
+  * The stdErr collected from executing the request
+  */
+  stdErr: optional string
+
+  /**
+  * The pretty-printed execution report.
+  */
+  report: optional string
 
   /**
   * Time at which the request was created
@@ -20,5 +35,5 @@ record ExecutionRequestResult {
  /**
   * Duration in milliseconds
   */
-  durationMs: long
+  durationMs: optional long
 }

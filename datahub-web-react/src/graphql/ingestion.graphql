@@ -17,6 +17,14 @@ query listIngestionSources($input: ListIngestionSourcesInput!) {
                 endTimeMs
                 interval
             }
+            executions(start: 0, count: 1) {
+                start
+                count
+                total
+                executionRequests {
+                    urn
+                }
+            }
         }
     }
 }
@@ -36,7 +44,7 @@ query getIngestionSource($urn: String!, $runStart: Int, $runCount: Int) {
             endTimeMs
             interval
         }
-        runs(start: $runStart, count: $runCount) {
+        executions(start: $runStart, count: $runCount) {
             start
             count
             total

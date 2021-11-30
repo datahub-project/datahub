@@ -43,7 +43,12 @@ public class ListIngestionSourcesResolver implements DataFetcher<CompletableFutu
       return CompletableFuture.supplyAsync(() -> {
         try {
           // First, get all ingestion sources Urns.
-          final ListResult gmsResult = _entityClient.list(Constants.INGESTION_SOURCE_ENTITY_NAME, Collections.emptyMap(), start, count, context.getAuthentication());
+          final ListResult gmsResult = _entityClient.list(
+              Constants.INGESTION_SOURCE_ENTITY_NAME,
+              Collections.emptyMap(),
+              start,
+              count,
+              context.getAuthentication());
 
           // Then, resolve all ingestion sources
           final Map<Urn, EntityResponse> entities = _entityClient.batchGetV2(

@@ -51,7 +51,7 @@ import com.linkedin.datahub.graphql.resolvers.ingest.CreateSecretResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.DeleteIngestionSourceResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.DeleteSecretResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.GetIngestionSourceResolver;
-import com.linkedin.datahub.graphql.resolvers.ingest.IngestionSourceRunsResolver;
+import com.linkedin.datahub.graphql.resolvers.ingest.IngestionSourceExecutionsResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.ListIngestionSourcesResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.ListSecretsResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.UpsertIngestionSourceResolver;
@@ -902,7 +902,8 @@ public class GmsGraphQLEngine {
     }
 
     private void configureGlossaryRelationshipResolvers(final RuntimeWiring.Builder builder) {
-        builder.type("GlossaryTerm", typeWiring -> typeWiring.dataFetcher("relationships", new AuthenticatedResolver<>(new EntityRelationshipsResultResolver(graphClient))));
+        builder.type("GlossaryTerm", typeWiring -> typeWiring.dataFetcher("relationships",
+            new AuthenticatedResolver<>(new EntityRelationshipsResultResolver(graphClient))));
     }
 
     private <T> DataLoader<String, DataFetcherResult<T>> createDataLoader(final LoadableType<T> graphType, final QueryContext queryContext) {
@@ -920,7 +921,7 @@ public class GmsGraphQLEngine {
     }
 
     private void configureIngestionSourceResolvers(final RuntimeWiring.Builder builder) {
-        builder.type("IngestionSource", typeWiring -> typeWiring.dataFetcher("runs", new IngestionSourceRunsResolver(graphClient, entityClient)));
+        builder.type("IngestionSource", typeWiring -> typeWiring.dataFetcher("runs", new IngestionSourceExecutionsResolver(graphClient, entityClient)));
     }
 
     private DataLoader<VersionedAspectKey, DataFetcherResult<Aspect>> createAspectLoader(final QueryContext queryContext) {

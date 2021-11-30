@@ -59,8 +59,8 @@ export default function IngestionSourceListItem({ source, onClick, onExecute, on
     };
 
     const { displayName, schedule } = source;
-    console.log(schedule); // TODO: Show this in the UI.
-    const totalRuns = source.runs?.total;
+    const cron = schedule?.interval;
+    const totalExecutions = source.executions?.total;
 
     return (
         <>
@@ -74,8 +74,11 @@ export default function IngestionSourceListItem({ source, onClick, onExecute, on
                                 </div>
                             </div>
                         </Button>
-                        <Tag>{totalRuns || 0} runs</Tag>
+                        <Tag>{totalExecutions || 0} runs</Tag>
                     </SourceHeaderContainer>
+                    <div>
+                        <Typography.Text code>{cron}</Typography.Text>
+                    </div>
                     <div>
                         <Button onClick={onExecute}>EXECUTE</Button>
                         <Button

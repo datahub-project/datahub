@@ -76,7 +76,7 @@ public class IngestionResolverUtils {
 
   public static com.linkedin.datahub.graphql.generated.ExecutionRequestResult mapExecutionRequestResult(final ExecutionRequestResult execRequestResult) {
     final com.linkedin.datahub.graphql.generated.ExecutionRequestResult result = new com.linkedin.datahub.graphql.generated.ExecutionRequestResult();
-    result.setResult(execRequestResult.getResult());
+    result.setResult(execRequestResult.getStatus());
     result.setStartTimeMs(execRequestResult.getStartTimeMs());
     result.setDurationMs(execRequestResult.getDurationMs());
 

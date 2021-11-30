@@ -291,7 +291,7 @@ type IngestionRun {
 """
 Runs associated with an ingestion source
 """
-type IngestionSourceRuns {
+type IngestionSourceExecutions {
   """
   The starting offset of the result set
   """
@@ -345,7 +345,7 @@ type IngestionSource {
   """
   Runs of the ingestion source
   """
-  runs(start: Int, count: Int): IngestionSourceRuns
+  executions(start: Int, count: Int): IngestionSourceExecutions
 }
 
 """

@@ -9,7 +9,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
 import com.linkedin.datahub.graphql.generated.IngestionSource;
-import com.linkedin.datahub.graphql.generated.IngestionSourceRuns;
+import com.linkedin.datahub.graphql.generated.IngestionSourceExecutions;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
@@ -24,12 +24,12 @@ import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-public class IngestionSourceRunsResolver implements DataFetcher<CompletableFuture<IngestionSourceRuns>> {
+public class IngestionSourceExecutionsResolver implements DataFetcher<CompletableFuture<IngestionSourceExecutions>> {
 
   private final GraphClient _graphClient;
   private final EntityClient _entityClient;
 
-  public IngestionSourceRunsResolver(
+  public IngestionSourceExecutionsResolver(
       final GraphClient graphClient,
       final EntityClient entityClient
       ) {
@@ -38,7 +38,7 @@ public class IngestionSourceRunsResolver implements DataFetcher<CompletableFutur
   }
 
   @Override
-  public CompletableFuture<IngestionSourceRuns> get(final DataFetchingEnvironment environment) throws Exception {
+  public CompletableFuture<IngestionSourceExecutions> get(final DataFetchingEnvironment environment) throws Exception {
 
     final QueryContext context = environment.getContext();
     final String urn = ((IngestionSource) environment.getSource()).getUrn();
@@ -71,7 +71,7 @@ public class IngestionSourceRunsResolver implements DataFetcher<CompletableFutur
             context.getAuthentication());
 
         // 3. Map the GMS ExecutionRequests into GraphQL Execution Requests
-        final IngestionSourceRuns result = new IngestionSourceRuns();
+        final IngestionSourceExecutions result = new IngestionSourceExecutions();
         result.setStart(relationships.getStart());
         result.setCount(relationships.getCount());
         result.setTotal(relationships.getTotal());
@@ -79,7 +79,7 @@ public class IngestionSourceRunsResolver implements DataFetcher<CompletableFutur
         return result;
       } catch (Exception e) {
         throw new DataHubGraphQLException(
-            String.format("Failed to resolve runs associated with ingestion with urn %s", urn), DataHubGraphQLErrorCode.SERVER_ERROR);
+            String.format("Failed to resolve executions associated with ingestion with urn %s", urn), DataHubGraphQLErrorCode.SERVER_ERROR);
       }
     });
   }
