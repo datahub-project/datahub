@@ -86,9 +86,18 @@ public class GraphQLEngineFactory {
           _usageClient,
           new AnalyticsService(elasticClient, indexConvention.getPrefix()),
           _entityService,
-          _recommendationsService, _tokenService, _entityRegistry).builder().build();
+          _recommendationsService,
+          _tokenService,
+          _entityRegistry).builder().build();
     }
-    return new GmsGraphQLEngine(_entityClient, _graphClient, _usageClient, null, _entityService, _recommendationsService,
-        _tokenService, _entityRegistry).builder().build();
+    return new GmsGraphQLEngine(
+        _entityClient,
+        _graphClient,
+        _usageClient,
+        null,
+        _entityService,
+        _recommendationsService,
+        _tokenService,
+        _entityRegistry).builder().build();
   }
 }
