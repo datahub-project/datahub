@@ -249,8 +249,10 @@ class KuduSource(Source):
         all_tables_raw = db_cursor.fetchall()
         all_tables = [item[0] for item in all_tables_raw]
         if sql_config.profiling.query_date:
-            upper_date_limit = (datetime.strptime(sql_config.profiling.query_date, '%Y-%m-%d') 
-                                + timedelta(days=1)).strftime('%Y-%m-%d')
+            upper_date_limit = (
+                datetime.strptime(sql_config.profiling.query_date, "%Y-%m-%d")
+                + timedelta(days=1)
+            ).strftime("%Y-%m-%d")
         for table in all_tables:
             dataset_name = f"{schema}.{table}"
             self.report.report_entity_scanned(f"profile of {dataset_name}")
