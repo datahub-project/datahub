@@ -8,7 +8,7 @@ FROZEN_TIME = "2020-04-14 07:00:00"
 
 @pytest.mark.integration
 def test_data_lake_ingest(pytestconfig, tmp_path, mock_time):
-    test_resources_dir = pytestconfig.rootpath / "tests/integration/data_lake/test_data"
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/data_lake/"
 
     # Run the metadata ingestion pipeline.
     pipeline = Pipeline.create(
@@ -17,10 +17,10 @@ def test_data_lake_ingest(pytestconfig, tmp_path, mock_time):
             "source": {
                 "type": "data-lake",
                 "config": {
-                    "include_path": str(test_resources_dir),
+                    "include_path": str(test_resources_dir / "test_data"),
                     "platform": "test",
                     "profiling": {
-                        "enabled": True,
+                        "enabled": False,
                         "include_field_min_value": True,
                         "include_field_max_value": True,
                         "include_field_mean_value": True,
@@ -50,5 +50,5 @@ def test_data_lake_ingest(pytestconfig, tmp_path, mock_time):
     mce_helpers.check_golden_file(
         pytestconfig,
         output_path=tmp_path / "data_lake_mces.json",
-        golden_path=tmp_path / "data_lake_mces_golden.json",
+        golden_path=test_resources_dir / "data_lake_mces_golden.json",
     )

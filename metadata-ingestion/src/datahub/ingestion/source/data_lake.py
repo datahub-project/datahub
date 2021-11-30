@@ -735,10 +735,10 @@ class DataLakeSource(Source):
         return df.toDF(*(c.replace(".", "_") for c in df.columns))
 
     def get_table_schema(
-        self, analysis_table: _SingleTableProfiler
+        self, dataframe: DataFrame, file_path: str
     ) -> Iterable[MetadataWorkUnit]:
 
-        datasetUrn = f"urn:li:dataset:(urn:li:dataPlatform:{self.source_config.platform},{analysis_table.file_path},{self.source_config.env})"
+        datasetUrn = f"urn:li:dataset:(urn:li:dataPlatform:{self.source_config.platform},{file_path},{self.source_config.env})"
         dataset_snapshot = DatasetSnapshot(
             urn=datasetUrn,
             aspects=[],
@@ -752,7 +752,7 @@ class DataLakeSource(Source):
 
         column_fields = []
 
-        for field in analysis_table.dataframe.schema.fields:
+        for field in dataframe.schema.fields:
 
             field = SchemaField(
                 fieldPath=field.name,
@@ -775,16 +775,26 @@ class DataLakeSource(Source):
         dataset_snapshot.aspects.append(schema_metadata)
 
         mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-        wu = MetadataWorkUnit(id=analysis_table.file_path, mce=mce)
+        wu = MetadataWorkUnit(id=file_path, mce=mce)
         self.report.report_workunit(wu)
         yield wu
 
-    def profile_table(self, file: str) -> Iterable[MetadataWorkUnit]:
+    def ingest_table(self, file: str) -> Iterable[MetadataWorkUnit]:
 
         table = self.read_file(file)
 
         # if table is not readable, skip
         if table is None:
+            return
+
+        # yield the table schema first
+        logger.debug(
+            f"Ingesting {file}: making table schemas {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
+        )
+        yield from self.get_table_schema(table, file)
+
+        # If profiling is not enabled, skip the rest
+        if not self.source_config.profiling.enabled:
             return
 
         # init PySpark analysis object
@@ -794,12 +804,6 @@ class DataLakeSource(Source):
         table_profiler = _SingleTableProfiler(
             table, self.spark, self.source_config.profiling, self.report, file
         )
-
-        # yield the table schema first
-        logger.debug(
-            f"Profiling {file}: making table schemas {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
-        )
-        yield from self.get_table_schema(table_profiler)
 
         # TODO: implement ignored columns and max number of fields to profile
         logger.debug(
@@ -838,7 +842,7 @@ class DataLakeSource(Source):
 
         for root, dirs, files in os.walk(self.source_config.include_path):
             for file in files:
-                yield from self.profile_table(os.path.join(root, file))
+                yield from self.ingest_table(os.path.join(root, file))
 
     def get_report(self):
         return self.report
