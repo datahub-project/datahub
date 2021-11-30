@@ -20,7 +20,8 @@ def test_data_lake_ingest(pytestconfig, tmp_path, mock_time):
                     "include_path": str(test_resources_dir / "test_data"),
                     "platform": "test",
                     "profiling": {
-                        "enabled": False,
+                        "enabled": True,
+                        "profile_table_level_only": True,
                         "include_field_min_value": True,
                         "include_field_max_value": True,
                         "include_field_mean_value": True,

@@ -331,6 +331,10 @@ class _SingleTableProfiler:
         self.profile.rowCount = self.row_count
         self.profile.columnCount = len(dataframe.columns)
 
+        if self.profiling_config.profile_table_level_only:
+
+            return
+
         # get column distinct counts
         for column in dataframe.columns:
 

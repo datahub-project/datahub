@@ -137,6 +137,19 @@
 },
 {
     "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test,/Users/kevinhu/github/datahub/metadata-ingestion/tests/integration/data_lake/test_data/test_1.csv,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "value": "{\"timestampMillis\": 1615443388097, \"rowCount\": 70, \"columnCount\": 5, \"fieldProfiles\": []}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": null
+},
+{
+    "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:test,/Users/kevinhu/github/datahub/metadata-ingestion/tests/integration/data_lake/test_data/chord_progressions.csv,PROD)",
@@ -270,6 +283,19 @@
         "runId": "data-lake-test",
         "properties": null
     }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test,/Users/kevinhu/github/datahub/metadata-ingestion/tests/integration/data_lake/test_data/chord_progressions.csv,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "value": "{\"timestampMillis\": 1615443388097, \"rowCount\": 28, \"columnCount\": 5, \"fieldProfiles\": []}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": null
 },
 {
     "auditHeader": null,
@@ -889,6 +915,19 @@
 },
 {
     "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test,/Users/kevinhu/github/datahub/metadata-ingestion/tests/integration/data_lake/test_data/wa_fn_usec_hr_employee_attrition.csv,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "value": "{\"timestampMillis\": 1615443388097, \"rowCount\": 249, \"columnCount\": 35, \"fieldProfiles\": []}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": null
+},
+{
+    "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:test,/Users/kevinhu/github/datahub/metadata-ingestion/tests/integration/data_lake/test_data/2017-sny-magill-and-bagley-bottoms-bird-point-count-data-with-gps-points-csv-1.csv,PROD)",
@@ -1326,6 +1365,19 @@
         "runId": "data-lake-test",
         "properties": null
     }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test,/Users/kevinhu/github/datahub/metadata-ingestion/tests/integration/data_lake/test_data/2017-sny-magill-and-bagley-bottoms-bird-point-count-data-with-gps-points-csv-1.csv,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "value": "{\"timestampMillis\": 1615443388097, \"rowCount\": 99, \"columnCount\": 24, \"fieldProfiles\": []}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": null
 },
 {
     "auditHeader": null,
@@ -5977,6 +6029,19 @@
 },
 {
     "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test,/Users/kevinhu/github/datahub/metadata-ingestion/tests/integration/data_lake/test_data/geochem.csv,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "value": "{\"timestampMillis\": 1615443388097, \"rowCount\": 99, \"columnCount\": 287, \"fieldProfiles\": []}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": null
+},
+{
+    "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:test,/Users/kevinhu/github/datahub/metadata-ingestion/tests/integration/data_lake/test_data/NPS.7.1.package_data_NPS.6.1_ARCN_Lakes_ChemistryData_v1.csv,PROD)",
@@ -6254,6 +6319,19 @@
         "runId": "data-lake-test",
         "properties": null
     }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test,/Users/kevinhu/github/datahub/metadata-ingestion/tests/integration/data_lake/test_data/NPS.7.1.package_data_NPS.6.1_ARCN_Lakes_ChemistryData_v1.csv,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "value": "{\"timestampMillis\": 1615443388097, \"rowCount\": 33, \"columnCount\": 14, \"fieldProfiles\": []}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": null
 },
 {
     "auditHeader": null,
@@ -6598,5 +6676,18 @@
         "runId": "data-lake-test",
         "properties": null
     }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test,/Users/kevinhu/github/datahub/metadata-ingestion/tests/integration/data_lake/test_data/customer_complaints.csv,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "value": "{\"timestampMillis\": 1615443388097, \"rowCount\": 99, \"columnCount\": 18, \"fieldProfiles\": []}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": null
 }
 ]
