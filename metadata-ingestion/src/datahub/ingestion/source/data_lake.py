@@ -287,7 +287,12 @@ class _SingleTableProfiler:
         # (this works for strings somehow)
         null_counts = dataframe.select(
             [
-                count(when(isnan(col(c).astype("int")) | col(c).isNull(), c)).alias(c)
+                count(
+                    when(
+                        isnan(col(c).astype("int")) | col(c).isNull(),
+                        c,
+                    )
+                ).alias(c)
                 for c in self.columns_to_profile
             ]
         )
@@ -298,6 +303,7 @@ class _SingleTableProfiler:
         column_nonnull_counts = {
             c: self.row_count - column_null_counts[c] for c in self.columns_to_profile
         }
+
         column_unique_proportions = {
             c: (
                 column_distinct_counts[c] / column_nonnull_counts[c]
@@ -328,7 +334,8 @@ class _SingleTableProfiler:
 
             column_spec.type_ = column_types[column]
             column_spec.cardinality = _convert_to_cardinality(
-                column_distinct_counts[column], column_null_fractions[column]
+                column_distinct_counts[column],
+                column_null_fractions[column],
             )
 
             self.column_specs.append(column_spec)
@@ -604,6 +611,7 @@ class DataLakeSource(Source):
                 "spark.jars.packages", pydeequ.deequ_maven_coord
             )
             .config("spark.jars.excludes", pydeequ.f2j_maven_coord)
+            .config("spark.driver.memory", "8g")
             .getOrCreate()
         )
 
@@ -618,9 +626,23 @@ class DataLakeSource(Source):
             df = self.spark.read.parquet(file)
         elif file.endswith(".csv"):
             # see https://sparkbyexamples.com/pyspark/pyspark-read-csv-file-into-dataframe
-            df = self.spark.read.csv(file, header="True", inferSchema="True", sep=",")
+            df = self.spark.read.csv(
+                file,
+                header="True",
+                inferSchema="True",
+                sep=",",
+                ignoreLeadingWhiteSpace=True,
+                ignoreTrailingWhiteSpace=True,
+            )
         elif file.endswith(".tsv"):
-            df = self.spark.read.csv(file, header="True", inferSchema="True", sep="\t")
+            df = self.spark.read.csv(
+                file,
+                header="True",
+                inferSchema="True",
+                sep="\t",
+                ignoreLeadingWhiteSpace=True,
+                ignoreTrailingWhiteSpace=True,
+            )
         elif file.endswith(".json"):
             df = self.spark.read.json(file)
         elif file.endswith(".orc"):
@@ -631,7 +653,9 @@ class DataLakeSource(Source):
             self.report.report_warning(file, f"file {file} has unsupported extension")
             return None
 
-        return df
+        # replace periods in names because they break PyDeequ
+        # see https://mungingdata.com/pyspark/avoid-dots-periods-column-names/
+        return df.toDF(*(c.replace(".", "_") for c in df.columns))
 
     def get_table_schema(
         self, analysis_table: _SingleTableProfiler
