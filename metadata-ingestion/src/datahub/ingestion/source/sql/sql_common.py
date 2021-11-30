@@ -18,6 +18,7 @@ from urllib.parse import quote_plus
 import pydantic
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine.reflection import Inspector
+from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.sql import sqltypes as types
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
@@ -437,6 +438,15 @@ class SQLAlchemySource(Source):
             except NotImplementedError:
                 description: Optional[str] = None
                 properties: Dict[str, str] = {}
+            except ProgrammingError as pe:
+                # Snowflake needs schema names quoted when fetching table comments.
+                logger.debug(
+                    f"Encountered ProgrammingError. Retrying with quoted schema name for schema {schema} and table {table}",
+                    pe,
+                )
+                description = None
+                properties = {}
+                table_info: dict = inspector.get_table_comment(table, f'"{schema}"')  # type: ignore
             else:
                 description = table_info["text"]
 
