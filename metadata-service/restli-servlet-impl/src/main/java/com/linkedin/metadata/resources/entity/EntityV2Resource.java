@@ -40,7 +40,7 @@ import static com.linkedin.metadata.utils.PegasusUtils.urnToEntityName;
  */
 @Slf4j
 @RestLiCollection(name = "entity", namespace = "com.linkedin.entity")
-public class EntityV2Resource extends CollectionResourceTaskTemplate<String, Entity> {
+public class EntityV2Resource extends CollectionResourceTaskTemplate<String, EntityResponse> {
 
   @Inject
   @Named("entityService")

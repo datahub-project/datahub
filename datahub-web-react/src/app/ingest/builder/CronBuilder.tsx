@@ -37,22 +37,18 @@ export const CronBuilder = ({ updateCron }: Props) => {
     };
 
     const onChangeDayOfMonth = (newDayOfMonth) => {
-        console.log(newDayOfMonth);
         setDayOfMonth(newDayOfMonth);
     };
 
     const onChangeDayOfWeek = (newDayOfWeek) => {
-        console.log(newDayOfWeek);
         setDayOfWeek(newDayOfWeek);
     };
 
     const onChangeHour = (newHour) => {
-        console.log(newHour);
         setHour(newHour);
     };
 
     const onChangeMinute = (newMinute) => {
-        console.log(newMinute);
         setMinute(newMinute);
     };
 
