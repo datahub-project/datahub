@@ -21,6 +21,7 @@ class DatahubClientConfig(ConfigModel):
     token: Optional[str]
     timeout_sec: Optional[int]
     extra_headers: Optional[Dict[str, str]]
+    ca_certificate_path: Optional[str]
     max_threads: int = 1
 
 
@@ -33,6 +34,7 @@ class DataHubGraph(DatahubRestEmitter):
             connect_timeout_sec=self.config.timeout_sec,  # reuse timeout_sec for connect timeout
             read_timeout_sec=self.config.timeout_sec,
             extra_headers=self.config.extra_headers,
+            ca_certificate_path=self.config.ca_certificate_path,
         )
         self.test_connection()
         self.g_session = Session()

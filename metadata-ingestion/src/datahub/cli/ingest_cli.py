@@ -10,6 +10,7 @@ from pydantic import ValidationError
 from tabulate import tabulate
 
 import datahub as datahub_package
+from datahub.cli import cli_utils
 from datahub.cli.cli_utils import (
     CONDENSED_DATAHUB_CONFIG_PATH,
     get_session_and_host,
@@ -118,14 +119,16 @@ def list_runs(page_offset: int, page_size: int) -> None:
     response = session.post(url, data=payload)
 
     rows = parse_restli_response(response)
+    local_timezone = datetime.now().astimezone().tzinfo
 
     structured_rows = [
         [
             row.get("runId"),
             row.get("rows"),
-            datetime.utcfromtimestamp(row.get("timestamp") / 1000).strftime(
+            datetime.fromtimestamp(row.get("timestamp") / 1000).strftime(
                 "%Y-%m-%d %H:%M:%S"
-            ),
+            )
+            + f" ({local_timezone})",
         ]
         for row in rows
     ]
@@ -138,7 +141,6 @@ def list_runs(page_offset: int, page_size: int) -> None:
 def show(run_id: str) -> None:
     """Describe a provided ingestion run to datahub"""
     payload_obj = {"runId": run_id, "dryRun": True}
-
     structured_rows, entities_affected, aspects_affected = post_rollback_endpoint(
         payload_obj, "/runs?action=rollback"
     )
@@ -166,6 +168,9 @@ def show(run_id: str) -> None:
 @click.option("--dry-run", "-n", required=False, is_flag=True, default=False)
 def rollback(run_id: str, dry_run: bool) -> None:
     """Rollback a provided ingestion run to datahub"""
+
+    cli_utils.test_connectivity_complain_exit("ingest")
+
     if not dry_run:
         click.confirm(
             "This will permanently delete data from DataHub. Do you want to continue?",

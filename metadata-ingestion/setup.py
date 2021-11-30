@@ -23,7 +23,7 @@ def get_long_description():
 base_requirements = {
     # Compatability.
     "dataclasses>=0.6; python_version < '3.7'",
-    "typing_extensions>=3.7.4; python_version < '3.8'",
+    "typing_extensions>=3.10.0.2",
     "mypy_extensions>=0.4.3",
     # Actual dependencies.
     "typing-inspect",
@@ -60,7 +60,7 @@ sql_common = {
     # Required for all SQL sources.
     "sqlalchemy==1.3.24",
     # Required for SQL profiling.
-    "great-expectations==0.13.43",
+    "great-expectations>=0.13.40",
     "greenlet",
 }
 
