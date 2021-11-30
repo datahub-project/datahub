@@ -10,6 +10,17 @@ import unittest.mock
 import uuid
 from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, Tuple, Union
 
+# Fun compatibility hack! GE version 0.13.44 broke compatibility with SQLAlchemy 1.3.24.
+# This is a temporary workaround until GE fixes the issue on their end.
+# See https://github.com/great-expectations/great_expectations/issues/3758.
+try:
+    import sqlalchemy.engine
+    from sqlalchemy.engine.url import make_url
+
+    sqlalchemy.engine.make_url = make_url  # type: ignore
+except ImportError:
+    pass
+
 import pydantic
 from great_expectations.data_context import BaseDataContext
 from great_expectations.data_context.types.base import (
