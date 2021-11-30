@@ -12,6 +12,7 @@ from pydeequ.analyzers import (
     AnalysisRunBuilder,
     AnalysisRunner,
     AnalyzerContext,
+    ApproxCountDistinct,
     ApproxQuantile,
     ApproxQuantiles,
     CountDistinct,
@@ -82,6 +83,7 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 NUM_SAMPLE_ROWS = 3
 QUANTILES = [0.05, 0.25, 0.5, 0.75, 0.95]
+MAX_HIST_BINS = 25
 
 
 class Cardinality(Enum):
@@ -264,8 +266,8 @@ class _SingleTableProfiler:
                 continue
 
             self.columns_to_profile.append(column)
-            # TODO: add option for ApproxCountDistinct
-            self.analyzer.addAnalyzer(CountDistinct(column))
+            # Normal CountDistinct is ridiculously slow
+            self.analyzer.addAnalyzer(ApproxCountDistinct(column))
 
         analysis_result = self.analyzer.run()
         analysis_metrics = AnalyzerContext.successMetricsAsJson(
@@ -276,7 +278,7 @@ class _SingleTableProfiler:
         column_distinct_counts = {
             x["instance"]: int(x["value"])
             for x in analysis_metrics
-            if x["name"] == "CountDistinct"
+            if x["name"] == "ApproxCountDistinct"
         }
 
         # compute null counts and fractions manually since Deequ only reports fractions
@@ -305,8 +307,9 @@ class _SingleTableProfiler:
             for c in self.columns_to_profile
         }
 
-        # take sample and convert to Pandas DataFrame
-        rdd_sample = dataframe.rdd.takeSample(False, NUM_SAMPLE_ROWS, seed=0)
+        if self.source_config.include_field_sample_values:
+            # take sample and convert to Pandas DataFrame
+            rdd_sample = dataframe.rdd.takeSample(False, NUM_SAMPLE_ROWS, seed=0)
 
         column_types = {x.name: x.dataType for x in dataframe.schema.fields}
 
@@ -320,7 +323,8 @@ class _SingleTableProfiler:
             column_profile.uniqueProportion = column_unique_proportions.get(column)
             column_profile.nullCount = column_null_counts.get(column)
             column_profile.nullProportion = column_null_fractions.get(column)
-            column_profile.sampleValues = [str(x[column]) for x in rdd_sample]
+            if self.source_config.include_field_sample_values:
+                column_profile.sampleValues = [str(x[column]) for x in rdd_sample]
 
             column_spec.type_ = column_types[column]
             column_spec.cardinality = _convert_to_cardinality(
@@ -366,7 +370,7 @@ class _SingleTableProfiler:
 
     def prep_field_histogram(self, column: str) -> None:
         if self.source_config.include_field_histogram:
-            self.analyzer.addAnalyzer(Histogram(column, maxDetailBins=100))
+            self.analyzer.addAnalyzer(Histogram(column, maxDetailBins=MAX_HIST_BINS))
         return
 
     def prepare_table_profiles(self) -> None:
@@ -487,27 +491,37 @@ class _SingleTableProfiler:
             column_metrics["kind"] != "Histogram"
         ]
 
-        # we only want the absolute counts for each histogram for now
-        column_histogram_metrics = column_histogram_metrics[
-            column_histogram_metrics["name"].apply(
-                lambda x: x.startswith("Histogram.abs.")
+        histogram_columns = set()
+
+        if len(column_histogram_metrics) > 0:
+
+            # we only want the absolute counts for each histogram for now
+            column_histogram_metrics = column_histogram_metrics[
+                column_histogram_metrics["name"].apply(
+                    lambda x: x.startswith("Histogram.abs.")
+                )
+            ]
+            # get the histogram bins by chopping off the "Histogram.abs." prefix
+            column_histogram_metrics["bin"] = column_histogram_metrics["name"].apply(
+                lambda x: x[14:]
             )
-        ]
-        # get the histogram bins by chopping off the "Histogram.abs." prefix
-        column_histogram_metrics["bin"] = column_histogram_metrics["name"].apply(
-            lambda x: x[14:]
-        )
 
-        # reshape histogram counts for easier access
-        histogram_counts = column_histogram_metrics.set_index(["instance", "bin"])[
-            "value"
-        ]
-        # reshape other metrics for easier access
-        nonhistogram_metrics = column_nonhistogram_metrics.set_index(
-            ["instance", "name"]
-        )["value"]
+            # reshape histogram counts for easier access
+            histogram_counts = column_histogram_metrics.set_index(["instance", "bin"])[
+                "value"
+            ]
 
-        profiled_columns = set(nonhistogram_metrics.index.get_level_values(0))
+            histogram_columns = set(histogram_counts.index.get_level_values(0))
+
+        profiled_columns = set()
+
+        if len(column_nonhistogram_metrics) > 0:
+            # reshape other metrics for easier access
+            nonhistogram_metrics = column_nonhistogram_metrics.set_index(
+                ["instance", "name"]
+            )["value"]
+
+            profiled_columns = set(nonhistogram_metrics.index.get_level_values(0))
         # histogram_columns = set(histogram_counts.index.get_level_values(0))
 
         for column_spec in self.column_specs:
@@ -542,7 +556,7 @@ class _SingleTableProfiler:
                     for quantile in QUANTILES
                 ]
 
-            if column in histogram_counts.index.get_level_values(0):
+            if column in histogram_columns:
 
                 column_histogram = histogram_counts.loc[column]
 
