@@ -49,17 +49,3 @@ def test_data_lake_ingest(pytestconfig, tmp_path, mock_time):
         output_path=tmp_path / "data_lake_mces.json",
         golden_path=tmp_path / "data_lake_mces_golden.json",
     )
-
-    # # Run the metadata ingestion pipeline.
-    # runner = CliRunner()
-    # with fs_helpers.isolated_filesystem(tmp_path):
-    #     config_file = (test_resources_dir / "data_lake_to_file.yml").resolve()
-    #     result = runner.invoke(datahub, ["ingest", "-c", f"{config_file}"])
-    #     assert_result_ok(result)
-
-    #     # Verify the output.
-    #     mce_helpers.check_golden_file(
-    #         pytestconfig,
-    #         output_path="data_lake_mces.json",
-    #         golden_path=test_resources_dir / "data_lake_mces_golden.json",
-    #     )
