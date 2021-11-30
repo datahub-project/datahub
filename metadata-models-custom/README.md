@@ -1,6 +1,6 @@
 # A Custom Metadata Model
 
-This module hosts a gradle project where you can store your custom metadata model. It contains an example extension for you to follow.
+[This module](./) hosts a gradle project where you can store your custom metadata model. It contains an example extension for you to follow.
 
 ### Caveats
 
@@ -12,8 +12,10 @@ Before proceeding further, make sure you understand the DataHub Metadata Model c
 
 ## Create your new aspect(s)
 
-Follow the regular process in creating a new aspect by adding it to the [`src/main/pegasus`](metadata-models-custom/src/main/pegasus) folder. e.g. This repository has an Aspect called `customDataQualityRules` hosted in the [`DataQualityRules.pdl`](metadata-models-custom/src/main/pegasus/com/mycompany/dq/DataQualityRules.pdl) file that you can follow.
-Feel free to delete the sample aspects that are stored in this repo using a simple `rm -rf src/main/pegasus/*`
+Follow the regular process in creating a new aspect by adding it to the [`src/main/pegasus`](./src/main/pegasus) folder. e.g. This repository has an Aspect called `customDataQualityRules` hosted in the [`DataQualityRules.pdl`](./src/main/pegasus/com/mycompany/dq/DataQualityRules.pdl) file that you can follow.
+Once you've gone through this exercise, feel free to delete the sample aspects that are stored in this module.
+
+**_Tip_**: PDL requires that the name of the file must match the name of the class that is defined in it, so keep that in mind when you create your aspect pdl file.
 
 ## Add your aspect(s) to the entity registry
 
