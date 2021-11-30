@@ -24,6 +24,7 @@ def test_mongodb_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time
                         "connect_uri": "mongodb://localhost:57017",
                         "username": "mongoadmin",
                         "password": "examplepass",
+                        "maxDocumentSize": 25000,
                     },
                 },
                 "sink": {
