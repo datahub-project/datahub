@@ -259,7 +259,7 @@ describe('Schema', () => {
     });
 
     it('does not renders key/value toggle when no schema', () => {
-        const { getByText, queryByText } = render(
+        const { queryByText } = render(
             <MockedProvider mocks={mocks} addTypename={false}>
                 <TestPageContainer>
                     <EntityContext.Provider
