@@ -28,6 +28,7 @@ def test_data_lake_ingest(pytestconfig, tmp_path, mock_time):
                     "include_field_distinct_value_frequencies": True,
                     "include_field_histogram": True,
                     "include_field_sample_values": True,
+                    "turn_off_expensive_profiling_metrics": True,
                     # "column_allow_deny_patterns" : ["exclude"],
                 },
             },

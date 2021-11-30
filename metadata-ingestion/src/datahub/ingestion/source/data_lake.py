@@ -4,7 +4,7 @@ import os
 from dataclasses import field as dataclass_field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional
 
 import pydantic
 import pydeequ
@@ -224,6 +224,61 @@ class DataLakeSourceConfig(ConfigModel):
 
     max_number_of_fields_to_profile: Optional[pydantic.PositiveInt] = None
 
+    @pydantic.root_validator()
+    def ensure_field_level_settings_are_normalized(
+        cls: "DataLakeSourceConfig", values: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        max_num_fields_to_profile_key = "max_number_of_fields_to_profile"
+        table_level_profiling_only_key = "profile_table_level_only"
+        max_num_fields_to_profile = values.get(max_num_fields_to_profile_key)
+        if values.get(table_level_profiling_only_key):
+            all_field_level_metrics: List[str] = [
+                "include_field_null_count",
+                "include_field_min_value",
+                "include_field_max_value",
+                "include_field_mean_value",
+                "include_field_median_value",
+                "include_field_stddev_value",
+                "include_field_quantiles",
+                "include_field_distinct_value_frequencies",
+                "include_field_histogram",
+                "include_field_sample_values",
+            ]
+            # Suppress all field-level metrics
+            for field_level_metric in all_field_level_metrics:
+                values[field_level_metric] = False
+            assert (
+                max_num_fields_to_profile is None
+            ), f"{max_num_fields_to_profile_key} should be set to None"
+
+        if values.get("turn_off_expensive_profiling_metrics"):
+            if not values.get(table_level_profiling_only_key):
+                expensive_field_level_metrics: List[str] = [
+                    "include_field_quantiles",
+                    "include_field_distinct_value_frequencies",
+                    "include_field_histogram",
+                    "include_field_sample_values",
+                ]
+                for expensive_field_metric in expensive_field_level_metrics:
+                    values[expensive_field_metric] = False
+            if max_num_fields_to_profile is None:
+                # We currently profile up to 10 non-filtered columns in this mode by default.
+                values[max_num_fields_to_profile_key] = 10
+
+        return values
+
+
+@dataclasses.dataclass
+class DataLakeSourceReport(SourceReport):
+    files_scanned = 0
+    filtered: List[str] = dataclass_field(default_factory=list)
+
+    def report_file_scanned(self) -> None:
+        self.files_scanned += 1
+
+    def report_file_dropped(self, file: str) -> None:
+        self.filtered.append(file)
+
 
 class _SingleTableProfiler:
     spark: SparkSession
@@ -236,12 +291,14 @@ class _SingleTableProfiler:
     columns_to_profile: List[str]
     ignored_columns: List[str]
     profile: DatasetProfileClass
+    report: DataLakeSourceReport
 
     def __init__(
         self,
         dataframe: DataFrame,
         spark: SparkSession,
         source_config: DataLakeSourceConfig,
+        report: DataLakeSourceReport,
         file_path: str,
     ):
         self.spark = spark
@@ -254,6 +311,7 @@ class _SingleTableProfiler:
         self.columns_to_profile = []
         self.ignored_columns = []
         self.profile = DatasetProfileClass(timestampMillis=get_sys_time())
+        self.report = report
 
         self.profile.rowCount = self.row_count
         self.profile.columnCount = len(dataframe.columns)
@@ -268,6 +326,22 @@ class _SingleTableProfiler:
             self.columns_to_profile.append(column)
             # Normal CountDistinct is ridiculously slow
             self.analyzer.addAnalyzer(ApproxCountDistinct(column))
+
+        if self.source_config.max_number_of_fields_to_profile is not None:
+            if (
+                len(self.columns_to_profile)
+                > self.source_config.max_number_of_fields_to_profile
+            ):
+                columns_being_dropped = self.columns_to_profile[
+                    self.source_config.max_number_of_fields_to_profile :
+                ]
+                self.columns_to_profile = self.columns_to_profile[
+                    : self.source_config.max_number_of_fields_to_profile
+                ]
+
+                self.report.report_file_dropped(
+                    f"The max_number_of_fields_to_profile={self.source_config.max_number_of_fields_to_profile} reached. Profile of columns {self.file_path}({', '.join(sorted(columns_being_dropped))})"
+                )
 
         analysis_result = self.analyzer.run()
         analysis_metrics = AnalyzerContext.successMetricsAsJson(
@@ -587,18 +661,6 @@ class _SingleTableProfiler:
             self.profile.fieldProfiles.append(column_profile)
 
 
-@dataclasses.dataclass
-class DataLakeSourceReport(SourceReport):
-    files_scanned = 0
-    filtered: List[str] = dataclass_field(default_factory=list)
-
-    def report_file_scanned(self) -> None:
-        self.files_scanned += 1
-
-    def report_file_dropped(self, file: str) -> None:
-        self.filtered.append(file)
-
-
 class DataLakeSource(Source):
     source_config: DataLakeSourceConfig
     report = DataLakeSourceReport()
@@ -715,7 +777,7 @@ class DataLakeSource(Source):
             f"Profiling {file}: reading file and computing nulls+uniqueness {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
         )
         table_profiler = _SingleTableProfiler(
-            table, self.spark, self.source_config, file
+            table, self.spark, self.source_config, self.report, file
         )
 
         # yield the table schema first
