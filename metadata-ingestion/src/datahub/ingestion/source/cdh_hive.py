@@ -334,8 +334,7 @@ class CDH_HiveSource(Source):
                 median=str(field_data.get("median", "")),
                 mean=str(field_data.get("mean", "")),
                 sampleValues=[
-                    str(item["data"][0][field_variable])
-                    for item in profile_dict["sample"]
+                    str(item[field_variable]) for item in profile_dict["sample"]
                 ],
             )
             all_fields.append(field_profile)
