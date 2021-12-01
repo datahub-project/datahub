@@ -1,5 +1,6 @@
 import React from 'react';
 import { Form, Input } from 'antd';
+import { SpecifyBrowsePath } from './SpecifyBrowsePath';
 
 export const CommonFields = () => {
     return (
@@ -52,6 +53,7 @@ export const CommonFields = () => {
             >
                 <Input />
             </Form.Item>
+            <SpecifyBrowsePath />
         </>
     );
 };

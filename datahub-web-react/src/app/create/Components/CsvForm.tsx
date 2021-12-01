@@ -78,6 +78,7 @@ export const CsvForm = () => {
                     fields: [{ field_description: '', field_type: 'string' }],
                     hasHeader: 'no',
                     headerLine: 1,
+                    browsepathList: ['/csv/'],
                 }}
                 name="dynamic_form_item"
                 onFinish={onFinish}

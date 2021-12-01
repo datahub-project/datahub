@@ -142,7 +142,10 @@ export const JsonForm = () => {
                 <Form
                     {...layout}
                     form={form}
-                    initialValues={{ fields: [{ field_description: '' }] }}
+                    initialValues={{
+                        fields: [{ field_description: '' }],
+                        browsepathList: ['/json/'],
+                    }}
                     name="dynamic_form_item"
                     onFinish={onFinish}
                 >
