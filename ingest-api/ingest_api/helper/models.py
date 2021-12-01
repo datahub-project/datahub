@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, TypeVar, Union
 
 from pydantic import BaseModel, validator
 from typing_extensions import TypedDict
@@ -9,6 +9,15 @@ class FieldParam(BaseModel):
     field_type: str
     field_description: str = None
 
+class FieldParamEdited(BaseModel):
+    key: int
+    fieldName: str
+    nativeDataType: Optional[str]
+    datahubType: str
+    fieldTags: Optional[List[str]]
+    fieldGlossaryTerms: Optional[List[str]]
+    fieldDescription: Optional[str]
+    editKey: str
 
 class create_dataset_params(BaseModel):
     dataset_name: str
@@ -20,6 +29,7 @@ class create_dataset_params(BaseModel):
     dataset_origin: str = ""
     hasHeader: str = "n/a"
     headerLine: int = 1
+    browsepathList: List[str]
 
     class Config:
         schema_extra = {
@@ -32,6 +42,7 @@ class create_dataset_params(BaseModel):
                 "dataset_origin": "this dataset found came from... ie internet",
                 "hasHeader": "no",
                 "headerLine": 1,
+                "browsepathList": ["/user/", "/csv/"],
                 "dataset_fields": [
                     {
                         "field_name": "columnA",
@@ -60,7 +71,28 @@ class create_dataset_params(BaseModel):
 class dataset_status_params(BaseModel):
     dataset_name: str
     requestor: str
-    platform: str
+    desired_state: bool
+
+class browsepath_params(BaseModel):
+    dataset_name: str
+    requestor: str
+    browsePaths: List[str]
+
+class schema_params(BaseModel):
+    dataset_name: str
+    requestor: str    
+    dataset_fields: List[FieldParamEdited]
+
+class prop_params(BaseModel):
+    dataset_name: str
+    requestor: str
+    description: str
+    properties: List[Dict]
+
+class echo_param(BaseModel):
+    user_input: Any
+    class Config:
+        arbitary_types_allowed = True
 
 
 def determine_type(type_input: Union[str, Dict[str, str]]) -> str:

@@ -8,7 +8,7 @@ from ingest_api.helper.mce_convenience import (generate_json_output,
                                                make_browsepath_mce,
                                                make_dataset_description_mce,
                                                make_dataset_urn,
-                                               make_delete_mce,
+                                               make_status_mce,
                                                make_institutionalmemory_mce,
                                                make_lineage_mce,
                                                make_ownership_mce,
@@ -107,7 +107,7 @@ def test_delete_undo(
     dataset_urn = make_dataset_urn(
         platform=inputs["dataset_type"], name=inputs["dataset_name"]
     )
-    delete_mce = make_delete_mce(dataset_urn)
+    delete_mce = make_status_mce(dataset_urn)
     undo_delete_mce = make_recover_mce(dataset_urn)
     output_path = os.path.join(
         os.path.dirname(os.path.realpath(__file__)), "test_delete_mce_output.json"
