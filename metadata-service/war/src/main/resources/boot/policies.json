@@ -14,6 +14,7 @@
         "MANAGE_POLICIES",
         "MANAGE_USERS_AND_GROUPS",
         "VIEW_ANALYTICS",
+        "GENERATE_PERSONAL_ACCESS_TOKENS",
         "VIEW_METADATA_PROPOSALS"
       ],
       "displayName":"Root User - All Platform Privileges",
@@ -264,10 +265,12 @@
       "privileges":[
         "VIEW_ANALYTICS",
         "MANAGE_POLICIES",
+        "MANAGE_USERS_AND_GROUPS",
+        "GENERATE_PERSONAL_ACCESS_TOKENS",
         "VIEW_METADATA_PROPOSALS"
       ],
-      "displayName":"All Users - Default Platform Privileges - Manage Policies & View Analytics",
-      "description":"Grants full ability to manage policies and view analytics to ALL users of DataHub. Change this policy to alter that behavior.",
+      "displayName":"All Users - All Platform Privileges",
+      "description":"Grants full platform privileges to ALL users of DataHub. Change this policy to alter that behavior.",
       "state":"ACTIVE",
       "type":"PLATFORM",
       "editable":true

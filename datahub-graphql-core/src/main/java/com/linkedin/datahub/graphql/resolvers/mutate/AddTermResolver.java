@@ -43,7 +43,7 @@ public class AddTermResolver implements DataFetcher<CompletableFuture<Boolean>> 
 
       try {
         log.info("Adding Term. input: {}", input);
-        Urn actor = CorpuserUrn.createFromString(((QueryContext) environment.getContext()).getActor());
+        Urn actor = CorpuserUrn.createFromString(((QueryContext) environment.getContext()).getActorUrn());
         LabelUtils.addTermToTarget(
             termUrn,
             targetUrn,

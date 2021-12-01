@@ -9,6 +9,7 @@ import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.ConstraintType;
 import com.linkedin.datahub.graphql.generated.CreateTermConstraintInput;
 import com.linkedin.entity.client.AspectClient;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.key.ConstraintKey;
@@ -24,9 +25,9 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
 public class CreateTermConstraintResolver implements DataFetcher<CompletableFuture<String>> {
 
-  private final AspectClient _aspectClient;
+  private final EntityClient _aspectClient;
 
-  public CreateTermConstraintResolver(final AspectClient aspectClient) {
+  public CreateTermConstraintResolver(final EntityClient aspectClient) {
     _aspectClient = aspectClient;
   }
 

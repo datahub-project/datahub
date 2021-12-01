@@ -238,7 +238,7 @@ public class LabelUtils {
 
     return AuthorizationUtils.isAuthorized(
         context.getAuthorizer(),
-        context.getActor(),
+        context.getActorUrn(),
         targetUrn.getEntityType(),
         targetUrn.toString(),
         orPrivilegeGroups);
@@ -260,7 +260,7 @@ public class LabelUtils {
 
     return AuthorizationUtils.isAuthorized(
         context.getAuthorizer(),
-        context.getActor(),
+        context.getActorUrn(),
         targetUrn.getEntityType(),
         targetUrn.toString(),
         orPrivilegeGroups);

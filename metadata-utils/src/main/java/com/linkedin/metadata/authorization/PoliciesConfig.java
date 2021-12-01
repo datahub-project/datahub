@@ -37,6 +37,11 @@ public class PoliciesConfig {
       "View Analytics",
       "View the DataHub analytics dashboard.");
 
+  public static final Privilege GENERATE_PERSONAL_ACCESS_TOKENS_PRIVILEGE = Privilege.of(
+      "GENERATE_PERSONAL_ACCESS_TOKENS",
+      "Generate Personal Access Tokens",
+      "Generate personal access tokens for use with DataHub APIs.");
+
   public static final Privilege VIEW_METADATA_PROPOSALS_PRIVILEGE = Privilege.of(
       "VIEW_METADATA_PROPOSALS",
       "View Metadata Proposals",
@@ -51,6 +56,7 @@ public class PoliciesConfig {
       MANAGE_POLICIES_PRIVILEGE,
       MANAGE_USERS_AND_GROUPS_PRIVILEGE,
       VIEW_ANALYTICS_PRIVILEGE,
+      GENERATE_PERSONAL_ACCESS_TOKENS_PRIVILEGE,
       VIEW_METADATA_PROPOSALS_PRIVILEGE,
       CREATE_CONSTRAINTS_PRIVILEGE
   );

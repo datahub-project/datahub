@@ -49,7 +49,7 @@ public class RemoveTagResolver implements DataFetcher<CompletableFuture<Boolean>
         }
 
         log.info("Removing Tag. input: %s", input);
-        Urn actor = CorpuserUrn.createFromString(((QueryContext) environment.getContext()).getActor());
+        Urn actor = CorpuserUrn.createFromString(((QueryContext) environment.getContext()).getActorUrn());
         LabelUtils.removeTagFromTarget(
             tagUrn,
             targetUrn,

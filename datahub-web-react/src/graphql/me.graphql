@@ -33,6 +33,7 @@ query getMe {
             managePolicies
             viewMetadataProposals
             manageIdentities
+            generatePersonalAccessTokens
         }
     }
 }
