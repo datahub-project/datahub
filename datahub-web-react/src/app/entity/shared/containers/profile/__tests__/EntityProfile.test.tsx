@@ -164,7 +164,7 @@ describe('EntityProfile', () => {
     });
 
     it('switches tab content', async () => {
-        const { getByText, queryByText } = render(
+        const { getByText } = render(
             <MockedProvider mocks={mocks} addTypename={false}>
                 <TestPageContainer initialEntries={['/dataset/urn:li:dataset:3']}>
                     <EntityProfile
