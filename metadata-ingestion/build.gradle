@@ -17,7 +17,11 @@ task environmentSetup(type: Exec, dependsOn: checkPythonVersion) {
   commandLine 'bash', '-c', "${python_executable} -m venv ${venv_name} && ${venv_name}/bin/python -m pip install --upgrade pip wheel setuptools==57.5.0"
 }
 
-task installPackage(type: Exec, dependsOn: environmentSetup) {
+task runPreFlightScript(type: Exec, dependsOn: environmentSetup) {
+  commandLine "scripts/datahub_preflight.sh"
+}
+
+task installPackage(type: Exec, dependsOn: runPreFlightScript) {
   inputs.file file('setup.py')
   outputs.dir("${venv_name}")
   commandLine "${venv_name}/bin/pip", 'install', '-e', '.'
