@@ -9,7 +9,12 @@ import { FIELDS_TO_HIGHLIGHT } from './search/highlights';
 import { Direction } from '../../lineage/types';
 import getChildren from '../../lineage/utils/getChildren';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
-import { GetDatasetQuery, useGetDatasetQuery, useUpdateDatasetMutation } from '../../../graphql/dataset.generated';
+import {
+    GetDatasetOwnersSpecialQuery,
+    GetDatasetQuery,
+    useGetDatasetQuery,
+    useUpdateDatasetMutation,
+} from '../../../graphql/dataset.generated';
 import { GenericEntityProperties } from '../shared/types';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
 import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
@@ -21,6 +26,11 @@ import { SidebarTagsSection } from '../shared/containers/profile/sidebar/Sidebar
 import { SidebarStatsSection } from '../shared/containers/profile/sidebar/Dataset/StatsSidebarSection';
 import StatsTab from '../shared/tabs/Dataset/Stats/StatsTab';
 import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
+import { EditSchemaTab } from '../shared/tabs/Dataset/Schema/EditSchemaTab';
+import { useGetMeQuery } from '../../../graphql/me.generated';
+import { AdminTab } from '../shared/tabs/Dataset/Schema/AdminTab';
+import { EditPropertiesTab } from '../shared/tabs/Dataset/Schema/EditPropertiesTab';
+// import { useGetMeQuery } from '../../../graphql/me.generated';
 
 const MatchTag = styled(Tag)`
     &&& {
@@ -28,6 +38,11 @@ const MatchTag = styled(Tag)`
         margin-top: 10px;
     }
 `;
+function FindWhoAmI() {
+    const { data } = useGetMeQuery();
+    const whoami = data?.me?.corpUser?.username;
+    return whoami;
+}
 
 /**
  * Definition of the DataHub Dataset entity.
@@ -109,6 +124,60 @@ export class DatasetEntity implements Entity<Dataset> {
                     component: StatsTab,
                     shouldHide: (_, dataset: GetDatasetQuery) =>
                         !dataset?.dataset?.datasetProfiles?.length && !dataset?.dataset?.usageStats?.buckets?.length,
+                },
+                {
+                    name: 'Edit Schema',
+                    component: EditSchemaTab,
+                    shouldHide: (_, _dataset: GetDatasetOwnersSpecialQuery) => {
+                        const currUser = FindWhoAmI() as string;
+                        const owners = _dataset?.dataset?.ownership?.owners;
+                        const ownersArray =
+                            owners
+                                ?.map((x) => (x?.type === 'DATAOWNER' ? x?.owner?.urn.split(':').slice(-1) : ''))
+                                ?.flat() ?? [];
+                        if (ownersArray.includes(currUser)) {
+                            console.log('return unhide');
+                            return false;
+                        }
+                        console.log('return hide');
+                        return true;
+                    },
+                },
+                {
+                    name: 'Edit Properties',
+                    component: EditPropertiesTab,
+                    shouldHide: (_, _dataset: GetDatasetOwnersSpecialQuery) => {
+                        const currUser = FindWhoAmI() as string;
+                        const owners = _dataset?.dataset?.ownership?.owners;
+                        const ownersArray =
+                            owners
+                                ?.map((x) => (x?.type === 'DATAOWNER' ? x?.owner?.urn.split(':').slice(-1) : ''))
+                                ?.flat() ?? [];
+                        if (ownersArray.includes(currUser)) {
+                            console.log('return unhide');
+                            return false;
+                        }
+                        console.log('return hide');
+                        return true;
+                    },
+                },
+                {
+                    name: 'Dataset Admin',
+                    component: AdminTab,
+                    shouldHide: (_, _dataset: GetDatasetOwnersSpecialQuery) => {
+                        const currUser = FindWhoAmI() as string;
+                        const owners = _dataset?.dataset?.ownership?.owners;
+                        const ownersArray =
+                            owners
+                                ?.map((x) => (x?.type === 'DATAOWNER' ? x?.owner?.urn.split(':').slice(-1) : ''))
+                                ?.flat() ?? [];
+                        if (ownersArray.includes(currUser)) {
+                            console.log('return unhide');
+                            return false;
+                        }
+                        console.log('return hide');
+                        return true;
+                    },
                 },
             ]}
             sidebarSections={[
