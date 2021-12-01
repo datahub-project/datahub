@@ -42,7 +42,7 @@ framework_common = {
     "avro-python3>=1.8.2",
     "python-dateutil>=2.8.0",
     "stackprinter",
-    "pandas",
+    "pandas<1.3",
     "tabulate",
 }
 
@@ -97,7 +97,7 @@ plugins: Dict[str, Set[str]] = {
         # and column comments, and also releases HTTP and HTTPS transport schemes.
         "acryl-pyhive[hive]>=0.6.11"
     },
-    "kudu": {"impyla>=0.16.3", "krbcontext>=0.10", "jaydebeapi"},
+    "kudu": {"impyla>=0.16.3", "krbcontext>=0.10", "jaydebeapi", "pandas_profiling"},
     "kafka": kafka_common,
     "kafka-connect": sql_common | {"requests"},
     "ldap": {"python-ldap>=2.4"},

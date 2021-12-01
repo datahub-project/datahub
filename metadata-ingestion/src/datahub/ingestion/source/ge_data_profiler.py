@@ -14,7 +14,6 @@ try:
 except ImportError:
     pass
 
-
 from great_expectations.core.expectation_validation_result import (
     ExpectationSuiteValidationResult,
     ExpectationValidationResult,
