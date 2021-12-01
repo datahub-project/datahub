@@ -116,12 +116,7 @@ export default function DescriptionField({
     const showAddDescription = editable && !description;
 
     return (
-        <DescriptionContainer
-            onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-            }}
-        >
+        <DescriptionContainer>
             {expanded ? (
                 <>
                     {!!description && <DescriptionText source={description} />}
