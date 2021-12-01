@@ -64,10 +64,10 @@ public class ProposalsResolver implements DataFetcher<CompletableFuture<List<Act
                     null,
                     0,
                     20,
-                    context.getActor());
+                    context.getAuthentication());
 
                 final Map<Urn, Entity> entities = _entityClient.batchGet(new HashSet<>(searchResult.getEntities()
-                    .stream().map(result -> result.getEntity()).collect(Collectors.toList())), context.getActor());
+                    .stream().map(result -> result.getEntity()).collect(Collectors.toList())), context.getAuthentication());
                 return ActionRequestUtils.mapActionRequests(entities.values());
             } catch (Exception e) {
                 throw new RuntimeException("Failed to load action requests", e);

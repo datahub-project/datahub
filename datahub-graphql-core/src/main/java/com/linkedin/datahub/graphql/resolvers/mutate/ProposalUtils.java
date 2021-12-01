@@ -1,8 +1,8 @@
 package com.linkedin.datahub.graphql.resolvers.mutate;
 
-import com.datahub.metadata.authorization.AuthorizationManager;
-
-import com.datahub.metadata.authorization.ResourceSpec;
+import com.datahub.authorization.AuthorizationManager;
+import com.datahub.authorization.ResourceSpec;
+import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.actionrequest.ActionRequestInfo;
 import com.linkedin.actionrequest.ActionRequestParams;
@@ -80,7 +80,7 @@ public class ProposalUtils {
 
     return AuthorizationUtils.isAuthorized(
         context.getAuthorizer(),
-        context.getActor(),
+        context.getActorUrn(),
         targetUrn.getEntityType(),
         targetUrn.toString(),
         orPrivilegeGroups);
@@ -100,7 +100,7 @@ public class ProposalUtils {
 
     return AuthorizationUtils.isAuthorized(
         context.getAuthorizer(),
-        context.getActor(),
+        context.getActorUrn(),
         targetUrn.getEntityType(),
         targetUrn.toString(),
         orPrivilegeGroups);
@@ -136,7 +136,7 @@ public class ProposalUtils {
 
     return AuthorizationUtils.isAuthorized(
         context.getAuthorizer(),
-        context.getActor(),
+        context.getActorUrn(),
         targetUrn.getEntityType(),
         targetUrn.toString(),
         orPrivilegeGroups);
@@ -156,7 +156,7 @@ public class ProposalUtils {
 
     return AuthorizationUtils.isAuthorized(
         context.getAuthorizer(),
-        context.getActor(),
+        context.getActorUrn(),
         targetUrn.getEntityType(),
         targetUrn.toString(),
         orPrivilegeGroups);
@@ -440,7 +440,7 @@ public class ProposalUtils {
       Urn targetUrn,
       String subResource,
       EntityClient entityClient,
-      String actor
+      Authentication authentication
   ) {
     Filter filter = createActionRequestFilter(
         ActionRequestType.TAG_ASSOCIATION,
@@ -449,7 +449,7 @@ public class ProposalUtils {
         subResource
     );
 
-    return getActionRequestInfosFromFilter(filter, actor, entityClient).filter(actionRequestInfo ->
+    return getActionRequestInfosFromFilter(filter, authentication, entityClient).filter(actionRequestInfo ->
         (subResource != null ? actionRequestInfo.getSubResource().equals(subResource) : !actionRequestInfo.hasSubResource())
             && actionRequestInfo.getResource().equals(targetUrn.toString())
             && actionRequestInfo.getParams().hasTagProposal()
@@ -463,7 +463,7 @@ public class ProposalUtils {
       Urn targetUrn,
       String subResource,
       EntityClient entityClient,
-      String actor
+      Authentication authentication
   ) {
     Filter filter = createActionRequestFilter(
         ActionRequestType.TERM_ASSOCIATION,
@@ -472,7 +472,7 @@ public class ProposalUtils {
         subResource
     );
 
-    return getActionRequestInfosFromFilter(filter, actor, entityClient).filter(actionRequestInfo ->
+    return getActionRequestInfosFromFilter(filter, authentication, entityClient).filter(actionRequestInfo ->
         (subResource != null ? actionRequestInfo.getSubResource().equals(subResource) : !actionRequestInfo.hasSubResource())
             && actionRequestInfo.getResource().equals(targetUrn.toString())
             && actionRequestInfo.getParams().hasGlossaryTermProposal()
@@ -482,7 +482,7 @@ public class ProposalUtils {
 
   public static Stream<ActionRequestInfo> getActionRequestInfosFromFilter(
       Filter filter,
-      String actor,
+      Authentication authentication,
       EntityClient entityClient
   ) throws RemoteInvocationException {
     final SearchResult searchResult = entityClient.filter(
@@ -491,9 +491,9 @@ public class ProposalUtils {
         null,
         0,
         20,
-        actor);
+        authentication);
     final Map<Urn, Entity> entities = entityClient.batchGet(new HashSet<>(searchResult.getEntities()
-        .stream().map(result -> result.getEntity()).collect(Collectors.toList())), actor);
+        .stream().map(result -> result.getEntity()).collect(Collectors.toList())), authentication);
 
     return entities.values()
         .stream()

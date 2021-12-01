@@ -1,8 +1,8 @@
 package com.linkedin.datahub.graphql.resolvers.constraint;
 
-import com.datahub.metadata.authorization.ResourceSpec;
+import com.datahub.authorization.ResourceSpec;
 
-
+import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.GlossaryTerms;
 import com.linkedin.common.urn.GlossaryNodeUrn;
@@ -41,15 +41,15 @@ public class ConstraintUtils {
   private static boolean isEntityFailingGlossaryTermConstraint(
       @Nonnull String urn,
       @Nonnull  final EntityClient entityClient,
-      @Nonnull final String actor,
+      @Nonnull final Authentication authentication,
       @Nonnull ConstraintInfo constraintInfo
   ) throws RemoteInvocationException {
       Optional<GlossaryTerms> glossaryTerms =
-      entityClient.getVersionedAspect(urn, GLOSSARY_TERMS_ASPECT, 0L, actor, GlossaryTerms.class);
+      entityClient.getVersionedAspect(urn, GLOSSARY_TERMS_ASPECT, 0L, GlossaryTerms.class, authentication);
 
         return !isGlossaryTermConstraintSatisfied(
       constraintInfo.getParams().getHasGlossaryTermInNodeParams(),
-            glossaryTerms.orElse(new GlossaryTerms()), entityClient, actor
+            glossaryTerms.orElse(new GlossaryTerms()), entityClient, authentication
         );
   }
 
@@ -59,16 +59,16 @@ public class ConstraintUtils {
       @Nonnull ResourceSpec spec,
       @Nonnull ConstraintInfo constraintInfo,
       @Nonnull  final EntityClient entityClient,
-      @Nonnull final String actor
+      @Nonnull final Authentication authentication
   ) {
     Objects.requireNonNull(urn, "Urn provided to check constraint is null");
     Objects.requireNonNull(constraintInfo, "ConstraintInfo provided to check constraint is null");
     Objects.requireNonNull(entityClient, "entityClient provided to check constraint is null");
-    Objects.requireNonNull(actor, "actor provided to check constraint is null");
+    Objects.requireNonNull(authentication, "authentication provided to check constraint is null");
 
     if (isResourceMatch(constraintInfo.getResources(), spec)) {
       if (constraintInfo.getParams().hasHasGlossaryTermInNodeParams()) {
-        return isEntityFailingGlossaryTermConstraint(urn, entityClient, actor, constraintInfo);
+        return isEntityFailingGlossaryTermConstraint(urn, entityClient, authentication, constraintInfo);
       }
     }
 
@@ -107,7 +107,7 @@ public class ConstraintUtils {
       final @Nonnull GlossaryTermInNodeConstraint params,
       final @Nonnull GlossaryTerms glossaryTerms,
       final @Nonnull EntityClient entityClient,
-      final @Nonnull String actor
+      final @Nonnull Authentication authentication
   ) {
     if (!glossaryTerms.hasTerms()) {
       return false;
@@ -117,7 +117,7 @@ public class ConstraintUtils {
         glossaryTermAssociation.getUrn(),
         glossaryNodeUrn,
         entityClient,
-        actor
+        authentication
     )).count() > 0;
   }
 
@@ -125,10 +125,10 @@ public class ConstraintUtils {
       @Nonnull final Urn candidateTerm,
       @Nonnull final Urn requiredNode,
       @Nonnull final EntityClient entityClient,
-      @Nonnull final String actor
+      @Nonnull final Authentication authentication
   ) {
     try {
-      Aspect aspect = entityClient.getAspect(candidateTerm.toString(), GLOSSARY_TERM_INFO_ASPECT, 0L, actor).getAspect();
+      Aspect aspect = entityClient.getAspect(candidateTerm.toString(), GLOSSARY_TERM_INFO_ASPECT, 0L, authentication).getAspect();
       GlossaryTermInfo candidateInfo = aspect.getGlossaryTermInfo();
       GlossaryNodeUrn candidateParentNode = candidateInfo.getParentNode();
       if (candidateParentNode == null) {
@@ -142,7 +142,7 @@ public class ConstraintUtils {
           candidateParentNode,
           requiredNode,
           entityClient,
-          actor
+          authentication
       );
     } catch (RemoteInvocationException e) {
       return false;
@@ -153,10 +153,10 @@ public class ConstraintUtils {
       final @Nonnull Urn candidateNode,
       final @Nonnull Urn requiredParentNode,
       final @Nonnull EntityClient entityClient,
-      final @Nonnull String actor
+      final @Nonnull Authentication authentication
   ) {
     try {
-      Aspect aspect = entityClient.getAspect(candidateNode.toString(), GLOSSARY_NODE_INFO_ASPECT, 0L, actor).getAspect();
+      Aspect aspect = entityClient.getAspect(candidateNode.toString(), GLOSSARY_NODE_INFO_ASPECT, 0L, authentication).getAspect();
       GlossaryNodeInfo candidateInfo = aspect.getGlossaryNodeInfo();
       GlossaryNodeUrn candidateParentNode = candidateInfo.getParentNode();
 
@@ -166,7 +166,7 @@ public class ConstraintUtils {
       if (candidateParentNode.equals(requiredParentNode)) {
         return true;
       }
-      return isGlossaryNodeInNodesAncestry(candidateParentNode, requiredParentNode, entityClient, actor);
+      return isGlossaryNodeInNodesAncestry(candidateParentNode, requiredParentNode, entityClient, authentication);
     } catch (RemoteInvocationException e) {
       return false;
     }
@@ -198,6 +198,6 @@ public class ConstraintUtils {
         ))
     ));
 
-    return AuthorizationUtils.isAuthorized(context.getAuthorizer(), context.getActor(), orPrivilegeGroups);
+    return AuthorizationUtils.isAuthorized(context.getAuthorizer(), context.getActorUrn(), orPrivilegeGroups);
   }
 }

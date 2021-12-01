@@ -84,7 +84,7 @@ public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUs
    * Returns true if the authenticated user has privileges to view metadata proposals.
    */
   private boolean canViewMetadataProposals(final QueryContext context) {
-    return isAuthorized(context.getAuthorizer(), context.getActor(), PoliciesConfig.VIEW_METADATA_PROPOSALS_PRIVILEGE);
+    return isAuthorized(context.getAuthorizer(), context.getActorUrn(), PoliciesConfig.VIEW_METADATA_PROPOSALS_PRIVILEGE);
   }
 
   /**

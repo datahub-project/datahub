@@ -1,7 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.mutate;
 
-import com.datahub.metadata.authorization.AuthorizationManager;
-
+import com.datahub.authorization.AuthorizationManager;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -53,14 +52,14 @@ public class ProposeTagResolver implements DataFetcher<CompletableFuture<Boolean
       }
 
       if (ProposalUtils.isTagAlreadyProposedToTarget(tagUrn, targetUrn, input.getSubResource(), _entityClient,
-          ((QueryContext) environment.getContext()).getActor()
+          ((QueryContext) environment.getContext()).getAuthentication()
       )) {
         throw new DataHubGraphQLException("Tag has already been proposed to target", DataHubGraphQLErrorCode.BAD_REQUEST);
       }
 
       try {
         log.info("Proposing Tag. input: {}", input.toString());
-        Urn actor = CorpuserUrn.createFromString(((QueryContext) environment.getContext()).getActor());
+        Urn actor = CorpuserUrn.createFromString(((QueryContext) environment.getContext()).getActorUrn());
 
 
         ProposalUtils.proposeTag(

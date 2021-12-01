@@ -1,9 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.mutate;
 
-import com.datahub.metadata.authorization.AuthorizationManager;
-
-
-
+import com.datahub.authorization.AuthorizationManager;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -55,14 +52,14 @@ public class ProposeTermResolver implements DataFetcher<CompletableFuture<Boolea
       }
 
       if (ProposalUtils.isTermAlreadyProposedToTarget(termUrn, targetUrn, input.getSubResource(), _entityClient,
-          ((QueryContext) environment.getContext()).getActor()
+          ((QueryContext) environment.getContext()).getAuthentication()
       )) {
         throw new DataHubGraphQLException("Term has already been proposed to target", DataHubGraphQLErrorCode.BAD_REQUEST);
       }
 
       log.info("Proposing Term. input: {}", input.toString());
       try {
-        Urn actor = CorpuserUrn.createFromString(((QueryContext) environment.getContext()).getActor());
+        Urn actor = CorpuserUrn.createFromString(((QueryContext) environment.getContext()).getActorUrn());
         return ProposalUtils.proposeTerm(
             actor,
             termUrn,

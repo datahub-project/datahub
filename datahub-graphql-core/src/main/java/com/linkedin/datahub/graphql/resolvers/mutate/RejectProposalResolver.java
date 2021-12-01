@@ -55,7 +55,7 @@ public class RejectProposalResolver implements DataFetcher<CompletableFuture<Boo
 
       try {
         log.info("Rejecting term proposal. Proposal urn: {}", proposalUrn);
-        Urn actor = CorpuserUrn.createFromString(((QueryContext) environment.getContext()).getActor());
+        Urn actor = CorpuserUrn.createFromString(((QueryContext) environment.getContext()).getActorUrn());
 
         if (!ProposalUtils.isAuthorizedToAcceptProposal(
             environment.getContext(),

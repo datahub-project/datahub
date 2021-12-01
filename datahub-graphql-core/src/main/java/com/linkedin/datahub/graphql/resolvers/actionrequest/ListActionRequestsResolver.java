@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.actionrequest;
 
 import com.linkedin.common.urn.Urn;
 
+import com.datahub.authentication.Authentication;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.ActionRequestAssignee;
 import com.linkedin.datahub.graphql.generated.ActionRequestStatus;
@@ -78,8 +79,8 @@ public class ListActionRequestsResolver implements DataFetcher<CompletableFuture
 
         if (assignee == null) {
           // Case 1: If no assignee filter provided, fall back to filtering for current user and their groups.
-          actorUrn = Urn.createFromString(context.getActor());
-          final Optional<GroupMembership> maybeGroupMembership = resolveGroupMembership(actorUrn);
+          actorUrn = Urn.createFromString(context.getActorUrn());
+          final Optional<GroupMembership> maybeGroupMembership = resolveGroupMembership(actorUrn, context.getAuthentication());
           groupUrns = maybeGroupMembership.<List<Urn>>map(GroupMembership::getGroups).orElse(null);
         } else {
           // Case 2: Caller provided a user or group assignee filter.
@@ -108,10 +109,10 @@ public class ListActionRequestsResolver implements DataFetcher<CompletableFuture
             sortCriterion,
             start,
             count,
-            context.getActor());
+            context.getAuthentication());
 
         final Map<Urn, Entity> entities = _entityClient.batchGet(new HashSet<>(searchResult.getEntities().stream().map(result -> result.getEntity()).collect(
-            Collectors.toList())), context.getActor());
+            Collectors.toList())), context.getAuthentication());
 
         final ListActionRequestsResult result = new ListActionRequestsResult();
         result.setStart(searchResult.getFrom());
@@ -125,9 +126,9 @@ public class ListActionRequestsResolver implements DataFetcher<CompletableFuture
     });
   }
 
-  private Optional<GroupMembership> resolveGroupMembership(final Urn actor) {
+  private Optional<GroupMembership> resolveGroupMembership(final Urn actor, final Authentication authentication) {
     try {
-      final CorpUserSnapshot corpUser = _entityClient.get(actor, SYSTEM_ACTOR).getValue().getCorpUserSnapshot();
+      final CorpUserSnapshot corpUser = _entityClient.get(actor, authentication).getValue().getCorpUserSnapshot();
       for (CorpUserAspect aspect : corpUser.getAspects()) {
         if (aspect.isGroupMembership()) {
           // Found group membership.

@@ -1,6 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.constraint;
 
-import com.datahub.metadata.authorization.ResourceSpec;
+import com.datahub.authorization.ResourceSpec;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.constraint.ConstraintInfo;
@@ -37,8 +37,8 @@ public class ConstraintsResolver implements DataFetcher<CompletableFuture<List<C
                             result.toString(),
                             CONSTRAINT_INFO_ASPECT_NAME,
                             0L,
-                            context.getActor(),
-                            ConstraintInfo.class
+                            ConstraintInfo.class,
+                            context.getAuthentication()
                         );
                     if (constraintInfo.isPresent()) {
                         return constraintInfo.get();
@@ -65,7 +65,7 @@ public class ConstraintsResolver implements DataFetcher<CompletableFuture<List<C
                     Stream<ConstraintInfo> aspects = getConstraintInfoAspectsFromConstraints(constraintList, context);
 
                     return aspects.filter(
-                        aspect -> ConstraintUtils.isEntityFailingConstraint(urn, spec, aspect, _entityClient, context.getActor())
+                        aspect -> ConstraintUtils.isEntityFailingConstraint(urn, spec, aspect, _entityClient, context.getAuthentication())
                     ).map(ConstraintUtils::mapConstraintInfoToConstraint).collect(Collectors.toList());
             } catch (Exception e) {
                 throw new RuntimeException("Failed to load constraints", e);

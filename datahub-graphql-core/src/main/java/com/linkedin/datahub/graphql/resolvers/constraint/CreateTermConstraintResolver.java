@@ -8,7 +8,6 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.ConstraintType;
 import com.linkedin.datahub.graphql.generated.CreateTermConstraintInput;
-import com.linkedin.entity.client.AspectClient;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
@@ -65,7 +64,7 @@ public class CreateTermConstraintResolver implements DataFetcher<CompletableFutu
           proposal.setAspectName(Constants.CONSTRAINT_INFO_ASPECT_NAME);
           proposal.setAspect(GenericAspectUtils.serializeAspect(info));
           proposal.setChangeType(ChangeType.UPSERT);
-          return _aspectClient.ingestProposal(proposal, context.getActor()).getEntity();
+          return _aspectClient.ingestProposal(proposal, context.getAuthentication());
         } catch (Exception e) {
           throw new RuntimeException("Failed to create constraint", e);
         }

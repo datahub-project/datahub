@@ -1,6 +1,12 @@
 import styled from 'styled-components';
 import * as React from 'react';
-import { BankOutlined, BarChartOutlined, InboxOutlined, SettingOutlined, UsergroupAddOutlined } from '@ant-design/icons';
+import {
+    BankOutlined,
+    BarChartOutlined,
+    InboxOutlined,
+    SettingOutlined,
+    UsergroupAddOutlined,
+} from '@ant-design/icons';
 import { Link } from 'react-router-dom';
 import { Button } from 'antd';
 import { useAppConfig } from '../../useAppConfig';
