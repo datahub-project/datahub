@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, waitFor } from '@testing-library/react';
+import { fireEvent, render, waitFor, screen } from '@testing-library/react';
 import { MockedProvider } from '@apollo/client/testing';
 import TestPageContainer from '../../../../../../utils/test-utils/TestPageContainer';
 import { mocks } from '../../../../../../Mocks';
@@ -23,7 +23,7 @@ import { SidebarTagsSection } from '../sidebar/SidebarTagsSection';
 
 describe('EntityProfile', () => {
     it('renders dataset page', async () => {
-        const { getByText } = render(
+        render(
             <MockedProvider mocks={mocks} addTypename={false}>
                 <TestPageContainer initialEntries={['/dataset/urn:li:dataset:3']}>
                     <EntityProfile
@@ -88,14 +88,14 @@ describe('EntityProfile', () => {
             </MockedProvider>,
         );
 
-        await waitFor(() => expect(getByText('Yet Another Dataset')).toBeInTheDocument());
+        await waitFor(() => expect(screen.findByText('Yet Another Dataset')));
         await waitFor(() =>
-            expect(getByText('This and here we have yet another Dataset (YAN). Are there more?')).toBeInTheDocument(),
+            expect(screen.findByText('This and here we have yet another Dataset (YAN). Are there more?')),
         );
     });
 
     it('renders tab content', async () => {
-        const { getByText } = render(
+        render(
             <MockedProvider mocks={mocks} addTypename={false}>
                 <TestPageContainer initialEntries={['/dataset/urn:li:dataset:3']}>
                     <EntityProfile
@@ -161,8 +161,8 @@ describe('EntityProfile', () => {
         );
 
         // find the schema fields in the schema table
-        await waitFor(() => expect(getByText('user_name')).toBeInTheDocument());
-        await waitFor(() => expect(getByText('user_id')).toBeInTheDocument());
+        await waitFor(() => expect(screen.findByText('user_name')));
+        await waitFor(() => expect(screen.findByText('user_id')));
     });
 
     it('switches tab content', async () => {
@@ -232,8 +232,8 @@ describe('EntityProfile', () => {
         );
 
         // find the schema fields in the schema table
-        await waitFor(() => expect(getByText('user_name')).toBeInTheDocument());
-        await waitFor(() => expect(getByText('user_id')).toBeInTheDocument());
+        await waitFor(() => expect(screen.findByText('user_name')));
+        await waitFor(() => expect(screen.findByText('user_id')));
         expect(queryByText('propertyAKey')).not.toBeInTheDocument();
 
         fireEvent(
@@ -244,13 +244,13 @@ describe('EntityProfile', () => {
             }),
         );
 
-        await waitFor(() => expect(getByText('propertyAKey')).toBeInTheDocument());
-        await waitFor(() => expect(getByText('propertyAValue')).toBeInTheDocument());
+        await waitFor(() => expect(screen.findByText('propertyAKey')));
+        await waitFor(() => expect(screen.findByText('propertyAValue')));
         expect(queryByText('user_name')).not.toBeInTheDocument();
     });
 
     it('renders sidebar content', async () => {
-        const { getByText } = render(
+        render(
             <MockedProvider mocks={mocks} addTypename={false}>
                 <TestPageContainer initialEntries={['/dataset/urn:li:dataset:3']}>
                     <EntityProfile
@@ -316,7 +316,7 @@ describe('EntityProfile', () => {
         );
 
         // find the tags
-        await waitFor(() => expect(getByText('Tags')).toBeInTheDocument());
-        await waitFor(() => expect(getByText('abc-sample-tag')).toBeInTheDocument());
+        await waitFor(() => expect(screen.findByText('Tags')));
+        await waitFor(() => expect(screen.findByText('abc-sample-tag')));
     });
 });
