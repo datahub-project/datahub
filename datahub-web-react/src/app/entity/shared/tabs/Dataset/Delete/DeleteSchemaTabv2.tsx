@@ -2,7 +2,7 @@
 import React from 'react';
 import { Button, message, Popconfirm, Result } from 'antd';
 import axios from 'axios';
-import { GetDatasetOwnersSpecialQuery, GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
+import { GetDatasetOwnersSpecialQuery, GetDatasetStatusQuery } from '../../../../../../graphql/dataset.generated';
 import { useGetAuthenticatedUser } from '../../../../../useGetAuthenticatedUser';
 import { useBaseEntity } from '../../../EntityContext';
 
@@ -21,7 +21,7 @@ export const DeleteSchemaTabv2 = () => {
 
     const [visible, setVisible] = React.useState(false);
     const [confirmLoading, setConfirmLoading] = React.useState(false);
-    const entity = useBaseEntity<GetDatasetQuery>();
+    const entity = useBaseEntity<GetDatasetStatusQuery>();
     const rawStatus = entity?.dataset?.status?.removed;
     const currStatus = rawStatus === undefined ? false : rawStatus;
     const statusFinal = currStatus ? 'error' : 'success';

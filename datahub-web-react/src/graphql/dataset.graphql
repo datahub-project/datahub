@@ -119,9 +119,6 @@ query getDataset($urn: String!) {
                 sampleValues
             }
         }
-        status {
-            removed
-        }
     }
 }
 
@@ -159,5 +156,14 @@ query getDatasetOwnersSpecial($urn: String!) {
             ...ownershipFields
         }
 
+    }
+}
+
+query getDatasetStatus($urn: String!) {
+    dataset(urn: $urn) {
+        ...nonRecursiveDatasetFields
+        status {
+            removed
+        }
     }
 }
