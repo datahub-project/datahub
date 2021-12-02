@@ -202,11 +202,11 @@ class _SingleColumnSpec:
 class DataLakeProfilerConfig(ConfigModel):
     enabled: bool = False
 
-    allow_deny_patterns: AllowDenyPattern = AllowDenyPattern.allow_all()
-
     # These settings will override the ones below.
     turn_off_expensive_profiling_metrics: bool = False
     profile_table_level_only: bool = False
+
+    allow_deny_patterns: AllowDenyPattern = AllowDenyPattern.allow_all()
 
     include_field_null_count: bool = True
     include_field_min_value: bool = True
@@ -269,7 +269,7 @@ class DataLakeSourceConfig(ConfigModel):
 
     env: str = DEFAULT_ENV
     platform: str
-    include_path: str
+    base_path: str
 
     aws_config: Optional[AwsSourceConfig] = None
 
@@ -882,14 +882,34 @@ class DataLakeSource(Source):
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
 
-        if self.source_config.include_path.startswith("s3://"):
-            s3 = boto3.resource("s3")
-            bucket = s3.Bucket(self.source_config.include_path.split("/")[2])
+        s3_prefixes = ["s3://", "s3n://", "s3a://"]
 
-            for obj in bucket.objects.all():
-                yield from self.ingest_table(obj.key)
+        if any(
+            self.source_config.base_path.startswith(s3_prefix)
+            for s3_prefix in s3_prefixes
+        ):
+
+            for s3_prefix in s3_prefixes:
+                if self.source_config.base_path.startswith(s3_prefix):
+                    clean_path = self.source_config.base_path[len(s3_prefix) :]
+                    break
+
+            s3 = boto3.resource("s3")
+            bucket = s3.Bucket(clean_path.split("/")[0])
+
+            for obj in bucket.objects.filter(
+                Prefix=clean_path.split("/", maxsplit=1)[1]
+            ):
+
+                # if the file is a directory, skip it
+                if obj.key.endswith("/"):
+                    continue
+
+                obj_path = f"s3a://{obj.bucket_name}/{obj.key}"
+
+                yield from self.ingest_table(obj_path)
         else:
-            for root, dirs, files in os.walk(self.source_config.include_path):
+            for root, dirs, files in os.walk(self.source_config.base_path):
                 for file in files:
                     yield from self.ingest_table(os.path.join(root, file))
 
