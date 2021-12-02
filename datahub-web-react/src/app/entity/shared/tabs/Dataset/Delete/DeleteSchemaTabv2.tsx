@@ -2,13 +2,14 @@
 import React from 'react';
 import { Button, message, Popconfirm, Result } from 'antd';
 import axios from 'axios';
-import { GetDatasetOwnersSpecialQuery, GetDatasetStatusQuery } from '../../../../../../graphql/dataset.generated';
+import { gql, useQuery } from '@apollo/client';
+import { GetDatasetOwnersGqlQuery } from '../../../../../../graphql/dataset.generated';
 import { useGetAuthenticatedUser } from '../../../../../useGetAuthenticatedUser';
 import { useBaseEntity } from '../../../EntityContext';
 
-function CheckStatus(entity) {
-    const rawStatus = entity?.dataset?.status?.removed;
-    const currStatus = rawStatus === undefined ? false : rawStatus;
+function CheckStatus(queryresult, currDataset) {
+    const { data } = useQuery(queryresult, { skip: currDataset === undefined });
+    const currStatus = data === undefined ? false : data;
     return currStatus;
 }
 
@@ -21,9 +22,20 @@ export const DeleteSchemaTabv2 = () => {
 
     const [visible, setVisible] = React.useState(false);
     const [confirmLoading, setConfirmLoading] = React.useState(false);
-    const entity = useBaseEntity<GetDatasetStatusQuery>();
-    const rawStatus = entity?.dataset?.status?.removed;
-    const currStatus = rawStatus === undefined ? false : rawStatus;
+    const currDataset = useBaseEntity<GetDatasetOwnersGqlQuery>()?.dataset?.urn;
+    const queryresult = gql`
+        {
+            dataset(urn: "${currDataset}") {
+                status {
+                    removed
+                }
+            }
+        }
+    `;
+    const { data } = useQuery(queryresult, { skip: currDataset === undefined });
+
+    const currStatus = data === undefined ? false : data;
+    console.log(`the current status of the dataset is removed:"${data}`);
     const statusFinal = currStatus ? 'error' : 'success';
     const statusMsg = currStatus ? 'Dataset is not searchable' : 'Dataset is searchable via search and listing';
     const buttonMsg = currStatus ? 'Activate Dataset' : 'Deactivate Dataset';
@@ -31,7 +43,7 @@ export const DeleteSchemaTabv2 = () => {
     const warning =
         "You wouldn't be able to find this page after navigating away. Please copy page url before leaving page in case you need to undo deactivation.";
     const subMsg = currStatus ? warning : '';
-    const currDataset = useBaseEntity<GetDatasetOwnersSpecialQuery>()?.dataset?.urn;
+
     const currUser = useGetAuthenticatedUser()?.corpUser?.username || '-';
     const printSuccessMsg = (status) => {
         message.success(`Status:${status} - Request submitted successfully`, 3).then();
@@ -45,7 +57,7 @@ export const DeleteSchemaTabv2 = () => {
             .post('http://localhost:8001/update_dataset_status', {
                 dataset_name: currDataset,
                 requestor: currUser,
-                desired_state: !CheckStatus(entity),
+                desired_state: !CheckStatus(queryresult, currDataset),
             })
             .then((response) => printSuccessMsg(response.status))
             .catch((error) => {

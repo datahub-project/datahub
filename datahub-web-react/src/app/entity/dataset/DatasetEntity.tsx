@@ -10,7 +10,7 @@ import { Direction } from '../../lineage/types';
 import getChildren from '../../lineage/utils/getChildren';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
 import {
-    GetDatasetOwnersSpecialQuery,
+    GetDatasetOwnersGqlQuery,
     GetDatasetQuery,
     useGetDatasetQuery,
     useUpdateDatasetMutation,
@@ -128,7 +128,7 @@ export class DatasetEntity implements Entity<Dataset> {
                 {
                     name: 'Edit Schema',
                     component: EditSchemaTab,
-                    shouldHide: (_, _dataset: GetDatasetOwnersSpecialQuery) => {
+                    shouldHide: (_, _dataset: GetDatasetOwnersGqlQuery) => {
                         const currUser = FindWhoAmI() as string;
                         const owners = _dataset?.dataset?.ownership?.owners;
                         const ownersArray =
@@ -146,7 +146,7 @@ export class DatasetEntity implements Entity<Dataset> {
                 {
                     name: 'Edit Properties',
                     component: EditPropertiesTab,
-                    shouldHide: (_, _dataset: GetDatasetOwnersSpecialQuery) => {
+                    shouldHide: (_, _dataset: GetDatasetOwnersGqlQuery) => {
                         const currUser = FindWhoAmI() as string;
                         const owners = _dataset?.dataset?.ownership?.owners;
                         const ownersArray =
@@ -164,7 +164,7 @@ export class DatasetEntity implements Entity<Dataset> {
                 {
                     name: 'Dataset Admin',
                     component: AdminTab,
-                    shouldHide: (_, _dataset: GetDatasetOwnersSpecialQuery) => {
+                    shouldHide: (_, _dataset: GetDatasetOwnersGqlQuery) => {
                         const currUser = FindWhoAmI() as string;
                         const owners = _dataset?.dataset?.ownership?.owners;
                         const ownersArray =

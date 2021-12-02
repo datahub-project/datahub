@@ -3,14 +3,12 @@ import React, { useEffect, useState } from 'react';
 import { gql, useQuery } from '@apollo/client';
 import { Button, Form, message } from 'antd';
 import axios from 'axios';
-import { GetDatasetOwnersSpecialQuery, GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
+import { GetDatasetOwnersGqlQuery, GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
 import { useBaseEntity } from '../../../EntityContext';
 import { SpecifyBrowsePath } from '../../../../../create/Components/SpecifyBrowsePath';
 import { useGetAuthenticatedUser } from '../../../../../useGetAuthenticatedUser';
 
 function computeFinal(input) {
-    console.log('input');
-    console.log(input);
     const dataPaths = input?.browsePaths.map((x) => {
         const temp: [] = x.path;
         temp.splice(temp.length - 1);
@@ -40,7 +38,7 @@ export const EditBrowsePathTable = () => {
     };
     const baseEntity = useBaseEntity<GetDatasetQuery>();
     const currUrn = baseEntity && baseEntity.dataset && baseEntity.dataset?.urn;
-    const currDataset = useBaseEntity<GetDatasetOwnersSpecialQuery>()?.dataset?.urn;
+    const currDataset = useBaseEntity<GetDatasetOwnersGqlQuery>()?.dataset?.urn;
     const currUser = useGetAuthenticatedUser()?.corpUser?.username || '-';
     // console.log(currUrn);
     const [form] = Form.useForm();
@@ -85,13 +83,11 @@ export const EditBrowsePathTable = () => {
     };
     const handleFormChange = () => {
         const hasErrors = form.getFieldsError().some(({ errors }) => errors.length);
-        console.log(`changed value ${form.getFieldsValue()}`);
         setDisabledSave(hasErrors);
     };
     useEffect(() => {
         const formatted = computeFinal(data);
         setOriginalData(formatted);
-        console.log(`formatted is ${formatted}`);
         form.resetFields();
         form.setFieldsValue({
             browsepathList: formatted,
