@@ -6,7 +6,6 @@ from typing import List, Optional, Tuple
 
 import click
 import progressbar
-from pydantic import Field
 from requests import sessions
 from tabulate import tabulate
 
