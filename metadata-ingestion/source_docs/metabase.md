@@ -28,7 +28,7 @@ retrieve the following dashboard information.
 
 ### Chart
 
-[/api/card](hhttps://www.metabase.com/docs/latest/api-documentation.html#card) endpoint is used to
+[/api/card](https://www.metabase.com/docs/latest/api-documentation.html#card) endpoint is used to
 retrieve the following information.
 
 - Title and description
@@ -77,16 +77,17 @@ sink:
 ## Config details
 
 
-| Field                 | Required | Default            | Description                                             |
-| --------------------- | -------- | ------------------ | ------------------------------------------------------- |
-| `connect_uri`         |    ✅     | `"localhost:8088"` | Metabase host URL.                                      |
-| `username`            |    ✅     |                    | Metabase username.                                      |
-| `password`            |    ✅     |                    | Metabase password.                                      |
-| `database_alias_map`* |          |                    | Database name map to use when constructing dataset URN. |
-| `env`                 |          | `"PROD"`           | Environment to use in namespace when constructing URNs. |
+| Field                | Required | Default            | Description                                             |
+| -------------------- | -------- | ------------------ | ------------------------------------------------------- |
+| `connect_uri`        |    ✅     | `"localhost:8088"` | Metabase host URL.                                      |
+| `username`           |    ✅     |                    | Metabase username.                                      |
+| `password`           |    ✅     |                    | Metabase password.                                      |
+| `database_alias_map` |          |                    | Database name map to use when constructing dataset URN. |
+| `env`                |          | `"PROD"`           | Environment to use in namespace when constructing URNs. |
+
 
 DataHub will try to determine database name from Metabase [api/database](https://www.metabase.com/docs/latest/api-documentation.html#database)
-payload. However, the name can be overridden from this map for a given database connected to Metabase.
+payload. However, the name can be overridden from `database_alias_map` for a given database connected to Metabase.
 
 ## Compatibility
 

@@ -3,7 +3,8 @@ from typing import Dict, Iterable, Optional
 
 import dateutil.parser as dp
 import requests
-from pydantic.class_validators import validator
+from pydantic import validator
+from requests.models import HTTPError
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigModel
@@ -69,6 +70,7 @@ class MetabaseSource(Source):
             },
         )
 
+        login_response.raise_for_status()
         self.access_token = login_response.json()["id"]
 
         self.session = requests.Session()
@@ -81,14 +83,16 @@ class MetabaseSource(Source):
         )
 
         # Test the connection
-        test_response = self.session.get(f"{self.config.connect_uri}/api/user/current")
-        if test_response.status_code == 200:
-            pass
-
-        if test_response.status_code == 401:
+        try:
+            test_response = self.session.get(
+                f"{self.config.connect_uri}/api/user/current"
+            )
+            test_response.raise_for_status()
+        except HTTPError as e:
             self.report.report_failure(
                 key="metabase-session",
-                reason=f"Unable to login for user {self.config.username}. Unauthorized access",
+                reason=f"Unable to retrieve user {self.config.username} information. %s"
+                % str(e),
             )
 
     def close(self) -> None:
@@ -124,13 +128,15 @@ class MetabaseSource(Source):
         )
         dashboard_response = self.session.get(dashboard_url)
         dashboard_details = dashboard_response.json()
-        dashboard_urn = f"urn:li:dashboard:({self.platform},{dashboard_details['id']})"
+        dashboard_urn = builder.make_dashboard_urn(
+            self.platform, dashboard_details["id"]
+        )
         dashboard_snapshot = DashboardSnapshot(
             urn=dashboard_urn,
             aspects=[],
         )
         last_edit_by = dashboard_details.get("last-edit-info") or {}
-        modified_actor = f"urn:li:corpuser:{last_edit_by.get('email', 'unknown')}"
+        modified_actor = builder.make_user_urn(last_edit_by.get("email", "unknown"))
         modified_ts = int(
             dp.parse(f"{last_edit_by.get('timestamp', 'now')}").timestamp() * 1000
         )
@@ -144,7 +150,8 @@ class MetabaseSource(Source):
         chart_urns = []
         cards_data = dashboard_details.get("ordered_cards", "{}")
         for card_info in cards_data:
-            chart_urns.append(f"urn:li:chart:({self.platform},{card_info['id']})")
+            chart_urn = builder.make_chart_urn(self.platform, card_info["id"])
+            chart_urns.append(chart_urn)
 
         dashboard_info_class = DashboardInfoClass(
             description=description,
@@ -199,14 +206,14 @@ class MetabaseSource(Source):
         card_response = self.session.get(card_url)
         card_details = card_response.json()
 
-        chart_urn = f"urn:li:chart:({self.platform},{card_data['id']})"
+        chart_urn = builder.make_chart_urn(self.platform, card_data["id"])
         chart_snapshot = ChartSnapshot(
             urn=chart_urn,
             aspects=[],
         )
 
         last_edit_by = card_details.get("last-edit-info") or {}
-        modified_actor = f"urn:li:corpuser:{last_edit_by.get('email', 'unknown')}"
+        modified_actor = builder.make_user_urn(last_edit_by.get("email", "unknown"))
         modified_ts = int(
             dp.parse(f"{last_edit_by.get('timestamp', 'now')}").timestamp() * 1000
         )
@@ -318,13 +325,8 @@ class MetabaseSource(Source):
             )
             schema_name, table_name = self.get_source_table_from_id(source_table_id)
             if table_name:
-                platform_urn = f"urn:li:dataPlatform:{platform}"
-                dataset_urn = (
-                    f"urn:li:dataset:("
-                    f"{platform_urn},{database_name + '.' if database_name else ''}"
-                    f"{schema_name + '.' if schema_name else ''}"
-                    f"{table_name},{self.config.env})"
-                )
+                name = f"{database_name + '.' if database_name else ''}{schema_name + '.' if schema_name else ''}{table_name}"
+                dataset_urn = builder.make_dataset_urn(platform, name, self.config.env)
                 return [dataset_urn]
         else:
             self.report.report_warning(
@@ -364,7 +366,12 @@ class MetabaseSource(Source):
             "bigquery-cloud-sdk": "bigquery",
         }
         if engine in engine_mapping:
-            platform = engine_mapping[dataset_response["engine"]]
+            platform = engine_mapping[engine]
+        else:
+            self.report.report_warning(
+                key=f"metabase-platform-{datasource_id}",
+                reason=f"Platform was not found in DataHub. Using {platform} name as is",
+            )
 
         field_for_dbname_mapping = {
             "postgres": "dbname",
@@ -379,9 +386,7 @@ class MetabaseSource(Source):
         }
 
         dbname = (
-            dataset_response.get("details", {}).get(
-                field_for_dbname_mapping[dataset_response["engine"]]
-            )
+            dataset_response.get("details", {}).get(field_for_dbname_mapping[engine])
             if engine in field_for_dbname_mapping
             else None
         )
@@ -391,6 +396,11 @@ class MetabaseSource(Source):
             and platform in self.config.database_alias_map
         ):
             dbname = self.config.database_alias_map[platform]
+        else:
+            self.report.report_warning(
+                key=f"metabase-dbname-{datasource_id}",
+                reason=f"Cannot determine database name for platform: {platform}",
+            )
 
         return platform, dbname
 

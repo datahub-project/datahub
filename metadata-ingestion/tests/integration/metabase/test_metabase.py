@@ -115,45 +115,6 @@ def test_metabase_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_tim
                 test_resources_dir / "metabase_mces_golden.json"
             )
 
-            # replace timestamps from output because these will always be different
-            output[0]["proposedSnapshot"][
-                "com.linkedin.pegasus2avro.metadata.snapshot.DashboardSnapshot"
-            ]["aspects"][0]["com.linkedin.pegasus2avro.dashboard.DashboardInfo"][
-                "lastModified"
-            ][
-                "created"
-            ][
-                "time"
-            ] = None
-
-            output[0]["proposedSnapshot"][
-                "com.linkedin.pegasus2avro.metadata.snapshot.DashboardSnapshot"
-            ]["aspects"][0]["com.linkedin.pegasus2avro.dashboard.DashboardInfo"][
-                "lastModified"
-            ][
-                "lastModified"
-            ][
-                "time"
-            ] = None
-
-            output[1]["proposedSnapshot"][
-                "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot"
-            ]["aspects"][0]["com.linkedin.pegasus2avro.chart.ChartInfo"][
-                "lastModified"
-            ][
-                "created"
-            ][
-                "time"
-            ] = None
-
-            output[1]["proposedSnapshot"][
-                "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot"
-            ]["aspects"][0]["com.linkedin.pegasus2avro.chart.ChartInfo"][
-                "lastModified"
-            ][
-                "lastModified"
-            ][
-                "time"
-            ] = None
-
-            mce_helpers.assert_mces_equal(output, golden)
+            mce_helpers.assert_mces_equal(
+                output, golden, ignore_paths=mce_helpers.IGNORE_PATH_TIMESTAMPS
+            )
