@@ -273,8 +273,8 @@ class DataLakeSourceConfig(ConfigModel):
 
     aws_config: Optional[AwsSourceConfig] = None
 
-    table_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
-    profile_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
+    schema_patterns: AllowDenyPattern = AllowDenyPattern.allow_all()
+    profile_patterns: AllowDenyPattern = AllowDenyPattern.allow_all()
 
     profiling: DataLakeProfilerConfig = DataLakeProfilerConfig()
 
@@ -284,7 +284,7 @@ class DataLakeSourceConfig(ConfigModel):
     ) -> Dict[str, Any]:
         profiling = values.get("profiling")
         if profiling is not None and profiling.enabled:
-            profiling.allow_deny_patterns = values["profile_pattern"]
+            profiling.allow_deny_patterns = values["profile_patterns"]
         return values
 
 
@@ -703,9 +703,6 @@ class DataLakeSource(Source):
             aws_secret_access_key = self.source_config.aws_config.aws_secret_access_key
             aws_session_token = self.source_config.aws_config.aws_session_token
 
-            print(aws_access_key_id)
-            print(aws_secret_access_key)
-
             aws_provided_credentials = [
                 aws_access_key_id,
                 aws_secret_access_key,
@@ -729,10 +726,8 @@ class DataLakeSource(Source):
                     )
 
                 if aws_access_key_id is not None:
-                    print("SETTING ACCESS KEY")
                     conf.set("spark.hadoop.fs.s3a.access.key", aws_access_key_id)
                 if aws_secret_access_key is not None:
-                    print("SETTING SECRET KEY")
                     conf.set(
                         "spark.hadoop.fs.s3a.secret.key",
                         aws_secret_access_key,
@@ -925,9 +920,11 @@ class DataLakeSource(Source):
                 Prefix=clean_path.split("/", maxsplit=1)[1]
             ):
 
-                basename = os.path.basename(obj.key)
+                s3_path = f"s3://{obj.bucket_name}/{obj.key}"
 
-                # TODO: check if basename matches allow/deny
+                # if table patterns do not allow this file, skip
+                if not self.source_config.schema_patterns.allowed(s3_path):
+                    continue
 
                 # if the file is a directory, skip it
                 if obj.key.endswith("/"):
@@ -940,7 +937,13 @@ class DataLakeSource(Source):
             for root, dirs, files in os.walk(self.source_config.base_path):
                 for file in files:
 
-                    # TODO: check if basename matches allow/deny
+                    file_path = os.path.join(root, file)
+
+                    print(file_path)
+
+                    # if table patterns do not allow this file, skip
+                    if not self.source_config.schema_patterns.allowed(file_path):
+                        continue
 
                     yield from self.ingest_table(os.path.join(root, file))
 

@@ -17,12 +17,13 @@ def test_data_lake_ingest(pytestconfig, tmp_path, mock_time):
             "source": {
                 "type": "data-lake",
                 "config": {
-                    # "include_path": str(test_resources_dir / "test_data"),
-                    "base_path": "s3://acryl-datahub-test/",
+                    "base_path": str(test_resources_dir / "test_data"),
+                    # "base_path": "s3://acryl-datahub-test/",
                     "platform": "test",
                     "aws_config": {
                         "aws_region": "us-east-2",
                     },
+                    "schema_patterns": {"allow": [".*_2.csv"]},
                     "profiling": {
                         "enabled": True,
                         "profile_table_level_only": True,
