@@ -52,7 +52,7 @@ public class DgraphGraphServiceTest extends GraphServiceTestBase {
 
     @BeforeTest
     public void setup() {
-        _container = new DgraphContainer(DgraphContainer.DEFAULT_IMAGE_NAME.withTag("v21.03.0"))
+        _container = new DgraphContainer(DgraphContainer.DEFAULT_IMAGE_NAME.withTag("v21.12.0"))
                 .withTmpFs(Collections.singletonMap("/dgraph", "rw,noexec,nosuid,size=1g"))
                 .withStartupTimeout(Duration.ofMinutes(1))
                 .withStartupAttempts(3);

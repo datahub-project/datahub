@@ -73,7 +73,7 @@ services:
     environment:
     - DGRAPH_SECURITY=plain
     hostname: dgraph
-    image: dgraph/standalone:v21.03.1
+    image: dgraph/standalone:v21.12.0
     ports:
     - 8082:8080
     - 9080:9080
