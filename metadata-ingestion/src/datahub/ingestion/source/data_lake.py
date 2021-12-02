@@ -698,41 +698,62 @@ class DataLakeSource(Source):
         conf.set("spark.jars.packages", "org.apache.hadoop:hadoop-aws:3.0.3")
 
         if self.source_config.aws_config is not None:
-            conf.set(
-                "spark.hadoop.fs.s3a.aws.credentials.provider",
-                "org.apache.hadoop.fs.s3a.TemporaryAWSCredentialsProvider",
-            )
 
-            if self.source_config.aws_config.aws_access_key_id is not None:
-                conf.set(
-                    "fs.s3a.access.key", self.source_config.aws_config.aws_access_key_id
-                )
-            if self.source_config.aws_config.aws_secret_access_key is not None:
-                conf.set(
-                    "fs.s3a.secret.key",
-                    self.source_config.aws_config.aws_secret_access_key,
-                )
-            if self.source_config.aws_config.aws_session_token is not None:
-                conf.set(
-                    "fs.s3a.session.token",
-                    self.source_config.aws_config.aws_session_token,
-                )
-        else:
-            # if no AWS config is provided, use a default AWS credentials provider
-            conf.set(
-                "spark.hadoop.fs.s3a.aws.credentials.provider",
-                "org.apache.hadoop.fs.s3a.AnonymousAWSCredentialsProvider",
-            )
+            aws_access_key_id = self.source_config.aws_config.aws_access_key_id
+            aws_secret_access_key = self.source_config.aws_config.aws_secret_access_key
+            aws_session_token = self.source_config.aws_config.aws_session_token
 
-        self.spark = (
-            SparkSession.builder.config(
-                "spark.jars.packages", pydeequ.deequ_maven_coord
-            )
-            .config("spark.jars.excludes", pydeequ.f2j_maven_coord)
-            .config("spark.driver.memory", "8g")
-            .config(conf=conf)
-            .getOrCreate()
-        )
+            print(aws_access_key_id)
+            print(aws_secret_access_key)
+
+            aws_provided_credentials = [
+                aws_access_key_id,
+                aws_secret_access_key,
+                aws_session_token,
+            ]
+
+            if any(x is not None for x in aws_provided_credentials):
+
+                # see https://hadoop.apache.org/docs/r3.0.3/hadoop-aws/tools/hadoop-aws/index.html#Changing_Authentication_Providers
+                if all(x is not None for x in aws_provided_credentials):
+
+                    conf.set(
+                        "spark.hadoop.fs.s3a.aws.credentials.provider",
+                        "org.apache.hadoop.fs.s3a.TemporaryAWSCredentialsProvider",
+                    )
+
+                else:
+                    conf.set(
+                        "spark.hadoop.fs.s3a.aws.credentials.provider",
+                        "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider",
+                    )
+
+                if aws_access_key_id is not None:
+                    print("SETTING ACCESS KEY")
+                    conf.set("spark.hadoop.fs.s3a.access.key", aws_access_key_id)
+                if aws_secret_access_key is not None:
+                    print("SETTING SECRET KEY")
+                    conf.set(
+                        "spark.hadoop.fs.s3a.secret.key",
+                        aws_secret_access_key,
+                    )
+                if aws_session_token is not None:
+                    conf.set(
+                        "spark.hadoop.fs.s3a.session.token",
+                        aws_session_token,
+                    )
+            else:
+                # if no explicit AWS config is provided, use a default AWS credentials provider
+                conf.set(
+                    "spark.hadoop.fs.s3a.aws.credentials.provider",
+                    "org.apache.hadoop.fs.s3a.AnonymousAWSCredentialsProvider",
+                )
+
+        conf.set("spark.jars.packages", pydeequ.deequ_maven_coord)
+        conf.set("spark.jars.excludes", pydeequ.f2j_maven_coord)
+        conf.set("spark.driver.memory", "8g")
+
+        self.spark = SparkSession.builder.config(conf=conf).getOrCreate()
 
     @classmethod
     def create(cls, config_dict, ctx):
@@ -894,12 +915,19 @@ class DataLakeSource(Source):
                     clean_path = self.source_config.base_path[len(s3_prefix) :]
                     break
 
-            s3 = boto3.resource("s3")
+            if self.source_config.aws_config is None:
+                raise ValueError("AWS config is required for S3 file sources")
+
+            s3 = self.source_config.aws_config.get_s3_resource()
             bucket = s3.Bucket(clean_path.split("/")[0])
 
             for obj in bucket.objects.filter(
                 Prefix=clean_path.split("/", maxsplit=1)[1]
             ):
+
+                basename = os.path.basename(obj.key)
+
+                # TODO: check if basename matches allow/deny
 
                 # if the file is a directory, skip it
                 if obj.key.endswith("/"):
@@ -911,6 +939,9 @@ class DataLakeSource(Source):
         else:
             for root, dirs, files in os.walk(self.source_config.base_path):
                 for file in files:
+
+                    # TODO: check if basename matches allow/deny
+
                     yield from self.ingest_table(os.path.join(root, file))
 
     def get_report(self):
