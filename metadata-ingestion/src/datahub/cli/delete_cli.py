@@ -6,7 +6,6 @@ from typing import List, Optional, Tuple
 
 import click
 import progressbar
-from pydantic import Field
 from requests import sessions
 from tabulate import tabulate
 
@@ -32,7 +31,7 @@ class DeletionResult:
     end_time_millis: int = 0
     num_records: int = 0
     num_entities: int = 0
-    sample_records: List[List[str]] = Field(default_factory=list)
+    sample_records: Optional[List[List[str]]] = None
 
     def start(self) -> None:
         self.start_time_millis = int(time.time() * 1000.0)
@@ -48,7 +47,10 @@ class DeletionResult:
             else UNKNOWN_NUM_RECORDS
         )
         self.num_entities += another_result.num_entities
-        self.sample_records.extend(another_result.sample_records)
+        if another_result.sample_records:
+            if not self.sample_records:
+                self.sample_records = []
+            self.sample_records.extend(another_result.sample_records)
 
 
 def delete_for_registry(
