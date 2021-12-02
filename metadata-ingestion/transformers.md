@@ -71,6 +71,37 @@ def custom_tags(current: DatasetSnapshotClass) -> List[TagAssociationClass]:
     return tags
 ```
 
+### Adding a set of glossary terms
+
+We can use a similar convention to associate [Glossary Terms](https://datahubproject.io/docs/metadata-ingestion/source_docs/business_glossary) to datasets. We can use the `simple_add_dataset_terms` module that’s included in the ingestion framework.
+
+The config, which we’d append to our ingestion recipe YAML, would look like this:
+
+```yaml
+transformers:
+  - type: "simple_add_dataset_terms"
+    config:
+      term_urns:
+        - "urn:li:glossaryTerm:Email"
+        - "urn:li:glossaryTerm:Address"
+```
+
+### Adding glossary terms by dataset urn pattern
+
+Let’s suppose we’d like to append a series of glossary terms to specific datasets. To do so, we can use the `pattern_add_dataset_terms` module that’s included in the ingestion framework.  This will match the pattern to `urn` of the dataset and assign the respective owners.
+
+The config, which we’d append to our ingestion recipe YAML, would look like this:
+
+```yaml
+transformers:
+  - type: "pattern_add_dataset_terms"
+    config:
+      term_pattern:
+        rules:
+          ".*example1.*": ["urn:li:glossaryTerm:Email", "urn:li:glossaryTerm:Address"]
+          ".*example2.*": ["urn:li:glossaryTerm:PostalCode"]
+```
+
 ### Change owners
 
 If we wanted to clear existing owners sent by ingestion source we can use the `simple_remove_dataset_ownership` module which removes all owners sent by the ingestion source.
