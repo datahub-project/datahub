@@ -63,7 +63,7 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
             self.username,
             self.password,
             self.host_port,
-            database,
+            f'"{database}"' if database is not None else database,
             uri_opts={
                 # Drop the options if value is None.
                 key: value

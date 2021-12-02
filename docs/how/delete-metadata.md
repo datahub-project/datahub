@@ -8,43 +8,32 @@ Read on to find out how to perform these kinds of deletes.
 
 _Note: Deleting metadata should only be done with care. Always use `--dry-run` to understand what will be deleted before proceeding. Prefer soft-deletes (`--soft`) unless you really want to nuke metadata rows. Hard deletes will actually delete rows in the primary store and recovering them will require using backups of the primary metadata store. Make sure you understand the implications of issuing soft-deletes versus hard-deletes before proceeding._ 
 
-## Accessing datahub CLI
+## The `datahub` CLI
 
-To use the datahub CLI you need to have the datahub Python package installed as explained in [Metadata Ingestion](../../metadata-ingestion/README.md) or you can use the `datahub-ingestion` docker image as explained in [Docker Images](../../docker/README.md). In case you are using Kubernetes you can start a pod with the `datahub-ingestion` docker image, get in the shell of the pod and you will have the access to datahub CLI in your kubernetes cluster.
+To use the datahub CLI you follow the installation and configuration guide at [DataHub CLI](../cli.md) or you can use the `datahub-ingestion` docker image as explained in [Docker Images](../../docker/README.md). In case you are using Kubernetes you can start a pod with the `datahub-ingestion` docker image, log onto a shell on the pod and you should have the access to datahub CLI in your kubernetes cluster.
 
-## Configuring DataHub CLI
-
-The CLI will point to localhost DataHub by default. Running
-
-```
-datahub init
-```
-
-will allow you to customize the datahub instance you are communicating with.
-
-_Note: Provide your GMS instance's host when the prompt asks you for the DataHub host._
-
-Alternatively, you can set the following env variables if you don't want to use a config file
-```
-DATAHUB_SKIP_CONFIG=True
-DATAHUB_GMS_HOST=http://localhost:8080
-DATAHUB_GMS_TOKEN=
-```
-
-The env variables take precendence over what is in the config.
 
 ## Delete By Urn
 
 To delete all the data related to a single entity, run
 
-### Soft Delete
+### Soft Delete (the default)
+
+This sets the `Status` aspect of the entity to `Removed`, which hides the entity and all its aspects from being returned by the UI.
+```
+datahub delete --urn "<my urn>"
+```
+or
 ```
 datahub delete --urn "<my urn>" --soft
 ```
 
 ### Hard Delete
+
+This physically deletes all rows for all aspects of the entity. This action cannot be undone, so execute this only after you are sure you want to delete all data associated with this entity. 
+
 ```
-datahub delete --urn "<my urn>"
+datahub delete --urn "<my urn>" --hard
 ```
 
 You can optionally add `-n` or `--dry-run` to execute a dry run before issuing the final delete command.
@@ -95,10 +84,15 @@ datahub ingest show --run-id <run-id>
 
 to see more info of the run.
 
-Finally, run
+Alternately, you can execute a dry-run rollback to achieve the same outcome. 
+```
+datahub ingest rollback --dry-run --run-id <run-id>
+```
+
+Finally, once you are sure you want to delete this data forever, run
 
 ```
 datahub ingest rollback --run-id <run-id>
 ```
 
-To rollback all aspects added with this run and all entities created by this run.
+to rollback all aspects added with this run and all entities created by this run.

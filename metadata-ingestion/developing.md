@@ -130,4 +130,8 @@ pytest -vv
 ../gradlew :metadata-ingestion:testQuick
 ../gradlew :metadata-ingestion:testFull
 ../gradlew :metadata-ingestion:check
+# Run all tests in a single file
+../gradlew :metadata-ingestion:testSingle -PtestFile=tests/unit/test_airflow.py
+# Run all tests under tests/unit
+../gradlew :metadata-ingestion:testSingle -PtestFile=tests/unit
 ```

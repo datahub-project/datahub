@@ -58,6 +58,7 @@ public class ElasticSearchTimeseriesAspectService implements TimeseriesAspectSer
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
   private static final String TIMESTAMP_FIELD = "timestampMillis";
   private static final String EVENT_FIELD = "event";
+  private static final Integer DEFAULT_LIMIT = 10000;
 
   private final IndexConvention _indexConvention;
   private final BulkProcessor _bulkProcessor;
@@ -127,8 +128,13 @@ public class ElasticSearchTimeseriesAspectService implements TimeseriesAspectSer
   }
 
   @Override
-  public List<EnvelopedAspect> getAspectValues(@Nonnull final Urn urn, @Nonnull String entityName,
-      @Nonnull String aspectName, @Nullable Long startTimeMillis, @Nullable Long endTimeMillis, int limit) {
+  public List<EnvelopedAspect> getAspectValues(
+      @Nonnull final Urn urn,
+      @Nonnull String entityName,
+      @Nonnull String aspectName,
+      @Nullable Long startTimeMillis,
+      @Nullable Long endTimeMillis,
+      @Nullable Integer limit) {
     final BoolQueryBuilder filterQueryBuilder = ESUtils.buildFilterQuery(null);
     filterQueryBuilder.must(QueryBuilders.matchQuery("urn", urn.toString()));
     // NOTE: We are interested only in the un-exploded rows as only they carry the `event` payload.
@@ -147,7 +153,7 @@ public class ElasticSearchTimeseriesAspectService implements TimeseriesAspectSer
     }
     final SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
     searchSourceBuilder.query(filterQueryBuilder);
-    searchSourceBuilder.size(limit);
+    searchSourceBuilder.size(limit != null ? limit : DEFAULT_LIMIT);
     searchSourceBuilder.sort(SortBuilders.fieldSort("@timestamp").order(SortOrder.DESC));
 
     final SearchRequest searchRequest = new SearchRequest();

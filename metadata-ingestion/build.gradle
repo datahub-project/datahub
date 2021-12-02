@@ -12,21 +12,35 @@ task checkPythonVersion(type: Exec) {
 }
 
 task environmentSetup(type: Exec, dependsOn: checkPythonVersion) {
+  inputs.file file('setup.py')
+  outputs.dir("${venv_name}")
   commandLine 'bash', '-c', "${python_executable} -m venv ${venv_name} && ${venv_name}/bin/python -m pip install --upgrade pip wheel setuptools==57.5.0"
 }
 
-task installPackage(type: Exec, dependsOn: environmentSetup) {
+task runPreFlightScript(type: Exec, dependsOn: environmentSetup) {
+  commandLine "scripts/datahub_preflight.sh"
+}
+
+task installPackage(type: Exec, dependsOn: runPreFlightScript) {
+  inputs.file file('setup.py')
+  outputs.dir("${venv_name}")
   commandLine "${venv_name}/bin/pip", 'install', '-e', '.'
 }
 
 task codegen(type: Exec, dependsOn: [environmentSetup, installPackage, ':metadata-events:mxe-schemas:build']) {
+  inputs.files(project.fileTree(dir: "../metadata-events/mxe-schemas/src/", include: "**/*.avsc"))
+  outputs.dir('src/datahub/metadata')
   commandLine 'bash', '-c', "source ${venv_name}/bin/activate && ./scripts/codegen.sh"
 }
 
 task install(dependsOn: [installPackage, codegen])
 
 task installDev(type: Exec, dependsOn: [install]) {
-  commandLine "${venv_name}/bin/pip", 'install', '-e', '.[dev]'
+  inputs.file file('setup.py')
+  outputs.dir("${venv_name}")
+  outputs.file("${venv_name}/.build_install_dev_sentinel")
+  commandLine 'bash', '-x', '-c',
+    "${venv_name}/bin/pip install -e .[dev] && touch ${venv_name}/.build_install_dev_sentinel"
 }
 task lint(type: Exec, dependsOn: installDev) {
   /*
@@ -48,12 +62,36 @@ task lintFix(type: Exec, dependsOn: installDev) {
 
 task testQuick(type: Exec, dependsOn: installDev) {
   // We can't enforce the coverage requirements if we run a subset of the tests.
+  inputs.files(project.fileTree(dir: "src/", include: "**/*.py"))
+  inputs.files(project.fileTree(dir: "tests/"))
+  outputs.dir("${venv_name}")
   commandLine 'bash', '-x', '-c',
     "source ${venv_name}/bin/activate && pytest -m 'not integration' -vv --continue-on-collection-errors --junit-xml=junit.quick.xml"
 }
+
 task installDevTest(type: Exec, dependsOn: [installDev]) {
-  commandLine "${venv_name}/bin/pip", 'install', '-e', '.[dev,integration-tests]'
+  inputs.file file('setup.py')
+  outputs.dir("${venv_name}")
+  outputs.file("${venv_name}/.build_install_dev_test_sentinel")
+  commandLine 'bash', '-x', '-c',
+    "${venv_name}/bin/pip install -e .[dev,integration-tests] && touch ${venv_name}/.build_install_dev_test_sentinel"
 }
+
+def testFile = hasProperty('testFile') ? testFile : 'unknown'
+task testSingle(dependsOn: [installDevTest]) {
+  println "$testFile"
+  doLast {
+  if (testFile != 'unknown')  {
+  exec {
+    commandLine 'bash', '-x', '-c',
+     "source ${venv_name}/bin/activate && pytest ${testFile}"
+    }
+  } else {
+   throw new GradleException("No file provided. Use -PtestFile=<test_file>")
+    }
+  }
+}
+
 task testFull(type: Exec, dependsOn: [testQuick, installDevTest]) {
   commandLine 'bash', '-x', '-c',
     "source ${venv_name}/bin/activate && pytest -vv --continue-on-collection-errors --junit-xml=junit.full.xml"
@@ -72,5 +110,6 @@ clean {
   delete venv_name
   delete 'build'
   delete 'dist'
+  delete 'src/datahub/metadata'
 }
 clean.dependsOn cleanPythonCache

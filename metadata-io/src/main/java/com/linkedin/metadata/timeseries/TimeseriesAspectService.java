@@ -19,7 +19,7 @@ public interface TimeseriesAspectService {
   void upsertDocument(@Nonnull String entityName, @Nonnull String aspectName, @Nonnull String docId, @Nonnull JsonNode document);
 
   List<EnvelopedAspect> getAspectValues(@Nonnull final Urn urn, @Nonnull String entityName, @Nonnull String aspectName,
-      @Nullable Long startTimeMillis, Long endTimeMillis, int limit);
+      @Nullable Long startTimeMillis, @Nullable Long endTimeMillis, @Nullable Integer limit);
 
   /**
    * Get the aggregated metrics for the given dataset or column from a time series aspect.

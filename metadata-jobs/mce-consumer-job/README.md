@@ -1,3 +1,7 @@
+---
+title: "metadata-jobs:mce-consumer-job"
+---
+
 # MetadataChangeEvent (MCE) Consumer Job
 MCE Consumer is a [Kafka Streams](https://kafka.apache.org/documentation/streams/) job. Its main function is to listen
 `MetadataChangeEvent` Kafka topic for messages and process those messages and writes new metadata to `DataHub GMS`.

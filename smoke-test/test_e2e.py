@@ -300,6 +300,7 @@ def test_frontend_browse_datasets(frontend_session):
     [
         ("covid", 1),
         ("sample", 3),
+        ("", 1),
     ],
 )
 @pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
@@ -349,6 +350,7 @@ def test_frontend_search_datasets(frontend_session, query, min_expected_results)
     [
         ("covid", 1),
         ("sample", 3),
+        ("", 1),
     ],
 )
 @pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
@@ -811,6 +813,8 @@ def test_frontend_me_query(frontend_session):
                 platformPrivileges {\n
                   viewAnalytics
                   managePolicies
+                  manageIdentities
+                  generatePersonalAccessTokens
                 }\n
             }\n
         }"""
@@ -827,7 +831,8 @@ def test_frontend_me_query(frontend_session):
     assert res_data["data"]["me"]["corpUser"]["urn"] == "urn:li:corpuser:datahub"
     assert res_data["data"]["me"]["platformPrivileges"]["viewAnalytics"] is True
     assert res_data["data"]["me"]["platformPrivileges"]["managePolicies"] is True
-
+    assert res_data["data"]["me"]["platformPrivileges"]["manageIdentities"] is True
+    assert res_data["data"]["me"]["platformPrivileges"]["generatePersonalAccessTokens"] is True
 
 
 @pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
@@ -1212,3 +1217,57 @@ def test_search_results_recommendations(frontend_session):
 
     assert res_data
     assert "error" not in res_data
+
+
+@pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
+def test_generate_personal_access_token(frontend_session):
+
+    # Test success case
+    json = {
+        "query": """query getAccessToken($input: GetAccessTokenInput!) {\n
+            getAccessToken(input: $input) {\n
+              accessToken\n
+            }\n
+        }""",
+        "variables": {
+          "input": {
+              "type": "PERSONAL",
+              "actorUrn": "urn:li:corpuser:datahub",
+              "duration": "ONE_MONTH"
+          }
+        }
+    }
+
+    response = frontend_session.post(
+        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json
+    )
+    response.raise_for_status()
+    res_data = response.json()
+
+    assert res_data
+    assert res_data["data"]
+    assert res_data["data"]["getAccessToken"]["accessToken"] is not None
+    assert "error" not in res_data
+
+    # Test unauthenticated case
+    json = {
+        "query": """query getAccessToken($input: GetAccessTokenInput!) {\n
+            accessToken\n
+        }""",
+        "variables": {
+          "input": {
+              "type": "PERSONAL",
+              "actorUrn": "urn:li:corpuser:jsmith",
+              "duration": "ONE_DAY"
+          }
+        }
+    }
+
+    response = frontend_session.post(
+        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json
+    )
+    response.raise_for_status()
+    res_data = response.json()
+
+    assert res_data
+    assert "errors" in res_data # Assert the request fails

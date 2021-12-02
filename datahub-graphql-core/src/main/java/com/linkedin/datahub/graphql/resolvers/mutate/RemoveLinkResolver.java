@@ -42,7 +42,7 @@ public class RemoveLinkResolver implements DataFetcher<CompletableFuture<Boolean
       try {
         log.debug("Removing Link input: {}", input);
 
-        Urn actor = CorpuserUrn.createFromString(((QueryContext) environment.getContext()).getActor());
+        Urn actor = CorpuserUrn.createFromString(((QueryContext) environment.getContext()).getActorUrn());
         LinkUtils.removeLink(
             linkUrl,
             targetUrn,

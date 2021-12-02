@@ -2,7 +2,8 @@ package com.linkedin.gms.factory.entityregistry;
 
 import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
-import java.io.FileNotFoundException;
+import com.linkedin.metadata.models.registry.EntityRegistryException;
+import java.io.IOException;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -17,9 +18,13 @@ public class ConfigEntityRegistryFactory {
   @Value("${configEntityRegistry.path}")
   private String entityRegistryConfigPath;
 
+//  @Value("${configEntityRegistry.classpath}")
+//  @Value("${ENTITY_REGISTRY_CLASS_PATH:../../metadata-custom-models/build/libs/}")
+//  private String entityRegistryClassPath;
+
   @Bean(name = "configEntityRegistry")
   @Nonnull
-  protected ConfigEntityRegistry getInstance() throws FileNotFoundException {
+  protected ConfigEntityRegistry getInstance() throws IOException, EntityRegistryException {
     return new ConfigEntityRegistry(entityRegistryConfigPath);
   }
 }
