@@ -6,6 +6,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, Iterable, List, Optional
 
+import boto3
 import pydantic
 import pydeequ
 from pydeequ.analyzers import (
@@ -21,6 +22,7 @@ from pydeequ.analyzers import (
     Minimum,
     StandardDeviation,
 )
+from pyspark.conf import SparkConf
 from pyspark.sql import SparkSession
 from pyspark.sql.dataframe import DataFrame
 from pyspark.sql.functions import col, count, isnan, when
@@ -48,6 +50,7 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.aws.aws_common import AwsSourceConfig
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
@@ -267,6 +270,8 @@ class DataLakeSourceConfig(ConfigModel):
     env: str = DEFAULT_ENV
     platform: str
     include_path: str
+
+    aws_config: Optional[AwsSourceConfig] = None
 
     table_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
     profile_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
@@ -687,12 +692,45 @@ class DataLakeSource(Source):
     def __init__(self, config: DataLakeSourceConfig, ctx: PipelineContext):
         super().__init__(ctx)
         self.source_config = config
+
+        conf = SparkConf()
+
+        conf.set("spark.jars.packages", "org.apache.hadoop:hadoop-aws:3.0.3")
+
+        if self.source_config.aws_config is not None:
+            conf.set(
+                "spark.hadoop.fs.s3a.aws.credentials.provider",
+                "org.apache.hadoop.fs.s3a.TemporaryAWSCredentialsProvider",
+            )
+
+            if self.source_config.aws_config.aws_access_key_id is not None:
+                conf.set(
+                    "fs.s3a.access.key", self.source_config.aws_config.aws_access_key_id
+                )
+            if self.source_config.aws_config.aws_secret_access_key is not None:
+                conf.set(
+                    "fs.s3a.secret.key",
+                    self.source_config.aws_config.aws_secret_access_key,
+                )
+            if self.source_config.aws_config.aws_session_token is not None:
+                conf.set(
+                    "fs.s3a.session.token",
+                    self.source_config.aws_config.aws_session_token,
+                )
+        else:
+            # if no AWS config is provided, use a default AWS credentials provider
+            conf.set(
+                "spark.hadoop.fs.s3a.aws.credentials.provider",
+                "org.apache.hadoop.fs.s3a.AnonymousAWSCredentialsProvider",
+            )
+
         self.spark = (
             SparkSession.builder.config(
                 "spark.jars.packages", pydeequ.deequ_maven_coord
             )
             .config("spark.jars.excludes", pydeequ.f2j_maven_coord)
             .config("spark.driver.memory", "8g")
+            .config(conf=conf)
             .getOrCreate()
         )
 
@@ -844,9 +882,16 @@ class DataLakeSource(Source):
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
 
-        for root, dirs, files in os.walk(self.source_config.include_path):
-            for file in files:
-                yield from self.ingest_table(os.path.join(root, file))
+        if self.source_config.include_path.startswith("s3://"):
+            s3 = boto3.resource("s3")
+            bucket = s3.Bucket(self.source_config.include_path.split("/")[2])
+
+            for obj in bucket.objects.all():
+                yield from self.ingest_table(obj.key)
+        else:
+            for root, dirs, files in os.walk(self.source_config.include_path):
+                for file in files:
+                    yield from self.ingest_table(os.path.join(root, file))
 
     def get_report(self):
         return self.report
