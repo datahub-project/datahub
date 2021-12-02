@@ -4,7 +4,7 @@ import com.github.dockerjava.api.DockerClient;
 
 public class DockerTestUtils {
 
-    final private static int MIN_MEMORY_NEEDED_GB = 8;
+    final private static int MIN_MEMORY_NEEDED_GB = 7;
 
     public static void checkContainerEngine(DockerClient dockerClient) {
         final long dockerEngineMemoryBytes = dockerClient.infoCmd().exec().getMemTotal();
