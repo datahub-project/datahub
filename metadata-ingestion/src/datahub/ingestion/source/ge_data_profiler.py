@@ -3,6 +3,17 @@ import dataclasses
 import unittest.mock
 from typing import Any, Iterable, Optional
 
+# Fun compatibility hack! GE version 0.13.44 broke compatibility with SQLAlchemy 1.3.24.
+# This is a temporary workaround until GE fixes the issue on their end.
+# See https://github.com/great-expectations/great_expectations/issues/3758.
+try:
+    import sqlalchemy.engine
+    from sqlalchemy.engine.url import make_url
+
+    sqlalchemy.engine.make_url = make_url  # type: ignore
+except ImportError:
+    pass
+
 from great_expectations.core.expectation_validation_result import (
     ExpectationSuiteValidationResult,
     ExpectationValidationResult,

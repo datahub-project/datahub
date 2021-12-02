@@ -147,3 +147,15 @@ query getDatasetSchemaVersions($urn: String!, $version1: Long, $version2: Long) 
         }
     }
 }
+
+query getDatasetOwnersGQL($urn: String!) {
+    dataset(urn: $urn) {
+        urn
+        name
+        ownership {
+            ...ownershipFields
+        }
+
+    }
+}
+

@@ -1,15 +1,22 @@
 # This import verifies that the dependencies are available.
+import json
 import logging
+import time
 from dataclasses import dataclass, field
+from datetime import datetime, timedelta
 from typing import Any, Dict, Iterable, List, Type
 
 import jaydebeapi
 import jpype
+import pandas as pd
 from krbcontext.context import krbContext
+from pandas_profiling import ProfileReport
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.kudu import PPProfilingConfig
 from datahub.metadata.com.linkedin.pegasus2avro.common import AuditStamp
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
@@ -27,6 +34,9 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     TimeTypeClass,
 )
 from datahub.metadata.schema_classes import (
+    ChangeTypeClass,
+    DatasetFieldProfileClass,
+    DatasetProfileClass,
     DatasetPropertiesClass,
     OwnerClass,
     OwnershipClass,
@@ -144,6 +154,8 @@ class CDHHiveConfig(ConfigModel):
     env: str = DEFAULT_ENV
     schema_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
     table_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
+    profile_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
+    profiling: PPProfilingConfig = PPProfilingConfig()
 
     def get_url(self):
         if self.kerberos:
@@ -196,12 +208,14 @@ class CDH_HiveSource(Source):
                     logger.error(f"dropped {schema}")
                     continue
                 yield from self.loop_tables(db_cursor, schema, sql_config)
+                if sql_config.profiling.enabled:
+                    yield from self.loop_profiler(db_cursor, schema, sql_config)
             db_connection.close()
             logger.info("db connection closed!")
         else:
             with krbContext(
                 using_keytab=True,
-                principal=sql_config.service_principal,
+                principal=sql_config.keytab_principal,
                 keytab_file=sql_config.keytab_location,
             ):
                 jvm_path = jpype.getDefaultJVMPath()
@@ -225,8 +239,114 @@ class CDH_HiveSource(Source):
                         self.report.report_dropped(schema)
                         continue
                     yield from self.loop_tables(db_cursor, schema, sql_config)
+                    if sql_config.profiling.enabled:
+                        yield from self.loop_profiler(db_cursor, schema, sql_config)
                 db_connection.close()
                 logger.info("db connection closed!")
+
+    def loop_profiler(
+        self, db_cursor: Any, schema: str, sql_config: CDHHiveConfig
+    ) -> Iterable[MetadataWorkUnit]:
+        db_cursor.execute(f"show tables in {schema}")
+        all_tables_raw = db_cursor.fetchall()
+        all_tables = [item[0] for item in all_tables_raw]
+        if sql_config.profiling.query_date:
+            upper_date_limit = (
+                datetime.strptime(sql_config.profiling.query_date, "%Y-%m-%d")
+                + timedelta(days=1)
+            ).strftime("%Y-%m-%d")
+        for table in all_tables:
+            dataset_name = f"{schema}.{table}"
+            self.report.report_entity_scanned(f"profile of {dataset_name}")
+
+            if not sql_config.profile_pattern.allowed(dataset_name):
+                self.report.report_dropped(f"profile of {dataset_name}")
+                continue
+            logger.info(f"Profiling {dataset_name} (this may take a while)")
+            if not sql_config.profiling.query_date and sql_config.profiling.limit:
+                db_cursor.execute(
+                    f"select * from {dataset_name} limit {sql_config.profiling.limit}"  # noqa
+                )
+            else:  # flake8: noqa
+                if sql_config.profiling.query_date and not sql_config.profiling.limit:
+                    db_cursor.execute(
+                        f"""select * from {dataset_name} where 
+                        {sql_config.profiling.query_date_field}>='{sql_config.profiling.query_date}'
+                        and {sql_config.profiling.query_date_field} < {upper_date_limit}"""  # noqa
+                    )
+                else:
+                    db_cursor.execute(
+                        f"""select * from {dataset_name} where 
+                        {sql_config.profiling.query_date_field}>='{sql_config.profiling.query_date}'
+                        and {sql_config.profiling.query_date_field} < {upper_date_limit} 
+                        limit {sql_config.profiling.limit}"""  # noqa
+                    )
+            columns = [desc[0] for desc in db_cursor.description]
+            df = pd.DataFrame(db_cursor.fetchall(), columns=columns)
+            profile = ProfileReport(
+                df,
+                minimal=True,
+                samples=None,
+                correlations=None,
+                missing_diagrams=None,
+                duplicates=None,
+                interactions=None,
+            )
+            data_samples = self.getDFSamples(df)
+            dataset_profile = self.populate_table_profile(profile, data_samples)
+            mcp = MetadataChangeProposalWrapper(
+                entityType="dataset",
+                entityUrn=f"urn:li:dataset:(urn:li:dataPlatform:{self.platform},{dataset_name},{self.config.env})",
+                changeType=ChangeTypeClass.UPSERT,
+                aspectName="datasetProfile",
+                aspect=dataset_profile,
+            )
+
+            wu = MetadataWorkUnit(id=f"profile-{dataset_name}", mcp=mcp)
+            self.report.report_workunit(wu)
+            logger.debug(f"Finished profiling {dataset_name}")
+            yield wu
+
+    def getDFSamples(self, df: pd.DataFrame) -> Dict:
+        """
+        random sample in pandas profiling came out only in v2.10. however, finding a valid version for py36
+        is quite tricky due to other libraries requirements and it kept failing the build tests
+        so i decided to just build my own sample. Anyway its just sample rows and assemble into dict
+        """
+        return df.sample(3 if len(df) > 3 else len(df)).to_dict(orient="records")
+
+    def populate_table_profile(
+        self, pandas_profile: ProfileReport, samples: Dict
+    ) -> DatasetProfileClass:
+        profile_dict = json.loads(pandas_profile.to_json())
+        profile_dict["sample"] = samples
+        all_fields = []
+        for field_variable in profile_dict["variables"].keys():
+            field_data = profile_dict["variables"][field_variable]
+            field_profile = DatasetFieldProfileClass(
+                fieldPath=field_variable,
+                uniqueCount=field_data["n_unique"],
+                uniqueProportion=field_data["p_unique"],
+                nullCount=field_data["n_missing"],
+                nullProportion=field_data["p_missing"],
+                min=str(field_data.get("min", "")),
+                max=str(field_data.get("max", "")),
+                median=str(field_data.get("median", "")),
+                mean=str(field_data.get("mean", "")),
+                sampleValues=[
+                    str(item[field_variable]) for item in profile_dict["sample"]
+                ],
+            )
+            all_fields.append(field_profile)
+
+        profile = DatasetProfileClass(
+            timestampMillis=int(time.time() * 1000),
+            rowCount=profile_dict["table"]["n"],
+            columnCount=profile_dict["table"]["n_var"],
+            fieldProfiles=all_fields,
+        )
+        logger.error(profile)
+        return profile
 
     def loop_tables(
         self, db_cursor: Any, schema: str, sql_config: CDHHiveConfig
@@ -244,11 +364,22 @@ class CDH_HiveSource(Source):
             # map out the schema
             db_cursor.execute(f"describe {schema}.{table}")
             schema_info_raw = db_cursor.fetchall()
-            table_schema = [(item[0], item[1], item[2]) for item in schema_info_raw]
+            table_schema = [
+                (item[0], item[1], item[2])
+                for item in schema_info_raw
+                if (item[0].strip() != "")
+                and (item[0].strip() != "# Partition Information")
+                and (item[0].strip() != "# col_name")
+            ]
 
             db_cursor.execute(f"describe formatted {schema}.{table}")
             table_info_raw = db_cursor.fetchall()
-            table_info = table_info_raw[len(table_schema) + 3 :]
+            # for partition_ind, item in enumerate(table_info_raw):
+            #     if item[0].strip() == "# Partition Information":
+            #         mark
+            #         break
+            # table_info = table_info_raw[partition_ind + 2 :]
+            table_info = table_info_raw
 
             properties = {}
 
@@ -267,11 +398,14 @@ class CDH_HiveSource(Source):
                 urn=f"urn:li:dataset:(urn:li:dataPlatform:{self.platform},{dataset_name},{self.config.env})",
                 aspects=[],
             )
-            data_owner = f"urn:li:corpuser:{table_owner}"
-            owner_properties = OwnershipClass(
-                owners=[OwnerClass(owner=data_owner, type=OwnershipTypeClass.DATAOWNER)]
-            )
-            dataset_snapshot.aspects.append(owner_properties)
+            if table_owner:
+                data_owner = f"urn:li:corpuser:{table_owner}"
+                owner_properties = OwnershipClass(
+                    owners=[
+                        OwnerClass(owner=data_owner, type=OwnershipTypeClass.DATAOWNER)
+                    ]
+                )
+                dataset_snapshot.aspects.append(owner_properties)
             # kudu has no table comments.
             dataset_properties = DatasetPropertiesClass(
                 description="",

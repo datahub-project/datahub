@@ -23,7 +23,7 @@ def get_long_description():
 base_requirements = {
     # Compatability.
     "dataclasses>=0.6; python_version < '3.7'",
-    "typing_extensions>=3.7.4; python_version < '3.8'",
+    "typing_extensions>=3.10.0.2",
     "mypy_extensions>=0.4.3",
     # Actual dependencies.
     "typing-inspect",
@@ -42,7 +42,7 @@ framework_common = {
     "avro-python3>=1.8.2",
     "python-dateutil>=2.8.0",
     "stackprinter",
-    "pandas",
+    "pandas<1.3",
     "tabulate",
 }
 
@@ -59,6 +59,7 @@ kafka_common = {
 sql_common = {
     # Required for all SQL sources.
     "sqlalchemy==1.3.24",
+    "great-expectations>=0.13.40",
 }
 
 aws_common = {
@@ -96,7 +97,7 @@ plugins: Dict[str, Set[str]] = {
         # and column comments, and also releases HTTP and HTTPS transport schemes.
         "acryl-pyhive[hive]>=0.6.11"
     },
-    "kudu": {"impyla>=0.16.3", "krbcontext>=0.10", "jaydebeapi"},
+    "kudu": {"impyla>=0.16.3", "krbcontext>=0.10", "jaydebeapi", "pandas_profiling"},
     "kafka": kafka_common,
     "kafka-connect": sql_common | {"requests"},
     "ldap": {"python-ldap>=2.4"},
@@ -202,6 +203,7 @@ dev_requirements_airflow_1 = {
     "apache-airflow==1.10.15",
     "apache-airflow-backport-providers-snowflake",
     "snowflake-sqlalchemy<=1.2.4",  # make constraint consistent with extras
+    "WTForms==2.3.3",
 }
 
 full_test_dev_requirements = {

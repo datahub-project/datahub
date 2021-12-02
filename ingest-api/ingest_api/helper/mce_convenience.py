@@ -9,6 +9,7 @@ from typing import Dict, List, Optional, Type, TypeVar, Union
 from datahub.ingestion.api import RecordEnvelope
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.schema_classes import *
+from .models import (FieldParamEdited)
 
 log = logging.getLogger(__name__)
 
@@ -65,8 +66,7 @@ def make_institutionalmemory_mce(
 
     return mce
 
-def make_browsepath_mce(
-    dataset_urn: str,
+def make_browsepath_mce(    
     path: List[str],
 ) -> BrowsePathsClass:
     """
@@ -76,6 +76,15 @@ def make_browsepath_mce(
     mce = BrowsePathsClass(paths=path)
     return mce
 
+def derive_platform_name(input: str) -> str:
+    """
+    derive platform info, needed to create schemaaspect
+    urn:li:dataset:(urn:li:dataPlatform:{platform},{name},{env})
+    """
+    platform_name_env = input.replace("urn:li:dataset:(urn:li:dataPlatform:","")
+    platform = platform_name_env.split(',')[0]
+    platform_name = f"urn:li:dataPlatform:{platform}"
+    return platform_name
 
 def make_lineage_mce(
     upstream_urns: List[str],
@@ -128,33 +137,62 @@ def make_dataset_description_mce(
     Tags and externalUrl doesnt seem to have any impact on UI.
     """
     return DatasetPropertiesClass(
-                    description=description,
-                    externalUrl=externalUrl,
-                    customProperties=customProperties
-                )
-            
-def make_schema_mce(
-    dataset_urn: str,
-    platformName: str,
-    actor: str,
-    fields: List[Dict[str, str]],
-    primaryKeys: List[str] = None,
-    foreignKeysSpecs: List[str] = None,
-    system_time: int = None,
-) -> MetadataChangeEventClass:
-    if system_time:
-        try:
-            datetime.datetime.fromtimestamp(system_time / 1000)
-            sys_time = system_time
-        except ValueError as e:
-            log.error("specified_time is out of range")
-            sys_time = get_sys_time()
-    else:
-        sys_time = get_sys_time()
+        description=description,
+        externalUrl=externalUrl,
+        customProperties=customProperties
+    )
 
-    for item in fields:
-        item["nativeType"] = item.get("field_type", "")
-        item["field_type"] = {
+def update_field_param_class(field_inputs: List[FieldParamEdited]):
+    """[summary]
+    generate a list of FieldParams that can be used to create metadata schema aspect. 
+    This is for the update page call.
+    field_name: str
+    field_native_type: str
+    datahub_type: str
+    field_description - need to pull from graphql
+    nullable - need to pull from graphql
+    This function is different from create_field_param because the field type is different.    
+    """
+    all_fields =[]
+
+    for field in field_inputs:
+        temp = field.dict()
+        print(type(temp))
+        temp['field_type'] = {
+            "BOOLEAN": BooleanTypeClass(),
+            "STRING": StringTypeClass(),            
+            "BYTES": BytesTypeClass(),
+            "NUMBER": NumberTypeClass(),
+            "DATE": DateTypeClass(),
+            "TIME": TimeTypeClass(),
+            "ENUM": EnumTypeClass(),
+            "NULL": NullTypeClass(),
+            "RECORD": RecordTypeClass(),
+            "ARRAY": ArrayTypeClass(),
+            "UNION": UnionTypeClass(),
+            "MAP": MapTypeClass(),
+            "FIXED": FixedTypeClass(),            
+        }.get(temp["datahubType"])
+        field_class = SchemaFieldClass(
+                fieldPath=temp["fieldName"],
+                type=SchemaFieldDataTypeClass(type=temp["field_type"]),
+                nativeDataType=temp.get("nativeDataType", ""),
+                description=temp.get("fieldDescription", ""),
+                nullable=temp.get("nullable", None),
+        )
+        all_fields.append(field_class)
+    return all_fields
+
+def create_field_param_class(inputs):
+    """
+    generate a list of FieldParams that can be used to create metadata schema aspect. 
+    This is for the create page call.
+    Args:
+        inputs ([type]): [description]
+    """
+    all_fields =[]
+    for field in inputs:
+        field['field_type'] = {
             "boolean": BooleanTypeClass(),
             "string": StringTypeClass(),
             "bool": BooleanTypeClass(),
@@ -173,7 +211,55 @@ def make_schema_mce(
             "fixed": FixedTypeClass(),
             "double":NumberTypeClass(),
             "date-time":TimeTypeClass(),
-        }.get(item["field_type"])
+        }.get(field["field_type"])
+        field_class = SchemaFieldClass(
+                fieldPath=field["fieldPath"],
+                type=SchemaFieldDataTypeClass(type=field["field_type"]),
+                nativeDataType=field.get("nativeType", ""),
+                description=field.get("field_description", ""),
+                nullable=field.get("nullable", None),
+        )
+        all_fields.append(field_class)
+    return all_fields
+
+def create_new_schema_mce(
+    platformName: str,
+    actor: str,
+    fields: List[Dict[str, str]],
+    system_time: int = None,
+) -> MetadataChangeEventClass:
+    if system_time:
+        try:
+            datetime.datetime.fromtimestamp(system_time / 1000)
+            sys_time = system_time
+        except ValueError as e:
+            log.error("specified_time is out of range")
+            sys_time = get_sys_time()
+    else:
+        sys_time = get_sys_time()    
+    field_schemas = create_field_param_class(fields)
+    mce = make_schema_mce(         
+        platformName=platformName,
+        actor=actor,
+        fields= field_schemas,
+        system_time = sys_time)
+    return mce
+
+def make_schema_mce(    
+    platformName: str,
+    actor: str,
+    fields: List[SchemaFieldClass],
+    system_time: int = None,
+) -> MetadataChangeEventClass:
+    if system_time:
+        try:
+            datetime.datetime.fromtimestamp(system_time / 1000)
+            sys_time = system_time
+        except ValueError as e:
+            log.error("specified_time is out of range")
+            sys_time = get_sys_time()
+    else:
+        sys_time = 0
 
     mce = SchemaMetadataClass(
         schemaName="OtherSchema",
@@ -183,18 +269,7 @@ def make_schema_mce(
         lastModified=AuditStampClass(time=sys_time, actor=actor),
         hash="",
         platformSchema=OtherSchemaClass(rawSchema=""),
-        fields=[
-            SchemaFieldClass(
-                fieldPath=item["fieldPath"],
-                type=SchemaFieldDataTypeClass(type=item["field_type"]),
-                nativeDataType=item.get("nativeType", ""),
-                description=item.get("field_description", ""),
-                nullable=item.get("nullable", None),
-            )
-            for item in fields
-        ],
-        primaryKeys=primaryKeys,  # no visual impact in UI
-        foreignKeysSpecs=None,
+        fields=fields,
     )
     return mce
 
@@ -217,19 +292,21 @@ def generate_json_output(mce: MetadataChangeEventClass, file_loc: str) -> None:
     Generates the json MCE files that can be ingested via CLI. For debugging
     """    
     mce_obj = mce.to_obj()
+    sys_time = int(time.time() * 1000)
     file_name = mce.proposedSnapshot.urn.replace("urn:li:dataset:(urn:li:dataPlatform:", "").split(",")[1]
-    path = os.path.join(file_loc, f"{file_name}.json")
+    path = os.path.join(file_loc, f"{file_name}_{sys_time}.json")
 
     with open(path, "w") as f:
         json.dump(mce_obj, f, indent=4)
 
 
-def make_delete_mce(
+def make_status_mce(
     dataset_name: str,
+    desired_status: bool
 ) -> MetadataChangeEventClass:
     return MetadataChangeEventClass(
         proposedSnapshot=DatasetSnapshotClass(
-            urn=dataset_name, aspects=[StatusClass(removed=True)]
+            urn=dataset_name, aspects=[StatusClass(removed=desired_status)]
         )
     )
 
