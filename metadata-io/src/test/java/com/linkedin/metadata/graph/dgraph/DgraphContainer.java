@@ -63,7 +63,7 @@ public class DgraphContainer extends GenericContainer<DgraphContainer> {
         WaitStrategy waitForLeader = new LogMessageWaitStrategy()
             .withRegEx(".* Got Zero leader: .*\n");
         WaitStrategy waitForCluster = new LogMessageWaitStrategy()
-            .withRegEx(".* Server is ready\n");
+            .withRegEx(".* Server is ready.*");
         WaitStrategy waitForHttp = new HttpWaitStrategy()
             .forPort(HTTP_PORT)
             .forStatusCodeMatching(response -> response == HTTP_OK);
