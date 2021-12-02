@@ -55,6 +55,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import javax.mail.MethodNotSupportedException;
+import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
 import static com.linkedin.metadata.search.utils.QueryUtils.newFilter;
@@ -556,4 +558,10 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
         return Optional.empty();
     }
 
+    @SneakyThrows
+    @Override
+    public DataMap getRawAspect(@Nonnull String urn, @Nonnull String aspect, @Nonnull Long version,
+        @Nonnull Authentication authentication) throws RemoteInvocationException {
+        throw new MethodNotSupportedException();
+    }
 }
