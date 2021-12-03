@@ -2,7 +2,6 @@ package com.linkedin.entity.client;
 
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
-
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.aspect.GetTimeseriesAspectValuesResponse;
 import com.linkedin.common.AuditStamp;
@@ -19,13 +18,14 @@ import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.dao.utils.RecordUtils;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.query.AutoCompleteResult;
-import com.linkedin.metadata.query.filter.Filter;
-import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.ListResult;
 import com.linkedin.metadata.query.ListUrnsResult;
+import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.resources.entity.AspectUtils;
 import com.linkedin.metadata.resources.entity.EntityResource;
 import com.linkedin.metadata.search.EntitySearchService;
+import com.linkedin.metadata.search.SearchOptions;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
@@ -45,7 +45,7 @@ import javax.annotation.Nullable;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.metadata.search.utils.QueryUtils.*;
+import static com.linkedin.metadata.search.utils.QueryUtils.newFilter;
 
 
 @Slf4j
@@ -179,6 +179,7 @@ public class JavaEntityClient implements EntityClient {
      * @param requestFilters search filters
      * @param start start offset for search results
      * @param count max number of search results requested
+     * @param searchOptions Additional options to pass to search
      * @return a set of search results
      * @throws RemoteInvocationException
      */
@@ -189,9 +190,10 @@ public class JavaEntityClient implements EntityClient {
         @Nullable Map<String, String> requestFilters,
         int start,
         int count,
+        @Nullable SearchOptions searchOptions,
         @Nonnull final Authentication authentication)
         throws RemoteInvocationException {
-        return _entitySearchService.search(entity, input, newFilter(requestFilters), null, start, count, );
+        return _entitySearchService.search(entity, input, newFilter(requestFilters), null, start, count, searchOptions);
     }
 
     /**
@@ -222,6 +224,7 @@ public class JavaEntityClient implements EntityClient {
      * @param filter search filters
      * @param start start offset for search results
      * @param count max number of search results requested
+     * @param searchOptions Additional options to pass to search
      * @return Snapshot key
      * @throws RemoteInvocationException
      */
@@ -232,9 +235,10 @@ public class JavaEntityClient implements EntityClient {
         @Nullable Filter filter,
         int start,
         int count,
+        @Nullable SearchOptions searchOptions,
         @Nonnull final Authentication authentication)
         throws RemoteInvocationException {
-        return _entitySearchService.search(entity, input, filter, null, start, count, );
+        return _entitySearchService.search(entity, input, filter, null, start, count, searchOptions);
     }
 
     /**
@@ -245,6 +249,7 @@ public class JavaEntityClient implements EntityClient {
      * @param filter search filters
      * @param start start offset for search results
      * @param count max number of search results requested
+     * @param searchOptions Additional options to pass to search
      * @return Snapshot key
      * @throws RemoteInvocationException
      */
@@ -255,8 +260,9 @@ public class JavaEntityClient implements EntityClient {
         @Nullable Filter filter,
         int start,
         int count,
+        @Nullable SearchOptions searchOptions,
         @Nonnull final Authentication authentication) throws RemoteInvocationException {
-        return _searchService.searchAcrossEntities(entities, input, filter, null, start, count);
+        return _searchService.searchAcrossEntities(entities, input, filter, null, start, count, searchOptions);
     }
 
     /**

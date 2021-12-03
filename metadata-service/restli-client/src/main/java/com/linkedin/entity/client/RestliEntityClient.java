@@ -36,6 +36,7 @@ import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.ListResult;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
+import com.linkedin.metadata.search.SearchOptions;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -228,6 +229,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
      * @param requestFilters search filters
      * @param start start offset for search results
      * @param count max number of search results requested
+     * @param searchOptions Additional options to pass to search
      * @return a set of search results
      * @throws RemoteInvocationException
      */
@@ -238,6 +240,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
         @Nullable Map<String, String> requestFilters,
         int start,
         int count,
+        @Nullable SearchOptions searchOptions,
         @Nonnull final Authentication authentication)
         throws RemoteInvocationException {
 
@@ -247,6 +250,10 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
             .filterParam(newFilter(requestFilters))
             .startParam(start)
             .countParam(count);
+
+        if (searchOptions != null) {
+            requestBuilder.searchOptionsParam(searchOptions);
+        }
 
         return sendClientRequest(requestBuilder, authentication).getEntity();
     }
@@ -284,6 +291,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
      * @param filter search filters
      * @param start start offset for search results
      * @param count max number of search results requested
+     * @param searchOptions Additional options to pass to search
      * @return Snapshot key
      * @throws RemoteInvocationException
      */
@@ -294,6 +302,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
         @Nullable Filter filter,
         int start,
         int count,
+        @Nullable SearchOptions searchOptions,
         @Nonnull final Authentication authentication)
         throws RemoteInvocationException {
 
@@ -305,6 +314,9 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
 
         if (filter != null) {
             requestBuilder.filterParam(filter);
+        }
+        if (searchOptions != null) {
+            requestBuilder.searchOptionsParam(searchOptions);
         }
 
         return sendClientRequest(requestBuilder, authentication).getEntity();
@@ -318,6 +330,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
      * @param filter search filters
      * @param start start offset for search results
      * @param count max number of search results requested
+     * @param searchOptions Additional options to pass to search
      * @return Snapshot key
      * @throws RemoteInvocationException
      */
@@ -328,6 +341,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
         @Nullable Filter filter,
         int start,
         int count,
+        @Nullable SearchOptions searchOptions,
         @Nonnull final Authentication authentication) throws RemoteInvocationException {
 
         final EntitiesDoSearchAcrossEntitiesRequestBuilder requestBuilder = ENTITIES_REQUEST_BUILDERS.actionSearchAcrossEntities()
@@ -340,6 +354,9 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
         }
         if (filter != null) {
             requestBuilder.filterParam(filter);
+        }
+        if (searchOptions != null) {
+            requestBuilder.searchOptionsParam(searchOptions);
         }
 
         return sendClientRequest(requestBuilder, authentication).getEntity();

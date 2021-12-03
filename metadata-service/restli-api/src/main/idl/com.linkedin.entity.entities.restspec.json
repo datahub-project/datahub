@@ -203,6 +203,10 @@
       }, {
         "name" : "count",
         "type" : "int"
+      }, {
+        "name" : "searchOptions",
+        "type" : "com.linkedin.metadata.search.SearchOptions",
+        "optional" : true
       } ],
       "returns" : "com.linkedin.metadata.search.SearchResult"
     }, {
@@ -228,6 +232,10 @@
       }, {
         "name" : "count",
         "type" : "int"
+      }, {
+        "name" : "searchOptions",
+        "type" : "com.linkedin.metadata.search.SearchOptions",
+        "optional" : true
       } ],
       "returns" : "com.linkedin.metadata.search.SearchResult"
     }, {

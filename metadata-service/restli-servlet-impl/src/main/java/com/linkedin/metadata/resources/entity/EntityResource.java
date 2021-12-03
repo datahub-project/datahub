@@ -24,6 +24,7 @@ import com.linkedin.metadata.run.DeleteEntityResponse;
 import com.linkedin.metadata.run.RollbackResponse;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.SearchEntity;
+import com.linkedin.metadata.search.SearchOptions;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
@@ -58,9 +59,22 @@ import javax.inject.Named;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.maven.artifact.versioning.ComparableVersion;
 
-import static com.linkedin.metadata.entity.ValidationUtils.*;
-import static com.linkedin.metadata.restli.RestliConstants.*;
-import static com.linkedin.metadata.utils.PegasusUtils.*;
+import static com.linkedin.metadata.entity.ValidationUtils.validateOrThrow;
+import static com.linkedin.metadata.restli.RestliConstants.ACTION_AUTOCOMPLETE;
+import static com.linkedin.metadata.restli.RestliConstants.ACTION_BROWSE;
+import static com.linkedin.metadata.restli.RestliConstants.ACTION_GET_BROWSE_PATHS;
+import static com.linkedin.metadata.restli.RestliConstants.ACTION_INGEST;
+import static com.linkedin.metadata.restli.RestliConstants.PARAM_ASPECTS;
+import static com.linkedin.metadata.restli.RestliConstants.PARAM_FIELD;
+import static com.linkedin.metadata.restli.RestliConstants.PARAM_FILTER;
+import static com.linkedin.metadata.restli.RestliConstants.PARAM_INPUT;
+import static com.linkedin.metadata.restli.RestliConstants.PARAM_LIMIT;
+import static com.linkedin.metadata.restli.RestliConstants.PARAM_PATH;
+import static com.linkedin.metadata.restli.RestliConstants.PARAM_QUERY;
+import static com.linkedin.metadata.restli.RestliConstants.PARAM_SORT;
+import static com.linkedin.metadata.restli.RestliConstants.PARAM_START;
+import static com.linkedin.metadata.restli.RestliConstants.PARAM_URN;
+import static com.linkedin.metadata.utils.PegasusUtils.urnToEntityName;
 
 
 /**
@@ -80,6 +94,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   private static final String PARAM_ENTITIES = "entities";
   private static final String PARAM_COUNT = "count";
   private static final String PARAM_VALUE = "value";
+  private static final String PARAM_SEARCH_OPTIONS = "searchOptions";
   private static final String SYSTEM_METADATA = "systemMetadata";
 
   private final Clock _clock = Clock.systemUTC();
@@ -222,11 +237,13 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   public Task<SearchResult> search(@ActionParam(PARAM_ENTITY) @Nonnull String entityName,
       @ActionParam(PARAM_INPUT) @Nonnull String input, @ActionParam(PARAM_FILTER) @Optional @Nullable Filter filter,
       @ActionParam(PARAM_SORT) @Optional @Nullable SortCriterion sortCriterion, @ActionParam(PARAM_START) int start,
-      @ActionParam(PARAM_COUNT) int count) {
+      @ActionParam(PARAM_COUNT) int count,
+      @ActionParam(PARAM_SEARCH_OPTIONS) @Optional @Nullable SearchOptions searchOptions) {
 
     log.info("GET SEARCH RESULTS for {} with query {}", entityName, input);
     // TODO - change it to use _searchService once we are confident on it's latency
-    return RestliUtil.toTask(() -> _entitySearchService.search(entityName, input, filter, sortCriterion, start, count, ),
+    return RestliUtil.toTask(
+        () -> _entitySearchService.search(entityName, input, filter, sortCriterion, start, count, searchOptions),
         MetricRegistry.name(this.getClass(), "search"));
   }
 
@@ -236,11 +253,12 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   public Task<SearchResult> searchAcrossEntities(@ActionParam(PARAM_ENTITIES) @Optional @Nullable String[] entities,
       @ActionParam(PARAM_INPUT) @Nonnull String input, @ActionParam(PARAM_FILTER) @Optional @Nullable Filter filter,
       @ActionParam(PARAM_SORT) @Optional @Nullable SortCriterion sortCriterion, @ActionParam(PARAM_START) int start,
-      @ActionParam(PARAM_COUNT) int count) {
+      @ActionParam(PARAM_COUNT) int count,
+      @ActionParam(PARAM_SEARCH_OPTIONS) @Optional @Nullable SearchOptions searchOptions) {
     List<String> entityList = entities == null ? Collections.emptyList() : Arrays.asList(entities);
     log.info("GET SEARCH RESULTS ACROSS ENTITIES for {} with query {}", entityList, input);
     return RestliUtil.toTask(
-        () -> _searchService.searchAcrossEntities(entityList, input, filter, sortCriterion, start, count),
+        () -> _searchService.searchAcrossEntities(entityList, input, filter, sortCriterion, start, count, searchOptions),
         "searchAcrossEntities");
   }
 
