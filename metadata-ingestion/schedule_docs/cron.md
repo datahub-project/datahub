@@ -1,6 +1,6 @@
 # Scheduling Ingestion using Cron
 
-To follow this guide you need to use [DataHub CLI](../cli.md).
+To follow this guide you need to use [DataHub CLI](../../docs/cli.md).
 
 Assume you have a receipe file `/home/ubuntu/example.yml` on your machine
 ```
