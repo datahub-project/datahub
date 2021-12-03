@@ -6,7 +6,6 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, Iterable, List, Optional
 
-import boto3
 import pydantic
 import pydeequ
 from pydeequ.analyzers import (
@@ -915,6 +914,8 @@ class DataLakeSource(Source):
 
             s3 = self.source_config.aws_config.get_s3_resource()
             bucket = s3.Bucket(clean_path.split("/")[0])
+            
+            unordered_files = []
 
             for obj in bucket.objects.filter(
                 Prefix=clean_path.split("/", maxsplit=1)[1]
@@ -931,15 +932,17 @@ class DataLakeSource(Source):
                     continue
 
                 obj_path = f"s3a://{obj.bucket_name}/{obj.key}"
+                
+                unordered_files.append(obj_path)
+            
+            for file in sorted(unordered_files):
 
-                yield from self.ingest_table(obj_path)
+                yield from self.ingest_table(file)
         else:
             for root, dirs, files in os.walk(self.source_config.base_path):
-                for file in files:
+                for file in sorted(files):
 
                     file_path = os.path.join(root, file)
-
-                    print(file_path)
 
                     # if table patterns do not allow this file, skip
                     if not self.source_config.schema_patterns.allowed(file_path):
