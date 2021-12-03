@@ -24,7 +24,9 @@ def test_mysql_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
         runner = CliRunner()
         with fs_helpers.isolated_filesystem(tmp_path):
             config_file = (test_resources_dir / "mysql_to_file.yml").resolve()
-            result = runner.invoke(datahub, ["ingest", "-c", f"{config_file}"])
+            result = runner.invoke(
+                datahub, ["ingest", "--strict-warnings", "-c", f"{config_file}"]
+            )
             assert_result_ok(result)
 
             # Verify the output.
