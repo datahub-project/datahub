@@ -1,7 +1,5 @@
 from typing import Iterable, Union
 
-from black import FileMode, format_str
-
 from datahub.emitter.mce_builder import get_sys_time
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api import RecordEnvelope
@@ -14,6 +12,13 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     SystemMetadata,
 )
 from datahub.metadata.schema_classes import UsageAggregationClass
+
+try:
+    from black import FileMode, format_str
+except ImportError:
+    has_black = False
+else:
+    has_black = True
 
 
 class WorkUnitRecordExtractor(Extractor):
@@ -45,9 +50,16 @@ class WorkUnitRecordExtractor(Extractor):
                 if len(mce.proposedSnapshot.aspects) == 0:
                     raise AttributeError("every mce must have at least one aspect")
             if not workunit.metadata.validate():
+
+                invalid_mce = str(workunit.metadata)
+
+                if has_black:
+                    invalid_mce = format_str(workunit.metadata, mode=FileMode())
+
                 raise ValueError(
-                    f"source produced an invalid metadata work unit: {format_str(str(workunit.metadata), mode=FileMode())}"
+                    f"source produced an invalid metadata work unit: {invalid_mce}"
                 )
+
             yield RecordEnvelope(
                 workunit.metadata,
                 {
@@ -56,8 +68,16 @@ class WorkUnitRecordExtractor(Extractor):
             )
         elif isinstance(workunit, UsageStatsWorkUnit):
             if not workunit.usageStats.validate():
+
+                invalid_usage_stats = str(workunit.usageStats)
+
+                if has_black:
+                    invalid_usage_stats = format_str(
+                        workunit.usageStats, mode=FileMode()
+                    )
+
                 raise ValueError(
-                    f"source produced an invalid usage stat: {format_str(str(workunit.usageStats), mode=FileMode())}"
+                    f"source produced an invalid usage stat: {invalid_usage_stats}"
                 )
             yield RecordEnvelope(
                 workunit.usageStats,
