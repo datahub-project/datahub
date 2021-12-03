@@ -98,6 +98,8 @@ class PatternAddDatasetTerms(AddDatasetTerms):
         super().__init__(generic_config, ctx)
 
     @classmethod
-    def create(cls, config_dict: dict, ctx: PipelineContext) -> "PatternAddDatasetTerms":
+    def create(
+        cls, config_dict: dict, ctx: PipelineContext
+    ) -> "PatternAddDatasetTerms":
         config = PatternDatasetTermsConfig.parse_obj(config_dict)
         return cls(config, ctx)

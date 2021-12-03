@@ -20,6 +20,7 @@ from datahub.ingestion.transformer.add_dataset_properties import (
 )
 from datahub.ingestion.transformer.add_dataset_tags import (
     AddDatasetTags,
+    PatternAddDatasetTags,
     SimpleAddDatasetTags,
 )
 from datahub.ingestion.transformer.add_dataset_terms import (
@@ -316,6 +317,41 @@ def test_simple_dataset_tags_transformation(mock_time):
 
 def dummy_tag_resolver_method(dataset_snapshot):
     return []
+
+
+def test_pattern_dataset_tags_transformation(mock_time):
+    dataset_mce = make_generic_dataset()
+
+    transformer = PatternAddDatasetTags.create(
+        {
+            "tag_pattern": {
+                "rules": {
+                    ".*example1.*": [
+                        builder.make_tag_urn("Private"),
+                        builder.make_tag_urn("Legacy"),
+                    ],
+                    ".*example2.*": [builder.make_term_urn("Needs Documentation")],
+                }
+            },
+        },
+        PipelineContext(run_id="test-tags"),
+    )
+
+    outputs = list(
+        transformer.transform(
+            [RecordEnvelope(input, metadata={}) for input in [dataset_mce]]
+        )
+    )
+
+    assert len(outputs) == 1
+    # Check that glossary terms were added.
+    tags_aspect = builder.get_aspect_if_available(
+        outputs[0].record, models.GlobalTagsClass
+    )
+    assert tags_aspect
+    assert len(tags_aspect.tags) == 2
+    assert tags_aspect.tags[0].tag == builder.make_tag_urn("Private")
+    assert builder.make_tag_urn("Needs Documentation") not in tags_aspect.tags
 
 
 def test_import_resolver():
