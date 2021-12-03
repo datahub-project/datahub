@@ -54,7 +54,7 @@ class WorkUnitRecordExtractor(Extractor):
                 invalid_mce = str(workunit.metadata)
 
                 if has_black:
-                    invalid_mce = format_str(workunit.metadata, mode=FileMode())
+                    invalid_mce = format_str(invalid_mce, mode=FileMode())
 
                 raise ValueError(
                     f"source produced an invalid metadata work unit: {invalid_mce}"
@@ -73,7 +73,7 @@ class WorkUnitRecordExtractor(Extractor):
 
                 if has_black:
                     invalid_usage_stats = format_str(
-                        workunit.usageStats, mode=FileMode()
+                        invalid_usage_stats, mode=FileMode()
                     )
 
                 raise ValueError(
