@@ -221,6 +221,8 @@ module.exports = {
           // WIP "docs/advanced/entity-hierarchy",
           // WIP "docs/advanced/partial-update",
           // WIP "docs/advanced/pdl-best-practices",
+          // WIP "docs/introducing-metadata-service-authentication"
+          // WIP "metadata-models-custom/README"
         ],
       },
     ],
