@@ -56,7 +56,12 @@ def ingest() -> None:
     default=False,
     help="Perform limited ingestion from the source to the sink to get a quick preview.",
 )
-def run(config: str, dry_run: bool, preview: bool) -> None:
+@click.option(
+    "--strict-warnings/--no-strict-warnings",
+    default=False,
+    help="If enabled, ingestion runs with warnings will yield a non-zero error code",
+)
+def run(config: str, dry_run: bool, preview: bool, strict_warnings: bool) -> None:
     """Ingest metadata into DataHub."""
     logger.debug("DataHub CLI version: %s", datahub_package.nice_version_name())
 
@@ -73,7 +78,7 @@ def run(config: str, dry_run: bool, preview: bool) -> None:
     logger.info("Starting metadata ingestion")
     pipeline.run()
     logger.info("Finished metadata ingestion")
-    ret = pipeline.pretty_print_summary()
+    ret = pipeline.pretty_print_summary(warnings_as_failure=strict_warnings)
     sys.exit(ret)
 
 
