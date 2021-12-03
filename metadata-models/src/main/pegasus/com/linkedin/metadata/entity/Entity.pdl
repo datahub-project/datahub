@@ -1,6 +1,0 @@
-namespace com.linkedin.metadata.entity
-
-/**
- * A union of all supported entity types.
- */
-typeref Entity = union[CorpUserEntity, DatasetEntity, DataProcessEntity, MLModelEntity, DataFlowEntity, DataJobEntity]
