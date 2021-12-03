@@ -202,10 +202,13 @@ class DataLakeProfilerConfig(ConfigModel):
     enabled: bool = False
 
     # These settings will override the ones below.
-    turn_off_expensive_profiling_metrics: bool = False
     profile_table_level_only: bool = False
 
     allow_deny_patterns: AllowDenyPattern = AllowDenyPattern.allow_all()
+
+    turn_off_expensive_profiling_metrics: bool = False
+
+    max_number_of_fields_to_profile: Optional[pydantic.PositiveInt] = None
 
     include_field_null_count: bool = True
     include_field_min_value: bool = True
@@ -217,8 +220,6 @@ class DataLakeProfilerConfig(ConfigModel):
     include_field_distinct_value_frequencies: bool = True
     include_field_histogram: bool = True
     include_field_sample_values: bool = True
-
-    max_number_of_fields_to_profile: Optional[pydantic.PositiveInt] = None
 
     @pydantic.root_validator()
     def ensure_field_level_settings_are_normalized(
@@ -914,7 +915,7 @@ class DataLakeSource(Source):
 
             s3 = self.source_config.aws_config.get_s3_resource()
             bucket = s3.Bucket(clean_path.split("/")[0])
-            
+
             unordered_files = []
 
             for obj in bucket.objects.filter(
@@ -932,9 +933,9 @@ class DataLakeSource(Source):
                     continue
 
                 obj_path = f"s3a://{obj.bucket_name}/{obj.key}"
-                
+
                 unordered_files.append(obj_path)
-            
+
             for file in sorted(unordered_files):
 
                 yield from self.ingest_table(file)

@@ -4,11 +4,10 @@ For context on getting started with ingestion, check out our [metadata ingestion
 
 ## Setup
 
-To install this plugin, run `pip install 'acryl-datahub[data-lake]'`.
+To install this plugin, run `pip install 'acryl-datahub[data-lake]'`. Because the files are read using PySpark, we require Spark 3.0.3 with Hadoop 3.2 to be installed.
 
-The data lake profiler reads files stored in a number of file types (see below for an exhaustive list).
-For each file, the module will also generate profiles on the table itself as well as any columns similar to the
-[SQL profiler](./sql_profiles.md).
+The data lake connector extracts schemas and profiles from a variety of file formats (see below for an exhaustive list).
+Individual files are ingested as tables, and profiles are computed similar to the [SQL profiler](./sql_profiles.md).
 
 Enabling profiling will slow down ingestion runs.
 
@@ -32,7 +31,7 @@ Extracts:
   - minimum, maximum, mean, median, standard deviation, some quantile values
   - histograms or frequencies of unique values
 
-Supported file types:
+This connector supports both local files as well as those stored on AWS S3. Supported file types are as follows:
 
 - CSV
 - Parquet
@@ -50,7 +49,9 @@ For general pointers on writing and running a recipe, see our [main recipe guide
 source:
   type: data-lake
   config:
-    # Options
+    env: "prod"
+    platform: "local-data-lake"
+    base_path: "/path/to/data/folder"
     profiling:
       enabled: true
 
@@ -62,33 +63,39 @@ sink:
 
 Note that a `.` is used to denote nested fields in the YAML recipe.
 
-| Field                                                | Required | Default              | Description                                                                                                                                                                                                    |
-| ---------------------------------------------------- | -------- | -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `profiling.enabled`                                  |          | `False`              | Whether profiling should be done.                                                                                                                                                                              |
-| `profiling.limit`                                    |          |                      | Max number of documents to profile. By default, profiles all documents.                                                                                                                                        |
-| `profiling.offset`                                   |          |                      | Offset in documents to profile. By default, uses no offset.                                                                                                                                                    |
-| `profiling.max_workers`                              |          | `5 * os.cpu_count()` | Number of worker threads to use for profiling. Set to 1 to disable.                                                                                                                                            |
-| `profiling.query_combiner_enabled`                   |          | `True`               | _This feature is still experimental and can be disabled if it causes issues._ Reduces the total number of queries issued and speeds up profiling by dynamically combining SQL queries where possible.          |
-| `profile_pattern.allow`                              |          | `*`                  | List of regex patterns for tables or table columns to profile. Defaults to all.                                                                                                                                |
-| `profile_pattern.deny`                               |          |                      | List of regex patterns for tables or table columns to not profile. Defaults to none.                                                                                                                           |
-| `profile_pattern.ignoreCase`                         |          | `True`               | Whether to ignore case sensitivity during pattern matching.                                                                                                                                                    |
-| `profiling.turn_off_expensive_profiling_metrics`     |          | False                | Whether to turn off expensive profiling or not. This turns off profiling for quantiles, distinct_value_frequencies, histogram & sample_values. This also limits maximum number of fields being profiled to 10. |
-| `profiling.max_number_of_fields_to_profile`          |          | `None`               | A positive integer that specifies the maximum number of columns to profile for any table. `None` implies all columns. The cost of profiling goes up significantly as the number of columns to profile goes up. |
-| `profiling.profile_table_level_only`                 |          | False                | Whether to perform profiling at table-level only, or include column-level profiling as well.                                                                                                                   |
-| `profiling.include_field_null_count`                 |          | `True`               | Whether to profile for the number of nulls for each column.                                                                                                                                                    |
-| `profiling.include_field_min_value`                  |          | `True`               | Whether to profile for the min value of numeric columns.                                                                                                                                                       |
-| `profiling.include_field_max_value`                  |          | `True`               | Whether to profile for the max value of numeric columns.                                                                                                                                                       |
-| `profiling.include_field_mean_value`                 |          | `True`               | Whether to profile for the mean value of numeric columns.                                                                                                                                                      |
-| `profiling.include_field_median_value`               |          | `True`               | Whether to profile for the median value of numeric columns.                                                                                                                                                    |
-| `profiling.include_field_stddev_value`               |          | `True`               | Whether to profile for the standard deviation of numeric columns.                                                                                                                                              |
-| `profiling.include_field_quantiles`                  |          | `True`               | Whether to profile for the quantiles of numeric columns.                                                                                                                                                       |
-| `profiling.include_field_distinct_value_frequencies` |          | `True`               | Whether to profile for distinct value frequencies.                                                                                                                                                             |
-| `profiling.include_field_histogram`                  |          | `True`               | Whether to profile for the histogram for numeric fields.                                                                                                                                                       |
-| `profiling.include_field_sample_values`              |          | `True`               | Whether to profile for the sample values for all columns.                                                                                                                                                      |
+| Field                                                | Required                 | Default      | Description                                                                                                                                                                                                    |
+| ---------------------------------------------------- | ------------------------ | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `env`                                                |                          |              | Environment to use in namespace when constructing URNs.                                                                                                                                                        |
+| `platform`                                           | ✅                       |              | Platform to use in namespace when constructing URNs.                                                                                                                                                           |
+| `base_path`                                          | ✅                       |              | Path of the base folder to crawl. Unless `schema_patterns` and `profile_patterns` are set, will attempt to ingest all files in folder.                                                                         |
+| `aws_config.aws_region`                              | If ingesting from AWS S3 |              | AWS region code.                                                                                                                                                                                               |
+| `aws_config.aws_access_key_id`                       |                          | Autodetected | See https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html                                                                                                                             |
+| `aws_config.aws_secret_access_key`                   |                          | Autodetected | See https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html                                                                                                                             |
+| `aws_config.aws_session_token`                       |                          | Autodetected | See https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html                                                                                                                             |
+| `schema_patterns.allow`                              |                          | `*`          | List of regex patterns for tables or table columns to profile. Defaults to all.                                                                                                                                |
+| `schema_patterns.deny`                               |                          |              | List of regex patterns for tables or table columns to not profile. Defaults to none.                                                                                                                           |
+| `schema_patterns.ignoreCase`                         |                          | `True`       | Whether to ignore case sensitivity during pattern matching.                                                                                                                                                    |
+| `profile_patterns.allow`                             |                          | `*`          | List of regex patterns for tables or table columns to profile. Defaults to all.                                                                                                                                |
+| `profile_patterns.deny`                              |                          |              | List of regex patterns for tables or table columns to not profile. Defaults to none.                                                                                                                           |
+| `profile_patterns.ignoreCase`                        |                          | `True`       | Whether to ignore case sensitivity during pattern matching.                                                                                                                                                    |
+| `profiling.enabled`                                  |                          | `False`      | Whether profiling should be done.                                                                                                                                                                              |
+| `profiling.profile_table_level_only`                 |                          | `False`      | Whether to perform profiling at table-level only, or include column-level profiling as well.                                                                                                                   |
+| `profiling.turn_off_expensive_profiling_metrics`     |                          | `False`      | Whether to turn off expensive profiling or not. This turns off profiling for quantiles, distinct_value_frequencies, histogram & sample_values. This also limits maximum number of fields being profiled to 10. |
+| `profiling.max_number_of_fields_to_profile`          |                          | `None`       | A positive integer that specifies the maximum number of columns to profile for any table. `None` implies all columns. The cost of profiling goes up significantly as the number of columns to profile goes up. |
+| `profiling.include_field_null_count`                 |                          | `True`       | Whether to profile for the number of nulls for each column.                                                                                                                                                    |
+| `profiling.include_field_min_value`                  |                          | `True`       | Whether to profile for the min value of numeric columns.                                                                                                                                                       |
+| `profiling.include_field_max_value`                  |                          | `True`       | Whether to profile for the max value of numeric columns.                                                                                                                                                       |
+| `profiling.include_field_mean_value`                 |                          | `True`       | Whether to profile for the mean value of numeric columns.                                                                                                                                                      |
+| `profiling.include_field_median_value`               |                          | `True`       | Whether to profile for the median value of numeric columns.                                                                                                                                                    |
+| `profiling.include_field_stddev_value`               |                          | `True`       | Whether to profile for the standard deviation of numeric columns.                                                                                                                                              |
+| `profiling.include_field_quantiles`                  |                          | `True`       | Whether to profile for the quantiles of numeric columns.                                                                                                                                                       |
+| `profiling.include_field_distinct_value_frequencies` |                          | `True`       | Whether to profile for distinct value frequencies.                                                                                                                                                             |
+| `profiling.include_field_histogram`                  |                          | `True`       | Whether to profile for the histogram for numeric fields.                                                                                                                                                       |
+| `profiling.include_field_sample_values`              |                          | `True`       | Whether to profile for the sample values for all columns.                                                                                                                                                      |
 
 ## Compatibility
 
-Coming soon!
+Files are read using PySpark. We currently require Spark 3.0.3 with Hadoop 3.2 to be installed.
 
 ## Questions
 
