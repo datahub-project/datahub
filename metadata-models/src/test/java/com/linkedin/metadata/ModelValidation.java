@@ -5,8 +5,6 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.UnionTemplate;
 import com.linkedin.metadata.validator.AspectValidator;
 import com.linkedin.metadata.validator.DeltaValidator;
-import com.linkedin.metadata.validator.EntityValidator;
-import com.linkedin.metadata.validator.RelationshipValidator;
 import com.linkedin.metadata.validator.SnapshotValidator;
 import java.io.IOException;
 import java.util.List;
@@ -15,29 +13,13 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import org.testng.annotations.Test;
 
-import static com.linkedin.metadata.ModelValidationConstants.*;
-import static org.testng.AssertJUnit.*;
+import static com.linkedin.metadata.ModelValidationConstants.IGNORED_ASPECT_CLASSES;
+import static com.linkedin.metadata.ModelValidationConstants.IGNORED_DELTA_CLASSES;
+import static com.linkedin.metadata.ModelValidationConstants.IGNORED_SNAPSHOT_CLASSES;
+import static org.testng.AssertJUnit.assertFalse;
 
 
 public class ModelValidation {
-
-  @Test
-  public void validateEntities() throws Exception {
-    List<? extends Class<? extends RecordTemplate>> entities =
-        getRecordTemplatesInPackage("com.linkedin.metadata.entity", IGNORED_ENTITY_CLASSES);
-
-    assertFalse("Failed to find any entities", entities.isEmpty());
-    entities.forEach(EntityValidator::validateEntitySchema);
-  }
-
-  @Test
-  public void validateRelationships() throws Exception {
-    List<? extends Class<? extends RecordTemplate>> relationships =
-        getRecordTemplatesInPackage("com.linkedin.metadata.relationship", IGNORED_RELATIONSHIP_CLASSES);
-
-    assertFalse("Failed to find any relationships", relationships.isEmpty());
-    relationships.forEach(RelationshipValidator::validateRelationshipSchema);
-  }
 
   @Test
   public void validateAspects() throws Exception {
@@ -52,7 +34,6 @@ public class ModelValidation {
   public void validateSnapshots() throws Exception {
     List<? extends Class<? extends RecordTemplate>> snapshots =
         getRecordTemplatesInPackage("com.linkedin.metadata.snapshot", IGNORED_SNAPSHOT_CLASSES);
-
 
     assertFalse("Failed to find any snapshots", snapshots.isEmpty());
     snapshots.forEach(SnapshotValidator::validateSnapshotSchema);
