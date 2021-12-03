@@ -30,4 +30,8 @@ record ViewProperties {
    */
   viewLanguage: string
 
+  /**
+   * The column lineages
+   */
+  fieldsLineages: optional FieldsLineages
 }

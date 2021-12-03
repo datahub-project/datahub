@@ -1,0 +1,10 @@
+namespace com.linkedin.dataset
+
+import com.linkedin.common.DatasetFieldUrn
+
+/**
+ * Upstreams of dataset fields.
+ * Key of map is field name in this dataset.
+ */
+
+typeref FieldsLineages = map[string, FieldLineageDetails]

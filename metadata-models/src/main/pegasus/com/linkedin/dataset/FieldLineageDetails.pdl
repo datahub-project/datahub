@@ -1,0 +1,12 @@
+namespace com.linkedin.dataset
+
+import com.linkedin.common.DatasetFieldUrn
+
+/**
+ * Details of the parent fields and transformation resulting in new field.
+ */
+record FieldLineageDetails {
+    transform: optional string
+
+    parentFields: array[DatasetFieldUrn]
+}

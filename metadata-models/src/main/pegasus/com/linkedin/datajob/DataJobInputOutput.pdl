@@ -2,7 +2,8 @@ namespace com.linkedin.datajob
 
 import com.linkedin.common.DatasetUrn
 import com.linkedin.common.DataJobUrn
-
+import com.linkedin.dataset.FieldsLineages
+import com.linkedin.common.DatasetFieldUrn
 
 /**
  * Information about the inputs and outputs of a Data processing job
@@ -60,4 +61,26 @@ record DataJobInputOutput {
     }
   }
   inputDatajobs: optional array[DataJobUrn] 
+
+  @Searchable = {
+    "/*": {
+      "fieldName": "inputFields",
+      "fieldType": "URN",
+      "numValuesFieldName": "numInputFields",
+      "queryByDefault": false
+    }
+  }
+  inputDatasetFields: optional array[DatasetFieldUrn]
+
+  @Searchable = {
+    "/*": {
+      "fieldName": "outputFields",
+      "fieldType": "URN",
+      "numValuesFieldName": "numOutputFields",
+      "queryByDefault": false
+    }
+  }
+  outputDatasetFields: optional array[DatasetFieldUrn]
+
+  fieldsLineages: optional FieldsLineages
 }

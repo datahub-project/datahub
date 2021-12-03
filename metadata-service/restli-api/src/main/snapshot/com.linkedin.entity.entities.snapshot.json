@@ -1385,6 +1385,64 @@
           "name" : "DownstreamOf"
         }
       }
+    }, {
+      "name" : "inputDatasetFields",
+      "type" : {
+        "type" : "array",
+        "items" : "com.linkedin.common.DatasetFieldUrn"
+      },
+      "optional" : true,
+      "Searchable" : {
+        "/*" : {
+          "fieldName" : "inputFields",
+          "fieldType" : "URN",
+          "numValuesFieldName" : "numInputFields",
+          "queryByDefault" : false
+        }
+      }
+    }, {
+      "name" : "outputDatasetFields",
+      "type" : {
+        "type" : "array",
+        "items" : "com.linkedin.common.DatasetFieldUrn"
+      },
+      "optional" : true,
+      "Searchable" : {
+        "/*" : {
+          "fieldName" : "outputFields",
+          "fieldType" : "URN",
+          "numValuesFieldName" : "numOutputFields",
+          "queryByDefault" : false
+        }
+      }
+    }, {
+      "name" : "fieldsLineages",
+      "type" : {
+        "type" : "typeref",
+        "name" : "FieldsLineages",
+        "namespace" : "com.linkedin.dataset",
+        "doc" : "Upstreams of dataset fields.\nKey of map is field name in this dataset.",
+        "ref" : {
+          "type" : "map",
+          "values" : {
+            "type" : "record",
+            "name" : "FieldLineageDetails",
+            "doc" : "Details of the parent fields and transformation resulting in new field.",
+            "fields" : [ {
+              "name" : "transform",
+              "type" : "string",
+              "optional" : true
+            }, {
+              "name" : "parentFields",
+              "type" : {
+                "type" : "array",
+                "items" : "com.linkedin.common.DatasetFieldUrn"
+              }
+            } ]
+          }
+        }
+      },
+      "optional" : true
     } ],
     "Aspect" : {
       "name" : "dataJobInputOutput"
@@ -1666,7 +1724,7 @@
     "Aspect" : {
       "name" : "editableDatasetProperties"
     }
-  }, {
+  }, "com.linkedin.dataset.FieldLineageDetails", "com.linkedin.dataset.FieldsLineages", {
     "type" : "typeref",
     "name" : "SchemaFieldPath",
     "namespace" : "com.linkedin.dataset",
@@ -1743,6 +1801,11 @@
       "name" : "viewLanguage",
       "type" : "string",
       "doc" : "The view logic language / dialect"
+    }, {
+      "name" : "fieldsLineages",
+      "type" : "FieldsLineages",
+      "doc" : "The column lineages",
+      "optional" : true
     } ],
     "Aspect" : {
       "name" : "viewProperties"
