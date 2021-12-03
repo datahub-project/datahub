@@ -1,4 +1,8 @@
-# DataHub Frontend
+---
+title: "datahub-frontend"
+---
+
+# DataHub Frontend Proxy
 DataHub frontend is a [Play](https://www.playframework.com/) service written in Java. It is served as a mid-tier
 between [DataHub GMS](../metadata-service) which is the backend service and [DataHub Web](../datahub-web-react/README.md).
 

@@ -1,13 +1,14 @@
 import concurrent.futures
 import contextlib
 import dataclasses
-import itertools
+import functools
 import logging
 import os
 import threading
+import traceback
 import unittest.mock
 import uuid
-from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, Tuple, Union
 
 import pydantic
 from great_expectations.data_context import BaseDataContext
@@ -19,9 +20,10 @@ from great_expectations.data_context.types.base import (
 )
 from great_expectations.dataset.dataset import Dataset
 from great_expectations.datasource.sqlalchemy_datasource import SqlAlchemyDatasource
-from great_expectations.profile.base import ProfilerCardinality, ProfilerDataType
+from great_expectations.profile.base import OrderedProfilerCardinality, ProfilerDataType
 from great_expectations.profile.basic_dataset_profiler import BasicDatasetProfilerBase
 from sqlalchemy.engine import Connection, Engine
+from typing_extensions import Concatenate, ParamSpec
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.emitter.mce_builder import get_sys_time
@@ -34,8 +36,11 @@ from datahub.metadata.schema_classes import (
     ValueFrequencyClass,
 )
 from datahub.utilities.perf_timer import PerfTimer
+from datahub.utilities.sqlalchemy_query_combiner import SQLAlchemyQueryCombiner
 
 logger: logging.Logger = logging.getLogger(__name__)
+
+P = ParamSpec("P")
 
 # The reason for this wacky structure is quite fun. GE basically assumes that
 # the config structures were generated directly from YML and further assumes that
@@ -68,8 +73,6 @@ def _inject_connection_into_datasource(conn: Connection) -> Iterator[None]:
         with unittest.mock.patch(
             "great_expectations.datasource.sqlalchemy_datasource.SqlAlchemyDatasource.__init__",
             sqlalchemy_datasource_init,
-        ), unittest.mock.patch(
-            "great_expectations.data_context.store.validations_store.ValidationsStore.set"
         ):
             yield
 
@@ -108,6 +111,10 @@ class GEProfilingConfig(ConfigModel):
     # task, it may make sense to increase this default value in the future.
     # https://docs.python.org/3/library/concurrent.futures.html#concurrent.futures.ThreadPoolExecutor
     max_workers: int = 5 * (os.cpu_count() or 4)
+
+    # The query combiner enables us to combine multiple queries into a single query,
+    # reducing the number of round-trips to the database and speeding up profiling.
+    query_combiner_enabled: bool = True
 
     # Hidden option - used for debugging purposes.
     catch_exceptions: bool = True
@@ -156,278 +163,419 @@ class GEProfilingConfig(ConfigModel):
         return values
 
 
-class _DatasetProfiler(BasicDatasetProfilerBase):
-    @classmethod
-    def _get_columns_to_profile(
-        cls,
-        dataset: Dataset,
-        dataset_name: str,
-        config: GEProfilingConfig,
-        report: SQLSourceReport,
-    ) -> List[str]:
-        if config.profile_table_level_only:
+def _convert_to_cardinality(
+    unique_count: Optional[int], pct_unique: Optional[float]
+) -> Optional[OrderedProfilerCardinality]:
+    # Logic adopted from Great Expectations.
+
+    cardinality = None
+    if unique_count is None or unique_count == 0 or pct_unique is None:
+        cardinality = OrderedProfilerCardinality.NONE
+    elif pct_unique == 1.0:
+        cardinality = OrderedProfilerCardinality.UNIQUE
+    elif pct_unique > 0.1:
+        cardinality = OrderedProfilerCardinality.VERY_MANY
+    elif pct_unique > 0.02:
+        cardinality = OrderedProfilerCardinality.MANY
+    else:
+        if unique_count == 1:
+            cardinality = OrderedProfilerCardinality.ONE
+        elif unique_count == 2:
+            cardinality = OrderedProfilerCardinality.TWO
+        elif unique_count < 60:
+            cardinality = OrderedProfilerCardinality.VERY_FEW
+        elif unique_count < 1000:
+            cardinality = OrderedProfilerCardinality.FEW
+        else:
+            cardinality = OrderedProfilerCardinality.MANY
+
+    return cardinality
+
+
+def _is_single_row_query_method(query: Any) -> bool:
+    SINGLE_ROW_QUERY_FILE = "great_expectations/dataset/sqlalchemy_dataset.py"
+    SINGLE_ROW_QUERY_METHODS = {
+        "get_row_count",
+        "get_column_min",
+        "get_column_max",
+        "get_column_mean",
+        "get_column_stdev",
+        "get_column_stdev",
+        "get_column_nonnull_count",
+        "get_column_unique_count",
+        # This actually returns two rows, not a single row, so we can't combine it with other queries.
+        # "get_column_median",
+    }
+    COLUMN_MAP_QUERY_METHOD = "inner_wrapper"
+    COLUMN_MAP_QUERY_SINGLE_ROW_COLUMNS = [
+        "element_count",
+        "null_count",
+        "unexpected_count",
+    ]
+
+    # We'll do this the inefficient way since the arrays are pretty small.
+    stack = traceback.extract_stack()
+    for frame in stack:
+        if not frame.filename.endswith(SINGLE_ROW_QUERY_FILE):
+            continue
+        if frame.name in SINGLE_ROW_QUERY_METHODS:
+            return True
+
+        if frame.name == COLUMN_MAP_QUERY_METHOD:
+            # Some column map expectations are single-row.
+            # We can disambiguate by checking the column names.
+            query_columns = query.columns
+            column_names = [column.name for column in query_columns]
+
+            if column_names == COLUMN_MAP_QUERY_SINGLE_ROW_COLUMNS:
+                return True
+
+    return False
+
+
+# mypy does not yet support ParamSpec. See https://github.com/python/mypy/issues/8645.
+def _run_with_query_combiner(  # type: ignore
+    method: Callable[Concatenate["_SingleDatasetProfiler", P], None]  # type: ignore
+) -> Callable[Concatenate["_SingleDatasetProfiler", P], None]:  # type: ignore
+    @functools.wraps(method)
+    def inner(
+        self: "_SingleDatasetProfiler", *args: P.args, **kwargs: P.kwargs  # type: ignore
+    ) -> None:
+        return self.query_combiner.run(lambda: method(self, *args, **kwargs))
+
+    return inner
+
+
+@dataclasses.dataclass
+class _SingleColumnSpec:
+    column: str
+    column_profile: DatasetFieldProfileClass
+
+    type_: ProfilerDataType = ProfilerDataType.UNKNOWN
+
+    unique_count: Optional[int] = None
+    nonnull_count: Optional[int] = None
+    cardinality: Optional[OrderedProfilerCardinality] = None
+
+
+@dataclasses.dataclass
+class _SingleDatasetProfiler(BasicDatasetProfilerBase):
+    dataset: Dataset
+    dataset_name: str
+    config: GEProfilingConfig
+    report: SQLSourceReport
+
+    query_combiner: SQLAlchemyQueryCombiner
+
+    def _get_columns_to_profile(self) -> List[str]:
+        if self.config.profile_table_level_only:
             return []
 
         # Compute columns to profile
         columns_to_profile: List[str] = []
         # Compute ignored columns
         ignored_columns: List[str] = []
-        for col in dataset.get_table_columns():
+        for col in self.dataset.get_table_columns():
             # We expect the allow/deny patterns to specify '<table_pattern>.<column_pattern>'
-            if not config.allow_deny_patterns.allowed(f"{dataset_name}.{col}"):
+            if not self.config.allow_deny_patterns.allowed(
+                f"{self.dataset_name}.{col}"
+            ):
                 ignored_columns.append(col)
             else:
                 columns_to_profile.append(col)
         if ignored_columns:
-            report.report_dropped(
-                f"The profile of columns by pattern {dataset_name}({', '.join(sorted(ignored_columns))})"
+            self.report.report_dropped(
+                f"The profile of columns by pattern {self.dataset_name}({', '.join(sorted(ignored_columns))})"
             )
 
-        if config.max_number_of_fields_to_profile is not None:
-            columns_being_dropped: List[str] = list(
-                itertools.islice(
-                    columns_to_profile, config.max_number_of_fields_to_profile, None
-                )
-            )
-            columns_to_profile = list(
-                itertools.islice(
-                    columns_to_profile, config.max_number_of_fields_to_profile
-                )
-            )
-            if columns_being_dropped:
-                report.report_dropped(
-                    f"The max_number_of_fields_to_profile={config.max_number_of_fields_to_profile} reached. Profile of columns {dataset_name}({', '.join(sorted(columns_being_dropped))})"
+        if self.config.max_number_of_fields_to_profile is not None:
+            if len(columns_to_profile) > self.config.max_number_of_fields_to_profile:
+                columns_being_dropped = columns_to_profile[
+                    self.config.max_number_of_fields_to_profile :
+                ]
+                columns_to_profile = columns_to_profile[
+                    : self.config.max_number_of_fields_to_profile
+                ]
+
+                self.report.report_dropped(
+                    f"The max_number_of_fields_to_profile={self.config.max_number_of_fields_to_profile} reached. Profile of columns {self.dataset_name}({', '.join(sorted(columns_being_dropped))})"
                 )
         return columns_to_profile
 
-    @classmethod
-    def _get_dataset_column_quantiles(
-        cls, dataset: Dataset, column: str
-    ) -> Optional[List[QuantileClass]]:
-        # FIXME: Eventually we'd like to switch to using the quantile method directly.
-        # values = dataset.get_column_quantiles(column, tuple(quantiles))
+    @_run_with_query_combiner
+    def _get_column_type(self, column_spec: _SingleColumnSpec, column: str) -> None:
+        column_spec.type_ = BasicDatasetProfilerBase._get_column_type(
+            self.dataset, column
+        )
 
-        dataset.set_config_value("interactive_evaluation", True)
+    @_run_with_query_combiner
+    def _get_column_cardinality(
+        self, column_spec: _SingleColumnSpec, column: str
+    ) -> None:
+        nonnull_count = self.dataset.get_column_nonnull_count(column)
+        column_spec.nonnull_count = nonnull_count
 
-        res = dataset.expect_column_quantile_values_to_be_between(
-            column,
-            quantile_ranges={
-                "quantiles": [0.05, 0.25, 0.5, 0.75, 0.95],
-                "value_ranges": [
-                    [None, None],
-                    [None, None],
-                    [None, None],
-                    [None, None],
-                    [None, None],
-                ],
-            },
-        ).result
-        if "observed_value" in res:
-            return [
-                QuantileClass(quantile=str(quantile), value=str(value))
-                for quantile, value in zip(
-                    res["observed_value"]["quantiles"],
-                    res["observed_value"]["values"],
-                )
-            ]
-        return None
-
-    @classmethod
-    def _get_dataset_column_distinct_value_frequencies(
-        cls, dataset: Dataset, column: str
-    ) -> List[ValueFrequencyClass]:
-        return [
-            ValueFrequencyClass(value=str(value), frequency=count)
-            for value, count in dataset.get_column_value_counts(column).items()
-        ]
-
-    @classmethod
-    def _get_dataset_column_histogram(
-        cls, dataset: Dataset, column: str
-    ) -> Optional[HistogramClass]:
-        dataset.set_config_value("interactive_evaluation", True)
-
-        res = dataset.expect_column_kl_divergence_to_be_less_than(
-            column,
-            partition_object=None,
-            threshold=None,
-            result_format="COMPLETE",
-        ).result
-        if "details" in res and "observed_partition" in res["details"]:
-            partition = res["details"]["observed_partition"]
-            return HistogramClass(
-                [str(v) for v in partition["bins"]],
-                [
-                    partition["tail_weights"][0],
-                    *partition["weights"],
-                    partition["tail_weights"][1],
-                ],
+        unique_count = None
+        pct_unique = None
+        try:
+            unique_count = self.dataset.get_column_unique_count(column)
+            pct_unique = float(unique_count) / nonnull_count
+        except Exception:
+            logger.exception(
+                f"Failed to get unique count for column {self.dataset_name}.{column}"
             )
-        return None
+        column_spec.unique_count = unique_count
 
-    @classmethod
+        column_spec.cardinality = _convert_to_cardinality(unique_count, pct_unique)
+
+    @_run_with_query_combiner
+    def _get_dataset_rows(self, dataset_profile: DatasetProfileClass) -> None:
+        dataset_profile.rowCount = self.dataset.get_row_count()
+
+    @_run_with_query_combiner
+    def _get_dataset_column_min(
+        self, column_profile: DatasetFieldProfileClass, column: str
+    ) -> None:
+        if self.config.include_field_min_value:
+            column_profile.min = str(self.dataset.get_column_min(column))
+
+    @_run_with_query_combiner
+    def _get_dataset_column_max(
+        self, column_profile: DatasetFieldProfileClass, column: str
+    ) -> None:
+        if self.config.include_field_max_value:
+            column_profile.max = str(self.dataset.get_column_max(column))
+
+    @_run_with_query_combiner
+    def _get_dataset_column_mean(
+        self, column_profile: DatasetFieldProfileClass, column: str
+    ) -> None:
+        if self.config.include_field_mean_value:
+            column_profile.mean = str(self.dataset.get_column_mean(column))
+
+    @_run_with_query_combiner
+    def _get_dataset_column_median(
+        self, column_profile: DatasetFieldProfileClass, column: str
+    ) -> None:
+        if self.config.include_field_median_value:
+            column_profile.median = str(self.dataset.get_column_median(column))
+
+    @_run_with_query_combiner
+    def _get_dataset_column_stdev(
+        self, column_profile: DatasetFieldProfileClass, column: str
+    ) -> None:
+        if self.config.include_field_stddev_value:
+            column_profile.stdev = str(self.dataset.get_column_stdev(column))
+
+    @_run_with_query_combiner
+    def _get_dataset_column_quantiles(
+        self, column_profile: DatasetFieldProfileClass, column: str
+    ) -> None:
+        if self.config.include_field_quantiles:
+            # FIXME: Eventually we'd like to switch to using the quantile method directly.
+            # However, that method seems to be throwing an error in some cases whereas
+            # this does not.
+            # values = dataset.get_column_quantiles(column, tuple(quantiles))
+
+            self.dataset.set_config_value("interactive_evaluation", True)
+            quantiles = [0.05, 0.25, 0.5, 0.75, 0.95]
+
+            res = self.dataset.expect_column_quantile_values_to_be_between(
+                column,
+                quantile_ranges={
+                    "quantiles": quantiles,
+                    "value_ranges": [[None, None]] * len(quantiles),
+                },
+            ).result
+            if "observed_value" in res:
+                column_profile.quantiles = [
+                    QuantileClass(quantile=str(quantile), value=str(value))
+                    for quantile, value in zip(
+                        res["observed_value"]["quantiles"],
+                        res["observed_value"]["values"],
+                    )
+                ]
+
+    @_run_with_query_combiner
+    def _get_dataset_column_distinct_value_frequencies(
+        self, column_profile: DatasetFieldProfileClass, column: str
+    ) -> None:
+        if self.config.include_field_distinct_value_frequencies:
+            column_profile.distinctValueFrequencies = [
+                ValueFrequencyClass(value=str(value), frequency=count)
+                for value, count in self.dataset.get_column_value_counts(column).items()
+            ]
+
+    @_run_with_query_combiner
+    def _get_dataset_column_histogram(
+        self, column_profile: DatasetFieldProfileClass, column: str
+    ) -> None:
+        if self.config.include_field_histogram:
+            self.dataset.set_config_value("interactive_evaluation", True)
+
+            res = self.dataset.expect_column_kl_divergence_to_be_less_than(
+                column,
+                partition_object=None,
+                threshold=None,
+                result_format="COMPLETE",
+            ).result
+            if "details" in res and "observed_partition" in res["details"]:
+                partition = res["details"]["observed_partition"]
+                column_profile.histogram = HistogramClass(
+                    [str(v) for v in partition["bins"]],
+                    [
+                        partition["tail_weights"][0],
+                        *partition["weights"],
+                        partition["tail_weights"][1],
+                    ],
+                )
+
+    @_run_with_query_combiner
     def _get_dataset_column_sample_values(
-        cls, dataset: Dataset, column: str
-    ) -> Optional[List[str]]:
-        dataset.set_config_value("interactive_evaluation", True)
+        self, column_profile: DatasetFieldProfileClass, column: str
+    ) -> None:
+        if self.config.include_field_sample_values:
+            self.dataset.set_config_value("interactive_evaluation", True)
 
-        res = dataset.expect_column_values_to_be_in_set(
-            column, [], result_format="SUMMARY"
-        ).result
-        return [str(v) for v in res["partial_unexpected_list"]]
+            res = self.dataset.expect_column_values_to_be_in_set(
+                column, [], result_format="SUMMARY"
+            ).result
+            column_profile.sampleValues = [
+                str(v) for v in res["partial_unexpected_list"]
+            ]
 
-    # For some reason Flake8 really wants the complexity annotation on both lines.
-    @classmethod  # noqa: C901 (complexity)
     def generate_dataset_profile(  # noqa: C901 (complexity)
-        cls,
-        dataset: Dataset,
-        dataset_name: str,
-        config: GEProfilingConfig,
-        report: SQLSourceReport,
+        self,
     ) -> DatasetProfileClass:
-        dataset.set_default_expectation_argument(
-            "catch_exceptions", config.catch_exceptions
+        self.dataset.set_default_expectation_argument(
+            "catch_exceptions", self.config.catch_exceptions
         )
 
         profile = DatasetProfileClass(timestampMillis=get_sys_time())
-
-        all_columns = dataset.get_table_columns()
-        columns_to_profile = cls._get_columns_to_profile(
-            dataset, dataset_name, config, report
-        )
-
-        row_count = dataset.get_row_count()
-        profile.rowCount = row_count
-        profile.columnCount = len(all_columns)
-
         profile.fieldProfiles = []
+        self._get_dataset_rows(profile)
+
+        all_columns = self.dataset.get_table_columns()
+        profile.columnCount = len(all_columns)
+        columns_to_profile = set(self._get_columns_to_profile())
+
+        logger.debug(f"profiling {self.dataset_name}: flushing stage 1 queries")
+        self.query_combiner.flush()
+
+        columns_profiling_queue: List[_SingleColumnSpec] = []
         for column in all_columns:
             column_profile = DatasetFieldProfileClass(fieldPath=column)
             profile.fieldProfiles.append(column_profile)
 
-            if column not in columns_to_profile:
-                continue
+            if column in columns_to_profile:
+                column_spec = _SingleColumnSpec(column, column_profile)
+                columns_profiling_queue.append(column_spec)
 
-            type_ = cls._get_column_type(dataset, column)
-            cardinality = cls._get_column_cardinality(dataset, column)
+                self._get_column_type(column_spec, column)
+                self._get_column_cardinality(column_spec, column)
 
-            if config.include_field_null_count:
-                non_null_count = dataset.get_column_nonnull_count(column)
+        logger.debug(f"profiling {self.dataset_name}: flushing stage 2 queries")
+        self.query_combiner.flush()
+
+        assert profile.rowCount is not None
+        row_count: int = profile.rowCount
+
+        for column_spec in columns_profiling_queue:
+            column = column_spec.column
+            column_profile = column_spec.column_profile
+            type_ = column_spec.type_
+            cardinality = column_spec.cardinality
+
+            non_null_count = column_spec.nonnull_count
+            unique_count = column_spec.unique_count
+
+            if self.config.include_field_null_count and non_null_count is not None:
                 null_count = row_count - non_null_count
                 assert null_count >= 0
                 column_profile.nullCount = null_count
                 if row_count > 0:
                     column_profile.nullProportion = null_count / row_count
-            else:
-                non_null_count = None
 
-            try:
-                unique_count = dataset.get_column_unique_count(column)
+            if unique_count is not None:
                 column_profile.uniqueCount = unique_count
                 if non_null_count is not None and non_null_count > 0:
                     column_profile.uniqueProportion = unique_count / non_null_count
-            except Exception:
-                logger.exception(
-                    f"Failed to get unique count for column {dataset_name}.{column}"
-                )
 
-            if config.include_field_sample_values:
-                column_profile.sampleValues = cls._get_dataset_column_sample_values(
-                    dataset, column
-                )
+            self._get_dataset_column_sample_values(column_profile, column)
 
             if type_ == ProfilerDataType.INT or type_ == ProfilerDataType.FLOAT:
-                if cardinality == ProfilerCardinality.UNIQUE:
+                if cardinality == OrderedProfilerCardinality.UNIQUE:
                     pass
                 elif cardinality in [
-                    ProfilerCardinality.ONE,
-                    ProfilerCardinality.TWO,
-                    ProfilerCardinality.VERY_FEW,
-                    ProfilerCardinality.FEW,
+                    OrderedProfilerCardinality.ONE,
+                    OrderedProfilerCardinality.TWO,
+                    OrderedProfilerCardinality.VERY_FEW,
+                    OrderedProfilerCardinality.FEW,
                 ]:
-                    if config.include_field_distinct_value_frequencies:
-                        column_profile.distinctValueFrequencies = (
-                            cls._get_dataset_column_distinct_value_frequencies(
-                                dataset, column
-                            )
-                        )
+                    self._get_dataset_column_distinct_value_frequencies(
+                        column_profile,
+                        column,
+                    )
                 elif cardinality in [
-                    ProfilerCardinality.MANY,
-                    ProfilerCardinality.VERY_MANY,
-                    ProfilerCardinality.UNIQUE,
+                    OrderedProfilerCardinality.MANY,
+                    OrderedProfilerCardinality.VERY_MANY,
+                    OrderedProfilerCardinality.UNIQUE,
                 ]:
-                    if config.include_field_min_value:
-                        column_profile.min = str(dataset.get_column_min(column))
-                    if config.include_field_max_value:
-                        column_profile.max = str(dataset.get_column_max(column))
-                    if config.include_field_mean_value:
-                        column_profile.mean = str(dataset.get_column_mean(column))
-                    if config.include_field_median_value:
-                        column_profile.median = str(dataset.get_column_median(column))
+                    self._get_dataset_column_min(column_profile, column)
+                    self._get_dataset_column_max(column_profile, column)
+                    self._get_dataset_column_mean(column_profile, column)
+                    self._get_dataset_column_median(column_profile, column)
                     if type_ == ProfilerDataType.INT:
-                        if config.include_field_stddev_value:
-                            column_profile.stdev = str(dataset.get_column_stdev(column))
+                        self._get_dataset_column_stdev(column_profile, column)
 
-                    if config.include_field_quantiles:
-                        column_profile.quantiles = cls._get_dataset_column_quantiles(
-                            dataset, column
-                        )
-                    if config.include_field_histogram:
-                        column_profile.histogram = cls._get_dataset_column_histogram(
-                            dataset, column
-                        )
+                    self._get_dataset_column_quantiles(column_profile, column)
+                    self._get_dataset_column_histogram(column_profile, column)
                 else:  # unknown cardinality - skip
                     pass
 
             elif type_ == ProfilerDataType.STRING:
                 if cardinality in [
-                    ProfilerCardinality.ONE,
-                    ProfilerCardinality.TWO,
-                    ProfilerCardinality.VERY_FEW,
-                    ProfilerCardinality.FEW,
+                    OrderedProfilerCardinality.ONE,
+                    OrderedProfilerCardinality.TWO,
+                    OrderedProfilerCardinality.VERY_FEW,
+                    OrderedProfilerCardinality.FEW,
                 ]:
-                    if config.include_field_distinct_value_frequencies:
-                        column_profile.distinctValueFrequencies = (
-                            cls._get_dataset_column_distinct_value_frequencies(
-                                dataset, column
-                            )
-                        )
+                    self._get_dataset_column_distinct_value_frequencies(
+                        column_profile,
+                        column,
+                    )
 
             elif type_ == ProfilerDataType.DATETIME:
-                if config.include_field_min_value:
-                    column_profile.min = str(dataset.get_column_min(column))
-                if config.include_field_max_value:
-                    column_profile.max = str(dataset.get_column_max(column))
+                self._get_dataset_column_min(column_profile, column)
+                self._get_dataset_column_max(column_profile, column)
 
                 # FIXME: Re-add histogram once kl_divergence has been modified to support datetimes
 
                 if cardinality in [
-                    ProfilerCardinality.ONE,
-                    ProfilerCardinality.TWO,
-                    ProfilerCardinality.VERY_FEW,
-                    ProfilerCardinality.FEW,
+                    OrderedProfilerCardinality.ONE,
+                    OrderedProfilerCardinality.TWO,
+                    OrderedProfilerCardinality.VERY_FEW,
+                    OrderedProfilerCardinality.FEW,
                 ]:
-                    if config.include_field_distinct_value_frequencies:
-                        column_profile.distinctValueFrequencies = (
-                            cls._get_dataset_column_distinct_value_frequencies(
-                                dataset, column
-                            )
-                        )
+                    self._get_dataset_column_distinct_value_frequencies(
+                        column_profile,
+                        column,
+                    )
 
             else:
                 if cardinality in [
-                    ProfilerCardinality.ONE,
-                    ProfilerCardinality.TWO,
-                    ProfilerCardinality.VERY_FEW,
-                    ProfilerCardinality.FEW,
+                    OrderedProfilerCardinality.ONE,
+                    OrderedProfilerCardinality.TWO,
+                    OrderedProfilerCardinality.VERY_FEW,
+                    OrderedProfilerCardinality.FEW,
                 ]:
-                    if config.include_field_distinct_value_frequencies:
-                        column_profile.distinctValueFrequencies = (
-                            cls._get_dataset_column_distinct_value_frequencies(
-                                dataset, column
-                            )
-                        )
+                    self._get_dataset_column_distinct_value_frequencies(
+                        column_profile,
+                        column,
+                    )
 
+        logger.debug(f"profiling {self.dataset_name}: flushing stage 3 queries")
+        self.query_combiner.flush()
         return profile
 
 
@@ -503,7 +651,12 @@ class DatahubGEProfiler:
     def generate_profiles(
         self, requests: List[GEProfilerRequest], max_workers: int
     ) -> Iterable[Tuple[GEProfilerRequest, Optional[DatasetProfileClass]]]:
-        with PerfTimer() as timer:
+        with PerfTimer() as timer, SQLAlchemyQueryCombiner(
+            enabled=self.config.query_combiner_enabled,
+            catch_exceptions=self.config.catch_exceptions,
+            is_single_row_query_method=_is_single_row_query_method,
+            serial_execution_fallback_enabled=True,
+        ).activate() as query_combiner:
             max_workers = min(max_workers, len(requests))
             logger.info(
                 f"Will profile {len(requests)} table(s) with {max_workers} worker(s) - this may take a while"
@@ -513,7 +666,8 @@ class DatahubGEProfiler:
             ) as async_executor:
                 async_profiles = [
                     async_executor.submit(
-                        self.generate_profile_from_request,
+                        self._generate_profile_from_request,
+                        query_combiner,
                         request,
                     )
                     for request in requests
@@ -529,16 +683,20 @@ class DatahubGEProfiler:
                 f"Profiling {len(requests)} table(s) finished in {(timer.elapsed_seconds()):.3f} seconds"
             )
 
-    def generate_profile_from_request(
-        self, request: GEProfilerRequest
+    def _generate_profile_from_request(
+        self,
+        query_combiner: SQLAlchemyQueryCombiner,
+        request: GEProfilerRequest,
     ) -> Tuple[GEProfilerRequest, Optional[DatasetProfileClass]]:
-        return request, self.generate_profile(
+        return request, self._generate_single_profile(
+            query_combiner,
             request.pretty_name,
             **request.batch_kwargs,
         )
 
-    def generate_profile(
+    def _generate_single_profile(
         self,
+        query_combiner: SQLAlchemyQueryCombiner,
         pretty_name: str,
         schema: str = None,
         table: str = None,
@@ -559,9 +717,9 @@ class DatahubGEProfiler:
                     },
                     pretty_name=pretty_name,
                 )
-                profile = _DatasetProfiler.generate_dataset_profile(
-                    batch, pretty_name, self.config, self.report
-                )
+                profile = _SingleDatasetProfiler(
+                    batch, pretty_name, self.config, self.report, query_combiner
+                ).generate_dataset_profile()
 
                 logger.info(
                     f"Finished profiling {pretty_name}; took {(timer.elapsed_seconds()):.3f} seconds"
@@ -586,12 +744,6 @@ class DatahubGEProfiler:
 
         # profile_results = ge_context.data_context.profile_data_asset(
         #     ge_context.datasource_name,
-        #     profiler=DatahubConfigurableProfiler,
-        #     profiler_configuration={
-        #         "config": self.config,
-        #         "dataset_name": pretty_name,
-        #         "report": self.report,
-        #     },
         #     batch_kwargs={
         #         "datasource": ge_context.datasource_name,
         #         **batch_kwargs,
