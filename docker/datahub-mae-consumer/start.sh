@@ -46,9 +46,16 @@ if [[ $ENABLE_PROMETHEUS == true ]]; then
   PROMETHEUS_AGENT="-javaagent:jmx_prometheus_javaagent.jar=4318:/datahub/datahub-mae-consumer/scripts/prometheus-config.yaml "
 fi
 
-dockerize \
-  $WAIT_FOR_KAFKA \
-  $WAIT_FOR_ELASTICSEARCH \
-  $WAIT_FOR_NEO4J \
-  -timeout 240s \
-  java $JAVA_OPTS $JMX_OPTS $OTEL_AGENT $PROMETHEUS_AGENT -jar /datahub/datahub-mae-consumer/bin/mae-consumer-job.jar
+COMMON="
+    $WAIT_FOR_KAFKA \
+    $WAIT_FOR_NEO4J \
+    -timeout 240s \
+    java $JAVA_OPTS $JMX_OPTS $OTEL_AGENT $PROMETHEUS_AGENT -jar /datahub/datahub-mae-consumer/bin/mae-consumer-job.jar
+"
+if [[ $SKIP_ELASTICSEARCH_CHECK != true ]]; then
+  dockerize $COMMON
+else
+  dockerize \
+    -wait $ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_HOST:$ELASTICSEARCH_PORT -wait-http-header "$ELASTICSEARCH_AUTH_HEADER" \
+    $COMMON
+fi
