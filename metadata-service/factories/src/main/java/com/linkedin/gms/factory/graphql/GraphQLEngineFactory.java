@@ -1,6 +1,7 @@
 package com.linkedin.gms.factory.graphql;
 
 import com.datahub.authentication.token.TokenService;
+
 import com.linkedin.datahub.graphql.GmsGraphQLEngine;
 import com.linkedin.datahub.graphql.GraphQLEngine;
 import com.linkedin.datahub.graphql.analytics.service.AnalyticsService;
@@ -8,9 +9,11 @@ import com.linkedin.entity.client.JavaEntityClient;
 import com.linkedin.gms.factory.auth.DataHubTokenServiceFactory;
 import com.linkedin.gms.factory.common.IndexConventionFactory;
 import com.linkedin.gms.factory.common.RestHighLevelClientFactory;
+import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.gms.factory.entity.RestliEntityClientFactory;
 import com.linkedin.gms.factory.recommendation.RecommendationServiceFactory;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.recommendation.RecommendationsService;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
@@ -26,8 +29,14 @@ import org.springframework.context.annotation.Import;
 
 
 @Configuration
-@Import({RestHighLevelClientFactory.class, IndexConventionFactory.class, RestliEntityClientFactory.class, RecommendationServiceFactory.class,
-    DataHubTokenServiceFactory.class})
+@Import({
+    RestHighLevelClientFactory.class,
+    IndexConventionFactory.class,
+    RestliEntityClientFactory.class,
+    RecommendationServiceFactory.class,
+    EntityRegistryFactory.class,
+    DataHubTokenServiceFactory.class
+})
 public class GraphQLEngineFactory {
   @Autowired
   @Qualifier("elasticSearchRestHighLevelClient")
@@ -60,6 +69,10 @@ public class GraphQLEngineFactory {
   @Qualifier("dataHubTokenService")
   private TokenService _tokenService;
 
+  @Autowired
+  @Qualifier("entityRegistry")
+  private EntityRegistry _entityRegistry;
+
   @Value("${platformAnalytics.enabled}") // TODO: Migrate to DATAHUB_ANALYTICS_ENABLED
   private Boolean isAnalyticsEnabled;
 
@@ -74,8 +87,8 @@ public class GraphQLEngineFactory {
           new AnalyticsService(elasticClient, indexConvention.getPrefix()),
           _entityService,
           _recommendationsService,
-          _tokenService
-          ).builder().build();
+          _tokenService,
+          _entityRegistry).builder().build();
     }
     return new GmsGraphQLEngine(
         _entityClient,
@@ -84,6 +97,7 @@ public class GraphQLEngineFactory {
         null,
         _entityService,
         _recommendationsService,
-        _tokenService).builder().build();
+        _tokenService,
+        _entityRegistry).builder().build();
   }
 }
