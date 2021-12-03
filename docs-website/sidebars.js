@@ -87,7 +87,7 @@ module.exports = {
       },
       {
         Scheduling: list_ids_in_directory("metadata-ingestion/schedule_docs"),
-      }
+      },
     ],
     "Metadata Modeling": [
       "docs/modeling/metadata-model",
