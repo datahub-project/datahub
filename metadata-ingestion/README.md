@@ -212,16 +212,14 @@ In some cases, you might want to configure and run a pipeline entirely from with
 
 ## Lineage with Airflow
 
-There's a couple ways to get lineage information from Airflow into DataHub.
+There's a couple ways to get lineage information from Airflow into DataHub. 
 
 :::note
 
-If you're simply looking to run ingestion on a schedule, take a look at these sample DAGs:
-
-- [`generic_recipe_sample_dag.py`](./src/datahub_provider/example_dags/generic_recipe_sample_dag.py) - reads a DataHub ingestion recipe file and runs it
-- [`mysql_sample_dag.py`](./src/datahub_provider/example_dags/mysql_sample_dag.py) - runs a MySQL metadata ingestion pipeline using an inlined configuration.
+Instead, if you wish to schedule your ingestion receipes through airflow look [here](./schedule_docs/airflow.md)
 
 :::
+
 
 ### Using Datahub's Airflow lineage backend (recommended)
 
