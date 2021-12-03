@@ -14,7 +14,7 @@ record SchemaField {
    */
   @Searchable = {
     "fieldName": "fieldPaths",
-    "fieldType": "TEXT_PARTIAL"
+    "fieldType": "TEXT"
   }
   fieldPath: SchemaFieldPath
 
@@ -59,7 +59,7 @@ record SchemaField {
   @Searchable = {
     "/tags/*/tag": {
       "fieldName": "fieldTags",
-      "fieldType": "URN_PARTIAL",
+      "fieldType": "URN",
       "boostScore": 0.5
     }
   }
@@ -71,7 +71,7 @@ record SchemaField {
    @Searchable = {
     "/terms/*/urn": {
       "fieldName": "fieldGlossaryTerms",
-      "fieldType": "URN_PARTIAL",
+      "fieldType": "URN",
       "boostScore": 0.5
     }
   }

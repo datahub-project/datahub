@@ -8,6 +8,7 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.gms.factory.common.GraphServiceFactory;
 import com.linkedin.gms.factory.common.SystemMetadataServiceFactory;
 import com.linkedin.gms.factory.search.EntitySearchServiceFactory;
+import com.linkedin.gms.factory.search.SearchDocumentTransformerFactory;
 import com.linkedin.metadata.EventUtils;
 import com.linkedin.metadata.dao.utils.RecordUtils;
 import com.linkedin.metadata.extractor.AspectExtractor;
@@ -57,22 +58,25 @@ import static com.linkedin.metadata.search.utils.QueryUtils.createRelationshipFi
 @Slf4j
 @Component
 @Conditional(MetadataChangeLogProcessorCondition.class)
-@Import({GraphServiceFactory.class, EntitySearchServiceFactory.class, SystemMetadataServiceFactory.class})
+@Import({GraphServiceFactory.class, EntitySearchServiceFactory.class, SystemMetadataServiceFactory.class,
+    SearchDocumentTransformerFactory.class})
 @EnableKafka
 public class MetadataAuditEventsProcessor {
 
   private final GraphService _graphService;
   private final EntitySearchService _entitySearchService;
   private final SystemMetadataService _systemMetadataService;
+  private final SearchDocumentTransformer _searchDocumentTransformer;
 
   private final Histogram kafkaLagStats = MetricUtils.get().histogram(MetricRegistry.name(this.getClass(), "kafkaLag"));
 
   @Autowired
   public MetadataAuditEventsProcessor(GraphService graphService, EntitySearchService entitySearchService,
-      SystemMetadataService systemMetadataService) {
+      SystemMetadataService systemMetadataService, SearchDocumentTransformer searchDocumentTransformer) {
     _graphService = graphService;
     _entitySearchService = entitySearchService;
     _systemMetadataService = systemMetadataService;
+    _searchDocumentTransformer = searchDocumentTransformer;
 
     _graphService.configure();
     _entitySearchService.configure();
@@ -176,7 +180,7 @@ public class MetadataAuditEventsProcessor {
     Optional<String> searchDocument;
 
     try {
-      searchDocument = SearchDocumentTransformer.transformSnapshot(snapshot, entitySpec, false);
+      searchDocument = _searchDocumentTransformer.transformSnapshot(snapshot, entitySpec, false);
     } catch (Exception e) {
       log.error("Error in getting documents from snapshot: {} for snapshot {}", e, snapshot);
       return;
