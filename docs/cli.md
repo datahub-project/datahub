@@ -4,7 +4,7 @@ DataHub comes with a friendly cli called `datahub` that allows you to perform a 
 
 ## Use through docker image
 
-You can use the `datahub-ingestion` docker image as explained in [Docker Images](../../docker/README.md). In case you are using Kubernetes you can start a pod with the `datahub-ingestion` docker image, log onto a shell on the pod and you should have the access to datahub CLI in your kubernetes cluster.
+You can use the `datahub-ingestion` docker image as explained in [Docker Images](../docker/README.md). In case you are using Kubernetes you can start a pod with the `datahub-ingestion` docker image, log onto a shell on the pod and you should have the access to datahub CLI in your kubernetes cluster.
 
 ## Use through installing python package through pip
 
