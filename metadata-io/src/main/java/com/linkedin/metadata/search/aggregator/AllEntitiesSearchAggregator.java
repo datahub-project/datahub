@@ -13,6 +13,7 @@ import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.FilterValueArray;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
+import com.linkedin.metadata.search.SearchOptions;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.metadata.search.cache.EntitySearchServiceCache;
@@ -64,7 +65,7 @@ public class AllEntitiesSearchAggregator {
   @Nonnull
   @WithSpan
   public SearchResult search(@Nonnull List<String> entities, @Nonnull String input, @Nullable Filter postFilters,
-      @Nullable SortCriterion sortCriterion, int queryFrom, int querySize) {
+      @Nullable SortCriterion sortCriterion, int queryFrom, int querySize, @Nullable SearchOptions searchOptions) {
     log.info(String.format(
         "Searching Search documents across entities: %s, input: %s, postFilters: %s, sortCriterion: %s, from: %s, size: %s",
         entities, input, postFilters, sortCriterion, queryFrom, querySize));
@@ -81,7 +82,8 @@ public class AllEntitiesSearchAggregator {
 
     // 2. Get search results for each entity
     Map<String, SearchResult> searchResults =
-        getSearchResultsForEachEntity(nonEmptyEntities, input, postFilters, sortCriterion, queryFrom, querySize);
+        getSearchResultsForEachEntity(nonEmptyEntities, input, postFilters, sortCriterion, queryFrom, querySize,
+            searchOptions);
 
     if (searchResults.isEmpty()) {
       return getEmptySearchResult(queryFrom, querySize);
@@ -139,12 +141,13 @@ public class AllEntitiesSearchAggregator {
 
   @WithSpan
   private Map<String, SearchResult> getSearchResultsForEachEntity(@Nonnull List<String> entities, @Nonnull String input,
-      @Nullable Filter postFilters, @Nullable SortCriterion sortCriterion, int queryFrom, int querySize) {
+      @Nullable Filter postFilters, @Nullable SortCriterion sortCriterion, int queryFrom, int querySize,
+      @Nullable SearchOptions searchOptions) {
     Map<String, SearchResult> searchResults;
     // Query the entity search service for all entities asynchronously
     try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "searchEntities").time()) {
       searchResults = ConcurrencyUtils.transformAndCollectAsync(entities, entity -> new Pair<>(entity,
-          _entitySearchServiceCache.getSearcher(entity, input, postFilters, sortCriterion)
+          _entitySearchServiceCache.getSearcher(entity, input, postFilters, sortCriterion, searchOptions)
               .getSearchResults(queryFrom, querySize)))
           .stream()
           .filter(pair -> pair.getValue().getNumEntities() > 0)

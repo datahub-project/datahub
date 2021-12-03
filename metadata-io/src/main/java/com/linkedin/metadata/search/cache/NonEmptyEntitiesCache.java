@@ -19,7 +19,11 @@ public class NonEmptyEntitiesCache {
   private final CacheManager _cacheManager;
 
   @WithSpan
-  public List<String> getNonEmptyEntities() {
+  public List<String> getNonEmptyEntities(boolean skipCache) {
+    if (skipCache) {
+      return fetchNonEmptyEntities();
+    }
+
     Cache.ValueWrapper cachedResult =
         _cacheManager.getCache(NON_EMPTY_ENTITIES_CACHE_NAME).get(NON_EMPTY_ENTITIES_CACHE_NAME);
 
@@ -27,12 +31,20 @@ public class NonEmptyEntitiesCache {
       return (List<String>) cachedResult.get();
     }
 
-    List<String> nonEmptyEntities = _entityRegistry.getEntitySpecs()
+    List<String> nonEmptyEntities = fetchNonEmptyEntities();
+    _cacheManager.getCache(NON_EMPTY_ENTITIES_CACHE_NAME).put(NON_EMPTY_ENTITIES_CACHE_NAME, nonEmptyEntities);
+    return nonEmptyEntities;
+  }
+
+  public List<String> getNonEmptyEntities() {
+    return getNonEmptyEntities(false);
+  }
+
+  private List<String> fetchNonEmptyEntities() {
+    return _entityRegistry.getEntitySpecs()
         .keySet()
         .stream()
         .filter(entity -> _entitySearchService.docCount(entity) > 0)
         .collect(Collectors.toList());
-    _cacheManager.getCache(NON_EMPTY_ENTITIES_CACHE_NAME).put(NON_EMPTY_ENTITIES_CACHE_NAME, nonEmptyEntities);
-    return nonEmptyEntities;
   }
 }

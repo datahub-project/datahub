@@ -1,0 +1,11 @@
+namespace com.linkedin.metadata.search
+
+/**
+ * Set of options to pass to search
+ */
+record SearchOptions {
+  /**
+   * Skip cache and get latest results
+   */
+  skipCache: boolean = false
+}

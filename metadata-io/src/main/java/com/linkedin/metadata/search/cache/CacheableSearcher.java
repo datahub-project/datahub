@@ -24,6 +24,7 @@ public class CacheableSearcher<K> {
   private final Function<QueryPagination, SearchResult> searcher;
   // Function that generates the cache key given the query batch (from, size)
   private final Function<QueryPagination, K> cacheKeyGenerator;
+  private final boolean skipCache;
 
   @Value
   public static class QueryPagination {
@@ -37,6 +38,10 @@ public class CacheableSearcher<K> {
    * This let's us have batches that return a variable number of results (we have no idea which batch the "from" "size" page corresponds to)
    */
   public SearchResult getSearchResults(int from, int size) {
+    // If skip cache is set, simply call the underlying searcher
+    if (skipCache) {
+      return searcher.apply(new QueryPagination(from, size));
+    }
     int resultsSoFar = 0;
     int batchId = 0;
     boolean foundStart = false;

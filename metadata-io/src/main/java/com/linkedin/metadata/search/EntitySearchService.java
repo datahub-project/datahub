@@ -54,11 +54,12 @@ public interface EntitySearchService {
    * @param sortCriterion {@link SortCriterion} to be applied to search results
    * @param from index to start the search from
    * @param size the number of search hits to return
+   * @param searchOptions Additional options to pass to search
    * @return a {@link com.linkedin.metadata.dao.SearchResult} that contains a list of matched documents and related search result metadata
    */
   @Nonnull
   SearchResult search(@Nonnull String entityName, @Nonnull String input, @Nullable Filter postFilters,
-      @Nullable SortCriterion sortCriterion, int from, int size);
+      @Nullable SortCriterion sortCriterion, int from, int size, SearchOptions searchOptions);
 
   /**
    * Gets a list of documents after applying the input filters.

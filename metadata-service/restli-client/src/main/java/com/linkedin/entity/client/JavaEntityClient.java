@@ -191,7 +191,7 @@ public class JavaEntityClient implements EntityClient {
         int count,
         @Nonnull final Authentication authentication)
         throws RemoteInvocationException {
-        return _entitySearchService.search(entity, input, newFilter(requestFilters), null, start, count);
+        return _entitySearchService.search(entity, input, newFilter(requestFilters), null, start, count, );
     }
 
     /**
@@ -234,7 +234,7 @@ public class JavaEntityClient implements EntityClient {
         int count,
         @Nonnull final Authentication authentication)
         throws RemoteInvocationException {
-        return _entitySearchService.search(entity, input, filter, null, start, count);
+        return _entitySearchService.search(entity, input, filter, null, start, count, );
     }
 
     /**

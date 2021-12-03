@@ -4,6 +4,7 @@ import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.search.SearchOptions;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Collections;
@@ -75,5 +76,9 @@ public class SearchUtils {
       log.error("Can't read file: " + filePath);
       throw new RuntimeException("Can't read file: " + filePath);
     }
+  }
+
+  public static boolean skipCache(@Nullable SearchOptions options) {
+    return options != null && options.isSkipCache();
   }
 }

@@ -226,7 +226,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
 
     log.info("GET SEARCH RESULTS for {} with query {}", entityName, input);
     // TODO - change it to use _searchService once we are confident on it's latency
-    return RestliUtil.toTask(() -> _entitySearchService.search(entityName, input, filter, sortCriterion, start, count),
+    return RestliUtil.toTask(() -> _entitySearchService.search(entityName, input, filter, sortCriterion, start, count, ),
         MetricRegistry.name(this.getClass(), "search"));
   }
 

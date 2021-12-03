@@ -97,7 +97,7 @@ public class ElasticSearchServiceTest {
 
   @Test
   public void testElasticSearchService() throws Exception {
-    SearchResult searchResult = _elasticSearchService.search(ENTITY_NAME, "test", null, null, 0, 10);
+    SearchResult searchResult = _elasticSearchService.search(ENTITY_NAME, "test", null, null, 0, 10, null);
     assertEquals(searchResult.getNumEntities().intValue(), 0);
     BrowseResult browseResult = _elasticSearchService.browse(ENTITY_NAME, "", null, 0, 10);
     assertEquals(browseResult.getMetadata().getTotalNumEntities().longValue(), 0);
@@ -113,7 +113,7 @@ public class ElasticSearchServiceTest {
     _elasticSearchService.upsertDocument(ENTITY_NAME, document.toString(), urn.toString());
     syncAfterWrite(_searchClient);
 
-    searchResult = _elasticSearchService.search(ENTITY_NAME, "test", null, null, 0, 10);
+    searchResult = _elasticSearchService.search(ENTITY_NAME, "test", null, null, 0, 10, null);
     assertEquals(searchResult.getNumEntities().intValue(), 1);
     assertEquals(searchResult.getEntities().get(0).getEntity(), urn);
     browseResult = _elasticSearchService.browse(ENTITY_NAME, "", null, 0, 10);
@@ -135,7 +135,7 @@ public class ElasticSearchServiceTest {
     _elasticSearchService.upsertDocument(ENTITY_NAME, document2.toString(), urn2.toString());
     syncAfterWrite(_searchClient);
 
-    searchResult = _elasticSearchService.search(ENTITY_NAME, "test", null, null, 0, 10);
+    searchResult = _elasticSearchService.search(ENTITY_NAME, "test", null, null, 0, 10, null);
     assertEquals(searchResult.getNumEntities().intValue(), 1);
     assertEquals(searchResult.getEntities().get(0).getEntity(), urn);
     browseResult = _elasticSearchService.browse(ENTITY_NAME, "", null, 0, 10);
@@ -152,7 +152,7 @@ public class ElasticSearchServiceTest {
     _elasticSearchService.deleteDocument(ENTITY_NAME, urn.toString());
     _elasticSearchService.deleteDocument(ENTITY_NAME, urn2.toString());
     syncAfterWrite(_searchClient);
-    searchResult = _elasticSearchService.search(ENTITY_NAME, "test", null, null, 0, 10);
+    searchResult = _elasticSearchService.search(ENTITY_NAME, "test", null, null, 0, 10, null);
     assertEquals(searchResult.getNumEntities().intValue(), 0);
     browseResult = _elasticSearchService.browse(ENTITY_NAME, "", null, 0, 10);
     assertEquals(browseResult.getMetadata().getTotalNumEntities().longValue(), 0);
