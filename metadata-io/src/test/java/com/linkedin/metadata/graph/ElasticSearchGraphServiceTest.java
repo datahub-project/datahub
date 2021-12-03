@@ -27,16 +27,8 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
-<<<<<<< HEAD
-import javax.annotation.Nonnull;
-import java.util.Comparator;
-import java.util.HashSet;
-import java.util.List;
-
 import static com.linkedin.metadata.DockerTestUtils.checkContainerEngine;
-=======
 import static com.linkedin.metadata.graph.elastic.ElasticSearchGraphService.INDEX_NAME;
->>>>>>> private/dl--reduce-source
 import static org.testng.Assert.assertEquals;
 
 

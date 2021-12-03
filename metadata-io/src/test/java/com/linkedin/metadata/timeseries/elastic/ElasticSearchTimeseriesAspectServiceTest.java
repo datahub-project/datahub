@@ -51,15 +51,10 @@ import org.testng.annotations.AfterTest;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
-<<<<<<< HEAD
 import static com.linkedin.metadata.DockerTestUtils.checkContainerEngine;
-import static com.linkedin.metadata.ElasticSearchTestUtils.*;
-import static org.testng.Assert.*;
-=======
 import static com.linkedin.metadata.ElasticSearchTestUtils.syncAfterWrite;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
->>>>>>> private/dl--reduce-source
 
 
 public class ElasticSearchTimeseriesAspectServiceTest {
