@@ -85,6 +85,9 @@ module.exports = {
       {
         Sinks: list_ids_in_directory("metadata-ingestion/sink_docs"),
       },
+      {
+        Scheduling: list_ids_in_directory("metadata-ingestion/schedule_docs"),
+      }
     ],
     "Metadata Modeling": [
       "docs/modeling/metadata-model",
