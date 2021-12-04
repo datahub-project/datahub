@@ -271,6 +271,8 @@ class DataLakeSourceConfig(ConfigModel):
     platform: str
     base_path: str
 
+    use_relative_path: bool = False
+
     aws_config: Optional[AwsSourceConfig] = None
 
     schema_patterns: AllowDenyPattern = AllowDenyPattern.allow_all()
@@ -793,10 +795,13 @@ class DataLakeSource(Source):
         return df.toDF(*(c.replace(".", "_") for c in df.columns))
 
     def get_table_schema(
-        self, dataframe: DataFrame, file_path: str
+        self, dataframe: DataFrame, file_path: str, relative_path: str
     ) -> Iterable[MetadataWorkUnit]:
 
-        datasetUrn = f"urn:li:dataset:(urn:li:dataPlatform:{self.source_config.platform},{file_path},{self.source_config.env})"
+        if self.source_config.use_relative_path:
+            datasetUrn = f"urn:li:dataset:(urn:li:dataPlatform:{self.source_config.platform},{file_path},{self.source_config.env})"
+        else:
+            datasetUrn = f"urn:li:dataset:(urn:li:dataPlatform:{self.source_config.platform},{relative_path},{self.source_config.env})"
         dataset_snapshot = DatasetSnapshot(
             urn=datasetUrn,
             aspects=[],
@@ -837,9 +842,11 @@ class DataLakeSource(Source):
         self.report.report_workunit(wu)
         yield wu
 
-    def ingest_table(self, file: str) -> Iterable[MetadataWorkUnit]:
+    def ingest_table(
+        self, full_path: str, relative_path: str
+    ) -> Iterable[MetadataWorkUnit]:
 
-        table = self.read_file(file)
+        table = self.read_file(full_path)
 
         # if table is not readable, skip
         if table is None:
@@ -847,9 +854,9 @@ class DataLakeSource(Source):
 
         # yield the table schema first
         logger.debug(
-            f"Ingesting {file}: making table schemas {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
+            f"Ingesting {full_path}: making table schemas {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
         )
-        yield from self.get_table_schema(table, file)
+        yield from self.get_table_schema(table, full_path, relative_path)
 
         # If profiling is not enabled, skip the rest
         if not self.source_config.profiling.enabled:
@@ -857,21 +864,21 @@ class DataLakeSource(Source):
 
         # init PySpark analysis object
         logger.debug(
-            f"Profiling {file}: reading file and computing nulls+uniqueness {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
+            f"Profiling {full_path}: reading file and computing nulls+uniqueness {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
         )
         table_profiler = _SingleTableProfiler(
-            table, self.spark, self.source_config.profiling, self.report, file
+            table, self.spark, self.source_config.profiling, self.report, full_path
         )
 
         # TODO: implement ignored columns and max number of fields to profile
         logger.debug(
-            f"Profiling {file}: preparing profilers to run {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
+            f"Profiling {full_path}: preparing profilers to run {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
         )
         table_profiler.prepare_table_profiles()
 
         # compute the profiles
         logger.debug(
-            f"Profiling {file}: computing profiles {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
+            f"Profiling {full_path}: computing profiles {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
         )
         analysis_result = table_profiler.analyzer.run()
         analysis_metrics = AnalyzerContext.successMetricsAsDataFrame(
@@ -879,19 +886,19 @@ class DataLakeSource(Source):
         )
 
         logger.debug(
-            f"Profiling {file}: extracting profiles {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
+            f"Profiling {full_path}: extracting profiles {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
         )
         table_profiler.extract_table_profiles(analysis_metrics)
 
         mcp = MetadataChangeProposalWrapper(
             entityType="dataset",
-            entityUrn=f"urn:li:dataset:(urn:li:dataPlatform:{self.source_config.platform},{file},{self.source_config.env})",
+            entityUrn=f"urn:li:dataset:(urn:li:dataPlatform:{self.source_config.platform},{full_path},{self.source_config.env})",
             changeType=ChangeTypeClass.UPSERT,
             aspectName="datasetProfile",
             aspect=table_profiler.profile,
         )
         wu = MetadataWorkUnit(
-            id=f"profile-{self.source_config.platform}-{file}", mcp=mcp
+            id=f"profile-{self.source_config.platform}-{full_path}", mcp=mcp
         )
         self.report.report_workunit(wu)
         yield wu
@@ -934,11 +941,12 @@ class DataLakeSource(Source):
 
                 obj_path = f"s3a://{obj.bucket_name}/{obj.key}"
 
-                unordered_files.append(obj_path)
+                # TODO: fix relative path here
+                unordered_files.append({"full_path":obj_path, "relative_path":obj.key})
 
             for file in sorted(unordered_files):
 
-                yield from self.ingest_table(file)
+                yield from self.ingest_table(file, )
         else:
             for root, dirs, files in os.walk(self.source_config.base_path):
                 for file in sorted(files):
@@ -949,7 +957,7 @@ class DataLakeSource(Source):
                     if not self.source_config.schema_patterns.allowed(file_path):
                         continue
 
-                    yield from self.ingest_table(os.path.join(root, file))
+                    yield from self.ingest_table(os.path.join(root, file), file)
 
     def get_report(self):
         return self.report

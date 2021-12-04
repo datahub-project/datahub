@@ -23,7 +23,7 @@ def test_data_lake_ingest(pytestconfig, tmp_path, mock_time):
                     "aws_config": {
                         "aws_region": "us-east-2",
                     },
-                    "schema_patterns": {"allow": [".*_2.csv"]},
+                    "schema_patterns": {"allow": [".*.csv"]},
                     "profiling": {
                         "enabled": True,
                         "profile_table_level_only": True,
