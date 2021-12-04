@@ -106,7 +106,8 @@ public class EbeanEntityServiceTest {
     _mockProducer = mock(EntityEventProducer.class);
     _aspectDao = new EbeanAspectDao(_server);
     _aspectDao.setConnectionValidated(true);
-    _entityService = new EbeanEntityService(_aspectDao, _mockProducer, _testEntityRegistry);
+    _entityService =
+        new EbeanEntityService(_aspectDao, _mockProducer, _testEntityRegistry, new RetentionStore(_testEntityRegistry));
   }
 
   @Test

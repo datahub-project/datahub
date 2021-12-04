@@ -1,5 +1,6 @@
 package com.linkedin.metadata.entity;
 
+import com.codahale.metrics.Timer;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
 import com.linkedin.common.AuditStamp;
@@ -19,6 +20,7 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.ListUrnsResult;
+import com.linkedin.metadata.retention.Retention;
 import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.search.utils.BrowsePathUtils;
 import com.linkedin.metadata.snapshot.Snapshot;
@@ -26,11 +28,13 @@ import com.linkedin.metadata.utils.DataPlatformInstanceUtils;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericAspectUtils;
 import com.linkedin.metadata.utils.PegasusUtils;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataAuditOperation;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
+import io.opentelemetry.extension.annotations.WithSpan;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -38,9 +42,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 
 import static com.linkedin.metadata.Constants.ASPECT_LATEST_VERSION;
@@ -87,15 +94,18 @@ public abstract class EntityService {
 
   private final EntityEventProducer _producer;
   private final EntityRegistry _entityRegistry;
+  private final RetentionStore _retentionStore;
   private final Map<String, Set<String>> _entityToValidAspects;
-  private Boolean _emitAspectSpecificAuditEvent = false;
+  private Boolean _alwaysEmitAuditEvent = false;
   public static final String DEFAULT_RUN_ID = "no-run-id-provided";
   public static final String BROWSE_PATHS = "browsePaths";
   public static final String DATA_PLATFORM_INSTANCE = "dataPlatformInstance";
 
-  protected EntityService(@Nonnull final EntityEventProducer producer, @Nonnull final EntityRegistry entityRegistry) {
+  protected EntityService(@Nonnull final EntityEventProducer producer, @Nonnull final EntityRegistry entityRegistry,
+      @Nonnull final RetentionStore retentionStore) {
     _producer = producer;
     _entityRegistry = entityRegistry;
+    _retentionStore = retentionStore;
     _entityToValidAspects = buildEntityToValidAspects(entityRegistry);
   }
 
@@ -147,6 +157,47 @@ public abstract class EntityService {
       @Nonnull final String aspectName, final int start, int count);
 
   /**
+   * Checks whether there is an actual update to the aspect by applying the updateLambda
+   * If there is an update, push the new version into the local DB.
+   * Otherwise, do not push the new version, but just update the system metadata.
+   *
+   * @param urn an urn associated with the new aspect
+   * @param aspectName name of the aspect being inserted
+   * @param updateLambda Function to apply to the latest version of the aspect to get the updated version
+   * @param auditStamp an {@link AuditStamp} containing metadata about the writer & current time   * @param providedSystemMetadata
+   * @return Details about the new and old version of the aspect
+   */
+  @Nonnull
+  protected abstract UpdateAspectResult ingestAspectToLocalDB(@Nonnull final Urn urn, @Nonnull final String aspectName,
+      @Nonnull final Function<Optional<RecordTemplate>, RecordTemplate> updateLambda,
+      @Nonnull final AuditStamp auditStamp, @Nonnull final SystemMetadata providedSystemMetadata);
+
+  /**
+   * Apply the specified list of retention policies to the urn and aspect pair
+   * @param urn an urn associated with the new aspect
+   * @param aspectName name of the aspect being inserted
+   * @param updateAspectResult result of the update that triggered this function (empty if update did not trigger it)
+   * @param retentionPolicies list of retention policies to apply
+   */
+  protected abstract void applyRetention(@Nonnull final Urn urn, @Nonnull final String aspectName,
+      Optional<UpdateAspectResult> updateAspectResult, @Nonnull List<Retention> retentionPolicies);
+
+  /**
+   * Fetch appropriate retention policies for the given urn and aspect name,
+   * then apply the specified list of retention policies to the urn and aspect pair
+   * @param urn an urn associated with the new aspect
+   * @param aspectName name of the aspect being inserted
+   */
+  @WithSpan
+  private void applyRetention(@Nonnull final Urn urn, @Nonnull final String aspectName,
+      Optional<UpdateAspectResult> updateAspectResult) {
+    log.debug(String.format("Applying retention for ingested aspect %s, urn %s", aspectName, urn));
+    try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "applyRetention").time()) {
+      applyRetention(urn, aspectName, updateAspectResult, _retentionStore.getRetentionForEntity(urn.getEntityType()));
+    }
+  }
+
+  /**
    * Ingests (inserts) a new version of an entity aspect & emits a {@link com.linkedin.mxe.MetadataAuditEvent}.
    *
    * Note that in general, this should not be used externally. It is currently serving upgrade scripts and
@@ -159,8 +210,46 @@ public abstract class EntityService {
    * @param systemMetadata
    * @return the {@link RecordTemplate} representation of the written aspect object
    */
-  public abstract RecordTemplate ingestAspect(@Nonnull final Urn urn, @Nonnull final String aspectName,
-      @Nonnull final RecordTemplate newValue, @Nonnull final AuditStamp auditStamp, SystemMetadata systemMetadata);
+  public RecordTemplate ingestAspect(@Nonnull final Urn urn, @Nonnull final String aspectName,
+      @Nonnull final RecordTemplate newValue, @Nonnull final AuditStamp auditStamp, SystemMetadata systemMetadata) {
+
+    log.debug("Invoked ingestAspect with urn: {}, aspectName: {}, newValue: {}", urn, aspectName, newValue);
+
+    if (!urn.toString().trim().equals(urn.toString())) {
+      throw new IllegalArgumentException("Error: cannot provide an URN with leading or trailing whitespace");
+    }
+
+    Timer.Context ingestToLocalDBTimer = MetricUtils.timer(this.getClass(), "ingestAspectToLocalDB").time();
+    UpdateAspectResult result = ingestAspectToLocalDB(urn, aspectName, ignored -> newValue, auditStamp, systemMetadata);
+    ingestToLocalDBTimer.stop();
+
+    final RecordTemplate oldValue = result.getOldValue();
+    final RecordTemplate updatedValue = result.getNewValue();
+
+    // Apply retention policies asynchronously if there was an update to existing aspect value
+    if (oldValue != updatedValue && oldValue != null) {
+      CompletableFuture.runAsync(() -> applyRetention(urn, aspectName, Optional.of(result)));
+    }
+
+    // Produce MAE after a successful update
+    if (oldValue != updatedValue || _alwaysEmitAuditEvent) {
+      log.debug(String.format("Producing MetadataAuditEvent for ingested aspect %s, urn %s", aspectName, urn));
+      Timer.Context produceMAETimer = MetricUtils.timer(this.getClass(), "produceMAE").time();
+      if (aspectName.equals(getKeyAspectName(urn))) {
+        produceMetadataAuditEventForKey(urn, result.getNewSystemMetadata());
+      } else {
+        produceMetadataAuditEvent(urn, oldValue, updatedValue, result.getOldSystemMetadata(),
+            result.getNewSystemMetadata(), MetadataAuditOperation.UPDATE);
+      }
+      produceMAETimer.stop();
+    } else {
+      log.debug(
+          String.format("Skipped producing MetadataAuditEvent for ingested aspect %s, urn %s. Aspect has not changed.",
+              aspectName, urn));
+    }
+
+    return updatedValue;
+  }
 
   public RecordTemplate ingestAspect(@Nonnull final Urn urn, @Nonnull final String aspectName,
       @Nonnull final RecordTemplate newValue, @Nonnull final AuditStamp auditStamp) {
@@ -483,12 +572,12 @@ public abstract class EntityService {
             entry -> entry.getAspectSpecs().stream().map(AspectSpec::getName).collect(Collectors.toSet())));
   }
 
-  public Boolean getEmitAspectSpecificAuditEvent() {
-    return _emitAspectSpecificAuditEvent;
+  public Boolean getAlwaysEmitAuditEvent() {
+    return _alwaysEmitAuditEvent;
   }
 
-  public void setEmitAspectSpecificAuditEvent(Boolean emitAspectSpecificAuditEvent) {
-    _emitAspectSpecificAuditEvent = emitAspectSpecificAuditEvent;
+  public void setAlwaysEmitAuditEvent(Boolean alwaysEmitAuditEvent) {
+    _alwaysEmitAuditEvent = alwaysEmitAuditEvent;
   }
 
   public EntityRegistry getEntityRegistry() {
@@ -517,4 +606,15 @@ public abstract class EntityService {
   public abstract RollbackRunResult deleteUrn(Urn urn);
 
   public abstract Boolean exists(Urn urn);
+
+  @Value
+  public static class UpdateAspectResult {
+    Urn urn;
+    RecordTemplate oldValue;
+    RecordTemplate newValue;
+    SystemMetadata oldSystemMetadata;
+    SystemMetadata newSystemMetadata;
+    MetadataAuditOperation operation;
+    long oldVersion;
+  }
 }

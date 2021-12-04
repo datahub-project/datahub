@@ -1,0 +1,7 @@
+namespace com.linkedin.metadata.retention
+
+/**
+ * Keep records indefinitely
+ */
+record IndefiniteRetention {
+}

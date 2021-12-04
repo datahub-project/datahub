@@ -3,6 +3,7 @@ package com.linkedin.gms.factory.entity;
 import com.linkedin.gms.factory.common.TopicConventionFactory;
 import com.linkedin.metadata.dao.producer.EntityKafkaMetadataEventProducer;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.RetentionStore;
 import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
 import com.linkedin.metadata.entity.ebean.EbeanEntityService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -22,7 +23,8 @@ public class EntityServiceFactory {
   ApplicationContext applicationContext;
 
   @Bean(name = "entityService")
-  @DependsOn({"ebeanAspectDao", "kafkaEventProducer", TopicConventionFactory.TOPIC_CONVENTION_BEAN, "entityRegistry"})
+  @DependsOn({"ebeanAspectDao", "kafkaEventProducer", TopicConventionFactory.TOPIC_CONVENTION_BEAN, "entityRegistry",
+      "retentionStore"})
   @Nonnull
   protected EntityService createInstance() {
 
@@ -31,6 +33,6 @@ public class EntityServiceFactory {
             applicationContext.getBean(TopicConvention.class));
 
     return new EbeanEntityService(applicationContext.getBean(EbeanAspectDao.class), producer,
-        applicationContext.getBean(EntityRegistry.class));
+        applicationContext.getBean(EntityRegistry.class), applicationContext.getBean(RetentionStore.class));
   }
 }

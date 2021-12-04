@@ -1,0 +1,13 @@
+default:
+## Use below policy to keep records indefinitely
+#  - indefinite: {}
+  - version:
+      maxVersions: 20
+## Example policy for setting a set of retention policies specific to an entity type
+#entity:
+#  - name: dataset
+#    retention:
+#      - version:
+#          maxVersions: 10
+#      - time:
+#          maxAgeInSeconds: 20

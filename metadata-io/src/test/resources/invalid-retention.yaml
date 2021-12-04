@@ -1,0 +1,11 @@
+default:
+  - indefinite: {}
+  - version:
+      maxVersions: 10
+entity:
+  - name: testEntity
+    retention:
+      - version:
+          maxVersions: 10
+      - time:
+          maxAgeInSeconds: 20

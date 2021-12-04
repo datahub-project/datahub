@@ -4,18 +4,19 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.dao.exception.ModelConversionException;
 import com.linkedin.metadata.dao.exception.RetryLimitReached;
-import com.linkedin.metadata.dao.retention.IndefiniteRetention;
-import com.linkedin.metadata.dao.retention.Retention;
-import com.linkedin.metadata.dao.retention.TimeBasedRetention;
-import com.linkedin.metadata.dao.retention.VersionBasedRetention;
 import com.linkedin.metadata.dao.utils.QueryUtils;
 import com.linkedin.metadata.entity.AspectStorageValidationUtil;
+import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ListResult;
 import com.linkedin.metadata.query.ExtraInfo;
 import com.linkedin.metadata.query.ExtraInfoArray;
 import com.linkedin.metadata.query.ListResultMetadata;
+import com.linkedin.metadata.retention.Retention;
+import com.linkedin.metadata.retention.TimeBasedRetention;
+import com.linkedin.metadata.retention.VersionBasedRetention;
 import io.ebean.DuplicateKeyException;
 import io.ebean.EbeanServer;
+import io.ebean.ExpressionList;
 import io.ebean.PagedList;
 import io.ebean.Query;
 import io.ebean.RawSql;
@@ -45,11 +46,8 @@ import static com.linkedin.metadata.Constants.ASPECT_LATEST_VERSION;
 @Slf4j
 public class EbeanAspectDao {
 
-  private static final IndefiniteRetention INDEFINITE_RETENTION = new IndefiniteRetention();
-
   private final EbeanServer _server;
   private boolean _connectionValidated = false;
-  private final Map<String, Retention> _aspectRetentionMap = new HashMap<>();
   private final Clock _clock = Clock.systemUTC();
 
   // Why 375? From tuning, this seems to be about the largest size we can get without having ebean batch issues.
@@ -123,9 +121,6 @@ public class EbeanAspectDao {
 
     // Save newValue as the latest version (v0)
     saveAspect(urn, aspectName, newAspectMetadata, newActor, newImpersonator, newTime, newSystemMetadata, ASPECT_LATEST_VERSION, oldAspectMetadata == null);
-
-    // Apply retention policy
-    applyRetention(urn, aspectName, getRetention(aspectName), largestVersion);
 
     return largestVersion;
   }
@@ -444,15 +439,6 @@ public class EbeanAspectDao {
   }
 
   @Nonnull
-  public Retention getRetention(@Nonnull final String aspectName) {
-    return _aspectRetentionMap.getOrDefault(aspectName, INDEFINITE_RETENTION);
-  }
-
-  public void setRetention(@Nonnull final String aspectName, @Nonnull final Retention retention) {
-    _aspectRetentionMap.put(aspectName, retention);
-  }
-
-  @Nonnull
   public <T> T runInTransactionWithRetry(@Nonnull final Supplier<T> block, final int maxTransactionRetry) {
     validateConnection();
     int retryCount = 0;
@@ -477,56 +463,43 @@ public class EbeanAspectDao {
     return result;
   }
 
-
-  private void applyRetention(
-      @Nonnull final String urn,
-      @Nonnull final String aspectName,
-      @Nonnull final Retention retention,
-      long largestVersion) {
-    if (retention instanceof IndefiniteRetention) {
+  public void applyRetention(@Nonnull Urn urn, @Nonnull String aspectName,
+      Optional<EntityService.UpdateAspectResult> updateAspectResult,
+      @Nonnull List<com.linkedin.metadata.retention.Retention> retentionPolicies) {
+    // If no policies are set or has indefinite policy set, do not apply any retention
+    if (retentionPolicies.isEmpty() || retentionPolicies.get(0).hasIndefinite()) {
       return;
     }
-
-    if (retention instanceof VersionBasedRetention) {
-      applyVersionBasedRetention(urn, aspectName, (VersionBasedRetention) retention, largestVersion);
-      return;
-    }
-
-    if (retention instanceof TimeBasedRetention) {
-      applyTimeBasedRetention(urn, aspectName, (TimeBasedRetention) retention, _clock.millis());
-      return;
-    }
-  }
-
-  protected void applyVersionBasedRetention(
-      @Nonnull final String urn,
-      @Nonnull final String aspectName,
-      @Nonnull final VersionBasedRetention retention,
-      long largestVersion) {
-    validateConnection();
-
-    _server.find(EbeanAspectV2.class)
+    ExpressionList<EbeanAspectV2> deleteQuery = _server.find(EbeanAspectV2.class)
         .where()
         .eq(EbeanAspectV2.URN_COLUMN, urn)
         .eq(EbeanAspectV2.ASPECT_COLUMN, aspectName)
-        .ne(EbeanAspectV2.VERSION_COLUMN, ASPECT_LATEST_VERSION)
-        .le(EbeanAspectV2.VERSION_COLUMN, largestVersion - retention.getMaxVersionsToRetain() + 1)
-        .delete();
+        .ne(EbeanAspectV2.VERSION_COLUMN, ASPECT_LATEST_VERSION);
+    for (Retention retention : retentionPolicies) {
+      if (retention.hasVersion()) {
+        deleteQuery = applyVersionBasedRetention(urn, aspectName, deleteQuery, retention.getVersion(), updateAspectResult.map(
+            EntityService.UpdateAspectResult::getOldVersion));
+      } else if (retention.hasTime()) {
+        deleteQuery = applyTimeBasedRetention(deleteQuery, retention.getTime());
+      }
+    }
+
+    validateConnection();
+    deleteQuery.delete();
   }
 
-  protected void applyTimeBasedRetention(
-      @Nonnull final String urn,
-      @Nonnull final String aspectName,
-      @Nonnull final TimeBasedRetention retention,
-      long currentTime) {
-    validateConnection();
+  protected ExpressionList<EbeanAspectV2> applyVersionBasedRetention(@Nonnull Urn urn, @Nonnull String aspectName,
+      @Nonnull final ExpressionList<EbeanAspectV2> querySoFar, @Nonnull final VersionBasedRetention retention,
+      final Optional<Long> maxVersionFromUpdate) {
+    long largestVersion = maxVersionFromUpdate.orElse(getMaxVersion(urn.toString(), aspectName));
 
-    _server.find(EbeanAspectV2.class)
-        .where()
-        .eq(EbeanAspectV2.URN_COLUMN, urn.toString())
-        .eq(EbeanAspectV2.ASPECT_COLUMN, aspectName)
-        .lt(EbeanAspectV2.CREATED_ON_COLUMN, new Timestamp(currentTime - retention.getMaxAgeToRetain()))
-        .delete();
+    return querySoFar.le(EbeanAspectV2.VERSION_COLUMN, largestVersion - retention.getMaxVersions() + 1);
+  }
+
+  protected ExpressionList<EbeanAspectV2> applyTimeBasedRetention(
+      @Nonnull final ExpressionList<EbeanAspectV2> querySoFar, @Nonnull final TimeBasedRetention retention) {
+    return querySoFar.lt(EbeanAspectV2.CREATED_ON_COLUMN,
+        new Timestamp(_clock.millis() - retention.getMaxAgeInSeconds() * 1000));
   }
 
   private long getNextVersion(@Nonnull final String urn, @Nonnull final String aspectName) {
