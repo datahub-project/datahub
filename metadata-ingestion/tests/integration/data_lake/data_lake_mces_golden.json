@@ -282,7 +282,7 @@
 {
     "auditHeader": null,
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test,/Users/kevinhu/github/datahub/metadata-ingestion/tests/integration/data_lake/test_data/NPS.7.1.package_data_NPS.6.1_ARCN_Lakes_ChemistryData_v1.csv,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test,NPS.7.1.package_data_NPS.6.1_ARCN_Lakes_ChemistryData_v1.csv,PROD)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "datasetProfile",
@@ -431,7 +431,7 @@
 {
     "auditHeader": null,
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test,/Users/kevinhu/github/datahub/metadata-ingestion/tests/integration/data_lake/test_data/chord_progressions.csv,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test,chord_progressions.csv,PROD)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "datasetProfile",
@@ -580,7 +580,7 @@
 {
     "auditHeader": null,
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test,/Users/kevinhu/github/datahub/metadata-ingestion/tests/integration/data_lake/test_data/food.csv,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test,food.csv,PROD)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "datasetProfile",
@@ -1209,7 +1209,7 @@
 {
     "auditHeader": null,
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test,/Users/kevinhu/github/datahub/metadata-ingestion/tests/integration/data_lake/test_data/wa_fn_usec_hr_employee_attrition.csv,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test,wa_fn_usec_hr_employee_attrition.csv,PROD)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "datasetProfile",

@@ -18,6 +18,7 @@ def test_data_lake_ingest(pytestconfig, tmp_path, mock_time):
                 "type": "data-lake",
                 "config": {
                     "base_path": str(test_resources_dir / "test_data"),
+                    "use_relative_path": True,
                     # "base_path": "s3://acryl-datahub-test/",
                     "platform": "test",
                     "aws_config": {

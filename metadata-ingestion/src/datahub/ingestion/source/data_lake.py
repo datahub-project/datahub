@@ -795,13 +795,11 @@ class DataLakeSource(Source):
         return df.toDF(*(c.replace(".", "_") for c in df.columns))
 
     def get_table_schema(
-        self, dataframe: DataFrame, file_path: str, relative_path: str
+        self, dataframe: DataFrame, file_path: str, file_urn_path: str
     ) -> Iterable[MetadataWorkUnit]:
 
-        if self.source_config.use_relative_path:
-            datasetUrn = f"urn:li:dataset:(urn:li:dataPlatform:{self.source_config.platform},{file_path},{self.source_config.env})"
-        else:
-            datasetUrn = f"urn:li:dataset:(urn:li:dataPlatform:{self.source_config.platform},{relative_path},{self.source_config.env})"
+        datasetUrn = f"urn:li:dataset:(urn:li:dataPlatform:{self.source_config.platform},{file_urn_path},{self.source_config.env})"
+
         dataset_snapshot = DatasetSnapshot(
             urn=datasetUrn,
             aspects=[],
@@ -846,6 +844,16 @@ class DataLakeSource(Source):
         self, full_path: str, relative_path: str
     ) -> Iterable[MetadataWorkUnit]:
 
+        print(self.source_config)
+
+        if self.source_config.use_relative_path:
+            file_urn_path = relative_path
+        else:
+            file_urn_path = full_path
+
+        if file_urn_path.startswith("/"):
+            file_urn_path = file_urn_path[1:]
+
         table = self.read_file(full_path)
 
         # if table is not readable, skip
@@ -856,7 +864,7 @@ class DataLakeSource(Source):
         logger.debug(
             f"Ingesting {full_path}: making table schemas {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
         )
-        yield from self.get_table_schema(table, full_path, relative_path)
+        yield from self.get_table_schema(table, full_path, file_urn_path)
 
         # If profiling is not enabled, skip the rest
         if not self.source_config.profiling.enabled:
@@ -892,7 +900,7 @@ class DataLakeSource(Source):
 
         mcp = MetadataChangeProposalWrapper(
             entityType="dataset",
-            entityUrn=f"urn:li:dataset:(urn:li:dataPlatform:{self.source_config.platform},{full_path},{self.source_config.env})",
+            entityUrn=f"urn:li:dataset:(urn:li:dataPlatform:{self.source_config.platform},{file_urn_path},{self.source_config.env})",
             changeType=ChangeTypeClass.UPSERT,
             aspectName="datasetProfile",
             aspect=table_profiler.profile,
@@ -942,22 +950,23 @@ class DataLakeSource(Source):
                 obj_path = f"s3a://{obj.bucket_name}/{obj.key}"
 
                 # TODO: fix relative path here
-                unordered_files.append({"full_path":obj_path, "relative_path":obj.key})
+                unordered_files.append(obj_path)
 
-            for file in sorted(unordered_files):
+            for aws_file in sorted(unordered_files):
 
-                yield from self.ingest_table(file, )
+                # pass in the same relative_path as the full_path for S3 files
+                yield from self.ingest_table(aws_file, aws_file)
         else:
             for root, dirs, files in os.walk(self.source_config.base_path):
-                for file in sorted(files):
+                for relative_path in sorted(files):
 
-                    file_path = os.path.join(root, file)
+                    full_path = os.path.join(root, relative_path)
 
                     # if table patterns do not allow this file, skip
-                    if not self.source_config.schema_patterns.allowed(file_path):
+                    if not self.source_config.schema_patterns.allowed(full_path):
                         continue
 
-                    yield from self.ingest_table(os.path.join(root, file), file)
+                    yield from self.ingest_table(full_path, relative_path)
 
     def get_report(self):
         return self.report
