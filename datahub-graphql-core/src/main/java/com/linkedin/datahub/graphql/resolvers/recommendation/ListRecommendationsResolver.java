@@ -21,6 +21,7 @@ import com.linkedin.metadata.recommendation.RecommendationsService;
 import com.linkedin.metadata.recommendation.SearchRequestContext;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import io.opentelemetry.extension.annotations.WithSpan;
 import java.net.URISyntaxException;
 import java.util.Collections;
 import java.util.List;
@@ -41,6 +42,7 @@ public class ListRecommendationsResolver implements DataFetcher<CompletableFutur
 
   private final RecommendationsService _recommendationsService;
 
+  @WithSpan
   @Override
   public CompletableFuture<ListRecommendationsResult> get(DataFetchingEnvironment environment) {
     final ListRecommendationsInput input =
