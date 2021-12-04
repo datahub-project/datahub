@@ -1,10 +1,14 @@
 package com.linkedin.metadata.search.elasticsearch.indexbuilder;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.MapDifference;
 import com.google.common.collect.Maps;
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
@@ -28,22 +32,28 @@ import org.elasticsearch.index.reindex.ReindexRequest;
 
 @Slf4j
 @RequiredArgsConstructor
-public class IndexBuilder {
+public class ESIndexBuilder {
 
   private final RestHighLevelClient searchClient;
-  private final String indexName;
-  private final Map<String, Object> mappings;
-  private final Map<String, Object> settings;
+  private final int numShards;
+  private final int numReplicas;
 
   private static final int NUM_RETRIES = 3;
+  private static final List<String> SETTINGS_TO_COMPARE = ImmutableList.of("number_of_shards", "number_of_replicas");
 
-  public void buildIndex() throws IOException {
+  public void buildIndex(String indexName, Map<String, Object> mappings, Map<String, Object> settings)
+      throws IOException {
     // Check if index exists
     boolean exists = searchClient.indices().exists(new GetIndexRequest(indexName), RequestOptions.DEFAULT);
 
+    Map<String, Object> baseSettings = new HashMap<>(settings);
+    baseSettings.put("number_of_shards", numShards);
+    baseSettings.put("number_of_replicas", numReplicas);
+    Map<String, Object> finalSettings = ImmutableMap.of("index", baseSettings);
+
     // If index doesn't exist, create index
     if (!exists) {
-      createIndex(indexName, mappings, settings);
+      createIndex(indexName, mappings, finalSettings);
       return;
     }
 
@@ -65,7 +75,7 @@ public class IndexBuilder {
         .next();
 
     // If there are no updates to mappings, return
-    if (mappingsDiff.areEqual() && equals(settings, oldSettings)) {
+    if (mappingsDiff.areEqual() && equals(finalSettings, oldSettings)) {
       log.info("No updates to index {}", indexName);
       return;
     }
@@ -77,9 +87,10 @@ public class IndexBuilder {
     }
 
     String tempIndexName = indexName + "_" + System.currentTimeMillis();
-    createIndex(tempIndexName, mappings, settings);
+    createIndex(tempIndexName, mappings, finalSettings);
     try {
-      searchClient.reindex(new ReindexRequest().setSourceIndices(indexName).setDestIndex(tempIndexName),
+      searchClient.reindex(
+          new ReindexRequest().setSourceIndices(indexName).setDestIndex(tempIndexName),
           RequestOptions.DEFAULT);
     } catch (Exception e) {
       log.info("Failed to reindex {} to {}: Exception {}", indexName, tempIndexName, e.toString());
@@ -151,14 +162,22 @@ public class IndexBuilder {
   }
 
   private boolean equals(Map<String, Object> newSettings, Settings oldSettings) {
-    if (!newSettings.containsKey("index") || !((Map<String, Object>) newSettings.get("index")).containsKey(
-        "analysis")) {
+    if (!newSettings.containsKey("index")) {
       return true;
     }
-    Map<String, Object> newAnalysis =
-        (Map<String, Object>) ((Map<String, Object>) newSettings.get("index")).get("analysis");
+    Map<String, Object> indexSettings = (Map<String, Object>) newSettings.get("index");
+    if (!indexSettings.containsKey("analysis")) {
+      return true;
+    }
+    // Compare analysis section
+    Map<String, Object> newAnalysis = (Map<String, Object>) indexSettings.get("analysis");
     Settings oldAnalysis = oldSettings.getByPrefix("index.analysis.");
-    return equalsGroup(newAnalysis, oldAnalysis);
+    if (!equalsGroup(newAnalysis, oldAnalysis)) {
+      return false;
+    }
+    // Compare remaining settings
+    return SETTINGS_TO_COMPARE.stream()
+        .noneMatch(settingKey -> Objects.equals(indexSettings.get(settingKey), oldSettings.get("index." + settingKey)));
   }
 
   private boolean equalsGroup(Map<String, Object> newSettings, Settings oldSettings) {

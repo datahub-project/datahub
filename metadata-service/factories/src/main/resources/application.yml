@@ -83,7 +83,11 @@ elasticsearch:
     flushPeriod: ${ES_BULK_FLUSH_PERIOD:1}
     numRetries: ${ES_BULK_NUM_RETRIES:3}
     retryInterval: ${ES_BULK_RETRY_INTERVAL:1}
-  indexPrefix: ${INDEX_PREFIX:}
+  index:
+    prefix: ${INDEX_PREFIX:}
+    numShards: ${ELASTICSEARCH_NUM_SHARDS_PER_INDEX:1}
+    numReplicas: ${ELASTICSEARCH_NUM_REPLICAS_PER_INDEX:1}
+    maxArrayLength: ${SEARCH_DOCUMENT_MAX_ARRAY_LENGTH:1000}
 
 # TODO: Kafka topic convention
 kafka:
