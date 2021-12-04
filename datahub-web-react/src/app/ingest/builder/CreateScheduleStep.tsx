@@ -1,14 +1,17 @@
-import { Button, DatePicker, Typography } from 'antd';
-import React, { useState } from 'react';
+import { Button, Input, Typography } from 'antd';
+import React, { useMemo } from 'react';
 import styled from 'styled-components';
-import { CronBuilder } from './CronBuilder';
-import { CustomCronBuilder } from './CustomCronBuilder';
-import { IngestionSourceBuilderStep, RecipeBuilderState, StepProps } from './types';
+import cronstrue from 'cronstrue';
+import { BaseBuilderState, IngestionSourceBuilderStep, StepProps } from './types';
+import { TimezoneSelect } from './TimezoneSelect';
+import { ANTD_GRAY } from '../../entity/shared/constants';
 
 const Section = styled.div`
     display: flex;
     flex-direction: column;
+    max-width: 400px;
     padding-bottom: 12px;
+    padding-top: 12px;
 `;
 
 const SelectTemplateHeader = styled(Typography.Title)`
@@ -17,43 +20,53 @@ const SelectTemplateHeader = styled(Typography.Title)`
     }
 `;
 
-enum ViewType {
-    CRON_BUILDER,
-    CUSTOM_CRON,
-}
+const CronText = styled(Typography.Text)`
+    color: ${ANTD_GRAY[9]};
+`;
 
 export const CreateScheduleStep = ({ state, updateState, goTo, prev }: StepProps) => {
-    // Cron interval is assumed to be defined in UTC time, not local time.
-    const [cronInterval, setCronInterval] = useState<undefined | string>(undefined);
+    const interval = state.schedule?.interval || '';
+    const timezone = state.schedule?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-    // The time at which the ingestion source should begin to be executed.
-    const [startTimeMs, setStartTimeMs] = useState<undefined | number>(undefined);
+    const setTimezone = (tz: string) => {
+        const newState: BaseBuilderState = {
+            ...state,
+            schedule: {
+                ...state.schedule,
+                timezone: tz,
+            },
+        };
+        updateState(newState);
+    };
 
-    // The cron builder experience to show
-    const [viewType, setViewType] = useState<ViewType>(ViewType.CRON_BUILDER);
+    const setCronInterval = (int: string) => {
+        const newState: BaseBuilderState = {
+            ...state,
+            schedule: {
+                ...state.schedule,
+                interval: int,
+            },
+        };
+        updateState(newState);
+    };
+
+    const cronAsText = useMemo(() => {
+        if (interval) {
+            try {
+                return `Runs ${cronstrue.toString(interval).toLowerCase()}`;
+            } catch (e) {
+                return "Invalid cron schedule. Cron must be of UNIX form: 'minute, hour, day, month, dayofweek'";
+            }
+        }
+        return undefined;
+    }, [interval]);
 
     const onClickNext = () => {
-        if (cronInterval !== undefined && startTimeMs !== undefined) {
-            const oldState = state as RecipeBuilderState;
-            const newState: RecipeBuilderState = {
-                ...oldState,
-                schedule: {
-                    interval: cronInterval,
-                    startTimeMs,
-                },
-            };
-            updateState(newState);
-            goTo(IngestionSourceBuilderStep.NAME_SOURCE);
-        }
+        goTo(IngestionSourceBuilderStep.NAME_SOURCE);
     };
 
     const onClickSkip = () => {
         goTo(IngestionSourceBuilderStep.NAME_SOURCE);
-    };
-
-    const onSelectStartTime = (value) => {
-        const newStartTimeMs = value.valueOf();
-        setStartTimeMs(newStartTimeMs);
     };
 
     return (
@@ -62,26 +75,24 @@ export const CreateScheduleStep = ({ state, updateState, goTo, prev }: StepProps
                 <SelectTemplateHeader level={5}>Create a Schedule</SelectTemplateHeader>
                 <Typography.Text>Run this ingestion source on a schedule.</Typography.Text>
             </Section>
+            <Typography.Text strong>Timezone</Typography.Text>
             <Section>
-                {(viewType === ViewType.CRON_BUILDER && (
-                    <>
-                        <CronBuilder updateCron={(newCron) => setCronInterval(newCron)} />
-                        <Typography.Text>
-                            Or provide a{' '}
-                            <Button type="link" onClick={() => setViewType(ViewType.CUSTOM_CRON)}>
-                                custom cron expression.
-                            </Button>
-                        </Typography.Text>
-                    </>
-                )) || <CustomCronBuilder updateCron={(newCron) => setCronInterval(newCron)} />}
-                <Typography.Text>Starting on</Typography.Text>
-                <DatePicker onChange={onSelectStartTime} />
+                <Typography.Text>Select the timezone to run the schedule in.</Typography.Text>
+                <TimezoneSelect value={timezone} onChange={setTimezone} />
             </Section>
+            <Typography.Text strong>Schedule</Typography.Text>
+            <Section>
+                <Typography.Text>Provide a custom cron schedule.</Typography.Text>
+                <Input value={interval} onChange={(e) => setCronInterval(e.target.value)} placeholder="* * * * *" />
+            </Section>
+            <Section>{cronAsText && <CronText>{cronAsText}</CronText>}</Section>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8 }}>
                 <Button onClick={prev}>Previous</Button>
                 <div>
-                    <Button onClick={onClickSkip}>Skip</Button>
-                    <Button disabled={!(cronInterval !== undefined && startTimeMs !== undefined)} onClick={onClickNext}>
+                    <Button style={{ marginRight: 8 }} onClick={onClickSkip}>
+                        Skip
+                    </Button>
+                    <Button disabled={!(interval !== undefined)} onClick={onClickNext}>
                         Next
                     </Button>
                 </div>

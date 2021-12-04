@@ -1,8 +1,8 @@
 import { Button, Typography } from 'antd';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
-import { IngestionSourceBuilderStep, RecipeBuilderState, StepProps } from './types';
-import { defaultRecipe, jsonToYaml, yamlToJson } from './utils';
+import { IngestionSourceBuilderStep, StepProps } from './types';
+import { getSourceConfigs, jsonToYaml, yamlToJson } from './utils';
 import { YamlEditor } from './YamlEditor';
 
 const Section = styled.div`
@@ -21,61 +21,58 @@ const SelectTemplateHeader = styled(Typography.Title)`
  * The step for defining a recipe
  */
 export const DefineRecipeStep = ({ state, updateState, goTo, prev }: StepProps) => {
-    const [stagedRecipeYml, setStagedRecipeYml] = useState('');
+    const existingRecipeJson = state.config?.recipe;
+    const existingRecipeYaml = existingRecipeJson && jsonToYaml(existingRecipeJson);
+
+    const [stagedRecipeYml, setStagedRecipeYml] = useState(existingRecipeYaml || '');
     const [stepComplete, setStepComplete] = useState(false);
 
-    const existingRecipe = (state as RecipeBuilderState).recipe;
-    const recipeToYaml = existingRecipe && jsonToYaml(existingRecipe);
+    const { type } = state;
+    const sourceConfigs = getSourceConfigs(type as string);
+    const displayRecipe = stagedRecipeYml || sourceConfigs.recipe;
+    const sourceDisplayName = sourceConfigs.displayName;
+    const sourceDocumentationUrl = sourceConfigs.docsUrl; // Maybe undefined (in case of "custom")
 
-    const validateRecipe = (recipeYml: string) => {
-        console.log(recipeYml);
-        return true;
-    };
+    useEffect(() => {
+        if (stagedRecipeYml && stagedRecipeYml.length > 0) {
+            setStepComplete(true);
+        }
+    }, [stagedRecipeYml]);
 
     const onClickNext = () => {
-        // Validate the recipe yaml.
-        validateRecipe(stagedRecipeYml);
-
         // Convert the recipe into it's json representation
         const recipeJson = yamlToJson(stagedRecipeYml);
 
         // Update the state
-        const newState: RecipeBuilderState = {
+        const newState = {
             ...state,
-            type: 'recipe',
-            recipe: recipeJson,
+            config: {
+                recipe: recipeJson,
+            },
         };
         updateState(newState);
-        goTo(IngestionSourceBuilderStep.CREATE_SCHEDULE);
-    };
 
-    const handleChange = (value: any) => {
-        setStagedRecipeYml(value);
-        if (validateRecipe(value)) {
-            setStepComplete(true);
-        }
+        goTo(IngestionSourceBuilderStep.CREATE_SCHEDULE);
     };
 
     return (
         <>
             <Section>
-                <SelectTemplateHeader level={5}>Define a Recipe</SelectTemplateHeader>
+                <SelectTemplateHeader level={5}>Create a {sourceDisplayName} recipe</SelectTemplateHeader>
                 <Typography.Text>
-                    For information about how to define a recipe, see the{' '}
-                    <a
-                        href="https://datahubproject.io/docs/metadata-ingestion/"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                    >
-                        Metadata Ingestion docs.
+                    For more information about how to define a {sourceDisplayName} recipe, see the{' '}
+                    <a href={sourceDocumentationUrl} target="_blank" rel="noopener noreferrer">
+                        source docs.
                     </a>
                 </Typography.Text>
             </Section>
-            <Section style={{ border: 'solid #D8D8D8 1px' }}>
-                <YamlEditor initialText={recipeToYaml || defaultRecipe} onChange={handleChange} />
+            <Section style={{ border: 'solid #D8D8D8 0.5px' }}>
+                <YamlEditor initialText={displayRecipe} onChange={setStagedRecipeYml} />
             </Section>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8 }}>
-                <Button onClick={() => prev()}>Previous</Button>
+                <Button disabled={prev === undefined} onClick={prev}>
+                    Previous
+                </Button>
                 <Button disabled={!stepComplete} onClick={onClickNext}>
                     Next
                 </Button>

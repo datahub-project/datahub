@@ -2,8 +2,6 @@ package com.linkedin.datahub.graphql.resolvers.ingest;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.linkedin.common.EntityRelationship;
-import com.linkedin.common.EntityRelationships;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
@@ -14,10 +12,20 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.graph.GraphClient;
-import com.linkedin.metadata.query.filter.RelationshipDirection;
+import com.linkedin.metadata.query.filter.Condition;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
+import com.linkedin.metadata.query.filter.Criterion;
+import com.linkedin.metadata.query.filter.CriterionArray;
+import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.query.filter.SortCriterion;
+import com.linkedin.metadata.query.filter.SortOrder;
+import com.linkedin.metadata.search.SearchEntity;
+import com.linkedin.metadata.search.SearchResult;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
@@ -50,18 +58,29 @@ public class IngestionSourceExecutionsResolver implements DataFetcher<Completabl
       try {
 
         // 1. Fetch the related edges
-        final EntityRelationships relationships = _graphClient.getRelatedEntities(
-            urn,
-            ImmutableList.of("ingestionSource"),
-            RelationshipDirection.INCOMING,
+        final Criterion filterCriterion =  new Criterion()
+            .setField("ingestionSource")
+            .setCondition(Condition.EQUAL)
+            .setValue(urn);
+
+        log.info(String.format("The urn is %s", urn));
+
+        final SearchResult executionsSearchResult = _entityClient.filter(
+            Constants.EXECUTION_REQUEST_ENTITY_NAME,
+            new Filter().setOr(new ConjunctiveCriterionArray(
+                new ConjunctiveCriterion().setAnd(new CriterionArray(ImmutableList.of(filterCriterion)))
+            )),
+            new SortCriterion().setField("startTimeMs").setOrder(SortOrder.DESCENDING),
             start,
             count,
-            context.getActorUrn()
+            context.getAuthentication()
         );
 
+        log.info(String.format("The results are %s", executionsSearchResult));
+
         // 2. Batch fetch the related ExecutionRequests
-        final Set<Urn> relatedExecRequests = relationships.getRelationships().stream()
-            .map(EntityRelationship::getEntity)
+        final Set<Urn> relatedExecRequests = executionsSearchResult.getEntities().stream()
+            .map(SearchEntity::getEntity)
             .collect(Collectors.toSet());
 
         final Map<Urn, EntityResponse> entities = _entityClient.batchGetV2(
@@ -72,10 +91,16 @@ public class IngestionSourceExecutionsResolver implements DataFetcher<Completabl
 
         // 3. Map the GMS ExecutionRequests into GraphQL Execution Requests
         final IngestionSourceExecutions result = new IngestionSourceExecutions();
-        result.setStart(relationships.getStart());
-        result.setCount(relationships.getCount());
-        result.setTotal(relationships.getTotal());
-        result.setExecutionRequests(IngestionResolverUtils.mapExecutionRequests(entities.values()));
+        result.setStart(executionsSearchResult.getFrom());
+        result.setCount(executionsSearchResult.getPageSize());
+        result.setTotal(executionsSearchResult.getNumEntities());
+        result.setExecutionRequests(IngestionResolverUtils.mapExecutionRequests(
+            executionsSearchResult.getEntities()
+              .stream()
+              .map(searchResult -> entities.get(searchResult.getEntity()))
+              .filter(Objects::nonNull)
+              .collect(Collectors.toList())
+        ));
         return result;
       } catch (Exception e) {
         throw new DataHubGraphQLException(

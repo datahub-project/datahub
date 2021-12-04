@@ -5,6 +5,8 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.template.GetMode;
+import com.linkedin.data.template.SetMode;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
@@ -63,6 +65,8 @@ public class IngestionSchedulerHook implements MetadataChangeLogHook {
   private final Authentication _systemAuthentication;
   private final EntityClient _entityClient;
   private final Map<String, ScheduledFuture> _nextExecutionCache = new HashMap<>();
+  private final Map<String, DataHubIngestionSourceInfo> _lastInfoCache = new HashMap<>();
+
   private final ScheduledExecutorService _sharedExecutorService = Executors.newScheduledThreadPool(1);
   private final ScheduleRefreshRunnable _scheduleRefreshRunnable;
 
@@ -125,10 +129,32 @@ public class IngestionSchedulerHook implements MetadataChangeLogHook {
     }
   }
 
-  private void scheduleNextExecution(final Urn entityUrn, final DataHubIngestionSourceInfo info) {
-    if (info.hasSchedule()) {
+  private void scheduleNextExecution(final Urn entityUrn, final DataHubIngestionSourceInfo newInfo) {
 
-      final DataHubIngestionSourceSchedule schedule = info.getSchedule();
+    DataHubIngestionSourceInfo existingInfo = _lastInfoCache.get(entityUrn.toString());
+
+    if (existingInfo != null && schedulesChanged(existingInfo.getSchedule(), newInfo.getSchedule())) {
+      log.info("HEY WE ARE RESCHEDULING");
+      // We may have already scheduled this. Lets check to see if we need to reschedule.
+      // Attempt to reschedule.
+      ScheduledFuture<?> future = _nextExecutionCache.get(entityUrn.toString());
+      if (future != null) {
+        log.info("HEY WE ARE RESCHEDULING 2");
+
+        // There is a scheduled future. Attempt to cancel.
+        future.cancel(true);
+        _nextExecutionCache.remove(entityUrn.toString());
+      }
+    } else {
+      log.info("HEY WE ARE NOT RESCHEDULING 2");
+
+    }
+
+    _lastInfoCache.put(entityUrn.toString(), newInfo);
+
+    if (newInfo.hasSchedule()) {
+
+      final DataHubIngestionSourceSchedule schedule = newInfo.getSchedule();
 
       // Check whether there is already a job scheduled for it.
       if (!_nextExecutionCache.containsKey(entityUrn.toString())) {
@@ -136,7 +162,8 @@ public class IngestionSchedulerHook implements MetadataChangeLogHook {
 
         final String modifiedCronInterval = adjustCronInterval(schedule.getInterval());
         if (CronSequenceGenerator.isValidExpression(modifiedCronInterval)) {
-          CronSequenceGenerator generator = new CronSequenceGenerator(modifiedCronInterval, TimeZone.getTimeZone("UTC"));
+          String timezone = schedule.hasTimezone() ? schedule.getTimezone() : "UTC";
+          CronSequenceGenerator generator = new CronSequenceGenerator(modifiedCronInterval, TimeZone.getTimeZone(timezone));
           Date currentDate = new Date();
 
           Date nextExecDate = generator.next(currentDate);
@@ -147,7 +174,7 @@ public class IngestionSchedulerHook implements MetadataChangeLogHook {
               _systemAuthentication,
               _entityClient,
               entityUrn,
-              info,
+              newInfo,
               () ->_nextExecutionCache.remove(entityUrn.toString()),
               this::scheduleNextExecution);
 
@@ -164,6 +191,10 @@ public class IngestionSchedulerHook implements MetadataChangeLogHook {
     } else {
       log.info(String.format("Ingestion source with urn %s has no configured schedule. Skipping scheduling next execution.", entityUrn));
     }
+  }
+
+  private boolean schedulesChanged(final DataHubIngestionSourceSchedule oldSchedule, final DataHubIngestionSourceSchedule newSchedule) {
+    return (oldSchedule == null || newSchedule == null || !oldSchedule.getInterval().equals(newSchedule.getInterval()));
   }
 
   private
@@ -294,8 +325,14 @@ public class IngestionSchedulerHook implements MetadataChangeLogHook {
         // Build the arguments map.
         final ExecutionRequestInput execInput = new ExecutionRequestInput();
         execInput.setTask("RUN_INGEST"); // Set the RUN_INGEST task
-        execInput.setSource(new ExecutionRequestSource().setType("INGESTION_SOURCE").setIngestionSource(_urn));
-        Map<String, String> arguments = ImmutableMap.of("recipe", _info.getConfig().getRecipe().getJson());
+        execInput.setSource(new ExecutionRequestSource().setType("SCHEDULED_INGESTION_SOURCE").setIngestionSource(_urn));
+        execInput.setExecutorId(_info.getConfig().getExecutorId(), SetMode.IGNORE_NULL);
+
+        Map<String, String> arguments = new HashMap<>();
+        arguments.put("recipe", _info.getConfig().getRecipe());
+        if (_info.getConfig().hasVersion()) {
+          arguments.put("version", _info.getConfig().getVersion());
+        }
         execInput.setArgs(new StringMap(arguments));
 
         proposal.setEntityType(Constants.EXECUTION_REQUEST_ENTITY_NAME);

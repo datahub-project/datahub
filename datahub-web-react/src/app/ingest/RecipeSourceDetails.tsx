@@ -29,7 +29,7 @@ type Props = {
 };
 
 export const RecipeSourceDetails = ({ source }: Props) => {
-    const recipeJson = source.config.recipe?.json;
+    const recipeJson = source.config.recipe;
     return (
         <>
             <Section>

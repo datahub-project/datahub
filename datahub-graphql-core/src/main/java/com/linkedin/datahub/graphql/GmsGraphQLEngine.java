@@ -46,11 +46,14 @@ import com.linkedin.datahub.graphql.resolvers.group.ListGroupsResolver;
 import com.linkedin.datahub.graphql.resolvers.group.RemoveGroupMembersResolver;
 import com.linkedin.datahub.graphql.resolvers.group.RemoveGroupResolver;
 import com.linkedin.datahub.graphql.resolvers.group.UpdateUserStatusResolver;
+import com.linkedin.datahub.graphql.resolvers.ingest.CancelIngestionExecutionRequestResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.CreateIngestionExecutionRequestResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.CreateSecretResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.DeleteIngestionSourceResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.DeleteSecretResolver;
+import com.linkedin.datahub.graphql.resolvers.ingest.GetIngestionExecutionRequestResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.GetIngestionSourceResolver;
+import com.linkedin.datahub.graphql.resolvers.ingest.GetSecretValuesResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.IngestionSourceExecutionsResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.ListIngestionSourcesResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.ListSecretsResolver;
@@ -498,10 +501,14 @@ public class GmsGraphQLEngine {
                 new GetAccessTokenResolver(tokenService))
             .dataFetcher("listSecrets",
                 new ListSecretsResolver(this.entityClient))
+            .dataFetcher("getSecretValues",
+                new GetSecretValuesResolver(this.entityClient))
             .dataFetcher("listIngestionSources",
                 new ListIngestionSourcesResolver(this.entityClient))
             .dataFetcher("ingestionSource",
                 new GetIngestionSourceResolver(this.entityClient))
+            .dataFetcher("executionRequest",
+                new GetIngestionExecutionRequestResolver(this.entityClient))
         );
     }
 
@@ -537,7 +544,7 @@ public class GmsGraphQLEngine {
             .dataFetcher("updateIngestionSource", new UpsertIngestionSourceResolver(this.entityClient))
             .dataFetcher("deleteIngestionSource", new DeleteIngestionSourceResolver(this.entityClient))
             .dataFetcher("createIngestionExecutionRequest", new CreateIngestionExecutionRequestResolver(this.entityClient))
-
+            .dataFetcher("cancelIngestionExecutionRequest", new CancelIngestionExecutionRequestResolver(this.entityClient))
         );
     }
 
@@ -921,7 +928,7 @@ public class GmsGraphQLEngine {
     }
 
     private void configureIngestionSourceResolvers(final RuntimeWiring.Builder builder) {
-        builder.type("IngestionSource", typeWiring -> typeWiring.dataFetcher("runs", new IngestionSourceExecutionsResolver(graphClient, entityClient)));
+        builder.type("IngestionSource", typeWiring -> typeWiring.dataFetcher("executions", new IngestionSourceExecutionsResolver(graphClient, entityClient)));
     }
 
     private DataLoader<VersionedAspectKey, DataFetcherResult<Aspect>> createAspectLoader(final QueryContext queryContext) {

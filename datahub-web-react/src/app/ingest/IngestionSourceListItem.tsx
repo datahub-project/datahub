@@ -58,7 +58,7 @@ export default function IngestionSourceListItem({ source, onClick, onExecute, on
         });
     };
 
-    const { displayName, schedule } = source;
+    const { name, schedule } = source;
     const cron = schedule?.interval;
     const totalExecutions = source.executions?.total;
 
@@ -70,7 +70,7 @@ export default function IngestionSourceListItem({ source, onClick, onExecute, on
                         <Button type="text" onClick={onClick}>
                             <div style={{ marginLeft: 16, marginRight: 16 }}>
                                 <div>
-                                    <Typography.Text>{displayName}</Typography.Text>
+                                    <Typography.Text>{name}</Typography.Text>
                                 </div>
                             </div>
                         </Button>

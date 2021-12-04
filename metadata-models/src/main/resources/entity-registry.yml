@@ -28,4 +28,5 @@ entities:
     keyAspect: dataHubExecutionRequestKey
     aspects:
       - dataHubExecutionRequestInput
+      - dataHubExecutionRequestSignal
       - dataHubExecutionRequestResult

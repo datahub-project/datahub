@@ -5,13 +5,11 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.UpdateIngestionSourceConfigInput;
 import com.linkedin.datahub.graphql.generated.UpdateIngestionSourceInput;
-import com.linkedin.datahub.graphql.generated.UpdateIngestionSourceRecipeInput;
 import com.linkedin.datahub.graphql.generated.UpdateIngestionSourceScheduleInput;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.ingestion.DataHubIngestionSourceConfig;
 import com.linkedin.ingestion.DataHubIngestionSourceInfo;
-import com.linkedin.ingestion.DataHubIngestionSourceRecipe;
 import com.linkedin.ingestion.DataHubIngestionSourceSchedule;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.key.DataHubIngestionSourceKey;
@@ -80,8 +78,8 @@ public class UpsertIngestionSourceResolver implements DataFetcher<CompletableFut
 
   private DataHubIngestionSourceInfo mapIngestionSourceInfo(final UpdateIngestionSourceInput input) {
     final DataHubIngestionSourceInfo result = new DataHubIngestionSourceInfo();
-    result.setType(input.getType().toString());
-    result.setDisplayName(input.getDisplayName());
+    result.setType(input.getType());
+    result.setName(input.getName());
     result.setSchedule(mapSchedule(input.getSchedule()));
     result.setConfig(mapConfig(input.getConfig()));
     return result;
@@ -89,25 +87,23 @@ public class UpsertIngestionSourceResolver implements DataFetcher<CompletableFut
 
   private DataHubIngestionSourceConfig mapConfig(final UpdateIngestionSourceConfigInput input) {
     final DataHubIngestionSourceConfig result = new DataHubIngestionSourceConfig();
-    if (input.getRecipe() != null) {
-      result.setRecipe(mapRecipe(input.getRecipe()));
+    result.setRecipe(input.getRecipe());
+    if (input.getVersion() != null) {
+      result.setVersion(input.getVersion());
     }
-    return result;
-  }
-
-  private DataHubIngestionSourceRecipe mapRecipe(final UpdateIngestionSourceRecipeInput input) {
-    final DataHubIngestionSourceRecipe result = new DataHubIngestionSourceRecipe();
-    result.setJson(input.getJson());
+    if (input.getExecutorId() != null) {
+      result.setExecutorId(input.getExecutorId());
+    }
     return result;
   }
 
   private DataHubIngestionSourceSchedule mapSchedule(final UpdateIngestionSourceScheduleInput input) {
     final DataHubIngestionSourceSchedule result = new DataHubIngestionSourceSchedule();
-    result.setStartTimeMs(input.getStartTimeMs());
-    if (input.getEndTimeMs() != null) {
-      result.setEndTimeMs(input.getEndTimeMs());
+    if (input.getStartTimeMs() != null) {
+      result.setStartTimeMs(input.getStartTimeMs());
     }
     result.setInterval(input.getInterval());
+    result.setTimezone(input.getTimezone());
     return result;
   }
 }

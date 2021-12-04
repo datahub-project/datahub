@@ -16,10 +16,10 @@ record DataHubIngestionSourceInfo {
   @Searchable = {
    "fieldType": "TEXT_PARTIAL"
   }
-  displayName: string
+  name: string
 
   /**
-   * The type of the Ingestion Source, e.g. RECIPE vs TEMPLATE
+   * The type of the source itself, e.g. mysql, bigquery, bigquery-usage. Should match the recipe.
    */
   type: string
 
@@ -40,6 +40,16 @@ record DataHubIngestionSourceInfo {
     /**
      * Information about the recipe to use in ingestion, if the Type is INGESTION
      */
-     recipe: optional DataHubIngestionSourceRecipe
+     recipe: string
+
+     /**
+      * The PyPI version of the datahub CLI to use when executing a recipe
+      */
+      version: optional string
+
+     /**
+      * The id of the executor to use to execute the ingestion run
+      */
+      executorId: optional string
   }
 }

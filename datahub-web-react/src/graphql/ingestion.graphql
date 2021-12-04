@@ -5,17 +5,17 @@ query listIngestionSources($input: ListIngestionSourcesInput!) {
         total
         ingestionSources {
             urn
-            displayName
-            sourceType
+            name
+            type
             config {
-                recipe {
-                    json
-                }
+                recipe
+                version
+                executorId
             }
             schedule {
                 startTimeMs
-                endTimeMs
                 interval
+                timezone
             }
             executions(start: 0, count: 1) {
                 start
@@ -23,6 +23,11 @@ query listIngestionSources($input: ListIngestionSourcesInput!) {
                 total
                 executionRequests {
                     urn
+                    result {
+                        status
+                        startTimeMs
+                        durationMs
+                    }
                 }
             }
         }
@@ -32,17 +37,17 @@ query listIngestionSources($input: ListIngestionSourcesInput!) {
 query getIngestionSource($urn: String!, $runStart: Int, $runCount: Int) {
     ingestionSource(urn: $urn) {
         urn
-        displayName
-        sourceType
+        name
+        type
         config {
-            recipe {
-                json
-            }
+            recipe
+            version
+            executorId
         }
         schedule {
             startTimeMs
-            endTimeMs
             interval
+            timezone
         }
         executions(start: $runStart, count: $runCount) {
             start
@@ -50,7 +55,34 @@ query getIngestionSource($urn: String!, $runStart: Int, $runCount: Int) {
             total
             executionRequests {
                 urn
+                input {
+                    source {
+                        type
+                    }
+                }
+                result {
+                    status
+                    startTimeMs
+                    durationMs
+                }
             }
+        }
+    }
+}
+
+query getIngestionExecutionRequest($urn: String!) {
+    executionRequest(urn: $urn) {
+        urn
+        input {
+            source {
+                type
+            }
+        }
+        result {
+            status
+            startTimeMs
+            durationMs
+            report
         }
     }
 }
@@ -74,7 +106,7 @@ query listSecrets($input: ListSecretsInput!) {
         total
         secrets {
             urn
-            displayName
+            name
         }
     }
 }
@@ -89,4 +121,8 @@ mutation deleteSecret($urn: String!) {
 
 mutation createIngestionExecutionRequest($input: CreateIngestionExecutionRequestInput!) {
     createIngestionExecutionRequest(input: $input)
+}
+
+mutation cancelIngestionExecutionRequest($input: CancelIngestionExecutionRequestInput!) {
+    cancelIngestionExecutionRequest(input: $input)
 }

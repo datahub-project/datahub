@@ -2,9 +2,15 @@
 
 extend type Query {
   """
-  List all secrets stored in DataHub
+  List all secrets stored in DataHub (no values)
   """
   listSecrets(input: ListSecretsInput!): ListSecretsResult
+
+  """
+  Fetch the values of a set of secrets. The caller must have the MANAGE_SECRETS
+  privilege to use.
+  """
+  getSecretValues(input: GetSecretValuesInput!): [SecretValue!]
 
   """
   List all ingestion sources
@@ -21,7 +27,7 @@ extend type Query {
   Create a request to execute an ingestion job
   urn: The primary key associated with the ingestion execution request.
   """
-  getIngestionExecutionRequest(urn: String!): ExecutionRequest
+  executionRequest(urn: String!): ExecutionRequest
 }
 
 extend type Mutation {
@@ -55,16 +61,11 @@ extend type Mutation {
   input: Input required for creating an ingestion execution request
   """
   createIngestionExecutionRequest(input: CreateIngestionExecutionRequestInput!): String
-}
 
-"""
-The source type of an execution request.
-"""
-enum ExecutionRequestSourceType {
   """
-  The source of the request is an ingestion source
+  Cancel a running execution request, provided the urn of the original execution request
   """
-  INGESTION_SOURCE
+  cancelIngestionExecutionRequest(input: CancelIngestionExecutionRequestInput!): String
 }
 
 """
@@ -72,9 +73,9 @@ Information about the source of an execution request
 """
 type ExecutionRequestSource {
   """
-  The type of the source, e.g. INGESTION_SOURCE
+  The type of the source, e.g. SCHEDULED_INGESTION_SOURCE
   """
-  type: ExecutionRequestSourceType!
+  type: String
 }
 
 """
@@ -119,7 +120,7 @@ type ExecutionRequestResult {
   """
   The result of the request, e.g. either SUCCEEDED or FAILED
   """
-  result: String!
+  status: String!
 
   """
   Time at which the task began
@@ -130,6 +131,11 @@ type ExecutionRequestResult {
   Duration of the task
   """
   durationMs: Long
+
+  """
+  A report about the ingestion run
+  """
+  report: String
 
   """
   Logs from the execution
@@ -156,10 +162,6 @@ type ExecutionRequest {
   """
   result: ExecutionRequestResult
 
-  """
-  Edges extending from this entity
-  """
-  relationships(input: RelationshipsInput!): EntityRelationshipsResult
 }
 
 """
@@ -170,6 +172,21 @@ input CreateIngestionExecutionRequestInput {
   Urn of the ingestion source to execute
   """
   ingestionSourceUrn: String!
+}
+
+"""
+Input for cancelling an execution request input
+"""
+input CancelIngestionExecutionRequestInput {
+  """
+  Urn of the ingestion source
+  """
+  ingestionSourceUrn: String!
+
+  """
+  Urn of the specific execution request to cancel
+  """
+  executionRequestUrn: String!
 }
 
 """
@@ -199,7 +216,7 @@ type Secret {
   """
   The name of the secret
   """
-  displayName: String!
+  name: String!
 }
 
 """
@@ -228,28 +245,18 @@ type ListSecretsResult {
 }
 
 """
-The type of an ingestion source
-"""
-enum IngestionSourceType {
-  """
-  Ingestion Source that uses a raw recipe as input.
-  """
-  RECIPE
-}
-
-"""
 A schedule associated with an Ingestion Source
 """
 type IngestionSchedule {
   """
   The start time associated with the schedule
   """
-  startTimeMs: Long!
+  startTimeMs: Long
 
   """
-  The end time associated with the schedule
+  Time Zone abbreviation (e.g. GMT, EDT). Defaults to UTC.
   """
-  endTimeMs: Long
+  timezone: String
 
   """
   The cron-formatted interval to execute the ingestion source on
@@ -258,23 +265,23 @@ type IngestionSchedule {
 }
 
 """
-A schedule associated with an Ingestion Source
-"""
-type IngestionRecipe {
-  """
-  A json-ified representation of a normal ingestion recipe YML
-  """
-  json: String!
-}
-
-"""
 A set of configurations for an Ingestion Source
 """
 type IngestionConfig {
   """
-  The recipe to use for ingestion
+  The JSON-encoded recipe to use for ingestion
   """
-  recipe: IngestionRecipe
+  recipe: String!
+
+  """
+  Advanced: The specific executor that should handle the execution request. Defaults to 'default'.
+  """
+  executorId: String
+
+  """
+  Advanced: The version of the ingestion framework to use
+  """
+  version: String
 }
 
 """
@@ -323,14 +330,14 @@ type IngestionSource {
   urn: String!
 
   """
-  The type of the ingestion source
+  The type of the source itself, e.g. mysql, bigquery, bigquery-usage. Should match the recipe.
   """
-  sourceType: IngestionSourceType!
+  type: String!
 
   """
   The display name of the Ingestion Source
   """
-  displayName: String!
+  name: String!
 
   """
   An optional schedule associated with the Ingestion Source
@@ -388,25 +395,24 @@ type ListIngestionSourcesResult {
   ingestionSources: [IngestionSource!]!
 }
 
-
-"""
-Input parameters for creating / updating an Ingestion Source
-"""
-input UpdateIngestionSourceRecipeInput {
-  """
-  A raw recipe.yml file represented as a JSON string
-  """
-  json: String!
-}
-
 """
 Input parameters for creating / updating an Ingestion Source
 """
 input UpdateIngestionSourceConfigInput {
   """
-  Recipe configurations to use with the Ingestion Source
+  A JSON-encoded recipe
   """
-  recipe: UpdateIngestionSourceRecipeInput
+  recipe: String!
+
+  """
+  The version of DataHub Ingestion Framework to use when executing the recipe.
+  """
+  version: String
+
+  """
+  The id of the executor to use for executing the recipe
+  """
+  executorId: String
 }
 
 """
@@ -416,7 +422,7 @@ input UpdateIngestionSourceScheduleInput {
   """
   The epoch (ms) Date Time when the job should start
   """
-  startTimeMs: Long!
+  startTimeMs: Long
 
   """
   The epoch (ms) Date Time when the job should end
@@ -424,9 +430,14 @@ input UpdateIngestionSourceScheduleInput {
   endTimeMs: Long
 
   """
-  The cron-formatted inverval describing when the job should be executed
+  The cron-formatted interval describing when the job should be executed
   """
   interval: String!
+
+  """
+  The name of the timezone in which the cron interval should be scheduled (e.g. America/Los Angeles)
+  """
+  timezone: String!
 }
 
 """
@@ -436,12 +447,12 @@ input UpdateIngestionSourceInput {
   """
   A name associated with the ingestion source
   """
-  displayName: String!
+  name: String!
 
   """
-  The type of the Ingestion Source
+  The type of the source itself, e.g. mysql, bigquery, bigquery-usage. Should match the recipe.
   """
-  type: IngestionSourceType!
+  type: String!
 
   """
   An optional description associated with the ingestion source
@@ -466,10 +477,35 @@ input CreateSecretInput {
   """
   The name of the secret for reference in ingestion recipes
   """
-  displayName: String!
+  name: String!
 
   """
   The value of the secret, to be encrypted and stored
+  """
+  value: String!
+}
+
+"""
+Input arguments for retrieving the plaintext values of a set of secrets
+"""
+input GetSecretValuesInput {
+   """
+   A list of secret names
+   """
+   secrets: [String!]!
+}
+
+"""
+A plaintext secret value
+"""
+type SecretValue {
+  """
+  The name of the secret
+  """
+  name: String!
+
+  """
+  The plaintext value of the secret.
   """
   value: String!
 }

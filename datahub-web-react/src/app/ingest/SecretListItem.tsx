@@ -57,7 +57,7 @@ export default function SecretListItem({ secret, onClick, onDelete }: Props) {
         });
     };
 
-    const { displayName } = secret;
+    const { name } = secret;
 
     return (
         <List.Item>
@@ -66,7 +66,7 @@ export default function SecretListItem({ secret, onClick, onDelete }: Props) {
                     <HeaderContainer>
                         <div style={{ marginLeft: 16, marginRight: 16 }}>
                             <div>
-                                <Typography.Text>{displayName}</Typography.Text>
+                                <Typography.Text>{name}</Typography.Text>
                             </div>
                         </div>
                     </HeaderContainer>

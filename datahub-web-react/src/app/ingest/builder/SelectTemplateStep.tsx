@@ -1,8 +1,9 @@
-import { Button, Typography } from 'antd';
+import { Typography, Button } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 import { LogoCountCard } from '../../shared/LogoCountCard';
-import { IngestionSourceBuilderStep, SourceType, StepProps, TemplateBuilderState } from './types';
+import { BaseBuilderState, IngestionSourceBuilderStep, StepProps } from './types';
+import { SOURCE_TEMPLATE_CONFIGS } from './utils';
 
 const Section = styled.div`
     display: flex;
@@ -23,70 +24,38 @@ const SelectTemplateHeader = styled(Typography.Title)`
     }
 `;
 
-const InlineTextButton = styled(Button)`
-    && {
-        margin: 0px;
-        padding: 0px;
-    }
-`;
-
-// TODO: Resolve the name, logo of supported platforms dynamically
-const platforms = [
-    {
-        urn: 'urn:li:dataPlatform:bigquery',
-        type: SourceType.BIGQUERY,
-        name: 'BigQuery',
-        logoUrl:
-            'https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/bigquerylogo.png',
-    },
-];
-
 /**
  * Component responsible for selecting the mechanism for constructing a new Ingestion Source
  */
-export const SelectTemplateStep = ({ state, updateState, goTo }: StepProps) => {
+export const SelectTemplateStep = ({ state, updateState, goTo, cancel }: StepProps) => {
     // Reoslve the supported platform types to their logos and names.
 
-    const onSelectTemplate = (sourceType: SourceType) => {
-        const newState: TemplateBuilderState = {
+    const onSelectTemplate = (type: string) => {
+        const newState: BaseBuilderState = {
             ...state,
-            source: {
-                type: sourceType, // Obviously resolve the correct ht,
-                configs: {},
-            },
+            type,
         };
         updateState(newState);
-        goTo(IngestionSourceBuilderStep.CONFIGURE_SOURCE_TEMPLATE);
-    };
-
-    const onClickBuildRecipe = () => {
-        // No state changes to make. Simply goTo.
         goTo(IngestionSourceBuilderStep.DEFINE_RECIPE);
     };
 
     return (
         <>
             <Section>
-                <SelectTemplateHeader level={5}>Select a template</SelectTemplateHeader>
+                <SelectTemplateHeader level={5}>Select a Template</SelectTemplateHeader>
                 <PlatformListContainer>
-                    {platforms.map((platform, _) => (
+                    {SOURCE_TEMPLATE_CONFIGS.map((configs, _) => (
                         <LogoCountCard
-                            key={platform.urn}
-                            onClick={() => onSelectTemplate(platform.type)}
-                            name={platform.name}
-                            logoUrl={platform.logoUrl}
+                            key={configs.type}
+                            onClick={() => onSelectTemplate(configs.type)}
+                            name={configs.displayName}
+                            logoUrl={configs.logoUrl}
+                            logoComponent={configs.logoComponent}
                         />
                     ))}
                 </PlatformListContainer>
             </Section>
-            <Section>
-                <span>
-                    Or,{' '}
-                    <InlineTextButton type="link" onClick={onClickBuildRecipe}>
-                        build a recipe manually.
-                    </InlineTextButton>
-                </span>
-            </Section>
+            <Button onClick={cancel}>Cancel</Button>
         </>
     );
 };

@@ -19,6 +19,11 @@ record ExecutionRequestInput {
   args: map[string, string]
 
   /**
+  * Advanced: specify a specific executor to route the request to. If none is provided, a "default" executor is used.
+  */
+  executorId: optional string
+
+  /**
   * Source which created the execution request
   */
   source: ExecutionRequestSource

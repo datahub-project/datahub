@@ -74,6 +74,7 @@ export const SecretsList = () => {
 
     const handleSubmit = (_: CreateSecretInput) => {
         setIsCreatingSecret(false);
+        setFocusSecretUrn(undefined);
     };
 
     return (

@@ -7,15 +7,15 @@ record DataHubIngestionSourceSchedule {
   /**
    * The start date, in milliseconds since epoch
    */
-  startTimeMs: long
-
-  /**
-   * The end date, in milliseconds since epoch (optional)
-   */
-  endTimeMs: optional long
+  startTimeMs: optional long
 
   /**
    * A cron-formatted execution interval, as a cron string, e.g. "0 * * * *"
    */
   interval: string
+
+  /**
+   * Timezone in which the cron interval applies, e.g. America/Los Angeles
+   */
+  timezone: string
 }

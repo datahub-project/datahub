@@ -19,9 +19,20 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 public class CreateSecretResolver implements DataFetcher<CompletableFuture<String>> {
 
   private final EntityClient _entityClient;
+  private final String _secretKey;
 
-  public CreateSecretResolver(final EntityClient entityClient) {
+  public CreateSecretResolver(
+      final EntityClient entityClient
+  ) {
+    this(entityClient, "ENCRYPTION_KEY");
+  }
+
+  public CreateSecretResolver(
+      final EntityClient entityClient,
+      final String secretKey
+  ) {
     _entityClient = entityClient;
+    _secretKey = secretKey;
   }
 
   @Override
@@ -39,13 +50,13 @@ public class CreateSecretResolver implements DataFetcher<CompletableFuture<Strin
 
       // Create the Ingestion source key --> use the display name as a unique id to ensure it's not duplicated.
       final DataHubSecretKey key = new DataHubSecretKey();
-      key.setId(input.getDisplayName());
+      key.setId(input.getName());
       proposal.setEntityKeyAspect(GenericAspectUtils.serializeAspect(key));
 
       // Create the secret value.
       final DataHubSecretValue value = new DataHubSecretValue();
-      value.setDisplayName(input.getDisplayName());
-      value.setValue(input.getValue()); // TODO: Add encryption here.
+      value.setName(input.getName());
+      value.setValue(SecretUtils.encrypt(input.getValue(), _secretKey));
 
       proposal.setEntityType(Constants.SECRETS_ENTITY_NAME);
       proposal.setAspectName(Constants.SECRET_VALUE_ASPECT_NAME);

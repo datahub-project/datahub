@@ -98,7 +98,7 @@ public class ListSecretsResolver implements DataFetcher<CompletableFuture<ListSe
   private Secret mapSecretValue(final Urn urn, final DataHubSecretValue value) {
     final Secret result = new Secret();
     result.setUrn(urn.toString());
-    result.setDisplayName(value.getDisplayName());
+    result.setName(value.getName());
     return result;
   }
 }

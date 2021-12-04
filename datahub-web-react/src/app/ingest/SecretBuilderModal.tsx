@@ -17,7 +17,7 @@ export const SecretBuilderModal = ({ visible, onSubmit, onCancel }: Props) => {
 
     const onCreateSecret = () => {
         const input = {
-            displayName: stagedName,
+            name: stagedName,
             value: stagedValue,
         };
 
@@ -32,6 +32,8 @@ export const SecretBuilderModal = ({ visible, onSubmit, onCancel }: Props) => {
                     content: `Successfully created new Secret!`,
                     duration: 3,
                 });
+                setStagedName('');
+                setStagedValue('');
                 onSubmit?.(input);
             });
     };

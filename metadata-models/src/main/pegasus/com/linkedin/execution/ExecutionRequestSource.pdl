@@ -15,5 +15,10 @@ record ExecutionRequestSource {
     "name": "ingestionSource",
     "entityTypes": [ "dataHubIngestionSource" ]
   }
+  @Searchable = {
+    "fieldName": "ingestionSource",
+    "fieldType": "KEYWORD",
+    "queryByDefault": false
+  }
   ingestionSource: optional Urn
 }

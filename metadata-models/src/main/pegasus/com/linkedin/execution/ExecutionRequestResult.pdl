@@ -30,6 +30,11 @@ record ExecutionRequestResult {
   /**
   * Time at which the request was created
   */
+  @Searchable = {
+    "fieldName": "startTimeMs",
+    "fieldType": "COUNT",
+    "queryByDefault": false
+  }
   startTimeMs: long
 
  /**

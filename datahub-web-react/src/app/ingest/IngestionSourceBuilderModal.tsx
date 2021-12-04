@@ -1,17 +1,15 @@
-import { message, Modal, Typography } from 'antd';
-import React, { useState } from 'react';
-import { useCreateIngestionSourceMutation, useUpdateIngestionSourceMutation } from '../../graphql/ingestion.generated';
-import { IngestionSourceType, UpdateIngestionSourceInput } from '../../types.generated';
+import { Modal, Typography } from 'antd';
+import React, { useEffect, useState } from 'react';
 import { CreateScheduleStep } from './builder/CreateScheduleStep';
 import { DefineRecipeStep } from './builder/DefineRecipeStep';
 import { SelectTemplateStep } from './builder/SelectTemplateStep';
 import { NameSourceStep } from './builder/NameSourceStep';
-import { BaseBuilderState, IngestionSourceBuilderStep, RecipeBuilderState, StepProps } from './builder/types';
+import { BaseBuilderState, IngestionSourceBuilderStep, StepProps } from './builder/types';
 
 type Props = {
-    urn?: string;
+    initialState?: BaseBuilderState;
     visible: boolean;
-    onSubmit?: (input: UpdateIngestionSourceInput) => void;
+    onSubmit?: (input: BaseBuilderState) => void;
     onCancel?: () => void;
 };
 
@@ -26,54 +24,23 @@ export const IngestionSourceBuilderStepComponent = {
     NAME_SOURCE: NameSourceStep,
 };
 
-export const IngestionSourceBuilderModal = ({ urn, visible, onSubmit, onCancel }: Props) => {
-    const isEditing = urn !== undefined;
-    const titleText = isEditing ? 'Edit Ingestion Source' : 'Create new Ingestion Source';
+export const IngestionSourceBuilderModal = ({ initialState, visible, onSubmit, onCancel }: Props) => {
+    console.log(initialState);
+    const isEditing = initialState !== undefined;
+    const titleText = isEditing ? 'Edit Ingestion Source' : 'New Ingestion Source';
+    const initialStep = isEditing
+        ? IngestionSourceBuilderStep.DEFINE_RECIPE
+        : IngestionSourceBuilderStep.SELECT_TEMPLATE;
 
-    // TODO: Support initial state.
-    const [stepStack, setStepStack] = useState([IngestionSourceBuilderStep.SELECT_TEMPLATE]);
+    const [stepStack, setStepStack] = useState([initialStep]);
+    useEffect(() => setStepStack([initialStep]), [initialState, initialStep, setStepStack]);
+
     const [ingestionBuilderState, setIngestionBuilderState] = useState<BaseBuilderState>({});
-
-    const [createIngestionSource] = useCreateIngestionSourceMutation();
-    const [updateIngestionSource] = useUpdateIngestionSourceMutation();
-
-    const createOrUpdateIngestionSource = (input: UpdateIngestionSourceInput) => {
-        if (isEditing) {
-            // Update:
-            updateIngestionSource({ variables: { urn: urn as string, input } })
-                .then(() => {
-                    message.success({
-                        content: `Successfully updated ingestion source!`,
-                        duration: 3,
-                    });
-                    onSubmit?.(input);
-                })
-                .catch((e) => {
-                    message.destroy();
-                    message.error({
-                        content: `Failed to update ingestion source!: \n ${e.message || ''}`,
-                        duration: 3,
-                    });
-                });
-        } else {
-            // Create:
-            createIngestionSource({ variables: { input } })
-                .then(() => {
-                    message.success({
-                        content: `Successfully created ingestion source!`,
-                        duration: 3,
-                    });
-                    onSubmit?.(input);
-                })
-                .catch((e) => {
-                    message.destroy();
-                    message.error({
-                        content: `Failed to create ingestion source!: \n ${e.message || ''}`,
-                        duration: 3,
-                    });
-                });
+    useEffect(() => {
+        if (initialState) {
+            setIngestionBuilderState(initialState);
         }
-    };
+    }, [initialState, setIngestionBuilderState]);
 
     const goTo = (step: IngestionSourceBuilderStep) => {
         setStepStack([...stepStack, step]);
@@ -83,24 +50,8 @@ export const IngestionSourceBuilderModal = ({ urn, visible, onSubmit, onCancel }
         setStepStack(stepStack.slice(0, -1));
     };
 
-    const submit = () => {
-        // 1. validateState()
-        // 2. Create a new ingestion source.
-        if (ingestionBuilderState.type === 'recipe') {
-            const recipeBuilderState = ingestionBuilderState as RecipeBuilderState;
-            createOrUpdateIngestionSource({
-                type: IngestionSourceType.Recipe,
-                displayName: recipeBuilderState.name || '', // Validate that this is not null.
-                config: {
-                    recipe: {
-                        json: recipeBuilderState.recipe,
-                    },
-                },
-                schedule: recipeBuilderState.schedule,
-            });
-        } else {
-            throw new Error('Unrecognized builder type provided');
-        }
+    const cancel = () => {
+        onCancel?.();
     };
 
     const StepComponent: React.FC<StepProps> = IngestionSourceBuilderStepComponent[stepStack[stepStack.length - 1]];
@@ -117,8 +68,9 @@ export const IngestionSourceBuilderModal = ({ urn, visible, onSubmit, onCancel }
                 state={ingestionBuilderState}
                 updateState={setIngestionBuilderState}
                 goTo={goTo}
-                prev={prev}
-                submit={submit}
+                prev={stepStack.length > 1 ? prev : undefined}
+                submit={() => onSubmit?.(ingestionBuilderState)}
+                cancel={cancel}
             />
         </Modal>
     );

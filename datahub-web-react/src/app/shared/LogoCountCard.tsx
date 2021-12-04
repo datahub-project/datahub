@@ -1,10 +1,10 @@
 import React from 'react';
-import { Image, Typography } from 'antd';
+import { Image, Typography, Button } from 'antd';
 import styled from 'styled-components';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { formatNumber } from './formatNumber';
 
-const Container = styled.div`
+const Container = styled(Button)`
     margin-right: 24px;
     margin-bottom: 12px;
     width: 160px;
@@ -49,7 +49,7 @@ type Props = {
 
 export const LogoCountCard = ({ logoUrl, logoComponent, name, count, onClick }: Props) => {
     return (
-        <Container onClick={onClick}>
+        <Container type="link" onClick={onClick}>
             <LogoContainer>
                 {(logoUrl && <PlatformLogo preview={false} src={logoUrl} alt={name} />) || logoComponent}
             </LogoContainer>

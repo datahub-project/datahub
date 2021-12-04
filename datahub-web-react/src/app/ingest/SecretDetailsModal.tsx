@@ -43,7 +43,7 @@ export const SecretDetailsModal = ({ secret, visible, onClose }: Props) => {
         >
             <Section>
                 <SectionHeader strong>Name</SectionHeader>
-                <SectionParagraph>{secret.displayName}</SectionParagraph>
+                <SectionParagraph>{secret.name}</SectionParagraph>
             </Section>
         </Modal>
     );

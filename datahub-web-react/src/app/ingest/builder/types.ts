@@ -16,28 +16,28 @@ export type StepProps = {
     state: BaseBuilderState;
     updateState: (newState: BaseBuilderState) => void;
     goTo: (step: IngestionSourceBuilderStep) => void;
-    prev: () => void;
+    prev?: () => void;
     submit: () => void;
+    cancel: () => void;
 };
-
-export enum SourceType {
-    BIGQUERY,
-}
 
 export enum SinkType {
     DATAHUB_REST,
 }
 
+/**
+ * The object represents the state of the Ingestion Source Builder form.
+ */
 export interface BaseBuilderState {
-    /**
-     * The type of the builder
-     */
-    type?: 'recipe' | 'template';
-
     /**
      * The name of the new ingestion source
      */
     name?: string;
+
+    /**
+     * The type of the source itself, e.g. mysql, bigquery, bigquery-usage. Should match the recipe.
+     */
+    type?: string;
 
     /**
      * The schedule on which to execute the source (optional)
@@ -46,55 +46,36 @@ export interface BaseBuilderState {
         /**
          * The time at which the source should begin to be executed
          */
-        startTimeMs: number;
+        startTimeMs?: number | null;
 
         /**
-         * The time at which the source should stop being executed
+         * Abbreviated timezone at which the schedule should be executed
          */
-        endTimeMs?: number;
+        timezone?: string | null;
 
         /**
          * The inteval on which the source should be executed, represented as a cron string
          */
-        interval: string;
-    };
-}
-
-export interface RecipeBuilderState extends BaseBuilderState {
-    /**
-     * The raw recipe itself, represented as JSON. Expected to contain embedded secrets.
-     */
-    recipe: string;
-}
-
-export interface TemplateBuilderState extends BaseBuilderState {
-    /**
-     * Parameters about the source itself
-     */
-    source: {
-        /**
-         * The template to use to create the Ingestion Source. Undefined / null means raw recipe builder.
-         */
-        type: SourceType;
-
-        /**
-         * The source-specific configurations. Specific shape depends on the "SourceType"
-         */
-        configs: any;
-    };
+        interval?: string | null;
+    } | null;
 
     /**
-     * Parameters about the sink
+     * Specific configurations for executing the source recipe
      */
-    sink?: {
+    config?: {
         /**
-         * The type of the sink
+         * The raw recipe itself, represented as JSON. Expected to contain embedded secrets.
          */
-        type: SinkType;
+        recipe: string;
 
         /**
-         * The actor who should be used when ingesting. Should default to the system if none is provided.
+         * Advanced: The id of the executor to be used to complete ingestion
          */
-        actor?: string;
+        executorId?: string | null;
+
+        /**
+         * Advanced: The version of the DataHub Ingestion Framework to use to perform ingestion
+         */
+        version?: string | null;
     };
 }

@@ -3,12 +3,9 @@ package com.linkedin.datahub.graphql.resolvers.ingest;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.generated.ExecutionRequest;
 import com.linkedin.datahub.graphql.generated.ExecutionRequestLogs;
-import com.linkedin.datahub.graphql.generated.ExecutionRequestSourceType;
 import com.linkedin.datahub.graphql.generated.IngestionConfig;
-import com.linkedin.datahub.graphql.generated.IngestionRecipe;
 import com.linkedin.datahub.graphql.generated.IngestionSchedule;
 import com.linkedin.datahub.graphql.generated.IngestionSource;
-import com.linkedin.datahub.graphql.generated.IngestionSourceType;
 import com.linkedin.datahub.graphql.types.common.mappers.StringMapMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
@@ -18,7 +15,6 @@ import com.linkedin.execution.ExecutionRequestResult;
 import com.linkedin.execution.ExecutionRequestSource;
 import com.linkedin.ingestion.DataHubIngestionSourceConfig;
 import com.linkedin.ingestion.DataHubIngestionSourceInfo;
-import com.linkedin.ingestion.DataHubIngestionSourceRecipe;
 import com.linkedin.ingestion.DataHubIngestionSourceSchedule;
 import com.linkedin.metadata.Constants;
 import java.util.ArrayList;
@@ -56,6 +52,7 @@ public class IngestionResolverUtils {
       if (executionRequestInput.hasArgs()) {
         inputResult.setArguments(StringMapMapper.map(executionRequestInput.getArgs()));
       }
+      result.setInput(inputResult);
     }
 
     // Map result aspect. Optional.
@@ -70,15 +67,16 @@ public class IngestionResolverUtils {
 
   public static com.linkedin.datahub.graphql.generated.ExecutionRequestSource mapExecutionRequestSource(final ExecutionRequestSource execRequestSource) {
     final com.linkedin.datahub.graphql.generated.ExecutionRequestSource result = new com.linkedin.datahub.graphql.generated.ExecutionRequestSource();
-    result.setType(ExecutionRequestSourceType.valueOf(execRequestSource.getType()));
+    result.setType(execRequestSource.getType());
     return result;
   }
 
   public static com.linkedin.datahub.graphql.generated.ExecutionRequestResult mapExecutionRequestResult(final ExecutionRequestResult execRequestResult) {
     final com.linkedin.datahub.graphql.generated.ExecutionRequestResult result = new com.linkedin.datahub.graphql.generated.ExecutionRequestResult();
-    result.setResult(execRequestResult.getStatus());
+    result.setStatus(execRequestResult.getStatus());
     result.setStartTimeMs(execRequestResult.getStartTimeMs());
     result.setDurationMs(execRequestResult.getDurationMs());
+    result.setReport(execRequestResult.getReport());
 
     // Mock the logs for now.
     final ExecutionRequestLogs logs = new ExecutionRequestLogs();
@@ -112,8 +110,8 @@ public class IngestionResolverUtils {
   public static IngestionSource mapIngestionSourceInfo(final Urn urn, final DataHubIngestionSourceInfo info) {
     final IngestionSource result = new IngestionSource();
     result.setUrn(urn.toString());
-    result.setDisplayName(info.getDisplayName());
-    result.setSourceType(IngestionSourceType.valueOf(info.getType()));
+    result.setName(info.getName());
+    result.setType(info.getType());
     result.setConfig(mapIngestionSourceConfig(info.getConfig()));
     if (info.hasSchedule()) {
       result.setSchedule(mapIngestionSourceSchedule(info.getSchedule()));
@@ -123,24 +121,18 @@ public class IngestionResolverUtils {
 
   public static IngestionConfig mapIngestionSourceConfig(final DataHubIngestionSourceConfig config) {
     final IngestionConfig result = new IngestionConfig();
-    if (config.hasRecipe()) {
-      result.setRecipe(mapIngestionSourceRecipe(config.getRecipe()));
-    }
-    return result;
-  }
-
-  public static IngestionRecipe mapIngestionSourceRecipe(final DataHubIngestionSourceRecipe recipe) {
-    final IngestionRecipe result = new IngestionRecipe();
-    result.setJson(recipe.getJson());
+    result.setRecipe(config.getRecipe());
+    result.setVersion(config.getVersion());
+    result.setExecutorId(config.getExecutorId());
     return result;
   }
 
   public static IngestionSchedule mapIngestionSourceSchedule(final DataHubIngestionSourceSchedule schedule) {
     final IngestionSchedule result = new IngestionSchedule();
     result.setInterval(schedule.getInterval());
-    result.setStartTimeMs(schedule.getStartTimeMs());
-    if (schedule.hasEndTimeMs()) {
-      result.setEndTimeMs(schedule.getEndTimeMs());
+    result.setTimezone(schedule.getTimezone());
+    if (schedule.hasStartTimeMs()) {
+      result.setStartTimeMs(schedule.getStartTimeMs());
     }
     return result;
   }

@@ -16,7 +16,7 @@ const SelectTemplateHeader = styled(Typography.Title)`
 `;
 
 export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) => {
-    const setStagedName = (stagedName: string) => {
+    const setName = (stagedName: string) => {
         const newState: BaseBuilderState = {
             ...state,
             name: stagedName,
@@ -38,13 +38,13 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
                 <Input
                     placeholder="A name for your ingestion source"
                     value={state.name}
-                    onChange={(event) => setStagedName(event.target.value)}
+                    onChange={(event) => setName(event.target.value)}
                 />
             </Section>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8 }}>
                 <Button onClick={prev}>Previous</Button>
                 <Button disabled={!(state.name !== undefined && state.name.length > 0)} onClick={onClickCreate}>
-                    Create
+                    Done
                 </Button>
             </div>
         </>
