@@ -10,7 +10,21 @@
 //
 //
 // -- This is a parent command --
-// Cypress.Commands.add('login', (email, password) => { ... })
+Cypress.Commands.add('login', () => {
+    cy.request('POST', '/logIn', {
+        username: 'datahub',
+        password: 'datahub',
+    })
+})
+
+Cypress.Commands.add('deleteUrn', (urn) => {
+    cy.request({ method: 'POST', url: 'http://localhost:8080/entities?action=delete', body: {
+        urn
+    }, headers: {
+        "X-RestLi-Protocol-Version": "2.0.0",
+        "Content-Type": "application/json",
+    }})
+})
 //
 //
 // -- This is a child command --

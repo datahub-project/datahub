@@ -1,23 +1,21 @@
-from pprint import pprint
-
 import pytest
 import subprocess
 
-from tests.utils import FRONTEND_ENDPOINT
 from tests.utils import ingest_file_via_rest
 from tests.utils import delete_urns_from_file
 
 
 @pytest.fixture(scope="module", autouse=True)
-def ingest_cleanup_data(request):
-    print('ingest?')
-    pass
+def ingest_cleanup_data():
+    print("ingesting test data")
+    ingest_file_via_rest("tests/cypress/data.json")
     yield
-    pass
+    print("removing test data")
+    delete_urns_from_file("tests/cypress/data.json")
 
 
-def test_login_to_datahub(frontend_session, wait_for_healthchecks):
-    command = f"npx cypress run --spec cypress/integration/login.js"
+def test_run_cypress(frontend_session, wait_for_healthchecks):
+    command = f"npx cypress run"
     print('starting?')
     proc = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd="tests/cypress")
     stdout = proc.stdout.read()
