@@ -21,7 +21,7 @@ class Telemetry:
 
     def __init__(self):
 
-        # init the client ID and config if it exists
+        # init the client ID and config if it doesn't exist
         if not CONFIG_FILE.exists():
             self.client_id = str(uuid.uuid4())
             self.update_config()
@@ -29,20 +29,34 @@ class Telemetry:
         else:
             self.load_config()
 
-    def enable(self) -> None:
-        self.enabled = True
-        self.update_config()
-
-    def disable(self) -> None:
-        self.enabled = False
-        self.update_config()
-
     def update_config(self) -> None:
+        """
+        Update the config file with the current client ID and enabled status.
+        """
 
         with open(CONFIG_FILE, "w") as f:
             json.dump({"client_id": self.client_id, "enabled": self.enabled}, f)
 
+    def enable(self) -> None:
+        """
+        Enable telemetry.
+        """
+
+        self.enabled = True
+        self.update_config()
+
+    def disable(self) -> None:
+        """
+        Disable telemetry.
+        """
+
+        self.enabled = False
+        self.update_config()
+
     def load_config(self):
+        """
+        Load the saved config for the telemetry client ID and enabled status.
+        """
 
         with open(CONFIG_FILE, "r") as f:
             config = json.load(f)
@@ -56,6 +70,15 @@ class Telemetry:
         label: Optional[str] = None,
         value: Optional[int] = None,
     ) -> None:
+        """
+        Ping Google Analytics with a single event.
+
+        Args:
+            category (str): category for the event
+            action (str): action taken
+            label (Optional[str], optional): label for the event
+            value (Optional[int], optional): value for the event
+        """
 
         if not self.enabled:
             return
