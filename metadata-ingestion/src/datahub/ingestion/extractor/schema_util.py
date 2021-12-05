@@ -290,7 +290,7 @@ class AvroToMceSchemaConverter:
                     nullable=self._converter._is_nullable(schema),
                     isPartOfKey=self._converter._is_key_schema,
                     globalTags=tags,
-                    jsonProps=json.dumps(merged_props),
+                    jsonProps=json.dumps(merged_props) if merged_props else None,
                 )
                 yield field
 
