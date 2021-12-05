@@ -7,7 +7,7 @@ import requests
 
 import datahub as datahub_package
 
-GA_V = 1
+GA_VERSION = 1
 GA_TID = "UA-214428525-1"
 
 LOCAL_DIR = Path(__file__).resolve().parent
@@ -66,7 +66,7 @@ class Telemetry:
             "an": "metadata-ingestion",  # app name
             "av": datahub_package.nice_version_name(),  # app version
             "t": "event",  # event type
-            "v": GA_V,  # Google Analytics version
+            "v": GA_VERSION,  # Google Analytics version
             "tid": GA_TID,  # tracking id
             "cid": self.client_id,  # client id
             "ec": category,  # event category
