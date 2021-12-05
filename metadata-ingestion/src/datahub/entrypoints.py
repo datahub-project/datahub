@@ -13,6 +13,7 @@ from datahub.cli.docker import docker
 from datahub.cli.get_cli import get
 from datahub.cli.ingest_cli import ingest
 from datahub.cli.put_cli import put
+from datahub.cli.telemetry import telemetry as telemetry_cli
 from datahub.telemetry import telemetry
 
 logger = logging.getLogger(__name__)
@@ -92,6 +93,7 @@ datahub.add_command(ingest)
 datahub.add_command(delete)
 datahub.add_command(get)
 datahub.add_command(put)
+datahub.add_command(telemetry_cli)
 
 
 def main(**kwargs):

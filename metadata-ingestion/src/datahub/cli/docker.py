@@ -18,6 +18,7 @@ from datahub.cli.docker_check import (
     get_client_with_error,
 )
 from datahub.ingestion.run.pipeline import Pipeline
+from datahub.telemetry import telemetry
 
 logger = logging.getLogger(__name__)
 
@@ -74,6 +75,7 @@ def docker_check_impl() -> None:
 @docker.command()
 def check() -> None:
     """Check that the Docker containers are healthy"""
+    telemetry.ping_docker("check")
     docker_check_impl()
 
 
@@ -176,6 +178,8 @@ def quickstart(
     There are options to override the docker-compose config file, build the containers
     locally, and dump logs to the console or to a file if something goes wrong.
     """
+
+    telemetry.ping_docker("quickstart")
 
     running_on_m1 = is_m1()
     if running_on_m1:
@@ -317,6 +321,7 @@ def quickstart(
 )
 def ingest_sample_data(path: Optional[str]) -> None:
     """Ingest sample data into a running DataHub instance."""
+    telemetry.ping_docker("ingest_sample_data")
 
     if path is None:
         click.echo("Downloading sample data...")
@@ -362,6 +367,7 @@ def ingest_sample_data(path: Optional[str]) -> None:
 @docker.command()
 def nuke() -> None:
     """Remove all Docker containers, networks, and volumes associated with DataHub."""
+    telemetry.ping_docker("nuke")
 
     with get_client_with_error() as (client, error):
         if error:

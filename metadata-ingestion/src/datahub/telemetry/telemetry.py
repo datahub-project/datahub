@@ -1,3 +1,4 @@
+import json
 import uuid
 from pathlib import Path
 from typing import Dict, Optional, Union
@@ -8,43 +9,45 @@ import datahub as datahub_package
 
 GA_V = 1
 GA_TID = "UA-214428525-1"
-CLIENT_ID_FILE = "./client_id.txt"
+
+LOCAL_DIR = Path(__file__).resolve().parent
+CONFIG_FILE = LOCAL_DIR / "telemetry-config.json"
 
 
 class Telemetry:
 
     client_id: str
-    tracking_enabled: bool = False
+    enabled: bool = True
 
     def __init__(self):
 
-        self.client_id = self.load_client_id()
-
-    def enable_tracking(self) -> None:
-        self.tracking_enabled = True
-        self.load_client_id()
-
-    def disable_tracking(self) -> None:
-        self.tracking_enabled = False
-
-    def save_client_id(self) -> str:
-        client_id = str(uuid.uuid4())
-
-        with open(CLIENT_ID_FILE, "w") as f:
-            f.write(client_id)
-
-        return client_id
-
-    def load_client_id(self) -> str:
-
-        if not Path(CLIENT_ID_FILE).exists():
-            client_id = self.save_client_id()
+        # init the client ID and config if it exists
+        if not CONFIG_FILE.exists():
+            self.client_id = str(uuid.uuid4())
+            self.update_config()
 
         else:
-            with open(CLIENT_ID_FILE, "r") as f:
-                client_id = f.read().strip()
+            self.load_config()
 
-        return client_id
+    def enable(self) -> None:
+        self.enabled = True
+        self.update_config()
+
+    def disable(self) -> None:
+        self.enabled = False
+        self.update_config()
+
+    def update_config(self) -> None:
+
+        with open(CONFIG_FILE, "w") as f:
+            json.dump({"client_id": self.client_id, "enabled": self.enabled}, f)
+
+    def load_config(self):
+
+        with open(CONFIG_FILE, "r") as f:
+            config = json.load(f)
+            self.client_id = config["client_id"]
+            self.enabled = config["enabled"]
 
     def ping(
         self,
@@ -54,7 +57,7 @@ class Telemetry:
         value: Optional[int] = None,
     ) -> None:
 
-        if self.tracking_enabled:
+        if not self.enabled:
             return
 
         req_url = "https://www.google-analytics.com/collect"
@@ -77,35 +80,47 @@ class Telemetry:
         if value:
             params["ev"] = value
 
-        requests.post(req_url, data=params, headers={"user-agent": "datahub"})
+        requests.post(
+            req_url,
+            data=params,
+            headers={"user-agent": f"datahub {datahub_package.nice_version_name()}"},
+        )
 
 
-telemetry = Telemetry()
+telemetry_instance = Telemetry()
 
 
 def ping_quickstart(quickstart_type: str) -> None:
-    telemetry.ping("quickstart", quickstart_type)
+    telemetry_instance.ping("quickstart", quickstart_type)
 
 
 def ping_ingestion(ingestion_cmd: str) -> None:
-    telemetry.ping("ingestion", ingestion_cmd)
+    telemetry_instance.ping("ingestion", ingestion_cmd)
 
 
 def ping_delete(delete_cmd: str) -> None:
-    telemetry.ping("delete", delete_cmd)
+    telemetry_instance.ping("delete", delete_cmd)
 
 
 def ping_get() -> None:
-    telemetry.ping("get", "get")
+    telemetry_instance.ping("get", "get")
 
 
 def ping_put() -> None:
-    telemetry.ping("put", "put")
+    telemetry_instance.ping("put", "put")
 
 
 def ping_init() -> None:
-    telemetry.ping("init", "init")
+    telemetry_instance.ping("init", "init")
+
+
+def ping_docker(docker_cmd: str) -> None:
+    telemetry_instance.ping("docker", docker_cmd)
 
 
 def ping_version() -> None:
-    telemetry.ping("version", "check_version")
+    telemetry_instance.ping("version", "check_version")
+
+
+def ping_telemetry(telemetry_cmd: str) -> None:
+    telemetry_instance.ping("telemetry", telemetry_cmd)
