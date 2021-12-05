@@ -11,6 +11,5 @@ import lombok.Value;
 @AllArgsConstructor
 public class Entities {
   String id;
-  String doc;
   List<Entity> entities;
 }
