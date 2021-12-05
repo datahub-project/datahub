@@ -49,7 +49,7 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.aws.aws_common import AwsSourceConfig
+from datahub.ingestion.source.aws.aws_common import AwsSourceConfig, make_s3_urn
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
@@ -782,10 +782,11 @@ class DataLakeSource(Source):
             )
         elif file.endswith(".json"):
             df = self.spark.read.json(file)
-        elif file.endswith(".orc"):
-            df = self.spark.read.orc(file)
-        elif file.endswith(".avro"):
-            df = self.spark.read.avro(file)
+        # TODO: add support for more file types
+        # elif file.endswith(".orc"):
+        #     df = self.spark.read.orc(file)
+        # elif file.endswith(".avro"):
+        #     df = self.spark.read.avro(file)
         else:
             self.report.report_warning(file, f"file {file} has unsupported extension")
             return None
@@ -799,6 +800,9 @@ class DataLakeSource(Source):
     ) -> Iterable[MetadataWorkUnit]:
 
         datasetUrn = f"urn:li:dataset:(urn:li:dataPlatform:{self.source_config.platform},{file_urn_path},{self.source_config.env})"
+
+        if self.source_config.platform == "s3":
+            datasetUrn = make_s3_urn(file_path, self.source_config.env)
 
         dataset_snapshot = DatasetSnapshot(
             urn=datasetUrn,
@@ -843,8 +847,6 @@ class DataLakeSource(Source):
     def ingest_table(
         self, full_path: str, relative_path: str
     ) -> Iterable[MetadataWorkUnit]:
-
-        print(self.source_config)
 
         if self.source_config.use_relative_path:
             file_urn_path = relative_path
@@ -915,6 +917,7 @@ class DataLakeSource(Source):
 
         s3_prefixes = ["s3://", "s3n://", "s3a://"]
 
+        # check if file is an s3 object
         if any(
             self.source_config.base_path.startswith(s3_prefix)
             for s3_prefix in s3_prefixes
