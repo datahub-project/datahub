@@ -6,6 +6,7 @@ import click
 from click.exceptions import UsageError
 
 from datahub.cli.cli_utils import get_entity
+from datahub.telemetry import telemetry
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +23,8 @@ logger = logging.getLogger(__name__)
 @click.pass_context
 def get(ctx: Any, urn: Optional[str], aspect: List[str]) -> None:
     """Get metadata for an entity with an optional list of aspects to project"""
+    telemetry.ping_get()
+
     if urn is None:
         if not ctx.args:
             raise UsageError("Nothing for me to get. Maybe provide an urn?")

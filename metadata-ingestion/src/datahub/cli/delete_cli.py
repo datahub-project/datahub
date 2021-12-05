@@ -14,6 +14,7 @@ from datahub.cli.cli_utils import guess_entity_type
 from datahub.emitter import rest_emitter
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import ChangeTypeClass, StatusClass
+from datahub.telemetry import telemetry
 
 logger = logging.getLogger(__name__)
 
@@ -99,6 +100,7 @@ def delete(
     dry_run: bool,
 ) -> None:
     """Delete metadata from datahub using a single urn or a combination of filters"""
+    telemetry.ping_delete("delete")
 
     cli_utils.test_connectivity_complain_exit("delete")
     # one of urn / platform / env / query must be provided
@@ -181,6 +183,8 @@ def delete_with_filters(
     env: Optional[str] = None,
     platform: Optional[str] = None,
 ) -> DeletionResult:
+    telemetry.ping_delete("delete_with_filters")
+
     session, gms_host = cli_utils.get_session_and_host()
     logger.info(f"datahub configured with {gms_host}")
     emitter = rest_emitter.DatahubRestEmitter(gms_server=gms_host)
@@ -224,6 +228,8 @@ def delete_one_urn(
     cached_session_host: Optional[Tuple[sessions.Session, str]] = None,
     cached_emitter: Optional[rest_emitter.DatahubRestEmitter] = None,
 ) -> DeletionResult:
+    telemetry.ping_delete("delete_one_urn")
+
     deletion_result = DeletionResult()
     deletion_result.num_entities = 1
     deletion_result.num_records = UNKNOWN_NUM_RECORDS  # Default is unknown

@@ -5,6 +5,7 @@ from typing import Any
 import click
 
 from datahub.cli.cli_utils import guess_entity_type, post_entity
+from datahub.telemetry import telemetry
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +23,8 @@ logger = logging.getLogger(__name__)
 @click.pass_context
 def put(ctx: Any, urn: str, aspect: str, aspect_data: str) -> None:
     """Update a single aspect of an entity"""
+    telemetry.ping_put()
+
     entity_type = guess_entity_type(urn)
     with open(aspect_data) as fp:
         aspect_obj = json.load(fp)

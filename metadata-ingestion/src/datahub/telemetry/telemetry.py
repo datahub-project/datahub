@@ -91,8 +91,16 @@ def ping_ingestion(ingestion_cmd: str) -> None:
     telemetry.ping("ingestion", ingestion_cmd)
 
 
-def ping_delete(delete_type: str) -> None:
-    telemetry.ping("delete", delete_type)
+def ping_delete(delete_cmd: str) -> None:
+    telemetry.ping("delete", delete_cmd)
+
+
+def ping_get() -> None:
+    telemetry.ping("get", "get")
+
+
+def ping_put() -> None:
+    telemetry.ping("put", "put")
 
 
 def ping_init() -> None:
