@@ -40,3 +40,6 @@ MANIFEST
 **/.DS_Store
 
 .vscode
+
+# Metadata Ingestion Generated
+metadata-ingestion/generated/**
