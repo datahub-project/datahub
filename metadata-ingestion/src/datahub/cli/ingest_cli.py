@@ -18,6 +18,7 @@ from datahub.cli.cli_utils import (
 )
 from datahub.configuration.config_loader import load_config_file
 from datahub.ingestion.run.pipeline import Pipeline
+from datahub.telemetry import telemetry
 
 logger = logging.getLogger(__name__)
 
@@ -63,6 +64,8 @@ def ingest() -> None:
 )
 def run(config: str, dry_run: bool, preview: bool, strict_warnings: bool) -> None:
     """Ingest metadata into DataHub."""
+    telemetry.ping_ingestion("run")
+
     logger.debug("DataHub CLI version: %s", datahub_package.nice_version_name())
 
     config_file = pathlib.Path(config)
@@ -110,6 +113,8 @@ def parse_restli_response(response):
 @click.argument("page_size", type=int, default=100)
 def list_runs(page_offset: int, page_size: int) -> None:
     """List recent ingestion runs to datahub"""
+    telemetry.ping_ingestion("list_runs")
+
     session, gms_host = get_session_and_host()
 
     url = f"{gms_host}/runs?action=list"
@@ -145,6 +150,8 @@ def list_runs(page_offset: int, page_size: int) -> None:
 @click.option("--run-id", required=True, type=str)
 def show(run_id: str) -> None:
     """Describe a provided ingestion run to datahub"""
+    telemetry.ping_ingestion("show")
+
     payload_obj = {"runId": run_id, "dryRun": True}
     structured_rows, entities_affected, aspects_affected = post_rollback_endpoint(
         payload_obj, "/runs?action=rollback"
@@ -173,6 +180,7 @@ def show(run_id: str) -> None:
 @click.option("--dry-run", "-n", required=False, is_flag=True, default=False)
 def rollback(run_id: str, dry_run: bool) -> None:
     """Rollback a provided ingestion run to datahub"""
+    telemetry.ping_ingestion("rollback")
 
     cli_utils.test_connectivity_complain_exit("ingest")
 

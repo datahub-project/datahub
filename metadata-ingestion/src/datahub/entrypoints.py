@@ -13,6 +13,7 @@ from datahub.cli.docker import docker
 from datahub.cli.get_cli import get
 from datahub.cli.ingest_cli import ingest
 from datahub.cli.put_cli import put
+from datahub.telemetry import telemetry
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +58,8 @@ def datahub(debug: bool) -> None:
 @datahub.command()
 def version() -> None:
     """Print version number and exit."""
+    telemetry.ping_version()
+
     click.echo(f"DataHub CLI version: {datahub_package.nice_version_name()}")
     click.echo(f"Python version: {sys.version}")
 
@@ -64,6 +67,8 @@ def version() -> None:
 @datahub.command()
 def init() -> None:
     """Configure which datahub instance to connect to"""
+    telemetry.ping_init()
+
     if os.path.isfile(DATAHUB_CONFIG_PATH):
         click.confirm(f"{DATAHUB_CONFIG_PATH} already exists. Overwrite?", abort=True)
 
