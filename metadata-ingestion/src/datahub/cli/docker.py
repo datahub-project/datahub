@@ -73,9 +73,9 @@ def docker_check_impl() -> None:
 
 
 @docker.command()
+@telemetry.with_telemetry
 def check() -> None:
     """Check that the Docker containers are healthy"""
-    telemetry.ping_docker("check")
     docker_check_impl()
 
 
@@ -164,6 +164,7 @@ def should_use_neo4j_for_graph_service(graph_service_override: Optional[str]) ->
     default=None,
     help="If set, forces docker-compose to use that graph service implementation",
 )
+@telemetry.with_telemetry
 def quickstart(
     version: str,
     build_locally: bool,
@@ -178,8 +179,6 @@ def quickstart(
     There are options to override the docker-compose config file, build the containers
     locally, and dump logs to the console or to a file if something goes wrong.
     """
-
-    telemetry.ping_docker("quickstart")
 
     running_on_m1 = is_m1()
     if running_on_m1:
@@ -319,9 +318,9 @@ def quickstart(
     type=click.Path(exists=True, dir_okay=False),
     help=f"The MCE json file to ingest. Defaults to downloading {BOOTSTRAP_MCES_FILE} from GitHub",
 )
+@telemetry.with_telemetry
 def ingest_sample_data(path: Optional[str]) -> None:
     """Ingest sample data into a running DataHub instance."""
-    telemetry.ping_docker("ingest_sample_data")
 
     if path is None:
         click.echo("Downloading sample data...")
@@ -365,9 +364,9 @@ def ingest_sample_data(path: Optional[str]) -> None:
 
 
 @docker.command()
+@telemetry.with_telemetry
 def nuke() -> None:
     """Remove all Docker containers, networks, and volumes associated with DataHub."""
-    telemetry.ping_docker("nuke")
 
     with get_client_with_error() as (client, error):
         if error:

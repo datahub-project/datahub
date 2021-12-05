@@ -1,7 +1,9 @@
 import json
+import os
 import uuid
+from functools import wraps
 from pathlib import Path
-from typing import Dict, Optional, Union
+from typing import Any, Callable, Dict, Optional, TypeVar, Union
 
 import requests
 
@@ -12,6 +14,9 @@ GA_TID = "UA-214428525-1"
 
 LOCAL_DIR = Path(__file__).resolve().parent
 CONFIG_FILE = LOCAL_DIR / "telemetry-config.json"
+
+# also fall back to environment variable if config file is not found
+ENV_ENABLED = os.environ.get("DATAHUB_TELEMETRY_ENABLED", "true").lower() == "true"
 
 
 class Telemetry:
@@ -61,7 +66,7 @@ class Telemetry:
         with open(CONFIG_FILE, "r") as f:
             config = json.load(f)
             self.client_id = config["client_id"]
-            self.enabled = config["enabled"]
+            self.enabled = config["enabled"] & ENV_ENABLED
 
     def ping(
         self,
@@ -112,38 +117,14 @@ class Telemetry:
 
 telemetry_instance = Telemetry()
 
-
-def ping_quickstart(quickstart_type: str) -> None:
-    telemetry_instance.ping("quickstart", quickstart_type)
+T = TypeVar("T")
 
 
-def ping_ingestion(ingestion_cmd: str) -> None:
-    telemetry_instance.ping("ingestion", ingestion_cmd)
+def with_telemetry(func: Callable[..., T]) -> Callable[..., T]:
+    @wraps(func)
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
+        res = func(*args, **kwargs)
+        telemetry_instance.ping(func.__module__, func.__name__)
+        return res
 
-
-def ping_delete(delete_cmd: str) -> None:
-    telemetry_instance.ping("delete", delete_cmd)
-
-
-def ping_get() -> None:
-    telemetry_instance.ping("get", "get")
-
-
-def ping_put() -> None:
-    telemetry_instance.ping("put", "put")
-
-
-def ping_init() -> None:
-    telemetry_instance.ping("init", "init")
-
-
-def ping_docker(docker_cmd: str) -> None:
-    telemetry_instance.ping("docker", docker_cmd)
-
-
-def ping_version() -> None:
-    telemetry_instance.ping("version", "check_version")
-
-
-def ping_telemetry(telemetry_cmd: str) -> None:
-    telemetry_instance.ping("telemetry", telemetry_cmd)
+    return wrapper

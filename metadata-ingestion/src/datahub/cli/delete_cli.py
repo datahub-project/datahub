@@ -88,6 +88,7 @@ def delete_for_registry(
 @click.option("--query", required=False, type=str)
 @click.option("--registry-id", required=False, type=str)
 @click.option("-n", "--dry-run", required=False, is_flag=True)
+@telemetry.with_telemetry
 def delete(
     urn: str,
     force: bool,
@@ -100,7 +101,6 @@ def delete(
     dry_run: bool,
 ) -> None:
     """Delete metadata from datahub using a single urn or a combination of filters"""
-    telemetry.ping_delete("delete")
 
     cli_utils.test_connectivity_complain_exit("delete")
     # one of urn / platform / env / query must be provided
@@ -174,6 +174,7 @@ def delete(
         )
 
 
+@telemetry.with_telemetry
 def delete_with_filters(
     dry_run: bool,
     soft: bool,
@@ -183,7 +184,6 @@ def delete_with_filters(
     env: Optional[str] = None,
     platform: Optional[str] = None,
 ) -> DeletionResult:
-    telemetry.ping_delete("delete_with_filters")
 
     session, gms_host = cli_utils.get_session_and_host()
     logger.info(f"datahub configured with {gms_host}")
@@ -220,6 +220,7 @@ def delete_with_filters(
     return batch_deletion_result
 
 
+@telemetry.with_telemetry
 def delete_one_urn(
     urn: str,
     soft: bool = False,
@@ -228,7 +229,6 @@ def delete_one_urn(
     cached_session_host: Optional[Tuple[sessions.Session, str]] = None,
     cached_emitter: Optional[rest_emitter.DatahubRestEmitter] = None,
 ) -> DeletionResult:
-    telemetry.ping_delete("delete_one_urn")
 
     deletion_result = DeletionResult()
     deletion_result.num_entities = 1

@@ -21,9 +21,9 @@ logger = logging.getLogger(__name__)
 @click.option("--urn", required=False, type=str)
 @click.option("-a", "--aspect", required=False, multiple=True, type=str)
 @click.pass_context
+@telemetry.with_telemetry
 def get(ctx: Any, urn: Optional[str], aspect: List[str]) -> None:
     """Get metadata for an entity with an optional list of aspects to project"""
-    telemetry.ping_get()
 
     if urn is None:
         if not ctx.args:

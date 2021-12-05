@@ -57,18 +57,18 @@ def datahub(debug: bool) -> None:
 
 
 @datahub.command()
+@telemetry.with_telemetry
 def version() -> None:
     """Print version number and exit."""
-    telemetry.ping_version()
 
     click.echo(f"DataHub CLI version: {datahub_package.nice_version_name()}")
     click.echo(f"Python version: {sys.version}")
 
 
 @datahub.command()
+@telemetry.with_telemetry
 def init() -> None:
     """Configure which datahub instance to connect to"""
-    telemetry.ping_init()
 
     if os.path.isfile(DATAHUB_CONFIG_PATH):
         click.confirm(f"{DATAHUB_CONFIG_PATH} already exists. Overwrite?", abort=True)

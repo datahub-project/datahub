@@ -62,9 +62,9 @@ def ingest() -> None:
     default=False,
     help="If enabled, ingestion runs with warnings will yield a non-zero error code",
 )
+@telemetry.with_telemetry
 def run(config: str, dry_run: bool, preview: bool, strict_warnings: bool) -> None:
     """Ingest metadata into DataHub."""
-    telemetry.ping_ingestion("run")
 
     logger.debug("DataHub CLI version: %s", datahub_package.nice_version_name())
 
@@ -111,9 +111,9 @@ def parse_restli_response(response):
 @ingest.command()
 @click.argument("page_offset", type=int, default=0)
 @click.argument("page_size", type=int, default=100)
+@telemetry.with_telemetry
 def list_runs(page_offset: int, page_size: int) -> None:
     """List recent ingestion runs to datahub"""
-    telemetry.ping_ingestion("list_runs")
 
     session, gms_host = get_session_and_host()
 
@@ -148,9 +148,9 @@ def list_runs(page_offset: int, page_size: int) -> None:
 
 @ingest.command()
 @click.option("--run-id", required=True, type=str)
+@telemetry.with_telemetry
 def show(run_id: str) -> None:
     """Describe a provided ingestion run to datahub"""
-    telemetry.ping_ingestion("show")
 
     payload_obj = {"runId": run_id, "dryRun": True}
     structured_rows, entities_affected, aspects_affected = post_rollback_endpoint(
@@ -178,9 +178,9 @@ def show(run_id: str) -> None:
 @ingest.command()
 @click.option("--run-id", required=True, type=str)
 @click.option("--dry-run", "-n", required=False, is_flag=True, default=False)
+@telemetry.with_telemetry
 def rollback(run_id: str, dry_run: bool) -> None:
     """Rollback a provided ingestion run to datahub"""
-    telemetry.ping_ingestion("rollback")
 
     cli_utils.test_connectivity_complain_exit("ingest")
 
