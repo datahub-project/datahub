@@ -2,6 +2,7 @@ package com.linkedin.metadata.systemmetadata;
 
 import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.run.IngestionRunSummary;
+import com.linkedin.metadata.search.elasticsearch.ElasticSearchServiceTest;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import com.linkedin.mxe.SystemMetadata;
@@ -18,9 +19,11 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
+import static com.linkedin.metadata.DockerTestUtils.checkContainerEngine;
 import static com.linkedin.metadata.ElasticSearchTestUtils.syncAfterWrite;
 import static com.linkedin.metadata.systemmetadata.ElasticSearchSystemMetadataService.INDEX_NAME;
-import static org.testng.Assert.*;
+import static org.testng.Assert.assertEquals;
+
 
 public class ElasticSearchSystemMetadataServiceTest {
 
@@ -36,6 +39,7 @@ public class ElasticSearchSystemMetadataServiceTest {
   @BeforeTest
   public void setup() {
     _elasticsearchContainer = new ElasticsearchContainer(IMAGE_NAME);
+    checkContainerEngine(_elasticsearchContainer.getDockerClient());
     _elasticsearchContainer.start();
     _searchClient = buildRestClient();
     _client = buildService();
@@ -63,8 +67,10 @@ public class ElasticSearchSystemMetadataServiceTest {
 
   @Nonnull
   private ElasticSearchSystemMetadataService buildService() {
-    ESSystemMetadataDAO dao = new ESSystemMetadataDAO(_searchClient, _indexConvention, 1, 1, 1, 1);
-    return new ElasticSearchSystemMetadataService(_searchClient, _indexConvention, dao);
+    ESSystemMetadataDAO dao = new ESSystemMetadataDAO(_searchClient, _indexConvention,
+        ElasticSearchServiceTest.getBulkProcessor(_searchClient));
+    return new ElasticSearchSystemMetadataService(_searchClient, _indexConvention, dao,
+        ElasticSearchServiceTest.getIndexBuilder(_searchClient));
   }
 
   @AfterTest
