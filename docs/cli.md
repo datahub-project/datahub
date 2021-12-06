@@ -32,7 +32,6 @@ The `datahub` cli allows you to do many things, such as quickstarting a DataHub 
 Like most command line tools, `--help` is your best friend. Use it to discover the capabilities of the cli and the different commands and sub-commands that are supported. 
 
 ```console
-datahub --help                                           
 Usage: datahub [OPTIONS] COMMAND [ARGS]...
 
 Options:
@@ -41,14 +40,15 @@ Options:
   --help                Show this message and exit.
 
 Commands:
-  check    Helper commands for checking various aspects of DataHub.
-  delete   Delete metadata from datahub using a single urn or a combination of filters
-  docker   Helper commands for setting up and interacting with a local DataHub instance using Docker.
-  get      Get metadata for an entity with an optional list of aspects to project
-  ingest   Ingest metadata into DataHub.
-  init     Configure which datahub instance to connect to
-  put      Update a single aspect of an entity
-  version  Print version number and exit.
+  check      Helper commands for checking various aspects of DataHub.
+  delete     Delete metadata from datahub using a single urn or a...
+  docker     Helper commands for setting up and interacting with a...
+  get        Get metadata for an entity with an optional list of...
+  ingest     Ingest metadata into DataHub.
+  init       Configure which datahub instance to connect to
+  put        Update a single aspect of an entity
+  telemetry  Toggle telemetry.
+  version    Print version number and exit.
 ```
 
 The following top-level commands listed below are here mainly to give the reader a high-level picture of what are the kinds of things you can accomplish with the cli. 
@@ -82,6 +82,10 @@ DATAHUB_GMS_HOST=http://localhost:8080
 DATAHUB_GMS_TOKEN= # Used for communicating with DataHub Cloud
 The env variables take precedence over what is in the config.
 ```
+
+### telemetry
+
+The `telemetry` command lets you toggle the sending of anonymous usage statistics via `telemetry enable/disable`. Telemetry is enabled by default, and you can also disable it by setting `DATAHUB_TELEMETRY_ENABLED` to `false`.
 
 ### delete
 

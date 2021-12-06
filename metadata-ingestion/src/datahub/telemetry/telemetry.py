@@ -12,8 +12,6 @@ import datahub as datahub_package
 GA_VERSION = 1
 GA_TID = "UA-214428525-1"
 
-LOCAL_DIR = Path(__file__).resolve().parent
-
 DATAHUB_FOLDER = Path(os.path.expanduser("~/.datahub"))
 
 CONFIG_FILE = DATAHUB_FOLDER / "telemetry-config.json"
