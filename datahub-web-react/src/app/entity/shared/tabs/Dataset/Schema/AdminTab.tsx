@@ -11,7 +11,7 @@ export const AdminTab = () => {
     const queryBase = useBaseEntity<GetDatasetOwnersGqlQuery>()?.dataset?.ownership?.owners;
     const ownersArray = queryBase?.map((x) => (x?.type === 'DATAOWNER' ? x?.owner?.urn.split(':').slice(-1) : ''));
     const ownersArray2 = ownersArray?.flat() ?? [];
-    console.log(`owners include ${ownersArray2}`);
+    // console.log(`owners include ${ownersArray2}`);
     const currUser = useGetAuthenticatedUser()?.corpUser?.username || '-';
     if (ownersArray2.includes(currUser)) {
         return (

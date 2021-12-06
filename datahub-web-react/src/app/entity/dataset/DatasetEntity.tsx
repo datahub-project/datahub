@@ -136,7 +136,7 @@ export class DatasetEntity implements Entity<Dataset> {
                                 ?.map((x) => (x?.type === 'DATAOWNER' ? x?.owner?.urn.split(':').slice(-1) : ''))
                                 ?.flat() ?? [];
                         if (ownersArray.includes(currUser)) {
-                            console.log('return unhide');
+                            // console.log('return unhide');
                             return false;
                         }
                         console.log('return hide');
@@ -154,7 +154,7 @@ export class DatasetEntity implements Entity<Dataset> {
                                 ?.map((x) => (x?.type === 'DATAOWNER' ? x?.owner?.urn.split(':').slice(-1) : ''))
                                 ?.flat() ?? [];
                         if (ownersArray.includes(currUser)) {
-                            console.log('return unhide');
+                            // console.log('return unhide');
                             return false;
                         }
                         console.log('return hide');
@@ -172,7 +172,7 @@ export class DatasetEntity implements Entity<Dataset> {
                                 ?.map((x) => (x?.type === 'DATAOWNER' ? x?.owner?.urn.split(':').slice(-1) : ''))
                                 ?.flat() ?? [];
                         if (ownersArray.includes(currUser)) {
-                            console.log('return unhide');
+                            // console.log('return unhide');
                             return false;
                         }
                         console.log('return hide');
