@@ -13,7 +13,10 @@ GA_VERSION = 1
 GA_TID = "UA-214428525-1"
 
 LOCAL_DIR = Path(__file__).resolve().parent
-CONFIG_FILE = LOCAL_DIR / "telemetry-config.json"
+
+DATAHUB_FOLDER = Path(os.path.expanduser("~/.datahub"))
+
+CONFIG_FILE = DATAHUB_FOLDER / "telemetry-config.json"
 
 # also fall back to environment variable if config file is not found
 ENV_ENABLED = os.environ.get("DATAHUB_TELEMETRY_ENABLED", "true").lower() == "true"
@@ -39,8 +42,13 @@ class Telemetry:
         Update the config file with the current client ID and enabled status.
         """
 
+        if not DATAHUB_FOLDER.exists():
+            os.makedirs(DATAHUB_FOLDER)
+
         with open(CONFIG_FILE, "w") as f:
-            json.dump({"client_id": self.client_id, "enabled": self.enabled}, f)
+            json.dump(
+                {"client_id": self.client_id, "enabled": self.enabled}, f, indent=2
+            )
 
     def enable(self) -> None:
         """
