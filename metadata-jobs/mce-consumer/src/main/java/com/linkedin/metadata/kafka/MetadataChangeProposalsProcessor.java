@@ -7,6 +7,7 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.RestliEntityClient;
 import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;
 import com.linkedin.gms.factory.entity.RestliEntityClientFactory;
+import com.linkedin.gms.factory.kafka.KafkaEventConsumerFactory;
 import com.linkedin.metadata.EventUtils;
 import com.linkedin.metadata.kafka.config.MetadataChangeProposalProcessorCondition;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
@@ -30,7 +31,7 @@ import org.springframework.stereotype.Component;
 
 @Slf4j
 @Component
-@Import({RestliEntityClientFactory.class, SystemAuthenticationFactory.class})
+@Import({RestliEntityClientFactory.class, SystemAuthenticationFactory.class, KafkaEventConsumerFactory.class})
 @Conditional(MetadataChangeProposalProcessorCondition.class)
 @EnableKafka
 public class MetadataChangeProposalsProcessor {
@@ -56,7 +57,7 @@ public class MetadataChangeProposalsProcessor {
 
   @KafkaListener(id = "${METADATA_CHANGE_PROPOSAL_KAFKA_CONSUMER_GROUP_ID:generic-mce-consumer-job-client}", topics =
       "${METADATA_CHANGE_PROPOSAL_TOPIC_NAME:" + Topics.METADATA_CHANGE_PROPOSAL
-          + "}", containerFactory = "mceKafkaContainerFactory")
+          + "}", containerFactory = "kafkaEventConsumer")
   public void consume(final ConsumerRecord<String, GenericRecord> consumerRecord) {
     kafkaLagStats.update(System.currentTimeMillis() - consumerRecord.timestamp());
     final GenericRecord record = consumerRecord.value();

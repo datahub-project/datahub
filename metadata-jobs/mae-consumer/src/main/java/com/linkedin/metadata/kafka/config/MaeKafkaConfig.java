@@ -26,11 +26,6 @@ public class MaeKafkaConfig {
   @Value("${KAFKA_SCHEMAREGISTRY_URL:http://localhost:8081}")
   private String kafkaSchemaRegistryUrl;
 
-  @Bean(name = "avroSerializedKafkaListener")
-  public KafkaListenerContainerFactory<?> avroSerializedKafkaListenerContainerFactory(KafkaProperties properties) {
-    return createKafkaListenerContainerFactory(properties, KafkaAvroDeserializer.class);
-  }
-
   @Bean(name = "stringSerializedKafkaListener")
   public KafkaListenerContainerFactory<?> stringSerializedKafkaListenerContainerFactory(KafkaProperties properties) {
     return createKafkaListenerContainerFactory(properties, StringDeserializer.class);

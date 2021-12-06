@@ -31,34 +31,6 @@ public class MceKafkaConfig {
   @Value("${KAFKA_SCHEMAREGISTRY_URL:http://localhost:8081}")
   private String kafkaSchemaRegistryUrl;
 
-  @Bean(name = "mceKafkaContainerFactory")
-  public KafkaListenerContainerFactory<?> kafkaListenerContainerFactory(KafkaProperties properties) {
-    KafkaProperties.Consumer consumerProps = properties.getConsumer();
-
-    // Specify (de)serializers for record keys and for record values.
-    consumerProps.setKeyDeserializer(StringDeserializer.class);
-    consumerProps.setValueDeserializer(KafkaAvroDeserializer.class);
-    // Records will be flushed every 10 seconds.
-    consumerProps.setEnableAutoCommit(true);
-    consumerProps.setAutoCommitInterval(Duration.ofSeconds(10));
-
-    // KAFKA_BOOTSTRAP_SERVER has precedence over SPRING_KAFKA_BOOTSTRAP_SERVERS
-    if (kafkaBootstrapServers != null && kafkaBootstrapServers.length() > 0) {
-      consumerProps.setBootstrapServers(Arrays.asList(kafkaBootstrapServers.split(",")));
-    } // else we rely on KafkaProperties which defaults to localhost:9092
-
-    Map<String, Object> props = properties.buildConsumerProperties();
-    props.put(AbstractKafkaAvroSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG, kafkaSchemaRegistryUrl);
-
-    ConcurrentKafkaListenerContainerFactory<String, GenericRecord> factory =
-        new ConcurrentKafkaListenerContainerFactory<>();
-    factory.setConsumerFactory(new DefaultKafkaConsumerFactory<>(props));
-
-    log.info("KafkaListenerContainerFactory built successfully");
-
-    return factory;
-  }
-
   @Bean
   public KafkaTemplate<String, GenericRecord> kafkaTemplate(KafkaProperties properties) {
     KafkaProperties.Producer producerProps = properties.getProducer();
