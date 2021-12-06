@@ -10,6 +10,7 @@ describe('search', () => {
   it('can hit all entities search with an impossible query and find 0 results', () => {
     cy.login();
     cy.visit('/');
+    // random string that is unlikely to accidentally have a match
     cy.get('input[data-testid=search-input]').type('zzzzzzzzzzzzzqqqqqqqqqqqqqzzzzzzqzqzqzqzq{enter}');
 	cy.contains('of 0 results');
   });
