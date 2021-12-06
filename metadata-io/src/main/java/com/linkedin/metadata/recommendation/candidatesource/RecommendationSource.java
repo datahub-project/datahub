@@ -6,6 +6,7 @@ import com.linkedin.metadata.recommendation.RecommendationContentArray;
 import com.linkedin.metadata.recommendation.RecommendationModule;
 import com.linkedin.metadata.recommendation.RecommendationRenderType;
 import com.linkedin.metadata.recommendation.RecommendationRequestContext;
+import io.opentelemetry.extension.annotations.WithSpan;
 import java.util.List;
 import java.util.Optional;
 import javax.annotation.Nonnull;
@@ -47,6 +48,7 @@ public interface RecommendationSource {
    * @param requestContext Context of where the recommendations are being requested
    * @return list of recommendation candidates
    */
+  @WithSpan
   List<RecommendationContent> getRecommendations(@Nonnull Urn userUrn, @Nonnull RecommendationRequestContext requestContext);
 
   /**

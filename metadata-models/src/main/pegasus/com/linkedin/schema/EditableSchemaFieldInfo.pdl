@@ -28,7 +28,7 @@ record EditableSchemaFieldInfo {
   @Searchable = {
     "/tags/*/tag": {
       "fieldName": "editedFieldTags",
-      "fieldType": "URN_PARTIAL",
+      "fieldType": "URN",
       "boostScore": 0.5
     }
   }
@@ -40,7 +40,7 @@ record EditableSchemaFieldInfo {
    @Searchable = {
     "/terms/*/urn": {
       "fieldName": "editedFieldGlossaryTerms",
-      "fieldType": "URN_PARTIAL",
+      "fieldType": "URN",
       "boostScore": 0.5
     }
   }

@@ -14,6 +14,7 @@ import com.linkedin.metadata.recommendation.ScenarioType;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import io.opentelemetry.extension.annotations.WithSpan;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.List;
@@ -73,6 +74,7 @@ public class MostPopularSource implements RecommendationSource {
   }
 
   @Override
+  @WithSpan
   public List<RecommendationContent> getRecommendations(@Nonnull Urn userUrn,
       @Nonnull RecommendationRequestContext requestContext) {
     SearchRequest searchRequest = buildSearchRequest(userUrn);
