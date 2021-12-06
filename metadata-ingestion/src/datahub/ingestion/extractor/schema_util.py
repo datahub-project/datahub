@@ -1,3 +1,4 @@
+import json
 import logging
 from typing import Any, Callable, Dict, Generator, List, Optional, Union
 
@@ -20,6 +21,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     TimeTypeClass,
     UnionTypeClass,
 )
+from datahub.metadata.schema_classes import GlobalTagsClass, TagAssociationClass
 
 """A helper file for Avro schema -> MCE schema transformations"""
 
@@ -235,6 +237,7 @@ class AvroToMceSchemaConverter:
 
                 schema = self._schema
                 actual_schema = self._actual_schema
+
                 if isinstance(schema, avro.schema.Field):
                     # Field's schema is actually it's type.
                     schema = schema.type
@@ -259,8 +262,24 @@ class AvroToMceSchemaConverter:
                 native_data_type = actual_schema.props.get(
                     "native_data_type", native_data_type
                 )
+
+                field_path = self._converter._get_cur_field_path()
+                merged_props = {}
+                merged_props.update(self._schema.other_props)
+                merged_props.update(schema.other_props)
+
+                tags = None
+                if "deprecated" in merged_props:
+                    description = (
+                        f"<span style=\"color:red\">DEPRECATED: {self._schema.other_props['deprecated']}</span>\n"
+                        + description
+                    )
+                    tags = GlobalTagsClass(
+                        tags=[TagAssociationClass(tag="urn:li:tag:Deprecated")]
+                    )
+
                 field = SchemaField(
-                    fieldPath=self._converter._get_cur_field_path(),
+                    fieldPath=field_path,
                     # Populate it with the simple native type for now.
                     nativeDataType=native_data_type,
                     type=self._converter._get_column_type(
@@ -270,6 +289,8 @@ class AvroToMceSchemaConverter:
                     recursive=False,
                     nullable=self._converter._is_nullable(schema),
                     isPartOfKey=self._converter._is_key_schema,
+                    globalTags=tags,
+                    jsonProps=json.dumps(merged_props) if merged_props else None,
                 )
                 yield field
 

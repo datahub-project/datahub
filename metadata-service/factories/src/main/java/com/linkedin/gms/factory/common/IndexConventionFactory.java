@@ -19,7 +19,7 @@ import org.springframework.context.annotation.PropertySource;
 public class IndexConventionFactory {
   public static final String INDEX_CONVENTION_BEAN = "searchIndexConvention";
 
-  @Value("${elasticsearch.indexPrefix:}")
+  @Value("${elasticsearch.index.prefix:}")
   private String indexPrefix;
 
   @Bean(name = INDEX_CONVENTION_BEAN)

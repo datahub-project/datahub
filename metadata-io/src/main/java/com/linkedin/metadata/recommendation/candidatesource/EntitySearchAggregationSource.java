@@ -12,7 +12,7 @@ import com.linkedin.metadata.recommendation.RecommendationRequestContext;
 import com.linkedin.metadata.recommendation.SearchParams;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.cache.NonEmptyEntitiesCache;
-import com.linkedin.metadata.utils.ConcurrencyUtils;
+import io.opentelemetry.extension.annotations.WithSpan;
 import java.net.URISyntaxException;
 import java.util.Collections;
 import java.util.Comparator;
@@ -41,9 +41,7 @@ public abstract class EntitySearchAggregationSource implements RecommendationSou
   private final EntitySearchService _entitySearchService;
   private final NonEmptyEntitiesCache _nonEmptyEntitiesCache;
 
-  protected EntitySearchAggregationSource(
-      EntitySearchService entitySearchService,
-      EntityRegistry entityRegistry,
+  protected EntitySearchAggregationSource(EntitySearchService entitySearchService, EntityRegistry entityRegistry,
       CacheManager cacheManager) {
     _entitySearchService = entitySearchService;
     _nonEmptyEntitiesCache = new NonEmptyEntitiesCache(entityRegistry, entitySearchService, cacheManager);
@@ -90,30 +88,25 @@ public abstract class EntitySearchAggregationSource implements RecommendationSou
   }
 
   @Override
-  public List<RecommendationContent> getRecommendations(
-      @Nonnull Urn userUrn,
+  @WithSpan
+  public List<RecommendationContent> getRecommendations(@Nonnull Urn userUrn,
       @Nullable RecommendationRequestContext requestContext) {
-    // Fetch number of documents per platform for each entity type
-    List<Map<String, Long>> resultPerEntity =
-        ConcurrencyUtils.transformAndCollectAsync(_nonEmptyEntitiesCache.getNonEmptyEntities(),
-            entity -> _entitySearchService.aggregateByValue(entity, getSearchFieldName(), null, getMaxContent() * 10));
+    Map<String, Long> aggregationResult =
+        _entitySearchService.aggregateByValue(null, getSearchFieldName(), null, getMaxContent());
 
-    // Merge the aggregated result into one
-    Map<String, Long> mergedResult = resultPerEntity.stream().reduce(this::mergeAggregation).orElse(Collections.emptyMap());
-
-    if (mergedResult.isEmpty()) {
+    if (aggregationResult.isEmpty()) {
       return Collections.emptyList();
     }
 
     // If the aggregated values are not urn, simply get top k values with the most counts
     if (!isValueUrn()) {
-      return getTopKValues(mergedResult).stream()
+      return getTopKValues(aggregationResult).stream()
           .map(entry -> buildRecommendationContent(entry.getKey(), entry.getValue()))
           .collect(Collectors.toList());
     }
 
     // If the aggregated values are urns, convert key into urns
-    Map<Urn, Long> urnCounts = mergedResult.entrySet().stream().map(entry -> {
+    Map<Urn, Long> urnCounts = aggregationResult.entrySet().stream().map(entry -> {
       try {
         Urn tagUrn = Urn.createFromString(entry.getKey());
         return Optional.of(Pair.of(tagUrn, entry.getValue()));
@@ -135,7 +128,8 @@ public abstract class EntitySearchAggregationSource implements RecommendationSou
 
   // Get top K entries with the most count
   private <T> List<Map.Entry<T, Long>> getTopKValues(Map<T, Long> countMap) {
-    final PriorityQueue<Map.Entry<T, Long>> queue = new PriorityQueue<>(getMaxContent(), Map.Entry.comparingByValue(Comparator.naturalOrder()));
+    final PriorityQueue<Map.Entry<T, Long>> queue =
+        new PriorityQueue<>(getMaxContent(), Map.Entry.comparingByValue(Comparator.naturalOrder()));
     for (Map.Entry<T, Long> entry : countMap.entrySet()) {
       if (queue.size() < getMaxContent() && isValidCandidate(entry.getKey())) {
         queue.add(entry);

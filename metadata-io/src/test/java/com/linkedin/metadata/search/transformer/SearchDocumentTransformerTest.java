@@ -22,9 +22,10 @@ public class SearchDocumentTransformerTest {
 
   @Test
   public void testTransform() throws IOException {
+    SearchDocumentTransformer searchDocumentTransformer = new SearchDocumentTransformer(1000);
     TestEntitySnapshot snapshot = TestEntityUtil.getSnapshot();
     EntitySpec testEntitySpec = TestEntitySpecBuilder.getSpec();
-    Optional<String> result = SearchDocumentTransformer.transformSnapshot(snapshot, testEntitySpec, false);
+    Optional<String> result = searchDocumentTransformer.transformSnapshot(snapshot, testEntitySpec, false);
     assertTrue(result.isPresent());
     ObjectNode parsedJson = (ObjectNode) OBJECT_MAPPER.readTree(result.get());
     assertEquals(parsedJson.get("urn").asText(), snapshot.getUrn().toString());
@@ -51,9 +52,10 @@ public class SearchDocumentTransformerTest {
 
   @Test
   public void testTransformForDelete() throws IOException {
+    SearchDocumentTransformer searchDocumentTransformer = new SearchDocumentTransformer(1000);
     TestEntitySnapshot snapshot = TestEntityUtil.getSnapshot();
     EntitySpec testEntitySpec = TestEntitySpecBuilder.getSpec();
-    Optional<String> result = SearchDocumentTransformer.transformSnapshot(snapshot, testEntitySpec, true);
+    Optional<String> result = searchDocumentTransformer.transformSnapshot(snapshot, testEntitySpec, true);
     assertTrue(result.isPresent());
     ObjectNode parsedJson = (ObjectNode) OBJECT_MAPPER.readTree(result.get());
     assertEquals(parsedJson.get("urn").asText(), snapshot.getUrn().toString());

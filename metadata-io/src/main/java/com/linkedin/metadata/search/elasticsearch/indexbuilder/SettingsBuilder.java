@@ -28,7 +28,7 @@ public class SettingsBuilder {
         .put("normalizer", buildNormalizers())
         .put("analyzer", buildAnalyzers())
         .build());
-    return ImmutableMap.of("index", settings.build());
+    return settings.build();
   }
 
   private static Map<String, Object> buildFilters(List<String> urnStopWords) {
@@ -88,7 +88,7 @@ public class SettingsBuilder {
 
     // Analyzer for text tokenized into words (split by spaces, periods, and slashes)
     analyzers.put("word_delimited", ImmutableMap.<String, Object>builder().put("tokenizer", "main_tokenizer")
-        .put("filter", ImmutableList.of("custom_delimiter", "lowercase"))
+        .put("filter", ImmutableList.of("custom_delimiter", "lowercase", "stop"))
         .build());
 
     // Analyzer for splitting by slashes (used to get depth of browsePath)
