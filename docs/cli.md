@@ -41,9 +41,9 @@ Options:
 
 Commands:
   check      Helper commands for checking various aspects of DataHub.
-  delete     Delete metadata from datahub using a single urn or a...
-  docker     Helper commands for setting up and interacting with a...
-  get        Get metadata for an entity with an optional list of...
+  delete     Delete metadata from datahub using a single urn or a combination of filters
+  docker     Helper commands for setting up and interacting with a local DataHub instance using Docker.
+  get        Get metadata for an entity with an optional list of aspects to project
   ingest     Ingest metadata into DataHub.
   init       Configure which datahub instance to connect to
   put        Update a single aspect of an entity
