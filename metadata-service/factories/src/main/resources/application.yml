@@ -36,9 +36,6 @@ configEntityRegistry:
   # TODO: Change to read from resources on classpath.
   path: ${ENTITY_REGISTRY_CONFIG_PATH:../../metadata-models/src/main/resources/entity-registry.yml}
 
-retentionStore:
-  path: ${RETENTION_CONFIG_PATH:}
-
 pluginEntityRegistry:
   path: ${ENTITY_REGISTRY_PLUGIN_PATH:$HOME/.datahub/plugins/models}
 

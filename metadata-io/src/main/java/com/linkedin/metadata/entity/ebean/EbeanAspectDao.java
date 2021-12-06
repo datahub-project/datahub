@@ -6,17 +6,12 @@ import com.linkedin.metadata.dao.exception.ModelConversionException;
 import com.linkedin.metadata.dao.exception.RetryLimitReached;
 import com.linkedin.metadata.dao.utils.QueryUtils;
 import com.linkedin.metadata.entity.AspectStorageValidationUtil;
-import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ListResult;
 import com.linkedin.metadata.query.ExtraInfo;
 import com.linkedin.metadata.query.ExtraInfoArray;
 import com.linkedin.metadata.query.ListResultMetadata;
-import com.linkedin.metadata.retention.Retention;
-import com.linkedin.metadata.retention.TimeBasedRetention;
-import com.linkedin.metadata.retention.VersionBasedRetention;
 import io.ebean.DuplicateKeyException;
 import io.ebean.EbeanServer;
-import io.ebean.ExpressionList;
 import io.ebean.PagedList;
 import io.ebean.Query;
 import io.ebean.RawSql;
@@ -166,12 +161,11 @@ public class EbeanAspectDao {
     return _server.find(EbeanAspectV2.class, key);
   }
 
-  @Nullable
   public long getMaxVersion(@Nonnull final String urn, @Nonnull final String aspectName) {
-    validateConnection();
     List<EbeanAspectV2> result = _server.find(EbeanAspectV2.class)
         .where()
-        .eq("urn", urn).eq("aspect", aspectName)
+        .eq("urn", urn)
+        .eq("aspect", aspectName)
         .orderBy()
         .desc("version")
         .findList();
@@ -461,45 +455,6 @@ public class EbeanAspectDao {
     }
 
     return result;
-  }
-
-  public void applyRetention(@Nonnull Urn urn, @Nonnull String aspectName,
-      Optional<EntityService.UpdateAspectResult> updateAspectResult,
-      @Nonnull List<com.linkedin.metadata.retention.Retention> retentionPolicies) {
-    // If no policies are set or has indefinite policy set, do not apply any retention
-    if (retentionPolicies.isEmpty() || retentionPolicies.get(0).hasIndefinite()) {
-      return;
-    }
-    ExpressionList<EbeanAspectV2> deleteQuery = _server.find(EbeanAspectV2.class)
-        .where()
-        .eq(EbeanAspectV2.URN_COLUMN, urn)
-        .eq(EbeanAspectV2.ASPECT_COLUMN, aspectName)
-        .ne(EbeanAspectV2.VERSION_COLUMN, ASPECT_LATEST_VERSION);
-    for (Retention retention : retentionPolicies) {
-      if (retention.hasVersion()) {
-        deleteQuery = applyVersionBasedRetention(urn, aspectName, deleteQuery, retention.getVersion(), updateAspectResult.map(
-            EntityService.UpdateAspectResult::getOldVersion));
-      } else if (retention.hasTime()) {
-        deleteQuery = applyTimeBasedRetention(deleteQuery, retention.getTime());
-      }
-    }
-
-    validateConnection();
-    deleteQuery.delete();
-  }
-
-  protected ExpressionList<EbeanAspectV2> applyVersionBasedRetention(@Nonnull Urn urn, @Nonnull String aspectName,
-      @Nonnull final ExpressionList<EbeanAspectV2> querySoFar, @Nonnull final VersionBasedRetention retention,
-      final Optional<Long> maxVersionFromUpdate) {
-    long largestVersion = maxVersionFromUpdate.orElse(getMaxVersion(urn.toString(), aspectName));
-
-    return querySoFar.le(EbeanAspectV2.VERSION_COLUMN, largestVersion - retention.getMaxVersions() + 1);
-  }
-
-  protected ExpressionList<EbeanAspectV2> applyTimeBasedRetention(
-      @Nonnull final ExpressionList<EbeanAspectV2> querySoFar, @Nonnull final TimeBasedRetention retention) {
-    return querySoFar.lt(EbeanAspectV2.CREATED_ON_COLUMN,
-        new Timestamp(_clock.millis() - retention.getMaxAgeInSeconds() * 1000));
   }
 
   private long getNextVersion(@Nonnull final String urn, @Nonnull final String aspectName) {

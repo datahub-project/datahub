@@ -26,7 +26,7 @@ import lombok.extern.slf4j.Slf4j;
 
 
 @Slf4j
-public class RetentionStore {
+public class LocalRetentionService implements RetentionService {
   private final List<Retention> defaultRetention;
   private final Map<String, List<Retention>> retentionPerEntity;
 
@@ -34,15 +34,15 @@ public class RetentionStore {
   private static final List<Retention> INDEFINITE_RETENTION =
       ImmutableList.of(new Retention().setIndefinite(new IndefiniteRetention()));
 
-  public RetentionStore(EntityRegistry entityRegistry) {
-    this(entityRegistry, RetentionStore.class.getResourceAsStream("/retention.yaml"));
+  public LocalRetentionService(EntityRegistry entityRegistry) {
+    this(entityRegistry, LocalRetentionService.class.getResourceAsStream("/retention.yaml"));
   }
 
-  public RetentionStore(EntityRegistry entityRegistry, String configPath) throws FileNotFoundException {
+  public LocalRetentionService(EntityRegistry entityRegistry, String configPath) throws FileNotFoundException {
     this(entityRegistry, new FileInputStream(configPath));
   }
 
-  public RetentionStore(EntityRegistry entityRegistry, InputStream configFileStream) {
+  public LocalRetentionService(EntityRegistry entityRegistry, InputStream configFileStream) {
     ObjectNode retentionConfig;
     try {
       retentionConfig = (ObjectNode) OBJECT_MAPPER.readTree(configFileStream);
@@ -138,7 +138,8 @@ public class RetentionStore {
     }
   }
 
-  public List<Retention> getRetentionForEntity(String entityName) {
+  @Override
+  public List<Retention> getRetention(String entityName, String aspectName) {
     return retentionPerEntity.getOrDefault(entityName.toLowerCase(), defaultRetention);
   }
 }

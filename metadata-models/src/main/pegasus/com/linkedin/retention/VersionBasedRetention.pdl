@@ -1,4 +1,4 @@
-namespace com.linkedin.metadata.retention
+namespace com.linkedin.retention
 
 /**
  * Keep max N latest records

@@ -1,4 +1,4 @@
-namespace com.linkedin.metadata.retention
+namespace com.linkedin.retention
 
 /**
  * Base class that encapsulates different retention policies.

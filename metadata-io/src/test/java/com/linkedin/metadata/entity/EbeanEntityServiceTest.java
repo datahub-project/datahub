@@ -107,7 +107,7 @@ public class EbeanEntityServiceTest {
     _aspectDao = new EbeanAspectDao(_server);
     _aspectDao.setConnectionValidated(true);
     _entityService =
-        new EbeanEntityService(_aspectDao, _mockProducer, _testEntityRegistry, new RetentionStore(_testEntityRegistry));
+        new EbeanEntityService(_aspectDao, _mockProducer, _testEntityRegistry);
   }
 
   @Test

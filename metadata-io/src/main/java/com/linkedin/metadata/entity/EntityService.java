@@ -20,7 +20,6 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.ListUrnsResult;
-import com.linkedin.metadata.retention.Retention;
 import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.search.utils.BrowsePathUtils;
 import com.linkedin.metadata.snapshot.Snapshot;
@@ -34,7 +33,6 @@ import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
-import io.opentelemetry.extension.annotations.WithSpan;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -42,11 +40,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.Getter;
+import lombok.Setter;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 
@@ -94,18 +93,18 @@ public abstract class EntityService {
 
   private final EntityEventProducer _producer;
   private final EntityRegistry _entityRegistry;
-  private final RetentionStore _retentionStore;
   private final Map<String, Set<String>> _entityToValidAspects;
+  @Getter
+  @Setter
+  private RetentionService retentionService;
   private Boolean _alwaysEmitAuditEvent = false;
   public static final String DEFAULT_RUN_ID = "no-run-id-provided";
   public static final String BROWSE_PATHS = "browsePaths";
   public static final String DATA_PLATFORM_INSTANCE = "dataPlatformInstance";
 
-  protected EntityService(@Nonnull final EntityEventProducer producer, @Nonnull final EntityRegistry entityRegistry,
-      @Nonnull final RetentionStore retentionStore) {
+  protected EntityService(@Nonnull final EntityEventProducer producer, @Nonnull final EntityRegistry entityRegistry) {
     _producer = producer;
     _entityRegistry = entityRegistry;
-    _retentionStore = retentionStore;
     _entityToValidAspects = buildEntityToValidAspects(entityRegistry);
   }
 
@@ -117,7 +116,7 @@ public abstract class EntityService {
    * @param aspectNames aspects to fetch for each urn in urns set
    * @return a map of provided {@link Urn} to a List containing the requested aspects.
    */
-  protected abstract Map<Urn, List<RecordTemplate>> getLatestAspects(@Nonnull final Set<Urn> urns,
+  public abstract Map<Urn, List<RecordTemplate>> getLatestAspects(@Nonnull final Set<Urn> urns,
       @Nonnull final Set<String> aspectNames);
 
   /**
@@ -173,31 +172,6 @@ public abstract class EntityService {
       @Nonnull final AuditStamp auditStamp, @Nonnull final SystemMetadata providedSystemMetadata);
 
   /**
-   * Apply the specified list of retention policies to the urn and aspect pair
-   * @param urn an urn associated with the new aspect
-   * @param aspectName name of the aspect being inserted
-   * @param updateAspectResult result of the update that triggered this function (empty if update did not trigger it)
-   * @param retentionPolicies list of retention policies to apply
-   */
-  protected abstract void applyRetention(@Nonnull final Urn urn, @Nonnull final String aspectName,
-      Optional<UpdateAspectResult> updateAspectResult, @Nonnull List<Retention> retentionPolicies);
-
-  /**
-   * Fetch appropriate retention policies for the given urn and aspect name,
-   * then apply the specified list of retention policies to the urn and aspect pair
-   * @param urn an urn associated with the new aspect
-   * @param aspectName name of the aspect being inserted
-   */
-  @WithSpan
-  private void applyRetention(@Nonnull final Urn urn, @Nonnull final String aspectName,
-      Optional<UpdateAspectResult> updateAspectResult) {
-    log.debug(String.format("Applying retention for ingested aspect %s, urn %s", aspectName, urn));
-    try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "applyRetention").time()) {
-      applyRetention(urn, aspectName, updateAspectResult, _retentionStore.getRetentionForEntity(urn.getEntityType()));
-    }
-  }
-
-  /**
    * Ingests (inserts) a new version of an entity aspect & emits a {@link com.linkedin.mxe.MetadataAuditEvent}.
    *
    * Note that in general, this should not be used externally. It is currently serving upgrade scripts and
@@ -227,8 +201,9 @@ public abstract class EntityService {
     final RecordTemplate updatedValue = result.getNewValue();
 
     // Apply retention policies asynchronously if there was an update to existing aspect value
-    if (oldValue != updatedValue && oldValue != null) {
-      CompletableFuture.runAsync(() -> applyRetention(urn, aspectName, Optional.of(result)));
+    if (oldValue != updatedValue && oldValue != null && retentionService != null) {
+      retentionService.applyRetention(urn, aspectName,
+          Optional.of(new RetentionService.RetentionContext(Optional.of(result.maxVersion))));
     }
 
     // Produce MAE after a successful update
@@ -615,6 +590,6 @@ public abstract class EntityService {
     SystemMetadata oldSystemMetadata;
     SystemMetadata newSystemMetadata;
     MetadataAuditOperation operation;
-    long oldVersion;
+    long maxVersion;
   }
 }

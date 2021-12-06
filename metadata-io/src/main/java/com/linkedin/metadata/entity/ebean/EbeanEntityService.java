@@ -17,7 +17,6 @@ import com.linkedin.metadata.dao.exception.ModelConversionException;
 import com.linkedin.metadata.dao.utils.RecordUtils;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ListResult;
-import com.linkedin.metadata.entity.RetentionStore;
 import com.linkedin.metadata.entity.RollbackResult;
 import com.linkedin.metadata.entity.RollbackRunResult;
 import com.linkedin.metadata.entity.ValidationUtils;
@@ -26,7 +25,6 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.ListUrnsResult;
-import com.linkedin.metadata.retention.Retention;
 import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericAspectUtils;
@@ -72,8 +70,8 @@ public class EbeanEntityService extends EntityService {
   private final JacksonDataTemplateCodec _dataTemplateCodec = new JacksonDataTemplateCodec();
 
   public EbeanEntityService(@Nonnull final EbeanAspectDao entityDao, @Nonnull final EntityEventProducer eventProducer,
-      @Nonnull final EntityRegistry entityRegistry, @Nonnull final RetentionStore retentionStore) {
-    super(eventProducer, entityRegistry, retentionStore);
+      @Nonnull final EntityRegistry entityRegistry) {
+    super(eventProducer, entityRegistry);
     _entityDao = entityDao;
   }
 
@@ -249,12 +247,6 @@ public class EbeanEntityService extends EntityService {
           latest == null ? null : EbeanUtils.parseSystemMetadata(latest.getSystemMetadata()), providedSystemMetadata,
           MetadataAuditOperation.UPDATE, versionOfOld);
     }, DEFAULT_MAX_TRANSACTION_RETRY);
-  }
-
-  @Override
-  protected void applyRetention(@Nonnull Urn urn, @Nonnull String aspectName,
-      Optional<UpdateAspectResult> updateAspectResult, @Nonnull List<Retention> retentionPolicies) {
-    _entityDao.applyRetention(urn, aspectName, updateAspectResult, retentionPolicies);
   }
 
   @Override

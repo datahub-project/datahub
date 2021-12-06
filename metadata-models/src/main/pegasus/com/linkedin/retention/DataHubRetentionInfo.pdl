@@ -1,0 +1,8 @@
+namespace com.linkedin.retention
+
+@Aspect = {
+  "name": "dataHubPolicyInfo"
+}
+record DataHubRetentionInfo {
+  retentionPolicies: array[Retention] = []
+}
