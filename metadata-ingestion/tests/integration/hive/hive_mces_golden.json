@@ -10,7 +10,7 @@
                         "customProperties": {
                             "Database:": "db1",
                             "Owner:": "root",
-                            "CreateTime:": "Fri Oct 01 05:17:59 UTC 2021",
+                            "CreateTime:": "Sun Dec 05 17:50:27 UTC 2021",
                             "LastAccessTime:": "UNKNOWN",
                             "Retention:": "0",
                             "Location:": "hdfs://namenode:8020/user/hive/warehouse/db1.db/_test_table_underscore",
@@ -20,7 +20,7 @@
                             "Table Parameters: numRows": "0",
                             "Table Parameters: rawDataSize": "0",
                             "Table Parameters: totalSize": "0",
-                            "Table Parameters: transient_lastDdlTime": "1633065479",
+                            "Table Parameters: transient_lastDdlTime": "1638726627",
                             "SerDe Library:": "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe",
                             "InputFormat:": "org.apache.hadoop.mapred.TextInputFormat",
                             "OutputFormat:": "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat",
@@ -75,7 +75,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "bar",
@@ -91,7 +92,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             }
                         ],
                         "primaryKeys": null,
@@ -106,6 +108,8 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "hive-test",
+        "registryName": null,
+        "registryVersion": null,
         "properties": null
     }
 },
@@ -120,7 +124,7 @@
                         "customProperties": {
                             "Database:": "db1",
                             "Owner:": "root",
-                            "CreateTime:": "Fri Oct 01 05:17:59 UTC 2021",
+                            "CreateTime:": "Sun Dec 05 17:50:28 UTC 2021",
                             "LastAccessTime:": "UNKNOWN",
                             "Retention:": "0",
                             "Location:": "hdfs://namenode:8020/user/hive/warehouse/db1.db/array_struct_test",
@@ -130,7 +134,7 @@
                             "Table Parameters: numRows": "1",
                             "Table Parameters: rawDataSize": "32",
                             "Table Parameters: totalSize": "33",
-                            "Table Parameters: transient_lastDdlTime": "1633065482",
+                            "Table Parameters: transient_lastDdlTime": "1638726632",
                             "SerDe Library:": "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe",
                             "InputFormat:": "org.apache.hadoop.mapred.TextInputFormat",
                             "OutputFormat:": "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat",
@@ -185,7 +189,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=array].[type=struct].service",
@@ -203,7 +208,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"array<struct<type:string,provider:array<int>>>\"}"
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=array].[type=struct].service.[type=string].type",
@@ -219,7 +225,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=array].[type=struct].service.[type=array].[type=int].provider",
@@ -237,7 +244,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"array<int>\"}"
                             }
                         ],
                         "primaryKeys": null,
@@ -252,6 +260,8 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "hive-test",
+        "registryName": null,
+        "registryVersion": null,
         "properties": null
     }
 },
@@ -266,7 +276,7 @@
                         "customProperties": {
                             "Database:": "db1",
                             "Owner:": "root",
-                            "CreateTime:": "Tue Oct 12 10:51:00 UTC 2021",
+                            "CreateTime:": "Sun Dec 05 17:50:33 UTC 2021",
                             "LastAccessTime:": "UNKNOWN",
                             "Retention:": "0",
                             "Location:": "hdfs://namenode:8020/user/hive/warehouse/db1.db/map_test",
@@ -276,7 +286,7 @@
                             "Table Parameters: numRows": "0",
                             "Table Parameters: rawDataSize": "0",
                             "Table Parameters: totalSize": "0",
-                            "Table Parameters: transient_lastDdlTime": "1634035860",
+                            "Table Parameters: transient_lastDdlTime": "1638726633",
                             "SerDe Library:": "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe",
                             "InputFormat:": "org.apache.hadoop.mapred.TextInputFormat",
                             "OutputFormat:": "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat",
@@ -331,7 +341,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=map].[type=string].recordid",
@@ -350,7 +361,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"map<int,string>\", \"key_type\": {\"type\": \"int\", \"native_data_type\": \"int\", \"_nullable\": true}, \"key_native_data_type\": \"int\"}"
                             }
                         ],
                         "primaryKeys": null,
@@ -365,6 +377,8 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "hive-test",
+        "registryName": null,
+        "registryVersion": null,
         "properties": null
     }
 },
@@ -379,7 +393,7 @@
                         "customProperties": {
                             "Database:": "db1",
                             "Owner:": "root",
-                            "CreateTime:": "Mon Oct 11 12:54:49 UTC 2021",
+                            "CreateTime:": "Sun Dec 05 17:50:33 UTC 2021",
                             "LastAccessTime:": "UNKNOWN",
                             "Retention:": "0",
                             "Location:": "hdfs://namenode:8020/user/hive/warehouse/db1.db/nested_struct_test",
@@ -389,7 +403,7 @@
                             "Table Parameters: numRows": "0",
                             "Table Parameters: rawDataSize": "0",
                             "Table Parameters: totalSize": "0",
-                            "Table Parameters: transient_lastDdlTime": "1633956889",
+                            "Table Parameters: transient_lastDdlTime": "1638726633",
                             "SerDe Library:": "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe",
                             "InputFormat:": "org.apache.hadoop.mapred.TextInputFormat",
                             "OutputFormat:": "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat",
@@ -444,7 +458,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=struct].service",
@@ -460,7 +475,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"struct<type:string,provider:struct<name:varchar(50),id:tinyint>>\"}"
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=struct].service.[type=string].type",
@@ -476,7 +492,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=struct].service.[type=struct].provider",
@@ -492,7 +509,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"struct<name:varchar(50),id:tinyint>\"}"
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=struct].service.[type=struct].provider.[type=string].name",
@@ -508,7 +526,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"varchar(50)\", \"_nullable\": true}"
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=struct].service.[type=struct].provider.[type=int].id",
@@ -524,7 +543,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"tinyint\", \"_nullable\": true}"
                             }
                         ],
                         "primaryKeys": null,
@@ -539,6 +559,8 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "hive-test",
+        "registryName": null,
+        "registryVersion": null,
         "properties": null
     }
 },
@@ -553,7 +575,7 @@
                         "customProperties": {
                             "Database:": "db1",
                             "Owner:": "root",
-                            "CreateTime:": "Fri Oct 01 05:17:56 UTC 2021",
+                            "CreateTime:": "Sun Dec 05 17:50:23 UTC 2021",
                             "LastAccessTime:": "UNKNOWN",
                             "Retention:": "0",
                             "Location:": "hdfs://namenode:8020/user/hive/warehouse/db1.db/pokes",
@@ -562,7 +584,7 @@
                             "Table Parameters: numRows": "0",
                             "Table Parameters: rawDataSize": "0",
                             "Table Parameters: totalSize": "5812",
-                            "Table Parameters: transient_lastDdlTime": "1633065477",
+                            "Table Parameters: transient_lastDdlTime": "1638726625",
                             "SerDe Library:": "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe",
                             "InputFormat:": "org.apache.hadoop.mapred.TextInputFormat",
                             "OutputFormat:": "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat",
@@ -617,7 +639,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "bar",
@@ -633,7 +656,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             }
                         ],
                         "primaryKeys": null,
@@ -648,6 +672,8 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "hive-test",
+        "registryName": null,
+        "registryVersion": null,
         "properties": null
     }
 },
@@ -662,7 +688,7 @@
                         "customProperties": {
                             "Database:": "db1",
                             "Owner:": "root",
-                            "CreateTime:": "Fri Oct 01 05:17:59 UTC 2021",
+                            "CreateTime:": "Sun Dec 05 17:50:28 UTC 2021",
                             "LastAccessTime:": "UNKNOWN",
                             "Retention:": "0",
                             "Location:": "hdfs://namenode:8020/user/hive/warehouse/db1.db/struct_test",
@@ -672,7 +698,7 @@
                             "Table Parameters: numRows": "0",
                             "Table Parameters: rawDataSize": "0",
                             "Table Parameters: totalSize": "0",
-                            "Table Parameters: transient_lastDdlTime": "1633065479",
+                            "Table Parameters: transient_lastDdlTime": "1638726628",
                             "SerDe Library:": "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe",
                             "InputFormat:": "org.apache.hadoop.mapred.TextInputFormat",
                             "OutputFormat:": "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat",
@@ -727,7 +753,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=struct].service",
@@ -743,7 +770,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"struct<type:string,provider:array<int>>\"}"
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=struct].service.[type=string].type",
@@ -759,7 +787,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=struct].service.[type=array].[type=int].provider",
@@ -777,7 +806,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"array<int>\"}"
                             }
                         ],
                         "primaryKeys": null,
@@ -792,6 +822,8 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "hive-test",
+        "registryName": null,
+        "registryVersion": null,
         "properties": null
     }
 },
@@ -806,7 +838,7 @@
                         "customProperties": {
                             "Database:": "db1",
                             "Owner:": "root",
-                            "CreateTime:": "Tue Oct 12 10:29:17 UTC 2021",
+                            "CreateTime:": "Sun Dec 05 17:50:33 UTC 2021",
                             "LastAccessTime:": "UNKNOWN",
                             "Retention:": "0",
                             "Location:": "hdfs://namenode:8020/user/hive/warehouse/db1.db/union_test",
@@ -816,7 +848,7 @@
                             "Table Parameters: numRows": "0",
                             "Table Parameters: rawDataSize": "0",
                             "Table Parameters: totalSize": "0",
-                            "Table Parameters: transient_lastDdlTime": "1634034557",
+                            "Table Parameters: transient_lastDdlTime": "1638726633",
                             "SerDe Library:": "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe",
                             "InputFormat:": "org.apache.hadoop.mapred.TextInputFormat",
                             "OutputFormat:": "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat",
@@ -869,11 +901,12 @@
                                         }
                                     }
                                 },
-                                "nativeDataType": "uniontype<<int, double, array<string>, struct<a:int,b:string>>>",
+                                "nativeDataType": "union",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=union].[type=int].foo",
@@ -891,7 +924,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=union].[type=double].foo",
@@ -909,7 +943,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=union].[type=array].[type=string].foo",
@@ -923,11 +958,12 @@
                                         }
                                     }
                                 },
-                                "nativeDataType": "array<string>",
+                                "nativeDataType": "string",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=union].[type=struct0].foo",
@@ -941,11 +977,12 @@
                                         }
                                     }
                                 },
-                                "nativeDataType": "struct<a:int,b:string>",
+                                "nativeDataType": "struct0",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=union].[type=struct0].foo.[type=int].a",
@@ -961,7 +998,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=union].[type=struct0].foo.[type=string].b",
@@ -977,7 +1015,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=union].[type=struct1].foo",
@@ -991,11 +1030,12 @@
                                         }
                                     }
                                 },
-                                "nativeDataType": "struct<a:int,b:string>",
+                                "nativeDataType": "struct1",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=union].[type=struct1].foo.[type=int].c",
@@ -1011,7 +1051,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=union].[type=struct1].foo.[type=double].d",
@@ -1027,7 +1068,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"double\", \"_nullable\": true}"
                             }
                         ],
                         "primaryKeys": null,
@@ -1042,6 +1084,8 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "hive-test",
+        "registryName": null,
+        "registryVersion": null,
         "properties": null
     }
 }
