@@ -119,6 +119,9 @@ query getDataset($urn: String!) {
                 sampleValues
             }
         }
+        status {
+            removed
+        }
     }
 }
 
@@ -155,7 +158,5 @@ query getDatasetOwnersGQL($urn: String!) {
         ownership {
             ...ownershipFields
         }
-
     }
 }
-

@@ -34,6 +34,7 @@ export const BannerSplash = () => {
     const newObj = Object(data);
     const closedTime = Number(localStorage.getItem('_banner_closed_time'));
     console.log(`stored timestamp is ${closedTime}`);
+    console.log(`the retrieved message is ${newObj.message}`);
     const show = closedTime < newObj.timestamp;
     if (show) {
         return <Alert message="Latest Update" description={newObj.message} type="error" closable onClose={onClose} />;
