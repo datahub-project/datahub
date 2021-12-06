@@ -94,7 +94,7 @@ Default username and password is:
 airflow:airflow
 ```
 
-## Step 4: Register DataHub connection (hook) to Airflow
+## Step 3: Register DataHub connection (hook) to Airflow
 
 ```
 docker exec -it `docker ps | grep webserver | cut -d " " -f 1` airflow connections add --conn-type 'datahub_rest' 'datahub_rest_default' --conn-host 'http://datahub-gms:8080'
@@ -111,7 +111,7 @@ Successfully added `conn_id`=datahub_rest_default : datahub_rest://:@http://data
 - Note: This is what requires Airflow to be able to connect to `datahub-gms` the host (this is the container running datahub-gms image) and this is why we needed to connect the Airflow containers to the `datahub_network` using our custom docker-compose file. 
 
 
-## Step 3: Find the DAGs and run it
+## Step 4: Find the DAGs and run it
 Navigate the Airflow UI to find the sample Airflow dag we just brought in
 
 ![Find the DAG](../../docs/imgs/airflow/find_the_dag.png) 
