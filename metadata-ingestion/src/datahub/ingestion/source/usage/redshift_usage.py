@@ -4,6 +4,7 @@ import logging
 from datetime import datetime
 from typing import Dict, Iterable, List
 
+import sqlparse
 from dateutil import parser
 from pydantic import Field
 from pydantic.main import BaseModel
@@ -204,8 +205,10 @@ class RedshiftUsageSource(Source):
             logger.info(f"username: {username}")
             agg_bucket.add_read_entry(
                 username,
-                event.text,
-                [],  # TODO: not currently supported by redshift; find column level changes
+                sqlparse.format(
+                    event.text, keyword_case="upper", reindent_aligned=True
+                ),
+                [], # TODO: not currently supported by redshift; find column level changes
             )
         return datasets
 

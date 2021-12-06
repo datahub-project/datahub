@@ -3,7 +3,7 @@ import dataclasses
 import enum
 from datetime import datetime, timedelta, timezone
 from typing import Callable, Counter, Generic, List, Optional, TypeVar
-
+import sqlparse
 import pydantic
 
 import datahub.emitter.mce_builder as builder
@@ -79,7 +79,7 @@ class GenericAggregatedDataset(Generic[ResourceType]):
             uniqueUserCount=len(self.userFreq),
             totalSqlQueries=self.queryCount,
             topSqlQueries=[
-                query for query, _ in self.queryFreq.most_common(top_n_queries)
+                sqlparse.format(query, keyword_case="upper", reindent_aligned=True) for query, _ in self.queryFreq.most_common(top_n_queries)
             ],
             userCounts=[
                 DatasetUserUsageCountsClass(
