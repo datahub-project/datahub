@@ -85,6 +85,13 @@ module.exports = {
       {
         Sinks: list_ids_in_directory("metadata-ingestion/sink_docs"),
       },
+      {
+        Guides: [
+          "metadata-ingestion/adding-source",
+          "docs/how/add-custom-ingestion-source",
+          "docs/how/add-custom-data-platform",
+        ],
+      },
     ],
     "Metadata Modeling": [
       "docs/modeling/metadata-model",
@@ -169,12 +176,6 @@ module.exports = {
       // TODO: the titles of these should not be in question form in the sidebar
       "docs/developers",
       "docs/docker/development",
-      "metadata-ingestion/adding-source",
-      {
-        type: "doc",
-        label: "Ingesting files from S3",
-        id: "metadata-ingestion/source_docs/s3",
-      },
       //"metadata-ingestion/examples/transforms/README"
       //"docs/what/graph",
       //"docs/what/search-index",
@@ -192,8 +193,6 @@ module.exports = {
       "datahub-web-react/src/app/analytics/README",
       "metadata-ingestion/developing",
       "docker/airflow/local_airflow",
-      "docs/how/add-custom-data-platform",
-      "docs/how/add-custom-ingestion-source",
       {
         "Module READMEs": [
           "datahub-web-react/README",
