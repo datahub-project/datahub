@@ -212,13 +212,7 @@ In some cases, you might want to configure and run a pipeline entirely from with
 
 ## Lineage with Airflow
 
-There's a couple ways to get lineage information from Airflow into DataHub. 
-
-:::note
-
-Instead, if you wish to schedule your ingestion receipes through airflow look [here](./schedule_docs/airflow.md)
-
-:::
+There's a couple ways to get lineage information from Airflow into DataHub.
 
 
 ### Using Datahub's Airflow lineage backend (recommended)

@@ -1,4 +1,4 @@
-# Scheduling Ingestion using Cron
+# Using Cron
 
 To follow this guide you need to use [DataHub CLI](../../docs/cli.md).
 

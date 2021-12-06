@@ -1,4 +1,4 @@
-# Scheduling Ingestion using Airflow
+# Using Airflow
 
 Take a look at these sample DAGs:
 
