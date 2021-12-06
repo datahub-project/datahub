@@ -30,7 +30,7 @@ describe('search', () => {
 	cy.contains('Dataset');
 
 	// entity name
-	cy.contains('fct_users_created');
+	cy.contains('fct_cypress_users_created');
 
 	// column name
 	cy.contains('user_id');
