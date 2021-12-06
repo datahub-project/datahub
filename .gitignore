@@ -43,3 +43,4 @@ MANIFEST
 
 **/cypress/videos
 **/cypress/screenshots
+**/cypress/node_modules
