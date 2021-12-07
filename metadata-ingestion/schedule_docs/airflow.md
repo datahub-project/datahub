@@ -1,6 +1,6 @@
 # Using Airflow
 
-If you are using Apache Airflow for your scheduling then you might want to use it for scheduling your ingestion recipes. For any Airflow specific questions you can go through [Airflow docs](https://airflow.apache.org/docs/apache-airflow/stable/) for more details.
+If you are using Apache Airflow for your scheduling then you might want to also use it for scheduling your ingestion recipes. For any Airflow specific questions you can go through [Airflow docs](https://airflow.apache.org/docs/apache-airflow/stable/) for more details.
 
 To schedule your recipe through Airflow you can follow these steps
 - Create a recipe file e.g. `recipe.yml`
