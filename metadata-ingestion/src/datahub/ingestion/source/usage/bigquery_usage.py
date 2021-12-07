@@ -5,7 +5,7 @@ import logging
 import re
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Any, Counter, Dict, Iterable, List, MutableMapping, Optional, Union
+from typing import Any, Counter, Dict, Iterable, List, MutableMapping, Optional, Tuple, Union
 
 import cachetools
 import pydantic
@@ -14,9 +14,14 @@ from google.cloud.logging_v2.client import Client as GCPLoggingClient
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.time_window_config import get_time_bucket
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.metadata.schema_classes import (
+    ChangeTypeClass,
+    OperationalInfoClass,
+)
 from datahub.ingestion.source.usage.usage_common import (
     BaseUsageConfig,
     GenericAggregatedDataset,
@@ -81,6 +86,8 @@ timestamp >= "{start_time}"
 AND
 timestamp < "{end_time}"
 """.strip()
+UPDATE_STATEMENT_TYPES = set(["INSERT", "UPDATE", "DELETE", "MERGE", "CREATE", "CREATE_TABLE_AS_SELECT",
+                              "CREATE_SCHEMA"])
 
 
 @dataclass(frozen=True, order=True)
@@ -167,6 +174,7 @@ class ReadEvent:
     resource: BigQueryTableRef
     fieldsRead: List[str]
     readReason: Optional[str]
+    lastUpdatedTimestamp: Optional[datetime]
     jobName: Optional[str]
 
     payload: Any
@@ -204,6 +212,7 @@ class ReadEvent:
             resource=BigQueryTableRef.from_string_name(resourceName),
             fieldsRead=fields,
             readReason=readReason,
+            lastUpdatedTimestamp=None,
             jobName=jobName,
             payload=entry.payload if DEBUG_INCLUDE_FULL_PAYLOADS else None,
         )
@@ -228,6 +237,7 @@ class QueryEvent:
     query: str
     destinationTable: Optional[BigQueryTableRef]
     referencedTables: Optional[List[BigQueryTableRef]]
+    lastUpdatedTimestamp: Optional[datetime]
     jobName: Optional[str]
 
     payload: Any
@@ -261,6 +271,7 @@ class QueryEvent:
             referencedTables = [
                 BigQueryTableRef.from_spec_obj(spec) for spec in rawRefTables
             ]
+        statementType = job["jobConfiguration"]["query"]["statementType"]
 
         queryEvent = QueryEvent(
             timestamp=entry.timestamp,
@@ -268,6 +279,7 @@ class QueryEvent:
             query=rawQuery,
             destinationTable=destinationTable,
             referencedTables=referencedTables,
+            lastUpdatedTimestamp=entry.timestamp if statementType in UPDATE_STATEMENT_TYPES else None,
             jobName=jobName,
             payload=entry.payload if DEBUG_INCLUDE_FULL_PAYLOADS else None,
         )
@@ -333,13 +345,30 @@ class BigQueryUsageSource(Source):
         bigquery_log_entries = self._get_bigquery_log_entries(clients)
         parsed_events = self._parse_bigquery_log_entries(bigquery_log_entries)
         hydrated_read_events = self._join_events_by_job_id(parsed_events)
-        aggregated_info = self._aggregate_enriched_read_events(hydrated_read_events)
+        aggregated_info, last_updated_timestamps = self._aggregate_enriched_read_events(hydrated_read_events)
+        # aggregated_info = self._aggregate_enriched_read_events(hydrated_read_events)
 
         for time_bucket in aggregated_info.values():
             for aggregate in time_bucket.values():
                 wu = self._make_usage_stat(aggregate)
                 self.report.report_workunit(wu)
                 yield wu
+        operational_info = OperationalInfoClass(
+            lastUpdatedTimestamps=last_updated_timestamps
+        )
+        mcp = MetadataChangeProposalWrapper(
+            entityType="dataset",
+            aspectName="operationalInfo",
+            changeType=ChangeTypeClass.UPSERT,
+            aspect=operational_info,
+        )
+
+        operational_info_wu = MetadataWorkUnit(
+            id=f"operational-info-wu", mcp=mcp
+        )
+        # yield operational_info_wu
+
+
 
     def _make_bigquery_clients(self) -> List[GCPLoggingClient]:
         # See https://github.com/googleapis/google-cloud-python/issues/2674 for
@@ -514,6 +543,10 @@ class BigQueryUsageSource(Source):
                     # Join the query log event into the table read log event.
                     num_joined += 1
                     event.query = query_jobs[event.jobName].query
+                    event.lastUpdatedTimestamp = query_jobs[event.jobName].lastUpdatedTimestamp
+                    if event.lastUpdatedTimestamp:
+                        print("Timestamp is: ")
+                        print(event.lastUpdatedTimestamp)
 
                     # TODO also join into the query itself for column references
                 else:
@@ -527,7 +560,7 @@ class BigQueryUsageSource(Source):
 
     def _aggregate_enriched_read_events(
         self, events: Iterable[ReadEvent]
-    ) -> Dict[datetime, Dict[BigQueryTableRef, AggregatedDataset]]:
+    ) -> Tuple[Dict[datetime, Dict[BigQueryTableRef, AggregatedDataset]], List[datetime]]:
         # TODO: handle partitioned tables
 
         # TODO: perhaps we need to continuously prune this, rather than
@@ -536,8 +569,12 @@ class BigQueryUsageSource(Source):
             datetime, Dict[BigQueryTableRef, AggregatedDataset]
         ] = collections.defaultdict(dict)
 
+        last_updated_timestamps = []
+
         num_aggregated: int = 0
         for event in events:
+            if event.lastUpdatedTimestamp:
+                last_updated_timestamps.append(event.lastUpdatedTimestamp)
             floored_ts = get_time_bucket(event.timestamp, self.config.bucket_duration)
             resource: Optional[BigQueryTableRef] = None
             try:
@@ -571,7 +608,8 @@ class BigQueryUsageSource(Source):
             f"Number of buckets created = {len(datasets)}. Per-bucket details:{bucket_level_stats}"
         )
 
-        return datasets
+        # return datasets
+        return datasets, last_updated_timestamps
 
     def _make_usage_stat(self, agg: AggregatedDataset) -> MetadataWorkUnit:
         return agg.make_usage_workunit(
