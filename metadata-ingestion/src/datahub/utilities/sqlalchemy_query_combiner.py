@@ -139,6 +139,8 @@ class SQLAlchemyQueryCombiner:
     is_single_row_query_method: Callable[[Any], bool]
     serial_execution_fallback_enabled: bool
 
+    # The Python GIL ensures that modifications to the report's counters
+    # are safe.
     report: SQLAlchemyQueryCombinerReport = dataclasses.field(
         default_factory=SQLAlchemyQueryCombinerReport
     )
