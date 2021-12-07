@@ -182,8 +182,10 @@ def delete_with_filters(
     platform: Optional[str] = None,
 ) -> DeletionResult:
     session, gms_host = cli_utils.get_session_and_host()
+    token = cli_utils.get_token()
+
     logger.info(f"datahub configured with {gms_host}")
-    emitter = rest_emitter.DatahubRestEmitter(gms_server=gms_host)
+    emitter = rest_emitter.DatahubRestEmitter(gms_server=gms_host, token=token)
     batch_deletion_result = DeletionResult()
     urns = [
         u
@@ -232,7 +234,8 @@ def delete_one_urn(
         # Add removed aspect
         if not cached_emitter:
             _, gms_host = cli_utils.get_session_and_host()
-            emitter = rest_emitter.DatahubRestEmitter(gms_server=gms_host)
+            token = cli_utils.get_token()
+            emitter = rest_emitter.DatahubRestEmitter(gms_server=gms_host, token=token)
         else:
             emitter = cached_emitter
         if not dry_run:
