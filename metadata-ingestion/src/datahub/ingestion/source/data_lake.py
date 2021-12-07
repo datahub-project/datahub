@@ -338,6 +338,8 @@ class _SingleTableProfiler:
         self.profile.rowCount = self.row_count
         self.profile.columnCount = len(dataframe.columns)
 
+        column_types = {x.name: x.dataType for x in dataframe.schema.fields}
+
         if self.profiling_config.profile_table_level_only:
 
             return
@@ -381,20 +383,31 @@ class _SingleTableProfiler:
             if x["name"] == "ApproxCountDistinct"
         }
 
-        # compute null counts and fractions manually since Deequ only reports fractions
-        # cast to integer to allow isnan() – this is what Deequ does for completeness
-        # see https://github.com/awslabs/deequ/blob/master/src/main/scala/com/amazon/deequ/analyzers/Completeness.scala
-        # (this works for strings somehow)
+        select_numeric_null_counts = [
+            count(
+                when(
+                    isnan(c) | col(c).isNull(),
+                    c,
+                )
+            ).alias(c)
+            for c in self.columns_to_profile
+            if column_types[column] in [DoubleType, FloatType]
+        ]
+
+        # PySpark doesn't support isnan() on non-float/double columns
+        select_nonnumeric_null_counts = [
+            count(
+                when(
+                    col(c).isNull(),
+                    c,
+                )
+            ).alias(c)
+            for c in self.columns_to_profile
+            if column_types[column] not in [DoubleType, FloatType]
+        ]
+
         null_counts = dataframe.select(
-            [
-                count(
-                    when(
-                        isnan(col(c).astype("string")) | col(c).isNull(),
-                        c,
-                    )
-                ).alias(c)
-                for c in self.columns_to_profile
-            ]
+            select_numeric_null_counts + select_nonnumeric_null_counts
         )
         column_null_counts = null_counts.toPandas().T[0].to_dict()
         column_null_fractions = {
@@ -416,8 +429,6 @@ class _SingleTableProfiler:
         if self.profiling_config.include_field_sample_values:
             # take sample and convert to Pandas DataFrame
             rdd_sample = dataframe.rdd.takeSample(False, NUM_SAMPLE_ROWS, seed=0)
-
-        column_types = {x.name: x.dataType for x in dataframe.schema.fields}
 
         # init column specs with profiles
         for column in self.columns_to_profile:
