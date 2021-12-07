@@ -248,6 +248,5 @@ if sys.version_info >= (3, 7):  # noqa: C901
 
         return {"type": "null", "native_data_type": repr(s)}
 
-
 else:
     raise ModuleNotFoundError("The trino plugin requires Python 3.7 or newer.")

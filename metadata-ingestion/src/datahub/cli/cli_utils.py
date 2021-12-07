@@ -107,6 +107,7 @@ def get_token():
         gms_token = first_non_null([gms_token_env, gms_token_conf])
     return gms_token
 
+
 def get_session_and_host():
     session = requests.Session()
 
