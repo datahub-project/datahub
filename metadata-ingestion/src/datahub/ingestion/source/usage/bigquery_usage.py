@@ -235,6 +235,7 @@ class QueryEvent:
     @classmethod
     def can_parse_entry(cls, entry: AuditLogEntry) -> bool:
         try:
+            print(entry.payload)
             entry.payload["serviceData"]["jobCompletedEvent"]["job"]
             return True
         except (KeyError, TypeError):
