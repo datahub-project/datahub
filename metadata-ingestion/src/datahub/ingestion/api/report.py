@@ -2,12 +2,13 @@ import json
 import pprint
 import sys
 from dataclasses import dataclass
+from typing import Dict
 
 # The sort_dicts option was added in Python 3.8.
 if sys.version_info >= (3, 8):
     PPRINT_OPTIONS = {"sort_dicts": False}
 else:
-    PPRINT_OPTIONS = {}
+    PPRINT_OPTIONS: Dict = {}
 
 
 @dataclass
