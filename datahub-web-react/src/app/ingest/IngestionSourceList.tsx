@@ -21,7 +21,7 @@ import { Message } from '../shared/Message';
 import TabToolbar from '../entity/shared/components/styled/TabToolbar';
 import { IngestionSourceBuilderModal } from './IngestionSourceBuilderModal';
 import { StyledTable } from '../entity/shared/components/styled/StyledTable';
-import { REDESIGN_COLORS } from '../entity/shared/constants';
+import { ANTD_GRAY, REDESIGN_COLORS } from '../entity/shared/constants';
 import { IngestionSourceExecutionList } from './IngestionSourceExecutionList';
 import { sourceTypeToIconUrl } from './builder/utils';
 import { BaseBuilderState } from './builder/types';
@@ -295,16 +295,19 @@ export const IngestionSourceList = () => {
                     (status === 'RUNNING' && LoadingOutlined) ||
                     (status === 'SUCCESS' && CheckCircleOutlined) ||
                     (status === 'FAILURE' && CloseCircleOutlined) ||
+                    (status === 'CANCELLED' && CloseCircleOutlined) ||
                     (status === 'TIMEOUT' && ExclamationCircleFilled);
                 const text =
                     (status === 'RUNNING' && 'Running') ||
                     (status === 'SUCCESS' && 'Succeeded') ||
                     (status === 'FAILURE' && 'Failed') ||
+                    (status === 'CANCELLED' && 'Cancelled') ||
                     (status === 'TIMEOUT' && 'Timed Out');
                 const color =
                     (status === 'RUNNING' && REDESIGN_COLORS.BLUE) ||
                     (status === 'SUCCESS' && 'green') ||
                     (status === 'FAILURE' && 'red') ||
+                    (status === 'CANCELLED' && ANTD_GRAY[9]) ||
                     (status === 'TIMEOUT' && 'yellow') ||
                     REDESIGN_COLORS.GREY;
                 return (

@@ -131,9 +131,7 @@ public class IngestionResolverUtils {
     final IngestionSchedule result = new IngestionSchedule();
     result.setInterval(schedule.getInterval());
     result.setTimezone(schedule.getTimezone());
-    if (schedule.hasStartTimeMs()) {
-      result.setStartTimeMs(schedule.getStartTimeMs());
-    }
+    result.setStartTimeMs(schedule.getStartTimeMs());
     return result;
   }
 

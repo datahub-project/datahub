@@ -35,7 +35,7 @@ record ExecutionRequestResult {
     "fieldType": "COUNT",
     "queryByDefault": false
   }
-  startTimeMs: long
+  startTimeMs: optional long
 
  /**
   * Duration in milliseconds

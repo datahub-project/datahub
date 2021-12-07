@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Button, Empty, message, Modal, Tooltip, Typography } from 'antd';
+import { Button, Empty, message, Modal, Typography } from 'antd';
 import styled from 'styled-components';
 import { CheckCircleOutlined, CloseCircleOutlined, ExclamationCircleFilled, LoadingOutlined } from '@ant-design/icons';
 import {
@@ -8,7 +8,7 @@ import {
 } from '../../graphql/ingestion.generated';
 import { Message } from '../shared/Message';
 import { StyledTable } from '../entity/shared/components/styled/StyledTable';
-import { REDESIGN_COLORS } from '../entity/shared/constants';
+import { ANTD_GRAY, REDESIGN_COLORS } from '../entity/shared/constants';
 import { ExecutionDetailsModal } from './ExecutionDetailsModal';
 
 const ListContainer = styled.div`
@@ -92,8 +92,9 @@ export const IngestionSourceExecutionList = ({ urn, lastRefresh, onRefresh }: Pr
             dataIndex: 'executedAt',
             key: 'executedAt',
             render: (time: string) => {
-                const executionDate = new Date(time);
-                const localTime = `${executionDate.toLocaleDateString()} at ${executionDate.toLocaleTimeString()}`;
+                const executionDate = time && new Date(time);
+                const localTime =
+                    executionDate && `${executionDate.toLocaleDateString()} at ${executionDate.toLocaleTimeString()}`;
                 return <Typography.Text>{localTime || 'N/A'}</Typography.Text>;
             },
         },
@@ -115,31 +116,28 @@ export const IngestionSourceExecutionList = ({ urn, lastRefresh, onRefresh }: Pr
                     (status === 'RUNNING' && LoadingOutlined) ||
                     (status === 'SUCCESS' && CheckCircleOutlined) ||
                     (status === 'FAILURE' && CloseCircleOutlined) ||
+                    (status === 'CANCELLED' && CloseCircleOutlined) ||
                     (status === 'TIMEOUT' && ExclamationCircleFilled);
                 const text =
                     (status === 'RUNNING' && 'Running') ||
                     (status === 'SUCCESS' && 'Succeeded') ||
                     (status === 'FAILURE' && 'Failed') ||
-                    (status === 'TIMEOUT' && 'Timed Out') ||
-                    'Requested';
-                const tip =
-                    status === 'RUNNING' &&
-                    'If your execution has been running for a while, there may be something wrong with the Executor.';
+                    (status === 'CANCELLED' && 'Cancelled') ||
+                    (status === 'TIMEOUT' && 'Timed Out');
                 const color =
                     (status === 'RUNNING' && REDESIGN_COLORS.BLUE) ||
                     (status === 'SUCCESS' && 'green') ||
                     (status === 'FAILURE' && 'red') ||
+                    (status === 'CANCELLED' && ANTD_GRAY[9]) ||
                     (status === 'TIMEOUT' && 'yellow') ||
                     REDESIGN_COLORS.GREY;
                 return (
                     <>
                         <div style={{ display: 'flex', justifyContent: 'left', alignItems: 'center' }}>
-                            <Tooltip overlay={<Typography.Text>{tip}</Typography.Text>}>
-                                {Icon && <Icon style={{ color }} />}
-                                <Typography.Text strong style={{ color, marginLeft: 8 }}>
-                                    {text || 'N/A'}
-                                </Typography.Text>
-                            </Tooltip>
+                            {Icon && <Icon style={{ color }} />}
+                            <Typography.Text strong style={{ color, marginLeft: 8 }}>
+                                {text || 'N/A'}
+                            </Typography.Text>
                         </div>
                     </>
                 );
