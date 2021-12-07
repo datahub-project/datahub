@@ -39,6 +39,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Import;
@@ -75,7 +76,7 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
   }
 
   @Override
-  public void invoke(MetadataChangeLog event) {
+  public void invoke(@Nonnull MetadataChangeLog event) {
     EntitySpec entitySpec;
     try {
       entitySpec = _entityRegistry.getEntitySpec(event.getEntityType());

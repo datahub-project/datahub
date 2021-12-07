@@ -1,6 +1,7 @@
 package com.linkedin.metadata.kafka.hook;
 
 import com.linkedin.mxe.MetadataChangeLog;
+import javax.annotation.Nonnull;
 
 
 /**
@@ -16,6 +17,6 @@ public interface MetadataChangeLogHook {
   /**
    * Invoke the hook when a MetadataChangeLog is received
    */
-  void invoke(MetadataChangeLog log);
+  void invoke(@Nonnull MetadataChangeLog log);
 
 }

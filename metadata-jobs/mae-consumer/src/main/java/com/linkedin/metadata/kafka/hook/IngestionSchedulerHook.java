@@ -2,7 +2,6 @@ package com.linkedin.metadata.kafka.hook;
 
 import com.datahub.authentication.Authentication;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.GetMode;
@@ -46,6 +45,8 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
+import javax.annotation.Nonnull;
+import javax.inject.Singleton;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Import;
@@ -53,174 +54,231 @@ import org.springframework.scheduling.support.CronSequenceGenerator;
 import org.springframework.stereotype.Component;
 
 
+/**
+ * This class serves as a stateful scheduler of Ingestion Runs for Ingestion Sources defined
+ * within DataHub. It manages storing and triggering ingestion sources on a pre-defined schedule
+ * based on the information present in the {@link DataHubIngestionSourceInfo} aspect. As such, this class
+ * should never be instantiated more than once - it's a singleton.
+ *
+ * When the scheduler is created, it will first batch load all "info" aspects associated with the DataHubIngestionSource entity.
+ * It then iterates through all the aspects and attempts to extract a Quartz-cron (* * * * *) formatted schedule string & timezone from each.
+ * Upon finding a schedule and timezone, the "next execution time" as a relative timestamp is computed and a task
+ * is scheduled at that time in the future.
+ *
+ * The child task is scheduled on another thread via {@link ScheduledExecutorService} and is responsible for creating a
+ * new DataHubExecutionRequest entity instance using an {@link EntityClient}. The execution request includes the inputs required
+ * to execute an ingestion source: an Ingestion Recipe encoded as JSON. This in turn triggers the execution of a downstream
+ * "action" which actually executes the ingestion process and reports the status back.
+ *
+ * After initial load, this class will continuously listen to the MetadataChangeProposal stream and update its local cache based
+ * on changes performed against Ingestion Source entities. Specifically, if the schedule of an Ingestion Source is changed in any way,
+ * the next execution time of that source will be recomputed, with previously scheduled execution clear if necessary.
+ *
+ * On top of that, the component can also refresh its entire cache periodically. By default, it batch loads all the latest
+ * schedules on a once-per-day cadence.
+ */
 @Slf4j
 @Component
+@Singleton
 @Import({EntityRegistryFactory.class, SystemAuthenticationFactory.class, RestliEntityClientFactory.class})
 public class IngestionSchedulerHook implements MetadataChangeLogHook {
 
-  private static final int DEFAULT_DELAY_INTERVAL_SECONDS = 30; // Wait 30 seconds before batch loading the schedules.
-  private static final int DEFAULT_REFRESH_INTERVAL_SECONDS = 86400; // Refresh the list of ingestion sources once per day.
+  private static final int DEFAULT_DELAY_INTERVAL_SECONDS = 30; // Wait 30 seconds before the initial batch load of schedules.
+  private static final int DEFAULT_REFRESH_INTERVAL_SECONDS = 86400; // Completely refresh the list of ingestion sources once per day.
 
   private final EntityRegistry _entityRegistry;
   private final Authentication _systemAuthentication;
   private final EntityClient _entityClient;
-  private final Map<String, ScheduledFuture> _nextExecutionCache = new HashMap<>();
-  private final Map<String, DataHubIngestionSourceInfo> _lastInfoCache = new HashMap<>();
 
+  // Maps a DataHubIngestionSource to a future representing the "next" scheduled execution of the source
+  // Visible for testing
+  final Map<Urn, ScheduledFuture<?>> _nextIngestionSourceExecutionCache = new HashMap<>();
+
+  // Shared executor service used for executing an ingestion source on a schedule
   private final ScheduledExecutorService _sharedExecutorService = Executors.newScheduledThreadPool(1);
-  private final ScheduleRefreshRunnable _scheduleRefreshRunnable;
 
   @Autowired
   public IngestionSchedulerHook(
-      final EntityRegistry entityRegistry,
-      final Authentication systemAuthentication,
-      final RestliEntityClient entityClient
+      @Nonnull final EntityRegistry entityRegistry,
+      @Nonnull final Authentication systemAuthentication,
+      @Nonnull final RestliEntityClient entityClient
   ) {
-    _entityRegistry = entityRegistry;
-    _systemAuthentication = systemAuthentication;
-    _entityClient = entityClient;
-    _scheduleRefreshRunnable = new ScheduleRefreshRunnable(
+    this(entityRegistry, systemAuthentication, entityClient, DEFAULT_DELAY_INTERVAL_SECONDS, DEFAULT_REFRESH_INTERVAL_SECONDS);
+  }
+
+  // Visible for testing.
+  IngestionSchedulerHook(
+      @Nonnull final EntityRegistry entityRegistry,
+      @Nonnull final Authentication systemAuthentication,
+      @Nonnull final RestliEntityClient entityClient,
+      final int batchGetDelayIntervalSeconds,
+      final int batchGetRefreshIntervalSeconds
+  ) {
+    _entityRegistry = Objects.requireNonNull(entityRegistry);
+    _systemAuthentication = Objects.requireNonNull(systemAuthentication);
+    _entityClient = Objects.requireNonNull(entityClient);
+
+    final BatchRefreshSchedulesRunnable batchRefreshSchedulesRunnable = new BatchRefreshSchedulesRunnable(
         systemAuthentication,
         entityClient,
-        this::scheduleNextExecution);
+        this::scheduleNextIngestionSourceExecution);
+
+    // Schedule a recurring batch-reload task.
     _sharedExecutorService.scheduleAtFixedRate(
-        _scheduleRefreshRunnable,
-        DEFAULT_DELAY_INTERVAL_SECONDS,
-        DEFAULT_REFRESH_INTERVAL_SECONDS,
+        batchRefreshSchedulesRunnable, batchGetDelayIntervalSeconds, batchGetRefreshIntervalSeconds,
         TimeUnit.SECONDS);
   }
 
   @Override
-  public void invoke(MetadataChangeLog event) {
+  public void invoke(@Nonnull MetadataChangeLog event) {
+    if (isEligibleForProcessing(event)) {
+
+      log.info(String.format("Received %s to Ingestion Source. Rescheduling the source (if applicable). urn: %s, key: %s.",
+          event.getChangeType(),
+          event.getEntityUrn(),
+          event.getEntityKeyAspect()));
+
+      final Urn urn = getUrnFromEvent(event);
+
+      if (ChangeType.DELETE.equals(event.getChangeType())) {
+        unscheduleNextIngestionSourceExecution(urn);
+      } else {
+        // Update the scheduler to reflect the latest changes.
+        final DataHubIngestionSourceInfo info = getInfoFromEvent(event);
+        scheduleNextIngestionSourceExecution(urn, info);
+      }
+    }
+  }
+
+  /**
+   * Returns true if the event should be processed, which is only true if the event represents a create, update, or delete
+   * of an Ingestion Source Info aspect, which in turn contains the schedule associated with the source.
+   */
+  private boolean isEligibleForProcessing(final MetadataChangeLog event) {
+    return Constants.INGESTION_INFO_ASPECT_NAME.equals(event.getAspectName())
+        && (ChangeType.DELETE.equals(event.getChangeType())
+        || ChangeType.UPSERT.equals(event.getChangeType())
+        || ChangeType.CREATE.equals(event.getChangeType()));
+  }
+
+  /**
+   * Extracts and returns an {@link Urn} from a {@link MetadataChangeLog}. Extracts from either an entityUrn
+   * or entityKey field, depending on which is present.
+   */
+  private Urn getUrnFromEvent(final MetadataChangeLog event) {
     EntitySpec entitySpec;
     try {
       entitySpec = _entityRegistry.getEntitySpec(event.getEntityType());
     } catch (IllegalArgumentException e) {
       log.error("Error while processing entity type {}: {}", event.getEntityType(), e.toString());
-      return;
+      throw new RuntimeException("Failed to get urn from MetadataChangeLog event. Skipping processing.", e);
     }
-    Urn urn = EntityKeyUtils.getUrnFromLog(event, entitySpec.getKeyAspectSpec());
+    // Extract an URN from the Log Event.
+    return EntityKeyUtils.getUrnFromLog(event, entitySpec.getKeyAspectSpec());
+  }
 
-    if (Constants.INGESTION_INFO_ASPECT_NAME.equals(event.getAspectName())) {
-      // The ingestion info aspect ic changing.
-      if (ChangeType.UPSERT.equals(event.getChangeType()) || ChangeType.CREATE.equals(event.getChangeType())) {
+  /**
+   * Deserializes and returns an instance of {@link DataHubIngestionSourceInfo} extracted from a {@link MetadataChangeLog} event.
+   * The incoming event is expected to have a populated "aspect" field.
+   */
+  private DataHubIngestionSourceInfo getInfoFromEvent(final MetadataChangeLog event) {
+    EntitySpec entitySpec;
+    try {
+      entitySpec = _entityRegistry.getEntitySpec(event.getEntityType());
+    } catch (IllegalArgumentException e) {
+      log.error("Error while processing entity type {}: {}", event.getEntityType(), e.toString());
+      throw new RuntimeException("Failed to get Ingestion Source info from MetadataChangeLog event. Skipping processing.", e);
+    }
+    return (DataHubIngestionSourceInfo) GenericAspectUtils.deserializeAspect(
+        event.getAspect().getValue(),
+        event.getAspect().getContentType(),
+        entitySpec.getAspectSpec(Constants.INGESTION_INFO_ASPECT_NAME));
+  }
 
-        log.info(String.format("Received %s to Ingestion Source. Rescheduling the source (if applicable). urn: %s, key: %s.",
-            event.getChangeType(),
-            event.getEntityUrn(),
-            event.getEntityKeyAspect()));
-
-        // Update the cache to contain the new thing.
-        final DataHubIngestionSourceInfo info = (DataHubIngestionSourceInfo) GenericAspectUtils.deserializeAspect(
-            event.getAspect().getValue(),
-            event.getAspect().getContentType(),
-            entitySpec.getAspectSpec(Constants.INGESTION_INFO_ASPECT_NAME));
-
-        // Schedule the next execution of the source.
-        scheduleNextExecution(urn, info);
-
-      } else if (ChangeType.DELETE.equals(event.getChangeType())) {
-        // Unschedule the task.
-        ScheduledFuture<?> future = _nextExecutionCache.get(urn.toString());
-        if (future != null) {
-          future.cancel(true);
-        }
-      }
+  /**
+   * Removes the next scheduled execution of a particular ingestion source, if it exists.
+   */
+  private void unscheduleNextIngestionSourceExecution(final Urn ingestionSourceUrn) {
+    // Deleting an ingestion source schedule. Un-schedule the next execution.
+    ScheduledFuture<?> future = _nextIngestionSourceExecutionCache.get(ingestionSourceUrn);
+    if (future != null) {
+      future.cancel(true);
+      _nextIngestionSourceExecutionCache.remove(ingestionSourceUrn);
     }
   }
 
-  private void scheduleNextExecution(final Urn entityUrn, final DataHubIngestionSourceInfo newInfo) {
+  /**
+   * Computes and schedules the next execution time for a particular Ingestion Source, if it has not already been scheduled.
+   */
+  private void scheduleNextIngestionSourceExecution(final Urn ingestionSourceUrn, final DataHubIngestionSourceInfo newInfo) {
 
-    DataHubIngestionSourceInfo existingInfo = _lastInfoCache.get(entityUrn.toString());
-
-    if (existingInfo != null && schedulesChanged(existingInfo.getSchedule(), newInfo.getSchedule())) {
-      log.info("HEY WE ARE RESCHEDULING");
-      // We may have already scheduled this. Lets check to see if we need to reschedule.
-      // Attempt to reschedule.
-      ScheduledFuture<?> future = _nextExecutionCache.get(entityUrn.toString());
-      if (future != null) {
-        log.info("HEY WE ARE RESCHEDULING 2");
-
-        // There is a scheduled future. Attempt to cancel.
-        future.cancel(true);
-        _nextExecutionCache.remove(entityUrn.toString());
-      }
-    } else {
-      log.info("HEY WE ARE NOT RESCHEDULING 2");
-
-    }
-
-    _lastInfoCache.put(entityUrn.toString(), newInfo);
+    // 1. Attempt to un-schedule any previous executions
+    unscheduleNextIngestionSourceExecution(ingestionSourceUrn);
 
     if (newInfo.hasSchedule()) {
 
       final DataHubIngestionSourceSchedule schedule = newInfo.getSchedule();
 
-      // Check whether there is already a job scheduled for it.
-      if (!_nextExecutionCache.containsKey(entityUrn.toString())) {
-        log.info(String.format("Scheduling next execution of Ingestion Source with urn %s. Schedule: %s", entityUrn, schedule.getInterval()));
+      // 2. Schedule the next run of the ingestion source
+      log.info(
+          String.format("Scheduling next execution of Ingestion Source with urn %s. Schedule: %s",
+              ingestionSourceUrn,
+              schedule.getInterval(GetMode.NULL)));
 
-        final String modifiedCronInterval = adjustCronInterval(schedule.getInterval());
-        if (CronSequenceGenerator.isValidExpression(modifiedCronInterval)) {
-          String timezone = schedule.hasTimezone() ? schedule.getTimezone() : "UTC";
-          CronSequenceGenerator generator = new CronSequenceGenerator(modifiedCronInterval, TimeZone.getTimeZone(timezone));
-          Date currentDate = new Date();
+      // Construct the new cron expression
+      final String modifiedCronInterval = adjustCronInterval(schedule.getInterval());
+      if (CronSequenceGenerator.isValidExpression(modifiedCronInterval)) {
 
-          Date nextExecDate = generator.next(currentDate);
-          long scheduleTime = nextExecDate.getTime() - currentDate.getTime();
+        final String timezone = schedule.hasTimezone() ? schedule.getTimezone() : "UTC";
+        final CronSequenceGenerator generator = new CronSequenceGenerator(modifiedCronInterval, TimeZone.getTimeZone(timezone));
+        final Date currentDate = new Date();
+        final Date nextExecDate = generator.next(currentDate);
+        final long scheduleTime = nextExecDate.getTime() - currentDate.getTime();
 
-          // Create the runnable
-          final ExecutionRequestRunnable runnable = new ExecutionRequestRunnable(
-              _systemAuthentication,
-              _entityClient,
-              entityUrn,
-              newInfo,
-              () ->_nextExecutionCache.remove(entityUrn.toString()),
-              this::scheduleNextExecution);
+        // Schedule the ingestion source to run some time in the future.
+        final ExecutionRequestRunnable executionRequestRunnable = new ExecutionRequestRunnable(
+            _systemAuthentication,
+            _entityClient,
+            ingestionSourceUrn,
+            newInfo,
+            () -> _nextIngestionSourceExecutionCache.remove(ingestionSourceUrn),
+            this::scheduleNextIngestionSourceExecution);
 
-          // Schedule the process.
-          ScheduledFuture<?> scheduledFuture = _sharedExecutorService.schedule(runnable, scheduleTime, TimeUnit.MILLISECONDS);
-          _nextExecutionCache.put(entityUrn.toString(), scheduledFuture);
-          log.info(String.format("Scheduled next execution of Ingestion Source with urn %s in %sms.", entityUrn, scheduleTime));
-        } else {
-          log.warn(String.format("Found malformed Ingestion Source schedule: %s for urn: %s. Skipping scheduling.", schedule.getInterval(), entityUrn));
-        }
+        // Schedule the next ingestion run
+        final ScheduledFuture<?> scheduledFuture = _sharedExecutorService.schedule(executionRequestRunnable, scheduleTime, TimeUnit.MILLISECONDS);
+        _nextIngestionSourceExecutionCache.put(ingestionSourceUrn, scheduledFuture);
+
+        log.info(String.format("Scheduled next execution of Ingestion Source with urn %s in %sms.", ingestionSourceUrn, scheduleTime));
+
       } else {
-        log.info(String.format("Ingestion source with urn %s is already scheduled. Skipping scheduling next execution.", entityUrn));
+        log.error(String.format("Found malformed Ingestion Source schedule: %s for urn: %s. Skipping scheduling.", schedule.getInterval(), ingestionSourceUrn));
       }
+
     } else {
-      log.info(String.format("Ingestion source with urn %s has no configured schedule. Skipping scheduling next execution.", entityUrn));
+      log.info(String.format("Ingestion source with urn %s has no configured schedule. Not scheduling.", ingestionSourceUrn));
     }
   }
 
-  private boolean schedulesChanged(final DataHubIngestionSourceSchedule oldSchedule, final DataHubIngestionSourceSchedule newSchedule) {
-    return (oldSchedule == null || newSchedule == null || !oldSchedule.getInterval().equals(newSchedule.getInterval()));
-  }
-
-  private
-
   /**
-   * A {@link Runnable} used to periodically fetch a new instance of the schedules cache.
+   * A {@link Runnable} used to periodically re-populate the schedules cache.
    *
    * Currently, the refresh logic is not very smart. When the cache is invalidated, we simply re-fetch the
    * entire cache using schedules stored in the backend.
    */
   @VisibleForTesting
-  static class ScheduleRefreshRunnable implements Runnable {
-
-    private static final String INGESTION_SOURCE_ENTITY_NAME = "dataHubIngestionSource";
+  static class BatchRefreshSchedulesRunnable implements Runnable {
 
     private final Authentication _systemAuthentication;
     private final EntityClient _entityClient;
-    private final BiConsumer<Urn, DataHubIngestionSourceInfo> _scheduleNextExecution;
+    private final BiConsumer<Urn, DataHubIngestionSourceInfo> _scheduleNextIngestionSourceExecution;
 
-    public ScheduleRefreshRunnable(
-        final Authentication systemAuthentication,
-        final EntityClient entityClient,
-        final BiConsumer<Urn, DataHubIngestionSourceInfo> scheduleNextExecution) {
-      _systemAuthentication = systemAuthentication;
-      _entityClient = entityClient;
-      _scheduleNextExecution = scheduleNextExecution;
+    public BatchRefreshSchedulesRunnable(
+        @Nonnull final Authentication systemAuthentication,
+        @Nonnull final EntityClient entityClient,
+        @Nonnull final BiConsumer<Urn, DataHubIngestionSourceInfo> scheduleNextIngestionSourceExecution) {
+      _systemAuthentication = Objects.requireNonNull(systemAuthentication);
+      _entityClient = Objects.requireNonNull(entityClient);
+      _scheduleNextIngestionSourceExecution = Objects.requireNonNull(scheduleNextIngestionSourceExecution);
     }
 
     @Override
@@ -233,28 +291,36 @@ public class IngestionSchedulerHook implements MetadataChangeLogHook {
 
         while (start < total) {
           try {
-            log.debug(String.format("Batch fetching schedules. start: %s, count: %s ", start, count));
+            log.debug(String.format("Batch fetching ingestion source schedules. start: %s, count: %s ", start, count));
+
+            // 1. List all ingestion source urns.
             final ListResult ingestionSourceUrns = _entityClient.list(
-                INGESTION_SOURCE_ENTITY_NAME,
+                Constants.INGESTION_SOURCE_ENTITY_NAME,
                 Collections.emptyMap(),
                 start,
                 count,
                 _systemAuthentication);
 
+            // 2. Fetch all ingestion sources, specifically the "info" aspect.
             final Map<Urn, EntityResponse> ingestionSources = _entityClient.batchGetV2(
                 Constants.INGESTION_SOURCE_ENTITY_NAME,
                 new HashSet<>(ingestionSourceUrns.getEntities()),
                 ImmutableSet.of(Constants.INGESTION_INFO_ASPECT_NAME),
                 _systemAuthentication);
 
-            log.info("Received batch of Ingestion Sources. Attempting to re-schedule execution requests.");
+            // 3. Reschedule ingestion sources based on the fetched schedules (inside "info")
+            log.debug("Received batch of Ingestion Source Info aspects. Attempting to re-schedule execution requests.");
             scheduleNextIngestionRuns(new ArrayList<>(ingestionSources.values()));
 
             total = ingestionSourceUrns.getTotal();
             start = start + count;
 
           } catch (RemoteInvocationException e) {
-            log.error(String.format("Failed to retrieve ingestion source urns! Skipping updating schedule cache until next refresh. start: %s, count: %s", start, count), e);
+            log.error(
+                String.format("Failed to retrieve ingestion sources! Skipping updating schedule cache until next refresh. start: %s, count: %s",
+                    start,
+                    count),
+                e);
             return;
           }
         }
@@ -264,102 +330,123 @@ public class IngestionSchedulerHook implements MetadataChangeLogHook {
       }
     }
 
-    private void scheduleNextIngestionRuns(final List<EntityResponse> entities) {
-      for (final EntityResponse response : entities) {
+    /**
+     * Attempts to reschedule the next ingestion source run based on a batch of {@link EntityResponse} objects
+     * received from the Metadata Service.
+     */
+    private void scheduleNextIngestionRuns(@Nonnull final List<EntityResponse> ingestionSourceEntities) {
+      for (final EntityResponse response : ingestionSourceEntities) {
         final Urn entityUrn = response.getUrn();
         final EnvelopedAspectMap aspects = response.getAspects();
         final EnvelopedAspect envelopedInfo = aspects.get(Constants.INGESTION_INFO_ASPECT_NAME);
         final DataHubIngestionSourceInfo ingestionSourceInfo = new DataHubIngestionSourceInfo(envelopedInfo.getValue().data());
-        _scheduleNextExecution.accept(entityUrn, ingestionSourceInfo);
+
+        // Invoke the "scheduleNextIngestionSourceExecution" (passed from parent)
+        _scheduleNextIngestionSourceExecution.accept(entityUrn, ingestionSourceInfo);
       }
     }
   }
 
   /**
    * A {@link Runnable} used to create Ingestion Execution Requests.
+   *
+   * The expectation is that there's a downstream action which is listening and executing new Execution Requests.
    */
   @VisibleForTesting
   static class ExecutionRequestRunnable implements Runnable {
 
+    private static final String RUN_INGEST_TASK_NAME = "RUN_INGEST";
+    private static final String EXECUTION_REQUEST_SOURCE_NAME = "SCHEDULED_INGESTION_SOURCE";
+    private static final String RECIPE_ARGUMENT_NAME = "recipe";
+    private static final String VERSION_ARGUMENT_NAME = "version";
+
     private final Authentication _systemAuthentication;
     private final EntityClient _entityClient;
-    private final Urn _urn;
-    private final DataHubIngestionSourceInfo _info;
-    private final Runnable _clearNextExecution;
-    private final BiConsumer<Urn, DataHubIngestionSourceInfo> _scheduleNextExecution;
+
+    // Information about the ingestion source being executed
+    private final Urn _ingestionSourceUrn;
+    private final DataHubIngestionSourceInfo _ingestionSourceInfo;
+
+    // Used for clearing the "next execution" cache once a corresponding execution request has been created.
+    private final Runnable _deleteNextIngestionSourceExecution;
+
+    // Used for re-scheduling the ingestion source once it has executed!
+    private final BiConsumer<Urn, DataHubIngestionSourceInfo> _scheduleNextIngestionSourceExecution;
 
     public ExecutionRequestRunnable(
-        final Authentication systemAuthentication,
-        final EntityClient entityClient,
-        final Urn urn,
-        final DataHubIngestionSourceInfo info,
-        final Runnable clearNextExecution,
-        final BiConsumer<Urn, DataHubIngestionSourceInfo> scheduleNextExecution) {
-      _systemAuthentication = systemAuthentication;
-      _entityClient = entityClient;
-      _urn = urn;
-      _info = info;
-      _clearNextExecution = clearNextExecution;
-      _scheduleNextExecution = scheduleNextExecution;
+        @Nonnull final Authentication systemAuthentication,
+        @Nonnull final EntityClient entityClient,
+        @Nonnull final Urn ingestionSourceUrn,
+        @Nonnull final DataHubIngestionSourceInfo ingestionSourceInfo,
+        @Nonnull final Runnable deleteNextIngestionSourceExecution,
+        @Nonnull final BiConsumer<Urn, DataHubIngestionSourceInfo> scheduleNextIngestionSourceExecution) {
+      _systemAuthentication = Objects.requireNonNull(systemAuthentication);
+      _entityClient = Objects.requireNonNull(entityClient);
+      _ingestionSourceUrn = Objects.requireNonNull(ingestionSourceUrn);
+      _ingestionSourceInfo = Objects.requireNonNull(ingestionSourceInfo);
+      _deleteNextIngestionSourceExecution = Objects.requireNonNull(deleteNextIngestionSourceExecution);
+      _scheduleNextIngestionSourceExecution = Objects.requireNonNull(scheduleNextIngestionSourceExecution);
     }
 
     @Override
     public void run() {
-      // Pop the next execution run off the set of scheduled runs.
-      _clearNextExecution.run();
+
+      // Remove the next ingestion execution as we are going to execute it now. (no retry logic currently)
+      _deleteNextIngestionSourceExecution.run();
 
       try {
 
-        log.info(String.format("Triggered scheduled Execution Request for scheduled Ingestion Source with urn %s", _urn));
+        log.info(String.format(
+            "Creating Execution Request for scheduled Ingestion Source with urn %s",
+            _ingestionSourceUrn));
 
-        // 1. Create an execution request.
+        // Create a new Execution Request Proposal
         final MetadataChangeProposal proposal = new MetadataChangeProposal();
-
-        // Create the Ingestion source key --> use the display name as a unique id to ensure it's not duplicated.
         final ExecutionRequestKey key = new ExecutionRequestKey();
+        // (Give the execution request a random id)
         final UUID uuid = UUID.randomUUID();
         final String uuidStr = uuid.toString();
         key.setId(uuidStr);
         proposal.setEntityKeyAspect(GenericAspectUtils.serializeAspect(key));
 
-        // Build the arguments map.
-        final ExecutionRequestInput execInput = new ExecutionRequestInput();
-        execInput.setTask("RUN_INGEST"); // Set the RUN_INGEST task
-        execInput.setSource(new ExecutionRequestSource().setType("SCHEDULED_INGESTION_SOURCE").setIngestionSource(_urn));
-        execInput.setExecutorId(_info.getConfig().getExecutorId(), SetMode.IGNORE_NULL);
+        // Construct arguments (arguments) of the Execution Request
+        final ExecutionRequestInput input = new ExecutionRequestInput();
+        input.setTask(RUN_INGEST_TASK_NAME);
+        input.setSource(new ExecutionRequestSource()
+            .setType(EXECUTION_REQUEST_SOURCE_NAME)
+            .setIngestionSource(_ingestionSourceUrn));
+        input.setExecutorId(_ingestionSourceInfo.getConfig().getExecutorId(), SetMode.IGNORE_NULL);
 
         Map<String, String> arguments = new HashMap<>();
-        arguments.put("recipe", _info.getConfig().getRecipe());
-        if (_info.getConfig().hasVersion()) {
-          arguments.put("version", _info.getConfig().getVersion());
+        arguments.put(RECIPE_ARGUMENT_NAME, _ingestionSourceInfo.getConfig().getRecipe());
+        if (_ingestionSourceInfo.getConfig().hasVersion()) {
+          arguments.put(VERSION_ARGUMENT_NAME, _ingestionSourceInfo.getConfig().getVersion());
         }
-        execInput.setArgs(new StringMap(arguments));
+        input.setArgs(new StringMap(arguments));
 
         proposal.setEntityType(Constants.EXECUTION_REQUEST_ENTITY_NAME);
         proposal.setAspectName(Constants.EXECUTION_REQUEST_INPUT_ASPECT_NAME);
-        proposal.setAspect(GenericAspectUtils.serializeAspect(execInput));
+        proposal.setAspect(GenericAspectUtils.serializeAspect(input));
         proposal.setChangeType(ChangeType.UPSERT);
 
         _entityClient.ingestProposal(proposal, _systemAuthentication);
 
       } catch (Exception e) {
+        // TODO: This type of thing should likely be proactively reported.
         log.error(String.format(
-            "Caught exception while attempting to create Execution Request for Ingestion Source with urn %s. Will retry on next scheduled attempt.", _urn), e);
-        // TODO: Consider reslotting execution for another run.
-        // TODO: Consider storing the reason for failure somewhere.
+            "Caught exception while attempting to create Execution Request for Ingestion Source with urn %s. Will retry on next scheduled attempt.",
+            _ingestionSourceUrn), e);
       }
 
       // 2. Re-Schedule the next execution request.
-      _scheduleNextExecution.accept(_urn, _info);
+      _scheduleNextIngestionSourceExecution.accept(_ingestionSourceUrn, _ingestionSourceInfo);
     }
   }
 
   private String adjustCronInterval(final String origCronInterval) {
     Objects.requireNonNull(origCronInterval, "origCronInterval must not be null");
-
-    final String[] originalCronParts = origCronInterval.split(" ");
-
     // Typically we support 5-character cron. Spring's lib only supports 6 character cron so we make an adjustment here.
+    final String[] originalCronParts = origCronInterval.split(" ");
     if (originalCronParts.length == 5) {
       return String.format("0 %s", origCronInterval);
     }
