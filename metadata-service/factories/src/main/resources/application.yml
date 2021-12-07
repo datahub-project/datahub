@@ -24,7 +24,13 @@ authentication:
   # The max duration of a UI session in milliseconds. Defaults to 1 day.
   sessionTokenDurationMs: ${SESSION_TOKEN_DURATION_MS:86400000}
 
-
+datahub:
+  gms:
+    host: ${DATAHUB_GMS_HOST:${GMS_HOST:localhost}}
+    port: ${DATAHUB_GMS_PORT:${GMS_PORT:8080}}
+    useSSL: ${DATAHUB_GMS_USE_SSL:${GMS_USE_SSL:false}}
+    sslContext:
+      protocol: ${DATAHUB_GMS_SSL_PROTOCOL:${GMS_SSL_PROTOCOL:#{null}}}
 
 graphService:
   type: ${GRAPH_SERVICE_IMPL:elasticsearch}

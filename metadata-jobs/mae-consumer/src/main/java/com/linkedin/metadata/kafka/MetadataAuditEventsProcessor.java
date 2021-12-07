@@ -7,6 +7,7 @@ import com.linkedin.data.element.DataElement;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.gms.factory.common.GraphServiceFactory;
 import com.linkedin.gms.factory.common.SystemMetadataServiceFactory;
+import com.linkedin.gms.factory.kafka.KafkaEventConsumerFactory;
 import com.linkedin.gms.factory.search.EntitySearchServiceFactory;
 import com.linkedin.gms.factory.search.SearchDocumentTransformerFactory;
 import com.linkedin.metadata.EventUtils;
@@ -59,7 +60,7 @@ import static com.linkedin.metadata.search.utils.QueryUtils.createRelationshipFi
 @Component
 @Conditional(MetadataChangeLogProcessorCondition.class)
 @Import({GraphServiceFactory.class, EntitySearchServiceFactory.class, SystemMetadataServiceFactory.class,
-    SearchDocumentTransformerFactory.class})
+    SearchDocumentTransformerFactory.class, KafkaEventConsumerFactory.class})
 @EnableKafka
 public class MetadataAuditEventsProcessor {
 
@@ -84,7 +85,7 @@ public class MetadataAuditEventsProcessor {
   }
 
   @KafkaListener(id = "${METADATA_AUDIT_EVENT_KAFKA_CONSUMER_GROUP_ID:mae-consumer-job-client}", topics =
-      "${KAFKA_TOPIC_NAME:" + Topics.METADATA_AUDIT_EVENT + "}", containerFactory = "avroSerializedKafkaListener")
+      "${KAFKA_TOPIC_NAME:" + Topics.METADATA_AUDIT_EVENT + "}", containerFactory = "kafkaEventConsumer")
   public void consume(final ConsumerRecord<String, GenericRecord> consumerRecord) {
     kafkaLagStats.update(System.currentTimeMillis() - consumerRecord.timestamp());
 
