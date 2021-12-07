@@ -1,11 +1,13 @@
+import datetime
 import itertools
 import json
 import logging
 import shlex
 from json.decoder import JSONDecodeError
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 import requests
+import requests.adapters
 from requests.exceptions import HTTPError, RequestException
 
 from datahub import __package_name__
@@ -57,6 +59,7 @@ class DatahubRestEmitter:
         connect_timeout_sec: Optional[float] = None,
         read_timeout_sec: Optional[float] = None,
         extra_headers: Optional[Dict[str, str]] = None,
+        ca_certificate_path: Optional[str] = None,
     ):
         if ":9002" in gms_server:
             logger.warning(
@@ -66,6 +69,10 @@ class DatahubRestEmitter:
         self._token = token
 
         self._session = requests.Session()
+        adapter = requests.adapters.HTTPAdapter(pool_connections=100, pool_maxsize=100)
+        self._session.mount("http://", adapter)
+        self._session.mount("https://", adapter)
+
         self._session.headers.update(
             {
                 "X-RestLi-Protocol-Version": "2.0.0",
@@ -77,6 +84,9 @@ class DatahubRestEmitter:
 
         if extra_headers:
             self._session.headers.update(extra_headers)
+
+        if ca_certificate_path:
+            self._session.verify = ca_certificate_path
 
         if connect_timeout_sec:
             self._connect_timeout_sec = connect_timeout_sec
@@ -106,13 +116,15 @@ class DatahubRestEmitter:
             MetadataChangeProposalWrapper,
             UsageAggregation,
         ],
-    ) -> None:
+    ) -> Tuple[datetime.datetime, datetime.datetime]:
+        start_time = datetime.datetime.now()
         if isinstance(item, UsageAggregation):
-            return self.emit_usage(item)
+            self.emit_usage(item)
         elif isinstance(item, (MetadataChangeProposal, MetadataChangeProposalWrapper)):
-            return self.emit_mcp(item)
+            self.emit_mcp(item)
         else:
-            return self.emit_mce(item)
+            self.emit_mce(item)
+        return start_time, datetime.datetime.now()
 
     def emit_mce(self, mce: MetadataChangeEvent) -> None:
         url = f"{self._gms_server}/entities?action=ingest"

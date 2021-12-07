@@ -2998,7 +2998,10 @@
         "quoting": {},
         "schema": null,
         "tags": [],
-        "vars": {}
+        "vars": {},
+        "meta": {
+          "owner": "@alice2"
+        }
       },
       "database": "pagila",
       "deferred": false,
@@ -3047,7 +3050,7 @@
           "city"
         ]
       ],
-      "tags": [],
+      "tags": [ "test_tag" ],
       "unique_id": "model.sample_dbt.customer_details",
       "unrendered_config": {
         "materialized": "ephemeral"
@@ -3342,7 +3345,7 @@
           "meta": {},
           "name": "first_name",
           "quote": null,
-          "tags": []
+          "tags": ["column_tag"]
         },
         "last_name": {
           "data_type": null,
@@ -3388,8 +3391,8 @@
       "loader": "",
       "meta": {
         "model_maturity": "in dev",
-        "owner": "@alice",
-        "some_other_property": "test 1"
+        "some_other_property": "test 1",
+        "owner": "@alice1"
       },
       "name": "actor",
       "original_file_path": "models/base.yml",

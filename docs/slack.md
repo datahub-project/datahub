@@ -1,21 +1,25 @@
 # Slack
 
-The DataHub team has an open source slack workspace to discuss development and support.
+The DataHub Slack is a thriving and rapidly growing community - we can't wait for you to join us!
 
-[Sign up](https://slack.datahubproject.io) or [log in with an
-existing account](https://slack.datahubproject.io) to `datahubspace` on Slack.
+[Sign up here](https://slack.datahubproject.io) to join us on Slack and to subscribe to the DataHub Community newsletter. Already a member? [Log in here](https://slack.datahubproject.io).
 
-Here are some notable channels and their purposes
+## Navigating DataHub Slack
 
-| Channel | Purpose |
-| ------- | --------- |
-| [#announcements](https://app.slack.com/client/TUMKD5EGJ/CUMV92XRQ) | Important announcements 
-| [#general](https://app.slack.com/client/TUMKD5EGJ/CV2KB471C) | General discussion & questions  
-| [#town-hall-ama](https://app.slack.com/client/TUMKD5EGJ/C01040VS7CJ) | AMA during [Town Halls](townhalls.md)  
-| [#rfc](https://app.slack.com/client/TUMKD5EGJ/C017W0NTZHR) | [RFC](rfc.md)-specific discussion 
-| [#datahub-ingestion](https://app.slack.com/client/TUMKD5EGJ/CUMUWQU66) | Ingestion-specific discussion
-| [#datahub-search](https://app.slack.com/client/TUMKD5EGJ/CUMTR0UJE) | Search-specific disucssion
-| [#datahub-graph](https://app.slack.com/client/TUMKD5EGJ/CUQJTTATB) | Graph-specific discussion
-| [#datahub-ui](https://app.slack.com/client/TUMKD5EGJ/CV2UXSE9L) | UI-specific discussion
-| [#docker-k8s](https://app.slack.com/client/TUMKD5EGJ/CV2UVAPPG) | Docker & Kubernetes-specific discussion
-| [#github-activities](https://app.slack.com/client/TUMKD5EGJ/CV3FCF9QE) | Automated GitHub activity stream 
+Lets get you settled in -- 
+
+- **Head over to [#introduce-yourself](https://datahubspace.slack.com/archives/C01PU1K6GDP) to, well, introduce yourself!** We’d love to learn more about you, what brings you here, and how we can support you
+- **Not sure how to start?** You guessed it, check out [#getting-started](https://datahubspace.slack.com/archives/CV2KB471C) - we’ll point you in the right direction
+- **Looking for general debugging help?** [#troubleshoot](https://datahubspace.slack.com/archives/C029A3M079U) is the place to go
+- **Need some live support from the Core DataHub Team?** Join us during our 2xWeek Office Hours via Zoom! Check out [#office-hours](https://datahubspace.slack.com/archives/C02AD211493) for more details
+- **Looking for ways to contribute to the DataHub project?** Tell us all about it in [#contribute](https://datahubspace.slack.com/archives/C017W0NTZHR) 
+- **Have suggestions on how to make DataHub better?** We can’t wait to hear them in [#feature-requests](https://datahubspace.slack.com/archives/C02FWNS2F08)
+- **Excited to share your experience working with DataHub?** [#show-and-tell](https://datahubspace.slack.com/archives/C02FD9PLCA0) is the perfect channel for you
+- **Need something else?** Reach out to [@Maggie](https://datahubspace.slack.com/team/U0121TRV0FL) - our Community Product Manager
+
+### Slack Best Practices
+
+Please keep in mind these Slack best-practices --
+
+- **Make use of threads** for addressing specific questions/topics, and when posting large blocks of code - it helps us keep our channels and conversations organized
+- **Avoid posting the same question in multiple channels** - if you’re having a tough time getting the support you need (or aren’t sure where to go!) please DM [@Maggie](https://datahubspace.slack.com/team/U0121TRV0FL) for support

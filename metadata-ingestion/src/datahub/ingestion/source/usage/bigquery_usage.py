@@ -12,13 +12,14 @@ import pydantic
 from google.cloud.logging_v2.client import Client as GCPLoggingClient
 
 import datahub.emitter.mce_builder as builder
+from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.time_window_config import get_time_bucket
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.usage.usage_common import (
     BaseUsageConfig,
     GenericAggregatedDataset,
-    get_time_bucket,
 )
 from datahub.utilities.delayed_iter import delayed_iter
 
@@ -33,13 +34,24 @@ logger = logging.getLogger(__name__)
 AuditLogEntry = Any
 
 DEBUG_INCLUDE_FULL_PAYLOADS = False
-GCP_LOGGING_PAGE_SIZE = 1000
 
 # Handle yearly, monthly, daily, or hourly partitioning.
 # See https://cloud.google.com/bigquery/docs/partitioned-tables.
-PARTITIONED_TABLE_REGEX = re.compile(r"^(.+)_(\d{4}|\d{6}|\d{8}|\d{10})$")
+# This REGEX handles both Partitioned Tables ($ separator) and Sharded Tables (_ separator)
+PARTITIONED_TABLE_REGEX = re.compile(r"^(.+)[\$_](\d{4}|\d{6}|\d{8}|\d{10})$")
+
+# Handle table snapshots
+# See https://cloud.google.com/bigquery/docs/table-snapshots-intro.
+SNAPSHOT_TABLE_REGEX = re.compile(r"^(.+)@(\d{13})$")
 
 BQ_DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
+BQ_FILTER_REGEX_ALLOW_TEMPLATE = """
+protoPayload.serviceData.jobCompletedEvent.job.jobStatistics.referencedTables.tableId =~ "{allow_pattern}"
+"""
+BQ_FILTER_REGEX_DENY_TEMPLATE = """
+{logical_operator}
+protoPayload.serviceData.jobCompletedEvent.job.jobStatistics.referencedTables.tableId !~ "{deny_pattern}"
+"""
 BQ_FILTER_RULE_TEMPLATE = """
 protoPayload.serviceName="bigquery.googleapis.com"
 AND
@@ -58,6 +70,12 @@ AND
         protoPayload.metadata.tableDataRead:*
     )
 )
+AND (
+    {allow_regex}
+    {deny_regex}
+    OR
+    protoPayload.metadata.tableDataRead.reason = "JOB"
+)
 AND
 timestamp >= "{start_time}"
 AND
@@ -73,27 +91,46 @@ class BigQueryTableRef:
 
     @classmethod
     def from_spec_obj(cls, spec: dict) -> "BigQueryTableRef":
-        return BigQueryTableRef(spec["projectId"], spec["datasetId"], spec["tableId"])
+        return cls(spec["projectId"], spec["datasetId"], spec["tableId"])
 
     @classmethod
     def from_string_name(cls, ref: str) -> "BigQueryTableRef":
         parts = ref.split("/")
         if parts[0] != "projects" or parts[2] != "datasets" or parts[4] != "tables":
             raise ValueError(f"invalid BigQuery table reference: {ref}")
-        return BigQueryTableRef(parts[1], parts[3], parts[5])
+        return cls(parts[1], parts[3], parts[5])
 
     def is_anonymous(self) -> bool:
         # Temporary tables will have a dataset that begins with an underscore.
         return self.dataset.startswith("_")
 
     def remove_extras(self) -> "BigQueryTableRef":
-        if "$" in self.table or "@" in self.table:
-            raise ValueError(f"cannot handle {self} - poorly formatted table name")
-
         # Handle partitioned and sharded tables.
         matches = PARTITIONED_TABLE_REGEX.match(self.table)
         if matches:
-            return BigQueryTableRef(self.project, self.dataset, matches.group(1))
+            table_name = matches.group(1)
+            logger.debug(
+                f"Found partitioned table {self.table}. Using {table_name} as the table name."
+            )
+            return BigQueryTableRef(self.project, self.dataset, table_name)
+
+        # Handle table snapshots.
+        matches = SNAPSHOT_TABLE_REGEX.match(self.table)
+        if matches:
+            table_name = matches.group(1)
+            logger.debug(
+                f"Found table snapshot {self.table}. Using {table_name} as the table name."
+            )
+            return BigQueryTableRef(self.project, self.dataset, table_name)
+
+        # Handle exceptions
+        invalid_chars_in_table_name: List[str] = [
+            c for c in {"$", "@"} if c in self.table
+        ]
+        if invalid_chars_in_table_name:
+            raise ValueError(
+                f"Cannot handle {self} - poorly formatted table name, contains {invalid_chars_in_table_name}"
+            )
 
         return self
 
@@ -110,8 +147,11 @@ def _table_ref_to_urn(ref: BigQueryTableRef, env: str) -> str:
     )
 
 
-def _job_name_ref(project: str, jobId: str) -> str:
-    return f"projects/{project}/jobs/{jobId}"
+def _job_name_ref(project: str, jobId: str) -> Optional[str]:
+    if project and jobId:
+        return f"projects/{project}/jobs/{jobId}"
+    else:
+        return None
 
 
 @dataclass
@@ -145,6 +185,7 @@ class ReadEvent:
 
     @classmethod
     def from_entry(cls, entry: AuditLogEntry) -> "ReadEvent":
+
         user = entry.payload["authenticationInfo"]["principalEmail"]
         resourceName = entry.payload["resourceName"]
         readInfo = entry.payload["metadata"]["tableDataRead"]
@@ -155,7 +196,7 @@ class ReadEvent:
         readReason = readInfo.get("reason")
         jobName = None
         if readReason == "JOB":
-            jobName = readInfo["jobName"]
+            jobName = readInfo.get("jobName")
 
         readEvent = ReadEvent(
             actor_email=user,
@@ -166,6 +207,11 @@ class ReadEvent:
             jobName=jobName,
             payload=entry.payload if DEBUG_INCLUDE_FULL_PAYLOADS else None,
         )
+        if readReason == "JOB" and not jobName:
+            logger.debug(
+                "jobName from read events is absent when readReason is JOB. "
+                "Auditlog entry - {logEntry}".format(logEntry=entry)
+            )
         return readEvent
 
 
@@ -182,7 +228,7 @@ class QueryEvent:
     query: str
     destinationTable: Optional[BigQueryTableRef]
     referencedTables: Optional[List[BigQueryTableRef]]
-    jobName: str
+    jobName: Optional[str]
 
     payload: Any
 
@@ -199,7 +245,9 @@ class QueryEvent:
         user = entry.payload["authenticationInfo"]["principalEmail"]
 
         job = entry.payload["serviceData"]["jobCompletedEvent"]["job"]
-        jobName = _job_name_ref(job["jobName"]["projectId"], job["jobName"]["jobId"])
+        jobName = _job_name_ref(
+            job.get("jobName", {}).get("projectId"), job.get("jobName", {}).get("jobId")
+        )
         rawQuery = job["jobConfiguration"]["query"]["query"]
 
         rawDestTable = job["jobConfiguration"]["query"]["destinationTable"]
@@ -223,6 +271,12 @@ class QueryEvent:
             jobName=jobName,
             payload=entry.payload if DEBUG_INCLUDE_FULL_PAYLOADS else None,
         )
+        if not jobName:
+            logger.debug(
+                "jobName from query events is absent. "
+                "Auditlog entry - {logEntry}".format(logEntry=entry)
+            )
+
         return queryEvent
 
 
@@ -231,7 +285,9 @@ class BigQueryUsageConfig(BaseUsageConfig):
     project_id: Optional[str] = None  # deprecated in favor of `projects`
     extra_client_options: dict = {}
     env: str = builder.DEFAULT_ENV
+    table_pattern: Optional[AllowDenyPattern] = None
 
+    log_page_size: Optional[pydantic.PositiveInt] = 1000
     query_log_delay: Optional[pydantic.PositiveInt] = None
     max_query_duration: timedelta = timedelta(minutes=15)
 
@@ -242,6 +298,12 @@ class BigQueryUsageConfig(BaseUsageConfig):
         )
         values["projects"] = [v]
         return None
+
+    def get_allow_pattern_string(self) -> str:
+        return "|".join(self.table_pattern.allow) if self.table_pattern else ""
+
+    def get_deny_pattern_string(self) -> str:
+        return "|".join(self.table_pattern.deny) if self.table_pattern else ""
 
 
 @dataclass
@@ -301,6 +363,33 @@ class BigQueryUsageSource(Source):
         # between query events and read events is complete. For example, this helps us
         # handle the case where the read happens within our time range but the query
         # completion event is delayed and happens after the configured end time.
+
+        # Can safely access the first index of the allow list as it by default contains ".*"
+        use_allow_filter = self.config.table_pattern and (
+            len(self.config.table_pattern.allow) > 1
+            or self.config.table_pattern.allow[0] != ".*"
+        )
+        use_deny_filter = self.config.table_pattern and self.config.table_pattern.deny
+        allow_regex = (
+            BQ_FILTER_REGEX_ALLOW_TEMPLATE.format(
+                allow_pattern=self.config.get_allow_pattern_string()
+            )
+            if use_allow_filter
+            else ""
+        )
+        deny_regex = (
+            BQ_FILTER_REGEX_DENY_TEMPLATE.format(
+                deny_pattern=self.config.get_deny_pattern_string(),
+                logical_operator="AND" if use_allow_filter else "",
+            )
+            if use_deny_filter
+            else ("" if use_allow_filter else "FALSE")
+        )
+
+        logger.debug(
+            f"use_allow_filter={use_allow_filter}, use_deny_filter={use_deny_filter}, "
+            f"allow_regex={allow_regex}, deny_regex={deny_regex}"
+        )
         filter = BQ_FILTER_RULE_TEMPLATE.format(
             start_time=(
                 self.config.start_time - self.config.max_query_duration
@@ -308,42 +397,78 @@ class BigQueryUsageSource(Source):
             end_time=(self.config.end_time + self.config.max_query_duration).strftime(
                 BQ_DATETIME_FORMAT
             ),
+            allow_regex=allow_regex,
+            deny_regex=deny_regex,
         )
+        logger.debug(filter)
 
         def get_entry_timestamp(entry: AuditLogEntry) -> datetime:
             return entry.timestamp
 
+        list_entry_generators_across_clients: List[Iterable[AuditLogEntry]] = list()
+        for client in clients:
+            try:
+                list_entries: Iterable[AuditLogEntry] = client.list_entries(
+                    filter_=filter, page_size=self.config.log_page_size
+                )
+                list_entry_generators_across_clients.append(list_entries)
+            except Exception as e:
+                logger.warning(
+                    f"Encountered exception retrieving AuditLogEntires for project {client.project}",
+                    e,
+                )
+                self.report.report_failure(
+                    f"{client.project}", f"unable to retrive log entrires {e}"
+                )
+
+        i: int = 0
         entry: AuditLogEntry
         for i, entry in enumerate(
             heapq.merge(
-                *(
-                    client.list_entries(filter_=filter, page_size=GCP_LOGGING_PAGE_SIZE)
-                    for client in clients
-                ),
+                *list_entry_generators_across_clients,
                 key=get_entry_timestamp,
             )
         ):
             if i == 0:
-                logger.debug("starting log load from BigQuery")
+                logger.info("Starting log load from BigQuery")
             yield entry
-        logger.debug("finished loading log entries from BigQuery")
+        logger.info(f"Finished loading {i} log entries from BigQuery")
 
     def _parse_bigquery_log_entries(
         self, entries: Iterable[AuditLogEntry]
     ) -> Iterable[Union[ReadEvent, QueryEvent]]:
+        num_read_events: int = 0
+        num_query_events: int = 0
         for entry in entries:
-            event: Union[None, ReadEvent, QueryEvent] = None
-            if ReadEvent.can_parse_entry(entry):
-                event = ReadEvent.from_entry(entry)
-            elif QueryEvent.can_parse_entry(entry):
-                event = QueryEvent.from_entry(entry)
-            else:
+            event: Optional[Union[ReadEvent, QueryEvent]] = None
+            try:
+                if ReadEvent.can_parse_entry(entry):
+                    event = ReadEvent.from_entry(entry)
+                    num_read_events += 1
+                elif QueryEvent.can_parse_entry(entry):
+                    event = QueryEvent.from_entry(entry)
+                    num_query_events += 1
+                else:
+                    self.report.report_warning(
+                        f"{entry.log_name}-{entry.insert_id}",
+                        "Log entry cannot be parsed as either ReadEvent or QueryEvent.",
+                    )
+                    logger.warning(
+                        f"Log entry cannot be parsed as either ReadEvent or QueryEvent: {entry!r}"
+                    )
+            except Exception as e:
                 self.report.report_failure(
                     f"{entry.log_name}-{entry.insert_id}",
-                    f"unable to parse log entry: {entry!r}",
+                    f"unable to parse log entry: {entry!r}, exception: {e}",
                 )
+                logger.error("Error while parsing GCP log entries", e)
+
             if event:
                 yield event
+
+        logger.info(
+            f"Parsed {num_read_events} ReadEvents and {num_query_events} QueryEvents"
+        )
 
     def _join_events_by_job_id(
         self, events: Iterable[Union[ReadEvent, QueryEvent]]
@@ -361,7 +486,8 @@ class BigQueryUsageSource(Source):
         ) -> Iterable[ReadEvent]:
             for event in events:
                 if isinstance(event, QueryEvent):
-                    query_jobs[event.jobName] = event
+                    if event.jobName:
+                        query_jobs[event.jobName] = event
                 else:
                     yield event
 
@@ -375,6 +501,7 @@ class BigQueryUsageSource(Source):
             original_read_events, self.config.query_log_delay
         )
 
+        num_joined: int = 0
         for event in delayed_read_events:
             if (
                 event.timestamp < self.config.start_time
@@ -385,6 +512,7 @@ class BigQueryUsageSource(Source):
             if event.jobName:
                 if event.jobName in query_jobs:
                     # Join the query log event into the table read log event.
+                    num_joined += 1
                     event.query = query_jobs[event.jobName].query
 
                     # TODO also join into the query itself for column references
@@ -393,8 +521,9 @@ class BigQueryUsageSource(Source):
                         str(event.resource),
                         "failed to match table read event with job; try increasing `query_log_delay` or `max_query_duration`",
                     )
-
             yield event
+
+        logger.info(f"Number of read events joined with query events: {num_joined}")
 
     def _aggregate_enriched_read_events(
         self, events: Iterable[ReadEvent]
@@ -407,11 +536,21 @@ class BigQueryUsageSource(Source):
             datetime, Dict[BigQueryTableRef, AggregatedDataset]
         ] = collections.defaultdict(dict)
 
+        num_aggregated: int = 0
         for event in events:
             floored_ts = get_time_bucket(event.timestamp, self.config.bucket_duration)
-            resource = event.resource.remove_extras()
+            resource: Optional[BigQueryTableRef] = None
+            try:
+                resource = event.resource.remove_extras()
+            except Exception as e:
+                self.report.report_warning(
+                    str(event.resource), f"Failed to clean up resource, {e}"
+                )
+                logger.warning(f"Failed to process event {str(event.resource)}", e)
+                continue
 
             if resource.is_anonymous():
+                logger.debug(f"Dropping temporary table {resource}")
                 self.report.report_dropped(str(resource))
                 continue
 
@@ -420,6 +559,17 @@ class BigQueryUsageSource(Source):
                 AggregatedDataset(bucket_start_time=floored_ts, resource=resource),
             )
             agg_bucket.add_read_entry(event.actor_email, event.query, event.fieldsRead)
+            num_aggregated += 1
+        logger.info(f"Total number of events aggregated = {num_aggregated}.")
+        bucket_level_stats: str = "\n\t" + "\n\t".join(
+            [
+                f'bucket:{db.strftime("%m-%d-%Y:%H:%M:%S")}, size={len(ads)}'
+                for db, ads in datasets.items()
+            ]
+        )
+        logger.debug(
+            f"Number of buckets created = {len(datasets)}. Per-bucket details:{bucket_level_stats}"
+        )
 
         return datasets
 

@@ -7,8 +7,6 @@ configurations {
 dependencies {
   compile project(':entity-registry')
   compile project(':metadata-utils')
-  compile project(':metadata-builders')
-  compile project(':metadata-dao-impl:restli-dao')
   compile project(':metadata-events:mxe-avro-1.7')
   compile project(':metadata-events:mxe-registration')
   compile project(':metadata-events:mxe-utils-avro-1.7')
@@ -17,17 +15,19 @@ dependencies {
   compile spec.product.pegasus.data
   compile spec.product.pegasus.generator
 
+  compile externalDependency.dgraph4j exclude group: 'com.google.guava', module: 'guava'
   compile externalDependency.lombok
   compile externalDependency.elasticSearchRest
   compile externalDependency.elasticSearchTransport
   compile externalDependency.kafkaClients
   compile externalDependency.gmaEbeanDao
-  compile externalDependency.gmaDaoApi
   compile externalDependency.gmaRestliResources
   compile externalDependency.gmaElasticsearchDao
   compile externalDependency.ebean
   enhance externalDependency.ebeanAgent
   compile externalDependency.opentelemetryAnnotations
+  compile externalDependency.resilience4j
+  compile externalDependency.springContext
 
   annotationProcessor externalDependency.lombok
 
@@ -37,10 +37,19 @@ dependencies {
   testCompile externalDependency.mockito
   testCompile externalDependency.mockitoInline
   testCompile externalDependency.iStackCommons
+  testCompile externalDependency.resilience4j
   testCompile externalDependency.testContainers
   testCompile externalDependency.testContainersJunit
   testCompile externalDependency.testContainersElasticsearch
+  testCompile externalDependency.lombok
   testCompile project(':test-models')
+
+  testAnnotationProcessor externalDependency.lombok
+}
+
+test {
+  // https://docs.gradle.org/current/userguide/performance.html
+  maxParallelForks = Runtime.runtime.availableProcessors().intdiv(2) ?: 1
 }
 
 tasks.withType(Test) {

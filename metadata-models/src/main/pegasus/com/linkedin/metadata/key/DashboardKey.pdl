@@ -13,7 +13,6 @@ record DashboardKey {
   @Searchable = {
     "fieldName": "tool",
     "fieldType": "TEXT_PARTIAL",
-    "addToFilters": true,
     "boostScore": 4.0
   }
   dashboardTool: string

@@ -23,4 +23,4 @@ datahub docker quickstart \
 	--quickstart-compose-file ../docker/docker-compose.dev.yml \
 	--dump-logs-on-failure
 
-pytest -vv
+pytest -vv --continue-on-collection-errors --junit-xml=junit.smoke.xml

@@ -1,6 +1,6 @@
 import styled from 'styled-components';
 import * as React from 'react';
-import { BankOutlined, BarChartOutlined } from '@ant-design/icons';
+import { BankOutlined, BarChartOutlined, SettingOutlined, UsergroupAddOutlined } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
 import { Button } from 'antd';
 
@@ -17,9 +17,13 @@ export function AdminHeaderLinks() {
 
     const isAnalyticsEnabled = config?.analyticsConfig.enabled;
     const isPoliciesEnabled = config?.policiesConfig.enabled;
+    const isIdentityManagementEnabled = config?.identityManagementConfig.enabled;
 
     const showAnalytics = (isAnalyticsEnabled && me && me.platformPrivileges.viewAnalytics) || false;
     const showPolicyBuilder = (isPoliciesEnabled && me && me.platformPrivileges.managePolicies) || false;
+    const showIdentityManagement =
+        (isIdentityManagementEnabled && me && me.platformPrivileges.manageIdentities) || false;
+    const showSettings = true;
 
     return (
         <>
@@ -37,6 +41,24 @@ export function AdminHeaderLinks() {
                     <Link to="/policies">
                         <Button type="text">
                             <BankOutlined /> Policies
+                        </Button>
+                    </Link>
+                </AdminLink>
+            )}
+            {showIdentityManagement && (
+                <AdminLink>
+                    <Link to="/identities">
+                        <Button type="text">
+                            <UsergroupAddOutlined /> Users & Groups
+                        </Button>
+                    </Link>
+                </AdminLink>
+            )}
+            {showSettings && (
+                <AdminLink>
+                    <Link to="/settings">
+                        <Button type="text">
+                            <SettingOutlined /> Settings
                         </Button>
                     </Link>
                 </AdminLink>

@@ -12,7 +12,12 @@ query getBrowseResults($input: BrowseInput!) {
             ... on Dataset {
                 name
                 origin
-                description
+                properties {
+                    description
+                }
+                editableProperties {
+                    description
+                }
                 platform {
                     name
                     info {
@@ -28,13 +33,16 @@ query getBrowseResults($input: BrowseInput!) {
                 glossaryTerms {
                     ...glossaryTerms
                 }
+                subTypes {
+                    typeNames
+                }
             }
             ... on Dashboard {
                 urn
                 type
                 tool
                 dashboardId
-                info {
+                properties {
                     name
                     description
                     externalUrl
@@ -42,6 +50,9 @@ query getBrowseResults($input: BrowseInput!) {
                     lastModified {
                         time
                     }
+                }
+                editableProperties {
+                    description
                 }
                 ownership {
                     ...ownershipFields
@@ -74,7 +85,7 @@ query getBrowseResults($input: BrowseInput!) {
                 type
                 tool
                 chartId
-                info {
+                properties {
                     name
                     description
                     externalUrl
@@ -83,6 +94,9 @@ query getBrowseResults($input: BrowseInput!) {
                     lastModified {
                         time
                     }
+                }
+                editableProperties {
+                    description
                 }
                 ownership {
                     ...ownershipFields
@@ -100,10 +114,13 @@ query getBrowseResults($input: BrowseInput!) {
                 orchestrator
                 flowId
                 cluster
-                info {
+                properties {
                     name
                     description
                     project
+                }
+                editableProperties {
+                    description
                 }
                 ownership {
                     ...ownershipFields

@@ -9,6 +9,7 @@ import org.springframework.context.annotation.Configuration;
 
 import javax.annotation.Nonnull;
 
+// TODO: Move this factory.
 @Slf4j
 @Configuration
 public class ElasticsearchConnectorFactory {

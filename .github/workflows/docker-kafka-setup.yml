@@ -56,6 +56,10 @@ jobs:
           # add git short SHA as Docker tag
           tag-custom: ${{ needs.setup.outputs.tag }}
           tag-custom-only: true
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v1
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
       - name: Login to DockerHub
         if: ${{ needs.setup.outputs.publish == 'true' }}
         uses: docker/login-action@v1
@@ -66,6 +70,7 @@ jobs:
         uses: docker/build-push-action@v2
         with:
           file: ./docker/kafka-setup/Dockerfile
+          platforms: linux/amd64,linux/arm64
           context: ./docker/kafka-setup
           tags: ${{ steps.docker_meta.outputs.tags }}
           push: ${{ needs.setup.outputs.publish == 'true' }}

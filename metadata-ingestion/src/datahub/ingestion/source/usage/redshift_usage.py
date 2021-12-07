@@ -12,13 +12,13 @@ from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 
 import datahub.emitter.mce_builder as builder
+from datahub.configuration.time_window_config import get_time_bucket
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.redshift import RedshiftConfig
 from datahub.ingestion.source.usage.usage_common import (
     BaseUsageConfig,
     GenericAggregatedDataset,
-    get_time_bucket,
 )
 
 logger = logging.getLogger(__name__)
@@ -38,18 +38,20 @@ SELECT DISTINCT ss.userid,
        ss.query,
        sui.usename,
        ss.tbl,
-       sq.text,
+       sq.querytxt,
        sti.database,
        sti.schema,
        sti.table,
-       ss.starttime,
-       ss.endtime
+       sq.starttime,
+       sq.endtime,
+       sq.aborted
 FROM stl_scan ss
   JOIN svv_table_info sti ON ss.tbl = sti.table_id
-  LEFT JOIN stl_querytext sq ON ss.query = sq.query
+  JOIN stl_query sq ON ss.query = sq.query
   JOIN svl_user_info sui ON sq.userid = sui.usesysid
 WHERE ss.starttime >= '{start_time}'
-AND ss.endtime < '{end_time}'
+AND ss.starttime < '{end_time}'
+AND sq.aborted = 0
 ORDER BY ss.endtime DESC;
 """.strip()
 
@@ -63,7 +65,7 @@ class RedshiftJoinedAccessEvent(BaseModel):
     usename: str = None  # type:ignore
     query: int
     tbl: int
-    text: str = None  # type:ignore
+    text: str = Field(None, alias="querytxt")
     database: str = None  # type:ignore
     schema_: str = Field(None, alias="schema")
     table: str = None  # type:ignore
@@ -77,7 +79,7 @@ class RedshiftUsageConfig(RedshiftConfig, BaseUsageConfig):
     options: dict = {}
 
     def get_sql_alchemy_url(self):
-        return super().get_sql_alchemy_url(uri_opts=self.options)
+        return super().get_sql_alchemy_url()
 
 
 @dataclasses.dataclass
@@ -199,16 +201,17 @@ class RedshiftUsageSource(Source):
                 AggregatedDataset(bucket_start_time=floored_ts, resource=resource),
             )
 
-            # add @unknown.com to username
             # current limitation in user stats UI, we need to provide email to show users
-            username = f"{event.usename if event.usename else 'unknown'}@{self.config.email_domain}"
-            logger.info(f"username: {username}")
+            user_email = f"{event.usename if event.usename else 'unknown'}"
+            if "@" not in user_email:
+                user_email += f"@{self.config.email_domain}"
+            logger.info(f"user_email: {user_email}")
             agg_bucket.add_read_entry(
-                username,
+                user_email,
                 sqlparse.format(
                     event.text, keyword_case="upper", reindent_aligned=True
                 ),
-                [], # TODO: not currently supported by redshift; find column level changes
+                [],  # TODO: not currently supported by redshift; find column level changes
             )
         return datasets
 

@@ -19,7 +19,34 @@
                         "externalUrl": null,
                         "description": null,
                         "uri": null,
-                        "tags": []
+                        "tags": [
+                            "dbt:test_tag"
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [
+                            {
+                                "owner": "urn:li:corpuser:@alice2",
+                                "type": "DATAOWNER",
+                                "source": null
+                            }
+                        ],
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown",
+                            "impersonator": null
+                        }
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:dbt:test_tag"
+                            }
+                        ]
                     }
                 },
                 {
@@ -616,8 +643,8 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
                             "model_maturity": "in dev",
-                            "owner": "@alice",
                             "some_other_property": "test 1",
+                            "owner": "@alice1",
                             "node_type": "source",
                             "dbt_file_path": "models/base.yml",
                             "catalog_type": "BASE TABLE",
@@ -630,6 +657,22 @@
                         "description": "postgres comment: Actors table \u2013 from postgres\n\ndbt model description: description for actor table from dbt",
                         "uri": null,
                         "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [
+                            {
+                                "owner": "urn:li:corpuser:@alice1",
+                                "type": "DATAOWNER",
+                                "source": null
+                            }
+                        ],
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown",
+                            "impersonator": null
+                        }
                     }
                 },
                 {
@@ -690,7 +733,13 @@
                                 },
                                 "nativeDataType": "text",
                                 "recursive": false,
-                                "globalTags": null,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:dbt:column_tag"
+                                        }
+                                    ]
+                                },
                                 "glossaryTerms": null,
                                 "isPartOfKey": false
                             },
@@ -1216,6 +1265,22 @@
                     }
                 },
                 {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [
+                            {
+                                "owner": "urn:li:corpuser:@bob",
+                                "type": "DATAOWNER",
+                                "source": null
+                            }
+                        ],
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown",
+                            "impersonator": null
+                        }
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
                         "upstreams": []
                     }
@@ -1728,6 +1793,22 @@
                         "description": null,
                         "uri": null,
                         "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [
+                            {
+                                "owner": "urn:li:corpuser:@charles",
+                                "type": "DATAOWNER",
+                                "source": null
+                            }
+                        ],
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown",
+                            "impersonator": null
+                        }
                     }
                 },
                 {

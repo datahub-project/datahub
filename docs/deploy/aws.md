@@ -234,7 +234,6 @@ Update the elasticsearch settings under global in the values.yaml as follows.
   elasticsearch:
     host: <<elasticsearch-endpoint>>
     port: "443"
-    indexPrefix: demo
     useSSL: "true"
 ```
 
@@ -244,10 +243,33 @@ You can also allow communication via HTTP (without SSL) by using the settings be
   elasticsearch:
     host: <<elasticsearch-endpoint>>
     port: "80"
-    indexPrefix: demo
 ```
 
-Lastly, you need to set the following env variable for **elasticsearchSetupJob**.
+If you have fine-grained access control enabled with basic authentication, first run the following to create a k8s
+secret with the password.
+
+```
+kubectl delete secret elasticsearch-secrets
+kubectl create secret generic elasticsearch-secrets --from-literal=elasticsearch-password=<<password>>
+```
+
+Then use the settings below.
+
+```
+  elasticsearch:
+    host: <<elasticsearch-endpoint>>
+    port: "443"
+    useSSL: "true"
+    auth:
+      username: <<username>>
+      password:
+        secretRef: elasticsearch-secrets
+        secretName: elasticsearch-password
+```
+
+Lastly, you **NEED** to set the following env variable for **elasticsearchSetupJob**. AWS Elasticsearch/Opensearch
+service uses OpenDistro version of Elasticsearch, which does not support the "datastream" functionality. As such, we use
+a different way of creating time based indices.
 
 ```
   elasticsearchSetupJob:
@@ -262,6 +284,15 @@ Lastly, you need to set the following env variable for **elasticsearchSetupJob**
 
 Run `helm upgrade --install datahub datahub/datahub --values values.yaml` to apply the changes.
 
+**Note:**
+If you have a custom setup of elastic search cluster and are deploying through docker, you can modify the configurations in datahub to point to the specific ES instance -
+1. If you are using `docker quickstart` you can modify the hostname and port of the ES instance in docker compose quickstart files located [here](../../docker/quickstart/).
+   1. Once you have modified the quickstart recipes you can run the quickstart command using a specific docker compose file. Sample command for that is - `datahub docker quickstart --quickstart-compose-file docker/quickstart/docker-compose-without-neo4j.quickstart.yml`
+2. If you are not using quickstart recipes, you can modify environment variable in GMS to point to the ES instance. The env files for datahub-gms are located [here](../../docker/datahub-gms/env/).
+
+Further, you can find a list of properties supported to work with a custom ES instance [here](../../metadata-service/factories/src/main/java/com/linkedin/gms/factory/common/ElasticsearchSSLContextFactory.java) and [here](../../metadata-service/factories/src/main/java/com/linkedin/gms/factory/common/RestHighLevelClientFactory.java).
+
+A mapping between the property name used in the above two files and the name used in docker/env file can be found [here](../../metadata-service/factories/src/main/resources/application.yml).
 ### Managed Streaming for Apache Kafka (MSK)
 
 Provision an MSK cluster that shares the VPC with the kubernetes cluster or has VPC peering set up between the VPC of

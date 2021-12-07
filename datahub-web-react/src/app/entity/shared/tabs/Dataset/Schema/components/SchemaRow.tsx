@@ -10,24 +10,20 @@ import { ANTD_GRAY } from '../../../../constants';
 import { useBaseEntity } from '../../../../EntityContext';
 import { FkContext } from '../utils/selectedFkContext';
 
-const ForeignKeyContent = styled.div`
+const ForeignKeyContent = styled.tr`
     position: absolute;
     display: flex;
     flex-direction: column;
     width: 100%;
-    max-height: 600px;
-    height: 600px;
-    z-index: 99999;
-    margin-top: -590px;
+    margin-top: -587px;
     box-shadow: inset 0 7px 16px -7px ${ANTD_GRAY[5]};
 `;
 
 const EntitySidePanel = styled.div`
     overflow-y: scroll;
-    max-height: 548px;
-    width: 900px;
-    height: 548px;
+    max-height: 545px;
     padding: 8px;
+    width: 900px;
     border-right: 1px solid ${ANTD_GRAY[4]};
     background-color: white;
 `;
@@ -53,8 +49,6 @@ const ConstraintSection = styled.div`
     min-height: 100%;
     display: flex;
     justify-content: space-between;
-    max-height: 548px;
-    min-height: 548px;
     background-color: ${ANTD_GRAY[2]};
 `;
 
@@ -69,12 +63,18 @@ const BodyContent = styled.div`
 `;
 
 const HeaderContent = styled.div`
-    margin-top: 12px;
+    padding-top: 8px;
     min-height: 40px;
     font-size: 16px;
     font-weight: 500;
     padding-left: 12px;
     border-bottom: 1px solid ${ANTD_GRAY[4]};
+`;
+
+const ForiegnKeyTd = styled.td`
+    &&& {
+        padding: 0;
+    }
 `;
 
 const DatasetLink = styled(Link)`
@@ -104,46 +104,48 @@ export const SchemaRow = ({
             <tr className={className}>{children}</tr>
             {fieldPath === selectedFk?.fieldPath && (
                 <ForeignKeyContent>
-                    <HeaderContent>
-                        Foreign Key to{' '}
-                        <DatasetLink
-                            to={entityRegistry.getEntityUrl(
-                                EntityType.Dataset,
-                                selectedFk.constraint?.foreignDataset?.urn || '',
-                            )}
-                        >
-                            {selectedFk.constraint?.foreignDataset?.name}
-                        </DatasetLink>
-                    </HeaderContent>
-                    <BodyContent>
-                        <EntitySidePanel>
-                            <CompactContext.Provider value>
-                                {entityRegistry.renderProfile(
+                    <ForiegnKeyTd>
+                        <HeaderContent>
+                            Foreign Key to{' '}
+                            <DatasetLink
+                                to={entityRegistry.getEntityUrl(
                                     EntityType.Dataset,
                                     selectedFk.constraint?.foreignDataset?.urn || '',
                                 )}
-                            </CompactContext.Provider>
-                        </EntitySidePanel>
-                        <ConstraintSection>
-                            <div>
-                                <TableTitle>{baseEntity.dataset?.name}</TableTitle>
-                                {selectedFk.constraint?.sourceFields?.map((field) => (
-                                    <div>
-                                        <FieldBadge count={field?.fieldPath} />
-                                    </div>
-                                ))}
-                            </div>
-                            <ArrowContainer>{'--->'}</ArrowContainer>
-                            <div>
-                                <TableTitle>{selectedFk.constraint?.foreignDataset?.name}</TableTitle>
-                                {selectedFk.constraint?.foreignFields?.map((field) => (
-                                    <div>
-                                        <FieldBadge count={field?.fieldPath} />
-                                    </div>
-                                ))}
-                            </div>
-                        </ConstraintSection>
-                    </BodyContent>
+                            >
+                                {selectedFk.constraint?.foreignDataset?.name}
+                            </DatasetLink>
+                        </HeaderContent>
+                        <BodyContent>
+                            <EntitySidePanel>
+                                <CompactContext.Provider value>
+                                    {entityRegistry.renderProfile(
+                                        EntityType.Dataset,
+                                        selectedFk.constraint?.foreignDataset?.urn || '',
+                                    )}
+                                </CompactContext.Provider>
+                            </EntitySidePanel>
+                            <ConstraintSection>
+                                <div>
+                                    <TableTitle>{baseEntity.dataset?.name}</TableTitle>
+                                    {selectedFk.constraint?.sourceFields?.map((field) => (
+                                        <div key={field?.fieldPath}>
+                                            <FieldBadge count={field?.fieldPath} />
+                                        </div>
+                                    ))}
+                                </div>
+                                <ArrowContainer>{'--->'}</ArrowContainer>
+                                <div>
+                                    <TableTitle>{selectedFk.constraint?.foreignDataset?.name}</TableTitle>
+                                    {selectedFk.constraint?.foreignFields?.map((field) => (
+                                        <div key={field?.fieldPath}>
+                                            <FieldBadge count={field?.fieldPath} />
+                                        </div>
+                                    ))}
+                                </div>
+                            </ConstraintSection>
+                        </BodyContent>
+                    </ForiegnKeyTd>
                 </ForeignKeyContent>
             )}
         </>

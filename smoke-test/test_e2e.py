@@ -5,6 +5,7 @@ import requests
 import urllib
 from datahub.cli.docker import check_local_docker_containers
 from datahub.ingestion.run.pipeline import Pipeline
+from tests.utils import ingest_file_via_rest
 
 GMS_ENDPOINT = "http://localhost:8080"
 FRONTEND_ENDPOINT = "http://localhost:9002"
@@ -33,32 +34,29 @@ def test_healthchecks(wait_for_healthchecks):
     # Call to wait_for_healthchecks fixture will do the actual functionality.
     pass
 
+@pytest.fixture(scope="session")
+def frontend_session(wait_for_healthchecks):
+    session = requests.Session()
 
-def ingest_file(filename: str):
-    pipeline = Pipeline.create(
-        {
-            "source": {
-                "type": "file",
-                "config": {"filename": filename},
-            },
-            "sink": {
-                "type": "datahub-rest",
-                "config": {"server": GMS_ENDPOINT},
-            },
-        }
+    headers = {
+        "Content-Type": "application/json",
+    }
+    data = '{"username":"datahub", "password":"datahub"}'
+    response = session.post(
+        f"{FRONTEND_ENDPOINT}/logIn", headers=headers, data=data
     )
-    pipeline.run()
-    pipeline.raise_from_status()
+    response.raise_for_status()
 
+    yield session
 
 @pytest.mark.dependency(depends=["test_healthchecks"])
 def test_ingestion_via_rest(wait_for_healthchecks):
-    ingest_file(bootstrap_sample_data)
+    ingest_file_via_rest(bootstrap_sample_data)
 
 
 @pytest.mark.dependency(depends=["test_healthchecks"])
 def test_ingestion_usage_via_rest(wait_for_healthchecks):
-    ingest_file(usage_sample_data)
+    ingest_file_via_rest(usage_sample_data)
 
 
 @pytest.mark.dependency(depends=["test_healthchecks"])
@@ -189,6 +187,36 @@ def test_gms_search_dataset(query, min_expected_results):
     assert len(res_data["value"]["entities"]) >= min_expected_results
 
 
+@pytest.mark.parametrize(
+    "query,min_expected_results",
+    [
+        ("covid", 1),
+        ("sample", 3),
+    ],
+)
+@pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
+def test_gms_search_across_entities(query, min_expected_results):
+
+    json = {
+            "input": f"{query}",
+            "entities": [],
+            "start": 0,
+            "count": 10
+    }
+    print(json)
+    response = requests.post(
+        f"{GMS_ENDPOINT}/entities?action=searchAcrossEntities",
+        headers=restli_default_headers,
+        json=json
+    )
+    response.raise_for_status()
+    res_data = response.json()
+
+    assert res_data["value"]
+    assert res_data["value"]["numEntities"] >= min_expected_results
+    assert len(res_data["value"]["entities"]) >= min_expected_results
+
+
 @pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
 def test_gms_usage_fetch():
     response = requests.post(
@@ -220,23 +248,6 @@ def test_gms_usage_fetch():
         "totalSqlQueries": 7,
         "uniqueUserCount": 1,
     }
-
-
-@pytest.fixture(scope="session")
-def frontend_session(wait_for_healthchecks):
-    session = requests.Session()
-
-    headers = {
-        "Content-Type": "application/json",
-    }
-    data = '{"username":"datahub", "password":"datahub"}'
-    response = session.post(
-        f"{FRONTEND_ENDPOINT}/logIn", headers=headers, data=data
-    )
-    response.raise_for_status()
-
-    yield session
-
 
 @pytest.mark.dependency(depends=["test_healthchecks"])
 def test_frontend_auth(frontend_session):
@@ -289,6 +300,7 @@ def test_frontend_browse_datasets(frontend_session):
     [
         ("covid", 1),
         ("sample", 3),
+        ("", 1),
     ],
 )
 @pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
@@ -331,6 +343,56 @@ def test_frontend_search_datasets(frontend_session, query, min_expected_results)
     assert res_data["data"]["search"]
     assert res_data["data"]["search"]["total"] >= min_expected_results
     assert len(res_data["data"]["search"]["searchResults"]) >= min_expected_results
+
+
+@pytest.mark.parametrize(
+    "query,min_expected_results",
+    [
+        ("covid", 1),
+        ("sample", 3),
+        ("", 1),
+    ],
+)
+@pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
+def test_frontend_search_across_entities(frontend_session, query, min_expected_results):
+
+    json = {
+        "query": """query searchAcrossEntities($input: SearchAcrossEntitiesInput!) {\n
+            searchAcrossEntities(input: $input) {\n
+                start\n
+                count\n
+                total\n 
+                searchResults {\n
+                    entity {\n
+                        ... on Dataset {\n
+                            urn\n
+                            name\n
+                        }\n
+                    }\n
+                }\n
+            }\n
+        }""",
+        "variables": {
+            "input": {
+                "types": [],
+                "query": f"{query}",
+                "start": 0,
+                "count": 10
+            }
+        }
+    }
+
+    response = frontend_session.post(
+        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json
+    )
+    response.raise_for_status()
+    res_data = response.json()
+
+    assert res_data
+    assert res_data["data"]
+    assert res_data["data"]["searchAcrossEntities"]
+    assert res_data["data"]["searchAcrossEntities"]["total"] >= min_expected_results
+    assert len(res_data["data"]["searchAcrossEntities"]["searchResults"]) >= min_expected_results
 
 
 @pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
@@ -751,6 +813,8 @@ def test_frontend_me_query(frontend_session):
                 platformPrivileges {\n
                   viewAnalytics
                   managePolicies
+                  manageIdentities
+                  generatePersonalAccessTokens
                 }\n
             }\n
         }"""
@@ -767,643 +831,443 @@ def test_frontend_me_query(frontend_session):
     assert res_data["data"]["me"]["corpUser"]["urn"] == "urn:li:corpuser:datahub"
     assert res_data["data"]["me"]["platformPrivileges"]["viewAnalytics"] is True
     assert res_data["data"]["me"]["platformPrivileges"]["managePolicies"] is True
-
-
-
-@pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
-def test_add_tag(frontend_session):
-    platform = "urn:li:dataPlatform:kafka"
-    dataset_name = (
-        "SampleKafkaDataset"
-    )
-    env = "PROD"
-    dataset_urn = f"urn:li:dataset:({platform},{dataset_name},{env})"
-
-    dataset_json = {
-        "query": """query getDataset($urn: String!) {\n
-            dataset(urn: $urn) {\n
-                globalTags {\n
-                    tags {\n
-                        tag {\n
-                            urn\n
-                            name\n
-                            description\n
-                        }\n
-                    }\n
-                }\n
-            }\n
-        }""",
-        "variables": {
-            "urn": dataset_urn
-        }
-    }
-
-    # Fetch tags
-    response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=dataset_json
-    )
-    response.raise_for_status()
-    res_data = response.json()
-
-    assert res_data
-    assert res_data["data"]
-    assert res_data["data"]["dataset"]
-    assert res_data["data"]["dataset"]["globalTags"] == None
-
-    add_json = {
-        "query": """mutation addTag($input: TagAssociationInput!) {\n
-            addTag(input: $input)
-        }""",
-        "variables": {
-            "input": {
-              "tagUrn": "urn:li:tag:Legacy",
-              "resourceUrn": dataset_urn,
-            }
-        }
-    }
-
-    response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=add_json
-    )
-    response.raise_for_status()
-    res_data = response.json()
-
-    print(res_data)
-
-    assert res_data
-    assert res_data["data"]
-    assert res_data["data"]["addTag"] is True
-
-    # Refetch the dataset
-    response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=dataset_json
-    )
-    response.raise_for_status()
-    res_data = response.json()
-
-    assert res_data
-    assert res_data["data"]
-    assert res_data["data"]["dataset"]
-    assert res_data["data"]["dataset"]["globalTags"] == {'tags': [{'tag': {'description': 'Indicates the dataset is no longer supported', 'name': 'Legacy', 'urn': 'urn:li:tag:Legacy'}}]}
-
-    remove_json = {
-        "query": """mutation removeTag($input: TagAssociationInput!) {\n
-            removeTag(input: $input)
-        }""",
-        "variables": {
-            "input": {
-              "tagUrn": "urn:li:tag:Legacy",
-              "resourceUrn": dataset_urn,
-            }
-        }
-    }
-
-    response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=remove_json
-    )
-    response.raise_for_status()
-    res_data = response.json()
-
-    print(res_data)
-
-    assert res_data
-    assert res_data["data"]
-    assert res_data["data"]["removeTag"] is True
-
-    # Refetch the dataset
-    response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=dataset_json
-    )
-    response.raise_for_status()
-    res_data = response.json()
-
-    assert res_data
-    assert res_data["data"]
-    assert res_data["data"]["dataset"]
-    assert res_data["data"]["dataset"]["globalTags"] == {'tags': [] }
+    assert res_data["data"]["me"]["platformPrivileges"]["manageIdentities"] is True
+    assert res_data["data"]["me"]["platformPrivileges"]["generatePersonalAccessTokens"] is True
 
 
 @pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
-def test_add_tag_to_chart(frontend_session):
-    chart_urn = "urn:li:chart:(looker,baz2)"
+def test_list_users(frontend_session):
 
-    chart_json = {
-        "query": """query getChart($urn: String!) {\n
-            chart(urn: $urn) {\n
-                globalTags {\n
-                    tags {\n
-                        tag {\n
-                            urn\n
-                            name\n
-                            description\n
-                        }\n
-                    }\n
-                }\n
-            }\n
-        }""",
-        "variables": {
-            "urn": chart_urn
-        }
-    }
-
-    # Fetch tags
-    response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=chart_json
-    )
-    response.raise_for_status()
-    res_data = response.json()
-
-    assert res_data
-    assert res_data["data"]
-    assert res_data["data"]["chart"]
-    assert res_data["data"]["chart"]["globalTags"] == None
-
-    add_json = {
-        "query": """mutation addTag($input: TagAssociationInput!) {\n
-            addTag(input: $input)
-        }""",
-        "variables": {
-            "input": {
-              "tagUrn": "urn:li:tag:Legacy",
-              "resourceUrn": chart_urn,
-            }
-        }
-    }
-
-    response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=add_json
-    )
-    response.raise_for_status()
-    res_data = response.json()
-
-    print(res_data)
-
-    assert res_data
-    assert res_data["data"]
-    assert res_data["data"]["addTag"] is True
-
-    # Refetch the dataset
-    response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=chart_json
-    )
-    response.raise_for_status()
-    res_data = response.json()
-
-    assert res_data
-    assert res_data["data"]
-    assert res_data["data"]["chart"]
-    assert res_data["data"]["chart"]["globalTags"] == {'tags': [{'tag': {'description': 'Indicates the dataset is no longer supported', 'name': 'Legacy', 'urn': 'urn:li:tag:Legacy'}}]}
-
-    remove_json = {
-        "query": """mutation removeTag($input: TagAssociationInput!) {\n
-            removeTag(input: $input)
-        }""",
-        "variables": {
-            "input": {
-              "tagUrn": "urn:li:tag:Legacy",
-              "resourceUrn": chart_urn,
-            }
-        }
-    }
-
-    response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=remove_json
-    )
-    response.raise_for_status()
-    res_data = response.json()
-
-    print(res_data)
-
-    assert res_data
-    assert res_data["data"]
-    assert res_data["data"]["removeTag"] is True
-
-    # Refetch the dataset
-    response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=chart_json
-    )
-    response.raise_for_status()
-    res_data = response.json()
-
-    assert res_data
-    assert res_data["data"]
-    assert res_data["data"]["chart"]
-    assert res_data["data"]["chart"]["globalTags"] == {'tags': [] }
-
-@pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
-def test_add_term(frontend_session):
-    platform = "urn:li:dataPlatform:kafka"
-    dataset_name = (
-        "SampleKafkaDataset"
-    )
-    env = "PROD"
-    dataset_urn = f"urn:li:dataset:({platform},{dataset_name},{env})"
-
-    dataset_json = {
-        "query": """query getDataset($urn: String!) {\n
-            dataset(urn: $urn) {\n
-                glossaryTerms {\n
-                    terms {\n
-                        term {\n
-                            urn\n
-                            name\n
-                        }\n
-                    }\n
-                }\n
-            }\n
-        }""",
-        "variables": {
-            "urn": dataset_urn
-        }
-    }
-
-
-    # Fetch the terms
-    response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=dataset_json
-    )
-    response.raise_for_status()
-    res_data = response.json()
-
-    assert res_data
-    assert res_data["data"]
-    assert res_data["data"]["dataset"]
-    assert res_data["data"]["dataset"]["glossaryTerms"] == None
-
-    add_json = {
-        "query": """mutation addTerm($input: TermAssociationInput!) {\n
-            addTerm(input: $input)
-        }""",
-        "variables": {
-            "input": {
-              "termUrn": "urn:li:glossaryTerm:SavingAccount",
-              "resourceUrn": dataset_urn,
-            }
-        }
-    }
-
-    response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=add_json
-    )
-    response.raise_for_status()
-    res_data = response.json()
-
-    print(res_data)
-
-    assert res_data
-    assert res_data["data"]
-    assert res_data["data"]["addTerm"] is True
-
-    # Refetch the dataset
-    response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=dataset_json
-    )
-    response.raise_for_status()
-    res_data = response.json()
-
-    assert res_data
-    assert res_data["data"]
-    assert res_data["data"]["dataset"]
-    assert res_data["data"]["dataset"]["glossaryTerms"] == {'terms': [{'term': {'name': 'SavingAccount', 'urn': 'urn:li:glossaryTerm:SavingAccount'}}]}
-
-    remove_json = {
-        "query": """mutation removeTerm($input: TermAssociationInput!) {\n
-            removeTerm(input: $input)
-        }""",
-        "variables": {
-            "input": {
-              "termUrn": "urn:li:glossaryTerm:SavingAccount",
-              "resourceUrn": dataset_urn,
-            }
-        }
-    }
-
-    response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=remove_json
-    )
-    response.raise_for_status()
-    res_data = response.json()
-
-    print(res_data)
-
-    assert res_data
-    assert res_data["data"]
-    assert res_data["data"]["removeTerm"] is True
-    # Refetch the dataset
-    response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=dataset_json
-    )
-    response.raise_for_status()
-    res_data = response.json()
-
-    assert res_data
-    assert res_data["data"]
-    assert res_data["data"]["dataset"]
-    assert res_data["data"]["dataset"]["glossaryTerms"] == {'terms': []}
-
-
-@pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
-def test_update_schemafield(frontend_session):
-    platform = "urn:li:dataPlatform:kafka"
-    dataset_name = (
-        "SampleKafkaDataset"
-    )
-    env = "PROD"
-    dataset_urn = f"urn:li:dataset:({platform},{dataset_name},{env})"
-
-    dataset_schema_json_terms = {
-        "query": """query getDataset($urn: String!) {\n
-            dataset(urn: $urn) {\n
-                urn\n
-                name\n
-                description\n
-                platform {\n
+    json = {
+        "query": """query listUsers($input: ListUsersInput!) {\n
+            listUsers(input: $input) {\n
+                start\n
+                count\n
+                total\n
+                users {\n
                     urn\n
-                }\n
-                editableSchemaMetadata {\n
-                    editableSchemaFieldInfo {\n
-                        glossaryTerms {\n
-                            terms {\n
-                                term {\n
-                                    urn\n
-                                    name\n
-                                }\n
-                            }\n
-                        }\n
+                    type\n
+                    username\n
+                    properties {\n
+                      firstName
                     }\n
                 }\n
             }\n
         }""",
         "variables": {
-            "urn": dataset_urn
+            "input": {
+              "start": "0",
+              "count": "2",
+            }
         }
     }
+    response = frontend_session.post(
+        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json
+    )
+    response.raise_for_status()
+    res_data = response.json()
 
-    dataset_schema_json_tags  = {
-        "query": """query getDataset($urn: String!) {\n
-            dataset(urn: $urn) {\n
-                urn\n
-                name\n
-                description\n
-                platform {\n
+    assert res_data
+    assert res_data["data"]
+    assert res_data["data"]["listUsers"]
+    assert res_data["data"]["listUsers"]["start"] is 0
+    assert res_data["data"]["listUsers"]["count"] is 2
+    assert len(res_data["data"]["listUsers"]["users"]) >= 2 # Length of default user set.
+
+@pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
+def test_list_groups(frontend_session):
+
+    json = {
+        "query": """query listGroups($input: ListGroupsInput!) {\n
+            listGroups(input: $input) {\n
+                start\n
+                count\n
+                total\n
+                groups {\n
                     urn\n
-                }\n
-                editableSchemaMetadata {\n
-                    editableSchemaFieldInfo {\n
-                        globalTags {\n
-                            tags {\n
-                                tag {\n
-                                    urn\n
-                                    name\n
-                                    description\n
-                                }\n
-                            }\n
-                        }\n
+                    type\n
+                    name\n
+                    properties {\n
+                      displayName
                     }\n
                 }\n
             }\n
         }""",
         "variables": {
-            "urn": dataset_urn
+            "input": {
+              "start": "0",
+              "count": "2",
+            }
         }
     }
+    response = frontend_session.post(
+        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json
+    )
+    response.raise_for_status()
+    res_data = response.json()
 
-    dataset_schema_json_description  = {
-        "query": """query getDataset($urn: String!) {\n
-            dataset(urn: $urn) {\n
+    assert res_data
+    assert res_data["data"]
+    assert res_data["data"]["listGroups"]
+    assert res_data["data"]["listGroups"]["start"] is 0
+    assert res_data["data"]["listGroups"]["count"] is 2
+    assert len(res_data["data"]["listGroups"]["groups"]) >= 2 # Length of default group set.
+
+@pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion", "test_list_groups"])
+def test_add_remove_members_from_group(frontend_session):
+
+    # Assert no group edges for user jdoe
+    json = {
+        "query": """query corpUser($urn: String!) {\n
+            corpUser(urn: $urn) {\n
                 urn\n
-                name\n
-                description\n
-                platform {\n
-                    urn\n
-                }\n
-                editableSchemaMetadata {\n
-                    editableSchemaFieldInfo {\n
-                      description\n
-                    }\n
+                relationships(input: { types: ["IsMemberOfGroup"], direction: OUTGOING, start: 0, count: 1 }) {\n
+                    total\n
                 }\n
             }\n
         }""",
         "variables": {
-            "urn": dataset_urn
+            "urn": "urn:li:corpuser:jdoe"
         }
     }
-
-    # dataset schema tags
     response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=dataset_schema_json_tags
+        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json
     )
     response.raise_for_status()
     res_data = response.json()
 
     assert res_data
     assert res_data["data"]
-    assert res_data["data"]["dataset"]
-    assert res_data["data"]["dataset"]["editableSchemaMetadata"] == None
+    assert res_data["data"]["corpUser"]
+    assert res_data["data"]["corpUser"]["relationships"]["total"] is 0
 
-    add_json = {
-        "query": """mutation addTag($input: TagAssociationInput!) {\n
-            addTag(input: $input)
-        }""",
+    # Add jdoe to group
+    json = {
+        "query": """mutation addGroupMembers($input: AddGroupMembersInput!) {\n
+            addGroupMembers(input: $input) }""",
         "variables": {
             "input": {
-              "tagUrn": "urn:li:tag:Legacy",
-              "resourceUrn": dataset_urn,
-              "subResource": "[version=2.0].[type=boolean].field_bar",
-              "subResourceType": "DATASET_FIELD"
+                "groupUrn": "urn:li:corpGroup:bfoo",
+                "userUrns": [ "urn:li:corpuser:jdoe" ],
             }
         }
     }
 
     response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=add_json
+        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json
+    )
+    response.raise_for_status()
+
+    # Sleep for edge store to be updated. Not ideal!
+    time.sleep(1)
+
+    # Verify the member has been added
+    json = {
+        "query": """query corpUser($urn: String!) {\n
+            corpUser(urn: $urn) {\n
+                urn\n
+                relationships(input: { types: ["IsMemberOfGroup"], direction: OUTGOING, start: 0, count: 1 }) {\n
+                    total\n
+                }\n
+            }\n
+        }""",
+        "variables": {
+            "urn": "urn:li:corpuser:jdoe"
+        }
+    }
+    response = frontend_session.post(
+        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json
     )
     response.raise_for_status()
     res_data = response.json()
 
+    assert res_data
+    assert res_data["data"]
+    assert res_data["data"]["corpUser"]
+    assert res_data["data"]["corpUser"]["relationships"]
+    assert res_data["data"]["corpUser"]["relationships"]["total"] is 1
+
+    # Now remove jdoe from the group
+    json = {
+        "query": """mutation removeGroupMembers($input: RemoveGroupMembersInput!) {\n
+            removeGroupMembers(input: $input) }""",
+        "variables": {
+            "input": {
+                "groupUrn": "urn:li:corpGroup:bfoo",
+                "userUrns": [ "urn:li:corpuser:jdoe" ],
+            }
+        }
+    }
+
+    response = frontend_session.post(
+        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json
+    )
+    response.raise_for_status()
+
+    # Sleep for edge store to be updated. Not ideal!
+    time.sleep(1)
+
+    # Verify the member has been removed
+    json = {
+        "query": """query corpUser($urn: String!) {\n
+            corpUser(urn: $urn) {\n
+                urn\n
+                relationships(input: { types: ["IsMemberOfGroup"], direction: OUTGOING, start: 0, count: 1 }) {\n
+                    total\n
+                }\n
+            }\n
+        }""",
+        "variables": {
+            "urn": "urn:li:corpuser:jdoe"
+        }
+    }
+    response = frontend_session.post(
+        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json
+    )
+    response.raise_for_status()
+    res_data = response.json()
+
+    assert res_data
+    assert res_data["data"]
+    assert res_data["data"]["corpUser"]
+    assert res_data["data"]["corpUser"]["relationships"]["total"] is 0
+
+@pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion", "test_list_groups", "test_add_remove_members_from_group"])
+def test_remove_user(frontend_session):
+
+    json = {
+        "query": """mutation removeUser($urn: String!) {\n
+            removeUser(urn: $urn) }""",
+        "variables": {
+            "urn": "urn:li:corpuser:jdoe"
+        }
+    }
+
+    response = frontend_session.post(
+        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json
+    )
+    response.raise_for_status()
+
+    json = {
+        "query": """query corpUser($urn: String!) {\n
+            corpUser(urn: $urn) {\n
+                urn\n
+                properties {\n
+                    firstName\n
+                }\n
+            }\n
+        }""",
+        "variables": {
+            "urn": "urn:li:corpuser:jdoe"
+        }
+    }
+    response = frontend_session.post(
+        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json
+    )
+    response.raise_for_status()
+    res_data = response.json()
+
+    assert res_data
+    assert res_data["data"]
+    assert res_data["data"]["corpUser"]
+    assert res_data["data"]["corpUser"]["properties"] is None
+
+@pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion", "test_list_groups", "test_add_remove_members_from_group"])
+def test_remove_group(frontend_session):
+
+    json = {
+        "query": """mutation removeGroup($urn: String!) {\n
+            removeGroup(urn: $urn) }""",
+        "variables": {
+          "urn": "urn:li:corpGroup:bfoo"
+        }
+    }
+
+    response = frontend_session.post(
+        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json
+    )
+    response.raise_for_status()
+
+    json = {
+        "query": """query corpGroup($urn: String!) {\n
+            corpGroup(urn: $urn) {\n
+                urn\n
+                properties {\n
+                    displayName\n
+                }\n
+            }\n
+        }""",
+        "variables": {
+            "urn": "urn:li:corpGroup:bfoo"
+        }
+    }
+    response = frontend_session.post(
+        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json
+    )
+    response.raise_for_status()
+    res_data = response.json()
+
+    assert res_data
+    assert res_data["data"]
+    assert res_data["data"]["corpGroup"]
+    assert res_data["data"]["corpGroup"]["properties"] is None
+
+@pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion", "test_list_groups", "test_remove_group"])
+def test_create_group(frontend_session):
+
+    json = {
+        "query": """mutation createGroup($input: CreateGroupInput!) {\n
+            createGroup(input: $input) }""",
+        "variables": {
+            "input": {
+                "name": "Test Group",
+                "description": "My test group"
+            }
+        }
+    }
+
+    response = frontend_session.post(
+        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json
+    )
+    response.raise_for_status()
+
+    json = {
+        "query": """query corpGroup($urn: String!) {\n
+            corpGroup(urn: $urn) {\n
+                urn\n
+                properties {\n
+                    displayName\n
+                }\n
+            }\n
+        }""",
+        "variables": {
+          "urn": "urn:li:corpGroup:Test Group"
+        }
+    }
+    response = frontend_session.post(
+        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json
+    )
+    response.raise_for_status()
+    res_data = response.json()
+
+    assert res_data
+    assert res_data["data"]
+    assert res_data["data"]["corpGroup"]
+    assert res_data["data"]["corpGroup"]["properties"]["displayName"] == "Test Group"
+
+@pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
+def test_home_page_recommendations(frontend_session):
+
+    min_expected_recommendation_modules = 0
+
+    json = {
+        "query": """query listRecommendations($input: ListRecommendationsInput!) {\n
+            listRecommendations(input: $input) { modules { title } } }""",
+        "variables": {
+            "input": {
+                "userUrn": "urn:li:corpuser:datahub",
+                "requestContext": {
+                  "scenario": "HOME"
+                },
+                "limit": 5
+            }
+        }
+    }
+
+    response = frontend_session.post(
+        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json
+    )
+    response.raise_for_status()
+    res_data = response.json()
     print(res_data)
 
     assert res_data
     assert res_data["data"]
-    assert res_data["data"]["addTag"] is True
+    assert res_data["data"]["listRecommendations"]
+    assert "error" not in res_data
+    assert len(res_data["data"]["listRecommendations"]["modules"]) > min_expected_recommendation_modules
 
-    # Refetch the dataset schema
-    response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=dataset_schema_json_tags
-    )
-    response.raise_for_status()
-    res_data = response.json()
+@pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
+def test_search_results_recommendations(frontend_session):
 
-    assert res_data
-    assert res_data["data"]
-    assert res_data["data"]["dataset"]
-    assert res_data["data"]["dataset"]["editableSchemaMetadata"] == {'editableSchemaFieldInfo': [{'globalTags': {'tags': [{'tag': {'description': 'Indicates the dataset is no longer supported', 'name': 'Legacy', 'urn': 'urn:li:tag:Legacy'}}]}}]}
-
-    remove_json = {
-        "query": """mutation removeTag($input: TagAssociationInput!) {\n
-            removeTag(input: $input)
-        }""",
+    # This test simply ensures that the recommendations endpoint does not return an error.
+    json = {
+        "query": """query listRecommendations($input: ListRecommendationsInput!) {\n
+            listRecommendations(input: $input) { modules { title }  }""",
         "variables": {
             "input": {
-              "tagUrn": "urn:li:tag:Legacy",
-              "resourceUrn": dataset_urn,
-              "subResource": "[version=2.0].[type=boolean].field_bar",
-              "subResourceType": "DATASET_FIELD"
+                "userUrn": "urn:li:corpuser:datahub",
+                "requestContext": {
+                  "scenario": "SEARCH_RESULTS",
+                  "searchRequestContext": {
+                    "query": "asdsdsdds",
+                    "filters": []
+                  }
+                },
+                "limit": 5
             }
         }
     }
 
     response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=remove_json
-    )
-    response.raise_for_status()
-    res_data = response.json()
-
-    print(res_data)
-
-    assert res_data
-    assert res_data["data"]
-    assert res_data["data"]["removeTag"] is True
-
-    # Refetch the dataset
-    response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=dataset_schema_json_tags
+        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json
     )
     response.raise_for_status()
     res_data = response.json()
 
     assert res_data
-    assert res_data["data"]
-    assert res_data["data"]["dataset"]
-    assert res_data["data"]["dataset"]["editableSchemaMetadata"] == {'editableSchemaFieldInfo': [{'globalTags': {'tags': []}}]}
+    assert "error" not in res_data
 
-    add_json = {
-        "query": """mutation addTerm($input: TermAssociationInput!) {\n
-            addTerm(input: $input)
+
+@pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
+def test_generate_personal_access_token(frontend_session):
+
+    # Test success case
+    json = {
+        "query": """query getAccessToken($input: GetAccessTokenInput!) {\n
+            getAccessToken(input: $input) {\n
+              accessToken\n
+            }\n
         }""",
         "variables": {
-            "input": {
-              "termUrn": "urn:li:glossaryTerm:SavingAccount",
-              "resourceUrn": dataset_urn,
-              "subResource": "[version=2.0].[type=boolean].field_bar",
-              "subResourceType": "DATASET_FIELD"
-            }
+          "input": {
+              "type": "PERSONAL",
+              "actorUrn": "urn:li:corpuser:datahub",
+              "duration": "ONE_MONTH"
+          }
         }
     }
 
     response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=add_json
-    )
-    response.raise_for_status()
-    res_data = response.json()
-
-    print(res_data)
-
-    assert res_data
-    assert res_data["data"]
-    assert res_data["data"]["addTerm"] is True
-
-    # Refetch the dataset schema
-    response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=dataset_schema_json_terms
+        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json
     )
     response.raise_for_status()
     res_data = response.json()
 
     assert res_data
     assert res_data["data"]
-    assert res_data["data"]["dataset"]
-    assert res_data["data"]["dataset"]["editableSchemaMetadata"] == {'editableSchemaFieldInfo': [{'glossaryTerms': {'terms': [{'term': {'name': 'SavingAccount', 'urn': 'urn:li:glossaryTerm:SavingAccount'}}]}}]}
+    assert res_data["data"]["getAccessToken"]["accessToken"] is not None
+    assert "error" not in res_data
 
-    remove_json = {
-        "query": """mutation removeTerm($input: TermAssociationInput!) {\n
-            removeTerm(input: $input)
+    # Test unauthenticated case
+    json = {
+        "query": """query getAccessToken($input: GetAccessTokenInput!) {\n
+            accessToken\n
         }""",
         "variables": {
-            "input": {
-              "termUrn": "urn:li:glossaryTerm:SavingAccount",
-              "resourceUrn": dataset_urn,
-              "subResource": "[version=2.0].[type=boolean].field_bar",
-              "subResourceType": "DATASET_FIELD"
-            }
+          "input": {
+              "type": "PERSONAL",
+              "actorUrn": "urn:li:corpuser:jsmith",
+              "duration": "ONE_DAY"
+          }
         }
     }
 
     response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=remove_json
-    )
-    response.raise_for_status()
-    res_data = response.json()
-
-    print(res_data)
-
-    assert res_data
-    assert res_data["data"]
-    assert res_data["data"]["removeTerm"] is True
-
-    # Refetch the dataset
-    response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=dataset_schema_json_terms
+        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json
     )
     response.raise_for_status()
     res_data = response.json()
 
     assert res_data
-    assert res_data["data"]
-    assert res_data["data"]["dataset"]
-    assert res_data["data"]["dataset"]["editableSchemaMetadata"] == {'editableSchemaFieldInfo': [{'glossaryTerms': {'terms': []}}]}
-
-    # dataset schema tags
-    response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=dataset_schema_json_tags
-    )
-    response.raise_for_status()
-    res_data = response.json()
-
-    update_description_json = {
-        "query": """mutation updateDescription($input: DescriptionUpdateInput!) {\n
-            updateDescription(input: $input)
-        }""",
-        "variables": {
-            "input": {
-              "description": "new description",
-              "resourceUrn": dataset_urn,
-              "subResource": "[version=2.0].[type=boolean].field_bar",
-              "subResourceType": "DATASET_FIELD"
-            }
-        }
-    }
-
-    # fetch no description
-    response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=dataset_schema_json_description
-    )
-    response.raise_for_status()
-    res_data = response.json()
-
-    assert res_data
-    assert res_data["data"]
-    assert res_data["data"]["dataset"]
-    assert res_data["data"]["dataset"]["editableSchemaMetadata"] == {'editableSchemaFieldInfo': [{ 'description': None }]}
-
-    response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=update_description_json
-    )
-    response.raise_for_status()
-    res_data = response.json()
-
-    assert res_data
-    assert res_data["data"]
-    assert res_data["data"]["updateDescription"] is True
-
-    # Refetch the dataset
-    response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=dataset_schema_json_description
-    )
-    response.raise_for_status()
-    res_data = response.json()
-
-    assert res_data
-    assert res_data["data"]
-    assert res_data["data"]["dataset"]
-    assert res_data["data"]["dataset"]["editableSchemaMetadata"] == {'editableSchemaFieldInfo': [{'description': 'new description'}]}
+    assert "errors" in res_data # Assert the request fails

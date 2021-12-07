@@ -4,7 +4,7 @@ import {
     DataPlatform,
     DatasetEditableProperties,
     DatasetEditablePropertiesUpdate,
-    DownstreamEntityRelationships,
+    RawAspect,
     EditableSchemaMetadata,
     EditableSchemaMetadataUpdate,
     EntityType,
@@ -18,29 +18,34 @@ import {
     OwnershipUpdate,
     SchemaMetadata,
     StringMapEntry,
-    UpstreamEntityRelationships,
 } from '../../../types.generated';
+import { FetchedEntity } from '../../lineage/types';
 
 export type EntityTab = {
     name: string;
     component: React.FunctionComponent;
-    shouldHide?: (GenericEntityProperties, T) => boolean;
+    display?: {
+        visible: (GenericEntityProperties, T) => boolean; // Whether the tab is visible on the UI. Defaults to true.
+        enabled: (GenericEntityProperties, T) => boolean; // Whether the tab is enabled on the UI. Defaults to true.
+    };
 };
 
 export type EntitySidebarSection = {
     component: React.FunctionComponent<{ properties?: any }>;
-    shouldHide?: (GenericEntityProperties, T) => boolean;
+    display?: {
+        visible: (GenericEntityProperties, T) => boolean; // Whether the sidebar is visible on the UI. Defaults to true.
+    };
     properties?: any;
 };
 
 export type GenericEntityProperties = {
     urn?: string;
     name?: Maybe<string>;
-    description?: Maybe<string>;
+    properties?: {
+        description?: string;
+    };
     globalTags?: Maybe<GlobalTags>;
     glossaryTerms?: Maybe<GlossaryTerms>;
-    upstreamLineage?: Maybe<UpstreamEntityRelationships>;
-    downstreamLineage?: Maybe<DownstreamEntityRelationships>;
     ownership?: Maybe<Ownership>;
     platform?: Maybe<DataPlatform>;
     customProperties?: Maybe<StringMapEntry[]>;
@@ -52,6 +57,7 @@ export type GenericEntityProperties = {
     /** Dataset specific- TODO, migrate these out */
     editableSchemaMetadata?: Maybe<EditableSchemaMetadata>;
     editableProperties?: Maybe<DatasetEditableProperties>;
+    autoRenderAspects?: Maybe<Array<RawAspect>>;
 };
 
 export type GenericEntityUpdate = {
@@ -83,4 +89,9 @@ export type EntityContextType = {
     updateEntity: UpdateEntityType<any>;
     routeToTab: (params: { tabName: string; tabParams?: Record<string, any>; method?: 'push' | 'replace' }) => void;
     refetch: () => Promise<any>;
+    lineage: FetchedEntity | undefined;
+};
+
+export type RequiredAndNotNull<T> = {
+    [P in keyof T]-?: Exclude<T[P], null | undefined>;
 };
