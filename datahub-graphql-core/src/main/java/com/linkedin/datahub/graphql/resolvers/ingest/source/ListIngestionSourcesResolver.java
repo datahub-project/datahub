@@ -1,4 +1,4 @@
-package com.linkedin.datahub.graphql.resolvers.ingest;
+package com.linkedin.datahub.graphql.resolvers.ingest.source;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
@@ -6,6 +6,8 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.ListIngestionSourcesInput;
 import com.linkedin.datahub.graphql.generated.ListIngestionSourcesResult;
+import com.linkedin.datahub.graphql.resolvers.ingest.IngestionAuthUtils;
+import com.linkedin.datahub.graphql.resolvers.ingest.IngestionResolverUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
@@ -19,6 +21,9 @@ import java.util.concurrent.CompletableFuture;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
+/**
+ * Lists all ingestion sources stored within DataHub. Requires the MANAGE_INGESTION privilege.
+ */
 public class ListIngestionSourcesResolver implements DataFetcher<CompletableFuture<ListIngestionSourcesResult>> {
 
   private static final Integer DEFAULT_START = 0;

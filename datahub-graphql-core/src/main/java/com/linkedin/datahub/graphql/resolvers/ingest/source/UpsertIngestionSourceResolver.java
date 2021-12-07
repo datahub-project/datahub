@@ -1,4 +1,4 @@
-package com.linkedin.datahub.graphql.resolvers.ingest;
+package com.linkedin.datahub.graphql.resolvers.ingest.source;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -6,6 +6,7 @@ import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.UpdateIngestionSourceConfigInput;
 import com.linkedin.datahub.graphql.generated.UpdateIngestionSourceInput;
 import com.linkedin.datahub.graphql.generated.UpdateIngestionSourceScheduleInput;
+import com.linkedin.datahub.graphql.resolvers.ingest.IngestionAuthUtils;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.ingestion.DataHubIngestionSourceConfig;
@@ -23,6 +24,10 @@ import java.util.concurrent.CompletableFuture;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
+
+/**
+ * Creates or updates an ingestion source. Requires the MANAGE_INGESTION privilege.
+ */
 public class UpsertIngestionSourceResolver implements DataFetcher<CompletableFuture<String>> {
 
   private final EntityClient _entityClient;
@@ -40,7 +45,6 @@ public class UpsertIngestionSourceResolver implements DataFetcher<CompletableFut
       final Optional<String> ingestionSourceUrn = Optional.ofNullable(environment.getArgument("urn"));
       final UpdateIngestionSourceInput input = bindArgument(environment.getArgument("input"), UpdateIngestionSourceInput.class);
 
-      // Finally, create the MetadataChangeProposal.
       final MetadataChangeProposal proposal = new MetadataChangeProposal();
 
       if (ingestionSourceUrn.isPresent()) {
@@ -69,7 +73,7 @@ public class UpsertIngestionSourceResolver implements DataFetcher<CompletableFut
         try {
           return _entityClient.ingestProposal(proposal, context.getAuthentication());
         } catch (Exception e) {
-          throw new RuntimeException(String.format("Failed to perform update against input %s", input.toString()), e);
+          throw new RuntimeException(String.format("Failed to perform update against ingestion source with urn %s", input.toString()), e);
         }
       });
     }

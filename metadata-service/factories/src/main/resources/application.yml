@@ -24,7 +24,8 @@ authentication:
   # The max duration of a UI session in milliseconds. Defaults to 1 day.
   sessionTokenDurationMs: ${SESSION_TOKEN_DURATION_MS:86400000}
 
-
+secretService:
+  encryptionKey: ${SECRET_SERVICE_ENCRYPTION_KEY:ENCRYPTION_KEY}
 
 graphService:
   type: ${GRAPH_SERVICE_IMPL:elasticsearch}

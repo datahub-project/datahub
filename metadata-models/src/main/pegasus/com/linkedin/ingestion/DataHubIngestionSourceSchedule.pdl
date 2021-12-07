@@ -10,7 +10,7 @@ record DataHubIngestionSourceSchedule {
   startTimeMs: optional long
 
   /**
-   * A cron-formatted execution interval, as a cron string, e.g. "0 * * * *"
+   * A cron-formatted execution interval, as a cron string, e.g. * * * * *
    */
   interval: string
 

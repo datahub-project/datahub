@@ -13,13 +13,13 @@ import javax.annotation.Nonnull;
 
 public class IngestionAuthUtils {
 
-  static boolean canManageIngestion(@Nonnull QueryContext context) {
+  public static boolean canManageIngestion(@Nonnull QueryContext context) {
     final Authorizer authorizer = context.getAuthorizer();
     final String principal = context.getActorUrn();
     return isAuthorized(principal, ImmutableList.of(PoliciesConfig.MANAGE_INGESTION_PRIVILEGE.getType()), authorizer);
   }
 
-  static boolean canManageSecrets(@Nonnull QueryContext context) {
+  public static boolean canManageSecrets(@Nonnull QueryContext context) {
     final Authorizer authorizer = context.getAuthorizer();
     final String principal = context.getActorUrn();
     return isAuthorized(principal, ImmutableList.of(PoliciesConfig.MANAGE_SECRETS_PRIVILEGE.getType()), authorizer);

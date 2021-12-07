@@ -13,8 +13,10 @@ import com.linkedin.gms.factory.recommendation.RecommendationServiceFactory;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.recommendation.RecommendationsService;
 import com.linkedin.metadata.graph.GraphClient;
+import com.linkedin.metadata.secret.SecretService;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.usage.UsageClient;
+import com.sun.prism.shader.Solid_TextureSecondPassLCD_AlphaTest_Loader;
 import javax.annotation.Nonnull;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -60,6 +62,10 @@ public class GraphQLEngineFactory {
   @Qualifier("dataHubTokenService")
   private TokenService _tokenService;
 
+  @Autowired
+  @Qualifier("dataHubSecretService")
+  private SecretService _secretService;
+
   @Value("${platformAnalytics.enabled}") // TODO: Migrate to DATAHUB_ANALYTICS_ENABLED
   private Boolean isAnalyticsEnabled;
 
@@ -74,7 +80,8 @@ public class GraphQLEngineFactory {
           new AnalyticsService(elasticClient, indexConvention.getPrefix()),
           _entityService,
           _recommendationsService,
-          _tokenService
+          _tokenService,
+          _secretService
           ).builder().build();
     }
     return new GmsGraphQLEngine(
@@ -84,6 +91,7 @@ public class GraphQLEngineFactory {
         null,
         _entityService,
         _recommendationsService,
-        _tokenService).builder().build();
+        _tokenService,
+        _secretService).builder().build();
   }
 }

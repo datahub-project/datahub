@@ -46,18 +46,18 @@ import com.linkedin.datahub.graphql.resolvers.group.ListGroupsResolver;
 import com.linkedin.datahub.graphql.resolvers.group.RemoveGroupMembersResolver;
 import com.linkedin.datahub.graphql.resolvers.group.RemoveGroupResolver;
 import com.linkedin.datahub.graphql.resolvers.group.UpdateUserStatusResolver;
-import com.linkedin.datahub.graphql.resolvers.ingest.CancelIngestionExecutionRequestResolver;
-import com.linkedin.datahub.graphql.resolvers.ingest.CreateIngestionExecutionRequestResolver;
-import com.linkedin.datahub.graphql.resolvers.ingest.CreateSecretResolver;
-import com.linkedin.datahub.graphql.resolvers.ingest.DeleteIngestionSourceResolver;
-import com.linkedin.datahub.graphql.resolvers.ingest.DeleteSecretResolver;
-import com.linkedin.datahub.graphql.resolvers.ingest.GetIngestionExecutionRequestResolver;
-import com.linkedin.datahub.graphql.resolvers.ingest.GetIngestionSourceResolver;
-import com.linkedin.datahub.graphql.resolvers.ingest.GetSecretValuesResolver;
-import com.linkedin.datahub.graphql.resolvers.ingest.IngestionSourceExecutionsResolver;
-import com.linkedin.datahub.graphql.resolvers.ingest.ListIngestionSourcesResolver;
-import com.linkedin.datahub.graphql.resolvers.ingest.ListSecretsResolver;
-import com.linkedin.datahub.graphql.resolvers.ingest.UpsertIngestionSourceResolver;
+import com.linkedin.datahub.graphql.resolvers.ingest.execution.CancelIngestionExecutionRequestResolver;
+import com.linkedin.datahub.graphql.resolvers.ingest.execution.CreateIngestionExecutionRequestResolver;
+import com.linkedin.datahub.graphql.resolvers.ingest.secret.CreateSecretResolver;
+import com.linkedin.datahub.graphql.resolvers.ingest.source.DeleteIngestionSourceResolver;
+import com.linkedin.datahub.graphql.resolvers.ingest.secret.DeleteSecretResolver;
+import com.linkedin.datahub.graphql.resolvers.ingest.execution.GetIngestionExecutionRequestResolver;
+import com.linkedin.datahub.graphql.resolvers.ingest.source.GetIngestionSourceResolver;
+import com.linkedin.datahub.graphql.resolvers.ingest.secret.GetSecretValuesResolver;
+import com.linkedin.datahub.graphql.resolvers.ingest.execution.IngestionSourceExecutionsResolver;
+import com.linkedin.datahub.graphql.resolvers.ingest.source.ListIngestionSourcesResolver;
+import com.linkedin.datahub.graphql.resolvers.ingest.secret.ListSecretsResolver;
+import com.linkedin.datahub.graphql.resolvers.ingest.source.UpsertIngestionSourceResolver;
 import com.linkedin.datahub.graphql.resolvers.load.AspectResolver;
 import com.linkedin.datahub.graphql.resolvers.load.EntityTypeBatchResolver;
 import com.linkedin.datahub.graphql.resolvers.load.EntityTypeResolver;
@@ -124,6 +124,7 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.recommendation.RecommendationsService;
 import com.linkedin.metadata.graph.GraphClient;
+import com.linkedin.metadata.secret.SecretService;
 import com.linkedin.usage.UsageClient;
 import graphql.execution.DataFetcherResult;
 import graphql.schema.idl.RuntimeWiring;
@@ -162,6 +163,7 @@ public class GmsGraphQLEngine {
     private final AnalyticsService analyticsService;
     private final RecommendationsService recommendationsService;
     private final TokenService tokenService;
+    private final SecretService secretService;
 
     private final DatasetType datasetType;
     private final CorpUserType corpUserType;
@@ -215,6 +217,7 @@ public class GmsGraphQLEngine {
             null,
             null,
             null,
+            null,
             null);
     }
 
@@ -225,7 +228,8 @@ public class GmsGraphQLEngine {
         final AnalyticsService analyticsService,
         final EntityService entityService,
         final RecommendationsService recommendationsService,
-        final TokenService tokenService) {
+        final TokenService tokenService,
+        final SecretService secretService) {
 
         this.entityClient = entityClient;
         this.graphClient = graphClient;
@@ -235,6 +239,7 @@ public class GmsGraphQLEngine {
         this.entityService = entityService;
         this.recommendationsService = recommendationsService;
         this.tokenService = tokenService;
+        this.secretService = secretService;
 
         this.datasetType = new DatasetType(entityClient);
         this.corpUserType = new CorpUserType(entityClient);
@@ -502,7 +507,7 @@ public class GmsGraphQLEngine {
             .dataFetcher("listSecrets",
                 new ListSecretsResolver(this.entityClient))
             .dataFetcher("getSecretValues",
-                new GetSecretValuesResolver(this.entityClient))
+                new GetSecretValuesResolver(this.entityClient, this.secretService))
             .dataFetcher("listIngestionSources",
                 new ListIngestionSourcesResolver(this.entityClient))
             .dataFetcher("ingestionSource",
@@ -538,7 +543,7 @@ public class GmsGraphQLEngine {
             .dataFetcher("removeUser", new RemoveUserResolver(this.entityClient))
             .dataFetcher("removeGroup", new RemoveGroupResolver(this.entityClient))
             .dataFetcher("updateUserStatus", new UpdateUserStatusResolver(this.entityClient))
-            .dataFetcher("createSecret", new CreateSecretResolver(this.entityClient))
+            .dataFetcher("createSecret", new CreateSecretResolver(this.entityClient, this.secretService))
             .dataFetcher("deleteSecret", new DeleteSecretResolver(this.entityClient))
             .dataFetcher("createIngestionSource", new UpsertIngestionSourceResolver(this.entityClient))
             .dataFetcher("updateIngestionSource", new UpsertIngestionSourceResolver(this.entityClient))
@@ -928,7 +933,7 @@ public class GmsGraphQLEngine {
     }
 
     private void configureIngestionSourceResolvers(final RuntimeWiring.Builder builder) {
-        builder.type("IngestionSource", typeWiring -> typeWiring.dataFetcher("executions", new IngestionSourceExecutionsResolver(graphClient, entityClient)));
+        builder.type("IngestionSource", typeWiring -> typeWiring.dataFetcher("executions", new IngestionSourceExecutionsResolver(entityClient)));
     }
 
     private DataLoader<VersionedAspectKey, DataFetcherResult<Aspect>> createAspectLoader(final QueryContext queryContext) {

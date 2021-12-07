@@ -1,17 +1,15 @@
-package com.linkedin.datahub.graphql.resolvers.ingest;
+package com.linkedin.datahub.graphql.resolvers.ingest.execution;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
-import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
 import com.linkedin.datahub.graphql.generated.IngestionSource;
 import com.linkedin.datahub.graphql.generated.IngestionSourceExecutions;
+import com.linkedin.datahub.graphql.resolvers.ingest.IngestionResolverUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
@@ -31,17 +29,18 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 
+/**
+ * Retrieves a list of historical executions for a particular source.
+ */
 @Slf4j
 public class IngestionSourceExecutionsResolver implements DataFetcher<CompletableFuture<IngestionSourceExecutions>> {
 
-  private final GraphClient _graphClient;
+  private static final String INGESTION_SOURCE_FIELD_NAME = "ingestionSource";
+  private static final String START_TIME_MS_FIELD_NAME = "startTimeMs";
+
   private final EntityClient _entityClient;
 
-  public IngestionSourceExecutionsResolver(
-      final GraphClient graphClient,
-      final EntityClient entityClient
-      ) {
-    _graphClient = graphClient;
+  public IngestionSourceExecutionsResolver(final EntityClient entityClient) {
     _entityClient = entityClient;
   }
 
@@ -59,24 +58,20 @@ public class IngestionSourceExecutionsResolver implements DataFetcher<Completabl
 
         // 1. Fetch the related edges
         final Criterion filterCriterion =  new Criterion()
-            .setField("ingestionSource")
+            .setField(INGESTION_SOURCE_FIELD_NAME)
             .setCondition(Condition.EQUAL)
             .setValue(urn);
-
-        log.info(String.format("The urn is %s", urn));
 
         final SearchResult executionsSearchResult = _entityClient.filter(
             Constants.EXECUTION_REQUEST_ENTITY_NAME,
             new Filter().setOr(new ConjunctiveCriterionArray(
                 new ConjunctiveCriterion().setAnd(new CriterionArray(ImmutableList.of(filterCriterion)))
             )),
-            new SortCriterion().setField("startTimeMs").setOrder(SortOrder.DESCENDING),
+            new SortCriterion().setField(START_TIME_MS_FIELD_NAME).setOrder(SortOrder.DESCENDING),
             start,
             count,
             context.getAuthentication()
         );
-
-        log.info(String.format("The results are %s", executionsSearchResult));
 
         // 2. Batch fetch the related ExecutionRequests
         final Set<Urn> relatedExecRequests = executionsSearchResult.getEntities().stream()
@@ -103,8 +98,8 @@ public class IngestionSourceExecutionsResolver implements DataFetcher<Completabl
         ));
         return result;
       } catch (Exception e) {
-        throw new DataHubGraphQLException(
-            String.format("Failed to resolve executions associated with ingestion with urn %s", urn), DataHubGraphQLErrorCode.SERVER_ERROR);
+        throw new RuntimeException(
+            String.format("Failed to resolve executions associated with ingestion source with urn %s", urn), e);
       }
     });
   }

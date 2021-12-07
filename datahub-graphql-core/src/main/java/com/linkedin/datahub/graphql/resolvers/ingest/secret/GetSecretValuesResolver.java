@@ -1,4 +1,4 @@
-package com.linkedin.datahub.graphql.resolvers.ingest;
+package com.linkedin.datahub.graphql.resolvers.ingest.secret;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
@@ -6,10 +6,12 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.GetSecretValuesInput;
 import com.linkedin.datahub.graphql.generated.SecretValue;
+import com.linkedin.datahub.graphql.resolvers.ingest.IngestionAuthUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.secret.SecretService;
 import com.linkedin.secret.DataHubSecretValue;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -23,23 +25,21 @@ import java.util.stream.Collectors;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
+/**
+ * Retrieves the plaintext values of secrets stored in DataHub. Uses AES symmetric encryption / decryption.
+ * Requires the MANAGE_SECRETS privilege.
+ */
 public class GetSecretValuesResolver implements DataFetcher<CompletableFuture<List<SecretValue>>> {
 
   private final EntityClient _entityClient;
-  private final String _secretKey;
-
-  public GetSecretValuesResolver(
-      final EntityClient entityClient
-  ) {
-    this(entityClient, "ENCRYPTION_KEY");
-  }
+  private final SecretService _secretService;
 
   public GetSecretValuesResolver(
       final EntityClient entityClient,
-      final String secretKey
+      final SecretService secretService
   ) {
     _entityClient = entityClient;
-    _secretKey = secretKey;
+    _secretService = secretService;
   }
 
   @Override
@@ -91,6 +91,6 @@ public class GetSecretValuesResolver implements DataFetcher<CompletableFuture<Li
   }
 
   private String decryptSecret(final String encryptedSecret) {
-    return SecretUtils.decrypt(encryptedSecret, _secretKey);
+    return _secretService.decrypt(encryptedSecret);
   }
 }

@@ -1,4 +1,4 @@
-package com.linkedin.datahub.graphql.resolvers.ingest;
+package com.linkedin.datahub.graphql.resolvers.ingest.execution;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
@@ -9,6 +9,7 @@ import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
 import com.linkedin.datahub.graphql.generated.CreateIngestionExecutionRequestInput;
+import com.linkedin.datahub.graphql.resolvers.ingest.IngestionAuthUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.client.EntityClient;
@@ -30,7 +31,15 @@ import java.util.concurrent.CompletableFuture;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
 
+/**
+ * Creates an on-demand ingestion execution request.
+ */
 public class CreateIngestionExecutionRequestResolver implements DataFetcher<CompletableFuture<String>> {
+
+  private static final String RUN_INGEST_TASK_NAME = "RUN_INGEST";
+  private static final String MANUAL_EXECUTION_SOURCE_NAME = "MANUAL_INGESTION_SOURCE";
+  private static final String RECIPE_ARG_NAME = "recipe";
+  private static final String VERSION_ARG_NAME = "version";
 
   private final EntityClient _entityClient;
 
@@ -51,17 +60,14 @@ public class CreateIngestionExecutionRequestResolver implements DataFetcher<Comp
 
         try {
 
-          // Finally, create the MetadataChangeProposal.
           final MetadataChangeProposal proposal = new MetadataChangeProposal();
-
-          // Create the Ingestion source key --> use the display name as a unique id to ensure it's not duplicated.
           final ExecutionRequestKey key = new ExecutionRequestKey();
           final UUID uuid = UUID.randomUUID();
           final String uuidStr = uuid.toString();
           key.setId(uuidStr);
           proposal.setEntityKeyAspect(GenericAspectUtils.serializeAspect(key));
 
-          // Fetch the ingestion source
+          // Fetch the original ingestion source
           final Urn ingestionSourceUrn = Urn.createFromString(input.getIngestionSourceUrn());
           final Map<Urn, EntityResponse> response =
               _entityClient.batchGetV2(Constants.INGESTION_SOURCE_ENTITY_NAME, ImmutableSet.of(ingestionSourceUrn),
@@ -73,30 +79,26 @@ public class CreateIngestionExecutionRequestResolver implements DataFetcher<Comp
                 DataHubGraphQLErrorCode.BAD_REQUEST);
           }
 
-          final EnvelopedAspect envelopedInfo =
-              response.get(ingestionSourceUrn).getAspects().get(Constants.INGESTION_INFO_ASPECT_NAME);
+          final EnvelopedAspect envelopedInfo = response.get(ingestionSourceUrn).getAspects().get(Constants.INGESTION_INFO_ASPECT_NAME);
           final DataHubIngestionSourceInfo ingestionSourceInfo = new DataHubIngestionSourceInfo(envelopedInfo.getValue().data());
 
           if (!ingestionSourceInfo.getConfig().hasRecipe()) {
             throw new DataHubGraphQLException(
-                String.format("Failed to find valid ingestion source with urn %s", ingestionSourceUrn.toString()),
+                String.format("Failed to find valid ingestion source with urn %s. Missing recipe", ingestionSourceUrn.toString()),
                 DataHubGraphQLErrorCode.BAD_REQUEST);
           }
 
-          // TODO: Consider secrets here.
-          // TODO: Prevent multiple executions from occurring at once to prevent spam.
-
           // Build the arguments map.
           final ExecutionRequestInput execInput = new ExecutionRequestInput();
-          execInput.setTask("RUN_INGEST"); // Set the RUN_INGEST task
+          execInput.setTask(RUN_INGEST_TASK_NAME); // Set the RUN_INGEST task
           execInput.setSource(
-              new ExecutionRequestSource().setType("MANUAL_INGESTION_SOURCE").setIngestionSource(ingestionSourceUrn));
+              new ExecutionRequestSource().setType(MANUAL_EXECUTION_SOURCE_NAME).setIngestionSource(ingestionSourceUrn));
           execInput.setExecutorId(ingestionSourceInfo.getConfig().getExecutorId(), SetMode.IGNORE_NULL);
 
           Map<String, String> arguments = new HashMap<>();
-          arguments.put("recipe", ingestionSourceInfo.getConfig().getRecipe());
+          arguments.put(RECIPE_ARG_NAME, ingestionSourceInfo.getConfig().getRecipe());
           if (ingestionSourceInfo.getConfig().hasVersion()) {
-            arguments.put("version", ingestionSourceInfo.getConfig().getVersion());
+            arguments.put(VERSION_ARG_NAME, ingestionSourceInfo.getConfig().getVersion());
           }
           execInput.setArgs(new StringMap(arguments));
 

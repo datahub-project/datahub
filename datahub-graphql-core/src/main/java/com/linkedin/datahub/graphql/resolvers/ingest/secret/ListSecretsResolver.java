@@ -1,4 +1,4 @@
-package com.linkedin.datahub.graphql.resolvers.ingest;
+package com.linkedin.datahub.graphql.resolvers.ingest.secret;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
@@ -7,6 +7,7 @@ import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.ListSecretsInput;
 import com.linkedin.datahub.graphql.generated.ListSecretsResult;
 import com.linkedin.datahub.graphql.generated.Secret;
+import com.linkedin.datahub.graphql.resolvers.ingest.IngestionAuthUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
@@ -27,6 +28,10 @@ import lombok.extern.slf4j.Slf4j;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
+
+/**
+ * Lists all secrets present within DataHub. Requires the MANAGE_SECRETS privilege.
+ */
 @Slf4j
 public class ListSecretsResolver implements DataFetcher<CompletableFuture<ListSecretsResult>> {
 

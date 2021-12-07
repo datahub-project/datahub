@@ -1,4 +1,4 @@
-package com.linkedin.datahub.graphql.resolvers.ingest;
+package com.linkedin.datahub.graphql.resolvers.ingest.execution;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
@@ -6,7 +6,9 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
-import com.linkedin.datahub.graphql.generated.IngestionSource;
+import com.linkedin.datahub.graphql.generated.ExecutionRequest;
+import com.linkedin.datahub.graphql.resolvers.ingest.IngestionAuthUtils;
+import com.linkedin.datahub.graphql.resolvers.ingest.IngestionResolverUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
@@ -17,17 +19,21 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import lombok.extern.slf4j.Slf4j;
 
+
+/**
+ * Retrieves an Ingestion Execution Request by primary key (urn).
+ */
 @Slf4j
-public class GetIngestionSourceResolver implements DataFetcher<CompletableFuture<IngestionSource>> {
+public class GetIngestionExecutionRequestResolver implements DataFetcher<CompletableFuture<ExecutionRequest>> {
 
   private final EntityClient _entityClient;
 
-  public GetIngestionSourceResolver(final EntityClient entityClient) {
+  public GetIngestionExecutionRequestResolver(final EntityClient entityClient) {
     _entityClient = entityClient;
   }
 
   @Override
-  public CompletableFuture<IngestionSource> get(final DataFetchingEnvironment environment) throws Exception {
+  public CompletableFuture<ExecutionRequest> get(final DataFetchingEnvironment environment) throws Exception {
 
     final QueryContext context = environment.getContext();
 
@@ -35,19 +41,19 @@ public class GetIngestionSourceResolver implements DataFetcher<CompletableFuture
       final String urnStr = environment.getArgument("urn");
       return CompletableFuture.supplyAsync(() -> {
         try {
-          // Fetch specific ingestion source
+          // Fetch specific execution request
           final Urn urn = Urn.createFromString(urnStr);
           final Map<Urn, EntityResponse> entities = _entityClient.batchGetV2(
-              Constants.INGESTION_SOURCE_ENTITY_NAME,
+              Constants.EXECUTION_REQUEST_ENTITY_NAME,
               new HashSet<>(ImmutableSet.of(urn)),
-              ImmutableSet.of(Constants.INGESTION_INFO_ASPECT_NAME),
+              ImmutableSet.of(Constants.EXECUTION_REQUEST_INPUT_ASPECT_NAME, Constants.EXECUTION_REQUEST_RESULT_ASPECT_NAME),
               context.getAuthentication());
           if (!entities.containsKey(urn)) {
-            // No ingestion source found
-            throw new DataHubGraphQLException(String.format("Failed to find Ingestion Source with urn %s", urn), DataHubGraphQLErrorCode.NOT_FOUND);
+            // No execution request found
+            throw new DataHubGraphQLException(String.format("Failed to find Execution Request with urn %s", urn), DataHubGraphQLErrorCode.NOT_FOUND);
           }
-          // Ingestion source found
-          return IngestionResolverUtils.mapIngestionSource(entities.get(urn));
+          // Execution request found
+          return IngestionResolverUtils.mapExecutionRequest(entities.get(urn));
         } catch (Exception e) {
           throw new RuntimeException("Failed to retrieve execution request", e);
         }

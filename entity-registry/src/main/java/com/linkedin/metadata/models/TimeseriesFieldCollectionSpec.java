@@ -9,8 +9,7 @@ import lombok.NonNull;
 
 
 @Data
-public
-class TimeseriesFieldCollectionSpec implements FieldSpec {
+public class TimeseriesFieldCollectionSpec implements FieldSpec {
   @NonNull PathSpec path;
   @NonNull TimeseriesFieldCollectionAnnotation timeseriesFieldCollectionAnnotation;
   @NonNull Map<String, TimeseriesFieldSpec> timeseriesFieldSpecMap;
