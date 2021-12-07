@@ -3,7 +3,7 @@ package com.linkedin.metadata.kafka;
 import com.codahale.metrics.Histogram;
 import com.codahale.metrics.MetricRegistry;
 import com.datahub.authentication.Authentication;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.RestliEntityClient;
 import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;
 import com.linkedin.gms.factory.entity.RestliEntityClientFactory;
 import com.linkedin.gms.factory.kafka.KafkaEventConsumerFactory;
@@ -42,7 +42,7 @@ import org.springframework.stereotype.Component;
 public class MetadataChangeProposalsProcessor {
 
   private final Authentication systemAuthentication;
-  private final EntityClient entityClient;
+  private final RestliEntityClient entityClient;
   private final Producer<String, IndexedRecord> kafkaProducer;
 
   private final Histogram kafkaLagStats = MetricUtils.get().histogram(MetricRegistry.name(this.getClass(), "kafkaLag"));
