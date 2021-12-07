@@ -1,7 +1,7 @@
 # Running Airflow locally with DataHub
 
 ## Introduction
-This document describes how you can run Airflow side-by-side with DataHub's docker images to test out Airflow lineage with DataHub. 
+This document describes how you can run Airflow side-by-side with DataHub's quickstart docker images to test out Airflow lineage with DataHub. 
 This offers a much easier way to try out Airflow with DataHub, compared to configuring containers by hand, setting up configurations and networking connectivity between the two systems. 
 
 ## Pre-requisites
@@ -11,6 +11,7 @@ docker info | grep Memory
 
 > Total Memory: 7.775GiB
 ```
+- Quickstart: Ensure that you followed [Quickstart](../../docs/quickstart) to get DataHub up and running.
 
 ## Step 1: Set up your Airflow area
 - Create an area to host your airflow installation
@@ -20,7 +21,7 @@ docker info | grep Memory
 ```
 mkdir -p airflow_install
 cd airflow_install
-# Download docker-compose
+# Download docker-compose file
 curl -L 'https://raw.githubusercontent.com/linkedin/datahub/master/docker/airflow/docker-compose.yaml' -o docker-compose.yaml
 # Create dags directory
 mkdir -p dags
