@@ -85,6 +85,21 @@ module.exports = {
       {
         Sinks: list_ids_in_directory("metadata-ingestion/sink_docs"),
       },
+      {
+        Scheduling: [
+          "metadata-ingestion/schedule_docs/intro",
+          "metadata-ingestion/schedule_docs/cron",
+          "metadata-ingestion/schedule_docs/airflow",
+        ],
+      },
+      {
+        Lineage: [
+          "docs/lineage/intro",
+          "docs/lineage/airflow",
+          "docker/airflow/local_airflow",
+          "docs/lineage/sample_code",
+        ],
+      },
     ],
     "Metadata Modeling": [
       "docs/modeling/metadata-model",
@@ -191,7 +206,6 @@ module.exports = {
       "docs/how/delete-metadata",
       "datahub-web-react/src/app/analytics/README",
       "metadata-ingestion/developing",
-      "docker/airflow/local_airflow",
       "docs/how/add-custom-data-platform",
       "docs/how/add-custom-ingestion-source",
       {
