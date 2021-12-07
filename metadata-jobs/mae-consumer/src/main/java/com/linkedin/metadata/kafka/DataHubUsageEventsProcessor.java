@@ -31,13 +31,10 @@ public class DataHubUsageEventsProcessor {
   private final DataHubUsageEventTransformer dataHubUsageEventTransformer;
   private final String indexName;
 
-  private final Histogram kafkaLagStats =
-      MetricUtils.get().histogram(MetricRegistry.name(this.getClass(), "kafkaLag"));
+  private final Histogram kafkaLagStats = MetricUtils.get().histogram(MetricRegistry.name(this.getClass(), "kafkaLag"));
 
-  public DataHubUsageEventsProcessor(
-      ElasticsearchConnector elasticSearchConnector,
-      DataHubUsageEventTransformer dataHubUsageEventTransformer,
-      IndexConvention indexConvention) {
+  public DataHubUsageEventsProcessor(ElasticsearchConnector elasticSearchConnector,
+      DataHubUsageEventTransformer dataHubUsageEventTransformer, IndexConvention indexConvention) {
     this.elasticSearchConnector = elasticSearchConnector;
     this.dataHubUsageEventTransformer = dataHubUsageEventTransformer;
     this.indexName = indexConvention.getIndexName("datahub_usage_event");
