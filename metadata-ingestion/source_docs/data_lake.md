@@ -34,10 +34,15 @@ Extracts:
 This connector supports both local files as well as those stored on AWS S3. Supported file types are as follows:
 
 - CSV
+- TSV
 - Parquet
 - JSON
-- ORC
-- Avro
+
+:::caution
+
+If you are ingesting datasets from AWS S3, we recommend running the ingestion on a server in the same region to avoid high egress costs.
+
+:::
 
 ## Quickstart recipe
 
@@ -65,23 +70,23 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 
 | Field                                                | Required                 | Default      | Description                                                                                                                                                                                                                           |
 | ---------------------------------------------------- | ------------------------ | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `env`                                                |                          |              | Environment to use in namespace when constructing URNs.                                                                                                                                                                               |
+| `env`                                                |                          | `PROD`       | Environment to use in namespace when constructing URNs.                                                                                                                                                                               |
 | `platform`                                           | ✅                       |              | Platform to use in namespace when constructing URNs.                                                                                                                                                                                  |
-| `base_path`                                          | ✅                       |              | Path of the base folder to crawl. Unless `schema_patterns` and `profile_patterns` are set, will attempt to ingest all files in folder.                                                                                                |
+| `base_path`                                          | ✅                       |              | Path of the base folder to crawl. Unless `schema_patterns` and `profile_patterns` are set, the connector will ingest all files in this folder.                                                                                        |
 | `use_relative_path`                                  |                          | `false`      | Whether to use the relative path (the part with the base path removed) when constructing URNs for files being ingested from a local directory. This option is ignored when ingesting from AWS S3 because S3 URIs are globally unique. |
 | `aws_config.aws_region`                              | If ingesting from AWS S3 |              | AWS region code.                                                                                                                                                                                                                      |
 | `aws_config.aws_access_key_id`                       |                          | Autodetected | See https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html                                                                                                                                                    |
 | `aws_config.aws_secret_access_key`                   |                          | Autodetected | See https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html                                                                                                                                                    |
 | `aws_config.aws_session_token`                       |                          | Autodetected | See https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html                                                                                                                                                    |
-| `schema_patterns.allow`                              |                          | `*`          | List of regex patterns for tables or table columns to profile. Defaults to all.                                                                                                                                                       |
-| `schema_patterns.deny`                               |                          |              | List of regex patterns for tables or table columns to not profile. Defaults to none.                                                                                                                                                  |
-| `schema_patterns.ignoreCase`                         |                          | `True`       | Whether to ignore case sensitivity during pattern matching.                                                                                                                                                                           |
-| `profile_patterns.allow`                             |                          | `*`          | List of regex patterns for tables or table columns to profile. Defaults to all.                                                                                                                                                       |
-| `profile_patterns.deny`                              |                          |              | List of regex patterns for tables or table columns to not profile. Defaults to none.                                                                                                                                                  |
-| `profile_patterns.ignoreCase`                        |                          | `True`       | Whether to ignore case sensitivity during pattern matching.                                                                                                                                                                           |
+| `schema_patterns.allow`                              |                          | `*`          | List of regex patterns for tables to ingest. Defaults to all.                                                                                                                                                                         |
+| `schema_patterns.deny`                               |                          |              | List of regex patterns for tables to not ingest. Defaults to none.                                                                                                                                                                    |
+| `schema_patterns.ignoreCase`                         |                          | `True`       | Whether to ignore case sensitivity during pattern matching of tables to ingest.                                                                                                                                                       |
+| `profile_patterns.allow`                             |                          | `*`          | List of regex patterns for tables to profile (a must also be ingested for profiling). Defaults to all.                                                                                                                                |
+| `profile_patterns.deny`                              |                          |              | List of regex patterns for tables to not profile (a must also be ingested for profiling). Defaults to none.                                                                                                                           |
+| `profile_patterns.ignoreCase`                        |                          | `True`       | Whether to ignore case sensitivity during pattern matching of tables to profile.                                                                                                                                                      |
 | `profiling.enabled`                                  |                          | `False`      | Whether profiling should be done.                                                                                                                                                                                                     |
-| `profiling.profile_table_level_only`                 |                          | `False`      | Whether to perform profiling at table-level only, or include column-level profiling as well.                                                                                                                                          |
-| `profiling.turn_off_expensive_profiling_metrics`     |                          | `False`      | Whether to turn off expensive profiling or not. This turns off profiling for quantiles, distinct_value_frequencies, histogram & sample_values. This also limits maximum number of fields being profiled to 10.                        |
+| `profiling.profile_table_level_only`                 |                          | `False`      | Whether to perform profiling at table-level only or include column-level profiling as well.                                                                                                                                           |
+| `profiling.turn_off_expensive_profiling_metrics`     |                          | `False`      | Whether to turn off expensive profiling or not. This turns off profiling for quantiles, distinct_value_frequencies, histogram & sample_values. This also limits the maximum number of fields being profiled to 10.                    |
 | `profiling.max_number_of_fields_to_profile`          |                          | `None`       | A positive integer that specifies the maximum number of columns to profile for any table. `None` implies all columns. The cost of profiling goes up significantly as the number of columns to profile goes up.                        |
 | `profiling.include_field_null_count`                 |                          | `True`       | Whether to profile for the number of nulls for each column.                                                                                                                                                                           |
 | `profiling.include_field_min_value`                  |                          | `True`       | Whether to profile for the min value of numeric columns.                                                                                                                                                                              |
@@ -96,7 +101,11 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 
 ## Compatibility
 
-Files are read using PySpark. We currently require Spark 3.0.3 with Hadoop 3.2 to be installed.
+Files are read using PySpark and profiles are computed with PyDeequ.
+We currently require Spark 3.0.3 with Hadoop 3.2 to be installed and the `SPARK_HOME` environment variable to be set for PySpark.
+The Spark+Hadoop binary can be downloaded [here](https://www.apache.org/dyn/closer.lua/spark/spark-3.0.3/spark-3.0.3-bin-hadoop3.2.tgz).
+
+For an example guide on setting up PyDeequ on AWS, see [this guide](https://aws.amazon.com/blogs/big-data/testing-data-quality-at-scale-with-pydeequ/).
 
 ## Questions
 
