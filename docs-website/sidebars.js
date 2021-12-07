@@ -90,11 +90,12 @@ module.exports = {
           "metadata-ingestion/schedule_docs/intro",
           "metadata-ingestion/schedule_docs/cron",
           "metadata-ingestion/schedule_docs/airflow",
-        ]
+        ],
       },
       {
         Lineage: [
           "docs/lineage/intro",
+          "docs/lineage/airflow",
           "docker/airflow/local_airflow",
           "docs/lineage/sample_code",
         ],
