@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<tenants>
+    <groups/>
+    <users>
+        <user identifier="d4161a08-b56a-3bf8-b110-016b041b8a98" identity="CN=DatahubUser, C=US"/>
+    </users>
+</tenants>
