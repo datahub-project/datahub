@@ -19,7 +19,6 @@ def test_data_lake_ingest(pytestconfig, tmp_path, mock_time):
                 "config": {
                     "base_path": str(test_resources_dir / "test_data"),
                     "use_relative_path": True,
-                    # "base_path": "s3://acryl-datahub-test/",
                     "platform": "test",
                     "aws_config": {
                         "aws_region": "us-east-2",
@@ -27,7 +26,7 @@ def test_data_lake_ingest(pytestconfig, tmp_path, mock_time):
                     # "schema_patterns": {"allow": [".*.csv"]},
                     "profiling": {
                         "enabled": True,
-                        "profile_table_level_only": True,
+                        "profile_table_level_only": False,
                         "include_field_min_value": True,
                         "include_field_max_value": True,
                         "include_field_mean_value": True,

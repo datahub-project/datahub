@@ -31,7 +31,7 @@ Extracts:
   - minimum, maximum, mean, median, standard deviation, some quantile values
   - histograms or frequencies of unique values
 
-This connector supports both local files as well as those stored on AWS S3. Supported file types are as follows:
+This connector supports both local files as well as those stored on AWS S3 (which must be identified using the prefix `s3://`). Supported file types are as follows:
 
 - CSV
 - TSV

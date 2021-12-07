@@ -3,7 +3,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:test,NPS.7.1.package_data_NPS.6.1_ARCN_Lakes_ChemistryData_v1.csv,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:test,NPS.7.1.package_data_NPS.6.1_ARCN_Lakes_ChemistryData_v1_csv.csv,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -282,12 +282,12 @@
 {
     "auditHeader": null,
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test,NPS.7.1.package_data_NPS.6.1_ARCN_Lakes_ChemistryData_v1.csv,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test,NPS.7.1.package_data_NPS.6.1_ARCN_Lakes_ChemistryData_v1_csv.csv,PROD)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "datasetProfile",
     "aspect": {
-        "value": "{\"timestampMillis\": 1615443388097, \"rowCount\": 33, \"columnCount\": 14, \"fieldProfiles\": []}",
+        "value": "{\"timestampMillis\": 1615443388097, \"rowCount\": 33, \"columnCount\": 14, \"fieldProfiles\": [{\"fieldPath\": \"Sampling Date\", \"uniqueCount\": 12, \"uniqueProportion\": 0.36363636363636365, \"nullCount\": 0, \"nullProportion\": 0.0}, {\"fieldPath\": \"Site ID\", \"uniqueCount\": 34, \"uniqueProportion\": 1.0303030303030303, \"nullCount\": 0, \"nullProportion\": 0.0}, {\"fieldPath\": \"Park ID\", \"uniqueCount\": 4, \"uniqueProportion\": 0.19047619047619047, \"nullCount\": 12, \"nullProportion\": 0.36363636363636365}, {\"fieldPath\": \"Lat (\\ufffdN)\", \"uniqueCount\": 19, \"uniqueProportion\": 0.95, \"nullCount\": 13, \"nullProportion\": 0.3939393939393939}, {\"fieldPath\": \"Long (\\ufffdW)\", \"uniqueCount\": 20, \"uniqueProportion\": 1.0, \"nullCount\": 13, \"nullProportion\": 0.3939393939393939}, {\"fieldPath\": \"Water Temp (\\ufffdC)\", \"uniqueCount\": 16, \"uniqueProportion\": 0.8, \"nullCount\": 13, \"nullProportion\": 0.3939393939393939}, {\"fieldPath\": \"Cond (\\ufffdS/cm)\", \"uniqueCount\": 16, \"uniqueProportion\": 0.8, \"nullCount\": 13, \"nullProportion\": 0.3939393939393939}, {\"fieldPath\": \"pH\", \"uniqueCount\": 8, \"uniqueProportion\": 0.4, \"nullCount\": 13, \"nullProportion\": 0.3939393939393939}, {\"fieldPath\": \"DO (mg/L)\", \"uniqueCount\": 6, \"uniqueProportion\": 0.3157894736842105, \"nullCount\": 14, \"nullProportion\": 0.42424242424242425}, {\"fieldPath\": \"Secchi Depth (m)\", \"uniqueCount\": 4, \"uniqueProportion\": 0.2, \"nullCount\": 13, \"nullProportion\": 0.3939393939393939}]}",
         "contentType": "application/json"
     },
     "systemMetadata": null
@@ -296,7 +296,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:test,chord_progressions.csv,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:test,chord_progressions_csv.csv,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -431,12 +431,12 @@
 {
     "auditHeader": null,
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test,chord_progressions.csv,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test,chord_progressions_csv.csv,PROD)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "datasetProfile",
     "aspect": {
-        "value": "{\"timestampMillis\": 1615443388097, \"rowCount\": 28, \"columnCount\": 5, \"fieldProfiles\": []}",
+        "value": "{\"timestampMillis\": 1615443388097, \"rowCount\": 28, \"columnCount\": 5, \"fieldProfiles\": [{\"fieldPath\": \"1st chord\", \"uniqueCount\": 5, \"uniqueProportion\": 0.17857142857142858, \"nullCount\": 0, \"nullProportion\": 0.0}, {\"fieldPath\": \"2nd chord\", \"uniqueCount\": 5, \"uniqueProportion\": 0.17857142857142858, \"nullCount\": 0, \"nullProportion\": 0.0}, {\"fieldPath\": \"3rd chord\", \"uniqueCount\": 7, \"uniqueProportion\": 0.25, \"nullCount\": 0, \"nullProportion\": 0.0}, {\"fieldPath\": \"4th chord\", \"uniqueCount\": 6, \"uniqueProportion\": 0.21428571428571427, \"nullCount\": 0, \"nullProportion\": 0.0}, {\"fieldPath\": \"Progression Quality\", \"uniqueCount\": 20, \"uniqueProportion\": 0.7142857142857143, \"nullCount\": 0, \"nullProportion\": 0.0}]}",
         "contentType": "application/json"
     },
     "systemMetadata": null
@@ -445,7 +445,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:test,countries.json,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:test,countries_json.json,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -516,12 +516,12 @@
 {
     "auditHeader": null,
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test,countries.json,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test,countries_json.json,PROD)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "datasetProfile",
     "aspect": {
-        "value": "{\"timestampMillis\": 1615443388097, \"rowCount\": 1, \"columnCount\": 1, \"fieldProfiles\": []}",
+        "value": "{\"timestampMillis\": 1615443388097, \"rowCount\": 1, \"columnCount\": 1, \"fieldProfiles\": [{\"fieldPath\": \"countries\", \"uniqueCount\": 1, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0}]}",
         "contentType": "application/json"
     },
     "systemMetadata": null
@@ -530,7 +530,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:test,food.csv,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:test,food_csv.csv,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -665,12 +665,12 @@
 {
     "auditHeader": null,
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test,food.csv,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test,food_csv.csv,PROD)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "datasetProfile",
     "aspect": {
-        "value": "{\"timestampMillis\": 1615443388097, \"rowCount\": 70, \"columnCount\": 5, \"fieldProfiles\": []}",
+        "value": "{\"timestampMillis\": 1615443388097, \"rowCount\": 70, \"columnCount\": 5, \"fieldProfiles\": [{\"fieldPath\": \"name\", \"uniqueCount\": 9, \"uniqueProportion\": 0.13043478260869565, \"nullCount\": 1, \"nullProportion\": 0.014285714285714285}, {\"fieldPath\": \"weight\", \"uniqueCount\": 9, \"uniqueProportion\": 0.12857142857142856, \"nullCount\": 0, \"nullProportion\": 0.0}, {\"fieldPath\": \"height\", \"uniqueCount\": 70, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"1.0\", \"max\": \"70.0\", \"mean\": \"35.5\", \"stdev\": \"20.20519735117675\"}, {\"fieldPath\": \"color\", \"uniqueCount\": 7, \"uniqueProportion\": 0.1, \"nullCount\": 0, \"nullProportion\": 0.0}, {\"fieldPath\": \"healthy\", \"uniqueCount\": 2, \"uniqueProportion\": 0.028985507246376812, \"nullCount\": 1, \"nullProportion\": 0.014285714285714285}]}",
         "contentType": "application/json"
     },
     "systemMetadata": null
@@ -679,7 +679,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:test,food.parquet,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:test,food_parquet.parquet,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -814,12 +814,12 @@
 {
     "auditHeader": null,
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test,food.parquet,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test,food_parquet.parquet,PROD)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "datasetProfile",
     "aspect": {
-        "value": "{\"timestampMillis\": 1615443388097, \"rowCount\": 70, \"columnCount\": 5, \"fieldProfiles\": []}",
+        "value": "{\"timestampMillis\": 1615443388097, \"rowCount\": 70, \"columnCount\": 5, \"fieldProfiles\": [{\"fieldPath\": \"name\", \"uniqueCount\": 9, \"uniqueProportion\": 0.13043478260869565, \"nullCount\": 1, \"nullProportion\": 0.014285714285714285}, {\"fieldPath\": \"weight\", \"uniqueCount\": 10, \"uniqueProportion\": 0.14285714285714285, \"nullCount\": 0, \"nullProportion\": 0.0}, {\"fieldPath\": \"height\", \"uniqueCount\": 72, \"uniqueProportion\": 1.0285714285714285, \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"1.0\", \"max\": \"70.0\", \"mean\": \"35.5\", \"stdev\": \"20.20519735117675\"}, {\"fieldPath\": \"color\", \"uniqueCount\": 7, \"uniqueProportion\": 0.1, \"nullCount\": 0, \"nullProportion\": 0.0}, {\"fieldPath\": \"healthy\", \"uniqueCount\": 2, \"uniqueProportion\": 0.028985507246376812, \"nullCount\": 1, \"nullProportion\": 0.014285714285714285}]}",
         "contentType": "application/json"
     },
     "systemMetadata": null
@@ -828,92 +828,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:test,meteorites.json,PROD)",
-            "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-                        "customProperties": {},
-                        "externalUrl": null,
-                        "description": "",
-                        "uri": null,
-                        "tags": []
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-                        "schemaName": "test",
-                        "platform": "urn:li:dataPlatform:test",
-                        "version": 0,
-                        "created": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
-                        },
-                        "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
-                        },
-                        "deleted": null,
-                        "dataset": null,
-                        "cluster": null,
-                        "hash": "",
-                        "platformSchema": {
-                            "com.linkedin.pegasus2avro.schema.OtherSchema": {
-                                "rawSchema": ""
-                            }
-                        },
-                        "fields": [
-                            {
-                                "fieldPath": "_corrupt_record",
-                                "jsonPath": null,
-                                "nullable": false,
-                                "description": null,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
-                                    }
-                                },
-                                "nativeDataType": "StringType",
-                                "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false
-                            }
-                        ],
-                        "primaryKeys": null,
-                        "foreignKeysSpecs": null,
-                        "foreignKeys": null
-                    }
-                }
-            ]
-        }
-    },
-    "proposedDelta": null,
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "data-lake-test",
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test,meteorites.json,PROD)",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "datasetProfile",
-    "aspect": {
-        "value": "{\"timestampMillis\": 1615443388097, \"rowCount\": 1000, \"columnCount\": 1, \"fieldProfiles\": []}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": null
-},
-{
-    "auditHeader": null,
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:test,pokemon_abilities.json,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:test,pokemon_abilities_json.json,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -1112,12 +1027,12 @@
 {
     "auditHeader": null,
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test,pokemon_abilities.json,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test,pokemon_abilities_json.json,PROD)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "datasetProfile",
     "aspect": {
-        "value": "{\"timestampMillis\": 1615443388097, \"rowCount\": 1, \"columnCount\": 9, \"fieldProfiles\": []}",
+        "value": "{\"timestampMillis\": 1615443388097, \"rowCount\": 1, \"columnCount\": 9, \"fieldProfiles\": [{\"fieldPath\": \"effect_changes\", \"uniqueCount\": 1, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0}, {\"fieldPath\": \"effect_entries\", \"uniqueCount\": 1, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0}, {\"fieldPath\": \"flavor_text_entries\", \"uniqueCount\": 1, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0}, {\"fieldPath\": \"generation\", \"uniqueCount\": 1, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0}, {\"fieldPath\": \"id\", \"uniqueCount\": 1, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0}, {\"fieldPath\": \"is_main_series\", \"uniqueCount\": 1, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0}, {\"fieldPath\": \"name\", \"uniqueCount\": 1, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0}, {\"fieldPath\": \"names\", \"uniqueCount\": 1, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0}, {\"fieldPath\": \"pokemon\", \"uniqueCount\": 1, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0}]}",
         "contentType": "application/json"
     },
     "systemMetadata": null
@@ -1126,92 +1041,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:test,us_gdp.json,PROD)",
-            "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-                        "customProperties": {},
-                        "externalUrl": null,
-                        "description": "",
-                        "uri": null,
-                        "tags": []
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-                        "schemaName": "test",
-                        "platform": "urn:li:dataPlatform:test",
-                        "version": 0,
-                        "created": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
-                        },
-                        "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
-                        },
-                        "deleted": null,
-                        "dataset": null,
-                        "cluster": null,
-                        "hash": "",
-                        "platformSchema": {
-                            "com.linkedin.pegasus2avro.schema.OtherSchema": {
-                                "rawSchema": ""
-                            }
-                        },
-                        "fields": [
-                            {
-                                "fieldPath": "_corrupt_record",
-                                "jsonPath": null,
-                                "nullable": false,
-                                "description": null,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
-                                    }
-                                },
-                                "nativeDataType": "StringType",
-                                "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false
-                            }
-                        ],
-                        "primaryKeys": null,
-                        "foreignKeysSpecs": null,
-                        "foreignKeys": null
-                    }
-                }
-            ]
-        }
-    },
-    "proposedDelta": null,
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "data-lake-test",
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test,us_gdp.json,PROD)",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "datasetProfile",
-    "aspect": {
-        "value": "{\"timestampMillis\": 1615443388097, \"rowCount\": 1, \"columnCount\": 1, \"fieldProfiles\": []}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": null
-},
-{
-    "auditHeader": null,
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:test,wa_fn_usec_hr_employee_attrition.csv,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:test,wa_fn_usec_hr_employee_attrition_csv.csv,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -1826,12 +1656,12 @@
 {
     "auditHeader": null,
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test,wa_fn_usec_hr_employee_attrition.csv,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test,wa_fn_usec_hr_employee_attrition_csv.csv,PROD)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "datasetProfile",
     "aspect": {
-        "value": "{\"timestampMillis\": 1615443388097, \"rowCount\": 249, \"columnCount\": 35, \"fieldProfiles\": []}",
+        "value": "{\"timestampMillis\": 1615443388097, \"rowCount\": 249, \"columnCount\": 35, \"fieldProfiles\": [{\"fieldPath\": \"age\", \"uniqueCount\": 39, \"uniqueProportion\": 0.1566265060240964, \"nullCount\": 0, \"nullProportion\": 0.0}, {\"fieldPath\": \"attrition\", \"uniqueCount\": 2, \"uniqueProportion\": 0.008032128514056224, \"nullCount\": 0, \"nullProportion\": 0.0}, {\"fieldPath\": \"businesstravel\", \"uniqueCount\": 3, \"uniqueProportion\": 0.012048192771084338, \"nullCount\": 0, \"nullProportion\": 0.0}, {\"fieldPath\": \"dailyrate\", \"uniqueCount\": 211, \"uniqueProportion\": 0.8473895582329317, \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"103.0\", \"max\": \"1496.0\", \"mean\": \"854.8273092369478\", \"stdev\": \"403.2756119254974\"}, {\"fieldPath\": \"department\", \"uniqueCount\": 3, \"uniqueProportion\": 0.012048192771084338, \"nullCount\": 0, \"nullProportion\": 0.0}, {\"fieldPath\": \"distancefromhome\", \"uniqueCount\": 30, \"uniqueProportion\": 0.12048192771084337, \"nullCount\": 0, \"nullProportion\": 0.0}, {\"fieldPath\": \"education\", \"uniqueCount\": 5, \"uniqueProportion\": 0.020080321285140562, \"nullCount\": 0, \"nullProportion\": 0.0}, {\"fieldPath\": \"educationfield\", \"uniqueCount\": 6, \"uniqueProportion\": 0.024096385542168676, \"nullCount\": 0, \"nullProportion\": 0.0}, {\"fieldPath\": \"employeecount\", \"uniqueCount\": 1, \"uniqueProportion\": 0.004016064257028112, \"nullCount\": 0, \"nullProportion\": 0.0}, {\"fieldPath\": \"employeenumber\", \"uniqueCount\": 242, \"uniqueProportion\": 0.9718875502008032, \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"1.0\", \"max\": \"340.0\", \"mean\": \"168.01606425702812\", \"stdev\": \"99.94259267345959\"}]}",
         "contentType": "application/json"
     },
     "systemMetadata": null

@@ -389,7 +389,7 @@ class _SingleTableProfiler:
             [
                 count(
                     when(
-                        isnan(col(c).astype("int")) | col(c).isNull(),
+                        isnan(col(c).astype("string")) | col(c).isNull(),
                         c,
                     )
                 ).alias(c)
