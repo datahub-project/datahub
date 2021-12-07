@@ -121,10 +121,12 @@ class Telemetry:
             requests.post(
                 req_url,
                 data=params,
-                headers={"user-agent": f"datahub {datahub_package.nice_version_name()}"},
+                headers={
+                    "user-agent": f"datahub {datahub_package.nice_version_name()}"
+                },
             )
         except Exception as e:
-            
+
             logger.debug(f"Error reporting telemetry: {e}")
 
 
