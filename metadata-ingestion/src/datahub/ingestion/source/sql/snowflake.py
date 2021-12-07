@@ -7,7 +7,8 @@ import pydantic
 
 # This import verifies that the dependencies are available.
 import snowflake.sqlalchemy  # noqa: F401
-from snowflake.sqlalchemy import custom_types
+import sqlalchemy
+from snowflake.sqlalchemy import custom_types, snowdialect
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.sql import text
@@ -44,6 +45,7 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 APPLICATION_NAME = "acryl_datahub"
 
+snowdialect.ischema_names['GEOGRAPHY'] = sqlalchemy.types.NullType
 
 class BaseSnowflakeConfig(BaseTimeWindowConfig):
     # Note: this config model is also used by the snowflake-usage source.
