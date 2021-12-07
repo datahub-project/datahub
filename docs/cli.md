@@ -25,7 +25,7 @@ datahub version
 
 If you run into an error, try checking the [_common setup issues_](../metadata-ingestion/developing.md#Common-setup-issues).
 
-## Using docker
+### Using docker
 
 You can use the `datahub-ingestion` docker image as explained in [Docker Images](../docker/README.md). In case you are using Kubernetes you can start a pod with the `datahub-ingestion` docker image, log onto a shell on the pod and you should have the access to datahub CLI in your kubernetes cluster.
 
