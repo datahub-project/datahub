@@ -191,6 +191,7 @@ base_dev_requirements = {
     "jsonpickle",
     "build",
     "twine",
+    "pydot",
     *list(
         dependency
         for plugin in [
