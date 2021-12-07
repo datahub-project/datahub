@@ -90,6 +90,13 @@ module.exports = {
           "metadata-ingestion/schedule_docs/intro",
           "metadata-ingestion/schedule_docs/cron",
           "metadata-ingestion/schedule_docs/airflow",
+        ]
+      },
+      {
+        Lineage: [
+          "docs/lineage/intro",
+          "docker/airflow/local_airflow",
+          "docs/lineage/sample_code",
         ],
       },
     ],
@@ -198,7 +205,6 @@ module.exports = {
       "docs/how/delete-metadata",
       "datahub-web-react/src/app/analytics/README",
       "metadata-ingestion/developing",
-      "docker/airflow/local_airflow",
       "docs/how/add-custom-data-platform",
       "docs/how/add-custom-ingestion-source",
       {
