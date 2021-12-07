@@ -11,7 +11,7 @@ docker info | grep Memory
 
 > Total Memory: 7.775GiB
 ```
-- Quickstart: Ensure that you followed [Quickstart](../../docs/quickstart) to get DataHub up and running.
+- Quickstart: Ensure that you followed [quickstart](../../docs/quickstart.md) to get DataHub up and running.
 
 ## Step 1: Set up your Airflow area
 - Create an area to host your airflow installation
