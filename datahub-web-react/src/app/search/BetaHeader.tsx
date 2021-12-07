@@ -1,6 +1,7 @@
 import * as React from 'react';
 import styled from 'styled-components';
 import { Layout, Typography } from 'antd';
+import { ANTD_GRAY } from '../entity/shared/constants';
 
 const HeaderTitle = styled(Typography.Title)`
     && {
@@ -17,13 +18,14 @@ const styles = {
         zIndex: 1,
         width: '100%',
         height: '80px',
-        marginTop: '80px',
+        marginTop: '60px',
         lineHeight: '20px',
         padding: '0px 40px',
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        backgroundColor: '#555555',
+        borderBottom: `1px solid ${ANTD_GRAY[4.5]}`,
+        backgroundColor: 'white',
     },
 };
 

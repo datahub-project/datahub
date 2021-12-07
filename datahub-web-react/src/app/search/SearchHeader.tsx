@@ -23,6 +23,7 @@ const styles = {
         justifyContent: 'space-between',
         alignItems: 'center',
         borderBottom: `1px solid ${ANTD_GRAY[4.5]}`,
+        backgroundColor: 'white',
     },
 };
 
