@@ -10,10 +10,12 @@ from typing import Any, Counter, Dict, Iterable, List, MutableMapping, Optional,
 import cachetools
 import pydantic
 from google.cloud.logging_v2.client import Client as GCPLoggingClient
+from more_itertools import partition
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.time_window_config import get_time_bucket
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -21,6 +23,7 @@ from datahub.ingestion.source.usage.usage_common import (
     BaseUsageConfig,
     GenericAggregatedDataset,
 )
+from datahub.metadata.schema_classes import ChangeTypeClass, OperationalInfoClass
 from datahub.utilities.delayed_iter import delayed_iter
 
 logger = logging.getLogger(__name__)
@@ -81,6 +84,17 @@ timestamp >= "{start_time}"
 AND
 timestamp < "{end_time}"
 """.strip()
+UPDATE_STATEMENT_TYPES = set(
+    [
+        "INSERT",
+        "UPDATE",
+        "DELETE",
+        "MERGE",
+        "CREATE",
+        "CREATE_TABLE_AS_SELECT",
+        "CREATE_SCHEMA",
+    ]
+)
 
 
 @dataclass(frozen=True, order=True)
@@ -226,6 +240,7 @@ class QueryEvent:
     actor_email: str
 
     query: str
+    statementType: str
     destinationTable: Optional[BigQueryTableRef]
     referencedTables: Optional[List[BigQueryTableRef]]
     jobName: Optional[str]
@@ -266,6 +281,7 @@ class QueryEvent:
             timestamp=entry.timestamp,
             actor_email=user,
             query=rawQuery,
+            statementType=job["jobConfiguration"]["query"]["statementType"],
             destinationTable=destinationTable,
             referencedTables=referencedTables,
             jobName=jobName,
@@ -331,7 +347,15 @@ class BigQueryUsageSource(Source):
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         clients = self._make_bigquery_clients()
         bigquery_log_entries = self._get_bigquery_log_entries(clients)
-        parsed_events = self._parse_bigquery_log_entries(bigquery_log_entries)
+        parsed_bigquery_log_events = self._parse_bigquery_log_entries(
+            bigquery_log_entries
+        )
+        parsed_events, last_updated_work_units = partition(
+            lambda x: isinstance(x, MetadataWorkUnit), parsed_bigquery_log_events
+        )
+        for wu in last_updated_work_units:
+            self.report.report_workunit(wu)
+            yield wu
         hydrated_read_events = self._join_events_by_job_id(parsed_events)
         aggregated_info = self._aggregate_enriched_read_events(hydrated_read_events)
 
@@ -436,7 +460,7 @@ class BigQueryUsageSource(Source):
 
     def _parse_bigquery_log_entries(
         self, entries: Iterable[AuditLogEntry]
-    ) -> Iterable[Union[ReadEvent, QueryEvent]]:
+    ) -> Iterable[Union[ReadEvent, QueryEvent, MetadataWorkUnit]]:
         num_read_events: int = 0
         num_query_events: int = 0
         for entry in entries:
@@ -448,6 +472,42 @@ class BigQueryUsageSource(Source):
                 elif QueryEvent.can_parse_entry(entry):
                     event = QueryEvent.from_entry(entry)
                     num_query_events += 1
+                    if event.statementType in UPDATE_STATEMENT_TYPES:
+                        destination_table: Optional[BigQueryTableRef] = None
+                        try:
+                            destination_table = event.destinationTable.remove_extras()
+                        except Exception as e:
+                            self.report.report_warning(
+                                str(event.destinationTable),
+                                f"Failed to clean up destination table, {e}",
+                            )
+                            logger.warning(
+                                f"Failed to process event {str(event.destinationTable)}",
+                                e,
+                            )
+                        if destination_table:
+                            last_updated_timestamp: int = int(
+                                event.timestamp.timestamp() * 1000
+                            )
+                            operational_info = OperationalInfoClass(
+                                timestampMillis=last_updated_timestamp,
+                                lastUpdatedTimestamp=last_updated_timestamp,
+                            )
+                            mcp = MetadataChangeProposalWrapper(
+                                entityType="dataset",
+                                aspectName="operationalInfo",
+                                changeType=ChangeTypeClass.UPSERT,
+                                entityUrn=_table_ref_to_urn(
+                                    destination_table, self.config.env
+                                ),
+                                aspect=operational_info,
+                            )
+                            wu = MetadataWorkUnit(
+                                id=f"operationalInfo-{destination_table}{event.timestamp.isoformat()}",
+                                mcp=mcp,
+                            )
+                            yield wu
+
                 else:
                     self.report.report_warning(
                         f"{entry.log_name}-{entry.insert_id}",

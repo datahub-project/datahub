@@ -6,6 +6,7 @@ entities:
       - subTypes
       - datasetProfile
       - datasetUsageStatistics
+      - operationalInfo
   - name: dataHubPolicy
     keyAspect: dataHubPolicyKey
     aspects:

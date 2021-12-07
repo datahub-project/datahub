@@ -3,17 +3,17 @@ namespace com.linkedin.common
 import com.linkedin.timeseries.TimeseriesAspectBase
 
 /**
- * Operational info for a dataset
+ * Operational info for an entity.
  */
  @Aspect = {
     "name": "operationalInfo",
     "type": "timeseries"
  }
-record OperationalInfo {
+record OperationalInfo includes TimeseriesAspectBase {
 
   /**
    * Time series of when the dataset was last updated.
    */
   @TimeseriesField = {}
-  lastUpdatedTimestamps: optional long
+  lastUpdatedTimestamp: long
 }
