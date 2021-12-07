@@ -21,7 +21,8 @@ import org.springframework.context.annotation.PropertySource;
  * Factory for components required for any services using elasticsearch
  */
 @Configuration
-@Import({RestHighLevelClientFactory.class})
+@Import({RestHighLevelClientFactory.class, IndexConventionFactory.class, ElasticSearchBulkProcessorFactory.class,
+    ElasticSearchIndexBuilderFactory.class})
 @PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
 public class BaseElasticSearchComponentsFactory {
   @Value
