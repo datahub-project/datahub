@@ -1,6 +1,6 @@
 # DataHub CLI
 
-DataHub comes with a friendly cli called `datahub` that allows you to perform a lot of common operations using just the command line. 
+DataHub comes with a friendly cli called `datahub` that allows you to perform a lot of common operations using just the command line.
 
 ## Install
 
@@ -16,6 +16,7 @@ source datahub-env/bin/activate         # activate the environment
 **_NOTE:_** If you install `datahub` in a virtual environment, that same virtual environment must be re-activated each time a shell window or session is created.
 
 Once inside the virtual environment, install `datahub` using the following commands
+
 ```console
 # Requires Python 3.6+
 python3 -m pip install --upgrade pip wheel setuptools
@@ -28,8 +29,8 @@ If you run into an error, try checking the [_common setup issues_](../metadata-i
 
 ## User Guide
 
-The `datahub` cli allows you to do many things, such as quickstarting a DataHub docker instance locally, ingesting metadata from your sources, as well as retrieving and modifying metadata. 
-Like most command line tools, `--help` is your best friend. Use it to discover the capabilities of the cli and the different commands and sub-commands that are supported. 
+The `datahub` cli allows you to do many things, such as quickstarting a DataHub docker instance locally, ingesting metadata from your sources, as well as retrieving and modifying metadata.
+Like most command line tools, `--help` is your best friend. Use it to discover the capabilities of the cli and the different commands and sub-commands that are supported.
 
 ```console
 Usage: datahub [OPTIONS] COMMAND [ARGS]...
@@ -51,12 +52,12 @@ Commands:
   version    Print version number and exit.
 ```
 
-The following top-level commands listed below are here mainly to give the reader a high-level picture of what are the kinds of things you can accomplish with the cli. 
-We've ordered them roughly in the order we expect you to interact with these commands as you get deeper into the `datahub`-verse. 
+The following top-level commands listed below are here mainly to give the reader a high-level picture of what are the kinds of things you can accomplish with the cli.
+We've ordered them roughly in the order we expect you to interact with these commands as you get deeper into the `datahub`-verse.
 
 ### docker
 
-The `docker` command allows you to start up a local DataHub instance using `datahub docker quickstart`. You can also check if the docker cluster is healthy using `datahub docker check`. 
+The `docker` command allows you to start up a local DataHub instance using `datahub docker quickstart`. You can also check if the docker cluster is healthy using `datahub docker check`.
 
 ### ingest
 
@@ -85,7 +86,12 @@ The env variables take precedence over what is in the config.
 
 ### telemetry
 
-The `telemetry` command lets you toggle the sending of anonymous usage statistics via `telemetry enable/disable`. Telemetry is enabled by default, and you can also disable it by setting `DATAHUB_TELEMETRY_ENABLED` to `false`.
+To help us understand how people are using DataHub, we collect anonymous usage statistics on actions such as command invocations via Google Analytics.
+We do not collect private information such as IP addresses, contents of ingestions, or credentials.
+The code responsible for collecting and broadcasting these events is open-source and can be found [within our GitHub](https://github.com/linkedin/datahub/blob/master/metadata-ingestion/src/datahub/telemetry/telemetry.py).
+
+Telemetry is enabled by default, and the `telemetry` command lets you toggle the sending of these statistics via `telemetry enable/disable`.
+You can also disable telemetry by setting `DATAHUB_TELEMETRY_ENABLED` to `false`.
 
 ### delete
 
@@ -97,7 +103,7 @@ datahub delete --urn "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset
 
 ### get
 
-The `get` command allows you to easily retrieve metadata from DataHub, by using the REST API. 
+The `get` command allows you to easily retrieve metadata from DataHub, by using the REST API.
 For example the following command gets the ownership aspect from the dataset `urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)`
 
 ```console
@@ -138,11 +144,12 @@ datahub get --urn "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PR
 }
 ```
 
-### put 
+### put
 
-The `put` command allows you to write metadata into DataHub. This is a flexible way for you to issue edits to metadata from the command line. 
-For example, the following command instructs `datahub` to set the `ownership` aspect of the dataset `urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)` to the value in the file `ownership.json`. 
+The `put` command allows you to write metadata into DataHub. This is a flexible way for you to issue edits to metadata from the command line.
+For example, the following command instructs `datahub` to set the `ownership` aspect of the dataset `urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)` to the value in the file `ownership.json`.
 The JSON in the `ownership.json` file needs to conform to the [`Ownership`](https://github.com/linkedin/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/common/Ownership.pdl) Aspect model as shown below.
+
 ```json
 {
   "owners": [
@@ -165,8 +172,3 @@ datahub --debug put --urn "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDa
 curl -X POST -H 'User-Agent: python-requests/2.26.0' -H 'Accept-Encoding: gzip, deflate' -H 'Accept: */*' -H 'Connection: keep-alive' -H 'X-RestLi-Protocol-Version: 2.0.0' -H 'Content-Type: application/json' --data '{"proposal": {"entityType": "dataset", "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)", "aspectName": "ownership", "changeType": "UPSERT", "aspect": {"contentType": "application/json", "value": "{\"owners\": [{\"owner\": \"urn:li:corpUser:jdoe\", \"type\": \"DEVELOPER\"}, {\"owner\": \"urn:li:corpUser:jdub\", \"type\": \"DATAOWNER\"}]}"}}}' 'http://localhost:8080/aspects/?action=ingestProposal'
 Update succeeded with status 200
 ```
-
-
-
-
-

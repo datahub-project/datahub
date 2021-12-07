@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import uuid
 from functools import wraps
@@ -9,8 +10,10 @@ import requests
 
 import datahub as datahub_package
 
+logger = logging.getLogger(__name__)
+
 GA_VERSION = 1
-GA_TID = "UA-214428525-1"
+GA_TID = "UA-212728656-1"
 
 DATAHUB_FOLDER = Path(os.path.expanduser("~/.datahub"))
 
@@ -97,7 +100,7 @@ class Telemetry:
         req_url = "https://www.google-analytics.com/collect"
 
         params: Dict[str, Union[str, int]] = {
-            "an": "metadata-ingestion",  # app name
+            "an": "datahub-cli",  # app name
             "av": datahub_package.nice_version_name(),  # app version
             "t": "event",  # event type
             "v": GA_VERSION,  # Google Analytics version
@@ -114,11 +117,15 @@ class Telemetry:
         if value:
             params["ev"] = value
 
-        requests.post(
-            req_url,
-            data=params,
-            headers={"user-agent": f"datahub {datahub_package.nice_version_name()}"},
-        )
+        try:
+            requests.post(
+                req_url,
+                data=params,
+                headers={"user-agent": f"datahub {datahub_package.nice_version_name()}"},
+            )
+        except Exception as e:
+            
+            logger.debug(f"Error reporting telemetry: {e}")
 
 
 telemetry_instance = Telemetry()
