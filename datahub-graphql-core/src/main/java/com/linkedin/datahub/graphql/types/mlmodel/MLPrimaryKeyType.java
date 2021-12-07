@@ -17,7 +17,7 @@ import com.linkedin.entity.Entity;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.extractor.AspectExtractor;
 import com.linkedin.metadata.query.AutoCompleteResult;
-import com.linkedin.metadata.query.SearchResult;
+import com.linkedin.metadata.search.SearchResult;
 import graphql.execution.DataFetcherResult;
 
 import javax.annotation.Nonnull;
@@ -31,10 +31,10 @@ import java.util.stream.Collectors;
 public class MLPrimaryKeyType implements SearchableEntityType<MLPrimaryKey> {
 
     private static final Set<String> FACET_FIELDS = ImmutableSet.of("");
-    private final EntityClient _mlPrimaryKeyClient;
+    private final EntityClient _entityClient;
 
-    public MLPrimaryKeyType(final EntityClient mlPrimaryKey) {
-        _mlPrimaryKeyClient = mlPrimaryKey;
+    public MLPrimaryKeyType(final EntityClient entityClient) {
+        _entityClient = entityClient;
     }
 
     @Override
@@ -54,10 +54,11 @@ public class MLPrimaryKeyType implements SearchableEntityType<MLPrimaryKey> {
             .collect(Collectors.toList());
 
         try {
-            final Map<Urn, Entity> mlPrimaryKeyMap = _mlPrimaryKeyClient.batchGet(mlPrimaryKeyUrns
+            final Map<Urn, Entity> mlPrimaryKeyMap = _entityClient.batchGet(mlPrimaryKeyUrns
                 .stream()
                 .filter(Objects::nonNull)
-                .collect(Collectors.toSet()));
+                .collect(Collectors.toSet()),
+            context.getActor());
 
             final List<Entity> gmsResults = mlPrimaryKeyUrns.stream()
                 .map(primaryKeyUrn -> mlPrimaryKeyMap.getOrDefault(primaryKeyUrn, null)).collect(Collectors.toList());
@@ -81,7 +82,7 @@ public class MLPrimaryKeyType implements SearchableEntityType<MLPrimaryKey> {
                                 int count,
                                 @Nonnull final QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
-        final SearchResult searchResult = _mlPrimaryKeyClient.search("mlPrimaryKey", query, facetFilters, start, count);
+        final SearchResult searchResult = _entityClient.search("mlPrimaryKey", query, facetFilters, start, count, context.getActor());
         return UrnSearchResultsMapper.map(searchResult);
     }
 
@@ -92,7 +93,7 @@ public class MLPrimaryKeyType implements SearchableEntityType<MLPrimaryKey> {
                                             int limit,
                                             @Nonnull final QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
-        final AutoCompleteResult result = _mlPrimaryKeyClient.autoComplete("mlPrimaryKey", query, facetFilters, limit);
+        final AutoCompleteResult result = _entityClient.autoComplete("mlPrimaryKey", query, facetFilters, limit, context.getActor());
         return AutoCompleteResultsMapper.map(result);
     }
 }

@@ -13,10 +13,6 @@ record MLModelDeploymentKey {
   /**
   * Standardized platform urn for the model Deployment
   */
-  @Searchable = {
-    "fieldType": "URN",
-    "addToFilters": true
-  }
   platform: Urn
 
   /**
@@ -34,6 +30,8 @@ record MLModelDeploymentKey {
   */
   @Searchable = {
     "fieldType": "TEXT_PARTIAL",
+    "addToFilters": true,
+    "filterNameOverride": "Environment",
     "queryByDefault": false
   }
   origin: FabricType

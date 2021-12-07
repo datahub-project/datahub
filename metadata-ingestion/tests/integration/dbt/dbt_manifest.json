@@ -3021,7 +3021,9 @@
         "transform",
         "customer_details"
       ],
-      "meta": {},
+      "meta": {
+        "owner": "@alice"
+      },
       "name": "customer_details",
       "original_file_path": "models/transform/customer_details.sql",
       "package_name": "sample_dbt",
@@ -3047,7 +3049,7 @@
           "city"
         ]
       ],
-      "tags": [],
+      "tags": [ "test_tag" ],
       "unique_id": "model.sample_dbt.customer_details",
       "unrendered_config": {
         "materialized": "ephemeral"
@@ -3342,7 +3344,7 @@
           "meta": {},
           "name": "first_name",
           "quote": null,
-          "tags": []
+          "tags": ["column_tag"]
         },
         "last_name": {
           "data_type": null,

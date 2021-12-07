@@ -15,7 +15,7 @@
  */
 package com.linkedin.restli.server.spring;
 
-import com.linkedin.metadata.filter.LoggingFilter;
+import com.linkedin.metadata.filter.RestliLoggingFilter;
 import com.linkedin.parseq.Engine;
 import com.linkedin.parseq.EngineBuilder;
 import com.linkedin.r2.filter.FilterChain;
@@ -43,7 +43,7 @@ public class ParallelRestliHttpRequestHandler implements HttpRequestHandler {
 
   public ParallelRestliHttpRequestHandler(RestLiConfig config, SpringInjectResourceFactory injectResourceFactory,
       FilterChain filterChain) {
-    config.addFilter(new LoggingFilter());
+    config.addFilter(new RestliLoggingFilter());
     RestLiServer restLiServer = new RestLiServer(config, injectResourceFactory, getDefaultParseqEngine());
     _r2Servlet = new RAPServlet(
         new FilterChainDispatcher(new DelegatingTransportDispatcher(restLiServer, restLiServer), filterChain));

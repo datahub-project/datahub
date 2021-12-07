@@ -31,7 +31,8 @@ public class RelationshipClient extends BaseClient {
         @Nonnull RelationshipDirection direction,
         @Nonnull List<String> types,
         @Nullable Integer start,
-        @Nullable Integer count)
+        @Nullable Integer count,
+        @Nonnull String actor)
             throws RemoteInvocationException, URISyntaxException {
         final RelationshipsGetRequestBuilder requestBuilder = RELATIONSHIPS_REQUEST_BUILDERS.get()
                 .urnParam(rawUrn)
@@ -43,6 +44,6 @@ public class RelationshipClient extends BaseClient {
         if (count != null) {
             requestBuilder.countParam(count);
         }
-        return _client.sendRequest(requestBuilder.build()).getResponseEntity();
+        return sendClientRequest(requestBuilder, actor).getEntity();
     }
 }

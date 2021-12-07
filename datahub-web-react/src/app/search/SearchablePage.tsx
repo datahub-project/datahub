@@ -1,5 +1,4 @@
 import React from 'react';
-import { Layout } from 'antd';
 import { useHistory } from 'react-router';
 import { useTheme } from 'styled-components';
 
@@ -7,13 +6,18 @@ import { SearchHeader } from './SearchHeader';
 import { BetaHeader } from './BetaHeader';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { EntityType } from '../../types.generated';
-import { useGetAutoCompleteAllResultsLazyQuery } from '../../graphql/search.generated';
+import { useGetAutoCompleteMultipleResultsLazyQuery } from '../../graphql/search.generated';
 import { navigateToSearchUrl } from './utils/navigateToSearchUrl';
 import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
 import analytics, { EventType } from '../analytics';
 
 const styles = {
-    children: { marginTop: 120 },
+    children: {
+        flex: '1',
+        marginTop: 60,
+        display: 'flex',
+        flexDirection: 'column' as const,
+    },
 };
 
 interface Props extends React.PropsWithChildren<any> {
@@ -36,8 +40,8 @@ export const SearchablePage = ({ initialQuery, onSearch, onAutoComplete, childre
     const entityRegistry = useEntityRegistry();
     const themeConfig = useTheme();
 
-    const user = useGetAuthenticatedUser();
-    const [getAutoCompleteResults, { data: suggestionsData }] = useGetAutoCompleteAllResultsLazyQuery();
+    const [getAutoCompleteResults, { data: suggestionsData }] = useGetAutoCompleteMultipleResultsLazyQuery();
+    const user = useGetAuthenticatedUser()?.corpUser;
 
     const search = (query: string, type?: EntityType) => {
         if (!query || query.trim().length === 0) {
@@ -54,29 +58,30 @@ export const SearchablePage = ({ initialQuery, onSearch, onAutoComplete, childre
             type,
             query,
             history,
-            entityRegistry,
         });
     };
 
     const autoComplete = (query: string) => {
-        getAutoCompleteResults({
-            variables: {
-                input: {
-                    query,
+        if (query && query.trim() !== '') {
+            getAutoCompleteResults({
+                variables: {
+                    input: {
+                        query,
+                    },
                 },
-            },
-        });
+            });
+        }
     };
 
     return (
-        <Layout>
+        <>
             <SearchHeader
                 initialQuery={initialQuery as string}
                 placeholderText={themeConfig.content.search.searchbarMessage}
                 suggestions={
                     (suggestionsData &&
-                        suggestionsData?.autoCompleteForAll &&
-                        suggestionsData.autoCompleteForAll.suggestions) ||
+                        suggestionsData?.autoCompleteForMultiple &&
+                        suggestionsData.autoCompleteForMultiple.suggestions) ||
                     []
                 }
                 onSearch={onSearch || search}
@@ -87,7 +92,7 @@ export const SearchablePage = ({ initialQuery, onSearch, onAutoComplete, childre
             />
             <BetaHeader />
             <div style={styles.children}>{children}</div>
-        </Layout>
+        </>
     );
 };
 

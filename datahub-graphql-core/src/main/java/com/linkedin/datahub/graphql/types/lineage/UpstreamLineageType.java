@@ -15,6 +15,7 @@ import java.util.stream.Collectors;
 
 public class UpstreamLineageType implements LoadableType<UpstreamEntityRelationships> {
 
+
     private final Lineages _lineageClient;
     private final RelationshipDirection _direction = RelationshipDirection.OUTGOING;
 
@@ -34,7 +35,7 @@ public class UpstreamLineageType implements LoadableType<UpstreamEntityRelations
             return keys.stream().map(urn -> {
                 try {
                     com.linkedin.common.EntityRelationships relationships =
-                            _lineageClient.getLineage(urn, _direction);
+                            _lineageClient.getLineage(urn, _direction, context.getActor());
                     return DataFetcherResult.<UpstreamEntityRelationships>newResult().data(UpstreamEntityRelationshipsMapper.map(relationships)).build();
                 } catch (RemoteInvocationException | URISyntaxException e) {
                     throw new RuntimeException(String.format("Failed to batch load DownstreamLineage for entity %s", urn), e);

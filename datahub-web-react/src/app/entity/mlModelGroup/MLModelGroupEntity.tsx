@@ -42,6 +42,8 @@ export class MLModelGroupEntity implements Entity<MlModelGroup> {
 
     getPathName = () => 'mlModelGroup';
 
+    getEntityName = () => 'ML Group';
+
     getCollectionName = () => 'ML Groups';
 
     renderProfile = (urn: string) => <MLModelGroupProfile urn={urn} />;
@@ -69,5 +71,9 @@ export class MLModelGroupEntity implements Entity<MlModelGroup> {
             icon: entity.platform.info?.logoUrl || undefined,
             platform: entity.platform.name,
         };
+    };
+
+    displayName = (data: MlModelGroup) => {
+        return data.name;
     };
 }

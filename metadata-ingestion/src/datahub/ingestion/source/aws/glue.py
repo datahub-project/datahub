@@ -555,6 +555,23 @@ class GlueSource(Source):
                     nullable=True,
                 )
                 fields.append(schema_field)
+
+            partition_keys = table.get("PartitionKeys", [])
+            for partition_key in partition_keys:
+                schema_field = SchemaField(
+                    fieldPath=partition_key["Name"],
+                    nativeDataType=partition_key["Type"],
+                    type=get_column_type(
+                        glue_source,
+                        partition_key["Type"],
+                        table_name,
+                        partition_key["Name"],
+                    ),
+                    recursive=False,
+                    nullable=False,
+                )
+                fields.append(schema_field)
+
             return SchemaMetadata(
                 schemaName=table_name,
                 version=0,

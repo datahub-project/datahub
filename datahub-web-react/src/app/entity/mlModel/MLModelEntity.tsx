@@ -42,6 +42,8 @@ export class MLModelEntity implements Entity<MlModel> {
 
     getPathName = () => 'mlModels';
 
+    getEntityName = () => 'ML Model';
+
     getCollectionName = () => 'ML Models';
 
     renderProfile = (urn: string) => <MLModelProfile urn={urn} />;
@@ -69,5 +71,9 @@ export class MLModelEntity implements Entity<MlModel> {
             icon: entity.platform.info?.logoUrl || undefined,
             platform: entity.platform.name,
         };
+    };
+
+    displayName = (data: MlModel) => {
+        return data.name;
     };
 }

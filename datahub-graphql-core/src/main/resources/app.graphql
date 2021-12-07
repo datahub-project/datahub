@@ -1,0 +1,156 @@
+# DataHub UI Application-Specific GraphQL Types
+
+extend type Query {
+    """
+    Fetch details associated with the authenticated user, provided via an auth cookie or header
+    """
+    me: AuthenticatedUser
+
+    """
+    Fetch configurations
+    Used by DataHub UI
+    """
+    appConfig: AppConfig
+}
+
+"""
+Information about the currently authenticated user
+"""
+type AuthenticatedUser {
+  """
+  The user information associated with the authenticated user, including properties used in rendering the profile
+  """
+  corpUser: CorpUser!
+
+  """
+  The privileges assigned to the currently authenticated user, which dictates which parts of the UI they should be able to use
+  """
+  platformPrivileges: PlatformPrivileges!
+}
+
+"""
+The platform privileges that the currently authenticated user has
+"""
+type PlatformPrivileges {
+  """
+  Whether the user should be able to view analytics
+  """
+  viewAnalytics: Boolean!
+
+  """
+  Whether the user should be able to manage policies
+  """
+  managePolicies: Boolean!
+
+  """
+  Whether the user should be able to manage users & groups
+  """
+  manageIdentities: Boolean!
+}
+
+"""
+Config loaded at application boot time
+This configuration dictates the behavior of the UI, such as which features are enabled or disabled
+"""
+type AppConfig {
+  """
+  Configurations related to the Analytics Feature
+  """
+  analyticsConfig: AnalyticsConfig!
+
+  """
+  Configurations related to the Policies Feature
+  """
+  policiesConfig: PoliciesConfig!
+
+  """
+  Configurations related to the User & Group management
+  """
+  identityManagementConfig: IdentityManagementConfig!
+}
+
+"""
+Configurations related to the Analytics Feature
+"""
+type AnalyticsConfig {
+  """
+  Whether the Analytics feature is enabled and should be displayed
+  """
+  enabled: Boolean!
+}
+
+"""
+Configurations related to the Policies Feature
+"""
+type PoliciesConfig {
+  """
+  Whether the policies feature is enabled and should be displayed in the UI
+  """
+  enabled: Boolean!
+
+  """
+  A list of platform privileges to display in the Policy Builder experience
+  """
+  platformPrivileges: [Privilege!]!
+
+  """
+  A list of resource privileges to display in the Policy Builder experience
+  """
+  resourcePrivileges: [ResourcePrivileges!]!
+}
+
+"""
+An individual DataHub Access Privilege
+"""
+type Privilege {
+  """
+  Standardized privilege type, serving as a unique identifier for a privilege eg EDIT_ENTITY
+  """
+  type: String!
+
+  """
+  The name to appear when displaying the privilege, eg Edit Entity
+  """
+  displayName: String
+
+  """
+  A description of the privilege to display
+  """
+  description: String
+}
+
+"""
+A privilege associated with a particular resource type
+A resource is most commonly a DataHub Metadata Entity
+"""
+type ResourcePrivileges {
+  """
+  Resource type associated with the Access Privilege, eg dataset
+  """
+  resourceType: String!
+
+  """
+  The name to used for displaying the resourceType
+  """
+  resourceTypeDisplayName: String
+
+  """
+  An optional entity type to use when performing search and navigation to the entity
+  """
+  entityType: EntityType
+
+  """
+  A list of privileges that are supported against this resource
+  """
+  privileges: [Privilege!]!
+}
+
+"""
+Configurations related to Identity Management
+"""
+type IdentityManagementConfig {
+  """
+  Whether identity management screen is able to be shown in the UI
+  """
+  enabled: Boolean!
+}

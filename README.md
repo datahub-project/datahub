@@ -1,30 +1,25 @@
 <!--HOSTED_DOCS_ONLY
-import ThemedImage from '@theme/ThemedImage';
 import useBaseUrl from '@docusaurus/useBaseUrl';
-import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 
 export const Logo = (props) => {
-  const siteConfig = useDocusaurusContext().siteConfig;
   return (
-    <div style={{display: "flex"}}>
-      <ThemedImage
+    <div style={{ display: "flex", justifyContent: "center", padding: "20px" }}>
+      <img
+        height="150"
         alt="DataHub Logo"
-        sources={{
-            light: useBaseUrl(siteConfig.themeConfig.navbar.logo.src),
-            dark: useBaseUrl(siteConfig.themeConfig.navbar.logo.srcDark),
-        }}
+        src={useBaseUrl("/static/img/datahub-logo-color-mark.svg")}
         {...props}
       />
     </div>
-  )
+  );
 };
 
-<Logo style={{"maxWidth": "16em", "margin": "0 auto"}} />
+<Logo />
 
 <!--
 HOSTED_DOCS_ONLY-->
 <p align="center">
-<img alt="DataHub" src="docs/imgs/datahub-logo.png" height="200px" />
+<img alt="DataHub" src="docs/imgs/datahub-logo-color-mark.svg" height="150" />
 </p>
 <!-- -->
 
@@ -53,7 +48,7 @@ HOSTED_DOCS_ONLY-->
 
 ---
 
-> 📣 Next DataHub town hall meeting on Aug 27th, 9am-10am PDT ([convert to your local time](https://greenwichmeantime.com/time/to/pacific-local/))
+> 📣 Next DataHub town hall meeting on Sep 24th, 9am-10am PDT ([convert to your local time](https://greenwichmeantime.com/time/to/pacific-local/))
 >
 > - Topic Proposals: [submit here](https://docs.google.com/forms/d/1v2ynbAXjJlqY97xE_X1DAntNrXDznOFiNfryUkMPtkI/)
 > - Signup to get a calendar invite: [here](https://docs.google.com/forms/d/1r9bObXKS3tgKpISqqO3rw4yQog5zwuaFxg8IrJGUbvQ/)
@@ -62,7 +57,7 @@ HOSTED_DOCS_ONLY-->
 
 > ✨ Latest Update:
 >
-> - Monthly project update: [June 2021 Edition](https://medium.com/datahub-project/datahub-project-updates-ed3155476408?source=friends_link&sk=02816a16ff2acd688e6db8eb55808d31).
+> - Monthly project update: [July 2021 Edition](https://medium.com/datahub-project/datahub-project-updates-f4299cd3602e?source=friends_link&sk=27af7637f7ae44786ede694c3af512a5).
 > - Unleashing Excellent DataOps with LinkedIn DataHub: [DataOps Unleashed Talk](https://www.youtube.com/watch?v=ccsIKK9nVxk).
 > - Latest blog post [DataHub: Popular Metadata Architectures Explained](https://engineering.linkedin.com/blog/2020/datahub-popular-metadata-architectures-explained) @ LinkedIn Engineering Blog.
 > - We're on [Slack](docs/slack.md) now! Ask questions and keep up with the latest announcements.
@@ -80,7 +75,7 @@ Please follow the [DataHub Quickstart Guide](https://datahubproject.io/docs/quic
 
 There's a [hosted demo environment](https://datahubproject.io/docs/demo) where you can play around with DataHub before installing.
 
-[![DataHub Demo GIF](docs/imgs/demo_large.gif)](https://datahubproject.io/docs/demo)
+[![DataHub Demo GIF](docs/imgs/entity.png)](https://datahubproject.io/docs/demo)
 
 ## Source Code and Repositories
 
@@ -111,21 +106,23 @@ Join our [slack workspace](https://slack.datahubproject.io) for discussions and 
 
 Here are the companies that have officially adopted DataHub. Please feel free to add yours to the list if we missed it.
 
+- [Banksalad](https://www.banksalad.com)
 - [DefinedCrowd](http://www.definedcrowd.com)
+- [DFDS](https://www.dfds.com/)
 - [Expedia Group](http://expedia.com)
 - [Experius](https://www.experius.nl)
 - [Geotab](https://www.geotab.com)
 - [Grofers](https://grofers.com)
 - [Klarna](https://www.klarna.com)
 - [LinkedIn](http://linkedin.com)
+- [Peloton](https://www.onepeloton.com)
 - [Saxo Bank](https://www.home.saxo)
 - [Shanghai HuaRui Bank](https://www.shrbank.com)
 - [ThoughtWorks](https://www.thoughtworks.com)
 - [TypeForm](http://typeform.com)
+- [Uphold](https://uphold.com)
 - [Viasat](https://viasat.com)
 - [Wolt](https://wolt.com)
-
-
 
 ## Select Articles & Talks
 

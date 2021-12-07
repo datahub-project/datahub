@@ -1,5 +1,5 @@
-mutation updateDataset($input: DatasetUpdateInput!) {
-    updateDataset(input: $input) {
+mutation updateDataset($urn: String!, $input: DatasetUpdateInput!) {
+    updateDataset(urn: $urn, input: $input) {
         ...nonRecursiveDatasetFields
         downstreamLineage {
             ...downstreamRelationshipFields
@@ -56,6 +56,9 @@ query getDataset($urn: String!) {
                 globalTags {
                     ...globalTagsFields
                 }
+                glossaryTerms {
+                    ...glossaryTerms
+                }
             }
         }
         deprecation {
@@ -69,6 +72,9 @@ query getDataset($urn: String!) {
         }
         glossaryTerms {
             ...glossaryTerms
+        }
+        subTypes {
+            typeNames
         }
         usageStats(resource: $urn, range: MONTH) {
             buckets {
@@ -116,6 +122,7 @@ query getDataset($urn: String!) {
                 sampleValues
             }
         }
+        ...viewProperties
     }
 }
 
@@ -142,5 +149,13 @@ query getDatasetSchemaVersions($urn: String!, $version1: Long, $version2: Long) 
                 }
             }
         }
+    }
+}
+
+fragment viewProperties on Dataset {
+    viewProperties {
+        materialized
+        logic
+        language
     }
 }

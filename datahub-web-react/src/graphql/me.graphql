@@ -1,0 +1,27 @@
+query getMe {
+    me {
+        corpUser {
+            urn
+            username
+            info {
+                active
+                displayName
+                title
+                firstName
+                lastName
+                fullName
+                email
+            }
+            editableInfo {
+                pictureLink
+                teams
+                skills
+            }
+        }
+        platformPrivileges {
+            viewAnalytics
+            managePolicies
+            manageIdentities
+        }
+    }
+}

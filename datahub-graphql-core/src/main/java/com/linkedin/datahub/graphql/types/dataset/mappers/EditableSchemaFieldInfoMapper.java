@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.types.dataset.mappers;
 
+import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
 import com.linkedin.schema.EditableSchemaFieldInfo;
@@ -26,6 +27,10 @@ public class EditableSchemaFieldInfoMapper implements ModelMapper<EditableSchema
         }
         if (input.hasGlobalTags()) {
             result.setGlobalTags(GlobalTagsMapper.map(input.getGlobalTags()));
+            result.setTags(GlobalTagsMapper.map(input.getGlobalTags()));
+        }
+        if (input.hasGlossaryTerms()) {
+            result.setGlossaryTerms(GlossaryTermsMapper.map(input.getGlossaryTerms()));
         }
         return result;
     }

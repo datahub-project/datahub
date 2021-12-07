@@ -63,6 +63,11 @@ export default class EntityRegistry {
         return entity.getCollectionName();
     }
 
+    getEntityName(type: EntityType): string | undefined {
+        const entity = validatedGet(type, this.entityTypeToEntity);
+        return entity.getEntityName?.();
+    }
+
     getTypeFromCollectionName(name: string): EntityType {
         return validatedGet(name, this.collectionNameToEntityType);
     }
@@ -111,5 +116,10 @@ export default class EntityRegistry {
     getLineageVizConfig<T>(type: EntityType, data: T): FetchedEntity | undefined {
         const entity = validatedGet(type, this.entityTypeToEntity);
         return entity.getLineageVizConfig?.(data) || undefined;
+    }
+
+    getDisplayName<T>(type: EntityType, data: T): string {
+        const entity = validatedGet(type, this.entityTypeToEntity);
+        return entity.displayName(data);
     }
 }

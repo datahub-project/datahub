@@ -23,6 +23,7 @@ services:
   schema-registry:
     image: confluentinc/cp-schema-registry:5.4.0
     env_file: schema-registry.env
+    container_name: test_schema_registry
     depends_on:
       - zookeeper
       - broker

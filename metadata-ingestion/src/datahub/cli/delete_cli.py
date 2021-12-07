@@ -2,7 +2,7 @@ import logging
 
 import click
 
-from datahub.cli.cli_utils import post_delete_endpoint
+from datahub.cli import cli_utils
 
 logger = logging.getLogger(__name__)
 
@@ -14,15 +14,22 @@ RUN_TABLE_COLUMNS = ["urn", "aspect name", "created at"]
 
 @click.command()
 @click.option("--urn", required=True, type=str)
-def delete(urn: str) -> None:
+@click.option("-f", "--force", required=False, type=bool, default=False)
+def delete(urn: str, force: bool) -> None:
     """Delete a provided URN from datahub"""
-    click.confirm(
-        "This will permanently delete data from DataHub. Do you want to continue?",
-        abort=True,
-    )
+    if not force:
+        click.confirm(
+            "This will permanently delete data from DataHub. Do you want to continue?",
+            abort=True,
+        )
 
     payload_obj = {"urn": urn}
 
-    urn, rows_affected = post_delete_endpoint(payload_obj, "/entities?action=delete")
+    urn, rows_affected = cli_utils.post_delete_endpoint(
+        payload_obj, "/entities?action=delete"
+    )
 
-    click.echo(f"Successfully deleted {urn}. {rows_affected} rows deleted")
+    if rows_affected == 0:
+        click.echo(f"Nothing deleted for {urn}")
+    else:
+        click.echo(f"Successfully deleted {urn}. {rows_affected} rows deleted")

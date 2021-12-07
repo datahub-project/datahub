@@ -1,11 +1,14 @@
 import React from 'react';
-import { Button } from 'antd';
+import { Button, Typography } from 'antd';
+import { FileTextOutlined, TableOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
 import CustomPagination from './CustomPagination';
+import TabToolbar from '../../../../shared/components/styled/TabToolbar';
 
-const SchemaHeaderContainer = styled.div<{ edit?: string }>`
+const SchemaHeaderContainer = styled.div`
     display: flex;
-    ${(props) => (props.edit ? 'justify-content: flex-end; padding-bottom: 16px;' : 'justify-content: space-between;')}
+    justify-content: flex-end;
+    padding-bottom: 16px;
 `;
 
 // TODO(Gabe): undo display: none when dbt/bigquery flickering has been resolved
@@ -15,12 +18,14 @@ const ShowVersionButton = styled(Button)`
     display: none;
 `;
 
-const KeyButton = styled(Button)`
+const KeyButton = styled(Button)<{ highlighted: boolean }>`
     border-radius: 8px 0px 0px 8px;
+    font-weight: ${(props) => (props.highlighted ? '600' : '400')};
 `;
 
-const ValueButton = styled(Button)`
+const ValueButton = styled(Button)<{ highlighted: boolean }>`
     border-radius: 0px 8px 8px 0px;
+    font-weight: ${(props) => (props.highlighted ? '600' : '400')};
 `;
 
 const KeyValueButtonGroup = styled.div`
@@ -29,10 +34,10 @@ const KeyValueButtonGroup = styled.div`
 `;
 
 type Props = {
-    maxVersion: number;
-    fetchVersions: (version1: number, version2: number) => void;
+    maxVersion?: number;
+    fetchVersions?: (version1: number, version2: number) => void;
     editMode: boolean;
-    setEditMode: (mode: boolean) => void;
+    setEditMode?: (mode: boolean) => void;
     hasRaw: boolean;
     showRaw: boolean;
     setShowRaw: (show: boolean) => void;
@@ -42,7 +47,7 @@ type Props = {
 };
 
 export default function SchemaHeader({
-    maxVersion,
+    maxVersion = 0,
     fetchVersions,
     editMode,
     setEditMode,
@@ -57,34 +62,47 @@ export default function SchemaHeader({
         if (version1 === null || version2 === null) {
             return;
         }
-        fetchVersions(version1 - maxVersion, version2 - maxVersion);
+        fetchVersions?.(version1 - maxVersion, version2 - maxVersion);
     };
 
     return (
-        <SchemaHeaderContainer edit={editMode ? 'true' : undefined}>
-            {maxVersion > 0 && !editMode && <CustomPagination onChange={onVersionChange} maxVersion={maxVersion} />}
-            <div>
-                {hasKeySchema && (
-                    <KeyValueButtonGroup>
-                        <KeyButton type={showKeySchema ? 'primary' : 'default'} onClick={() => setShowKeySchema(true)}>
-                            Key
-                        </KeyButton>
-                        <ValueButton
-                            type={showKeySchema ? 'default' : 'primary'}
-                            onClick={() => setShowKeySchema(false)}
-                        >
-                            Value
-                        </ValueButton>
-                    </KeyValueButtonGroup>
-                )}
-                {maxVersion > 0 &&
-                    (editMode ? (
-                        <ShowVersionButton onClick={() => setEditMode(false)}>Version History</ShowVersionButton>
-                    ) : (
-                        <ShowVersionButton onClick={() => setEditMode(true)}>Back</ShowVersionButton>
-                    ))}
-                {hasRaw && <Button onClick={() => setShowRaw(!showRaw)}>{showRaw ? 'Tabular' : 'Raw'}</Button>}
-            </div>
-        </SchemaHeaderContainer>
+        <TabToolbar>
+            <SchemaHeaderContainer>
+                {maxVersion > 0 && !editMode && <CustomPagination onChange={onVersionChange} maxVersion={maxVersion} />}
+                <div>
+                    {hasRaw && (
+                        <Button type="text" onClick={() => setShowRaw(!showRaw)}>
+                            {showRaw ? (
+                                <>
+                                    <TableOutlined />
+                                    <Typography.Text>Tabular</Typography.Text>
+                                </>
+                            ) : (
+                                <>
+                                    <FileTextOutlined />
+                                    <Typography.Text>Raw</Typography.Text>
+                                </>
+                            )}
+                        </Button>
+                    )}
+                    {hasKeySchema && (
+                        <KeyValueButtonGroup>
+                            <KeyButton highlighted={showKeySchema} onClick={() => setShowKeySchema(true)}>
+                                Key
+                            </KeyButton>
+                            <ValueButton highlighted={!showKeySchema} onClick={() => setShowKeySchema(false)}>
+                                Value
+                            </ValueButton>
+                        </KeyValueButtonGroup>
+                    )}
+                    {maxVersion > 0 &&
+                        (editMode ? (
+                            <ShowVersionButton onClick={() => setEditMode?.(false)}>Version History</ShowVersionButton>
+                        ) : (
+                            <ShowVersionButton onClick={() => setEditMode?.(true)}>Back</ShowVersionButton>
+                        ))}
+                </div>
+            </SchemaHeaderContainer>
+        </TabToolbar>
     );
 }

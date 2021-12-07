@@ -40,7 +40,9 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
 
     getPathName = () => 'featureTables';
 
-    getCollectionName = () => 'Feature tables';
+    getEntityName = () => 'Feature Table';
+
+    getCollectionName = () => 'Feature Tables';
 
     renderProfile = (urn: string) => <MLFeatureTableProfile urn={urn} />;
 
@@ -77,5 +79,9 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
             icon: entity.platform.info?.logoUrl || undefined,
             platform: entity.platform.name,
         };
+    };
+
+    displayName = (data: MlFeatureTable) => {
+        return data.name;
     };
 }

@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useHistory } from 'react-router';
 
-import { Alert, Button, Col, Row, Drawer } from 'antd';
+import { Alert, Button, Drawer } from 'antd';
+import { InfoCircleOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
 
 import { Message } from '../shared/Message';
@@ -14,12 +15,26 @@ import extendAsyncEntities from './utils/extendAsyncEntities';
 import useLazyGetEntityQuery from './utils/useLazyGetEntityQuery';
 import useGetEntityQuery from './utils/useGetEntityQuery';
 import { EntityType } from '../../types.generated';
+import { capitalizeFirstLetter } from '../shared/capitalizeFirstLetter';
+import { ANTD_GRAY } from '../entity/shared/constants';
 
 const LoadingMessage = styled(Message)`
     margin-top: 10%;
 `;
-const FooterButtonGroup = styled(Row)`
+const FooterButtonGroup = styled.div`
+    display: flex;
+    justify-content: space-between;
     margin: 12px 0;
+`;
+
+const EntityDrawer = styled(Drawer)`
+    top: 106px;
+    z-index: 1;
+    height: calc(100vh - 106px);
+    .ant-drawer-content-wrapper {
+        border-right: 1px solid ${ANTD_GRAY[4.5]};
+        box-shadow: none !important;
+    }
 `;
 
 function usePrevious(value) {
@@ -67,6 +82,11 @@ export default function LineageExplorer({ urn, type }: Props) {
         [asyncEntities, setAsyncEntities, entityRegistry],
     );
 
+    const handleClose = () => {
+        setIsDrawVisible(false);
+        setSelectedEntity(undefined);
+    };
+
     useEffect(() => {
         if (type && data) {
             maybeAddAsyncLoadedEntity(data);
@@ -104,28 +124,22 @@ export default function LineageExplorer({ urn, type }: Props) {
                     />
                 </div>
             )}
-            <Drawer
-                title="Entity Overview"
+            <EntityDrawer
                 placement="left"
-                closable
-                onClose={() => {
-                    setIsDrawVisible(false);
-                    setSelectedEntity(undefined);
-                }}
+                closable={false}
+                onClose={handleClose}
                 visible={isDrawerVisible}
-                width={425}
+                width={490}
                 mask={false}
                 footer={
                     selectedEntity && (
-                        <FooterButtonGroup gutter={24}>
-                            <Col span={8} offset={8}>
-                                <Button
-                                    type="primary"
-                                    href={entityRegistry.getEntityUrl(selectedEntity.type, selectedEntity.urn)}
-                                >
-                                    View Profile
-                                </Button>
-                            </Col>
+                        <FooterButtonGroup>
+                            <Button onClick={handleClose} type="text">
+                                Close
+                            </Button>
+                            <Button href={entityRegistry.getEntityUrl(selectedEntity.type, selectedEntity.urn)}>
+                                <InfoCircleOutlined /> {capitalizeFirstLetter(selectedEntity.type)} Details
+                            </Button>
                         </FooterButtonGroup>
                     )
                 }
@@ -133,7 +147,7 @@ export default function LineageExplorer({ urn, type }: Props) {
                 <CompactContext.Provider value>
                     {selectedEntity && entityRegistry.renderProfile(selectedEntity.type, selectedEntity.urn)}
                 </CompactContext.Provider>
-            </Drawer>
+            </EntityDrawer>
         </>
     );
 }

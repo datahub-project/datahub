@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.types.dataflow;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
 import com.linkedin.common.urn.CorpuserUrn;
@@ -7,6 +8,12 @@ import com.linkedin.common.urn.DataFlowUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.authorization.ConjunctivePrivilegeGroup;
+import com.linkedin.datahub.graphql.authorization.DisjunctivePrivilegeGroup;
+import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.authorization.PoliciesConfig;
+import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
 import com.linkedin.datahub.graphql.generated.BrowsePath;
 import com.linkedin.datahub.graphql.generated.BrowseResults;
@@ -25,17 +32,17 @@ import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowsePathsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowseResultMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
-import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.Entity;
 import com.linkedin.metadata.extractor.AspectExtractor;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
-import com.linkedin.metadata.query.SearchResult;
+import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.snapshot.DataFlowSnapshot;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.execution.DataFetcherResult;
 import java.net.URISyntaxException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -50,10 +57,10 @@ import static com.linkedin.datahub.graphql.Constants.BROWSE_PATH_DELIMITER;
 public class DataFlowType implements SearchableEntityType<DataFlow>, BrowsableEntityType<DataFlow>, MutableType<DataFlowUpdateInput> {
 
     private static final Set<String> FACET_FIELDS = ImmutableSet.of("orchestrator", "cluster");
-    private final EntityClient _dataFlowsClient;
+    private final EntityClient _entityClient;
 
-    public DataFlowType(final EntityClient dataFlowsClient) {
-        _dataFlowsClient = dataFlowsClient;
+    public DataFlowType(final EntityClient entityClient) {
+        _entityClient = entityClient;
     }
 
     @Override
@@ -78,10 +85,11 @@ public class DataFlowType implements SearchableEntityType<DataFlow>, BrowsableEn
             .collect(Collectors.toList());
 
         try {
-            final Map<Urn, Entity> dataFlowMap = _dataFlowsClient.batchGet(dataFlowUrns
+            final Map<Urn, Entity> dataFlowMap = _entityClient.batchGet(dataFlowUrns
                 .stream()
                 .filter(Objects::nonNull)
-                .collect(Collectors.toSet()));
+                .collect(Collectors.toSet()),
+            context.getActor());
 
             final List<Entity> gmsResults = dataFlowUrns.stream()
                 .map(flowUrn -> dataFlowMap.getOrDefault(flowUrn, null)).collect(Collectors.toList());
@@ -104,7 +112,7 @@ public class DataFlowType implements SearchableEntityType<DataFlow>, BrowsableEn
                                 int count,
                                 @Nonnull final QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
-        final SearchResult searchResult = _dataFlowsClient.search("dataFlow", query, facetFilters, start, count);
+        final SearchResult searchResult = _entityClient.search("dataFlow", query, facetFilters, start, count, context.getActor());
         return UrnSearchResultsMapper.map(searchResult);
     }
 
@@ -115,7 +123,7 @@ public class DataFlowType implements SearchableEntityType<DataFlow>, BrowsableEn
                                             int limit,
                                             @Nonnull final QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
-        final AutoCompleteResult result = _dataFlowsClient.autoComplete("dataFlow", query, facetFilters, limit);
+        final AutoCompleteResult result = _entityClient.autoComplete("dataFlow", query, facetFilters, limit, context.getActor());
         return AutoCompleteResultsMapper.map(result);
     }
 
@@ -132,36 +140,77 @@ public class DataFlowType implements SearchableEntityType<DataFlow>, BrowsableEn
         int count, @Nonnull QueryContext context) throws Exception {
                 final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
         final String pathStr = path.size() > 0 ? BROWSE_PATH_DELIMITER + String.join(BROWSE_PATH_DELIMITER, path) : "";
-        final BrowseResult result = _dataFlowsClient.browse(
+        final BrowseResult result = _entityClient.browse(
             "dataFlow",
                 pathStr,
                 facetFilters,
                 start,
-                count);
+                count,
+            context.getActor());
         return BrowseResultMapper.map(result);
     }
 
     @Override
     public List<BrowsePath> browsePaths(@Nonnull String urn, @Nonnull QueryContext context) throws Exception {
-        final StringArray result = _dataFlowsClient.getBrowsePaths(DataFlowUrn.createFromString(urn));
+        final StringArray result = _entityClient.getBrowsePaths(DataFlowUrn.createFromString(urn), context.getActor());
         return BrowsePathsMapper.map(result);
     }
 
     @Override
-    public DataFlow update(@Nonnull DataFlowUpdateInput input, @Nonnull QueryContext context) throws Exception {
+    public DataFlow update(@Nonnull String urn, @Nonnull DataFlowUpdateInput input, @Nonnull QueryContext context) throws Exception {
 
-        final CorpuserUrn actor = CorpuserUrn.createFromString(context.getActor());
-        final DataFlowSnapshot dataFlowSnapshot = DataFlowUpdateInputSnapshotMapper.map(input, actor);
-        final Snapshot snapshot = Snapshot.create(dataFlowSnapshot);
+        if (isAuthorized(urn, input, context)) {
+            final CorpuserUrn actor = CorpuserUrn.createFromString(context.getActor());
+            final DataFlowSnapshot dataFlowSnapshot = DataFlowUpdateInputSnapshotMapper.map(input, actor);
+            dataFlowSnapshot.setUrn(DataFlowUrn.createFromString(urn));
+            final Snapshot snapshot = Snapshot.create(dataFlowSnapshot);
 
-        try {
-            Entity entity = new Entity();
-            entity.setValue(snapshot);
-            _dataFlowsClient.update(entity);
-        } catch (RemoteInvocationException e) {
-            throw new RuntimeException(String.format("Failed to write entity with urn %s", input.getUrn()), e);
+            try {
+                Entity entity = new Entity();
+                entity.setValue(snapshot);
+                _entityClient.update(entity, context.getActor());
+            } catch (RemoteInvocationException e) {
+                throw new RuntimeException(String.format("Failed to write entity with urn %s", urn), e);
+            }
+
+            return load(urn, context).getData();
         }
+        throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
+    }
 
-        return load(input.getUrn(), context).getData();
+    private boolean isAuthorized(@Nonnull String urn, @Nonnull DataFlowUpdateInput update, @Nonnull QueryContext context) {
+        // Decide whether the current principal should be allowed to update the Dataset.
+        final DisjunctivePrivilegeGroup orPrivilegeGroups = getAuthorizedPrivileges(update);
+        return AuthorizationUtils.isAuthorized(
+            context.getAuthorizer(),
+            context.getActor(),
+            PoliciesConfig.DATA_FLOW_PRIVILEGES.getResourceType(),
+            urn,
+            orPrivilegeGroups);
+    }
+
+    private DisjunctivePrivilegeGroup getAuthorizedPrivileges(final DataFlowUpdateInput updateInput) {
+
+        final ConjunctivePrivilegeGroup allPrivilegesGroup = new ConjunctivePrivilegeGroup(ImmutableList.of(
+            PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType()
+        ));
+
+        List<String> specificPrivileges = new ArrayList<>();
+        if (updateInput.getOwnership() != null) {
+            specificPrivileges.add(PoliciesConfig.EDIT_ENTITY_OWNERS_PRIVILEGE.getType());
+        }
+        if (updateInput.getEditableProperties() != null) {
+            specificPrivileges.add(PoliciesConfig.EDIT_ENTITY_DOCS_PRIVILEGE.getType());
+        }
+        if (updateInput.getGlobalTags() != null) {
+            specificPrivileges.add(PoliciesConfig.EDIT_ENTITY_TAGS_PRIVILEGE.getType());
+        }
+        final ConjunctivePrivilegeGroup specificPrivilegeGroup = new ConjunctivePrivilegeGroup(specificPrivileges);
+
+        // If you either have all entity privileges, or have the specific privileges required, you are authorized.
+        return new DisjunctivePrivilegeGroup(ImmutableList.of(
+            allPrivilegesGroup,
+            specificPrivilegeGroup
+        ));
     }
 }

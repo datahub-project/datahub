@@ -7,22 +7,26 @@ import { useGetUserQuery } from '../../../graphql/user.generated';
 import { useGetAllEntitySearchResults } from '../../../utils/customGraphQL/useGetAllEntitySearchResults';
 import { Message } from '../../shared/Message';
 import RelatedEntityResults from '../../shared/entitySearch/RelatedEntityResults';
-import { EntityProfile } from '../../shared/EntityProfile';
-import { CorpUser, EntityType, SearchResult } from '../../../types.generated';
+import { LegacyEntityProfile } from '../../shared/LegacyEntityProfile';
+import { CorpUser, EntityType, SearchResult, EntityRelationshipsResult } from '../../../types.generated';
+import UserGroups from './UserGroups';
 
 const messageStyle = { marginTop: '10%' };
 
 export enum TabType {
     Ownership = 'Ownership',
+    Groups = 'Groups',
 }
-const ENABLED_TAB_TYPES = [TabType.Ownership];
+const ENABLED_TAB_TYPES = [TabType.Ownership, TabType.Groups];
+
+const GROUP_PAGE_SIZE = 20;
 
 /**
  * Responsible for reading & writing users.
  */
 export default function UserProfile() {
     const { urn } = useUserParams();
-    const { loading, error, data } = useGetUserQuery({ variables: { urn } });
+    const { loading, error, data } = useGetUserQuery({ variables: { urn, groupsCount: GROUP_PAGE_SIZE } });
     const username = data?.corpUser?.username;
 
     const ownershipResult = useGetAllEntitySearchResults({
@@ -53,12 +57,21 @@ export default function UserProfile() {
         return <Alert type="error" message={error?.message || 'Entity failed to load'} />;
     }
 
+    const groupMemberRelationships = data?.corpUser?.relationships as EntityRelationshipsResult;
+
     const getTabs = () => {
         return [
             {
                 name: TabType.Ownership,
                 path: TabType.Ownership.toLocaleLowerCase(),
                 content: <RelatedEntityResults searchResult={ownershipForDetails} />,
+            },
+            {
+                name: TabType.Groups,
+                path: TabType.Groups.toLocaleLowerCase(),
+                content: (
+                    <UserGroups urn={urn} initialRelationships={groupMemberRelationships} pageSize={GROUP_PAGE_SIZE} />
+                ),
             },
         ].filter((tab) => ENABLED_TAB_TYPES.includes(tab.name));
     };
@@ -80,7 +93,12 @@ export default function UserProfile() {
         <>
             {contentLoading && <Message type="loading" content="Loading..." style={messageStyle} />}
             {data && data.corpUser && (
-                <EntityProfile title="" tags={null} header={getHeader(data.corpUser as CorpUser)} tabs={getTabs()} />
+                <LegacyEntityProfile
+                    title=""
+                    tags={null}
+                    header={getHeader(data.corpUser as CorpUser)}
+                    tabs={getTabs()}
+                />
             )}
         </>
     );

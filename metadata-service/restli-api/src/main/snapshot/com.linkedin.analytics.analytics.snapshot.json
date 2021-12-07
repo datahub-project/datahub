@@ -1,0 +1,239 @@
+{
+  "models" : [ {
+    "type" : "record",
+    "name" : "GetTimeseriesAggregatedStatsResponse",
+    "namespace" : "com.linkedin.analytics",
+    "fields" : [ {
+      "name" : "entityName",
+      "type" : "string",
+      "doc" : "Input param entityName"
+    }, {
+      "name" : "aspectName",
+      "type" : "string",
+      "doc" : "Input param aspectName"
+    }, {
+      "name" : "filter",
+      "type" : {
+        "type" : "record",
+        "name" : "Filter",
+        "namespace" : "com.linkedin.metadata.query.filter",
+        "doc" : "The filter for finding a record or a collection of records",
+        "fields" : [ {
+          "name" : "or",
+          "type" : {
+            "type" : "array",
+            "items" : {
+              "type" : "record",
+              "name" : "ConjunctiveCriterion",
+              "doc" : "A list of criterion and'd together.",
+              "fields" : [ {
+                "name" : "and",
+                "type" : {
+                  "type" : "array",
+                  "items" : {
+                    "type" : "record",
+                    "name" : "Criterion",
+                    "doc" : "A criterion for matching a field with given value",
+                    "fields" : [ {
+                      "name" : "field",
+                      "type" : "string",
+                      "doc" : "The name of the field that the criterion refers to"
+                    }, {
+                      "name" : "value",
+                      "type" : "string",
+                      "doc" : "The value of the intended field"
+                    }, {
+                      "name" : "condition",
+                      "type" : {
+                        "type" : "enum",
+                        "name" : "Condition",
+                        "doc" : "The matching condition in a filter criterion",
+                        "symbols" : [ "CONTAIN", "END_WITH", "EQUAL", "GREATER_THAN", "GREATER_THAN_OR_EQUAL_TO", "IN", "LESS_THAN", "LESS_THAN_OR_EQUAL_TO", "START_WITH" ],
+                        "symbolDocs" : {
+                          "CONTAIN" : "Represent the relation: String field contains value, e.g. name contains Profile",
+                          "END_WITH" : "Represent the relation: String field ends with value, e.g. name ends with Event",
+                          "EQUAL" : "Represent the relation: field = value, e.g. platform = hdfs",
+                          "GREATER_THAN" : "Represent the relation greater than, e.g. ownerCount > 5",
+                          "GREATER_THAN_OR_EQUAL_TO" : "Represent the relation greater than or equal to, e.g. ownerCount >= 5",
+                          "IN" : "Represent the relation: String field is one of the array values to, e.g. name in [\"Profile\", \"Event\"]",
+                          "LESS_THAN" : "Represent the relation less than, e.g. ownerCount < 3",
+                          "LESS_THAN_OR_EQUAL_TO" : "Represent the relation less than or equal to, e.g. ownerCount <= 3",
+                          "START_WITH" : "Represent the relation: String field starts with value, e.g. name starts with PageView"
+                        }
+                      },
+                      "doc" : "The condition for the criterion, e.g. EQUAL, START_WITH",
+                      "default" : "EQUAL"
+                    } ]
+                  }
+                },
+                "doc" : "A list of and criteria the filter applies to the query"
+              } ]
+            }
+          },
+          "doc" : "A list of of disjunctive criterion for the filter.",
+          "optional" : true
+        }, {
+          "name" : "criteria",
+          "type" : {
+            "type" : "array",
+            "items" : "Criterion"
+          },
+          "doc" : "Deprecated! A list of conjunctive criterion for the filter. If \"or\" field is provided, then this field is ignored.",
+          "optional" : true
+        } ]
+      },
+      "doc" : "Input param filter.",
+      "optional" : true
+    }, {
+      "name" : "aggregationSpecs",
+      "type" : {
+        "type" : "array",
+        "items" : {
+          "type" : "record",
+          "name" : "AggregationSpec",
+          "namespace" : "com.linkedin.timeseries",
+          "doc" : "Provides the aggregation specification on a member/field.",
+          "fields" : [ {
+            "name" : "fieldPath",
+            "type" : "string",
+            "doc" : "Name of the member/field."
+          }, {
+            "name" : "aggregationType",
+            "type" : {
+              "type" : "enum",
+              "name" : "AggregationType",
+              "symbols" : [ "LATEST", "SUM", "CARDINALITY" ]
+            },
+            "doc" : "Aggregation type for the metric."
+          } ]
+        }
+      },
+      "doc" : "Input param aggregated metrics.",
+      "optional" : true
+    }, {
+      "name" : "groupingBuckets",
+      "type" : {
+        "type" : "array",
+        "items" : {
+          "type" : "record",
+          "name" : "GroupingBucket",
+          "namespace" : "com.linkedin.timeseries",
+          "doc" : "Defines the group by bucket definitions for time series requests.",
+          "fields" : [ {
+            "name" : "type",
+            "type" : {
+              "type" : "enum",
+              "name" : "GroupingBucketType",
+              "doc" : "Defines a grouping bucket type.",
+              "symbols" : [ "DATE_GROUPING_BUCKET", "STRING_GROUPING_BUCKET" ]
+            },
+            "doc" : "Type of the grouping bucket."
+          }, {
+            "name" : "key",
+            "type" : "string",
+            "doc" : "Key that specifies the column name to be used as the timestamp field for bucketing."
+          }, {
+            "name" : "timeWindowSize",
+            "type" : {
+              "type" : "record",
+              "name" : "TimeWindowSize",
+              "doc" : "Defines the size of a time window.",
+              "fields" : [ {
+                "name" : "unit",
+                "type" : {
+                  "type" : "enum",
+                  "name" : "CalendarInterval",
+                  "symbols" : [ "SECOND", "MINUTE", "HOUR", "DAY", "WEEK", "MONTH", "QUARTER", "YEAR" ]
+                },
+                "doc" : "Interval unit such as minute/hour/day etc."
+              }, {
+                "name" : "multiple",
+                "type" : "int",
+                "doc" : "How many units. Defaults to 1.",
+                "default" : 1
+              } ]
+            },
+            "doc" : "Bucket size (like a day/hour etc) for the date grouping buckets.",
+            "optional" : true
+          } ]
+        }
+      },
+      "doc" : "Input param groupingBuckets"
+    }, {
+      "name" : "table",
+      "type" : {
+        "type" : "record",
+        "name" : "GenericTable",
+        "namespace" : "com.linkedin.timeseries",
+        "doc" : "Defines a generic table.",
+        "fields" : [ {
+          "name" : "columnNames",
+          "type" : {
+            "type" : "array",
+            "items" : "string"
+          },
+          "doc" : "The names of the columns."
+        }, {
+          "name" : "columnTypes",
+          "type" : {
+            "type" : "array",
+            "items" : "string"
+          },
+          "doc" : "The types of the columns."
+        }, {
+          "name" : "rows",
+          "type" : {
+            "type" : "array",
+            "items" : {
+              "type" : "array",
+              "items" : "string"
+            }
+          },
+          "doc" : "The data rows.",
+          "optional" : true
+        } ]
+      },
+      "doc" : "The results table."
+    }, {
+      "name" : "lastUpdatedTimeMillis",
+      "type" : "long",
+      "doc" : "When the index was last updated.",
+      "optional" : true
+    } ]
+  }, "com.linkedin.metadata.query.filter.Condition", "com.linkedin.metadata.query.filter.ConjunctiveCriterion", "com.linkedin.metadata.query.filter.Criterion", "com.linkedin.metadata.query.filter.Filter", "com.linkedin.timeseries.AggregationSpec", "com.linkedin.timeseries.AggregationType", "com.linkedin.timeseries.CalendarInterval", "com.linkedin.timeseries.GenericTable", "com.linkedin.timeseries.GroupingBucket", "com.linkedin.timeseries.GroupingBucketType", "com.linkedin.timeseries.TimeWindowSize" ],
+  "schema" : {
+    "name" : "analytics",
+    "namespace" : "com.linkedin.analytics",
+    "path" : "/analytics",
+    "schema" : "com.linkedin.analytics.GetTimeseriesAggregatedStatsResponse",
+    "doc" : "Rest.li entry point: /analytics\n\ngenerated from: com.linkedin.metadata.resources.analytics.Analytics",
+    "simple" : {
+      "supports" : [ ],
+      "actions" : [ {
+        "name" : "getTimeseriesStats",
+        "parameters" : [ {
+          "name" : "entityName",
+          "type" : "string"
+        }, {
+          "name" : "aspectName",
+          "type" : "string"
+        }, {
+          "name" : "metrics",
+          "type" : "{ \"type\" : \"array\", \"items\" : \"com.linkedin.timeseries.AggregationSpec\" }"
+        }, {
+          "name" : "filter",
+          "type" : "com.linkedin.metadata.query.filter.Filter",
+          "optional" : true
+        }, {
+          "name" : "buckets",
+          "type" : "{ \"type\" : \"array\", \"items\" : \"com.linkedin.timeseries.GroupingBucket\" }",
+          "optional" : true
+        } ],
+        "returns" : "com.linkedin.analytics.GetTimeseriesAggregatedStatsResponse"
+      } ],
+      "entity" : {
+        "path" : "/analytics"
+      }
+    }
+  }
+}

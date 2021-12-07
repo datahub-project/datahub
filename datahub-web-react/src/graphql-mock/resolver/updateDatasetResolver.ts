@@ -7,8 +7,8 @@ type UpdateDataset = {
 };
 
 export const updateDatasetResolver = {
-    updateDataset({ variables: { input } }): UpdateDataset {
-        const { urn, ownership, globalTags, institutionalMemory }: DatasetUpdateInput = input;
+    updateDataset({ variables: { urn, input } }): UpdateDataset {
+        const { ownership, globalTags, institutionalMemory }: DatasetUpdateInput = input;
         const dataset = findDatasetByURN(urn);
 
         if (ownership) {

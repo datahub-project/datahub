@@ -21,9 +21,13 @@ This plugin pulls metadata from dbt's artifact files:
   - Note that this file is optional – if not specified, we'll use time of ingestion instead as a proxy for time last-modified.
 - target_platform:
   - The data platform you are enriching with dbt metadata.
-  - [data platforms](https://github.com/linkedin/datahub/blob/master/gms/impl/src/main/resources/DataPlatformInfo.json)
+  - [data platforms](https://github.com/linkedin/datahub/blob/master/metadata-service/restli-impl/src/main/resources/DataPlatformInfo.json)
 - load_schemas:
   - Load schemas from dbt catalog file, not necessary when the underlying data platform already has this data.
+- use_identifiers:
+  - Use model [identifier](https://docs.getdbt.com/reference/resource-properties/identifier) instead of model name if defined (if not, default to model name).
+- tag_prefix:
+  - Prefix added to tags during ingestion.
 - node_type_pattern:
   - Use this filter to exclude and include node types using allow or deny method
 
@@ -62,11 +66,11 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `env`                     |          | `"PROD"` | Environment to use in namespace when constructing URNs.                                                                                               |
 | `target_platform`         | ✅       |          | The platform that dbt is loading onto.                                                                                                                |
 | `load_schemas`            | ✅       |          | Whether to load database schemas. If set to `False`, table schema details (e.g. columns) will not be ingested.                                        |
+| `use_identifiers`         |         | `False`   | Whether to use model identifiers instead of names, if defined (if not, default to names)                                                             |
+| `tag_prefix`              |         | `dbt:`    | Prefix added to tags during ingestion. |
 | `node_type_pattern.allow` |          |          | List of regex patterns for dbt nodes to include in ingestion.                                                                                                  |
 | `node_type_pattern.deny`  |          |          | List of regex patterns for dbt nodes to exclude from ingestion.                                                                                                |
 | `node_type_pattern.ignoreCase`  |          | `True` | Whether to ignore case sensitivity during pattern matching.                                                                                                                                  |
-
-Note: when `load_schemas` is False, models that use [identifiers](https://docs.getdbt.com/reference/resource-properties/identifier) to reference their source tables are ingested using the model identifier as the model name to preserve the lineage.
 
 ## Compatibility
 

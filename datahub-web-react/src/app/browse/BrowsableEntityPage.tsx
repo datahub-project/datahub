@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { Affix } from 'antd';
 import { SearchablePage } from '../search/SearchablePage';
-import { BrowsePath } from './BrowsePath';
+import { LegacyBrowsePath } from './LegacyBrowsePath';
 import { useGetBrowsePathsQuery } from '../../graphql/browse.generated';
 import { EntityType } from '../../types.generated';
 
@@ -28,8 +28,8 @@ export const BrowsableEntityPage = ({
     return (
         <SearchablePage>
             {data && data.browsePaths && data.browsePaths.length > 0 && (
-                <Affix offsetTop={80}>
-                    <BrowsePath
+                <Affix offsetTop={60}>
+                    <LegacyBrowsePath
                         type={_type}
                         path={data.browsePaths[0].path}
                         lineageSupported={lineageSupported}

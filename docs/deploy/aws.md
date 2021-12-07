@@ -128,8 +128,8 @@ NAME                           READY   UP-TO-DATE   AVAILABLE   AGE
 aws-load-balancer-controller   2/2     2            2           142m
 ```
 
-Now that the controller has been set up, we can enable ingress by updating the quickstart-values.yaml (or any other
-values.yaml file used to deploy datahub). Change datahub-frontend values to the following.
+Now that the controller has been set up, we can enable ingress by updating the values.yaml (or any other values.yaml
+file used to deploy datahub). Change datahub-frontend values to the following.
 
 ```
 datahub-frontend:
@@ -165,7 +165,7 @@ demo.datahubproject.io.
 After updating the yaml file, run the following to apply the updates.
 
 ```
-helm install datahub datahub/ --values datahub/quickstart-values.yaml
+helm upgrade --install datahub datahub/datahub --values values.yaml
 ```
 
 Once the upgrade completes, run `kubectl get ingress` to verify the ingress setup. You should see a result like the
@@ -202,7 +202,7 @@ kubectl delete secret mysql-secrets
 kubectl create secret generic mysql-secrets --from-literal=mysql-root-password=<<password>>
 ```
 
-Update the sql settings under global in the quickstart-values.yaml as follows.
+Update the sql settings under global in the values.yaml as follows.
 
 ```
   sql:
@@ -218,7 +218,7 @@ Update the sql settings under global in the quickstart-values.yaml as follows.
         secretKey: mysql-root-password
 ```
 
-Run `helm install datahub datahub/ --values datahub/quickstart-values.yaml` to apply the changes.
+Run `helm upgrade --install datahub datahub/datahub --values values.yaml` to apply the changes.
 
 ### Elasticsearch Service
 
@@ -228,13 +228,12 @@ be able to see the following page. Take a note of the endpoint marked by the red
 
 ![AWS Elasticsearch Service](../imgs/aws/aws-elasticsearch.png)
 
-Update the elasticsearch settings under global in the quickstart-values.yaml as follows.
+Update the elasticsearch settings under global in the values.yaml as follows.
 
 ```
   elasticsearch:
     host: <<elasticsearch-endpoint>>
     port: "443"
-    indexPrefix: demo
     useSSL: "true"
 ```
 
@@ -244,10 +243,33 @@ You can also allow communication via HTTP (without SSL) by using the settings be
   elasticsearch:
     host: <<elasticsearch-endpoint>>
     port: "80"
-    indexPrefix: demo
 ```
 
-Lastly, you need to set the following env variable for **elasticsearchSetupJob**.
+If you have fine-grained access control enabled with basic authentication, first run the following to create a k8s
+secret with the password.
+
+```
+kubectl delete secret elasticsearch-secrets
+kubectl create secret generic elasticsearch-secrets --from-literal=elasticsearch-password=<<password>>
+```
+
+Then use the settings below.
+
+```
+  elasticsearch:
+    host: <<elasticsearch-endpoint>>
+    port: "443"
+    useSSL: "true"
+    auth:
+      username: <<username>>
+      password:
+        secretRef: elasticsearch-secrets
+        secretName: elasticsearch-password
+```
+
+Lastly, you **NEED** to set the following env variable for **elasticsearchSetupJob**. AWS Elasticsearch/Opensearch
+service uses OpenDistro version of Elasticsearch, which does not support the "datastream" functionality. As such, we use
+a different way of creating time based indices.
 
 ```
   elasticsearchSetupJob:
@@ -260,7 +282,7 @@ Lastly, you need to set the following env variable for **elasticsearchSetupJob**
         value: "true"
 ```
 
-Run `helm install datahub datahub/ --values datahub/quickstart-values.yaml` to apply the changes.
+Run `helm upgrade --install datahub datahub/datahub --values values.yaml` to apply the changes.
 
 ### Managed Streaming for Apache Kafka (MSK)
 
@@ -270,7 +292,7 @@ Summary” section. You should see a page like below. Take a note of the endpoin
 
 ![AWS MSK](../imgs/aws/aws-msk.png)
 
-Update the kafka settings under global in the quickstart-values.yaml as follows.
+Update the kafka settings under global in the values.yaml as follows.
 
 ```
 kafka:
@@ -280,9 +302,14 @@ kafka:
       server:  "<<zookeeper endpoint>>"
     schemaregistry:
       url: "http://prerequisites-cp-schema-registry:8081"
+    partitions: 3
+    replicationFactor: 3
 ```
 
-Run `helm install datahub datahub/ --values datahub/quickstart-values.yaml` to apply the changes.
+Note, the number of partitions and replicationFactor should match the number of bootstrap servers. This is by default 3
+for AWS MSK.
+
+Run `helm upgrade --install datahub datahub/datahub --values values.yaml` to apply the changes.
 
 ### AWS Glue Schema Registry
 
@@ -359,7 +386,7 @@ Glue currently doesn't support AWS Signature V4. As such, we cannot use service 
 the schema registry. The workaround is to give the above permission to the EKS worker node's IAM role. Refer
 to [this issue](https://github.com/awslabs/aws-glue-schema-registry/issues/69) for any updates.
 
-Run `helm install datahub datahub/ --values datahub/quickstart-values.yaml` to apply the changes.
+Run `helm upgrade --install datahub datahub/datahub --values values.yaml` to apply the changes.
 
 Note, you will be seeing log "Schema Version Id is null. Trying to register the schema" on every request. This log is
 misleading, so should be ignored. Schemas are cached, so it does not register a new version on every request (aka no
