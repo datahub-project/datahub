@@ -2,9 +2,7 @@
 
 DataHub comes with a friendly cli called `datahub` that allows you to perform a lot of common operations using just the command line.
 
-## Install
-
-### Using pip
+## Using pip
 
 We recommend python virtual environments (venv-s) to namespace pip modules. Here's an example setup:
 
@@ -26,6 +24,10 @@ datahub version
 ```
 
 If you run into an error, try checking the [_common setup issues_](../metadata-ingestion/developing.md#Common-setup-issues).
+
+### Using docker
+
+You can use the `datahub-ingestion` docker image as explained in [Docker Images](../docker/README.md). In case you are using Kubernetes you can start a pod with the `datahub-ingestion` docker image, log onto a shell on the pod and you should have the access to datahub CLI in your kubernetes cluster.
 
 ## User Guide
 
