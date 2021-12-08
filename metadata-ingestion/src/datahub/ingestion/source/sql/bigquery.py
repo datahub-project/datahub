@@ -191,7 +191,6 @@ class BigQuerySource(SQLAlchemySource):
                 ref_table_str = str(ref_table.remove_extras())
                 if ref_table_str != destination_table_str:
                     lineage_map[destination_table_str].add(ref_table_str)
-        print(lineage_map)
         return lineage_map
 
     @classmethod
