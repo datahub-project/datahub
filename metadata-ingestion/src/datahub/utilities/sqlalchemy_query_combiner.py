@@ -103,6 +103,16 @@ class _QueryFuture:
     exc: Optional[Exception] = None
 
 
+def get_query_columns(query: Any) -> List[Any]:
+    try:
+        # inner_columns will be more accurate if the column names are unnamed,
+        # since .columns will remove the "duplicates".
+        inner_columns = list(query.inner_columns)
+        return inner_columns
+    except AttributeError:
+        return list(query.columns)
+
+
 @dataclasses.dataclass
 class SQLAlchemyQueryCombiner:
     """
@@ -160,7 +170,7 @@ class SQLAlchemyQueryCombiner:
 
     def _handle_execute(
         self, conn: Connection, query: Any, multiparams: Any, params: Any
-    ) -> Tuple[bool, Any]:
+    ) -> Tuple[bool, Optional[_QueryFuture]]:
         # Returns True with result if the query was handled, False if it
         # should be executed normally using the fallback method.
 
@@ -185,9 +195,7 @@ class SQLAlchemyQueryCombiner:
 
         # Figure out how many columns this query returns.
         # This also implicitly ensures that the typing is generally correct.
-        if not hasattr(query, "columns"):
-            return False, None
-        assert len(query.columns) > 0
+        assert len(get_query_columns(query)) > 0
 
         # Add query to the queue.
         queue = self._get_queue(main_greenlet)
@@ -201,9 +209,7 @@ class SQLAlchemyQueryCombiner:
             main_greenlet.switch()
 
         del queue[query_id]
-        if query_future.exc is not None:
-            raise query_future.exc
-        return True, query_future.res
+        return True, query_future
 
     @contextlib.contextmanager
     def activate(self) -> Iterator["SQLAlchemyQueryCombiner"]:
@@ -222,7 +228,10 @@ class SQLAlchemyQueryCombiner:
             else:
                 if handled:
                     logger.debug(f"Query was handled: {str(query)}")
-                    return result
+                    assert result is not None
+                    if result.exc is not None:
+                        raise result.exc
+                    return result.res
                 else:
                     logger.debug(f"Executing query normally: {str(query)}")
                     return _sa_execute_underlying_method(conn, query, *args, **kwargs)
@@ -266,9 +275,14 @@ class SQLAlchemyQueryCombiner:
                 for k, query_future in pending_queue.items()
             }
 
-            # TODO: determine if we need to use col.label() here.
             combined_cols = itertools.chain(
-                *[[col for col in cte.columns] for _, cte in ctes.items()]
+                *[
+                    [
+                        col  # .label(self._generate_sql_safe_identifier())
+                        for col in get_query_columns(cte)
+                    ]
+                    for _, cte in ctes.items()
+                ]
             )
             combined_query = sqlalchemy.select(combined_cols)
             for cte in ctes.values():
