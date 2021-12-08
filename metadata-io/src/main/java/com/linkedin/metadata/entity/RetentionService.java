@@ -27,7 +27,7 @@ import lombok.Value;
  * Service coupled with an entity service to handle retention
  */
 public abstract class RetentionService {
-  private static String ALL = "*";
+  private static final String ALL = "*";
 
   protected abstract EntityService getEntityService();
 
