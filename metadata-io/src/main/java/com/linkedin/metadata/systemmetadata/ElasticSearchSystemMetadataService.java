@@ -13,6 +13,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -73,11 +74,11 @@ public class ElasticSearchSystemMetadataService implements SystemMetadataService
     String rawDocId = urn + DOC_DELIMETER + aspect;
 
     try {
-      byte[] bytesOfRawDocID = rawDocId.getBytes("UTF-8");
+      byte[] bytesOfRawDocID = rawDocId.getBytes(StandardCharsets.UTF_8);
       MessageDigest md = MessageDigest.getInstance("MD5");
       byte[] thedigest = md.digest(bytesOfRawDocID);
-      return new String(thedigest, StandardCharsets.US_ASCII);
-    } catch (NoSuchAlgorithmException | UnsupportedEncodingException e) {
+      return Base64.getEncoder().encodeToString(thedigest);
+    } catch (NoSuchAlgorithmException e) {
       e.printStackTrace();
       return rawDocId;
     }
