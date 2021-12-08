@@ -165,6 +165,8 @@ public class GmsGraphQLEngine {
     private final TokenService tokenService;
     private final SecretService secretService;
 
+    private final boolean isManagedIngetionEnabled;
+
     private final DatasetType datasetType;
     private final CorpUserType corpUserType;
     private final CorpGroupType corpGroupType;
@@ -218,7 +220,8 @@ public class GmsGraphQLEngine {
             null,
             null,
             null,
-            null);
+            null,
+            false);
     }
 
     public GmsGraphQLEngine(
@@ -229,7 +232,8 @@ public class GmsGraphQLEngine {
         final EntityService entityService,
         final RecommendationsService recommendationsService,
         final TokenService tokenService,
-        final SecretService secretService) {
+        final SecretService secretService,
+        final boolean isManagedIngestionEnabled) {
 
         this.entityClient = entityClient;
         this.graphClient = graphClient;
@@ -240,6 +244,9 @@ public class GmsGraphQLEngine {
         this.recommendationsService = recommendationsService;
         this.tokenService = tokenService;
         this.secretService = secretService;
+
+        // Feature flags - TODO: Migrate to a better configuration provider.
+        this.isManagedIngetionEnabled = isManagedIngestionEnabled;
 
         this.datasetType = new DatasetType(entityClient);
         this.corpUserType = new CorpUserType(entityClient);
@@ -435,7 +442,7 @@ public class GmsGraphQLEngine {
     private void configureQueryResolvers(final RuntimeWiring.Builder builder) {
         builder.type("Query", typeWiring -> typeWiring
             .dataFetcher("appConfig",
-                new AppConfigResolver(analyticsService != null))
+                new AppConfigResolver(analyticsService != null, this.isManagedIngetionEnabled))
             .dataFetcher("me", new AuthenticatedResolver<>(
                     new MeResolver(this.entityClient)))
             .dataFetcher("search", new AuthenticatedResolver<>(

@@ -69,6 +69,9 @@ public class GraphQLEngineFactory {
   @Value("${platformAnalytics.enabled}") // TODO: Migrate to DATAHUB_ANALYTICS_ENABLED
   private Boolean isAnalyticsEnabled;
 
+  @Value("${managedIngestion.enabled}") // TODO: Migrate to DATAHUB_ANALYTICS_ENABLED
+  private Boolean isManagedIngestionEnabled;
+
   @Bean(name = "graphQLEngine")
   @Nonnull
   protected GraphQLEngine getInstance() {
@@ -81,7 +84,8 @@ public class GraphQLEngineFactory {
           _entityService,
           _recommendationsService,
           _tokenService,
-          _secretService
+          _secretService,
+          isManagedIngestionEnabled
           ).builder().build();
     }
     return new GmsGraphQLEngine(
@@ -92,6 +96,7 @@ public class GraphQLEngineFactory {
         _entityService,
         _recommendationsService,
         _tokenService,
-        _secretService).builder().build();
+        _secretService,
+        isManagedIngestionEnabled).builder().build();
   }
 }
