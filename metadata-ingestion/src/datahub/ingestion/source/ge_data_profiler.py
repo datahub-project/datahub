@@ -722,6 +722,8 @@ class DatahubGEProfiler:
                 f"Profiling {len(requests)} table(s) finished in {(timer.elapsed_seconds()):.3f} seconds"
             )
 
+            self.report.report_from_query_combiner(query_combiner.report)
+
     def _generate_profile_from_request(
         self,
         query_combiner: SQLAlchemyQueryCombiner,
