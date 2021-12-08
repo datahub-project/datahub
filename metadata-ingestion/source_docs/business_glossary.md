@@ -46,7 +46,8 @@ The business glossary source file should be a `.yml` file with the following top
   - **users**: (optional) a list of user ids
   - **groups**: (optional) a list of group ids
 - **url**: (optional) external url pointing to where the glossary is defined externally, if applicable.
-- **nodes**: list of **GlossaryNode** objects, as defined below.
+- **nodes**: (optional) list of child **GlossaryNode** objects
+- **terms**: (optional) list of child **GlossaryTerm** objects
 
 
 **GlossaryNode**: a container of **GlossaryNode** and **GlossaryTerm** objects
