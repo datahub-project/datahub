@@ -9,6 +9,9 @@ class _KafkaConnectionConfig(ConfigModel):
     # bootstrap servers
     bootstrap: str = "localhost:9092"
 
+    # Use the confluent schema registry class by default
+    schema_registry_class: str = "datahub.ingestion.source.ConfluentSchemaRegistry"
+
     # schema registry location
     schema_registry_url: str = "http://localhost:8081"
 

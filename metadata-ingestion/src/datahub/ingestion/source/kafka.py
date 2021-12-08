@@ -26,6 +26,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     SchemaMetadata,
 )
 from datahub.metadata.schema_classes import BrowsePathsClass
+from datahub.configuration.import_resolver import pydantic_resolve_key
 
 logger = logging.getLogger(__name__)
 
@@ -65,9 +66,18 @@ class KafkaSource(Source):
                 **self.source_config.connection.consumer_config,
             }
         )
-        self.schema_registry_client = SchemaRegistryClient(
-            {"url": self.source_config.connection.schema_registry_url}
-        )
+        logger.info(f"Entering modified kafka.py {self.source_config.connection.schema_registry_class}")
+        """
+        schema_registry_class = "datahub.ingestion.source.ConfluentSchemaRegistry"
+        if(self.source_config.connection.schema_registry_class != "confluent"):
+            self.schema_registry_client =  SchemaRegistryClient(
+                {"url": self.source_config.connection.schema_registry_url}
+            )
+        else:
+            self.source_config.connection.schema_registry_class
+        """
+        self.schema_registry_client = pydantic_resolve_key(self.source_config.connection.schema_registry_class)
+        logger.info(f"self.schema_registry_client -> {self.schema_registry_client}")
         self.report = KafkaSourceReport()
 
     @classmethod
@@ -98,6 +108,8 @@ class KafkaSource(Source):
             aspects=[],  # we append to this list later on
         )
         dataset_snapshot.aspects.append(Status(removed=False))
+
+        self.schema_registry_client.
         # Fetch schema from the registry.
         schema: Optional[Schema] = None
         try:
@@ -183,3 +195,45 @@ class KafkaSource(Source):
     def close(self):
         if self.consumer:
             self.consumer.close()
+
+@dataclass
+class TopicSchema:
+    key_schema: Optional[Schema]
+    value_schema: Optional[Schema]
+
+
+class ConfluentSchemaRegistry():
+
+    def __init__(self):
+        self.schema_registry_client = SchemaRegistryClient(
+            {"url": schema_url}
+        )
+
+    def get_topic_schema(self, topic: str) -> TopicSchema:
+        """
+
+        :param topic:
+        :return:
+        """
+        logger.info(f"ConfluentSchemaRegistry.get_topic_schema {topic}")
+        schema: Optional[Schema] = None
+        try:
+            registered_schema = self.schema_registry_client.get_latest_version(
+                topic + "-value"
+            )
+            schema = registered_schema.schema
+        except Exception as e:
+            logger.debug(f"{topic}: no schema found. {e}")
+
+        # Fetch key schema from the registry
+        key_schema: Optional[Schema] = None
+        try:
+            registered_schema = self.schema_registry_client.get_latest_version(
+                topic + "-key"
+            )
+            key_schema = registered_schema.schema
+        except Exception as e:
+            # do not report warnings because it is okay to not have key schemas
+            logger.debug(f"{topic}: no key schema found. {e}")
+
+        return TopicSchema(key_schema=key_schema, value_schema=schema)
