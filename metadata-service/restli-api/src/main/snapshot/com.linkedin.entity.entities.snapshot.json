@@ -5131,6 +5131,17 @@
         } ],
         "returns" : "com.linkedin.metadata.run.RollbackResponse"
       }, {
+        "name" : "deleteRetention",
+        "parameters" : [ {
+          "name" : "entity",
+          "type" : "string",
+          "optional" : true
+        }, {
+          "name" : "aspect",
+          "type" : "string",
+          "optional" : true
+        } ]
+      }, {
         "name" : "filter",
         "parameters" : [ {
           "name" : "entity",
