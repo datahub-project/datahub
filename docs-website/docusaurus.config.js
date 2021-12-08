@@ -68,7 +68,7 @@ module.exports = {
           position: "right",
         },
         {
-          href: "https://feature-requests.datahubproject.io/roadmap",
+          to: "docs/roadmap",
           label: "Roadmap",
           position: "right",
         },
@@ -151,7 +151,7 @@ module.exports = {
             },
             {
               label: "Roadmap",
-              href: "https://feature-requests.datahubproject.io/roadmap",
+              to: "docs/roadmap",
             },
             {
               label: "Contributing",
