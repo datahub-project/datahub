@@ -1,0 +1,10 @@
+namespace com.linkedin.metadata.aspect
+
+import com.linkedin.metadata.key.SchemaFieldKey
+
+/**
+ * A union of all supported metadata aspects for a SchemaField
+ */
+typeref SchemaFieldAspect = union[
+  SchemaFieldKey
+]

@@ -13,8 +13,7 @@ record MLPrimaryKeyKey {
    * Namespace for the primary key
    */
   @Searchable = {
-    "fieldType": "TEXT_PARTIAL",
-    "addToFilters": true
+    "fieldType": "TEXT_PARTIAL"
   }
   featureNamespace: string
 

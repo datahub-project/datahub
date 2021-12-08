@@ -1,14 +1,22 @@
 package com.linkedin.datahub.graphql.resolvers;
 
+import com.datahub.authentication.Authentication;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.element.DataElement;
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.ValidationException;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 
 import com.linkedin.metadata.aspect.VersionedAspect;
+import com.linkedin.metadata.query.filter.Criterion;
+import com.linkedin.metadata.query.filter.CriterionArray;
+import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import graphql.schema.DataFetchingEnvironment;
 import java.lang.reflect.InvocationTargetException;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collections;
@@ -48,6 +56,11 @@ public class ResolverUtils {
     }
 
     @Nonnull
+    public static Authentication getAuthentication(DataFetchingEnvironment environment) {
+        return ((QueryContext) environment.getContext()).getAuthentication();
+    }
+
+    @Nonnull
     public static Map<String, String> buildFacetFilters(@Nullable List<FacetFilterInput> facetFilterInputs,
                                                         @Nonnull Set<String> validFacetFields) {
         if (facetFilterInputs == null) {
@@ -64,6 +77,16 @@ public class ResolverUtils {
         });
 
         return facetFilters;
+    }
+
+    @Nullable
+    public static Filter buildFilter(@Nullable List<FacetFilterInput> facetFilterInputs) {
+        if (facetFilterInputs == null) {
+            return null;
+        }
+        return new Filter().setOr(new ConjunctiveCriterionArray(new ConjunctiveCriterion().setAnd(new CriterionArray(facetFilterInputs.stream()
+            .map(filter -> new Criterion().setField(filter.getField()).setValue(filter.getValue()))
+            .collect(Collectors.toList())))));
     }
 
     private static Object constructAspectFromDataElement(DataElement aspectDataElement)

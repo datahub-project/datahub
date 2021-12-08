@@ -3,7 +3,6 @@ import { Alert, Divider } from 'antd';
 import { MutationHookOptions, MutationTuple, QueryHookOptions, QueryResult } from '@apollo/client/react/types/types';
 import styled from 'styled-components';
 import { useHistory } from 'react-router';
-
 import { EntityType, Exact } from '../../../../../types.generated';
 import { Message } from '../../../../shared/Message';
 import { getDataForEntityType, getEntityPath, useRoutedTab } from './utils';
@@ -18,6 +17,7 @@ import useIsLineageMode from '../../../../lineage/utils/useIsLineageMode';
 import { useEntityRegistry } from '../../../../useEntityRegistry';
 import LineageExplorer from '../../../../lineage/LineageExplorer';
 import CompactContext from '../../../../shared/CompactContext';
+import DynamicTab from '../../tabs/Entity/weaklyTypedAspects/DynamicTab';
 
 type Props<T, U> = {
     urn: string;
@@ -36,8 +36,8 @@ type Props<T, U> = {
         }>
     >;
     useUpdateQuery: (
-        baseOptions?: MutationHookOptions<U, { input: GenericEntityUpdate }> | undefined,
-    ) => MutationTuple<U, { input: GenericEntityUpdate }>;
+        baseOptions?: MutationHookOptions<U, { urn: string; input: GenericEntityUpdate }> | undefined,
+    ) => MutationTuple<U, { urn: string; input: GenericEntityUpdate }>;
     getOverrideProperties: (T) => GenericEntityProperties;
     tabs: EntityTab[];
     sidebarSections: EntitySidebarSection[];
@@ -85,8 +85,14 @@ const TabContent = styled.div`
     overflow: auto;
 `;
 
-// TODO(Gabe): Refactor this to generate dynamically
-const QUERY_NAME = 'getDataset';
+const defaultTabDisplayConfig = {
+    visible: (_, _1) => true,
+    enabled: (_, _1) => true,
+};
+
+const defaultSidebarSection = {
+    visible: (_, _1) => true,
+};
 
 /**
  * Container for display of the Entity Page
@@ -100,11 +106,15 @@ export const EntityProfile = <T, U>({
     tabs,
     sidebarSections,
 }: Props<T, U>): JSX.Element => {
-    const routedTab = useRoutedTab(tabs);
     const isLineageMode = useIsLineageMode();
     const entityRegistry = useEntityRegistry();
     const history = useHistory();
     const isCompact = React.useContext(CompactContext);
+    const tabsWithDefaults = tabs.map((tab) => ({ ...tab, display: { ...defaultTabDisplayConfig, ...tab.display } }));
+    const sideBarSectionsWithDefaults = sidebarSections.map((sidebarSection) => ({
+        ...sidebarSection,
+        display: { ...defaultSidebarSection, ...sidebarSection.display },
+    }));
 
     const routeToTab = useCallback(
         ({
@@ -121,13 +131,36 @@ export const EntityProfile = <T, U>({
         [history, entityType, urn, entityRegistry],
     );
 
-    const { loading, error, data, refetch } = useEntityQuery({ variables: { urn } });
-
-    const [updateEntity] = useUpdateQuery({
-        refetchQueries: () => [QUERY_NAME],
+    const { loading, error, data, refetch } = useEntityQuery({
+        variables: { urn },
     });
 
-    const entityData = getDataForEntityType({ data, entityType, getOverrideProperties });
+    const [updateEntity] = useUpdateQuery({
+        onCompleted: () => refetch(),
+    });
+
+    const entityData =
+        (data && getDataForEntityType({ data: data[Object.keys(data)[0]], entityType, getOverrideProperties })) || null;
+
+    const lineage = entityData ? entityRegistry.getLineageVizConfig(entityType, entityData) : undefined;
+
+    const autoRenderTabs: EntityTab[] =
+        entityData?.autoRenderAspects?.map((aspect) => ({
+            name: aspect.renderSpec?.displayName || aspect.aspectName,
+            component: () => (
+                <DynamicTab
+                    renderSpec={aspect.renderSpec}
+                    type={aspect.renderSpec?.displayType}
+                    payload={aspect.payload}
+                />
+            ),
+            display: {
+                visible: () => true,
+                enabled: () => true,
+            },
+        })) || [];
+
+    const routedTab = useRoutedTab([...tabsWithDefaults, ...autoRenderTabs]);
 
     if (isCompact) {
         return (
@@ -140,6 +173,7 @@ export const EntityProfile = <T, U>({
                     updateEntity,
                     routeToTab,
                     refetch,
+                    lineage,
                 }}
             >
                 <div>
@@ -151,7 +185,7 @@ export const EntityProfile = <T, U>({
                         <>
                             <EntityHeader />
                             <Divider />
-                            <EntitySidebar sidebarSections={sidebarSections} />
+                            <EntitySidebar sidebarSections={sideBarSectionsWithDefaults} />
                         </>
                     )}
                 </div>
@@ -169,10 +203,11 @@ export const EntityProfile = <T, U>({
                 updateEntity,
                 routeToTab,
                 refetch,
+                lineage,
             }}
         >
             <>
-                <EntityProfileNavBar urn={urn} entityData={entityData} entityType={entityType} />
+                <EntityProfileNavBar urn={urn} entityType={entityType} />
                 {loading && <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />}
                 {!loading && error && (
                     <Alert type="error" message={error?.message || `Entity failed to load for urn ${urn}`} />
@@ -186,13 +221,16 @@ export const EntityProfile = <T, U>({
                                 <HeaderAndTabsFlex>
                                     <Header>
                                         <EntityHeader />
-                                        <EntityTabs tabs={tabs} selectedTab={routedTab} />
+                                        <EntityTabs
+                                            tabs={[...tabsWithDefaults, ...autoRenderTabs]}
+                                            selectedTab={routedTab}
+                                        />
                                     </Header>
                                     <TabContent>{routedTab && <routedTab.component />}</TabContent>
                                 </HeaderAndTabsFlex>
                             </HeaderAndTabs>
                             <Sidebar>
-                                <EntitySidebar sidebarSections={sidebarSections} />
+                                <EntitySidebar sidebarSections={sideBarSectionsWithDefaults} />
                             </Sidebar>
                         </>
                     )}

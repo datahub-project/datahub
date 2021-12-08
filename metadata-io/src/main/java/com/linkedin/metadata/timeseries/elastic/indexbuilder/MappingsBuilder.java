@@ -1,7 +1,9 @@
 package com.linkedin.metadata.timeseries.elastic.indexbuilder;
 
 import com.google.common.collect.ImmutableMap;
+import com.linkedin.data.schema.DataSchema;
 import com.linkedin.metadata.models.AspectSpec;
+import com.linkedin.metadata.models.TimeseriesFieldCollectionSpec;
 import java.util.HashMap;
 import java.util.Map;
 import javax.annotation.Nonnull;
@@ -36,6 +38,37 @@ public class MappingsBuilder {
     mappings.put(SYSTEM_METADATA_FIELD, ImmutableMap.of("type", "object", "enabled", false));
     mappings.put(IS_EXPLODED_FIELD, ImmutableMap.of("type", "boolean"));
 
+    aspectSpec.getTimeseriesFieldSpecs()
+        .forEach(x -> mappings.put(x.getName(), getFieldMapping(x.getPegasusSchema().getType())));
+    aspectSpec.getTimeseriesFieldCollectionSpecs()
+        .forEach(x -> mappings.put(x.getName(), getTimeseriesFieldCollectionSpecMapping(x)));
+
     return ImmutableMap.of("properties", mappings);
+  }
+
+  private static Map<String, Object> getTimeseriesFieldCollectionSpecMapping(
+      TimeseriesFieldCollectionSpec timeseriesFieldCollectionSpec) {
+    Map<String, Object> collectionMappings = new HashMap<>();
+    collectionMappings.put(timeseriesFieldCollectionSpec.getTimeseriesFieldCollectionAnnotation().getKey(),
+        getFieldMapping(DataSchema.Type.STRING));
+    timeseriesFieldCollectionSpec.getTimeseriesFieldSpecMap()
+        .values()
+        .forEach(x -> collectionMappings.put(x.getName(), getFieldMapping(x.getPegasusSchema().getType())));
+    return ImmutableMap.of("properties", collectionMappings);
+  }
+
+  private static Map<String, Object> getFieldMapping(DataSchema.Type dataSchemaType) {
+    switch (dataSchemaType) {
+      case INT:
+        return ImmutableMap.of("type", "integer");
+      case LONG:
+        return ImmutableMap.of("type", "long");
+      case FLOAT:
+        return ImmutableMap.of("type", "float");
+      case DOUBLE:
+        return ImmutableMap.of("type", "double");
+      default:
+        return ImmutableMap.of("type", "keyword");
+    }
   }
 }

@@ -1,4 +1,4 @@
-# MySQL
+# Postgres
 
 DataHub GMS can use PostgreSQL as an alternate storage backend.
 

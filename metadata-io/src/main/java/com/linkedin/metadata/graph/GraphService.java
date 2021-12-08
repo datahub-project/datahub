@@ -1,8 +1,8 @@
 package com.linkedin.metadata.graph;
 
 import com.linkedin.common.urn.Urn;
-import com.linkedin.metadata.query.Filter;
-import com.linkedin.metadata.query.RelationshipFilter;
+import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.query.filter.RelationshipFilter;
 import java.util.List;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;

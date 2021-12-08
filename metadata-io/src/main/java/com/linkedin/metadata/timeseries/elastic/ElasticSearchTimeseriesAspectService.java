@@ -8,13 +8,12 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.ByteString;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.dao.exception.ESQueryException;
-import com.linkedin.metadata.dao.utils.ESUtils;
 import com.linkedin.metadata.dao.utils.RecordUtils;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.query.Condition;
-import com.linkedin.metadata.query.Criterion;
-import com.linkedin.metadata.query.Filter;
-import com.linkedin.metadata.search.elasticsearch.update.BulkListener;
+import com.linkedin.metadata.query.filter.Condition;
+import com.linkedin.metadata.query.filter.Criterion;
+import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.timeseries.elastic.indexbuilder.MappingsBuilder;
 import com.linkedin.metadata.timeseries.elastic.indexbuilder.TimeseriesAspectIndexBuilders;
@@ -34,7 +33,6 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
-import org.elasticsearch.action.bulk.BackoffPolicy;
 import org.elasticsearch.action.bulk.BulkProcessor;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.search.SearchRequest;
@@ -42,7 +40,6 @@ import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.update.UpdateRequest;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
-import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
@@ -58,6 +55,7 @@ public class ElasticSearchTimeseriesAspectService implements TimeseriesAspectSer
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
   private static final String TIMESTAMP_FIELD = "timestampMillis";
   private static final String EVENT_FIELD = "event";
+  private static final Integer DEFAULT_LIMIT = 10000;
 
   private final IndexConvention _indexConvention;
   private final BulkProcessor _bulkProcessor;
@@ -67,18 +65,11 @@ public class ElasticSearchTimeseriesAspectService implements TimeseriesAspectSer
 
   public ElasticSearchTimeseriesAspectService(@Nonnull RestHighLevelClient searchClient,
       @Nonnull IndexConvention indexConvention, @Nonnull TimeseriesAspectIndexBuilders indexBuilders,
-      @Nonnull EntityRegistry entityRegistry, int bulkRequestsLimit, int bulkFlushPeriod, int numRetries,
-      long retryInterval) {
+      @Nonnull EntityRegistry entityRegistry, @Nonnull BulkProcessor bulkProcessor) {
     _indexConvention = indexConvention;
     _indexBuilders = indexBuilders;
     _searchClient = searchClient;
-    _bulkProcessor = BulkProcessor.builder(
-            (request, bulkListener) -> searchClient.bulkAsync(request, RequestOptions.DEFAULT, bulkListener),
-            BulkListener.getInstance())
-        .setBulkActions(bulkRequestsLimit)
-        .setFlushInterval(TimeValue.timeValueSeconds(bulkFlushPeriod))
-        .setBackoffPolicy(BackoffPolicy.constantBackoff(TimeValue.timeValueSeconds(retryInterval), numRetries))
-        .build();
+    _bulkProcessor = bulkProcessor;
 
     _esAggregatedStatsDAO = new ESAggregatedStatsDAO(indexConvention, searchClient, entityRegistry);
   }
@@ -128,7 +119,8 @@ public class ElasticSearchTimeseriesAspectService implements TimeseriesAspectSer
 
   @Override
   public List<EnvelopedAspect> getAspectValues(@Nonnull final Urn urn, @Nonnull String entityName,
-      @Nonnull String aspectName, @Nullable Long startTimeMillis, @Nullable Long endTimeMillis, int limit) {
+      @Nonnull String aspectName, @Nullable Long startTimeMillis, @Nullable Long endTimeMillis,
+      @Nullable Integer limit) {
     final BoolQueryBuilder filterQueryBuilder = ESUtils.buildFilterQuery(null);
     filterQueryBuilder.must(QueryBuilders.matchQuery("urn", urn.toString()));
     // NOTE: We are interested only in the un-exploded rows as only they carry the `event` payload.
@@ -147,7 +139,7 @@ public class ElasticSearchTimeseriesAspectService implements TimeseriesAspectSer
     }
     final SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
     searchSourceBuilder.query(filterQueryBuilder);
-    searchSourceBuilder.size(limit);
+    searchSourceBuilder.size(limit != null ? limit : DEFAULT_LIMIT);
     searchSourceBuilder.sort(SortBuilders.fieldSort("@timestamp").order(SortOrder.DESC));
 
     final SearchRequest searchRequest = new SearchRequest();

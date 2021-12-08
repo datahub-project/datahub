@@ -48,10 +48,10 @@ public class ListPoliciesResolver implements DataFetcher<CompletableFuture<ListP
       return CompletableFuture.supplyAsync(() -> {
         try {
           // First, get all policy Urns.
-          final ListUrnsResult gmsResult = _entityClient.listUrns(POLICY_ENTITY_NAME, start, count, context.getActor());
+          final ListUrnsResult gmsResult = _entityClient.listUrns(POLICY_ENTITY_NAME, start, count, context.getAuthentication());
 
           // Then, get all policies. TODO: Migrate batchGet to return GenericAspects, to avoid requiring a snapshot.
-          final Map<Urn, Entity> entities = _entityClient.batchGet(new HashSet<>(gmsResult.getEntities()), context.getActor());
+          final Map<Urn, Entity> entities = _entityClient.batchGet(new HashSet<>(gmsResult.getEntities()), context.getAuthentication());
 
           // Now that we have entities we can bind this to a result.
           final ListPoliciesResult result = new ListPoliciesResult();

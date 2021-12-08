@@ -4,7 +4,7 @@ CREATE DATABASE IF NOT EXISTS db2;
 CREATE TABLE IF NOT EXISTS db1.pokes (foo INT, bar STRING);
 LOAD DATA LOCAL INPATH '/opt/hive/examples/files/kv1.txt' OVERWRITE INTO TABLE db1.pokes;
 
-CREATE TABLE IF NOT EXISTS db2.pokes (foo INT, bar STRING);
+CREATE TABLE IF NOT EXISTS db2.pokes (foo INT, bar STRING, primary key(foo) DISABLE NOVALIDATE NORELY);
 LOAD DATA LOCAL INPATH '/opt/hive/examples/files/kv1.txt' OVERWRITE INTO TABLE db2.pokes;
 
 -- Setup a table with a special character.
@@ -38,3 +38,21 @@ test_data as (
 )
 INSERT INTO TABLE db1.array_struct_test
 select * from test_data;
+
+CREATE TABLE IF NOT EXISTS db1.nested_struct_test
+(
+ property_id INT,
+ service STRUCT<
+                type: STRING
+               ,provider: STRUCT<name:VARCHAR(50), id:TINYINT>
+               >
+);
+
+CREATE TABLE db1.union_test(
+    foo UNIONTYPE<int, double, array<string>, struct<a:int,b:string>, struct<c:int,d:double>>
+);
+
+CREATE TABLE db1.map_test(
+    KeyValue String, 
+    RecordId map<int,string>
+); 

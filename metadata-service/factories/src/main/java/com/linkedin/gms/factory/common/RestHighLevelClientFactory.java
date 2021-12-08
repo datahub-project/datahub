@@ -1,8 +1,10 @@
 package com.linkedin.gms.factory.common;
 
+import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
 import javax.annotation.Nonnull;
 import javax.net.ssl.SSLContext;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.http.HttpHost;
 import org.apache.http.conn.ssl.NoopHostnameVerifier;
 import org.apache.http.impl.nio.reactor.IOReactorConfig;
@@ -20,32 +22,38 @@ import org.apache.http.client.CredentialsProvider;
 import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.impl.nio.client.HttpAsyncClientBuilder;
 import org.apache.http.auth.AuthScope;
+import org.springframework.context.annotation.PropertySource;
+
 
 @Slf4j
 @Configuration
+@PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
 @Import({ ElasticsearchSSLContextFactory.class })
 public class RestHighLevelClientFactory {
 
-  @Value("${ELASTICSEARCH_HOST:localhost}")
+  @Value("${elasticsearch.host}")
   private String host;
 
-  @Value("${ELASTICSEARCH_PORT:9200}")
+  @Value("${elasticsearch.port}")
   private Integer port;
 
-  @Value("${ELASTICSEARCH_USERNAME:#{null}}")
-  private String username;
-
-  @Value("${ELASTICSEARCH_PASSWORD:#{null}}")
-  private String password;
-
-  @Value("${ELASTICSEARCH_THREAD_COUNT:1}")
+  @Value("${elasticsearch.threadCount}")
   private Integer threadCount;
 
-  @Value("${ELASTICSEARCH_CONNECTION_REQUEST_TIMEOUT:0}")
+  @Value("${elasticsearch.connectionRequestTimeout}")
   private Integer connectionRequestTimeout;
 
-  @Value("${ELASTICSEARCH_USE_SSL:false}")
+  @Value("${elasticsearch.username}")
+  private String username;
+
+  @Value("${elasticsearch.password}")
+  private String password;
+
+  @Value("#{new Boolean('${elasticsearch.useSSL}')}")
   private boolean useSSL;
+
+  @Value("${elasticsearch.pathPrefix}")
+  private String pathPrefix;
 
   @Autowired
   @Qualifier("elasticSearchSSLContext")
@@ -55,23 +63,26 @@ public class RestHighLevelClientFactory {
   @Nonnull
   protected RestHighLevelClient createInstance() {
     RestClientBuilder restClientBuilder;
-
     if (useSSL) {
-      restClientBuilder = loadRestHttpsClient(host, port, threadCount, connectionRequestTimeout, sslContext, username,
+      restClientBuilder = loadRestHttpsClient(host, port, pathPrefix, threadCount, connectionRequestTimeout, sslContext, username,
           password);
     } else {
-      restClientBuilder = loadRestHttpClient(host, port, threadCount, connectionRequestTimeout);
+      restClientBuilder = loadRestHttpClient(host, port, pathPrefix, threadCount, connectionRequestTimeout);
     }
 
     return new RestHighLevelClient(restClientBuilder);
   }
 
   @Nonnull
-  private static RestClientBuilder loadRestHttpClient(@Nonnull String host, int port, int threadCount,
+  private static RestClientBuilder loadRestHttpClient(@Nonnull String host, int port, String pathPrefix, int threadCount,
       int connectionRequestTimeout) {
     RestClientBuilder builder = RestClient.builder(new HttpHost(host, port, "http"))
         .setHttpClientConfigCallback(httpAsyncClientBuilder -> httpAsyncClientBuilder
             .setDefaultIOReactorConfig(IOReactorConfig.custom().setIoThreadCount(threadCount).build()));
+
+    if (!StringUtils.isEmpty(pathPrefix)) {
+      builder.setPathPrefix(pathPrefix);
+    }
 
     builder.setRequestConfigCallback(
         requestConfigBuilder -> requestConfigBuilder.setConnectionRequestTimeout(connectionRequestTimeout));
@@ -80,10 +91,15 @@ public class RestHighLevelClientFactory {
   }
 
   @Nonnull
-  private static RestClientBuilder loadRestHttpsClient(@Nonnull String host, int port, int threadCount,
+  private static RestClientBuilder loadRestHttpsClient(@Nonnull String host, int port, String pathPrefix, int threadCount,
       int connectionRequestTimeout, @Nonnull SSLContext sslContext, String username, String password) {
 
     final RestClientBuilder builder = RestClient.builder(new HttpHost(host, port, "https"));
+
+    if (!StringUtils.isEmpty(pathPrefix)) {
+      builder.setPathPrefix(pathPrefix);
+    }
+
     builder.setHttpClientConfigCallback(new RestClientBuilder.HttpClientConfigCallback() {
       public HttpAsyncClientBuilder customizeHttpClient(HttpAsyncClientBuilder httpAsyncClientBuilder) {
         httpAsyncClientBuilder.setSSLContext(sslContext).setSSLHostnameVerifier(new NoopHostnameVerifier())

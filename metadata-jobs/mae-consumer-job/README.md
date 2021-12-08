@@ -1,8 +1,11 @@
+---
+title: "metadata-jobs:mae-consumer-job"
+---
+
 # MetadataAuditEvent (MAE) Consumer Job
 MAE Consumer is a [Kafka Streams](https://kafka.apache.org/documentation/streams/) job. Its main function is to listen
-`MetadataAuditEvent` Kafka topic for messages and process those messages using [index builders](../../metadata-builders).
-Index builders create search document model by processing MAE and then these documents are indexed into Elasticsearch.
-So, this job is providing us a near-realtime search index update. 
+`MetadataAuditEvent` Kafka topic for messages and process those messages, converting changes in the metadata model into updates
+against secondary search & graph indexes. 
 
 ## Pre-requisites
 * You need to have [JDK8](https://www.oracle.com/java/technologies/jdk8-downloads.html) 

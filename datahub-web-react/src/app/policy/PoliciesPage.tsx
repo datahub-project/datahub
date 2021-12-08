@@ -4,7 +4,7 @@ import styled from 'styled-components';
 
 import { SearchablePage } from '../search/SearchablePage';
 import PolicyBuilderModal from './PolicyBuilderModal';
-import { Policy, PolicyInput, PolicyState } from '../../types.generated';
+import { Policy, PolicyUpdateInput, PolicyState } from '../../types.generated';
 import PolicyListItem from './PolicyListItem';
 import PolicyDetailsModal from './PolicyDetailsModal';
 import {
@@ -49,8 +49,8 @@ const PaginationContainer = styled.div`
 
 const DEFAULT_PAGE_SIZE = 10;
 
-const toPolicyInput = (policy: Omit<Policy, 'urn'>): PolicyInput => {
-    let policyInput: PolicyInput = {
+const toPolicyInput = (policy: Omit<Policy, 'urn'>): PolicyUpdateInput => {
+    let policyInput: PolicyUpdateInput = {
         type: policy.type,
         name: policy.name,
         state: policy.state,
@@ -199,11 +199,11 @@ export const PoliciesPage = () => {
 
     return (
         <SearchablePage>
-            {policiesLoading && <Message type="loading" content="Loading your policies..." />}
-            {policiesError && message.error('Failed to load your Policies :(')}
+            {policiesLoading && <Message type="loading" content="Loading policies..." />}
+            {policiesError && message.error('Failed to load policies :(')}
             {updateError && message.error('Failed to update the Policy :(')}
             <PoliciesContainer>
-                <PoliciesTitle level={2}>Your Policies</PoliciesTitle>
+                <PoliciesTitle level={2}>Manage Policies</PoliciesTitle>
                 <NewPolicyButton onClick={onClickNewPolicy} data-testid="add-policy-button">
                     + New Policy
                 </NewPolicyButton>

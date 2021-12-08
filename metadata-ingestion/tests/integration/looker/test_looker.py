@@ -92,6 +92,7 @@ def setup_mock_explore(mocked_client):
                 )
             ]
         ),
+        source_file="test_source_file.lkml",
     )
 
 

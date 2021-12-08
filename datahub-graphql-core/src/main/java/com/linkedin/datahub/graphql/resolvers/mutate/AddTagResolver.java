@@ -5,7 +5,8 @@ import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
-import com.linkedin.datahub.graphql.generated.TagUpdateInput;
+import com.linkedin.datahub.graphql.generated.TagAssociationInput;
+import com.linkedin.datahub.graphql.resolvers.mutate.util.LabelUtils;
 import com.linkedin.metadata.entity.EntityService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -23,7 +24,7 @@ public class AddTagResolver implements DataFetcher<CompletableFuture<Boolean>> {
 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
-    final TagUpdateInput input = bindArgument(environment.getArgument("input"), TagUpdateInput.class);
+    final TagAssociationInput input = bindArgument(environment.getArgument("input"), TagAssociationInput.class);
     Urn tagUrn = Urn.createFromString(input.getTagUrn());
     Urn targetUrn = Urn.createFromString(input.getResourceUrn());
 
@@ -38,7 +39,8 @@ public class AddTagResolver implements DataFetcher<CompletableFuture<Boolean>> {
           input.getSubResource(),
           input.getSubResourceType(),
           "tag",
-          _entityService
+          _entityService,
+          false
       );
       try {
 
@@ -48,7 +50,7 @@ public class AddTagResolver implements DataFetcher<CompletableFuture<Boolean>> {
         }
 
         log.info("Adding Tag. input: {}", input.toString());
-        Urn actor = CorpuserUrn.createFromString(((QueryContext) environment.getContext()).getActor());
+        Urn actor = CorpuserUrn.createFromString(((QueryContext) environment.getContext()).getActorUrn());
         LabelUtils.addTagToTarget(
             tagUrn,
             targetUrn,

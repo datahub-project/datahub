@@ -1,6 +1,6 @@
 namespace com.linkedin.analytics
 
-import com.linkedin.metadata.query.Filter
+import com.linkedin.metadata.query.filter.Filter
 import com.linkedin.timeseries.AggregationSpec
 import com.linkedin.timeseries.GenericTable
 import com.linkedin.timeseries.GroupingBucket

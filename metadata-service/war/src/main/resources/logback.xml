@@ -3,7 +3,7 @@
 
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
-            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36}:%L - %msg%n</pattern>
         </encoder>
         <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
             <level>INFO</level>
@@ -58,6 +58,15 @@
     <logger name="org.apache.kafka.clients" level="INFO">
         <appender-ref ref="STDOUT" />
     </logger>
+
+    <logger name="org.reflections.Reflections" level="ERROR">
+        <appender-ref ref="STDOUT" />
+    </logger>
+
+    <logger name="com.linkedin.metadata.models.registry.PatchEntityRegistry" level="INFO">
+        <appender-ref ref="STDOUT" />
+    </logger>
+
 
     <root level="INFO">
         <appender-ref ref="STDOUT" />

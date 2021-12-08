@@ -4,26 +4,14 @@ query getDashboard($urn: String!) {
         editableProperties {
             description
         }
-        downstreamLineage {
-            ...downstreamRelationshipFields
-        }
-        upstreamLineage {
-            ...upstreamRelationshipFields
+        charts: relationships(input: { types: ["Contains"], direction: OUTGOING, start: 0, count: 100 }) {
+            ...fullRelationshipResults
         }
     }
 }
 
-mutation updateDashboard($input: DashboardUpdateInput!) {
-    updateDashboard(input: $input) {
-        ...dashboardFields
-        editableProperties {
-            description
-        }
-        downstreamLineage {
-            ...downstreamRelationshipFields
-        }
-        upstreamLineage {
-            ...upstreamRelationshipFields
-        }
+mutation updateDashboard($urn: String!, $input: DashboardUpdateInput!) {
+    updateDashboard(urn: $urn, input: $input) {
+        urn
     }
 }

@@ -25,7 +25,7 @@ import com.linkedin.entity.Entity;
 import com.linkedin.metadata.extractor.AspectExtractor;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
-import com.linkedin.metadata.query.SearchResult;
+import com.linkedin.metadata.search.SearchResult;
 
 import graphql.execution.DataFetcherResult;
 import javax.annotation.Nonnull;
@@ -43,10 +43,10 @@ public class GlossaryTermType implements SearchableEntityType<GlossaryTerm>, Bro
 
     private static final Set<String> FACET_FIELDS = ImmutableSet.of("");
 
-    private final EntityClient _glossaryTermsClient;
+    private final EntityClient _entityClient;
 
-    public GlossaryTermType(final EntityClient glossaryTermsClient) {
-        _glossaryTermsClient = glossaryTermsClient;
+    public GlossaryTermType(final EntityClient entityClient) {
+        _entityClient = entityClient;
     }
 
     @Override
@@ -66,11 +66,11 @@ public class GlossaryTermType implements SearchableEntityType<GlossaryTerm>, Bro
                 .collect(Collectors.toList());
 
         try {
-            final Map<Urn, Entity> glossaryTermMap = _glossaryTermsClient.batchGet(glossaryTermUrns
+            final Map<Urn, Entity> glossaryTermMap = _entityClient.batchGet(glossaryTermUrns
                     .stream()
                     .filter(Objects::nonNull)
                     .collect(Collectors.toSet()),
-                context.getActor());
+                context.getAuthentication());
 
             final List<Entity> gmsResults = new ArrayList<>();
             for (GlossaryTermUrn urn : glossaryTermUrns) {
@@ -96,8 +96,8 @@ public class GlossaryTermType implements SearchableEntityType<GlossaryTerm>, Bro
                                 int count,
                                 @Nonnull final QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
-        final SearchResult searchResult = _glossaryTermsClient.search(
-            "glossaryTerm", query, facetFilters, start, count, context.getActor());
+        final SearchResult searchResult = _entityClient.search(
+            "glossaryTerm", query, facetFilters, start, count, context.getAuthentication());
         return UrnSearchResultsMapper.map(searchResult);
     }
 
@@ -108,8 +108,8 @@ public class GlossaryTermType implements SearchableEntityType<GlossaryTerm>, Bro
                                             int limit,
                                             @Nonnull final QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
-        final AutoCompleteResult result = _glossaryTermsClient.autoComplete(
-            "glossaryTerm", query, facetFilters, limit, context.getActor());
+        final AutoCompleteResult result = _entityClient.autoComplete(
+            "glossaryTerm", query, facetFilters, limit, context.getAuthentication());
         return AutoCompleteResultsMapper.map(result);
     }
 
@@ -121,19 +121,19 @@ public class GlossaryTermType implements SearchableEntityType<GlossaryTerm>, Bro
                                 @Nonnull final QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
         final String pathStr = path.size() > 0 ? BROWSE_PATH_DELIMITER + String.join(BROWSE_PATH_DELIMITER, path) : "";
-        final BrowseResult result = _glossaryTermsClient.browse(
+        final BrowseResult result = _entityClient.browse(
                 "glossaryTerm",
                 pathStr,
                 facetFilters,
                 start,
                 count,
-            context.getActor());
+            context.getAuthentication());
         return BrowseResultMapper.map(result);
     }
 
     @Override
     public List<BrowsePath> browsePaths(@Nonnull String urn, @Nonnull final QueryContext context) throws Exception {
-        final StringArray result = _glossaryTermsClient.getBrowsePaths(GlossaryTermUtils.getGlossaryTermUrn(urn), context.getActor());
+        final StringArray result = _entityClient.getBrowsePaths(GlossaryTermUtils.getGlossaryTermUrn(urn), context.getAuthentication());
         return BrowsePathsMapper.map(result);
     }
 

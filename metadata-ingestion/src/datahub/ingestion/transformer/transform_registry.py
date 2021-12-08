@@ -1,4 +1,4 @@
-from datahub.ingestion.api.registry import Registry
+from datahub.ingestion.api.registry import PluginRegistry
 from datahub.ingestion.api.transform import Transformer
 from datahub.ingestion.transformer.add_dataset_browse_path import (
     AddDatasetBrowsePathTransformer,
@@ -8,18 +8,25 @@ from datahub.ingestion.transformer.add_dataset_ownership import (
     PatternAddDatasetOwnership,
     SimpleAddDatasetOwnership,
 )
+from datahub.ingestion.transformer.add_dataset_properties import AddDatasetProperties
 from datahub.ingestion.transformer.add_dataset_tags import (
     AddDatasetTags,
+    PatternAddDatasetTags,
     SimpleAddDatasetTags,
 )
 from datahub.ingestion.transformer.ingest_dictionary import InsertIngestionDictionary
+from datahub.ingestion.transformer.add_dataset_terms import (
+    AddDatasetTerms,
+    PatternAddDatasetTerms,
+    SimpleAddDatasetTerms,
+)
 from datahub.ingestion.transformer.mark_dataset_status import MarkDatasetStatus
 from datahub.ingestion.transformer.modify_browsepath import BrowsePathTransform
 from datahub.ingestion.transformer.remove_dataset_ownership import (
     SimpleRemoveDatasetOwnership,
 )
 
-transform_registry = Registry[Transformer]()
+transform_registry = PluginRegistry[Transformer]()
 
 transform_registry.register(
     "simple_remove_dataset_ownership", SimpleRemoveDatasetOwnership
@@ -36,3 +43,10 @@ transform_registry.register("simple_add_dataset_tags", SimpleAddDatasetTags)
 
 transform_registry.register("remove_prod_prefix", BrowsePathTransform)
 transform_registry.register("add_ingest_dictionary", InsertIngestionDictionary)
+transform_registry.register("pattern_add_dataset_tags", PatternAddDatasetTags)
+
+transform_registry.register("add_dataset_terms", AddDatasetTerms)
+transform_registry.register("simple_add_dataset_terms", SimpleAddDatasetTerms)
+transform_registry.register("pattern_add_dataset_terms", PatternAddDatasetTerms)
+
+transform_registry.register("add_dataset_properties", AddDatasetProperties)

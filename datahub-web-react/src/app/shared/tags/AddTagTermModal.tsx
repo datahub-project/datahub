@@ -156,7 +156,7 @@ export default function AddTagTermModal({
                 tagUrn: urnToAdd,
                 resourceUrn: entityUrn,
                 subResource: entitySubresource,
-                subResourceType: entitySubresource ? SubResourceType.FieldPath : null,
+                subResourceType: entitySubresource ? SubResourceType.DatasetField : null,
             };
         }
         if (selectedType === EntityType.GlossaryTerm) {
@@ -165,7 +165,7 @@ export default function AddTagTermModal({
                 termUrn: urnToAdd,
                 resourceUrn: entityUrn,
                 subResource: entitySubresource,
-                subResourceType: entitySubresource ? SubResourceType.FieldPath : null,
+                subResourceType: entitySubresource ? SubResourceType.DatasetField : null,
             };
         }
 
@@ -182,7 +182,10 @@ export default function AddTagTermModal({
         })
             .then(({ errors }) => {
                 if (!errors) {
-                    message.success({ content: 'Added!', duration: 2 });
+                    message.success({
+                        content: `Added ${selectedType === EntityType.GlossaryTerm ? 'Term' : 'Tag'}!`,
+                        duration: 2,
+                    });
                 }
             })
             .catch((e) => {
@@ -235,8 +238,8 @@ export default function AddTagTermModal({
                 showArrow={false}
                 filterOption={false}
                 onSearch={(value: string) => {
-                    autoComplete(value);
-                    setInputValue(value);
+                    autoComplete(value.trim());
+                    setInputValue(value.trim());
                 }}
                 onSelect={(selected) =>
                     selected === CREATE_TAG_VALUE ? setShowCreateModal(true) : setSelectedValue(String(selected))
