@@ -90,6 +90,30 @@ public class ESSystemMetadataDAO {
     return null;
   }
 
+  public BulkByScrollResponse deleteByUrnAspect(
+      @Nonnull final String urn,
+      @Nonnull final String aspect
+  ) {
+    BoolQueryBuilder finalQuery = QueryBuilders.boolQuery();
+    finalQuery.must(QueryBuilders.termQuery("urn", urn));
+    finalQuery.must(QueryBuilders.termQuery("aspect", aspect));
+
+    DeleteByQueryRequest deleteByQueryRequest = new DeleteByQueryRequest();
+
+    deleteByQueryRequest.setQuery(finalQuery);
+
+    deleteByQueryRequest.indices(indexConvention.getIndexName(INDEX_NAME));
+
+    try {
+      final BulkByScrollResponse deleteResponse = client.deleteByQuery(deleteByQueryRequest, RequestOptions.DEFAULT);
+      return deleteResponse;
+    } catch (IOException e) {
+      log.error("ERROR: Failed to delete by query. See stacktrace for a more detailed error:");
+      e.printStackTrace();
+    }
+    return null;
+  }
+
   public SearchResponse findByParams(Map<String, String> searchParams) {
     SearchRequest searchRequest = new SearchRequest();
 
