@@ -1,9 +1,9 @@
----
+run_id: test_cluster
 # see https://datahubproject.io/docs/metadata-ingestion/source_docs/file for complete documentation
 source:
   type: "file"
   config:
-    filename: "./examples/mce_files/bootstrap_mce.json"
+    filename: "./tests/integration/nifi/nifi_mces_golden_cluster.json"
 
 # see https://datahubproject.io/docs/metadata-ingestion/sink_docs/datahub for complete documentation
 sink:
