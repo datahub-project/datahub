@@ -39,6 +39,17 @@ For example, here are helpful links to the most popular entities in DataHub's me
 * Feature Table (a.k.a. MLFeatureTable): [Profile](https://demo.datahubproject.io/dataset/urn:li:dataset:(urn:li:dataPlatform:datahub,MlFeatureTable,PROD)/Schema?is_lineage_mode=false) [Documentation](https://demo.datahubproject.io/dataset/urn:li:dataset:(urn:li:dataPlatform:datahub,MlFeatureTable,PROD)/Documentation?is_lineage_mode=false)
 * For the full list of entities in the metadata model, browse them [here](https://demo.datahubproject.io/browse/dataset/prod/datahub/entities)
 
+### Generating documentation for the Metadata Model
+
+The metadata model documentation can be generated and uploaded into a running DataHub instance using the following command below.
+
+```console
+./gradlew :metadata-ingestion:modelDocUpload
+```
+
+**_NOTE_**: This will upload the model documentation to the DataHub instance running at the environment variable `$DATAHUB_HOST` (http://localhost:8080 by default)
+
+It will also generate a few files under `metadata-ingestion/generated/docs` such as a dot file called `metadata_graph.dot` that you can use to visualize the relationships among the entities.
 
 ## Querying the Metadata Graph 
 

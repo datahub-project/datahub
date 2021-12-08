@@ -5,13 +5,12 @@ import java.io.IOException;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.elasticsearch.client.RestHighLevelClient;
 
 
 @Slf4j
 @RequiredArgsConstructor
 public class EntityIndexBuilder {
-  private final RestHighLevelClient searchClient;
+  private final ESIndexBuilder indexBuilder;
   private final EntitySpec entitySpec;
   private final SettingsBuilder settingsBuilder;
   private final String indexName;
@@ -21,6 +20,6 @@ public class EntityIndexBuilder {
     Map<String, Object> mappings = MappingsBuilder.getMappings(entitySpec);
     Map<String, Object> settings = settingsBuilder.getSettings();
 
-    new IndexBuilder(searchClient, indexName, mappings, settings).buildIndex();
+    indexBuilder.buildIndex(indexName, mappings, settings);
   }
 }

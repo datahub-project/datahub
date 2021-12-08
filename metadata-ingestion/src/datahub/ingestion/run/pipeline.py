@@ -189,7 +189,7 @@ class Pipeline:
                 "Source reported warnings", self.source.get_report()
             )
 
-    def pretty_print_summary(self) -> int:
+    def pretty_print_summary(self, warnings_as_failure: bool = False) -> int:
         click.echo()
         click.secho(f"Source ({self.config.source.type}) report:", bold=True)
         click.echo(self.source.get_report().as_string())
@@ -201,7 +201,7 @@ class Pipeline:
             return 1
         elif self.source.get_report().warnings or self.sink.get_report().warnings:
             click.secho("Pipeline finished with warnings", fg="yellow", bold=True)
-            return 0
+            return 1 if warnings_as_failure else 0
         else:
             click.secho("Pipeline finished successfully", fg="green", bold=True)
             return 0

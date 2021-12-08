@@ -6,7 +6,6 @@ from typing import List, Optional, Tuple
 
 import click
 import progressbar
-from pydantic import Field
 from requests import sessions
 from tabulate import tabulate
 
@@ -15,6 +14,7 @@ from datahub.cli.cli_utils import guess_entity_type
 from datahub.emitter import rest_emitter
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import ChangeTypeClass, StatusClass
+from datahub.telemetry import telemetry
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +32,7 @@ class DeletionResult:
     end_time_millis: int = 0
     num_records: int = 0
     num_entities: int = 0
-    sample_records: List[List[str]] = Field(default_factory=list)
+    sample_records: Optional[List[List[str]]] = None
 
     def start(self) -> None:
         self.start_time_millis = int(time.time() * 1000.0)
@@ -48,7 +48,10 @@ class DeletionResult:
             else UNKNOWN_NUM_RECORDS
         )
         self.num_entities += another_result.num_entities
-        self.sample_records.extend(another_result.sample_records)
+        if another_result.sample_records:
+            if not self.sample_records:
+                self.sample_records = []
+            self.sample_records.extend(another_result.sample_records)
 
 
 def delete_for_registry(
@@ -85,6 +88,7 @@ def delete_for_registry(
 @click.option("--query", required=False, type=str)
 @click.option("--registry-id", required=False, type=str)
 @click.option("-n", "--dry-run", required=False, is_flag=True)
+@telemetry.with_telemetry
 def delete(
     urn: str,
     force: bool,
@@ -170,6 +174,7 @@ def delete(
         )
 
 
+@telemetry.with_telemetry
 def delete_with_filters(
     dry_run: bool,
     soft: bool,
@@ -179,9 +184,12 @@ def delete_with_filters(
     env: Optional[str] = None,
     platform: Optional[str] = None,
 ) -> DeletionResult:
+
     session, gms_host = cli_utils.get_session_and_host()
+    token = cli_utils.get_token()
+
     logger.info(f"datahub configured with {gms_host}")
-    emitter = rest_emitter.DatahubRestEmitter(gms_server=gms_host)
+    emitter = rest_emitter.DatahubRestEmitter(gms_server=gms_host, token=token)
     batch_deletion_result = DeletionResult()
     urns = [
         u
@@ -214,6 +222,7 @@ def delete_with_filters(
     return batch_deletion_result
 
 
+@telemetry.with_telemetry
 def delete_one_urn(
     urn: str,
     soft: bool = False,
@@ -222,6 +231,7 @@ def delete_one_urn(
     cached_session_host: Optional[Tuple[sessions.Session, str]] = None,
     cached_emitter: Optional[rest_emitter.DatahubRestEmitter] = None,
 ) -> DeletionResult:
+
     deletion_result = DeletionResult()
     deletion_result.num_entities = 1
     deletion_result.num_records = UNKNOWN_NUM_RECORDS  # Default is unknown
@@ -230,7 +240,8 @@ def delete_one_urn(
         # Add removed aspect
         if not cached_emitter:
             _, gms_host = cli_utils.get_session_and_host()
-            emitter = rest_emitter.DatahubRestEmitter(gms_server=gms_host)
+            token = cli_utils.get_token()
+            emitter = rest_emitter.DatahubRestEmitter(gms_server=gms_host, token=token)
         else:
             emitter = cached_emitter
         if not dry_run:

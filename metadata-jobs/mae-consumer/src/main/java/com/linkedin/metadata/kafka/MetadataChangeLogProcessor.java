@@ -10,7 +10,9 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.gms.factory.common.GraphServiceFactory;
 import com.linkedin.gms.factory.common.SystemMetadataServiceFactory;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
+import com.linkedin.gms.factory.kafka.KafkaEventConsumerFactory;
 import com.linkedin.gms.factory.search.EntitySearchServiceFactory;
+import com.linkedin.gms.factory.search.SearchDocumentTransformerFactory;
 import com.linkedin.gms.factory.timeseries.TimeseriesAspectServiceFactory;
 import com.linkedin.metadata.EventUtils;
 import com.linkedin.metadata.extractor.FieldExtractor;
@@ -55,14 +57,16 @@ import org.springframework.kafka.annotation.EnableKafka;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 
-import static com.linkedin.metadata.search.utils.QueryUtils.*;
+import static com.linkedin.metadata.search.utils.QueryUtils.createRelationshipFilter;
+import static com.linkedin.metadata.search.utils.QueryUtils.newRelationshipFilter;
 
 
 @Slf4j
 @Component
 @Conditional(MetadataChangeLogProcessorCondition.class)
 @Import({GraphServiceFactory.class, EntitySearchServiceFactory.class, TimeseriesAspectServiceFactory.class,
-    EntityRegistryFactory.class, SystemMetadataServiceFactory.class})
+    EntityRegistryFactory.class, SystemMetadataServiceFactory.class, SearchDocumentTransformerFactory.class,
+    KafkaEventConsumerFactory.class})
 @EnableKafka
 public class MetadataChangeLogProcessor {
 
@@ -71,17 +75,20 @@ public class MetadataChangeLogProcessor {
   private final TimeseriesAspectService _timeseriesAspectService;
   private final SystemMetadataService _systemMetadataService;
   private final EntityRegistry _entityRegistry;
+  private final SearchDocumentTransformer _searchDocumentTransformer;
 
   private final Histogram kafkaLagStats = MetricUtils.get().histogram(MetricRegistry.name(this.getClass(), "kafkaLag"));
 
   @Autowired
   public MetadataChangeLogProcessor(GraphService graphService, EntitySearchService entitySearchService,
-      TimeseriesAspectService timeseriesAspectService, SystemMetadataService systemMetadataService, EntityRegistry entityRegistry) {
+      TimeseriesAspectService timeseriesAspectService, SystemMetadataService systemMetadataService,
+      EntityRegistry entityRegistry, SearchDocumentTransformer searchDocumentTransformer) {
     _graphService = graphService;
     _entitySearchService = entitySearchService;
     _timeseriesAspectService = timeseriesAspectService;
     _systemMetadataService = systemMetadataService;
     _entityRegistry = entityRegistry;
+    _searchDocumentTransformer = searchDocumentTransformer;
 
     _timeseriesAspectService.configure();
   }
@@ -89,7 +96,7 @@ public class MetadataChangeLogProcessor {
   @KafkaListener(id = "${METADATA_CHANGE_LOG_KAFKA_CONSUMER_GROUP_ID:generic-mae-consumer-job-client}", topics = {
       "${METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME:" + Topics.METADATA_CHANGE_LOG_VERSIONED + "}",
       "${METADATA_CHANGE_LOG_TIMESERIES_TOPIC_NAME:" + Topics.METADATA_CHANGE_LOG_TIMESERIES
-          + "}"}, containerFactory = "avroSerializedKafkaListener")
+          + "}"}, containerFactory = "kafkaEventConsumer")
   public void consume(final ConsumerRecord<String, GenericRecord> consumerRecord) {
     kafkaLagStats.update(System.currentTimeMillis() - consumerRecord.timestamp());
     final GenericRecord record = consumerRecord.value();
@@ -162,7 +169,8 @@ public class MetadataChangeLogProcessor {
     }
   }
 
-  private Pair<List<Edge>, Set<String>> getEdgesAndRelationshipTypesFromAspect(Urn urn, AspectSpec aspectSpec, RecordTemplate aspect) {
+  private Pair<List<Edge>, Set<String>> getEdgesAndRelationshipTypesFromAspect(Urn urn, AspectSpec aspectSpec,
+      RecordTemplate aspect) {
     final Set<String> relationshipTypesBeingAdded = new HashSet<>();
     final List<Edge> edgesToAdd = new ArrayList<>();
 
@@ -209,7 +217,7 @@ public class MetadataChangeLogProcessor {
   private void updateSearchService(String entityName, Urn urn, AspectSpec aspectSpec, RecordTemplate aspect) {
     Optional<String> searchDocument;
     try {
-      searchDocument = SearchDocumentTransformer.transformAspect(urn, aspect, aspectSpec, false);
+      searchDocument = _searchDocumentTransformer.transformAspect(urn, aspect, aspectSpec, false);
     } catch (Exception e) {
       log.error("Error in getting documents from aspect: {} for aspect {}", e, aspectSpec.getName());
       return;
@@ -270,11 +278,13 @@ public class MetadataChangeLogProcessor {
     final Set<String> relationshipTypesBeingAdded = edgeAndRelationTypes.getSecond();
     if (relationshipTypesBeingAdded.size() > 0) {
       _graphService.removeEdgesFromNode(urn, new ArrayList<>(relationshipTypesBeingAdded),
-          createRelationshipFilter(new Filter().setOr(new ConjunctiveCriterionArray()), RelationshipDirection.OUTGOING));
+          createRelationshipFilter(new Filter().setOr(new ConjunctiveCriterionArray()),
+              RelationshipDirection.OUTGOING));
     }
   }
 
-  private void deleteSearchData(Urn urn, String entityName, AspectSpec aspectSpec, RecordTemplate aspect, Boolean isKeyAspect) {
+  private void deleteSearchData(Urn urn, String entityName, AspectSpec aspectSpec, RecordTemplate aspect,
+      Boolean isKeyAspect) {
     String docId;
     try {
       docId = URLEncoder.encode(urn.toString(), "UTF-8");
@@ -290,7 +300,7 @@ public class MetadataChangeLogProcessor {
 
     Optional<String> searchDocument;
     try {
-      searchDocument = SearchDocumentTransformer.transformAspect(urn, aspect, aspectSpec, true);
+      searchDocument = _searchDocumentTransformer.transformAspect(urn, aspect, aspectSpec, true);
     } catch (Exception e) {
       log.error("Error in getting documents from aspect: {} for aspect {}", e, aspectSpec.getName());
       return;

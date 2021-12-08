@@ -7,7 +7,7 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.SearchResult;
-import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilders;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.EntityIndexBuilders;
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
@@ -23,7 +23,7 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class ElasticSearchService implements EntitySearchService {
 
-  private final ESIndexBuilders indexBuilders;
+  private final EntityIndexBuilders indexBuilders;
   private final ESSearchDAO esSearchDAO;
   private final ESBrowseDAO esBrowseDAO;
   private final ESWriteDAO esWriteDAO;
@@ -87,7 +87,7 @@ public class ElasticSearchService implements EntitySearchService {
 
   @Nonnull
   @Override
-  public Map<String, Long> aggregateByValue(@Nonnull String entityName, @Nonnull String field,
+  public Map<String, Long> aggregateByValue(@Nullable String entityName, @Nonnull String field,
       @Nullable Filter requestParams, int limit) {
     log.debug("Aggregating by value: {}, field: {}, requestParams: {}, limit: {}", entityName, field, requestParams,
         limit);

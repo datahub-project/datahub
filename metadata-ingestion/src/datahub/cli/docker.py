@@ -18,6 +18,7 @@ from datahub.cli.docker_check import (
     get_client_with_error,
 )
 from datahub.ingestion.run.pipeline import Pipeline
+from datahub.telemetry import telemetry
 
 logger = logging.getLogger(__name__)
 
@@ -72,6 +73,7 @@ def docker_check_impl() -> None:
 
 
 @docker.command()
+@telemetry.with_telemetry
 def check() -> None:
     """Check that the Docker containers are healthy"""
     docker_check_impl()
@@ -162,6 +164,7 @@ def should_use_neo4j_for_graph_service(graph_service_override: Optional[str]) ->
     default=None,
     help="If set, forces docker-compose to use that graph service implementation",
 )
+@telemetry.with_telemetry
 def quickstart(
     version: str,
     build_locally: bool,
@@ -315,6 +318,7 @@ def quickstart(
     type=click.Path(exists=True, dir_okay=False),
     help=f"The MCE json file to ingest. Defaults to downloading {BOOTSTRAP_MCES_FILE} from GitHub",
 )
+@telemetry.with_telemetry
 def ingest_sample_data(path: Optional[str]) -> None:
     """Ingest sample data into a running DataHub instance."""
 
@@ -360,6 +364,7 @@ def ingest_sample_data(path: Optional[str]) -> None:
 
 
 @docker.command()
+@telemetry.with_telemetry
 def nuke() -> None:
     """Remove all Docker containers, networks, and volumes associated with DataHub."""
 
