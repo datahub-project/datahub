@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.run.IngestionRunSummary;
-import com.linkedin.metadata.search.elasticsearch.indexbuilder.IndexBuilder;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.mxe.SystemMetadata;
 import java.io.IOException;
@@ -40,9 +40,10 @@ import org.elasticsearch.search.aggregations.metrics.ParsedMax;
 @RequiredArgsConstructor
 public class ElasticSearchSystemMetadataService implements SystemMetadataService {
 
-  private final RestHighLevelClient searchClient;
+  private final RestHighLevelClient _searchClient;
   private final IndexConvention _indexConvention;
   private final ESSystemMetadataDAO _esDAO;
+  private final ESIndexBuilder _indexBuilder;
 
   private static final String DOC_DELIMETER = "--";
   public static final String INDEX_NAME = "system_metadata_service_v1";
@@ -161,10 +162,9 @@ public class ElasticSearchSystemMetadataService implements SystemMetadataService
   @Override
   public void configure() {
     log.info("Setting up system metadata index");
-    IndexBuilder ib = new IndexBuilder(this.searchClient, _indexConvention.getIndexName(INDEX_NAME),
-        SystemMetadataMappingsBuilder.getMappings(), Collections.emptyMap());
     try {
-      ib.buildIndex();
+      _indexBuilder.buildIndex(_indexConvention.getIndexName(INDEX_NAME), SystemMetadataMappingsBuilder.getMappings(),
+          Collections.emptyMap());
     } catch (IOException ie) {
       throw new RuntimeException("Could not configure system metadata index", ie);
     }
@@ -175,7 +175,7 @@ public class ElasticSearchSystemMetadataService implements SystemMetadataService
     DeleteByQueryRequest deleteRequest =
         new DeleteByQueryRequest(_indexConvention.getIndexName(INDEX_NAME)).setQuery(QueryBuilders.matchAllQuery());
     try {
-      searchClient.deleteByQuery(deleteRequest, RequestOptions.DEFAULT);
+      _searchClient.deleteByQuery(deleteRequest, RequestOptions.DEFAULT);
     } catch (Exception e) {
       log.error("Failed to clear system metadata service: {}", e.toString());
     }

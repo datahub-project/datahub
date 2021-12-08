@@ -248,6 +248,5 @@ if sys.version_info >= (3, 7):  # noqa: C901
         def close(self) -> None:
             pass
 
-
 else:
     raise ModuleNotFoundError("The trino usage plugin requires Python 3.7 or newer.")
