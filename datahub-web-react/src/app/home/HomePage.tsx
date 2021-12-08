@@ -1,12 +1,12 @@
 import React from 'react';
 import { HomePageHeader } from './HomePageHeader';
 import { HomePageBody } from './HomePageBody';
-import { BannerSplash } from '../announce/BannerSplash';
+// import { BannerSplash } from '../announce/BannerSplash';
 
 export const HomePage = () => {
     return (
         <>
-            <BannerSplash />
+            {/* <BannerSplash /> */}
             <HomePageHeader />
             <HomePageBody />
         </>

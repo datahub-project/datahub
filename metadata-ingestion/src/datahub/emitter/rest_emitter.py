@@ -68,7 +68,6 @@ class DatahubRestEmitter:
             )
         self._gms_server = gms_server
         self._token = token
-        self._ca_cert = ca_cert
 
         self._session = requests.Session()
         adapter = requests.adapters.HTTPAdapter(pool_connections=100, pool_maxsize=100)

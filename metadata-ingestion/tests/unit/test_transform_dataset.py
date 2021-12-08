@@ -24,11 +24,11 @@ from datahub.ingestion.transformer.add_dataset_tags import (
     PatternAddDatasetTags,
     SimpleAddDatasetTags,
 )
-from datahub.ingestion.transformer.ingest_dictionary import InsertIngestionDictionary
 from datahub.ingestion.transformer.add_dataset_terms import (
     PatternAddDatasetTerms,
     SimpleAddDatasetTerms,
 )
+from datahub.ingestion.transformer.ingest_dictionary import InsertIngestionDictionary
 from datahub.ingestion.transformer.mark_dataset_status import MarkDatasetStatus
 from datahub.ingestion.transformer.remove_dataset_ownership import (
     SimpleRemoveDatasetOwnership,

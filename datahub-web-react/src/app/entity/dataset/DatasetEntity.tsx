@@ -160,12 +160,12 @@ export class DatasetEntity implements Entity<Dataset> {
                                 owners
                                     ?.map((x) => (x?.type === 'DATAOWNER' ? x?.owner?.urn.split(':').slice(-1) : ''))
                                     ?.flat() ?? [];
-                            if (ownersArray.includes(currUser)) {                                
+                            if (ownersArray.includes(currUser)) {
                                 return false;
-                            }                            
+                            }
                             return true;
                         },
-                    }
+                    },
                 },
                 {
                     name: 'Edit Properties',
@@ -179,12 +179,12 @@ export class DatasetEntity implements Entity<Dataset> {
                                 owners
                                     ?.map((x) => (x?.type === 'DATAOWNER' ? x?.owner?.urn.split(':').slice(-1) : ''))
                                     ?.flat() ?? [];
-                            if (ownersArray.includes(currUser)) {                                
+                            if (ownersArray.includes(currUser)) {
                                 return false;
-                            }                            
+                            }
                             return true;
                         },
-                    }
+                    },
                 },
                 {
                     name: 'Dataset Admin',
@@ -205,7 +205,7 @@ export class DatasetEntity implements Entity<Dataset> {
                             console.log('return hide');
                             return true;
                         },
-                    }
+                    },
                 },
             ]}
             sidebarSections={[

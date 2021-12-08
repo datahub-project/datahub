@@ -9,14 +9,14 @@ export const BannerSplash = () => {
         timestamp: string;
     }
     const url = 'https://xaluil.gitlab.io/announce/';
-    const [data, setData] = useState<AnnouncementData>();
+    const [bannerData, setbannerData] = useState<AnnouncementData>();
     const RetrieveData = () => {
         useEffect(() => {
             const callAPI = async () => {
                 await axios
                     .get(url)
                     .then((res) => {
-                        setData(res.data);
+                        setbannerData(res.data);
                     })
                     .catch((error) => {
                         console.error(error.toString());
@@ -31,7 +31,7 @@ export const BannerSplash = () => {
         localStorage.setItem('_banner_closed_time', JSON.stringify(timenow));
     };
     RetrieveData();
-    const newObj = Object(data);
+    const newObj = Object(bannerData);
     const closedTime = Number(localStorage.getItem('_banner_closed_time'));
     console.log(`stored timestamp is ${closedTime}`);
     console.log(`the retrieved message is ${newObj.message}`);
