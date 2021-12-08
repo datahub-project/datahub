@@ -5,7 +5,7 @@ import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
-import com.linkedin.entity.client.RestliEntityClient;
+import com.linkedin.entity.client.EntityClient;
 import java.util.function.Function;
 import lombok.RequiredArgsConstructor;
 
@@ -14,7 +14,7 @@ import lombok.RequiredArgsConstructor;
 public class GMSEnableWriteModeStep implements UpgradeStep {
 
   private final Authentication _systemAuthentication;
-  private final RestliEntityClient _entityClient;
+  private final EntityClient _entityClient;
 
   @Override
   public String id() {

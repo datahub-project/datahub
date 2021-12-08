@@ -1,6 +1,5 @@
 package com.linkedin.datahub.upgrade;
 
-import com.linkedin.datahub.upgrade.applyretention.ApplyRetention;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeManager;
 import com.linkedin.datahub.upgrade.nocode.NoCodeUpgrade;
 import com.linkedin.datahub.upgrade.nocodecleanup.NoCodeCleanupUpgrade;
