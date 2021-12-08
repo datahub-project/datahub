@@ -5,7 +5,7 @@ import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.IngestionSource;
-import com.linkedin.datahub.graphql.generated.IngestionSourceExecutions;
+import com.linkedin.datahub.graphql.generated.IngestionSourceExecutionRequests;
 import com.linkedin.datahub.graphql.resolvers.ingest.IngestionResolverUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
@@ -33,19 +33,19 @@ import lombok.extern.slf4j.Slf4j;
  * Retrieves a list of historical executions for a particular source.
  */
 @Slf4j
-public class IngestionSourceExecutionsResolver implements DataFetcher<CompletableFuture<IngestionSourceExecutions>> {
+public class IngestionSourceExecutionRequestsResolver implements DataFetcher<CompletableFuture<IngestionSourceExecutionRequests>> {
 
   private static final String INGESTION_SOURCE_FIELD_NAME = "ingestionSource";
   private static final String START_TIME_MS_FIELD_NAME = "startTimeMs";
 
   private final EntityClient _entityClient;
 
-  public IngestionSourceExecutionsResolver(final EntityClient entityClient) {
+  public IngestionSourceExecutionRequestsResolver(final EntityClient entityClient) {
     _entityClient = entityClient;
   }
 
   @Override
-  public CompletableFuture<IngestionSourceExecutions> get(final DataFetchingEnvironment environment) throws Exception {
+  public CompletableFuture<IngestionSourceExecutionRequests> get(final DataFetchingEnvironment environment) throws Exception {
 
     final QueryContext context = environment.getContext();
     final String urn = ((IngestionSource) environment.getSource()).getUrn();
@@ -81,11 +81,13 @@ public class IngestionSourceExecutionsResolver implements DataFetcher<Completabl
         final Map<Urn, EntityResponse> entities = _entityClient.batchGetV2(
             Constants.EXECUTION_REQUEST_ENTITY_NAME,
             relatedExecRequests,
-            ImmutableSet.of(Constants.EXECUTION_REQUEST_INPUT_ASPECT_NAME, Constants.EXECUTION_REQUEST_RESULT_ASPECT_NAME),
+            ImmutableSet.of(
+                Constants.EXECUTION_REQUEST_INPUT_ASPECT_NAME,
+                Constants.EXECUTION_REQUEST_RESULT_ASPECT_NAME),
             context.getAuthentication());
 
         // 3. Map the GMS ExecutionRequests into GraphQL Execution Requests
-        final IngestionSourceExecutions result = new IngestionSourceExecutions();
+        final IngestionSourceExecutionRequests result = new IngestionSourceExecutionRequests();
         result.setStart(executionsSearchResult.getFrom());
         result.setCount(executionsSearchResult.getPageSize());
         result.setTotal(executionsSearchResult.getNumEntities());

@@ -18,7 +18,7 @@ import graphql.schema.DataFetchingEnvironment;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
-import static com.linkedin.datahub.graphql.resolvers.ingest.source.TestUtils.*;
+import static com.linkedin.datahub.graphql.resolvers.ingest.IngestTestUtils.*;
 import static org.testng.Assert.*;
 
 

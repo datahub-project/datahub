@@ -13,16 +13,6 @@ record ExecutionRequestResult {
   status: string
 
   /**
-  * The stdOut collected from executing the request
-  */
-  stdOut: optional string
-
-  /**
-  * The stdErr collected from executing the request
-  */
-  stdErr: optional string
-
-  /**
   * The pretty-printed execution report.
   */
   report: optional string

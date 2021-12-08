@@ -99,21 +99,6 @@ type ExecutionRequestInput {
 }
 
 """
-Logs captured from an execution request
-"""
-type ExecutionRequestLogs {
-  """
-  Errors logged to stdErr
-  """
-  stdErr: String
-
-  """
-  Errors logged to stdOut
-  """
-  stdOut: String
-}
-
-"""
 The result of an ExecutionRequest
 """
 type ExecutionRequestResult {
@@ -137,10 +122,6 @@ type ExecutionRequestResult {
   """
   report: String
 
-  """
-  Logs from the execution
-  """
-  logs: ExecutionRequestLogs
 }
 
 """
@@ -291,9 +272,9 @@ type IngestionRun {
 }
 
 """
-Runs associated with an ingestion source
+Requests for execution associated with an ingestion source
 """
-type IngestionSourceExecutions {
+type IngestionSourceExecutionRequests {
   """
   The starting offset of the result set
   """
@@ -347,7 +328,7 @@ type IngestionSource {
   """
   Runs of the ingestion source
   """
-  executions(start: Int, count: Int): IngestionSourceExecutions
+  executionRequests(start: Int, count: Int): IngestionSourceExecutionRequests
 }
 
 """

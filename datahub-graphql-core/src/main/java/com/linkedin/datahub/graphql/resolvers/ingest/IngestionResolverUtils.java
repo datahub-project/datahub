@@ -2,7 +2,6 @@ package com.linkedin.datahub.graphql.resolvers.ingest;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.generated.ExecutionRequest;
-import com.linkedin.datahub.graphql.generated.ExecutionRequestLogs;
 import com.linkedin.datahub.graphql.generated.IngestionConfig;
 import com.linkedin.datahub.graphql.generated.IngestionSchedule;
 import com.linkedin.datahub.graphql.generated.IngestionSource;
@@ -77,12 +76,6 @@ public class IngestionResolverUtils {
     result.setStartTimeMs(execRequestResult.getStartTimeMs());
     result.setDurationMs(execRequestResult.getDurationMs());
     result.setReport(execRequestResult.getReport());
-
-    // Mock the logs for now.
-    final ExecutionRequestLogs logs = new ExecutionRequestLogs();
-    logs.setStdErr("Captured stdErr.\nyou know nothing");
-    logs.setStdOut("Captured stdOut.\nyou know nothing");
-    result.setLogs(logs);
     return result;
   }
 

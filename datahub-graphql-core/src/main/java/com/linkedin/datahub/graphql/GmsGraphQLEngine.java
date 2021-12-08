@@ -54,7 +54,7 @@ import com.linkedin.datahub.graphql.resolvers.ingest.secret.DeleteSecretResolver
 import com.linkedin.datahub.graphql.resolvers.ingest.execution.GetIngestionExecutionRequestResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.source.GetIngestionSourceResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.secret.GetSecretValuesResolver;
-import com.linkedin.datahub.graphql.resolvers.ingest.execution.IngestionSourceExecutionsResolver;
+import com.linkedin.datahub.graphql.resolvers.ingest.execution.IngestionSourceExecutionRequestsResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.source.ListIngestionSourcesResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.secret.ListSecretsResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.source.UpsertIngestionSourceResolver;
@@ -933,7 +933,7 @@ public class GmsGraphQLEngine {
     }
 
     private void configureIngestionSourceResolvers(final RuntimeWiring.Builder builder) {
-        builder.type("IngestionSource", typeWiring -> typeWiring.dataFetcher("executions", new IngestionSourceExecutionsResolver(entityClient)));
+        builder.type("IngestionSource", typeWiring -> typeWiring.dataFetcher("executions", new IngestionSourceExecutionRequestsResolver(entityClient)));
     }
 
     private DataLoader<VersionedAspectKey, DataFetcherResult<Aspect>> createAspectLoader(final QueryContext queryContext) {

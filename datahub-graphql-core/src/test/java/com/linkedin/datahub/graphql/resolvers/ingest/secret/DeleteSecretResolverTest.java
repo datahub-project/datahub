@@ -9,7 +9,7 @@ import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
 import static org.testng.Assert.*;
-import static com.linkedin.datahub.graphql.resolvers.ingest.source.TestUtils.*;
+import static com.linkedin.datahub.graphql.resolvers.ingest.IngestTestUtils.*;
 
 public class DeleteSecretResolverTest {
 

@@ -9,9 +9,7 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.ingestion.DataHubIngestionSourceConfig;
 import com.linkedin.ingestion.DataHubIngestionSourceInfo;
-import com.linkedin.ingestion.DataHubIngestionSourceSchedule;
 import com.linkedin.metadata.Constants;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetchingEnvironment;
@@ -20,7 +18,7 @@ import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
 import static org.testng.Assert.*;
-import static com.linkedin.datahub.graphql.resolvers.ingest.source.TestUtils.*;
+import static com.linkedin.datahub.graphql.resolvers.ingest.IngestTestUtils.*;
 
 public class GetIngestionSourceResolverTest {
 

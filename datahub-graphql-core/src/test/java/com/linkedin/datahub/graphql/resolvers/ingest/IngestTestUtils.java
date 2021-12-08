@@ -1,12 +1,19 @@
-package com.linkedin.datahub.graphql.resolvers.ingest.source;
+package com.linkedin.datahub.graphql.resolvers.ingest;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.Authorizer;
+import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.template.StringMap;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.generated.ExecutionRequest;
 import com.linkedin.datahub.graphql.generated.IngestionSource;
 import com.linkedin.datahub.graphql.generated.Secret;
+import com.linkedin.datahub.graphql.generated.StringMapEntry;
+import com.linkedin.execution.ExecutionRequestInput;
+import com.linkedin.execution.ExecutionRequestResult;
+import com.linkedin.execution.ExecutionRequestSource;
 import com.linkedin.ingestion.DataHubIngestionSourceConfig;
 import com.linkedin.ingestion.DataHubIngestionSourceInfo;
 import com.linkedin.ingestion.DataHubIngestionSourceSchedule;
@@ -17,10 +24,12 @@ import org.mockito.Mockito;
 import static org.testng.Assert.*;
 
 
-public class TestUtils {
+public class IngestTestUtils {
 
   public static final Urn TEST_INGESTION_SOURCE_URN = Urn.createFromTuple(Constants.INGESTION_SOURCE_ENTITY_NAME, "test");
   public static final Urn TEST_SECRET_URN = Urn.createFromTuple(Constants.SECRETS_ENTITY_NAME, "TEST_SECRET");
+  public static final Urn TEST_EXECUTION_REQUEST_URN = Urn.createFromTuple(Constants.EXECUTION_REQUEST_ENTITY_NAME, "1234");
+
 
   public static QueryContext getMockAllowContext() {
     QueryContext mockContext = Mockito.mock(QueryContext.class);
@@ -66,6 +75,28 @@ public class TestUtils {
     return value;
   }
 
+  public static ExecutionRequestInput getTestExecutionRequestInput() {
+    ExecutionRequestInput input = new ExecutionRequestInput();
+    input.setArgs(new StringMap(
+        ImmutableMap.of(
+            "recipe", "my-custom-recipe",
+            "version", "0.8.18")
+    ));
+    input.setTask("RUN_INGEST");
+    input.setExecutorId("default");
+    input.setSource(new ExecutionRequestSource().setIngestionSource(TEST_INGESTION_SOURCE_URN).setType("SCHEDULED_INGESTION"));
+    return input;
+  }
+
+  public static ExecutionRequestResult getTestExecutionRequestResult() {
+    final ExecutionRequestResult result = new ExecutionRequestResult();
+    result.setDurationMs(10L);
+    result.setReport("Test report");
+    result.setStartTimeMs(0L);
+    result.setStatus("SUCCEEDED");
+    return result;
+  }
+
   public static void verifyTestIngestionSourceGraphQL(IngestionSource ingestionSource, DataHubIngestionSourceInfo info) {
     assertEquals(ingestionSource.getUrn(), TEST_INGESTION_SOURCE_URN.toString());
     assertEquals(ingestionSource.getName(), info.getName());
@@ -83,5 +114,22 @@ public class TestUtils {
     // Currently we do not return any secret value field.
   }
 
-  private TestUtils() { }
+  public static void verifyTestExecutionRequest(
+      ExecutionRequest executionRequest,
+      ExecutionRequestInput input,
+      ExecutionRequestResult result) {
+    assertEquals(executionRequest.getUrn(), TEST_EXECUTION_REQUEST_URN.toString());
+    assertEquals(executionRequest.getInput().getTask(), input.getTask());
+    assertEquals(executionRequest.getInput().getSource().getType(), input.getSource().getType());
+    for (StringMapEntry entry : executionRequest.getInput().getArguments()) {
+      assertTrue(input.getArgs().containsKey(entry.getKey()));
+      assertEquals(entry.getValue(), input.getArgs().get(entry.getKey()));
+    }
+    assertEquals(executionRequest.getResult().getDurationMs(), result.getDurationMs());
+    assertEquals(executionRequest.getResult().getReport(), result.getReport());
+    assertEquals(executionRequest.getResult().getStatus(), result.getStatus());
+    assertEquals(executionRequest.getResult().getStartTimeMs(), result.getStartTimeMs());
+  }
+
+  private IngestTestUtils() { }
 }

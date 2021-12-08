@@ -73,7 +73,6 @@ public class GetSecretValuesResolver implements DataFetcher<CompletableFuture<Li
                 if (aspect != null) {
                   // Aspect is present.
                   final DataHubSecretValue secretValue = new DataHubSecretValue(aspect.getValue().data());
-
                   // Now decrypt the encrypted secret.
                   final String decryptedSecretValue = decryptSecret(secretValue.getValue());
                   return new SecretValue(secretValue.getName(), decryptedSecretValue);

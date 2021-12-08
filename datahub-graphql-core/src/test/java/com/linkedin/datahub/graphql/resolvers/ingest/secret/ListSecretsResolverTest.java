@@ -6,7 +6,6 @@ import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.UrnArray;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.ListSecretsInput;
-import com.linkedin.datahub.graphql.resolvers.ingest.source.ListIngestionSourcesResolver;
 import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
@@ -22,7 +21,7 @@ import java.util.HashSet;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
-import static com.linkedin.datahub.graphql.resolvers.ingest.source.TestUtils.*;
+import static com.linkedin.datahub.graphql.resolvers.ingest.IngestTestUtils.*;
 import static org.testng.Assert.*;
 
 
