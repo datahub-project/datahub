@@ -1,5 +1,6 @@
 package com.linkedin.datahub.upgrade;
 
+import com.linkedin.datahub.upgrade.applyretention.ApplyRetention;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeManager;
 import com.linkedin.datahub.upgrade.nocode.NoCodeUpgrade;
 import com.linkedin.datahub.upgrade.nocodecleanup.NoCodeCleanupUpgrade;
@@ -44,12 +45,17 @@ public class UpgradeCli implements CommandLineRunner {
   @Named("restoreBackup")
   private RestoreBackup restoreBackup;
 
+  @Inject
+  @Named("applyRetention")
+  private ApplyRetention applyRetention;
+
   @Override
   public void run(String... cmdLineArgs) {
     _upgradeManager.register(noCodeUpgrade);
     _upgradeManager.register(noCodeCleanup);
     _upgradeManager.register(restoreIndices);
     _upgradeManager.register(restoreBackup);
+    _upgradeManager.register(applyRetention);
 
     final Args args = new Args();
     new CommandLine(args).setCaseInsensitiveEnumValuesAllowed(true).parseArgs(cmdLineArgs);
