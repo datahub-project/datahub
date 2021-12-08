@@ -66,9 +66,9 @@ public abstract class RetentionService {
   /**
    * Set retention policy for given entity and aspect. If entity or aspect names are null, the policy is set as default
    *
-   * @param entityName Entity name to apply policy to. If empty, set as "*",
+   * @param entityName Entity name to apply policy to. If null, set as "*",
    *                   meaning it will be the default for any entities without specified policy
-   * @param aspectName Aspect name to apply policy to. If empty, set as "*",
+   * @param aspectName Aspect name to apply policy to. If null, set as "*",
    *                   meaning it will be the default for any aspects without specified policy
    * @param retentionInfo Retention policy
    */
@@ -85,6 +85,22 @@ public abstract class RetentionService {
     } catch (URISyntaxException e) {
       throw new RuntimeException(e);
     }
+  }
+
+  /**
+   * Delete the retention policy set for given entity and aspect.
+   *
+   * @param entityName Entity name to apply policy to. If null, set as "*",
+   *                   meaning it will delete the default policy for any entities without specified policy
+   * @param aspectName Aspect name to apply policy to. If null, set as "*",
+   *                   meaning it will delete the default policy for any aspects without specified policy
+   */
+  public void deleteRetention(@Nullable String entityName, @Nullable String aspectName) {
+    DataHubRetentionKey retentionKey = new DataHubRetentionKey();
+    retentionKey.setEntityName(entityName != null ? entityName : ALL);
+    retentionKey.setAspectName(aspectName != null ? aspectName : ALL);
+    Urn retentionUrn = EntityKeyUtils.convertEntityKeyToUrn(retentionKey, "dataHubRetention");
+    getEntityService().deleteUrn(retentionUrn);
   }
 
   private void validateRetentionInfo(DataHubRetentionInfo retentionInfo) {

@@ -92,6 +92,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   private static final String ACTION_LIST_URNS = "listUrns";
   private static final String ACTION_FILTER = "filter";
   private static final String ACTION_SET_RETENTION = "setRetention";
+  private static final String ACTION_DELETE_RETENTION = "deleteRetention";
   private static final String ACTION_APPLY_RETENTION = "applyRetention";
   private static final String PARAM_ENTITY = "entity";
   private static final String PARAM_ENTITIES = "entities";
@@ -462,6 +463,17 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       @ActionParam(PARAM_RETENTION) DataHubRetentionInfo retentionPolicy) {
     return RestliUtil.toTask(() -> {
       _retentionService.setRetention(entityName, aspectName, retentionPolicy);
+      return null;
+    });
+  }
+
+  @Action(name = ACTION_DELETE_RETENTION)
+  @Nonnull
+  @WithSpan
+  public Task<Void> deleteRetention(@ActionParam(PARAM_ENTITY) @Optional @Nullable String entityName,
+      @ActionParam(PARAM_ASPECT) @Optional @Nullable String aspectName) {
+    return RestliUtil.toTask(() -> {
+      _retentionService.deleteRetention(entityName, aspectName);
       return null;
     });
   }
