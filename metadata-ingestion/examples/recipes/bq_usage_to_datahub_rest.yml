@@ -5,7 +5,7 @@ source:
       - calm-pagoda-323403
     top_n_queries: 10
     start_time: '2021-12-01T00:00Z'
-    end_time: '2021-12-07T00:00Z'
+    end_time: '2021-12-10T00:00Z'
 
 sink:
   type: "datahub-rest"
