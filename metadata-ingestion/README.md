@@ -38,7 +38,7 @@ Sources:
 | [athena](./source_docs/athena.md)               | `pip install 'acryl-datahub[athena]'`                      | AWS Athena source                   |
 | [bigquery](./source_docs/bigquery.md)           | `pip install 'acryl-datahub[bigquery]'`                    | BigQuery source                     |
 | [bigquery-usage](./source_docs/bigquery.md)     | `pip install 'acryl-datahub[bigquery-usage]'`              | BigQuery usage statistics source    |
-| [datahub-business-glossary](./source_docs/business_glossary.md)                     | _no additional dependencies_                               | Business Glossary File source                          |
+| [datahub-business-glossary](./source_docs/business_glossary.md)                     | _no additional dependencies_                               | Business Glossary File source                         |
 | [dbt](./source_docs/dbt.md)                     | _no additional dependencies_                               | dbt source                          |
 | [druid](./source_docs/druid.md)                 | `pip install 'acryl-datahub[druid]'`                       | Druid Source                        |
 | [feast](./source_docs/feast.md)                 | `pip install 'acryl-datahub[feast]'`                       | Feast source                        |
@@ -49,6 +49,7 @@ Sources:
 | [ldap](./source_docs/ldap.md)                   | `pip install 'acryl-datahub[ldap]'` ([extra requirements]) | LDAP source                         |
 | [looker](./source_docs/looker.md)               | `pip install 'acryl-datahub[looker]'`                      | Looker source                       |
 | [lookml](./source_docs/lookml.md)               | `pip install 'acryl-datahub[lookml]'`                      | LookML source, requires Python 3.7+ |
+| [mode-analytics](./source_docs/mode.md)         | `pip install 'acryl-datahub[mode-analytics]'`              | Mode Analytics source               |
 | [mongodb](./source_docs/mongodb.md)             | `pip install 'acryl-datahub[mongodb]'`                     | MongoDB source                      |
 | [mssql](./source_docs/mssql.md)                 | `pip install 'acryl-datahub[mssql]'`                       | SQL Server source                   |
 | [mysql](./source_docs/mysql.md)                 | `pip install 'acryl-datahub[mysql]'`                       | MySQL source                        |
@@ -65,7 +66,7 @@ Sources:
 | [sqlalchemy](./source_docs/sqlalchemy.md)       | `pip install 'acryl-datahub[sqlalchemy]'`                  | Generic SQLAlchemy source           |
 | [superset](./source_docs/superset.md)           | `pip install 'acryl-datahub[superset]'`                    | Superset source                     |
 | [trino](./source_docs/trino.md)                 | `pip install 'acryl-datahub[trino]`                        | Trino source                     |
-| [starburst-trino-usage](./source_docs/trino.md) | `pip install 'acryl-datahub[starburst-trino-usage]'`       | Starburst Trino usage statistics source   |
+| [starburst-trino-usage](./source_docs/trino.md) | `pip install 'acryl-datahub[starburst-trino-usage]'`       | Starburst Trino usage statistics source  |
 
 Sinks
 

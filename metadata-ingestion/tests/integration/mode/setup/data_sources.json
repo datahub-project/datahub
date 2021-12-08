@@ -1,0 +1,100 @@
+{
+  "_links": {
+    "self": {
+      "href": "/api/acryl/data_sources"
+    }
+  },
+  "_embedded": {
+    "data_sources": [{
+      "id": 34337,
+      "name": "PostgreSQL",
+      "description": "",
+      "token": "3c9b417f20d4",
+      "adapter": "jdbc:postgresql",
+      "created_at": "2021-11-30T19:49:59.884Z",
+      "updated_at": "2021-11-30T19:49:59.884Z",
+      "has_expensive_schema_updates": false,
+      "public": false,
+      "asleep": false,
+      "queryable": true,
+      "display_name": "PostgreSQL",
+      "account_id": 745241,
+      "account_username": "acryl",
+      "organization_token": "d82b886a1cb7",
+      "default": true,
+      "default_for_organization_id": "d82b886a1cb7",
+      "database": "dvdrental",
+      "host": "72.38.17.64",
+      "port": 5432,
+      "ssl": true,
+      "username": "postgres",
+      "provider": "default",
+      "vendor": "postgresql",
+      "ldap": false,
+      "warehouse": null,
+      "bridged": false,
+      "adapter_version": "42.2.23",
+      "custom_attributes": {
+        "instance_name": ""
+      },
+      "default_access_level": "Query",
+      "_links": {
+        "self": {
+          "href": "/api/acryl/data_sources/3c9b417f20d4"
+        },
+        "account": {
+          "href": "/api/acryl"
+        },
+        "permissions": {
+          "href": "/api/acryl/data_sources/3c9b417f20d4/permissions"
+        },
+        "web": {
+          "href": "/organizations/acryl/data_sources/3c9b417f20d4"
+        },
+        "web_home": {
+          "href": "/home/acryl/data_sources/3c9b417f20d4"
+        }
+      },
+      "_forms": {
+        "edit": {
+          "method": "patch",
+          "action": "/api/acryl/data_sources/3c9b417f20d4",
+          "content_type": "application/json",
+          "input": {
+            "data_source": {
+              "tables[]": {
+                "name": {
+                  "type": "text"
+                },
+                "description": {
+                  "type": "text"
+                },
+                "schema": {
+                  "type": "text"
+                },
+                "columns[]": {
+                  "name": {
+                    "type": "text"
+                  },
+                  "data_type": {
+                    "type": "text"
+                  },
+                  "is_nullable": {
+                    "type": "select",
+                    "options": [true, false],
+                    "value": true
+                  },
+                  "primary_key": {
+                    "type": "select",
+                    "options": [true, false],
+                    "value": false
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }]
+  }
+}
