@@ -447,7 +447,6 @@ class BigQueryUsageSource(Source):
                     num_read_events += 1
                 elif QueryEvent.can_parse_entry(entry):
                     event = QueryEvent.from_entry(entry)
-                    print(event)
                     num_query_events += 1
                 else:
                     self.report.report_warning(
