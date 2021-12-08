@@ -106,7 +106,7 @@ module.exports = {
           "docs/how/add-custom-ingestion-source",
           "docs/how/add-custom-data-platform",
           "docs/how/add-user-data",
-          ]
+        ]
       },
     ],
     "Metadata Modeling": [
@@ -192,6 +192,11 @@ module.exports = {
       // TODO: the titles of these should not be in question form in the sidebar
       "docs/developers",
       "docs/docker/development",
+      {
+        type: "doc",
+        label: "Ingesting files from S3",
+        id: "metadata-ingestion/source_docs/s3",
+      },
       //"metadata-ingestion/examples/transforms/README"
       //"docs/what/graph",
       //"docs/what/search-index",
