@@ -85,10 +85,8 @@ public class ElasticSearchSystemMetadataService implements SystemMetadataService
   }
 
   @Override
-  public Boolean delete(String urn, String aspect) {
-    String docId = toDocId(urn, aspect);
-    DeleteResponse response = _esDAO.deleteByDocId(docId);
-    return response.status().getStatus() >= 200 && response.status().getStatus() < 300;
+  public void deleteAspect(String urn, String aspect) {
+    _esDAO.deleteByUrnAspect(urn, aspect);
   }
 
   @Override
