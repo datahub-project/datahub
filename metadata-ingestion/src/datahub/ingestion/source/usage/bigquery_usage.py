@@ -235,7 +235,6 @@ class QueryEvent:
     @classmethod
     def can_parse_entry(cls, entry: AuditLogEntry) -> bool:
         try:
-            print(entry.payload)
             entry.payload["serviceData"]["jobCompletedEvent"]["job"]
             return True
         except (KeyError, TypeError):
@@ -448,6 +447,7 @@ class BigQueryUsageSource(Source):
                     num_read_events += 1
                 elif QueryEvent.can_parse_entry(entry):
                     event = QueryEvent.from_entry(entry)
+                    print(event)
                     num_query_events += 1
                 else:
                     self.report.report_warning(

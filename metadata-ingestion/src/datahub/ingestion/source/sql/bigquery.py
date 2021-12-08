@@ -187,10 +187,11 @@ class BigQuerySource(SQLAlchemySource):
             ):
                 continue
             for ref_table in e.referencedTables:
-                destination_table_str = str(e.destinationTable)
-                ref_table_str = str(ref_table)
+                destination_table_str = str(e.destinationTable.remove_extras())
+                ref_table_str = str(ref_table.remove_extras())
                 if ref_table_str != destination_table_str:
                     lineage_map[destination_table_str].add(ref_table_str)
+        print(lineage_map)
         return lineage_map
 
     @classmethod
@@ -310,4 +311,6 @@ class BigQuerySource(SQLAlchemySource):
             raise ValueError(f"expected table to contain schema name already {entity}")
         if segments[0] != schema:
             raise ValueError(f"schema {schema} does not match table {entity}")
+        print (schema, entity, segments)
+        BigQueryTableRef.from_spec_obj({ 'datasetId': segments[0], 'tableId'})
         return segments[0], segments[1]
