@@ -120,6 +120,7 @@ Here are the companies that have officially adopted DataHub. Please feel free to
 - [LinkedIn](http://linkedin.com)
 - [Peloton](https://www.onepeloton.com)
 - [Saxo Bank](https://www.home.saxo)
+- [Stash](https://www.stash.com)
 - [Shanghai HuaRui Bank](https://www.shrbank.com)
 - [ThoughtWorks](https://www.thoughtworks.com)
 - [TypeForm](http://typeform.com)
