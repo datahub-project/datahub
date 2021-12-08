@@ -58,8 +58,6 @@ import lombok.extern.slf4j.Slf4j;
 
 import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.entity.ebean.EbeanUtils.*;
-
-import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.utils.PegasusUtils.*;
 
 
