@@ -202,7 +202,7 @@ public abstract class EntityService {
 
     // Apply retention policies asynchronously if there was an update to existing aspect value
     if (oldValue != updatedValue && oldValue != null && retentionService != null) {
-      retentionService.applyRetention(urn, aspectName,
+      retentionService.applyRetentionAsync(urn, aspectName,
           Optional.of(new RetentionService.RetentionContext(Optional.of(result.maxVersion))));
     }
 

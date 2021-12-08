@@ -231,6 +231,20 @@
       } ],
       "returns" : "com.linkedin.metadata.search.SearchResult"
     }, {
+      "name" : "setRetention",
+      "parameters" : [ {
+        "name" : "entity",
+        "type" : "string",
+        "optional" : true
+      }, {
+        "name" : "aspect",
+        "type" : "string",
+        "optional" : true
+      }, {
+        "name" : "retention",
+        "type" : "com.linkedin.retention.DataHubRetentionInfo"
+      } ]
+    }, {
       "name" : "setWritable",
       "parameters" : [ {
         "name" : "value",

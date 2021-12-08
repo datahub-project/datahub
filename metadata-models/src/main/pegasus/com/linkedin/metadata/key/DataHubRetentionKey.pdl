@@ -10,10 +10,10 @@ record DataHubRetentionKey {
   /**
    * Entity name to apply retention to. * (or empty) for applying defaults.
    */
-  entityName: string = "*"
+  entityName: string
 
   /**
    * Aspect name to apply retention to. * (or empty) for applying defaults.
    */
-  aspectName: string = "*"
+  aspectName: string
 }

@@ -10,6 +10,7 @@ import com.linkedin.entity.Entity;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.RetentionService;
 import com.linkedin.metadata.entity.RollbackRunResult;
 import com.linkedin.metadata.entity.ValidationException;
 import com.linkedin.metadata.query.AutoCompleteResult;
@@ -39,6 +40,7 @@ import com.linkedin.restli.server.annotations.QueryParam;
 import com.linkedin.restli.server.annotations.RestLiCollection;
 import com.linkedin.restli.server.annotations.RestMethod;
 import com.linkedin.restli.server.resources.CollectionResourceTaskTemplate;
+import com.linkedin.retention.DataHubRetentionInfo;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.net.URISyntaxException;
 import java.time.Clock;
@@ -58,9 +60,22 @@ import javax.inject.Named;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.maven.artifact.versioning.ComparableVersion;
 
-import static com.linkedin.metadata.entity.ValidationUtils.*;
-import static com.linkedin.metadata.restli.RestliConstants.*;
-import static com.linkedin.metadata.utils.PegasusUtils.*;
+import static com.linkedin.metadata.entity.ValidationUtils.validateOrThrow;
+import static com.linkedin.metadata.restli.RestliConstants.ACTION_AUTOCOMPLETE;
+import static com.linkedin.metadata.restli.RestliConstants.ACTION_BROWSE;
+import static com.linkedin.metadata.restli.RestliConstants.ACTION_GET_BROWSE_PATHS;
+import static com.linkedin.metadata.restli.RestliConstants.ACTION_INGEST;
+import static com.linkedin.metadata.restli.RestliConstants.PARAM_ASPECTS;
+import static com.linkedin.metadata.restli.RestliConstants.PARAM_FIELD;
+import static com.linkedin.metadata.restli.RestliConstants.PARAM_FILTER;
+import static com.linkedin.metadata.restli.RestliConstants.PARAM_INPUT;
+import static com.linkedin.metadata.restli.RestliConstants.PARAM_LIMIT;
+import static com.linkedin.metadata.restli.RestliConstants.PARAM_PATH;
+import static com.linkedin.metadata.restli.RestliConstants.PARAM_QUERY;
+import static com.linkedin.metadata.restli.RestliConstants.PARAM_SORT;
+import static com.linkedin.metadata.restli.RestliConstants.PARAM_START;
+import static com.linkedin.metadata.restli.RestliConstants.PARAM_URN;
+import static com.linkedin.metadata.utils.PegasusUtils.urnToEntityName;
 
 
 /**
@@ -76,10 +91,13 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   private static final String ACTION_BATCH_INGEST = "batchIngest";
   private static final String ACTION_LIST_URNS = "listUrns";
   private static final String ACTION_FILTER = "filter";
+  private static final String ACTION_SET_RETENTION = "setRetention";
   private static final String PARAM_ENTITY = "entity";
   private static final String PARAM_ENTITIES = "entities";
+  private static final String PARAM_ASPECT = "aspect";
   private static final String PARAM_COUNT = "count";
   private static final String PARAM_VALUE = "value";
+  private static final String PARAM_RETENTION = "retention";
   private static final String SYSTEM_METADATA = "systemMetadata";
 
   private final Clock _clock = Clock.systemUTC();
@@ -99,6 +117,10 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   @Inject
   @Named("systemMetadataService")
   private SystemMetadataService _systemMetadataService;
+
+  @Inject
+  @Named("retentionService")
+  private RetentionService _retentionService;
 
   /**
    * Retrieves the value for an entity that is made up of latest versions of specified aspects.
@@ -429,5 +451,17 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     log.info("FILTER RESULTS for {} with filter {}", entityName, filter);
     return RestliUtil.toTask(() -> _entitySearchService.filter(entityName, filter, sortCriterion, start, count),
         MetricRegistry.name(this.getClass(), "search"));
+  }
+
+  @Action(name = ACTION_SET_RETENTION)
+  @Nonnull
+  @WithSpan
+  public Task<Void> setRetention(@ActionParam(PARAM_ENTITY) @Optional @Nullable String entityName,
+      @ActionParam(PARAM_ASPECT) @Optional @Nullable String aspectName,
+      @ActionParam(PARAM_RETENTION) DataHubRetentionInfo retentionPolicy) throws URISyntaxException {
+    return RestliUtil.toTask(() -> {
+      _retentionService.setRetention(entityName, aspectName, retentionPolicy);
+      return null;
+    });
   }
 }
