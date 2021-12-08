@@ -92,6 +92,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   private static final String ACTION_LIST_URNS = "listUrns";
   private static final String ACTION_FILTER = "filter";
   private static final String ACTION_SET_RETENTION = "setRetention";
+  private static final String ACTION_APPLY_RETENTION = "applyRetention";
   private static final String PARAM_ENTITY = "entity";
   private static final String PARAM_ENTITIES = "entities";
   private static final String PARAM_ASPECT = "aspect";
@@ -458,9 +459,19 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   @WithSpan
   public Task<Void> setRetention(@ActionParam(PARAM_ENTITY) @Optional @Nullable String entityName,
       @ActionParam(PARAM_ASPECT) @Optional @Nullable String aspectName,
-      @ActionParam(PARAM_RETENTION) DataHubRetentionInfo retentionPolicy) throws URISyntaxException {
+      @ActionParam(PARAM_RETENTION) DataHubRetentionInfo retentionPolicy) {
     return RestliUtil.toTask(() -> {
       _retentionService.setRetention(entityName, aspectName, retentionPolicy);
+      return null;
+    });
+  }
+
+  @Action(name = ACTION_APPLY_RETENTION)
+  @Nonnull
+  @WithSpan
+  public Task<Void> applyRetention() {
+    return RestliUtil.toTask(() -> {
+      _retentionService.applyRetentionToAll();
       return null;
     });
   }

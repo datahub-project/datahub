@@ -16,6 +16,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -73,6 +74,7 @@ public abstract class RetentionService {
    */
   public void setRetention(@Nullable String entityName, @Nullable String aspectName,
       @Nonnull DataHubRetentionInfo retentionInfo) {
+    validateRetentionInfo(retentionInfo);
     DataHubRetentionKey retentionKey = new DataHubRetentionKey();
     retentionKey.setEntityName(entityName != null ? entityName : ALL);
     retentionKey.setAspectName(aspectName != null ? aspectName : ALL);
@@ -82,6 +84,37 @@ public abstract class RetentionService {
           new AuditStamp().setActor(Urn.createFromString(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis()));
     } catch (URISyntaxException e) {
       throw new RuntimeException(e);
+    }
+  }
+
+  private void validateRetentionInfo(DataHubRetentionInfo retentionInfo) {
+    Set<String> retentionsSoFar = new HashSet<>();
+    for (Retention retention : retentionInfo.getRetentionPolicies()) {
+      if (retention.data().size() != 1) {
+        throw new IllegalArgumentException("Exactly one retention policy should be set per element");
+      }
+      if (retention.hasIndefinite() && retentionInfo.getRetentionPolicies().size() > 1) {
+        throw new IllegalArgumentException("Indefinite policy cannot be combined with any other policy");
+      }
+      String retentionType = retention.data().keySet().stream().findFirst().get();
+      if (retentionsSoFar.contains(retentionType)) {
+        throw new IllegalArgumentException("Type of policies in the list must be unique");
+      }
+      retentionsSoFar.add(retentionType);
+      validateRetention(retention);
+    }
+  }
+
+  private void validateRetention(Retention retention) {
+    if (retention.hasVersion()) {
+      if (retention.getVersion().getMaxVersions() <= 0) {
+        throw new IllegalArgumentException("Invalid maxVersions: " + retention.getVersion().getMaxVersions());
+      }
+    }
+    if (retention.hasTime()) {
+      if (retention.getTime().getMaxAgeInSeconds() <= 0) {
+        throw new IllegalArgumentException("Invalid maxAgeInSeconds: " + retention.getTime().getMaxAgeInSeconds());
+      }
     }
   }
 
@@ -104,6 +137,11 @@ public abstract class RetentionService {
    * @param context Additional context that could be used to apply retention
    */
   public abstract void applyRetention(@Nonnull Urn urn, @Nonnull String aspectName, Optional<RetentionContext> context);
+
+  /**
+   * Apply retention to all records
+   */
+  public abstract void applyRetentionToAll();
 
   @Value
   public static class RetentionContext {

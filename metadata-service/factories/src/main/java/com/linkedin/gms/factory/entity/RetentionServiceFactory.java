@@ -8,6 +8,7 @@ import io.ebean.EbeanServer;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.DependsOn;
@@ -26,12 +27,15 @@ public class RetentionServiceFactory {
   @Qualifier("ebeanServer")
   private EbeanServer _server;
 
+  @Value("${RETENTION_APPLICATION_BATCH_SIZE:1000}")
+  private Integer _batchSize;
+
 
   @Bean(name = "retentionService")
   @DependsOn({"ebeanServer", "entityService"})
   @Nonnull
   protected RetentionService createInstance() {
-    RetentionService retentionService = new EbeanRetentionService(_entityService, _server);
+    RetentionService retentionService = new EbeanRetentionService(_entityService, _server, _batchSize);
     _entityService.setRetentionService(retentionService);
     return retentionService;
   }

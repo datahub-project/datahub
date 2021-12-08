@@ -27,6 +27,8 @@
       } ]
     } ],
     "actions" : [ {
+      "name" : "applyRetention"
+    }, {
       "name" : "autocomplete",
       "parameters" : [ {
         "name" : "entity",
