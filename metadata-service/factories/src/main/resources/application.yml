@@ -44,6 +44,9 @@ authorizationManager:
 platformAnalytics:
   enabled: ${ANALYTICS_ENABLED:true}
 
+managedIngestion:
+  enabled: ${MANAGED_INGESTION_ENABLED:false}
+
 # Storage Layer
 ebean:
   username: ${EBEAN_DATASOURCE_USERNAME:datahub}
