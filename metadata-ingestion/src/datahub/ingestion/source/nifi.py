@@ -212,6 +212,7 @@ class NifiComponent:
 
     # present only for nifi remote ports
     target_uris: Optional[str] = None
+    parent_rpg_id: Optional[str] = None
 
     # Last successful event time
     last_event_time: Optional[str] = None
@@ -440,30 +441,34 @@ class NifiSource(Source):
 
             contents = rpg_component.get("contents", {})
             for component in contents.get("outputPorts", []):
-                remote_ports[component.get("id")] = NifiComponent(
-                    component.get("id"),
-                    component.get("name"),
-                    component.get("type"),
-                    component.get("parentGroupId"),
-                    NifiType.REMOTE_OUTPUT_PORT,
-                    target_uris=rpg_component.get("targetUris"),
-                    comments=component.get("comments"),
-                    status=component.get("status", {}).get("runStatus"),
-                )
-                logger.debug(f"Adding remote output port {component.get('id')}")
+                if component.get("connected", False):
+                    remote_ports[component.get("id")] = NifiComponent(
+                        component.get("id"),
+                        component.get("name"),
+                        component.get("type"),
+                        rpg_component.get("parentGroupId"),
+                        NifiType.REMOTE_OUTPUT_PORT,
+                        target_uris=rpg_component.get("targetUris"),
+                        parent_rpg_id=rpg_component.get("id"),
+                        comments=component.get("comments"),
+                        status=component.get("status", {}).get("runStatus"),
+                    )
+                    logger.debug(f"Adding remote output port {component.get('id')}")
 
             for component in contents.get("inputPorts", []):
-                remote_ports[component.get("id")] = NifiComponent(
-                    component.get("id"),
-                    component.get("name"),
-                    component.get("type"),
-                    component.get("parentGroupId"),
-                    NifiType.REMOTE_INPUT_PORT,
-                    target_uris=rpg_component.get("targetUris"),
-                    comments=component.get("comments"),
-                    status=component.get("status", {}).get("runStatus"),
-                )
-                logger.debug(f"Adding remote input port {component.get('id')}")
+                if component.get("connected", False):
+                    remote_ports[component.get("id")] = NifiComponent(
+                        component.get("id"),
+                        component.get("name"),
+                        component.get("type"),
+                        rpg_component.get("parentGroupId"),
+                        NifiType.REMOTE_INPUT_PORT,
+                        target_uris=rpg_component.get("targetUris"),
+                        parent_rpg_id=rpg_component.get("id"),
+                        comments=component.get("comments"),
+                        status=component.get("status", {}).get("runStatus"),
+                    )
+                    logger.debug(f"Adding remote input port {component.get('id')}")
 
             nifi_rpg = NifiRemoteProcessGroup(
                 rpg_component.get("id"),
@@ -719,6 +724,8 @@ class NifiSource(Source):
                 jobProperties["properties"] = json.dumps(
                     component.config.get("properties")  # type: ignore
                 )
+                if component.last_event_time is not None:
+                    jobProperties["last_event_time"] = component.last_event_time
 
                 for dataset in component.inlets.values():
                     yield from self.construct_dataset_workunits(
@@ -817,8 +824,9 @@ class NifiSource(Source):
                 job_urn,
                 job_name,
                 external_url=self.make_external_url(
-                    component.parent_group_id, component.id
+                    component.parent_group_id, component.id, component.parent_rpg_id
                 ),
+                job_type=NIFI.upper() + "_" + component.nifi_type.value,
                 description=component.comments,
                 job_properties=jobProperties,
                 inlets=list(component.inlets.keys()),
@@ -863,13 +871,23 @@ class NifiSource(Source):
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
 
+        # Creates nifi_flow by invoking /flow rest api and saves as self.nifi_flow
         self.create_nifi_flow()
+
+        # Updates inlets and outlets of nifi_flow.components by invoking /provenance rest api
         self.process_provenance_events()
+
+        # Reads and translates entities from self.nifi_flow into mcps
         yield from self.construct_workunits()
 
     def make_external_url(
-        self, parent_group_id: str, component_id: Optional[str] = ""
+        self,
+        parent_group_id: str,
+        component_id: Optional[str] = "",
+        parent_rpg_id: Optional[str] = None,
     ) -> str:
+        if parent_rpg_id is not None:
+            component_id = parent_rpg_id
         return urljoin(
             self.config.site_url,
             f"/nifi/?processGroupId={parent_group_id}&componentIds={component_id}",
@@ -905,6 +923,7 @@ class NifiSource(Source):
         job_urn: str,
         job_name: str,
         external_url: str,
+        job_type: str,
         description: Optional[str],
         job_properties: Optional[Dict[str, str]] = None,
         inlets: List[str] = [],
@@ -922,7 +941,7 @@ class NifiSource(Source):
             aspectName="dataJobInfo",
             aspect=DataJobInfoClass(
                 name=job_name,
-                type="NIFI_COMPONENT",
+                type=job_type,
                 description=description,
                 customProperties=job_properties,
                 externalUrl=external_url,
@@ -981,8 +1000,9 @@ class NifiSource(Source):
             else dataset_platform
         )
         wu = MetadataWorkUnit(id=f"{platform}.{dataset_name}.{mcp.aspectName}", mcp=mcp)
-        self.report.report_workunit(wu)
-        yield wu
+        if wu.id not in self.report.workunit_ids:
+            self.report.report_workunit(wu)
+            yield wu
 
         mcp = MetadataChangeProposalWrapper(
             entityType="dataset",

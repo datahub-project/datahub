@@ -18,8 +18,21 @@ services:
       #INITIAL_ADMIN_IDENTITY: 'CN=DatahubUser, C=US'
       NIFI_WEB_HTTP_PORT: 9443
     volumes:
-      - ./setup/conf:/opt/nifi/nifi-current/conf      
-      - ./setup/ssl_files:/opt/certs      
+      - ./setup/conf:/opt/nifi/tmp:ro
+      #- ./setup/ssl_files:/opt/certs 
+    entrypoint: 
+      - bash
+      - -c
+      - |
+        echo "Copying Flow"
+        #
+        cp /opt/nifi/tmp/flow.xml.gz /opt/nifi/nifi-current/conf/flow.xml.gz
+        #
+        echo "Starting Nifi"
+        #
+        /opt/nifi/scripts/start.sh &
+        #
+        sleep infinity     
     ports:
       - 9443:9443  
 
@@ -37,13 +50,26 @@ services:
   nifi01:
     image: apache/nifi:1.15.0 
     container_name: nifi01
-    hostname: nifi01   
+    hostname: nifi01
     depends_on:
       - nifi_zookeeper
     ports:
       - 9080:9080
     volumes:
-      - ./setup/conf_clustered:/opt/nifi/nifi-current/conf      
+      - ./setup/conf_clustered:/opt/nifi/tmp:ro
+    entrypoint: 
+      - bash
+      - -c
+      - |
+        echo "Copying Flow"
+        #
+        cp /opt/nifi/tmp/flow.xml.gz /opt/nifi/nifi-current/conf/flow.xml.gz
+        #
+        echo "Starting Nifi"
+        #
+        /opt/nifi/scripts/start.sh &
+        #
+        sleep infinity 
     environment:
       - NIFI_WEB_HTTP_PORT=9080
       - NIFI_CLUSTER_IS_NODE=true

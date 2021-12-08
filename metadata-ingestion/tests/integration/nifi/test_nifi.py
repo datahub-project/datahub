@@ -11,7 +11,7 @@ FROZEN_TIME = "2021-12-03 12:00:00"
 
 
 @freeze_time(FROZEN_TIME)
-@pytest.mark.integration
+@pytest.mark.slow_integration
 def test_nifi_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/nifi"
     with docker_compose_runner(
@@ -73,11 +73,17 @@ def test_nifi_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
             pipeline.run()
             pipeline.raise_from_status()
 
-            # Verify the output.
+            # Verify the output. ignore values for aspects having last_event_time values
+            # TODO: ignore paths with respect to aspect value in case of MCPs
             mce_helpers.check_golden_file(
                 pytestconfig,
                 output_path="nifi_mces.json",
                 golden_path=test_resources_dir / "nifi_mces_golden_standalone.json",
+                ignore_paths=[
+                    r"root\[1\]\['aspect'\]\['value'\]",
+                    r"root\[5\]\['aspect'\]\['value'\]",
+                    r"root\[7\]\['aspect'\]\['value'\]",
+                ],
             )
 
             # Run nifi ingestion run.
@@ -105,8 +111,15 @@ def test_nifi_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
             pipeline.raise_from_status()
 
             # Verify the output.
+            # TODO: ignore paths with respect to aspect value in case of MCPs
             mce_helpers.check_golden_file(
                 pytestconfig,
                 output_path="nifi_mces_cluster.json",
                 golden_path=test_resources_dir / "nifi_mces_golden_cluster.json",
+                ignore_paths=[
+                    r"root\[5\]\['aspect'\]\['value'\]",
+                    r"root\[7\]\['aspect'\]\['value'\]",
+                    r"root\[15\]\['aspect'\]\['value'\]",
+                    r"root\[19\]\['aspect'\]\['value'\]",
+                ],
             )
