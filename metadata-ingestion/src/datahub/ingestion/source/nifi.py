@@ -956,6 +956,10 @@ class NifiSource(Source):
         self.report.report_workunit(wu)
         yield wu
 
+        inlets.sort()
+        outlets.sort()
+        inputJobs.sort()
+
         mcp = MetadataChangeProposalWrapper(
             entityType="dataJob",
             entityUrn=job_urn,

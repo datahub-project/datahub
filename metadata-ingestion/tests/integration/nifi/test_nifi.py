@@ -120,8 +120,6 @@ def test_nifi_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
                     r"root\[5\]\['aspect'\]\['value'\]",
                     r"root\[7\]\['aspect'\]\['value'\]",
                     r"root\[15\]\['aspect'\]\['value'\]",
-                    r"root\[16\]\['aspect'\]\['value'\]",
                     r"root\[19\]\['aspect'\]\['value'\]",
-                    r"root\[20\]\['aspect'\]\['value'\]",
                 ],
             )
