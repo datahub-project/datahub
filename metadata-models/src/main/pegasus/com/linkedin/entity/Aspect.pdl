@@ -1,0 +1,7 @@
+namespace com.linkedin.entity
+
+/**
+ * Raw any record for aspect
+ **/
+record Aspect {
+}
