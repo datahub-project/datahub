@@ -280,6 +280,8 @@ class DataLakeSourceConfig(ConfigModel):
 
     profiling: DataLakeProfilerConfig = DataLakeProfilerConfig()
 
+    spark_driver_memory: Optional[str] = "4g"
+
     @pydantic.root_validator()
     def ensure_profiling_pattern_is_passed_to_profiling(
         cls, values: Dict[str, Any]
@@ -759,7 +761,7 @@ class DataLakeSource(Source):
 
         conf.set("spark.jars.packages", pydeequ.deequ_maven_coord)
         conf.set("spark.jars.excludes", pydeequ.f2j_maven_coord)
-        conf.set("spark.driver.memory", "8g")
+        conf.set("spark.driver.memory", config.spark_driver_memory)
 
         self.spark = SparkSession.builder.config(conf=conf).getOrCreate()
 
