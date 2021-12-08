@@ -54,6 +54,7 @@ class DeletionResult:
             self.sample_records.extend(another_result.sample_records)
 
 
+@telemetry.with_telemetry
 def delete_for_registry(
     registry_id: str,
     soft: bool,
@@ -123,7 +124,7 @@ def delete(
         session, host = cli_utils.get_session_and_host()
         entity_type = guess_entity_type(urn=urn)
         logger.info(f"DataHub configured with {host}")
-        deletion_result: DeletionResult = delete_one_urn(
+        deletion_result: DeletionResult = delete_one_urn_cmd()(
             urn,
             soft=soft,
             dry_run=dry_run,
@@ -222,7 +223,6 @@ def delete_with_filters(
     return batch_deletion_result
 
 
-@telemetry.with_telemetry
 def delete_one_urn(
     urn: str,
     soft: bool = False,
@@ -271,3 +271,14 @@ def delete_one_urn(
 
     deletion_result.end()
     return deletion_result
+
+
+@telemetry.with_telemetry
+def delete_one_urn_cmd():
+    """
+    Wrapper around delete_one_urn because it is also called in a loop via delete_with_filters.
+
+    This is a separate function that is called only when a single URN is deleted via the CLI.
+    """
+
+    return delete_one_urn
