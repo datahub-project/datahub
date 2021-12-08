@@ -45,7 +45,8 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 APPLICATION_NAME = "acryl_datahub"
 
-snowdialect.ischema_names['GEOGRAPHY'] = sqlalchemy.types.NullType
+snowdialect.ischema_names["GEOGRAPHY"] = sqlalchemy.types.NullType
+
 
 class BaseSnowflakeConfig(BaseTimeWindowConfig):
     # Note: this config model is also used by the snowflake-usage source.
