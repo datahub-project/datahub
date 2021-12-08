@@ -148,7 +148,7 @@ Here is how you can debug them.
 In this case, clearly the connection `datahub-rest` has not been registered. Looks like we forgot to register the connection with Airflow!
 Let's execute Step 4 to register the datahub connection with Airflow. 
 
-In case the connection was registered successfully but this error `Failed to establish a new connection` is still seen, check if the connection is `http://datahub-gms:8080` and not `http://localhost:8080`.
+In case the connection was registered successfully but you are still seeing `Failed to establish a new connection`, check if the connection is `http://datahub-gms:8080` and not `http://localhost:8080`.
 
 After re-running the DAG, we see success!
 
