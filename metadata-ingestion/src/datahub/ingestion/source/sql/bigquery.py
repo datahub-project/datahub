@@ -296,7 +296,7 @@ class BigQuerySource(SQLAlchemySource):
         project_id = self._get_project_id(inspector)
         trimmed_table_name = (
             BigQueryTableRef.from_spec_obj(
-                {"projectId": "project_id", "datasetId": schema, "tableId": entity}
+                {"projectId": project_id, "datasetId": schema, "tableId": entity}
             )
             .remove_extras()
             .table
