@@ -18,12 +18,8 @@ def test_data_lake_ingest(pytestconfig, tmp_path, mock_time):
                 "type": "data-lake",
                 "config": {
                     "base_path": str(test_resources_dir / "test_data"),
-                    "use_relative_path": True,
+                    "use_relative_path": True,  # should be enabled for testing since full paths will differ on different machines
                     "platform": "test",
-                    "aws_config": {
-                        "aws_region": "us-east-2",
-                    },
-                    # "schema_patterns": {"allow": [".*.csv"]},
                     "profiling": {
                         "enabled": True,
                         "profile_table_level_only": False,
@@ -37,7 +33,6 @@ def test_data_lake_ingest(pytestconfig, tmp_path, mock_time):
                         "include_field_histogram": True,
                         "include_field_sample_values": True,
                         "turn_off_expensive_profiling_metrics": True,
-                        # "column_allow_deny_patterns" : ["exclude"],
                     },
                 },
             },
