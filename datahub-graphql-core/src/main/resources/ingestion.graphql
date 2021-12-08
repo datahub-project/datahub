@@ -326,9 +326,9 @@ type IngestionSource {
   config: IngestionConfig!
 
   """
-  Runs of the ingestion source
+  Previous requests to execute the ingestion source
   """
-  executionRequests(start: Int, count: Int): IngestionSourceExecutionRequests
+  executions(start: Int, count: Int): IngestionSourceExecutionRequests
 }
 
 """

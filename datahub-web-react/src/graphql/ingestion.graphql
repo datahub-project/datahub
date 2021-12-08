@@ -13,7 +13,6 @@ query listIngestionSources($input: ListIngestionSourcesInput!) {
                 executorId
             }
             schedule {
-                startTimeMs
                 interval
                 timezone
             }
@@ -45,7 +44,6 @@ query getIngestionSource($urn: String!, $runStart: Int, $runCount: Int) {
             executorId
         }
         schedule {
-            startTimeMs
             interval
             timezone
         }
