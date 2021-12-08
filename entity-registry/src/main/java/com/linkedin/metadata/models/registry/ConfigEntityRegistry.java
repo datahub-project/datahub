@@ -102,16 +102,17 @@ public class ConfigEntityRegistry implements EntityRegistry {
     }
     EntitySpecBuilder entitySpecBuilder = new EntitySpecBuilder();
     for (Entity entity : entities.getEntities()) {
-      Optional<DataSchema> entitySchema = dataSchemaFactory.getEntitySchema(entity.getName());
-      if (!entitySchema.isPresent()) {
-        throw new IllegalArgumentException(String.format("Entity %s does not exist", entity.getName()));
-      }
-
       List<AspectSpec> aspectSpecs = new ArrayList<>();
       aspectSpecs.add(getAspectSpec(entity.getKeyAspect(), entitySpecBuilder));
       entity.getAspects().forEach(aspect -> aspectSpecs.add(getAspectSpec(aspect, entitySpecBuilder)));
 
-      EntitySpec entitySpec = entitySpecBuilder.buildEntitySpec(entitySchema.get(), aspectSpecs);
+      EntitySpec entitySpec;
+      Optional<DataSchema> entitySchema = dataSchemaFactory.getEntitySchema(entity.getName());
+      if (!entitySchema.isPresent()) {
+        entitySpec = entitySpecBuilder.buildConfigEntitySpec(entity.getName(), entity.getKeyAspect(), aspectSpecs);
+      } else {
+        entitySpec = entitySpecBuilder.buildEntitySpec(entitySchema.get(), aspectSpecs);
+      }
 
       entityNameToSpec.put(entity.getName().toLowerCase(), entitySpec);
     }

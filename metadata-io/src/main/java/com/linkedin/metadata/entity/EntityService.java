@@ -10,6 +10,10 @@ import com.linkedin.data.schema.TyperefDataSchema;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.UnionTemplate;
 import com.linkedin.entity.Entity;
+import com.linkedin.entity.EntityResponse;
+import com.linkedin.entity.EnvelopedAspect;
+import com.linkedin.entity.EnvelopedAspectMap;
+import com.linkedin.metadata.utils.PegasusUtils;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.dao.exception.ModelConversionException;
@@ -25,7 +29,6 @@ import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.metadata.utils.DataPlatformInstanceUtils;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericAspectUtils;
-import com.linkedin.metadata.utils.PegasusUtils;
 import com.linkedin.mxe.MetadataAuditOperation;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -107,7 +110,8 @@ public abstract class EntityService {
    * @param aspectNames aspects to fetch for each urn in urns set
    * @return a map of provided {@link Urn} to a List containing the requested aspects.
    */
-  protected abstract Map<Urn, List<RecordTemplate>> getLatestAspects(@Nonnull final Set<Urn> urns,
+  public abstract Map<Urn, List<RecordTemplate>> getLatestAspects(
+      @Nonnull final Set<Urn> urns,
       @Nonnull final Set<String> aspectNames);
 
   /**
@@ -123,6 +127,32 @@ public abstract class EntityService {
    */
   @Nullable
   public abstract RecordTemplate getAspect(@Nonnull final Urn urn, @Nonnull final String aspectName, long version);
+
+  public Map<Urn, EntityResponse> getEntitiesV2(
+      @Nonnull final String entityName,
+      @Nonnull final Set<Urn> urns,
+      @Nonnull final Set<String> aspectNames) throws Exception {
+    return getLatestEnvelopedAspects(entityName, urns, aspectNames)
+        .entrySet()
+        .stream()
+        .collect(Collectors.toMap(Map.Entry::getKey, entry -> toEntityResponse(entry.getKey(), entry.getValue())));
+  }
+
+  public abstract Map<Urn, List<EnvelopedAspect>> getLatestEnvelopedAspects(
+      @Nonnull final String entityName,
+      @Nonnull final Set<Urn> urns,
+      @Nonnull final Set<String> aspectNames) throws Exception;
+
+  public abstract List<EnvelopedAspect> getLatestEnvelopedAspects(
+      @Nonnull final String entityName,
+      @Nonnull final Urn urn,
+      @Nonnull final Set<String> aspectNames) throws Exception;
+
+  public abstract EnvelopedAspect getEnvelopedAspect(
+      @Nonnull final String entityName,
+      @Nonnull final Urn urn,
+      @Nonnull final String aspectName,
+      long version) throws Exception;
 
   /**
    * Retrieves an {@link VersionedAspect}, or null if one cannot be found.
@@ -333,7 +363,8 @@ public abstract class EntityService {
   }
 
   @Nonnull
-  protected Map<Urn, List<UnionTemplate>> getLatestAspectUnions(@Nonnull final Set<Urn> urns,
+  protected Map<Urn, List<UnionTemplate>> getLatestAspectUnions(
+      @Nonnull final Set<Urn> urns,
       @Nonnull final Set<String> aspectNames) {
     return getLatestAspects(urns, aspectNames).entrySet()
         .stream()
@@ -475,6 +506,16 @@ public abstract class EntityService {
     }
   }
 
+  private EntityResponse toEntityResponse(final Urn urn, final List<EnvelopedAspect> envelopedAspects) {
+    final EntityResponse response = new EntityResponse();
+    response.setUrn(urn);
+    response.setEntityName(urnToEntityName(urn));
+    response.setAspects(new EnvelopedAspectMap(
+        envelopedAspects.stream().collect(Collectors.toMap(EnvelopedAspect::getName, aspect -> aspect))
+    ));
+    return response;
+  }
+
   private Map<String, Set<String>> buildEntityToValidAspects(final EntityRegistry entityRegistry) {
     return entityRegistry.getEntitySpecs()
         .values()
@@ -499,7 +540,7 @@ public abstract class EntityService {
     return getEntityAspectNames(urnToEntityName(entityUrn));
   }
 
-  protected Set<String> getEntityAspectNames(final String entityName) {
+  public Set<String> getEntityAspectNames(final String entityName) {
     return _entityToValidAspects.get(entityName);
   }
 
