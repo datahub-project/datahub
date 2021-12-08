@@ -11,8 +11,8 @@ import { useGetAuthenticatedUser } from '../../../../../useGetAuthenticatedUser'
 // editable version
 
 export const EditPropertiesTableEditable = () => {
-    const queryFields = useBaseEntity<GetDatasetQuery>()?.dataset?.properties;
-    const datasetDescription = useBaseEntity<GetDatasetQuery>()?.dataset?.description;
+    const queryFields = useBaseEntity<GetDatasetQuery>()?.dataset?.properties?.customProperties;
+    const datasetDescription = useBaseEntity<GetDatasetQuery>()?.dataset?.properties?.description;
     const urn = useBaseEntity<GetDatasetQuery>()?.dataset?.urn;
     const currUser = useGetAuthenticatedUser()?.corpUser?.urn || '-';
     const dataSource = queryFields?.map((x, ind) => {
