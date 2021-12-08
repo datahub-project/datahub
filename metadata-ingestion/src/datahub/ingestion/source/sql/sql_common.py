@@ -47,6 +47,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     TimeTypeClass,
 )
 from datahub.metadata.schema_classes import ChangeTypeClass, DatasetPropertiesClass
+from datahub.utilities.sqlalchemy_query_combiner import SQLAlchemyQueryCombinerReport
 
 if TYPE_CHECKING:
     from datahub.ingestion.source.ge_data_profiler import (
@@ -124,6 +125,8 @@ class SQLSourceReport(SourceReport):
     views_scanned: int = 0
     filtered: List[str] = field(default_factory=list)
 
+    query_combiner: Optional[SQLAlchemyQueryCombinerReport] = None
+
     def report_entity_scanned(self, name: str, ent_type: str = "table") -> None:
         """
         Entity could be a view or a table
@@ -137,6 +140,11 @@ class SQLSourceReport(SourceReport):
 
     def report_dropped(self, ent_name: str) -> None:
         self.filtered.append(ent_name)
+
+    def report_from_query_combiner(
+        self, query_combiner_report: SQLAlchemyQueryCombinerReport
+    ) -> None:
+        self.query_combiner = query_combiner_report
 
 
 class SQLAlchemyConfig(ConfigModel):

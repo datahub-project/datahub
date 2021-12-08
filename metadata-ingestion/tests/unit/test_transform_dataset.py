@@ -20,7 +20,12 @@ from datahub.ingestion.transformer.add_dataset_properties import (
 )
 from datahub.ingestion.transformer.add_dataset_tags import (
     AddDatasetTags,
+    PatternAddDatasetTags,
     SimpleAddDatasetTags,
+)
+from datahub.ingestion.transformer.add_dataset_terms import (
+    PatternAddDatasetTerms,
+    SimpleAddDatasetTerms,
 )
 from datahub.ingestion.transformer.mark_dataset_status import MarkDatasetStatus
 from datahub.ingestion.transformer.remove_dataset_ownership import (
@@ -314,6 +319,41 @@ def dummy_tag_resolver_method(dataset_snapshot):
     return []
 
 
+def test_pattern_dataset_tags_transformation(mock_time):
+    dataset_mce = make_generic_dataset()
+
+    transformer = PatternAddDatasetTags.create(
+        {
+            "tag_pattern": {
+                "rules": {
+                    ".*example1.*": [
+                        builder.make_tag_urn("Private"),
+                        builder.make_tag_urn("Legacy"),
+                    ],
+                    ".*example2.*": [builder.make_term_urn("Needs Documentation")],
+                }
+            },
+        },
+        PipelineContext(run_id="test-tags"),
+    )
+
+    outputs = list(
+        transformer.transform(
+            [RecordEnvelope(input, metadata={}) for input in [dataset_mce]]
+        )
+    )
+
+    assert len(outputs) == 1
+    # Check that glossary terms were added.
+    tags_aspect = builder.get_aspect_if_available(
+        outputs[0].record, models.GlobalTagsClass
+    )
+    assert tags_aspect
+    assert len(tags_aspect.tags) == 2
+    assert tags_aspect.tags[0].tag == builder.make_tag_urn("Private")
+    assert builder.make_tag_urn("Needs Documentation") not in tags_aspect.tags
+
+
 def test_import_resolver():
     transformer = AddDatasetTags.create(
         {
@@ -599,3 +639,67 @@ def test_add_dataset_properties(mock_time):
         **EXISTING_PROPERTIES,
         **PROPERTIES_TO_ADD,
     }
+
+
+def test_simple_dataset_terms_transformation(mock_time):
+    dataset_mce = make_generic_dataset()
+
+    transformer = SimpleAddDatasetTerms.create(
+        {
+            "term_urns": [
+                builder.make_term_urn("Test"),
+                builder.make_term_urn("Needs Review"),
+            ]
+        },
+        PipelineContext(run_id="test-terms"),
+    )
+
+    outputs = list(
+        transformer.transform(
+            [RecordEnvelope(input, metadata={}) for input in [dataset_mce]]
+        )
+    )
+    assert len(outputs) == 1
+
+    # Check that glossary terms were added.
+    terms_aspect = builder.get_aspect_if_available(
+        outputs[0].record, models.GlossaryTermsClass
+    )
+    assert terms_aspect
+    assert len(terms_aspect.terms) == 2
+    assert terms_aspect.terms[0].urn == builder.make_term_urn("Test")
+
+
+def test_pattern_dataset_terms_transformation(mock_time):
+    dataset_mce = make_generic_dataset()
+
+    transformer = PatternAddDatasetTerms.create(
+        {
+            "term_pattern": {
+                "rules": {
+                    ".*example1.*": [
+                        builder.make_term_urn("AccountBalance"),
+                        builder.make_term_urn("Email"),
+                    ],
+                    ".*example2.*": [builder.make_term_urn("Address")],
+                }
+            },
+        },
+        PipelineContext(run_id="test-terms"),
+    )
+
+    outputs = list(
+        transformer.transform(
+            [RecordEnvelope(input, metadata={}) for input in [dataset_mce]]
+        )
+    )
+
+    assert len(outputs) == 1
+    # Check that glossary terms were added.
+    terms_aspect = builder.get_aspect_if_available(
+        outputs[0].record, models.GlossaryTermsClass
+    )
+    assert terms_aspect
+    assert len(terms_aspect.terms) == 2
+    assert terms_aspect.terms[0].urn == builder.make_term_urn("AccountBalance")
+    assert builder.make_term_urn("AccountBalance") not in terms_aspect.terms

@@ -68,7 +68,7 @@ if [ "$(basename "$(pwd)")"	 != "metadata-ingestion" ]; then
 	exit 123
 fi
 printf '✅ Current folder is metadata-ingestion (%s) folder\n' "$(pwd)"
-if [[ $(uname -m) == 'arm64' || $(uname) == 'Darwin' ]]; then
+if [[ $(uname -m) == 'arm64' && $(uname) == 'Darwin' ]]; then
   printf "👟 Running preflight for m1 mac\n"
   arm64_darwin_preflight
 fi
