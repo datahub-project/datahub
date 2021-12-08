@@ -57,11 +57,13 @@ public class GetSecretValuesResolver implements DataFetcher<CompletableFuture<Li
               .stream()
               .map(urnStr -> Urn.createFromTuple(Constants.SECRETS_ENTITY_NAME, urnStr))
               .collect(Collectors.toSet());
+
           final Map<Urn, EntityResponse> entities = _entityClient.batchGetV2(
               Constants.SECRETS_ENTITY_NAME,
               new HashSet<>(urns),
               ImmutableSet.of(Constants.SECRET_VALUE_ASPECT_NAME),
               context.getAuthentication());
+
           // Now for each secret, decrypt and return the value. If no secret was found, then we will simply omit it from the list.
           // There is no ordering guarantee for the list.
           return entities.values()

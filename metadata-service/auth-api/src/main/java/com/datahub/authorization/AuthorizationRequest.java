@@ -28,4 +28,21 @@ public class AuthorizationRequest {
   public Optional<ResourceSpec> resourceSpec() {
     return _resourceSpec;
   }
+
+  @Override
+  public boolean equals(Object o) {
+    if (o == this) {
+      return true;
+    }
+
+    if (!(o instanceof AuthorizationRequest)) {
+      return false;
+    }
+
+    AuthorizationRequest c = (AuthorizationRequest) o;
+
+    return this._actorUrn.equals(c._actorUrn)
+        && this._privilege.equals(c._privilege)
+        && this._resourceSpec.equals(c._resourceSpec);
+  }
 }

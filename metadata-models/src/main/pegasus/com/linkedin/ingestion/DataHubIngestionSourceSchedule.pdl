@@ -5,11 +5,6 @@ namespace com.linkedin.ingestion
  */
 record DataHubIngestionSourceSchedule {
   /**
-   * The start date, in milliseconds since epoch
-   */
-  startTimeMs: optional long
-
-  /**
    * A cron-formatted execution interval, as a cron string, e.g. * * * * *
    */
   interval: string

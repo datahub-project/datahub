@@ -103,9 +103,6 @@ public class UpsertIngestionSourceResolver implements DataFetcher<CompletableFut
 
   private DataHubIngestionSourceSchedule mapSchedule(final UpdateIngestionSourceScheduleInput input) {
     final DataHubIngestionSourceSchedule result = new DataHubIngestionSourceSchedule();
-    if (input.getStartTimeMs() != null) {
-      result.setStartTimeMs(input.getStartTimeMs());
-    }
     result.setInterval(input.getInterval());
     result.setTimezone(input.getTimezone());
     return result;

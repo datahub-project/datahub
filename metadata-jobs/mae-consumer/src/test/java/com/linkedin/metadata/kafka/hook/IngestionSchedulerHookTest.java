@@ -35,13 +35,10 @@ import static org.testng.Assert.*;
 
 
 public class IngestionSchedulerHookTest {
-
-  private EntityClient _entityClient;
   private IngestionSchedulerHook _ingestionSchedulerHook;
 
   @BeforeMethod
   public void setupTest() throws Exception {
-    _entityClient = Mockito.mock(EntityClient.class);
 
     // Init mocks.
     final Urn ingestionSourceUrn1 = Urn.createFromString("urn:li:dataHubIngestionSourceUrn:0");

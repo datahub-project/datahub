@@ -25,7 +25,7 @@ public class IngestionAuthUtils {
     return isAuthorized(principal, ImmutableList.of(PoliciesConfig.MANAGE_SECRETS_PRIVILEGE.getType()), authorizer);
   }
 
-  static boolean isAuthorized(
+  private static boolean isAuthorized(
       String principal,
       List<String> privilegeGroup,
       Authorizer authorizer) {

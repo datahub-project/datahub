@@ -249,11 +249,6 @@ A schedule associated with an Ingestion Source
 """
 type IngestionSchedule {
   """
-  The start time associated with the schedule
-  """
-  startTimeMs: Long
-
-  """
   Time Zone abbreviation (e.g. GMT, EDT). Defaults to UTC.
   """
   timezone: String
@@ -419,16 +414,6 @@ input UpdateIngestionSourceConfigInput {
 Input arguments for creating / updating the schedule of an Ingestion Source
 """
 input UpdateIngestionSourceScheduleInput {
-  """
-  The epoch (ms) Date Time when the job should start
-  """
-  startTimeMs: Long
-
-  """
-  The epoch (ms) Date Time when the job should end
-  """
-  endTimeMs: Long
-
   """
   The cron-formatted interval describing when the job should be executed
   """
