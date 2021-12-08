@@ -1,7 +1,7 @@
 from typing import Callable, List, Union
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.common import ConfigModel
+from datahub.configuration.common import ConfigModel, KeyValuePattern
 from datahub.configuration.import_resolver import pydantic_resolve_key
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.transformer.dataset_transformer import DatasetTransformer
@@ -73,4 +73,26 @@ class SimpleAddDatasetTags(AddDatasetTags):
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "SimpleAddDatasetTags":
         config = SimpleDatasetTagConfig.parse_obj(config_dict)
+        return cls(config, ctx)
+
+
+class PatternDatasetTagsConfig(ConfigModel):
+    tag_pattern: KeyValuePattern = KeyValuePattern.all()
+
+
+class PatternAddDatasetTags(AddDatasetTags):
+    """Transformer that adds a specified set of tags to each dataset."""
+
+    def __init__(self, config: PatternDatasetTagsConfig, ctx: PipelineContext):
+        tag_pattern = config.tag_pattern
+        generic_config = AddDatasetTagsConfig(
+            get_tags_to_add=lambda _: [
+                TagAssociationClass(tag=urn) for urn in tag_pattern.value(_.urn)
+            ],
+        )
+        super().__init__(generic_config, ctx)
+
+    @classmethod
+    def create(cls, config_dict: dict, ctx: PipelineContext) -> "PatternAddDatasetTags":
+        config = PatternDatasetTagsConfig.parse_obj(config_dict)
         return cls(config, ctx)
