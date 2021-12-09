@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { Button, Divider, Form, Input, message, Table, Typography } from 'antd';
 import PropTypes from 'prop-types';
 import axios from 'axios';
+import adhocConfig from '../../../../../../conf/Adhoc';
 import { useBaseEntity } from '../../../EntityContext';
 import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
 import { useGetAuthenticatedUser } from '../../../../../useGetAuthenticatedUser';
@@ -11,6 +12,9 @@ import { useGetAuthenticatedUser } from '../../../../../useGetAuthenticatedUser'
 // editable version
 
 export const EditPropertiesTableEditable = () => {
+    let url = adhocConfig;
+    const branch = url.lastIndexOf('/');
+    url = `${url.substring(0, branch)}/update_properties`;
     const queryFields = useBaseEntity<GetDatasetQuery>()?.dataset?.properties;
     const datasetDescription = useBaseEntity<GetDatasetQuery>()?.dataset?.description;
     const urn = useBaseEntity<GetDatasetQuery>()?.dataset?.urn;
@@ -190,7 +194,7 @@ export const EditPropertiesTableEditable = () => {
         };
         console.log(dataSubmission);
         axios
-            .post('http://localhost:8001/update_properties', dataSubmission)
+            .post(url, dataSubmission)
             .then((response) => printSuccessMsg(response.status))
             .catch((error) => {
                 printErrorMsg(error.toString());

@@ -7,6 +7,7 @@ import { GetDatasetOwnersGqlQuery, GetDatasetQuery } from '../../../../../../gra
 import { useBaseEntity } from '../../../EntityContext';
 import { SpecifyBrowsePath } from '../../../../../create/Components/SpecifyBrowsePath';
 import { useGetAuthenticatedUser } from '../../../../../useGetAuthenticatedUser';
+import adhocConfig from '../../../../../../conf/Adhoc';
 
 function computeFinal(input) {
     const dataPaths = input?.browsePaths.map((x) => {
@@ -26,6 +27,10 @@ function timeout(delay: number) {
 }
 
 export const EditBrowsePathTable = () => {
+    let url = adhocConfig;
+    const branch = url.lastIndexOf('/');
+    url = `${url.substring(0, branch)}/update_browsepath`;
+    console.log(`eventual url is ${url}`);
     const [originalData, setOriginalData] = useState();
     const [disabledSave, setDisabledSave] = useState(true);
     const layout = {
@@ -63,7 +68,7 @@ export const EditBrowsePathTable = () => {
     };
     const onFinish = async (values) => {
         axios
-            .post('http://localhost:8001/update_browsepath', {
+            .post(url, {
                 dataset_name: currDataset,
                 requestor: currUser,
                 browsePaths: values.browsepathList,
