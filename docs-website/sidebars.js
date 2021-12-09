@@ -106,7 +106,7 @@ module.exports = {
           "docs/how/add-custom-ingestion-source",
           "docs/how/add-custom-data-platform",
           "docs/how/add-user-data",
-        ]
+        ],
       },
     ],
     "Metadata Modeling": [
