@@ -96,10 +96,9 @@ As a SQL-based service, the Athena integration is also supported by our SQL prof
 | `include_tables`            |          | `True`             | Whether tables should be ingested.                                                                                                                                                      |
 | `include_views`             |          | `True`             | Whether views should be ingested.                                                                                                                                                       |
 | `include_table_lineage`     |          | `True`             | Whether table lineage should be ingested.                                                                                                                                               |
-| `table_lineage_mode`        |           | `"stl_scan_based"` | Which table lineage collector mode to use                                                                                                                                               |
-| `include_copy_lineage`      |           | `True`             | Whether lineage should be collected from copy commands                                                                                                                                  |
-| `include_copy_lineage`      |           | `True`             | Whether lineage should be collected from copy commands                                                                                                                                  |
-| `default_schema`            |           | `"public"`           | The default schema to used if the sql parser fails to parse the schema with `sql_based` lineage collector                                                                               |
+| `table_lineage_mode`        |          | `"stl_scan_based"` | Which table lineage collector mode to use                                                                                                                                               |
+| `include_copy_lineage`      |          | `True`             | Whether lineage should be collected from copy commands                                                                                                                                  |
+| `default_schema`            |          | `"public"`         | The default schema to use if the sql parser fails to parse the schema with `sql_based` lineage collector                                                                               |
 
 ## Compatibility
 
@@ -107,23 +106,21 @@ Coming soon!
 
 ## Lineage
 
-There are multiple lineage collector implementation as Redshift does not support table lineage out of the box.
-
-Here is a list of lineage collector:
+There are multiple lineage collector implementations as Redshift does not support table lineage out of the box.
 
 ### stl_scan_based
-The stl_scan based collector useses Redshift's [stl_insert](https://docs.aws.amazon.com/redshift/latest/dg/r_STL_INSERT.html) and [stl_scan](https://docs.aws.amazon.com/redshift/latest/dg/r_STL_SCAN.html) system table to
+The stl_scan based collector uses Redshift's [stl_insert](https://docs.aws.amazon.com/redshift/latest/dg/r_STL_INSERT.html) and [stl_scan](https://docs.aws.amazon.com/redshift/latest/dg/r_STL_SCAN.html) system tables to
 discover lineage between tables.
 Pros:
 - Fast
 - Reliable
 
 Cons:
-- Does not work with Spectrum/external tables because those scan's are not showing up in stl_scan table.
-- If a table is depending on a view then the view won't be listed as dependency but the table will be connected with the view's dependencies
+- Does not work with Spectrum/external tables because those scans do not show up in stl_scan table.
+- If a table is depending on a view then the view won't be listed as dependency. Instead the table will be connected with the view's dependencies.
 
 ### sql_based
-The sql_based based collector useses Redshift's [stl_insert](https://docs.aws.amazon.com/redshift/latest/dg/r_STL_INSERT.html) to discover all the insert queries
+The sql_based based collector uses Redshift's [stl_insert](https://docs.aws.amazon.com/redshift/latest/dg/r_STL_INSERT.html) to discover all the insert queries
 and uses sql parsing to discover the dependecies.
 
 Pros:
@@ -140,13 +137,14 @@ Using both collector above and first applying the sql based and then the stl_sca
 Pros:
 - Works with Spectrum tables
 - Views are connected properly if a table depends on it
+- A bit more reliable than the sql_based one only
 
 Cons:
 - Slow
-- A bit more more reliable than the sql_based one only
+- May be incorrect at times as the query parser can fail on certain queries
 
 # Note
-- The redshift stl redshift tables which are used for getting data lineage are only retain approximately two to five days of log history.
+- The redshift stl redshift tables which are used for getting data lineage only retain approximately two to five days of log history. This means you cannot extract lineage from queries issued outside that window.
 
 # Redshift-Usage
 This plugin extracts usage statistics for datasets in Amazon Redshift. For context on getting started with ingestion, check out our [metadata ingestion guide](../README.md).
