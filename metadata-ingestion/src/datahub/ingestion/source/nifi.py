@@ -120,6 +120,8 @@ class NifiProcessorType:
 # map it in provenance_event_to_lineage_map
 class NifiProcessorProvenanceEventAnalyzer:
 
+    env: str
+
     KNOWN_INGRESS_EGRESS_PROCESORS = {
         NifiProcessorType.ListS3: NifiEventType.CREATE,
         NifiProcessorType.FetchS3Object: NifiEventType.FETCH,
@@ -155,7 +157,7 @@ class NifiProcessorProvenanceEventAnalyzer:
         s3_url = s3_url[: s3_url.rindex("/")]
         dataset_name = s3_url.replace("s3://", "").replace("/", ".")
         platform = "urn:li:dataPlatform:s3"
-        dataset_urn = builder.make_dataset_urn(platform, dataset_name)
+        dataset_urn = builder.make_dataset_urn(platform, dataset_name, self.env)
         return ExternalDataset(
             platform,
             dataset_name,
@@ -178,7 +180,7 @@ class NifiProcessorProvenanceEventAnalyzer:
         absolute_path = absolute_path[: absolute_path.rindex("/")]
         dataset_name = absolute_path.replace("sftp://", "").replace("/", ".")
         platform = "file"
-        dataset_urn = builder.make_dataset_urn(platform, dataset_name)
+        dataset_urn = builder.make_dataset_urn(platform, dataset_name, self.env)
         return ExternalDataset(
             platform,
             dataset_name,
@@ -852,6 +854,7 @@ class NifiSource(Source):
         )
 
         eventAnalyzer = NifiProcessorProvenanceEventAnalyzer()
+        eventAnalyzer.env = self.config.env
 
         for component in self.nifi_flow.components.values():
             if component.nifi_type is NifiType.PROCESSOR:
