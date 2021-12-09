@@ -128,7 +128,7 @@ class DatahubKafkaHook(BaseHook):
                     "Kafka broker specified twice (present in host and extra)"
                 )
             obj["connection"]["bootstrap"] = conn.host + (
-                (":" + conn.port) if conn.port else ""
+                (":" + str(conn.port)) if conn.port else ""
             )
         config = datahub.ingestion.sink.datahub_kafka.KafkaSinkConfig.parse_obj(obj)
         return config
