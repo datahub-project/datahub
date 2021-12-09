@@ -23,7 +23,11 @@ from datahub.ingestion.source.usage.usage_common import (
     BaseUsageConfig,
     GenericAggregatedDataset,
 )
-from datahub.metadata.schema_classes import ChangeTypeClass, OperationalInfoClass
+from datahub.metadata.schema_classes import (
+    ChangeTypeClass,
+    OperationClass,
+    OperationTypeClass,
+)
 from datahub.utilities.delayed_iter import delayed_iter
 
 logger = logging.getLogger(__name__)
@@ -84,17 +88,15 @@ timestamp >= "{start_time}"
 AND
 timestamp < "{end_time}"
 """.strip()
-UPDATE_STATEMENT_TYPES = set(
-    [
-        "INSERT",
-        "UPDATE",
-        "DELETE",
-        "MERGE",
-        "CREATE",
-        "CREATE_TABLE_AS_SELECT",
-        "CREATE_SCHEMA",
-    ]
-)
+UPDATE_STATEMENT_TYPES = {
+    "INSERT": OperationTypeClass.INSERT,
+    "UPDATE": OperationTypeClass.UPDATE,
+    "DELETE": OperationTypeClass.DELETE,
+    "MERGE": OperationTypeClass.UPDATE,
+    "CREATE": OperationTypeClass.CREATE,
+    "CREATE_TABLE_AS_SELECT": OperationTypeClass.CREATE,
+    "CREATE_SCHEMA": OperationTypeClass.CREATE,
+}
 
 
 @dataclass(frozen=True, order=True)
@@ -199,7 +201,6 @@ class ReadEvent:
 
     @classmethod
     def from_entry(cls, entry: AuditLogEntry) -> "ReadEvent":
-
         user = entry.payload["authenticationInfo"]["principalEmail"]
         resourceName = entry.payload["resourceName"]
         readInfo = entry.payload["metadata"]["tableDataRead"]
@@ -240,7 +241,7 @@ class QueryEvent:
     actor_email: str
 
     query: str
-    statementType: str
+    statementType: Optional[str]
     destinationTable: Optional[BigQueryTableRef]
     referencedTables: Optional[List[BigQueryTableRef]]
     jobName: Optional[str]
@@ -270,6 +271,8 @@ class QueryEvent:
         if rawDestTable:
             destinationTable = BigQueryTableRef.from_spec_obj(rawDestTable)
 
+        statementType = job["jobConfiguration"]["query"]["statementType"]
+
         rawRefTables = job["jobStatistics"].get("referencedTables")
         referencedTables = None
         if rawRefTables:
@@ -281,7 +284,7 @@ class QueryEvent:
             timestamp=entry.timestamp,
             actor_email=user,
             query=rawQuery,
-            statementType=job["jobConfiguration"]["query"]["statementType"],
+            statementType=statementType,
             destinationTable=destinationTable,
             referencedTables=referencedTables,
             jobName=jobName,
@@ -350,6 +353,8 @@ class BigQueryUsageSource(Source):
         parsed_bigquery_log_events = self._parse_bigquery_log_entries(
             bigquery_log_entries
         )
+        parsed_events: Iterable[Union[ReadEvent, QueryEvent]]
+        last_updated_work_units: Iterable[MetadataWorkUnit]
         parsed_events, last_updated_work_units = partition(
             lambda x: isinstance(x, MetadataWorkUnit), parsed_bigquery_log_events
         )
@@ -458,6 +463,55 @@ class BigQueryUsageSource(Source):
             yield entry
         logger.info(f"Finished loading {i} log entries from BigQuery")
 
+    def _create_operation_aspect_work_unit(
+        self, event: QueryEvent
+    ) -> Optional[MetadataWorkUnit]:
+        if event.statementType in UPDATE_STATEMENT_TYPES:
+            destination_table: Optional[BigQueryTableRef] = None
+            try:
+                destination_table = event.destinationTable
+                destination_table.remove_extras()
+            except Exception as e:
+                self.report.report_warning(
+                    str(event.destinationTable),
+                    f"Failed to clean up destination table, {e}",
+                )
+            if destination_table:
+                last_updated_timestamp: int = int(event.timestamp.timestamp() * 1000)
+                affected_datasets = []
+                if event.referencedTables:
+                    for table in event.referencedTables:
+                        try:
+                            affected_datasets.append(
+                                _table_ref_to_urn(
+                                    table.remove_extras(), self.config.env
+                                )
+                            )
+                        except Exception as e:
+                            self.report.report_warning(
+                                str(table),
+                                f"Failed to clean up table, {e}",
+                            )
+                operation_aspect = OperationClass(
+                    timestampMillis=last_updated_timestamp,
+                    lastUpdatedTimestamp=last_updated_timestamp,
+                    actor=builder.make_user_urn(event.actor_email.split("@")[0]),
+                    operationType=UPDATE_STATEMENT_TYPES[event.statementType],
+                    affectedDatasets=affected_datasets,
+                )
+                mcp = MetadataChangeProposalWrapper(
+                    entityType="dataset",
+                    aspectName="operation",
+                    changeType=ChangeTypeClass.UPSERT,
+                    entityUrn=_table_ref_to_urn(destination_table, self.config.env),
+                    aspect=operation_aspect,
+                )
+                return MetadataWorkUnit(
+                    id=f"operation-aspect-{destination_table}-{event.timestamp.isoformat()}",
+                    mcp=mcp,
+                )
+        return None
+
     def _parse_bigquery_log_entries(
         self, entries: Iterable[AuditLogEntry]
     ) -> Iterable[Union[ReadEvent, QueryEvent, MetadataWorkUnit]]:
@@ -472,42 +526,9 @@ class BigQueryUsageSource(Source):
                 elif QueryEvent.can_parse_entry(entry):
                     event = QueryEvent.from_entry(entry)
                     num_query_events += 1
-                    if event.statementType in UPDATE_STATEMENT_TYPES:
-                        destination_table: Optional[BigQueryTableRef] = None
-                        try:
-                            destination_table = event.destinationTable.remove_extras()
-                        except Exception as e:
-                            self.report.report_warning(
-                                str(event.destinationTable),
-                                f"Failed to clean up destination table, {e}",
-                            )
-                            logger.warning(
-                                f"Failed to process event {str(event.destinationTable)}",
-                                e,
-                            )
-                        if destination_table:
-                            last_updated_timestamp: int = int(
-                                event.timestamp.timestamp() * 1000
-                            )
-                            operational_info = OperationalInfoClass(
-                                timestampMillis=last_updated_timestamp,
-                                lastUpdatedTimestamp=last_updated_timestamp,
-                            )
-                            mcp = MetadataChangeProposalWrapper(
-                                entityType="dataset",
-                                aspectName="operationalInfo",
-                                changeType=ChangeTypeClass.UPSERT,
-                                entityUrn=_table_ref_to_urn(
-                                    destination_table, self.config.env
-                                ),
-                                aspect=operational_info,
-                            )
-                            wu = MetadataWorkUnit(
-                                id=f"operationalInfo-{destination_table}{event.timestamp.isoformat()}",
-                                mcp=mcp,
-                            )
-                            yield wu
-
+                    wu = self._create_operation_aspect_work_unit(event)
+                    if wu:
+                        yield wu
                 else:
                     self.report.report_warning(
                         f"{entry.log_name}-{entry.insert_id}",
