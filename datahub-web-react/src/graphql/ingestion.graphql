@@ -105,6 +105,7 @@ query listSecrets($input: ListSecretsInput!) {
         secrets {
             urn
             name
+            description
         }
     }
 }

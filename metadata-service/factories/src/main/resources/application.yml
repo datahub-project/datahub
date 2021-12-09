@@ -45,7 +45,7 @@ platformAnalytics:
   enabled: ${ANALYTICS_ENABLED:true}
 
 managedIngestion:
-  enabled: ${MANAGED_INGESTION_ENABLED:false}
+  enabled: ${MANAGED_INGESTION_ENABLED:true}
 
 # Storage Layer
 ebean:

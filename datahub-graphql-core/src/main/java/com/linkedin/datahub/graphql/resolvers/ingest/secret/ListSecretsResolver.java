@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.ingest.secret;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.template.GetMode;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.ListSecretsInput;
@@ -104,6 +105,7 @@ public class ListSecretsResolver implements DataFetcher<CompletableFuture<ListSe
     final Secret result = new Secret();
     result.setUrn(urn.toString());
     result.setName(value.getName());
+    result.setDescription(value.getDescription(GetMode.NULL));
     return result;
   }
 }

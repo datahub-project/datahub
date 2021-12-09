@@ -2,8 +2,8 @@ import { Tabs, Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 import { SearchablePage } from '../search/SearchablePage';
-import { IngestionSourceList } from './IngestionSourceList';
-import { SecretsList } from './SecretsList';
+import { IngestionSourceList } from './source/IngestionSourceList';
+import { SecretsList } from './secret/SecretsList';
 
 const PageContainer = styled.div`
     padding-top: 20px;

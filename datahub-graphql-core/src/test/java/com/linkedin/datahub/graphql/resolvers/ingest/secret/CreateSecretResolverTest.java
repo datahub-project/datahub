@@ -26,7 +26,8 @@ public class CreateSecretResolverTest {
 
   private static final CreateSecretInput TEST_INPUT = new CreateSecretInput(
       "MY_SECRET",
-      "mysecretvalue"
+      "mysecretvalue",
+      "none"
   );
 
   @Test
@@ -51,6 +52,7 @@ public class CreateSecretResolverTest {
     DataHubSecretValue value = new DataHubSecretValue();
     value.setValue("encryptedvalue");
     value.setName(TEST_INPUT.getName());
+    value.setDescription(TEST_INPUT.getDescription());
 
     Mockito.verify(mockClient, Mockito.times(1)).ingestProposal(
         Mockito.eq(

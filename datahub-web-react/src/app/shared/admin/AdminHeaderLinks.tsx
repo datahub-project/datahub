@@ -3,7 +3,6 @@ import * as React from 'react';
 import { ApiOutlined, BankOutlined, BarChartOutlined, SettingOutlined, UsergroupAddOutlined } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
 import { Button } from 'antd';
-
 import { useAppConfig } from '../../useAppConfig';
 import { useGetAuthenticatedUser } from '../../useGetAuthenticatedUser';
 
@@ -18,13 +17,15 @@ export function AdminHeaderLinks() {
     const isAnalyticsEnabled = config?.analyticsConfig.enabled;
     const isPoliciesEnabled = config?.policiesConfig.enabled;
     const isIdentityManagementEnabled = config?.identityManagementConfig.enabled;
+    const isIngestionEnabled = config?.managedIngestionConfig.enabled;
 
-    const showIngestion = true; // TODO
     const showAnalytics = (isAnalyticsEnabled && me && me.platformPrivileges.viewAnalytics) || false;
     const showPolicyBuilder = (isPoliciesEnabled && me && me.platformPrivileges.managePolicies) || false;
     const showIdentityManagement =
         (isIdentityManagementEnabled && me && me.platformPrivileges.manageIdentities) || false;
     const showSettings = true;
+    const showIngestion =
+        isIngestionEnabled && me && me.platformPrivileges.manageIngestion && me.platformPrivileges.manageSecrets;
 
     return (
         <>

@@ -198,6 +198,11 @@ type Secret {
   The name of the secret
   """
   name: String!
+
+  """
+  An optional description for the secret
+  """
+  description: String
 }
 
 """
@@ -449,6 +454,11 @@ input CreateSecretInput {
   The value of the secret, to be encrypted and stored
   """
   value: String!
+
+  """
+  An optional description for the secret
+  """
+  description: String
 }
 
 """

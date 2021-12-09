@@ -1,7 +1,7 @@
 import React from 'react';
 import { EntityType, MlModelGroup } from '../../../../types.generated';
 import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
-import { capitalizeFirstLetter } from '../../../shared/capitalizeFirstLetter';
+import { capitalizeFirstLetter } from '../../../shared/textUtil';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 
 export const Preview = ({ group }: { group: MlModelGroup }): JSX.Element => {

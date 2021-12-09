@@ -2,7 +2,7 @@ import React from 'react';
 import styled from 'styled-components';
 import { EntityType, MlModel } from '../../../../types.generated';
 import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
-import { capitalizeFirstLetter } from '../../../shared/capitalizeFirstLetter';
+import { capitalizeFirstLetter } from '../../../shared/textUtil';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { IconStyleType } from '../../Entity';
 

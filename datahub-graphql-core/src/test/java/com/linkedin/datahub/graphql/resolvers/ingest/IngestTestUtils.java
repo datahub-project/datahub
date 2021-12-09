@@ -72,6 +72,7 @@ public class IngestTestUtils {
     DataHubSecretValue value = new DataHubSecretValue();
     value.setValue("encryptedvalue");
     value.setName(TEST_SECRET_URN.getId());
+    value.setDescription("none");
     return value;
   }
 
@@ -111,7 +112,7 @@ public class IngestTestUtils {
   public static void verifyTestSecretGraphQL(Secret secret, DataHubSecretValue value) {
     assertEquals(secret.getUrn(), TEST_SECRET_URN.toString());
     assertEquals(secret.getName(), value.getName());
-    // Currently we do not return any secret value field.
+    assertEquals(secret.getDescription(), value.getDescription());
   }
 
   public static void verifyTestExecutionRequest(

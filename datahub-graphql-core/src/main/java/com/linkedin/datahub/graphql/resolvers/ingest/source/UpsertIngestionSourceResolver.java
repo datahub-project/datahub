@@ -84,8 +84,10 @@ public class UpsertIngestionSourceResolver implements DataFetcher<CompletableFut
     final DataHubIngestionSourceInfo result = new DataHubIngestionSourceInfo();
     result.setType(input.getType());
     result.setName(input.getName());
-    result.setSchedule(mapSchedule(input.getSchedule()));
     result.setConfig(mapConfig(input.getConfig()));
+    if (input.getSchedule() != null) {
+      result.setSchedule(mapSchedule(input.getSchedule()));
+    }
     return result;
   }
 
