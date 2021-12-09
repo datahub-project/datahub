@@ -77,7 +77,6 @@ class KafkaSource(Source):
             self.source_config.connection.schema_registry_class
         """
         self.schema_registry_client = pydantic_resolve_key(self.source_config.connection.schema_registry_class)
-        logger.info(f"self.schema_registry_client -> {self.schema_registry_client}")
         self.report = KafkaSourceReport()
 
     @classmethod
@@ -109,16 +108,11 @@ class KafkaSource(Source):
         )
         dataset_snapshot.aspects.append(Status(removed=False))
 
-        self.schema_registry_client.
-        # Fetch schema from the registry.
-        schema: Optional[Schema] = None
-        try:
-            registered_schema = self.schema_registry_client.get_latest_version(
-                topic + "-value"
-            )
-            schema = registered_schema.schema
-        except Exception as e:
-            self.report.report_warning(topic, f"failed to get value schema: {e}")
+        logger.info(f"self.schema_registry_client -> {type(self.schema_registry_client)}")
+        # Pass control to pluggable schema registry to get
+        key_value_schema = self.schema_registry_client.get_topic_schema(topic)
+        schema: Optional[Schema] = key_value_schema.value_schema
+        key_schema: Optional[Schema] = key_value_schema.key_schema
 
         # Parse the schema
         fields: List[SchemaField] = []
@@ -130,8 +124,7 @@ class KafkaSource(Source):
                 topic,
                 f"Parsing kafka schema type {schema.schema_type} is currently not implemented",
             )
-        # Fetch key schema from the registry
-        key_schema: Optional[Schema] = None
+
         try:
             registered_schema = self.schema_registry_client.get_latest_version(
                 topic + "-key"
