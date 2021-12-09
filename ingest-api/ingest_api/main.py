@@ -186,6 +186,7 @@ async def update_prop(item: prop_params):
         owner = item.requestor,        
         event = "UI Update Properties"
     )
+    
 
 def emit_mce_respond(metadata_record:MetadataChangeEvent, owner: str, event: str) -> None:    
     datasetName = metadata_record.proposedSnapshot.urn
@@ -219,10 +220,7 @@ def emit_mce_respond(metadata_record:MetadataChangeEvent, owner: str, event: str
         return
     rootLogger.info(
         f"{event} {datasetName} requested_by {owner} completed successfully")
-    return JSONResponse(
-        content = { "message" : "created!" },
-        status_code=201,
-    )
+    
 
 
 @app.post("/make_dataset")
@@ -286,6 +284,10 @@ async def create_item(item: create_dataset_params) -> None:
     )
     metadata_record = MetadataChangeEvent(proposedSnapshot = dataset_snapshot)
     emit_mce_respond(metadata_record=metadata_record, owner=requestor, event='Create Dataset')
+    return JSONResponse(
+        content = { "message" : "created!" },
+        status_code=201,
+    )
 
 
 @app.post("/update_dataset_status")
