@@ -2,7 +2,7 @@
     {
         "auditHeader": null,
         "entityType": "dataFlow",
-        "entityUrn": "urn:li:dataFlow:(nifi,803ebb92-017d-1000-2961-4bdaa27a3ba0,prod)",
+        "entityUrn": "urn:li:dataFlow:(nifi,803ebb92-017d-1000-2961-4bdaa27a3ba0,PROD)",
         "entityKeyAspect": null,
         "changeType": "UPSERT",
         "aspectName": "dataFlowInfo",
@@ -15,7 +15,7 @@
     {
         "auditHeader": null,
         "entityType": "dataJob",
-        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,803ebb92-017d-1000-2961-4bdaa27a3ba0,prod),aed63edf-e660-3f29-b56b-192cf6286889)",
+        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,803ebb92-017d-1000-2961-4bdaa27a3ba0,PROD),aed63edf-e660-3f29-b56b-192cf6286889)",
         "entityKeyAspect": null,
         "changeType": "UPSERT",
         "aspectName": "dataJobInfo",
@@ -28,12 +28,12 @@
     {
         "auditHeader": null,
         "entityType": "dataJob",
-        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,803ebb92-017d-1000-2961-4bdaa27a3ba0,prod),aed63edf-e660-3f29-b56b-192cf6286889)",
+        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,803ebb92-017d-1000-2961-4bdaa27a3ba0,PROD),aed63edf-e660-3f29-b56b-192cf6286889)",
         "entityKeyAspect": null,
         "changeType": "UPSERT",
         "aspectName": "dataJobInputOutput",
         "aspect": {
-            "value": "{\"inputDatasets\": [], \"outputDatasets\": [], \"inputDatajobs\": [\"urn:li:dataJob:(urn:li:dataFlow:(nifi,803ebb92-017d-1000-2961-4bdaa27a3ba0,prod),91d59f03-1c2b-3f3f-48bc-f89296a328bd)\"]}",
+            "value": "{\"inputDatasets\": [], \"outputDatasets\": [], \"inputDatajobs\": [\"urn:li:dataJob:(urn:li:dataFlow:(nifi,803ebb92-017d-1000-2961-4bdaa27a3ba0,PROD),91d59f03-1c2b-3f3f-48bc-f89296a328bd)\"]}",
             "contentType": "application/json"
         },
         "systemMetadata": null
@@ -67,7 +67,7 @@
     {
         "auditHeader": null,
         "entityType": "dataJob",
-        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,803ebb92-017d-1000-2961-4bdaa27a3ba0,prod),91d59f03-1c2b-3f3f-48bc-f89296a328bd)",
+        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,803ebb92-017d-1000-2961-4bdaa27a3ba0,PROD),91d59f03-1c2b-3f3f-48bc-f89296a328bd)",
         "entityKeyAspect": null,
         "changeType": "UPSERT",
         "aspectName": "dataJobInfo",
@@ -80,12 +80,12 @@
     {
         "auditHeader": null,
         "entityType": "dataJob",
-        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,803ebb92-017d-1000-2961-4bdaa27a3ba0,prod),91d59f03-1c2b-3f3f-48bc-f89296a328bd)",
+        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,803ebb92-017d-1000-2961-4bdaa27a3ba0,PROD),91d59f03-1c2b-3f3f-48bc-f89296a328bd)",
         "entityKeyAspect": null,
         "changeType": "UPSERT",
         "aspectName": "dataJobInputOutput",
         "aspect": {
-            "value": "{\"inputDatasets\": [\"urn:li:dataset:(urn:li:dataPlatform:s3,enriched-topical-chat,PROD)\"], \"outputDatasets\": [], \"inputDatajobs\": [\"urn:li:dataJob:(urn:li:dataFlow:(nifi,803ebb92-017d-1000-2961-4bdaa27a3ba0,prod),cb7693ed-f93b-3340-3776-fe80e6283ddc)\"]}",
+            "value": "{\"inputDatasets\": [\"urn:li:dataset:(urn:li:dataPlatform:s3,enriched-topical-chat,PROD)\"], \"outputDatasets\": [], \"inputDatajobs\": [\"urn:li:dataJob:(urn:li:dataFlow:(nifi,803ebb92-017d-1000-2961-4bdaa27a3ba0,PROD),cb7693ed-f93b-3340-3776-fe80e6283ddc)\"]}",
             "contentType": "application/json"
         },
         "systemMetadata": null
@@ -93,7 +93,7 @@
     {
         "auditHeader": null,
         "entityType": "dataJob",
-        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,803ebb92-017d-1000-2961-4bdaa27a3ba0,prod),cb7693ed-f93b-3340-3776-fe80e6283ddc)",
+        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,803ebb92-017d-1000-2961-4bdaa27a3ba0,PROD),cb7693ed-f93b-3340-3776-fe80e6283ddc)",
         "entityKeyAspect": null,
         "changeType": "UPSERT",
         "aspectName": "dataJobInfo",
@@ -106,7 +106,7 @@
     {
         "auditHeader": null,
         "entityType": "dataJob",
-        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,803ebb92-017d-1000-2961-4bdaa27a3ba0,prod),cb7693ed-f93b-3340-3776-fe80e6283ddc)",
+        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,803ebb92-017d-1000-2961-4bdaa27a3ba0,PROD),cb7693ed-f93b-3340-3776-fe80e6283ddc)",
         "entityKeyAspect": null,
         "changeType": "UPSERT",
         "aspectName": "dataJobInputOutput",

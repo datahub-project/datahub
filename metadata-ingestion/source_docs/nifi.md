@@ -49,7 +49,7 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 
 | Field                      | Required | Default                    | Description                                             |
 | -------------------------- | -------- | -------------------------- | ------------------------------------------------------- |
-| `site_url`              |    ✅    | `"https://localhost:8443/nifi/"` | URI to connect to.                                                                               |
+| `site_url`              |    ✅    |                                 | URI to connect                                                                           |
 | `site_name`             |          | `"default"`                      | Site name to identify this site with, useful when using input and output ports receiving remote connections                                                                       |
 | `auth`                  |          |           `"NO_AUTH"`            | Nifi authentication. must be one of : NO_AUTH, SINGLE_USER, CLIENT_CERT                                |
 | `username`                  |          |                              | Nifi username, must be set for `auth` = `"SINGLE_USER"`                                                  |
