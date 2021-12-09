@@ -15,6 +15,7 @@ This plugin extracts the following:
 - Column types associated with each table
 - Also supports PostGIS extensions
 - Table, row, and column statistics via optional [SQL profiling](./sql_profiles.md)
+- Table lineage
 
 ## Quickstart recipe
 
@@ -74,30 +75,76 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 
 As a SQL-based service, the Athena integration is also supported by our SQL profiler. See [here](./sql_profiles.md) for more details on configuration.
 
-| Field                       | Required | Default  | Description                                                                                                                                                                             |
-| --------------------------- | -------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `username`                  |          |          | Redshift username.                                                                                                                                                                      |
-| `password`                  |          |          | Redshift password.                                                                                                                                                                      |
-| `host_port`                 | ✅       |          | Redshift host URL.                                                                                                                                                                      |
-| `database`                  |          |          | Redshift database.                                                                                                                                                                      |
-| `database_alias`            |          |          | Alias to apply to database when ingesting.                                                                                                                                              |
-| `env`                       |          | `"PROD"` | Environment to use in namespace when constructing URNs.                                                                                                                                 |
-| `options.<option>`          |          |          | Any options specified here will be passed to SQLAlchemy's `create_engine` as kwargs.<br />See https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine for details. |
-| `table_pattern.allow`       |          |          | List of regex patterns for tables to include in ingestion.                                                                                                                              |
-| `table_pattern.deny`        |          |          | List of regex patterns for tables to exclude from ingestion.                                                                                                                            |
-| `table_pattern.ignoreCase`  |          | `True`   | Whether to ignore case sensitivity during pattern matching.                                                                                                                             |
-| `schema_pattern.allow`      |          |          | List of regex patterns for schemas to include in ingestion.                                                                                                                             |
-| `schema_pattern.deny`       |          |          | List of regex patterns for schemas to exclude from ingestion.                                                                                                                           |
-| `schema_pattern.ignoreCase` |          | `True`   | Whether to ignore case sensitivity during pattern matching.                                                                                                                             |
-| `view_pattern.allow`        |          |          | List of regex patterns for views to include in ingestion.                                                                                                                               |
-| `view_pattern.deny`         |          |          | List of regex patterns for views to exclude from ingestion.                                                                                                                             |
-| `view_pattern.ignoreCase`   |          | `True`   | Whether to ignore case sensitivity during pattern matching.                                                                                                                             |
-| `include_tables`            |          | `True`   | Whether tables should be ingested.                                                                                                                                                      |
-| `include_views`             |          | `True`   | Whether views should be ingested.                                                                                                                                                       |
+| Field                       | Required | Default            | Description                                                                                                                                                                             |
+|-----------------------------| -------- |--------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `username`                  |          |                    | Redshift username.                                                                                                                                                                      |
+| `password`                  |          |                    | Redshift password.                                                                                                                                                                      |
+| `host_port`                 | ✅       |                    | Redshift host URL.                                                                                                                                                                      |
+| `database`                  |          |                    | Redshift database.                                                                                                                                                                      |
+| `database_alias`            |          |                    | Alias to apply to database when ingesting.                                                                                                                                              |
+| `env`                       |          | `"PROD"`           | Environment to use in namespace when constructing URNs.                                                                                                                                 |
+| `options.<option>`          |          |                    | Any options specified here will be passed to SQLAlchemy's `create_engine` as kwargs.<br />See https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine for details. |
+| `table_pattern.allow`       |          |                    | List of regex patterns for tables to include in ingestion.                                                                                                                              |
+| `table_pattern.deny`        |          |                    | List of regex patterns for tables to exclude from ingestion.                                                                                                                            |
+| `table_pattern.ignoreCase`  |          | `True`             | Whether to ignore case sensitivity during pattern matching.                                                                                                                             |
+| `schema_pattern.allow`      |          |                    | List of regex patterns for schemas to include in ingestion.                                                                                                                             |
+| `schema_pattern.deny`       |          |                    | List of regex patterns for schemas to exclude from ingestion.                                                                                                                           |
+| `schema_pattern.ignoreCase` |          | `True`             | Whether to ignore case sensitivity during pattern matching.                                                                                                                             |
+| `view_pattern.allow`        |          |                    | List of regex patterns for views to include in ingestion.                                                                                                                               |
+| `view_pattern.deny`         |          |                    | List of regex patterns for views to exclude from ingestion.                                                                                                                             |
+| `view_pattern.ignoreCase`   |          | `True`             | Whether to ignore case sensitivity during pattern matching.                                                                                                                             |
+| `include_tables`            |          | `True`             | Whether tables should be ingested.                                                                                                                                                      |
+| `include_views`             |          | `True`             | Whether views should be ingested.                                                                                                                                                       |
+| `include_table_lineage`     |          | `True`             | Whether table lineage should be ingested.                                                                                                                                               |
+| `table_lineage_mode`        |          | `"stl_scan_based"` | Which table lineage collector mode to use                                                                                                                                               |
+| `include_copy_lineage`      |          | `True`             | Whether lineage should be collected from copy commands                                                                                                                                  |
+| `default_schema`            |          | `"public"`         | The default schema to use if the sql parser fails to parse the schema with `sql_based` lineage collector                                                                               |
 
 ## Compatibility
 
 Coming soon!
+
+## Lineage
+
+There are multiple lineage collector implementations as Redshift does not support table lineage out of the box.
+
+### stl_scan_based
+The stl_scan based collector uses Redshift's [stl_insert](https://docs.aws.amazon.com/redshift/latest/dg/r_STL_INSERT.html) and [stl_scan](https://docs.aws.amazon.com/redshift/latest/dg/r_STL_SCAN.html) system tables to
+discover lineage between tables.
+Pros:
+- Fast
+- Reliable
+
+Cons:
+- Does not work with Spectrum/external tables because those scans do not show up in stl_scan table.
+- If a table is depending on a view then the view won't be listed as dependency. Instead the table will be connected with the view's dependencies.
+
+### sql_based
+The sql_based based collector uses Redshift's [stl_insert](https://docs.aws.amazon.com/redshift/latest/dg/r_STL_INSERT.html) to discover all the insert queries
+and uses sql parsing to discover the dependecies.
+
+Pros:
+- Works with Spectrum tables
+- Views are connected properly if a table depends on it
+
+Cons:
+- Slow.
+- Less reliable as the query parser can fail on certain queries
+
+### mixed
+Using both collector above and first applying the sql based and then the stl_scan based one.
+
+Pros:
+- Works with Spectrum tables
+- Views are connected properly if a table depends on it
+- A bit more reliable than the sql_based one only
+
+Cons:
+- Slow
+- May be incorrect at times as the query parser can fail on certain queries
+
+# Note
+- The redshift stl redshift tables which are used for getting data lineage only retain approximately two to five days of log history. This means you cannot extract lineage from queries issued outside that window.
 
 # Redshift-Usage
 This plugin extracts usage statistics for datasets in Amazon Redshift. For context on getting started with ingestion, check out our [metadata ingestion guide](../README.md).
