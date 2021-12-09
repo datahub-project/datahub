@@ -51,7 +51,6 @@ class DatahubRestEmitter:
     _session: requests.Session
     _connect_timeout_sec: float = DEFAULT_CONNECT_TIMEOUT_SEC
     _read_timeout_sec: float = DEFAULT_READ_TIMEOUT_SEC
-    _ca_cert: Union[None, str] = None
 
     def __init__(
         self,

@@ -6,7 +6,8 @@ import time
 from pydantic.main import BaseModel
 import uvicorn
 from datahub.emitter.rest_emitter import DatahubRestEmitter
-from fastapi import FastAPI, Response
+from fastapi import FastAPI
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
@@ -26,12 +27,9 @@ from ingest_api.helper.models import (create_dataset_params, prop_params,
                                     dataset_status_params, determine_type)
 
 # when DEBUG = true, im not running ingest_api from container, but from localhost python interpreter, hence need to change the endpoint used.
-CLI_MODE = True
-if environ.get("DATAHUB_URL") is not None:
-    datahub_url = os.environ["DATAHUB_URL"]
-else:
-    datahub_url = "http://localhost:9002"
-api_emitting_port = 80 if not CLI_MODE else 8001
+CLI_MODE = False if os.environ.get('RUNNING_IN_DOCKER') else True
+
+api_emitting_port = 8001
 rest_endpoint = "http://datahub-gms:8080" if not CLI_MODE else "http://localhost:8080"
 
 rootLogger = logging.getLogger("__name__")
@@ -42,18 +40,30 @@ streamLogger = logging.StreamHandler()
 streamLogger.setFormatter(logformatter)
 streamLogger.setLevel(logging.DEBUG)
 rootLogger.addHandler(streamLogger)
+rootLogger.info(f"CLI mode : {CLI_MODE}")
 
 if not CLI_MODE:
     if not os.path.exists("/var/log/ingest/"):
         os.mkdir("/var/log/ingest/")
     if not os.path.exists("/var/log/ingest/json"):
-        os.mkdir("/var/log/ingest/json")    
-    log = TimedRotatingFileHandler(
-        "/var/log/ingest/ingest_api.log", when="midnight", interval=1, backupCount=14
-    )
-    log.setLevel(logging.DEBUG)
-    log.setFormatter(logformatter)
-    rootLogger.addHandler(log)
+        os.mkdir("/var/log/ingest/json")
+    log_path = "/var/log/ingest/ingest_api.log"
+else:
+    if not os.path.exists("./logs/"):
+        os.mkdir(f"{os.getcwd()}/logs/")
+    log_path = f"{os.getcwd()}/logs/ingest_api.log"
+# I think its fine even if the json and log files get mixed in the same folder when running locally
+
+log = TimedRotatingFileHandler(
+    log_path, when="midnight", interval=1, backupCount=14
+)
+log.setLevel(logging.DEBUG)
+log.setFormatter(logformatter)
+uvicorn_logger = logging.getLogger('gunicorn')
+
+rootLogger.addHandler(log)
+rootLogger.addHandler(uvicorn_logger)
+
 
 rootLogger.info("started!")
 
@@ -82,12 +92,12 @@ async def hello_world() -> None:
     Just a hello world endpoint to ensure that the api is running.
     """
     ## how to check that this dataset exist? - curl to GMS?
-    rootLogger.info("hello world is called")
-    return {
-        'message':"<b>Forth Announcement</b>", 
+    # rootLogger.info("hello world is called")
+    return JSONResponse(content={
+        'message':"<b>Hello world</b>", 
         'timestamp': int(time.time()*1000)
         # 'timestamp': 1636964967000
-    }
+    }, status_code=200)
 
 @app.post("/update_browsepath")
 async def update_browsepath(item: browsepath_params):
@@ -184,32 +194,33 @@ def emit_mce_respond(metadata_record:MetadataChangeEvent, owner: str, event: str
             rootLogger.error(
                 f"{mce.__class__} is not defined properly"
             )
-            return Response(
-                f"MCE was incorrectly defined. {event} was aborted",
+            return JSONResponse(
+                content = f"MCE was incorrectly defined. {event} was aborted",
                 status_code=400,
             )
             return
         
     if CLI_MODE:
-        generate_json_output(metadata_record, "/home/admini/generated/")
+        generate_json_output(metadata_record, "./logs/")
+    else:
+        generate_json_output(metadata_record, "/var/log/ingest/json/")
     try:
         rootLogger.error('emitting')
         rootLogger.error(metadata_record)
-        emitter = DatahubRestEmitter(rest_endpoint, actor=owner)
+        emitter = DatahubRestEmitter(rest_endpoint)
         emitter.emit_mce(metadata_record)
         emitter._session.close()
     except Exception as e:
         rootLogger.debug(e)
-        return Response(
-            f"{event} failed because upstream error {e}",
+        return JSONResponse(
+            content = f"{event} failed because upstream error {e}",
             status_code=500,
         )
         return
     rootLogger.info(
         f"{event} {datasetName} requested_by {owner} completed successfully")
-    return Response(
-        f"{event} successfully completed".format(
-            datasetName),
+    return JSONResponse(
+        content = { "message" : "created!" },
         status_code=201,
     )
 
@@ -289,7 +300,7 @@ async def delete_item(item: dataset_status_params) -> None:
 @app.post("/echo")
 async def echo_inputs(item: echo_param):
     rootLogger.info(f"input received {item}")
-    return Response(status_code=201)
+    return JSONResponse(content = "acknowledged", status_code=201)
 
 
 if __name__ == "__main__":
