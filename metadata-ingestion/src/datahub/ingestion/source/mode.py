@@ -79,7 +79,7 @@ class ModeSource(Source):
             test_response.raise_for_status()
         except HTTPError as http_error:
             self.report.report_failure(
-                key="mode-analytics-session",
+                key="mode-session",
                 reason=f"Unable to retrieve user "
                 f"{self.config.token} information, "
                 f"{str(http_error)}",
@@ -203,7 +203,7 @@ class ModeSource(Source):
                 space_info[s.get("token", "")] = s.get("name", "")
         except HTTPError as http_error:
             self.report.report_failure(
-                key="mode-analytics-spaces",
+                key="mode-spaces",
                 reason=f"Unable to retrieve spaces/collections for {self.workspace_uri}, "
                 f"Reason: {str(http_error)}",
             )
@@ -231,7 +231,7 @@ class ModeSource(Source):
         }
         if not display_type:
             self.report.report_warning(
-                key=f"mode-analytics-chart-{token}",
+                key=f"mode-chart-{token}",
                 reason=f"Chart type {display_type} is missing. " f"Setting to None",
             )
             return None
@@ -239,7 +239,7 @@ class ModeSource(Source):
             chart_type = type_mapping[display_type]
         except KeyError:
             self.report.report_warning(
-                key=f"mode-analytics-chart-{token}",
+                key=f"mode-chart-{token}",
                 reason=f"Chart type {display_type} not supported. " f"Setting to None",
             )
             chart_type = None
@@ -324,7 +324,7 @@ class ModeSource(Source):
             return platform_mapping[adapter]
         else:
             self.report.report_warning(
-                key=f"mode-analytics-platform-{adapter}",
+                key=f"mode-platform-{adapter}",
                 reason=f"Platform was not found in DataHub. "
                 f"Using {platform} name as is",
             )
@@ -340,7 +340,7 @@ class ModeSource(Source):
         data_sources = ds_json.get("_embedded", {}).get("data_sources", {})
         if not data_sources:
             self.report.report_failure(
-                key=f"mode-analytics-datasource-{data_source_id}",
+                key=f"mode-datasource-{data_source_id}",
                 reason=f"No data sources found for datasource id: " f"{data_source_id}",
             )
             return None, None
@@ -354,7 +354,7 @@ class ModeSource(Source):
                 return platform, database
         else:
             self.report.report_failure(
-                key=f"mode-analytics-datasource-{data_source_id}",
+                key=f"mode-datasource-{data_source_id}",
                 reason=f"Cannot create datasource urn for datasource id: "
                 f"{data_source_id}",
             )
@@ -482,7 +482,7 @@ class ModeSource(Source):
             reports = reports_json.get("_embedded", {}).get("reports", {})
         except HTTPError as http_error:
             self.report.report_failure(
-                key=f"mode-analytics-report-{space_token}",
+                key=f"mode-report-{space_token}",
                 reason=f"Unable to retrieve reports for space token: {space_token}, "
                 f"Reason: {str(http_error)}",
             )
@@ -500,7 +500,7 @@ class ModeSource(Source):
             queries = queries_json.get("_embedded", {}).get("queries", {})
         except HTTPError as http_error:
             self.report.report_failure(
-                key=f"mode-analytics-query-{report_token}",
+                key=f"mode-query-{report_token}",
                 reason=f"Unable to retrieve queries for report token: {report_token}, "
                 f"Reason: {str(http_error)}",
             )
@@ -519,7 +519,7 @@ class ModeSource(Source):
             charts = charts_json.get("_embedded", {}).get("charts", {})
         except HTTPError as http_error:
             self.report.report_failure(
-                key=f"mode-analytics-chart-{report_token}-{query_token}",
+                key=f"mode-chart-{report_token}-{query_token}",
                 reason=f"Unable to retrieve charts: "
                 f"Report token: {report_token} "
                 f"Query token: {query_token}, "

@@ -4,7 +4,7 @@ For context on getting started with ingestion, check out our [metadata ingestion
 
 ## Setup
 
-To install this plugin, run `pip install 'acryl-datahub[mode-analytics]'`.
+To install this plugin, run `pip install 'acryl-datahub[mode]'`.
 
 See documentation for Mode's API at https://mode.com/developer/api-reference/introduction/
 
@@ -73,7 +73,7 @@ For general pointers on writing and running a recipe, see our [main recipe guide
 
 ```yml
 source:
-  type: mode-analytics
+  type: mode
   config:
     # Coordinates
     connect_uri: http://app.mode.com

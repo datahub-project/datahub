@@ -66,7 +66,7 @@ def mocked_requests_failure(*args, **kwargs):
 @freeze_time(FROZEN_TIME)
 def test_mode_ingest_success(pytestconfig, tmp_path):
     with patch(
-        "datahub.ingestion.source.mode_analytics.requests.session",
+        "datahub.ingestion.source.mode.requests.session",
         side_effect=mocked_requests_sucess,
     ):
         global test_resources_dir
@@ -76,7 +76,7 @@ def test_mode_ingest_success(pytestconfig, tmp_path):
             {
                 "run_id": "mode-test",
                 "source": {
-                    "type": "mode-analytics",
+                    "type": "mode",
                     "config": {
                         "token": "xxxx",
                         "password": "xxxx",
@@ -107,7 +107,7 @@ def test_mode_ingest_success(pytestconfig, tmp_path):
 def test_mode_ingest_failure(pytestconfig, tmp_path):
 
     with patch(
-        "datahub.ingestion.source.mode_analytics.requests.session",
+        "datahub.ingestion.source.mode.requests.session",
         side_effect=mocked_requests_failure,
     ):
 
@@ -118,7 +118,7 @@ def test_mode_ingest_failure(pytestconfig, tmp_path):
             {
                 "run_id": "mode-test",
                 "source": {
-                    "type": "mode-analytics",
+                    "type": "mode",
                     "config": {
                         "token": "xxxx",
                         "password": "xxxx",
@@ -142,5 +142,5 @@ def test_mode_ingest_failure(pytestconfig, tmp_path):
             assert len(exec_error.args[1].failures) == 1
             assert (
                 list(exec_error.args[1].failures.keys())[0]
-                == "mode-analytics-report-9026edbd5a3c"
+                == "mode-report-9026edbd5a3c"
             )
