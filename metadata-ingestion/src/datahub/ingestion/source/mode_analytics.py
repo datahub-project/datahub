@@ -43,6 +43,7 @@ class ModeConfig(ConfigModel):
     password: Optional[str] = None
     workspace: Optional[str] = None
     default_schema: str = "public"
+    owner_username_instead_of_email: Optional[bool] = True
     env: str = builder.DEFAULT_ENV
 
     @validator("connect_uri")
@@ -76,12 +77,12 @@ class ModeSource(Source):
         try:
             test_response = self.session.get(f"{self.config.connect_uri}/api/account")
             test_response.raise_for_status()
-        except HTTPError as e:
+        except HTTPError as http_error:
             self.report.report_failure(
                 key="mode-analytics-session",
                 reason=f"Unable to retrieve user "
-                f"{self.config.token} information. "
-                f"{str(e)}",
+                f"{self.config.token} information, "
+                f"{str(http_error)}",
             )
 
         self.workspace_uri = (
@@ -93,13 +94,17 @@ class ModeSource(Source):
         self, space_name: str, report_info: dict
     ) -> DashboardSnapshot:
         report_token = report_info.get("token", "")
-        dashboard_urn = builder.make_dashboard_urn(self.platform, report_info["id"])
+        dashboard_urn = builder.make_dashboard_urn(
+            self.platform, report_info.get("id", "")
+        )
         dashboard_snapshot = DashboardSnapshot(
             urn=dashboard_urn,
             aspects=[],
         )
         modified_actor = builder.make_user_urn(
-            self._get_creator(report_info["_links"]["creator"]["href"])
+            self._get_creator(
+                report_info.get("_links", {}).get("creator", {}).get("href", "")
+            )
         )
         modified_ts = int(
             dp.parse(f"{report_info.get('last_saved_at', 'now')}").timestamp() * 1000
@@ -138,7 +143,9 @@ class ModeSource(Source):
 
         # Ownership
         ownership = self._get_ownership(
-            self._get_creator(report_info["_links"]["creator"]["href"])
+            self._get_creator(
+                report_info.get("_links", {}).get("creator", {}).get("href", "")
+            )
         )
         if ownership is not None:
             dashboard_snapshot.aspects.append(ownership)
@@ -165,38 +172,42 @@ class ModeSource(Source):
     def _get_creator(self, href: str) -> str:
         user = self.session.get(f"{self.config.connect_uri}{href}")
         user_json = user.json()
-        return user_json.get("username", "unknown")
+        if self.config.owner_username_instead_of_email:
+            return user_json.get("username", "unknown")
+        else:
+            return user_json.get("email", "unknown")
 
     def _get_chart_urns(self, report_token: str) -> list:
         chart_urns = []
-        # get all queries from report
-        queries_response = self.session.get(
-            f"{self.workspace_uri}/reports/{report_token}/queries"
-        )
-        queries_json = queries_response.json()
-        queries = queries_json["_embedded"]["queries"]
+        queries = self._get_queries(report_token)
         for query in queries:
-            # get all charts from the query
-            chart_response = self.session.get(
-                f"{self.workspace_uri}/reports/{report_token}"
-                f"/queries/{query['token']}/charts"
-            )
-            charts_json = chart_response.json()
-            charts = charts_json["_embedded"]["charts"]
+            charts = self._get_charts(report_token, query.get("token", ""))
             # build chart urns
             for chart in charts:
-                chart_urn = builder.make_chart_urn(self.platform, chart["token"])
+                chart_urn = builder.make_chart_urn(
+                    self.platform, chart.get("token", "")
+                )
                 chart_urns.append(chart_urn)
 
         return chart_urns
 
-    def _get_space_name_and_tokens(self):
-        workspace_response = self.session.get(f"{self.workspace_uri}/spaces")
-        payload = workspace_response.json()
-        spaces = payload["_embedded"]["spaces"]
+    def _get_space_name_and_tokens(self) -> dict:
         space_info = {}
-        for s in spaces:
-            space_info[s["token"]] = s.get("name", "")
+        try:
+            workspace_response = self.session.get(f"{self.workspace_uri}/spaces")
+            workspace_response.raise_for_status()
+            payload = workspace_response.json()
+            spaces = payload.get("_embedded", {}).get("spaces", {})
+
+            for s in spaces:
+                space_info[s.get("token", "")] = s.get("name", "")
+        except HTTPError as http_error:
+            self.report.report_failure(
+                key="mode-analytics-spaces",
+                reason=f"Unable to retrieve spaces/collections for {self.workspace_uri}, "
+                f"Reason: {str(http_error)}",
+            )
+
         return space_info
 
     def _get_chart_type(self, token: str, display_type: str) -> Optional[str]:
@@ -242,23 +253,22 @@ class ModeSource(Source):
         custom_properties = {}
         metadata = chart_detail.get("encoding", {})
         if chart_type == "table":
-            columns = ",".join(
-                [c[1:-1] for c in list(chart_detail["fieldFormats"].keys())]
-            )
+            columns = list(chart_detail.get("fieldFormats", {}).keys())
+            str_columns = ",".join([c[1:-1] for c in columns])
             filters = metadata.get("filter", [])
             filters = filters[0].get("formula", "") if len(filters) else ""
 
             custom_properties = {
-                "Columns": columns,
+                "Columns": str_columns,
                 "Filters": filters[1:-1] if len(filters) else "",
             }
 
         elif chart_type == "pivotTable":
-            pivot_table = chart_detail["pivotTable"]
-            columns = pivot_table.get("columns")
-            rows = pivot_table.get("rows")
-            values = pivot_table.get("values")
-            filters = pivot_table.get("filters")
+            pivot_table = chart_detail.get("pivotTable", {})
+            columns = pivot_table.get("columns", [])
+            rows = pivot_table.get("rows", [])
+            values = pivot_table.get("values", [])
+            filters = pivot_table.get("filters", [])
 
             custom_properties = {
                 "Columns": ", ".join(columns) if len(columns) else "",
@@ -269,7 +279,7 @@ class ModeSource(Source):
             # list filters in their own row
             for filter in filters:
                 custom_properties[f"Filter: {filter}"] = ", ".join(
-                    pivot_table["filterValues"][filter]
+                    pivot_table.get("filterValues", {}).get(filter, "")
                 )
         # Chart
         else:
@@ -327,16 +337,23 @@ class ModeSource(Source):
     ) -> Union[Tuple[str, str], Tuple[None, None]]:
         ds_response = self.session.get(f"{self.workspace_uri}/data_sources")
         ds_json = ds_response.json()
-        data_sources = ds_json["_embedded"]["data_sources"]
+        data_sources = ds_json.get("_embedded", {}).get("data_sources", {})
+        if not data_sources:
+            self.report.report_failure(
+                key=f"mode-analytics-datasource-{data_source_id}",
+                reason=f"No data sources found for datasource id: " f"{data_source_id}",
+            )
+            return None, None
+
         for data_source in data_sources:
-            if data_source["id"] == data_source_id:
+            if data_source.get("id", -1) == data_source_id:
                 platform = self._get_datahub_friendly_platform(
-                    data_source["adapter"], data_source["name"]
+                    data_source.get("adapter", ""), data_source.get("name", "")
                 )
-                database = data_source["database"]
+                database = data_source.get("database", "")
                 return platform, database
         else:
-            self.report.report_warning(
+            self.report.report_failure(
                 key=f"mode-analytics-datasource-{data_source_id}",
                 reason=f"Cannot create datasource urn for datasource id: "
                 f"{data_source_id}",
@@ -371,14 +388,16 @@ class ModeSource(Source):
     def construct_chart_from_api_data(
         self, chart_data: dict, query: dict, path: str
     ) -> ChartSnapshot:
-        chart_urn = builder.make_chart_urn(self.platform, chart_data["token"])
+        chart_urn = builder.make_chart_urn(self.platform, chart_data.get("token", ""))
         chart_snapshot = ChartSnapshot(
             urn=chart_urn,
             aspects=[],
         )
 
         modified_actor = builder.make_user_urn(
-            self._get_creator(chart_data["_links"]["creator"]["href"])
+            self._get_creator(
+                chart_data.get("_links", {}).get("creator", {}).get("href", "")
+            )
         )
         created_ts = int(
             dp.parse(chart_data.get("created_at", "now")).timestamp() * 1000
@@ -400,7 +419,7 @@ class ModeSource(Source):
         mode_chart_type = chart_detail.get("chartType", "") or chart_detail.get(
             "selectedChart", ""
         )
-        chart_type = self._get_chart_type(chart_data["token"], mode_chart_type)
+        chart_type = self._get_chart_type(chart_data.get("token", ""), mode_chart_type)
         description = (
             chart_detail.get("description")
             or chart_detail.get("chartDescription")
@@ -423,7 +442,7 @@ class ModeSource(Source):
             title=title,
             lastModified=last_modified,
             chartUrl=f"{self.config.connect_uri}"
-            f"{chart_data['_links']['report_viz_web']['href']}",
+            f"{chart_data.get('_links', {}).get('report_viz_web', {}).get('href', '')}",
             inputs=datasource_urn,
             customProperties=custom_properties,
         )
@@ -435,27 +454,82 @@ class ModeSource(Source):
 
         # Query
         chart_query = ChartQueryClass(
-            rawQuery=query["raw_query"],
+            rawQuery=query.get("raw_query", ""),
             type=ChartQueryTypeClass.SQL,
         )
         chart_snapshot.aspects.append(chart_query)
 
         # Ownership
         ownership = self._get_ownership(
-            self._get_creator(chart_data["_links"]["creator"]["href"])
+            self._get_creator(
+                chart_data.get("_links", {}).get("creator", {}).get("href", "")
+            )
         )
         if ownership is not None:
             chart_snapshot.aspects.append(ownership)
 
         return chart_snapshot
 
-    def emit_dashboard_mces(self) -> Iterable[MetadataWorkUnit]:
-        for space_token, space_name in self.space_tokens.items():
+    @lru_cache(maxsize=None)
+    def _get_reports(self, space_token: str) -> list:
+        reports = []
+        try:
             reports_response = self.session.get(
                 f"{self.workspace_uri}/spaces/{space_token}/reports"
             )
+            reports_response.raise_for_status()
             reports_json = reports_response.json()
-            reports = reports_json["_embedded"]["reports"]
+            reports = reports_json.get("_embedded", {}).get("reports", {})
+        except HTTPError as http_error:
+            self.report.report_failure(
+                key=f"mode-analytics-report-{space_token}",
+                reason=f"Unable to retrieve reports for space token: {space_token}, "
+                f"Reason: {str(http_error)}",
+            )
+        return reports
+
+    @lru_cache(maxsize=None)
+    def _get_queries(self, report_token: str) -> list:
+        queries = []
+        try:
+            queries_response = self.session.get(
+                f"{self.workspace_uri}/reports/{report_token}/queries"
+            )
+            queries_response.raise_for_status()
+            queries_json = queries_response.json()
+            queries = queries_json.get("_embedded", {}).get("queries", {})
+        except HTTPError as http_error:
+            self.report.report_failure(
+                key=f"mode-analytics-query-{report_token}",
+                reason=f"Unable to retrieve queries for report token: {report_token}, "
+                f"Reason: {str(http_error)}",
+            )
+        return queries
+
+    @lru_cache(maxsize=None)
+    def _get_charts(self, report_token: str, query_token: str) -> list:
+        charts = []
+        try:
+            chart_response = self.session.get(
+                f"{self.workspace_uri}/reports/{report_token}"
+                f"/queries/{query_token}/charts"
+            )
+            chart_response.raise_for_status()
+            charts_json = chart_response.json()
+            charts = charts_json.get("_embedded", {}).get("charts", {})
+        except HTTPError as http_error:
+            self.report.report_failure(
+                key=f"mode-analytics-chart-{report_token}-{query_token}",
+                reason=f"Unable to retrieve charts: "
+                f"Report token: {report_token} "
+                f"Query token: {query_token}, "
+                f"Reason: {str(http_error)}",
+            )
+        return charts
+
+    def emit_dashboard_mces(self) -> Iterable[MetadataWorkUnit]:
+        for space_token, space_name in self.space_tokens.items():
+            reports = self._get_reports(space_token)
             for report in reports:
                 dashboard_snapshot_from_report = self.construct_dashboard(
                     space_name, report
@@ -470,29 +544,14 @@ class ModeSource(Source):
                 yield wu
 
     def emit_chart_mces(self) -> Iterable[MetadataWorkUnit]:
-        # Space -> report -> query -> Chart
+        # Space/collection -> report -> query -> Chart
         for space_token, space_name in self.space_tokens.items():
-            reports_response = self.session.get(
-                f"{self.workspace_uri}/spaces/{space_token}/reports"
-            )
-            reports_json = reports_response.json()
-            reports = reports_json["_embedded"]["reports"]
+            reports = self._get_reports(space_token)
             for report in reports:
-                report_token = report["token"]
-                # get all queries from report
-                queries_response = self.session.get(
-                    f"{self.workspace_uri}/reports/{report_token}/queries"
-                )
-                queries_json = queries_response.json()
-                queries = queries_json["_embedded"]["queries"]
+                report_token = report.get("token", "")
+                queries = self._get_queries(report_token)
                 for query in queries:
-                    # get all charts from the query
-                    chart_response = self.session.get(
-                        f"{self.workspace_uri}/reports/{report_token}"
-                        f"/queries/{query['token']}/charts"
-                    )
-                    charts_json = chart_response.json()
-                    charts = charts_json["_embedded"]["charts"]
+                    charts = self._get_charts(report_token, query.get("token", ""))
                     # build charts
                     for chart in charts:
                         view = chart.get("view") or chart.get("view_vegas")
