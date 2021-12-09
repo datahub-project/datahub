@@ -127,7 +127,7 @@ class DatahubKafkaHook(BaseHook):
                 raise AirflowException(
                     "Kafka broker specified twice (present in host and extra)"
                 )
-            obj["connection"]["bootstrap"] = conn.host
+            obj["connection"]["bootstrap"] = "{}:{}".format(conn.host, conn.port)
         config = datahub.ingestion.sink.datahub_kafka.KafkaSinkConfig.parse_obj(obj)
         return config
 
