@@ -104,9 +104,6 @@ query getDataset($urn: String!) {
                 sampleValues
             }
         }
-        status {
-            removed
-        }
         incoming: relationships(
             input: { types: ["DownstreamOf", "Consumes", "Produces"], direction: INCOMING, start: 0, count: 100 }
         ) {
@@ -127,6 +124,9 @@ query getDataset($urn: String!) {
                 key
             }
         }
+        status {
+            removed
+        }        
     }
 }
 

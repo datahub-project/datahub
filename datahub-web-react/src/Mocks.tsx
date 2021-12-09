@@ -431,6 +431,9 @@ export const dataset3 = {
             },
         },
     ],
+    status: {
+        removed: false,
+    },
 } as Dataset;
 
 export const dataset4 = {
