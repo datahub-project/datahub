@@ -187,8 +187,8 @@ class BigQuerySource(SQLAlchemySource):
             ):
                 continue
             for ref_table in e.referencedTables:
-                destination_table_str = str(e.destinationTable)
-                ref_table_str = str(ref_table)
+                destination_table_str = str(e.destinationTable.remove_extras())
+                ref_table_str = str(ref_table.remove_extras())
                 if ref_table_str != destination_table_str:
                     lineage_map[destination_table_str].add(ref_table_str)
         return lineage_map
@@ -294,7 +294,14 @@ class BigQuerySource(SQLAlchemySource):
     ) -> str:
         assert inspector
         project_id = self._get_project_id(inspector)
-        return f"{project_id}.{schema}.{entity}"
+        trimmed_table_name = (
+            BigQueryTableRef.from_spec_obj(
+                {"projectId": project_id, "datasetId": schema, "tableId": entity}
+            )
+            .remove_extras()
+            .table
+        )
+        return f"{project_id}.{schema}.{trimmed_table_name}"
 
     def standardize_schema_table_names(
         self, schema: str, entity: str
