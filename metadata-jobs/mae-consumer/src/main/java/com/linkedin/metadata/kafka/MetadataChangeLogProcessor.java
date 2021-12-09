@@ -10,6 +10,7 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.gms.factory.common.GraphServiceFactory;
 import com.linkedin.gms.factory.common.SystemMetadataServiceFactory;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
+import com.linkedin.gms.factory.kafka.KafkaEventConsumerFactory;
 import com.linkedin.gms.factory.search.EntitySearchServiceFactory;
 import com.linkedin.gms.factory.search.SearchDocumentTransformerFactory;
 import com.linkedin.gms.factory.timeseries.TimeseriesAspectServiceFactory;
@@ -64,7 +65,8 @@ import static com.linkedin.metadata.search.utils.QueryUtils.newRelationshipFilte
 @Component
 @Conditional(MetadataChangeLogProcessorCondition.class)
 @Import({GraphServiceFactory.class, EntitySearchServiceFactory.class, TimeseriesAspectServiceFactory.class,
-    EntityRegistryFactory.class, SystemMetadataServiceFactory.class, SearchDocumentTransformerFactory.class})
+    EntityRegistryFactory.class, SystemMetadataServiceFactory.class, SearchDocumentTransformerFactory.class,
+    KafkaEventConsumerFactory.class})
 @EnableKafka
 public class MetadataChangeLogProcessor {
 
@@ -94,7 +96,7 @@ public class MetadataChangeLogProcessor {
   @KafkaListener(id = "${METADATA_CHANGE_LOG_KAFKA_CONSUMER_GROUP_ID:generic-mae-consumer-job-client}", topics = {
       "${METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME:" + Topics.METADATA_CHANGE_LOG_VERSIONED + "}",
       "${METADATA_CHANGE_LOG_TIMESERIES_TOPIC_NAME:" + Topics.METADATA_CHANGE_LOG_TIMESERIES
-          + "}"}, containerFactory = "avroSerializedKafkaListener")
+          + "}"}, containerFactory = "kafkaEventConsumer")
   public void consume(final ConsumerRecord<String, GenericRecord> consumerRecord) {
     kafkaLagStats.update(System.currentTimeMillis() - consumerRecord.timestamp());
     final GenericRecord record = consumerRecord.value();
@@ -259,9 +261,14 @@ public class MetadataChangeLogProcessor {
 
   private void deleteSystemMetadata(Urn urn, AspectSpec aspectSpec, Boolean isKeyAspect) {
     if (isKeyAspect) {
+      // Delete all aspects
+      log.debug(String.format("Deleting all system metadata for urn: %s", urn));
       _systemMetadataService.deleteUrn(urn.toString());
+    } else {
+      // Delete all aspects from system metadata service
+      log.debug(String.format("Deleting system metadata for urn: %s, aspect: %s", urn, aspectSpec.getName()));
+      _systemMetadataService.deleteAspect(urn.toString(), aspectSpec.getName());
     }
-    _systemMetadataService.delete(urn.toString(), aspectSpec.getName());
   }
 
   private void deleteGraphData(Urn urn, AspectSpec aspectSpec, RecordTemplate aspect, Boolean isKeyAspect) {
