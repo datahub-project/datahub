@@ -79,6 +79,8 @@ class NifiSourceConfig(ConfigModel):
     # root CA trusted by client system, e.g. self-signed certificates
     ca_file: Optional[str]
 
+    env: str = builder.DEFAULT_ENV
+
 
 TOKEN_ENDPOINT = "/nifi-api/access/token"
 CLUSTER_ENDPOINT = "/nifi-api/flow/cluster/summary"
@@ -688,7 +690,7 @@ class NifiSource(Source):
 
         rootpg = self.nifi_flow.root_process_group
         flow_name = rootpg.name  # self.config.site_name
-        flow_urn = builder.make_data_flow_urn(orchestrator=NIFI, flow_id=rootpg.id)
+        flow_urn = builder.make_data_flow_urn(NIFI, rootpg.id, self.config.env)
         flow_properties = dict()
         if self.nifi_flow.clustered is not None:
             flow_properties["clustered"] = str(self.nifi_flow.clustered)
@@ -748,8 +750,7 @@ class NifiSource(Source):
                 if incoming_from in self.nifi_flow.remotely_accessible_ports.keys():
                     dataset_name = f"{self.config.site_name}.{self.nifi_flow.remotely_accessible_ports[incoming_from].name}"
                     dataset_urn = builder.make_dataset_urn(
-                        NIFI,
-                        dataset_name,
+                        NIFI, dataset_name, self.config.env
                     )
                     component.inlets[dataset_urn] = ExternalDataset(
                         NIFI,
@@ -766,7 +767,9 @@ class NifiSource(Source):
                 outgoing_to = edge[1]
                 if outgoing_to in self.nifi_flow.remotely_accessible_ports.keys():
                     dataset_name = f"{self.config.site_name}.{self.nifi_flow.remotely_accessible_ports[outgoing_to].name}"
-                    dataset_urn = builder.make_dataset_urn(NIFI, dataset_name)
+                    dataset_urn = builder.make_dataset_urn(
+                        NIFI, dataset_name, self.config.env
+                    )
                     component.outlets[dataset_urn] = ExternalDataset(
                         NIFI,
                         dataset_name,
@@ -789,8 +792,7 @@ class NifiSource(Source):
                         site_name = self.config.site_url_to_site_name[site_url]
                         dataset_name = f"{site_name}.{component.name}"
                         dataset_urn = builder.make_dataset_urn(
-                            NIFI,
-                            dataset_name,
+                            NIFI, dataset_name, self.config.env
                         )
                         component.outlets[dataset_urn] = ExternalDataset(
                             NIFI, dataset_name, dict(nifi_uri=site_url), dataset_urn
@@ -812,8 +814,7 @@ class NifiSource(Source):
 
                         dataset_name = f"{site_name}.{component.name}"
                         dataset_urn = builder.make_dataset_urn(
-                            NIFI,
-                            dataset_name,
+                            NIFI, dataset_name, self.config.env
                         )
                         component.inlets[dataset_urn] = ExternalDataset(
                             NIFI, dataset_name, dict(nifi_uri=site_url), dataset_urn
@@ -987,7 +988,9 @@ class NifiSource(Source):
     ) -> Iterable[MetadataWorkUnit]:
 
         if not dataset_urn:
-            dataset_urn = builder.make_dataset_urn(dataset_platform, dataset_name)
+            dataset_urn = builder.make_dataset_urn(
+                dataset_platform, dataset_name, self.config.env
+            )
 
         mcp = MetadataChangeProposalWrapper(
             entityType="dataset",
