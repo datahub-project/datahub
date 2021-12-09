@@ -477,14 +477,4 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       return null;
     });
   }
-
-  @Action(name = ACTION_APPLY_RETENTION)
-  @Nonnull
-  @WithSpan
-  public Task<Void> applyRetention() {
-    return RestliUtil.toTask(() -> {
-      _retentionService.applyRetentionToAll();
-      return null;
-    });
-  }
 }
