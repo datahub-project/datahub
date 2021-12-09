@@ -101,7 +101,7 @@ class RedshiftConfig(PostgresConfig, BaseTimeWindowConfig):
 
     include_table_lineage: Optional[bool] = True
     include_copy_lineage: Optional[bool] = True
-    capture_lineage_query_parser_failures: Optional[bool] = True
+    capture_lineage_query_parser_failures: Optional[bool] = False
 
     table_lineage_mode: Optional[LineageMode] = LineageMode.STL_SCAN_BASED
 
