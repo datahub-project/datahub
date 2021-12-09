@@ -97,6 +97,17 @@ def guess_entity_type(urn: str) -> str:
     return urn.split(":")[2]
 
 
+def get_token():
+    _, gms_token_env = get_details_from_env()
+    if should_skip_config():
+        gms_token = gms_token_env
+    else:
+        ensure_datahub_config()
+        _, gms_token_conf = get_details_from_config()
+        gms_token = first_non_null([gms_token_env, gms_token_conf])
+    return gms_token
+
+
 def get_session_and_host():
     session = requests.Session()
 
