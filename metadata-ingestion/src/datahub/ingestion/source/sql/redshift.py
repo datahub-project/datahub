@@ -1,9 +1,8 @@
 from collections import defaultdict
-from urllib.parse import urlparse
-
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Dict, Iterable, List, Optional, Set, Union, Tuple
+from typing import Dict, Iterable, List, Optional, Set, Tuple, Union
+from urllib.parse import urlparse
 
 # These imports verify that the dependencies are available.
 import psycopg2  # noqa: F401
@@ -36,8 +35,8 @@ from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     DatasetLineageTypeClass,
     DatasetPropertiesClass,
-    UpstreamClass,
     DatasetSnapshotClass,
+    UpstreamClass,
 )
 
 
