@@ -8,7 +8,7 @@ This does not allow you add new users for Authentication. If you want to add a n
 
 :::
 
-You can look at all aspects supported for this in [CorpUserAspect](../../metadata-models/src/main/pegasus/com/linkedin/metadata/aspect/CorpUserAspect.pdl)
+You can look at all aspects supported for users in [CorpUserAspect](../../metadata-models/src/main/pegasus/com/linkedin/metadata/aspect/CorpUserAspect.pdl)
 
 ## Using File-Based Ingestion Recipe
 
