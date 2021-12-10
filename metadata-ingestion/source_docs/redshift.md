@@ -7,6 +7,13 @@ For context on getting started with ingestion, check out our [metadata ingestion
 
 To install this plugin, run `pip install 'acryl-datahub[redshift]'`.
 
+::: Required permissions :::
+
+This source needs to access system tables that require `superuser` permission; otherwise, it won't be able to query
+system tables or won't be able to see all schemas/tables.
+
+To add a superuser or grant superuser permission, please check [this page](https://docs.aws.amazon.com/redshift/latest/dg/r_superusers.html)
+
 ## Capabilities
 
 This plugin extracts the following:

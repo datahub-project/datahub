@@ -2,7 +2,7 @@
     {
         "auditHeader": null,
         "entityType": "dataFlow",
-        "entityUrn": "urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,prod)",
+        "entityUrn": "urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD)",
         "entityKeyAspect": null,
         "changeType": "UPSERT",
         "aspectName": "dataFlowInfo",
@@ -15,7 +15,7 @@
     {
         "auditHeader": null,
         "entityType": "dataJob",
-        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,prod),fed5914b-937b-37dd-89c0-b34ffbae9cf4)",
+        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD),fed5914b-937b-37dd-89c0-b34ffbae9cf4)",
         "entityKeyAspect": null,
         "changeType": "UPSERT",
         "aspectName": "dataJobInfo",
@@ -28,7 +28,7 @@
     {
         "auditHeader": null,
         "entityType": "dataJob",
-        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,prod),fed5914b-937b-37dd-89c0-b34ffbae9cf4)",
+        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD),fed5914b-937b-37dd-89c0-b34ffbae9cf4)",
         "entityKeyAspect": null,
         "changeType": "UPSERT",
         "aspectName": "dataJobInputOutput",
@@ -67,7 +67,7 @@
     {
         "auditHeader": null,
         "entityType": "dataJob",
-        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,prod),c5f6fc66-ffbb-3f60-9564-f2466ae32493)",
+        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD),c5f6fc66-ffbb-3f60-9564-f2466ae32493)",
         "entityKeyAspect": null,
         "changeType": "UPSERT",
         "aspectName": "dataJobInfo",
@@ -80,12 +80,12 @@
     {
         "auditHeader": null,
         "entityType": "dataJob",
-        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,prod),c5f6fc66-ffbb-3f60-9564-f2466ae32493)",
+        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD),c5f6fc66-ffbb-3f60-9564-f2466ae32493)",
         "entityKeyAspect": null,
         "changeType": "UPSERT",
         "aspectName": "dataJobInputOutput",
         "aspect": {
-            "value": "{\"inputDatasets\": [\"urn:li:dataset:(urn:li:dataPlatform:s3,enriched-topical-chat,PROD)\"], \"outputDatasets\": [], \"inputDatajobs\": [\"urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,prod),8a218b6e-e6a0-36b6-bc4b-79d202a80167)\"]}",
+            "value": "{\"inputDatasets\": [\"urn:li:dataset:(urn:li:dataPlatform:s3,enriched-topical-chat,PROD)\"], \"outputDatasets\": [], \"inputDatajobs\": [\"urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD),8a218b6e-e6a0-36b6-bc4b-79d202a80167)\"]}",
             "contentType": "application/json"
         },
         "systemMetadata": null
@@ -93,7 +93,7 @@
     {
         "auditHeader": null,
         "entityType": "dataJob",
-        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,prod),8a218b6e-e6a0-36b6-bc4b-79d202a80167)",
+        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD),8a218b6e-e6a0-36b6-bc4b-79d202a80167)",
         "entityKeyAspect": null,
         "changeType": "UPSERT",
         "aspectName": "dataJobInfo",
@@ -106,7 +106,7 @@
     {
         "auditHeader": null,
         "entityType": "dataJob",
-        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,prod),8a218b6e-e6a0-36b6-bc4b-79d202a80167)",
+        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD),8a218b6e-e6a0-36b6-bc4b-79d202a80167)",
         "entityKeyAspect": null,
         "changeType": "UPSERT",
         "aspectName": "dataJobInputOutput",
@@ -119,7 +119,7 @@
     {
         "auditHeader": null,
         "entityType": "dataJob",
-        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,prod),71bc17ed-a3bc-339a-a100-ebad434717d4)",
+        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD),71bc17ed-a3bc-339a-a100-ebad434717d4)",
         "entityKeyAspect": null,
         "changeType": "UPSERT",
         "aspectName": "dataJobInfo",
@@ -132,12 +132,12 @@
     {
         "auditHeader": null,
         "entityType": "dataJob",
-        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,prod),71bc17ed-a3bc-339a-a100-ebad434717d4)",
+        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD),71bc17ed-a3bc-339a-a100-ebad434717d4)",
         "entityKeyAspect": null,
         "changeType": "UPSERT",
         "aspectName": "dataJobInputOutput",
         "aspect": {
-            "value": "{\"inputDatasets\": [], \"outputDatasets\": [\"urn:li:dataset:(urn:li:dataPlatform:nifi,default.s3_data,PROD)\"], \"inputDatajobs\": [\"urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,prod),c5f6fc66-ffbb-3f60-9564-f2466ae32493)\"]}",
+            "value": "{\"inputDatasets\": [], \"outputDatasets\": [\"urn:li:dataset:(urn:li:dataPlatform:nifi,default.s3_data,PROD)\"], \"inputDatajobs\": [\"urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD),c5f6fc66-ffbb-3f60-9564-f2466ae32493)\"]}",
             "contentType": "application/json"
         },
         "systemMetadata": null
@@ -197,7 +197,7 @@
     {
         "auditHeader": null,
         "entityType": "dataJob",
-        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,prod),8eb5263d-017d-1000-ffff-ffff911b23aa)",
+        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD),8eb5263d-017d-1000-ffff-ffff911b23aa)",
         "entityKeyAspect": null,
         "changeType": "UPSERT",
         "aspectName": "dataJobInfo",
@@ -210,7 +210,7 @@
     {
         "auditHeader": null,
         "entityType": "dataJob",
-        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,prod),8eb5263d-017d-1000-ffff-ffff911b23aa)",
+        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD),8eb5263d-017d-1000-ffff-ffff911b23aa)",
         "entityKeyAspect": null,
         "changeType": "UPSERT",
         "aspectName": "dataJobInputOutput",
@@ -223,7 +223,7 @@
     {
         "auditHeader": null,
         "entityType": "dataJob",
-        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,prod),c8c73d4c-ebdd-1bee-9b46-629672cd11a0)",
+        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD),c8c73d4c-ebdd-1bee-9b46-629672cd11a0)",
         "entityKeyAspect": null,
         "changeType": "UPSERT",
         "aspectName": "dataJobInfo",
@@ -236,12 +236,12 @@
     {
         "auditHeader": null,
         "entityType": "dataJob",
-        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,prod),c8c73d4c-ebdd-1bee-9b46-629672cd11a0)",
+        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD),c8c73d4c-ebdd-1bee-9b46-629672cd11a0)",
         "entityKeyAspect": null,
         "changeType": "UPSERT",
         "aspectName": "dataJobInputOutput",
         "aspect": {
-            "value": "{\"inputDatasets\": [], \"outputDatasets\": [], \"inputDatajobs\": [\"urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,prod),3ec2acd6-a0d4-3198-9066-a59fb757bc05)\"]}",
+            "value": "{\"inputDatasets\": [], \"outputDatasets\": [], \"inputDatajobs\": [\"urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD),3ec2acd6-a0d4-3198-9066-a59fb757bc05)\"]}",
             "contentType": "application/json"
         },
         "systemMetadata": null
@@ -249,7 +249,7 @@
     {
         "auditHeader": null,
         "entityType": "dataJob",
-        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,prod),8eb55aeb-017d-1000-ffff-fffff475768d)",
+        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD),8eb55aeb-017d-1000-ffff-fffff475768d)",
         "entityKeyAspect": null,
         "changeType": "UPSERT",
         "aspectName": "dataJobInfo",
@@ -262,12 +262,12 @@
     {
         "auditHeader": null,
         "entityType": "dataJob",
-        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,prod),8eb55aeb-017d-1000-ffff-fffff475768d)",
+        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD),8eb55aeb-017d-1000-ffff-fffff475768d)",
         "entityKeyAspect": null,
         "changeType": "UPSERT",
         "aspectName": "dataJobInputOutput",
         "aspect": {
-            "value": "{\"inputDatasets\": [\"urn:li:dataset:(urn:li:dataPlatform:file,sftp_public_host,PROD)\", \"urn:li:dataset:(urn:li:dataPlatform:file,sftp_public_host.temperature,PROD)\"], \"outputDatasets\": [\"urn:li:dataset:(urn:li:dataPlatform:nifi,default.sftp_files_out,PROD)\"], \"inputDatajobs\": [\"urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,prod),8eb5263d-017d-1000-ffff-ffff911b23aa)\"]}",
+            "value": "{\"inputDatasets\": [\"urn:li:dataset:(urn:li:dataPlatform:file,sftp_public_host,PROD)\", \"urn:li:dataset:(urn:li:dataPlatform:file,sftp_public_host.temperature,PROD)\"], \"outputDatasets\": [\"urn:li:dataset:(urn:li:dataPlatform:nifi,default.sftp_files_out,PROD)\"], \"inputDatajobs\": [\"urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD),8eb5263d-017d-1000-ffff-ffff911b23aa)\"]}",
             "contentType": "application/json"
         },
         "systemMetadata": null
@@ -275,7 +275,7 @@
     {
         "auditHeader": null,
         "entityType": "dataJob",
-        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,prod),3ec2acd6-a0d4-3198-9066-a59fb757bc05)",
+        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD),3ec2acd6-a0d4-3198-9066-a59fb757bc05)",
         "entityKeyAspect": null,
         "changeType": "UPSERT",
         "aspectName": "dataJobInfo",
@@ -288,7 +288,7 @@
     {
         "auditHeader": null,
         "entityType": "dataJob",
-        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,prod),3ec2acd6-a0d4-3198-9066-a59fb757bc05)",
+        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD),3ec2acd6-a0d4-3198-9066-a59fb757bc05)",
         "entityKeyAspect": null,
         "changeType": "UPSERT",
         "aspectName": "dataJobInputOutput",
