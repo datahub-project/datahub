@@ -10,6 +10,7 @@ import com.linkedin.entity.Entity;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.RetentionService;
 import com.linkedin.metadata.entity.RollbackRunResult;
 import com.linkedin.metadata.entity.ValidationException;
 import com.linkedin.metadata.query.AutoCompleteResult;
@@ -58,9 +59,22 @@ import javax.inject.Named;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.maven.artifact.versioning.ComparableVersion;
 
-import static com.linkedin.metadata.entity.ValidationUtils.*;
-import static com.linkedin.metadata.restli.RestliConstants.*;
-import static com.linkedin.metadata.utils.PegasusUtils.*;
+import static com.linkedin.metadata.entity.ValidationUtils.validateOrThrow;
+import static com.linkedin.metadata.restli.RestliConstants.ACTION_AUTOCOMPLETE;
+import static com.linkedin.metadata.restli.RestliConstants.ACTION_BROWSE;
+import static com.linkedin.metadata.restli.RestliConstants.ACTION_GET_BROWSE_PATHS;
+import static com.linkedin.metadata.restli.RestliConstants.ACTION_INGEST;
+import static com.linkedin.metadata.restli.RestliConstants.PARAM_ASPECTS;
+import static com.linkedin.metadata.restli.RestliConstants.PARAM_FIELD;
+import static com.linkedin.metadata.restli.RestliConstants.PARAM_FILTER;
+import static com.linkedin.metadata.restli.RestliConstants.PARAM_INPUT;
+import static com.linkedin.metadata.restli.RestliConstants.PARAM_LIMIT;
+import static com.linkedin.metadata.restli.RestliConstants.PARAM_PATH;
+import static com.linkedin.metadata.restli.RestliConstants.PARAM_QUERY;
+import static com.linkedin.metadata.restli.RestliConstants.PARAM_SORT;
+import static com.linkedin.metadata.restli.RestliConstants.PARAM_START;
+import static com.linkedin.metadata.restli.RestliConstants.PARAM_URN;
+import static com.linkedin.metadata.utils.PegasusUtils.urnToEntityName;
 
 
 /**
@@ -99,6 +113,10 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   @Inject
   @Named("systemMetadataService")
   private SystemMetadataService _systemMetadataService;
+
+  @Inject
+  @Named("retentionService")
+  private RetentionService _retentionService;
 
   /**
    * Retrieves the value for an entity that is made up of latest versions of specified aspects.
