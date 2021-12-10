@@ -261,9 +261,14 @@ public class MetadataChangeLogProcessor {
 
   private void deleteSystemMetadata(Urn urn, AspectSpec aspectSpec, Boolean isKeyAspect) {
     if (isKeyAspect) {
+      // Delete all aspects
+      log.debug(String.format("Deleting all system metadata for urn: %s", urn));
       _systemMetadataService.deleteUrn(urn.toString());
+    } else {
+      // Delete all aspects from system metadata service
+      log.debug(String.format("Deleting system metadata for urn: %s, aspect: %s", urn, aspectSpec.getName()));
+      _systemMetadataService.deleteAspect(urn.toString(), aspectSpec.getName());
     }
-    _systemMetadataService.delete(urn.toString(), aspectSpec.getName());
   }
 
   private void deleteGraphData(Urn urn, AspectSpec aspectSpec, RecordTemplate aspect, Boolean isKeyAspect) {

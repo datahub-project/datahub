@@ -7,10 +7,10 @@ import pydantic
 
 # This import verifies that the dependencies are available.
 import snowflake.sqlalchemy  # noqa: F401
-from snowflake.sqlalchemy import custom_types
+from snowflake.sqlalchemy import custom_types, snowdialect
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine.reflection import Inspector
-from sqlalchemy.sql import text
+from sqlalchemy.sql import sqltypes, text
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern
@@ -43,6 +43,8 @@ register_custom_type(custom_types.VARIANT, RecordTypeClass)
 logger: logging.Logger = logging.getLogger(__name__)
 
 APPLICATION_NAME = "acryl_datahub"
+
+snowdialect.ischema_names["GEOGRAPHY"] = sqltypes.NullType
 
 
 class BaseSnowflakeConfig(BaseTimeWindowConfig):
