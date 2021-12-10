@@ -27,13 +27,10 @@ public class IngestRetentionPoliciesStepFactory {
   @Value("${entityService.retention.disable}")
   private Boolean _disable;
 
-  @Value("${entityService.retention.defaultMaxVersion}")
-  private Integer _defaultMaxVersion;
-
   @Bean(name = "ingestRetentionPoliciesStep")
   @Scope("singleton")
   @Nonnull
   protected IngestRetentionPoliciesStep createInstance() {
-    return new IngestRetentionPoliciesStep(_retentionService, _disable, _defaultMaxVersion);
+    return new IngestRetentionPoliciesStep(_retentionService, _disable);
   }
 }
