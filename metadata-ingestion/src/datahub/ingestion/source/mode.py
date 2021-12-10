@@ -367,9 +367,15 @@ class ModeSource(Source):
                 definition_variable
             )
             definition_query = self._get_definition(definition_name)
-            query = query.replace(
-                definition_variable, f"({definition_query}) as {definition_alias}"
-            )
+            # if unable to retrieve definition, then replace the {{}} so that it doesn't get picked up again in recurive call
+            if definition_query is not None:
+                query = query.replace(
+                    definition_variable, f"({definition_query}) as {definition_alias}"
+                )
+            else:
+                query = query.replace(
+                    definition_variable, f"{definition_name} as {definition_alias}"
+                )
             query = self._replace_definitions(query)
 
         return query
@@ -390,7 +396,7 @@ class ModeSource(Source):
         return name, alias
 
     @lru_cache(maxsize=None)
-    def _get_definition(self, definition_name):  # TODo test failure
+    def _get_definition(self, definition_name):
         try:
             definition_response = self.session.get(f"{self.workspace_uri}/definitions/")
             definition_response.raise_for_status()
@@ -406,7 +412,7 @@ class ModeSource(Source):
                 reason=f"Unable to retrieve definition for {definition_name}, "
                 f"Reason: {str(http_error)}",
             )
-        return ""
+        return None
 
     @lru_cache(maxsize=None)
     def _get_source_from_query(self, raw_query: str) -> set:
