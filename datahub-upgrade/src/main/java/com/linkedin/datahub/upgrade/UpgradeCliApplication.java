@@ -7,9 +7,8 @@ import org.springframework.boot.builder.SpringApplicationBuilder;
 
 
 @SuppressWarnings("checkstyle:HideUtilityClassConstructor")
-@SpringBootApplication(exclude = {RestClientAutoConfiguration.class}, scanBasePackages = {
-    "com.linkedin.gms.factory.common", "com.linkedin.gms.factory.kafka", "com.linkedin.gms.factory.search",
-    "com.linkedin.datahub.upgrade.config", "com.linkedin.gms.factory.entity"})
+@SpringBootApplication(exclude = {RestClientAutoConfiguration.class}, scanBasePackages = {"com.linkedin.gms.factory",
+    "com.linkedin.datahub.upgrade.config"})
 public class UpgradeCliApplication {
   public static void main(String[] args) {
     new SpringApplicationBuilder(UpgradeCliApplication.class, UpgradeCli.class).web(WebApplicationType.NONE).run(args);
