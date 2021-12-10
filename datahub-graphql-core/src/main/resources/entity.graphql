@@ -3692,6 +3692,65 @@ type TimeWindow {
 }
 
 """
+A Dataset Profile associated with a Dataset, containing profiling statistics about the Dataset
+"""
+type Operation implements TimeSeriesAspect {
+  """
+  The time at which the profile was reported
+  """
+  timestampMillis: Long!
+
+  """
+  When the entity was last updated.
+  """
+  lastUpdatedTimestamp: Long!
+
+  """
+  Email of actor who issued this operation.
+  """
+  actor: String!
+
+  """
+  Operation type of change.
+  """
+  operationType: OperationType!
+
+  """
+  How many rows were affected by this operation.
+  """
+  numAffectedRows: Long
+
+  """
+  Which other datasets were affected by this operation.
+  """
+  affectedDatasets: [String]
+}
+
+"""
+Enum to define the operation type when an entity changes.
+"""
+enum OperationType {
+  """
+  When data is inserted.
+  """
+  INSERT,
+
+  """
+  When data is updated.
+  """
+  UPDATE
+  """
+  When data is deleted.
+  """
+  DELETE
+  """
+  When data is created.
+  """
+  CREATE
+
+}
+
+"""
 Information about Metadata Entity deprecation status
 """
 type Deprecation {
