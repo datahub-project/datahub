@@ -10,7 +10,6 @@ import com.linkedin.metadata.recommendation.RecommendationRenderType;
 import com.linkedin.metadata.recommendation.RecommendationRequestContext;
 import com.linkedin.metadata.recommendation.ScenarioType;
 import com.linkedin.metadata.search.EntitySearchService;
-import com.linkedin.metadata.search.cache.NonEmptyEntitiesCache;
 import java.util.Collections;
 import java.util.List;
 import javax.annotation.Nonnull;
