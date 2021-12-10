@@ -1,0 +1,150 @@
+[
+{
+    "auditHeader": null,
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DashboardSnapshot": {
+            "urn": "urn:li:dashboard:(mode,2910167)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.dashboard.DashboardInfo": {
+                        "customProperties": {},
+                        "externalUrl": null,
+                        "title": "Actor Report",
+                        "description": "Actor Report Description",
+                        "charts": [
+                            "urn:li:chart:(mode,bce2fc7d4910)"
+                        ],
+                        "lastModified": {
+                            "created": {
+                                "time": 1638301936996,
+                                "actor": "urn:li:corpuser:modeuser",
+                                "impersonator": null
+                            },
+                            "lastModified": {
+                                "time": 1638935478670,
+                                "actor": "urn:li:corpuser:modeuser",
+                                "impersonator": null
+                            },
+                            "deleted": null
+                        },
+                        "dashboardUrl": "https://app.mode.com/acryl/reports/72f2ef8fb3a8",
+                        "access": null,
+                        "lastRefreshed": null
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.BrowsePaths": {
+                        "paths": [
+                            "/mode/acryl/Petabloc/Actor Report"
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [
+                            {
+                                "owner": "urn:li:corpuser:modeuser",
+                                "type": "DATAOWNER",
+                                "source": null
+                            }
+                        ],
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown",
+                            "impersonator": null
+                        }
+                    }
+                }
+            ]
+        }
+    },
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "mode-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
+            "urn": "urn:li:chart:(mode,bce2fc7d4910)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.chart.ChartInfo": {
+                        "customProperties": {
+                            "Columns": "first_name,last_name,payment_date",
+                            "Filters": "last_name"
+                        },
+                        "externalUrl": null,
+                        "title": "Customer Payment Information",
+                        "description": "",
+                        "lastModified": {
+                            "created": {
+                                "time": 1638827576804,
+                                "actor": "urn:li:corpuser:modeuser",
+                                "impersonator": null
+                            },
+                            "lastModified": {
+                                "time": 1638904049708,
+                                "actor": "urn:li:corpuser:modeuser",
+                                "impersonator": null
+                            },
+                            "deleted": null
+                        },
+                        "chartUrl": "https://app.mode.com/acryl/reports/72f2ef8fb3a8/viz/bce2fc7d4910",
+                        "inputs": [
+                            {
+                                "string": "urn:li:dataset:(urn:li:dataPlatform:postgres,dvdrental.public.payment,PROD)"
+                            }
+                        ],
+                        "type": "TABLE",
+                        "access": null,
+                        "lastRefreshed": null
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.BrowsePaths": {
+                        "paths": [
+                            "/mode/acryl/Petabloc/Actor Report/Customer Payment/Customer Payment Information"
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.chart.ChartQuery": {
+                        "rawQuery": "SELECT\\n\\tcustomer.customer_id,\\n\\tfirst_name,\\n\\tlast_name,\\n\\tamount,\\n\\tpayment_date\\nFROM\\n\\tcustomer\\nINNER JOIN public.payment \\n    ON payment.customer_id = customer.customer_id\\nORDER BY payment_date;\\n",
+                        "type": "SQL"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [
+                            {
+                                "owner": "urn:li:corpuser:modeuser",
+                                "type": "DATAOWNER",
+                                "source": null
+                            }
+                        ],
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown",
+                            "impersonator": null
+                        }
+                    }
+                }
+            ]
+        }
+    },
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "mode-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+}
+]
