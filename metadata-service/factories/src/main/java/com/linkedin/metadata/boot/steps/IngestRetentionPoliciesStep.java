@@ -60,6 +60,7 @@ public class IngestRetentionPoliciesStep implements BootstrapStep {
     retentionPolicyMap.putAll(parseFileOrDir(new File(pluginPath)));
 
     // 4. Set the specified retention policies
+    log.info("Setting {} policies", retentionPolicyMap.size());
     boolean hasUpdate = false;
     for (DataHubRetentionKey key : retentionPolicyMap.keySet()) {
       if (_retentionService.setRetention(key.getEntityName(), key.getAspectName(), retentionPolicyMap.get(key))) {
@@ -69,6 +70,7 @@ public class IngestRetentionPoliciesStep implements BootstrapStep {
 
     // 5. If there were updates on any of the retention policies, apply retention to all records
     if (hasUpdate) {
+      log.info("Applying policies to all records");
       _retentionService.batchApplyRetention(null, null);
     }
   }
