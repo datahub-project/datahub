@@ -47,7 +47,6 @@ import io.ebean.EbeanServer;
 import io.ebean.EbeanServerFactory;
 import io.ebean.config.ServerConfig;
 import io.ebean.datasource.DataSourceConfig;
-import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -669,7 +668,7 @@ public class EbeanEntityServiceTest {
     metadata1.setLastObserved(1625792689);
     metadata1.setRunId("run-123");
 
-    String aspectName = PegasusUtils.getAspectNameFromSchema(new CorpUserKey().schema());
+    String aspectName = PegasusUtils.getAspectNameFromSchema(new CorpUserInfo().schema());
 
     // Ingest CorpUserInfo Aspect
     CorpUserInfo writeAspect1 = createCorpUserInfo("email@test.com");
@@ -693,8 +692,9 @@ public class EbeanEntityServiceTest {
 
     _retentionService.setRetention(null, null, new DataHubRetentionInfo().setRetentionPolicies(new RetentionArray(
         ImmutableList.of(new Retention().setVersion(new VersionBasedRetention().setMaxVersions(2))))));
-    _retentionService.setRetention("corpuser", "status", new DataHubRetentionInfo().setRetentionPolicies(new RetentionArray(
-        ImmutableList.of(new Retention().setVersion(new VersionBasedRetention().setMaxVersions(4))))));
+    _retentionService.setRetention("corpuser", "status", new DataHubRetentionInfo().setRetentionPolicies(
+        new RetentionArray(
+            ImmutableList.of(new Retention().setVersion(new VersionBasedRetention().setMaxVersions(4))))));
 
     // Ingest CorpUserInfo Aspect again
     CorpUserInfo writeAspect1c = createCorpUserInfo("email_c@test.com");
@@ -703,9 +703,17 @@ public class EbeanEntityServiceTest {
     Status writeAspect2c = new Status().setRemoved(false);
     _entityService.ingestAspect(entityUrn, aspectName2, writeAspect2c, TEST_AUDIT_STAMP, metadata1);
 
-    Thread.sleep(5000);
     assertNull(_entityService.getAspect(entityUrn, aspectName, 1));
     assertEquals(_entityService.getAspect(entityUrn, aspectName2, 1), writeAspect2);
+
+    // Reset retention policies
+    _retentionService.setRetention(null, null, new DataHubRetentionInfo().setRetentionPolicies(new RetentionArray(
+        ImmutableList.of(new Retention().setVersion(new VersionBasedRetention().setMaxVersions(1))))));
+    _retentionService.deleteRetention("corpuser", "status");
+    // Invoke batch apply
+    _retentionService.batchApplyRetention(null, null);
+    assertEquals(_entityService.listLatestAspects(entityUrn.getEntityType(), aspectName, 0, 10).getTotalCount(), 1);
+    assertEquals(_entityService.listLatestAspects(entityUrn.getEntityType(), aspectName2, 0, 10).getTotalCount(), 1);
   }
 
   @Nonnull

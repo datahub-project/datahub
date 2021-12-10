@@ -235,7 +235,7 @@ public abstract class EntityService {
     return ingestAspect(urn, aspectName, newValue, auditStamp, generatedSystemMetadata);
   }
 
-  public Urn ingestProposal(@Nonnull MetadataChangeProposal metadataChangeProposal, AuditStamp auditStamp) {
+  public IngestProposalResult ingestProposal(@Nonnull MetadataChangeProposal metadataChangeProposal, AuditStamp auditStamp) {
 
     log.debug("entity type = {}", metadataChangeProposal.getEntityType());
     EntitySpec entitySpec = getEntityRegistry().getEntitySpec(metadataChangeProposal.getEntityType());
@@ -331,7 +331,7 @@ public abstract class EntityService {
               metadataChangeProposal.getAspectName(), entityUrn));
     }
 
-    return entityUrn;
+    return new IngestProposalResult(entityUrn, oldAspect != newAspect);
   }
 
   /**
@@ -688,5 +688,11 @@ public abstract class EntityService {
     SystemMetadata newSystemMetadata;
     MetadataAuditOperation operation;
     long maxVersion;
+  }
+
+  @Value
+  public static class IngestProposalResult {
+    Urn urn;
+    boolean didUpdate;
   }
 }

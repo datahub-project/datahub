@@ -40,13 +40,6 @@ public abstract class RetentionService {
   protected abstract EntityService getEntityService();
 
   /**
-   * Check whether or not any retention policies have been ingested
-   */
-  public boolean hasRetention() {
-    return getEntityService().listUrns(DATAHUB_RETENTION_ENTITY, 0, 1).getTotal() > 0;
-  }
-
-  /**
    * Fetch retention policies given the entityName and aspectName
    * Uses the entity service to fetch the latest retention policies set for the input entity and aspect
    *
@@ -91,7 +84,7 @@ public abstract class RetentionService {
    * @param retentionInfo Retention policy
    */
   @SneakyThrows
-  public void setRetention(@Nullable String entityName, @Nullable String aspectName,
+  public boolean setRetention(@Nullable String entityName, @Nullable String aspectName,
       @Nonnull DataHubRetentionInfo retentionInfo) {
     validateRetentionInfo(retentionInfo);
     DataHubRetentionKey retentionKey = new DataHubRetentionKey();
@@ -112,10 +105,7 @@ public abstract class RetentionService {
     GenericAspect retentionAspect = GenericAspectUtils.serializeAspect(retentionInfo);
     aspectProposal.setAspect(retentionAspect);
     aspectProposal.setAspectName(DATAHUB_RETENTION_ASPECT);
-    getEntityService().ingestProposal(aspectProposal, auditStamp);
-
-    // Apply retention to affected records
-    batchApplyRetention(entityName, aspectName);
+    return getEntityService().ingestProposal(aspectProposal, auditStamp).isDidUpdate();
   }
 
   /**
@@ -184,7 +174,11 @@ public abstract class RetentionService {
    * @param context Additional context that could be used to apply retention
    */
   public void applyRetention(@Nonnull Urn urn, @Nonnull String aspectName, Optional<RetentionContext> context) {
-    applyRetention(urn, aspectName, getRetention(urn.getEntityType(), aspectName), context);
+    List<Retention> retentionPolicies = getRetention(urn.getEntityType(), aspectName);
+    if (retentionPolicies.isEmpty()) {
+      return;
+    }
+    applyRetention(urn, aspectName, retentionPolicies, context);
   }
 
   /**

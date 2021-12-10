@@ -32,6 +32,12 @@ datahub:
     sslContext:
       protocol: ${DATAHUB_GMS_SSL_PROTOCOL:${GMS_SSL_PROTOCOL:#{null}}}
 
+  plugin:
+    entityRegistry:
+      path: ${ENTITY_REGISTRY_PLUGIN_PATH:/etc/datahub/plugins/models}
+    retention:
+      path: ${RETENTION_PLUGIN_PATH:/etc/datahub/plugins/retention}
+
 entityService:
   retention:
     disable: ${ENTITY_SERVICE_DISABLE_RETENTION:true}
@@ -47,7 +53,7 @@ configEntityRegistry:
   path: ${ENTITY_REGISTRY_CONFIG_PATH:../../metadata-models/src/main/resources/entity-registry.yml}
 
 pluginEntityRegistry:
-  path: ${ENTITY_REGISTRY_PLUGIN_PATH:$HOME/.datahub/plugins/models}
+  path: ${ENTITY_REGISTRY_PLUGIN_PATH:/etc/datahub/plugins/models}
 
 authorizationManager:
   enabled: ${AUTH_POLICIES_ENABLED:true}
