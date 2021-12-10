@@ -2,6 +2,7 @@ package com.linkedin.metadata.kafka.config;
 
 import com.datahub.authentication.Authentication;
 import com.linkedin.entity.client.RestliEntityClient;
+import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;
 import com.linkedin.gms.factory.entity.RestliEntityClientFactory;
 import com.linkedin.metadata.kafka.hydrator.EntityHydrator;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -12,7 +13,7 @@ import org.springframework.context.annotation.Import;
 
 
 @Configuration
-@Import({RestliEntityClientFactory.class})
+@Import({RestliEntityClientFactory.class, SystemAuthenticationFactory.class})
 public class EntityHydratorConfig {
 
   @Autowired

@@ -25,6 +25,7 @@ import io.opentelemetry.extension.annotations.WithSpan;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -97,7 +98,7 @@ public class SearchRequestHandler {
         .collect(Collectors.toSet());
   }
 
-  private BoolQueryBuilder getFilterQuery(@Nullable Filter filter) {
+  private static BoolQueryBuilder getFilterQuery(@Nullable Filter filter) {
     BoolQueryBuilder filterQuery = ESUtils.buildFilterQuery(filter);
     // Filter out entities that are marked "removed"
     filterQuery.mustNot(QueryBuilders.matchQuery("removed", true));
@@ -124,8 +125,7 @@ public class SearchRequestHandler {
 
     searchSourceBuilder.from(from);
     searchSourceBuilder.size(size);
-
-    searchSourceBuilder.query(getQuery(input));
+    searchSourceBuilder.fetchSource("urn", null);
 
     BoolQueryBuilder filterQuery = getFilterQuery(filter);
     searchSourceBuilder.query(QueryBuilders.boolQuery().must(getQuery(input)).must(filterQuery));
@@ -172,7 +172,7 @@ public class SearchRequestHandler {
    * @return {@link SearchRequest} that contains the aggregation query
    */
   @Nonnull
-  public SearchRequest getAggregationRequest(@Nonnull String field, @Nullable Filter filter, int limit) {
+  public static SearchRequest getAggregationRequest(@Nonnull String field, @Nullable Filter filter, int limit) {
     SearchRequest searchRequest = new SearchRequest();
     BoolQueryBuilder filterQuery = getFilterQuery(filter);
 
@@ -298,7 +298,7 @@ public class SearchRequestHandler {
     final SearchResultMetadata searchResultMetadata =
         new SearchResultMetadata().setAggregations(new AggregationMetadataArray());
 
-    final List<AggregationMetadata> aggregationMetadataList = extractAggregation(searchResponse);
+    final List<AggregationMetadata> aggregationMetadataList = extractAggregationMetadata(searchResponse);
     if (!aggregationMetadataList.isEmpty()) {
       searchResultMetadata.setAggregations(new AggregationMetadataArray(aggregationMetadataList));
     }
@@ -306,7 +306,7 @@ public class SearchRequestHandler {
     return searchResultMetadata;
   }
 
-  private List<AggregationMetadata> extractAggregation(@Nonnull SearchResponse searchResponse) {
+  private List<AggregationMetadata> extractAggregationMetadata(@Nonnull SearchResponse searchResponse) {
     final List<AggregationMetadata> aggregationMetadataList = new ArrayList<>();
 
     if (searchResponse.getAggregations() == null) {
@@ -328,6 +328,20 @@ public class SearchRequestHandler {
     return aggregationMetadataList;
   }
 
+  @WithSpan
+  public static Map<String, Long> extractTermAggregations(@Nonnull SearchResponse searchResponse,
+      @Nonnull String aggregationName) {
+    if (searchResponse.getAggregations() == null) {
+      return Collections.emptyMap();
+    }
+
+    Aggregation aggregation = searchResponse.getAggregations().get(aggregationName);
+    if (aggregation == null) {
+      return Collections.emptyMap();
+    }
+    return extractTermAggregations((ParsedTerms) aggregation);
+  }
+
   /**
    * Extracts term aggregations give a parsed term.
    *
@@ -335,7 +349,7 @@ public class SearchRequestHandler {
    * @return a map with aggregation key and corresponding doc counts
    */
   @Nonnull
-  private Map<String, Long> extractTermAggregations(@Nonnull ParsedTerms terms) {
+  private static Map<String, Long> extractTermAggregations(@Nonnull ParsedTerms terms) {
 
     final Map<String, Long> aggResult = new HashMap<>();
     List<? extends Terms.Bucket> bucketList = terms.getBuckets();

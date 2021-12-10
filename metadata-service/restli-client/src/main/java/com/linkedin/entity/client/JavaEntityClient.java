@@ -32,6 +32,7 @@ import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.r2.RemoteInvocationException;
+import io.opentelemetry.extension.annotations.WithSpan;
 import java.time.Clock;
 import java.util.List;
 import java.util.Map;
@@ -183,6 +184,7 @@ public class JavaEntityClient implements EntityClient {
      * @throws RemoteInvocationException
      */
     @Nonnull
+    @WithSpan
     public SearchResult search(
         @Nonnull String entity,
         @Nonnull String input,
