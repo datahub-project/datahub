@@ -1,6 +1,5 @@
 package com.linkedin.gms.factory.recommendation.candidatesource;
 
-import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.gms.factory.search.EntitySearchServiceFactory;
 import com.linkedin.metadata.recommendation.candidatesource.TopTermsSource;
 import com.linkedin.metadata.search.EntitySearchService;
