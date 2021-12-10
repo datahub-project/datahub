@@ -2,6 +2,7 @@ from functools import lru_cache
 from typing import Dict, Iterable, Optional, Tuple, Union
 
 import dateutil.parser as dp
+import re
 import requests
 from pydantic import validator
 from requests.models import HTTPBasicAuth, HTTPError
@@ -86,7 +87,7 @@ class ModeSource(Source):
             )
 
         self.workspace_uri = (
-            f"{self.config.connect_uri}/api/" f"{self.config.workspace}"
+            f"{self.config.connect_uri}/api/{self.config.workspace}"
         )
         self.space_tokens = self._get_space_name_and_tokens()
 
@@ -360,16 +361,71 @@ class ModeSource(Source):
             )
         return None, None
 
+    def _replace_definitions(self, raw_query: str) -> str:
+        query = raw_query
+        definitions = re.findall("({{[^}{]+}})", raw_query)
+        for definition_variable in definitions:
+            definition_name, definition_alias = self._parse_definition_name(definition_variable)
+            definition_query = self._get_definition(definition_name)
+            query = query.replace(definition_variable, f"({definition_query}) as {definition_alias}")
+            query = self._replace_definitions(query)
+
+        return query
+
+    def _parse_definition_name(self, definition_variable: str) -> Tuple[str, str]:
+        name, alias = "", ""
+        # i.e '{{ @join_on_definition as alias}}'
+        name_match = re.findall("@[a-zA-z]+", definition_variable)
+        if len(name_match):
+            name = name_match[0][1:]
+        alias_match = re.findall("as\s+[a-zA-Z]+", definition_variable)  # i.e ['as    alias_name']
+        if len(alias_match):
+            alias_match = alias_match[0].split(' ')
+            alias = alias_match[-1]
+
+        return name, alias
+
+    @lru_cache(maxsize=None)
+    def _get_definition(self, definition_name): #TODo test failure
+        try:
+            definition_response = self.session.get(
+                f"{self.workspace_uri}/definitions/"
+            )
+            definition_response.raise_for_status()
+            definition_json = definition_response.json()
+            definitions = definition_json.get('_embedded', {}).get('definitions', [])
+            for definition in definitions:
+                if definition.get("name", "") == definition_name:
+                    return definition.get("source", "")
+
+        except HTTPError as http_error:
+            self.report.report_failure(
+                key=f"mode-definition-{definition_name}",
+                reason=f"Unable to retrieve definition for {definition_name}, "
+                       f"Reason: {str(http_error)}",
+            )
+        return ""
+
     @lru_cache(maxsize=None)
     def _get_source_from_query(self, raw_query: str) -> set:
-        parser = LineageRunner(raw_query)
+        query = self._replace_definitions(raw_query)
+        parser = LineageRunner(query)
         source_paths = set()
-        for table in parser.source_tables:
-            source_schema, source_table = str(table).split(".")
-            if source_schema == "<default>":
-                source_schema = str(self.config.default_schema)
+        try:
+            for table in parser.source_tables:
+                sources = str(table).split(".")
+                source_schema, source_table = sources[-2], sources[-1]
+                if source_schema == "<default>":
+                    source_schema = str(self.config.default_schema)
 
-            source_paths.add(f"{source_schema}.{source_table}")
+                source_paths.add(f"{source_schema}.{source_table}")
+        except Exception as e:
+            self.report.report_failure(
+                key=f"mode-query",
+                reason=f"Unable to retrieve lineage from query. "
+                       f"Query: {raw_query} "
+                       f"Reason: {str(e)} "
+            )
 
         return source_paths
 
