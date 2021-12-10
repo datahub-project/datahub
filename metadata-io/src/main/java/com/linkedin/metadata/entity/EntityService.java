@@ -202,7 +202,7 @@ public abstract class EntityService {
 
     // Apply retention policies asynchronously if there was an update to existing aspect value
     if (oldValue != updatedValue && oldValue != null && retentionService != null) {
-      retentionService.applyRetentionAsync(urn, aspectName,
+      retentionService.applyRetention(urn, aspectName,
           Optional.of(new RetentionService.RetentionContext(Optional.of(result.maxVersion))));
     }
 
@@ -299,7 +299,7 @@ public abstract class EntityService {
       newSystemMetadata = result.getNewSystemMetadata();
       // Apply retention policies asynchronously if there was an update to existing aspect value
       if (oldAspect != newAspect && oldAspect != null && retentionService != null) {
-        retentionService.applyRetentionAsync(entityUrn, aspectSpec.getName(),
+        retentionService.applyRetention(entityUrn, aspectSpec.getName(),
             Optional.of(new RetentionService.RetentionContext(Optional.of(result.maxVersion))));
       }
     }

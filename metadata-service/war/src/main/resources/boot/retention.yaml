@@ -1,17 +1,14 @@
-- entity: *
-  aspect: *
+- entity: "*"
+  aspect: "*"
   retention:
     retentionPolicies:
-      - retention:
-          version:
-            maxVersions: 20
+      - version:
+          maxVersions: 20
 #- entity: dataset
 #  aspect: datasetProperties
 #  retention:
 #    retentionPolicies:
-#      - retention:
-#          version:
-#            maxVersions: 10
-#      - retention:
-#          time:
-#            maxAgeInSeconds: 2592000 # 30 days
+#      - version:
+#          maxVersions: 10
+#      - time:
+#          maxAgeInSeconds: 2592000 # 30 days

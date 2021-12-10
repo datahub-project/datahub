@@ -27,7 +27,7 @@ public class IngestRetentionPoliciesStepFactory {
   @Value("${entityService.retention.disable}")
   private Boolean _disable;
 
-  @Value("${datahub.plugin.entityRegistry.path}")
+  @Value("${datahub.plugin.retention.path}")
   private String _pluginRegistryPath;
 
   @Bean(name = "ingestRetentionPoliciesStep")
