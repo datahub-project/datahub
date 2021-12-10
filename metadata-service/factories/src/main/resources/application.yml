@@ -34,7 +34,7 @@ datahub:
 
 entityService:
   retention:
-    disable: ${ENTITY_SERVICE_DISABLE_RETENTION:false}
+    disable: ${ENTITY_SERVICE_DISABLE_RETENTION:true}
     # Default max number of versions to keep
     defaultMaxVersion: ${ENTITY_SERVICE_RETENTION_MAX_VERSION:20}
 
