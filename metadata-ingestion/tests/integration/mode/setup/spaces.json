@@ -1,0 +1,60 @@
+{
+  "_links": {
+    "self": {
+      "href": "/api/acryl/collections"
+    }
+  },
+  "_embedded": {
+    "spaces": [{
+      "token": "9026edbd5a3c",
+      "id": 1905171,
+      "space_type": "custom",
+      "name": "Petabloc",
+      "description": null,
+      "state": "active",
+      "restricted": false,
+      "free_default": true,
+      "viewable?": true,
+      "viewed?": true,
+      "default_access_level": "edit",
+      "_links": {
+        "self": {
+          "href": "/api/acryl/collections/9026edbd5a3c"
+        },
+        "detail": {
+          "href": "/api/acryl/collections/9026edbd5a3c/detail"
+        },
+        "web": {
+          "href": "/acryl/spaces/9026edbd5a3c"
+        },
+        "reports": {
+          "href": "/api/acryl/collections/9026edbd5a3c/reports"
+        },
+        "creator": {
+          "href": "/api/modeuser"
+        },
+        "user_space_membership": {
+          "href": "/api/acryl/collections/9026edbd5a3c/memberships/0a48a4a59f55"
+        },
+        "space_memberships": {
+          "href": "/api/acryl/collections/9026edbd5a3c/memberships"
+        },
+        "preview_space_memberships": {
+          "href": "/api/acryl/collections/9026edbd5a3c/memberships/preview"
+        },
+        "search_space_permissions": {
+          "href": "/api/acryl/collections/9026edbd5a3c/permissions/search"
+        },
+        "viewed": {
+          "href": "/api/acryl/collections/9026edbd5a3c/viewed"
+        }
+      },
+      "_forms": {
+        "destroy_entitlements": {
+          "method": "delete",
+          "action": "/api/acryl/collections/9026edbd5a3c/permissions"
+        }
+      }
+    }]
+  }
+}
