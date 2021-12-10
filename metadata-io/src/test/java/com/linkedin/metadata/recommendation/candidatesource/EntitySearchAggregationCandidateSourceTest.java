@@ -31,7 +31,6 @@ import static org.testng.Assert.assertTrue;
 
 public class EntitySearchAggregationCandidateSourceTest {
   private EntitySearchService _entitySearchService = Mockito.mock(EntitySearchService.class);
-  private NonEmptyEntitiesCache _nonEmptyEntitiesCache = Mockito.mock(NonEmptyEntitiesCache.class);
   private EntitySearchAggregationSource _valueBasedCandidateSource;
   private EntitySearchAggregationSource _urnBasedCandidateSource;
 
@@ -41,13 +40,13 @@ public class EntitySearchAggregationCandidateSourceTest {
 
   @BeforeMethod
   public void setup() {
-    Mockito.reset(_entitySearchService, _nonEmptyEntitiesCache);
+    Mockito.reset(_entitySearchService);
     _valueBasedCandidateSource = buildCandidateSource("testValue", false);
     _urnBasedCandidateSource = buildCandidateSource("testUrn", true);
   }
 
   private EntitySearchAggregationSource buildCandidateSource(String identifier, boolean isValueUrn) {
-    return new EntitySearchAggregationSource(_entitySearchService, _nonEmptyEntitiesCache) {
+    return new EntitySearchAggregationSource(_entitySearchService) {
       @Override
       protected String getSearchFieldName() {
         return identifier;

@@ -39,13 +39,6 @@ import org.springframework.cache.CacheManager;
 @RequiredArgsConstructor
 public abstract class EntitySearchAggregationSource implements RecommendationSource {
   private final EntitySearchService _entitySearchService;
-  private final NonEmptyEntitiesCache _nonEmptyEntitiesCache;
-
-  protected EntitySearchAggregationSource(EntitySearchService entitySearchService, EntityRegistry entityRegistry,
-      CacheManager cacheManager) {
-    _entitySearchService = entitySearchService;
-    _nonEmptyEntitiesCache = new NonEmptyEntitiesCache(entityRegistry, entitySearchService, cacheManager);
-  }
 
   /**
    * Field to aggregate on
