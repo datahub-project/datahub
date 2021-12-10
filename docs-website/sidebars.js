@@ -222,6 +222,7 @@ module.exports = {
       {
         Advanced: [
           "docs/advanced/no-code-modeling",
+          "docs/advanced/db-retention",
           "docs/advanced/aspect-versioning",
           "docs/advanced/es-7-upgrade",
           "docs/advanced/high-cardinality",
