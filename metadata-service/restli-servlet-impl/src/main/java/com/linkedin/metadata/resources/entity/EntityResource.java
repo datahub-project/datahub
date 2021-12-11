@@ -10,7 +10,6 @@ import com.linkedin.entity.Entity;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.entity.RetentionService;
 import com.linkedin.metadata.entity.RollbackRunResult;
 import com.linkedin.metadata.entity.ValidationException;
 import com.linkedin.metadata.query.AutoCompleteResult;
