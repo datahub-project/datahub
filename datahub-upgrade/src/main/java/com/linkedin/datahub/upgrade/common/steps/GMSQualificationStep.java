@@ -2,6 +2,7 @@ package com.linkedin.datahub.upgrade.common.steps;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
@@ -12,10 +13,15 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.URL;
 import java.net.URLConnection;
+import java.util.Map;
 import java.util.function.Function;
+import lombok.RequiredArgsConstructor;
 
 
+@RequiredArgsConstructor
 public class GMSQualificationStep implements UpgradeStep {
+
+  private final Map<String, String> configToMatch;
 
   private static String convertStreamToString(InputStream is) {
 
@@ -39,8 +45,6 @@ public class GMSQualificationStep implements UpgradeStep {
     return sb.toString();
   }
 
-  public GMSQualificationStep() { }
-
   @Override
   public String id() {
     return "GMSQualificationStep";
@@ -49,6 +53,15 @@ public class GMSQualificationStep implements UpgradeStep {
   @Override
   public int retryCount() {
     return 2;
+  }
+
+  private boolean isEligible(ObjectNode configJson) {
+    for (String key : configToMatch.keySet()) {
+      if (!configJson.has(key) || !configJson.get(key).asText().equals(configToMatch.get(key))) {
+        return false;
+      }
+    }
+    return true;
   }
 
   @Override
@@ -65,7 +78,7 @@ public class GMSQualificationStep implements UpgradeStep {
 
         ObjectMapper mapper = new ObjectMapper();
         JsonNode configJson = mapper.readTree(responseString);
-        if (configJson.get("noCode").asBoolean()) {
+        if (isEligible((ObjectNode) configJson)) {
           return new DefaultUpgradeStepResult(
               id(),
               UpgradeStepResult.Result.SUCCEEDED);

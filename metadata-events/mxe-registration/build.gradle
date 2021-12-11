@@ -13,6 +13,15 @@ dependencies {
   testCompile project(':metadata-testing:metadata-test-utils')
 
   avroOriginal project(path: ':metadata-models', configuration: 'avroSchema')
+  
+  constraints {
+    implementation("org.apache.logging.log4j:log4j-core:2.15.0") {
+        because("previous versions are vulnerable to CVE-2021-44228")
+    }
+    implementation("org.apache.logging.log4j:log4j-api:2.15.0") {
+        because("previous versions are vulnerable to CVE-2021-44228")
+    }
+  }
 }
 
 // copy original MXE avro schema from metadata-models to resources
