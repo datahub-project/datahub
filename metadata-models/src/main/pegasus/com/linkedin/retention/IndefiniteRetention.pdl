@@ -1,7 +1,0 @@
-namespace com.linkedin.retention
-
-/**
- * Keep records indefinitely
- */
-record IndefiniteRetention {
-}

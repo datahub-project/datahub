@@ -10,7 +10,6 @@ import com.linkedin.entity.Entity;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.entity.RetentionService;
 import com.linkedin.metadata.entity.RollbackRunResult;
 import com.linkedin.metadata.entity.ValidationException;
 import com.linkedin.metadata.query.AutoCompleteResult;
@@ -113,10 +112,6 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   @Inject
   @Named("systemMetadataService")
   private SystemMetadataService _systemMetadataService;
-
-  @Inject
-  @Named("retentionService")
-  private RetentionService _retentionService;
 
   /**
    * Retrieves the value for an entity that is made up of latest versions of specified aspects.
