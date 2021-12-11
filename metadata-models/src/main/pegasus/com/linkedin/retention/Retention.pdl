@@ -5,7 +5,6 @@ namespace com.linkedin.retention
  * Only one of the fields should be set
  */
 record Retention {
-  indefinite: optional IndefiniteRetention
   version: optional VersionBasedRetention
   time: optional TimeBasedRetention
 }

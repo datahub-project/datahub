@@ -1,12 +1,12 @@
 namespace com.linkedin.metadata.aspect
 
 import com.linkedin.metadata.key.DataHubRetentionKey
-import com.linkedin.retention.DataHubRetentionInfo
+import com.linkedin.retention.DataHubRetentionConfig
 
 /**
  * A union of all supported metadata aspects for a DataHub access policy.
  */
 typeref DataHubRetentionAspect = union[
     DataHubRetentionKey,
-    DataHubRetentionInfo
+    DataHubRetentionConfig
 ]
