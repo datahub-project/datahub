@@ -4,11 +4,11 @@
     retention:
       version:
         maxVersions: 20
-- entity: dataset
-  aspect: datasetProperties
-  config:
-    retention:
-      version:
-        maxVersions: 10
-      time:
-        maxAgeInSeconds: 2592000 # 30 days
+#- entity: dataset
+#  aspect: datasetProperties
+#  config:
+#    retention:
+#      version:
+#        maxVersions: 10
+#      time:
+#        maxAgeInSeconds: 2592000 # 30 days
