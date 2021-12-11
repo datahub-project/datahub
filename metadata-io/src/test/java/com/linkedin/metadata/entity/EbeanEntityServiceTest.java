@@ -41,7 +41,6 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.retention.DataHubRetentionConfig;
 import com.linkedin.retention.Retention;
-import com.linkedin.retention.RetentionArray;
 import com.linkedin.retention.VersionBasedRetention;
 import io.ebean.EbeanServer;
 import io.ebean.EbeanServerFactory;
@@ -690,11 +689,10 @@ public class EbeanEntityServiceTest {
     assertEquals(_entityService.getAspect(entityUrn, aspectName, 1), writeAspect1);
     assertEquals(_entityService.getAspect(entityUrn, aspectName2, 1), writeAspect2);
 
-    _retentionService.setRetention(null, null, new DataHubRetentionConfig().setRetentionPolicies(new RetentionArray(
-        ImmutableList.of(new Retention().setVersion(new VersionBasedRetention().setMaxVersions(2))))));
-    _retentionService.setRetention("corpuser", "status", new DataHubRetentionConfig().setRetentionPolicies(
-        new RetentionArray(
-            ImmutableList.of(new Retention().setVersion(new VersionBasedRetention().setMaxVersions(4))))));
+    _retentionService.setRetention(null, null, new DataHubRetentionConfig().setRetention(
+        new Retention().setVersion(new VersionBasedRetention().setMaxVersions(2))));
+    _retentionService.setRetention("corpuser", "status", new DataHubRetentionConfig().setRetention(
+        new Retention().setVersion(new VersionBasedRetention().setMaxVersions(4))));
 
     // Ingest CorpUserInfo Aspect again
     CorpUserInfo writeAspect1c = createCorpUserInfo("email_c@test.com");
@@ -707,8 +705,8 @@ public class EbeanEntityServiceTest {
     assertEquals(_entityService.getAspect(entityUrn, aspectName2, 1), writeAspect2);
 
     // Reset retention policies
-    _retentionService.setRetention(null, null, new DataHubRetentionConfig().setRetentionPolicies(new RetentionArray(
-        ImmutableList.of(new Retention().setVersion(new VersionBasedRetention().setMaxVersions(1))))));
+    _retentionService.setRetention(null, null, new DataHubRetentionConfig().setRetention(
+        new Retention().setVersion(new VersionBasedRetention().setMaxVersions(1))));
     _retentionService.deleteRetention("corpuser", "status");
     // Invoke batch apply
     _retentionService.batchApplyRetention(null, null);
