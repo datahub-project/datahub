@@ -38,7 +38,7 @@ retention is applied correctly.
 
 ## How to configure?
 
-For the initial iteration, we have made this feature opt-in. Please set **ENTITY_SERVICE_DISABLE_RETENTION=false** when
+For the initial iteration, we have made this feature opt-in. Please set **ENTITY_SERVICE_ENABLE_RETENTION=true** when
 creating the datahub-gms container/k8s pod.
 
 On GMS start up, it fetches the list of retention policies to ingest from two sources. First is the default we provide,
@@ -56,18 +56,18 @@ The format for the YAML file is as follows.
 ```yaml
 - entity: "*" # denotes that policy will be applied to all entities
   aspect: "*" # denotes that policy will be applied to all aspects
-  retention:
-    retentionPolicies:
-      - version:
-          maxVersions: 10
+  config:
+    retention:
+      version:
+        maxVersions: 20
 - entity: "dataset"
   aspect: "datasetProperties"
-  retention:
-    retentionPolicies:
-      - version:
-          maxVersions: 5
-#      - time:
-#          maxAgeInSeconds: 2592000 # 30 days
+  config:
+    retention:
+      version:
+        maxVersions: 20
+      time:
+        maxAgeInSeconds: 2592000 # 30 days
 ```
 
 Note, it searches for the policies corresponding to the entity, aspect pair in the following order

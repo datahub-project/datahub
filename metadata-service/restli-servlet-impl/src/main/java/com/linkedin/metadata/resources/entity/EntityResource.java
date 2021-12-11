@@ -114,10 +114,6 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   @Named("systemMetadataService")
   private SystemMetadataService _systemMetadataService;
 
-  @Inject
-  @Named("retentionService")
-  private RetentionService _retentionService;
-
   /**
    * Retrieves the value for an entity that is made up of latest versions of specified aspects.
    */
