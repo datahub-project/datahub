@@ -92,19 +92,20 @@ sink:
 
 ## Config details
 
-| Field            | Required | Default                  | Description                                                       |
-|------------------| -------- |--------------------------|-------------------------------------------------------------------|
-| `connect_uri`    |    ✅     | `"https://app.mode.com"` | Mode host URL.                                                    |
-| `token`          |    ✅     |                          | Mode user token.                                                  |
-| `password`       |    ✅     |                          | Mode password for authentication.                                 |
-| `default_schema` |          | `public`                 | Default schema to use when schema is not provided in an SQL query |
-| `env`            |          | `"PROD"`                 | Environment to use in namespace when constructing URNs.           |
+| Field                             | Required | Default                  | Description                                                       |
+|-----------------------------------| -------- |--------------------------|-------------------------------------------------------------------|
+| `connect_uri`                     |    ✅     | `"https://app.mode.com"` | Mode host URL.                                                    |
+| `token`                           |    ✅     |                          | Mode user token.                                                  |
+| `password`                        |    ✅     |                          | Mode password for authentication.                                 |
+| `default_schema`                  |          | `public`                 | Default schema to use when schema is not provided in an SQL query |
+| `env`                             |          | `"PROD"`                 | Environment to use in namespace when constructing URNs.           |
+| `owner_username_instead_of_email` |          | `True`                   | Use username for owner URN instead of Email                       |
 
 See Mode's [Authentication documentation](https://mode.com/developer/api-reference/authentication/) on how to generate `token` and `password`.
 
 ## Compatibility
 
-Coming soon!
+N/A
 
 
 ## Questions

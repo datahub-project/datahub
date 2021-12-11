@@ -3,31 +3,31 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DashboardSnapshot": {
-            "urn": "urn:li:dashboard:(mode,2910167)",
+            "urn": "urn:li:dashboard:(mode,2934237)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dashboard.DashboardInfo": {
                         "customProperties": {},
                         "externalUrl": null,
-                        "title": "Actor Report",
-                        "description": "Actor Report Description",
+                        "title": "Report 1",
+                        "description": "First Report",
                         "charts": [
-                            "urn:li:chart:(mode,bce2fc7d4910)"
+                            "urn:li:chart:(mode,f622b9ee725b)"
                         ],
                         "lastModified": {
                             "created": {
-                                "time": 1638301936996,
+                                "time": 1639169724316,
                                 "actor": "urn:li:corpuser:modeuser",
                                 "impersonator": null
                             },
                             "lastModified": {
-                                "time": 1638935478670,
+                                "time": 1639182684451,
                                 "actor": "urn:li:corpuser:modeuser",
                                 "impersonator": null
                             },
                             "deleted": null
                         },
-                        "dashboardUrl": "https://app.mode.com/acryl/reports/72f2ef8fb3a8",
+                        "dashboardUrl": "https://app.mode.com/acryl/reports/9d2da37fa91e",
                         "access": null,
                         "lastRefreshed": null
                     }
@@ -35,7 +35,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/mode/acryl/Petabloc/Actor Report"
+                            "/mode/acryl/AcrylTest/Report 1"
                         ]
                     }
                 },
@@ -71,34 +71,40 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
-            "urn": "urn:li:chart:(mode,bce2fc7d4910)",
+            "urn": "urn:li:chart:(mode,f622b9ee725b)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.chart.ChartInfo": {
                         "customProperties": {
-                            "Columns": "first_name,last_name,payment_date",
-                            "Filters": "last_name"
+                            "Columns": "payment_date,Staff First Name,amount,Staff Last Name",
+                            "Filters": "amount"
                         },
                         "externalUrl": null,
-                        "title": "Customer Payment Information",
+                        "title": "Customer Staff Table",
                         "description": "",
                         "lastModified": {
                             "created": {
-                                "time": 1638827576804,
+                                "time": 1639170083088,
                                 "actor": "urn:li:corpuser:modeuser",
                                 "impersonator": null
                             },
                             "lastModified": {
-                                "time": 1638904049708,
+                                "time": 1639182684438,
                                 "actor": "urn:li:corpuser:modeuser",
                                 "impersonator": null
                             },
                             "deleted": null
                         },
-                        "chartUrl": "https://app.mode.com/acryl/reports/72f2ef8fb3a8/viz/bce2fc7d4910",
+                        "chartUrl": "https://app.mode.com/acryltest/reports/9d2da37fa91e/viz/f622b9ee725b",
                         "inputs": [
                             {
+                                "string": "urn:li:dataset:(urn:li:dataPlatform:postgres,dvdrental.public.rental,PROD)"
+                            },
+                            {
                                 "string": "urn:li:dataset:(urn:li:dataPlatform:postgres,dvdrental.public.payment,PROD)"
+                            },
+                            {
+                                "string": "urn:li:dataset:(urn:li:dataPlatform:postgres,dvdrental.public.staff,PROD)"
                             }
                         ],
                         "type": "TABLE",
@@ -109,13 +115,13 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/mode/acryl/Petabloc/Actor Report/Customer Payment/Customer Payment Information"
+                            "/mode/acryl/AcrylTest/Report 1/Customer and staff/Customer Staff Table"
                         ]
                     }
                 },
                 {
                     "com.linkedin.pegasus2avro.chart.ChartQuery": {
-                        "rawQuery": "SELECT\\n\\tcustomer.customer_id,\\n\\tfirst_name,\\n\\tlast_name,\\n\\tamount,\\n\\tpayment_date\\nFROM\\n\\tcustomer\\nINNER JOIN public.payment \\n    ON payment.customer_id = customer.customer_id\\nORDER BY payment_date;\\n",
+                        "rawQuery": "SELECT  rental.*,  staff.first_name \"Staff First Name\", staff.last_name \"Staff Last Name\" FROM  {{  @join_on_definition    as                      rental  }} join staff on staff.staff_id = rental.staff_id",
                         "type": "SQL"
                     }
                 },
