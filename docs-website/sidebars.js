@@ -100,6 +100,14 @@ module.exports = {
           "docs/lineage/sample_code",
         ],
       },
+      {
+        Guides: [
+          "metadata-ingestion/adding-source",
+          "docs/how/add-custom-ingestion-source",
+          "docs/how/add-custom-data-platform",
+          "docs/how/add-user-data",
+        ],
+      },
     ],
     "Metadata Modeling": [
       "docs/modeling/metadata-model",
@@ -184,7 +192,6 @@ module.exports = {
       // TODO: the titles of these should not be in question form in the sidebar
       "docs/developers",
       "docs/docker/development",
-      "metadata-ingestion/adding-source",
       {
         type: "doc",
         label: "Ingesting files from S3",
@@ -206,8 +213,6 @@ module.exports = {
       "docs/how/delete-metadata",
       "datahub-web-react/src/app/analytics/README",
       "metadata-ingestion/developing",
-      "docs/how/add-custom-data-platform",
-      "docs/how/add-custom-ingestion-source",
       {
         "Module READMEs": [
           "datahub-web-react/README",
