@@ -398,7 +398,7 @@ class ModeSource(Source):
     @lru_cache(maxsize=None)
     def _get_definition(self, definition_name):
         try:
-            definition_response = self.session.get(f"{self.workspace_uri}/definitions/")
+            definition_response = self.session.get(f"{self.workspace_uri}/definitions")
             definition_response.raise_for_status()
             definition_json = definition_response.json()
             definitions = definition_json.get("_embedded", {}).get("definitions", [])
