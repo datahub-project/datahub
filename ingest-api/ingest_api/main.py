@@ -59,12 +59,8 @@ log = TimedRotatingFileHandler(
 )
 log.setLevel(logging.DEBUG)
 log.setFormatter(logformatter)
-uvicorn_logger = logging.getLogger('gunicorn')
 
 rootLogger.addHandler(log)
-rootLogger.addHandler(uvicorn_logger)
-
-
 rootLogger.info("started!")
 
 app = FastAPI(
@@ -117,11 +113,12 @@ async def update_browsepath(item: browsepath_params):
     browsepath_aspect = make_browsepath_mce(path = all_paths)
     dataset_snapshot.aspects.append(browsepath_aspect)
     metadata_record = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-    emit_mce_respond(
+    response = emit_mce_respond(
         metadata_record=metadata_record,
         owner = item.requestor,        
         event = "UI Update Browsepath"
     )
+    return JSONResponse(content = response.get('message',''), status_code=response.get('status_code'))
 
 @app.post("/update_schema")
 async def update_schema(item: schema_params):
@@ -149,11 +146,12 @@ async def update_schema(item: schema_params):
     rootLogger.info(schemaMetadata_aspect)
     dataset_snapshot.aspects.append(schemaMetadata_aspect)
     metadata_record = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-    emit_mce_respond(
+    response = emit_mce_respond(
         metadata_record=metadata_record,
         owner = item.requestor,        
         event = "UI Update Schema"
     )
+    return JSONResponse(content = response.get('message',''), status_code=response.get('status_code'))
 
 @app.post("/update_properties")
 async def update_prop(item: prop_params):
@@ -181,46 +179,48 @@ async def update_prop(item: prop_params):
     )
     dataset_snapshot.aspects.append(property_aspect)
     metadata_record = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-    emit_mce_respond(
+    response = emit_mce_respond(
         metadata_record=metadata_record,
         owner = item.requestor,        
         event = "UI Update Properties"
     )
+    return JSONResponse(content = response.get('message',''), status_code=response.get('status_code'))
+
     
 
-def emit_mce_respond(metadata_record:MetadataChangeEvent, owner: str, event: str) -> None:    
+def emit_mce_respond(metadata_record:MetadataChangeEvent, owner: str, event: str) -> dict():    
     datasetName = metadata_record.proposedSnapshot.urn
     for mce in metadata_record.proposedSnapshot.aspects:
         if not mce.validate():
             rootLogger.error(
                 f"{mce.__class__} is not defined properly"
             )
-            return JSONResponse(
-                content = f"MCE was incorrectly defined. {event} was aborted",
-                status_code=400,
-            )
-            return
+            return { 
+                'status_code' : 400,
+                'messsage' : f"MCE was incorrectly defined. {event} was aborted",
+            }            
         
     if CLI_MODE:
         generate_json_output(metadata_record, "./logs/")
     else:
         generate_json_output(metadata_record, "/var/log/ingest/json/")
-    try:
-        rootLogger.error('emitting')
+    try:        
         rootLogger.error(metadata_record)
         emitter = DatahubRestEmitter(rest_endpoint)
         emitter.emit_mce(metadata_record)
-        emitter._session.close()
+        emitter._session.close()        
     except Exception as e:
         rootLogger.debug(e)
-        return JSONResponse(
-            content = f"{event} failed because upstream error {e}",
-            status_code=500,
-        )
-        return
+        return { 
+            'status_code' : 500,
+            'messsage' : f"{event} failed because upstream error {e}",
+        }
     rootLogger.info(
         f"{event} {datasetName} requested_by {owner} completed successfully")
-    
+    return { 
+        'status_code' : 201,
+        'messsage' : f"{event} completed successfully",
+    }
 
 
 @app.post("/make_dataset")
@@ -283,11 +283,8 @@ async def create_item(item: create_dataset_params) -> None:
         )
     )
     metadata_record = MetadataChangeEvent(proposedSnapshot = dataset_snapshot)
-    emit_mce_respond(metadata_record=metadata_record, owner=requestor, event='Create Dataset')
-    return JSONResponse(
-        content = { "message" : "created!" },
-        status_code=201,
-    )
+    response = emit_mce_respond(metadata_record=metadata_record, owner=requestor, event='Create Dataset')
+    return JSONResponse(content = response.get('message',''), status_code=response.get('status_code'))
 
 
 @app.post("/update_dataset_status")
@@ -297,12 +294,13 @@ async def delete_item(item: dataset_status_params) -> None:
     """
     rootLogger.info("remove_dataset_request_received {}".format(item))    
     mce = make_status_mce(dataset_name=item.dataset_name, desired_status=item.desired_state)
-    emit_mce_respond(metadata_record=mce, owner= item.requestor, event = f"Status Update removed:{item.desired_state}") 
+    response = emit_mce_respond(metadata_record=mce, owner= item.requestor, event = f"Status Update removed:{item.desired_state}") 
+    return JSONResponse(content = response.get('message',''), status_code=response.get('status_code'))
 
 @app.post("/echo")
 async def echo_inputs(item: echo_param):
     rootLogger.info(f"input received {item}")
-    return JSONResponse(content = "acknowledged", status_code=201)
+    return JSONResponse(content = item, status_code=201)
 
 
 if __name__ == "__main__":
