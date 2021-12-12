@@ -4,7 +4,6 @@ import com.google.common.collect.ImmutableList;
 import com.linkedin.datahub.upgrade.Upgrade;
 import com.linkedin.datahub.upgrade.UpgradeCleanupStep;
 import com.linkedin.datahub.upgrade.UpgradeStep;
-import com.linkedin.datahub.upgrade.common.steps.GMSQualificationStep;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import java.util.ArrayList;
@@ -40,10 +39,8 @@ public class RestoreAspect implements Upgrade {
     return _steps;
   }
 
-  private List<UpgradeStep> buildSteps(final EntityService entityService,
-      final EntityRegistry entityRegistry) {
+  private List<UpgradeStep> buildSteps(final EntityService entityService, final EntityRegistry entityRegistry) {
     final List<UpgradeStep> steps = new ArrayList<>();
-    steps.add(new GMSQualificationStep());
     steps.add(new RestoreAspectStep(entityService, entityRegistry));
     return steps;
   }
