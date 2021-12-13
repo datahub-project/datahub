@@ -77,14 +77,5 @@ public class ConfigEntitySpec implements EntitySpec {
   public TyperefDataSchema getAspectTyperefSchema() {
     throw new UnsupportedOperationException("Failed to find Typeref schema associated with Config-based Entity");
   }
-
-  @Override
-  public List<SearchableFieldSpec> getSearchableFieldSpecs() {
-    return _aspectSpecs.values()
-        .stream()
-        .map(AspectSpec::getSearchableFieldSpecs)
-        .flatMap(List::stream)
-        .collect(Collectors.toList());
-  }
 }
 

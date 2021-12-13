@@ -92,12 +92,4 @@ public class DefaultEntitySpec implements EntitySpec {
     return _aspectTyperefSchema;
   }
 
-  @Override
-  public List<SearchableFieldSpec> getSearchableFieldSpecs() {
-    return _aspectSpecs.values()
-        .stream()
-        .map(AspectSpec::getSearchableFieldSpecs)
-        .flatMap(List::stream)
-        .collect(Collectors.toList());
-  }
 }
