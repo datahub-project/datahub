@@ -101,7 +101,8 @@ def test_make_usage_workunit():
     assert isinstance(wu.get_metadata()["metadata"], MetadataChangeProposalWrapper)
     du: DatasetUsageStatisticsClass = wu.get_metadata()["metadata"].aspect
     assert du.totalSqlQueries == 1
-    assert du.topSqlQueries[0] == test_query
+    assert du.topSqlQueries
+    assert du.topSqlQueries.pop() == test_query
 
 
 def test_query_trimming():
@@ -133,7 +134,8 @@ def test_query_trimming():
     assert isinstance(wu.get_metadata()["metadata"], MetadataChangeProposalWrapper)
     du: DatasetUsageStatisticsClass = wu.get_metadata()["metadata"].aspect
     assert du.totalSqlQueries == 1
-    assert du.topSqlQueries[0] == "select * f ..."
+    assert du.topSqlQueries
+    assert du.topSqlQueries.pop() == "select * f ..."
 
 
 def test_top_n_queries_validator_fails():

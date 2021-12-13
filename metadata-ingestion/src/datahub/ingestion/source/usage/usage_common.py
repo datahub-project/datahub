@@ -68,6 +68,7 @@ class GenericAggregatedDataset(Generic[ResourceType]):
         urn_builder: Callable[[ResourceType], str],
         top_n_queries: int,
     ) -> MetadataWorkUnit:
+
         budget_per_query: int = int(self.total_budget_for_query_list / top_n_queries)
 
         usageStats = DatasetUsageStatisticsClass(
@@ -110,7 +111,7 @@ class GenericAggregatedDataset(Generic[ResourceType]):
 
 
 class BaseUsageConfig(BaseTimeWindowConfig):
-    top_n_queries: Optional[pydantic.PositiveInt] = 10
+    top_n_queries: pydantic.PositiveInt = 10
 
     @pydantic.validator("top_n_queries")
     def ensure_top_n_queries_is_not_too_big(cls, v: int) -> int:
