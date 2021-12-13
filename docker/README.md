@@ -34,6 +34,7 @@ Dependencies:
 * [Elasticsearch](elasticsearch-setup)
 * [MySQL](mysql)
 * [(Optional) Neo4j](neo4j)
+* [(Optional) Dgraph](dgraph)
 
 ### Ingesting demo data.
 

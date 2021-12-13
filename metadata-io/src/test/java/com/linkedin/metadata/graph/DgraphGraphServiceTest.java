@@ -1,5 +1,6 @@
 package com.linkedin.metadata.graph;
 
+import com.linkedin.metadata.query.filter.RelationshipFilter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import io.dgraph.DgraphClient;
 import io.dgraph.DgraphGrpc;
@@ -12,6 +13,7 @@ import io.grpc.ManagedChannelBuilder;
 import io.grpc.MethodDescriptor;
 import lombok.extern.slf4j.Slf4j;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
+import org.testng.SkipException;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.AfterTest;
 import org.testng.annotations.BeforeMethod;
@@ -24,6 +26,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
@@ -49,7 +52,7 @@ public class DgraphGraphServiceTest extends GraphServiceTestBase {
 
     @BeforeTest
     public void setup() {
-        _container = new DgraphContainer(DgraphContainer.DEFAULT_IMAGE_NAME.withTag("v21.03.0"))
+        _container = new DgraphContainer(DgraphContainer.DEFAULT_IMAGE_NAME.withTag("v21.12.0"))
                 .withTmpFs(Collections.singletonMap("/dgraph", "rw,noexec,nosuid,size=1g"))
                 .withStartupTimeout(Duration.ofMinutes(1))
                 .withStartupAttempts(3);
@@ -104,6 +107,34 @@ public class DgraphGraphServiceTest extends GraphServiceTestBase {
 
     @Override
     protected void syncAfterWrite() { }
+
+    @Override
+    @SuppressWarnings("MalformedDataProvider")
+    @Test(dataProvider = "FindRelatedEntitiesSourceTypeTests")
+    public void testFindRelatedEntitiesSourceType(String datasetType,
+                                                  List<String> relationshipTypes,
+                                                  RelationshipFilter relationships,
+                                                  List<RelatedEntity> expectedRelatedEntities) throws Exception {
+        if (datasetType != null && datasetType.isEmpty()) {
+            // https://github.com/linkedin/datahub/issues/3143
+            throw new SkipException("Code using GraphService uses \"\" instead of null");
+        }
+        super.testFindRelatedEntitiesSourceType(datasetType, relationshipTypes, relationships, expectedRelatedEntities);
+    }
+
+    @Override
+    @SuppressWarnings("MalformedDataProvider")
+    @Test(dataProvider = "FindRelatedEntitiesDestinationTypeTests")
+    public void testFindRelatedEntitiesDestinationType(String datasetType,
+                                                       List<String> relationshipTypes,
+                                                       RelationshipFilter relationships,
+                                                       List<RelatedEntity> expectedRelatedEntities) throws Exception {
+        if (datasetType != null && datasetType.isEmpty()) {
+            // https://github.com/linkedin/datahub/issues/3143
+            throw new SkipException("Code using GraphService uses \"\" instead of null");
+        }
+        super.testFindRelatedEntitiesDestinationType(datasetType, relationshipTypes, relationships, expectedRelatedEntities);
+    }
 
     @Test
     public void testGetSchema() {
