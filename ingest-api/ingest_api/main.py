@@ -31,7 +31,7 @@ from ingest_api.helper.models import (create_dataset_params, prop_params,
                                     dataset_status_params, determine_type)
 
 # when DEBUG = true, im not running ingest_api from container, but from localhost python interpreter, hence need to change the endpoint used.
-CLI_MODE = False if os.environ.get('RUNNING_IN_DOCKER') else True
+CLI_MODE = False if environ.get('RUNNING_IN_DOCKER') else True
 
 api_emitting_port = 8001
 rest_endpoint = "http://datahub-gms:8080" if not CLI_MODE else "http://localhost:8080"
