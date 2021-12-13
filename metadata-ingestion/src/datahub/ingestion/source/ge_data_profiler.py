@@ -22,6 +22,7 @@ except ImportError:
     pass
 
 import pydantic
+import sqlalchemy as sa
 from great_expectations.data_context import BaseDataContext
 from great_expectations.data_context.types.base import (
     DataContextConfig,
@@ -30,6 +31,7 @@ from great_expectations.data_context.types.base import (
     datasourceConfigSchema,
 )
 from great_expectations.dataset.dataset import Dataset
+from great_expectations.dataset.sqlalchemy_dataset import SqlAlchemyDataset
 from great_expectations.datasource.sqlalchemy_datasource import SqlAlchemyDatasource
 from great_expectations.profile.base import OrderedProfilerCardinality, ProfilerDataType
 from great_expectations.profile.basic_dataset_profiler import BasicDatasetProfilerBase
@@ -474,8 +476,10 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
     def _get_dataset_column_sample_values(
         self, column_profile: DatasetFieldProfileClass, column: str
     ) -> None:
-        if self.config.include_field_sample_values:
-            # TODO do this without GE
+        if (
+            self.config.include_field_sample_values
+            and column_profile.sampleValues is None
+        ):
             self.dataset.set_config_value("interactive_evaluation", True)
 
             res = self.dataset.expect_column_values_to_be_in_set(
@@ -484,6 +488,29 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
             column_profile.sampleValues = [
                 str(v) for v in res["partial_unexpected_list"]
             ]
+
+    def run_stage_3_optimized_queries(
+        self, columns_to_profile: List[_SingleColumnSpec]
+    ) -> None:
+        if self.config.include_field_sample_values and isinstance(
+            self.dataset, SqlAlchemyDataset
+        ):
+            sample_values_query = (
+                sa.select(
+                    [
+                        sa.column(column_spec.column)
+                        for column_spec in columns_to_profile
+                    ]
+                )
+                .limit(10)
+                .select_from(self.dataset._table)
+            )
+
+            sample_values = self.dataset.engine.execute(sample_values_query).fetchall()
+            for column_spec in columns_to_profile:
+                column_spec.column_profile.sampleValues = [
+                    str(row[column_spec.column]) for row in sample_values
+                ]
 
     def generate_dataset_profile(  # noqa: C901 (complexity)
         self,
@@ -520,6 +547,8 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
 
         assert profile.rowCount is not None
         row_count: int = profile.rowCount
+
+        self.run_stage_3_optimized_queries(columns_profiling_queue)
 
         for column_spec in columns_profiling_queue:
             column = column_spec.column
