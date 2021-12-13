@@ -40,7 +40,7 @@ datahub:
 
 entityService:
   retention:
-    enable: ${ENTITY_SERVICE_ENABLE_RETENTION:false}
+    enabled: ${ENTITY_SERVICE_ENABLE_RETENTION:false}
 
 graphService:
   type: ${GRAPH_SERVICE_IMPL:elasticsearch}

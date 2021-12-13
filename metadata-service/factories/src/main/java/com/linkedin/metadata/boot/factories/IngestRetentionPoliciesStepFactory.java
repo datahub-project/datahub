@@ -24,8 +24,8 @@ public class IngestRetentionPoliciesStepFactory {
   @Qualifier("retentionService")
   private RetentionService _retentionService;
 
-  @Value("${entityService.retention.enable}")
-  private Boolean _enable;
+  @Value("${entityService.retention.enabled}")
+  private Boolean _enableRetention;
 
   @Value("${datahub.plugin.retention.path}")
   private String _pluginRegistryPath;
@@ -34,6 +34,6 @@ public class IngestRetentionPoliciesStepFactory {
   @Scope("singleton")
   @Nonnull
   protected IngestRetentionPoliciesStep createInstance() {
-    return new IngestRetentionPoliciesStep(_retentionService, _enable, _pluginRegistryPath);
+    return new IngestRetentionPoliciesStep(_retentionService, _enableRetention, _pluginRegistryPath);
   }
 }
