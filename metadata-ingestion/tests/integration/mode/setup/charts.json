@@ -1,7 +1,7 @@
 {
   "_links": {
     "self": {
-      "href": "/api/acryl/reports/72f2ef8fb3a8/queries/bc5f397e4b77/charts"
+      "href": "/api/acryltest/reports/9d2da37fa91e/queries/6e26a9f3d4e2/charts"
     }
   },
   "_embedded": {
@@ -60,14 +60,17 @@
               "rowNumbers": false
             },
             "columns": [{
-              "id": "[first_name]",
-              "colType": "STRING"
-            }, {
-              "id": "[last_name]",
-              "colType": "STRING"
-            }, {
               "id": "[payment_date]",
               "colType": "TIMESTAMP"
+            }, {
+              "id": "[Staff First Name]",
+              "colType": "STRING"
+            }, {
+              "id": "[amount]",
+              "colType": "FLOAT"
+            }, {
+              "id": "[Staff Last Name]",
+              "colType": "STRING"
             }]
           },
           "legend": {
@@ -93,30 +96,6 @@
           }
         },
         "fieldFormats": {
-          "[first_name]": {
-            "paneFormat": {
-              "default": {
-                "colType": "STRING",
-                "type": "default",
-                "horizontalAlignment": "left"
-              }
-            },
-            "axisFormat": {},
-            "headerFormat": {},
-            "legendFormat": {}
-          },
-          "[last_name]": {
-            "paneFormat": {
-              "default": {
-                "colType": "STRING",
-                "type": "default",
-                "horizontalAlignment": "left"
-              }
-            },
-            "axisFormat": {},
-            "headerFormat": {},
-            "legendFormat": {}
-          },
           "[payment_date]": {
             "paneFormat": {
               "default": {
@@ -129,10 +108,47 @@
             "axisFormat": {},
             "headerFormat": {},
             "legendFormat": {}
+          },
+          "[Staff First Name]": {
+            "paneFormat": {
+              "default": {
+                "colType": "STRING",
+                "type": "default",
+                "horizontalAlignment": "left"
+              }
+            },
+            "axisFormat": {},
+            "headerFormat": {},
+            "legendFormat": {}
+          },
+          "[amount]": {
+            "paneFormat": {
+              "default": {
+                "colType": "FLOAT",
+                "type": "number",
+                "horizontalAlignment": "right",
+                "separator": ""
+              }
+            },
+            "axisFormat": {},
+            "headerFormat": {},
+            "legendFormat": {}
+          },
+          "[Staff Last Name]": {
+            "paneFormat": {
+              "default": {
+                "colType": "STRING",
+                "type": "default",
+                "horizontalAlignment": "left"
+              }
+            },
+            "axisFormat": {},
+            "headerFormat": {},
+            "legendFormat": {}
           }
         },
         "fieldColors": {},
-        "title": "Customer Payment Information",
+        "title": "Customer Staff Table",
         "description": "",
         "chartType": "table",
         "encoding": {
@@ -159,20 +175,26 @@
               },
               "text": {
                 "values": [{
-                  "id": "a8b5",
-                  "formula": "[first_name]",
-                  "variable": {
-                    "type": "DISCRETE"
-                  }
-                }, {
-                  "id": "e1c2",
-                  "formula": "[last_name]",
-                  "variable": {
-                    "type": "DISCRETE"
-                  }
-                }, {
-                  "id": "e991",
+                  "id": "ed18",
                   "formula": "[payment_date]",
+                  "variable": {
+                    "type": "DISCRETE"
+                  }
+                }, {
+                  "id": "ccef",
+                  "formula": "[Staff First Name]",
+                  "variable": {
+                    "type": "DISCRETE"
+                  }
+                }, {
+                  "id": "d02b",
+                  "formula": "[Staff Last Name]",
+                  "variable": {
+                    "type": "DISCRETE"
+                  }
+                }, {
+                  "id": "8a39",
+                  "formula": "[amount]",
                   "variable": {
                     "type": "DISCRETE"
                   }
@@ -192,26 +214,15 @@
               }
             }
           },
-          "sorts": [{
-            "source": "[first_name]",
-            "byField": {
-              "id": "a8b5",
-              "formula": "[first_name]",
-              "variable": {
-                "type": "DISCRETE"
-              }
-            },
-            "type": "DATA",
-            "descending": false
-          }],
+          "sorts": [],
           "filter": [{
-            "id": "2234",
-            "formula": "[last_name]",
+            "id": "fa61",
+            "formula": "[amount]",
             "variable": {
               "type": "DISCRETE"
             },
             "selection": {
-              "selected": ["Alexander", "Allard", "Arce", "Archuleta", "Artis"],
+              "selected": [0.99, 1.99, 2.99, 3.99, 4.99, 5.99, 6.99, 7.99],
               "mode": "INCLUDE"
             },
             "filterType": "DISCRETE"
@@ -224,28 +235,28 @@
           }
         }
       },
-      "token": "bce2fc7d4910",
-      "created_at": "2021-12-06T21:52:56.804Z",
-      "updated_at": "2021-12-07T19:07:29.708Z",
+      "token": "f622b9ee725b",
+      "created_at": "2021-12-10T21:01:23.088Z",
+      "updated_at": "2021-12-11T00:31:24.438Z",
       "color_palette_token": "e7882faa26e7",
-      "switch_view_token": "bce5e808453c",
+      "switch_view_token": "396ffc362b4b",
       "_links": {
         "self": {
-          "href": "/api/acryl/reports/72f2ef8fb3a8/queries/bc5f397e4b77/charts/bce2fc7d4910"
+          "href": "/api/acryltest/reports/9d2da37fa91e/queries/6e26a9f3d4e2/charts/f622b9ee725b"
         },
         "color_palette": {
-          "href": "/api/acryl/color_palettes/e7882faa26e7"
+          "href": "/api/acryltest/color_palettes/e7882faa26e7"
         },
         "report_viz_web": {
-          "href": "/acryl/reports/72f2ef8fb3a8/viz/bce2fc7d4910"
+          "href": "/acryltest/reports/9d2da37fa91e/viz/f622b9ee725b"
         },
         "preview": {
           "templated": true,
-          "href": "/api/acryl/reports/72f2ef8fb3a8/runs/{token}/charts/bce2fc7d4910/preview"
+          "href": "/api/acryltest/reports/9d2da37fa91e/runs/{token}/charts/f622b9ee725b/preview"
         },
         "report_run_viz_web": {
           "templated": true,
-          "href": "/acryl/reports/72f2ef8fb3a8/runs/{token}/viz/bce2fc7d4910"
+          "href": "/acryltest/reports/9d2da37fa91e/runs/{token}/viz/f622b9ee725b"
         },
         "creator": {
           "href": "/api/modeuser"
@@ -254,7 +265,7 @@
       "_forms": {
         "create": {
           "method": "post",
-          "action": "/api/acryl/reports/72f2ef8fb3a8/queries/bc5f397e4b77/charts",
+          "action": "/api/acryltest/reports/9d2da37fa91e/queries/6e26a9f3d4e2/charts",
           "input": {
             "chart": {
               "view": {
@@ -282,7 +293,7 @@
         },
         "edit": {
           "method": "patch",
-          "action": "/api/acryl/reports/72f2ef8fb3a8/queries/bc5f397e4b77/charts/bce2fc7d4910",
+          "action": "/api/acryltest/reports/9d2da37fa91e/queries/6e26a9f3d4e2/charts/f622b9ee725b",
           "input": {
             "chart": {
               "view": {
@@ -307,7 +318,7 @@
         },
         "destroy": {
           "method": "delete",
-          "action": "/api/acryl/reports/72f2ef8fb3a8/queries/bc5f397e4b77/charts/bce2fc7d4910"
+          "action": "/api/acryltest/reports/9d2da37fa91e/queries/6e26a9f3d4e2/charts/f622b9ee725b"
         }
       }
     }]

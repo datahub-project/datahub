@@ -357,11 +357,13 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
         pct_unique = None
         try:
             unique_count = self.dataset.get_column_unique_count(column)
-            pct_unique = float(unique_count) / nonnull_count
+            if nonnull_count > 0:
+                pct_unique = float(unique_count) / nonnull_count
         except Exception:
             logger.exception(
                 f"Failed to get unique count for column {self.dataset_name}.{column}"
             )
+
         column_spec.unique_count = unique_count
 
         column_spec.cardinality = _convert_to_cardinality(unique_count, pct_unique)

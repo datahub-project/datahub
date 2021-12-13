@@ -1,0 +1,160 @@
+{
+  "_links": {
+    "self": {
+      "href": "/api/acryltest/definitions"
+    }
+  },
+  "_embedded": {
+    "definitions": [{
+      "id": 40065,
+      "token": "d575d5553bd6",
+      "name": "custome_payment_date",
+      "description": "Customer Payment Date info",
+      "source": "SELECT\\n\\tcustomer.customer_id,\\n\\tfirst_name,\\n\\tlast_name,\\n\\tamount,\\n\\tpayment_date,\\n\\trental_id\\nFROM\\n\\tcustomer\\nINNER JOIN payment \\n    ON payment.customer_id = customer.customer_id\\nORDER BY payment_date",
+      "data_source_id": 34499,
+      "created_at": "2021-12-10T20:18:47.478Z",
+      "updated_at": "2021-12-10T20:33:22.520Z",
+      "last_successful_sync_at": null,
+      "last_saved_at": "2021-12-10T20:33:22.549Z",
+      "_links": {
+        "self": {
+          "href": "/api/acryltest/definitions/d575d5553bd6"
+        },
+        "last_run": {
+          "href": "/api/acryltest/reports/e03e700b8051/runs/c8aa991e199e/query_runs/12d43fe1e4a5"
+        },
+        "web_edit": {
+          "href": "/editor/acryltest/definitions/d575d5553bd6"
+        },
+        "creator": {
+          "href": "/api/modeuser"
+        }
+      },
+      "_forms": {
+        "edit": {
+          "method": "patch",
+          "action": "/api/acryltest/definitions/d575d5553bd6",
+          "input": {
+            "definition": {
+              "name": {
+                "type": "text",
+                "value": "custome_payment_date"
+              },
+              "description": {
+                "type": "text",
+                "value": "Customer Payment Date info"
+              },
+              "source": {
+                "type": "text",
+                "value": "SELECT\\n\\tcustomer.customer_id,\\n\\tfirst_name,\\n\\tlast_name,\\n\\tamount,\\n\\tpayment_date,\\n\\trental_id\\nFROM\\n\\tcustomer\\nINNER JOIN payment \\n    ON payment.customer_id = customer.customer_id\\nORDER BY payment_date"
+              },
+              "data_source_id": {
+                "type": "text",
+                "value": 40065
+              }
+            }
+          }
+        },
+        "destroy": {
+          "method": "delete",
+          "action": "/api/acryltest/definitions/d575d5553bd6"
+        },
+        "execute": {
+          "method": "put",
+          "action": "/api/acryltest/definitions/d575d5553bd6/execute",
+          "input": {
+            "definition": {
+              "source": {
+                "type": "text",
+                "value": "SELECT\\n\\tcustomer.customer_id,\\n\\tfirst_name,\\n\\tlast_name,\\n\\tamount,\\n\\tpayment_date,\\n\\trental_id\\nFROM\\n\\tcustomer\\nINNER JOIN payment \\n    ON payment.customer_id = customer.customer_id\\nORDER BY payment_date"
+              }
+            },
+            "limit": {
+              "type": "select",
+              "options": [true, false],
+              "value": true
+            }
+          }
+        }
+      }
+    }, {
+      "id": 40066,
+      "token": "6fc2fa79b2f2",
+      "name": "join_on_definition",
+      "description": "use definition in sub query",
+      "source": "SELECT cust_payment_date.*, staff_id\\nfrom {{ @custome_payment_date as cust_payment_date }}\\nINNER JOIN rental\\n\\tON rental.rental_id = cust_payment_date.rental_id",
+      "data_source_id": 34499,
+      "created_at": "2021-12-10T20:19:58.693Z",
+      "updated_at": "2021-12-10T20:56:57.606Z",
+      "last_successful_sync_at": null,
+      "last_saved_at": "2021-12-10T20:56:57.670Z",
+      "_links": {
+        "self": {
+          "href": "/api/acryltest/definitions/6fc2fa79b2f2"
+        },
+        "last_run": {
+          "href": "/api/acryltest/reports/18f9281f9a2b/runs/ac4a03538530/query_runs/a4dafbc4e883"
+        },
+        "web_edit": {
+          "href": "/editor/acryltest/definitions/6fc2fa79b2f2"
+        },
+        "creator": {
+          "href": "/api/modeuser"
+        }
+      },
+      "_forms": {
+        "edit": {
+          "method": "patch",
+          "action": "/api/acryltest/definitions/6fc2fa79b2f2",
+          "input": {
+            "definition": {
+              "name": {
+                "type": "text",
+                "value": "join_on_definition"
+              },
+              "description": {
+                "type": "text",
+                "value": "use definition in sub query"
+              },
+              "source": {
+                "type": "text",
+                "value": "SELECT cust_payment_date.*, staff_id\\nfrom {{ @custome_payment_date as cust_payment_date }}\\nINNER JOIN rental\\n\\tON rental.rental_id = cust_payment_date.rental_id"
+              },
+              "data_source_id": {
+                "type": "text",
+                "value": 40066
+              }
+            }
+          }
+        },
+        "destroy": {
+          "method": "delete",
+          "action": "/api/acryltest/definitions/6fc2fa79b2f2"
+        },
+        "execute": {
+          "method": "put",
+          "action": "/api/acryltest/definitions/6fc2fa79b2f2/execute",
+          "input": {
+            "definition": {
+              "source": {
+                "type": "text",
+                "value": "SELECT cust_payment_date.*, staff_id\\nfrom {{ @custome_payment_date as cust_payment_date }}\\nINNER JOIN rental\\n\\tON rental.rental_id = cust_payment_date.rental_id"
+              }
+            },
+            "limit": {
+              "type": "select",
+              "options": [true, false],
+              "value": true
+            }
+          }
+        }
+      }
+    }]
+  },
+  "_forms": {
+    "create": {
+      "method": "post",
+      "action": "/api/acryltest/definitions"
+    }
+  }
+}
