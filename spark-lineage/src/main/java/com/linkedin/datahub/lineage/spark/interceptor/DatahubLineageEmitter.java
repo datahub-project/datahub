@@ -263,6 +263,10 @@ public class DatahubLineageEmitter extends SparkListener {
   // TODO sqlEvt.details() unused
   private void processExecution(SparkListenerSQLExecutionStart sqlStart) {
     QueryExecution queryExec = SQLExecution.getQueryExecution(sqlStart.executionId());
+    if (queryExec == null) {
+      log.error("Skipping processing for sql exec Id" + sqlStart.executionId() + " as Query execution context could not be read from current spark state");
+      return;
+    }
     LogicalPlan plan = queryExec.optimizedPlan();
     SparkSession sess = queryExec.sparkSession();
     SparkContext ctx = sess.sparkContext();
