@@ -188,7 +188,9 @@ class SupersetSource(Source):
 
         chart_urns = []
         raw_position_data = dashboard_data.get("position_json", "{}")
-        position_data = json.loads(raw_position_data)
+        position_data = (
+            json.loads(raw_position_data) if raw_position_data is not None else {}
+        )
         for key, value in position_data.items():
             if not key.startswith("CHART-"):
                 continue
