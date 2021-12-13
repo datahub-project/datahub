@@ -64,6 +64,17 @@ services:
         start_period: 2m
         retries: 4
 
+  dgraph:
+    image: dgraph/standalone:v21.12.0
+    env_file: dgraph/env/docker.env
+    hostname: dgraph
+    container_name: dgraph
+    ports:
+      - "8082:8080"
+      - "9080:9080"
+    volumes:
+      - dgraphdata:/dgraph
+
   # This "container" is a workaround to pre-create search indices
   elasticsearch-setup:
     build:
@@ -81,7 +92,7 @@ services:
         context: ../
         dockerfile: docker/datahub-gms/Dockerfile
     image: linkedin/datahub-gms:${DATAHUB_VERSION:-head}
-    env_file: datahub-gms/env/docker-without-neo4j.env
+    env_file: datahub-gms/env/docker-with-dgraph.env
     hostname: datahub-gms
     container_name: datahub-gms
     ports:
@@ -90,6 +101,7 @@ services:
       - elasticsearch-setup
       - kafka-setup
       - mysql
+      - dgraph
 
   datahub-frontend-react:
     build:
@@ -109,5 +121,6 @@ networks:
     name: datahub_network
 
 volumes:
+  dgraphdata:
   esdata:
   zkdata:
