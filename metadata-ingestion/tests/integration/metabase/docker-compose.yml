@@ -1,7 +1,0 @@
-version: "2"
-services:
-  testmetabase:
-    image: metabase/metabase
-    container_name: "testmetabase"
-    ports:
-      - 3000:3000

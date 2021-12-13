@@ -1,120 +1,121 @@
-import time
-from typing import Any, Dict, List, cast
+import json
+from unittest.mock import patch
 
-import pytest
-import requests
-from click.testing import CliRunner
 from freezegun import freeze_time
+from requests.models import HTTPError
 
-from datahub.entrypoints import datahub
-from tests.test_helpers import fs_helpers, mce_helpers
-from tests.test_helpers.click_helpers import assert_result_ok
-from tests.test_helpers.docker_helpers import wait_for_port
+from datahub.ingestion.run.pipeline import Pipeline
+from tests.test_helpers import mce_helpers
 
 FROZEN_TIME = "2021-11-11 07:00:00"
-METABASE_URL = "http://localhost:3000"
+
+JSON_RESPONSE_MAP = {
+    "http://localhost:3000/api/session": "session.json",
+    "http://localhost:3000/api/user/current": "user.json",
+    "http://localhost:3000/api/dashboard": "dashboard.json",
+    "http://localhost:3000/api/dashboard/1": "dashboard_1.json",
+    "http://localhost:3000/api/user/1": "user.json",
+    "http://localhost:3000/api/card": "card.json",
+    "http://localhost:3000/api/database/2": "database.json",
+    "http://localhost:3000/api/card/1": "card_1.json",
+    "http://localhost:3000/api/card/2": "card_2.json",
+    "http://localhost:3000/api/table/21": "table_21.json",
+}
+
+RESPONSE_ERROR_LIST = ["http://localhost:3000/api/dashboard"]
+
+test_resources_dir = None
 
 
-def setup_user_and_get_id(setup_token):
-    setup_response = requests.post(
-        f"{METABASE_URL}/api/setup",
-        None,
-        {
-            "token": f"{setup_token}",
-            "prefs": {
-                "site_name": "Acryl",
-                "site_locale": "en",
-                "allow_tracking": "false",
-            },
-            "database": None,
-            "user": {
-                "first_name": "admin",
-                "last_name": "admin",
-                "email": "admin@metabase.com",
-                "password": "admin12345",
-                "site_name": "Acryl",
-            },
-        },
-    )
+class MockResponse:
+    def __init__(self, url, data=None, jsond=None, error_list=None):
+        self.json_data = data
+        self.url = url
+        self.jsond = jsond
+        self.error_list = error_list
+        self.headers = {}
+        self.auth = None
+        self.status_code = 200
 
-    if setup_response.status_code == 200:
-        return setup_response.json()["id"]
+    def json(self):
+        response_json_path = (
+            f"{test_resources_dir}/setup/{JSON_RESPONSE_MAP.get(self.url)}"
+        )
+        with open(response_json_path) as file:
+            data = json.loads(file.read())
+            self.json_data = data
+        return self.json_data
 
-    return None
+    def get(self, url):
+        self.url = url
+        return self
+
+    def raise_for_status(self):
+        if self.error_list is not None and self.url in self.error_list:
+            http_error_msg = "%s Client Error: %s for url: %s" % (
+                400,
+                "Simulate error",
+                self.url,
+            )
+            raise HTTPError(http_error_msg, response=self)
 
 
-def get_setup_token():
-    session_response = requests.get(f"{METABASE_URL}/api/session/properties")
-    if session_response.status_code == 200:
-        return session_response.json()["setup-token"]
+def mocked_requests_sucess(*args, **kwargs):
+    return MockResponse(None)
 
-    return None
+
+def mocked_requests_failure(*args, **kwargs):
+    return MockResponse(RESPONSE_ERROR_LIST, 200)
+
+
+def mocked_requests_session_post(url, data, json):
+    return MockResponse(url, data, json)
+
+
+def mocked_requests_session_delete(url, headers):
+    return MockResponse(url, data=None, jsond=headers)
 
 
 @freeze_time(FROZEN_TIME)
-@pytest.mark.integration
-def test_metabase_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
-    test_resources_dir = pytestconfig.rootpath / "tests/integration/metabase"
+def test_mode_ingest_success(pytestconfig, tmp_path):
+    with patch(
+        "datahub.ingestion.source.metabase.requests.session",
+        side_effect=mocked_requests_sucess,
+    ), patch(
+        "datahub.ingestion.source.metabase.requests.post",
+        side_effect=mocked_requests_session_post,
+    ), patch(
+        "datahub.ingestion.source.metabase.requests.delete",
+        side_effect=mocked_requests_session_delete,
+    ):
+        global test_resources_dir
+        test_resources_dir = pytestconfig.rootpath / "tests/integration/metabase"
 
-    with docker_compose_runner(
-        test_resources_dir / "docker-compose.yml", "metabase/metabase"
-    ) as docker_services:
-        wait_for_port(docker_services, "testmetabase", 3000)
-
-        # Delay API call for few seconds. Metabase is not usually ready to accept connections
-        # even when port is available
-        time.sleep(8)
-
-        # create user for the first time
-        setup_token = get_setup_token()
-        access_token = setup_user_and_get_id(setup_token)
-        session = requests.Session()
-        session.headers.update(
+        pipeline = Pipeline.create(
             {
-                "X-Metabase-Session": f"{access_token}",
-                "Content-Type": "application/json",
-                "Accept": "*/*",
+                "run_id": "metabase-test",
+                "source": {
+                    "type": "metabase",
+                    "config": {
+                        "username": "xxxx",
+                        "password": "xxxx",
+                        "connect_uri": "http://localhost:3000/",
+                    },
+                },
+                "sink": {
+                    "type": "file",
+                    "config": {
+                        "filename": f"{tmp_path}/metabase_mces.json",
+                    },
+                },
             }
         )
+        pipeline.run()
+        pipeline.raise_from_status()
 
-        # create dashboard
-        create_dashboard_response = session.post(
-            f"{METABASE_URL}/api/dashboard",
-            None,
-            {"name": "Dashboard", "description": "", "collection_id": None},
+        mce_helpers.check_golden_file(
+            pytestconfig,
+            output_path=f"{tmp_path}/metabase_mces.json",
+            golden_path=test_resources_dir / "metabase_mces_golden.json",
+            ignore_paths=mce_helpers.IGNORE_PATH_TIMESTAMPS,
         )
-        dashboard_id = create_dashboard_response.json()["id"]
-
-        # create card and add to dashboard
-        create_card_file_path = (
-            test_resources_dir / "setup/create_card.json"
-        ).resolve()
-        create_card_json = mce_helpers.load_json_file(create_card_file_path)
-        card_create_response = session.post(
-            f"{METABASE_URL}/api/card", None, create_card_json
-        )
-        card_id = card_create_response.json()["id"]
-        session.post(
-            f"{METABASE_URL}/api/dashboard/{dashboard_id}/cards",
-            None,
-            {"cardId": card_id},
-        )
-
-        # Run the metadata ingestion pipeline.
-        runner = CliRunner()
-        with fs_helpers.isolated_filesystem(tmp_path):
-            config_file = (test_resources_dir / "metabase_to_file.yml").resolve()
-            result = runner.invoke(datahub, ["ingest", "-c", f"{config_file}"])
-            assert_result_ok(result)
-
-            # Verify the output.
-            output: List[Dict[str, Any]] = cast(
-                List[Dict[str, Any]], mce_helpers.load_json_file("metabase_mces.json")
-            )
-            golden = mce_helpers.load_json_file(
-                test_resources_dir / "metabase_mces_golden.json"
-            )
-
-            mce_helpers.assert_mces_equal(
-                output, golden, ignore_paths=mce_helpers.IGNORE_PATH_TIMESTAMPS
-            )

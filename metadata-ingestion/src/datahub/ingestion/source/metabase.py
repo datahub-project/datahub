@@ -101,7 +101,7 @@ class MetabaseSource(Source):
             f"{self.config.connect_uri}/api/session",
             headers={"X-Metabase-Session": self.access_token},
         )
-        if response.status_code != 204:
+        if response.status_code not in (200, 204):
             self.report.report_failure(
                 key="metabase-session",
                 reason=f"Unable to logout for user {self.config.username}",
