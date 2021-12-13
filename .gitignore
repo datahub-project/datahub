@@ -39,6 +39,11 @@ MANIFEST
 # Mac OS
 **/.DS_Store
 
+#spark-lineage
+**/spark-lineage/metastore_db/
+**/spark-lineage/**/derby.log
+**/spark-lineage/**/hive/
+**/spark-lineage/**/out.csv/
 .vscode
 
 # Metadata Ingestion Generated

@@ -98,6 +98,7 @@ module.exports = {
           "docs/lineage/airflow",
           "docker/airflow/local_airflow",
           "docs/lineage/sample_code",
+          "spark-lineage/README",
         ],
       },
       {
