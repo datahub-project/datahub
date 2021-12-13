@@ -3,14 +3,13 @@ from datetime import datetime
 import pytest
 from pydantic import ValidationError
 
+from datahub.configuration.time_window_config import BucketDuration, get_time_bucket
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.usage.usage_common import (
-    GenericAggregatedDataset,
     BaseUsageConfig,
+    GenericAggregatedDataset,
 )
-
-from datahub.configuration.time_window_config import get_time_bucket, BucketDuration
 from datahub.metadata.schema_classes import DatasetUsageStatisticsClass
 
 TestTableRef = str
