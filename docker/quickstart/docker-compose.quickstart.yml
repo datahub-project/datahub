@@ -102,11 +102,14 @@ services:
     image: linkedin/datahub-elasticsearch-setup:${DATAHUB_VERSION:-head}
   ingest-api:
     container_name: ingest-api
+    environment:
+    - ACCEPT_ORIGINS=http://172.19.0.1:9010
+    - RUNNING_IN_DOCKER=True
     hostname: ingest-api
     ports:
-    - 8001:80
+    - 8001:8001
     volumes:
-    - apidata:/app/ingest-api/ingest_api/log
+    - apidata:/var/log/ingest/
   kafka-setup:
     container_name: kafka-setup
     depends_on:
