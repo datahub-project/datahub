@@ -6,9 +6,13 @@ import time
 from pydantic.main import BaseModel
 import uvicorn
 from datahub.emitter.rest_emitter import DatahubRestEmitter
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi import Request, status
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import PlainTextResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from ingest_api.helper.mce_convenience import (generate_json_output,
@@ -57,7 +61,7 @@ else:
 log = TimedRotatingFileHandler(
     log_path, when="midnight", interval=1, backupCount=14
 )
-log.setLevel(logging.DEBUG)
+log.setLevel(logging.INFO)
 log.setFormatter(logformatter)
 
 rootLogger.addHandler(log)
@@ -80,6 +84,18 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["POST", "GET", "OPTIONS"],
 )
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request, exc):
+    """
+    This is meant to log malformed POST requests
+    """
+    exc_str = f'{exc}'.replace('\n', ' ').replace('   ', ' ')
+
+    rootLogger.error(exc_str)
+    rootLogger.error(f"malformed POST request {request.body} from {request.client}")
+    return PlainTextResponse(str(exc_str), status_code=400)
+
 
 
 @app.get("/hello")
@@ -205,12 +221,12 @@ def emit_mce_respond(metadata_record:MetadataChangeEvent, owner: str, event: str
     else:
         generate_json_output(metadata_record, "/var/log/ingest/json/")
     try:        
-        rootLogger.error(metadata_record)
+        rootLogger.info(metadata_record)
         emitter = DatahubRestEmitter(rest_endpoint)
         emitter.emit_mce(metadata_record)
         emitter._session.close()        
     except Exception as e:
-        rootLogger.debug(e)
+        rootLogger.error(e)
         return { 
             'status_code' : 500,
             'messsage' : f"{event} failed because upstream error {e}",
@@ -221,7 +237,6 @@ def emit_mce_respond(metadata_record:MetadataChangeEvent, owner: str, event: str
         'status_code' : 201,
         'messsage' : f"{event} completed successfully",
     }
-
 
 @app.post("/make_dataset")
 async def create_item(item: create_dataset_params) -> None:
@@ -235,7 +250,9 @@ async def create_item(item: create_dataset_params) -> None:
     item.dataset_name = "{}_{}".format(item.dataset_name, str(get_sys_time()))
     datasetName = make_dataset_urn(item.dataset_type, item.dataset_name)
     platformName = make_platform(item.dataset_type)
-    browsepaths = [path+'dataset' for path in item.browsepathList]    
+    item.browsepathList = [item+'/' for item in item.browsepathList if not item.endswith('//')]
+    # this line is in case the endpoint is called by API and not UI, which will enforce ending with /.
+    browsepaths = [path+'dataset' for path in item.browsepathList]
         
     requestor = make_user_urn(item.dataset_owner)
     headerRowNum = (
@@ -301,7 +318,6 @@ async def delete_item(item: dataset_status_params) -> None:
 async def echo_inputs(item: echo_param):
     rootLogger.info(f"input received {item}")
     return JSONResponse(content = item, status_code=201)
-
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=api_emitting_port)
