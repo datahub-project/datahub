@@ -71,9 +71,9 @@ class MetabaseSource(Source):
         )
 
         login_response.raise_for_status()
-        self.access_token = login_response.json()["id"]
+        self.access_token = login_response.json().get("id", "")
 
-        self.session = requests.Session()
+        self.session = requests.session()
         self.session.headers.update(
             {
                 "X-Metabase-Session": f"{self.access_token}",
@@ -107,29 +107,49 @@ class MetabaseSource(Source):
             )
 
     def emit_dashboard_mces(self) -> Iterable[MetadataWorkUnit]:
-        dashboard_response = self.session.get(
-            f"{self.config.connect_uri}/api/dashboard"
-        )
-        payload = dashboard_response.json()
-        for dashboard_info in payload:
-            dashboard_snapshot = self.construct_dashboard_from_api_data(dashboard_info)
+        try:
+            dashboard_response = self.session.get(
+                f"{self.config.connect_uri}/api/dashboard"
+            )
+            dashboard_response.raise_for_status()
+            dashboards = dashboard_response.json()
 
-            mce = MetadataChangeEvent(proposedSnapshot=dashboard_snapshot)
-            wu = MetadataWorkUnit(id=dashboard_snapshot.urn, mce=mce)
-            self.report.report_workunit(wu)
+            for dashboard_info in dashboards:
+                dashboard_snapshot = self.construct_dashboard_from_api_data(dashboard_info)
+                mce = MetadataChangeEvent(proposedSnapshot=dashboard_snapshot)
+                wu = MetadataWorkUnit(id=dashboard_snapshot.urn, mce=mce)
+                self.report.report_workunit(wu)
+                yield wu
 
-            yield wu
+        except HTTPError as http_error:
+            self.report.report_failure(
+                key="metabase-dashboard",
+                reason=f"Unable to retrieve dashboards. "
+                       f"Reason: {str(http_error)}"
+            )
 
     def construct_dashboard_from_api_data(
         self, dashboard_info: dict
     ) -> DashboardSnapshot:
+
+        dashboard_id = dashboard_info.get('id', '')
         dashboard_url = (
-            f"{self.config.connect_uri}/api/dashboard/{dashboard_info['id']}"
+            f"{self.config.connect_uri}/api/dashboard/{dashboard_id}"
         )
-        dashboard_response = self.session.get(dashboard_url)
-        dashboard_details = dashboard_response.json()
+        try:
+            dashboard_response = self.session.get(dashboard_url)
+            dashboard_response.raise_for_status()
+            dashboard_details = dashboard_response.json()
+        except HTTPError as http_error:
+            self.report.report_failure(
+                key=f"metabase-dashboard-{dashboard_id}",
+                reason=f"Unable to retrieve dashboard. "
+                       f"Reason: {str(http_error)}"
+            )
+            return None
+
         dashboard_urn = builder.make_dashboard_urn(
-            self.platform, dashboard_details["id"]
+            self.platform, dashboard_details.get("id", "")
         )
         dashboard_snapshot = DashboardSnapshot(
             urn=dashboard_urn,
@@ -150,7 +170,7 @@ class MetabaseSource(Source):
         chart_urns = []
         cards_data = dashboard_details.get("ordered_cards", "{}")
         for card_info in cards_data:
-            chart_urn = builder.make_chart_urn(self.platform, card_info["id"])
+            chart_urn = builder.make_chart_urn(self.platform, card_info.get("id", ""))
             chart_urns.append(chart_urn)
 
         dashboard_info_class = DashboardInfoClass(
@@ -158,13 +178,13 @@ class MetabaseSource(Source):
             title=title,
             charts=chart_urns,
             lastModified=last_modified,
-            dashboardUrl=f"{self.config.connect_uri}/dashboard/{dashboard_info['id']}",
+            dashboardUrl=f"{self.config.connect_uri}/dashboard/{dashboard_id}",
             customProperties={},
         )
         dashboard_snapshot.aspects.append(dashboard_info_class)
 
         # Ownership
-        ownership = self._get_ownership(dashboard_details["creator_id"])
+        ownership = self._get_ownership(dashboard_details.get("creator_id", ""))
         if ownership is not None:
             dashboard_snapshot.aspects.append(ownership)
 
@@ -173,9 +193,19 @@ class MetabaseSource(Source):
     @lru_cache(maxsize=None)
     def _get_ownership(self, creator_id: int) -> Optional[OwnershipClass]:
         user_info_url = f"{self.config.connect_uri}/api/user/{creator_id}"
-        user_info_response = self.session.get(user_info_url)
-        user_details = user_info_response.json()
-        owner_urn = builder.make_user_urn(user_details["email"])
+        try:
+            user_info_response = self.session.get(user_info_url)
+            user_info_response.raise_for_status()
+            user_details = user_info_response.json()
+        except HTTPError as http_error:
+            self.report.report_failure(
+                key=f"metabase-user-{creator_id}",
+                reason=f"Unable to retrieve User info. "
+                       f"Reason: {str(http_error)}"
+            )
+            return None
+
+        owner_urn = builder.make_user_urn(user_details.get("email", ""))
         if owner_urn is not None:
             ownership: OwnershipClass = OwnershipClass(
                 owners=[
@@ -190,23 +220,43 @@ class MetabaseSource(Source):
         return None
 
     def emit_card_mces(self) -> Iterable[MetadataWorkUnit]:
-        card_response = self.session.get(f"{self.config.connect_uri}/api/card")
-        payload = card_response.json()
-        for card_info in payload:
-            chart_snapshot = self.construct_card_from_api_data(card_info)
+        try:
+            card_response = self.session.get(f"{self.config.connect_uri}/api/card")
+            card_response.raise_for_status()
+            cards = card_response.json()
 
-            mce = MetadataChangeEvent(proposedSnapshot=chart_snapshot)
-            wu = MetadataWorkUnit(id=chart_snapshot.urn, mce=mce)
-            self.report.report_workunit(wu)
+            for card_info in cards:
+                chart_snapshot = self.construct_card_from_api_data(card_info)
 
-            yield wu
+                mce = MetadataChangeEvent(proposedSnapshot=chart_snapshot)
+                wu = MetadataWorkUnit(id=chart_snapshot.urn, mce=mce)
+                self.report.report_workunit(wu)
+
+                yield wu
+        except HTTPError as http_error:
+            self.report.report_failure(
+                key="metabase-cards",
+                reason=f"Unable to retrieve cards. "
+                       f"Reason: {str(http_error)}"
+            )
+            return None
 
     def construct_card_from_api_data(self, card_data: dict) -> ChartSnapshot:
-        card_url = f"{self.config.connect_uri}/api/card/{card_data['id']}"
-        card_response = self.session.get(card_url)
-        card_details = card_response.json()
+        card_id = card_data.get('id', '')
+        card_url = f"{self.config.connect_uri}/api/card/{card_id}"
+        try:
+            card_response = self.session.get(card_url)
+            card_response.raise_for_status()
+            card_details = card_response.json()
+        except HTTPError as http_error:
+            self.report.report_failure(
+                key=f"metabase-card-{card_id}",
+                reason=f"Unable to retrieve Card info. "
+                       f"Reason: {str(http_error)}"
+            )
+            return None
 
-        chart_urn = builder.make_chart_urn(self.platform, card_data["id"])
+        chart_urn = builder.make_chart_urn(self.platform, card_id)
         chart_snapshot = ChartSnapshot(
             urn=chart_urn,
             aspects=[],
@@ -223,7 +273,7 @@ class MetabaseSource(Source):
         )
 
         chart_type = self._get_chart_type(
-            card_details["id"], card_details.get("display")
+            card_details.get("id", ""), card_details.get("display")
         )
         description = card_details.get("description") or ""
         title = card_details.get("name") or ""
@@ -235,15 +285,15 @@ class MetabaseSource(Source):
             description=description,
             title=title,
             lastModified=last_modified,
-            chartUrl=f"{self.config.connect_uri}/card/{card_data['id']}",
+            chartUrl=f"{self.config.connect_uri}/card/{card_id}",
             inputs=datasource_urn,
             customProperties=custom_properties,
         )
         chart_snapshot.aspects.append(chart_info)
 
-        if card_details["query_type"] == "native":
+        if card_details.get("query_type", "") == "native":
             chart_query_native = ChartQueryClass(
-                rawQuery=card_details["dataset_query"]
+                rawQuery=card_details.get("dataset_query", "")
                 .get("native", {})
                 .get("query", ""),
                 type=ChartQueryTypeClass.SQL,
@@ -251,7 +301,7 @@ class MetabaseSource(Source):
             chart_snapshot.aspects.append(chart_query_native)
 
         # Ownership
-        ownership = self._get_ownership(card_details["creator_id"])
+        ownership = self._get_ownership(card_details.get("creator_id", ""))
         if ownership is not None:
             chart_snapshot.aspects.append(ownership)
 
@@ -297,12 +347,12 @@ class MetabaseSource(Source):
         result_metadata = card_details.get("result_metadata", [])
         metrics, dimensions = [], []
         for meta_data in result_metadata:
-            display_name = meta_data["display_name"] or ""
+            display_name = meta_data.get("display_name", "") or ""
             metrics.append(display_name) if "aggregation" in meta_data.get(
                 "field_ref", ""
             ) else dimensions.append(display_name)
 
-        filters = (card_details["dataset_query"].get("query", {})).get("filter", [])
+        filters = (card_details.get("dataset_query", {}).get("query", {})).get("filter", [])
 
         custom_properties = {
             "Metrics": ", ".join(metrics),
@@ -314,7 +364,7 @@ class MetabaseSource(Source):
 
     def get_datasource_urn(self, card_details):
         platform, database_name = self.get_datasource_from_id(
-            card_details["database_id"]
+            card_details.get("database_id", "")
         )
         query_type = card_details.get("dataset_query", {}).get("type", {})
         if query_type == "query":
@@ -330,7 +380,7 @@ class MetabaseSource(Source):
                 return [dataset_urn]
         else:
             self.report.report_warning(
-                key=f"metabase-card-{card_details['id']}",
+                key=f"metabase-card-{card_details.get('id', '')}",
                 reason=f"Cannot create datasource urn from query type: {query_type}",
             )
 
@@ -338,24 +388,44 @@ class MetabaseSource(Source):
 
     @lru_cache(maxsize=None)
     def get_source_table_from_id(self, table_id):
-        dataset_response = self.session.get(
-            f"{self.config.connect_uri}/api/table/{table_id}"
-        ).json()
+        try:
+            dataset_response = self.session.get(
+                f"{self.config.connect_uri}/api/table/{table_id}"
+            )
+            dataset_response.raise_for_status()
+            dataset_json = dataset_response.json()
+            schema = dataset_json.get("schema", "")
+            name = dataset_json.get("name", "")
+            return schema, name
 
-        schema = dataset_response.get("schema", "")
-        name = dataset_response.get("name", "")
+        except HTTPError as http_error:
+            self.report.report_failure(
+                key=f"metabase-table-{table_id}",
+                reason=f"Unable to retrieve source table. "
+                       f"Reason: {str(http_error)}"
+            )
 
-        return schema, name
+        return None, None
 
     @lru_cache(maxsize=None)
     def get_datasource_from_id(self, datasource_id):
-        dataset_response = self.session.get(
-            f"{self.config.connect_uri}/api/database/{datasource_id}"
-        ).json()
+        try:
+            dataset_response = self.session.get(
+                f"{self.config.connect_uri}/api/database/{datasource_id}"
+            )
+            dataset_response.raise_for_status()
+            dataset_json = dataset_response.json()
+        except HTTPError as http_error:
+            self.report.report_failure(
+                key=f"metabase-datasource-{datasource_id}",
+                reason=f"Unable to retrieve Datasource. "
+                       f"Reason: {str(http_error)}"
+            )
+            return None, None
 
         # Map engine names to what datahub expects in
         # https://github.com/linkedin/datahub/blob/master/metadata-service/war/src/main/resources/boot/data_platforms.json
-        engine = dataset_response["engine"]
+        engine = dataset_json.get("engine", "")
         platform = engine
 
         engine_mapping = {
@@ -386,7 +456,7 @@ class MetabaseSource(Source):
         }
 
         dbname = (
-            dataset_response.get("details", {}).get(field_for_dbname_mapping[engine])
+            dataset_json.get("details", {}).get(field_for_dbname_mapping[engine])
             if engine in field_for_dbname_mapping
             else None
         )
