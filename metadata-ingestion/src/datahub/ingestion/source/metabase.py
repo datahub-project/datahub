@@ -5,6 +5,7 @@ import dateutil.parser as dp
 import requests
 from pydantic import validator
 from requests.models import HTTPError
+from sqllineage.runner import LineageRunner
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigModel
@@ -40,7 +41,7 @@ class MetabaseConfig(ConfigModel):
     username: Optional[str] = None
     password: Optional[str] = None
     database_alias_map: Optional[dict] = None
-    options: Dict = {}
+    default_schema: str = "public"
     env: str = builder.DEFAULT_ENV
 
     @validator("connect_uri")
@@ -292,10 +293,9 @@ class MetabaseSource(Source):
         chart_snapshot.aspects.append(chart_info)
 
         if card_details.get("query_type", "") == "native":
+            raw_query = card_details.get("dataset_query", {}).get("native", {}).get("query", "")
             chart_query_native = ChartQueryClass(
-                rawQuery=card_details.get("dataset_query", "")
-                .get("native", {})
-                .get("query", ""),
+                rawQuery=raw_query,
                 type=ChartQueryTypeClass.SQL,
             )
             chart_snapshot.aspects.append(chart_query_native)
@@ -367,6 +367,8 @@ class MetabaseSource(Source):
             card_details.get("database_id", "")
         )
         query_type = card_details.get("dataset_query", {}).get("type", {})
+        source_paths = set()
+
         if query_type == "query":
             source_table_id = (
                 card_details.get("dataset_query", {})
@@ -375,16 +377,35 @@ class MetabaseSource(Source):
             )
             schema_name, table_name = self.get_source_table_from_id(source_table_id)
             if table_name:
-                name = f"{database_name + '.' if database_name else ''}{schema_name + '.' if schema_name else ''}{table_name}"
-                dataset_urn = builder.make_dataset_urn(platform, name, self.config.env)
-                return [dataset_urn]
+                source_paths.add(f"{schema_name + '.' if schema_name else ''}{table_name}")
         else:
-            self.report.report_warning(
-                key=f"metabase-card-{card_details.get('id', '')}",
-                reason=f"Cannot create datasource urn from query type: {query_type}",
-            )
+            try:
+                raw_query = card_details.get("dataset_query", {}).get("native", {}).get("query", "")
+                parser = LineageRunner(raw_query)
 
-        return None
+                for table in parser.source_tables:
+                    sources = str(table).split(".")
+                    source_schema, source_table = sources[-2], sources[-1]
+                    if source_schema == "<default>":
+                        source_schema = str(self.config.default_schema)
+
+                    source_paths.add(f"{source_schema}.{source_table}")
+            except Exception as e:
+                self.report.report_failure(
+                    key="metabase-query",
+                    reason=f"Unable to retrieve lineage from query. "
+                           f"Query: {raw_query} "
+                           f"Reason: {str(e)} ",
+                )
+                return None
+
+        # Create dataset URNs
+        dataset_urn = []
+        dbname = f"{database_name + '.' if database_name else ''}"
+        source_tables = list(map(lambda tbl: f"{dbname}{tbl}", source_paths))
+        dataset_urn = [builder.make_dataset_urn(platform, name, self.config.env) for name in source_tables]
+
+        return dataset_urn
 
     @lru_cache(maxsize=None)
     def get_source_table_from_id(self, table_id):

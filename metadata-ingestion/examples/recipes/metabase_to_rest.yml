@@ -5,6 +5,7 @@ source:
     username: admin@metabase.com
     password: admin12345
     connect_uri: http://localhost:3000/
+    default_schema: public
     database_alias_map:
       h2: sample-dataset.db
 
