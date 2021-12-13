@@ -367,6 +367,7 @@ public class GmsGraphQLEngine {
         configureMLFeatureTableResolvers(builder);
         configureGlossaryRelationshipResolvers(builder);
         configureAnalyticsResolvers(builder);
+        configureGlossaryTermResolvers(builder);
     }
 
     public GraphQLEngine.Builder builder() {
@@ -477,6 +478,7 @@ public class GmsGraphQLEngine {
             .dataFetcher("updateDashboard", new AuthenticatedResolver<>(new MutableTypeResolver<>(dashboardType)))
             .dataFetcher("updateDataJob", new AuthenticatedResolver<>(new MutableTypeResolver<>(dataJobType)))
             .dataFetcher("updateDataFlow", new AuthenticatedResolver<>(new MutableTypeResolver<>(dataFlowType)))
+            .dataFetcher("updateGlossaryTerm", new AuthenticatedResolver<>(new MutableTypeResolver<>(glossaryTermType)))
             .dataFetcher("addTag", new AuthenticatedResolver<>(new AddTagResolver(entityService)))
             .dataFetcher("removeTag", new AuthenticatedResolver<>(new RemoveTagResolver(entityService)))
             .dataFetcher("addTerm", new AuthenticatedResolver<>(new AddTermResolver(entityService)))
@@ -908,5 +910,13 @@ public class GmsGraphQLEngine {
                 throw new RuntimeException(String.format("Failed to retrieve usage stats", e));
             }
         }), loaderOptions);
+    }
+    private void configureGlossaryTermResolvers(final RuntimeWiring.Builder builder) {
+        builder
+                .type("GlossaryTerm", typeWiring -> typeWiring
+                        .dataFetcher("schemaMetadata", new AuthenticatedResolver<>(
+                                new AspectResolver())
+                        )
+                );
     }
 }

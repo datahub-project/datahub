@@ -4140,11 +4140,6 @@
                     },
                     "doc" : "A key-value map to capture any other non-standardized properties for the glossary term",
                     "default" : { }
-                  }, {
-                    "name" : "rawSchema",
-                    "type" : "string",
-                    "doc" : "Schema definition of the glossary term",
-                    "optional" : true
                   } ],
                   "Aspect" : {
                     "name" : "glossaryTermInfo"
@@ -4200,7 +4195,7 @@
                   "Aspect" : {
                     "name" : "glossaryRelatedTerms"
                   }
-                } ]
+                }, "com.linkedin.schema.SchemaMetadata", "com.linkedin.schema.EditableSchemaMetadata" ]
               }
             },
             "doc" : "The list of metadata aspects associated with the GlossaryTerm. Depending on the use case, this can either be all, or a selection, of supported aspects."

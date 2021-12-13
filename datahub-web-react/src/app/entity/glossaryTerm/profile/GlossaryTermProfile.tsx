@@ -1,6 +1,10 @@
-import { Alert } from 'antd';
-import React, { useMemo } from 'react';
-import { GetGlossaryTermQuery, useGetGlossaryTermQuery } from '../../../../graphql/glossaryTerm.generated';
+import { Alert, message } from 'antd';
+import React, { useMemo, useState } from 'react';
+import {
+    GetGlossaryTermQuery,
+    useGetGlossaryTermQuery,
+    useUpdateGlossaryTermMutation,
+} from '../../../../graphql/glossaryTerm.generated';
 import { EntityType, GlossaryTerm, SearchResult } from '../../../../types.generated';
 import { useGetEntitySearchResults } from '../../../../utils/customGraphQL/useGetEntitySearchResults';
 import { LegacyEntityProfile } from '../../../shared/LegacyEntityProfile';
@@ -11,7 +15,7 @@ import { useEntityRegistry } from '../../../useEntityRegistry';
 import { Properties as PropertiesView } from '../../shared/components/legacy/Properties';
 import GlossayRelatedTerms from './GlossaryRelatedTerms';
 import GlossaryTermHeader from './GlossaryTermHeader';
-import SchemaView from './SchemaView';
+// import SchemaView from '../../dataset/profile/schema/Schema';
 
 const messageStyle = { marginTop: '10%' };
 
@@ -25,6 +29,13 @@ export enum TabType {
 const ENABLED_TAB_TYPES = [TabType.Properties, TabType.RelatedEntity, TabType.RelatedGlossaryTerms, TabType.Schema];
 
 export default function GlossaryTermProfile() {
+    const [updateGlossary] = useUpdateGlossaryTermMutation({
+        refetchQueries: () => ['getGlossaryTerm'],
+        onError: (e) => {
+            message.destroy();
+            message.error({ content: `Failed to update: \n ${e.message || ''}`, duration: 3 });
+        },
+    });
     const { urn } = useUserParams();
     const { loading, error, data } = useGetGlossaryTermQuery({ variables: { urn } });
 
@@ -71,11 +82,6 @@ export default function GlossaryTermProfile() {
                 name: TabType.RelatedGlossaryTerms,
                 path: TabType.RelatedGlossaryTerms.toLocaleLowerCase(),
                 content: <GlossayRelatedTerms glossaryTerm={glossaryTerm || {}} />,
-            },
-            {
-                name: TabType.Schema,
-                path: TabType.Schema.toLocaleLowerCase(),
-                content: <SchemaView rawSchema={glossaryTerm?.glossaryTermInfo?.rawSchema || ''} />,
             },
             {
                 name: TabType.Properties,

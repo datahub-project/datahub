@@ -115,6 +115,8 @@ type Mutation {
     """
     updateDataset(urn: String!, input: DatasetUpdateInput!): Dataset
 
+    updateGlossaryTerm(input: GlossaryTermUpdateInput!): GlossaryTerm
+
     """
     Update the metadata about a particular Chart
     """
@@ -749,6 +751,22 @@ type GlossaryTerm implements Entity {
     Edges extending from this entity
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+    
+    """
+    Schema metadata of the dataset
+    """
+    schema: Schema @deprecated(reason: "Use `schemaMetadata`")
+
+    """
+    Schema metadata of the dataset
+    """
+    schemaMetadata(version: Long): SchemaMetadata
+
+    """
+    Editable schema metadata of the dataset
+    """
+    editableSchemaMetadata: EditableSchemaMetadata
 }
 
 """
@@ -2361,6 +2379,18 @@ input DatasetUpdateInput {
     Update to editable properties
     """
     editableProperties: DatasetEditablePropertiesUpdate
+}
+
+input GlossaryTermUpdateInput {
+    """
+    The glossary urn
+    """
+    urn: String!
+
+    """
+    Update to editable schema metadata of the dataset
+    """
+    editableSchemaMetadata: EditableSchemaMetadataUpdate
 }
 
 """

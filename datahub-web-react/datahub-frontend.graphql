@@ -17,9 +17,15 @@ type Query {
 type Mutation {
     logIn(username: String!, password: String!): CorpUser
     updateDataset(input: DatasetUpdateInput!): Dataset
+    updateGlossaryTerm(input: GlossaryTermUpdateInput!): GlossaryTerm
 }
 
 input DatasetUpdateInput {
+    urn: String!
+    ownership: OwnershipUpdate
+}
+
+input GlossaryTermUpdateInput {
     urn: String!
     ownership: OwnershipUpdate
 }
