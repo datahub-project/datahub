@@ -3,6 +3,8 @@ import pymysql  # noqa: F401
 from sqlalchemy.dialects.mysql import base
 
 from datahub.ingestion.source.sql.sql_common import (
+    BasicSQLAlchemyConfig,
+    SQLAlchemySource,
     make_sqlalchemy_type,
     register_custom_type,
 )
@@ -21,11 +23,6 @@ base.ischema_names["geometry"] = GEOMETRY
 base.ischema_names["point"] = POINT
 base.ischema_names["linestring"] = LINESTRING
 base.ischema_names["polygon"] = POLYGON
-
-from datahub.ingestion.source.sql.sql_common import (
-    BasicSQLAlchemyConfig,
-    SQLAlchemySource,
-)
 
 
 class MySQLConfig(BasicSQLAlchemyConfig):
