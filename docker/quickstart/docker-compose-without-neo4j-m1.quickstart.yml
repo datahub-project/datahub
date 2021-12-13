@@ -15,7 +15,7 @@ services:
     - KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS=0
     - KAFKA_HEAP_OPTS=-Xms256m -Xmx256m
     hostname: broker
-    image: kymeric/cp-kafka:latest
+    image: artifacts.cf.saxo/docker/kymeric/cp-kafka:latest
     ports:
     - 29092:29092
     - 9092:9092
@@ -37,7 +37,7 @@ services:
     - ELASTIC_CLIENT_HOST=elasticsearch
     - ELASTIC_CLIENT_PORT=9200
     hostname: datahub-frontend-react
-    image: linkedin/datahub-frontend-react:${DATAHUB_VERSION:-head}
+    image: artifacts.cf.saxo/docker/linkedin/datahub-frontend-react:${DATAHUB_VERSION:-head}
     ports:
     - 9002:9002
   datahub-gms:
@@ -61,7 +61,7 @@ services:
     - MAE_CONSUMER_ENABLED=true
     - MCE_CONSUMER_ENABLED=true
     hostname: datahub-gms
-    image: linkedin/datahub-gms:${DATAHUB_VERSION:-head}
+    image: artifacts.cf.saxo/docker/linkedin/datahub-gms:${DATAHUB_VERSION:-head}
     ports:
     - 8080:8080
     volumes:
@@ -80,7 +80,7 @@ services:
       - curl -sS --fail 'http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=0s'
         || exit 1
     hostname: elasticsearch
-    image: elasticsearch:7.9.3
+    image: artifacts.cf.saxo/docker/elasticsearch:7.9.3
     mem_limit: 1g
     ports:
     - 9200:9200
@@ -95,7 +95,7 @@ services:
     - ELASTICSEARCH_PORT=9200
     - ELASTICSEARCH_PROTOCOL=http
     hostname: elasticsearch-setup
-    image: linkedin/datahub-elasticsearch-setup:${DATAHUB_VERSION:-head}
+    image: artifacts.cf.saxo/docker/linkedin/datahub-elasticsearch-setup:${DATAHUB_VERSION:-head}
   kafka-setup:
     container_name: kafka-setup
     depends_on:
@@ -105,7 +105,7 @@ services:
     - KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181
     - KAFKA_BOOTSTRAP_SERVER=broker:29092
     hostname: kafka-setup
-    image: linkedin/datahub-kafka-setup:${DATAHUB_VERSION:-head}
+    image: artifacts.cf.saxo/docker/linkedin/datahub-kafka-setup:${DATAHUB_VERSION:-head}
   mysql:
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_bin
     container_name: mysql
@@ -115,7 +115,7 @@ services:
     - MYSQL_PASSWORD=datahub
     - MYSQL_ROOT_PASSWORD=datahub
     hostname: mysql
-    image: mariadb:10.5.8
+    image: artifacts.cf.saxo/docker/mariadb:10.5.8
     ports:
     - 3306:3306
     volumes:
@@ -132,7 +132,7 @@ services:
     - MYSQL_PASSWORD=datahub
     - DATAHUB_DB_NAME=datahub
     hostname: mysql-setup
-    image: acryldata/datahub-mysql-setup:head
+    image: artifacts.cf.saxo/docker/acryldata/datahub-mysql-setup:head
   schema-registry:
     container_name: schema-registry
     depends_on:
@@ -142,7 +142,7 @@ services:
     - SCHEMA_REGISTRY_HOST_NAME=schemaregistry
     - SCHEMA_REGISTRY_KAFKASTORE_CONNECTION_URL=zookeeper:2181
     hostname: schema-registry
-    image: eugenetea/schema-registry-arm64:latest
+    image: artifacts.cf.saxo/docker/eugenetea/schema-registry-arm64:latest
     ports:
     - 8081:8081
   zookeeper:
@@ -151,7 +151,7 @@ services:
     - ZOOKEEPER_CLIENT_PORT=2181
     - ZOOKEEPER_TICK_TIME=2000
     hostname: zookeeper
-    image: kymeric/cp-zookeeper:latest
+    image: artifacts.cf.saxo/docker/kymeric/cp-zookeeper:latest
     ports:
     - 2181:2181
     volumes:

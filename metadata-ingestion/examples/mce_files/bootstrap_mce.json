@@ -2841,6 +2841,162 @@
                 }
               },
               {
+                "com.linkedin.pegasus2avro.schema.EditableSchemaMetadata": {
+                  "created": {
+                    "time": 1581407189000,
+                    "actor": "urn:li:corpuser:jdoe",
+                    "impersonator": null
+                  },
+                  "lastModified": {
+                    "time": 1581407189000,
+                    "actor": "urn:li:corpuser:jdoe",
+                    "impersonator": null
+                  },
+                  "deleted": null,
+                  "editableSchemaFieldInfo": [
+                    {
+                      "fieldPath": "shipment_info",
+                      "globalTags": { "tags": [{ "tag": "urn:li:tag:Legacy" }] }
+                    }
+                  ]
+                }
+              },
+              {
+                "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                  "schemaName": "SampleHdfsSchema",
+                  "platform": "urn:li:dataPlatform:hdfs",
+                  "version": 0,
+                  "created": {
+                    "time": 1581407189000,
+                    "actor": "urn:li:corpuser:jdoe",
+                    "impersonator": null
+                  },
+                  "lastModified": {
+                    "time": 1581407189000,
+                    "actor": "urn:li:corpuser:jdoe",
+                    "impersonator": null
+                  },
+                  "deleted": null,
+                  "dataset": null,
+                  "cluster": null,
+                  "hash": "",
+                  "platformSchema": {
+                    "com.linkedin.pegasus2avro.schema.KafkaSchema": {
+                      "documentSchema": "{\"type\":\"record\",\"name\":\"SampleHdfsSchema\",\"namespace\":\"com.linkedin.dataset\",\"doc\":\"Sample HDFS dataset\",\"fields\":[{\"name\":\"field_foo\",\"type\":[\"string\"]},{\"name\":\"field_bar\",\"type\":[\"boolean\"]}]}"
+                    }
+                  },
+                  "fields": [
+                    {
+                      "fieldPath": "shipment_info",
+                      "jsonPath": null,
+                      "nullable": false,
+                      "description": {
+                        "string": "Shipment info description"
+                      },
+                      "type": {
+                        "type": {
+                          "com.linkedin.pegasus2avro.schema.RecordType": {}
+                        }
+                      },
+                      "nativeDataType": "varchar(100)",
+                      "recursive": false
+                    },
+                    {
+                      "fieldPath": "shipment_info.date",
+                      "jsonPath": null,
+                      "nullable": false,
+                      "description": {
+                        "string": "Shipment info date description"
+                      },
+                      "type": {
+                        "type": {
+                          "com.linkedin.pegasus2avro.schema.DateType": {}
+                        }
+                      },
+                      "nativeDataType": "Date",
+                      "recursive": false
+                    },
+                    {
+                      "fieldPath": "shipment_info.target",
+                      "jsonPath": null,
+                      "nullable": false,
+                      "description": {
+                        "string": "Shipment info target description"
+                      },
+                      "type": {
+                        "type": {
+                          "com.linkedin.pegasus2avro.schema.StringType": {}
+                        }
+                      },
+                      "nativeDataType": "text",
+                      "recursive": false
+                    },
+                    {
+                      "fieldPath": "shipment_info.destination",
+                      "jsonPath": null,
+                      "nullable": false,
+                      "description": {
+                        "string": "Shipment info destination description"
+                      },
+                      "type": {
+                        "type": {
+                          "com.linkedin.pegasus2avro.schema.StringType": {}
+                        }
+                      },
+                      "nativeDataType": "varchar(100)",
+                      "recursive": false
+                    },
+                    {
+                      "fieldPath": "shipment_info.geo_info",
+                      "jsonPath": null,
+                      "nullable": false,
+                      "description": {
+                        "string": "Shipment info geo_info description"
+                      },
+                      "type": {
+                        "type": {
+                          "com.linkedin.pegasus2avro.schema.RecordType": {}
+                        }
+                      },
+                      "nativeDataType": "varchar(100)",
+                      "recursive": false
+                    },
+                    {
+                      "fieldPath": "shipment_info.geo_info.lat",
+                      "jsonPath": null,
+                      "nullable": false,
+                      "description": {
+                        "string": "Shipment info geo_info lat"
+                      },
+                      "type": {
+                        "type": {
+                          "com.linkedin.pegasus2avro.schema.NumberType": {}
+                        }
+                      },
+                      "nativeDataType": "float",
+                      "recursive": false
+                    },
+                    {
+                      "fieldPath": "shipment_info.geo_info.lng",
+                      "jsonPath": null,
+                      "nullable": false,
+                      "description": {
+                        "string": "Shipment info geo_info lng"
+                      },
+                      "type": {
+                        "type": {
+                          "com.linkedin.pegasus2avro.schema.NumberType": {}
+                        }
+                      },
+                      "nativeDataType": "float",
+                      "recursive": false
+                    }
+                  ],
+                  "primaryKeys": null,
+                  "foreignKeysSpecs": null
+                }
+              },
+              {
                 "com.linkedin.pegasus2avro.common.Ownership": {
                   "owners": [{
                     "owner": "urn:li:corpuser:jdoe",

@@ -1,4 +1,5 @@
 import { Alert, message } from 'antd';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import React, { useMemo, useState } from 'react';
 import {
     GetGlossaryTermQuery,
@@ -29,6 +30,7 @@ export enum TabType {
 const ENABLED_TAB_TYPES = [TabType.Properties, TabType.RelatedEntity, TabType.RelatedGlossaryTerms, TabType.Schema];
 
 export default function GlossaryTermProfile() {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const [updateGlossary] = useUpdateGlossaryTermMutation({
         refetchQueries: () => ['getGlossaryTerm'],
         onError: (e) => {
