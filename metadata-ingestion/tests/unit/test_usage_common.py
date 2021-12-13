@@ -25,7 +25,7 @@ def test_add_one_query_without_columns():
 
     floored_ts = get_time_bucket(event_time, BucketDuration.DAY)
 
-    resource = f"test_db.test_schema.test_table"
+    resource = "test_db.test_schema.test_table"
 
     ta = TestAggregatedDataset(bucket_start_time=floored_ts, resource=resource)
     ta.add_read_entry(
@@ -50,7 +50,7 @@ def test_multiple_query_without_columns():
 
     floored_ts = get_time_bucket(event_time, BucketDuration.DAY)
 
-    resource = f"test_db.test_schema.test_table"
+    resource = "test_db.test_schema.test_table"
 
     ta = TestAggregatedDataset(bucket_start_time=floored_ts, resource=resource)
     ta.add_read_entry(
@@ -86,7 +86,7 @@ def test_make_usage_workunit():
 
     floored_ts = get_time_bucket(event_time, BucketDuration.DAY)
 
-    resource = f"test_db.test_schema.test_table"
+    resource = "test_db.test_schema.test_table"
 
     ta = TestAggregatedDataset(bucket_start_time=floored_ts, resource=resource)
     ta.add_read_entry(
@@ -114,11 +114,10 @@ def test_query_trimming():
 
     floored_ts = get_time_bucket(event_time, BucketDuration.DAY)
 
-    resource = f"test_db.test_schema.test_table"
+    resource = "test_db.test_schema.test_table"
 
     ta = TestAggregatedDataset(bucket_start_time=floored_ts, resource=resource)
     ta.total_budget_for_query_list = total_budget_for_query_list
-    budget_per_query = int(total_budget_for_query_list / top_n_queries)
 
     ta.add_read_entry(
         test_email,
