@@ -116,27 +116,27 @@ class MetabaseSource(Source):
             dashboards = dashboard_response.json()
 
             for dashboard_info in dashboards:
-                dashboard_snapshot = self.construct_dashboard_from_api_data(dashboard_info)
-                mce = MetadataChangeEvent(proposedSnapshot=dashboard_snapshot)
-                wu = MetadataWorkUnit(id=dashboard_snapshot.urn, mce=mce)
-                self.report.report_workunit(wu)
-                yield wu
+                dashboard_snapshot = self.construct_dashboard_from_api_data(
+                    dashboard_info
+                )
+                if dashboard_snapshot is not None:
+                    mce = MetadataChangeEvent(proposedSnapshot=dashboard_snapshot)
+                    wu = MetadataWorkUnit(id=dashboard_snapshot.urn, mce=mce)
+                    self.report.report_workunit(wu)
+                    yield wu
 
         except HTTPError as http_error:
             self.report.report_failure(
                 key="metabase-dashboard",
-                reason=f"Unable to retrieve dashboards. "
-                       f"Reason: {str(http_error)}"
+                reason=f"Unable to retrieve dashboards. " f"Reason: {str(http_error)}",
             )
 
     def construct_dashboard_from_api_data(
         self, dashboard_info: dict
-    ) -> DashboardSnapshot:
+    ) -> Optional[DashboardSnapshot]:
 
-        dashboard_id = dashboard_info.get('id', '')
-        dashboard_url = (
-            f"{self.config.connect_uri}/api/dashboard/{dashboard_id}"
-        )
+        dashboard_id = dashboard_info.get("id", "")
+        dashboard_url = f"{self.config.connect_uri}/api/dashboard/{dashboard_id}"
         try:
             dashboard_response = self.session.get(dashboard_url)
             dashboard_response.raise_for_status()
@@ -144,8 +144,7 @@ class MetabaseSource(Source):
         except HTTPError as http_error:
             self.report.report_failure(
                 key=f"metabase-dashboard-{dashboard_id}",
-                reason=f"Unable to retrieve dashboard. "
-                       f"Reason: {str(http_error)}"
+                reason=f"Unable to retrieve dashboard. " f"Reason: {str(http_error)}",
             )
             return None
 
@@ -201,8 +200,7 @@ class MetabaseSource(Source):
         except HTTPError as http_error:
             self.report.report_failure(
                 key=f"metabase-user-{creator_id}",
-                reason=f"Unable to retrieve User info. "
-                       f"Reason: {str(http_error)}"
+                reason=f"Unable to retrieve User info. " f"Reason: {str(http_error)}",
             )
             return None
 
@@ -228,22 +226,21 @@ class MetabaseSource(Source):
 
             for card_info in cards:
                 chart_snapshot = self.construct_card_from_api_data(card_info)
+                if chart_snapshot is not None:
+                    mce = MetadataChangeEvent(proposedSnapshot=chart_snapshot)
+                    wu = MetadataWorkUnit(id=chart_snapshot.urn, mce=mce)
+                    self.report.report_workunit(wu)
+                    yield wu
 
-                mce = MetadataChangeEvent(proposedSnapshot=chart_snapshot)
-                wu = MetadataWorkUnit(id=chart_snapshot.urn, mce=mce)
-                self.report.report_workunit(wu)
-
-                yield wu
         except HTTPError as http_error:
             self.report.report_failure(
                 key="metabase-cards",
-                reason=f"Unable to retrieve cards. "
-                       f"Reason: {str(http_error)}"
+                reason=f"Unable to retrieve cards. " f"Reason: {str(http_error)}",
             )
             return None
 
-    def construct_card_from_api_data(self, card_data: dict) -> ChartSnapshot:
-        card_id = card_data.get('id', '')
+    def construct_card_from_api_data(self, card_data: dict) -> Optional[ChartSnapshot]:
+        card_id = card_data.get("id", "")
         card_url = f"{self.config.connect_uri}/api/card/{card_id}"
         try:
             card_response = self.session.get(card_url)
@@ -252,8 +249,7 @@ class MetabaseSource(Source):
         except HTTPError as http_error:
             self.report.report_failure(
                 key=f"metabase-card-{card_id}",
-                reason=f"Unable to retrieve Card info. "
-                       f"Reason: {str(http_error)}"
+                reason=f"Unable to retrieve Card info. " f"Reason: {str(http_error)}",
             )
             return None
 
@@ -293,7 +289,9 @@ class MetabaseSource(Source):
         chart_snapshot.aspects.append(chart_info)
 
         if card_details.get("query_type", "") == "native":
-            raw_query = card_details.get("dataset_query", {}).get("native", {}).get("query", "")
+            raw_query = (
+                card_details.get("dataset_query", {}).get("native", {}).get("query", "")
+            )
             chart_query_native = ChartQueryClass(
                 rawQuery=raw_query,
                 type=ChartQueryTypeClass.SQL,
@@ -352,7 +350,9 @@ class MetabaseSource(Source):
                 "field_ref", ""
             ) else dimensions.append(display_name)
 
-        filters = (card_details.get("dataset_query", {}).get("query", {})).get("filter", [])
+        filters = (card_details.get("dataset_query", {}).get("query", {})).get(
+            "filter", []
+        )
 
         custom_properties = {
             "Metrics": ", ".join(metrics),
@@ -377,10 +377,16 @@ class MetabaseSource(Source):
             )
             schema_name, table_name = self.get_source_table_from_id(source_table_id)
             if table_name:
-                source_paths.add(f"{schema_name + '.' if schema_name else ''}{table_name}")
+                source_paths.add(
+                    f"{schema_name + '.' if schema_name else ''}{table_name}"
+                )
         else:
             try:
-                raw_query = card_details.get("dataset_query", {}).get("native", {}).get("query", "")
+                raw_query = (
+                    card_details.get("dataset_query", {})
+                    .get("native", {})
+                    .get("query", "")
+                )
                 parser = LineageRunner(raw_query)
 
                 for table in parser.source_tables:
@@ -394,8 +400,8 @@ class MetabaseSource(Source):
                 self.report.report_failure(
                     key="metabase-query",
                     reason=f"Unable to retrieve lineage from query. "
-                           f"Query: {raw_query} "
-                           f"Reason: {str(e)} ",
+                    f"Query: {raw_query} "
+                    f"Reason: {str(e)} ",
                 )
                 return None
 
@@ -403,7 +409,10 @@ class MetabaseSource(Source):
         dataset_urn = []
         dbname = f"{database_name + '.' if database_name else ''}"
         source_tables = list(map(lambda tbl: f"{dbname}{tbl}", source_paths))
-        dataset_urn = [builder.make_dataset_urn(platform, name, self.config.env) for name in source_tables]
+        dataset_urn = [
+            builder.make_dataset_urn(platform, name, self.config.env)
+            for name in source_tables
+        ]
 
         return dataset_urn
 
@@ -423,7 +432,7 @@ class MetabaseSource(Source):
             self.report.report_failure(
                 key=f"metabase-table-{table_id}",
                 reason=f"Unable to retrieve source table. "
-                       f"Reason: {str(http_error)}"
+                f"Reason: {str(http_error)}",
             )
 
         return None, None
@@ -439,8 +448,7 @@ class MetabaseSource(Source):
         except HTTPError as http_error:
             self.report.report_failure(
                 key=f"metabase-datasource-{datasource_id}",
-                reason=f"Unable to retrieve Datasource. "
-                       f"Reason: {str(http_error)}"
+                reason=f"Unable to retrieve Datasource. " f"Reason: {str(http_error)}",
             )
             return None, None
 
