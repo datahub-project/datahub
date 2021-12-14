@@ -50,6 +50,7 @@ PARTITIONED_TABLE_REGEX = re.compile(r"^(.+)[\$_](\d{4}|\d{6}|\d{8}|\d{10})$")
 SNAPSHOT_TABLE_REGEX = re.compile(r"^(.+)@(\d{13})$")
 
 BQ_DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
+BQ_DATE_SHARD_FORMAT = "%Y%m%d"
 BQ_FILTER_REGEX_ALLOW_TEMPLATE = """
 protoPayload.serviceData.jobCompletedEvent.job.jobStatistics.referencedTables.tableId =~ "{allow_pattern}"
 """

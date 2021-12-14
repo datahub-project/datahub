@@ -26,6 +26,7 @@ from datahub.ingestion.source.sql.sql_common import (
     register_custom_type,
 )
 from datahub.ingestion.source.usage.bigquery_usage import (
+    BQ_DATE_SHARD_FORMAT,
     BQ_DATETIME_FORMAT,
     AuditLogEntry,
     BigQueryAuditMetadata,
@@ -71,33 +72,56 @@ timestamp < "{end_time}"
 # patch the implementation.
 
 
-def bigquery_audit_metadata_query_template(dataset: str) -> str:
+def bigquery_audit_metadata_query_template(
+    dataset: str, use_date_sharded_tables: bool
+) -> str:
     """
     Receives a dataset (with project specified) and returns a query template that is used to query exported
     AuditLogs containing protoPayloads of type BigQueryAuditMetadata.
     :param dataset: the dataset to query against in the form of $PROJECT.$DATASET
+    :param use_date_sharded_tables: whether to read from date sharded audit log tables or time partitioned audit log
+           tables
     :return: a query template, when supplied start_time and end_time, can be used to query audit logs from BigQuery
     """
-    query = (
-        f"""
-    SELECT
-        timestamp,
-        logName,
-        insertId,
-        protopayload_auditlog AS protoPayload,
-        protopayload_auditlog.metadataJson AS metadata
-    FROM
-        `{dataset}.cloudaudit_googleapis_com_data_access`
+    query: str
+    if use_date_sharded_tables:
+        query = (
+            f"""
+        SELECT
+            timestamp,
+            logName,
+            insertId,
+            protopayload_auditlog AS protoPayload,
+            protopayload_auditlog.metadataJson AS metadata
+        FROM
+            `{dataset}.cloudaudit_googleapis_com_data_access_*`
+        """
+            + """
+        WHERE
+            _TABLE_SUFFIX BETWEEN "{start_date}" AND "{end_date}" AND
+        """
+        )
+    else:
+        query = f"""
+        SELECT
+            timestamp,
+            logName,
+            insertId,
+            protopayload_auditlog AS protoPayload,
+            protopayload_auditlog.metadataJson AS metadata
+        FROM
+            `{dataset}.cloudaudit_googleapis_com_data_access`
+        WHERE
+        """
+
+    audit_log_filter = """    timestamp >= "{start_time}"
+    AND timestamp < "{end_time}"
+    AND protopayload_auditlog.serviceName="bigquery.googleapis.com"
+    AND JSON_EXTRACT_SCALAR(protopayload_auditlog.metadataJson, "$.jobChange.job.jobStatus.jobState") = "DONE"
+    AND JSON_EXTRACT(protopayload_auditlog.metadataJson, "$.jobChange.job.jobConfig.queryConfig") IS NOT NULL;
     """
-        + """
-    WHERE        
-        timestamp >= "{start_time}"
-        AND timestamp < "{end_time}"
-        AND protopayload_auditlog.serviceName="bigquery.googleapis.com"
-        AND JSON_EXTRACT_SCALAR(protopayload_auditlog.metadataJson, "$.jobChange.job.jobStatus.jobState") = "DONE"
-        AND JSON_EXTRACT(protopayload_auditlog.metadataJson, "$.jobChange.job.jobConfig.queryConfig") IS NOT NULL;
-    """
-    )
+
+    query = textwrap.dedent(query) + audit_log_filter
 
     return textwrap.dedent(query)
 
@@ -128,6 +152,7 @@ class BigQueryConfig(BaseTimeWindowConfig, SQLAlchemyConfig):
 
     bigquery_audit_metadata_datasets: Optional[List[str]] = None
     use_exported_bigquery_audit_metadata: Optional[bool] = False
+    use_date_sharded_audit_log_tables: Optional[bool] = False
 
     def get_sql_alchemy_url(self):
         if self.project_id:
@@ -153,7 +178,9 @@ class BigQuerySource(SQLAlchemySource):
                 self._compute_bigquery_lineage_via_gcp_logging()
 
             if self.lineage_metadata is not None:
-                logger.info(f"Built lineage map containing {len(self.lineage_metadata)} entries.")
+                logger.info(
+                    f"Built lineage map containing {len(self.lineage_metadata)} entries."
+                )
 
     def _compute_bigquery_lineage_via_gcp_logging(self) -> None:
         try:
@@ -238,9 +265,27 @@ class BigQuerySource(SQLAlchemySource):
                 f"Start loading log entries from BigQueryAuditMetadata in {dataset}"
             )
 
-            query = bigquery_audit_metadata_query_template(dataset).format(
-                start_time=start_time, end_time=end_time
-            )
+            query: str
+            if self.config.use_date_sharded_audit_log_tables:
+                start_date: str = (
+                    self.config.start_time - self.config.max_query_duration
+                ).strftime(BQ_DATE_SHARD_FORMAT)
+                end_date: str = (
+                    self.config.end_time + self.config.max_query_duration
+                ).strftime(BQ_DATE_SHARD_FORMAT)
+
+                query = bigquery_audit_metadata_query_template(
+                    dataset, self.config.use_date_sharded_audit_log_tables
+                ).format(
+                    start_time=start_time,
+                    end_time=end_time,
+                    start_date=start_date,
+                    end_date=end_date,
+                )
+            else:
+                query = bigquery_audit_metadata_query_template(
+                    dataset, self.config.use_date_sharded_audit_log_tables
+                ).format(start_time=start_time, end_time=end_time)
             query_job = bigquery_client.query(query)
 
             logger.debug(
