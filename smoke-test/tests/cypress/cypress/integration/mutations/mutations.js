@@ -3,7 +3,7 @@ describe('mutations', () => {
     cy.deleteUrn('urn:li:tag:CypressTestAddTag')
     cy.login();
     cy.visit('/dataset/urn:li:dataset:(urn:li:dataPlatform:hive,cypress_logging_events,PROD)');
-	cy.contains('cypress_logging_events');
+    cy.contains('cypress_logging_events');
 
     cy.contains('Add Tag').click();
 
