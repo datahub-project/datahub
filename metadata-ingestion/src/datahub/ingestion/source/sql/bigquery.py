@@ -152,6 +152,9 @@ class BigQuerySource(SQLAlchemySource):
             else:
                 self._compute_bigquery_lineage_via_gcp_logging()
 
+            if self.lineage_metadata is not None:
+                logger.info(f"Built lineage map containing {len(self.lineage_metadata)} entries.")
+
     def _compute_bigquery_lineage_via_gcp_logging(self) -> None:
         try:
             _clients: List[GCPLoggingClient] = self._make_bigquery_client()
@@ -169,16 +172,22 @@ class BigQuerySource(SQLAlchemySource):
             )
 
     def _compute_bigquery_lineage_via_exported_bigquery_audit_metadata(self) -> None:
-        _client: BigQueryClient = BigQueryClient(project=self.config.project_id)
-        exported_bigquery_audit_metadata: Iterable[
-            BigQueryAuditMetadata
-        ] = self._get_exported_bigquery_audit_metadata(_client)
-        parsed_entries: Iterable[
-            QueryEvent
-        ] = self._parse_exported_bigquery_audit_metadata(
-            exported_bigquery_audit_metadata
-        )
-        self.lineage_metadata = self._create_lineage_map(parsed_entries)
+        try:
+            _client: BigQueryClient = BigQueryClient(project=self.config.project_id)
+            exported_bigquery_audit_metadata: Iterable[
+                BigQueryAuditMetadata
+            ] = self._get_exported_bigquery_audit_metadata(_client)
+            parsed_entries: Iterable[
+                QueryEvent
+            ] = self._parse_exported_bigquery_audit_metadata(
+                exported_bigquery_audit_metadata
+            )
+            self.lineage_metadata = self._create_lineage_map(parsed_entries)
+        except Exception as e:
+            logger.error(
+                "Error computing lineage information using GCP logs.",
+                e,
+            )
 
     def _make_bigquery_client(self) -> List[GCPLoggingClient]:
         # See https://github.com/googleapis/google-cloud-python/issues/2674 for
