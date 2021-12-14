@@ -37,9 +37,6 @@ retrieve the following information.
 - Link to the chart in Metabase
 - Datasource and lineage
 
-Lineage information is only available for charts having a direct single source, i.e table or view.
-For now lineage information for charts sourcing their data from a native SQL query is not supported.
-
 The following properties for a chart are ingested in DataHub.
 
 | Name          | Description                                     |
@@ -67,6 +64,7 @@ source:
     password: pass
     
     # Options
+    default_schema: public
     database_alias_map:
       h2: sample-dataset.db
 
@@ -77,13 +75,14 @@ sink:
 ## Config details
 
 
-| Field                | Required | Default            | Description                                             |
-| -------------------- | -------- | ------------------ | ------------------------------------------------------- |
-| `connect_uri`        |    ✅     | `"localhost:8088"` | Metabase host URL.                                      |
-| `username`           |    ✅     |                    | Metabase username.                                      |
-| `password`           |    ✅     |                    | Metabase password.                                      |
-| `database_alias_map` |          |                    | Database name map to use when constructing dataset URN. |
-| `env`                |          | `"PROD"`           | Environment to use in namespace when constructing URNs. |
+| Field                | Required | Default            | Description                                                            |
+| -------------------- | -------- | ------------------ |------------------------------------------------------------------------|
+| `connect_uri`        |    ✅     | `"localhost:8088"` | Metabase host URL.                                                     |
+| `username`           |    ✅     |                    | Metabase username.                                                     |
+| `password`           |    ✅     |                    | Metabase password.                                                     |
+| `database_alias_map` |          |                    | Database name map to use when constructing dataset URN.                |
+| `default_schema`     |          | `public`           | Default schema name to use when schema is not provided in an SQL query |
+| `env`                |          | `"PROD"`           | Environment to use in namespace when constructing URNs.                |
 
 
 DataHub will try to determine database name from Metabase [api/database](https://www.metabase.com/docs/latest/api-documentation.html#database)

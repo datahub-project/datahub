@@ -4,6 +4,7 @@ from unittest.mock import patch
 from freezegun import freeze_time
 from requests.models import HTTPError
 
+from datahub.configuration.common import PipelineExecutionError
 from datahub.ingestion.run.pipeline import Pipeline
 from tests.test_helpers import mce_helpers
 
@@ -65,7 +66,7 @@ def mocked_requests_sucess(*args, **kwargs):
 
 
 def mocked_requests_failure(*args, **kwargs):
-    return MockResponse(RESPONSE_ERROR_LIST, 200)
+    return MockResponse(None, error_list=RESPONSE_ERROR_LIST)
 
 
 def mocked_requests_session_post(url, data, json):
@@ -119,3 +120,46 @@ def test_mode_ingest_success(pytestconfig, tmp_path):
             golden_path=test_resources_dir / "metabase_mces_golden.json",
             ignore_paths=mce_helpers.IGNORE_PATH_TIMESTAMPS,
         )
+
+
+@freeze_time(FROZEN_TIME)
+def test_mode_ingest_failure(pytestconfig, tmp_path):
+    with patch(
+        "datahub.ingestion.source.metabase.requests.session",
+        side_effect=mocked_requests_failure,
+    ), patch(
+        "datahub.ingestion.source.metabase.requests.post",
+        side_effect=mocked_requests_session_post,
+    ), patch(
+        "datahub.ingestion.source.metabase.requests.delete",
+        side_effect=mocked_requests_session_delete,
+    ):
+        global test_resources_dir
+        test_resources_dir = pytestconfig.rootpath / "tests/integration/metabase"
+
+        pipeline = Pipeline.create(
+            {
+                "run_id": "metabase-test",
+                "source": {
+                    "type": "metabase",
+                    "config": {
+                        "username": "xxxx",
+                        "password": "xxxx",
+                        "connect_uri": "http://localhost:3000/",
+                    },
+                },
+                "sink": {
+                    "type": "file",
+                    "config": {
+                        "filename": f"{tmp_path}/metabase_mces.json",
+                    },
+                },
+            }
+        )
+        pipeline.run()
+        try:
+            pipeline.raise_from_status()
+        except PipelineExecutionError as exec_error:
+            assert exec_error.args[0] == "Source reported errors"
+            assert len(exec_error.args[1].failures) == 1
+            assert list(exec_error.args[1].failures.keys())[0] == "metabase-dashboard"
