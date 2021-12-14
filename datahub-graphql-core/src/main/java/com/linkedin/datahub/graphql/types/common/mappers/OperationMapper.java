@@ -1,10 +1,9 @@
 package com.linkedin.datahub.graphql.types.common.mappers;
 
 import com.linkedin.common.Operation;
-import com.linkedin.common.OperationType;
+import com.linkedin.datahub.graphql.generated.OperationType;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.types.mappers.TimeSeriesAspectMapper;
-import com.linkedin.dataset.DatasetFieldProfile;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.utils.GenericAspectUtils;
 import java.util.stream.Collectors;
@@ -33,7 +32,7 @@ public class OperationMapper implements TimeSeriesAspectMapper<com.linkedin.data
         result.setTimestampMillis(gmsProfile.getTimestampMillis());
         result.setLastUpdatedTimestamp(gmsProfile.getLastUpdatedTimestamp());
         result.setActor(gmsProfile.getActor().toString());
-        result.setOperationType(Enum.valueOf(OperationType.class, gmsProfile.getOperationType().toString()));
+        result.setOperationType(OperationType.valueOf(OperationType.class, gmsProfile.getOperationType().toString()));
         result.setNumAffectedRows(gmsProfile.getNumAffectedRows());
         if (gmsProfile.hasAffectedDatasets()) {
             result.setAffectedDatasets(gmsProfile.getAffectedDatasets().stream().map(Urn::toString).collect(Collectors.toList()));
