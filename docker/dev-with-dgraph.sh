@@ -7,7 +7,7 @@ fi
 
 CONSUMERS_COMPOSE=""
 if [[ $SEPARATE_CONSUMERS == true ]]; then
-  CONSUMERS_COMPOSE="-f docker-compose.consumers-without-neo4j.yml -f docker-compose.consumers.dev.yml"
+  CONSUMERS_COMPOSE="-f docker-compose.consumers.yml -f docker-compose.consumers.dev.yml"
   if [[ $MONITORING == true ]]; then
     MONITORING_COMPOSE="-f monitoring/docker-compose.monitoring.yml -f monitoring/docker-compose.consumers.monitoring.yml"
   fi
