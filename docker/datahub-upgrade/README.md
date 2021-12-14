@@ -25,7 +25,7 @@ To run the `datahub-upgrade` container, some environment variables must be provi
 where the running DataHub containers reside. 
 
 Below details the required configurations. By default, these configs are provided for local docker-compose deployments of 
-DataHub within `docker/datahub-upgrade/env/docker-with-neo4j.env`. They assume that there is a Docker network called datahub_network
+DataHub within `docker/datahub-upgrade/env/docker.env`. They assume that there is a Docker network called datahub_network
 where the DataHub containers can be found. 
 
 These are also the variables used when the provided `datahub-upgrade.sh` script is executed. To run the upgrade CLI for non-local deployments,
@@ -93,7 +93,7 @@ For example, to run the migration named "NoCodeDataMigration", you would do exec
 OR
 
 ```aidl
-docker pull acryldata/datahub-upgrade:head && docker run --env-file env/docker-with-neo4j.env acryldata/datahub-upgrade:head -u NoCodeDataMigration
+docker pull acryldata/datahub-upgrade:head && docker run --env-file env/docker.env acryldata/datahub-upgrade:head -u NoCodeDataMigration
 ```
 
 In addition to the required `-u` argument, each upgrade may require specific arguments. You can provide arguments to individual
@@ -109,5 +109,5 @@ To specify these, you can use a combination of `-a` arguments and of the form *a
 OR 
 
 ```aidl
-docker pull acryldata/datahub-upgrade:head && docker run --env-file env/docker-with-neo4j.env acryldata/datahub-upgrade:head -u NoCodeDataMigration -a batchSize=500 -a batchDelayMs=1000
+docker pull acryldata/datahub-upgrade:head && docker run --env-file env/docker.env acryldata/datahub-upgrade:head -u NoCodeDataMigration -a batchSize=500 -a batchDelayMs=1000
 ```
