@@ -7,9 +7,9 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtBuilder;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
+import java.nio.charset.StandardCharsets;
 import java.security.Key;
 import java.util.ArrayList;
-import java.util.Base64;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -104,8 +104,7 @@ public class TokenService {
     if (this.iss != null) {
       builder.setIssuer(this.iss);
     }
-    byte[] apiKeySecretBytes = Base64.getDecoder().decode(this.signingKey); // Key must be base64'd.
-    final Key signingKey = new SecretKeySpec(apiKeySecretBytes, this.signingAlgorithm.getJcaName());
+    final Key signingKey = new SecretKeySpec(this.signingKey.getBytes(StandardCharsets.UTF_8), this.signingAlgorithm.getJcaName());
     return builder.signWith(signingKey, this.signingAlgorithm).compact();
   }
 
