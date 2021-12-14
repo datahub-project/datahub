@@ -128,6 +128,15 @@ public abstract class EntityService {
   @Nullable
   public abstract RecordTemplate getAspect(@Nonnull final Urn urn, @Nonnull final String aspectName, long version);
 
+  /**
+   * Retrieves the latest aspects for the given set of urns as dynamic aspect objects
+   * (Without having to define union objects)
+   *
+   * @param entityName name of the entity to fetch
+   * @param urns set of urns to fetch
+   * @param aspectNames set of aspects to fetch
+   * @return a map of {@link Urn} to {@link Entity} object
+   */
   public Map<Urn, EntityResponse> getEntitiesV2(
       @Nonnull final String entityName,
       @Nonnull final Set<Urn> urns,
@@ -138,16 +147,41 @@ public abstract class EntityService {
         .collect(Collectors.toMap(Map.Entry::getKey, entry -> toEntityResponse(entry.getKey(), entry.getValue())));
   }
 
+  /**
+   * Retrieves the latest aspects for the given set of urns as a list of enveloped aspects
+   *
+   * @param entityName name of the entity to fetch
+   * @param urns set of urns to fetch
+   * @param aspectNames set of aspects to fetch
+   * @return a map of {@link Urn} to {@link EnvelopedAspect} object
+   */
   public abstract Map<Urn, List<EnvelopedAspect>> getLatestEnvelopedAspects(
       @Nonnull final String entityName,
       @Nonnull final Set<Urn> urns,
       @Nonnull final Set<String> aspectNames) throws Exception;
 
-  public abstract List<EnvelopedAspect> getLatestEnvelopedAspects(
+  /**
+   * Retrieves the latest aspect for the given urn as a list of enveloped aspects
+   *
+   * @param entityName name of the entity to fetch
+   * @param urn urn to fetch
+   * @param aspectName name of the aspect to fetch
+   * @return {@link EnvelopedAspect} object, or null if one cannot be found
+   */
+  public abstract EnvelopedAspect getLatestEnvelopedAspect(
       @Nonnull final String entityName,
       @Nonnull final Urn urn,
-      @Nonnull final Set<String> aspectNames) throws Exception;
+      @Nonnull final String aspectName) throws Exception;
 
+  /**
+   * Retrieves the specific version of the aspect for the given urn
+   *
+   * @param entityName name of the entity to fetch
+   * @param urn urn to fetch
+   * @param aspectName name of the aspect to fetch
+   * @param version version to fetch
+   * @return {@link EnvelopedAspect} object, or null if one cannot be found
+   */
   public abstract EnvelopedAspect getEnvelopedAspect(
       @Nonnull final String entityName,
       @Nonnull final Urn urn,

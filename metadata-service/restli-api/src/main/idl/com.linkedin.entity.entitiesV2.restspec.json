@@ -1,12 +1,12 @@
 {
-  "name" : "entity",
+  "name" : "entitiesV2",
   "namespace" : "com.linkedin.entity",
-  "path" : "/entity",
+  "path" : "/entitiesV2",
   "schema" : "com.linkedin.entity.EntityResponse",
   "doc" : "Single unified resource for fetching, updating, searching, & browsing DataHub entities\n\ngenerated from: com.linkedin.metadata.resources.entity.EntityV2Resource",
   "collection" : {
     "identifier" : {
-      "name" : "entityId",
+      "name" : "entitiesV2Id",
       "type" : "string"
     },
     "supports" : [ "batch_get", "get" ],
@@ -27,7 +27,7 @@
       } ]
     } ],
     "entity" : {
-      "path" : "/entity/{entityId}"
+      "path" : "/entitiesV2/{entitiesV2Id}"
     }
   }
 }

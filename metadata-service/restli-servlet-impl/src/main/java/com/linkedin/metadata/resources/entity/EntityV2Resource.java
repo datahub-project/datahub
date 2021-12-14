@@ -39,16 +39,12 @@ import static com.linkedin.metadata.utils.PegasusUtils.urnToEntityName;
  * Single unified resource for fetching, updating, searching, & browsing DataHub entities
  */
 @Slf4j
-@RestLiCollection(name = "entity", namespace = "com.linkedin.entity")
+@RestLiCollection(name = "entitiesV2", namespace = "com.linkedin.entity")
 public class EntityV2Resource extends CollectionResourceTaskTemplate<String, EntityResponse> {
 
   @Inject
   @Named("entityService")
   private EntityService _entityService;
-
-  @Inject
-  @Named("searchService")
-  private SearchService _searchService;
 
   /**
    * Retrieves the value for an entity that is made up of latest versions of specified aspects.
@@ -58,7 +54,7 @@ public class EntityV2Resource extends CollectionResourceTaskTemplate<String, Ent
   @WithSpan
   public Task<EntityResponse> get(@Nonnull String urnStr, @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames)
       throws URISyntaxException {
-    log.debug("GET {}", urnStr);
+    log.debug("GET V2 {}", urnStr);
     final Urn urn = Urn.createFromString(urnStr);
     return RestliUtil.toTask(() -> {
       final String entityName = urnToEntityName(urn);
@@ -81,7 +77,7 @@ public class EntityV2Resource extends CollectionResourceTaskTemplate<String, Ent
   public Task<Map<Urn, EntityResponse>> batchGet(
       @Nonnull Set<String> urnStrs,
       @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) throws URISyntaxException {
-    log.debug("BATCH GET {}", urnStrs.toString());
+    log.debug("BATCH GET V2 {}", urnStrs.toString());
     final Set<Urn> urns = new HashSet<>();
     for (final String urnStr : urnStrs) {
       urns.add(Urn.createFromString(urnStr));
