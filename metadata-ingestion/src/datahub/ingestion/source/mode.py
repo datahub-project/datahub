@@ -4,9 +4,15 @@ from typing import Dict, Iterable, Optional, Tuple, Union
 
 import dateutil.parser as dp
 import requests
+import tenacity
 from pydantic import validator
 from requests.models import HTTPBasicAuth, HTTPError
 from sqllineage.runner import LineageRunner
+from tenacity import (
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigModel
@@ -45,11 +51,17 @@ class ModeConfig(ConfigModel):
     workspace: Optional[str] = None
     default_schema: str = "public"
     owner_username_instead_of_email: Optional[bool] = True
+    initial_api_request_delay: int = 1
+    max_tries_api_request: int = 5
     env: str = builder.DEFAULT_ENV
 
     @validator("connect_uri")
     def remove_trailing_slash(cls, v):
         return config_clean.remove_trailing_slashes(v)
+
+
+class HTTPError429(HTTPError):
+    pass
 
 
 class ModeSource(Source):
@@ -574,12 +586,10 @@ class ModeSource(Source):
     def _get_charts(self, report_token: str, query_token: str) -> list:
         charts = []
         try:
-            chart_response = self.session.get(
+            charts_json = self._get_request_json(
                 f"{self.workspace_uri}/reports/{report_token}"
                 f"/queries/{query_token}/charts"
             )
-            chart_response.raise_for_status()
-            charts_json = chart_response.json()
             charts = charts_json.get("_embedded", {}).get("charts", {})
         except HTTPError as http_error:
             self.report.report_failure(
@@ -590,6 +600,22 @@ class ModeSource(Source):
                 f"Reason: {str(http_error)}",
             )
         return charts
+
+    @tenacity.retry(
+        wait=wait_exponential(multiplier=1, min=1, max=10),
+        retry=retry_if_exception_type(HTTPError429),
+        stop=stop_after_attempt(5),
+    )
+    def _get_request_json(self, url: str):
+        try:
+            response = self.session.get(url)
+            response.raise_for_status()
+            return response.json()
+        except HTTPError as http_error:
+            if http_error.response.status_code == 429:
+                # respect Retry-After if in seconds. if retry-after is date then raise service unavailable (503)
+                raise HTTPError429
+            raise http_error
 
     def emit_dashboard_mces(self) -> Iterable[MetadataWorkUnit]:
         for space_token, space_name in self.space_tokens.items():
