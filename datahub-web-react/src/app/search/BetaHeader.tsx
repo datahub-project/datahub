@@ -37,8 +37,7 @@ export const BetaHeader = () => {
         <Header style={styles.header as any}>
             <HeaderTitle level={4}>
                 This is a Beta release of the data catalog. More information&nbsp;
-                <a href="https://data.klarna.net/explore-data/catalog/">here</a>. General
-                feedback&nbsp;
+                <a href="https://data.klarna.net/explore-data/catalog/">here</a>. General feedback&nbsp;
                 <a href="https://docs.google.com/forms/d/1U5mTbLDanpwbppx9afwPk5Adi1IctsGWYRRfOh0r7Dg">here</a>. Dataset
                 quality feedback&nbsp;
                 <a href="https://docs.google.com/forms/d/1UtWZEo0Tpx5BsPxMAM1Rl82_WVeJdwwbbHkHnGxhNLM">here</a>.
