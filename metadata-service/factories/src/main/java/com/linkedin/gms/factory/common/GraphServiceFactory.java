@@ -1,6 +1,7 @@
 package com.linkedin.gms.factory.common;
 
 import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
+import com.linkedin.metadata.graph.DgraphGraphService;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.Neo4jGraphService;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
@@ -18,7 +19,7 @@ import org.springframework.context.annotation.PropertySource;
 
 @Configuration
 @PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
-@Import({Neo4jGraphServiceFactory.class, ElasticSearchGraphServiceFactory.class})
+@Import({Neo4jGraphServiceFactory.class, DgraphGraphServiceFactory.class, ElasticSearchGraphServiceFactory.class})
 public class GraphServiceFactory {
   @Autowired
   @Qualifier("elasticSearchGraphService")
@@ -28,22 +29,28 @@ public class GraphServiceFactory {
   @Qualifier("neo4jGraphService")
   private Neo4jGraphService _neo4jGraphService;
 
+  @Autowired
+  @Qualifier("dgraphGraphService")
+  private DgraphGraphService _dgraphGraphService;
+
   @Value("${graphService.type}")
   private String graphServiceImpl;
 
   @Nonnull
-  @DependsOn({"neo4jGraphService", "elasticSearchGraphService"})
+  @DependsOn({"neo4jGraphService", "dgraphGraphService", "elasticSearchGraphService"})
   @Bean(name = "graphService")
   @Primary
   protected GraphService createInstance() {
     if (graphServiceImpl.equalsIgnoreCase("neo4j")) {
       return _neo4jGraphService;
+    } else if (graphServiceImpl.equalsIgnoreCase("dgraph")) {
+      return _dgraphGraphService;
     } else if (graphServiceImpl.equalsIgnoreCase("elasticsearch")) {
       return _elasticSearchGraphService;
     } else {
       throw new RuntimeException(
           "Error: Failed to initialize graph service. Graph Service provided: " + graphServiceImpl
-              + ". Valid options: [neo4j, elasticsearch].");
+              + ". Valid options: [neo4j, dgraph, elasticsearch].");
     }
   }
 }

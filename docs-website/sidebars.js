@@ -85,6 +85,30 @@ module.exports = {
       {
         Sinks: list_ids_in_directory("metadata-ingestion/sink_docs"),
       },
+      {
+        Scheduling: [
+          "metadata-ingestion/schedule_docs/intro",
+          "metadata-ingestion/schedule_docs/cron",
+          "metadata-ingestion/schedule_docs/airflow",
+        ],
+      },
+      {
+        Lineage: [
+          "docs/lineage/intro",
+          "docs/lineage/airflow",
+          "docker/airflow/local_airflow",
+          "docs/lineage/sample_code",
+          "spark-lineage/README",
+        ],
+      },
+      {
+        Guides: [
+          "metadata-ingestion/adding-source",
+          "docs/how/add-custom-ingestion-source",
+          "docs/how/add-custom-data-platform",
+          "docs/how/add-user-data",
+        ],
+      },
     ],
     "Metadata Modeling": [
       "docs/modeling/metadata-model",
@@ -169,7 +193,6 @@ module.exports = {
       // TODO: the titles of these should not be in question form in the sidebar
       "docs/developers",
       "docs/docker/development",
-      "metadata-ingestion/adding-source",
       {
         type: "doc",
         label: "Ingesting files from S3",
@@ -191,9 +214,6 @@ module.exports = {
       "docs/how/delete-metadata",
       "datahub-web-react/src/app/analytics/README",
       "metadata-ingestion/developing",
-      "docker/airflow/local_airflow",
-      "docs/how/add-custom-data-platform",
-      "docs/how/add-custom-ingestion-source",
       {
         "Module READMEs": [
           "datahub-web-react/README",
@@ -208,6 +228,7 @@ module.exports = {
       {
         Advanced: [
           "docs/advanced/no-code-modeling",
+          "docs/advanced/db-retention",
           "docs/advanced/aspect-versioning",
           "docs/advanced/es-7-upgrade",
           "docs/advanced/high-cardinality",
@@ -221,6 +242,8 @@ module.exports = {
           // WIP "docs/advanced/entity-hierarchy",
           // WIP "docs/advanced/partial-update",
           // WIP "docs/advanced/pdl-best-practices",
+          // WIP "docs/introducing-metadata-service-authentication"
+          // WIP "metadata-models-custom/README"
         ],
       },
     ],

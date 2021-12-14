@@ -154,7 +154,7 @@ public class TagType implements com.linkedin.datahub.graphql.types.SearchableEnt
         return AuthorizationUtils.isAuthorized(
             context.getAuthorizer(),
             context.getAuthentication().getActor().toUrnStr(),
-            PoliciesConfig.DATASET_PRIVILEGES.getResourceType(),
+            PoliciesConfig.TAG_PRIVILEGES.getResourceType(),
             update.getUrn(),
             orPrivilegeGroups);
     }
