@@ -13,14 +13,16 @@ FROZEN_TIME = "2021-12-07 07:00:00"
 JSON_RESPONSE_MAP = {
     "https://app.mode.com/api/account": "user.json",
     "https://app.mode.com/api/acryl/spaces": "spaces.json",
-    "https://app.mode.com/api/acryl/spaces/9026edbd5a3c/reports": "reports.json",
+    "https://app.mode.com/api/acryl/spaces/157933cc1168/reports": "reports_157933cc1168.json",
+    "https://app.mode.com/api/acryl/spaces/75737b70402e/reports": "reports_75737b70402e.json",
     "https://app.mode.com/api/modeuser": "user.json",
-    "https://app.mode.com/api/acryl/reports/72f2ef8fb3a8/queries": "queries.json",
-    "https://app.mode.com/api/acryl/reports/72f2ef8fb3a8/queries/bc5f397e4b77/charts": "charts.json",
+    "https://app.mode.com/api/acryl/reports/9d2da37fa91e/queries": "queries.json",
+    "https://app.mode.com/api/acryl/reports/9d2da37fa91e/queries/6e26a9f3d4e2/charts": "charts.json",
     "https://app.mode.com/api/acryl/data_sources": "data_sources.json",
+    "https://app.mode.com/api/acryl/definitions": "definitions.json",
 }
 
-RESPONSE_ERROR_LIST = ["https://app.mode.com/api/acryl/spaces/9026edbd5a3c/reports"]
+RESPONSE_ERROR_LIST = ["https://app.mode.com/api/acryl/spaces/75737b70402e/reports"]
 
 test_resources_dir = None
 
@@ -142,5 +144,5 @@ def test_mode_ingest_failure(pytestconfig, tmp_path):
             assert len(exec_error.args[1].failures) == 1
             assert (
                 list(exec_error.args[1].failures.keys())[0]
-                == "mode-report-9026edbd5a3c"
+                == "mode-report-75737b70402e"
             )
