@@ -1,3 +1,4 @@
+import os
 import time
 
 import pytest
@@ -6,6 +7,9 @@ import urllib
 from datahub.cli.docker import check_local_docker_containers
 from datahub.ingestion.run.pipeline import Pipeline
 from tests.utils import FRONTEND_ENDPOINT
+
+# Disable telemetry
+os.putenv("DATAHUB_TELEMETRY_ENABLED", "false")
 
 @pytest.fixture(scope="session")
 def wait_for_healthchecks():

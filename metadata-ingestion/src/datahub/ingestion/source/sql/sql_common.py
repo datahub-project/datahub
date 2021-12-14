@@ -47,6 +47,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     TimeTypeClass,
 )
 from datahub.metadata.schema_classes import ChangeTypeClass, DatasetPropertiesClass
+from datahub.utilities.sqlalchemy_query_combiner import SQLAlchemyQueryCombinerReport
 
 if TYPE_CHECKING:
     from datahub.ingestion.source.ge_data_profiler import (
@@ -122,7 +123,10 @@ def make_sqlalchemy_uri(
 class SQLSourceReport(SourceReport):
     tables_scanned: int = 0
     views_scanned: int = 0
+    entities_profiled: int = 0
     filtered: List[str] = field(default_factory=list)
+
+    query_combiner: Optional[SQLAlchemyQueryCombinerReport] = None
 
     def report_entity_scanned(self, name: str, ent_type: str = "table") -> None:
         """
@@ -135,8 +139,16 @@ class SQLSourceReport(SourceReport):
         else:
             raise KeyError(f"Unknown entity {ent_type}.")
 
+    def report_entity_profiled(self, name: str) -> None:
+        self.entities_profiled += 1
+
     def report_dropped(self, ent_name: str) -> None:
         self.filtered.append(ent_name)
+
+    def report_from_query_combiner(
+        self, query_combiner_report: SQLAlchemyQueryCombinerReport
+    ) -> None:
+        self.query_combiner = query_combiner_report
 
 
 class SQLAlchemyConfig(ConfigModel):
@@ -634,12 +646,12 @@ class SQLAlchemySource(Source):
             dataset_name = self.get_identifier(
                 schema=schema, entity=table, inspector=inspector
             )
-            self.report.report_entity_scanned(f"profile of {dataset_name}")
 
             if not sql_config.profile_pattern.allowed(dataset_name):
                 self.report.report_dropped(f"profile of {dataset_name}")
                 continue
 
+            self.report.report_entity_profiled(dataset_name)
             yield GEProfilerRequest(
                 pretty_name=dataset_name,
                 batch_kwargs=self.prepare_profiler_args(schema=schema, table=table),

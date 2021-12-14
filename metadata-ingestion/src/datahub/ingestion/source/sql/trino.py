@@ -66,7 +66,12 @@ if sys.version_info >= (3, 7):  # noqa: C901
 
             return {"text": properties.get("comment", None), "properties": properties}
         except TrinoQueryError as e:
-            if e.error_name in (error.TABLE_NOT_FOUND):
+            if e.error_name in (
+                error.TABLE_NOT_FOUND,
+                error.COLUMN_NOT_FOUND,
+                error.NOT_FOUND,
+                error.NOT_SUPPORTED,
+            ):
                 return dict(text=None)
             raise
 
@@ -247,7 +252,6 @@ if sys.version_info >= (3, 7):  # noqa: C901
             }
 
         return {"type": "null", "native_data_type": repr(s)}
-
 
 else:
     raise ModuleNotFoundError("The trino plugin requires Python 3.7 or newer.")

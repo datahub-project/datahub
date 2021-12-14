@@ -70,6 +70,10 @@ def make_tag_urn(tag: str) -> str:
     return f"urn:li:tag:{tag}"
 
 
+def make_term_urn(term: str) -> str:
+    return f"urn:li:glossaryTerm:{term}"
+
+
 def make_data_flow_urn(
     orchestrator: str, flow_id: str, cluster: str = DEFAULT_FLOW_CLUSTER
 ) -> str:
