@@ -26,10 +26,10 @@ import com.linkedin.entity.EntitiesDoSearchRequestBuilder;
 import com.linkedin.entity.EntitiesDoListRequestBuilder;
 import com.linkedin.entity.EntitiesDoSetWritableRequestBuilder;
 import com.linkedin.entity.EntitiesRequestBuilders;
+import com.linkedin.entity.EntitiesV2BatchGetRequestBuilder;
+import com.linkedin.entity.EntitiesV2RequestBuilders;
 import com.linkedin.entity.Entity;
 import com.linkedin.entity.EntityArray;
-import com.linkedin.entity.EntityBatchGetRequestBuilder;
-import com.linkedin.entity.EntityRequestBuilders;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.aspect.VersionedAspect;
@@ -69,7 +69,7 @@ import static com.linkedin.metadata.search.utils.QueryUtils.newFilter;
 public class RestliEntityClient extends BaseClient implements EntityClient {
 
     private static final EntitiesRequestBuilders ENTITIES_REQUEST_BUILDERS = new EntitiesRequestBuilders();
-    private static final EntityRequestBuilders ENTITIES_V2_REQUEST_BUILDERS = new EntityRequestBuilders();
+    private static final EntitiesV2RequestBuilders ENTITIES_V2_REQUEST_BUILDERS = new EntitiesV2RequestBuilders();
 
     private static final AspectsRequestBuilders ASPECTS_REQUEST_BUILDERS = new AspectsRequestBuilders();
 
@@ -124,7 +124,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
         @Nullable final Set<String> aspectNames,
         @Nonnull final Authentication authentication) throws Exception {
 
-        final EntityBatchGetRequestBuilder requestBuilder = ENTITIES_V2_REQUEST_BUILDERS
+        final EntitiesV2BatchGetRequestBuilder requestBuilder = ENTITIES_V2_REQUEST_BUILDERS
             .batchGet()
             .aspectsParam(aspectNames)
             .ids(urns.stream().map(Urn::toString).collect(Collectors.toList()));
