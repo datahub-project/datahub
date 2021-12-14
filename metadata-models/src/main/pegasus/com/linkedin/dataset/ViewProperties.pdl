@@ -29,9 +29,4 @@ record ViewProperties {
    * The view logic language / dialect
    */
   viewLanguage: string
-
-  /**
-   * The column lineages
-   */
-  fieldsLineages: optional FieldsLineages
 }

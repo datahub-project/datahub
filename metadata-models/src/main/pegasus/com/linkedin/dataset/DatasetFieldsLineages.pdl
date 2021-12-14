@@ -1,0 +1,22 @@
+namespace com.linkedin.dataset
+
+/**
+ * Details about field-level lineage for columns of a view, or lineage induced by unknown tasks.
+ */
+
+/*
+  The interpretation of this aspect is as follows:
+  If the dataset is a view, then the lineages captured here are effectively the definitions of the columns of the view.
+  If the dataset is not a view, then lineages are induced by tasks that write to the dataset.
+          If the details of the writer tasks are unknown, the lineages are captured in this aspect.
+          If the details of writer tasks are known, the lineages should instead be captured as a part of DataJob.
+*/
+@Aspect = {
+  "name": "datasetFieldsLineages"
+}
+record DatasetFieldsLineages {
+  /**
+   * The column lineages
+   */
+  fieldsLineages: FieldsLineages
+}

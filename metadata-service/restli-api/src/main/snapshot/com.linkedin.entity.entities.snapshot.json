@@ -654,6 +654,7 @@
     "namespace" : "com.linkedin.common",
     "doc" : "Standardized dataset field information identifier.",
     "ref" : "string",
+    "deprecated" : "use SchemaFieldPath and represent as generic Urn instead",
     "java" : {
       "class" : "com.linkedin.common.urn.DatasetFieldUrn"
     },
@@ -1389,7 +1390,7 @@
       "name" : "inputDatasetFields",
       "type" : {
         "type" : "array",
-        "items" : "com.linkedin.common.DatasetFieldUrn"
+        "items" : "com.linkedin.common.Urn"
       },
       "optional" : true,
       "Searchable" : {
@@ -1404,7 +1405,7 @@
       "name" : "outputDatasetFields",
       "type" : {
         "type" : "array",
-        "items" : "com.linkedin.common.DatasetFieldUrn"
+        "items" : "com.linkedin.common.Urn"
       },
       "optional" : true,
       "Searchable" : {
@@ -1436,7 +1437,7 @@
               "name" : "parentFields",
               "type" : {
                 "type" : "array",
-                "items" : "com.linkedin.common.DatasetFieldUrn"
+                "items" : "com.linkedin.common.Urn"
               }
             } ]
           }
@@ -1637,7 +1638,8 @@
           "type" : "typeref",
           "name" : "DatasetFieldUpstream",
           "doc" : "Upstreams of a dataset field.",
-          "ref" : [ "com.linkedin.common.DatasetFieldUrn" ]
+          "ref" : [ "com.linkedin.common.DatasetFieldUrn" ],
+          "deprecated" : true
         }
       },
       "doc" : "Source fields from which the fine grained lineage is derived"
@@ -1645,7 +1647,8 @@
       "name" : "destinationField",
       "type" : "com.linkedin.common.DatasetFieldUrn",
       "doc" : "Destination field which is derived from source fields"
-    } ]
+    } ],
+    "deprecated" : true
   }, "com.linkedin.dataset.DatasetFieldUpstream", {
     "type" : "enum",
     "name" : "DatasetLineageType",
@@ -1704,7 +1707,8 @@
     } ],
     "Aspect" : {
       "name" : "datasetUpstreamLineage"
-    }
+    },
+    "deprecated" : "use DatasetFieldsLineages instead"
   }, {
     "type" : "record",
     "name" : "EditableDatasetProperties",
@@ -1801,11 +1805,6 @@
       "name" : "viewLanguage",
       "type" : "string",
       "doc" : "The view logic language / dialect"
-    }, {
-      "name" : "fieldsLineages",
-      "type" : "FieldsLineages",
-      "doc" : "The column lineages",
-      "optional" : true
     } ],
     "Aspect" : {
       "name" : "viewProperties"

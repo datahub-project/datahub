@@ -1,10 +1,12 @@
 namespace com.linkedin.dataset
 
-import com.linkedin.common.DatasetFieldUrn
-
 /**
  * Upstreams of dataset fields.
  * Key of map is field name in this dataset.
  */
 
+/*
+Note that this model allows only one lineage per field. 
+If all the lineages induced by multiple writer tasks on a single field are to be captured, this should be done by capturing the lineage induced by each writer task as part of the DataJob corresponding to that task.
+*/
 typeref FieldsLineages = map[string, FieldLineageDetails]

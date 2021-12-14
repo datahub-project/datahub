@@ -1,6 +1,6 @@
 namespace com.linkedin.dataset
 
-import com.linkedin.common.DatasetFieldUrn
+import com.linkedin.common.Urn
 
 /**
  * Details of the parent fields and transformation resulting in new field.
@@ -8,5 +8,11 @@ import com.linkedin.common.DatasetFieldUrn
 record FieldLineageDetails {
     transform: optional string
 
-    parentFields: array[DatasetFieldUrn]
+    parentFields: array[Urn]
+
+/*
+  Note that information of a particular lineage can be provided manually by a person on the UI, or sourced from another data platform, or determined by Datahub itself, or a combination of these.
+  The information provider details can be modeled here e.g. user-id, dataPlatformUrn etc.
+  TODO
+*/
 }

@@ -644,38 +644,6 @@
         "owningTeam" : "urn:li:internalTeam:wherehows"
       }
     }
-  }, {
-    "type" : "typeref",
-    "name" : "DatasetFieldUrn",
-    "namespace" : "com.linkedin.common",
-    "doc" : "Standardized dataset field information identifier.",
-    "ref" : "string",
-    "java" : {
-      "class" : "com.linkedin.common.urn.DatasetFieldUrn"
-    },
-    "validate" : {
-      "com.linkedin.common.validator.TypedUrnValidator" : {
-        "accessible" : true,
-        "constructable" : true,
-        "doc" : "Standardized dataset field information identifier",
-        "entityType" : "datasetField",
-        "fields" : [ {
-          "doc" : "Dataset that this dataset field belongs to.",
-          "name" : "dataset",
-          "type" : "com.linkedin.common.urn.DatasetUrn"
-        }, {
-          "doc" : "Dataset field path",
-          "maxLength" : 500,
-          "name" : "fieldPath",
-          "type" : "string"
-        } ],
-        "maxLength" : 807,
-        "name" : "DatasetField",
-        "namespace" : "li",
-        "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
-        "owningTeam" : "urn:li:internalTeam:datahub"
-      }
-    }
   }, "com.linkedin.common.DatasetUrn", {
     "type" : "typeref",
     "name" : "EmailAddress",
@@ -1298,7 +1266,7 @@
       "name" : "inputDatasetFields",
       "type" : {
         "type" : "array",
-        "items" : "com.linkedin.common.DatasetFieldUrn"
+        "items" : "com.linkedin.common.Urn"
       },
       "optional" : true,
       "Searchable" : {
@@ -1313,7 +1281,7 @@
       "name" : "outputDatasetFields",
       "type" : {
         "type" : "array",
-        "items" : "com.linkedin.common.DatasetFieldUrn"
+        "items" : "com.linkedin.common.Urn"
       },
       "optional" : true,
       "Searchable" : {
@@ -1345,7 +1313,7 @@
               "name" : "parentFields",
               "type" : {
                 "type" : "array",
-                "items" : "com.linkedin.common.DatasetFieldUrn"
+                "items" : "com.linkedin.common.Urn"
               }
             } ]
           }
