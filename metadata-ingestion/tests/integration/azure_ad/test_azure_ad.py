@@ -190,7 +190,8 @@ def mocked_functions(
 
     # For simplicity, each user is placed in ALL groups.
     # Create a separate response mock for each group in our sample data.
-    r = []
-    for _ in groups:
-        r.append(users)
-    mock_groups_users.return_value = iter(r)
+    mock_groups_users.return_value = [users]
+    # r = []
+    # for _ in groups:
+    #     r.append(users)
+    # mock_groups_users.return_value = iter(r)

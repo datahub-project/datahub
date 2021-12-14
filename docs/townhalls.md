@@ -5,7 +5,7 @@ Currently it's held on the fourth Friday of every month (with some exceptions su
 It's the perfect venue to meet the team behind DataHub and other users, as well as to ask higher-level questions, such as roadmap and product direction.
 From time to time we also use the opportunity to showcase upcoming features.
 
-## Coming up - Sep 24th, 2021 @ 9 AM US Pacific
+## Coming up - Nov 19th, 2021 @ 9 AM US Pacific
 
 ## Meeting Invite
 
@@ -16,7 +16,7 @@ You can join with this link https://zoom.datahubproject.io, or [signup](https://
 
 ## Agenda
 
-- Stay Tuned!
+TBD!
 
 ## Past Meetings
 

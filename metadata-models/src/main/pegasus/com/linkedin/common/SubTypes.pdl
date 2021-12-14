@@ -1,0 +1,25 @@
+namespace com.linkedin.common
+
+/**
+ * Sub Types. Use this aspect to specialize a generic Entity
+ * e.g. Making a Dataset also be a View or also be a LookerExplore
+ */
+@Aspect = {
+  "name": "subTypes"
+}
+record SubTypes {
+  
+  /**
+   * The names of the specific types.
+   **/
+   @Searchable = {
+     "/*": {
+      "fieldType": "KEYWORD",
+      "addToFilters": true,
+      "filterNameOverride": "Sub Type",
+      "queryByDefault": true
+     }
+   }
+  typeNames: array[string]
+
+}

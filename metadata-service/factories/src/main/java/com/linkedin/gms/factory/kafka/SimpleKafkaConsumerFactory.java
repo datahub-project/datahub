@@ -1,7 +1,5 @@
 package com.linkedin.gms.factory.kafka;
 
-import com.linkedin.gms.factory.kafka.schemaregistry.AwsGlueSchemaRegistryFactory;
-import com.linkedin.gms.factory.kafka.schemaregistry.KafkaSchemaRegistryFactory;
 import java.time.Duration;
 import java.util.Arrays;
 import lombok.extern.slf4j.Slf4j;
@@ -12,7 +10,6 @@ import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Import;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.config.KafkaListenerContainerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
@@ -21,7 +18,6 @@ import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 @Slf4j
 @Configuration
 @EnableConfigurationProperties(KafkaProperties.class)
-@Import({KafkaSchemaRegistryFactory.class, AwsGlueSchemaRegistryFactory.class})
 public class SimpleKafkaConsumerFactory {
 
   @Value("${KAFKA_BOOTSTRAP_SERVER:http://localhost:9092}")

@@ -1,0 +1,62 @@
+[
+    {
+        "userid": 1,
+        "query": 293100,
+        "usename": "test-name",
+        "tbl": 101587,
+        "querytxt": "select userid from users",
+        "database": "dev",
+        "schema": "public",
+        "table": "users",
+        "starttime": "2021-09-14 00:00:00",
+        "endtime": "2021-09-15 00:00:00"
+    },
+    {
+        "userid": 2,
+        "query": 293101,
+        "usename": null,
+        "tbl": 101588,
+        "querytxt": "select catid from category",
+        "database": "dev",
+        "schema": "public",
+        "table": "category",
+        "starttime": "2021-09-14 00:00:00",
+        "endtime": "2021-09-15 00:00:00"
+    },
+    {
+        "userid": 3,
+        "query": 293102,
+        "usename": "chinmay",
+        "tbl": 101587,
+        "querytxt": "select catid from category",
+        "database": null,
+        "schema": null,
+        "table": "category",
+        "starttime": "2021-09-14 00:00:00",
+        "endtime": "2021-09-15 00:00:00"
+    },
+    {
+        "userid": 4,
+        "query": 293102,
+        "usename": "shirshanka",
+        "tbl": 101588,
+        "querytxt": "select catid from category",
+        "database": "db1",
+        "schema": "schema1",
+        "table": null,
+        "starttime": "2021-09-14 00:00:00",
+        "endtime": "2021-09-15 00:00:00"
+    },
+    {
+        "userid": 5,
+        "query": 293102,
+        "usename": "real_shirshanka@acryl.io",
+        "tbl": 101588,
+        "querytxt": "select catid from category",
+        "database": "db1",
+        "schema": "schema1",
+        "table": "category",
+        "starttime": "2021-09-14 00:00:00",
+        "endtime": "2021-09-15 00:00:00"
+    }
+]

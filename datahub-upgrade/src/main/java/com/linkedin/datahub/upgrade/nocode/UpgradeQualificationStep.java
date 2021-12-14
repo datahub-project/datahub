@@ -61,7 +61,7 @@ public class UpgradeQualificationStep implements UpgradeStep {
       boolean v2TableExists = AspectStorageValidationUtil.checkV2TableExists(server);
       if (v2TableExists) {
         context.report().addLine("-- V2 table exists");
-        long v2TableRowCount = AspectStorageValidationUtil.getV2RowCount(server);
+        long v2TableRowCount = AspectStorageValidationUtil.getV2NonSystemRowCount(server);
         if (v2TableRowCount == 0) {
           context.report().addLine("-- V2 table is empty");
           return true;

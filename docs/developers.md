@@ -1,3 +1,7 @@
+---
+title: "Local Development"
+---
+
 # DataHub Developer's Guide
 
 ## Building the Project

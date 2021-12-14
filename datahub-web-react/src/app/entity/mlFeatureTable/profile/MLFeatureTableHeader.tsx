@@ -58,7 +58,7 @@ export default function MLFeatureTableHeader({ mlFeatureTable: { platform, descr
                     ) : null}
                 </Row>
                 <MarkdownViewer isCompact={isCompact} source={description || ''} />
-                <AvatarsGroup owners={ownership?.owners} entityRegistry={entityRegistry} size="large" />
+                <AvatarsGroup owners={ownership?.owners} entityRegistry={entityRegistry} />
             </Space>
         </>
     );

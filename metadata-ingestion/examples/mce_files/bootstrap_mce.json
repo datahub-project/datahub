@@ -25,6 +25,15 @@
               },
               "countryCode": null
             }
+          },
+          {
+            "com.linkedin.pegasus2avro.identity.CorpUserStatus": {
+              "status": "ACTIVE",
+              "lastModified": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:__datahub_system"
+              }
+            }
           }
         ]
       }
@@ -561,7 +570,8 @@
                     }
                   },
                   "nativeDataType": "varchar(100)",
-                  "recursive": false
+                  "recursive": false,
+                  "isPartOfKey": true
                 },
                 {
                   "fieldPath": "field_bar",
@@ -876,7 +886,17 @@
                 }
               ],
               "primaryKeys": null,
-              "foreignKeysSpecs": null
+              "foreignKeysSpecs": null,
+              "foreignKeys": [{
+                "name": "user id",
+                "foreignFields": [
+                  "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD),user_id)"
+                ],
+                "sourceFields": [
+                  "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD),user_id)"
+                ],
+                "foreignDataset": "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD)"
+              }]
             }
           }
         ]
@@ -986,21 +1006,6 @@
               },
               "fields": [
                 {
-                  "fieldPath": "user_id",
-                  "jsonPath": null,
-                  "nullable": false,
-                  "description": {
-                    "string": "Id of the user deleted"
-                  },
-                  "type": {
-                    "type": {
-                      "com.linkedin.pegasus2avro.schema.BooleanType": {}
-                    }
-                  },
-                  "nativeDataType": "varchar(100)",
-                  "recursive": false
-                },
-                {
                   "fieldPath": "user_name",
                   "jsonPath": null,
                   "nullable": false,
@@ -1009,15 +1014,100 @@
                   },
                   "type": {
                     "type": {
-                      "com.linkedin.pegasus2avro.schema.BooleanType": {}
+                      "com.linkedin.pegasus2avro.schema.StringType": {}
                     }
                   },
-                  "nativeDataType": "boolean",
+                  "nativeDataType": "varchar(100)",
+                  "recursive": false
+                },
+                {
+                  "fieldPath": "timestamp",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": {
+                    "string": "Timestamp user was deleted at"
+                  },
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                  },
+                  "nativeDataType": "long",
+                  "recursive": false
+                },
+                {
+                  "fieldPath": "user_id",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": {
+                    "string": "Id of the user deleted"
+                  },
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                  },
+                  "nativeDataType": "varchar(100)",
+                  "recursive": false
+                },
+                {
+                  "fieldPath": "browser_id",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": {
+                    "string": "Cookie attached to identify the browser"
+                  },
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                  },
+                  "nativeDataType": "varchar(100)",
+                  "recursive": false
+                },
+                {
+                  "fieldPath": "session_id",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": {
+                    "string": "Cookie attached to identify the session"
+                  },
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                  },
+                  "nativeDataType": "varchar(100)",
+                  "recursive": false
+                },
+                {
+                  "fieldPath": "deletion_reason",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": {
+                    "string": "Why the user chose to deactivate"
+                  },
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                  },
+                  "nativeDataType": "varchar(100)",
                   "recursive": false
                 }
               ],
-              "primaryKeys": null,
-              "foreignKeysSpecs": null
+              "primaryKeys": ["user_name"],
+              "foreignKeysSpecs": null,
+              "foreignKeys": [{
+                "name": "user session",
+                "foreignFields": [
+                  "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD),user_id)"
+                ],
+                "sourceFields": [
+                  "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD),user_id)"
+                ],
+                "foreignDataset": "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)"
+              }]
             }
           }
         ]
@@ -2856,6 +2946,150 @@
                   "time": 1581407189000,
                   "actor": "urn:li:corpuser:jdoe"
                 }
+              }
+            }
+          ]
+        }
+      },
+      "proposedDelta": null
+    },
+    {
+      "auditHeader": null,
+      "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+          "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,project/root/events/logging_events_bckp,PROD)",
+          "aspects": [
+            {
+              "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                "description": "s3 backup of logging events",
+                "uri": null,
+                "tags": [],
+                "customProperties": {
+                  "encoding": "utf-8"
+                }
+              }
+            },
+            {
+              "com.linkedin.pegasus2avro.common.Ownership": {
+                "owners": [
+                  {
+                    "owner": "urn:li:corpuser:jdoe",
+                    "type": "DATAOWNER",
+                    "source": null
+                  },
+                  {
+                    "owner": "urn:li:corpuser:datahub",
+                    "type": "DATAOWNER",
+                    "source": null
+                  }
+                ],
+                "lastModified": {
+                  "time": 1581407189000,
+                  "actor": "urn:li:corpuser:jdoe",
+                  "impersonator": null
+                }
+              }
+            },
+            {
+              "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+                "upstreams": [
+                  {
+                    "auditStamp": {
+                      "time": 1581407189000,
+                      "actor": "urn:li:corpuser:jdoe",
+                      "impersonator": null
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,logging_events,PROD)",
+                    "type": "COPY"
+                  }
+                ]
+              }
+            },
+            {
+              "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                "schemaName": "SampleHiveSchema",
+                "platform": "urn:li:dataPlatform:hive",
+                "version": 0,
+                "created": {
+                  "time": 1581407189000,
+                  "actor": "urn:li:corpuser:jdoe",
+                  "impersonator": null
+                },
+                "lastModified": {
+                  "time": 1581407189000,
+                  "actor": "urn:li:corpuser:jdoe",
+                  "impersonator": null
+                },
+                "deleted": null,
+                "dataset": null,
+                "cluster": null,
+                "hash": "",
+                "platformSchema": {
+                  "com.linkedin.pegasus2avro.schema.KafkaSchema": {
+                    "documentSchema": "{\"type\":\"record\",\"name\":\"SampleHiveSchema\",\"namespace\":\"com.linkedin.dataset\",\"doc\":\"Sample Hive dataset\",\"fields\":[{\"name\":\"field_foo\",\"type\":[\"string\"]},{\"name\":\"field_bar\",\"type\":[\"boolean\"]}]}"
+                  }
+                },
+                "fields": [
+                  {
+                    "fieldPath": "event_name",
+                    "jsonPath": null,
+                    "nullable": false,
+                    "description": {
+                      "string": "Name of your logging event"
+                    },
+                    "type": {
+                      "type": {
+                        "com.linkedin.pegasus2avro.schema.BooleanType": {}
+                      }
+                    },
+                    "nativeDataType": "varchar(100)",
+                    "recursive": false
+                  },
+                  {
+                    "fieldPath": "event_data",
+                    "jsonPath": null,
+                    "nullable": false,
+                    "description": {
+                      "string": "Data of your event"
+                    },
+                    "type": {
+                      "type": {
+                        "com.linkedin.pegasus2avro.schema.BooleanType": {}
+                      }
+                    },
+                    "nativeDataType": "boolean",
+                    "recursive": false
+                  },
+                  {
+                    "fieldPath": "timestamp",
+                    "jsonPath": null,
+                    "nullable": false,
+                    "description": {
+                      "string": "TS the event was ingested"
+                    },
+                    "type": {
+                      "type": {
+                        "com.linkedin.pegasus2avro.schema.BooleanType": {}
+                      }
+                    },
+                    "nativeDataType": "boolean",
+                    "recursive": false
+                  },
+                  {
+                    "fieldPath": "browser",
+                    "jsonPath": null,
+                    "nullable": false,
+                    "type": {
+                      "type": {
+                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                      }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false
+                  }
+                ],
+                "primaryKeys": null,
+                "foreignKeysSpecs": null
               }
             }
           ]

@@ -8,7 +8,8 @@ from typing import Dict, Iterable, List, Optional, Tuple, Type, Union, ValuesVie
 import bson
 import pymongo
 from mypy_extensions import TypedDict
-from pydantic import PositiveInt
+from packaging import version
+from pydantic import PositiveInt, validator
 from pymongo.mongo_client import MongoClient
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
@@ -56,10 +57,19 @@ class MongoDBConfig(ConfigModel):
     schemaSamplingSize: Optional[PositiveInt] = 1000
     useRandomSampling: bool = True
     maxSchemaSize: Optional[PositiveInt] = 300
+    # mongodb only supports 16MB as max size for documents. However, if we try to retrieve a larger document it
+    # errors out with "16793600" as the maximum size supported.
+    maxDocumentSize: Optional[PositiveInt] = 16793600
     env: str = DEFAULT_ENV
 
     database_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
     collection_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
+
+    @validator("maxDocumentSize")
+    def check_max_doc_size_filter_is_valid(cls, doc_size_filter_value):
+        if doc_size_filter_value > 16793600:
+            raise ValueError("maxDocumentSize must be a positive value <= 16793600.")
+        return doc_size_filter_value
 
 
 @dataclass
@@ -285,6 +295,8 @@ def construct_schema_pymongo(
     collection: pymongo.collection.Collection,
     delimiter: str,
     use_random_sampling: bool,
+    max_document_size: int,
+    is_version_gte_4_4: bool,
     sample_size: Optional[int] = None,
 ) -> Dict[Tuple[str, ...], SchemaDescription]:
     """
@@ -302,21 +314,29 @@ def construct_schema_pymongo(
         sample_size:
             number of items in the collection to sample
             (reads entire collection if not provided)
+        max_document_size:
+            maximum size of the document that will be considered for generating the schema.
     """
 
-    if sample_size:
-        if use_random_sampling:
-            # get sample documents in collection
-            documents = collection.aggregate(
-                [{"$sample": {"size": sample_size}}], allowDiskUse=True
-            )
-        else:
-            documents = collection.aggregate(
-                [{"$limit": sample_size}], allowDiskUse=True
-            )
+    doc_size_field = "temporary_doc_size_field"
+    aggregations: List[Dict] = []
+    if is_version_gte_4_4:
+        # create a temporary field to store the size of the document. filter on it and then remove it.
+        aggregations = [
+            {"$addFields": {doc_size_field: {"$bsonSize": "$$ROOT"}}},
+            {"$match": {doc_size_field: {"$lt": max_document_size}}},
+            {"$project": {doc_size_field: 0}},
+        ]
+    if use_random_sampling:
+        # get sample documents in collection
+        aggregations.append({"$sample": {"size": sample_size}})
+        documents = collection.aggregate(
+            aggregations,
+            allowDiskUse=True,
+        )
     else:
-        # if sample_size is not provided, just take all items in the collection
-        documents = collection.find({})
+        aggregations.append({"$limit": sample_size})
+        documents = collection.aggregate(aggregations, allowDiskUse=True)
 
     return construct_schema(list(documents), delimiter)
 
@@ -440,11 +460,13 @@ class MongoDBSource(Source):
                 dataset_snapshot.aspects.append(dataset_properties)
 
                 if self.config.enableSchemaInference:
-
+                    assert self.config.maxDocumentSize is not None
                     collection_schema = construct_schema_pymongo(
                         database[collection_name],
                         delimiter=".",
                         use_random_sampling=self.config.useRandomSampling,
+                        max_document_size=self.config.maxDocumentSize,
+                        is_version_gte_4_4=self.is_server_version_gte_4_4(),
                         sample_size=self.config.schemaSamplingSize,
                     )
 
@@ -515,6 +537,23 @@ class MongoDBSource(Source):
                 wu = MetadataWorkUnit(id=dataset_name, mce=mce)
                 self.report.report_workunit(wu)
                 yield wu
+
+    def is_server_version_gte_4_4(self) -> bool:
+        try:
+            server_version = self.mongo_client.server_info().get("versionArray")
+            if server_version:
+                logger.info(
+                    f"Mongodb version for current connection - {server_version}"
+                )
+                server_version_str_list = [str(i) for i in server_version]
+                required_version = "4.4"
+                return version.parse(
+                    ".".join(server_version_str_list)
+                ) >= version.parse(required_version)
+        except Exception as e:
+            logger.error("Error while getting version of the mongodb server %s", e)
+
+        return False
 
     def get_report(self) -> MongoDBSourceReport:
         return self.report

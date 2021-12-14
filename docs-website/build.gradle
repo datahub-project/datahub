@@ -5,10 +5,14 @@ node {
 
   // If true, it will download node using above parameters.
   // If false, it will try to use globally installed node.
-  download = true
+  if (project.hasProperty('useSystemNode') && project.getProperty('useSystemNode').toBoolean()) {
+    download = false
+  } else {
+    download = true
+  }
 
   // Version of node to use.
-  version = '14.15.3'
+  version = '16.8.0'
 
   // Version of Yarn to use.
   yarnVersion = '1.22.0'
@@ -37,6 +41,11 @@ def projectMdFiles = project.fileTree("${project.projectDir}") {
     exclude '**/dist/**'
     }
 
+// Combine GraphQL schemas for documentation.
+task generateGraphQLSchema(type: Exec) {
+  workingDir "$projectDir/graphql"
+  commandLine './generateGraphQLSchema.sh'
+}
 
 /*
   Wrappers around Yarn Tasks.
@@ -50,7 +59,11 @@ task yarnInstall(type: YarnTask) {
   }
 }
 
-task yarnGenerate(type: YarnTask, dependsOn: yarnInstall) {
+task generateGraphQLDocumentation(type: YarnTask, dependsOn: [yarnInstall, generateGraphQLSchema] ) {
+  args = ['docusaurus', 'docs:generate:graphql']
+}
+
+task yarnGenerate(type: YarnTask, dependsOn: [yarnInstall, generateGraphQLDocumentation] ) {
   inputs.files(projectMdFiles)
   outputs.cacheIf { true }
   args = ['run', 'generate']

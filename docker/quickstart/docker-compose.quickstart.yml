@@ -68,6 +68,8 @@ services:
     image: linkedin/datahub-gms:${DATAHUB_VERSION:-head}
     ports:
     - 8080:8080
+    volumes:
+    - ${HOME}/.datahub/plugins/:/etc/datahub/plugins
   elasticsearch:
     container_name: elasticsearch
     environment:
@@ -100,11 +102,14 @@ services:
     image: linkedin/datahub-elasticsearch-setup:${DATAHUB_VERSION:-head}
   ingest-api:
     container_name: ingest-api
+    environment:
+    - ACCEPT_ORIGINS=http://172.19.0.1:9010
+    - RUNNING_IN_DOCKER=True
     hostname: ingest-api
     ports:
-    - 8001:80
+    - 8001:8001
     volumes:
-    - apidata:/app/ingest-api/ingest_api/log
+    - apidata:/var/log/ingest/
   kafka-setup:
     container_name: kafka-setup
     depends_on:
@@ -116,7 +121,7 @@ services:
     hostname: kafka-setup
     image: linkedin/datahub-kafka-setup:${DATAHUB_VERSION:-head}
   mysql:
-    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_bin
     container_name: mysql
     environment:
     - MYSQL_DATABASE=datahub
@@ -128,7 +133,7 @@ services:
     ports:
     - 3306:3306
     volumes:
-    - ./mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
+    - ../mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
     - mysqldata:/var/lib/mysql
   mysql-setup:
     container_name: mysql-setup

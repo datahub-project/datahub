@@ -1,5 +1,6 @@
 package com.linkedin.metadata.models.annotation;
 
+import com.linkedin.data.DataMap;
 import com.linkedin.metadata.models.ModelValidationException;
 import java.util.Map;
 import java.util.Optional;
@@ -16,11 +17,15 @@ public class AspectAnnotation {
   public static final String ANNOTATION_NAME = "Aspect";
   public static final String NAME_FIELD = "name";
   private static final String TYPE_FIELD = "type";
+  private static final String RENDER_SPEC_FIELD = "renderSpec";
+  private static final String AUTO_RENDER_FIELD = "autoRender";
   private static final String IS_KEY_FIELD = "isKey";
   private static final String TIMESERIES_TYPE = "timeseries";
 
   String name;
   boolean isTimeseries;
+  boolean autoRender;
+  DataMap renderSpec;
 
   @Nonnull
   public static AspectAnnotation fromSchemaProperty(
@@ -48,7 +53,9 @@ public class AspectAnnotation {
 
     final Optional<String> type = AnnotationUtils.getField(map, TYPE_FIELD, String.class);
     boolean isTimeseries = type.isPresent() && type.get().equals(TIMESERIES_TYPE);
+    Optional<Boolean> autoRender = AnnotationUtils.getField(map, AUTO_RENDER_FIELD, Boolean.class);
+    Optional<DataMap> renderSpec = AnnotationUtils.getField(map, RENDER_SPEC_FIELD, DataMap.class);
 
-    return new AspectAnnotation(name.get(), isTimeseries);
+    return new AspectAnnotation(name.get(), isTimeseries, autoRender.orElseGet(() -> false), renderSpec.orElseGet(() -> null));
   }
 }

@@ -4,7 +4,6 @@ import { RouteComponentProps } from 'react-router-dom';
 import filtersToQueryStringParams from './filtersToQueryStringParams';
 import { EntityType, FacetFilterInput } from '../../../types.generated';
 import { PageRoutes } from '../../../conf/Global';
-import EntityRegistry from '../../entity/EntityRegistry';
 
 export const navigateToSearchUrl = ({
     type: newType,
@@ -12,18 +11,21 @@ export const navigateToSearchUrl = ({
     page: newPage = 1,
     filters: newFilters,
     history,
-    entityRegistry,
 }: {
     type?: EntityType;
     query?: string;
     page?: number;
     filters?: Array<FacetFilterInput>;
     history: RouteComponentProps['history'];
-    entityRegistry: EntityRegistry;
 }) => {
+    const constructedFilters = newFilters || [];
+    if (newType) {
+        constructedFilters.push({ field: 'entity', value: newType });
+    }
+
     const search = QueryString.stringify(
         {
-            ...filtersToQueryStringParams(newFilters),
+            ...filtersToQueryStringParams(constructedFilters),
             query: newQuery,
             page: newPage,
         },
@@ -31,11 +33,7 @@ export const navigateToSearchUrl = ({
     );
 
     history.push({
-        pathname: `${PageRoutes.SEARCH}/${
-            newType && entityRegistry.getSearchEntityTypes().indexOf(newType) >= 0
-                ? entityRegistry.getPathName(newType)
-                : ''
-        }`,
+        pathname: `${PageRoutes.SEARCH}`,
         search,
     });
 };

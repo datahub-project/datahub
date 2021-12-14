@@ -5,6 +5,7 @@ import com.linkedin.common.GlossaryTerms;
 import com.linkedin.common.InstitutionalMemory;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.Status;
+import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.datahub.graphql.generated.DataPlatform;
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.EntityType;
@@ -20,11 +21,11 @@ import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
 import com.linkedin.dataset.DatasetDeprecation;
 import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.dataset.EditableDatasetProperties;
-import com.linkedin.metadata.dao.utils.ModelUtils;
+import com.linkedin.dataset.ViewProperties;
+import com.linkedin.metadata.entity.NewModelUtils;
 import com.linkedin.metadata.snapshot.DatasetSnapshot;
 import com.linkedin.schema.EditableSchemaMetadata;
 import com.linkedin.schema.SchemaMetadata;
-import java.util.ArrayList;
 import javax.annotation.Nonnull;
 
 
@@ -53,19 +54,26 @@ public class DatasetSnapshotMapper implements ModelMapper<DatasetSnapshot, Datas
         partialPlatform.setUrn(dataset.getUrn().getPlatformEntity().toString());
         result.setPlatform(partialPlatform);
 
-        ModelUtils.getAspectsFromSnapshot(dataset).forEach(aspect -> {
-            result.setTags(new ArrayList<>());
+        NewModelUtils.getAspectsFromSnapshot(dataset).forEach(nameAspectPair -> {
+            RecordTemplate aspect = nameAspectPair.getSecond();
             if (aspect instanceof DatasetProperties) {
-                final DatasetProperties datasetProperties = (DatasetProperties) aspect;
-                result.setProperties(StringMapMapper.map(datasetProperties.getCustomProperties()));
-                if (datasetProperties.getUri() != null) {
-                  result.setUri(datasetProperties.getUri().toString());
+                final DatasetProperties gmsProperties = (DatasetProperties) aspect;
+                final com.linkedin.datahub.graphql.generated.DatasetProperties properties = new com.linkedin.datahub.graphql.generated.DatasetProperties();
+                properties.setDescription(gmsProperties.getDescription());
+                result.setDescription(gmsProperties.getDescription());
+                properties.setOrigin(FabricType.valueOf(dataset.getUrn().getOriginEntity().toString()));
+                if (gmsProperties.hasExternalUrl()) {
+                    properties.setExternalUrl(gmsProperties.getExternalUrl().toString());
                 }
-                if (datasetProperties.getDescription() != null) {
-                  result.setDescription(datasetProperties.getDescription());
+                if (gmsProperties.hasCustomProperties()) {
+                    properties.setCustomProperties(StringMapMapper.map(gmsProperties.getCustomProperties()));
                 }
-                if (datasetProperties.getExternalUrl() != null) {
-                  result.setExternalUrl(datasetProperties.getExternalUrl().toString());
+                properties.setName(dataset.getUrn().getDatasetNameEntity()); // TODO: Move to using a display name produced by ingestion soures
+                result.setProperties(properties);
+                result.setDescription(properties.getDescription());
+                if (gmsProperties.hasUri()) {
+                    // Deprecated field.
+                    result.setUri(gmsProperties.getUri().toString());
                 }
             } else if (aspect instanceof DatasetDeprecation) {
                 result.setDeprecation(DatasetDeprecationMapper.map((DatasetDeprecation) aspect));
@@ -81,6 +89,7 @@ public class DatasetSnapshotMapper implements ModelMapper<DatasetSnapshot, Datas
               result.setStatus(StatusMapper.map((Status) aspect));
             } else if (aspect instanceof GlobalTags) {
               result.setGlobalTags(GlobalTagsMapper.map((GlobalTags) aspect));
+              result.setTags(GlobalTagsMapper.map((GlobalTags) aspect));
             } else if (aspect instanceof EditableSchemaMetadata) {
               result.setEditableSchemaMetadata(EditableSchemaMetadataMapper.map((EditableSchemaMetadata) aspect));
             } else if (aspect instanceof GlossaryTerms) {
@@ -90,9 +99,15 @@ public class DatasetSnapshotMapper implements ModelMapper<DatasetSnapshot, Datas
                 final DatasetEditableProperties editableProperties = new DatasetEditableProperties();
                 editableProperties.setDescription(editableDatasetProperties.getDescription());
                 result.setEditableProperties(editableProperties);
+            } else if (aspect instanceof ViewProperties) {
+                final ViewProperties properties = (ViewProperties) aspect;
+                final com.linkedin.datahub.graphql.generated.ViewProperties graphqlProperties = new com.linkedin.datahub.graphql.generated.ViewProperties();
+                graphqlProperties.setMaterialized(properties.isMaterialized());
+                graphqlProperties.setLanguage(properties.getViewLanguage());
+                graphqlProperties.setLogic(properties.getViewLogic());
+                result.setViewProperties(graphqlProperties);
             }
         });
-
         return result;
     }
 }

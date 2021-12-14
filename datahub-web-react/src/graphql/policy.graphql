@@ -27,11 +27,11 @@ query listPolicies($input: ListPoliciesInput!) {
     }
 }
 
-mutation createPolicy($input: PolicyInput!) {
+mutation createPolicy($input: PolicyUpdateInput!) {
     createPolicy(input: $input)
 }
 
-mutation updatePolicy($urn: String!, $input: PolicyInput!) {
+mutation updatePolicy($urn: String!, $input: PolicyUpdateInput!) {
     updatePolicy(urn: $urn, input: $input)
 }
 

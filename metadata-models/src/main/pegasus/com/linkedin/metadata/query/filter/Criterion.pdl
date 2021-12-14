@@ -1,0 +1,22 @@
+namespace com.linkedin.metadata.query.filter
+
+/**
+ * A criterion for matching a field with given value
+ */
+record Criterion {
+
+  /**
+   * The name of the field that the criterion refers to
+   */
+  field: string
+
+  /**
+   * The value of the intended field
+   */
+  value: string
+
+  /**
+   * The condition for the criterion, e.g. EQUAL, START_WITH
+   */
+  condition: Condition = "EQUAL"
+}

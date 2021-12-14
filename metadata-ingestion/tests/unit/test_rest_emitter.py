@@ -15,3 +15,11 @@ def test_datahub_rest_emitter_timeout_construction():
     )
     assert emitter._connect_timeout_sec == 2
     assert emitter._read_timeout_sec == 4
+
+
+def test_datahub_rest_emitter_extra_params():
+    emitter = DatahubRestEmitter(
+        MOCK_GMS_ENDPOINT, extra_headers={"key1": "value1", "key2": "value2"}
+    )
+    assert emitter._session.headers.get("key1") == "value1"
+    assert emitter._session.headers.get("key2") == "value2"

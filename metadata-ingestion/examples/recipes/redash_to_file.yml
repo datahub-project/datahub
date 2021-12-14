@@ -18,6 +18,7 @@ source:
     #     - ^denied chart.*
     #   allow:
     #     - .*allowed chart.*
+    # parse_table_names_from_sql: false
 
 sink:
   type: "file"

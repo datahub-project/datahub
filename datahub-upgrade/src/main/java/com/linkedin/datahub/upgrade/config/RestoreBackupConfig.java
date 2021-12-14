@@ -1,21 +1,19 @@
 package com.linkedin.datahub.upgrade.config;
 
+import com.datahub.authentication.Authentication;
 import com.linkedin.datahub.upgrade.restorebackup.RestoreBackup;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.RestliEntityClient;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphService;
-import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
-import com.linkedin.metadata.search.SearchService;
-import io.ebean.EbeanServerFactory;
-import io.ebean.config.ServerConfig;
+import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.search.EntitySearchService;
+import io.ebean.EbeanServer;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.DependsOn;
-
-import static com.linkedin.metadata.entity.ebean.EbeanAspectDao.EBEAN_MODEL_PACKAGE;
 
 
 @Configuration
@@ -24,20 +22,19 @@ public class RestoreBackupConfig {
   ApplicationContext applicationContext;
 
   @Bean(name = "restoreBackup")
-  @DependsOn({"gmsEbeanServiceConfig", "entityService", "entityClient", "graphService", "searchService"})
+  @DependsOn({"ebeanServer", "entityService", "systemAuthentication", "restliEntityClient", "graphService",
+      "searchService", "entityRegistry"})
   @Nonnull
   public RestoreBackup createInstance() {
-    final ServerConfig serverConfig = applicationContext.getBean(ServerConfig.class);
+    final EbeanServer ebeanServer = applicationContext.getBean(EbeanServer.class);
     final EntityService entityService = applicationContext.getBean(EntityService.class);
-    final EntityClient entityClient = applicationContext.getBean(EntityClient.class);
+    final Authentication systemAuthentication = applicationContext.getBean(Authentication.class);
+    final RestliEntityClient entityClient = applicationContext.getBean(RestliEntityClient.class);
     final GraphService graphClient = applicationContext.getBean(GraphService.class);
-    final SearchService searchClient = applicationContext.getBean(SearchService.class);
+    final EntitySearchService searchClient = applicationContext.getBean(EntitySearchService.class);
+    final EntityRegistry entityRegistry = applicationContext.getBean(EntityRegistry.class);
 
-    if (!serverConfig.getPackages().contains(EBEAN_MODEL_PACKAGE)) {
-      serverConfig.getPackages().add(EBEAN_MODEL_PACKAGE);
-    }
-
-    return new RestoreBackup(EbeanServerFactory.create(serverConfig), entityService,
-        SnapshotEntityRegistry.getInstance(), entityClient, graphClient, searchClient);
+    return new RestoreBackup(ebeanServer, entityService, entityRegistry, systemAuthentication, entityClient,
+        graphClient, searchClient);
   }
 }

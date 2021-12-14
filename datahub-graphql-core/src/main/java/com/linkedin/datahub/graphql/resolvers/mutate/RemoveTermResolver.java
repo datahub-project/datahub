@@ -4,7 +4,8 @@ import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
-import com.linkedin.datahub.graphql.generated.TermUpdateInput;
+import com.linkedin.datahub.graphql.generated.TermAssociationInput;
+import com.linkedin.datahub.graphql.resolvers.mutate.util.LabelUtils;
 import com.linkedin.metadata.entity.EntityService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -22,7 +23,7 @@ public class RemoveTermResolver implements DataFetcher<CompletableFuture<Boolean
 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
-    final TermUpdateInput input = bindArgument(environment.getArgument("input"), TermUpdateInput.class);
+    final TermAssociationInput input = bindArgument(environment.getArgument("input"), TermAssociationInput.class);
     Urn termUrn = Urn.createFromString(input.getTermUrn());
     Urn targetUrn = Urn.createFromString(input.getResourceUrn());
 
@@ -37,8 +38,10 @@ public class RemoveTermResolver implements DataFetcher<CompletableFuture<Boolean
           input.getSubResource(),
           input.getSubResourceType(),
           "glossaryTerm",
-          _entityService
+          _entityService,
+          true
       );
+
       try {
 
         if (!termUrn.getEntityType().equals("glossaryTerm")) {
@@ -47,7 +50,7 @@ public class RemoveTermResolver implements DataFetcher<CompletableFuture<Boolean
         }
 
         log.info(String.format("Removing Term. input: {}", input));
-        Urn actor = CorpuserUrn.createFromString(((QueryContext) environment.getContext()).getActor());
+        Urn actor = CorpuserUrn.createFromString(((QueryContext) environment.getContext()).getActorUrn());
         LabelUtils.removeTermFromTarget(
             termUrn,
             targetUrn,

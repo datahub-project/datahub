@@ -9,6 +9,7 @@ class FieldParam(BaseModel):
     field_type: str
     field_description: str = None
 
+
 class FieldParamEdited(BaseModel):
     key: int
     fieldName: str
@@ -18,6 +19,7 @@ class FieldParamEdited(BaseModel):
     fieldGlossaryTerms: Optional[List[str]]
     fieldDescription: Optional[str]
     editKey: str
+
 
 class create_dataset_params(BaseModel):
     dataset_name: str
@@ -73,15 +75,18 @@ class dataset_status_params(BaseModel):
     requestor: str
     desired_state: bool
 
+
 class browsepath_params(BaseModel):
     dataset_name: str
     requestor: str
     browsePaths: List[str]
 
+
 class schema_params(BaseModel):
     dataset_name: str
-    requestor: str    
+    requestor: str
     dataset_fields: List[FieldParamEdited]
+
 
 class prop_params(BaseModel):
     dataset_name: str
@@ -89,8 +94,10 @@ class prop_params(BaseModel):
     description: str
     properties: List[Dict]
 
+
 class echo_param(BaseModel):
     user_input: Any
+
     class Config:
         arbitary_types_allowed = True
 
