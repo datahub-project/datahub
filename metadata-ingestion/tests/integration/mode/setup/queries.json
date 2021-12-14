@@ -1,44 +1,44 @@
 {
   "_links": {
     "self": {
-      "href": "/api/acryl/reports/72f2ef8fb3a8/queries"
+      "href": "/api/acryltest/reports/9d2da37fa91e/queries"
     }
   },
   "_embedded": {
     "queries": [{
-      "id": 10104033,
-      "token": "bc5f397e4b77",
-      "raw_query": "SELECT\\n\\tcustomer.customer_id,\\n\\tfirst_name,\\n\\tlast_name,\\n\\tamount,\\n\\tpayment_date\\nFROM\\n\\tcustomer\\nINNER JOIN public.payment \\n    ON payment.customer_id = customer.customer_id\\nORDER BY payment_date;\\n",
-      "created_at": "2021-12-06T21:52:01.072Z",
-      "updated_at": "2021-12-06T21:53:38.917Z",
-      "name": "Customer Payment",
-      "last_run_id": 1888523732,
-      "data_source_id": 34337,
+      "id": 10149707,
+      "token": "6e26a9f3d4e2",
+      "raw_query": "SELECT  rental.*,  staff.first_name \"Staff First Name\", staff.last_name \"Staff Last Name\" FROM  {{  @join_on_definition    as                      rental  }} join staff on staff.staff_id = rental.staff_id",
+      "created_at": "2021-12-10T20:55:24.361Z",
+      "updated_at": "2021-12-10T23:12:53.273Z",
+      "name": "Customer and staff",
+      "last_run_id": 1897576958,
+      "data_source_id": 34499,
       "explorations_count": 0,
       "_links": {
         "self": {
-          "href": "/api/acryl/reports/72f2ef8fb3a8/queries/bc5f397e4b77"
+          "href": "/api/acryltest/reports/9d2da37fa91e/queries/6e26a9f3d4e2"
         },
         "report": {
-          "href": "/api/acryl/reports/72f2ef8fb3a8"
+          "href": "/api/acryltest/reports/9d2da37fa91e"
         },
         "report_runs": {
-          "href": "/api/acryl/reports/72f2ef8fb3a8/runs"
+          "href": "/api/acryltest/reports/9d2da37fa91e/runs"
         },
         "charts": {
-          "href": "/api/acryl/reports/72f2ef8fb3a8/queries/bc5f397e4b77/charts"
+          "href": "/api/acryltest/reports/9d2da37fa91e/queries/6e26a9f3d4e2/charts"
         },
         "new_chart": {
-          "href": "/api/acryl/reports/72f2ef8fb3a8/queries/bc5f397e4b77/charts/new"
+          "href": "/api/acryltest/reports/9d2da37fa91e/queries/6e26a9f3d4e2/charts/new"
         },
         "new_query_table": {
-          "href": "/api/acryl/reports/72f2ef8fb3a8/queries/bc5f397e4b77/tables/new"
+          "href": "/api/acryltest/reports/9d2da37fa91e/queries/6e26a9f3d4e2/tables/new"
         },
         "query_tables": {
-          "href": "/api/acryl/reports/72f2ef8fb3a8/queries/bc5f397e4b77/tables"
+          "href": "/api/acryltest/reports/9d2da37fa91e/queries/6e26a9f3d4e2/tables"
         },
         "query_runs": {
-          "href": "/api/acryl/reports/72f2ef8fb3a8/queries/bc5f397e4b77/runs"
+          "href": "/api/acryltest/reports/9d2da37fa91e/queries/6e26a9f3d4e2/runs"
         },
         "creator": {
           "href": "/api/modeuser"
@@ -47,28 +47,28 @@
       "_forms": {
         "edit": {
           "method": "patch",
-          "action": "/api/acryl/reports/72f2ef8fb3a8/queries/bc5f397e4b77",
+          "action": "/api/acryltest/reports/9d2da37fa91e/queries/6e26a9f3d4e2",
           "content_type": "application/json",
           "input": {
             "query": {
               "raw_query": {
                 "type": "text",
-                "value": "SELECT\\n\\tcustomer.customer_id,\\n\\tfirst_name,\\n\\tlast_name,\\n\\tamount,\\n\\tpayment_date\\nFROM\\n\\tcustomer\\nINNER JOIN public.payment \\n    ON payment.customer_id = customer.customer_id\\nORDER BY payment_date;\\n"
+                "value": "SELECT  rental.*,  staff.first_name \"Staff First Name\", staff.last_name \"Staff Last Name\" FROM  {{  @join_on_definition    as                      rental  }} join staff on staff.staff_id = rental.staff_id"
               },
               "name": {
                 "type": "text",
-                "value": "Customer Payment"
+                "value": "Customer and staff"
               },
               "data_source_id": {
                 "type": "text",
-                "value": 34337
+                "value": 34499
               }
             }
           }
         },
         "destroy": {
           "method": "delete",
-          "action": "/api/acryl/reports/72f2ef8fb3a8/queries/bc5f397e4b77"
+          "action": "/api/acryltest/reports/9d2da37fa91e/queries/6e26a9f3d4e2"
         }
       }
     }]

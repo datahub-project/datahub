@@ -132,7 +132,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
     return RestliUtil.toTask(() -> {
       log.debug("Proposal: {}", metadataChangeProposal);
       try {
-        Urn urn = _entityService.ingestProposal(metadataChangeProposal, auditStamp);
+        Urn urn = _entityService.ingestProposal(metadataChangeProposal, auditStamp).getUrn();
         additionalChanges.forEach(proposal -> _entityService.ingestProposal(proposal, auditStamp));
         return urn.toString();
       } catch (ValidationException e) {

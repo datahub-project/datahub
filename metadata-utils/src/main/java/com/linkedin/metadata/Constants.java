@@ -30,7 +30,6 @@ public class Constants {
   public static final String GROUP_MEMBERSHIP_ASPECT_NAME = "groupMembership";
   public static final String CORP_USER_STATUS_ASPECT_NAME = "corpUserStatus";
   public static final String CORP_USER_KEY_ASPECT_NAME = "corpUserKey";
-
   public static final String CONSTRAINT_INFO_ASPECT_NAME = "constraintInfo";
 
 
@@ -39,5 +38,6 @@ public class Constants {
    */
   public static final String CORP_USER_STATUS_ACTIVE = "ACTIVE";
 
-  private Constants() { }
+  private Constants() {
+  }
 }

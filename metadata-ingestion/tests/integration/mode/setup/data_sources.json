@@ -1,28 +1,28 @@
 {
   "_links": {
     "self": {
-      "href": "/api/acryl/data_sources"
+      "href": "/api/acryltest/data_sources"
     }
   },
   "_embedded": {
     "data_sources": [{
-      "id": 34337,
+      "id": 34499,
       "name": "PostgreSQL",
-      "description": "",
-      "token": "3c9b417f20d4",
+      "description": "dvdrental",
+      "token": "ea1c23ebaddc",
       "adapter": "jdbc:postgresql",
-      "created_at": "2021-11-30T19:49:59.884Z",
-      "updated_at": "2021-11-30T19:49:59.884Z",
+      "created_at": "2021-12-10T20:14:08.856Z",
+      "updated_at": "2021-12-10T20:14:08.856Z",
       "has_expensive_schema_updates": false,
       "public": false,
       "asleep": false,
       "queryable": true,
       "display_name": "PostgreSQL",
-      "account_id": 745241,
-      "account_username": "acryl",
-      "organization_token": "d82b886a1cb7",
+      "account_id": 751252,
+      "account_username": "acryltest",
+      "organization_token": "791581e4a2aa",
       "default": true,
-      "default_for_organization_id": "d82b886a1cb7",
+      "default_for_organization_id": "791581e4a2aa",
       "database": "dvdrental",
       "host": "72.38.17.64",
       "port": 5432,
@@ -37,28 +37,28 @@
       "custom_attributes": {
         "instance_name": ""
       },
-      "default_access_level": "Query",
+      "default_access_level": "View",
       "_links": {
         "self": {
-          "href": "/api/acryl/data_sources/3c9b417f20d4"
+          "href": "/api/acryltest/data_sources/ea1c23ebaddc"
         },
         "account": {
-          "href": "/api/acryl"
+          "href": "/api/acryltest"
         },
         "permissions": {
-          "href": "/api/acryl/data_sources/3c9b417f20d4/permissions"
+          "href": "/api/acryltest/data_sources/ea1c23ebaddc/permissions"
         },
         "web": {
-          "href": "/organizations/acryl/data_sources/3c9b417f20d4"
+          "href": "/organizations/acryltest/data_sources/ea1c23ebaddc"
         },
         "web_home": {
-          "href": "/home/acryl/data_sources/3c9b417f20d4"
+          "href": "/home/acryltest/data_sources/ea1c23ebaddc"
         }
       },
       "_forms": {
         "edit": {
           "method": "patch",
-          "action": "/api/acryl/data_sources/3c9b417f20d4",
+          "action": "/api/acryltest/data_sources/ea1c23ebaddc",
           "content_type": "application/json",
           "input": {
             "data_source": {

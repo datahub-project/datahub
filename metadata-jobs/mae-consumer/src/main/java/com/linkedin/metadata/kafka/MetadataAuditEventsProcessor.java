@@ -1,5 +1,6 @@
 package com.linkedin.metadata.kafka;
 
+import com.codahale.metrics.Timer;
 import com.codahale.metrics.Histogram;
 
 import com.codahale.metrics.MetricRegistry;
@@ -93,7 +94,7 @@ public class MetadataAuditEventsProcessor {
     final GenericRecord record = consumerRecord.value();
     log.debug("Got MAE");
 
-    try {
+    try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "maeProcess").time()) {
       final MetadataAuditEvent event = EventUtils.avroToPegasusMAE(record);
 
       final RecordTemplate snapshot = RecordUtils.getSelectedRecordTemplateFromUnion(event.getNewSnapshot());
