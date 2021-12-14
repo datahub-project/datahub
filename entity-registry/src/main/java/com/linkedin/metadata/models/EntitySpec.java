@@ -3,30 +3,36 @@ package com.linkedin.metadata.models;
 import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.schema.TyperefDataSchema;
 import com.linkedin.metadata.models.annotation.EntityAnnotation;
-
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
+
 
 public interface EntitySpec {
-    String getName();
+  String getName();
 
-    EntityAnnotation getEntityAnnotation();
+  EntityAnnotation getEntityAnnotation();
 
-    String getKeyAspectName();
+  String getKeyAspectName();
 
-    AspectSpec getKeyAspectSpec();
+  AspectSpec getKeyAspectSpec();
 
-    List<AspectSpec> getAspectSpecs();
+  List<AspectSpec> getAspectSpecs();
 
-    Map<String, AspectSpec> getAspectSpecMap();
+  Map<String, AspectSpec> getAspectSpecMap();
 
-    Boolean hasAspect(String name);
+  Boolean hasAspect(String name);
 
-    AspectSpec getAspectSpec(String name);
+  AspectSpec getAspectSpec(String name);
 
-    RecordDataSchema getSnapshotSchema();
+  RecordDataSchema getSnapshotSchema();
 
-    TyperefDataSchema getAspectTyperefSchema();
+  TyperefDataSchema getAspectTyperefSchema();
 
-    List<SearchableFieldSpec> getSearchableFieldSpecs();
+  default List<SearchableFieldSpec> getSearchableFieldSpecs() {
+    return getAspectSpecs().stream()
+        .map(AspectSpec::getSearchableFieldSpecs)
+        .flatMap(List::stream)
+        .collect(Collectors.toList());
+  }
 }
