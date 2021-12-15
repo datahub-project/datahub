@@ -1,0 +1,8 @@
+namespace com.linkedin.retention
+
+/**
+ * Keep max N latest records
+ */
+record VersionBasedRetention {
+  maxVersions: int
+}

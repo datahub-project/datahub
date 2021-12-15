@@ -32,15 +32,9 @@ def get_sys_time() -> int:
     return int(time.time() * 1000)
 
 
-def _check_data_platform_name(platform_name: str) -> None:
-    if not platform_name.isalpha():
-        logger.warning(f"improperly formatted data platform: {platform_name}")
-
-
 def make_data_platform_urn(platform: str) -> str:
     if platform.startswith("urn:li:dataPlatform:"):
         return platform
-    _check_data_platform_name(platform)
     return f"urn:li:dataPlatform:{platform}"
 
 
@@ -94,13 +88,11 @@ def make_data_job_urn(
 
 def make_dashboard_urn(platform: str, name: str) -> str:
     # FIXME: dashboards don't currently include data platform urn prefixes.
-    _check_data_platform_name(platform)
     return f"urn:li:dashboard:({platform},{name})"
 
 
 def make_chart_urn(platform: str, name: str) -> str:
     # FIXME: charts don't currently include data platform urn prefixes.
-    _check_data_platform_name(platform)
     return f"urn:li:chart:({platform},{name})"
 
 

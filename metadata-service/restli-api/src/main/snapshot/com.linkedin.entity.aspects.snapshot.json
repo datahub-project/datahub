@@ -708,7 +708,7 @@
             "Searchable" : {
               "addToFilters" : true,
               "fieldName" : "tags",
-              "fieldType" : "URN_PARTIAL",
+              "fieldType" : "URN",
               "filterNameOverride" : "Tag",
               "hasValuesFieldName" : "hasTags"
             }
@@ -785,7 +785,7 @@
       "Searchable" : {
         "addToFilters" : true,
         "fieldName" : "glossaryTerms",
-        "fieldType" : "URN_PARTIAL",
+        "fieldType" : "URN",
         "filterNameOverride" : "Glossary Term"
       }
     } ]
@@ -2027,20 +2027,21 @@
           "items" : {
             "type" : "record",
             "name" : "SchemaField",
-            "doc" : "SchemaField to describe metadata related to dataset schema. Schema normalization rules: http://go/tms-schema",
+            "doc" : "SchemaField to describe metadata related to dataset schema.",
             "fields" : [ {
               "name" : "fieldPath",
               "type" : "com.linkedin.dataset.SchemaFieldPath",
-              "doc" : "Flattened name of the field. Field is computed from jsonPath field. For data translation rules refer to wiki page above.",
+              "doc" : "Flattened name of the field. Field is computed from jsonPath field.",
               "Searchable" : {
                 "fieldName" : "fieldPaths",
-                "fieldType" : "TEXT_PARTIAL"
+                "fieldType" : "TEXT"
               }
             }, {
               "name" : "jsonPath",
               "type" : "string",
               "doc" : "Flattened name of a field in JSON Path notation.",
-              "optional" : true
+              "optional" : true,
+              "Deprecated" : true
             }, {
               "name" : "nullable",
               "type" : "boolean",
@@ -2178,7 +2179,7 @@
                 "/tags/*/tag" : {
                   "boostScore" : 0.5,
                   "fieldName" : "fieldTags",
-                  "fieldType" : "URN_PARTIAL"
+                  "fieldType" : "URN"
                 }
               }
             }, {
@@ -2190,7 +2191,7 @@
                 "/terms/*/urn" : {
                   "boostScore" : 0.5,
                   "fieldName" : "fieldGlossaryTerms",
-                  "fieldType" : "URN_PARTIAL"
+                  "fieldType" : "URN"
                 }
               }
             }, {
@@ -2348,7 +2349,7 @@
                 "/tags/*/tag" : {
                   "boostScore" : 0.5,
                   "fieldName" : "editedFieldTags",
-                  "fieldType" : "URN_PARTIAL"
+                  "fieldType" : "URN"
                 }
               }
             }, {
@@ -2360,7 +2361,7 @@
                 "/terms/*/urn" : {
                   "boostScore" : 0.5,
                   "fieldName" : "editedFieldGlossaryTerms",
-                  "fieldType" : "URN_PARTIAL"
+                  "fieldType" : "URN"
                 }
               }
             } ]
