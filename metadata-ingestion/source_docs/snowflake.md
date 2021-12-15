@@ -139,18 +139,19 @@ sink:
 
 Note that a `.` is used to denote nested fields in the YAML recipe.
 
-| Field             | Required | Default                                                        | Description                                                     |
-| ----------------- | -------- | -------------------------------------------------------------- | --------------------------------------------------------------- |
-| `username`        |          |                                                                | Snowflake username.                                             |
-| `password`        |          |                                                                | Snowflake password.                                             |
-| `host_port`       | ✅       |                                                                | Snowflake host URL.                                             |
-| `warehouse`       |          |                                                                | Snowflake warehouse.                                            |
-| `role`            |          |                                                                | Snowflake role.                                                 |
-| `env`             |          | `"PROD"`                                                       | Environment to use in namespace when constructing URNs.         |
-| `bucket_duration` |          | `"DAY"`                                                        | Duration to bucket usage events by. Can be `"DAY"` or `"HOUR"`. |
-| `start_time`      |          | Last full day in UTC (or hour, depending on `bucket_duration`) | Earliest date of usage logs to consider.                        |
-| `end_time`        |          | Last full day in UTC (or hour, depending on `bucket_duration`) | Latest date of usage logs to consider.                          |
-| `top_n_queries`   |          | `10`                                                           | Number of top queries to save to each table.                    |
+| Field                         | Required | Default                                                        | Description                                                     |
+| ----------------------------- | -------- | -------------------------------------------------------------- | --------------------------------------------------------------- |
+| `username`                    |          |                                                                | Snowflake username.                                             |
+| `password`                    |          |                                                                | Snowflake password.                                             |
+| `host_port`                   | ✅       |                                                                | Snowflake host URL.                                             |
+| `warehouse`                   |          |                                                                | Snowflake warehouse.                                            |
+| `role`                        |          |                                                                | Snowflake role.                                                 |
+| `env`                         |          | `"PROD"`                                                       | Environment to use in namespace when constructing URNs.         |
+| `bucket_duration`             |          | `"DAY"`                                                        | Duration to bucket usage events by. Can be `"DAY"` or `"HOUR"`. |
+| `start_time`                  |          | Last full day in UTC (or hour, depending on `bucket_duration`) | Earliest date of usage logs to consider.                        |
+| `end_time`                    |          | Last full day in UTC (or hour, depending on `bucket_duration`) | Latest date of usage logs to consider.                          |
+| `top_n_queries`               |          | `10`                                                           | Number of top queries to save to each table.                    |
+| `apply_view_usage_to_tables`  |          | False                                                          | Attribute usage of views to the underlying table.               |
 
 ### Compatibility
 
