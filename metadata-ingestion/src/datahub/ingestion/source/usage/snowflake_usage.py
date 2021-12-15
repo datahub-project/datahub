@@ -147,7 +147,6 @@ class SnowflakeUsageSource(Source):
 
     def _get_snowflake_history(self) -> Iterable[SnowflakeJoinedAccessEvent]:
         query = self._make_usage_query()
-        print(query)
         engine = self._make_sql_engine()
 
         results = engine.execute(query)
