@@ -22,9 +22,10 @@ import org.springframework.web.context.support.WebApplicationContextUtils;
 // Return a 200 for health checks
 
 public class Config extends HttpServlet {
-  Map<String, String> config = new HashMap<String, String>() {{
+  Map<String, Object> config = new HashMap<String, Object>() {{
     put("noCode", "true");
     put("retention", "true");
+    put("statefulIngestionCapable", true);
   }};
   ObjectMapper objectMapper = new ObjectMapper().setSerializationInclusion(JsonInclude.Include.NON_NULL);
 

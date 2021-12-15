@@ -46,6 +46,14 @@
         "name" : "limit",
         "type" : "int",
         "default" : "10000"
+      }, {
+        "name" : "latestValue",
+        "type" : "boolean",
+        "default" : "false"
+      }, {
+        "name" : "filter",
+        "type" : "com.linkedin.metadata.query.filter.Filter",
+        "optional" : true
       } ],
       "returns" : "com.linkedin.aspect.GetTimeseriesAspectValuesResponse"
     }, {
