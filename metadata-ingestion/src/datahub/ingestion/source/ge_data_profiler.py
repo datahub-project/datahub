@@ -510,11 +510,17 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
 
             sample_values = self.dataset.engine.execute(sample_values_query).fetchall()
             for column_spec in columns_to_profile:
-                column_spec.column_profile.sampleValues = [
-                    str(value)
+                values = [
+                    value
                     for value in (row[column_spec.column] for row in sample_values)
                     if value is not None
                 ]
+                if values and isinstance(values[0], str):
+                    # For some reason, GE sorts strings in the sample values.
+                    # We'll match this behavior, even though it's not necessary.
+                    values.sort()
+
+                column_spec.column_profile.sampleValues = [str(v) for v in values]
 
     def generate_dataset_profile(  # noqa: C901 (complexity)
         self,
