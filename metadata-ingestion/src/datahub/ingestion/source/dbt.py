@@ -1,9 +1,11 @@
 import json
 import logging
+import re
 from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import dateutil.parser
+import requests
 from pydantic import validator
 
 from datahub.configuration import ConfigModel
@@ -264,6 +266,14 @@ def extract_dbt_entities(
     return dbt_entities
 
 
+def load_file_as_json(uri: str) -> Any:
+    if re.match("^https?://", uri):
+        return json.loads(requests.get(uri).text)
+    else:
+        with open(uri, "r") as f:
+            return json.load(f)
+
+
 def loadManifestAndCatalog(
     manifest_path: str,
     catalog_path: str,
@@ -282,16 +292,13 @@ def loadManifestAndCatalog(
     Optional[str],
     Dict[str, Dict[str, Any]],
 ]:
-    with open(manifest_path, "r") as manifest:
-        dbt_manifest_json = json.load(manifest)
+    dbt_manifest_json = load_file_as_json(manifest_path)
 
-    with open(catalog_path, "r") as catalog:
-        dbt_catalog_json = json.load(catalog)
+    dbt_catalog_json = load_file_as_json(catalog_path)
 
     if sources_path is not None:
-        with open(sources_path, "r") as sources:
-            dbt_sources_json = json.load(sources)
-            sources_results = dbt_sources_json["results"]
+        dbt_sources_json = load_file_as_json(sources_path)
+        sources_results = dbt_sources_json["results"]
     else:
         sources_results = {}
 
