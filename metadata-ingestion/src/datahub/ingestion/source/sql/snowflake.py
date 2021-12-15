@@ -203,6 +203,8 @@ QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name, upstream_table_na
         for lineage_entry in lineage:
             # Update the table-lineage
             upstream_table_name = lineage_entry[0]
+            if not self._is_dataset_allowed(upstream_table_name):
+                continue
             upstream_table = UpstreamClass(
                 dataset=builder.make_dataset_urn(
                     self.platform, upstream_table_name, self.config.env
@@ -229,8 +231,9 @@ QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name, upstream_table_na
             )
             column_lineage[column_lineage_key] = column_lineage_value
             logger.debug(f"{column_lineage_key}:{column_lineage_value}")
-
-        return UpstreamLineage(upstreams=upstream_tables), column_lineage
+        if upstream_tables:
+            return UpstreamLineage(upstreams=upstream_tables), column_lineage
+        return None
 
     # Override the base class method.
     def get_workunits(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
@@ -288,3 +291,18 @@ QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name, upstream_table_na
 
             # Emit the work unit from super.
             yield wu
+
+    def _is_dataset_allowed(self, dataset_name: Optional[str]) -> bool:
+        # View lineages is not supported. Add the allow/deny pattern for that when it is supported.
+        if dataset_name is None:
+            return True
+        dataset_params = dataset_name.split(".")
+        if len(dataset_params) != 3:
+            return True
+        if (
+            not self.config.database_pattern.allowed(dataset_params[0])
+            or not self.config.schema_pattern.allowed(dataset_params[1])
+            or not self.config.table_pattern.allowed(dataset_params[2])
+        ):
+            return False
+        return True

@@ -12,6 +12,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 
 import datahub.emitter.mce_builder as builder
+from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.time_window_config import get_time_bucket
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -95,6 +96,12 @@ class SnowflakeJoinedAccessEvent(PermissiveModel):
 class SnowflakeUsageConfig(BaseSnowflakeConfig, BaseUsageConfig):
     env: str = builder.DEFAULT_ENV
     options: dict = {}
+    database_pattern: AllowDenyPattern = AllowDenyPattern(
+        deny=[r"^UTIL_DB$", r"^SNOWFLAKE$", r"^SNOWFLAKE_SAMPLE_DATA$"]
+    )
+    schema_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
+    table_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
+    view_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
     apply_view_usage_to_tables: bool = False
 
     @pydantic.validator("role", always=True)
@@ -167,15 +174,57 @@ class SnowflakeUsageSource(Source):
                 unsupported_keys = ["locations"]
                 return any([obj.get(key) is not None for key in unsupported_keys])
 
+            def is_dataset_pattern_allowed(
+                dataset_name: Optional[Any], dataset_type: Optional[Any]
+            ) -> bool:
+                # TODO: support table/view patterns for usage logs by pulling that information as well from the usage query
+                if not dataset_type or not dataset_name:
+                    return True
+
+                table_or_view_pattern: Optional[
+                    AllowDenyPattern
+                ] = AllowDenyPattern.allow_all()
+                # Test domain type = external_table and then add it
+                table_or_view_pattern = (
+                    self.config.table_pattern
+                    if dataset_type.lower() in {"table"}
+                    else (
+                        self.config.view_pattern
+                        if dataset_type.lower() in {"view", "materialized_view"}
+                        else None
+                    )
+                )
+                if table_or_view_pattern is None:
+                    return True
+
+                dataset_params = dataset_name.split(".")
+                assert len(dataset_params) == 3
+                if (
+                    not self.config.database_pattern.allowed(dataset_params[0])
+                    or not self.config.schema_pattern.allowed(dataset_params[1])
+                    or not table_or_view_pattern.allowed(dataset_params[2])
+                ):
+                    return False
+                return True
+
+            def is_object_valid(obj: Dict[str, Any]) -> bool:
+                if is_unsupported_object_accessed(
+                    obj
+                ) or not is_dataset_pattern_allowed(
+                    obj.get("objectName"), obj.get("objectDomain")
+                ):
+                    return False
+                return True
+
             event_dict["base_objects_accessed"] = [
                 obj
                 for obj in json.loads(event_dict["base_objects_accessed"])
-                if not is_unsupported_object_accessed(obj)
+                if is_object_valid(obj)
             ]
             event_dict["direct_objects_accessed"] = [
                 obj
                 for obj in json.loads(event_dict["direct_objects_accessed"])
-                if not is_unsupported_object_accessed(obj)
+                if is_object_valid(obj)
             ]
             event_dict["query_start_time"] = (
                 event_dict["query_start_time"]
@@ -202,15 +251,13 @@ class SnowflakeUsageSource(Source):
                 event.query_start_time, self.config.bucket_duration
             )
 
-            accessed_data = []
-            if self.config.apply_view_usage_to_tables:
-                accessed_data = event.base_objects_accessed
-            else:
-                accessed_data = event.direct_objects_accessed
-
+            accessed_data = (
+                event.base_objects_accessed
+                if self.config.apply_view_usage_to_tables
+                else event.direct_objects_accessed
+            )
             for object in accessed_data:
                 resource = object.objectName
-
                 agg_bucket = datasets[floored_ts].setdefault(
                     resource,
                     AggregatedDataset(bucket_start_time=floored_ts, resource=resource),
