@@ -29,17 +29,13 @@ if docker volume ls | grep -c -q datahub_neo4jdata
 then
   echo "Datahub Neo4j volume found, starting with neo4j as graph service"
   cd $DIR && docker-compose pull && docker-compose -p datahub up
-elif docker volume ls | grep -c -q datahub_dgraphdata
-then
-  echo "Datahub Dgraph volume found, starting with dgraph as graph service"
-  cd $DIR && docker-compose pull && docker-compose -p datahub up
 else
-  echo "No Datahub Neo4j or Dgraph volume found, starting with elasticsearch as graph service"
+  echo "No Datahub Neo4j volume found, starting with elasticsearch as graph service"
   cd $DIR && \
   docker-compose \
-    -f quickstart/docker-compose.quickstart.yml \
+    -f quickstart/docker-compose-without-neo4j.quickstart.yml \
     $MONITORING_COMPOSE $CONSUMERS_COMPOSE pull && \
   docker-compose -p datahub \
-    -f quickstart/docker-compose.quickstart.yml \
+    -f quickstart/docker-compose-without-neo4j.quickstart.yml \
     $MONITORING_COMPOSE $CONSUMERS_COMPOSE up $@
 fi
