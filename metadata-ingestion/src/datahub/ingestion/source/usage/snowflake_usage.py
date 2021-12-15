@@ -97,7 +97,6 @@ class SnowflakeUsageConfig(BaseSnowflakeConfig, BaseUsageConfig):
     options: dict = {}
     use_base_objects_accessed: bool = False
 
-
     @pydantic.validator("role", always=True)
     def role_accountadmin(cls, v):
         if not v or v.lower() != "accountadmin":
