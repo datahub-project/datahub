@@ -12,9 +12,9 @@ from datahub.ingestion.source.usage.usage_common import (
 )
 from datahub.metadata.schema_classes import DatasetUsageStatisticsClass
 
-TestTableRef = str
+_TestTableRef = str
 
-TestAggregatedDataset = GenericAggregatedDataset[TestTableRef]
+_TestAggregatedDataset = GenericAggregatedDataset[_TestTableRef]
 
 
 def test_add_one_query_without_columns():
@@ -27,7 +27,7 @@ def test_add_one_query_without_columns():
 
     resource = "test_db.test_schema.test_table"
 
-    ta = TestAggregatedDataset(bucket_start_time=floored_ts, resource=resource)
+    ta = _TestAggregatedDataset(bucket_start_time=floored_ts, resource=resource)
     ta.add_read_entry(
         test_email,
         test_query,
@@ -52,7 +52,7 @@ def test_multiple_query_without_columns():
 
     resource = "test_db.test_schema.test_table"
 
-    ta = TestAggregatedDataset(bucket_start_time=floored_ts, resource=resource)
+    ta = _TestAggregatedDataset(bucket_start_time=floored_ts, resource=resource)
     ta.add_read_entry(
         test_email,
         test_query,
@@ -88,7 +88,7 @@ def test_make_usage_workunit():
 
     resource = "test_db.test_schema.test_table"
 
-    ta = TestAggregatedDataset(bucket_start_time=floored_ts, resource=resource)
+    ta = _TestAggregatedDataset(bucket_start_time=floored_ts, resource=resource)
     ta.add_read_entry(
         test_email,
         test_query,
@@ -117,7 +117,7 @@ def test_query_trimming():
 
     resource = "test_db.test_schema.test_table"
 
-    ta = TestAggregatedDataset(bucket_start_time=floored_ts, resource=resource)
+    ta = _TestAggregatedDataset(bucket_start_time=floored_ts, resource=resource)
     ta.total_budget_for_query_list = total_budget_for_query_list
 
     ta.add_read_entry(
