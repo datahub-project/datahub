@@ -418,6 +418,7 @@ class SQLAlchemySource(Source):
         schema: str,
         sql_config: SQLAlchemyConfig,
     ) -> Iterable[SqlWorkUnit]:
+        tables_seen: Set[str] = set()
         for table in inspector.get_table_names(schema):
             schema, table = self.standardize_schema_table_names(
                 schema=schema, entity=table
@@ -425,6 +426,12 @@ class SQLAlchemySource(Source):
             dataset_name = self.get_identifier(
                 schema=schema, entity=table, inspector=inspector
             )
+            if dataset_name not in tables_seen:
+                tables_seen.add(dataset_name)
+            else:
+                logger.debug(f"{dataset_name} has already been seen, skipping...")
+                continue
+
             self.report.report_entity_scanned(dataset_name, ent_type="table")
 
             if not sql_config.table_pattern.allowed(dataset_name):
