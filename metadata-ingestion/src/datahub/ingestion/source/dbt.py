@@ -1,6 +1,6 @@
 import json
 import logging
-import os
+import re
 from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
@@ -267,11 +267,11 @@ def extract_dbt_entities(
 
 
 def load_file_as_json(uri: str) -> Any:
-    if os.path.exists(uri):
-        with open(uri, "r") as file:
-            return json.load(file)
-    else:
+    if re.match("^https?://", uri):
         return json.loads(requests.get(uri).text)
+    else:
+        with open(uri, "r") as f:
+            return json.load(f)
 
 
 def loadManifestAndCatalog(
