@@ -95,7 +95,7 @@ class SnowflakeJoinedAccessEvent(PermissiveModel):
 class SnowflakeUsageConfig(BaseSnowflakeConfig, BaseUsageConfig):
     env: str = builder.DEFAULT_ENV
     options: dict = {}
-    use_base_objects_accessed: bool = False
+    apply_view_usage_to_tables: bool = False
 
     @pydantic.validator("role", always=True)
     def role_accountadmin(cls, v):
@@ -203,7 +203,7 @@ class SnowflakeUsageSource(Source):
             )
 
             accessed_data = []
-            if self.config.use_base_objects_accessed:
+            if self.config.apply_view_usage_to_tables:
                 accessed_data = event.base_objects_accessed
             else:
                 accessed_data = event.direct_objects_accessed

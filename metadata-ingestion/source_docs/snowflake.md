@@ -151,7 +151,7 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `start_time`                  |          | Last full day in UTC (or hour, depending on `bucket_duration`) | Earliest date of usage logs to consider.                        |
 | `end_time`                    |          | Last full day in UTC (or hour, depending on `bucket_duration`) | Latest date of usage logs to consider.                          |
 | `top_n_queries`               |          | `10`                                                           | Number of top queries to save to each table.                    |
-| `use_base_objects_accessed`   |          | False                                                          | Applies queries issued to views to the underlying table.        |
+| `apply_view_usage_to_tables`  |          | False                                                          | Attribute usage of views to the underlying table.               |
 
 ### Compatibility
 
