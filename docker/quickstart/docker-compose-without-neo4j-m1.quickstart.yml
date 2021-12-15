@@ -1,3 +1,5 @@
+# this file is a copy of docker-compose-m1.quickstart.yml, keep both in sync
+# see README.md for details
 networks:
   default:
     name: datahub_network
@@ -15,7 +17,7 @@ services:
     - KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS=0
     - KAFKA_HEAP_OPTS=-Xms256m -Xmx256m
     hostname: broker
-    image: confluentinc/cp-kafka:5.4.0
+    image: kymeric/cp-kafka:latest
     ports:
     - 29092:29092
     - 9092:9092
@@ -65,13 +67,13 @@ services:
     ports:
     - 8080:8080
     volumes:
-    - ${HOME}/.datahub/plugins/:/etc/datahub/plugins
+    - ${HOME}/.datahub/plugins:/etc/datahub/plugins
   elasticsearch:
     container_name: elasticsearch
     environment:
     - discovery.type=single-node
     - xpack.security.enabled=false
-    - ES_JAVA_OPTS=-Xms256m -Xmx256m
+    - ES_JAVA_OPTS=-Xms256m -Xmx256m -Dlog4j2.formatMsgNoLookups=true
     healthcheck:
       retries: 4
       start_period: 2m
@@ -115,7 +117,7 @@ services:
     - MYSQL_PASSWORD=datahub
     - MYSQL_ROOT_PASSWORD=datahub
     hostname: mysql
-    image: mysql:5.7
+    image: mariadb:10.5.8
     ports:
     - 3306:3306
     volumes:
@@ -142,7 +144,7 @@ services:
     - SCHEMA_REGISTRY_HOST_NAME=schemaregistry
     - SCHEMA_REGISTRY_KAFKASTORE_CONNECTION_URL=zookeeper:2181
     hostname: schema-registry
-    image: confluentinc/cp-schema-registry:5.4.0
+    image: eugenetea/schema-registry-arm64:latest
     ports:
     - 8081:8081
   zookeeper:
@@ -151,7 +153,7 @@ services:
     - ZOOKEEPER_CLIENT_PORT=2181
     - ZOOKEEPER_TICK_TIME=2000
     hostname: zookeeper
-    image: confluentinc/cp-zookeeper:5.4.0
+    image: kymeric/cp-zookeeper:latest
     ports:
     - 2181:2181
     volumes:

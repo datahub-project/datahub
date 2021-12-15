@@ -1,3 +1,5 @@
+# this file is copied to docker-compose-without-neo4j-m1.quickstart.yml, keep both in sync
+# see README.md for details
 networks:
   default:
     name: datahub_network
