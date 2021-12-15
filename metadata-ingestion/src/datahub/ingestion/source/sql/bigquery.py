@@ -194,7 +194,7 @@ class BigQuerySource(SQLAlchemySource):
             self.lineage_metadata = self._create_lineage_map(parsed_entries)
         except Exception as e:
             logger.error(
-                "Error computing lineage information using exported GCP audit logs.",
+                "Error computing lineage information using GCP logs.",
                 e,
             )
 
@@ -212,7 +212,7 @@ class BigQuerySource(SQLAlchemySource):
             self.lineage_metadata = self._create_lineage_map(parsed_entries)
         except Exception as e:
             logger.error(
-                "Error computing lineage information using GCP logs.",
+                "Error computing lineage information using exported GCP audit logs.",
                 e,
             )
 
