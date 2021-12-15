@@ -511,7 +511,7 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
             sample_values = self.dataset.engine.execute(sample_values_query).fetchall()
             for column_spec in columns_to_profile:
                 column_spec.column_profile.sampleValues = [
-                    value
+                    str(value)
                     for value in (row[column_spec.column] for row in sample_values)
                     if value is not None
                 ]
