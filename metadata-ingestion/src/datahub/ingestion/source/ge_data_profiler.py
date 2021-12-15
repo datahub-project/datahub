@@ -56,6 +56,8 @@ from datahub.utilities.sqlalchemy_query_combiner import (
 
 logger: logging.Logger = logging.getLogger(__name__)
 
+SAMPLE_VALUES_LIMIT = 10
+
 P = ParamSpec("P")
 
 # The reason for this wacky structure is quite fun. GE basically assumes that
@@ -502,14 +504,16 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                         for column_spec in columns_to_profile
                     ]
                 )
-                .limit(10)
+                .limit(SAMPLE_VALUES_LIMIT)
                 .select_from(self.dataset._table)
             )
 
             sample_values = self.dataset.engine.execute(sample_values_query).fetchall()
             for column_spec in columns_to_profile:
                 column_spec.column_profile.sampleValues = [
-                    str(row[column_spec.column]) for row in sample_values
+                    value
+                    for value in (row[column_spec.column] for row in sample_values)
+                    if value is not None
                 ]
 
     def generate_dataset_profile(  # noqa: C901 (complexity)
