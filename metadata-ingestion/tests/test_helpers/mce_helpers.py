@@ -63,7 +63,7 @@ def assert_mces_equal(
         )
         if clean_diff != diff:
             logger.warning(
-                f"MCE-s differ, clean MCE-s are fine\n{pprint.pformat(diff, width=150)}"
+                f"MCE-s differ, clean MCE-s are fine\n{pprint.pformat(diff)}"
             )
         diff = clean_diff
 
