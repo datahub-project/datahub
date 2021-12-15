@@ -15,13 +15,10 @@ import sqlalchemy.engine
 import sqlalchemy.sql
 from sqlalchemy.engine import Connection
 from sqlalchemy.orm.exc import MultipleResultsFound, NoResultFound
-from typing_extensions import ParamSpec
 
 from datahub.ingestion.api.report import Report
 
 logger: logging.Logger = logging.getLogger(__name__)
-
-P = ParamSpec("P")
 
 
 # We need to make sure that only one query combiner attempts to patch
