@@ -21,6 +21,6 @@ record IngestionCheckpointState {
   /**
    * Opaque blob of the state representation.
    */
-  byte_payload: optional bytes
+  payload: optional bytes
 }
 

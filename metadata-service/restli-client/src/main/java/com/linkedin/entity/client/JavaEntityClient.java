@@ -2,6 +2,7 @@ package com.linkedin.entity.client;
 
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
+
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.aspect.GetTimeseriesAspectValuesResponse;
 import com.linkedin.common.AuditStamp;
@@ -18,10 +19,10 @@ import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.dao.utils.RecordUtils;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.query.AutoCompleteResult;
-import com.linkedin.metadata.query.ListResult;
-import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
+import com.linkedin.metadata.query.ListResult;
+import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.resources.entity.AspectUtils;
 import com.linkedin.metadata.resources.entity.EntityResource;
 import com.linkedin.metadata.search.EntitySearchService;
@@ -58,9 +59,8 @@ public class JavaEntityClient implements EntityClient {
   private SearchService _searchService;
   private TimeseriesAspectService _timeseriesAspectService;
 
-  public JavaEntityClient(@Nonnull final EntityService entityService,
-      @Nonnull final EntitySearchService entitySearchService, @Nonnull final SearchService searchService,
-      @Nonnull final TimeseriesAspectService timeseriesAspectService) {
+  public JavaEntityClient(@Nonnull final EntityService entityService, @Nonnull final EntitySearchService entitySearchService, @Nonnull final
+  SearchService searchService, @Nonnull final TimeseriesAspectService timeseriesAspectService) {
     _entityService = entityService;
     _entitySearchService = entitySearchService;
     _searchService = searchService;
@@ -87,8 +87,12 @@ public class JavaEntityClient implements EntityClient {
    * @throws RemoteInvocationException
    */
   @Nonnull
-  public AutoCompleteResult autoComplete(@Nonnull String entityType, @Nonnull String query,
-      @Nonnull Map<String, String> requestFilters, @Nonnull int limit, @Nullable String field,
+  public AutoCompleteResult autoComplete(
+      @Nonnull String entityType,
+      @Nonnull String query,
+      @Nonnull Map<String, String> requestFilters,
+      @Nonnull int limit,
+      @Nullable String field,
       @Nonnull final Authentication authentication) throws RemoteInvocationException {
     return _entitySearchService.autoComplete(entityType, query, field, newFilter(requestFilters), limit);
   }
@@ -102,9 +106,12 @@ public class JavaEntityClient implements EntityClient {
    * @throws RemoteInvocationException
    */
   @Nonnull
-  public AutoCompleteResult autoComplete(@Nonnull String entityType, @Nonnull String query,
-      @Nonnull Map<String, String> requestFilters, @Nonnull int limit, @Nonnull final Authentication authentication)
-      throws RemoteInvocationException {
+  public AutoCompleteResult autoComplete(
+      @Nonnull String entityType,
+      @Nonnull String query,
+      @Nonnull Map<String, String> requestFilters,
+      @Nonnull int limit,
+      @Nonnull final Authentication authentication) throws RemoteInvocationException {
     return _entitySearchService.autoComplete(entityType, query, "", newFilter(requestFilters), limit);
   }
 
@@ -119,9 +126,13 @@ public class JavaEntityClient implements EntityClient {
    * @throws RemoteInvocationException
    */
   @Nonnull
-  public BrowseResult browse(@Nonnull String entityType, @Nonnull String path,
-      @Nullable Map<String, String> requestFilters, int start, int limit, @Nonnull final Authentication authentication)
-      throws RemoteInvocationException {
+  public BrowseResult browse(
+      @Nonnull String entityType,
+      @Nonnull String path,
+      @Nullable Map<String, String> requestFilters,
+      int start,
+      int limit,
+      @Nonnull final Authentication authentication) throws RemoteInvocationException {
     return _entitySearchService.browse(entityType, path, newFilter(requestFilters), start, limit);
   }
 
@@ -136,7 +147,9 @@ public class JavaEntityClient implements EntityClient {
   }
 
   @SneakyThrows
-  public void updateWithSystemMetadata(@Nonnull final Entity entity, @Nullable final SystemMetadata systemMetadata,
+  public void updateWithSystemMetadata(
+      @Nonnull final Entity entity,
+      @Nullable final SystemMetadata systemMetadata,
       @Nonnull final Authentication authentication) throws RemoteInvocationException {
     if (systemMetadata == null) {
       update(entity, authentication);
@@ -172,8 +185,13 @@ public class JavaEntityClient implements EntityClient {
    */
   @Nonnull
   @WithSpan
-  public SearchResult search(@Nonnull String entity, @Nonnull String input,
-      @Nullable Map<String, String> requestFilters, int start, int count, @Nonnull final Authentication authentication)
+  public SearchResult search(
+      @Nonnull String entity,
+      @Nonnull String input,
+      @Nullable Map<String, String> requestFilters,
+      int start,
+      int count,
+      @Nonnull final Authentication authentication)
       throws RemoteInvocationException {
     return _entitySearchService.search(entity, input, newFilter(requestFilters), null, start, count);
   }
@@ -188,8 +206,13 @@ public class JavaEntityClient implements EntityClient {
    * @throws RemoteInvocationException
    */
   @Nonnull
-  public ListResult list(@Nonnull String entity, @Nullable Map<String, String> requestFilters, int start, int count,
-      @Nonnull final Authentication authentication) throws RemoteInvocationException {
+  public ListResult list(
+      @Nonnull String entity,
+      @Nullable Map<String, String> requestFilters,
+      int start,
+      int count,
+      @Nonnull final Authentication authentication)
+      throws RemoteInvocationException {
     return EntityResource.toListResult(
         _entitySearchService.filter(entity, newFilter(requestFilters), null, start, count));
   }
@@ -205,8 +228,14 @@ public class JavaEntityClient implements EntityClient {
    * @throws RemoteInvocationException
    */
   @Nonnull
-  public SearchResult search(@Nonnull String entity, @Nonnull String input, @Nullable Filter filter, int start,
-      int count, @Nonnull final Authentication authentication) throws RemoteInvocationException {
+  public SearchResult search(
+      @Nonnull String entity,
+      @Nonnull String input,
+      @Nullable Filter filter,
+      int start,
+      int count,
+      @Nonnull final Authentication authentication)
+      throws RemoteInvocationException {
     return _entitySearchService.search(entity, input, filter, null, start, count);
   }
 
@@ -222,9 +251,13 @@ public class JavaEntityClient implements EntityClient {
    * @throws RemoteInvocationException
    */
   @Nonnull
-  public SearchResult searchAcrossEntities(@Nonnull List<String> entities, @Nonnull String input,
-      @Nullable Filter filter, int start, int count, @Nonnull final Authentication authentication)
-      throws RemoteInvocationException {
+  public SearchResult searchAcrossEntities(
+      @Nonnull List<String> entities,
+      @Nonnull String input,
+      @Nullable Filter filter,
+      int start,
+      int count,
+      @Nonnull final Authentication authentication) throws RemoteInvocationException {
     return _searchService.searchAcrossEntities(entities, input, filter, null, start, count);
   }
 
@@ -236,24 +269,22 @@ public class JavaEntityClient implements EntityClient {
    * @throws RemoteInvocationException
    */
   @Nonnull
-  public StringArray getBrowsePaths(@Nonnull Urn urn, @Nonnull final Authentication authentication)
-      throws RemoteInvocationException {
+  public StringArray getBrowsePaths(@Nonnull Urn urn, @Nonnull final Authentication authentication) throws RemoteInvocationException {
     return new StringArray(_entitySearchService.getBrowsePaths(urn.getEntityType(), urn));
   }
 
-  public void setWritable(boolean canWrite, @Nonnull final Authentication authentication)
-      throws RemoteInvocationException {
+  public void setWritable(boolean canWrite, @Nonnull final Authentication authentication) throws RemoteInvocationException {
     _entityService.setWritable(canWrite);
   }
 
   @Nonnull
-  public long getTotalEntityCount(@Nonnull String entityName, @Nonnull final Authentication authentication)
-      throws RemoteInvocationException {
+  public long getTotalEntityCount(@Nonnull String entityName, @Nonnull final Authentication authentication) throws RemoteInvocationException {
     return _searchService.docCount(entityName);
   }
 
   @Nonnull
-  public Map<String, Long> batchGetTotalEntityCount(@Nonnull List<String> entityName,
+  public Map<String, Long> batchGetTotalEntityCount(
+      @Nonnull List<String> entityName,
       @Nonnull final Authentication authentication) throws RemoteInvocationException {
     return entityName.stream().collect(Collectors.toMap(Function.identity(), _searchService::docCount));
   }
@@ -261,16 +292,15 @@ public class JavaEntityClient implements EntityClient {
   /**
    * List all urns existing for a particular Entity type.
    */
-  public ListUrnsResult listUrns(@Nonnull final String entityName, final int start, final int count,
-      @Nonnull final Authentication authentication) throws RemoteInvocationException {
+  public ListUrnsResult listUrns(@Nonnull final String entityName, final int start, final int count, @Nonnull final Authentication authentication)
+      throws RemoteInvocationException {
     return _entityService.listUrns(entityName, start, count);
   }
 
   /**
    * Hard delete an entity with a particular urn.
    */
-  public void deleteEntity(@Nonnull final Urn urn, @Nonnull final Authentication authentication)
-      throws RemoteInvocationException {
+  public void deleteEntity(@Nonnull final Urn urn, @Nonnull final Authentication authentication) throws RemoteInvocationException {
     _entityService.deleteUrn(urn);
   }
 
@@ -343,8 +373,7 @@ public class JavaEntityClient implements EntityClient {
   @SneakyThrows
   @Override
   public <T extends RecordTemplate> Optional<T> getVersionedAspect(@Nonnull String urn, @Nonnull String aspect,
-      @Nonnull Long version, @Nonnull Class<T> aspectClass, @Nonnull final Authentication authentication)
-      throws RemoteInvocationException {
+      @Nonnull Long version, @Nonnull Class<T> aspectClass, @Nonnull final Authentication authentication) throws RemoteInvocationException {
     VersionedAspect entity = _entityService.getVersionedAspect(Urn.createFromString(urn), aspect, version);
     if (entity != null && entity.hasAspect()) {
       DataMap rawAspect = ((DataMap) entity.data().get("aspect"));
@@ -357,8 +386,8 @@ public class JavaEntityClient implements EntityClient {
   }
 
   @SneakyThrows
-  public DataMap getRawAspect(@Nonnull String urn, @Nonnull String aspect, @Nonnull Long version,
-      @Nonnull Authentication authentication) throws RemoteInvocationException {
+  public DataMap getRawAspect(@Nonnull String urn, @Nonnull String aspect,
+      @Nonnull Long version, @Nonnull Authentication authentication) throws RemoteInvocationException {
     VersionedAspect entity = _entityService.getVersionedAspect(Urn.createFromString(urn), aspect, version);
     if (entity == null) {
       return null;
