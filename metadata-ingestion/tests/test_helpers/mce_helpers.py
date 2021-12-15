@@ -67,7 +67,7 @@ def assert_mces_equal(
             )
         diff = clean_diff
 
-    assert not diff, f"MCEs differ\n{pprint.pformat(diff, width=150)}"
+    assert not diff, f"MCEs differ\n{pprint.pformat(diff, width=120)}"
 
 
 def check_golden_file(
