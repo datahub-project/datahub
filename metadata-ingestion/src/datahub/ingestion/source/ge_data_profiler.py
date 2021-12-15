@@ -21,7 +21,10 @@ try:
 except ImportError:
     pass
 
+import great_expectations.dataset.sqlalchemy_dataset
 import pydantic
+import sqlalchemy as sa
+from great_expectations.core.util import convert_to_json_serializable
 from great_expectations.data_context import BaseDataContext
 from great_expectations.data_context.types.base import (
     DataContextConfig,
@@ -34,6 +37,7 @@ from great_expectations.datasource.sqlalchemy_datasource import SqlAlchemyDataso
 from great_expectations.profile.base import OrderedProfilerCardinality, ProfilerDataType
 from great_expectations.profile.basic_dataset_profiler import BasicDatasetProfilerBase
 from sqlalchemy.engine import Connection, Engine
+from sqlalchemy.exc import ProgrammingError
 from typing_extensions import Concatenate, ParamSpec
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
@@ -97,6 +101,61 @@ class GEProfilerRequest:
     batch_kwargs: dict
 
 
+def get_column_unique_count_patch(self, column):
+    if self.engine.dialect.name.lower() == "redshift":
+        element_values = self.engine.execute(
+            f"SELECT APPROXIMATE count (distinct {column}) FROM {self._table}"
+        )
+        return convert_to_json_serializable(element_values.fetchone()[0])
+    elif self.engine.dialect.name.lower() == "bigquery":
+        element_values = self.engine.execute(
+            f"SELECT APPROX_COUNT_DISTINCT ({column}) FROM {self._table}"
+        )
+        return convert_to_json_serializable(element_values.fetchone()[0])
+    elif self.engine.dialect.name.lower() == "snowflake":
+        element_values = self.engine.execute(
+            f"SELECT APPROX_COUNT_DISTINCT ({column}) FROM {self._table}"
+        )
+        return convert_to_json_serializable(element_values.fetchone()[0])
+    return convert_to_json_serializable(
+        self.engine.execute(
+            sa.select([sa.func.count(sa.func.distinct(sa.column(column)))]).select_from(
+                self._table
+            )
+        ).scalar()
+    )
+
+
+def _get_column_quantiles_bigquery_patch(  # type:ignore
+    self, column: str, quantiles: Iterable
+) -> list:
+    quantile_queries = list()
+    for quantile in quantiles:
+        quantile_queries.append(
+            f"approx_quantiles({column}, 100) OFFSET [{quantile * 100}]"
+        )
+
+    select_part = ",".join(quantile_queries)
+
+    quantiles_query = f"SELECT {select_part} " f"from {self._table}"
+    try:
+        quantiles_results = self.engine.execute(quantiles_query).fetchone()
+        return list(quantiles_results)
+
+    except ProgrammingError as pe:
+        self._treat_quantiles_exception(pe)
+        return list()
+
+
+great_expectations.dataset.sqlalchemy_dataset.SqlAlchemyDataset.get_column_unique_count = (
+    get_column_unique_count_patch
+)
+
+great_expectations.dataset.sqlalchemy_dataset.SqlAlchemyDataset._get_column_quantiles_bigquery = (
+    _get_column_quantiles_bigquery_patch
+)
+
+
 class GEProfilingConfig(ConfigModel):
     enabled: bool = False
     limit: Optional[int] = None
@@ -112,10 +171,10 @@ class GEProfilingConfig(ConfigModel):
     include_field_mean_value: bool = True
     include_field_median_value: bool = True
     include_field_stddev_value: bool = True
-    include_field_quantiles: bool = True
-    include_field_distinct_value_frequencies: bool = True
-    include_field_histogram: bool = True
-    include_field_sample_values: bool = True
+    include_field_quantiles: bool = False
+    include_field_distinct_value_frequencies: bool = False
+    include_field_histogram: bool = False
+    include_field_sample_values: bool = False
 
     allow_deny_patterns: AllowDenyPattern = AllowDenyPattern.allow_all()
     max_number_of_fields_to_profile: Optional[pydantic.PositiveInt] = None
@@ -422,6 +481,7 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
 
             res = self.dataset.expect_column_quantile_values_to_be_between(
                 column,
+                allow_relative_error=True,
                 quantile_ranges={
                     "quantiles": quantiles,
                     "value_ranges": [[None, None]] * len(quantiles),
@@ -513,7 +573,8 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                 columns_profiling_queue.append(column_spec)
 
                 self._get_column_type(column_spec, column)
-                self._get_column_cardinality(column_spec, column)
+                if column_spec.type_ != ProfilerDataType.UNKNOWN:
+                    self._get_column_cardinality(column_spec, column)
 
         logger.debug(f"profiling {self.dataset_name}: flushing stage 2 queries")
         self.query_combiner.flush()
@@ -522,6 +583,11 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
         row_count: int = profile.rowCount
 
         for column_spec in columns_profiling_queue:
+            if column_spec.type_ == ProfilerDataType.UNKNOWN:
+                logger.debug(
+                    f"profiling is disabled for {column_spec.column} as it's type is not supported for profiling"
+                )
+                continue
             column = column_spec.column
             column_profile = column_spec.column_profile
             type_ = column_spec.type_
@@ -536,11 +602,17 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                 column_profile.nullCount = null_count
                 if row_count > 0:
                     column_profile.nullProportion = null_count / row_count
+                    # Sometimes this value is bigger than 1 because of the approx queries
+                    if column_profile.nullProportion > 1:
+                        column_profile.nullProportion = 1
 
             if unique_count is not None:
                 column_profile.uniqueCount = unique_count
                 if non_null_count is not None and non_null_count > 0:
                     column_profile.uniqueProportion = unique_count / non_null_count
+                    # Sometimes this value is bigger than 1 because of the approx queries
+                    if column_profile.uniqueProportion > 1:
+                        column_profile.uniqueProportion = 1
 
             self._get_dataset_column_sample_values(column_profile, column)
 
