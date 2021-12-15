@@ -56,7 +56,7 @@ from datahub.utilities.sqlalchemy_query_combiner import (
 
 logger: logging.Logger = logging.getLogger(__name__)
 
-SAMPLE_VALUES_LIMIT = 10
+SAMPLE_VALUES_LIMIT = 20
 
 P = ParamSpec("P")
 
@@ -515,11 +515,6 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                     for value in (row[column_spec.column] for row in sample_values)
                     if value is not None
                 ]
-                if values and isinstance(values[0], str):
-                    # For some reason, GE sorts strings in the sample values.
-                    # We'll match this behavior, even though it's not necessary.
-                    values.sort()
-
                 column_spec.column_profile.sampleValues = [str(v) for v in values]
 
     def generate_dataset_profile(  # noqa: C901 (complexity)

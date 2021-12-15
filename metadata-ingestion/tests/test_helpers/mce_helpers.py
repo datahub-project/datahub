@@ -63,11 +63,11 @@ def assert_mces_equal(
         )
         if clean_diff != diff:
             logger.warning(
-                f"MCE-s differ, clean MCE-s are fine\n{pprint.pformat(diff)}"
+                f"MCE-s differ, clean MCE-s are fine\n{pprint.pformat(diff, width=100)}"
             )
         diff = clean_diff
 
-    assert not diff, f"MCEs differ\n{pprint.pformat(diff, width=120)}"
+    assert not diff, f"MCEs differ\n{pprint.pformat(diff, width=100)}"
 
 
 def check_golden_file(
