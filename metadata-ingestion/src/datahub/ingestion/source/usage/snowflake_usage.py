@@ -33,7 +33,7 @@ SELECT
     query_history.query_text,
     query_history.query_type,
     access_history.base_objects_accessed,
-    -- access_history.direct_objects_accessed, -- might be useful in the future
+    access_history.direct_objects_accessed, -- when dealing with views, direct objects will show the view while base will show the underlying table
     -- query_history.execution_status, -- not really necessary, but should equal "SUCCESS"
     -- query_history.warehouse_name,
     access_history.user_name,
@@ -82,6 +82,7 @@ class SnowflakeJoinedAccessEvent(PermissiveModel):
     query_text: str
     query_type: str
     base_objects_accessed: List[SnowflakeObjectAccessEntry]
+    direct_objects_accessed: List[SnowflakeObjectAccessEntry]
 
     user_name: str
     first_name: Optional[str]
@@ -94,6 +95,7 @@ class SnowflakeJoinedAccessEvent(PermissiveModel):
 class SnowflakeUsageConfig(BaseSnowflakeConfig, BaseUsageConfig):
     env: str = builder.DEFAULT_ENV
     options: dict = {}
+    apply_view_usage_to_tables: bool = False
 
     @pydantic.validator("role", always=True)
     def role_accountadmin(cls, v):
@@ -161,14 +163,19 @@ class SnowflakeUsageSource(Source):
             if event_dict["query_text"] is None:
                 continue
 
-            def is_unsupported_base_object_accessed(obj: Dict[str, Any]) -> bool:
+            def is_unsupported_object_accessed(obj: Dict[str, Any]) -> bool:
                 unsupported_keys = ["locations"]
                 return any([obj.get(key) is not None for key in unsupported_keys])
 
             event_dict["base_objects_accessed"] = [
                 obj
                 for obj in json.loads(event_dict["base_objects_accessed"])
-                if not is_unsupported_base_object_accessed(obj)
+                if not is_unsupported_object_accessed(obj)
+            ]
+            event_dict["direct_objects_accessed"] = [
+                obj
+                for obj in json.loads(event_dict["direct_objects_accessed"])
+                if not is_unsupported_object_accessed(obj)
             ]
             event_dict["query_start_time"] = (
                 event_dict["query_start_time"]
@@ -195,7 +202,13 @@ class SnowflakeUsageSource(Source):
                 event.query_start_time, self.config.bucket_duration
             )
 
-            for object in event.base_objects_accessed:
+            accessed_data = []
+            if self.config.apply_view_usage_to_tables:
+                accessed_data = event.base_objects_accessed
+            else:
+                accessed_data = event.direct_objects_accessed
+
+            for object in accessed_data:
                 resource = object.objectName
 
                 agg_bucket = datasets[floored_ts].setdefault(
