@@ -1,4 +1,5 @@
 import re
+import time
 from functools import lru_cache
 from typing import Dict, Iterable, Optional, Tuple, Union
 
@@ -8,11 +9,7 @@ import tenacity
 from pydantic import validator
 from requests.models import HTTPBasicAuth, HTTPError
 from sqllineage.runner import LineageRunner
-from tenacity import (
-    retry_if_exception_type,
-    stop_after_attempt,
-    wait_exponential,
-)
+from tenacity import retry_if_exception_type, stop_after_attempt, wait_exponential
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigModel
@@ -88,8 +85,7 @@ class ModeSource(Source):
 
         # Test the connection
         try:
-            test_response = self.session.get(f"{self.config.connect_uri}/api/account")
-            test_response.raise_for_status()
+            self._get_request_json(f"{self.config.connect_uri}/api/account")
         except HTTPError as http_error:
             self.report.report_failure(
                 key="mode-session",
@@ -181,12 +177,21 @@ class ModeSource(Source):
 
     @lru_cache(maxsize=None)
     def _get_creator(self, href: str) -> str:
-        user = self.session.get(f"{self.config.connect_uri}{href}")
-        user_json = user.json()
-        if self.config.owner_username_instead_of_email:
-            return user_json.get("username", "unknown")
-        else:
-            return user_json.get("email", "unknown")
+        user = ""
+        try:
+            user_json = self._get_request_json(f"{self.config.connect_uri}{href}")
+            user = (
+                user_json.get("username", "unknown")
+                if self.config.owner_username_instead_of_email
+                else user_json.get("email", "unknown")
+            )
+        except HTTPError as http_error:
+            self.report.report_failure(
+                key="mode-user",
+                reason=f"Unable to retrieve user for {href}, "
+                f"Reason: {str(http_error)}",
+            )
+        return user
 
     def _get_chart_urns(self, report_token: str) -> list:
         chart_urns = []
@@ -205,9 +210,7 @@ class ModeSource(Source):
     def _get_space_name_and_tokens(self) -> dict:
         space_info = {}
         try:
-            workspace_response = self.session.get(f"{self.workspace_uri}/spaces")
-            workspace_response.raise_for_status()
-            payload = workspace_response.json()
+            payload = self._get_request_json(f"{self.workspace_uri}/spaces")
             spaces = payload.get("_embedded", {}).get("spaces", {})
 
             for s in spaces:
@@ -346,9 +349,19 @@ class ModeSource(Source):
     def _get_platform_and_dbname(
         self, data_source_id: int
     ) -> Union[Tuple[str, str], Tuple[None, None]]:
-        ds_response = self.session.get(f"{self.workspace_uri}/data_sources")
-        ds_json = ds_response.json()
-        data_sources = ds_json.get("_embedded", {}).get("data_sources", {})
+
+        data_sources = {}
+        try:
+            ds_json = self._get_request_json(f"{self.workspace_uri}/data_sources")
+            data_sources = ds_json.get("_embedded", {}).get("data_sources", [])
+        except HTTPError as http_error:
+            self.report.report_failure(
+                key=f"mode-datasource-{data_source_id}",
+                reason=f"No data sources found for datasource id: "
+                f"{data_source_id}, "
+                f"Reason: {str(http_error)}",
+            )
+
         if not data_sources:
             self.report.report_failure(
                 key=f"mode-datasource-{data_source_id}",
@@ -410,9 +423,9 @@ class ModeSource(Source):
     @lru_cache(maxsize=None)
     def _get_definition(self, definition_name):
         try:
-            definition_response = self.session.get(f"{self.workspace_uri}/definitions")
-            definition_response.raise_for_status()
-            definition_json = definition_response.json()
+            definition_json = self._get_request_json(
+                f"{self.workspace_uri}/definitions"
+            )
             definitions = definition_json.get("_embedded", {}).get("definitions", [])
             for definition in definitions:
                 if definition.get("name", "") == definition_name:
@@ -550,11 +563,9 @@ class ModeSource(Source):
     def _get_reports(self, space_token: str) -> list:
         reports = []
         try:
-            reports_response = self.session.get(
+            reports_json = self._get_request_json(
                 f"{self.workspace_uri}/spaces/{space_token}/reports"
             )
-            reports_response.raise_for_status()
-            reports_json = reports_response.json()
             reports = reports_json.get("_embedded", {}).get("reports", {})
         except HTTPError as http_error:
             self.report.report_failure(
@@ -568,11 +579,9 @@ class ModeSource(Source):
     def _get_queries(self, report_token: str) -> list:
         queries = []
         try:
-            queries_response = self.session.get(
+            queries_json = self._get_request_json(
                 f"{self.workspace_uri}/reports/{report_token}/queries"
             )
-            queries_response.raise_for_status()
-            queries_json = queries_response.json()
             queries = queries_json.get("_embedded", {}).get("queries", {})
         except HTTPError as http_error:
             self.report.report_failure(
@@ -606,16 +615,22 @@ class ModeSource(Source):
         retry=retry_if_exception_type(HTTPError429),
         stop=stop_after_attempt(5),
     )
-    def _get_request_json(self, url: str):
+    def _get_request_json(self, url: str) -> Dict:
         try:
             response = self.session.get(url)
             response.raise_for_status()
             return response.json()
         except HTTPError as http_error:
-            if http_error.response.status_code == 429:
-                # respect Retry-After if in seconds. if retry-after is date then raise service unavailable (503)
+            error_response = http_error.response
+            if error_response.status_code == 429:
+                # respect Retry-After
+                sleep_time = error_response.headers.get("retry-after")
+                if sleep_time is not None:
+                    time.sleep(sleep_time)
                 raise HTTPError429
+
             raise http_error
+        return {}
 
     def emit_dashboard_mces(self) -> Iterable[MetadataWorkUnit]:
         for space_token, space_name in self.space_tokens.items():
