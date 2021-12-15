@@ -33,7 +33,7 @@ def test_list_all(verbose: bool) -> None:
     args = ["check", "plugins"]
     if verbose:
         args.append("--verbose")
-    result = run_datahub_cmd(args, check_result=True)
+    result = run_datahub_cmd(args)
     assert len(result.output.splitlines()) > 20
 
 

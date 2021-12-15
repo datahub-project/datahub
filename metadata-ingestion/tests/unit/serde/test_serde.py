@@ -114,10 +114,7 @@ def test_serde_to_avro(pytestconfig: PytestConfig, json_filename: str) -> None:
 def test_check_mce_schema(pytestconfig: PytestConfig, json_filename: str) -> None:
     json_file_path = pytestconfig.rootpath / json_filename
 
-    run_datahub_cmd(
-        ["check", "mce-file", f"{json_file_path}"],
-        check_result=True,
-    )
+    run_datahub_cmd(["check", "mce-file", f"{json_file_path}"])
 
 
 @pytest.mark.parametrize(

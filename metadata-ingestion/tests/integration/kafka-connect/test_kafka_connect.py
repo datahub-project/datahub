@@ -183,11 +183,7 @@ def test_kafka_connect_ingest(docker_compose_runner, pytestconfig, tmp_path, moc
 
         # Run the metadata ingestion pipeline.
         config_file = (test_resources_dir / "kafka_connect_to_file.yml").resolve()
-        run_datahub_cmd(
-            ["ingest", "-c", f"{config_file}"],
-            tmp_path=tmp_path,
-            check_result=True,
-        )
+        run_datahub_cmd(["ingest", "-c", f"{config_file}"], tmp_path=tmp_path)
 
         # Verify the output.
         mce_helpers.check_golden_file(

@@ -40,10 +40,7 @@ def test_trino_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
 
             # Run the metadata ingestion pipeline for trino catalog referring to postgres database
             config_file = (test_resources_dir / "trino_to_file.yml").resolve()
-            run_datahub_cmd(
-                ["ingest", "-c", f"{config_file}"],
-                check_result=True,
-            )
+            run_datahub_cmd(["ingest", "-c", f"{config_file}"])
             # Verify the output.
             mce_helpers.check_golden_file(
                 pytestconfig,
@@ -57,10 +54,7 @@ def test_trino_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
 
             # Run the metadata ingestion pipeline for trino catalog referring to hive database
             config_file = (test_resources_dir / "trino_hive_to_file.yml").resolve()
-            run_datahub_cmd(
-                ["ingest", "-c", f"{config_file}"],
-                check_result=True,
-            )
+            run_datahub_cmd(["ingest", "-c", f"{config_file}"])
 
             # Verify the output.
             mce_helpers.check_golden_file(

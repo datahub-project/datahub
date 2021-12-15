@@ -32,9 +32,7 @@ def test_mssql_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
         # Run the metadata ingestion pipeline.
         config_file = (test_resources_dir / "mssql_to_file.yml").resolve()
         run_datahub_cmd(
-            ["ingest", "-c", f"{config_file}"],
-            tmp_path=tmp_path,
-            check_result=True,
+            ["ingest", "-c", f"{config_file}"], tmp_path=tmp_path, check_result=True
         )
 
         # Verify the output.

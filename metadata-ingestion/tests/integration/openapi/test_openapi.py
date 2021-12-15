@@ -14,11 +14,7 @@ def test_openapi_ingest(pytestconfig, tmp_path):
 
     # Run the metadata ingestion pipeline.
     config_file = (test_resources_dir / "openapi_to_file.yml").resolve()
-    run_datahub_cmd(
-        ["ingest", "-c", f"{config_file}"],
-        tmp_path=tmp_path,
-        check_result=True,
-    )
+    run_datahub_cmd(["ingest", "-c", f"{config_file}"], tmp_path=tmp_path)
 
     # Verify the output.
     mce_helpers.check_golden_file(

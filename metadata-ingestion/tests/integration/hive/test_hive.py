@@ -26,9 +26,7 @@ def test_hive_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
 
         # Run the metadata ingestion pipeline.
         config_file = (test_resources_dir / "hive_to_file.yml").resolve()
-        run_datahub_cmd(
-            ["ingest", "-c", f"{config_file}"], tmp_path=tmp_path, check_result=True
-        )
+        run_datahub_cmd(["ingest", "-c", f"{config_file}"], tmp_path=tmp_path)
 
         # Verify the output.
         mce_helpers.check_golden_file(

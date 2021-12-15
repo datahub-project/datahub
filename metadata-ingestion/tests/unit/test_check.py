@@ -2,12 +2,12 @@ from tests.test_helpers.click_helpers import run_datahub_cmd
 
 
 def test_cli_help():
-    result = run_datahub_cmd(["--help"], check_result=True)
+    result = run_datahub_cmd(["--help"])
     assert result.output
 
 
 def test_cli_version():
-    result = run_datahub_cmd(["--debug", "version"], check_result=True)
+    result = run_datahub_cmd(["--debug", "version"])
     assert result.output
 
 
