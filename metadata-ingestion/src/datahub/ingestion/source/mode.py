@@ -39,6 +39,12 @@ from datahub.metadata.schema_classes import (
 from datahub.utilities import config_clean
 
 
+class ModeAPIConfig(ConfigModel):
+    retry_backoff_multiplier: Union[int, float] = 2
+    max_retry_interval: Union[int, float] = 10
+    max_attempts: int = 5
+
+
 class ModeConfig(ConfigModel):
     # See https://mode.com/developer/api-reference/authentication/
     # for authentication
@@ -48,8 +54,7 @@ class ModeConfig(ConfigModel):
     workspace: Optional[str] = None
     default_schema: str = "public"
     owner_username_instead_of_email: Optional[bool] = True
-    initial_api_request_delay: int = 1
-    max_tries_api_request: int = 5
+    api_options: ModeAPIConfig = ModeAPIConfig()
     env: str = builder.DEFAULT_ENV
 
     @validator("connect_uri")
@@ -610,27 +615,35 @@ class ModeSource(Source):
             )
         return charts
 
-    @tenacity.retry(
-        wait=wait_exponential(multiplier=1, min=1, max=10),
-        retry=retry_if_exception_type(HTTPError429),
-        stop=stop_after_attempt(5),
-    )
     def _get_request_json(self, url: str) -> Dict:
-        try:
-            response = self.session.get(url)
-            response.raise_for_status()
-            return response.json()
-        except HTTPError as http_error:
-            error_response = http_error.response
-            if error_response.status_code == 429:
-                # respect Retry-After
-                sleep_time = error_response.headers.get("retry-after")
-                if sleep_time is not None:
-                    time.sleep(sleep_time)
-                raise HTTPError429
+        r = tenacity.Retrying(
+            wait=wait_exponential(
+                multiplier=self.config.api_options.retry_backoff_multiplier,
+                max=self.config.api_options.max_retry_interval,
+            ),
+            retry=retry_if_exception_type(HTTPError429),
+            stop=stop_after_attempt(self.config.api_options.max_attempts),
+        )
 
-            raise http_error
-        return {}
+        @r.wraps
+        def get_request():
+            try:
+                response = self.session.get(url)
+                response.raise_for_status()
+                return response.json()
+            except HTTPError as http_error:
+                error_response = http_error.response
+                if error_response.status_code == 429:
+                    # respect Retry-After
+                    sleep_time = error_response.headers.get("retry-after")
+                    if sleep_time is not None:
+                        time.sleep(sleep_time)
+                    raise HTTPError429
+
+                raise http_error
+            return {}
+
+        return get_request()
 
     def emit_dashboard_mces(self) -> Iterable[MetadataWorkUnit]:
         for space_token, space_name in self.space_tokens.items():
