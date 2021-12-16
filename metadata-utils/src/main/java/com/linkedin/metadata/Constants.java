@@ -29,11 +29,11 @@ public class Constants {
   public static final String CORP_USER_STATUS_ASPECT_NAME = "corpUserStatus";
   public static final String CORP_USER_KEY_ASPECT_NAME = "corpUserKey";
 
-
   /**
    * User Status
    */
   public static final String CORP_USER_STATUS_ACTIVE = "ACTIVE";
 
-  private Constants() { }
+  private Constants() {
+  }
 }

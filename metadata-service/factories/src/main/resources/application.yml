@@ -32,6 +32,16 @@ datahub:
     sslContext:
       protocol: ${DATAHUB_GMS_SSL_PROTOCOL:${GMS_SSL_PROTOCOL:#{null}}}
 
+  plugin:
+    entityRegistry:
+      path: ${ENTITY_REGISTRY_PLUGIN_PATH:/etc/datahub/plugins/models}
+    retention:
+      path: ${RETENTION_PLUGIN_PATH:/etc/datahub/plugins/retention}
+
+entityService:
+  retention:
+    enabled: ${ENTITY_SERVICE_ENABLE_RETENTION:false}
+
 graphService:
   type: ${GRAPH_SERVICE_IMPL:elasticsearch}
 
@@ -41,9 +51,6 @@ searchService:
 configEntityRegistry:
   # TODO: Change to read from resources on classpath.
   path: ${ENTITY_REGISTRY_CONFIG_PATH:../../metadata-models/src/main/resources/entity-registry.yml}
-
-pluginEntityRegistry:
-  path: ${ENTITY_REGISTRY_PLUGIN_PATH:$HOME/.datahub/plugins/models}
 
 authorizationManager:
   enabled: ${AUTH_POLICIES_ENABLED:true}

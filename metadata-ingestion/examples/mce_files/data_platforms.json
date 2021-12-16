@@ -201,6 +201,26 @@
     "auditHeader": null,
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DataPlatformSnapshot": {
+        "urn": "urn:li:dataPlatform:mode",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataplatform.DataPlatformInfo": {
+              "datasetNameDelimiter": ".",
+              "name": "mode",
+              "displayName": "Mode",
+              "type": "KEY_VALUE_STORE",
+              "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/modelogo.png"
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DataPlatformSnapshot": {
         "urn": "urn:li:dataPlatform:mongodb",
         "aspects": [
           {

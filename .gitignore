@@ -46,5 +46,10 @@ MANIFEST
 **/spark-lineage/**/out.csv/
 .vscode
 
+# cypress integration test generated files
+**/cypress/videos
+**/cypress/screenshots
+**/cypress/node_modules
+
 # Metadata Ingestion Generated
 metadata-ingestion/generated/**
