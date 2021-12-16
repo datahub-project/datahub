@@ -34,7 +34,11 @@ from great_expectations.data_context.types.base import (
 )
 from great_expectations.dataset.dataset import Dataset
 from great_expectations.datasource.sqlalchemy_datasource import SqlAlchemyDatasource
-from great_expectations.profile.base import OrderedProfilerCardinality, ProfilerDataType
+from great_expectations.profile.base import (
+    OrderedProfilerCardinality,
+    ProfilerDataType,
+    ProfilerTypeMapping,
+)
 from great_expectations.profile.basic_dataset_profiler import BasicDatasetProfilerBase
 from sqlalchemy.engine import Connection, Engine
 from sqlalchemy.exc import ProgrammingError
@@ -99,6 +103,10 @@ def _inject_connection_into_datasource(conn: Connection) -> Iterator[None]:
 class GEProfilerRequest:
     pretty_name: str
     batch_kwargs: dict
+
+
+# ENUM type is an unknown profiler type for GE but we want to support
+ProfilerTypeMapping.STRING_TYPE_NAMES.append("ENUM")
 
 
 def get_column_unique_count_patch(self, column):
