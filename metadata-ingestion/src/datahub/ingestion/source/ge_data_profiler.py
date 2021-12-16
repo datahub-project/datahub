@@ -21,7 +21,6 @@ try:
 except ImportError:
     pass
 
-import great_expectations.dataset.sqlalchemy_dataset
 import pydantic
 import sqlalchemy as sa
 from great_expectations.core.util import convert_to_json_serializable
@@ -105,24 +104,32 @@ class GEProfilerRequest:
     batch_kwargs: dict
 
 
-# ENUM type is an unknown profiler type for GE but we want to support
-ProfilerTypeMapping.STRING_TYPE_NAMES.append("ENUM")
-
-
 def get_column_unique_count_patch(self, column):
     if self.engine.dialect.name.lower() == "redshift":
         element_values = self.engine.execute(
-            f"SELECT APPROXIMATE count (distinct {column}) FROM {self._table}"
+            sa.select(
+                [sa.text(f"APPROXIMATE count(distinct {column})")]
+            ).select_from(  # type:ignore
+                self._table
+            )
         )
         return convert_to_json_serializable(element_values.fetchone()[0])
     elif self.engine.dialect.name.lower() == "bigquery":
         element_values = self.engine.execute(
-            f"SELECT APPROX_COUNT_DISTINCT ({column}) FROM {self._table}"
+            sa.select(
+                [sa.text(f"APPROX_COUNT_DISTINCT ({column})")]
+            ).select_from(  # type:ignore
+                self._table
+            )
         )
         return convert_to_json_serializable(element_values.fetchone()[0])
     elif self.engine.dialect.name.lower() == "snowflake":
         element_values = self.engine.execute(
-            f"SELECT APPROX_COUNT_DISTINCT ({column}) FROM {self._table}"
+            sa.select(
+                [sa.text(f"APPROX_COUNT_DISTINCT({column})")]
+            ).select_from(  # type:ignore
+                self._table
+            )
         )
         return convert_to_json_serializable(element_values.fetchone()[0])
     return convert_to_json_serializable(
@@ -140,28 +147,20 @@ def _get_column_quantiles_bigquery_patch(  # type:ignore
     quantile_queries = list()
     for quantile in quantiles:
         quantile_queries.append(
-            f"approx_quantiles({column}, 100) OFFSET [{quantile * 100}]"
+            sa.text(f"approx_quantiles({column}, 100) OFFSET [{round(quantile * 100)}]")
         )
 
-    select_part = ",".join(quantile_queries)
-
-    quantiles_query = f"SELECT {select_part} " f"from {self._table}"
+    quantiles_query = sa.select(quantile_queries).select_from(
+        self._table
+    )  # type:ignore
     try:
         quantiles_results = self.engine.execute(quantiles_query).fetchone()
         return list(quantiles_results)
 
     except ProgrammingError as pe:
+        # This treat quantile exception will raise a formatted exception and there won't be any return value here
         self._treat_quantiles_exception(pe)
         return list()
-
-
-great_expectations.dataset.sqlalchemy_dataset.SqlAlchemyDataset.get_column_unique_count = (
-    get_column_unique_count_patch
-)
-
-great_expectations.dataset.sqlalchemy_dataset.SqlAlchemyDataset._get_column_quantiles_bigquery = (
-    _get_column_quantiles_bigquery_patch
-)
 
 
 class GEProfilingConfig(ConfigModel):
@@ -179,10 +178,10 @@ class GEProfilingConfig(ConfigModel):
     include_field_mean_value: bool = True
     include_field_median_value: bool = True
     include_field_stddev_value: bool = True
-    include_field_quantiles: bool = False
-    include_field_distinct_value_frequencies: bool = False
-    include_field_histogram: bool = False
-    include_field_sample_values: bool = False
+    include_field_quantiles: bool = True
+    include_field_distinct_value_frequencies: bool = True
+    include_field_histogram: bool = True
+    include_field_sample_values: bool = True
 
     allow_deny_patterns: AllowDenyPattern = AllowDenyPattern.allow_all()
     max_number_of_fields_to_profile: Optional[pydantic.PositiveInt] = None
@@ -579,10 +578,15 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
             if column in columns_to_profile:
                 column_spec = _SingleColumnSpec(column, column_profile)
                 columns_profiling_queue.append(column_spec)
-
                 self._get_column_type(column_spec, column)
-                if column_spec.type_ != ProfilerDataType.UNKNOWN:
-                    self._get_column_cardinality(column_spec, column)
+
+        #  We have to flush here otherwise it is not guaranteed we will have the column_spec.type_
+        self.query_combiner.flush()
+
+        for column_spec in columns_profiling_queue:
+            #  We only get column cardinality for known types as there are UNKNOWN types which known to fail like GEOGRAPHY type
+            if column_spec.type_ != ProfilerDataType.UNKNOWN:
+                self._get_column_cardinality(column_spec, column_spec.column)
 
         logger.debug(f"profiling {self.dataset_name}: flushing stage 2 queries")
         self.query_combiner.flush()
@@ -606,7 +610,9 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
 
             if self.config.include_field_null_count and non_null_count is not None:
                 null_count = row_count - non_null_count
-                assert null_count >= 0
+                if null_count < 0:
+                    null_count = 0
+
                 column_profile.nullCount = null_count
                 if row_count > 0:
                     column_profile.nullProportion = null_count / row_count
@@ -784,27 +790,37 @@ class DatahubGEProfiler:
             logger.info(
                 f"Will profile {len(requests)} table(s) with {max_workers} worker(s) - this may take a while"
             )
+            with unittest.mock.patch(
+                "great_expectations.dataset.sqlalchemy_dataset.SqlAlchemyDataset.get_column_unique_count",
+                get_column_unique_count_patch,
+            ):
+                with unittest.mock.patch(
+                    "great_expectations.dataset.sqlalchemy_dataset.SqlAlchemyDataset._get_column_quantiles_bigquery",
+                    _get_column_quantiles_bigquery_patch,
+                ):
+                    # ENUM type is an unknown profiler type for GE, but we want to support
+                    ProfilerTypeMapping.STRING_TYPE_NAMES.append("ENUM")
 
-            async_profiles = [
-                async_executor.submit(
-                    self._generate_profile_from_request,
-                    query_combiner,
-                    request,
-                )
-                for request in requests
-            ]
+                    async_profiles = [
+                        async_executor.submit(
+                            self._generate_profile_from_request,
+                            query_combiner,
+                            request,
+                        )
+                        for request in requests
+                    ]
 
-            # Avoid using as_completed so that the results are yielded in the
-            # same order as the requests.
-            # for async_profile in concurrent.futures.as_completed(async_profiles):
-            for async_profile in async_profiles:
-                yield async_profile.result()
+                    # Avoid using as_completed so that the results are yielded in the
+                    # same order as the requests.
+                    # for async_profile in concurrent.futures.as_completed(async_profiles):
+                    for async_profile in async_profiles:
+                        yield async_profile.result()
 
-            logger.info(
-                f"Profiling {len(requests)} table(s) finished in {(timer.elapsed_seconds()):.3f} seconds"
-            )
+                    logger.info(
+                        f"Profiling {len(requests)} table(s) finished in {(timer.elapsed_seconds()):.3f} seconds"
+                    )
 
-            self.report.report_from_query_combiner(query_combiner.report)
+                    self.report.report_from_query_combiner(query_combiner.report)
 
     def _generate_profile_from_request(
         self,
