@@ -36,7 +36,6 @@ from great_expectations.datasource.sqlalchemy_datasource import SqlAlchemyDataso
 from great_expectations.profile.base import (
     OrderedProfilerCardinality,
     ProfilerDataType,
-    ProfilerTypeMapping,
 )
 from great_expectations.profile.basic_dataset_profiler import BasicDatasetProfilerBase
 from sqlalchemy.engine import Connection, Engine
@@ -572,15 +571,9 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
             if column in columns_to_profile:
                 column_spec = _SingleColumnSpec(column, column_profile)
                 columns_profiling_queue.append(column_spec)
+
                 self._get_column_type(column_spec, column)
-
-        #  We have to flush here otherwise it is not guaranteed we will have the column_spec.type_
-        self.query_combiner.flush()
-
-        for column_spec in columns_profiling_queue:
-            #  We only get column cardinality for known types as there are UNKNOWN types which known to fail like GEOGRAPHY type
-            if column_spec.type_ != ProfilerDataType.UNKNOWN:
-                self._get_column_cardinality(column_spec, column_spec.column)
+                self._get_column_cardinality(column_spec, column)
 
         logger.debug(f"profiling {self.dataset_name}: flushing stage 2 queries")
         self.query_combiner.flush()
@@ -589,11 +582,6 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
         row_count: int = profile.rowCount
 
         for column_spec in columns_profiling_queue:
-            if column_spec.type_ == ProfilerDataType.UNKNOWN:
-                logger.debug(
-                    f"profiling is disabled for {column_spec.column} as it's type is not supported for profiling"
-                )
-                continue
             column = column_spec.column
             column_profile = column_spec.column_profile
             type_ = column_spec.type_
@@ -792,9 +780,6 @@ class DatahubGEProfiler:
                     "great_expectations.dataset.sqlalchemy_dataset.SqlAlchemyDataset._get_column_quantiles_bigquery",
                     _get_column_quantiles_bigquery_patch,
                 ):
-                    # ENUM type is an unknown profiler type for GE, but we want to support
-                    ProfilerTypeMapping.STRING_TYPE_NAMES.append("ENUM")
-
                     async_profiles = [
                         async_executor.submit(
                             self._generate_profile_from_request,
