@@ -66,7 +66,12 @@ if sys.version_info >= (3, 7):  # noqa: C901
 
             return {"text": properties.get("comment", None), "properties": properties}
         except TrinoQueryError as e:
-            if e.error_name in (error.TABLE_NOT_FOUND):
+            if e.error_name in (
+                error.TABLE_NOT_FOUND,
+                error.COLUMN_NOT_FOUND,
+                error.NOT_FOUND,
+                error.NOT_SUPPORTED,
+            ):
                 return dict(text=None)
             raise
 

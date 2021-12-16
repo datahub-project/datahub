@@ -123,6 +123,7 @@ def make_sqlalchemy_uri(
 class SQLSourceReport(SourceReport):
     tables_scanned: int = 0
     views_scanned: int = 0
+    entities_profiled: int = 0
     filtered: List[str] = field(default_factory=list)
 
     query_combiner: Optional[SQLAlchemyQueryCombinerReport] = None
@@ -137,6 +138,9 @@ class SQLSourceReport(SourceReport):
             self.views_scanned += 1
         else:
             raise KeyError(f"Unknown entity {ent_type}.")
+
+    def report_entity_profiled(self, name: str) -> None:
+        self.entities_profiled += 1
 
     def report_dropped(self, ent_name: str) -> None:
         self.filtered.append(ent_name)
@@ -414,6 +418,7 @@ class SQLAlchemySource(Source):
         schema: str,
         sql_config: SQLAlchemyConfig,
     ) -> Iterable[SqlWorkUnit]:
+        tables_seen: Set[str] = set()
         for table in inspector.get_table_names(schema):
             schema, table = self.standardize_schema_table_names(
                 schema=schema, entity=table
@@ -421,6 +426,12 @@ class SQLAlchemySource(Source):
             dataset_name = self.get_identifier(
                 schema=schema, entity=table, inspector=inspector
             )
+            if dataset_name not in tables_seen:
+                tables_seen.add(dataset_name)
+            else:
+                logger.debug(f"{dataset_name} has already been seen, skipping...")
+                continue
+
             self.report.report_entity_scanned(dataset_name, ent_type="table")
 
             if not sql_config.table_pattern.allowed(dataset_name):
@@ -642,12 +653,12 @@ class SQLAlchemySource(Source):
             dataset_name = self.get_identifier(
                 schema=schema, entity=table, inspector=inspector
             )
-            self.report.report_entity_scanned(f"profile of {dataset_name}")
 
             if not sql_config.profile_pattern.allowed(dataset_name):
                 self.report.report_dropped(f"profile of {dataset_name}")
                 continue
 
+            self.report.report_entity_profiled(dataset_name)
             yield GEProfilerRequest(
                 pretty_name=dataset_name,
                 batch_kwargs=self.prepare_profiler_args(schema=schema, table=table),

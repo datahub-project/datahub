@@ -97,7 +97,7 @@ plugins: Dict[str, Set[str]] = {
     "bigquery": sql_common | bigquery_common | {"pybigquery >= 0.6.0"},
     "bigquery-usage": bigquery_common | {"cachetools"},
     "datahub-business-glossary": set(),
-    "dbt": set(),
+    "dbt": {"requests"},
     "druid": sql_common | {"pydruid>=0.6.2"},
     "feast": {"docker"},
     "glue": aws_common,
@@ -112,6 +112,8 @@ plugins: Dict[str, Set[str]] = {
     "ldap": {"python-ldap>=2.4"},
     "looker": looker_common,
     "lookml": looker_common | {"lkml>=1.1.0", "sql-metadata==2.2.2"},
+    "metabase": {"requests"},
+    "mode": {"requests", "sqllineage"},
     "mongodb": {"pymongo>=3.11"},
     "mssql": sql_common | {"sqlalchemy-pytds>=0.3"},
     "mssql-odbc": sql_common | {"pyodbc"},
@@ -122,7 +124,8 @@ plugins: Dict[str, Set[str]] = {
     "oracle": sql_common | {"cx_Oracle"},
     "postgres": sql_common | {"psycopg2-binary", "GeoAlchemy2"},
     "redash": {"redash-toolbelt", "sql-metadata"},
-    "redshift": sql_common | {"sqlalchemy-redshift", "psycopg2-binary", "GeoAlchemy2"},
+    "redshift": sql_common
+    | {"sqlalchemy-redshift", "psycopg2-binary", "GeoAlchemy2", "sqllineage"},
     "redshift-usage": sql_common
     | {"sqlalchemy-redshift", "psycopg2-binary", "GeoAlchemy2"},
     "sagemaker": aws_common,
@@ -144,6 +147,7 @@ plugins: Dict[str, Set[str]] = {
         # PR is from same author as that of sqlalchemy-trino library below.
         "sqlalchemy-trino"
     },
+    "nifi": {"requests"},
 }
 
 all_exclude_plugins: Set[str] = {
@@ -179,7 +183,8 @@ base_dev_requirements = {
     "flake8>=3.8.3",
     "flake8-tidy-imports>=4.3.0",
     "isort>=5.7.0",
-    "mypy>=0.901",
+    # Waiting for https://github.com/samuelcolvin/pydantic/pull/3175 before allowing mypy 0.920.
+    "mypy>=0.901,<0.920",
     "pytest>=6.2.2",
     "pytest-cov>=2.8.1",
     "pytest-docker>=0.10.3",
@@ -280,6 +285,7 @@ entry_points = {
         "looker = datahub.ingestion.source.looker:LookerDashboardSource",
         "lookml = datahub.ingestion.source.lookml:LookMLSource",
         "datahub-business-glossary = datahub.ingestion.source.metadata.business_glossary:BusinessGlossaryFileSource",
+        "mode = datahub.ingestion.source.mode:ModeSource",
         "mongodb = datahub.ingestion.source.mongodb:MongoDBSource",
         "mssql = datahub.ingestion.source.sql.mssql:SQLServerSource",
         "mysql = datahub.ingestion.source.sql.mysql:MySQLSource",
@@ -294,8 +300,10 @@ entry_points = {
         "snowflake-usage = datahub.ingestion.source.usage.snowflake_usage:SnowflakeUsageSource",
         "superset = datahub.ingestion.source.superset:SupersetSource",
         "openapi = datahub.ingestion.source.openapi:OpenApiSource",
+        "metabase = datahub.ingestion.source.metabase:MetabaseSource",
         "trino = datahub.ingestion.source.sql.trino:TrinoSource",
         "starburst-trino-usage = datahub.ingestion.source.usage.starburst_trino_usage:TrinoUsageSource",
+        "nifi = datahub.ingestion.source.nifi:NifiSource",
     ],
     "datahub.ingestion.sink.plugins": [
         "file = datahub.ingestion.sink.file:FileSink",

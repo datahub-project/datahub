@@ -1,0 +1,16 @@
+# see https://datahubproject.io/docs/metadata-ingestion/source_docs/metabase for complete documentation
+source:
+  type: "mode"
+  config:
+    token: 9fa6a90fcd33
+    password: a03bcbc011d6f77c585f5682
+    connect_uri: https://app.mode.com/
+    workspace: "petabloc"
+    default_schema: "public"
+    owner_username_instead_of_email: False
+
+# see https://datahubproject.io/docs/metadata-ingestion/sink_docs/datahub for complete documentation
+sink:
+  type: "datahub-rest"
+  config:
+    server: "http://localhost:8080"

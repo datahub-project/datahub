@@ -1,17 +1,19 @@
+import json
+import logging
 import urllib.parse
 from json.decoder import JSONDecodeError
-from typing import Dict, Optional, Type, TypeVar
+from typing import Any, Dict, List, Optional, Type, TypeVar
 
 from avrogen.dict_wrapper import DictWrapper
 from requests.models import HTTPError
-from requests.sessions import Session
 
 from datahub.configuration.common import ConfigModel, OperationalError
 from datahub.emitter.rest_emitter import DatahubRestEmitter
-from datahub.metadata.schema_classes import OwnershipClass
+from datahub.metadata.schema_classes import DatasetUsageStatisticsClass, OwnershipClass
 
 # This bound isn't tight, but it's better than nothing.
 Aspect = TypeVar("Aspect", bound=DictWrapper)
+logger = logging.getLogger(__name__)
 
 
 class DatahubClientConfig(ConfigModel):
@@ -37,11 +39,10 @@ class DataHubGraph(DatahubRestEmitter):
             ca_certificate_path=self.config.ca_certificate_path,
         )
         self.test_connection()
-        self.g_session = Session()
 
     def _get_generic(self, url: str) -> Dict:
         try:
-            response = self.g_session.get(url)
+            response = self._session.get(url)
             response.raise_for_status()
             return response.json()
         except HTTPError as e:
@@ -64,7 +65,7 @@ class DataHubGraph(DatahubRestEmitter):
         aspect_type: Type[Aspect],
     ) -> Optional[Aspect]:
         url = f"{self._gms_server}/aspects/{urllib.parse.quote(entity_urn)}?aspect={aspect}&version=0"
-        response = self.g_session.get(url)
+        response = self._session.get(url)
         if response.status_code == 404:
             # not found
             return None
@@ -85,3 +86,63 @@ class DataHubGraph(DatahubRestEmitter):
             aspect_type_name="com.linkedin.common.Ownership",
             aspect_type=OwnershipClass,
         )
+
+    def get_usage_aspects_from_urn(
+        self, entity_urn: str, start_timestamp: int, end_timestamp: int
+    ) -> Optional[List[DatasetUsageStatisticsClass]]:
+        payload = {
+            "urn": entity_urn,
+            "entity": "dataset",
+            "aspect": "datasetUsageStatistics",
+            "startTimeMillis": start_timestamp,
+            "endTimeMillis": end_timestamp,
+        }
+        headers: Dict[str, Any] = {}
+        url = f"{self._gms_server}/aspects?action=getTimeseriesAspectValues"
+        try:
+            usage_aspects: List[DatasetUsageStatisticsClass] = []
+            response = self._session.post(
+                url, data=json.dumps(payload), headers=headers
+            )
+            if response.status_code != 200:
+                logger.debug(
+                    f"Non 200 status found while fetching usage aspects - {response.status_code}"
+                )
+                return None
+            json_resp = response.json()
+            all_aspects = json_resp.get("value", {}).get("values", [])
+            for aspect in all_aspects:
+                if aspect.get("aspect") and aspect.get("aspect").get("value"):
+                    usage_aspects.append(
+                        DatasetUsageStatisticsClass.from_obj(
+                            json.loads(aspect.get("aspect").get("value")), tuples=True
+                        )
+                    )
+            return usage_aspects
+        except Exception as e:
+            logger.error("Error while getting usage aspects.", e)
+        return None
+
+    def list_all_entity_urns(
+        self, entity_type: str, start: int, count: int
+    ) -> Optional[List[str]]:
+        url = f"{self._gms_server}/entities?action=listUrns"
+        payload = {"entity": entity_type, "start": start, "count": count}
+        headers = {
+            "X-RestLi-Protocol-Version": "2.0.0",
+            "Content-Type": "application/json",
+        }
+        try:
+            response = self._session.post(
+                url, data=json.dumps(payload), headers=headers
+            )
+            if response.status_code != 200:
+                logger.debug(
+                    f"Non 200 status found while fetching entity urns - {response.status_code}"
+                )
+                return None
+            json_resp = response.json()
+            return json_resp.get("value", {}).get("entities")
+        except Exception as e:
+            logger.error("Error while fetching entity urns.", e)
+            return None

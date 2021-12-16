@@ -66,7 +66,10 @@ class KafkaSource(Source):
             }
         )
         self.schema_registry_client = SchemaRegistryClient(
-            {"url": self.source_config.connection.schema_registry_url}
+            {
+                "url": self.source_config.connection.schema_registry_url,
+                **self.source_config.connection.schema_registry_config,
+            }
         )
         self.report = KafkaSourceReport()
 
