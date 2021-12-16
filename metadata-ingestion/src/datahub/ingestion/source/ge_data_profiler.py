@@ -108,8 +108,8 @@ def get_column_unique_count_patch(self, column):
     if self.engine.dialect.name.lower() == "redshift":
         element_values = self.engine.execute(
             sa.select(
-                [sa.text(f"APPROXIMATE count(distinct {column})")]
-            ).select_from(  # type:ignore
+                [sa.text(f"APPROXIMATE count(distinct {column})")]  # type:ignore
+            ).select_from(
                 self._table
             )
         )
@@ -117,8 +117,8 @@ def get_column_unique_count_patch(self, column):
     elif self.engine.dialect.name.lower() == "bigquery":
         element_values = self.engine.execute(
             sa.select(
-                [sa.text(f"APPROX_COUNT_DISTINCT ({column})")]
-            ).select_from(  # type:ignore
+                [sa.text(f"APPROX_COUNT_DISTINCT ({column})")]  # type:ignore
+            ).select_from(
                 self._table
             )
         )
@@ -126,8 +126,8 @@ def get_column_unique_count_patch(self, column):
     elif self.engine.dialect.name.lower() == "snowflake":
         element_values = self.engine.execute(
             sa.select(
-                [sa.text(f"APPROX_COUNT_DISTINCT({column})")]
-            ).select_from(  # type:ignore
+                [sa.text(f"APPROX_COUNT_DISTINCT({column})")]  # type:ignore
+            ).select_from(
                 self._table
             )
         )
@@ -150,9 +150,9 @@ def _get_column_quantiles_bigquery_patch(  # type:ignore
             sa.text(f"approx_quantiles({column}, 100) OFFSET [{round(quantile * 100)}]")
         )
 
-    quantiles_query = sa.select(quantile_queries).select_from(
+    quantiles_query = sa.select(quantile_queries).select_from(  # type:ignore
         self._table
-    )  # type:ignore
+    )
     try:
         quantiles_results = self.engine.execute(quantiles_query).fetchone()
         return list(quantiles_results)
