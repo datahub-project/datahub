@@ -33,10 +33,7 @@ from great_expectations.data_context.types.base import (
 )
 from great_expectations.dataset.dataset import Dataset
 from great_expectations.datasource.sqlalchemy_datasource import SqlAlchemyDatasource
-from great_expectations.profile.base import (
-    OrderedProfilerCardinality,
-    ProfilerDataType,
-)
+from great_expectations.profile.base import OrderedProfilerCardinality, ProfilerDataType
 from great_expectations.profile.basic_dataset_profiler import BasicDatasetProfilerBase
 from sqlalchemy.engine import Connection, Engine
 from sqlalchemy.exc import ProgrammingError
