@@ -22,6 +22,7 @@ FROZEN_TIME = "2020-04-14 07:00:00"
 @pytest.mark.skipif(sys.version_info < (3, 7), reason="lkml requires Python 3.7+")
 def test_lookml_ingest(pytestconfig, tmp_path, mock_time):
     """Test backwards compatibility with previous form of config with new flags turned off"""
+    tmp_path = pytestconfig.rootpath / "tests/integration/lookml/generated"
     test_resources_dir = pytestconfig.rootpath / "tests/integration/lookml"
     mce_out_file = "expected_output.json"
 
