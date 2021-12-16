@@ -112,10 +112,10 @@ class GEProfilingConfig(ConfigModel):
     include_field_mean_value: bool = True
     include_field_median_value: bool = True
     include_field_stddev_value: bool = True
-    include_field_quantiles: bool = True
-    include_field_distinct_value_frequencies: bool = True
-    include_field_histogram: bool = True
-    include_field_sample_values: bool = True
+    include_field_quantiles: bool = False
+    include_field_distinct_value_frequencies: bool = False
+    include_field_histogram: bool = False
+    include_field_sample_values: bool = False
 
     allow_deny_patterns: AllowDenyPattern = AllowDenyPattern.allow_all()
     max_number_of_fields_to_profile: Optional[pydantic.PositiveInt] = None
