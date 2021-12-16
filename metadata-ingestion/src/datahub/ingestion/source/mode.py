@@ -355,7 +355,7 @@ class ModeSource(Source):
         self, data_source_id: int
     ) -> Union[Tuple[str, str], Tuple[None, None]]:
 
-        data_sources = {}
+        data_sources = []
         try:
             ds_json = self._get_request_json(f"{self.workspace_uri}/data_sources")
             data_sources = ds_json.get("_embedded", {}).get("data_sources", [])
