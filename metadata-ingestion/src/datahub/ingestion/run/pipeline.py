@@ -167,7 +167,16 @@ class Pipeline:
             if not self.dry_run:
                 self.sink.handle_work_unit_end(wu)
         self.sink.close()
-        self.source.close()
+
+        # Temporary hack to prevent committing state if there are failures during the pipeline run.
+        try:
+            self.raise_from_status()
+        except Exception:
+            logger.warning(
+                "Pipeline failed. Not closing the source to prevent bad commits."
+            )
+        else:
+            self.source.close()
 
     def transform(self, records: Iterable[RecordEnvelope]) -> Iterable[RecordEnvelope]:
         """
