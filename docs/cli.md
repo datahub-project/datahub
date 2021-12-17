@@ -5,6 +5,7 @@ DataHub comes with a friendly cli called `datahub` that allows you to perform a 
 ## Release Notes
 
 You can find the release notes in [github releases](https://github.com/linkedin/datahub/releases). If you wish release notes for each bug-fix release you can find them in [acryldata releases](https://github.com/acryldata/datahub/releases).
+
 ## Installation
 ### Using pip
 
