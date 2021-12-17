@@ -165,10 +165,6 @@ sink:
     server: "http://localhost:8080"
 ```
 
-We automatically expand environment variables in the config,
-similar to variable substitution in GNU bash or in docker-compose files. For details, see
-https://docs.docker.com/compose/compose-file/compose-file-v2/#variable-substitution.
-
 Running a recipe is quite easy.
 
 ```shell
@@ -177,6 +173,11 @@ datahub ingest -c ./examples/recipes/mssql_to_datahub.yml
 
 A number of recipes are included in the [examples/recipes](./examples/recipes) directory. For full info and context on each source and sink, see the pages described in the [table of plugins](#installing-plugins).
 
+### Handling sensitive information in recipes
+
+We automatically expand environment variables in the config (e.g. `${MSSQL_PASSWORD}`),
+similar to variable substitution in GNU bash or in docker-compose files. For details, see
+https://docs.docker.com/compose/compose-file/compose-file-v2/#variable-substitution. This environment variable substitution should be used to mask sensitive information in recipe files. As long as you can get env variables securely to the ingestion process there would not be any need to store sensitive information in recipes.
 ## Transformations
 
 If you'd like to modify data before it reaches the ingestion sinks – for instance, adding additional owners or tags – you can use a transformer to write your own module and integrate it with DataHub.
