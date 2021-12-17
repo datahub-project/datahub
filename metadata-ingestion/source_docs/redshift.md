@@ -79,9 +79,11 @@ sink:
 
 ## Config details
 
-Note that a `.` is used to denote nested fields in the YAML recipe.
+Like all SQL-based sources, the Redshift integration supports:
+- Stale Metadata Deletion: See [here](./stateful_ingestion.md) for more details on configuration.
+- SQL Profiling: See [here](./sql_profiles.md) for more details on configuration.
 
-As a SQL-based service, the Athena integration is also supported by our SQL profiler. See [here](./sql_profiles.md) for more details on configuration.
+Note that a `.` is used to denote nested fields in the YAML recipe.
 
 | Field                       | Required | Default            | Description                                                                                                                                                                             |
 |-----------------------------| -------- |--------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|

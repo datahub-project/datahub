@@ -46,8 +46,11 @@ sink:
 
 ## Config details
 
-Note that a `.` is used to denote nested fields in the YAML recipe.
+Like all SQL-based sources, the Snowflake integration supports:
+- Stale Metadata Deletion: See [here](./stateful_ingestion.md) for more details on configuration.
+- SQL Profiling: See [here](./sql_profiles.md) for more details on configuration.
 
+Note that a `.` is used to denote nested fields in the YAML recipe.
 
 | Field                         | Required | Default                                                                     | Description                                                                                                                                                                             |
 | ----------------------------- | -------- | --------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -136,6 +139,8 @@ sink:
 ```
 
 ### Config details
+
+Snowflake integration also supports prevention of redundant reruns for the same data. See [here](./stateful_ingestion.md) for more details on configuration.
 
 Note that a `.` is used to denote nested fields in the YAML recipe.
 
