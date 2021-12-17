@@ -519,9 +519,12 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         else:
             return f"{schema}.{entity}"
 
-    def get_foreign_key_metadata(self, dataset_urn, fk_dict, inspector):
+    def get_foreign_key_metadata(self, dataset_urn: str, schema: str, fk_dict: Dict[str, str], inspector: Inspector) -> ForeignKeyConstraint:
+        if not fk_dict["referred_schema"]:
+            referred_schema = schema
+
         referred_dataset_name = self.get_identifier(
-            schema=fk_dict["referred_schema"],
+            schema=referred_schema,
             entity=fk_dict["referred_table"],
             inspector=inspector,
         )
@@ -628,7 +631,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             pk_constraints: dict = inspector.get_pk_constraint(table, schema)
             try:
                 foreign_keys = [
-                    self.get_foreign_key_metadata(dataset_urn, fk_rec, inspector)
+                    self.get_foreign_key_metadata(dataset_urn, schema, fk_rec, inspector)
                     for fk_rec in inspector.get_foreign_keys(table, schema)
                 ]
             except KeyError:
