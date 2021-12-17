@@ -1,0 +1,35 @@
+---
+version: '3.8'
+services:
+  mysql:
+    container_name: mysql
+    hostname: mysql
+    image: mysql:5.7
+    env_file: mysql/env/docker.env
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_bin
+    ports:
+      - "3306:3306"
+    volumes:
+      - ./mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - mysqldata:/var/lib/mysql
+
+  mysql-setup:
+    build:
+      context: ../
+      dockerfile: docker/mysql-setup/Dockerfile
+    image: acryldata/datahub-mysql-setup:head
+    env_file: mysql-setup/env/docker.env
+    hostname: mysql-setup
+    container_name: mysql-setup
+    depends_on:
+      - mysql
+
+  datahub-gms:
+    env_file: datahub-gms/env/docker-without-neo4j.env
+    depends_on:
+      - mysql
+    volumes:
+      - ${HOME}/.datahub/plugins:/etc/datahub/plugins
+
+volumes:
+  mysqldata:

@@ -1,0 +1,35 @@
+# Service definitions for standalone Kafka consumer containers.
+version: '3.8'
+services:
+  datahub-gms:
+    environment:
+      - MAE_CONSUMER_ENABLED=false
+      - MCE_CONSUMER_ENABLED=false
+
+  datahub-mae-consumer:
+    build:
+      context: ../
+      dockerfile: docker/datahub-mae-consumer/Dockerfile
+    image: linkedin/datahub-mae-consumer:${DATAHUB_VERSION:-head}
+    env_file: datahub-mae-consumer/env/docker-without-neo4j.env
+    hostname: datahub-mae-consumer
+    container_name: datahub-mae-consumer
+    ports:
+      - "9091:9091"
+    depends_on:
+      - kafka-setup
+      - elasticsearch-setup
+
+  datahub-mce-consumer:
+    build:
+      context: ../
+      dockerfile: docker/datahub-mce-consumer/Dockerfile
+    image: linkedin/datahub-mce-consumer:${DATAHUB_VERSION:-head}
+    env_file: datahub-mce-consumer/env/docker.env
+    hostname: datahub-mce-consumer
+    container_name: datahub-mce-consumer
+    ports:
+      - "9090:9090"
+    depends_on:
+      - kafka-setup
+      - datahub-gms
