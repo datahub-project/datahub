@@ -113,23 +113,26 @@ class ModeSource(Source):
             urn=dashboard_urn,
             aspects=[],
         )
-        modified_actor = builder.make_user_urn(
-            self._get_creator(
-                report_info.get("_links", {}).get("creator", {}).get("href", "")
+
+        last_modified = ChangeAuditStamps()
+        creator = self._get_creator(
+            report_info.get("_links", {}).get("creator", {}).get("href", "")
+        )
+        if creator is not None:
+            modified_actor = builder.make_user_urn(creator)
+            modified_ts = int(
+                dp.parse(f"{report_info.get('last_saved_at', 'now')}").timestamp()
+                * 1000
             )
-        )
-        modified_ts = int(
-            dp.parse(f"{report_info.get('last_saved_at', 'now')}").timestamp() * 1000
-        )
-        created_ts = int(
-            dp.parse(f"{report_info.get('created_at', 'now')}").timestamp() * 1000
-        )
-        title = report_info.get("name", "") or ""
-        description = report_info.get("description", "") or ""
-        last_modified = ChangeAuditStamps(
-            created=AuditStamp(time=created_ts, actor=modified_actor),
-            lastModified=AuditStamp(time=modified_ts, actor=modified_actor),
-        )
+            created_ts = int(
+                dp.parse(f"{report_info.get('created_at', 'now')}").timestamp() * 1000
+            )
+            title = report_info.get("name", "") or ""
+            description = report_info.get("description", "") or ""
+            last_modified = ChangeAuditStamps(
+                created=AuditStamp(time=created_ts, actor=modified_actor),
+                lastModified=AuditStamp(time=modified_ts, actor=modified_actor),
+            )
 
         dashboard_info_class = DashboardInfoClass(
             description=description,
@@ -166,8 +169,8 @@ class ModeSource(Source):
 
     @lru_cache(maxsize=None)
     def _get_ownership(self, user: str) -> Optional[OwnershipClass]:
-        owner_urn = builder.make_user_urn(user)
-        if owner_urn is not None:
+        if user is not None:
+            owner_urn = builder.make_user_urn(user)
             ownership: OwnershipClass = OwnershipClass(
                 owners=[
                     OwnerClass(
@@ -181,14 +184,14 @@ class ModeSource(Source):
         return None
 
     @lru_cache(maxsize=None)
-    def _get_creator(self, href: str) -> str:
-        user = ""
+    def _get_creator(self, href: str) -> Optional[str]:
+        user = None
         try:
             user_json = self._get_request_json(f"{self.config.connect_uri}{href}")
             user = (
-                user_json.get("username", "unknown")
+                user_json.get("username")
                 if self.config.owner_username_instead_of_email
-                else user_json.get("email", "unknown")
+                else user_json.get("email")
             )
         except HTTPError as http_error:
             self.report.report_failure(
@@ -488,21 +491,22 @@ class ModeSource(Source):
             aspects=[],
         )
 
-        modified_actor = builder.make_user_urn(
-            self._get_creator(
-                chart_data.get("_links", {}).get("creator", {}).get("href", "")
+        last_modified = ChangeAuditStamps()
+        creator = self._get_creator(
+            chart_data.get("_links", {}).get("creator", {}).get("href", "")
+        )
+        if creator is not None:
+            modified_actor = builder.make_user_urn(creator)
+            created_ts = int(
+                dp.parse(chart_data.get("created_at", "now")).timestamp() * 1000
             )
-        )
-        created_ts = int(
-            dp.parse(chart_data.get("created_at", "now")).timestamp() * 1000
-        )
-        modified_ts = int(
-            dp.parse(chart_data.get("updated_at", "now")).timestamp() * 1000
-        )
-        last_modified = ChangeAuditStamps(
-            created=AuditStamp(time=created_ts, actor=modified_actor),
-            lastModified=AuditStamp(time=modified_ts, actor=modified_actor),
-        )
+            modified_ts = int(
+                dp.parse(chart_data.get("updated_at", "now")).timestamp() * 1000
+            )
+            last_modified = ChangeAuditStamps(
+                created=AuditStamp(time=created_ts, actor=modified_actor),
+                lastModified=AuditStamp(time=modified_ts, actor=modified_actor),
+            )
 
         chart_detail = (
             chart_data.get("view", {})
