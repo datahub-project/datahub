@@ -5,6 +5,7 @@ from json.decoder import JSONDecodeError
 from typing import Any, Dict, List, Optional, Type, TypeVar
 
 from avrogen.dict_wrapper import DictWrapper
+from requests.adapters import Response
 from requests.models import HTTPError
 
 from datahub.configuration.common import ConfigModel, OperationalError
@@ -13,6 +14,7 @@ from datahub.metadata.schema_classes import DatasetUsageStatisticsClass, Ownersh
 
 # This bound isn't tight, but it's better than nothing.
 Aspect = TypeVar("Aspect", bound=DictWrapper)
+
 logger = logging.getLogger(__name__)
 
 
@@ -57,6 +59,30 @@ class DataHubGraph(DatahubRestEmitter):
                     "Unable to get metadata from DataHub", {"message": str(e)}
                 ) from e
 
+    def _post_generic(self, url: str, payload_dict: Dict) -> Dict:
+        payload = json.dumps(payload_dict)
+        logger.debug(payload)
+        try:
+            response: Response = self._session.post(url, payload)
+            response.raise_for_status()
+            return response.json()
+        except HTTPError as e:
+            try:
+                info = response.json()
+                raise OperationalError(
+                    "Unable to get metadata from DataHub", info
+                ) from e
+            except JSONDecodeError:
+                # If we can't parse the JSON, just raise the original error.
+                raise OperationalError(
+                    "Unable to get metadata from DataHub", {"message": str(e)}
+                ) from e
+
+    @staticmethod
+    def _guess_entity_type(urn: str) -> str:
+        assert urn.startswith("urn:li:"), "urns must start with urn:li:"
+        return urn.split(":")[2]
+
     def get_aspect(
         self,
         entity_urn: str,
@@ -78,6 +104,9 @@ class DataHubGraph(DatahubRestEmitter):
             raise OperationalError(
                 f"Failed to find {aspect_type_name} in response {response_json}"
             )
+
+    def get_config(self) -> Dict[str, Any]:
+        return self._get_generic(f"{self.config.server}/config")
 
     def get_ownership(self, entity_urn: str) -> Optional[OwnershipClass]:
         return self.get_aspect(
@@ -146,3 +175,35 @@ class DataHubGraph(DatahubRestEmitter):
         except Exception as e:
             logger.error("Error while fetching entity urns.", e)
             return None
+
+    def get_latest_timeseries_value(
+        self,
+        entity_urn: str,
+        aspect_name: str,
+        aspect_type: Type[Aspect],
+        filter_criteria_map: Dict[str, str],
+    ) -> Optional[Aspect]:
+        filter_criteria = [
+            {"field": k, "value": v, "condition": "EQUAL"}
+            for k, v in filter_criteria_map.items()
+        ]
+        query_body = {
+            "urn": entity_urn,
+            "entity": self._guess_entity_type(entity_urn),
+            "aspect": aspect_name,
+            "latestValue": True,
+            "filter": {"or": [{"and": filter_criteria}]},
+        }
+        end_point = f"{self.config.server}/aspects?action=getTimeseriesAspectValues"
+        resp: Dict = self._post_generic(end_point, query_body)
+        values: list = resp.get("value", {}).get("values")
+        if values:
+            assert len(values) == 1
+            aspect_json: str = values[0].get("aspect", {}).get("value")
+            if aspect_json:
+                return aspect_type.from_obj(json.loads(aspect_json), tuples=False)
+            else:
+                raise OperationalError(
+                    f"Failed to find {aspect_type} in response {aspect_json}"
+                )
+        return None

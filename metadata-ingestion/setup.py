@@ -311,6 +311,9 @@ entry_points = {
         "datahub-kafka = datahub.ingestion.sink.datahub_kafka:DatahubKafkaSink",
         "datahub-rest = datahub.ingestion.sink.datahub_rest:DatahubRestSink",
     ],
+    "datahub.ingestion.state_provider.plugins": [
+        "datahub = datahub.ingestion.source.state_provider.datahub_ingestion_state_provider:DatahubIngestionStateProvider",
+    ],
     "apache_airflow_provider": ["provider_info=datahub_provider:get_provider_info"],
 }
 
