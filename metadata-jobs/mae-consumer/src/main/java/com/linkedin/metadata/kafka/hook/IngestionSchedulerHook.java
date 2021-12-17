@@ -416,6 +416,7 @@ public class IngestionSchedulerHook implements MetadataChangeLogHook {
             .setType(EXECUTION_REQUEST_SOURCE_NAME)
             .setIngestionSource(_ingestionSourceUrn));
         input.setExecutorId(_ingestionSourceInfo.getConfig().getExecutorId(), SetMode.IGNORE_NULL);
+        input.setRequestedAt(System.currentTimeMillis());
 
         Map<String, String> arguments = new HashMap<>();
         arguments.put(RECIPE_ARGUMENT_NAME, _ingestionSourceInfo.getConfig().getRecipe());

@@ -1,15 +1,18 @@
 import React, { useEffect, useState } from 'react';
 import { Button, Empty, message, Modal, Typography } from 'antd';
 import styled from 'styled-components';
-import { CheckCircleOutlined, CloseCircleOutlined, ExclamationCircleFilled, LoadingOutlined } from '@ant-design/icons';
 import {
     useGetIngestionSourceQuery,
     useCancelIngestionExecutionRequestMutation,
 } from '../../../graphql/ingestion.generated';
 import { Message } from '../../shared/Message';
 import { StyledTable } from '../../entity/shared/components/styled/StyledTable';
-import { ANTD_GRAY, REDESIGN_COLORS } from '../../entity/shared/constants';
 import { ExecutionDetailsModal } from './ExecutionRequestDetailsModal';
+import {
+    getExecutionRequestStatusDisplayColor,
+    getExecutionRequestStatusIcon,
+    getExecutionRequestStatusDisplayText,
+} from './utils';
 
 const ListContainer = styled.div`
     margin-left: 28px;
@@ -88,6 +91,17 @@ export const IngestionSourceExecutionList = ({ urn, lastRefresh, onRefresh }: Pr
 
     const tableColumns = [
         {
+            title: 'Requested At',
+            dataIndex: 'requestedAt',
+            key: 'requestedAt',
+            render: (time: string) => {
+                const requestedDate = time && new Date(time);
+                const localTime =
+                    requestedDate && `${requestedDate.toLocaleDateString()} at ${requestedDate.toLocaleTimeString()}`;
+                return <Typography.Text>{localTime || 'N/A'}</Typography.Text>;
+            },
+        },
+        {
             title: 'Started At',
             dataIndex: 'executedAt',
             key: 'executedAt',
@@ -112,25 +126,9 @@ export const IngestionSourceExecutionList = ({ urn, lastRefresh, onRefresh }: Pr
             dataIndex: 'status',
             key: 'status',
             render: (status: any) => {
-                const Icon =
-                    (status === 'RUNNING' && LoadingOutlined) ||
-                    (status === 'SUCCESS' && CheckCircleOutlined) ||
-                    (status === 'FAILURE' && CloseCircleOutlined) ||
-                    (status === 'CANCELLED' && CloseCircleOutlined) ||
-                    (status === 'TIMEOUT' && ExclamationCircleFilled);
-                const text =
-                    (status === 'RUNNING' && 'Running') ||
-                    (status === 'SUCCESS' && 'Succeeded') ||
-                    (status === 'FAILURE' && 'Failed') ||
-                    (status === 'CANCELLED' && 'Cancelled') ||
-                    (status === 'TIMEOUT' && 'Timed Out');
-                const color =
-                    (status === 'RUNNING' && REDESIGN_COLORS.BLUE) ||
-                    (status === 'SUCCESS' && 'green') ||
-                    (status === 'FAILURE' && 'red') ||
-                    (status === 'CANCELLED' && ANTD_GRAY[9]) ||
-                    (status === 'TIMEOUT' && 'yellow') ||
-                    REDESIGN_COLORS.GREY;
+                const Icon = getExecutionRequestStatusIcon(status);
+                const text = getExecutionRequestStatusDisplayText(status);
+                const color = getExecutionRequestStatusDisplayColor(status);
                 return (
                     <>
                         <div style={{ display: 'flex', justifyContent: 'left', alignItems: 'center' }}>
@@ -180,6 +178,7 @@ export const IngestionSourceExecutionList = ({ urn, lastRefresh, onRefresh }: Pr
     const tableData = executions?.map((execution) => ({
         urn: execution.urn,
         source: execution.input.source.type,
+        requestedAt: execution.input?.requestedAt,
         executedAt: execution.result?.startTimeMs,
         duration: execution.result?.durationMs,
         status: execution.result?.status,

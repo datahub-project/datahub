@@ -122,6 +122,7 @@ public class IngestTestUtils {
     assertEquals(executionRequest.getUrn(), TEST_EXECUTION_REQUEST_URN.toString());
     assertEquals(executionRequest.getInput().getTask(), input.getTask());
     assertEquals(executionRequest.getInput().getSource().getType(), input.getSource().getType());
+    assertEquals((long) executionRequest.getInput().getRequestedAt(), 0L);
     for (StringMapEntry entry : executionRequest.getInput().getArguments()) {
       assertTrue(input.getArgs().containsKey(entry.getKey()));
       assertEquals(entry.getValue(), input.getArgs().get(entry.getKey()));

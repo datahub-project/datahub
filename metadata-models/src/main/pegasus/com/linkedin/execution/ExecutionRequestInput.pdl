@@ -27,4 +27,14 @@ record ExecutionRequestInput {
   * Source which created the execution request
   */
   source: ExecutionRequestSource
+
+  /**
+  * Time at which the execution request input was created
+  */
+  @Searchable = {
+    "fieldName": "requestTimeMs",
+    "fieldType": "COUNT",
+    "queryByDefault": false
+  }
+  requestedAt: long
 }

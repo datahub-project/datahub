@@ -96,6 +96,11 @@ type ExecutionRequestInput {
   Arguments provided when creating the execution request
   """
   arguments: [StringMapEntry!]
+
+  """
+  The time at which the request was created
+  """
+  requestedAt: Long!
 }
 
 """

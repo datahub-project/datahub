@@ -2,8 +2,9 @@ import { Button } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 import { LogoCountCard } from '../../../shared/LogoCountCard';
-import { IngestionSourceBuilderStep, SourceBuilderState, StepProps } from './types';
+import { SourceBuilderState, StepProps } from './types';
 import { SOURCE_TEMPLATE_CONFIGS } from '../conf/sources';
+import { IngestionSourceBuilderStep } from './steps';
 
 const Section = styled.div`
     display: flex;

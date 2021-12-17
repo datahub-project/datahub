@@ -1,13 +1,12 @@
 import { Button, Modal, Steps, Typography } from 'antd';
 import React, { useEffect, useState } from 'react';
-import { ExpandAltOutlined, ShrinkOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
-
+import { ExpandAltOutlined, ShrinkOutlined } from '@ant-design/icons';
+import { SourceBuilderState, StepProps } from './types';
 import { CreateScheduleStep } from './CreateScheduleStep';
 import { DefineRecipeStep } from './DefineRecipeStep';
-import { SelectTemplateStep } from './SelectTemplateStep';
 import { NameSourceStep } from './NameSourceStep';
-import { SourceBuilderState, IngestionSourceBuilderStep, StepProps } from './types';
+import { SelectTemplateStep } from './SelectTemplateStep';
 
 const ExpandButton = styled(Button)`
     && {
@@ -26,12 +25,15 @@ const StepsContainer = styled.div`
     margin-bottom: 40px;
 `;
 
-type Props = {
-    initialState?: SourceBuilderState;
-    visible: boolean;
-    onSubmit?: (input: SourceBuilderState, resetState: () => void) => void;
-    onCancel?: () => void;
-};
+/**
+ * Mapping from the step type to the title for the step
+ */
+export enum IngestionSourceBuilderStepTitles {
+    SELECT_TEMPLATE = 'Choose Type',
+    DEFINE_RECIPE = 'Configure Recipe',
+    CREATE_SCHEDULE = 'Schedule Execution',
+    NAME_SOURCE = 'Finish up',
+}
 
 /**
  * Mapping from the step type to the component implementing that step.
@@ -44,14 +46,21 @@ export const IngestionSourceBuilderStepComponent = {
 };
 
 /**
- * Mapping from the step type to the title for the step
+ * Steps of the Ingestion Source Builder flow.
  */
-export enum IngestionSourceBuilderStepTitles {
-    SELECT_TEMPLATE = 'Choose Type',
-    DEFINE_RECIPE = 'Configure Recipe',
-    CREATE_SCHEDULE = 'Schedule Execution',
-    NAME_SOURCE = 'Finish up',
+export enum IngestionSourceBuilderStep {
+    SELECT_TEMPLATE = 'SELECT_TEMPLATE',
+    DEFINE_RECIPE = 'DEFINE_RECIPE',
+    CREATE_SCHEDULE = 'CREATE_SCHEDULE',
+    NAME_SOURCE = 'NAME_SOURCE',
 }
+
+type Props = {
+    initialState?: SourceBuilderState;
+    visible: boolean;
+    onSubmit?: (input: SourceBuilderState, resetState: () => void) => void;
+    onCancel?: () => void;
+};
 
 export const IngestionSourceBuilderModal = ({ initialState, visible, onSubmit, onCancel }: Props) => {
     const isEditing = initialState !== undefined;
@@ -61,11 +70,15 @@ export const IngestionSourceBuilderModal = ({ initialState, visible, onSubmit, o
         : IngestionSourceBuilderStep.SELECT_TEMPLATE;
 
     const [stepStack, setStepStack] = useState([initialStep]);
+
+    // Reset the step stack to the initial step when the modal is re-opened.
     useEffect(() => setStepStack([initialStep]), [initialState, initialStep, setStepStack]);
 
     const [modalExpanded, setModalExpanded] = useState(false);
 
     const [ingestionBuilderState, setIngestionBuilderState] = useState<SourceBuilderState>({});
+
+    // Reset the ingestion builder modal state when the modal is re-opened.
     useEffect(() => {
         setIngestionBuilderState(initialState || {});
     }, [initialState, setIngestionBuilderState]);
@@ -90,6 +103,12 @@ export const IngestionSourceBuilderModal = ({ initialState, visible, onSubmit, o
     };
 
     const currentStep = stepStack[stepStack.length - 1];
+    const currentStepIndex = Object.values(IngestionSourceBuilderStep)
+        .map((value, index) => ({
+            value,
+            index,
+        }))
+        .filter((obj) => obj.value === currentStep)[0].index;
     const StepComponent: React.FC<StepProps> = IngestionSourceBuilderStepComponent[currentStep];
 
     return (
@@ -109,7 +128,7 @@ export const IngestionSourceBuilderModal = ({ initialState, visible, onSubmit, o
             onCancel={onCancel}
         >
             <StepsContainer>
-                <Steps current={stepStack.length - 1}>
+                <Steps current={currentStepIndex}>
                     {Object.keys(IngestionSourceBuilderStep).map((item) => (
                         <Steps.Step key={item} title={IngestionSourceBuilderStepTitles[item]} />
                     ))}

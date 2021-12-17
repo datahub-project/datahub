@@ -3,10 +3,11 @@ import React, { useMemo } from 'react';
 import styled from 'styled-components';
 import cronstrue from 'cronstrue';
 import { CheckCircleOutlined } from '@ant-design/icons';
-import { SourceBuilderState, IngestionSourceBuilderStep, StepProps } from './types';
+import { SourceBuilderState, StepProps } from './types';
 import { TimezoneSelect } from './TimezoneSelect';
 import { ANTD_GRAY, REDESIGN_COLORS } from '../../../entity/shared/constants';
 import { lowerFirstLetter } from '../../../shared/textUtil';
+import { IngestionSourceBuilderStep } from './steps';
 
 const Section = styled.div`
     display: flex;

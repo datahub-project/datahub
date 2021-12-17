@@ -1,9 +1,16 @@
 source:
-  type: "file"
+  type: mysql
   config:
-    filename: "/bootstrap_mce.json"
-
+    host_port: 'mmy:3306'
+    database: datahub
+    username: datahub
+    password: datahub
+    include_tables: true
+    include_views: true
+    profiling:
+      enabled: false
 sink:
-  type: "datahub-rest"
+  type: datahub-rest
   config:
-    server: "http://datahub-gms:8080"
+    server: 'http://localhost:8080'
+    token: eyJhbGciOiJIUzI1NiJ9.eyJhY3RvclR5cGUiOiJVU0VSIiwiYWN0b3JJZCI6ImRhdGFodWIiLCJ0eXBlIjoiUEVSU09OQUwiLCJ2ZXJzaW9uIjoiMSIsImV4cCI6MTY0MjA1MjU3OCwianRpIjoiNmZhMTI0NDAtYTU0OC00N2Y0LWJkM2EtZDgxYzhmYzkxZDkzIiwic3ViIjoiZGF0YWh1YiIsImlzcyI6ImRhdGFodWItbWV0YWRhdGEtc2VydmljZSJ9.LxLojyspAVau6dufr6sfH2Woq-WXe4uGSilna8chwjY

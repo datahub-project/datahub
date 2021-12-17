@@ -158,7 +158,7 @@ export const IngestionSourceList = () => {
                     content: `Successfully submitted ingestion execution request!`,
                     duration: 3,
                 });
-                setTimeout(() => refetch(), 2000);
+                setInterval(() => onRefresh(), 3000);
             })
             .catch((e) => {
                 message.destroy();

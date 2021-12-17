@@ -75,7 +75,7 @@ export const SecretsList = () => {
         setPage(newPage);
     };
 
-    const onSubmit = (state: SecretBuilderState) => {
+    const onSubmit = (state: SecretBuilderState, resetBuilderState: () => void) => {
         createSecretMutation({
             variables: {
                 input: {
@@ -90,8 +90,9 @@ export const SecretsList = () => {
                     content: `Successfully created Secret!`,
                     duration: 3,
                 });
-                setTimeout(() => refetch(), 2000);
+                resetBuilderState();
                 setIsCreatingSecret(false);
+                setTimeout(() => refetch(), 3000);
             })
             .catch((e) => {
                 message.destroy();

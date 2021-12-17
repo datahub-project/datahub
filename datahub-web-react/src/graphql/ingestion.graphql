@@ -22,6 +22,9 @@ query listIngestionSources($input: ListIngestionSourcesInput!) {
                 total
                 executionRequests {
                     urn
+                    input {
+                        requestedAt
+                    }
                     result {
                         status
                         startTimeMs
@@ -54,6 +57,7 @@ query getIngestionSource($urn: String!, $runStart: Int, $runCount: Int) {
             executionRequests {
                 urn
                 input {
+                    requestedAt
                     source {
                         type
                     }

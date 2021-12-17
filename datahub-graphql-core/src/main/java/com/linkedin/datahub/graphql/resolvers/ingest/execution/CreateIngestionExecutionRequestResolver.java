@@ -94,6 +94,7 @@ public class CreateIngestionExecutionRequestResolver implements DataFetcher<Comp
           execInput.setSource(
               new ExecutionRequestSource().setType(MANUAL_EXECUTION_SOURCE_NAME).setIngestionSource(ingestionSourceUrn));
           execInput.setExecutorId(ingestionSourceInfo.getConfig().getExecutorId(), SetMode.IGNORE_NULL);
+          execInput.setRequestedAt(System.currentTimeMillis());
 
           Map<String, String> arguments = new HashMap<>();
           arguments.put(RECIPE_ARG_NAME, ingestionSourceInfo.getConfig().getRecipe());

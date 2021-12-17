@@ -36,7 +36,7 @@ import lombok.extern.slf4j.Slf4j;
 public class IngestionSourceExecutionRequestsResolver implements DataFetcher<CompletableFuture<IngestionSourceExecutionRequests>> {
 
   private static final String INGESTION_SOURCE_FIELD_NAME = "ingestionSource";
-  private static final String START_TIME_MS_FIELD_NAME = "startTimeMs";
+  private static final String REQUEST_TIME_MS_FIELD_NAME = "requestTimeMs";
 
   private final EntityClient _entityClient;
 
@@ -67,7 +67,7 @@ public class IngestionSourceExecutionRequestsResolver implements DataFetcher<Com
             new Filter().setOr(new ConjunctiveCriterionArray(
                 new ConjunctiveCriterion().setAnd(new CriterionArray(ImmutableList.of(filterCriterion)))
             )),
-            new SortCriterion().setField(START_TIME_MS_FIELD_NAME).setOrder(SortOrder.DESCENDING),
+            new SortCriterion().setField(REQUEST_TIME_MS_FIELD_NAME).setOrder(SortOrder.DESCENDING),
             start,
             count,
             context.getAuthentication()

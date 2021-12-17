@@ -5,7 +5,7 @@ import { SecretBuilderState } from './types';
 type Props = {
     initialState?: SecretBuilderState;
     visible: boolean;
-    onSubmit?: (source: SecretBuilderState) => void;
+    onSubmit?: (source: SecretBuilderState, resetState: () => void) => void;
     onCancel?: () => void;
 };
 
@@ -50,7 +50,7 @@ export const SecretBuilderModal = ({ initialState, visible, onSubmit, onCancel }
                         Cancel
                     </Button>
                     <Button
-                        onClick={() => onSubmit?.(secretBuilderState)}
+                        onClick={() => onSubmit?.(secretBuilderState, () => setSecretBuilderState({}))}
                         disabled={
                             !secretBuilderState.name ||
                             secretBuilderState.name === '' ||

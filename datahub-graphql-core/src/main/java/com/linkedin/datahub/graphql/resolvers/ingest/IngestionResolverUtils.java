@@ -51,6 +51,7 @@ public class IngestionResolverUtils {
       if (executionRequestInput.hasArgs()) {
         inputResult.setArguments(StringMapMapper.map(executionRequestInput.getArgs()));
       }
+      inputResult.setRequestedAt(executionRequestInput.getRequestedAt());
       result.setInput(inputResult);
     }
 

@@ -3,6 +3,8 @@ package com.linkedin.datahub.graphql.resolvers.ingest.execution;
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.linkedin.common.AuditStamp;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
@@ -42,8 +44,14 @@ public class GetIngestionExecutionRequestResolverTest {
             new EntityResponse().setEntityName(Constants.EXECUTION_REQUEST_ENTITY_NAME)
                 .setUrn(TEST_EXECUTION_REQUEST_URN)
                 .setAspects(new EnvelopedAspectMap(ImmutableMap.of(
-                    Constants.EXECUTION_REQUEST_INPUT_ASPECT_NAME, new EnvelopedAspect().setValue(new Aspect(returnedInput.data())),
-                    Constants.EXECUTION_REQUEST_RESULT_ASPECT_NAME, new EnvelopedAspect().setValue(new Aspect(returnedResult.data()))
+                    Constants.EXECUTION_REQUEST_INPUT_ASPECT_NAME,
+                    new EnvelopedAspect().setValue(new Aspect(returnedInput.data()))                      .setCreated(new AuditStamp()
+                        .setTime(0L)
+                        .setActor(Urn.createFromString("urn:li:corpuser:test"))),
+                    Constants.EXECUTION_REQUEST_RESULT_ASPECT_NAME,
+                    new EnvelopedAspect().setValue(new Aspect(returnedResult.data()))                      .setCreated(new AuditStamp()
+                        .setTime(0L)
+                        .setActor(Urn.createFromString("urn:li:corpuser:test")))
             )))));
     GetIngestionExecutionRequestResolver resolver = new GetIngestionExecutionRequestResolver(mockClient);
 

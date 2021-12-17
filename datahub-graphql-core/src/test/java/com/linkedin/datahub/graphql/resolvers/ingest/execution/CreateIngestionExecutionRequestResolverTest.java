@@ -54,8 +54,7 @@ public class CreateIngestionExecutionRequestResolverTest {
 
     resolver.get(mockEnv).get();
 
-    // Not ideal to match against "any", but we don't know the auto-generated executionr request id that
-    // will be generated.
+    // Not ideal to match against "any", but we don't know the auto-generated execution request id
     Mockito.verify(mockClient, Mockito.times(1)).ingestProposal(
         Mockito.any(MetadataChangeProposal.class),
         Mockito.any(Authentication.class)

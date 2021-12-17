@@ -1,10 +1,11 @@
 import { Button, message, Typography } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
-import { IngestionSourceBuilderStep, StepProps } from './types';
+import { StepProps } from './types';
 import { getSourceConfigs, jsonToYaml, yamlToJson } from '../utils';
 import { YamlEditor } from './YamlEditor';
 import { ANTD_GRAY } from '../../../entity/shared/constants';
+import { IngestionSourceBuilderStep } from './steps';
 
 const Section = styled.div`
     display: flex;
