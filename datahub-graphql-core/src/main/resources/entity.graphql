@@ -555,6 +555,11 @@ type Dataset implements EntityWithRelationships & Entity {
     datasetProfiles(startTimeMillis: Long, endTimeMillis: Long, limit: Int): [DatasetProfile!]
 
     """
+    TODO
+    """
+    operations(startTimeMillis: Long, endTimeMillis: Long, limit: Int): [Operation!]
+
+    """
     Edges extending from this entity
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
@@ -3706,7 +3711,7 @@ type Operation implements TimeSeriesAspect {
   lastUpdatedTimestamp: Long!
 
   """
-  Email of actor who issued this operation.
+  Actor who issued this operation.
   """
   actor: String!
 

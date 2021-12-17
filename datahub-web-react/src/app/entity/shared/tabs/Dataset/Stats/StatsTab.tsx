@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
-import { DatasetProfile, UsageQueryResult } from '../../../../../../types.generated';
+import { DatasetProfile, Operation, UsageQueryResult } from '../../../../../../types.generated';
 import { useBaseEntity } from '../../../EntityContext';
 import HistoricalStats from './historical/HistoricalStats';
 import { LOOKBACK_WINDOWS } from './lookbackWindows';
@@ -19,6 +19,31 @@ const toLocalTimeString = (time: number) => {
     return date.toLocaleTimeString();
 };
 
+const toLocalDateTimeString = (time: number) => {
+    const date = new Date(time);
+    return date.toLocaleString([], {
+        year: 'numeric',
+        month: 'numeric',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZoneName: 'short',
+    });
+};
+
+const toUTCDateTimeString = (time: number) => {
+    const date = new Date(time);
+    return date.toLocaleString([], {
+        year: 'numeric',
+        month: 'numeric',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZone: 'UTC',
+        timeZoneName: 'short',
+    });
+};
+
 export default function StatsTab() {
     const baseEntity = useBaseEntity<GetDatasetQuery>();
 
@@ -27,6 +52,7 @@ export default function StatsTab() {
 
     const hasUsageStats = baseEntity?.dataset?.usageStats !== undefined;
     const hasDatasetProfiles = baseEntity?.dataset?.datasetProfiles !== undefined;
+    const hasOperations = baseEntity?.dataset?.operations !== undefined;
 
     const usageStats = (hasUsageStats && (baseEntity?.dataset?.usageStats as UsageQueryResult)) || undefined;
     const datasetProfiles =
@@ -36,6 +62,11 @@ export default function StatsTab() {
     const latestProfile = datasetProfiles && datasetProfiles[0]; // This is required for showing latest stats.
     const urn = baseEntity && baseEntity.dataset && baseEntity.dataset?.urn;
 
+    // Used for rendering operation info.
+    const operations = (hasOperations && (baseEntity?.dataset?.operations as Array<Operation>)) || undefined;
+    const latestOperation = operations && operations[0];
+    const lastUpdated = latestOperation && toLocalDateTimeString(latestOperation?.timestampMillis);
+    const lastUpdatedUTC = latestOperation && toUTCDateTimeString(latestOperation?.timestampMillis);
     // Okay so if we are disabled, we don't have both or the other. Let's render
 
     // const emptyView = <Empty description="TODO: Stats!" image={Empty.PRESENTED_IMAGE_SIMPLE} />;
@@ -66,6 +97,8 @@ export default function StatsTab() {
                 columnCount={latestProfile?.columnCount || undefined}
                 queryCount={usageStats?.aggregations?.totalSqlQueries || undefined}
                 users={usageStats?.aggregations?.users || undefined}
+                lastUpdated={lastUpdated || undefined}
+                lastUpdatedUTC={lastUpdatedUTC || undefined}
             />
             <ColumnStats columnStats={(latestProfile && latestProfile.fieldProfiles) || []} />
         </>
