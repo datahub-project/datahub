@@ -169,7 +169,47 @@ public abstract class EntityService {
   @Nonnull
   protected abstract UpdateAspectResult ingestAspectToLocalDB(@Nonnull final Urn urn, @Nonnull final String aspectName,
       @Nonnull final Function<Optional<RecordTemplate>, RecordTemplate> updateLambda,
-      @Nonnull final AuditStamp auditStamp, @Nonnull final SystemMetadata providedSystemMetadata);
+      @Nonnull final AuditStamp auditStamp, @Nonnull final SystemMetadata systemMetadata);
+
+//  TODO Improve doc
+  /**
+   * Same as ingestAspectToLocalDB but for multiple aspects
+   */
+  @Nonnull
+  protected abstract List<Pair<String, UpdateAspectResult>> ingestAspectsToLocalDB(@Nonnull final Urn urn,
+    @Nonnull List<Pair<String, RecordTemplate>> aspectRecordsToIngest,
+    @Nonnull final AuditStamp auditStamp, @Nonnull final SystemMetadata providedSystemMetadata);
+
+  @Nonnull
+  private SystemMetadata ensureSystemMetadata(SystemMetadata systemMetadata) {
+    if (systemMetadata == null) {
+      systemMetadata = new SystemMetadata();
+      systemMetadata.setRunId(DEFAULT_RUN_ID);
+      systemMetadata.setLastObserved(System.currentTimeMillis());
+    }
+    return systemMetadata;
+  }
+
+  private void ensureUrn(@Nonnull final Urn urn) {
+    if (!urn.toString().trim().equals(urn.toString())) {
+      throw new IllegalArgumentException("Error: cannot provide an URN with leading or trailing whitespace");
+    }
+  }
+
+  public void ingestAspects(@Nonnull final Urn urn, @Nonnull List<Pair<String, RecordTemplate>> aspectRecordsToIngest,
+    @Nonnull final AuditStamp auditStamp, SystemMetadata systemMetadata) {
+
+    ensureUrn(urn);
+    systemMetadata = ensureSystemMetadata(systemMetadata);
+
+    Timer.Context ingestToLocalDBTimer = MetricUtils.timer(this.getClass(), "ingestAspectsToLocalDB").time();
+    List<Pair<String, UpdateAspectResult>> ingestResults = ingestAspectsToLocalDB(urn, aspectRecordsToIngest, auditStamp, systemMetadata);
+    ingestToLocalDBTimer.stop();
+
+    for (Pair<String, UpdateAspectResult> result: ingestResults) {
+      sendMaeForUpdateAspectResult(urn, result.getFirst(), result.getSecond());
+    }
+  }
 
   /**
    * Ingests (inserts) a new version of an entity aspect & emits a {@link com.linkedin.mxe.MetadataAuditEvent}.
@@ -189,13 +229,18 @@ public abstract class EntityService {
 
     log.debug("Invoked ingestAspect with urn: {}, aspectName: {}, newValue: {}", urn, aspectName, newValue);
 
-    if (!urn.toString().trim().equals(urn.toString())) {
-      throw new IllegalArgumentException("Error: cannot provide an URN with leading or trailing whitespace");
-    }
+    ensureUrn(urn);
+    systemMetadata = ensureSystemMetadata(systemMetadata);
 
     Timer.Context ingestToLocalDBTimer = MetricUtils.timer(this.getClass(), "ingestAspectToLocalDB").time();
     UpdateAspectResult result = ingestAspectToLocalDB(urn, aspectName, ignored -> newValue, auditStamp, systemMetadata);
     ingestToLocalDBTimer.stop();
+
+    return sendMaeForUpdateAspectResult(urn, aspectName, result);
+  }
+
+  private RecordTemplate sendMaeForUpdateAspectResult(@Nonnull final Urn urn, @Nonnull final String aspectName,
+    @Nonnull UpdateAspectResult result) {
 
     final RecordTemplate oldValue = result.getOldValue();
     final RecordTemplate updatedValue = result.getNewValue();
@@ -203,7 +248,7 @@ public abstract class EntityService {
     // Apply retention policies asynchronously if there was an update to existing aspect value
     if (oldValue != updatedValue && oldValue != null && retentionService != null) {
       retentionService.applyRetention(urn, aspectName,
-          Optional.of(new RetentionService.RetentionContext(Optional.of(result.maxVersion))));
+              Optional.of(new RetentionService.RetentionContext(Optional.of(result.maxVersion))));
     }
 
     // Produce MAE after a successful update
@@ -214,25 +259,15 @@ public abstract class EntityService {
         produceMetadataAuditEventForKey(urn, result.getNewSystemMetadata());
       } else {
         produceMetadataAuditEvent(urn, oldValue, updatedValue, result.getOldSystemMetadata(),
-            result.getNewSystemMetadata(), MetadataAuditOperation.UPDATE);
+                result.getNewSystemMetadata(), MetadataAuditOperation.UPDATE);
       }
       produceMAETimer.stop();
     } else {
       log.debug(
-          String.format("Skipped producing MetadataAuditEvent for ingested aspect %s, urn %s. Aspect has not changed.",
-              aspectName, urn));
+              String.format("Skipped producing MetadataAuditEvent for ingested aspect %s, urn %s. Aspect has not changed.",
+                      aspectName, urn));
     }
-
     return updatedValue;
-  }
-
-  public RecordTemplate ingestAspect(@Nonnull final Urn urn, @Nonnull final String aspectName,
-      @Nonnull final RecordTemplate newValue, @Nonnull final AuditStamp auditStamp) {
-
-    SystemMetadata generatedSystemMetadata = new SystemMetadata();
-    generatedSystemMetadata.setLastObserved(System.currentTimeMillis());
-
-    return ingestAspect(urn, aspectName, newValue, auditStamp, generatedSystemMetadata);
   }
 
   public IngestProposalResult ingestProposal(@Nonnull MetadataChangeProposal metadataChangeProposal, AuditStamp auditStamp) {
@@ -273,12 +308,7 @@ public abstract class EntityService {
     }
     log.debug("aspect = {}", aspect);
 
-    SystemMetadata systemMetadata = metadataChangeProposal.getSystemMetadata();
-    if (systemMetadata == null) {
-      systemMetadata = new SystemMetadata();
-      systemMetadata.setRunId(DEFAULT_RUN_ID);
-      systemMetadata.setLastObserved(System.currentTimeMillis());
-    }
+    SystemMetadata systemMetadata = ensureSystemMetadata(metadataChangeProposal.getSystemMetadata());
     systemMetadata.setRegistryName(aspectSpec.getRegistryName());
     systemMetadata.setRegistryVersion(aspectSpec.getRegistryVersion().toString());
 
@@ -550,9 +580,7 @@ public abstract class EntityService {
     aspectRecordsToIngest.addAll(generateDefaultAspectsIfMissing(urn,
         aspectRecordsToIngest.stream().map(pair -> pair.getFirst()).collect(Collectors.toSet())));
 
-    aspectRecordsToIngest.forEach(aspectNamePair -> {
-      ingestAspect(urn, aspectNamePair.getFirst(), aspectNamePair.getSecond(), auditStamp, systemMetadata);
-    });
+    ingestAspects(urn, aspectRecordsToIngest, auditStamp, systemMetadata);
   }
 
   public Snapshot buildSnapshot(@Nonnull final Urn urn, @Nonnull final RecordTemplate aspectValue) {

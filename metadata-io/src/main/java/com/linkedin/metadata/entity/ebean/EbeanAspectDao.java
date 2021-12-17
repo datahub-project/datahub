@@ -441,6 +441,7 @@ public class EbeanAspectDao {
     T result = null;
     do {
       try (Transaction transaction = _server.beginTransaction(TxIsolation.REPEATABLE_READ)) {
+        transaction.setBatchMode(true);
         result = block.get();
         transaction.commit();
         lastException = null;
