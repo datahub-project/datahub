@@ -12,13 +12,8 @@ from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
 from datahub.metadata.schema_classes import (
     CalendarIntervalClass,
     ChangeTypeClass,
-    DataFlowSnapshotClass,
     DatahubIngestionCheckpointClass,
     DatahubIngestionRunSummaryClass,
-    DataJobInfoClass,
-    JobStatusClass,
-    MetadataChangeEventClass,
-    StatusClass,
     TimeWindowSizeClass,
 )
 
@@ -110,30 +105,18 @@ class DatahubIngestionStateProvider(IngestionStateProvider):
         self, job_checkpoints: Dict[JobId, DatahubIngestionCheckpointClass]
     ) -> None:
         for job_name, checkpoint in job_checkpoints.items():
-            # Emit the DataFlowSnapshot MCE
-            dataflow_urn = builder.make_data_flow_urn(
-                self.orchestrator_name, checkpoint.pipelineName
-            )
-
-            dataflow_snapshot = DataFlowSnapshotClass(
-                urn=dataflow_urn,
-                aspects=[StatusClass(removed=False)],
-            )
-            self.graph.emit_mce(
-                MetadataChangeEventClass(proposedSnapshot=dataflow_snapshot)
-            )
-
             # Emit the ingestion state for each job
+            logger.info(
+                f"Committing ingestion checkpoint for pipeline:'{checkpoint.pipelineName}',"
+                f"instance:'{checkpoint.platformInstanceId}', job:'{job_name}'"
+            )
+
             datajob_urn = builder.make_data_job_urn(
                 self.orchestrator_name,
                 checkpoint.pipelineName,
                 job_name,
             )
 
-            logger.info(
-                f"Committing ingestion checkpoint for pipeline:'{checkpoint.pipelineName}',"
-                f"instance:'{checkpoint.platformInstanceId}', job:'{job_name}'"
-            )
             self.graph.emit_mcp(
                 MetadataChangeProposalWrapper(
                     entityType="dataJob",
@@ -144,23 +127,6 @@ class DatahubIngestionStateProvider(IngestionStateProvider):
                 )
             )
 
-            # Emit the DataJobInfo aspect
-            data_job_info = DataJobInfoClass(
-                name=job_name,
-                type="datahub-ingestion-python",
-                flowUrn=dataflow_urn,
-                status=JobStatusClass.COMPLETED,
-            )
-
-            self.graph.emit_mcp(
-                MetadataChangeProposalWrapper(
-                    entityType="dataJob",
-                    entityUrn=datajob_urn,
-                    aspectName="dataJobInfo",
-                    aspect=data_job_info,
-                    changeType=ChangeTypeClass.UPSERT,
-                )
-            )
             logger.info(
                 f"Committed ingestion checkpoint for pipeline:'{checkpoint.pipelineName}',"
                 f"instance:'{checkpoint.platformInstanceId}', job:'{job_name}'"
