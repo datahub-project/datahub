@@ -4,6 +4,20 @@ runs, and query these states back from subsequent runs to make decisions about t
 from the previous run(s) using a supported ingestion state provider. This is an explicit opt-in feature and is not enabled
 by default.
 
+**_NOTE_**: This feature requires the server to be `statefulIngestion` capable. This is a feature of metadata service with version >= `0.8.20`. 
+
+To check if you are running a stateful ingestion capable server:
+```console
+curl http://<datahub-gms-endpoint>/config
+
+{
+models: { },
+statefulIngestionCapable: true, # <-- this should be present and true
+retention: "true",
+noCode: "true"
+}
+```
+
 ## Config details
 
 Note that a `.` is used to denote nested fields in the YAML recipe.
