@@ -3,7 +3,7 @@
 There's a couple ways to get lineage information from Airflow into DataHub.
 
 
-## Using Datahub's Airflow lineage backend (recommended)
+## Using Datahub's Airflow lineage backend
 
 :::caution
 
@@ -11,11 +11,11 @@ The Airflow lineage backend is only supported in Airflow 1.10.15+ and 2.0.2+.
 
 :::
 
-## Running on Docker locally
+### Running on Docker locally
 
 If you are looking to run Airflow and DataHub using docker locally, follow the guide [here](../../docker/airflow/local_airflow.md). Otherwise proceed to follow the instructions below.
 
-## Setting up Airflow to use DataHub as Lineage Backend
+### Setting up Airflow to use DataHub as Lineage Backend
 
 1. You need to install the required dependency in your airflow. See https://registry.astronomer.io/providers/datahub/modules/datahublineagebackend
 
@@ -60,3 +60,7 @@ Take a look at this sample DAG:
 - [`lineage_emission_dag.py`](../../metadata-ingestion/src/datahub_provider/example_dags/lineage_emission_dag.py) - emits lineage using the DatahubEmitterOperator.
 
 In order to use this example, you must first configure the Datahub hook. Like in ingestion, we support a Datahub REST hook and a Kafka-based hook. See step 1 above for details.
+
+## Running on Airflow where there are dependency conflicts
+
+When you try to install datahub in an Airflow environment sometimes you might face dependency conflicts (e.g. GCP Cloud Composer). In that case we do not recommend using Airflow's lineage backend. Instead we recommend using the `datahub-ingestion` [docker image](../../docker/README.md) to use DataHub's Python SDK to send the lineage. You can use Airflow's `DockerOperator` or `KubernetesPodOperator` to run the container with appropriate code. You can see example code to run in the container for Airflow lineage in `lineage_dataset_job_dataset.py` in [Sample Code](./sample_code.md).
