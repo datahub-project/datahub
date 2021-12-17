@@ -151,8 +151,8 @@ class BigQueryConfig(BaseTimeWindowConfig, SQLAlchemyConfig):
     max_query_duration: timedelta = timedelta(minutes=15)
 
     bigquery_audit_metadata_datasets: Optional[List[str]] = None
-    use_exported_bigquery_audit_metadata: Optional[bool] = False
-    use_date_sharded_audit_log_tables: Optional[bool] = False
+    use_exported_bigquery_audit_metadata: bool = False
+    use_date_sharded_audit_log_tables: bool = False
 
     def get_sql_alchemy_url(self):
         if self.project_id:
