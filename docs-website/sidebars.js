@@ -113,6 +113,7 @@ module.exports = {
     "Metadata Modeling": [
       "docs/modeling/metadata-model",
       "docs/modeling/extending-the-metadata-model",
+      "docs/what/mxe.md"
       // TODO: change the titles of these, removing the "What is..." portion from the sidebar"
       // "docs/what/entity",
       // "docs/what/aspect",
