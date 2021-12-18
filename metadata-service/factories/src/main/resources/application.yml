@@ -24,7 +24,23 @@ authentication:
   # The max duration of a UI session in milliseconds. Defaults to 1 day.
   sessionTokenDurationMs: ${SESSION_TOKEN_DURATION_MS:86400000}
 
+datahub:
+  gms:
+    host: ${DATAHUB_GMS_HOST:${GMS_HOST:localhost}}
+    port: ${DATAHUB_GMS_PORT:${GMS_PORT:8080}}
+    useSSL: ${DATAHUB_GMS_USE_SSL:${GMS_USE_SSL:false}}
+    sslContext:
+      protocol: ${DATAHUB_GMS_SSL_PROTOCOL:${GMS_SSL_PROTOCOL:#{null}}}
 
+  plugin:
+    entityRegistry:
+      path: ${ENTITY_REGISTRY_PLUGIN_PATH:/etc/datahub/plugins/models}
+    retention:
+      path: ${RETENTION_PLUGIN_PATH:/etc/datahub/plugins/retention}
+
+entityService:
+  retention:
+    enabled: ${ENTITY_SERVICE_ENABLE_RETENTION:false}
 
 graphService:
   type: ${GRAPH_SERVICE_IMPL:elasticsearch}
@@ -35,9 +51,6 @@ searchService:
 configEntityRegistry:
   # TODO: Change to read from resources on classpath.
   path: ${ENTITY_REGISTRY_CONFIG_PATH:../../metadata-models/src/main/resources/entity-registry.yml}
-
-pluginEntityRegistry:
-  path: ${ENTITY_REGISTRY_PLUGIN_PATH:$HOME/.datahub/plugins/models}
 
 authorizationManager:
   enabled: ${AUTH_POLICIES_ENABLED:true}
@@ -83,7 +96,11 @@ elasticsearch:
     flushPeriod: ${ES_BULK_FLUSH_PERIOD:1}
     numRetries: ${ES_BULK_NUM_RETRIES:3}
     retryInterval: ${ES_BULK_RETRY_INTERVAL:1}
-  indexPrefix: ${INDEX_PREFIX:}
+  index:
+    prefix: ${INDEX_PREFIX:}
+    numShards: ${ELASTICSEARCH_NUM_SHARDS_PER_INDEX:1}
+    numReplicas: ${ELASTICSEARCH_NUM_REPLICAS_PER_INDEX:1}
+    maxArrayLength: ${SEARCH_DOCUMENT_MAX_ARRAY_LENGTH:1000}
 
 # TODO: Kafka topic convention
 kafka:

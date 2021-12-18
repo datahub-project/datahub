@@ -16,7 +16,7 @@ import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.query.filter.RelationshipFilter;
-import com.linkedin.metadata.search.elasticsearch.indexbuilder.IndexBuilder;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -51,6 +51,7 @@ public class ElasticSearchGraphService implements GraphService {
   private final IndexConvention _indexConvention;
   private final ESGraphWriteDAO _graphWriteDAO;
   private final ESGraphQueryDAO _graphReadDAO;
+  private final ESIndexBuilder _indexBuilder;
 
   private static final String DOC_DELIMETER = "--";
   public static final String INDEX_NAME = "graph_service_v1";
@@ -206,8 +207,8 @@ public class ElasticSearchGraphService implements GraphService {
   public void configure() {
     log.info("Setting up elastic graph index");
     try {
-      new IndexBuilder(searchClient, _indexConvention.getIndexName(INDEX_NAME),
-          GraphRelationshipMappingsBuilder.getMappings(), Collections.emptyMap()).buildIndex();
+      _indexBuilder.buildIndex(_indexConvention.getIndexName(INDEX_NAME),
+          GraphRelationshipMappingsBuilder.getMappings(), Collections.emptyMap());
     } catch (IOException e) {
       e.printStackTrace();
     }

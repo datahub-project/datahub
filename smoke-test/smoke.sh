@@ -23,4 +23,6 @@ datahub docker quickstart \
 	--quickstart-compose-file ../docker/docker-compose.dev.yml \
 	--dump-logs-on-failure
 
+(cd tests/cypress ; yarn install)
+
 pytest -vv --continue-on-collection-errors --junit-xml=junit.smoke.xml

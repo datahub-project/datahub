@@ -4,15 +4,15 @@ import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.run.IngestionRunSummary;
-import com.linkedin.metadata.search.elasticsearch.indexbuilder.IndexBuilder;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.mxe.SystemMetadata;
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -24,7 +24,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.elasticsearch.action.delete.DeleteResponse;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
@@ -40,9 +39,10 @@ import org.elasticsearch.search.aggregations.metrics.ParsedMax;
 @RequiredArgsConstructor
 public class ElasticSearchSystemMetadataService implements SystemMetadataService {
 
-  private final RestHighLevelClient searchClient;
+  private final RestHighLevelClient _searchClient;
   private final IndexConvention _indexConvention;
   private final ESSystemMetadataDAO _esDAO;
+  private final ESIndexBuilder _indexBuilder;
 
   private static final String DOC_DELIMETER = "--";
   public static final String INDEX_NAME = "system_metadata_service_v1";
@@ -72,21 +72,19 @@ public class ElasticSearchSystemMetadataService implements SystemMetadataService
     String rawDocId = urn + DOC_DELIMETER + aspect;
 
     try {
-      byte[] bytesOfRawDocID = rawDocId.getBytes("UTF-8");
+      byte[] bytesOfRawDocID = rawDocId.getBytes(StandardCharsets.UTF_8);
       MessageDigest md = MessageDigest.getInstance("MD5");
       byte[] thedigest = md.digest(bytesOfRawDocID);
-      return new String(thedigest, StandardCharsets.US_ASCII);
-    } catch (NoSuchAlgorithmException | UnsupportedEncodingException e) {
+      return Base64.getEncoder().encodeToString(thedigest);
+    } catch (NoSuchAlgorithmException e) {
       e.printStackTrace();
       return rawDocId;
     }
   }
 
   @Override
-  public Boolean delete(String urn, String aspect) {
-    String docId = toDocId(urn, aspect);
-    DeleteResponse response = _esDAO.deleteByDocId(docId);
-    return response.status().getStatus() >= 200 && response.status().getStatus() < 300;
+  public void deleteAspect(String urn, String aspect) {
+    _esDAO.deleteByUrnAspect(urn, aspect);
   }
 
   @Override
@@ -161,10 +159,9 @@ public class ElasticSearchSystemMetadataService implements SystemMetadataService
   @Override
   public void configure() {
     log.info("Setting up system metadata index");
-    IndexBuilder ib = new IndexBuilder(this.searchClient, _indexConvention.getIndexName(INDEX_NAME),
-        SystemMetadataMappingsBuilder.getMappings(), Collections.emptyMap());
     try {
-      ib.buildIndex();
+      _indexBuilder.buildIndex(_indexConvention.getIndexName(INDEX_NAME), SystemMetadataMappingsBuilder.getMappings(),
+          Collections.emptyMap());
     } catch (IOException ie) {
       throw new RuntimeException("Could not configure system metadata index", ie);
     }
@@ -175,7 +172,7 @@ public class ElasticSearchSystemMetadataService implements SystemMetadataService
     DeleteByQueryRequest deleteRequest =
         new DeleteByQueryRequest(_indexConvention.getIndexName(INDEX_NAME)).setQuery(QueryBuilders.matchAllQuery());
     try {
-      searchClient.deleteByQuery(deleteRequest, RequestOptions.DEFAULT);
+      _searchClient.deleteByQuery(deleteRequest, RequestOptions.DEFAULT);
     } catch (Exception e) {
       log.error("Failed to clear system metadata service: {}", e.toString());
     }

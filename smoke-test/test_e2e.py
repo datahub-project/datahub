@@ -594,8 +594,8 @@ def test_frontend_list_policies(frontend_session):
     assert res_data["data"]
     assert res_data["data"]["listPolicies"]
     assert res_data["data"]["listPolicies"]["start"] is 0
-    assert res_data["data"]["listPolicies"]["count"] is 8
-    assert len(res_data["data"]["listPolicies"]["policies"]) is 8 # Length of default policies.
+    assert res_data["data"]["listPolicies"]["count"] > 0
+    assert len(res_data["data"]["listPolicies"]["policies"]) > 0
 
 @pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion", "test_frontend_list_policies"])
 def test_frontend_update_policy(frontend_session):
