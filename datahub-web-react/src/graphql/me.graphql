@@ -26,3 +26,11 @@ query getMe {
         }
     }
 }
+
+query getMeOnly {
+    me {
+        corpUser {
+            username
+        }
+    }
+}

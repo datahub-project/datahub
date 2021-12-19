@@ -51,10 +51,12 @@ export const SpecifyBrowsePath = () => {
                                         <Input placeholder="browsing path" style={{ width: '90%' }} />
                                     </Form.Item>
                                     {fields.length > 1 ? (
-                                        <MinusCircleOutlined
-                                            className="dynamic-delete-button"
-                                            onClick={() => remove(field.name)}
-                                        />
+                                        <Button aria-label="removepath">
+                                            <MinusCircleOutlined
+                                                className="dynamic-delete-button"
+                                                onClick={() => remove(field.name)}
+                                            />
+                                        </Button>
                                     ) : null}
                                 </Form.Item>
                             ))}

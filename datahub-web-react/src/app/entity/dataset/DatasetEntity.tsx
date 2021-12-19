@@ -32,13 +32,14 @@ import ViewDefinitionTab from '../shared/tabs/Dataset/View/ViewDefinitionTab';
 import { SidebarViewDefinitionSection } from '../shared/containers/profile/sidebar/Dataset/View/SidebarViewDefinitionSection';
 import { SidebarRecommendationsSection } from '../shared/containers/profile/sidebar/Recommendations/SidebarRecommendationsSection';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
-import { useGetMeQuery } from '../../../graphql/me.generated';
+import { FindWhoAmI } from './whoAmI';
+// import { useGetMeQuery } from '../../../graphql/me.generated';
 
-function FindWhoAmI() {
-    const { data } = useGetMeQuery();
-    const whoami = data?.me?.corpUser?.username;
-    return whoami;
-}
+// function FindWhoAmI() {
+//     const { data } = useGetMeQuery();
+//     const whoami = data?.me?.corpUser?.username;
+//     return whoami;
+// }
 
 const SUBTYPES = {
     VIEW: 'view',
@@ -154,7 +155,8 @@ export class DatasetEntity implements Entity<Dataset> {
                     display: {
                         visible: (_, _1) => true,
                         enabled: (_, _dataset: GetDatasetOwnersGqlQuery) => {
-                            const currUser = FindWhoAmI() as string;
+                            const currUser = FindWhoAmI();
+                            console.log(`currUser is ${currUser}`);
                             const owners = _dataset?.dataset?.ownership?.owners;
                             const ownersArray =
                                 owners
@@ -173,7 +175,7 @@ export class DatasetEntity implements Entity<Dataset> {
                     display: {
                         visible: (_, _1) => true,
                         enabled: (_, _dataset: GetDatasetOwnersGqlQuery) => {
-                            const currUser = FindWhoAmI() as string;
+                            const currUser = FindWhoAmI();
                             const owners = _dataset?.dataset?.ownership?.owners;
                             const ownersArray =
                                 owners
@@ -192,7 +194,7 @@ export class DatasetEntity implements Entity<Dataset> {
                     display: {
                         visible: (_, _1) => true,
                         enabled: (_, _dataset: GetDatasetOwnersGqlQuery) => {
-                            const currUser = FindWhoAmI() as string;
+                            const currUser = FindWhoAmI();                            
                             const owners = _dataset?.dataset?.ownership?.owners;
                             const ownersArray =
                                 owners
