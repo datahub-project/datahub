@@ -1,4 +1,3 @@
-
 # Redshift
 
 For context on getting started with ingestion, check out our [metadata ingestion guide](../README.md).
@@ -7,13 +6,12 @@ For context on getting started with ingestion, check out our [metadata ingestion
 
 To install this plugin, run `pip install 'acryl-datahub[redshift]'`.
 
-::: Required permissions :::
+### Prerequisites
 
-This source needs to access system tables that require `superuser` permission; otherwise, it won't be able to see all schemas/tables.
+This source needs to access system tables that require `superuser` permission; otherwise, it won't be able to see all schemas/tables. 
+To add a superuser or grant superuser permission, please refer to the [Superusers page](https://docs.aws.amazon.com/redshift/latest/dg/r_superusers.html).
 
-To add a superuser or grant superuser permission, please check [this page](https://docs.aws.amazon.com/redshift/latest/dg/r_superusers.html)
-
-If you don't want to grant superuser permission, please ensure the user has SELECT privilege on [`SVV_TABLE_INFO`](https://docs.aws.amazon.com/redshift/latest/dg/r_SVV_TABLE_INFO.html) table.
+If you are unable to add superuser permissions, please ensure the user has SELECT privilege on [`SVV_TABLE_INFO`](https://docs.aws.amazon.com/redshift/latest/dg/r_SVV_TABLE_INFO.html) table.
 
 ## Capabilities
 
@@ -110,10 +108,6 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `include_copy_lineage`      |          | `True`             | Whether lineage should be collected from copy commands                                                                                                                                  |
 | `default_schema`            |          | `"public"`         | The default schema to use if the sql parser fails to parse the schema with `sql_based` lineage collector                                                                               |
 
-## Compatibility
-
-Coming soon!
-
 ## Lineage
 
 There are multiple lineage collector implementations as Redshift does not support table lineage out of the box.
@@ -156,7 +150,8 @@ Cons:
 # Note
 - The redshift stl redshift tables which are used for getting data lineage only retain approximately two to five days of log history. This means you cannot extract lineage from queries issued outside that window.
 
-# Redshift-Usage
+# Redshift Usage
+
 This plugin extracts usage statistics for datasets in Amazon Redshift. For context on getting started with ingestion, check out our [metadata ingestion guide](../README.md).
 
 Note: Usage information is computed by querying the following system tables - 
@@ -165,10 +160,10 @@ Note: Usage information is computed by querying the following system tables -
 3. stl_query
 4. svl_user_info
 
-##Setup
+## Setup
 To install this plugin, run `pip install 'acryl-datahub[redshift-usage]'`.
 
-##Capabilities
+## Capabilities
 This plugin has the below functionalities -
 1. For a specific dataset this plugin ingests the following statistics - 
    1. top n queries.
@@ -176,7 +171,7 @@ This plugin has the below functionalities -
    3. usage of each column in the dataset.
 2. Aggregation of these statistics into buckets, by day or hour granularity.
 
-## Sample usage recipe
+## Quickstart recipe
 
 Check out the following recipe to get started with ingestion! See [below](#config-details) for full configuration options.
 
@@ -199,7 +194,7 @@ sink:
 # sink configs
 ```
 
-### Config details
+## Config details
 Note that a `.` is used to denote nested fields in the YAML recipe.
 
 By default, we extract usage stats for the last day, with the recommendation that this source is executed every day.

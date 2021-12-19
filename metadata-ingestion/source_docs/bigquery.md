@@ -88,27 +88,31 @@ Note: Since bigquery source also supports dataset level lineage, the auth client
 
 Coming soon!
 
-## BigQuery Usage Stats
+# BigQuery Usage Stats
 
 For context on getting started with ingestion, check out our [metadata ingestion guide](../README.md).
 
-### Setup
+## Setup
 
 To install this plugin, run `pip install 'acryl-datahub[bigquery-usage]'`.
 
-### Capabilities
+### Prerequisites
 
-This plugin extracts the following:
-
-- Statistics on queries issued and tables and columns accessed (excludes views)
-- Aggregation of these statistics into buckets, by day or hour granularity
-
-Note: the client must have one of the following OAuth scopes, and should be authorized on all projects you'd like to ingest usage stats from.
+The Google Identity must have one of the following OAuth scopes granted to it: 
 
 - https://www.googleapis.com/auth/logging.read
 - https://www.googleapis.com/auth/logging.admin
 - https://www.googleapis.com/auth/cloud-platform.read-only
 - https://www.googleapis.com/auth/cloud-platform
+
+And should be authorized on all projects you'd like to ingest usage stats from. 
+
+## Capabilities
+
+This plugin extracts the following:
+
+- Statistics on queries issued and tables and columns accessed (excludes views)
+- Aggregation of these statistics into buckets, by day or hour granularity
 
 :::note
 
@@ -117,7 +121,7 @@ Note: the client must have one of the following OAuth scopes, and should be auth
 
 :::
 
-### Quickstart recipe
+## Quickstart recipe
 
 Check out the following recipe to get started with ingestion! See [below](#config-details) for full configuration options.
 
@@ -139,7 +143,7 @@ sink:
   # sink configs
 ```
 
-### Config details
+## Config details
 
 Note that a `.` is used to denote nested fields in the YAML recipe.
 
@@ -159,9 +163,10 @@ By default, we extract usage stats for the last day, with the recommendation tha
 | `table_pattern.allow`  |          |                                                                | List of regex patterns for tables to include in ingestion.                                                                                                                                                                                                                                                                                                                             |
 | `table_pattern.deny`  |          |                                                                | List of regex patterns for tables to exclude in ingestion.                                                                                                                                                                                                                                                                                                                              |
 
-### Compatibility
+## Compatibility
 
-Coming soon!
+The source was last most recently confirmed compatible with the [December 16, 2021](https://cloud.google.com/bigquery/docs/release-notes#December_16_2021)
+release of BigQuery. 
 
 ## Questions
 
