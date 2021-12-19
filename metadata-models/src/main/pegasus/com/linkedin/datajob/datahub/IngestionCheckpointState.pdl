@@ -1,0 +1,26 @@
+namespace com.linkedin.datajob.datahub
+
+import com.linkedin.timeseries.TimeseriesAspectBase
+import com.linkedin.timeseries.TimeWindowSize
+
+/**
+ * The checkpoint state object of a datahub ingestion run for a given job.
+ */
+record IngestionCheckpointState {
+
+  /**
+   * The version of the state format.
+   */
+  formatVersion: string
+
+  /**
+   * The serialization/deserialization protocol.
+   */
+  serde: string
+
+  /**
+   * Opaque blob of the state representation.
+   */
+  payload: optional bytes
+}
+

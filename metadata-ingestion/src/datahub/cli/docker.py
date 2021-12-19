@@ -23,24 +23,20 @@ from datahub.telemetry import telemetry
 logger = logging.getLogger(__name__)
 
 NEO4J_AND_ELASTIC_QUICKSTART_COMPOSE_FILE = (
-    "docker/quickstart/docker-compose-with-neo4j.quickstart.yml"
-)
-DGRAPH_AND_ELASTIC_QUICKSTART_COMPOSE_FILE = (
-    "docker/quickstart/docker-compose-with-dgraph.quickstart.yml"
+    "docker/quickstart/docker-compose.quickstart.yml"
 )
 ELASTIC_QUICKSTART_COMPOSE_FILE = (
-    "docker/quickstart/docker-compose-with-elasticsearch.quickstart.yml"
+    "docker/quickstart/docker-compose-without-neo4j.quickstart.yml"
 )
-M1_QUICKSTART_COMPOSE_FILE = "docker/quickstart/docker-compose-m1.quickstart.yml"
+M1_QUICKSTART_COMPOSE_FILE = (
+    "docker/quickstart/docker-compose-without-neo4j-m1.quickstart.yml"
+)
 
 BOOTSTRAP_MCES_FILE = "metadata-ingestion/examples/mce_files/bootstrap_mce.json"
 
 GITHUB_BASE_URL = "https://raw.githubusercontent.com/linkedin/datahub/master"
 GITHUB_NEO4J_AND_ELASTIC_QUICKSTART_COMPOSE_URL = (
     f"{GITHUB_BASE_URL}/{NEO4J_AND_ELASTIC_QUICKSTART_COMPOSE_FILE}"
-)
-GITHUB_DGRAPH_AND_ELASTIC_QUICKSTART_COMPOSE_URL = (
-    f"{GITHUB_BASE_URL}/{DGRAPH_AND_ELASTIC_QUICKSTART_COMPOSE_FILE}"
 )
 GITHUB_ELASTIC_QUICKSTART_COMPOSE_URL = (
     f"{GITHUB_BASE_URL}/{ELASTIC_QUICKSTART_COMPOSE_FILE}"
@@ -94,23 +90,22 @@ def is_m1() -> bool:
         return False
 
 
-def which_graph_service_to_use(graph_service_override: Optional[str]) -> str:
+def should_use_neo4j_for_graph_service(graph_service_override: Optional[str]) -> bool:
     if graph_service_override is not None:
         if graph_service_override == "elasticsearch":
             click.echo("Starting with elasticsearch due to graph-service-impl param\n")
-        elif graph_service_override == "neo4j":
+            return False
+        if graph_service_override == "neo4j":
             click.echo("Starting with neo4j due to graph-service-impl param\n")
-        elif graph_service_override == "dgraph":
-            click.echo("Starting with dgraph due to graph-service-impl param\n")
+            return True
         else:
             click.secho(
                 graph_service_override
-                + " is not a valid graph service option. Choose either `neo4j`, `dgraph` "
-                "or `elasticsearch`\n",
+                + " is not a valid graph service option. Choose either `neo4j` or "
+                "`elasticsearch`\n",
                 fg="red",
             )
             raise ValueError(f"invalid graph service option: {graph_service_override}")
-        return graph_service_override
     with get_client_with_error() as (client, error):
         if error:
             click.secho(
@@ -121,26 +116,17 @@ def which_graph_service_to_use(graph_service_override: Optional[str]) -> str:
         if len(client.volumes.list(filters={"name": "datahub_neo4jdata"})) > 0:
             click.echo(
                 "Datahub Neo4j volume found, starting with neo4j as graph service.\n"
-                "If you want to run using elasticsearch or dgraph, run `datahub docker nuke` and re-ingest your data.\n"
+                "If you want to run using elastic, run `datahub docker nuke` and re-ingest your data.\n"
             )
-            return "neo4j"
-
-        if len(client.volumes.list(filters={"name": "datahub_dgraphdata"})) > 0:
-            click.echo(
-                "Datahub Dgraph volume found, starting with dgraph as graph service.\n"
-                "If you want to run using elasticsearch or neo4j, run `datahub docker nuke` and re-ingest your data.\n"
-            )
-            return "dgraph"
+            return True
 
         click.echo(
-            "No Datahub Neo4j or Dgraph volume found, starting with elasticsearch as graph service.\n"
+            "No Datahub Neo4j volume found, starting with elasticsearch as graph service.\n"
             "To use neo4j as a graph backend, run \n"
-            "`datahub docker quickstart --quickstart-compose-file ./docker/quickstart/docker-compose-with-neo4j.quickstart.yml`\n"
-            "To use dgraph as a graph backend, run \n"
-            "`datahub docker quickstart --quickstart-compose-file ./docker/quickstart/docker-compose-with-dgraph.quickstart.yml`\n"
-            "from the root of the datahub repo\n"
+            "`datahub docker quickstart --quickstart-compose-file ./docker/quickstart/docker-compose.quickstart.yml`"
+            "\nfrom the root of the datahub repo\n"
         )
-        return "elasticsearch"
+        return False
 
 
 @docker.command()
@@ -207,27 +193,19 @@ def quickstart(
         quickstart_compose_file
     )  # convert to list from tuple
     if not quickstart_compose_file:
-        graph_service_impl = which_graph_service_to_use(graph_service_impl)
-        if graph_service_impl == "neo4j":
-            if running_on_m1:
-                click.secho(
-                    "Running with neo4j on M1 is not currently supported, will be using elasticsearch as graph",
-                    fg="red",
-                )
-                github_file = GITHUB_ELASTIC_QUICKSTART_COMPOSE_URL
-            else:
-                github_file = GITHUB_NEO4J_AND_ELASTIC_QUICKSTART_COMPOSE_URL
-        elif graph_service_impl == "dgraph":
-            github_file = GITHUB_DGRAPH_AND_ELASTIC_QUICKSTART_COMPOSE_URL
-        elif graph_service_impl == "elasticsearch":
-            if not running_on_m1:
-                github_file = GITHUB_ELASTIC_QUICKSTART_COMPOSE_URL
-            else:
-                github_file = GITHUB_M1_QUICKSTART_COMPOSE_URL
-        else:
-            raise ValueError(
-                f"Unsupported graph service implementation: {graph_service_impl}"
+        should_use_neo4j = should_use_neo4j_for_graph_service(graph_service_impl)
+        if should_use_neo4j and running_on_m1:
+            click.secho(
+                "Running with neo4j on M1 is not currently supported, will be using elasticsearch as graph",
+                fg="red",
             )
+        github_file = (
+            GITHUB_NEO4J_AND_ELASTIC_QUICKSTART_COMPOSE_URL
+            if should_use_neo4j and not running_on_m1
+            else GITHUB_ELASTIC_QUICKSTART_COMPOSE_URL
+            if not running_on_m1
+            else GITHUB_M1_QUICKSTART_COMPOSE_URL
+        )
 
         with tempfile.NamedTemporaryFile(suffix=".yml", delete=False) as tmp_file:
             path = pathlib.Path(tmp_file.name)

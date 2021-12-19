@@ -1,8 +1,8 @@
 #!/bin/bash
 set -x
-# Add default URI (http) scheme to NEO4J_HOST if missing
-if [[ -n "$NEO4J_HOST" && $NEO4J_HOST != *"://"* ]] ; then
-  NEO4J_HOST="http://$NEO4J_HOST"
+# Add default URI (http) scheme if needed
+if ! echo $NEO4J_HOST | grep -q "://" ; then
+    NEO4J_HOST="http://$NEO4J_HOST"
 fi
 
 if [[ ! -z $ELASTICSEARCH_USERNAME ]] && [[ -z $ELASTICSEARCH_AUTH_HEADER ]]; then
@@ -15,7 +15,6 @@ if [[ -z $ELASTICSEARCH_AUTH_HEADER ]]; then
   ELASTICSEARCH_AUTH_HEADER="Accept: */*"
 fi
 
-# Add elasticsearch protocol
 if [[ $ELASTICSEARCH_USE_SSL == true ]]; then
   ELASTICSEARCH_PROTOCOL=https
 else
@@ -32,23 +31,9 @@ if [[ $SKIP_KAFKA_CHECK != true ]]; then
   WAIT_FOR_KAFKA=" -wait tcp://$(echo $KAFKA_BOOTSTRAP_SERVER | sed 's/,/ -wait tcp:\/\//g') "
 fi
 
-# Add dependency to graph service if needed
-WAIT_FOR_GRAPH_SERVICE=""
-if [[ $GRAPH_SERVICE_IMPL == neo4j ]] && [[ $SKIP_NEO4J_CHECK != true ]]; then
-  if [[ -z "$NEO4J_HOST" ]]; then
-    echo "GRAPH_SERVICE_IMPL set to neo4j but no NEO4J_HOST set"
-    exit 1
-  fi
-  WAIT_FOR_GRAPH_SERVICE=" -wait $NEO4J_HOST "
-elif [[ $GRAPH_SERVICE_IMPL == dgraph ]] && [[ $SKIP_DGRAPH_CHECK != true ]]; then
-  if [[ -z "$DGRAPH_HOST" ]]; then
-    echo "GRAPH_SERVICE_IMPL set to dgraph but no DGRAPH_HOST set"
-    exit 1
-  fi
-  if [[ -n "$DGRAPH_HOST" && $DGRAPH_HOST != *":"* ]] ; then
-    DGRAPH_HOST="$DGRAPH_HOST:9080"
-  fi
-  WAIT_FOR_GRAPH_SERVICE=" -wait tcp://$DGRAPH_HOST "
+WAIT_FOR_NEO4J=""
+if [[ $GRAPH_SERVICE_IMPL != elasticsearch ]] && [[ $SKIP_NEO4J_CHECK != true ]]; then
+  WAIT_FOR_NEO4J=" -wait $NEO4J_HOST "
 fi
 
 OTEL_AGENT=""
@@ -64,7 +49,7 @@ fi
 COMMON="
     $WAIT_FOR_EBEAN \
     $WAIT_FOR_KAFKA \
-    $WAIT_FOR_GRAPH_SERVICE \
+    $WAIT_FOR_NEO4J \
     -timeout 240s \
     java $JAVA_OPTS $JMX_OPTS \
     $OTEL_AGENT \
