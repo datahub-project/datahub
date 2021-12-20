@@ -2,6 +2,7 @@ import styled from 'styled-components';
 import React from 'react';
 import { Space, Typography } from 'antd';
 import CustomAvatar from '../../shared/avatar/CustomAvatar';
+import MarkdownViewer from '../shared/components/legacy/MarkdownViewer';
 
 type Props = {
     name?: string | null;
@@ -15,6 +16,10 @@ const Row = styled.div`
 
 const AvatarWrapper = styled.div`
     margin-right: 32px;
+`;
+
+const DescriptionText = styled(MarkdownViewer)`
+    display: block;
 `;
 
 export default function GroupHeader({ name, description, email }: Props) {
@@ -40,7 +45,7 @@ export default function GroupHeader({ name, description, email }: Props) {
                 Description
             </Typography.Title>
             <Space>
-                <Typography.Paragraph>{description}</Typography.Paragraph>
+                <DescriptionText source={description || ''} />
             </Space>
         </>
     );
