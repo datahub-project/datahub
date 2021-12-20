@@ -82,7 +82,7 @@ describe('CsvForm', () => {
         // remove second path
         fireEvent.click(svg[1]);
         // there should not be a option to remove path anymore.
-        expect(screen.queryAllByLabelText('minus-circle').length === 0);
+        expect(screen.queryAllByLabelText('minus-circle')).toHaveLength(0);
         fireEvent.click(screen.getByText('Add more browsing paths'));
         fireEvent.click(screen.getByText('Add more browsing paths'));
         fireEvent.click(screen.getByText('Add more browsing paths'));

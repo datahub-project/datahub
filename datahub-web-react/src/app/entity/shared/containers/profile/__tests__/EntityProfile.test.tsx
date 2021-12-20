@@ -1,15 +1,16 @@
 import React from 'react';
 import { fireEvent, render, waitFor } from '@testing-library/react';
 import { MockedProvider } from '@apollo/client/testing';
+// import { useQuery } from '@apollo/client';
 import TestPageContainer from '../../../../../../utils/test-utils/TestPageContainer';
 import { mocks } from '../../../../../../Mocks';
+import { mocks2 } from '../../../../../../MocksCustom';
 import { EntityProfile } from '../EntityProfile';
 import {
     useGetDatasetQuery,
     useUpdateDatasetMutation,
     GetDatasetQuery,
-    GetDatasetOwnersGql2Query,
-    GetDatasetOwnersGql2Document,    
+    GetDatasetOwnersGqlQuery,
 } from '../../../../../../graphql/dataset.generated';
 import { EntityType } from '../../../../../../types.generated';
 import QueriesTab from '../../../tabs/Dataset/Queries/QueriesTab';
@@ -23,10 +24,9 @@ import { SidebarOwnerSection } from '../sidebar/Ownership/SidebarOwnerSection';
 import { SidebarAboutSection } from '../sidebar/SidebarAboutSection';
 import { SidebarTagsSection } from '../sidebar/SidebarTagsSection';
 import { EditSchemaTab } from '../../../tabs/Dataset/Schema/EditSchemaTab';
+import { FindWhoAmI } from '../../../../dataset/whoAmI';
 // import { EditPropertiesTab } from '../../../tabs/Dataset/Schema/EditPropertiesTab';
 // import { AdminTab } from '../../../tabs/Dataset/Schema/AdminTab';
-import { FindWhoAmI } from '../../../../dataset/whoAmI';
-import { useQuery } from '@apollo/client';
 
 describe('EntityProfile', () => {
     it('renders dataset page', async () => {
@@ -191,7 +191,7 @@ describe('EntityProfile', () => {
                 </TestPageContainer>
             </MockedProvider>,
         );
-       
+
         await waitFor(() => expect(getByText('user_name')).toBeInTheDocument());
         await waitFor(() => expect(getByText('user_id')).toBeInTheDocument());
     });
@@ -295,7 +295,7 @@ describe('EntityProfile', () => {
 
     it('edit schema tab', async () => {
         const { getByText } = render(
-            <MockedProvider mocks={mocks} addTypename={false}>
+            <MockedProvider mocks={mocks2} addTypename={false}>
                 <TestPageContainer initialEntries={['/dataset/urn:li:dataset:3']}>
                     <EntityProfile
                         urn="urn:li:dataset:3"
@@ -305,96 +305,35 @@ describe('EntityProfile', () => {
                         getOverrideProperties={() => ({})}
                         tabs={[
                             {
-                                name: 'Schema',
-                                component: SchemaTab,
-                            },
-                            {
-                                name: 'Documentation',
-                                component: DocumentationTab,
-                            },
-                            {
-                                name: 'Properties',
-                                component: PropertiesTab,
-                            },
-                            {
-                                name: 'Lineage',
-                                component: LineageTab,
-                                display: {
-                                    visible: (_, _1) => true,
-                                    enabled: (_, dataset: GetDatasetQuery) =>
-                                        (dataset?.dataset?.upstreamLineage?.entities?.length || 0) > 0 ||
-                                        (dataset?.dataset?.downstreamLineage?.entities?.length || 0) > 0,
-                                },
-                            },
-                            {
-                                name: 'Queries',
-                                component: QueriesTab,
-                                display: {
-                                    visible: (_, _1) => true,
-                                    enabled: (_, dataset: GetDatasetQuery) =>
-                                        (dataset?.dataset?.usageStats?.buckets?.length && true) || false,
-                                },
-                            },
-                            {
-                                name: 'Stats',
-                                component: StatsTab,
-                                display: {
-                                    enabled: (_, _1) => true,
-                                    visible: (_, dataset: GetDatasetQuery) =>
-                                        (dataset?.dataset?.datasetProfiles?.length && true) ||
-                                        (dataset?.dataset?.usageStats?.buckets?.length && true) ||
-                                        false,
-                                },
-                            },
-                            {
                                 name: 'Edit Schema',
                                 component: EditSchemaTab,
                                 display: {
-                                    visible: (_, _1) => {                                        
-                                        const { loading, data, error } = useQuery(GetDatasetOwnersGql2Document,
-                                            { 
-                                                variables: {
-                                                    urn: 'urn:li:dataset:3',
-                                                },
-                                            });
-                                        if (loading || error) return false;
-                                        // const currUser = FindWhoAmI();
-                                        
-                                        const name = data?.name;
-                                        console.log(`my fake name is ${name}`);                                        
-                                        return true;
+                                    visible: (_, _1) => true,
+                                    enabled: (_, _dataset: GetDatasetOwnersGqlQuery) => {
+                                        const currUser = FindWhoAmI();
+                                        console.log(`currUser is ${currUser}`);
+                                        console.log(`dataset is ${_dataset?.dataset?.name}`);
+                                        const owners = _dataset?.dataset?.ownership?.owners;
+                                        const ownersArray =
+                                            owners
+                                                ?.map((x) =>
+                                                    x?.type === 'DATAOWNER' && x?.owner?.__typename === 'CorpUser'
+                                                        ? x?.owner?.username
+                                                        : '',
+                                                )
+                                                ?.flat() ?? [];
+                                        console.log(`ownersArray is ${ownersArray}`);
+                                        if (ownersArray.includes(currUser)) {
+                                            return true;
+                                        }
+                                        return false;
                                     },
-                                    enabled: (_, _1) => false,
-                                    // (_, _dataset: GetDatasetQuery) => {
-                                    //     const currUser = FindWhoAmI() as string;
-                                    //     const currDataset = _dataset?.dataset?.urn;                                        
-                                    //     const ownersArray = findOwners(currDataset);                                        
-                                    //     if (ownersArray.includes(currUser)) {
-                                    //         return true;
-                                    //     }
-                                    //     return false;
-                                    // },
                                 },
-                            },                            
+                            },
                         ]}
                         sidebarSections={[
                             {
                                 component: SidebarAboutSection,
-                            },
-                            {
-                                component: SidebarStatsSection,
-                                display: {
-                                    visible: (_, dataset: GetDatasetQuery) =>
-                                        (dataset?.dataset?.datasetProfiles?.length && true) ||
-                                        (dataset?.dataset?.usageStats?.buckets?.length && true) ||
-                                        false,
-                                },
-                            },
-                            {
-                                component: SidebarTagsSection,
-                            },
-                            {
-                                component: SidebarOwnerSection,
                             },
                         ]}
                     />
@@ -403,7 +342,7 @@ describe('EntityProfile', () => {
         );
 
         // find the schema fields in the schema table
-        await waitFor(() => expect(getByText('Edit Schema')).toBeInTheDocument());        
+        await waitFor(() => expect(getByText('Edit Schema')).toBeInTheDocument());
     });
 
     it('renders sidebar content', async () => {
