@@ -172,7 +172,6 @@ public class ESAggregatedStatsDAO {
     if (fieldPath.equals(ES_FIELD_TIMESTAMP)) {
       return DataSchema.Type.LONG;
     }
-    // Why is this not in OSS?
     if (fieldPath.equals(ES_FIELD_URN)) {
       return DataSchema.Type.STRING;
     }
