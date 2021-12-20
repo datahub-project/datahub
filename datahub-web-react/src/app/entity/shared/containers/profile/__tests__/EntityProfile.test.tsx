@@ -7,7 +7,9 @@ import { EntityProfile } from '../EntityProfile';
 import {
     useGetDatasetQuery,
     useUpdateDatasetMutation,
-    GetDatasetQuery,    
+    GetDatasetQuery,
+    GetDatasetOwnersGql2Query,
+    GetDatasetOwnersGql2Document,    
 } from '../../../../../../graphql/dataset.generated';
 import { EntityType } from '../../../../../../types.generated';
 import QueriesTab from '../../../tabs/Dataset/Queries/QueriesTab';
@@ -23,7 +25,8 @@ import { SidebarTagsSection } from '../sidebar/SidebarTagsSection';
 import { EditSchemaTab } from '../../../tabs/Dataset/Schema/EditSchemaTab';
 // import { EditPropertiesTab } from '../../../tabs/Dataset/Schema/EditPropertiesTab';
 // import { AdminTab } from '../../../tabs/Dataset/Schema/AdminTab';
-import { findOwners, FindWhoAmI } from '../../../../dataset/whoAmI';
+import { FindWhoAmI } from '../../../../dataset/whoAmI';
+import { useQuery } from '@apollo/client';
 
 describe('EntityProfile', () => {
     it('renders dataset page', async () => {
@@ -347,17 +350,19 @@ describe('EntityProfile', () => {
                                 name: 'Edit Schema',
                                 component: EditSchemaTab,
                                 display: {
-                                    visible: (_, _dataset: GetDatasetQuery) => {
-                                        const currUser = FindWhoAmI() as string;
-                                        const currDataset = _dataset?.dataset?.urn;
-                                        console.log(`currUser is ${currUser}`);
-                                        console.log(`currentDatasetName is ${_dataset?.dataset?.urn}`);                                        
-                                        const ownersArray = findOwners(currDataset);
-                                        console.log(`owners are ${ownersArray.toString()}`);
-                                        if (ownersArray.includes(currUser)) {
-                                            return true;
-                                        }
-                                        return false;
+                                    visible: (_, _1) => {                                        
+                                        const { loading, data, error } = useQuery(GetDatasetOwnersGql2Document,
+                                            { 
+                                                variables: {
+                                                    urn: 'urn:li:dataset:3',
+                                                },
+                                            });
+                                        if (loading || error) return false;
+                                        // const currUser = FindWhoAmI();
+                                        
+                                        const name = data?.name;
+                                        console.log(`my fake name is ${name}`);                                        
+                                        return true;
                                     },
                                     enabled: (_, _1) => false,
                                     // (_, _dataset: GetDatasetQuery) => {

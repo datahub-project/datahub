@@ -2639,6 +2639,7 @@ export const mocks = [
                 me: {
                     corpUser: { 
                         username: 'demo',
+                        urn: 'anything'
                     },
                 },
             },
@@ -2656,12 +2657,14 @@ export const mocks = [
             data: {                
                 dataset: {
                     urn: 'urn:li:dataset:3',
-                    name: 'Yet Another Dataset',
+                    name: 'Yet Another Dataset too!',
                     ownership: {
                         owners: [
                             {
-                                owner: {
-                                    ...user1,
+                                owner: {                                    
+                                    urn: 'urn:li:corpuser:3',
+                                    username: 'cena',
+                                    __typename: 'CorpUser',                                    
                                 },
                                 type: 'DATAOWNER',
                             },

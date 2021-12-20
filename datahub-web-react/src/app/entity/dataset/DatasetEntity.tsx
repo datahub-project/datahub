@@ -160,8 +160,13 @@ export class DatasetEntity implements Entity<Dataset> {
                             const owners = _dataset?.dataset?.ownership?.owners;
                             const ownersArray =
                                 owners
-                                    ?.map((x) => (x?.type === 'DATAOWNER' ? x?.owner?.urn.split(':').slice(-1) : ''))
+                                    ?.map((x) =>
+                                        x?.type === 'DATAOWNER' && x?.owner?.__typename === 'CorpUser'
+                                            ? x?.owner?.username
+                                            : '',
+                                    )
                                     ?.flat() ?? [];
+                            console.log(`ownersArray is ${ownersArray}`);
                             if (ownersArray.includes(currUser)) {
                                 return true;
                             }
@@ -179,11 +184,17 @@ export class DatasetEntity implements Entity<Dataset> {
                             const owners = _dataset?.dataset?.ownership?.owners;
                             const ownersArray =
                                 owners
-                                    ?.map((x) => (x?.type === 'DATAOWNER' ? x?.owner?.urn.split(':').slice(-1) : ''))
+                                    ?.map((x) =>
+                                        x?.type === 'DATAOWNER' && x?.owner?.__typename === 'CorpUser'
+                                            ? x?.owner?.username
+                                            : '',
+                                    )
                                     ?.flat() ?? [];
+                            console.log(`ownersArray is ${ownersArray}`);
                             if (ownersArray.includes(currUser)) {
                                 return true;
                             }
+
                             return false;
                         },
                     },
@@ -194,17 +205,21 @@ export class DatasetEntity implements Entity<Dataset> {
                     display: {
                         visible: (_, _1) => true,
                         enabled: (_, _dataset: GetDatasetOwnersGqlQuery) => {
-                            const currUser = FindWhoAmI();                            
+                            const currUser = FindWhoAmI();
                             const owners = _dataset?.dataset?.ownership?.owners;
                             const ownersArray =
                                 owners
-                                    ?.map((x) => (x?.type === 'DATAOWNER' ? x?.owner?.urn.split(':').slice(-1) : ''))
+                                    ?.map((x) =>
+                                        x?.type === 'DATAOWNER' && x?.owner?.__typename === 'CorpUser'
+                                            ? x?.owner?.username
+                                            : '',
+                                    )
                                     ?.flat() ?? [];
+                            console.log(`ownersArray is ${ownersArray}`);
                             if (ownersArray.includes(currUser)) {
                                 // console.log('return unhide');
                                 return true;
                             }
-                            console.log('return hide');
                             return false;
                         },
                     },

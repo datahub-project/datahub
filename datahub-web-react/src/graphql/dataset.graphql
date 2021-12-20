@@ -149,7 +149,21 @@ query getDatasetOwnersGQL($urn: String!) {
         urn
         name
         ownership {
-            ...ownershipFields
+            owners{
+                owner{
+                    ... on CorpUser {
+                        urn
+                        username
+                        __typename                       
+                    }
+                    ... on CorpGroup {
+                        urn
+                        __typename
+                    }                            
+                }
+                type
+            }
         }
     }
 }
+
