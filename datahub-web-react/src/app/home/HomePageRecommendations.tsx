@@ -42,6 +42,11 @@ const BrowseCardContainer = styled.div`
     flex-wrap: wrap;
 `;
 
+const NoMetadataEmpty = styled(Empty)`
+    font-size: 18px;
+    color: ${ANTD_GRAY[8]};
+`;
+
 type Props = {
     userUrn: string;
 };
@@ -123,10 +128,7 @@ export const HomePageRecommendations = ({ userUrn }: Props) => {
                                             alignItems: 'center',
                                         }}
                                     >
-                                        <Empty
-                                            style={{ fontSize: 18, color: ANTD_GRAY[8] }}
-                                            description="No Metadata Found 😢"
-                                        />
+                                        <NoMetadataEmpty description="No Metadata Found 😢" />
                                         <Button style={{ margin: 16 }} onClick={() => setShowGettingStartedModal(true)}>
                                             <RocketOutlined /> Connect your data sources
                                         </Button>
