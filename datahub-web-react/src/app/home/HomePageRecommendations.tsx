@@ -1,12 +1,16 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
-import { Divider, Typography } from 'antd';
+import { Button, Divider, Empty, List, Typography } from 'antd';
+import { RocketOutlined } from '@ant-design/icons';
+
 import { RecommendationModule as RecommendationModuleType, ScenarioType } from '../../types.generated';
 import { useListRecommendationsQuery } from '../../graphql/recommendations.generated';
 import { RecommendationModule } from '../recommendations/RecommendationModule';
 import { BrowseEntityCard } from '../search/BrowseEntityCard';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { useGetEntityCountsQuery } from '../../graphql/app.generated';
+import { GettingStartedModal } from './GettingStartedModal';
+import { ANTD_GRAY } from '../entity/shared/constants';
 
 const RecommendationsContainer = styled.div`
     margin-top: 32px;
@@ -46,6 +50,7 @@ export const HomePageRecommendations = ({ userUrn }: Props) => {
     // Entity Types
     const entityRegistry = useEntityRegistry();
     const browseEntityList = entityRegistry.getBrowseEntityTypes();
+    const [showGettingStartedModal, setShowGettingStartedModal] = useState(false);
 
     const { data: entityCountData } = useGetEntityCountsQuery({
         variables: {
@@ -75,25 +80,61 @@ export const HomePageRecommendations = ({ userUrn }: Props) => {
     });
     const recommendationModules = data?.listRecommendations?.modules;
 
+    // Determine whether metadata has been ingested yet.
+    const hasLoadedEntityCounts = orderedEntityCounts && orderedEntityCounts.length > 0;
+    const hasIngestedMetadata =
+        orderedEntityCounts && orderedEntityCounts.filter((entityCount) => entityCount.count > 0).length > 0;
+
+    useEffect(() => {
+        if (hasLoadedEntityCounts && !hasIngestedMetadata) {
+            setShowGettingStartedModal(true);
+        }
+    }, [hasLoadedEntityCounts, hasIngestedMetadata]);
+
     return (
         <RecommendationsContainer>
             {orderedEntityCounts && orderedEntityCounts.length > 0 && (
                 <RecommendationContainer>
                     <RecommendationTitle level={4}>Explore your Metadata</RecommendationTitle>
                     <ThinDivider />
-                    <BrowseCardContainer>
-                        {orderedEntityCounts.map(
-                            (entityCount) =>
-                                entityCount &&
-                                entityCount.count !== 0 && (
-                                    <BrowseEntityCard
-                                        key={entityCount.entityType}
-                                        entityType={entityCount.entityType}
-                                        count={entityCount.count}
-                                    />
+                    {hasIngestedMetadata ? (
+                        <BrowseCardContainer>
+                            {orderedEntityCounts.map(
+                                (entityCount) =>
+                                    entityCount &&
+                                    entityCount.count !== 0 && (
+                                        <BrowseEntityCard
+                                            key={entityCount.entityType}
+                                            entityType={entityCount.entityType}
+                                            count={entityCount.count}
+                                        />
+                                    ),
+                            )}
+                        </BrowseCardContainer>
+                    ) : (
+                        <List
+                            locale={{
+                                emptyText: (
+                                    <div
+                                        style={{
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            justifyContent: 'center',
+                                            alignItems: 'center',
+                                        }}
+                                    >
+                                        <Empty
+                                            style={{ fontSize: 18, color: ANTD_GRAY[8] }}
+                                            description="No Metadata Found 😢"
+                                        />
+                                        <Button style={{ margin: 16 }} onClick={() => setShowGettingStartedModal(true)}>
+                                            <RocketOutlined /> Connect your data sources
+                                        </Button>
+                                    </div>
                                 ),
-                        )}
-                    </BrowseCardContainer>
+                            }}
+                        />
+                    )}
                 </RecommendationContainer>
             )}
             {recommendationModules &&
@@ -109,6 +150,7 @@ export const HomePageRecommendations = ({ userUrn }: Props) => {
                         />
                     </RecommendationContainer>
                 ))}
+            <GettingStartedModal onClose={() => setShowGettingStartedModal(false)} visible={showGettingStartedModal} />
         </RecommendationsContainer>
     );
 };
