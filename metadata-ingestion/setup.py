@@ -24,6 +24,7 @@ base_requirements = {
     # Compatability.
     "dataclasses>=0.6; python_version < '3.7'",
     "typing_extensions>=3.10.0.2",
+    "typing_extensions<4",
     "mypy_extensions>=0.4.3",
     # Actual dependencies.
     "typing-inspect",
