@@ -182,7 +182,8 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
 
     SystemMetadata systemMetadata = populateDefaultFieldsIfEmpty(providedSystemMetadata);
 
-    // TODO Correctly audit ingestions.
+    // TODO Correctly audit ingestions. --> This is a big issue. When we see requests from Rest.li we
+    // won't correctly assign the actor to it!
     final AuditStamp auditStamp =
         new AuditStamp().setTime(_clock.millis()).setActor(Urn.createFromString(Constants.UNKNOWN_ACTOR));
 
