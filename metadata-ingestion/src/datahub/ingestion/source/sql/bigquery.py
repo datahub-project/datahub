@@ -1,6 +1,7 @@
 import collections
 import functools
 import logging
+import textwrap
 from datetime import timedelta
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
 from unittest.mock import patch
@@ -9,6 +10,7 @@ from unittest.mock import patch
 import pybigquery  # noqa: F401
 import pybigquery.sqlalchemy_bigquery
 import pydantic
+from google.cloud.bigquery import Client as BigQueryClient
 from google.cloud.logging_v2.client import Client as GCPLoggingClient
 from sqlalchemy.engine.reflection import Inspector
 
@@ -24,8 +26,10 @@ from datahub.ingestion.source.sql.sql_common import (
     register_custom_type,
 )
 from datahub.ingestion.source.usage.bigquery_usage import (
+    BQ_DATE_SHARD_FORMAT,
     BQ_DATETIME_FORMAT,
     AuditLogEntry,
+    BigQueryAuditMetadata,
     BigQueryTableRef,
     QueryEvent,
 )
@@ -68,6 +72,60 @@ timestamp < "{end_time}"
 # patch the implementation.
 
 
+def bigquery_audit_metadata_query_template(
+    dataset: str, use_date_sharded_tables: bool
+) -> str:
+    """
+    Receives a dataset (with project specified) and returns a query template that is used to query exported
+    AuditLogs containing protoPayloads of type BigQueryAuditMetadata.
+    :param dataset: the dataset to query against in the form of $PROJECT.$DATASET
+    :param use_date_sharded_tables: whether to read from date sharded audit log tables or time partitioned audit log
+           tables
+    :return: a query template, when supplied start_time and end_time, can be used to query audit logs from BigQuery
+    """
+    query: str
+    if use_date_sharded_tables:
+        query = (
+            f"""
+        SELECT
+            timestamp,
+            logName,
+            insertId,
+            protopayload_auditlog AS protoPayload,
+            protopayload_auditlog.metadataJson AS metadata
+        FROM
+            `{dataset}.cloudaudit_googleapis_com_data_access_*`
+        """
+            + """
+        WHERE
+            _TABLE_SUFFIX BETWEEN "{start_date}" AND "{end_date}" AND
+        """
+        )
+    else:
+        query = f"""
+        SELECT
+            timestamp,
+            logName,
+            insertId,
+            protopayload_auditlog AS protoPayload,
+            protopayload_auditlog.metadataJson AS metadata
+        FROM
+            `{dataset}.cloudaudit_googleapis_com_data_access`
+        WHERE
+        """
+
+    audit_log_filter = """    timestamp >= "{start_time}"
+    AND timestamp < "{end_time}"
+    AND protopayload_auditlog.serviceName="bigquery.googleapis.com"
+    AND JSON_EXTRACT_SCALAR(protopayload_auditlog.metadataJson, "$.jobChange.job.jobStatus.jobState") = "DONE"
+    AND JSON_EXTRACT(protopayload_auditlog.metadataJson, "$.jobChange.job.jobConfig.queryConfig") IS NOT NULL;
+    """
+
+    query = textwrap.dedent(query) + audit_log_filter
+
+    return textwrap.dedent(query)
+
+
 def get_view_definition(self, connection, view_name, schema=None, **kw):
     view = self._get_table(connection, view_name, schema)
     return view.view_query
@@ -92,6 +150,10 @@ class BigQueryConfig(BaseTimeWindowConfig, SQLAlchemyConfig):
     include_table_lineage: Optional[bool] = True
     max_query_duration: timedelta = timedelta(minutes=15)
 
+    bigquery_audit_metadata_datasets: Optional[List[str]] = None
+    use_exported_bigquery_audit_metadata: bool = False
+    use_date_sharded_audit_log_tables: bool = False
+
     def get_sql_alchemy_url(self):
         if self.project_id:
             return f"{self.scheme}://{self.project_id}"
@@ -110,20 +172,49 @@ class BigQuerySource(SQLAlchemySource):
 
     def _compute_big_query_lineage(self) -> None:
         if self.config.include_table_lineage:
-            try:
-                _clients: List[GCPLoggingClient] = self._make_bigquery_client()
-                log_entries: Iterable[AuditLogEntry] = self._get_bigquery_log_entries(
-                    _clients
+            if self.config.use_exported_bigquery_audit_metadata:
+                self._compute_bigquery_lineage_via_exported_bigquery_audit_metadata()
+            else:
+                self._compute_bigquery_lineage_via_gcp_logging()
+
+            if self.lineage_metadata is not None:
+                logger.info(
+                    f"Built lineage map containing {len(self.lineage_metadata)} entries."
                 )
-                parsed_entries: Iterable[QueryEvent] = self._parse_bigquery_log_entries(
-                    log_entries
-                )
-                self.lineage_metadata = self._create_lineage_map(parsed_entries)
-            except Exception as e:
-                logger.error(
-                    "Error computing lineage information using GCP logs.",
-                    e,
-                )
+
+    def _compute_bigquery_lineage_via_gcp_logging(self) -> None:
+        try:
+            _clients: List[GCPLoggingClient] = self._make_bigquery_client()
+            log_entries: Iterable[AuditLogEntry] = self._get_bigquery_log_entries(
+                _clients
+            )
+            parsed_entries: Iterable[QueryEvent] = self._parse_bigquery_log_entries(
+                log_entries
+            )
+            self.lineage_metadata = self._create_lineage_map(parsed_entries)
+        except Exception as e:
+            logger.error(
+                "Error computing lineage information using GCP logs.",
+                e,
+            )
+
+    def _compute_bigquery_lineage_via_exported_bigquery_audit_metadata(self) -> None:
+        try:
+            _client: BigQueryClient = BigQueryClient(project=self.config.project_id)
+            exported_bigquery_audit_metadata: Iterable[
+                BigQueryAuditMetadata
+            ] = self._get_exported_bigquery_audit_metadata(_client)
+            parsed_entries: Iterable[
+                QueryEvent
+            ] = self._parse_exported_bigquery_audit_metadata(
+                exported_bigquery_audit_metadata
+            )
+            self.lineage_metadata = self._create_lineage_map(parsed_entries)
+        except Exception as e:
+            logger.error(
+                "Error computing lineage information using exported GCP audit logs.",
+                e,
+            )
 
     def _make_bigquery_client(self) -> List[GCPLoggingClient]:
         # See https://github.com/googleapis/google-cloud-python/issues/2674 for
@@ -156,6 +247,53 @@ class BigQuerySource(SQLAlchemySource):
             )
         logger.debug("finished loading log entries from BigQuery")
 
+    def _get_exported_bigquery_audit_metadata(
+        self, bigquery_client: BigQueryClient
+    ) -> Iterable[BigQueryAuditMetadata]:
+        if self.config.bigquery_audit_metadata_datasets is None:
+            return
+
+        start_time: str = (
+            self.config.start_time - self.config.max_query_duration
+        ).strftime(BQ_DATETIME_FORMAT)
+        end_time: str = (
+            self.config.end_time + self.config.max_query_duration
+        ).strftime(BQ_DATETIME_FORMAT)
+
+        for dataset in self.config.bigquery_audit_metadata_datasets:
+            logger.debug(
+                f"Start loading log entries from BigQueryAuditMetadata in {dataset}"
+            )
+
+            query: str
+            if self.config.use_date_sharded_audit_log_tables:
+                start_date: str = (
+                    self.config.start_time - self.config.max_query_duration
+                ).strftime(BQ_DATE_SHARD_FORMAT)
+                end_date: str = (
+                    self.config.end_time + self.config.max_query_duration
+                ).strftime(BQ_DATE_SHARD_FORMAT)
+
+                query = bigquery_audit_metadata_query_template(
+                    dataset, self.config.use_date_sharded_audit_log_tables
+                ).format(
+                    start_time=start_time,
+                    end_time=end_time,
+                    start_date=start_date,
+                    end_date=end_date,
+                )
+            else:
+                query = bigquery_audit_metadata_query_template(
+                    dataset, self.config.use_date_sharded_audit_log_tables
+                ).format(start_time=start_time, end_time=end_time)
+            query_job = bigquery_client.query(query)
+
+            logger.debug(
+                f"Finished loading log entries from BigQueryAuditMetadata in {dataset}"
+            )
+
+            yield from query_job
+
     # Currently we only parse JobCompleted events but in future we would want to parse other
     # events to also create field level lineage.
     def _parse_bigquery_log_entries(
@@ -172,6 +310,29 @@ class BigQuerySource(SQLAlchemySource):
                 self.report.report_failure(
                     f"{entry.log_name}-{entry.insert_id}",
                     f"unable to parse log entry: {entry!r}",
+                )
+                logger.error("Unable to parse GCP log entry.", e)
+            if event is not None:
+                yield event
+
+    def _parse_exported_bigquery_audit_metadata(
+        self, audit_metadata_rows: Iterable[BigQueryAuditMetadata]
+    ) -> Iterable[QueryEvent]:
+        for audit_metadata in audit_metadata_rows:
+            event: Optional[QueryEvent] = None
+            try:
+                if QueryEvent.can_parse_exported_bigquery_audit_metadata(
+                    audit_metadata
+                ):
+                    event = QueryEvent.from_exported_bigquery_audit_metadata(
+                        audit_metadata
+                    )
+                else:
+                    raise RuntimeError("Unable to parse log entry as QueryEvent.")
+            except Exception as e:
+                self.report.report_failure(
+                    f"""{audit_metadata["logName"]}-{audit_metadata["insertId"]}""",
+                    f"unable to parse log entry: {audit_metadata!r}",
                 )
                 logger.error("Unable to parse GCP log entry.", e)
             if event is not None:
