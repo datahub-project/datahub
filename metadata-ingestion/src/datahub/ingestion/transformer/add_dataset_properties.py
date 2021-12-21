@@ -34,9 +34,10 @@ class AddDatasetProperties(DatasetTransformer):
     ctx: PipelineContext
     config: AddDatasetPropertiesConfig
 
-    def __init__(self, config: AddDatasetPropertiesConfig, ctx: PipelineContext):
+    def __init__(self, config: AddDatasetPropertiesConfig, ctx: PipelineContext, **resolver_args):
         self.ctx = ctx
         self.config = config
+        self.resolver_args = resolver_args
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "AddDatasetProperties":
@@ -48,7 +49,7 @@ class AddDatasetProperties(DatasetTransformer):
             return mce
 
         properties_to_add = (
-            self.config.add_properties_resolver_class().get_properties_to_add(
+            self.config.add_properties_resolver_class(**self.resolver_args).get_properties_to_add(
                 mce.proposedSnapshot
             )
         )
@@ -59,3 +60,33 @@ class AddDatasetProperties(DatasetTransformer):
             properties.customProperties.update(properties_to_add)
 
         return mce
+
+
+class SimpleAddDatasetPropertiesConfig(ConfigModel):
+    properties: Dict[str, str]
+
+
+class SimpleAddDatasetPropertiesResolverClass(AddDatasetPropertiesResolverBase):
+    def __init__(self, properties: Dict[str, str]):
+        self.properties = properties
+
+    def get_properties_to_add(self, current: DatasetSnapshotClass) -> Dict[str, str]:
+        return self.properties
+
+
+class SimpleAddDatasetProperties(AddDatasetProperties):
+    """Transformer that adds a specified set of properties to each dataset."""
+
+    def __init__(self, config: SimpleAddDatasetPropertiesConfig, ctx: PipelineContext):
+        generic_config = AddDatasetPropertiesConfig(
+            add_properties_resolver_class=SimpleAddDatasetPropertiesResolverClass
+        )
+        resolver_args = {
+            "properties": config.properties
+        }
+        super().__init__(generic_config, ctx, **resolver_args)
+
+    @classmethod
+    def create(cls, config_dict: dict, ctx: PipelineContext) -> "SimpleAddDatasetProperties":
+        config = SimpleAddDatasetPropertiesConfig.parse_obj(config_dict)
+        return cls(config, ctx)
