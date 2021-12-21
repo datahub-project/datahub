@@ -23,11 +23,19 @@ https://your-datahub-domain.com/callback/oidc
 If you are just testing locally, the following can be used: `http://localhost:9002/callback/oidc`.
 Azure supports more than one redirect URI, so both can be configured at the same time from the **Authentication** tab once the registration is complete.
 
+At this point, your app registration should look like the following:
+
+![azure-setup-app-registration](img/azure-setup-app-registration.png)
+
 e. Click **Register**.
 
-### 2. Configure Authentication
+### 2. Configure Authentication (optional)
 
 Once registration is done, you will land on the app registration **Overview** tab.  On the left-side navigation bar, click on **Authentication** under **Manage** and add extra redirect URIs if need be (if you want to support both local testing and Azure deployments).
+
+![azure-setup-authentication](img/azure-setup-authentication.png)
+
+Click **Save**.
 
 ### 3. Configure Certificates & secrets
 
@@ -35,6 +43,8 @@ On the left-side navigation bar, click on **Certificates & secrets** under **Man
 Select **Client secrets**, then **New client secret**.  Type in a meaningful description for your secret and select an expiry.  Click the **Add** button when you are done.
 
 **IMPORTANT:** Copy the `value` of your newly create secret since Azure will never display its value afterwards.
+
+![azure-setup-certificates-secrets](img/azure-setup-certificates-secrets.png)
 
 ### 4. Configure Token configuration
 
