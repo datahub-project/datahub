@@ -5,7 +5,8 @@ import PropTypes from 'prop-types';
 import axios from 'axios';
 import { useBaseEntity } from '../../../EntityContext';
 import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
-import { useGetAuthenticatedUser } from '../../../../../useGetAuthenticatedUser';
+// import { useGetAuthenticatedUser } from '../../../../../useGetAuthenticatedUser';
+import { FindWhoAmI } from '../../../../dataset/whoAmI';
 // import { useBaseEntity } from '../../../EntityContext';
 // import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
 // editable version
@@ -15,7 +16,7 @@ const { Option } = Select;
 export const EditSchemaTableEditable = () => {
     const queryFields = useBaseEntity<GetDatasetQuery>()?.dataset?.schemaMetadata?.fields;
     const urn = useBaseEntity<GetDatasetQuery>()?.dataset?.urn;
-    const currUser = useGetAuthenticatedUser()?.corpUser?.urn || '-';
+    const currUser = FindWhoAmI();
     const dataSource = queryFields?.map((x, ind) => {
         return {
             key: ind,
@@ -296,6 +297,7 @@ export const EditSchemaTableEditable = () => {
         updateSelected(allrows);
         setModifiedForm(false);
     };
+    console.log('all rows loaded');
     return (
         <Form form={form} component={false}>
             <Button onClick={addRow}>Add New Row</Button>

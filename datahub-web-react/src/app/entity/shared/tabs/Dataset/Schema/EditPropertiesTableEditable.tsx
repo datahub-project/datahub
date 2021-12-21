@@ -5,7 +5,8 @@ import PropTypes from 'prop-types';
 import axios from 'axios';
 import { useBaseEntity } from '../../../EntityContext';
 import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
-import { useGetAuthenticatedUser } from '../../../../../useGetAuthenticatedUser';
+// import { useGetAuthenticatedUser } from '../../../../../useGetAuthenticatedUser';
+import { FindWhoAmI } from '../../../../dataset/whoAmI';
 // import { useBaseEntity } from '../../../EntityContext';
 // import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
 // editable version
@@ -14,7 +15,8 @@ export const EditPropertiesTableEditable = () => {
     const queryFields = useBaseEntity<GetDatasetQuery>()?.dataset?.properties?.customProperties;
     const datasetDescription = useBaseEntity<GetDatasetQuery>()?.dataset?.properties?.description;
     const urn = useBaseEntity<GetDatasetQuery>()?.dataset?.urn;
-    const currUser = useGetAuthenticatedUser()?.corpUser?.urn || '-';
+    // const currUser = useGetAuthenticatedUser()?.corpUser?.urn || '-';
+    const currUser = FindWhoAmI();
     const dataSource = queryFields?.map((x, ind) => {
         return {
             key: ind,

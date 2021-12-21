@@ -4,8 +4,9 @@ import { Button, message, Popconfirm, Result } from 'antd';
 import axios from 'axios';
 // import { gql, useQuery } from '@apollo/client';
 import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
-import { useGetAuthenticatedUser } from '../../../../../useGetAuthenticatedUser';
+// import { useGetAuthenticatedUser } from '../../../../../useGetAuthenticatedUser';
 import { useBaseEntity } from '../../../EntityContext';
+import { FindWhoAmI } from '../../../../dataset/whoAmI';
 
 // function CheckStatus(queryresult, currDataset) {
 //     const { data } = useQuery(queryresult, { skip: currDataset === undefined });
@@ -42,7 +43,8 @@ export const DeleteSchemaTabv2 = () => {
         "You wouldn't be able to find this page after navigating away. Please copy page url before leaving page in case you need to undo deactivation.";
     const subMsg = currStatus ? warning : '';
 
-    const currUser = useGetAuthenticatedUser()?.corpUser?.username || '-';
+    // const currUser = useGetAuthenticatedUser()?.corpUser?.username || '-';
+    const currUser = FindWhoAmI();
     const printSuccessMsg = (status) => {
         message.success(`Status:${status} - Request submitted successfully`, 3).then();
     };

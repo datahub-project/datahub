@@ -7,7 +7,6 @@ export function FindWhoAmI() {
     const { loading, data } = useQuery(GetMeOnlyDocument);
     if (loading) return 'loading..';
     const ans = data.me.corpUser.username;
-    console.log(`findwhoami - urn is ${data.me.corpUser.urn}`);
     return ans;
 }
 

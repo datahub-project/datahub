@@ -3,10 +3,11 @@ import React, { useEffect, useState } from 'react';
 import { gql, useQuery } from '@apollo/client';
 import { Button, Form, message } from 'antd';
 import axios from 'axios';
-import { GetDatasetOwnersGqlQuery, GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
+import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
 import { useBaseEntity } from '../../../EntityContext';
 import { SpecifyBrowsePath } from '../../../../../create/Components/SpecifyBrowsePath';
-import { useGetAuthenticatedUser } from '../../../../../useGetAuthenticatedUser';
+// import { useGetAuthenticatedUser } from '../../../../../useGetAuthenticatedUser';
+import { FindWhoAmI } from '../../../../dataset/whoAmI';
 
 function computeFinal(input) {
     const dataPaths = input?.browsePaths.map((x) => {
@@ -38,8 +39,9 @@ export const EditBrowsePathTable = () => {
     };
     const baseEntity = useBaseEntity<GetDatasetQuery>();
     const currUrn = baseEntity && baseEntity.dataset && baseEntity.dataset?.urn;
-    const currDataset = useBaseEntity<GetDatasetOwnersGqlQuery>()?.dataset?.urn;
-    const currUser = useGetAuthenticatedUser()?.corpUser?.username || '-';
+    // const currDataset = useBaseEntity<GetDatasetOwnersGqlQuery>()?.dataset?.urn;
+    // const currUser = useGetAuthenticatedUser()?.corpUser?.username || '-';
+    const currUser = FindWhoAmI();
     // console.log(currUrn);
     const [form] = Form.useForm();
     const queryresult = gql`
@@ -64,7 +66,7 @@ export const EditBrowsePathTable = () => {
     const onFinish = async (values) => {
         axios
             .post('http://localhost:8001/update_browsepath', {
-                dataset_name: currDataset,
+                dataset_name: currUrn,
                 requestor: currUser,
                 browsePaths: values.browsepathList,
             })
@@ -86,7 +88,7 @@ export const EditBrowsePathTable = () => {
         setDisabledSave(hasErrors);
     };
     useEffect(() => {
-        const formatted = computeFinal(data);
+        const formatted = computeFinal(data);        
         setOriginalData(formatted);
         form.resetFields();
         form.setFieldsValue({

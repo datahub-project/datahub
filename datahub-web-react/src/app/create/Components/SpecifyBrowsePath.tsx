@@ -48,7 +48,7 @@ export const SpecifyBrowsePath = () => {
                                         ]}
                                         noStyle
                                     >
-                                        <Input placeholder="browsing path" style={{ width: '90%' }} />
+                                        <Input placeholder="browsing path" style={{ width: '80%' }} />
                                     </Form.Item>
                                     {fields.length > 1 ? (
                                         <Button aria-label="removepath">

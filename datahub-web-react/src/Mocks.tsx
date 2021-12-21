@@ -1,4 +1,4 @@
-import { GetDatasetDocument, GetDatasetOwnersGqlDocument, UpdateDatasetDocument } from './graphql/dataset.generated';
+import { GetDatasetDocument, UpdateDatasetDocument } from './graphql/dataset.generated';
 import { GetDataFlowDocument } from './graphql/dataFlow.generated';
 import { GetDataJobDocument } from './graphql/dataJob.generated';
 import { GetBrowsePathsDocument, GetBrowseResultsDocument } from './graphql/browse.generated';
@@ -2622,53 +2622,6 @@ export const mocks = [
                         viewAnalytics: true,
                         managePolicies: true,
                         manageIdentities: true,
-                    },
-                },
-            },
-        },
-    },
-    {
-        // this mock can be shifted elsewhere in the doc. need to create new mock instead of recycling cos it needs to be specific to query else it doesnt work
-        request: {
-            query: GetMeOnlyDocument,
-            variables: {},
-        },
-        result: {
-            data: {
-                __typename: 'Query',
-                me: {
-                    corpUser: {
-                        username: 'demo',
-                        urn: 'anything',
-                    },
-                },
-            },
-        },
-    },
-    {
-        // this mock can be shifted elsewhere in the doc. need to create new mock instead of recycling cos it needs to be specific to query else it doesnt work
-        request: {
-            query: GetDatasetOwnersGqlDocument,
-            variables: {
-                urn: 'urn:li:dataset:3',
-            },
-        },
-        result: {
-            data: {
-                dataset: {
-                    urn: 'urn:li:dataset:3',
-                    name: 'Yet Another Dataset too!',
-                    ownership: {
-                        owners: [
-                            {
-                                owner: {
-                                    urn: 'urn:li:corpuser:3',
-                                    username: 'cena',
-                                    __typename: 'CorpUser',
-                                },
-                                type: 'DATAOWNER',
-                            },
-                        ],
                     },
                 },
             },
