@@ -19,7 +19,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class MCPEmitter implements LineageConsumer {
 
-  private static final String GMS_URL_KEY = "spark.datahub.lineage.mcpEmitter.gmsUrl";
+  private static final String GMS_URL_KEY = "spark.datahub.rest.server";
   private static final String SENTINEL = "moot";
 
   private ConcurrentHashMap<String, RESTEmitter> singleton = new ConcurrentHashMap<>();

@@ -262,7 +262,7 @@ public class TestSparkJobsLineage {
         .config("spark.extraListeners",
             "com.linkedin.datahub.lineage.spark.interceptor.DatahubLineageEmitter")
         .config("spark.datahub.lineage.consumerTypes", "accumulator, mcpEmitter")
-        .config("spark.datahub.lineage.mcpEmitter.gmsUrl", "http://localhost:" + GMS_PORT)
+        .config("spark.datahub.rest.server", "http://localhost:" + GMS_PORT)
         .config("spark.sql.warehouse.dir", new File(WAREHOUSE_LOC).getAbsolutePath())
         .enableHiveSupport()
         .getOrCreate();
