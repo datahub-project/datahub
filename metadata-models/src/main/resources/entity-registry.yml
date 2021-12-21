@@ -12,6 +12,11 @@ entities:
     keyAspect: dataHubPolicyKey
     aspects:
       - dataHubPolicyInfo
+  - name: dataJob
+    keyAspect: dataJobKey
+    aspects:
+      - datahubIngestionRunSummary
+      - datahubIngestionCheckpoint
   - name: corpuser
     doc: CorpUser represents an identity of a person (or an account) in the enterprise.
     keyAspect: corpUserKey

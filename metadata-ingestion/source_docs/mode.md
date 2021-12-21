@@ -85,6 +85,11 @@ source:
     # Options
     workspace: "datahub"
     default_schema: "public"
+    owner_username_instead_of_email: False
+    api_options:
+      retry_backoff_multiplier: 2
+      max_retry_interval: 10
+      max_attempts: 5
 
 sink:
   # sink configs
@@ -92,16 +97,27 @@ sink:
 
 ## Config details
 
-| Field                             | Required | Default                  | Description                                                       |
-|-----------------------------------| -------- |--------------------------|-------------------------------------------------------------------|
-| `connect_uri`                     |    ✅     | `"https://app.mode.com"` | Mode host URL.                                                    |
-| `token`                           |    ✅     |                          | Mode user token.                                                  |
-| `password`                        |    ✅     |                          | Mode password for authentication.                                 |
-| `default_schema`                  |          | `public`                 | Default schema to use when schema is not provided in an SQL query |
-| `env`                             |          | `"PROD"`                 | Environment to use in namespace when constructing URNs.           |
-| `owner_username_instead_of_email` |          | `True`                   | Use username for owner URN instead of Email                       |
+| Field                             | Required | Default                  | Description                                                                                       |
+|-----------------------------------| -------- |--------------------------|---------------------------------------------------------------------------------------------------|
+| `connect_uri`                     |    ✅    | `"https://app.mode.com"` | Mode host URL.                                                                                    |
+| `token`                           |    ✅    |                          | Mode user token.                                                                                  |
+| `password`                        |    ✅    |                          | Mode password for authentication.                                                                 |
+| `default_schema`                  |          | `public`                 | Default schema to use when schema is not provided in an SQL query                                 |
+| `env`                             |          | `"PROD"`                 | Environment to use in namespace when constructing URNs.                                           |
+| `owner_username_instead_of_email` |          | `True`                   | Use username for owner URN instead of Email                                                       |
+| `api_options`                     |          |                          | Retry/Wait settings for Mode API to avoid "Too many Requests" error. See Mode API Options below   |
 
 See Mode's [Authentication documentation](https://mode.com/developer/api-reference/authentication/) on how to generate `token` and `password`.
+
+<br/>
+
+#### Mode API Options
+| Field                      | Required | Default | Description                                              |
+|----------------------------|----------|---------|----------------------------------------------------------|
+| `retry_backoff_multiplier` |          | `1`     | Multiplier for exponential backoff when waiting to retry |
+| `max_retry_interval`       |          | `10`    | Maximum interval to wait when retrying                   |
+| `max_attempts`             |          | `5`     | Maximum number of attempts to retry before failing       |
+
 
 ## Compatibility
 
