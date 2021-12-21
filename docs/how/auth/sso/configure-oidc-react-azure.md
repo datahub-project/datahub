@@ -46,11 +46,7 @@ Select **Client secrets**, then **New client secret**.  Type in a meaningful des
 
 ![azure-setup-certificates-secrets](img/azure-setup-certificates-secrets.png)
 
-### 4. Configure Token configuration
-
-TODO: this is where we need to configure the `groups` claim.
-
-### 5. Configure API permissions
+### 4. Configure API permissions
 
 On the left-side navigation bar, click on **API permissions** under **Manage**.  DataHub requires the following four Microsoft Graph APIs:
 
@@ -65,11 +61,11 @@ At this point, you should be looking at a screen like the following:
 
 ![azure-setup-api-permissions](img/azure-setup-api-permissions.png)
 
-### 6. Obtain Application (Client) ID
+### 5. Obtain Application (Client) ID
 
 On the left-side navigation bar, go back to the **Overview** tab.  You should see the `Application (client) ID`. Save its value for the next step.
 
-### 7. Obtain Discovery URI
+### 6. Obtain Discovery URI
 
 On the same page, you should see a `Directory (tenant) ID`. Your OIDC discovery URI will be formatted as follows:
 
@@ -77,7 +73,7 @@ On the same page, you should see a `Directory (tenant) ID`. Your OIDC discovery 
 https://login.microsoftonline.com/{tenant ID}/v2.0/.well-known/openid-configuration
 ```
 
-### 8. Configure `datahub-frontend` to enable OIDC authentication
+### 7. Configure `datahub-frontend` to enable OIDC authentication
 
 a. Open the file `docker/datahub-frontend/env/docker.env`
 
@@ -92,7 +88,7 @@ AUTH_OIDC_BASE_URL=your-datahub-url
 AUTH_OIDC_SCOPE="openid profile email groups"
 ```
 
-Replacing the placeholders above with the client id (step 6), client secret (step 3) and tenant ID (step 7) received from Microsoft Azure.
+Replacing the placeholders above with the client id (step 5), client secret (step 3) and tenant ID (step 6) received from Microsoft Azure.
 
 ### 9. Restart `datahub-frontend-react` docker container
 
