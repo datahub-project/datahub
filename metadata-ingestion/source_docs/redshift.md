@@ -106,7 +106,9 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `include_table_lineage`     |          | `True`             | Whether table lineage should be ingested.                                                                                                                                               |
 | `table_lineage_mode`        |          | `"stl_scan_based"` | Which table lineage collector mode to use                                                                                                                                               |
 | `include_copy_lineage`      |          | `True`             | Whether lineage should be collected from copy commands                                                                                                                                  |
+| `indent`                    |          | `True`             | Whether to format queries                                                                                                                                                               |
 | `default_schema`            |          | `"public"`         | The default schema to use if the sql parser fails to parse the schema with `sql_based` lineage collector                                                                               |
+
 
 ## Lineage
 
