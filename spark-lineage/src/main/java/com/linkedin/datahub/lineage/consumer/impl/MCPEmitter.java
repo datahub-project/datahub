@@ -13,6 +13,7 @@ import com.linkedin.datahub.lineage.spark.model.LineageConsumer;
 import com.linkedin.datahub.lineage.spark.model.LineageEvent;
 import com.linkedin.mxe.MetadataChangeProposal;
 
+import datahub.client.RESTEmitter;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
