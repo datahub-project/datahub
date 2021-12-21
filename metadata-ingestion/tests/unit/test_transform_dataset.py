@@ -76,7 +76,9 @@ def make_dataset_with_properties() -> models.MetadataChangeEventClass:
             urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,example1,PROD)",
             aspects=[
                 models.StatusClass(removed=False),
-                models.DatasetPropertiesClass(customProperties=EXISTING_PROPERTIES.copy()),
+                models.DatasetPropertiesClass(
+                    customProperties=EXISTING_PROPERTIES.copy()
+                ),
             ],
         ),
     )
@@ -645,9 +647,7 @@ def test_add_dataset_properties(mock_time):
 def test_simple_add_dataset_properties(mock_time):
     dataset_mce = make_dataset_with_properties()
 
-    new_properties = {
-        "new-simple-property": "new-value"
-    }
+    new_properties = {"new-simple-property": "new-value"}
     transformer = SimpleAddDatasetProperties.create(
         {
             "properties": new_properties,

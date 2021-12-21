@@ -34,7 +34,9 @@ class AddDatasetProperties(DatasetTransformer):
     ctx: PipelineContext
     config: AddDatasetPropertiesConfig
 
-    def __init__(self, config: AddDatasetPropertiesConfig, ctx: PipelineContext, **resolver_args):
+    def __init__(
+        self, config: AddDatasetPropertiesConfig, ctx: PipelineContext, **resolver_args
+    ):
         self.ctx = ctx
         self.config = config
         self.resolver_args = resolver_args
@@ -48,11 +50,9 @@ class AddDatasetProperties(DatasetTransformer):
         if not isinstance(mce.proposedSnapshot, DatasetSnapshotClass):
             return mce
 
-        properties_to_add = (
-            self.config.add_properties_resolver_class(**self.resolver_args).get_properties_to_add(
-                mce.proposedSnapshot
-            )
-        )
+        properties_to_add = self.config.add_properties_resolver_class(
+            **self.resolver_args
+        ).get_properties_to_add(mce.proposedSnapshot)
         if properties_to_add:
             properties = builder.get_or_add_aspect(
                 mce, DatasetPropertiesClass(customProperties={})
@@ -81,12 +81,12 @@ class SimpleAddDatasetProperties(AddDatasetProperties):
         generic_config = AddDatasetPropertiesConfig(
             add_properties_resolver_class=SimpleAddDatasetPropertiesResolverClass
         )
-        resolver_args = {
-            "properties": config.properties
-        }
+        resolver_args = {"properties": config.properties}
         super().__init__(generic_config, ctx, **resolver_args)
 
     @classmethod
-    def create(cls, config_dict: dict, ctx: PipelineContext) -> "SimpleAddDatasetProperties":
+    def create(
+        cls, config_dict: dict, ctx: PipelineContext
+    ) -> "SimpleAddDatasetProperties":
         config = SimpleAddDatasetPropertiesConfig.parse_obj(config_dict)
         return cls(config, ctx)
