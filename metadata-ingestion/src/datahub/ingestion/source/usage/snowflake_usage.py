@@ -72,6 +72,7 @@ UPDATE_STATEMENT_TYPES = {
     "DELETE": OperationTypeClass.DELETE,
     "CREATE": OperationTypeClass.CREATE,
     "CREATE_TABLE": OperationTypeClass.CREATE,
+    "CREATE_TABLE_AS_SELECT": OperationTypeClass.CREATE,
     "CREATE_SCHEMA": OperationTypeClass.CREATE,
 }
 
@@ -276,10 +277,10 @@ class SnowflakeUsageSource(Source):
         self, events: Iterable[SnowflakeJoinedAccessEvent]
     ) -> Iterable[MetadataWorkUnit]:
         for event in events:
-            start_time = event.query_start_time
-            query_type = event.query_type
-            if event.query_type in UPDATE_STATEMENT_TYPES:
-                user_email = event.email if event.email else "UNKNOWN"
+            if event.query_start_time and event.email and event.query_type in UPDATE_STATEMENT_TYPES:
+                start_time = event.query_start_time
+                query_type = event.query_type
+                user_email = event.email
                 operation_type = UPDATE_STATEMENT_TYPES[query_type]
                 last_updated_timestamp: int = int(start_time.timestamp() * 1000)
                 user_urn = builder.make_user_urn(user_email)

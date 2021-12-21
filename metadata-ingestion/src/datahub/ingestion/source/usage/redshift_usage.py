@@ -260,30 +260,31 @@ class RedshiftUsageSource(Source):
         operation_type: OperationTypeClass,
     ) -> Iterable[MetadataWorkUnit]:
         for event in events:
-            resource = f"{event.database}.{event.schema_}.{event.table}"
-            last_updated_timestamp: int = int(event.endtime.timestamp() * 1000)
-            user_email = f"{event.usename if event.usename else 'unknown'}"
+            if event.database and event.schema_ and event.table and event.endtime and event.usename:
+                resource = f"{event.database}.{event.schema_}.{event.table}"
+                last_updated_timestamp: int = int(event.endtime.timestamp() * 1000)
+                user_email = event.usename
 
-            operation_aspect = OperationClass(
-                timestampMillis=last_updated_timestamp,
-                lastUpdatedTimestamp=last_updated_timestamp,
-                actor=builder.make_user_urn(user_email),
-                operationType=operation_type,
-            )
-            mcp = MetadataChangeProposalWrapper(
-                entityType="dataset",
-                aspectName="operation",
-                changeType=ChangeTypeClass.UPSERT,
-                entityUrn=builder.make_dataset_urn(
-                    "redshift", resource.lower(), self.config.env
-                ),
-                aspect=operation_aspect,
-            )
-            wu = MetadataWorkUnit(
-                id=f"operation-aspect-{event.table}-{event.endtime.isoformat()}",
-                mcp=mcp,
-            )
-            yield wu
+                operation_aspect = OperationClass(
+                    timestampMillis=last_updated_timestamp,
+                    lastUpdatedTimestamp=last_updated_timestamp,
+                    actor=builder.make_user_urn(user_email),
+                    operationType=operation_type,
+                )
+                mcp = MetadataChangeProposalWrapper(
+                    entityType="dataset",
+                    aspectName="operation",
+                    changeType=ChangeTypeClass.UPSERT,
+                    entityUrn=builder.make_dataset_urn(
+                        "redshift", resource.lower(), self.config.env
+                    ),
+                    aspect=operation_aspect,
+                )
+                wu = MetadataWorkUnit(
+                    id=f"operation-aspect-{event.table}-{event.endtime.isoformat()}",
+                    mcp=mcp,
+                )
+                yield wu
 
     def _aggregate_access_events(
         self, events: List[RedshiftJoinedAccessEvent]
