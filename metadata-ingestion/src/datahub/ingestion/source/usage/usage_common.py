@@ -2,7 +2,7 @@ import collections
 import dataclasses
 from datetime import datetime
 from typing import Callable, Counter, Generic, List, Optional, TypeVar
-
+import sqlparse
 import pydantic
 
 import datahub.emitter.mce_builder as builder
@@ -62,11 +62,18 @@ class GenericAggregatedDataset(Generic[ResourceType]):
                 )
         return trimmed_query
 
+    def indent_query(self, query: str, indent) -> str:
+        if indent:
+            return sqlparse.format(query, keyword_case="upper", reindent_aligned=True)
+        else:
+            return query
+
     def make_usage_workunit(
         self,
         bucket_duration: BucketDuration,
         urn_builder: Callable[[ResourceType], str],
         top_n_queries: int,
+        indent: bool,
     ) -> MetadataWorkUnit:
 
         budget_per_query: int = int(self.total_budget_for_query_list / top_n_queries)
@@ -77,7 +84,7 @@ class GenericAggregatedDataset(Generic[ResourceType]):
             uniqueUserCount=len(self.userFreq),
             totalSqlQueries=self.queryCount,
             topSqlQueries=[
-                self.trim_query(query, budget_per_query)
+                self.indent_query(self.trim_query(query, budget_per_query), indent)
                 for query, _ in self.queryFreq.most_common(top_n_queries)
             ],
             userCounts=[
@@ -112,6 +119,7 @@ class GenericAggregatedDataset(Generic[ResourceType]):
 
 class BaseUsageConfig(BaseTimeWindowConfig):
     top_n_queries: pydantic.PositiveInt = 10
+    indent: bool = True
 
     @pydantic.validator("top_n_queries")
     def ensure_top_n_queries_is_not_too_big(cls, v: int) -> int:

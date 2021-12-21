@@ -219,6 +219,7 @@ class RedshiftUsageSource(Source):
                 "redshift", resource.lower(), self.config.env
             ),
             self.config.top_n_queries,
+            self.config.indent,
         )
 
     def get_report(self) -> SourceReport:
