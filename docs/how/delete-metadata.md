@@ -59,6 +59,8 @@ datahub delete --entity_type chart --platform looker
 ```
 
 ### Delete all datasets that match a query
+Issues a text query against the DataHub's search endpoint. Will be served by the Search Service (elasticsearch by default).
+
 ```
 datahub delete --entity_type dataset --query "_tmp" -n
 ```
