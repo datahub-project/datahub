@@ -4,6 +4,8 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.HashMap;
@@ -22,7 +24,10 @@ import lombok.extern.slf4j.Slf4j;
 public class RESTEmitter {
 
   private static final JacksonDataTemplateCodec DATA_TEMPLATE_CODEC = new JacksonDataTemplateCodec();
-
+  private static final int DEFAULT_CONNECT_TIMEOUT_SEC = 30;
+  private static final int DEFAULT_READ_TIMEOUT_SEC = 30;
+  
+  
   @Getter
   private final String gmsUrl;
 
@@ -53,14 +58,13 @@ public class RESTEmitter {
     URL url = new URL(urlStr);
     HttpURLConnection con = (HttpURLConnection) url.openConnection();
     con.setConnectTimeout(this.connectTimeoutSec * 1000);
-    con.setReadTimeout(this.connectTimeoutSec * 1000);
+    con.setReadTimeout(this.readTimeoutSec * 1000);
     con.setRequestMethod(method);
     con.setRequestProperty("Content-Type", "application/json");
     con.setRequestProperty("X-RestLi-Protocol-Version", "2.0.0");
     if (this.token != null) {
       con.setRequestProperty("Authorization", "Bearer " + token);
     }
-//        con.setRequestProperty("Accept", "application/json");
     con.setDoOutput(true);
     if (payloadJson != null) {
       try (OutputStream os = con.getOutputStream()) {
@@ -80,21 +84,13 @@ public class RESTEmitter {
 
   }
 
-  public boolean testConnection() {
-    try {
+  public boolean testConnection() throws IOException {
       this.makeRequest(this.gmsUrl + "/config", "GET", null);
       return true;
-
-    } catch (IOException e) {
-      e.printStackTrace();
-      return false;
-    }
   }
 
   public static RESTEmitter create(String gmsUrl) {
-    // setting default connect time out to 30 seconds. should be plenty to connect
-    // setting default readTimeoutSec to 30 sec
-    return new RESTEmitter(gmsUrl, 30, 30, null);
+    return new RESTEmitter(gmsUrl, DEFAULT_CONNECT_TIMEOUT_SEC, DEFAULT_READ_TIMEOUT_SEC, null);
   }
 
   public static RESTEmitter create(String gmsUrl, int connectTimeoutSec, int readTimeoutSec) {
@@ -102,7 +98,7 @@ public class RESTEmitter {
   }
 
   public static RESTEmitter create(String gmsUrl, String token) {
-    return new RESTEmitter(gmsUrl, 30, 30, token);
+    return new RESTEmitter(gmsUrl, DEFAULT_CONNECT_TIMEOUT_SEC, DEFAULT_READ_TIMEOUT_SEC, token);
   }
 
   public static RESTEmitter create(String gmsUrl, int connectTimeoutSec, int readTimeoutSec, String token) {
