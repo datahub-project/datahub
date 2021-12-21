@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { Button, Divider, Form, Input, message, Select, Table, Typography } from 'antd';
 import PropTypes from 'prop-types';
 import axios from 'axios';
+import adhocConfig from '../../../../../../conf/Adhoc';
 import { useBaseEntity } from '../../../EntityContext';
 import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
 // import { useGetAuthenticatedUser } from '../../../../../useGetAuthenticatedUser';
@@ -14,6 +15,9 @@ import { FindWhoAmI } from '../../../../dataset/whoAmI';
 const { Option } = Select;
 
 export const EditSchemaTableEditable = () => {
+    let url = adhocConfig;
+    const branch = url.lastIndexOf('/');
+    url = `${url.substring(0, branch)}/update_schema`;
     const queryFields = useBaseEntity<GetDatasetQuery>()?.dataset?.schemaMetadata?.fields;
     const urn = useBaseEntity<GetDatasetQuery>()?.dataset?.urn;
     const currUser = FindWhoAmI();
@@ -211,7 +215,7 @@ export const EditSchemaTableEditable = () => {
         const dataClone = data.map((x) => x);
         const dataSubmission = { dataset_name: urn, requestor: currUser, dataset_fields: dataClone };
         axios
-            .post('http://localhost:8001/update_schema', dataSubmission)
+            .post(url, dataSubmission)
             .then((response) => printSuccessMsg(response.status))
             .catch((error) => {
                 printErrorMsg(error.toString());

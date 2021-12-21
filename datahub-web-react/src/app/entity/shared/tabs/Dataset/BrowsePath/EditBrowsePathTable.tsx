@@ -8,6 +8,7 @@ import { useBaseEntity } from '../../../EntityContext';
 import { SpecifyBrowsePath } from '../../../../../create/Components/SpecifyBrowsePath';
 // import { useGetAuthenticatedUser } from '../../../../../useGetAuthenticatedUser';
 import { FindWhoAmI } from '../../../../dataset/whoAmI';
+import adhocConfig from '../../../../../../conf/Adhoc';
 
 function computeFinal(input) {
     const dataPaths = input?.browsePaths.map((x) => {
@@ -27,6 +28,10 @@ function timeout(delay: number) {
 }
 
 export const EditBrowsePathTable = () => {
+    let url = adhocConfig;
+    const branch = url.lastIndexOf('/');
+    url = `${url.substring(0, branch)}/update_browsepath`;
+    console.log(`eventual url is ${url}`);
     const [originalData, setOriginalData] = useState();
     const [disabledSave, setDisabledSave] = useState(true);
     const layout = {
@@ -65,7 +70,7 @@ export const EditBrowsePathTable = () => {
     };
     const onFinish = async (values) => {
         axios
-            .post('http://localhost:8001/update_browsepath', {
+            .post(url, {
                 dataset_name: currUrn,
                 requestor: currUser,
                 browsePaths: values.browsepathList,
@@ -88,7 +93,7 @@ export const EditBrowsePathTable = () => {
         setDisabledSave(hasErrors);
     };
     useEffect(() => {
-        const formatted = computeFinal(data);        
+        const formatted = computeFinal(data);
         setOriginalData(formatted);
         form.resetFields();
         form.setFieldsValue({

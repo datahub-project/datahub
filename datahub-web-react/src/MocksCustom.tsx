@@ -1,10 +1,5 @@
 import { GetDatasetDocument } from './graphql/dataset.generated';
-import {
-    Dataset,
-    EntityType,
-    PlatformType,
-    SchemaFieldDataType,
-} from './types.generated';
+import { Dataset, EntityType, PlatformType, SchemaFieldDataType } from './types.generated';
 import { GetMeOnlyDocument } from './graphql/me.generated';
 // I had to make a new mock file cos the original mock file, ownership of dataset and the mock identity of the person visiting the schema pages is not the same
 // hence cannot test the edit schema functionality.
@@ -106,7 +101,7 @@ export const dataset3 = {
             {
                 owner: {
                     ...user1,
-                    __typename: 'CorpUser'
+                    __typename: 'CorpUser',
                 },
                 type: 'DATAOWNER',
                 __typename: 'Owner',
@@ -114,11 +109,11 @@ export const dataset3 = {
             {
                 owner: {
                     ...user2,
-                    __typename: 'CorpUser'
+                    __typename: 'CorpUser',
                 },
                 type: 'DELEGATE',
                 __typename: 'Owner',
-            },            
+            },
         ],
         lastModified: {
             time: 0,
@@ -301,7 +296,7 @@ export const mocks2 = [
     //         },
     //     },
     // },
-       
+
     {
         // this mock can be shifted elsewhere in the doc. need to create new mock instead of recycling cos it needs to be specific to query else it doesnt work
         request: {
