@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Dict, Type
+from typing import Any, Dict, Type
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigModel
@@ -35,7 +35,10 @@ class AddDatasetProperties(DatasetTransformer):
     config: AddDatasetPropertiesConfig
 
     def __init__(
-        self, config: AddDatasetPropertiesConfig, ctx: PipelineContext, **resolver_args
+        self,
+        config: AddDatasetPropertiesConfig,
+        ctx: PipelineContext,
+        **resolver_args: Dict[str, Any],
     ):
         self.ctx = ctx
         self.config = config
@@ -50,7 +53,7 @@ class AddDatasetProperties(DatasetTransformer):
         if not isinstance(mce.proposedSnapshot, DatasetSnapshotClass):
             return mce
 
-        properties_to_add = self.config.add_properties_resolver_class(
+        properties_to_add = self.config.add_properties_resolver_class(  # type: ignore
             **self.resolver_args
         ).get_properties_to_add(mce.proposedSnapshot)
         if properties_to_add:
