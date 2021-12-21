@@ -253,7 +253,7 @@ public abstract class EntityService {
 
     // Produce MAE after a successful update
     if (oldValue != updatedValue || _alwaysEmitAuditEvent) {
-      log.debug(String.format("Producing MetadataAuditEvent for ingested aspect %s, urn %s", aspectName, urn));
+      log.debug("Producing MetadataAuditEvent for ingested aspect {}, urn {}", aspectName, urn);
       Timer.Context produceMAETimer = MetricUtils.timer(this.getClass(), "produceMAE").time();
       if (aspectName.equals(getKeyAspectName(urn))) {
         produceMetadataAuditEventForKey(urn, result.getNewSystemMetadata());
@@ -263,9 +263,8 @@ public abstract class EntityService {
       }
       produceMAETimer.stop();
     } else {
-      log.debug(
-              String.format("Skipped producing MetadataAuditEvent for ingested aspect %s, urn %s. Aspect has not changed.",
-                      aspectName, urn));
+      log.debug("Skipped producing MetadataAuditEvent for ingested aspect {}, urn {}. Aspect has not changed.", 
+        aspectName, urn);
     }
     return updatedValue;
   }
@@ -335,8 +334,7 @@ public abstract class EntityService {
     }
 
     if (oldAspect != newAspect || getAlwaysEmitAuditEvent()) {
-      log.debug(String.format("Producing MetadataChangeLog for ingested aspect %s, urn %s",
-          metadataChangeProposal.getAspectName(), entityUrn));
+      log.debug("Producing MetadataChangeLog for ingested aspect {}, urn {}", metadataChangeProposal.getAspectName(), entityUrn);
 
       final MetadataChangeLog metadataChangeLog = new MetadataChangeLog(metadataChangeProposal.data());
       if (oldAspect != null) {
@@ -352,13 +350,13 @@ public abstract class EntityService {
         metadataChangeLog.setSystemMetadata(newSystemMetadata);
       }
 
-      log.debug(String.format("Serialized MCL event: %s", metadataChangeLog));
+      log.debug("Serialized MCL event: {}", metadataChangeLog);
       // Since only timeseries aspects are ingested as of now, simply produce mae event for it
       produceMetadataChangeLog(entityUrn, aspectSpec, metadataChangeLog);
     } else {
       log.debug(
-          String.format("Skipped producing MetadataAuditEvent for ingested aspect %s, urn %s. Aspect has not changed.",
-              metadataChangeProposal.getAspectName(), entityUrn));
+          "Skipped producing MetadataAuditEvent for ingested aspect {}, urn {}. Aspect has not changed.",
+              metadataChangeProposal.getAspectName(), entityUrn);
     }
 
     return new IngestProposalResult(entityUrn, oldAspect != newAspect);
@@ -409,7 +407,7 @@ public abstract class EntityService {
    * @return a map of {@link Urn} to {@link Entity} object
    */
   public Map<Urn, Entity> getEntities(@Nonnull final Set<Urn> urns, @Nonnull Set<String> aspectNames) {
-    log.debug(String.format("Invoked getEntities with urns %s, aspects %s", urns, aspectNames));
+    log.debug("Invoked getEntities with urns {}, aspects {}", urns, aspectNames);
     if (urns.isEmpty()) {
       return Collections.emptyMap();
     }
@@ -484,13 +482,13 @@ public abstract class EntityService {
   }
 
   public RecordTemplate getLatestAspect(@Nonnull final Urn urn, @Nonnull final String aspectName) {
-    log.debug(String.format("Invoked getLatestAspect with urn %s, aspect %s", urn, aspectName));
+    log.debug("Invoked getLatestAspect with urn {}, aspect {}", urn, aspectName);
     return getAspect(urn, aspectName, ASPECT_LATEST_VERSION);
   }
 
   public void ingestEntities(@Nonnull final List<Entity> entities, @Nonnull final AuditStamp auditStamp,
       @Nonnull final List<SystemMetadata> systemMetadata) {
-    log.debug(String.format("Invoked ingestEntities with entities %s, audit stamp %s", entities, auditStamp));
+    log.debug("Invoked ingestEntities with entities {}, audit stamp {}", entities, auditStamp);
     Streams.zip(entities.stream(), systemMetadata.stream(), (a, b) -> new Pair<Entity, SystemMetadata>(a, b))
         .forEach(pair -> ingestEntity(pair.getFirst(), auditStamp, pair.getSecond()));
   }
@@ -505,8 +503,7 @@ public abstract class EntityService {
 
   public void ingestEntity(@Nonnull Entity entity, @Nonnull AuditStamp auditStamp,
       @Nonnull SystemMetadata systemMetadata) {
-    log.debug(String.format("Invoked ingestEntity with entity %s, audit stamp %s systemMetadata %s", entity, auditStamp,
-        systemMetadata.toString()));
+    log.debug("Invoked ingestEntity with entity {}, audit stamp {} systemMetadata {}", entity, auditStamp, systemMetadata.toString());
     ingestSnapshotUnion(entity.getValue(), auditStamp, systemMetadata);
   }
 
@@ -661,7 +658,7 @@ public abstract class EntityService {
     try {
       return Urn.createFromString(urnStr);
     } catch (URISyntaxException e) {
-      log.error(String.format("Failed to convert urn string %s into Urn object", urnStr));
+      log.error("Failed to convert urn string {}} into Urn object", urnStr);
       throw new ModelConversionException(String.format("Failed to convert urn string %s into Urn object ", urnStr), e);
     }
   }
