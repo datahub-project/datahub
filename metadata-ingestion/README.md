@@ -49,6 +49,7 @@ Sources:
 | [ldap](./source_docs/ldap.md)                                   | `pip install 'acryl-datahub[ldap]'` ([extra requirements]) | LDAP source                         |
 | [looker](./source_docs/looker.md)                               | `pip install 'acryl-datahub[looker]'`                      | Looker source                       |
 | [lookml](./source_docs/lookml.md)                               | `pip install 'acryl-datahub[lookml]'`                      | LookML source, requires Python 3.7+ |
+| [metabase](./source_docs/metabase.md)                           | `pip install 'acryl-datahub[metabase]`                     | Metabase source                     |
 | [mode](./source_docs/mode.md)                                   | `pip install 'acryl-datahub[mode]'`                        | Mode Analytics source               |
 | [mongodb](./source_docs/mongodb.md)                             | `pip install 'acryl-datahub[mongodb]'`                     | MongoDB source                      |
 | [mssql](./source_docs/mssql.md)                                 | `pip install 'acryl-datahub[mssql]'`                       | SQL Server source                   |
@@ -164,10 +165,6 @@ sink:
     server: "http://localhost:8080"
 ```
 
-We automatically expand environment variables in the config,
-similar to variable substitution in GNU bash or in docker-compose files. For details, see
-https://docs.docker.com/compose/compose-file/compose-file-v2/#variable-substitution.
-
 Running a recipe is quite easy.
 
 ```shell
@@ -176,6 +173,11 @@ datahub ingest -c ./examples/recipes/mssql_to_datahub.yml
 
 A number of recipes are included in the [examples/recipes](./examples/recipes) directory. For full info and context on each source and sink, see the pages described in the [table of plugins](#installing-plugins).
 
+### Handling sensitive information in recipes
+
+We automatically expand environment variables in the config (e.g. `${MSSQL_PASSWORD}`),
+similar to variable substitution in GNU bash or in docker-compose files. For details, see
+https://docs.docker.com/compose/compose-file/compose-file-v2/#variable-substitution. This environment variable substitution should be used to mask sensitive information in recipe files. As long as you can get env variables securely to the ingestion process there would not be any need to store sensitive information in recipes.
 ## Transformations
 
 If you'd like to modify data before it reaches the ingestion sinks – for instance, adding additional owners or tags – you can use a transformer to write your own module and integrate it with DataHub.

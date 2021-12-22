@@ -112,9 +112,9 @@ class GEProfilingConfig(ConfigModel):
     include_field_mean_value: bool = True
     include_field_median_value: bool = True
     include_field_stddev_value: bool = True
-    include_field_quantiles: bool = True
-    include_field_distinct_value_frequencies: bool = True
-    include_field_histogram: bool = True
+    include_field_quantiles: bool = False
+    include_field_distinct_value_frequencies: bool = False
+    include_field_histogram: bool = False
     include_field_sample_values: bool = True
 
     allow_deny_patterns: AllowDenyPattern = AllowDenyPattern.allow_all()
@@ -357,11 +357,13 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
         pct_unique = None
         try:
             unique_count = self.dataset.get_column_unique_count(column)
-            pct_unique = float(unique_count) / nonnull_count
+            if nonnull_count > 0:
+                pct_unique = float(unique_count) / nonnull_count
         except Exception:
             logger.exception(
                 f"Failed to get unique count for column {self.dataset_name}.{column}"
             )
+
         column_spec.unique_count = unique_count
 
         column_spec.cardinality = _convert_to_cardinality(unique_count, pct_unique)
