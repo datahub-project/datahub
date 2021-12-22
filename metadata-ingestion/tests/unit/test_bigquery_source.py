@@ -1,6 +1,5 @@
 import json
 import os
-from typing import Optional
 
 import pytest
 
@@ -50,6 +49,7 @@ def test_bigquery_uri_with_credential():
     try:
 
         assert config.get_sql_alchemy_url() == "bigquery://test-project"
+        assert config.credentials_path
 
         with open(config.credentials_path) as jsonFile:
             json_credential = json.load(jsonFile)
