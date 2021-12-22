@@ -4,8 +4,10 @@ import { Button, message, Popconfirm, Result } from 'antd';
 import axios from 'axios';
 // import { gql, useQuery } from '@apollo/client';
 import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
-import { useGetAuthenticatedUser } from '../../../../../useGetAuthenticatedUser';
+// import { useGetAuthenticatedUser } from '../../../../../useGetAuthenticatedUser';
 import { useBaseEntity } from '../../../EntityContext';
+import { FindWhoAmI } from '../../../../dataset/whoAmI';
+import adhocConfig from '../../../../../../conf/Adhoc';
 
 // function CheckStatus(queryresult, currDataset) {
 //     const { data } = useQuery(queryresult, { skip: currDataset === undefined });
@@ -25,7 +27,9 @@ function CheckStatus(entity) {
 export const DeleteSchemaTabv2 = () => {
     // const entity = useBaseEntity<GetDatasetQuery>();
     // const delay = (ms) => new Promise((res) => setTimeout(res, ms));
-
+    let url = adhocConfig;
+    const branch = url.lastIndexOf('/');
+    url = `${url.substring(0, branch)}/update_dataset_status`;
     const [visible, setVisible] = React.useState(false);
     const [confirmLoading, setConfirmLoading] = React.useState(false);
     const baseEntity = useBaseEntity<GetDatasetQuery>();
@@ -42,7 +46,8 @@ export const DeleteSchemaTabv2 = () => {
         "You wouldn't be able to find this page after navigating away. Please copy page url before leaving page in case you need to undo deactivation.";
     const subMsg = currStatus ? warning : '';
 
-    const currUser = useGetAuthenticatedUser()?.corpUser?.username || '-';
+    // const currUser = useGetAuthenticatedUser()?.corpUser?.username || '-';
+    const currUser = FindWhoAmI();
     const printSuccessMsg = (status) => {
         message.success(`Status:${status} - Request submitted successfully`, 3).then();
     };
@@ -52,7 +57,7 @@ export const DeleteSchemaTabv2 = () => {
 
     const deleteDataset = async () => {
         axios
-            .post('http://localhost:8001/update_dataset_status', {
+            .post(url, {
                 dataset_name: currDataset,
                 requestor: currUser,
                 desired_state: !CheckStatus(baseEntity),

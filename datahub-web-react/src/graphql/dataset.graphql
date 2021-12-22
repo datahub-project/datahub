@@ -144,12 +144,4 @@ fragment viewProperties on Dataset {
     }
 }
 
-query getDatasetOwnersGQL($urn: String!) {
-    dataset(urn: $urn) {
-        urn
-        name
-        ownership {
-            ...ownershipFields
-        }
-    }
-}
+

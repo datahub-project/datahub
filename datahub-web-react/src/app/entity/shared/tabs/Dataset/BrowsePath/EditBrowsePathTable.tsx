@@ -3,10 +3,12 @@ import React, { useEffect, useState } from 'react';
 import { gql, useQuery } from '@apollo/client';
 import { Button, Form, message } from 'antd';
 import axios from 'axios';
-import { GetDatasetOwnersGqlQuery, GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
+import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
 import { useBaseEntity } from '../../../EntityContext';
 import { SpecifyBrowsePath } from '../../../../../create/Components/SpecifyBrowsePath';
-import { useGetAuthenticatedUser } from '../../../../../useGetAuthenticatedUser';
+// import { useGetAuthenticatedUser } from '../../../../../useGetAuthenticatedUser';
+import { FindWhoAmI } from '../../../../dataset/whoAmI';
+import adhocConfig from '../../../../../../conf/Adhoc';
 
 function computeFinal(input) {
     const dataPaths = input?.browsePaths.map((x) => {
@@ -26,6 +28,10 @@ function timeout(delay: number) {
 }
 
 export const EditBrowsePathTable = () => {
+    let url = adhocConfig;
+    const branch = url.lastIndexOf('/');
+    url = `${url.substring(0, branch)}/update_browsepath`;
+    console.log(`eventual url is ${url}`);
     const [originalData, setOriginalData] = useState();
     const [disabledSave, setDisabledSave] = useState(true);
     const layout = {
@@ -38,8 +44,9 @@ export const EditBrowsePathTable = () => {
     };
     const baseEntity = useBaseEntity<GetDatasetQuery>();
     const currUrn = baseEntity && baseEntity.dataset && baseEntity.dataset?.urn;
-    const currDataset = useBaseEntity<GetDatasetOwnersGqlQuery>()?.dataset?.urn;
-    const currUser = useGetAuthenticatedUser()?.corpUser?.username || '-';
+    // const currDataset = useBaseEntity<GetDatasetOwnersGqlQuery>()?.dataset?.urn;
+    // const currUser = useGetAuthenticatedUser()?.corpUser?.username || '-';
+    const currUser = FindWhoAmI();
     // console.log(currUrn);
     const [form] = Form.useForm();
     const queryresult = gql`
@@ -63,8 +70,8 @@ export const EditBrowsePathTable = () => {
     };
     const onFinish = async (values) => {
         axios
-            .post('http://localhost:8001/update_browsepath', {
-                dataset_name: currDataset,
+            .post(url, {
+                dataset_name: currUrn,
                 requestor: currUser,
                 browsePaths: values.browsepathList,
             })

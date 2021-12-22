@@ -365,7 +365,14 @@ def ingest_sample_data(path: Optional[str]) -> None:
 
 @docker.command()
 @telemetry.with_telemetry
-def nuke() -> None:
+@click.option(
+    "--keep-data",
+    type=bool,
+    is_flag=True,
+    default=False,
+    help="Delete data volumes",
+)
+def nuke(keep_data: bool) -> None:
     """Remove all Docker containers, networks, and volumes associated with DataHub."""
 
     with get_client_with_error() as (client, error):
@@ -381,11 +388,14 @@ def nuke() -> None:
         ):
             container.remove(v=True, force=True)
 
-        click.echo("Removing volumes in the datahub project")
-        for volume in client.volumes.list(
-            filters={"label": "com.docker.compose.project=datahub"}
-        ):
-            volume.remove(force=True)
+        if keep_data:
+            click.echo("Skipping deleting data volumes in the datahub project")
+        else:
+            click.echo("Removing volumes in the datahub project")
+            for volume in client.volumes.list(
+                filters={"label": "com.docker.compose.project=datahub"}
+            ):
+                volume.remove(force=True)
 
         click.echo("Removing networks in the datahub project")
         for network in client.networks.list(

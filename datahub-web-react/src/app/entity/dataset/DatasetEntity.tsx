@@ -7,12 +7,7 @@ import { Preview } from './preview/Preview';
 import { FIELDS_TO_HIGHLIGHT } from './search/highlights';
 import { getChildrenFromRelationships } from '../../lineage/utils/getChildren';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
-import {
-    GetDatasetOwnersGqlQuery,
-    GetDatasetQuery,
-    useGetDatasetQuery,
-    useUpdateDatasetMutation,
-} from '../../../graphql/dataset.generated';
+import { GetDatasetQuery, useGetDatasetQuery, useUpdateDatasetMutation } from '../../../graphql/dataset.generated';
 import { GenericEntityProperties } from '../shared/types';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
 import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
@@ -32,13 +27,14 @@ import ViewDefinitionTab from '../shared/tabs/Dataset/View/ViewDefinitionTab';
 import { SidebarViewDefinitionSection } from '../shared/containers/profile/sidebar/Dataset/View/SidebarViewDefinitionSection';
 import { SidebarRecommendationsSection } from '../shared/containers/profile/sidebar/Recommendations/SidebarRecommendationsSection';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
-import { useGetMeQuery } from '../../../graphql/me.generated';
+import { FindWhoAmI } from './whoAmI';
+// import { useGetMeQuery } from '../../../graphql/me.generated';
 
-function FindWhoAmI() {
-    const { data } = useGetMeQuery();
-    const whoami = data?.me?.corpUser?.username;
-    return whoami;
-}
+// function FindWhoAmI() {
+//     const { data } = useGetMeQuery();
+//     const whoami = data?.me?.corpUser?.username;
+//     return whoami;
+// }
 
 const SUBTYPES = {
     VIEW: 'view',
@@ -152,18 +148,25 @@ export class DatasetEntity implements Entity<Dataset> {
                     name: 'Edit Schema',
                     component: EditSchemaTab,
                     display: {
-                        visible: (_, _1) => true,
-                        enabled: (_, _dataset: GetDatasetOwnersGqlQuery) => {
-                            const currUser = FindWhoAmI() as string;
-                            const owners = _dataset?.dataset?.ownership?.owners;
+                        visible: (_, _dataset: GetDatasetQuery) => {
+                            const currUser = FindWhoAmI();
+                            const ownership = _dataset?.dataset?.ownership?.owners;
                             const ownersArray =
-                                owners
-                                    ?.map((x) => (x?.type === 'DATAOWNER' ? x?.owner?.urn.split(':').slice(-1) : ''))
-                                    ?.flat() ?? [];
+                                ownership
+                                    ?.map((x) =>
+                                        x?.type === 'DATAOWNER' && x?.owner?.type === EntityType.CorpUser
+                                            ? x?.owner?.urn.split(':').slice(-1)
+                                            : '',
+                                    )
+                                    .flat() || [];
+                            // console.log(`ownersArray is ${ownersArray} and I am ${currUser}`);
                             if (ownersArray.includes(currUser)) {
                                 return true;
                             }
                             return false;
+                        },
+                        enabled: (_, _dataset: GetDatasetQuery) => {
+                            return true;
                         },
                     },
                 },
@@ -171,18 +174,25 @@ export class DatasetEntity implements Entity<Dataset> {
                     name: 'Edit Properties',
                     component: EditPropertiesTab,
                     display: {
-                        visible: (_, _1) => true,
-                        enabled: (_, _dataset: GetDatasetOwnersGqlQuery) => {
-                            const currUser = FindWhoAmI() as string;
-                            const owners = _dataset?.dataset?.ownership?.owners;
+                        visible: (_, _dataset: GetDatasetQuery) => {
+                            const currUser = FindWhoAmI();
+                            const ownership = _dataset?.dataset?.ownership?.owners;
                             const ownersArray =
-                                owners
-                                    ?.map((x) => (x?.type === 'DATAOWNER' ? x?.owner?.urn.split(':').slice(-1) : ''))
-                                    ?.flat() ?? [];
+                                ownership
+                                    ?.map((x) =>
+                                        x?.type === 'DATAOWNER' && x?.owner?.type === EntityType.CorpUser
+                                            ? x?.owner?.urn.split(':').slice(-1)
+                                            : '',
+                                    )
+                                    .flat() || [];
+                            // console.log(`ownersArray is ${ownersArray} and I am ${currUser}`);
                             if (ownersArray.includes(currUser)) {
                                 return true;
                             }
                             return false;
+                        },
+                        enabled: (_, _dataset: GetDatasetQuery) => {
+                            return true;
                         },
                     },
                 },
@@ -190,20 +200,25 @@ export class DatasetEntity implements Entity<Dataset> {
                     name: 'Dataset Admin',
                     component: AdminTab,
                     display: {
-                        visible: (_, _1) => true,
-                        enabled: (_, _dataset: GetDatasetOwnersGqlQuery) => {
-                            const currUser = FindWhoAmI() as string;
-                            const owners = _dataset?.dataset?.ownership?.owners;
+                        visible: (_, _dataset: GetDatasetQuery) => {
+                            const currUser = FindWhoAmI();
+                            const ownership = _dataset?.dataset?.ownership?.owners;
                             const ownersArray =
-                                owners
-                                    ?.map((x) => (x?.type === 'DATAOWNER' ? x?.owner?.urn.split(':').slice(-1) : ''))
-                                    ?.flat() ?? [];
+                                ownership
+                                    ?.map((x) =>
+                                        x?.type === 'DATAOWNER' && x?.owner?.type === EntityType.CorpUser
+                                            ? x?.owner?.urn.split(':').slice(-1)
+                                            : '',
+                                    )
+                                    .flat() || [];
+                            console.log(`ownersArray is ${ownersArray} and I am ${currUser}`);
                             if (ownersArray.includes(currUser)) {
-                                // console.log('return unhide');
                                 return true;
                             }
-                            console.log('return hide');
                             return false;
+                        },
+                        enabled: (_, _dataset: GetDatasetQuery) => {
+                            return true;
                         },
                     },
                 },

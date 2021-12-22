@@ -22,8 +22,10 @@ import org.springframework.web.context.support.WebApplicationContextUtils;
 // Return a 200 for health checks
 
 public class Config extends HttpServlet {
-  Map<String, String> config = new HashMap<String, String>() {{
+  Map<String, Object> config = new HashMap<String, Object>() {{
     put("noCode", "true");
+    put("retention", "true");
+    put("statefulIngestionCapable", true);
   }};
   ObjectMapper objectMapper = new ObjectMapper().setSerializationInclusion(JsonInclude.Include.NON_NULL);
 
@@ -51,8 +53,7 @@ public class Config extends HttpServlet {
     PrintWriter out = resp.getWriter();
 
     try {
-      Map<String, Object> config = new HashMap<>();
-      config.put("noCode", "true");
+      Map<String, Object> config = new HashMap<>(this.config);
       Map<String, Map<ComparableVersion, EntityRegistryLoadResult>> pluginTree =
           getPluginModels(req.getServletContext());
       config.put("models", pluginTree);

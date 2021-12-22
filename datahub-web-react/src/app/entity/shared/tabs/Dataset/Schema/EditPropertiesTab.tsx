@@ -1,16 +1,26 @@
 // import { Empty } from 'antd';
 import React from 'react';
-import { GetDatasetOwnersGqlQuery } from '../../../../../../graphql/dataset.generated';
-import { useGetAuthenticatedUser } from '../../../../../useGetAuthenticatedUser';
+import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
+import { EntityType } from '../../../../../../types.generated';
+// import { useGetAuthenticatedUser } from '../../../../../useGetAuthenticatedUser';
+import { FindWhoAmI } from '../../../../dataset/whoAmI';
 import { useBaseEntity } from '../../../EntityContext';
 import { EditPropertiesTableEditable } from './EditPropertiesTableEditable';
 
 export const EditPropertiesTab = () => {
-    const queryBase = useBaseEntity<GetDatasetOwnersGqlQuery>()?.dataset?.ownership?.owners;
-    const ownersArray = queryBase?.map((x) => (x?.type === 'DATAOWNER' ? x?.owner?.urn.split(':').slice(-1) : ''));
-    const ownersArray2 = ownersArray?.flat() ?? [];
-    const currUser = useGetAuthenticatedUser()?.corpUser?.username || '-';
-    if (ownersArray2.includes(currUser)) {
+    const queryBase = useBaseEntity<GetDatasetQuery>()?.dataset?.ownership?.owners;
+    // const currUser = useGetAuthenticatedUser()?.corpUser?.username || '-';
+    const currUser = FindWhoAmI();
+    const ownersArray =
+        queryBase
+            ?.map((x) =>
+                x?.type === 'DATAOWNER' && x?.owner?.type === EntityType.CorpUser
+                    ? x?.owner?.urn.split(':').slice(-1)
+                    : '',
+            )
+            .flat() || [];
+    // console.log(`ownersArray is ${ownersArray} and I am ${currUser}`);
+    if (ownersArray.includes(currUser)) {
         return (
             <>
                 <EditPropertiesTableEditable />

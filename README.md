@@ -116,6 +116,7 @@ Here are the companies that have officially adopted DataHub. Please feel free to
 - [Geotab](https://www.geotab.com)
 - [Grofers](https://grofers.com)
 - [hipages](https://hipages.com.au/)
+- [IOMED](https://iomed.health)
 - [Klarna](https://www.klarna.com)
 - [LinkedIn](http://linkedin.com)
 - [Peloton](https://www.onepeloton.com)

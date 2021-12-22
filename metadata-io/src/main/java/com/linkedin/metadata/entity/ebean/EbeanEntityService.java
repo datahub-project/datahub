@@ -1,6 +1,5 @@
 package com.linkedin.metadata.entity.ebean;
 
-import com.codahale.metrics.Timer;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterators;
@@ -13,28 +12,20 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.Aspect;
 import com.linkedin.metadata.aspect.VersionedAspect;
-import com.linkedin.metadata.dao.exception.ModelConversionException;
 import com.linkedin.metadata.dao.utils.RecordUtils;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ListResult;
 import com.linkedin.metadata.entity.RollbackResult;
 import com.linkedin.metadata.entity.RollbackRunResult;
-import com.linkedin.metadata.entity.ValidationUtils;
 import com.linkedin.metadata.event.EntityEventProducer;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.run.AspectRowSummary;
-import com.linkedin.metadata.utils.EntityKeyUtils;
-import com.linkedin.metadata.utils.GenericAspectUtils;
 import com.linkedin.metadata.utils.PegasusUtils;
-import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataAuditOperation;
-import com.linkedin.mxe.MetadataChangeLog;
-import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
-import io.opentelemetry.extension.annotations.WithSpan;
 import java.net.URISyntaxException;
 import java.sql.Timestamp;
 import java.util.ArrayList;
@@ -50,11 +41,12 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.entity.ebean.EbeanUtils.*;
+import static com.linkedin.metadata.Constants.ASPECT_LATEST_VERSION;
+import static com.linkedin.metadata.entity.ebean.EbeanUtils.parseSystemMetadata;
+import static com.linkedin.metadata.entity.ebean.EbeanUtils.toAspectRecord;
+import static com.linkedin.metadata.entity.ebean.EbeanUtils.toJsonAspect;
 
 
 /**
@@ -68,8 +60,6 @@ public class EbeanEntityService extends EntityService {
 
   private final EbeanAspectDao _entityDao;
   private final JacksonDataTemplateCodec _dataTemplateCodec = new JacksonDataTemplateCodec();
-  private Boolean _alwaysEmitAuditEvent = false;
-
 
   public EbeanEntityService(@Nonnull final EbeanAspectDao entityDao, @Nonnull final EntityEventProducer eventProducer,
       @Nonnull final EntityRegistry entityRegistry) {
@@ -206,50 +196,9 @@ public class EbeanEntityService extends EntityService {
 
   @Override
   @Nonnull
-  @WithSpan
-  public RecordTemplate ingestAspect(@Nonnull final Urn urn, @Nonnull final String aspectName,
-      @Nonnull final RecordTemplate newValue, @Nonnull final AuditStamp auditStamp,
-      @Nonnull final SystemMetadata systemMetadata) {
-
-    log.debug("Invoked ingestAspect with urn: {}, aspectName: {}, newValue: {}", urn, aspectName, newValue);
-
-    if (!urn.toString().trim().equals(urn.toString())) {
-      throw new IllegalArgumentException("Error: cannot provide an URN with leading or trailing whitespace");
-    }
-
-    Timer.Context ingestToLocalDBTimer = MetricUtils.timer(this.getClass(), "ingestAspectToLocalDB").time();
-    UpdateAspectResult result = ingestAspectToLocalDB(urn, aspectName, ignored -> newValue, auditStamp, systemMetadata,
-        DEFAULT_MAX_TRANSACTION_RETRY);
-    ingestToLocalDBTimer.stop();
-
-    final RecordTemplate oldValue = result.getOldValue();
-    final RecordTemplate updatedValue = result.getNewValue();
-
-    // 5. Produce MAE after a successful update
-    if (oldValue != updatedValue || _alwaysEmitAuditEvent) {
-      log.debug(String.format("Producing MetadataAuditEvent for ingested aspect %s, urn %s", aspectName, urn));
-      Timer.Context produceMAETimer = MetricUtils.timer(this.getClass(), "produceMAE").time();
-      if (aspectName.equals(getKeyAspectName(urn))) {
-        produceMetadataAuditEventForKey(urn, result.getNewSystemMetadata());
-      } else {
-        produceMetadataAuditEvent(urn, oldValue, updatedValue, result.getOldSystemMetadata(),
-            result.getNewSystemMetadata(), MetadataAuditOperation.UPDATE);
-      }
-      produceMAETimer.stop();
-    } else {
-      log.debug(
-          String.format("Skipped producing MetadataAuditEvent for ingested aspect %s, urn %s. Aspect has not changed.",
-              aspectName, urn));
-    }
-
-    return updatedValue;
-  }
-
-  @Nonnull
-  private UpdateAspectResult ingestAspectToLocalDB(@Nonnull final Urn urn, @Nonnull final String aspectName,
+  protected UpdateAspectResult ingestAspectToLocalDB(@Nonnull final Urn urn, @Nonnull final String aspectName,
       @Nonnull final Function<Optional<RecordTemplate>, RecordTemplate> updateLambda,
-      @Nonnull final AuditStamp auditStamp, @Nonnull final SystemMetadata providedSystemMetadata,
-      final int maxTransactionRetry) {
+      @Nonnull final AuditStamp auditStamp, @Nonnull final SystemMetadata providedSystemMetadata) {
 
     return _entityDao.runInTransactionWithRetry(() -> {
 
@@ -274,12 +223,12 @@ public class EbeanEntityService extends EntityService {
 
         return new UpdateAspectResult(urn, oldValue, oldValue,
             EbeanUtils.parseSystemMetadata(latest.getSystemMetadata()), latestSystemMetadata,
-            MetadataAuditOperation.UPDATE);
+            MetadataAuditOperation.UPDATE, 0);
       }
 
       // 4. Save the newValue as the latest version
       log.debug(String.format("Ingesting aspect with name %s, urn %s", aspectName, urn));
-      _entityDao.saveLatestAspect(urn.toString(), aspectName, latest == null ? null : toJsonAspect(oldValue),
+      long versionOfOld = _entityDao.saveLatestAspect(urn.toString(), aspectName, latest == null ? null : toJsonAspect(oldValue),
           latest == null ? null : latest.getCreatedBy(), latest == null ? null : latest.getCreatedFor(),
           latest == null ? null : latest.getCreatedOn(), latest == null ? null : latest.getSystemMetadata(),
           toJsonAspect(newValue), auditStamp.getActor().toString(),
@@ -288,8 +237,8 @@ public class EbeanEntityService extends EntityService {
 
       return new UpdateAspectResult(urn, oldValue, newValue,
           latest == null ? null : EbeanUtils.parseSystemMetadata(latest.getSystemMetadata()), providedSystemMetadata,
-          MetadataAuditOperation.UPDATE);
-    }, maxTransactionRetry);
+          MetadataAuditOperation.UPDATE, versionOfOld);
+    }, DEFAULT_MAX_TRANSACTION_RETRY);
   }
 
   @Override
@@ -329,7 +278,7 @@ public class EbeanEntityService extends EntityService {
           new Timestamp(auditStamp.getTime()), toJsonAspect(newSystemMetadata), version, oldAspect == null);
 
       return new UpdateAspectResult(urn, oldValue, value, oldSystemMetadata, newSystemMetadata,
-          MetadataAuditOperation.UPDATE);
+          MetadataAuditOperation.UPDATE, version);
     }, maxTransactionRetry);
 
     final RecordTemplate oldValue = result.getOldValue();
@@ -337,8 +286,8 @@ public class EbeanEntityService extends EntityService {
 
     if (emitMae) {
       log.debug(String.format("Producing MetadataAuditEvent for updated aspect %s, urn %s", aspectName, urn));
-      produceMetadataChangeLog(urn, entityName, aspectName, aspectSpec, oldValue, newValue, result.oldSystemMetadata,
-          result.newSystemMetadata, ChangeType.UPSERT);
+      produceMetadataChangeLog(urn, entityName, aspectName, aspectSpec, oldValue, newValue,
+          result.getOldSystemMetadata(), result.getNewSystemMetadata(), ChangeType.UPSERT);
     } else {
       log.debug(String.format("Skipped producing MetadataAuditEvent for updated aspect %s, urn %s. emitMAE is false.",
           aspectName, urn));
@@ -347,112 +296,9 @@ public class EbeanEntityService extends EntityService {
     return newValue;
   }
 
-  public Boolean getAlwaysEmitAuditEvent() {
-    return _alwaysEmitAuditEvent;
-  }
-
-  public void setAlwaysEmitAuditEvent(Boolean alwaysEmitAuditEvent) {
-    _alwaysEmitAuditEvent = alwaysEmitAuditEvent;
-  }
-
   public void setWritable(boolean canWrite) {
     log.debug("Enabling writes");
     _entityDao.setWritable(canWrite);
-  }
-
-  @Override
-  public Urn ingestProposal(@Nonnull MetadataChangeProposal metadataChangeProposal, AuditStamp auditStamp) {
-
-    log.debug("entity type = {}", metadataChangeProposal.getEntityType());
-    EntitySpec entitySpec = getEntityRegistry().getEntitySpec(metadataChangeProposal.getEntityType());
-    log.debug("entity spec = {}", entitySpec);
-
-    Urn entityUrn = EntityKeyUtils.getUrnFromProposal(metadataChangeProposal, entitySpec.getKeyAspectSpec());
-
-    if (metadataChangeProposal.getChangeType() != ChangeType.UPSERT) {
-      throw new UnsupportedOperationException("Only upsert operation is supported");
-    }
-
-    if (!metadataChangeProposal.hasAspectName() || !metadataChangeProposal.hasAspect()) {
-      throw new UnsupportedOperationException("Aspect and aspect name is required for create and update operations");
-    }
-
-    AspectSpec aspectSpec = entitySpec.getAspectSpec(metadataChangeProposal.getAspectName());
-
-    if (aspectSpec == null) {
-      throw new RuntimeException(
-          String.format("Unknown aspect %s for entity %s", metadataChangeProposal.getAspectName(),
-              metadataChangeProposal.getEntityType()));
-    }
-
-    log.debug("aspect spec = {}", aspectSpec);
-
-    RecordTemplate aspect;
-    try {
-      aspect = GenericAspectUtils.deserializeAspect(metadataChangeProposal.getAspect().getValue(),
-          metadataChangeProposal.getAspect().getContentType(), aspectSpec);
-      ValidationUtils.validateOrThrow(aspect);
-    } catch (ModelConversionException e) {
-      throw new RuntimeException(
-          String.format("Could not deserialize {} for aspect {}", metadataChangeProposal.getAspect().getValue(),
-              metadataChangeProposal.getAspectName()));
-    }
-    log.debug("aspect = {}", aspect);
-
-    SystemMetadata systemMetadata = metadataChangeProposal.getSystemMetadata();
-    if (systemMetadata == null) {
-      systemMetadata = new SystemMetadata();
-      systemMetadata.setRunId(DEFAULT_RUN_ID);
-      systemMetadata.setLastObserved(System.currentTimeMillis());
-    }
-    systemMetadata.setRegistryName(aspectSpec.getRegistryName());
-    systemMetadata.setRegistryVersion(aspectSpec.getRegistryVersion().toString());
-
-    RecordTemplate oldAspect = null;
-    SystemMetadata oldSystemMetadata = null;
-    RecordTemplate newAspect = aspect;
-    SystemMetadata newSystemMetadata = systemMetadata;
-
-    if (!aspectSpec.isTimeseries()) {
-      Timer.Context ingestToLocalDBTimer = MetricUtils.timer(this.getClass(), "ingestProposalToLocalDB").time();
-      UpdateAspectResult result =
-          ingestAspectToLocalDB(entityUrn, metadataChangeProposal.getAspectName(), ignored -> aspect, auditStamp,
-              systemMetadata, DEFAULT_MAX_TRANSACTION_RETRY);
-      ingestToLocalDBTimer.stop();
-      oldAspect = result.oldValue;
-      oldSystemMetadata = result.oldSystemMetadata;
-      newAspect = result.newValue;
-      newSystemMetadata = result.newSystemMetadata;
-    }
-
-    if (oldAspect != newAspect || _alwaysEmitAuditEvent) {
-      log.debug(String.format("Producing MetadataChangeLog for ingested aspect %s, urn %s",
-          metadataChangeProposal.getAspectName(), entityUrn));
-
-      final MetadataChangeLog metadataChangeLog = new MetadataChangeLog(metadataChangeProposal.data());
-      if (oldAspect != null) {
-        metadataChangeLog.setPreviousAspectValue(GenericAspectUtils.serializeAspect(oldAspect));
-      }
-      if (oldSystemMetadata != null) {
-        metadataChangeLog.setPreviousSystemMetadata(oldSystemMetadata);
-      }
-      if (newAspect != null) {
-        metadataChangeLog.setAspect(GenericAspectUtils.serializeAspect(newAspect));
-      }
-      if (newSystemMetadata != null) {
-        metadataChangeLog.setSystemMetadata(newSystemMetadata);
-      }
-
-      log.debug(String.format("Serialized MCL event: %s", metadataChangeLog));
-      // Since only timeseries aspects are ingested as of now, simply produce mae event for it
-      produceMetadataChangeLog(entityUrn, aspectSpec, metadataChangeLog);
-    } else {
-      log.debug(
-          String.format("Skipped producing MetadataAuditEvent for ingested aspect %s, urn %s. Aspect has not changed.",
-              metadataChangeProposal.getAspectName(), entityUrn));
-    }
-
-    return entityUrn;
   }
 
   private boolean filterMatch(SystemMetadata systemMetadata, Map<String, String> conditions) {
@@ -585,7 +431,7 @@ public class EbeanEntityService extends EntityService {
 
     return result;
   }
-  
+
 
   @Override
   public RollbackRunResult rollbackRun(List<AspectRowSummary> aspectRows, String runId) {
@@ -693,15 +539,5 @@ public class EbeanEntityService extends EntityService {
     }
     result.setEntities(entityUrns);
     return result;
-  }
-
-  @Value
-  private static class UpdateAspectResult {
-    Urn urn;
-    RecordTemplate oldValue;
-    RecordTemplate newValue;
-    SystemMetadata oldSystemMetadata;
-    SystemMetadata newSystemMetadata;
-    MetadataAuditOperation operation;
   }
 }

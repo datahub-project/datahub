@@ -44,27 +44,32 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 
 As a SQL-based service, the Athena integration is also supported by our SQL profiler. See [here](./sql_profiles.md) for more details on configuration.
 
-| Field                       | Required | Default                                                                  | Description                                                                                                                                                                             |
-| --------------------------- | -------- | ------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `project_id`                |          | Autodetected                                                             | Project ID to ingest from. If not specified, will infer from environment.                                                                                                               |
-| `env`                       |          | `"PROD"`                                                                 | Environment to use in namespace when constructing URNs.                                                                                                                                 |
-| `options.<option>`          |          |                                                                          | Any options specified here will be passed to SQLAlchemy's `create_engine` as kwargs.<br />See https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine for details. |
-| `table_pattern.allow`       |          |                                                                          | List of regex patterns for tables to include in ingestion.                                                                                                                              |
-| `table_pattern.deny`        |          |                                                                          | List of regex patterns for tables to exclude from ingestion.                                                                                                                            |
-| `table_pattern.ignoreCase`  |          | `True`                                                                   | Whether to ignore case sensitivity during pattern matching.                                                                                                                             |
-| `schema_pattern.allow`      |          |                                                                          | List of regex patterns for schemas to include in ingestion.                                                                                                                             |
-| `schema_pattern.deny`       |          |                                                                          | List of regex patterns for schemas to exclude from ingestion.                                                                                                                           |
-| `schema_pattern.ignoreCase` |          | `True`                                                                   | Whether to ignore case sensitivity during pattern matching.                                                                                                                             |
-| `view_pattern.allow`        |          |                                                                          | List of regex patterns for views to include in ingestion.                                                                                                                               |
-| `view_pattern.deny`         |          |                                                                          | List of regex patterns for views to exclude from ingestion.                                                                                                                             |
-| `view_pattern.ignoreCase`   |          | `True`                                                                   | Whether to ignore case sensitivity during pattern matching.                                                                                                                             |
-| `include_tables`            |          | `True`                                                                   | Whether tables should be ingested.                                                                                                                                                      |
-| `include_views`             |          | `True`                                                                   | Whether views should be ingested.                                                                                                                                                       |
-| `include_table_lineage`     |          | `True`                                                                   | Whether table level lineage should be ingested and processed.                                                                                                                           |
-| `max_query_duration`        |          | `15`                                                                     | A time buffer in minutes to adjust start_time and end_time while querying Bigquery audit logs.                                                                                          |
-| `start_time`                |          | Start of last full day in UTC (or hour, depending on `bucket_duration`)  | Earliest time of lineage data to consider.                                                                                                                                              |
-| `end_time`                  |          | End of last full day in UTC (or hour, depending on `bucket_duration`)    | Latest time of lineage data to consider.                                                                                                                                                |
-| `extra_client_options`      |          |                                                                          | Additional options to pass to `google.cloud.logging_v2.client.Client`.                                                                                                                  |
+| Field                                     | Required | Default                                                                  | Description                                                                                                                                                                                                                                                                             |
+| ----------------------------------------- | -------- | ------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `project_id`                              |          | Autodetected                                                             | Project ID to ingest from. If not specified, will infer from environment.                                                                                                                                                                                                               |
+| `env`                                     |          | `"PROD"`                                                                 | Environment to use in namespace when constructing URNs.                                                                                                                                                                                                                                 |
+| `options.<option>`                        |          |                                                                          | Any options specified here will be passed to SQLAlchemy's `create_engine` as kwargs.<br />See https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine for details.                                                                                                 |
+| `table_pattern.allow`                     |          |                                                                          | List of regex patterns for tables to include in ingestion.                                                                                                                                                                                                                              |
+| `table_pattern.deny`                      |          |                                                                          | List of regex patterns for tables to exclude from ingestion.                                                                                                                                                                                                                            |
+| `table_pattern.ignoreCase`                |          | `True`                                                                   | Whether to ignore case sensitivity during pattern matching.                                                                                                                                                                                                                             |
+| `schema_pattern.allow`                    |          |                                                                          | List of regex patterns for schemas to include in ingestion.                                                                                                                                                                                                                             |
+| `schema_pattern.deny`                     |          |                                                                          | List of regex patterns for schemas to exclude from ingestion.                                                                                                                                                                                                                           |
+| `schema_pattern.ignoreCase`               |          | `True`                                                                   | Whether to ignore case sensitivity during pattern matching.                                                                                                                                                                                                                             |
+| `view_pattern.allow`                      |          |                                                                          | List of regex patterns for views to include in ingestion.                                                                                                                                                                                                                               |
+| `view_pattern.deny`                       |          |                                                                          | List of regex patterns for views to exclude from ingestion.                                                                                                                                                                                                                             |
+| `view_pattern.ignoreCase`                 |          | `True`                                                                   | Whether to ignore case sensitivity during pattern matching.                                                                                                                                                                                                                             |
+| `include_tables`                          |          | `True`                                                                   | Whether tables should be ingested.                                                                                                                                                                                                                                                      |
+| `include_views`                           |          | `True`                                                                   | Whether views should be ingested.                                                                                                                                                                                                                                                       |
+| `include_table_lineage`                   |          | `True`                                                                   | Whether table level lineage should be ingested and processed.                                                                                                                                                                                                                           |
+| `max_query_duration`                      |          | `15`                                                                     | A time buffer in minutes to adjust start_time and end_time while querying Bigquery audit logs.                                                                                                                                                                                          |
+| `start_time`                              |          | Start of last full day in UTC (or hour, depending on `bucket_duration`)  | Earliest time of lineage data to consider.                                                                                                                                                                                                                                              |
+| `end_time`                                |          | End of last full day in UTC (or hour, depending on `bucket_duration`)    | Latest time of lineage data to consider.                                                                                                                                                                                                                                                |
+| `extra_client_options`                    |          |                                                                          | Additional options to pass to `google.cloud.logging_v2.client.Client`.                                                                                                                                                                                                                  |
+| `use_exported_bigquery_audit_metadata`    |          | `False`                                                                  | When configured, use `BigQueryAuditMetadata` in `bigquery_audit_metadata_datasets` to compute lineage information.                                                                                                                                                                      |
+| `use_date_sharded_audit_log_tables`       |          | `False`                                                                  | Whether to read date sharded tables or time partitioned tables when extracting lineage from exported audit logs.                                                                                                                                                                        |
+| `bigquery_audit_metadata_datasets`        |          | None                                                                     | A list of datasets that contain a table named `cloudaudit_googleapis_com_data_access` which contain BigQuery audit logs, specifically, those containing `BigQueryAuditMetadata`. It is recommended that the project of the dataset is also specified, for example, `projectA.datasetB`. |
+
+
 
 The following parameters are only relevant if include_table_lineage is set to true:
 
@@ -73,33 +78,41 @@ The following parameters are only relevant if include_table_lineage is set to tr
 - end_time 
 - extra_client_options
 
+When use_exported_bigquery_audit_metadata is set to true, lineage information will be computed using exported bigquery logs. On how to setup exported bigquery audit logs, refer to the following [docs](https://cloud.google.com/bigquery/docs/reference/auditlogs#defining_a_bigquery_log_sink_using_gcloud) on BigQuery audit logs. Note that only protoPayloads with "type.googleapis.com/google.cloud.audit.BigQueryAuditMetadata" are supported by the current ingestion version. The bigquery_audit_metadata_datasets parameter will be used only if use_exported_bigquery_audit_metadata is set to true.
+
+Note: the bigquery_audit_metadata_datasets parameter receives a list of datasets, in the format $PROJECT.$DATASET. This way queries from a multiple number of projects can be used to compute lineage information.
+
 Note: Since bigquery source also supports dataset level lineage, the auth client will require additional permissions to be able to access the google audit logs. Refer the permissions section in bigquery-usage section below which also accesses the audit logs.
 
 ## Compatibility
 
 Coming soon!
 
-## BigQuery Usage Stats
+# BigQuery Usage Stats
 
 For context on getting started with ingestion, check out our [metadata ingestion guide](../README.md).
 
-### Setup
+## Setup
 
 To install this plugin, run `pip install 'acryl-datahub[bigquery-usage]'`.
 
-### Capabilities
+### Prerequisites
 
-This plugin extracts the following:
-
-- Statistics on queries issued and tables and columns accessed (excludes views)
-- Aggregation of these statistics into buckets, by day or hour granularity
-
-Note: the client must have one of the following OAuth scopes, and should be authorized on all projects you'd like to ingest usage stats from.
+The Google Identity must have one of the following OAuth scopes granted to it: 
 
 - https://www.googleapis.com/auth/logging.read
 - https://www.googleapis.com/auth/logging.admin
 - https://www.googleapis.com/auth/cloud-platform.read-only
 - https://www.googleapis.com/auth/cloud-platform
+
+And should be authorized on all projects you'd like to ingest usage stats from. 
+
+## Capabilities
+
+This plugin extracts the following:
+
+- Statistics on queries issued and tables and columns accessed (excludes views)
+- Aggregation of these statistics into buckets, by day or hour granularity
 
 :::note
 
@@ -108,7 +121,7 @@ Note: the client must have one of the following OAuth scopes, and should be auth
 
 :::
 
-### Quickstart recipe
+## Quickstart recipe
 
 Check out the following recipe to get started with ingestion! See [below](#config-details) for full configuration options.
 
@@ -130,7 +143,7 @@ sink:
   # sink configs
 ```
 
-### Config details
+## Config details
 
 Note that a `.` is used to denote nested fields in the YAML recipe.
 
@@ -150,9 +163,10 @@ By default, we extract usage stats for the last day, with the recommendation tha
 | `table_pattern.allow`  |          |                                                                | List of regex patterns for tables to include in ingestion.                                                                                                                                                                                                                                                                                                                             |
 | `table_pattern.deny`  |          |                                                                | List of regex patterns for tables to exclude in ingestion.                                                                                                                                                                                                                                                                                                                              |
 
-### Compatibility
+## Compatibility
 
-Coming soon!
+The source was last most recently confirmed compatible with the [December 16, 2021](https://cloud.google.com/bigquery/docs/release-notes#December_16_2021)
+release of BigQuery. 
 
 ## Questions
 
