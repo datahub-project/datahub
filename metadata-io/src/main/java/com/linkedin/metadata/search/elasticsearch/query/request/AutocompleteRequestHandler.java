@@ -2,12 +2,12 @@ package com.linkedin.metadata.search.elasticsearch.query.request;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.data.template.StringArray;
-import com.linkedin.metadata.dao.utils.ESUtils;
+import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import com.linkedin.metadata.query.AutoCompleteResult;
-import com.linkedin.metadata.query.Filter;
+import com.linkedin.metadata.query.filter.Filter;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;

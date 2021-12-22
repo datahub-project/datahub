@@ -10,8 +10,8 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.TimeseriesFieldCollectionSpec;
 import com.linkedin.metadata.models.TimeseriesFieldSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.query.Filter;
-import com.linkedin.metadata.utils.elasticsearch.ESUtils;
+import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.timeseries.AggregationSpec;
 import com.linkedin.timeseries.GenericTable;
@@ -171,6 +171,11 @@ public class ESAggregatedStatsDAO {
     if (fieldPath.equals(ES_FIELD_TIMESTAMP)) {
       return DataSchema.Type.LONG;
     }
+    /* TODO: Remove if not needed after merge.
+    if (fieldPath.equals(MappingsBuilder.EVENT_GRANULARITY)) {
+      return DataSchema.Type.RECORD;
+    }
+    */
     String[] memberParts = fieldPath.split("\\.");
     if (memberParts.length == 1) {
       // Search in the timeseriesFieldSpecs.

@@ -284,6 +284,15 @@ class LookerModel:
             # only load files that we haven't seen so far
             included_files = [x for x in included_files if x not in seen_so_far]
             for included_file in included_files:
+                # Filter out dashboards - we get those through the looker source.
+                if (
+                    included_file.endswith(".dashboard")
+                    or included_file.endswith(".dashboard.lookml")
+                    or included_file.endswith(".dashboard.lkml")
+                ):
+                    logger.debug(f"include '{inc}' is a dashboard, skipping it")
+                    continue
+
                 logger.debug(
                     f"Will be loading {included_file}, traversed here via {traversal_path}"
                 )
@@ -385,6 +394,13 @@ class LookerViewFileLoader:
     ) -> Optional[LookerViewFile]:
         # always fully resolve paths to simplify de-dup
         path = str(pathlib.Path(path).resolve())
+        if not path.endswith(".view.lkml"):
+            # not a view file
+            logger.debug(
+                f"Skipping file {path} because it doesn't appear to be a view file"
+            )
+            return None
+
         if self.is_view_seen(str(path)):
             return self.viewfile_cache[path]
 
@@ -624,10 +640,10 @@ class LookerView:
                 return fields, sql_table_names
             # Looker supports sql fragments that omit the SELECT and FROM parts of the query
             # Add those in if we detect that it is missing
-            if not re.match(r"^\s*SELECT", sql_query):
+            if not re.search(r"SELECT\s", sql_query, flags=re.I):
                 # add a SELECT clause at the beginning
                 sql_query = "SELECT " + sql_query
-            if not re.search(r" FROM\s", sql_query):
+            if not re.search(r"FROM\s", sql_query, flags=re.I):
                 # add a FROM clause at the end
                 sql_query = f"{sql_query} FROM {sql_table_name if sql_table_name is not None else view_name}"
                 # Get the list of tables in the query
@@ -755,7 +771,7 @@ class LookMLSource(Source):
         return looker_model
 
     def _platform_names_have_2_parts(self, platform: str) -> bool:
-        if platform in ["hive", "mysql"]:
+        if platform in ["hive", "mysql", "athena"]:
             return True
         else:
             return False
@@ -769,7 +785,7 @@ class LookMLSource(Source):
 
         # Bigquery has "project.db.table" which can be mapped to db.schema.table form
         # All other relational db's follow "db.schema.table"
-        # With the exception of mysql, hive which are "db.table"
+        # With the exception of mysql, hive, athena which are "db.table"
 
         # first detect which one we have
         parts = len(sql_table_name.split("."))
@@ -808,7 +824,7 @@ class LookMLSource(Source):
         # Check if table name matches cascading derived tables pattern
         # derived tables can be referred to using aliases that look like table_name.SQL_TABLE_NAME
         # See https://docs.looker.com/data-modeling/learning-lookml/derived-tables#syntax_for_referencing_a_derived_table
-        if re.fullmatch(r"\w+\.SQL_TABLE_NAME", sql_table_name):
+        if re.fullmatch(r"\w+\.SQL_TABLE_NAME", sql_table_name, flags=re.I):
             sql_table_name = sql_table_name.lower().split(".")[0]
             # upstream dataset is a looker view based on current view id's project and model
             view_id = LookerViewId(

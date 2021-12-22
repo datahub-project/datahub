@@ -5,6 +5,7 @@ import styled from 'styled-components';
 
 import { AggregationMetadata, DataPlatform, EntityType, GlossaryTerm, Tag as TagType } from '../../types.generated';
 import { StyledTag } from '../entity/shared/components/styled/StyledTag';
+import { capitalizeFirstLetter } from '../shared/capitalizeFirstLetter';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { ENTITY_FILTER_NAME } from './utils/constants';
 
@@ -66,6 +67,18 @@ export const SearchFilterLabel = ({ aggregation, field }: Props) => {
                 {!!platform.info?.logoUrl && <PreviewImage src={platform.info?.logoUrl} alt={platform.name} />}
                 <span>
                     {platform.info?.displayName || platform.name} ({countText})
+                </span>
+            </>
+        );
+    }
+
+    // Warning: Special casing for Sub-Types
+    if (field === 'typeNames') {
+        const subTypeDisplayName = capitalizeFirstLetter(aggregation.value);
+        return (
+            <>
+                <span>
+                    {subTypeDisplayName} ({countText})
                 </span>
             </>
         );

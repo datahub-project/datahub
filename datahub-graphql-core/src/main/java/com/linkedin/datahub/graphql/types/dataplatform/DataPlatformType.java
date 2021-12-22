@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.types.dataplatform;
 
 import com.linkedin.common.urn.Urn;
+
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.types.EntityType;
 import com.linkedin.datahub.graphql.generated.DataPlatform;
@@ -47,7 +48,7 @@ public class DataPlatformType implements EntityType<DataPlatform> {
                 .stream()
                 .filter(Objects::nonNull)
                 .collect(Collectors.toSet()),
-            context.getActor());
+            context.getAuthentication());
 
             final List<com.linkedin.entity.Entity> gmsResults = new ArrayList<>();
             for (Urn urn : dataPlatformUrns) {

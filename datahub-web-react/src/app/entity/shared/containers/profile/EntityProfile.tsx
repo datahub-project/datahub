@@ -17,6 +17,7 @@ import useIsLineageMode from '../../../../lineage/utils/useIsLineageMode';
 import { useEntityRegistry } from '../../../../useEntityRegistry';
 import LineageExplorer from '../../../../lineage/LineageExplorer';
 import CompactContext from '../../../../shared/CompactContext';
+import DynamicTab from '../../tabs/Entity/weaklyTypedAspects/DynamicTab';
 
 type Props<T, U> = {
     urn: string;
@@ -76,7 +77,7 @@ const Header = styled.div`
     border-bottom: 1px solid ${ANTD_GRAY[4.5]};
     padding: 20px 20px 0 20px;
     flex-shrink: 0;
-    height: 137px;
+    min-height: 137px;
 `;
 
 const TabContent = styled.div`
@@ -105,7 +106,6 @@ export const EntityProfile = <T, U>({
     tabs,
     sidebarSections,
 }: Props<T, U>): JSX.Element => {
-    const routedTab = useRoutedTab(tabs);
     const isLineageMode = useIsLineageMode();
     const entityRegistry = useEntityRegistry();
     const history = useHistory();
@@ -131,13 +131,36 @@ export const EntityProfile = <T, U>({
         [history, entityType, urn, entityRegistry],
     );
 
-    const { loading, error, data, refetch } = useEntityQuery({ variables: { urn } });
+    const { loading, error, data, refetch } = useEntityQuery({
+        variables: { urn },
+    });
 
     const [updateEntity] = useUpdateQuery({
         onCompleted: () => refetch(),
     });
 
-    const entityData = getDataForEntityType({ data, entityType, getOverrideProperties });
+    const entityData =
+        (data && getDataForEntityType({ data: data[Object.keys(data)[0]], entityType, getOverrideProperties })) || null;
+
+    const lineage = entityData ? entityRegistry.getLineageVizConfig(entityType, entityData) : undefined;
+
+    const autoRenderTabs: EntityTab[] =
+        entityData?.autoRenderAspects?.map((aspect) => ({
+            name: aspect.renderSpec?.displayName || aspect.aspectName,
+            component: () => (
+                <DynamicTab
+                    renderSpec={aspect.renderSpec}
+                    type={aspect.renderSpec?.displayType}
+                    payload={aspect.payload}
+                />
+            ),
+            display: {
+                visible: () => true,
+                enabled: () => true,
+            },
+        })) || [];
+
+    const routedTab = useRoutedTab([...tabsWithDefaults, ...autoRenderTabs]);
 
     if (isCompact) {
         return (
@@ -150,6 +173,7 @@ export const EntityProfile = <T, U>({
                     updateEntity,
                     routeToTab,
                     refetch,
+                    lineage,
                 }}
             >
                 <div>
@@ -179,10 +203,11 @@ export const EntityProfile = <T, U>({
                 updateEntity,
                 routeToTab,
                 refetch,
+                lineage,
             }}
         >
             <>
-                <EntityProfileNavBar urn={urn} entityData={entityData} entityType={entityType} />
+                <EntityProfileNavBar urn={urn} entityType={entityType} />
                 {loading && <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />}
                 {!loading && error && (
                     <Alert type="error" message={error?.message || `Entity failed to load for urn ${urn}`} />
@@ -196,7 +221,10 @@ export const EntityProfile = <T, U>({
                                 <HeaderAndTabsFlex>
                                     <Header>
                                         <EntityHeader />
-                                        <EntityTabs tabs={tabsWithDefaults} selectedTab={routedTab} />
+                                        <EntityTabs
+                                            tabs={[...tabsWithDefaults, ...autoRenderTabs]}
+                                            selectedTab={routedTab}
+                                        />
                                     </Header>
                                     <TabContent>{routedTab && <routedTab.component />}</TabContent>
                                 </HeaderAndTabsFlex>

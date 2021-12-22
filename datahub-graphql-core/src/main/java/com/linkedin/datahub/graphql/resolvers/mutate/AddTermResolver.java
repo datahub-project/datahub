@@ -37,12 +37,13 @@ public class AddTermResolver implements DataFetcher<CompletableFuture<Boolean>> 
           input.getSubResource(),
           input.getSubResourceType(),
           "glossaryTerm",
-          _entityService
+          _entityService,
+          false
       );
 
       try {
         log.info("Adding Term. input: {}", input);
-        Urn actor = CorpuserUrn.createFromString(((QueryContext) environment.getContext()).getActor());
+        Urn actor = CorpuserUrn.createFromString(((QueryContext) environment.getContext()).getActorUrn());
         LabelUtils.addTermToTarget(
             termUrn,
             targetUrn,

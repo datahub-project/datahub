@@ -2,7 +2,7 @@
 import logging
 import re
 import time
-from typing import List, Optional, Type, TypeVar, cast, get_type_hints
+from typing import Any, List, Optional, Type, TypeVar, cast, get_type_hints
 
 import typing_inspect
 from avrogen.dict_wrapper import DictWrapper
@@ -11,8 +11,10 @@ from datahub.metadata.schema_classes import (
     DatasetKeyClass,
     DatasetLineageTypeClass,
     DatasetSnapshotClass,
+    GlobalTagsClass,
     MetadataChangeEventClass,
     OwnershipTypeClass,
+    TagAssociationClass,
     UpstreamClass,
     UpstreamLineageClass,
 )
@@ -30,15 +32,9 @@ def get_sys_time() -> int:
     return int(time.time() * 1000)
 
 
-def _check_data_platform_name(platform_name: str) -> None:
-    if not platform_name.isalpha():
-        logger.warning(f"improperly formatted data platform: {platform_name}")
-
-
 def make_data_platform_urn(platform: str) -> str:
     if platform.startswith("urn:li:dataPlatform:"):
         return platform
-    _check_data_platform_name(platform)
     return f"urn:li:dataPlatform:{platform}"
 
 
@@ -68,6 +64,10 @@ def make_tag_urn(tag: str) -> str:
     return f"urn:li:tag:{tag}"
 
 
+def make_term_urn(term: str) -> str:
+    return f"urn:li:glossaryTerm:{term}"
+
+
 def make_data_flow_urn(
     orchestrator: str, flow_id: str, cluster: str = DEFAULT_FLOW_CLUSTER
 ) -> str:
@@ -88,13 +88,11 @@ def make_data_job_urn(
 
 def make_dashboard_urn(platform: str, name: str) -> str:
     # FIXME: dashboards don't currently include data platform urn prefixes.
-    _check_data_platform_name(platform)
     return f"urn:li:dashboard:({platform},{name})"
 
 
 def make_chart_urn(platform: str, name: str) -> str:
     # FIXME: charts don't currently include data platform urn prefixes.
-    _check_data_platform_name(platform)
     return f"urn:li:chart:({platform},{name})"
 
 
@@ -210,9 +208,40 @@ def get_aspect_if_available(
     return None
 
 
+def remove_aspect_if_available(
+    mce: MetadataChangeEventClass, aspect_type: Type[Aspect]
+) -> bool:
+    assert can_add_aspect(mce, aspect_type)
+    # loose type annotations since we checked before
+    aspects: List[Any] = [
+        aspect
+        for aspect in mce.proposedSnapshot.aspects
+        if not isinstance(aspect, aspect_type)
+    ]
+    removed = len(aspects) != len(mce.proposedSnapshot.aspects)
+    mce.proposedSnapshot.aspects = aspects
+    return removed
+
+
 def get_or_add_aspect(mce: MetadataChangeEventClass, default: Aspect) -> Aspect:
     existing = get_aspect_if_available(mce, type(default))
     if existing is not None:
         return existing
     mce.proposedSnapshot.aspects.append(default)  # type: ignore
     return default
+
+
+def make_global_tag_aspect_with_tag_list(tags: List[str]) -> GlobalTagsClass:
+    return GlobalTagsClass(
+        tags=[TagAssociationClass(f"urn:li:tag:{tag}") for tag in tags]
+    )
+
+
+def set_aspect(
+    mce: MetadataChangeEventClass, aspect: Optional[Aspect], aspect_type: Type[Aspect]
+) -> None:
+    """Sets the aspect to the provided aspect, overwriting any previous aspect value that might have existed before.
+    If passed in aspect is None, then the existing aspect value will be removed"""
+    remove_aspect_if_available(mce, aspect_type)
+    if aspect is not None:
+        mce.proposedSnapshot.aspects.append(aspect)  # type: ignore

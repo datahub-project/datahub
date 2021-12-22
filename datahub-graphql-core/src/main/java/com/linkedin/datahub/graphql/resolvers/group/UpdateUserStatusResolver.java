@@ -6,7 +6,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.CorpUserStatus;
-import com.linkedin.entity.client.AspectClient;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -18,10 +18,10 @@ import java.util.concurrent.CompletableFuture;
  */
 public class UpdateUserStatusResolver implements DataFetcher<CompletableFuture<String>> {
 
-  private final AspectClient _aspectClient;
+  private final EntityClient _entityClient;
 
-  public UpdateUserStatusResolver(final AspectClient aspectClient) {
-    _aspectClient = aspectClient;
+  public UpdateUserStatusResolver(final EntityClient entityClient) {
+    _entityClient = entityClient;
   }
 
   @Override
@@ -35,13 +35,13 @@ public class UpdateUserStatusResolver implements DataFetcher<CompletableFuture<S
       // Create ths status aspect
       final com.linkedin.identity.CorpUserStatus statusAspect = new com.linkedin.identity.CorpUserStatus();
       statusAspect.setStatus(newStatus.toString());
-      statusAspect.setLastModified(new AuditStamp().setTime(System.currentTimeMillis()).setActor(Urn.createFromString(context.getActor())));
+      statusAspect.setLastModified(new AuditStamp().setTime(System.currentTimeMillis()).setActor(Urn.createFromString(context.getActorUrn())));
 
       return CompletableFuture.supplyAsync(() -> {
         try {
           final MetadataChangeProposal proposal = new MetadataChangeProposal();
           proposal.setEntityUrn(Urn.createFromString(userUrn));
-          return _aspectClient.ingestProposal(proposal, context.getActor()).getEntity();
+          return _entityClient.ingestProposal(proposal, context.getAuthentication());
         } catch (Exception e) {
           throw new RuntimeException(String.format("Failed to update user status for urn", userUrn), e);
         }

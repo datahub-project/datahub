@@ -50,10 +50,10 @@ public class ListUsersResolver implements DataFetcher<CompletableFuture<ListUser
         try {
           // First, get all policy Urns.
           final ListResult gmsResult =
-              _entityClient.list(Constants.CORP_USER_ENTITY_NAME, Collections.emptyMap(), start, count, context.getActor());
+              _entityClient.list(Constants.CORP_USER_ENTITY_NAME, Collections.emptyMap(), start, count, context.getAuthentication());
 
           // Then, get hydrate all users.
-          final Map<Urn, Entity> entities = _entityClient.batchGet(new HashSet<>(gmsResult.getEntities()), context.getActor());
+          final Map<Urn, Entity> entities = _entityClient.batchGet(new HashSet<>(gmsResult.getEntities()), context.getAuthentication());
 
           // Now that we have entities we can bind this to a result.
           final ListUsersResult result = new ListUsersResult();

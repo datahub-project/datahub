@@ -8,20 +8,23 @@ import com.linkedin.metadata.graph.Edge;
 import com.linkedin.metadata.graph.RelatedEntity;
 import com.linkedin.metadata.graph.RelatedEntitiesResult;
 import com.linkedin.metadata.graph.GraphService;
-import com.linkedin.metadata.query.Condition;
-import com.linkedin.metadata.query.Criterion;
-import com.linkedin.metadata.query.CriterionArray;
-import com.linkedin.metadata.query.Filter;
-import com.linkedin.metadata.query.RelationshipDirection;
-import com.linkedin.metadata.query.RelationshipFilter;
-import com.linkedin.metadata.search.elasticsearch.indexbuilder.IndexBuilder;
+import com.linkedin.metadata.query.filter.Condition;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
+import com.linkedin.metadata.query.filter.Criterion;
+import com.linkedin.metadata.query.filter.CriterionArray;
+import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.query.filter.RelationshipDirection;
+import com.linkedin.metadata.query.filter.RelationshipFilter;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
+import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -48,6 +51,7 @@ public class ElasticSearchGraphService implements GraphService {
   private final IndexConvention _indexConvention;
   private final ESGraphWriteDAO _graphWriteDAO;
   private final ESGraphQueryDAO _graphReadDAO;
+  private final ESIndexBuilder _indexBuilder;
 
   private static final String DOC_DELIMETER = "--";
   public static final String INDEX_NAME = "graph_service_v1";
@@ -76,11 +80,11 @@ public class ElasticSearchGraphService implements GraphService {
         edge.getSource().toString() + DOC_DELIMETER + edge.getRelationshipType() + DOC_DELIMETER + edge.getDestination().toString();
 
     try {
-      byte[] bytesOfRawDocID = rawDocId.getBytes("UTF-8");
+      byte[] bytesOfRawDocID = rawDocId.getBytes(StandardCharsets.UTF_8);
       MessageDigest md = MessageDigest.getInstance("MD5");
       byte[] thedigest = md.digest(bytesOfRawDocID);
-      return thedigest.toString();
-    } catch (NoSuchAlgorithmException | UnsupportedEncodingException e) {
+      return Base64.getEncoder().encodeToString(thedigest);
+    } catch (NoSuchAlgorithmException e) {
       e.printStackTrace();
       return rawDocId;
     }
@@ -147,14 +151,14 @@ public class ElasticSearchGraphService implements GraphService {
     criterion.setField("urn");
     criterion.setValue(urn.toString());
     criterionArray.add(criterion);
-    filter.setCriteria(criterionArray);
+    filter.setOr(new ConjunctiveCriterionArray(ImmutableList.of(new ConjunctiveCriterion().setAnd(criterionArray))));
 
     return filter;
   }
 
   public void removeNode(@Nonnull final Urn urn) {
     Filter urnFilter = createUrnFilter(urn);
-    Filter emptyFilter = new Filter().setCriteria(new CriterionArray());
+    Filter emptyFilter = new Filter().setOr(new ConjunctiveCriterionArray());
     List<String> relationshipTypes = new ArrayList<>();
 
     RelationshipFilter outgoingFilter = new RelationshipFilter().setDirection(RelationshipDirection.OUTGOING);
@@ -187,7 +191,7 @@ public class ElasticSearchGraphService implements GraphService {
       @Nonnull final RelationshipFilter relationshipFilter) {
 
     Filter urnFilter = createUrnFilter(urn);
-    Filter emptyFilter = new Filter().setCriteria(new CriterionArray());
+    Filter emptyFilter = new Filter().setOr(new ConjunctiveCriterionArray());
 
     _graphWriteDAO.deleteByQuery(
         null,
@@ -203,8 +207,8 @@ public class ElasticSearchGraphService implements GraphService {
   public void configure() {
     log.info("Setting up elastic graph index");
     try {
-      new IndexBuilder(searchClient, _indexConvention.getIndexName(INDEX_NAME),
-          GraphRelationshipMappingsBuilder.getMappings(), Collections.emptyMap()).buildIndex();
+      _indexBuilder.buildIndex(_indexConvention.getIndexName(INDEX_NAME),
+          GraphRelationshipMappingsBuilder.getMappings(), Collections.emptyMap());
     } catch (IOException e) {
       e.printStackTrace();
     }

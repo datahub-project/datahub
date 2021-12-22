@@ -2,6 +2,7 @@ import { UserOutlined } from '@ant-design/icons';
 import * as React from 'react';
 import { CorpUser, EntityType, SearchResult } from '../../../types.generated';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
+import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { Preview } from './preview/Preview';
 import UserProfile from './UserProfile';
 
@@ -61,5 +62,9 @@ export class UserEntity implements Entity<CorpUser> {
 
     displayName = (data: CorpUser) => {
         return data.info?.displayName || data.info?.fullName || data.username;
+    };
+
+    getGenericEntityProperties = (user: CorpUser) => {
+        return getDataForEntityType({ data: user, entityType: this.type, getOverrideProperties: (data) => data });
     };
 }

@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers;
 
+import com.datahub.authentication.Authentication;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.element.DataElement;
@@ -8,9 +9,11 @@ import com.linkedin.datahub.graphql.exception.ValidationException;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 
 import com.linkedin.metadata.aspect.VersionedAspect;
-import com.linkedin.metadata.query.Criterion;
-import com.linkedin.metadata.query.CriterionArray;
-import com.linkedin.metadata.query.Filter;
+import com.linkedin.metadata.query.filter.Criterion;
+import com.linkedin.metadata.query.filter.CriterionArray;
+import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import graphql.schema.DataFetchingEnvironment;
 import java.lang.reflect.InvocationTargetException;
 import java.util.stream.Collectors;
@@ -53,8 +56,8 @@ public class ResolverUtils {
     }
 
     @Nonnull
-    public static String getActor(DataFetchingEnvironment environment) {
-        return ((QueryContext) environment.getContext()).getActor();
+    public static Authentication getAuthentication(DataFetchingEnvironment environment) {
+        return ((QueryContext) environment.getContext()).getAuthentication();
     }
 
     @Nonnull
@@ -81,9 +84,9 @@ public class ResolverUtils {
         if (facetFilterInputs == null) {
             return null;
         }
-        return new Filter().setCriteria(new CriterionArray(facetFilterInputs.stream()
+        return new Filter().setOr(new ConjunctiveCriterionArray(new ConjunctiveCriterion().setAnd(new CriterionArray(facetFilterInputs.stream()
             .map(filter -> new Criterion().setField(filter.getField()).setValue(filter.getValue()))
-            .collect(Collectors.toList())));
+            .collect(Collectors.toList())))));
     }
 
     private static Object constructAspectFromDataElement(DataElement aspectDataElement)

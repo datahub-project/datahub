@@ -64,12 +64,14 @@ services:
     image: linkedin/datahub-gms:${DATAHUB_VERSION:-head}
     ports:
     - 8080:8080
+    volumes:
+    - ${HOME}/.datahub/plugins:/etc/datahub/plugins
   elasticsearch:
     container_name: elasticsearch
     environment:
     - discovery.type=single-node
     - xpack.security.enabled=false
-    - ES_JAVA_OPTS=-Xms256m -Xmx256m
+    - ES_JAVA_OPTS=-Xms256m -Xmx256m -Dlog4j2.formatMsgNoLookups=true
     healthcheck:
       retries: 4
       start_period: 2m
@@ -105,7 +107,7 @@ services:
     hostname: kafka-setup
     image: linkedin/datahub-kafka-setup:${DATAHUB_VERSION:-head}
   mysql:
-    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_bin
     container_name: mysql
     environment:
     - MYSQL_DATABASE=datahub

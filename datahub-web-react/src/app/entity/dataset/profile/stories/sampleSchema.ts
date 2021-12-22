@@ -313,3 +313,44 @@ export const sampleSchemaWithPkFk: SchemaMetadata = {
         } as SchemaField,
     ],
 };
+
+export const sampleSchemaWithoutFields: SchemaMetadata | Schema | null = {
+    name: 'MockSchema',
+    platformUrn: 'mock:urn',
+    version: 1,
+    hash: '',
+    fields: [],
+};
+
+export const sampleSchemaWithKeyValueFields: SchemaMetadata | Schema | null = {
+    name: 'MockSchema',
+    platformUrn: 'mock:urn',
+    version: 1,
+    hash: '',
+    fields: [
+        {
+            fieldPath: '[key=True].[version=2.0].id',
+            nullable: true,
+            description: 'the number of items in the order',
+            type: SchemaFieldDataType.Number,
+            nativeDataType: 'number',
+            recursive: false,
+        },
+        {
+            fieldPath: 'count',
+            nullable: true,
+            description: 'the number of items in the order',
+            type: SchemaFieldDataType.Number,
+            nativeDataType: 'number',
+            recursive: false,
+        },
+        {
+            fieldPath: 'cost',
+            nullable: true,
+            description: 'the dollar value of the order',
+            type: SchemaFieldDataType.Number,
+            nativeDataType: 'number',
+            recursive: false,
+        } as SchemaField,
+    ],
+};

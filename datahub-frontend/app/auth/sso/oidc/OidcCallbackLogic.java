@@ -1,5 +1,8 @@
 package auth.sso.oidc;
 
+import client.AuthServiceClient;
+import com.datahub.authentication.Authentication;
+import com.linkedin.common.AuditStamp;
 import com.linkedin.common.CorpGroupUrnArray;
 import com.linkedin.common.CorpuserUrnArray;
 import com.linkedin.common.UrnArray;
@@ -8,9 +11,7 @@ import com.linkedin.common.urn.CorpGroupUrn;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.SetMode;
-import com.linkedin.datahub.graphql.GmsClientFactory;
 import com.linkedin.entity.Entity;
-import com.linkedin.entity.client.AspectClient;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.identity.CorpGroupInfo;
@@ -70,13 +71,20 @@ import static auth.AuthUtils.*;
 @Slf4j
 public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebContext> {
 
-  private static final String SYSTEM_ACTOR = Constants.SYSTEM_ACTOR;
-  private final EntityClient _entityClient = GmsClientFactory.getEntitiesClient();
-  private final AspectClient _aspectClient = GmsClientFactory.getAspectsClient();
   private final SsoManager _ssoManager;
+  private final EntityClient _entityClient;
+  private final Authentication _systemAuthentication;
+  private final AuthServiceClient _authClient;
 
-  public OidcCallbackLogic(final SsoManager ssoManager) {
+  public OidcCallbackLogic(
+      final SsoManager ssoManager,
+      final Authentication systemAuthentication,
+      final EntityClient entityClient,
+      final AuthServiceClient authClient) {
     _ssoManager = ssoManager;
+    _systemAuthentication = systemAuthentication;
+    _entityClient = entityClient;
+    _authClient = authClient;
   }
 
   @Override
@@ -134,12 +142,20 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
         }
         // Update user status to active on login.
         // If we want to prevent certain users from logging in, here's where we'll want to do it.
-        setUserStatus(corpUserUrn, new CorpUserStatus().setStatus(Constants.CORP_USER_STATUS_ACTIVE));
+        setUserStatus(corpUserUrn, new CorpUserStatus()
+            .setStatus(Constants.CORP_USER_STATUS_ACTIVE)
+            .setLastModified(new AuditStamp()
+                .setActor(Urn.createFromString(Constants.SYSTEM_ACTOR))
+                .setTime(System.currentTimeMillis()))
+        );
       } catch (Exception e) {
         log.error("Failed to perform post authentication steps. Redirecting to error page.", e);
         return internalServerError(String.format("Failed to perform post authentication steps. Error message: %s", e.getMessage()));
       }
 
+      // Successfully logged in - Generate GMS login token
+      final String accessToken = _authClient.generateSessionTokenForUser(corpUserUrn.getId());
+      context.getJavaSession().put(ACCESS_TOKEN,  accessToken);
       context.getJavaSession().put(ACTOR, corpUserUrn.toString());
       return result.withCookies(createActorCookie(corpUserUrn.toString(), oidcConfigs.getSessionTtlInHours()));
     }
@@ -185,6 +201,10 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
     String email = profile.getEmail();
     URI picture = profile.getPictureUrl();
     String displayName = profile.getDisplayName();
+    String fullName = (String) profile.getAttribute("name"); // Name claim is sometimes provided, including by Google.
+    if (fullName == null && firstName != null && lastName != null) {
+      fullName = String.format("%s %s", firstName, lastName);
+    }
 
     // TODO: Support custom claims mapping. (e.g. department, title, etc)
 
@@ -192,7 +212,7 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
     userInfo.setActive(true);
     userInfo.setFirstName(firstName, SetMode.IGNORE_NULL);
     userInfo.setLastName(lastName, SetMode.IGNORE_NULL);
-    userInfo.setFullName(String.format("%s %s", firstName, lastName), SetMode.IGNORE_NULL);
+    userInfo.setFullName(fullName, SetMode.IGNORE_NULL);
     userInfo.setEmail(email, SetMode.IGNORE_NULL);
     // If there is a display name, use it. Otherwise fall back to full name.
     userInfo.setDisplayName(displayName == null ? userInfo.getFullName() : displayName, SetMode.IGNORE_NULL);
@@ -219,7 +239,6 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
   private List<CorpGroupSnapshot> extractGroups(CommonProfile profile) {
 
     log.debug(String.format("Attempting to extract groups from OIDC profile %s", profile.getAttributes().toString()));
-
     final OidcConfigs configs = (OidcConfigs) _ssoManager.getSsoProvider().configs();
 
     // First, attempt to extract a list of groups from the profile, using the group name attribute config.
@@ -278,7 +297,7 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
 
     // 1. Check if this user already exists.
     try {
-      final Entity corpUser = _entityClient.get(corpUserSnapshot.getUrn(), SYSTEM_ACTOR);
+      final Entity corpUser = _entityClient.get(corpUserSnapshot.getUrn(), _systemAuthentication);
       final CorpUserSnapshot existingCorpUserSnapshot = corpUser.getValue().getCorpUserSnapshot();
 
       log.debug(String.format("Fetched GMS user with urn %s",corpUserSnapshot.getUrn()));
@@ -289,7 +308,7 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
         // 2. The user does not exist. Provision them.
         final Entity newEntity = new Entity();
         newEntity.setValue(Snapshot.create(corpUserSnapshot));
-        _entityClient.update(newEntity, SYSTEM_ACTOR);
+        _entityClient.update(newEntity, _systemAuthentication);
         log.debug(String.format("Successfully provisioned user %s", corpUserSnapshot.getUrn()));
       }
       log.debug(String.format("User %s already exists. Skipping provisioning", corpUserSnapshot.getUrn()));
@@ -309,7 +328,7 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
     // 1. Check if this user already exists.
     try {
       final Set<Urn> urnsToFetch = corpGroups.stream().map(CorpGroupSnapshot::getUrn).collect(Collectors.toSet());
-      final Map<Urn, Entity> existingGroups = _entityClient.batchGet(urnsToFetch, SYSTEM_ACTOR);
+      final Map<Urn, Entity> existingGroups = _entityClient.batchGet(urnsToFetch, _systemAuthentication);
 
       log.debug(String.format("Fetched GMS groups with urns %s", existingGroups.keySet()));
 
@@ -342,7 +361,7 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
       // Now batch create all entities identified to create.
       _entityClient.batchUpdate(groupsToCreate.stream().map(groupSnapshot ->
           new Entity().setValue(Snapshot.create(groupSnapshot))
-      ).collect(Collectors.toSet()), SYSTEM_ACTOR);
+      ).collect(Collectors.toSet()), _systemAuthentication);
 
       log.debug(String.format("Successfully provisioned groups with urns %s", groupsToCreateUrns));
 
@@ -356,7 +375,7 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
   private void verifyPreProvisionedUser(CorpuserUrn urn) {
     // Validate that the user exists in the system (there is more than just a key aspect for them, as of today).
     try {
-      final Entity corpUser = _entityClient.get(urn, SYSTEM_ACTOR);
+      final Entity corpUser = _entityClient.get(urn, _systemAuthentication);
 
       log.debug(String.format("Fetched GMS user with urn %s", urn));
 
@@ -382,7 +401,7 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
     proposal.setAspectName(Constants.CORP_USER_STATUS_ASPECT_NAME);
     proposal.setAspect(GenericAspectUtils.serializeAspect(newStatus));
     proposal.setChangeType(ChangeType.UPSERT);
-    _aspectClient.ingestProposal(proposal, Constants.SYSTEM_ACTOR).getEntity();
+    _entityClient.ingestProposal(proposal, _systemAuthentication);
   }
 
   private Optional<String> extractRegexGroup(final String patternStr, final String target) {

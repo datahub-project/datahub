@@ -10,7 +10,7 @@ from looker_sdk.sdk.api31.models import DBConnection
 
 from datahub.configuration.common import PipelineExecutionError
 from datahub.ingestion.run.pipeline import Pipeline
-from tests.test_helpers import mce_helpers
+from tests.test_helpers import mce_helpers  # noqa: F401
 
 logging.getLogger("lkml").setLevel(logging.INFO)
 

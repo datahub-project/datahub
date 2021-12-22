@@ -39,7 +39,8 @@ public class AddTagResolver implements DataFetcher<CompletableFuture<Boolean>> {
           input.getSubResource(),
           input.getSubResourceType(),
           "tag",
-          _entityService
+          _entityService,
+          false
       );
       try {
 
@@ -49,7 +50,7 @@ public class AddTagResolver implements DataFetcher<CompletableFuture<Boolean>> {
         }
 
         log.info("Adding Tag. input: {}", input.toString());
-        Urn actor = CorpuserUrn.createFromString(((QueryContext) environment.getContext()).getActor());
+        Urn actor = CorpuserUrn.createFromString(((QueryContext) environment.getContext()).getActorUrn());
         LabelUtils.addTagToTarget(
             tagUrn,
             targetUrn,
