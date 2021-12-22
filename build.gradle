@@ -137,7 +137,7 @@ project.ext.externalDependency = [
     'testContainersElasticsearch': 'org.testcontainers:elasticsearch:1.15.3',
     'zookeeper': 'org.apache.zookeeper:zookeeper:3.4.14',
     'jsonSchemaInferrer': 'com.github.saasquatch:json-schema-inferrer:0.1.4',
-    'commonsValidator': 'commons-validator:commons-validator:1.7'
+    'commonsValidator': 'commons-validator:commons-validator:1.7',
     'wiremock':'com.github.tomakehurst:wiremock:2.10.0',    
 ]
 
