@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
-import { Button, Divider, Empty, List, Typography } from 'antd';
+import { Button, Divider, Empty, Typography } from 'antd';
 import { RocketOutlined } from '@ant-design/icons';
-
 import { RecommendationModule as RecommendationModuleType, ScenarioType } from '../../types.generated';
 import { useListRecommendationsQuery } from '../../graphql/recommendations.generated';
 import { RecommendationModule } from '../recommendations/RecommendationModule';
@@ -42,9 +41,20 @@ const BrowseCardContainer = styled.div`
     flex-wrap: wrap;
 `;
 
+const ConnectSourcesButton = styled(Button)`
+    margin: 16px;
+`;
+
 const NoMetadataEmpty = styled(Empty)`
     font-size: 18px;
     color: ${ANTD_GRAY[8]};
+`;
+
+const NoMetadataContainer = styled.div`
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
 `;
 
 type Props = {
@@ -117,25 +127,12 @@ export const HomePageRecommendations = ({ userUrn }: Props) => {
                             )}
                         </BrowseCardContainer>
                     ) : (
-                        <List
-                            locale={{
-                                emptyText: (
-                                    <div
-                                        style={{
-                                            display: 'flex',
-                                            flexDirection: 'column',
-                                            justifyContent: 'center',
-                                            alignItems: 'center',
-                                        }}
-                                    >
-                                        <NoMetadataEmpty description="No Metadata Found 😢" />
-                                        <Button style={{ margin: 16 }} onClick={() => setShowGettingStartedModal(true)}>
-                                            <RocketOutlined /> Connect your data sources
-                                        </Button>
-                                    </div>
-                                ),
-                            }}
-                        />
+                        <NoMetadataContainer>
+                            <NoMetadataEmpty description="No Metadata Found 😢" />
+                            <ConnectSourcesButton onClick={() => setShowGettingStartedModal(true)}>
+                                <RocketOutlined /> Connect your data sources
+                            </ConnectSourcesButton>
+                        </NoMetadataContainer>
                     )}
                 </RecommendationContainer>
             )}
