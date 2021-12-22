@@ -53,7 +53,7 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
     scheme = "snowflake"
 
     username: Optional[str] = None
-    password: Optional[str] = None
+    password: Optional[pydantic.SecretStr] = pydantic.Field(default=None, exclude=True)
     host_port: str
     warehouse: Optional[str]
     role: Optional[str]
@@ -63,7 +63,7 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
         return make_sqlalchemy_uri(
             self.scheme,
             self.username,
-            self.password,
+            self.password.get_secret_value() if self.password else None,
             self.host_port,
             f'"{database}"' if database is not None else database,
             uri_opts={
@@ -306,3 +306,9 @@ QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name, upstream_table_na
         ):
             return False
         return True
+
+    # Stateful Ingestion specific overrides
+    # NOTE: There is no special state associated with this source yet than what is provided by sql_common.
+    def get_platform_instance_id(self) -> str:
+        """Overrides the source identifier for stateful ingestion."""
+        return self.config.host_port

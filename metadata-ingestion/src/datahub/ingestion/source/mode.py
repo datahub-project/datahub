@@ -1,12 +1,15 @@
 import re
+import time
 from functools import lru_cache
 from typing import Dict, Iterable, Optional, Tuple, Union
 
 import dateutil.parser as dp
 import requests
+import tenacity
 from pydantic import validator
 from requests.models import HTTPBasicAuth, HTTPError
 from sqllineage.runner import LineageRunner
+from tenacity import retry_if_exception_type, stop_after_attempt, wait_exponential
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigModel
@@ -36,6 +39,12 @@ from datahub.metadata.schema_classes import (
 from datahub.utilities import config_clean
 
 
+class ModeAPIConfig(ConfigModel):
+    retry_backoff_multiplier: Union[int, float] = 2
+    max_retry_interval: Union[int, float] = 10
+    max_attempts: int = 5
+
+
 class ModeConfig(ConfigModel):
     # See https://mode.com/developer/api-reference/authentication/
     # for authentication
@@ -45,11 +54,16 @@ class ModeConfig(ConfigModel):
     workspace: Optional[str] = None
     default_schema: str = "public"
     owner_username_instead_of_email: Optional[bool] = True
+    api_options: ModeAPIConfig = ModeAPIConfig()
     env: str = builder.DEFAULT_ENV
 
     @validator("connect_uri")
     def remove_trailing_slash(cls, v):
         return config_clean.remove_trailing_slashes(v)
+
+
+class HTTPError429(HTTPError):
+    pass
 
 
 class ModeSource(Source):
@@ -76,8 +90,7 @@ class ModeSource(Source):
 
         # Test the connection
         try:
-            test_response = self.session.get(f"{self.config.connect_uri}/api/account")
-            test_response.raise_for_status()
+            self._get_request_json(f"{self.config.connect_uri}/api/account")
         except HTTPError as http_error:
             self.report.report_failure(
                 key="mode-session",
@@ -100,23 +113,26 @@ class ModeSource(Source):
             urn=dashboard_urn,
             aspects=[],
         )
-        modified_actor = builder.make_user_urn(
-            self._get_creator(
-                report_info.get("_links", {}).get("creator", {}).get("href", "")
+
+        last_modified = ChangeAuditStamps()
+        creator = self._get_creator(
+            report_info.get("_links", {}).get("creator", {}).get("href", "")
+        )
+        if creator is not None:
+            modified_actor = builder.make_user_urn(creator)
+            modified_ts = int(
+                dp.parse(f"{report_info.get('last_saved_at', 'now')}").timestamp()
+                * 1000
             )
-        )
-        modified_ts = int(
-            dp.parse(f"{report_info.get('last_saved_at', 'now')}").timestamp() * 1000
-        )
-        created_ts = int(
-            dp.parse(f"{report_info.get('created_at', 'now')}").timestamp() * 1000
-        )
-        title = report_info.get("name", "") or ""
-        description = report_info.get("description", "") or ""
-        last_modified = ChangeAuditStamps(
-            created=AuditStamp(time=created_ts, actor=modified_actor),
-            lastModified=AuditStamp(time=modified_ts, actor=modified_actor),
-        )
+            created_ts = int(
+                dp.parse(f"{report_info.get('created_at', 'now')}").timestamp() * 1000
+            )
+            title = report_info.get("name", "") or ""
+            description = report_info.get("description", "") or ""
+            last_modified = ChangeAuditStamps(
+                created=AuditStamp(time=created_ts, actor=modified_actor),
+                lastModified=AuditStamp(time=modified_ts, actor=modified_actor),
+            )
 
         dashboard_info_class = DashboardInfoClass(
             description=description,
@@ -153,8 +169,8 @@ class ModeSource(Source):
 
     @lru_cache(maxsize=None)
     def _get_ownership(self, user: str) -> Optional[OwnershipClass]:
-        owner_urn = builder.make_user_urn(user)
-        if owner_urn is not None:
+        if user is not None:
+            owner_urn = builder.make_user_urn(user)
             ownership: OwnershipClass = OwnershipClass(
                 owners=[
                     OwnerClass(
@@ -168,13 +184,22 @@ class ModeSource(Source):
         return None
 
     @lru_cache(maxsize=None)
-    def _get_creator(self, href: str) -> str:
-        user = self.session.get(f"{self.config.connect_uri}{href}")
-        user_json = user.json()
-        if self.config.owner_username_instead_of_email:
-            return user_json.get("username", "unknown")
-        else:
-            return user_json.get("email", "unknown")
+    def _get_creator(self, href: str) -> Optional[str]:
+        user = None
+        try:
+            user_json = self._get_request_json(f"{self.config.connect_uri}{href}")
+            user = (
+                user_json.get("username")
+                if self.config.owner_username_instead_of_email
+                else user_json.get("email")
+            )
+        except HTTPError as http_error:
+            self.report.report_failure(
+                key="mode-user",
+                reason=f"Unable to retrieve user for {href}, "
+                f"Reason: {str(http_error)}",
+            )
+        return user
 
     def _get_chart_urns(self, report_token: str) -> list:
         chart_urns = []
@@ -193,9 +218,7 @@ class ModeSource(Source):
     def _get_space_name_and_tokens(self) -> dict:
         space_info = {}
         try:
-            workspace_response = self.session.get(f"{self.workspace_uri}/spaces")
-            workspace_response.raise_for_status()
-            payload = workspace_response.json()
+            payload = self._get_request_json(f"{self.workspace_uri}/spaces")
             spaces = payload.get("_embedded", {}).get("spaces", {})
 
             for s in spaces:
@@ -334,9 +357,19 @@ class ModeSource(Source):
     def _get_platform_and_dbname(
         self, data_source_id: int
     ) -> Union[Tuple[str, str], Tuple[None, None]]:
-        ds_response = self.session.get(f"{self.workspace_uri}/data_sources")
-        ds_json = ds_response.json()
-        data_sources = ds_json.get("_embedded", {}).get("data_sources", {})
+
+        data_sources = []
+        try:
+            ds_json = self._get_request_json(f"{self.workspace_uri}/data_sources")
+            data_sources = ds_json.get("_embedded", {}).get("data_sources", [])
+        except HTTPError as http_error:
+            self.report.report_failure(
+                key=f"mode-datasource-{data_source_id}",
+                reason=f"No data sources found for datasource id: "
+                f"{data_source_id}, "
+                f"Reason: {str(http_error)}",
+            )
+
         if not data_sources:
             self.report.report_failure(
                 key=f"mode-datasource-{data_source_id}",
@@ -398,9 +431,9 @@ class ModeSource(Source):
     @lru_cache(maxsize=None)
     def _get_definition(self, definition_name):
         try:
-            definition_response = self.session.get(f"{self.workspace_uri}/definitions")
-            definition_response.raise_for_status()
-            definition_json = definition_response.json()
+            definition_json = self._get_request_json(
+                f"{self.workspace_uri}/definitions"
+            )
             definitions = definition_json.get("_embedded", {}).get("definitions", [])
             for definition in definitions:
                 if definition.get("name", "") == definition_name:
@@ -458,21 +491,22 @@ class ModeSource(Source):
             aspects=[],
         )
 
-        modified_actor = builder.make_user_urn(
-            self._get_creator(
-                chart_data.get("_links", {}).get("creator", {}).get("href", "")
+        last_modified = ChangeAuditStamps()
+        creator = self._get_creator(
+            chart_data.get("_links", {}).get("creator", {}).get("href", "")
+        )
+        if creator is not None:
+            modified_actor = builder.make_user_urn(creator)
+            created_ts = int(
+                dp.parse(chart_data.get("created_at", "now")).timestamp() * 1000
             )
-        )
-        created_ts = int(
-            dp.parse(chart_data.get("created_at", "now")).timestamp() * 1000
-        )
-        modified_ts = int(
-            dp.parse(chart_data.get("updated_at", "now")).timestamp() * 1000
-        )
-        last_modified = ChangeAuditStamps(
-            created=AuditStamp(time=created_ts, actor=modified_actor),
-            lastModified=AuditStamp(time=modified_ts, actor=modified_actor),
-        )
+            modified_ts = int(
+                dp.parse(chart_data.get("updated_at", "now")).timestamp() * 1000
+            )
+            last_modified = ChangeAuditStamps(
+                created=AuditStamp(time=created_ts, actor=modified_actor),
+                lastModified=AuditStamp(time=modified_ts, actor=modified_actor),
+            )
 
         chart_detail = (
             chart_data.get("view", {})
@@ -538,11 +572,9 @@ class ModeSource(Source):
     def _get_reports(self, space_token: str) -> list:
         reports = []
         try:
-            reports_response = self.session.get(
+            reports_json = self._get_request_json(
                 f"{self.workspace_uri}/spaces/{space_token}/reports"
             )
-            reports_response.raise_for_status()
-            reports_json = reports_response.json()
             reports = reports_json.get("_embedded", {}).get("reports", {})
         except HTTPError as http_error:
             self.report.report_failure(
@@ -556,11 +588,9 @@ class ModeSource(Source):
     def _get_queries(self, report_token: str) -> list:
         queries = []
         try:
-            queries_response = self.session.get(
+            queries_json = self._get_request_json(
                 f"{self.workspace_uri}/reports/{report_token}/queries"
             )
-            queries_response.raise_for_status()
-            queries_json = queries_response.json()
             queries = queries_json.get("_embedded", {}).get("queries", {})
         except HTTPError as http_error:
             self.report.report_failure(
@@ -574,12 +604,10 @@ class ModeSource(Source):
     def _get_charts(self, report_token: str, query_token: str) -> list:
         charts = []
         try:
-            chart_response = self.session.get(
+            charts_json = self._get_request_json(
                 f"{self.workspace_uri}/reports/{report_token}"
                 f"/queries/{query_token}/charts"
             )
-            chart_response.raise_for_status()
-            charts_json = chart_response.json()
             charts = charts_json.get("_embedded", {}).get("charts", {})
         except HTTPError as http_error:
             self.report.report_failure(
@@ -590,6 +618,36 @@ class ModeSource(Source):
                 f"Reason: {str(http_error)}",
             )
         return charts
+
+    def _get_request_json(self, url: str) -> Dict:
+        r = tenacity.Retrying(
+            wait=wait_exponential(
+                multiplier=self.config.api_options.retry_backoff_multiplier,
+                max=self.config.api_options.max_retry_interval,
+            ),
+            retry=retry_if_exception_type(HTTPError429),
+            stop=stop_after_attempt(self.config.api_options.max_attempts),
+        )
+
+        @r.wraps
+        def get_request():
+            try:
+                response = self.session.get(url)
+                response.raise_for_status()
+                return response.json()
+            except HTTPError as http_error:
+                error_response = http_error.response
+                if error_response.status_code == 429:
+                    # respect Retry-After
+                    sleep_time = error_response.headers.get("retry-after")
+                    if sleep_time is not None:
+                        time.sleep(sleep_time)
+                    raise HTTPError429
+
+                raise http_error
+            return {}
+
+        return get_request()
 
     def emit_dashboard_mces(self) -> Iterable[MetadataWorkUnit]:
         for space_token, space_name in self.space_tokens.items():

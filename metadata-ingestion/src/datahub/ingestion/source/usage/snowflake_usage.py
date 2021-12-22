@@ -1,9 +1,8 @@
 import collections
-import dataclasses
 import json
 import logging
 from datetime import datetime, timezone
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional, cast
 
 import pydantic.dataclasses
 from pydantic import BaseModel
@@ -14,9 +13,18 @@ import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.time_window_config import get_time_bucket
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.snowflake import BaseSnowflakeConfig
+from datahub.ingestion.source.state.checkpoint import Checkpoint
+from datahub.ingestion.source.state.stateful_ingestion_base import (
+    JobId,
+    StatefulIngestionConfig,
+    StatefulIngestionConfigBase,
+    StatefulIngestionSourceBase,
+)
+from datahub.ingestion.source.state.usage_common_state import BaseUsageCheckpointState
 from datahub.ingestion.source.usage.usage_common import (
     BaseUsageConfig,
     GenericAggregatedDataset,
@@ -114,7 +122,19 @@ class SnowflakeJoinedAccessEvent(PermissiveModel):
     role_name: Optional[str]
 
 
-class SnowflakeUsageConfig(BaseSnowflakeConfig, BaseUsageConfig):
+class SnowflakeStatefulIngestionConfig(StatefulIngestionConfig):
+    """
+    Specialization of basic StatefulIngestionConfig to adding custom config.
+    This will be used to override the stateful_ingestion config param of StatefulIngestionConfigBase
+    in the SnowflakeUsageConfig.
+    """
+
+    ignore_old_state = pydantic.Field(False, alias="force_rerun")
+
+
+class SnowflakeUsageConfig(
+    BaseSnowflakeConfig, BaseUsageConfig, StatefulIngestionConfigBase
+):
     env: str = builder.DEFAULT_ENV
     options: dict = {}
     database_pattern: AllowDenyPattern = AllowDenyPattern(
@@ -124,6 +144,7 @@ class SnowflakeUsageConfig(BaseSnowflakeConfig, BaseUsageConfig):
     table_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
     view_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
     apply_view_usage_to_tables: bool = False
+    stateful_ingestion: Optional[SnowflakeStatefulIngestionConfig] = None
 
     @pydantic.validator("role", always=True)
     def role_accountadmin(cls, v):
@@ -140,42 +161,121 @@ class SnowflakeUsageConfig(BaseSnowflakeConfig, BaseUsageConfig):
         return super().get_sql_alchemy_url(database="snowflake")
 
 
-@dataclasses.dataclass
-class SnowflakeUsageSource(Source):
-    config: SnowflakeUsageConfig
-    report: SourceReport = dataclasses.field(default_factory=SourceReport)
+class SnowflakeUsageSource(StatefulIngestionSourceBase):
+    def __init__(self, config: SnowflakeUsageConfig, ctx: PipelineContext):
+        super(SnowflakeUsageSource, self).__init__(config, ctx)
+        self.config: SnowflakeUsageConfig = config
+        self.report: SourceReport = SourceReport()
 
     @classmethod
     def create(cls, config_dict, ctx):
         config = SnowflakeUsageConfig.parse_obj(config_dict)
-        return cls(ctx, config)
+        return cls(config, ctx)
+
+    # Stateful Ingestion Overrides.
+    def is_checkpointing_enabled(self, job_id: JobId) -> bool:
+        if job_id == self.get_default_ingestion_job_id():
+            assert self.config.stateful_ingestion
+            return self.config.stateful_ingestion.enabled
+        return False
+
+    def get_default_ingestion_job_id(self) -> JobId:
+        """
+        Default ingestion job name for snowflake_usage.
+        """
+        return JobId("snowflake_usage_ingestion")
+
+    def get_platform_instance_id(self) -> str:
+        return self.config.host_port
+
+    def create_checkpoint(self, job_id: JobId) -> Optional[Checkpoint]:
+        """
+        Create the custom checkpoint with empty state for the job.
+        """
+        assert self.ctx.pipeline_name
+        if job_id == self.get_default_ingestion_job_id():
+            return Checkpoint(
+                job_name=job_id,
+                pipeline_name=self.ctx.pipeline_name,
+                platform_instance_id=self.get_platform_instance_id(),
+                run_id=self.ctx.run_id,
+                config=self.config,
+                state=BaseUsageCheckpointState(
+                    begin_timestamp_millis=int(
+                        self.config.start_time.timestamp() * 1000
+                    ),
+                    end_timestamp_millis=int(self.config.end_time.timestamp() * 1000),
+                ),
+            )
+        return None
+
+    def _should_skip_this_run(self) -> bool:
+        # Check if forced rerun.
+        if (
+            self.config.stateful_ingestion
+            and self.config.stateful_ingestion.ignore_old_state
+        ):
+            return False
+        # Determine from the last check point state
+        last_successful_pipeline_run_end_time_millis: Optional[int] = None
+        last_checkpoint = self.get_last_checkpoint(
+            self.get_default_ingestion_job_id(), BaseUsageCheckpointState
+        )
+        if last_checkpoint and last_checkpoint.state:
+            state = cast(BaseUsageCheckpointState, last_checkpoint.state)
+            last_successful_pipeline_run_end_time_millis = state.end_timestamp_millis
+
+        if (
+            last_successful_pipeline_run_end_time_millis is not None
+            and int(self.config.start_time.timestamp() * 1000)
+            <= last_successful_pipeline_run_end_time_millis
+        ):
+            logger.info(
+                f"Skippig this run, since the last run's bucket duration end: "
+                f"{datetime.fromtimestamp(last_successful_pipeline_run_end_time_millis/1000, tz=timezone.utc)}"
+                f" is later than the current start_time: {self.config.start_time}"
+            )
+            return True
+        return False
+
+    def _get_last_successful_run_end(self) -> Optional[int]:
+        last_checkpoint = self.get_last_checkpoint(
+            self.get_default_ingestion_job_id(), BaseUsageCheckpointState
+        )
+        if last_checkpoint and last_checkpoint.state:
+            state = cast(BaseUsageCheckpointState, last_checkpoint.state)
+            return state.end_timestamp_millis
+        return None
+
+    def _init_checkpoints(self):
+        self.get_current_checkpoint(self.get_default_ingestion_job_id())
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        engine = self._make_sql_engine()
-
-        access_events = self._get_snowflake_history(
-            SNOWFLAKE_USAGE_SQL_TEMPLATE, engine
-        )
-
-        operation_aspect_work_units = self._get_operation_aspect_work_units(
-            access_events
-        )
-        for wu in operation_aspect_work_units:
-            self.report.report_workunit(wu)
-            yield wu
-
-        aggregated_info = self._aggregate_access_events(access_events)
-
-        for time_bucket in aggregated_info.values():
-            for aggregate in time_bucket.values():
-                wu = self._make_usage_stat(aggregate)
+        skip_this_run: bool = self._should_skip_this_run()
+        if not skip_this_run:
+            # Initialize the checkpoints
+            self._init_checkpoints()
+            # Generate the workunits.
+            access_events = self._get_snowflake_history()
+            operation_aspect_work_units = self._get_operation_aspect_work_units(
+                access_events
+            )
+            for wu in operation_aspect_work_units:
                 self.report.report_workunit(wu)
                 yield wu
+            aggregated_info = self._aggregate_access_events(access_events)
 
-    def _make_query(self, query: str) -> str:
-        return query.format(
-            start_time_millis=int(self.config.start_time.timestamp() * 1000),
-            end_time_millis=int(self.config.end_time.timestamp() * 1000),
+            for time_bucket in aggregated_info.values():
+                for aggregate in time_bucket.values():
+                    wu = self._make_usage_stat(aggregate)
+                    self.report.report_workunit(wu)
+                    yield wu
+
+    def _make_usage_query(self) -> str:
+        start_time = int(self.config.start_time.timestamp() * 1000)
+        end_time = int(self.config.end_time.timestamp() * 1000)
+        return SNOWFLAKE_USAGE_SQL_TEMPLATE.format(
+            start_time_millis=start_time, end_time_millis=end_time
         )
 
     def _make_sql_engine(self) -> Engine:
@@ -184,10 +284,9 @@ class SnowflakeUsageSource(Source):
         engine = create_engine(url, **self.config.options)
         return engine
 
-    def _get_snowflake_history(
-        self, initial_query: str, engine: Engine
-    ) -> Iterable[SnowflakeJoinedAccessEvent]:
-        query = self._make_query(initial_query)
+    def _get_snowflake_history() -> Iterable[SnowflakeJoinedAccessEvent]:
+        query = self._make_usage_query
+        engine = self._make_sql_engine()
 
         results = engine.execute(query)
 
@@ -332,7 +431,7 @@ class SnowflakeUsageSource(Source):
                     AggregatedDataset(bucket_start_time=floored_ts, resource=resource),
                 )
                 agg_bucket.add_read_entry(
-                    event.email if event.email else "UNKNOWN",
+                    event.email,
                     event.query_text,
                     [colRef.columnName.lower() for colRef in object.columns]
                     if object.columns is not None
@@ -354,4 +453,5 @@ class SnowflakeUsageSource(Source):
         return self.report
 
     def close(self):
-        pass
+        # Checkpoint this run
+        self.commit_checkpoints()
