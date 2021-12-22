@@ -193,8 +193,10 @@ class BigQueryConfig(BaseTimeWindowConfig, SQLAlchemyConfig):
 
         if self.credential:
             self.credentials_path = create_credential_temp_file(self.credential)
-            logger.debug(f"Creating temporary credential file at {self.credentials_path}")
-            os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = self.credentials_path
+            logger.debug(
+                f"Creating temporary credential file at {self.credentials_path}"
+            )
+            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = self.credentials_path
 
     def get_sql_alchemy_url(self):
         if self.project_id:
@@ -524,9 +526,7 @@ class BigQuerySource(SQLAlchemySource):
 
     # We can't use close as it is not called if the ingestion is not successful
     def __del__(self):
-        if (
-                self.config.credentials_path
-        ):
+        if self.config.credentials_path:
             logger.debug(
                 f"Deleting temporary credential file at {self.config.credentials_path}"
             )
