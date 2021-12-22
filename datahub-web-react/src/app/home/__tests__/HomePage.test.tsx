@@ -1,29 +1,44 @@
 import React from 'react';
+import axios from 'axios';
 import { render, waitFor, fireEvent } from '@testing-library/react';
 import { MockedProvider } from '@apollo/client/testing';
 import { HomePage } from '../HomePage';
 import { mocks } from '../../../Mocks';
 import TestPageContainer from '../../../utils/test-utils/TestPageContainer';
-import axios, { AxiosResponse } from 'axios';
 
 jest.mock('axios');
 
 describe('HomePage', () => {
-    const mock_response = 
-        {
-            message: 'hello-world',
-            timestamp: 1000000000,            
-        };
-    const mockedResponse: AxiosResponse = {
-        data: mock_response,
-        status: 200,
-        statusText: 'OK',
-        headers: {},
-        config: {},
-        };
-        // Make the mock return the custom axios response
-        mockedAxios.get.mockResolvedValueOnce(mockedResponse);
+    const mockResponse = {
+        message: 'hello world',
+        timestamp: 1000000000,
+    };
+
+    it('renders with banner', async () => {
+        const mockPost: jest.SpyInstance = jest.spyOn(axios, 'get');
+        mockPost.mockImplementation(() =>
+            Promise.resolve({
+                data: mockResponse,
+            }),
+        );
+        const { getByText } = render(
+            <MockedProvider mocks={mocks} addTypename={false}>
+                <TestPageContainer>
+                    <HomePage />
+                </TestPageContainer>
+            </MockedProvider>,
+        );
+        expect(axios.get).toBeCalledTimes(1);
+        await waitFor(() => expect(getByText('hello world')).toBeInTheDocument());
+    });
+
     it('renders', async () => {
+        const mockPost: jest.SpyInstance = jest.spyOn(axios, 'get');
+        mockPost.mockImplementation(() =>
+            Promise.resolve({
+                data: mockResponse,
+            }),
+        );
         const { getByTestId } = render(
             <MockedProvider mocks={mocks} addTypename={false}>
                 <TestPageContainer>
@@ -35,6 +50,12 @@ describe('HomePage', () => {
     });
 
     it('renders browsable entities', async () => {
+        const mockPost: jest.SpyInstance = jest.spyOn(axios, 'get');
+        mockPost.mockImplementation(() =>
+            Promise.resolve({
+                data: mockResponse,
+            }),
+        );
         const { getByText } = render(
             <MockedProvider
                 mocks={mocks}
@@ -53,6 +74,12 @@ describe('HomePage', () => {
     });
 
     it('renders autocomplete results', async () => {
+        const mockPost: jest.SpyInstance = jest.spyOn(axios, 'get');
+        mockPost.mockImplementation(() =>
+            Promise.resolve({
+                data: mockResponse,
+            }),
+        );
         const { getByTestId, queryAllByText } = render(
             <MockedProvider
                 mocks={mocks}
@@ -76,19 +103,12 @@ describe('HomePage', () => {
     });
 
     it('renders search suggestions', async () => {
-        const { getByText, queryAllByText } = render(
-            <MockedProvider mocks={mocks} addTypename>
-                <TestPageContainer>
-                    <HomePage />
-                </TestPageContainer>
-            </MockedProvider>,
+        const mockPost: jest.SpyInstance = jest.spyOn(axios, 'get');
+        mockPost.mockImplementation(() =>
+            Promise.resolve({
+                data: mockResponse,
+            }),
         );
-        await waitFor(() => expect(getByText('Try searching for')).toBeInTheDocument());
-        expect(queryAllByText('Yet Another Dataset').length).toBeGreaterThanOrEqual(1);
-        expect(queryAllByText('Fourth Test Dataset').length).toBeGreaterThanOrEqual(1);
-    });
-
-    it('renders the announcement banner', async () => {
         const { getByText, queryAllByText } = render(
             <MockedProvider mocks={mocks} addTypename>
                 <TestPageContainer>
