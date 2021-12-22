@@ -1,0 +1,47 @@
+version: 2.1
+
+orbs:
+  aws-cli: circleci/aws-cli@0.1.8
+  aws-ecr: circleci/aws-ecr@6.7.0
+
+# Depends on the following ENV vars:
+#
+#   * AWS_ACCESS_KEY_ID
+#   * AWS_SECRET_ACCESS_KEY
+#   * AWS_DEFAULT_REGION
+#   * AWS_REGION
+#   * AWS_ECR_ACCOUNT_URL
+#   * GITHUB_DEPLOY_TOKEN_USER
+#   * GITHUB_DEPLOY_TOKEN_SECRET
+jobs:
+  build_and_test:
+    environment:
+      DOCKER_BUILDKIT: 1
+    docker:
+      - image: cimg/python:3.7.7-node
+
+    steps:
+      - checkout
+      - aws-cli/install
+      - aws-cli/configure
+      - setup_remote_docker:
+          # https://support.circleci.com/hc/en-us/articles/360050934711-Docker-build-fails-with-EPERM-operation-not-permitted-copyfile-when-using-node-14-9-0-or-later-
+          version: 20.10.2
+          docker_layer_caching: true
+      - run:
+          name: Authenticate and loginto ECR
+          command: |
+            echo 'INFO: Authenticating ECR credentials'
+            LOGIN=$(aws ecr get-login --no-include-email)
+            echo 'INFO: Logging into AWS ECR'
+            eval $LOGIN
+      - run:
+          name: Set production Env
+          command: |
+            export PRODUCTION=true
+
+workflows:
+  version: 2
+  build_and_test_workflow:
+    jobs:
+      - build_and_test
