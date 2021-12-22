@@ -19,7 +19,7 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @RequiredArgsConstructor
-public class RESTEmitter {
+public class RestEmitter {
 
   private static final JacksonDataTemplateCodec DATA_TEMPLATE_CODEC = new JacksonDataTemplateCodec();
   private static final int DEFAULT_CONNECT_TIMEOUT_SEC = 30;
@@ -87,20 +87,20 @@ public class RESTEmitter {
       return true;
   }
 
-  public static RESTEmitter create(String gmsUrl) {
-    return new RESTEmitter(gmsUrl, DEFAULT_CONNECT_TIMEOUT_SEC, DEFAULT_READ_TIMEOUT_SEC, null);
+  public static RestEmitter create(String gmsUrl) {
+    return new RestEmitter(gmsUrl, DEFAULT_CONNECT_TIMEOUT_SEC, DEFAULT_READ_TIMEOUT_SEC, null);
   }
 
-  public static RESTEmitter create(String gmsUrl, int connectTimeoutSec, int readTimeoutSec) {
-    return new RESTEmitter(gmsUrl, connectTimeoutSec, readTimeoutSec, null);
+  public static RestEmitter create(String gmsUrl, int connectTimeoutSec, int readTimeoutSec) {
+    return new RestEmitter(gmsUrl, connectTimeoutSec, readTimeoutSec, null);
   }
 
-  public static RESTEmitter create(String gmsUrl, String token) {
-    return new RESTEmitter(gmsUrl, DEFAULT_CONNECT_TIMEOUT_SEC, DEFAULT_READ_TIMEOUT_SEC, token);
+  public static RestEmitter create(String gmsUrl, String token) {
+    return new RestEmitter(gmsUrl, DEFAULT_CONNECT_TIMEOUT_SEC, DEFAULT_READ_TIMEOUT_SEC, token);
   }
 
-  public static RESTEmitter create(String gmsUrl, int connectTimeoutSec, int readTimeoutSec, String token) {
-    return new RESTEmitter(gmsUrl, connectTimeoutSec, readTimeoutSec, token);
+  public static RestEmitter create(String gmsUrl, int connectTimeoutSec, int readTimeoutSec, String token) {
+    return new RestEmitter(gmsUrl, connectTimeoutSec, readTimeoutSec, token);
   }
 
 }

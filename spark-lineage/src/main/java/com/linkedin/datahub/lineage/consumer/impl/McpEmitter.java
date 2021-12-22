@@ -13,19 +13,19 @@ import com.linkedin.datahub.lineage.spark.model.LineageConsumer;
 import com.linkedin.datahub.lineage.spark.model.LineageEvent;
 import com.linkedin.mxe.MetadataChangeProposal;
 
-import datahub.client.RESTEmitter;
+import datahub.client.RestEmitter;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-public class MCPEmitter implements LineageConsumer {
+public class McpEmitter implements LineageConsumer {
 
   private static final String GMS_URL_KEY = "spark.datahub.rest.server";
   private static final String SENTINEL = "moot";
 
-  private ConcurrentHashMap<String, RESTEmitter> singleton = new ConcurrentHashMap<>();
+  private ConcurrentHashMap<String, RestEmitter> singleton = new ConcurrentHashMap<>();
 
   private void emit(List<MetadataChangeProposal> mcps) {
-    RESTEmitter emitter = emitter();
+    RestEmitter emitter = emitter();
     if (emitter != null) {
       mcps.forEach(mcp -> {
         log.debug("Emitting \n" + mcp);
@@ -45,13 +45,13 @@ public class MCPEmitter implements LineageConsumer {
 
   // TODO ideally the impl here should not be tied to Spark; the LineageConsumer
   // API needs tweaking to include configs
-  private RESTEmitter emitter() {
+  private RestEmitter emitter() {
     singleton.computeIfAbsent(SENTINEL, x -> {
       SparkConf conf = SparkEnv.get().conf();
       if (conf.contains(GMS_URL_KEY)) {
         String gmsUrl = conf.get(GMS_URL_KEY);
         log.debug("REST emitter configured with GMS url " + gmsUrl);
-        return RESTEmitter.create(gmsUrl);
+        return RestEmitter.create(gmsUrl);
       }
 
       log.error("GMS URL not configured.");
