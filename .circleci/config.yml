@@ -45,7 +45,6 @@ jobs:
           path: .
           repo: dataportal-gms
           tag: $CIRCLE_SHA1
-          extra-build-args: --secret id=github_token,src=secrets/github_token --progress=plain
 
 workflows:
   version: 2
