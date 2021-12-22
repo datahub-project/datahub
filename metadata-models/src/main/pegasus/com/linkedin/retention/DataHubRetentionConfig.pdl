@@ -1,0 +1,8 @@
+namespace com.linkedin.retention
+
+@Aspect = {
+  "name": "dataHubRetentionConfig"
+}
+record DataHubRetentionConfig {
+  retention: Retention
+}

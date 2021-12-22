@@ -39,6 +39,7 @@ class PipelineConfig(ConfigModel):
     transformers: Optional[List[DynamicTypedConfig]]
     run_id: str = "__DEFAULT_RUN_ID"
     datahub_api: Optional[DatahubClientConfig] = None
+    pipeline_name: Optional[str] = None
 
     @validator("run_id", pre=True, always=True)
     def run_id_should_be_semantic(
@@ -101,7 +102,11 @@ class Pipeline:
         self.dry_run = dry_run
         self.preview_mode = preview_mode
         self.ctx = PipelineContext(
-            run_id=self.config.run_id, datahub_api=self.config.datahub_api
+            run_id=self.config.run_id,
+            datahub_api=self.config.datahub_api,
+            pipeline_name=self.config.pipeline_name,
+            dry_run=dry_run,
+            preview_mode=preview_mode,
         )
 
         source_type = self.config.source.type
@@ -161,8 +166,17 @@ class Pipeline:
             extractor.close()
             if not self.dry_run:
                 self.sink.handle_work_unit_end(wu)
-        self.source.close()
         self.sink.close()
+
+        # Temporary hack to prevent committing state if there are failures during the pipeline run.
+        try:
+            self.raise_from_status()
+        except Exception:
+            logger.warning(
+                "Pipeline failed. Not closing the source to prevent bad commits."
+            )
+        else:
+            self.source.close()
 
     def transform(self, records: Iterable[RecordEnvelope]) -> Iterable[RecordEnvelope]:
         """
