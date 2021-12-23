@@ -1,31 +1,34 @@
 package datahub.client;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.util.HashMap;
-
-import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.linkedin.data.ByteString;
+import com.linkedin.data.DataMap;
 import com.linkedin.data.template.JacksonDataTemplateCodec;
+import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeProposal;
-
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.http.HttpResponse;
+import org.apache.http.client.HttpClient;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.entity.StringEntity;
+
 
 @Slf4j
 @RequiredArgsConstructor
 public class RestEmitter {
 
-  private static final JacksonDataTemplateCodec DATA_TEMPLATE_CODEC = new JacksonDataTemplateCodec();
   private static final int DEFAULT_CONNECT_TIMEOUT_SEC = 30;
   private static final int DEFAULT_READ_TIMEOUT_SEC = 30;
-  
-  
+  private static final String DEFAULT_AUTH_TOKEN = null;
+  private static final HttpClientFactory DEFAULT_HTTP_CLIENT_FACTORY = new DefaultHttpClientFactory();
+
+
   @Getter
   private final String gmsUrl;
 
@@ -38,69 +41,89 @@ public class RestEmitter {
   @Getter
   private final String token;
 
-  public void emit(MetadataChangeProposal mcp) throws IOException {
-    String payloadJson = DATA_TEMPLATE_CODEC.mapToString(mcp.data());
-    ObjectMapper om = new ObjectMapper();
-    TypeReference<HashMap<String, Object>> typeRef = new TypeReference<HashMap<String, Object>>() {
-    };
-    HashMap<String, Object> o = om.readValue(payloadJson, typeRef);
-    while (o.values().remove(null)) {
-    }
-    payloadJson = om.writeValueAsString(o);
-    payloadJson = "{" + "  \"proposal\" :" + payloadJson + "}";
-    log.debug("Emitting payload: " + payloadJson + "\n to URL " + this.gmsUrl + "/aspects?action=ingestProposal");
-    this.makeRequest(this.gmsUrl + "/aspects?action=ingestProposal", "POST", payloadJson);
+  @Getter
+  private final HttpClientFactory httpClientFactory;
+
+  private final String ingestProposalUrl;
+  private final String configUrl;
+
+  private final ObjectMapper objectMapper = new ObjectMapper().setSerializationInclusion(JsonInclude.Include.NON_NULL);
+  private final JacksonDataTemplateCodec dataTemplateCodec = new JacksonDataTemplateCodec(objectMapper.getFactory());
+  private final HttpClient httpClient;
+
+  public RestEmitter(String serverAddr, int connectTimeoutSec, int readTimeoutSec, String token, HttpClientFactory httpClientFactory) {
+    this.gmsUrl = serverAddr;
+    this.connectTimeoutSec = connectTimeoutSec;
+    this.readTimeoutSec = readTimeoutSec;
+    this.token = token;
+    this.httpClientFactory = httpClientFactory;
+    this.httpClient = this.httpClientFactory.getHttpClient();
+    this.ingestProposalUrl = this.gmsUrl + "/aspects?action=ingestProposal";
+    this.configUrl = this.gmsUrl + "/config";
   }
 
-  public boolean makeRequest(String urlStr, String method, String payloadJson) throws IOException {
-    URL url = new URL(urlStr);
-    HttpURLConnection con = (HttpURLConnection) url.openConnection();
-    con.setConnectTimeout(this.connectTimeoutSec * 1000);
-    con.setReadTimeout(this.readTimeoutSec * 1000);
-    con.setRequestMethod(method);
-    con.setRequestProperty("Content-Type", "application/json");
-    con.setRequestProperty("X-RestLi-Protocol-Version", "2.0.0");
-    if (this.token != null) {
-      con.setRequestProperty("Authorization", "Bearer " + token);
-    }
-    con.setDoOutput(true);
-    if (payloadJson != null) {
-      try (OutputStream os = con.getOutputStream()) {
-        byte[] input = payloadJson.getBytes("utf-8");
-        os.write(input, 0, input.length);
-      }
-    }
-    try (BufferedReader br = new BufferedReader(new InputStreamReader(con.getInputStream(), "utf-8"))) {
-      StringBuilder response = new StringBuilder();
-      String responseLine = null;
-      while ((responseLine = br.readLine()) != null) {
-        response.append(responseLine.trim());
-      }
-      log.debug("URL: " + urlStr + " Response: " + response.toString());
-    }
-    return true;
+  public void emit(MetadataChangeProposalWrapper mcpw) throws IOException {
+    String serializedAspect = dataTemplateCodec.dataTemplateToString(mcpw.getAspect());
+    MetadataChangeProposal mcp = new MetadataChangeProposal().setEntityType(mcpw.getEntityType())
+        .setAspectName(mcpw.getAspectName())
+        .setEntityUrn(mcpw.getEntityUrn())
+        .setChangeType(mcpw.getChangeType())
+        .setAspect(new GenericAspect().setContentType("application/json")
+            .setValue(ByteString.unsafeWrap(serializedAspect.getBytes(StandardCharsets.UTF_8))));
+    emit(mcp);
+  }
 
+  public void emit(MetadataChangeProposal mcp) throws IOException {
+    DataMap map = new DataMap();
+    map.put("proposal", mcp.data());
+    String serializedMCP = dataTemplateCodec.mapToString(map);
+    log.debug("Emitting payload: " + serializedMCP + "\n to URL " + this.ingestProposalUrl);
+    this.postGeneric(this.ingestProposalUrl, serializedMCP);
+  }
+
+  private boolean postGeneric(String urlStr, String payloadJson) throws IOException {
+    HttpPost httpPost = new HttpPost(urlStr);
+    httpPost.setHeader("Content-Type", "application/json");
+    httpPost.setHeader("X-RestLi-Protocol-Version", "2.0.0");
+    httpPost.setHeader("Accept", "application/json");
+    if (token != null) {
+      httpPost.setHeader("Authorization", "Bearer " + token);
+    }
+    httpPost.setEntity(new StringEntity(payloadJson));
+    HttpResponse response = httpClient.execute(httpPost);
+    return (response != null && response.getStatusLine() != null && response.getStatusLine().getStatusCode() == 200);
+  }
+
+  private boolean getGeneric(String urlStr) throws IOException {
+    HttpGet httpGet = new HttpGet(urlStr);
+    httpGet.setHeader("Content-Type", "application/json");
+    httpGet.setHeader("X-RestLi-Protocol-Version", "2.0.0");
+    httpGet.setHeader("Accept", "application/json");
+    HttpResponse response = this.httpClient.execute(httpGet);
+    return (response.getStatusLine().getStatusCode() == 200);
   }
 
   public boolean testConnection() throws IOException {
-      this.makeRequest(this.gmsUrl + "/config", "GET", null);
-      return true;
+    return this.getGeneric(this.configUrl);
   }
 
   public static RestEmitter create(String gmsUrl) {
-    return new RestEmitter(gmsUrl, DEFAULT_CONNECT_TIMEOUT_SEC, DEFAULT_READ_TIMEOUT_SEC, null);
+    return new RestEmitter(gmsUrl, DEFAULT_CONNECT_TIMEOUT_SEC, DEFAULT_READ_TIMEOUT_SEC, null, DEFAULT_HTTP_CLIENT_FACTORY);
   }
 
   public static RestEmitter create(String gmsUrl, int connectTimeoutSec, int readTimeoutSec) {
-    return new RestEmitter(gmsUrl, connectTimeoutSec, readTimeoutSec, null);
+    return new RestEmitter(gmsUrl, connectTimeoutSec, readTimeoutSec, null, DEFAULT_HTTP_CLIENT_FACTORY);
   }
 
   public static RestEmitter create(String gmsUrl, String token) {
-    return new RestEmitter(gmsUrl, DEFAULT_CONNECT_TIMEOUT_SEC, DEFAULT_READ_TIMEOUT_SEC, token);
+    return new RestEmitter(gmsUrl, DEFAULT_CONNECT_TIMEOUT_SEC, DEFAULT_READ_TIMEOUT_SEC, token, DEFAULT_HTTP_CLIENT_FACTORY);
   }
 
   public static RestEmitter create(String gmsUrl, int connectTimeoutSec, int readTimeoutSec, String token) {
-    return new RestEmitter(gmsUrl, connectTimeoutSec, readTimeoutSec, token);
+    return new RestEmitter(gmsUrl, connectTimeoutSec, readTimeoutSec, token, DEFAULT_HTTP_CLIENT_FACTORY);
   }
 
+  public static RestEmitter create(String gmsUrl, HttpClientFactory httpClientFactory) {
+    return new RestEmitter(gmsUrl, DEFAULT_CONNECT_TIMEOUT_SEC, DEFAULT_READ_TIMEOUT_SEC, DEFAULT_AUTH_TOKEN, DEFAULT_HTTP_CLIENT_FACTORY);
+  }
 }
