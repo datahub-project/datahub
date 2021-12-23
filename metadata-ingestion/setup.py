@@ -112,7 +112,7 @@ plugins: Dict[str, Set[str]] = {
     "ldap": {"python-ldap>=2.4"},
     "looker": looker_common,
     "lookml": looker_common | {"lkml>=1.1.0", "sql-metadata==2.2.2"},
-    "metabase": {"requests"},
+    "metabase": {"requests", "sqllineage"},
     "mode": {"requests", "sqllineage"},
     "mongodb": {"pymongo>=3.11"},
     "mssql": sql_common | {"sqlalchemy-pytds>=0.3"},
@@ -133,6 +133,7 @@ plugins: Dict[str, Set[str]] = {
     "snowflake-usage": sql_common | {"snowflake-sqlalchemy<=1.2.4"},
     "sqlalchemy": sql_common,
     "superset": {"requests"},
+    "tableau": {"requests", "tableauserverclient"},
     "trino": sql_common
     | {
         # SQLAlchemy support is coming up in trino python client
@@ -299,6 +300,7 @@ entry_points = {
         "snowflake = datahub.ingestion.source.sql.snowflake:SnowflakeSource",
         "snowflake-usage = datahub.ingestion.source.usage.snowflake_usage:SnowflakeUsageSource",
         "superset = datahub.ingestion.source.superset:SupersetSource",
+        "tableau = datahub.ingestion.source.tableau:TableauSource",
         "openapi = datahub.ingestion.source.openapi:OpenApiSource",
         "metabase = datahub.ingestion.source.metabase:MetabaseSource",
         "trino = datahub.ingestion.source.sql.trino:TrinoSource",
