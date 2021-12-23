@@ -5,9 +5,12 @@ source:
   config:
     connection:
       bootstrap: "localhost:9092"
-
+      schema_registry_url: "https://psrc-yorrp.us-east-2.aws.confluent.cloud"
+      schema_registry_config:
+        ssl.ca.location: "/Users/adityaradhakrishnan/code/datahub-fork/metadata-ingestion/venv/lib/python3.8/site-packages/certifi/cacert.pem"
+        basic.auth.user.info: "VQWDCTL67GGOML4A:XPlZEqSAv8DyswaHBNqmU8ccjpPwCoQiTDZ0TTaFRiK092Oh8T/D3FiEhx+lH+gL"
 # see https://datahubproject.io/docs/metadata-ingestion/sink_docs/datahub for complete documentation
 sink:
-  type: "datahub-rest"
+  type: "file"
   config:
-    server: "http://localhost:8080"
+    filename: "/Users/adityaradhakrishnan/code/datahub-fork/metadata-ingestion/examples/logs/kafka_log.json"
