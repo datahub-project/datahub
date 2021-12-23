@@ -118,7 +118,7 @@ class SnowflakeUsageConfig(
     database_pattern: AllowDenyPattern = AllowDenyPattern(
         deny=[r"^UTIL_DB$", r"^SNOWFLAKE$", r"^SNOWFLAKE_SAMPLE_DATA$"]
     )
-    email_domain: str
+    email_domain: Optional[str]
     schema_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
     table_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
     view_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
@@ -336,7 +336,7 @@ class SnowflakeUsageSource(StatefulIngestionSourceBase):
                 event_dict["query_start_time"]
             ).astimezone(tz=timezone.utc)
 
-            if not event_dict["email"]:
+            if not event_dict["email"] and self.config.email_domain:
                 if not event_dict["user_name"]:
                     event_dict["user_name"] = "unknown"
 

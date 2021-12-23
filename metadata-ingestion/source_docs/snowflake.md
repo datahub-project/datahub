@@ -202,7 +202,7 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `role`             |          |                                                                     | Snowflake role.                                                                  |
 | `env`              |          | `"PROD"`                                                            | Environment to use in namespace when constructing URNs.                          |
 | `bucket_duration`  |          | `"DAY"`                                                             | Duration to bucket usage events by. Can be `"DAY"` or `"HOUR"`.                  |
-| `email_domain`     | ✅        |                                                                     | Email domain of your organisation so users can be displayed on UI appropriately. |
+| `email_domain`     |          |                                                                     | Email domain of your organisation so users can be displayed on UI appropriately. |
 | `start_time`       |          | Last full day in UTC (or hour, depending on `bucket_duration`)      | Earliest date of usage logs to consider.                                         |
 | `end_time`         |          | Last full day in UTC (or hour, depending on `bucket_duration`)      | Latest date of usage logs to consider.                                           |
 | `top_n_queries`    |          | `10`                                                                | Number of top queries to save to each table.                                     |
@@ -210,6 +210,14 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `schema_pattern`   |          |                                                                     | Allow/deny patterns for schema in snowflake dataset names.                       |
 | `view_pattern`     |          |                                                                     | Allow/deny patterns for views in snowflake dataset names.                        |
 | `table_pattern`    |          |                                                                     | Allow/deny patterns for tables in snowflake dataset names.                       |
+
+:::caution
+
+User's without email address will be ignored from usage if you don't set `email_domain` property.
+
+:::
+
+
 
 # Compatibility
 
