@@ -118,6 +118,7 @@ class SnowflakeUsageConfig(
     database_pattern: AllowDenyPattern = AllowDenyPattern(
         deny=[r"^UTIL_DB$", r"^SNOWFLAKE$", r"^SNOWFLAKE_SAMPLE_DATA$"]
     )
+    email_domain: str
     schema_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
     table_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
     view_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
@@ -334,6 +335,14 @@ class SnowflakeUsageSource(StatefulIngestionSourceBase):
             event_dict["query_start_time"] = (
                 event_dict["query_start_time"]
             ).astimezone(tz=timezone.utc)
+
+            if not event_dict["email"]:
+                if not event_dict["user_name"]:
+                    event_dict["user_name"] = "unknown"
+
+                event_dict[
+                    "email"
+                ] = f'{event_dict["user_name"]}@{self.config.email_domain}'
 
             try:  # big hammer try block to ensure we don't fail on parsing events
                 event = SnowflakeJoinedAccessEvent(**event_dict)
