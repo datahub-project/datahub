@@ -1,5 +1,7 @@
 import logging
 import json
+from functools import lru_cache
+
 import dateutil.parser as dp
 
 from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
@@ -129,7 +131,7 @@ class TableauSource(Source):
                 # list input entities for workbook
                 yield from self.get_sheets_as_dataset_mce(wb)
                 yield from self.get_dashboards_as_dataset_mce(wb)
-                yield from self.get_embedded_ds_mce(wb)
+                yield from self.get_embedded_ds_as_dataset_mce(wb)
 
                 for ds in wb.get('upstreamDatasources', []):
                     ds_id = ds.get('id')
@@ -189,16 +191,25 @@ class TableauSource(Source):
                 paths=[
                     f"/{self.platform}/{wb.get('projectName', '').replace('/', '|')}/"
                     f"{sheet.get('name', '').replace('/', '|')}"])
+
+            sheet_path = find_sheet_path(sheet.get('name', ''), wb.get('dashboards', []))
+
+            if self.config.site is not None:
+                sheet_external_url = f"{self.config.connect_uri}/t/{self.config.site}/authoring/{sheet_path}"
+            else:
+                sheet_external_url = f"{self.config.connect_uri}#/{wb.get('uri', '').replace('sites/1/', '')}"
+
             dataset_properties = DatasetPropertiesClass(
                 description='',
                 customProperties={},
-                externalUrl=f"{self.config.connect_uri}#/{wb.get('uri', '').replace('sites/1/', '')}"
+                externalUrl=sheet_external_url
             )
-            # TODO add Owner
+
             dataset_snapshot = DatasetSnapshot(
                 urn=sheet_urn,
                 aspects=[browse_paths, dataset_properties, schema_metadata],
             )
+            dataset_snapshot.aspects.append(self._get_ownership(wb.get('owner', {}).get('username', '')))
 
             sheet_mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
             sheet_workunit = MetadataWorkUnit(
@@ -224,23 +235,30 @@ class TableauSource(Source):
             yield sheet_subtype_workunit
 
     def get_dashboards_as_dataset_mce(self, wb):
-        for db in wb.get('dashboards', []):
+        for dashboard in wb.get('dashboards', []):
             # generate dashboards wu with dashboard -> sheet relations
             db_urn = make_dataset_urn(self.platform, self.config.env, 'db', wb.get('projectName', ''),
-                                      wb.get('name', ''), db.get('name', ''))
+                                      wb.get('name', ''), dashboard.get('name', ''))
             browse_paths = BrowsePathsClass(
                 paths=[
                     f"/{self.platform}/{wb.get('projectName', '').replace('/', '|')}/"
-                    f"{db.get('name', '').replace('/', '|')}"])
+                    f"{dashboard.get('name', '').replace('/', '|')}"])
+
+            if self.config.site is not None:
+                dashboard_external_url = f"{self.config.connect_uri}/#/site/{self.config.site}/views/{dashboard.get('path','')}"
+            else:
+                dashboard_external_url = f"{self.config.connect_uri}#/{wb.get('uri', '').replace('sites/1/', '')}"
+
             dataset_properties_class = DatasetPropertiesClass(
                 description='',
                 customProperties={},
-                externalUrl=f"{self.config.connect_uri}#/{wb.get('uri', '').replace('sites/1/', '')}"
+                externalUrl=dashboard_external_url
             )
             dataset_snapshot = DatasetSnapshot(
                 urn=db_urn,
                 aspects=[browse_paths, dataset_properties_class]
             )
+            dataset_snapshot.aspects.append(self._get_ownership(wb.get('owner', {}).get('username', '')))
 
             db_mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
             db_workunit = MetadataWorkUnit(
@@ -268,7 +286,7 @@ class TableauSource(Source):
 
             # upstream tables
             upstream_tables: List[UpstreamClass] = []
-            for upstream_sheet in db.get('sheets', []):
+            for upstream_sheet in dashboard.get('sheets', []):
                 sheet_urn = make_dataset_urn(self.platform, self.config.env, 'sh', wb.get('projectName', ''),
                                              wb.get('name', ''), upstream_sheet.get('name', ''))
                 upstream_table = UpstreamClass(
@@ -293,7 +311,7 @@ class TableauSource(Source):
             self.report.report_workunit(mcp_workunit)
             yield mcp_workunit
 
-    def get_embedded_ds_mce(self, wb):
+    def get_embedded_ds_as_dataset_mce(self, wb):
         for ds in wb.get('embeddedDatasources', []):
             # generate datasource wu with sheet -> datasource and datasource -> db table relations
             # skipping nested ds
@@ -451,54 +469,72 @@ class TableauSource(Source):
             yield mcp_workunit
 
     def construct_wb_as_chart(self, wb_data, input_urn) -> ChartSnapshot:
-        chart_urn = builder.make_chart_urn(self.platform, wb_data.get('id'))
-        chart_snapshot = ChartSnapshot(
-            urn=chart_urn,
-            aspects=[],
-        )
+        dashboards = wb_data.get('dashboards', [])
+        for dashboard in dashboards:
+            chart_urn = builder.make_chart_urn(self.platform, dashboard.get('id'))
+            chart_snapshot = ChartSnapshot(
+                urn=chart_urn,
+                aspects=[],
+            )
 
-        modified_actor = builder.make_user_urn(wb_data.get('owner', {}).get('username'))
-        created_ts = int(
-            dp.parse(f"{wb_data.get('createdAt', datetime.now())}").timestamp() * 1000
-        )
-        modified_ts = int(
-            dp.parse(f"{wb_data.get('updatedAt', datetime.now())}").timestamp() * 1000
-        )
-        title = wb_data.get("name", "") or ""
+            actor_username = wb_data.get('owner', {}).get('username')
+            modified_actor = builder.make_user_urn(actor_username)
+            created_ts = int(
+                dp.parse(f"{dashboard.get('createdAt', datetime.now())}").timestamp() * 1000
+            )
+            modified_ts = int(
+                dp.parse(f"{dashboard.get('updatedAt', datetime.now())}").timestamp() * 1000
+            )
+            title = dashboard.get("name", "") or ""
 
-        last_modified = ChangeAuditStamps(
-            created=AuditStamp(time=modified_ts, actor=modified_actor),
-            lastModified=AuditStamp(time=modified_ts, actor=modified_actor),
-        )
-        chart_url = f"{self.config.connect_uri}#/{wb_data.get('uri', '').replace('sites/1/','')}"
-        description = wb_data.get('description', '')
+            last_modified = ChangeAuditStamps(
+                created=AuditStamp(time=created_ts, actor=modified_actor),
+                lastModified=AuditStamp(time=modified_ts, actor=modified_actor),
+            )
+            if self.config.site is not None:
+                chart_url = f"{self.config.connect_uri}/#/site/{self.config.site}/views/{dashboard.get('path', '')}"
+            else:
+                chart_url = f"{self.config.connect_uri}/#/{wb_data.get('uri', '').replace('sites/1/','')}"
+            description = wb_data.get('description', '')
 
-        # TODO allow custom properties to be ingested. May be through recipes
-        customProperties = {
-            "createdAt": wb_data.get('createdAt'),
-            "updatedAt": wb_data.get('updatedAt'),
-        }
+            customProperties = {
+                "createdAt": wb_data.get('createdAt'),
+                "updatedAt": wb_data.get('updatedAt'),
+            }
 
-        chart_info = ChartInfoClass(
-            description=description,
-            title=title,
-            lastModified=last_modified,
-            chartUrl=chart_url,
-            inputs=input_urn,
-            customProperties=customProperties,
-        )
-        chart_snapshot.aspects.append(chart_info)
+            chart_info = ChartInfoClass(
+                description=description,
+                title=title,
+                lastModified=last_modified,
+                chartUrl=chart_url,
+                inputs=input_urn,
+                customProperties=customProperties,
+            )
+            chart_snapshot.aspects.append(chart_info)
 
-        browse_paths_info = BrowsePathsClass(paths=[f"/{self.platform}/"
-                                                    f"{wb_data.get('projectName','').replace('/','|')}/"
-                                                    f"{title}"])
-        chart_snapshot.aspects.append(browse_paths_info)
+            browse_paths_info = BrowsePathsClass(paths=[f"/{self.platform}/"
+                                                        f"{wb_data.get('projectName','').replace('/','|')}/"
+                                                        f"{title}"])
+            chart_snapshot.aspects.append(browse_paths_info)
+            chart_snapshot.aspects.append(self._get_ownership(actor_username))
 
-        owner = OwnerClass(owner=modified_actor, type=models.OwnershipTypeClass.DEVELOPER)
-        owner_info = OwnershipClass([owner])
-        chart_snapshot.aspects.append(owner_info)
+            return chart_snapshot
 
-        return chart_snapshot
+    @lru_cache(maxsize=None)
+    def _get_ownership(self, user: str) -> Optional[OwnershipClass]:
+        if user is not None:
+            owner_urn = builder.make_user_urn(user)
+            ownership: OwnershipClass = OwnershipClass(
+                owners=[
+                    OwnerClass(
+                        owner=owner_urn,
+                        type=models.OwnershipTypeClass.DATAOWNER,
+                    )
+                ]
+            )
+            return ownership
+
+        return None
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> Source:
