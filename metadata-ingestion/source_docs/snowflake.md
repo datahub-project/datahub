@@ -181,7 +181,7 @@ source:
 
     # Options
     top_n_queries: 10
-
+    email_domain: mycompany.com
 sink:
   # sink configs
 ```
