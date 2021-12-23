@@ -70,8 +70,9 @@ def get_metric_name(metric):
     if isinstance(metric, str):
         return metric
     label = metric.get("label")
-    if label:
-        return label
+    if not label:
+        return ""
+    return label
 
 
 def get_filter_name(filter_obj):
