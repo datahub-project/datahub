@@ -30,9 +30,9 @@ To install this plugin, run `pip install 'acryl-datahub[bigquery]'`.
 ### Create a service account:
 
 1. Setup a ServiceAccount (https://cloud.google.com/iam/docs/creating-managing-service-accounts#iam-service-accounts-create-console)
-and assign the previously created role to this service account
-2. Download a service account JSON keyfile:
-   The credential file looks like this:
+and assign the previously created role to this service account.
+2. Download a service account JSON keyfile.
+   Example credential file:
 ```json
 {
   "type": "service_account",
@@ -47,13 +47,14 @@ and assign the previously created role to this service account
   "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/test%suppproject-id-1234567.iam.gserviceaccount.com"
 }
 ```
-3. Here you have two options:
-   Either point to it using an environment variable:
+3. To provide credentials to the source, you can either:
+   Set an environment variable:
        $ export GOOGLE_APPLICATION_CREDENTIALS="/path/to/keyfile.json"
 
    *or*
 
-   Set credential config in your source based on the credential json file like this:
+   Set credential config in your source based on the credential json file. For example: 
+
 ```yml
      credential:
        project_id: project-id-1234567
