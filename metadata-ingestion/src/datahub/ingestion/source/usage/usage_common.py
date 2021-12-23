@@ -62,8 +62,9 @@ class GenericAggregatedDataset(Generic[ResourceType]):
                 )
         return trimmed_query
 
-    def indent_query(self, query: str, indent) -> str:
-        if indent:
+    @staticmethod
+    def format_sql_query(query: str, format_sql_queries) -> str:
+        if format_sql_queries:
             return sqlparse.format(query, keyword_case="upper", reindent_aligned=True)
         else:
             return query
@@ -73,7 +74,7 @@ class GenericAggregatedDataset(Generic[ResourceType]):
         bucket_duration: BucketDuration,
         urn_builder: Callable[[ResourceType], str],
         top_n_queries: int,
-        indent: bool,
+        format_sql_queries: bool,
     ) -> MetadataWorkUnit:
 
         budget_per_query: int = int(self.total_budget_for_query_list / top_n_queries)
@@ -84,7 +85,9 @@ class GenericAggregatedDataset(Generic[ResourceType]):
             uniqueUserCount=len(self.userFreq),
             totalSqlQueries=self.queryCount,
             topSqlQueries=[
-                self.indent_query(self.trim_query(query, budget_per_query), indent)
+                self.trim_query(
+                    self.format_sql_query(query, format_sql_queries), budget_per_query
+                )
                 for query, _ in self.queryFreq.most_common(top_n_queries)
             ],
             userCounts=[
@@ -119,7 +122,7 @@ class GenericAggregatedDataset(Generic[ResourceType]):
 
 class BaseUsageConfig(BaseTimeWindowConfig):
     top_n_queries: pydantic.PositiveInt = 10
-    indent: bool = True
+    format_sql_queries: bool = False
 
     @pydantic.validator("top_n_queries")
     def ensure_top_n_queries_is_not_too_big(cls, v: int) -> int:
