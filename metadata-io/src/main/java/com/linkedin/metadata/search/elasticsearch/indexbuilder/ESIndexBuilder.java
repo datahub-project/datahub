@@ -100,7 +100,7 @@ public class ESIndexBuilder {
       long millisToWait60Minutes = 1000 * 60 * 60;
       Boolean reindexTaskCompleted = false;
 
-      while((System.currentTimeMillis() - startTime) < millisToWait60Minutes) {
+      while ((System.currentTimeMillis() - startTime) < millisToWait60Minutes) {
         log.info("Reindexing from {} to {} in progress...", indexName, tempIndexName);
         ListTasksRequest request = new ListTasksRequest();
         ListTasksResponse tasks = searchClient.tasks().list(request, RequestOptions.DEFAULT);
