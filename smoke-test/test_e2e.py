@@ -1,10 +1,17 @@
 import time
+import urllib
+from typing import Any, Dict, Optional, cast
 
 import pytest
 import requests
-import urllib
+from sqlalchemy import create_engine
+from sqlalchemy.sql import text
+
 from datahub.cli.docker import check_local_docker_containers
 from datahub.ingestion.run.pipeline import Pipeline
+from datahub.ingestion.source.sql.mysql import MySQLConfig, MySQLSource
+from datahub.ingestion.source.sql.sql_common import BaseSQLAlchemyCheckpointState
+from datahub.ingestion.source.state.checkpoint import Checkpoint
 from tests.utils import ingest_file_via_rest
 
 GMS_ENDPOINT = "http://localhost:8080"
@@ -300,6 +307,7 @@ def test_frontend_browse_datasets(frontend_session):
     [
         ("covid", 1),
         ("sample", 3),
+        ("", 1),
     ],
 )
 @pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
@@ -349,6 +357,7 @@ def test_frontend_search_datasets(frontend_session, query, min_expected_results)
     [
         ("covid", 1),
         ("sample", 3),
+        ("", 1),
     ],
 )
 @pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
@@ -592,8 +601,8 @@ def test_frontend_list_policies(frontend_session):
     assert res_data["data"]
     assert res_data["data"]["listPolicies"]
     assert res_data["data"]["listPolicies"]["start"] is 0
-    assert res_data["data"]["listPolicies"]["count"] is 8
-    assert len(res_data["data"]["listPolicies"]["policies"]) is 8 # Length of default policies.
+    assert res_data["data"]["listPolicies"]["count"] > 0
+    assert len(res_data["data"]["listPolicies"]["policies"]) > 0
 
 @pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion", "test_frontend_list_policies"])
 def test_frontend_update_policy(frontend_session):
@@ -811,6 +820,8 @@ def test_frontend_me_query(frontend_session):
                 platformPrivileges {\n
                   viewAnalytics
                   managePolicies
+                  manageIdentities
+                  generatePersonalAccessTokens
                 }\n
             }\n
         }"""
@@ -827,7 +838,8 @@ def test_frontend_me_query(frontend_session):
     assert res_data["data"]["me"]["corpUser"]["urn"] == "urn:li:corpuser:datahub"
     assert res_data["data"]["me"]["platformPrivileges"]["viewAnalytics"] is True
     assert res_data["data"]["me"]["platformPrivileges"]["managePolicies"] is True
-
+    assert res_data["data"]["me"]["platformPrivileges"]["manageIdentities"] is True
+    assert res_data["data"]["me"]["platformPrivileges"]["generatePersonalAccessTokens"] is True
 
 
 @pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
@@ -1212,3 +1224,152 @@ def test_search_results_recommendations(frontend_session):
 
     assert res_data
     assert "error" not in res_data
+
+
+@pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
+def test_generate_personal_access_token(frontend_session):
+
+    # Test success case
+    json = {
+        "query": """query getAccessToken($input: GetAccessTokenInput!) {\n
+            getAccessToken(input: $input) {\n
+              accessToken\n
+            }\n
+        }""",
+        "variables": {
+          "input": {
+              "type": "PERSONAL",
+              "actorUrn": "urn:li:corpuser:datahub",
+              "duration": "ONE_MONTH"
+          }
+        }
+    }
+
+    response = frontend_session.post(
+        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json
+    )
+    response.raise_for_status()
+    res_data = response.json()
+
+    assert res_data
+    assert res_data["data"]
+    assert res_data["data"]["getAccessToken"]["accessToken"] is not None
+    assert "error" not in res_data
+
+    # Test unauthenticated case
+    json = {
+        "query": """query getAccessToken($input: GetAccessTokenInput!) {\n
+            accessToken\n
+        }""",
+        "variables": {
+          "input": {
+              "type": "PERSONAL",
+              "actorUrn": "urn:li:corpuser:jsmith",
+              "duration": "ONE_DAY"
+          }
+        }
+    }
+
+    response = frontend_session.post(
+        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json
+    )
+    response.raise_for_status()
+    res_data = response.json()
+
+    assert res_data
+    assert "errors" in res_data # Assert the request fails
+
+
+@pytest.mark.dependency(depends=["test_healthchecks"])
+def test_stateful_ingestion(wait_for_healthchecks):
+    def create_mysql_engine(mysql_source_config_dict: Dict[str, Any]) -> Any:
+        mysql_config = MySQLConfig.parse_obj(mysql_source_config_dict)
+        url = mysql_config.get_sql_alchemy_url()
+        return create_engine(url)
+
+    def create_table(engine: Any, name:str, defn:str) -> None:
+        create_table_query = text(f"CREATE TABLE IF NOT EXISTS {name}{defn};")
+        engine.execute(create_table_query)
+
+    def drop_table(engine: Any, table_name: str) -> None:
+        drop_table_query = text(f"DROP TABLE {table_name};")
+        engine.execute(drop_table_query)
+
+    def get_current_checkpoint_from_pipeline(
+            pipeline_config_dict: Dict[str, Any]
+    ) -> Optional[Checkpoint]:
+        pipeline = Pipeline.create(pipeline_config_dict)
+        pipeline.run()
+        pipeline.raise_from_status()
+        mysql_source = cast(MySQLSource, pipeline.source)
+        return mysql_source.get_current_checkpoint(
+            mysql_source.get_default_ingestion_job_id()
+        )
+
+    source_config_dict: Dict[str, Any] = {
+            "username": "datahub",
+            "password": "datahub",
+            "database": "datahub",
+            "stateful_ingestion": {
+                "enabled": True,
+                "remove_stale_metadata": True,
+                "state_provider": {
+                    "type": "datahub",
+                    "config": {"datahub_api": {"server": "http://localhost:8080"}},
+                },
+            },
+        }
+
+    pipeline_config_dict: Dict[str, Any] = {
+            "source": {
+                "type": "mysql",
+                "config": source_config_dict,
+            },
+            "sink": {
+                "type": "datahub-rest",
+                "config": {"server": "http://localhost:8080"},
+            },
+            "pipeline_name": "mysql_stateful_ingestion_smoke_test_pipeline",
+        }
+
+    # 1. Setup the SQL engine
+    mysql_engine = create_mysql_engine(source_config_dict)
+
+    # 2. Create test tables for first run of the  pipeline.
+    table_prefix = "stateful_ingestion_test"
+    table_defs = {
+        f"{table_prefix}_t1": "(id INT, name VARCHAR(10))",
+        f"{table_prefix}_t2": "(id INT)"
+    }
+    table_names = sorted(table_defs.keys())
+    for table_name, defn in table_defs.items():
+        create_table(mysql_engine, table_name, defn)
+
+    # 3. Do the first run of the pipeline and get the default job's checkpoint.
+    checkpoint1 = get_current_checkpoint_from_pipeline(
+        pipeline_config_dict=pipeline_config_dict
+    )
+    assert checkpoint1
+
+    # 4. Drop table t1 created during step 2 + rerun the pipeline and get the checkpoint state.
+    drop_table(mysql_engine, table_names[0])
+    checkpoint2 = get_current_checkpoint_from_pipeline(
+        pipeline_config_dict=pipeline_config_dict
+    )
+    assert checkpoint2
+
+    # 5. Perform all assertions on the states
+    state1 = cast(BaseSQLAlchemyCheckpointState, checkpoint1.state)
+    state2 = cast(BaseSQLAlchemyCheckpointState, checkpoint2.state)
+    difference_urns = list(state1.get_table_urns_not_in(state2))
+    assert len(difference_urns) == 1
+    assert (
+        difference_urns[0]
+        == "urn:li:dataset:(urn:li:dataPlatform:mysql,datahub.stateful_ingestion_test_t1,PROD)"
+    )
+
+    # 6. Perform all assertions on the config.
+    assert checkpoint1.config == checkpoint2.config
+
+    # 7. Cleanup table t2 as well to prevent other tests that rely on data in the smoke-test world.
+    drop_table(mysql_engine, table_names[1])

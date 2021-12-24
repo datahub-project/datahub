@@ -200,12 +200,13 @@ class RedshiftUsageSource(Source):
                 AggregatedDataset(bucket_start_time=floored_ts, resource=resource),
             )
 
-            # add @unknown.com to username
             # current limitation in user stats UI, we need to provide email to show users
-            username = f"{event.usename if event.usename else 'unknown'}@{self.config.email_domain}"
-            logger.info(f"username: {username}")
+            user_email = f"{event.usename if event.usename else 'unknown'}"
+            if "@" not in user_email:
+                user_email += f"@{self.config.email_domain}"
+            logger.info(f"user_email: {user_email}")
             agg_bucket.add_read_entry(
-                username,
+                user_email,
                 event.text,
                 [],  # TODO: not currently supported by redshift; find column level changes
             )

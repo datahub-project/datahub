@@ -46,6 +46,16 @@ module.exports = {
       "README",
       // "docs/faq", // hide from sidebar: out of date
       "docs/features",
+      {
+        Architecture: [
+          "docs/architecture/architecture",
+          "docs/components",
+          "docs/architecture/metadata-ingestion",
+          "docs/architecture/metadata-serving",
+          // "docs/what/gma",
+          // "docs/what/gms",
+        ],
+      },
       "docs/roadmap",
       "docs/CONTRIBUTING",
       "docs/demo",
@@ -53,18 +63,10 @@ module.exports = {
       "releases",
     ],
     "Getting Started": [
-      // Serves as user guides.
       "docs/quickstart",
-      "docs/debugging",
+      "docs/cli",
       "metadata-ingestion/README",
-      "docs/policies",
-    ],
-    Architecture: [
-      "docs/architecture/architecture",
-      "docs/architecture/metadata-ingestion",
-      //"docs/what/gma",
-      "docs/architecture/metadata-serving",
-      //"docs/what/gms",
+      "docs/debugging",
     ],
     "Metadata Ingestion": [
       // add a custom label since the default is 'Metadata Ingestion'
@@ -79,8 +81,33 @@ module.exports = {
           "metadata-ingestion/source_docs/s3": "S3",
         }),
       },
+      "metadata-ingestion/transformers",
       {
         Sinks: list_ids_in_directory("metadata-ingestion/sink_docs"),
+      },
+      {
+        Scheduling: [
+          "metadata-ingestion/schedule_docs/intro",
+          "metadata-ingestion/schedule_docs/cron",
+          "metadata-ingestion/schedule_docs/airflow",
+        ],
+      },
+      {
+        Lineage: [
+          "docs/lineage/intro",
+          "docs/lineage/airflow",
+          "docker/airflow/local_airflow",
+          "docs/lineage/sample_code",
+          "spark-lineage/README",
+        ],
+      },
+      {
+        Guides: [
+          "metadata-ingestion/adding-source",
+          "docs/how/add-custom-ingestion-source",
+          "docs/how/add-custom-data-platform",
+          "docs/how/add-user-data",
+        ],
       },
     ],
     "Metadata Modeling": [
@@ -161,18 +188,17 @@ module.exports = {
         ],
       },
     ],
+    "Usage Guides": ["docs/policies"],
     "Developer Guides": [
       // TODO: the titles of these should not be in question form in the sidebar
       "docs/developers",
       "docs/docker/development",
-      "metadata-ingestion/adding-source",
       {
         type: "doc",
         label: "Ingesting files from S3",
         id: "metadata-ingestion/source_docs/s3",
       },
       //"metadata-ingestion/examples/transforms/README"
-      "metadata-ingestion/transformers",
       //"docs/what/graph",
       //"docs/what/search-index",
       //"docs/how/add-new-aspect",
@@ -183,40 +209,46 @@ module.exports = {
       "docs/how/auth/sso/configure-oidc-react",
       "docs/how/auth/sso/configure-oidc-react-google",
       "docs/how/auth/sso/configure-oidc-react-okta",
+      "docs/how/auth/sso/configure-oidc-react-azure",
       "docs/how/restore-indices",
       "docs/how/extract-container-logs",
       "docs/how/delete-metadata",
       "datahub-web-react/src/app/analytics/README",
       "metadata-ingestion/developing",
-      "docker/airflow/local_airflow",
+      {
+        "Module READMEs": [
+          "datahub-web-react/README",
+          "datahub-frontend/README",
+          "datahub-graphql-core/README",
+          "metadata-service/README",
+          // "metadata-jobs/README",
+          "metadata-jobs/mae-consumer-job/README",
+          "metadata-jobs/mce-consumer-job/README",
+        ],
+      },
+      {
+        Advanced: [
+          "docs/advanced/no-code-modeling",
+          "docs/advanced/db-retention",
+          "docs/advanced/aspect-versioning",
+          "docs/advanced/es-7-upgrade",
+          "docs/advanced/high-cardinality",
+          "docs/advanced/no-code-upgrade",
+          "docs/how/migrating-graph-service-implementation",
+          "docs/advanced/mcp-mcl",
+          "docs/advanced/field-path-spec-v2",
+          "docs/advanced/monitoring",
+          // WIP "docs/advanced/backfilling",
+          // WIP "docs/advanced/derived-aspects",
+          // WIP "docs/advanced/entity-hierarchy",
+          // WIP "docs/advanced/partial-update",
+          // WIP "docs/advanced/pdl-best-practices",
+          // WIP "docs/introducing-metadata-service-authentication"
+          // WIP "metadata-models-custom/README"
+        ],
+      },
     ],
-    Components: [
-      "datahub-web-react/README",
-      "datahub-frontend/README",
-      "datahub-graphql-core/README",
-      "metadata-service/README",
-      "datahub-gms-graphql-service/README",
-      // "metadata-jobs/README",
-      "metadata-jobs/mae-consumer-job/README",
-      "metadata-jobs/mce-consumer-job/README",
-    ],
-    "Advanced Guides": [
-      "docs/advanced/no-code-modeling",
-      "docs/advanced/aspect-versioning",
-      "docs/advanced/es-7-upgrade",
-      "docs/advanced/high-cardinality",
-      "docs/advanced/no-code-upgrade",
-      "docs/how/migrating-graph-service-implementation",
-      "docs/advanced/mcp-mcl",
-      "docs/advanced/field-path-spec-v2",
-      "docs/advanced/monitoring",
-      // WIP "docs/advanced/backfilling",
-      // WIP "docs/advanced/derived-aspects",
-      // WIP "docs/advanced/entity-hierarchy",
-      // WIP "docs/advanced/partial-update",
-      // WIP "docs/advanced/pdl-best-practices",
-    ],
-    Deployment: [
+    "Deployment Guides": [
       "docs/how/kafka-config",
       "docker/README",
       "docs/deploy/kubernetes",
@@ -226,7 +258,6 @@ module.exports = {
       "docs/deploy/confluent-cloud",
       // Purposely not including the following:
       // - "docker/datahub-frontend/README",
-      // - "docker/datahub-gms-graphql-service/README",
       // - "docker/datahub-gms/README",
       // - "docker/datahub-mae-consumer/README",
       // - "docker/datahub-mce-consumer/README",

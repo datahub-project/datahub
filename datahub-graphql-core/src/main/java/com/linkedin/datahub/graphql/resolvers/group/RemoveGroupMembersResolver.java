@@ -5,7 +5,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.RemoveGroupMembersInput;
-import com.linkedin.entity.client.AspectClient;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.identity.GroupMembership;
 import com.linkedin.metadata.Constants;
@@ -23,10 +23,10 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
 public class RemoveGroupMembersResolver implements DataFetcher<CompletableFuture<Boolean>> {
 
-  private final AspectClient _aspectClient;
+  private final EntityClient _entityClient;
 
-  public RemoveGroupMembersResolver(final AspectClient aspectClient) {
-    _aspectClient = aspectClient;
+  public RemoveGroupMembersResolver(final EntityClient entityClient) {
+    _entityClient = entityClient;
   }
 
   @Override
@@ -42,11 +42,11 @@ public class RemoveGroupMembersResolver implements DataFetcher<CompletableFuture
       List<CompletableFuture<?>> removeGroupMemberFutures = userUrnStrs.stream().map(userUrnStr -> CompletableFuture.supplyAsync(() -> {
         try {
           // First, fetch user's group membership aspect.
-          final VersionedAspect gmsAspect = _aspectClient.getAspectOrNull(
+          final VersionedAspect gmsAspect = _entityClient.getAspectOrNull(
               userUrnStr,
               Constants.GROUP_MEMBERSHIP_ASPECT_NAME,
               Constants.ASPECT_LATEST_VERSION,
-              context.getActor());
+              context.getAuthentication());
 
           if (gmsAspect == null) {
             // Nothing to do, as the user is not in the group. Return false as the user was
@@ -62,7 +62,7 @@ public class RemoveGroupMembersResolver implements DataFetcher<CompletableFuture
             proposal.setAspectName(Constants.GROUP_MEMBERSHIP_ASPECT_NAME);
             proposal.setAspect(GenericAspectUtils.serializeAspect(groupMembership));
             proposal.setChangeType(ChangeType.UPSERT);
-            _aspectClient.ingestProposal(proposal, context.getActor());
+            _entityClient.ingestProposal(proposal, context.getAuthentication());
             return true;
           }
           return false;

@@ -4,7 +4,7 @@
 
 To deploy a new instance of DataHub, perform the following steps.
 
-1. Install [docker](https://docs.docker.com/install/) and [docker-compose](https://docs.docker.com/compose/install/) (if
+1. Install [docker](https://docs.docker.com/install/), [jq](https://stedolan.github.io/jq/download/) and [docker-compose](https://docs.docker.com/compose/install/) (if
    using Linux). Make sure to allocate enough hardware resources for Docker engine. Tested & confirmed config: 2 CPUs,
    8GB RAM, 2GB Swap area, and 10GB disk space.
 
@@ -51,6 +51,8 @@ To cleanse DataHub of all of it's state (e.g. before ingesting your own), you ca
 ```
 datahub docker nuke
 ```
+
+If you want to delete the containers but keep the data you can add `--keep-data` flag to the command. This allows you to run the `quickstart` command to get DataHub running with your data that was ingested earlier. 
 
 ## Troubleshooting
 

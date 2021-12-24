@@ -106,9 +106,9 @@ function getSuggestionFieldsFromResult(result: GetSearchResultsQuery | undefined
                     case 'CorpUser':
                         return entity.username;
                     case 'Chart':
-                        return entity.info?.name;
+                        return entity.properties?.name;
                     case 'Dashboard':
-                        return entity.info?.name;
+                        return entity.properties?.name;
                     default:
                         return undefined;
                 }

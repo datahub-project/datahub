@@ -17,8 +17,10 @@ const searchResult: {
                 type: EntityType.Dataset,
                 name: 'HiveDataset',
                 origin: 'PROD',
-                description: 'this is a dataset',
                 platformNativeType: PlatformNativeType.Table,
+                properties: {
+                    description: 'this is a dataset',
+                },
                 platform: {
                     name: 'hive',
                 },
@@ -32,8 +34,10 @@ const searchResult: {
                 type: EntityType.Dataset,
                 name: 'KafkaDataset',
                 origin: 'PROD',
-                description: 'this is also a dataset',
                 platformNativeType: PlatformNativeType.Table,
+                properties: {
+                    description: 'this is also a dataset',
+                },
                 platform: {
                     name: 'kafka',
                 },

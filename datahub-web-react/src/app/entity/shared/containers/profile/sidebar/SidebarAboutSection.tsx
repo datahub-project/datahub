@@ -41,7 +41,7 @@ export const SidebarAboutSection = () => {
     const refetch = useRefetch();
     const routeToTab = useRouteToTab();
 
-    const description = entityData?.editableProperties?.description || entityData?.description;
+    const description = entityData?.editableProperties?.description || entityData?.properties?.description;
     const links = entityData?.institutionalMemory?.elements || [];
 
     const isUntouched = !description && !(links?.length > 0);

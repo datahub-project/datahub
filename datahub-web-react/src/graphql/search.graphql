@@ -26,7 +26,6 @@ fragment searchResults on SearchResults {
             ... on Dataset {
                 name
                 origin
-                description
                 uri
                 platform {
                     name
@@ -39,6 +38,7 @@ fragment searchResults on SearchResults {
                 }
                 platformNativeType
                 properties {
+                    description
                     customProperties {
                         key
                         value
@@ -106,7 +106,7 @@ fragment searchResults on SearchResults {
                 type
                 tool
                 dashboardId
-                info {
+                properties {
                     name
                     description
                     externalUrl
@@ -133,7 +133,7 @@ fragment searchResults on SearchResults {
                 type
                 tool
                 chartId
-                info {
+                properties {
                     name
                     description
                     externalUrl
@@ -162,7 +162,7 @@ fragment searchResults on SearchResults {
                 orchestrator
                 flowId
                 cluster
-                info {
+                properties {
                     name
                     description
                     project
@@ -190,7 +190,7 @@ fragment searchResults on SearchResults {
                 ownership {
                     ...ownershipFields
                 }
-                info {
+                properties {
                     name
                     description
                 }

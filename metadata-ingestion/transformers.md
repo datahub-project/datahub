@@ -2,13 +2,13 @@
 
 ## What’s a transformer?
 
-Oftentimes we want to modify metadata before it reaches the ingestion sink – for instance, we might want to add custom tags, ownership, or patch some fields. A transformer allows us to do exactly these things.
+Oftentimes we want to modify metadata before it reaches the ingestion sink – for instance, we might want to add custom tags, ownership, properties, or patch some fields. A transformer allows us to do exactly these things.
 
 Moreover, a transformer allows one to have fine-grained control over the metadata that’s ingested without having to modify the ingestion framework's code yourself. Instead, you can write your own module that can take MCEs however you like. To configure the recipe, all that's needed is a module name as well as any arguments.
 
 ## Provided transformers
 
-Aside from the option of writing your own transformer (see below), we provide two simple transformers for the use cases of adding dataset tags and ownership information.
+Aside from the option of writing your own transformer (see below), we provide some simple transformers for the use cases of adding: dataset tags, dataset glossary terms, dataset properties and ownership information.
 
 ### Adding a set of tags
 
@@ -24,6 +24,24 @@ transformers:
         - "urn:li:tag:NeedsDocumentation"
         - "urn:li:tag:Legacy"
 ```
+
+### Adding tags by dataset urn pattern
+
+Let’s suppose we’d like to append a series of tags to specific datasets. To do so, we can use the `pattern_add_dataset_tags` module that’s included in the ingestion framework.  This will match the regex pattern to `urn` of the dataset and assign the respective tags urns given in the array.
+
+The config, which we’d append to our ingestion recipe YAML, would look like this:
+
+```yaml
+transformers:
+  - type: "pattern_add_dataset_tags"
+    config:
+      tag_pattern:
+        rules:
+          ".*example1.*": ["urn:li:tag:NeedsDocumentation", "urn:li:tag:Legacy"]
+          ".*example2.*": ["urn:li:tag:NeedsDocumentation"]
+```
+
+### Add your own custom Transformer
 
 If you'd like to add more complex logic for assigning tags, you can use the more generic add_dataset_tags transformer, which calls a user-provided function to determine the tags for each dataset.
 
@@ -70,6 +88,36 @@ def custom_tags(current: DatasetSnapshotClass) -> List[TagAssociationClass]:
     logging.info(f"Tagging dataset {current.urn} with {tag_strings}.")
     return tags
 ```
+Finally, you can install and use your custom transformer as [shown here](#installing-the-package).
+
+### Adding a set of glossary terms
+
+We can use a similar convention to associate [Glossary Terms](https://datahubproject.io/docs/metadata-ingestion/source_docs/business_glossary) to datasets. We can use the `simple_add_dataset_terms` module that’s included in the ingestion framework.
+
+The config, which we’d append to our ingestion recipe YAML, would look like this:
+
+```yaml
+transformers:
+  - type: "simple_add_dataset_terms"
+    config:
+      term_urns:
+        - "urn:li:glossaryTerm:Email"
+        - "urn:li:glossaryTerm:Address"
+```
+
+### Adding glossary terms by dataset urn pattern
+
+Similar to the above example with tags, we can add glossary terms to datasets based on a regex filter.
+
+```yaml
+transformers:
+  - type: "pattern_add_dataset_terms"
+    config:
+      term_pattern:
+        rules:
+          ".*example1.*": ["urn:li:glossaryTerm:Email", "urn:li:glossaryTerm:Address"]
+          ".*example2.*": ["urn:li:glossaryTerm:PostalCode"]
+```
 
 ### Change owners
 
@@ -102,7 +150,7 @@ Note `ownership_type` is an optional field with `DATAOWNER` as default value.
 
 ### Setting ownership by dataset urn pattern
 
-Let’s suppose we’d like to append a series of users who we know to own a different dataset from a data source but aren't detected during normal ingestion. To do so, we can use the `pattern_add_dataset_ownership` module that’s included in the ingestion framework.  This will match the pattern to `urn` of the dataset and assign the respective owners.
+Again, let’s suppose we’d like to append a series of users who we know to own a different dataset from a data source but aren't detected during normal ingestion. To do so, we can use the `pattern_add_dataset_ownership` module that’s included in the ingestion framework.  This will match the pattern to `urn` of the dataset and assign the respective owners.
 
 The config, which we’d append to our ingestion recipe YAML, would look like this:
 
@@ -191,6 +239,37 @@ transformers:
 In this case, the resulting dataset will have only 1 browse path, the one from the transform.
 
 Note that whatever browse paths you send via this will overwrite the browse paths present in the UI.
+
+
+### Adding a set of properties
+
+If you'd like to add more complex logic for assigning properties, you can use the `add_dataset_properties` transformer, which calls a user-provided class (that extends from `AddDatasetPropertiesResolverBase` class) to determine the properties for each dataset.
+
+The config, which we’d append to our ingestion recipe YAML, would look like this:
+
+```yaml
+transformers:
+  - type: "add_dataset_properties"
+    config:
+      add_properties_resolver_class: "<your_module>.<your_class>"
+```
+
+Then define your class to return a list of custom properties, for example:
+
+```python
+import logging
+from typing import Dict
+from datahub.ingestion.transformer.add_dataset_properties import AddDatasetPropertiesResolverBase
+from datahub.metadata.schema_classes import DatasetSnapshotClass
+
+class MyPropertiesResolver(AddDatasetPropertiesResolverBase):
+    def get_properties_to_add(self, current: DatasetSnapshotClass) -> Dict[str, str]:
+        ### Add custom logic here        
+        properties= {'my_custom_property': 'property value'}
+        logging.info(f"Adding properties: {properties} to dataset: {current.urn}.")
+        return properties
+```
+
 ## Writing a custom transformer from scratch
 
 In the above couple of examples, we use classes that have already been implemented in the ingestion framework. However, it’s common for more advanced cases to pop up where custom code is required, for instance if you'd like to utilize conditional logic or rewrite properties. In such cases, we can add our own modules and define the arguments it takes as a custom transformer.

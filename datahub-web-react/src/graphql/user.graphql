@@ -34,6 +34,11 @@ query getUser($urn: String!, $groupsCount: Int!) {
                             description
                             email
                         }
+                        relationships(input: { types: ["IsMemberOfGroup"], direction: INCOMING }) {
+                            start
+                            count
+                            total
+                        }
                     }
                 }
             }
@@ -58,6 +63,11 @@ query getUserGroups($urn: String!, $start: Int!, $count: Int!) {
                             description
                             email
                         }
+                    }
+                    relationships(input: { types: ["IsMemberOfGroup"], direction: INCOMING }) {
+                        start
+                        count
+                        total
                     }
                 }
             }

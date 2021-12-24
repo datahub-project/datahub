@@ -1,5 +1,14 @@
 export function urlEncodeUrn(urn: string) {
-    return urn && urn.replace(/%/g, '%25').replace(/\//g, '%2F').replace(/\?/g, '%3F').replace(/#/g, '%23');
+    return (
+        urn &&
+        urn
+            .replace(/%/g, '%25')
+            .replace(/\//g, '%2F')
+            .replace(/\?/g, '%3F')
+            .replace(/#/g, '%23')
+            .replace(/\[/g, '%5B')
+            .replace(/\]/g, '%5D')
+    );
 }
 
 export function notEmpty<TValue>(value: TValue | null | undefined): value is TValue {

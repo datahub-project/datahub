@@ -1,5 +1,5 @@
 # This "container" is a workaround to pre-create topics
-FROM confluentinc/cp-kafka:6.2.0
+FROM kymeric/cp-kafka:latest
 
 ENV METADATA_AUDIT_EVENT_NAME="MetadataAuditEvent_v4"
 ENV METADATA_CHANGE_EVENT_NAME="MetadataChangeEvent_v4"

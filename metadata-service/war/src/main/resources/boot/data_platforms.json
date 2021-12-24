@@ -118,6 +118,16 @@
     }
   },
   {
+    "urn": "urn:li:dataPlatform:mode",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "mode",
+      "displayName": "Mode",
+      "type": "KEY_VALUE_STORE",
+      "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/modelogo.png"
+    }
+  },
+  {
     "urn": "urn:li:dataPlatform:mongodb",
     "aspect": {
       "datasetNameDelimiter": ".",
@@ -145,6 +155,16 @@
       "displayName": "MariaDB",
       "type": "RELATIONAL_DB",
       "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/mariadblogo.png"
+    }
+  },
+  {
+    "urn": "urn:li:dataPlatform:openapi",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "openapi",
+      "displayName": "OpenAPI",
+      "type": "OTHERS",
+      "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/openapilogo.png"
     }
   },
   {
@@ -334,6 +354,16 @@
       "displayName": "dbt",
       "type": "OTHERS",
       "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/dbtlogo.png"
+    }
+  },
+  {
+    "urn": "urn:li:dataPlatform:elasticsearch",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "elasticsearch",
+      "displayName": "Elasticsearch",
+      "type": "OTHERS",
+      "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/elasticsearchlogo.png"
     }
   }
 ]
