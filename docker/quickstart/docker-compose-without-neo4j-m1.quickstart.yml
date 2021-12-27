@@ -15,7 +15,7 @@ services:
     - KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS=0
     - KAFKA_HEAP_OPTS=-Xms256m -Xmx256m
     hostname: broker
-    image: confluentinc/cp-kafka:5.4.0
+    image: kymeric/cp-kafka:latest
     ports:
     - 29092:29092
     - 9092:9092
@@ -49,15 +49,13 @@ services:
     - EBEAN_DATASOURCE_USERNAME=datahub
     - EBEAN_DATASOURCE_PASSWORD=datahub
     - EBEAN_DATASOURCE_HOST=mysql:3306
-    - EBEAN_DATASOURCE_URL=jdbc:mysql://mysql:3306/datahub?verifyServerCertificate=false&useSSL=true&useUnicode=yes&characterEncoding=UTF-8&enabledTLSProtocols=TLSv1.2
+    - EBEAN_DATASOURCE_URL=jdbc:mysql://mysql:3306/datahub?verifyServerCertificate=false&useSSL=true&useUnicode=yes&characterEncoding=UTF-8
     - EBEAN_DATASOURCE_DRIVER=com.mysql.jdbc.Driver
     - KAFKA_BOOTSTRAP_SERVER=broker:29092
     - KAFKA_SCHEMAREGISTRY_URL=http://schema-registry:8081
     - ELASTICSEARCH_HOST=elasticsearch
     - ELASTICSEARCH_PORT=9200
-    - GRAPH_SERVICE_IMPL=dgraph
-    - DGRAPH_HOST=dgraph
-    - DGRAPH_SECURITY=plain
+    - GRAPH_SERVICE_IMPL=elasticsearch
     - JAVA_OPTS=-Xms1g -Xmx1g
     - ENTITY_REGISTRY_CONFIG_PATH=/datahub/datahub-gms/resources/entity-registry.yml
     - MAE_CONSUMER_ENABLED=true
@@ -67,24 +65,13 @@ services:
     ports:
     - 8080:8080
     volumes:
-    - ${HOME}/.datahub/plugins/:/etc/datahub/plugins
-  dgraph:
-    container_name: dgraph
-    environment:
-    - DGRAPH_SECURITY=plain
-    hostname: dgraph
-    image: dgraph/standalone:v21.12.0
-    ports:
-    - 8082:8080
-    - 9080:9080
-    volumes:
-    - dgraphdata:/dgraph
+    - ${HOME}/.datahub/plugins:/etc/datahub/plugins
   elasticsearch:
     container_name: elasticsearch
     environment:
     - discovery.type=single-node
     - xpack.security.enabled=false
-    - ES_JAVA_OPTS=-Xms256m -Xmx256m
+    - ES_JAVA_OPTS=-Xms256m -Xmx256m -Dlog4j2.formatMsgNoLookups=true
     healthcheck:
       retries: 4
       start_period: 2m
@@ -128,7 +115,7 @@ services:
     - MYSQL_PASSWORD=datahub
     - MYSQL_ROOT_PASSWORD=datahub
     hostname: mysql
-    image: mysql:5.7
+    image: mariadb:10.5.8
     ports:
     - 3306:3306
     volumes:
@@ -155,7 +142,7 @@ services:
     - SCHEMA_REGISTRY_HOST_NAME=schemaregistry
     - SCHEMA_REGISTRY_KAFKASTORE_CONNECTION_URL=zookeeper:2181
     hostname: schema-registry
-    image: confluentinc/cp-schema-registry:5.4.0
+    image: eugenetea/schema-registry-arm64:latest
     ports:
     - 8081:8081
   zookeeper:
@@ -164,14 +151,13 @@ services:
     - ZOOKEEPER_CLIENT_PORT=2181
     - ZOOKEEPER_TICK_TIME=2000
     hostname: zookeeper
-    image: confluentinc/cp-zookeeper:5.4.0
+    image: kymeric/cp-zookeeper:latest
     ports:
     - 2181:2181
     volumes:
     - zkdata:/var/opt/zookeeper
 version: '2.3'
 volumes:
-  dgraphdata: null
   esdata: null
   mysqldata: null
   zkdata: null
