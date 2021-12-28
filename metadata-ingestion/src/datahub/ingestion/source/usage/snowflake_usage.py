@@ -338,11 +338,14 @@ class SnowflakeUsageSource(StatefulIngestionSourceBase):
 
             if not event_dict["email"] and self.config.email_domain:
                 if not event_dict["user_name"]:
-                    event_dict["user_name"] = "unknown"
+                    logging.warning(
+                        f"The user_name is missing from {event_dict}. Skipping ...."
+                    )
+                    continue
 
                 event_dict[
                     "email"
-                ] = f'{event_dict["user_name"]}@{self.config.email_domain}'
+                ] = f'{event_dict["user_name"]}@{self.config.email_domain}'.lower()
 
             try:  # big hammer try block to ensure we don't fail on parsing events
                 event = SnowflakeJoinedAccessEvent(**event_dict)
