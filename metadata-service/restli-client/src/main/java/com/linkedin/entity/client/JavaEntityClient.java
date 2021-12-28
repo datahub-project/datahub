@@ -2,7 +2,6 @@ package com.linkedin.entity.client;
 
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
-
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.aspect.GetTimeseriesAspectValuesResponse;
 import com.linkedin.common.AuditStamp;
@@ -33,6 +32,7 @@ import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.r2.RemoteInvocationException;
+import io.opentelemetry.extension.annotations.WithSpan;
 import java.time.Clock;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -199,6 +199,7 @@ public class JavaEntityClient implements EntityClient {
      * @throws RemoteInvocationException
      */
     @Nonnull
+    @WithSpan
     public SearchResult search(
         @Nonnull String entity,
         @Nonnull String input,
@@ -266,7 +267,7 @@ public class JavaEntityClient implements EntityClient {
      */
     @Nonnull
     public SearchResult searchAcrossEntities(
-        @Nullable List<String> entities,
+        @Nonnull List<String> entities,
         @Nonnull String input,
         @Nullable Filter filter,
         int start,
@@ -289,7 +290,6 @@ public class JavaEntityClient implements EntityClient {
 
     public void setWritable(boolean canWrite, @Nonnull final Authentication authentication) throws RemoteInvocationException {
         _entityService.setWritable(canWrite);
-        return;
     }
 
     @Nonnull
@@ -344,21 +344,30 @@ public class JavaEntityClient implements EntityClient {
     @Override
     public List<EnvelopedAspect> getTimeseriesAspectValues(@Nonnull String urn, @Nonnull String entity,
         @Nonnull String aspect, @Nullable Long startTimeMillis, @Nullable Long endTimeMillis, @Nullable Integer limit,
-        @Nonnull final Authentication authentication) throws RemoteInvocationException {
-        GetTimeseriesAspectValuesResponse response = new GetTimeseriesAspectValuesResponse();
-        response.setEntityName(entity);
-        response.setAspectName(aspect);
-        if (startTimeMillis != null) {
-            response.setStartTimeMillis(startTimeMillis);
-        }
-        if (endTimeMillis != null) {
-            response.setEndTimeMillis(endTimeMillis);
-        }
+        @Nonnull Boolean getLatestValue, @Nullable Filter filter, @Nonnull final Authentication authentication)
+        throws RemoteInvocationException {
+      GetTimeseriesAspectValuesResponse response = new GetTimeseriesAspectValuesResponse();
+      response.setEntityName(entity);
+      response.setAspectName(aspect);
+      if (startTimeMillis != null) {
+        response.setStartTimeMillis(startTimeMillis);
+      }
+      if (endTimeMillis != null) {
+        response.setEndTimeMillis(endTimeMillis);
+      }
+      if (limit != null) {
         response.setLimit(limit);
-        response.setValues(new EnvelopedAspectArray(
-            _timeseriesAspectService.getAspectValues(Urn.createFromString(urn), entity, aspect, startTimeMillis, endTimeMillis,
-                limit)));
-        return response.getValues();
+      }
+      if (getLatestValue != null) {
+        response.setGetLatestValue(getLatestValue);
+      }
+      if (filter != null) {
+        response.setFilter(filter);
+      }
+      response.setValues(new EnvelopedAspectArray(
+          _timeseriesAspectService.getAspectValues(Urn.createFromString(urn), entity, aspect, startTimeMillis,
+              endTimeMillis, limit, getLatestValue, filter)));
+      return response.getValues();
     }
 
     // TODO: Factor out ingest logic into a util that can be accessed by the java client and the resource
@@ -371,7 +380,7 @@ public class JavaEntityClient implements EntityClient {
         final List<MetadataChangeProposal> additionalChanges =
             AspectUtils.getAdditionalChanges(metadataChangeProposal, _entityService);
 
-        Urn urn = _entityService.ingestProposal(metadataChangeProposal, auditStamp);
+        Urn urn = _entityService.ingestProposal(metadataChangeProposal, auditStamp).getUrn();
         additionalChanges.forEach(proposal -> _entityService.ingestProposal(proposal, auditStamp));
         return urn.toString();
     }
@@ -389,5 +398,21 @@ public class JavaEntityClient implements EntityClient {
             }
         }
         return Optional.empty();
+    }
+
+    @SneakyThrows
+    public DataMap getRawAspect(@Nonnull String urn, @Nonnull String aspect,
+        @Nonnull Long version, @Nonnull Authentication authentication) throws RemoteInvocationException {
+        VersionedAspect entity = _entityService.getVersionedAspect(Urn.createFromString(urn), aspect, version);
+        if (entity == null) {
+            return null;
+        }
+
+        if (entity.hasAspect()) {
+            DataMap rawAspect = ((DataMap) entity.data().get("aspect"));
+            return rawAspect;
+        }
+
+        return null;
     }
 }

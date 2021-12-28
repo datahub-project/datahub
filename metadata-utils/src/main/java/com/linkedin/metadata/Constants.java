@@ -38,11 +38,11 @@ public class Constants {
   public static final String EXECUTION_REQUEST_SIGNAL_ASPECT_NAME = "dataHubExecutionRequestSignal";
   public static final String EXECUTION_REQUEST_RESULT_ASPECT_NAME = "dataHubExecutionRequestResult";
 
-
   /**
    * User Status
    */
   public static final String CORP_USER_STATUS_ACTIVE = "ACTIVE";
 
-  private Constants() { }
+  private Constants() {
+  }
 }

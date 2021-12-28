@@ -1,7 +1,6 @@
 package com.linkedin.metadata.kafka;
 
 import com.codahale.metrics.Histogram;
-
 import com.codahale.metrics.MetricRegistry;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.metadata.EventUtils;
@@ -45,7 +44,7 @@ public class MetadataChangeLogProcessor {
   @KafkaListener(id = "${METADATA_CHANGE_LOG_KAFKA_CONSUMER_GROUP_ID:generic-mae-consumer-job-client}", topics = {
       "${METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME:" + Topics.METADATA_CHANGE_LOG_VERSIONED + "}",
       "${METADATA_CHANGE_LOG_TIMESERIES_TOPIC_NAME:" + Topics.METADATA_CHANGE_LOG_TIMESERIES
-          + "}"}, containerFactory = "avroSerializedKafkaListener")
+          + "}"}, containerFactory = "kafkaEventConsumer")
   public void consume(final ConsumerRecord<String, GenericRecord> consumerRecord) {
     kafkaLagStats.update(System.currentTimeMillis() - consumerRecord.timestamp());
     final GenericRecord record = consumerRecord.value();
@@ -78,7 +77,6 @@ public class MetadataChangeLogProcessor {
         log.error(String.format("Failed to execute MCL hook with name %s", hook.getClass().getCanonicalName()), e);
       }
     }
-
     // TODO: debug
     log.info(String.format("Successfully completed MCL hooks for urn: %s, key: %s",
         event.getEntityUrn(),

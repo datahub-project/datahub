@@ -2,12 +2,10 @@ import time
 
 import pytest
 import requests
-from click.testing import CliRunner
 from freezegun import freeze_time
 
-from datahub.entrypoints import datahub
-from tests.test_helpers import fs_helpers, mce_helpers
-from tests.test_helpers.click_helpers import assert_result_ok
+from tests.test_helpers import mce_helpers
+from tests.test_helpers.click_helpers import run_datahub_cmd
 from tests.test_helpers.docker_helpers import wait_for_port
 
 FROZEN_TIME = "2021-10-25 13:00:00"
@@ -184,13 +182,8 @@ def test_kafka_connect_ingest(docker_compose_runner, pytestconfig, tmp_path, moc
         time.sleep(45)
 
         # Run the metadata ingestion pipeline.
-        runner = CliRunner()
-        with fs_helpers.isolated_filesystem(tmp_path):
-            print(tmp_path)
-            config_file = (test_resources_dir / "kafka_connect_to_file.yml").resolve()
-            result = runner.invoke(datahub, ["ingest", "-c", f"{config_file}"])
-            # import pdb;pdb.set_trace();
-            assert_result_ok(result)
+        config_file = (test_resources_dir / "kafka_connect_to_file.yml").resolve()
+        run_datahub_cmd(["ingest", "-c", f"{config_file}"], tmp_path=tmp_path)
 
         # Verify the output.
         mce_helpers.check_golden_file(

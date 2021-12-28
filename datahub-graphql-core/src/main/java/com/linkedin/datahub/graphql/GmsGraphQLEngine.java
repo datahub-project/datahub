@@ -122,6 +122,7 @@ import com.linkedin.datahub.graphql.types.glossary.GlossaryTermType;
 import com.linkedin.datahub.graphql.types.usage.UsageType;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.recommendation.RecommendationsService;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.secret.SecretService;
@@ -162,10 +163,11 @@ public class GmsGraphQLEngine {
     private final EntityService entityService;
     private final AnalyticsService analyticsService;
     private final RecommendationsService recommendationsService;
+    private final EntityRegistry entityRegistry;
     private final TokenService tokenService;
     private final SecretService secretService;
 
-    private final boolean isManagedIngetionEnabled;
+    private final boolean isManagedIngestionEnabled;
 
     private final DatasetType datasetType;
     private final CorpUserType corpUserType;
@@ -221,6 +223,7 @@ public class GmsGraphQLEngine {
             null,
             null,
             null,
+            null,
             false);
     }
 
@@ -232,8 +235,10 @@ public class GmsGraphQLEngine {
         final EntityService entityService,
         final RecommendationsService recommendationsService,
         final TokenService tokenService,
+        final EntityRegistry entityRegistry,
         final SecretService secretService,
-        final boolean isManagedIngestionEnabled) {
+        final boolean isManagedIngestionEnabled
+        ) {
 
         this.entityClient = entityClient;
         this.graphClient = graphClient;
@@ -244,9 +249,10 @@ public class GmsGraphQLEngine {
         this.recommendationsService = recommendationsService;
         this.tokenService = tokenService;
         this.secretService = secretService;
+        this.entityRegistry = entityRegistry;
 
         // Feature flags - TODO: Migrate to a better configuration provider.
-        this.isManagedIngetionEnabled = isManagedIngestionEnabled;
+        this.isManagedIngestionEnabled = isManagedIngestionEnabled;
 
         this.datasetType = new DatasetType(entityClient);
         this.corpUserType = new CorpUserType(entityClient);
@@ -442,7 +448,7 @@ public class GmsGraphQLEngine {
     private void configureQueryResolvers(final RuntimeWiring.Builder builder) {
         builder.type("Query", typeWiring -> typeWiring
             .dataFetcher("appConfig",
-                new AppConfigResolver(analyticsService != null, this.isManagedIngetionEnabled))
+                new AppConfigResolver(analyticsService != null, this.isManagedIngestionEnabled))
             .dataFetcher("me", new AuthenticatedResolver<>(
                     new MeResolver(this.entityClient)))
             .dataFetcher("search", new AuthenticatedResolver<>(
@@ -627,6 +633,9 @@ public class GmsGraphQLEngine {
                 .dataFetcher("schemaMetadata", new AuthenticatedResolver<>(
                     new AspectResolver())
                 )
+               .dataFetcher("aspects", new AuthenticatedResolver<>(
+                   new WeaklyTypedAspectsResolver(entityClient, entityRegistry))
+               )
                .dataFetcher("subTypes", new AuthenticatedResolver(new SubTypesResolver(
                    this.entityClient,
                    "dataset",

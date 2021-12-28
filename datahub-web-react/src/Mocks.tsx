@@ -420,6 +420,17 @@ export const dataset3 = {
     ],
     subTypes: null,
     viewProperties: null,
+    autoRenderAspects: [
+        {
+            aspectName: 'autoRenderAspect',
+            payload: '{ "values": [{ "autoField1": "autoValue1", "autoField2": "autoValue2" }] }',
+            renderSpec: {
+                displayType: 'tabular',
+                displayName: 'Auto Render Aspect Custom Tab Name',
+                key: 'values',
+            },
+        },
+    ],
 } as Dataset;
 
 export const dataset4 = {

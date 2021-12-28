@@ -1,6 +1,7 @@
 package com.linkedin.gms.factory.graphql;
 
 import com.datahub.authentication.token.TokenService;
+
 import com.linkedin.datahub.graphql.GmsGraphQLEngine;
 import com.linkedin.datahub.graphql.GraphQLEngine;
 import com.linkedin.datahub.graphql.analytics.service.AnalyticsService;
@@ -8,15 +9,16 @@ import com.linkedin.entity.client.JavaEntityClient;
 import com.linkedin.gms.factory.auth.DataHubTokenServiceFactory;
 import com.linkedin.gms.factory.common.IndexConventionFactory;
 import com.linkedin.gms.factory.common.RestHighLevelClientFactory;
+import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.gms.factory.entity.RestliEntityClientFactory;
 import com.linkedin.gms.factory.recommendation.RecommendationServiceFactory;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.recommendation.RecommendationsService;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.secret.SecretService;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.usage.UsageClient;
-import com.sun.prism.shader.Solid_TextureSecondPassLCD_AlphaTest_Loader;
 import javax.annotation.Nonnull;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,8 +30,14 @@ import org.springframework.context.annotation.Import;
 
 
 @Configuration
-@Import({RestHighLevelClientFactory.class, IndexConventionFactory.class, RestliEntityClientFactory.class, RecommendationServiceFactory.class,
-    DataHubTokenServiceFactory.class})
+@Import({
+    RestHighLevelClientFactory.class,
+    IndexConventionFactory.class,
+    RestliEntityClientFactory.class,
+    RecommendationServiceFactory.class,
+    EntityRegistryFactory.class,
+    DataHubTokenServiceFactory.class
+})
 public class GraphQLEngineFactory {
   @Autowired
   @Qualifier("elasticSearchRestHighLevelClient")
@@ -66,6 +74,9 @@ public class GraphQLEngineFactory {
   @Qualifier("dataHubSecretService")
   private SecretService _secretService;
 
+  @Qualifier("entityRegistry")
+  private EntityRegistry _entityRegistry;
+
   @Value("${platformAnalytics.enabled}") // TODO: Migrate to DATAHUB_ANALYTICS_ENABLED
   private Boolean isAnalyticsEnabled;
 
@@ -84,6 +95,7 @@ public class GraphQLEngineFactory {
           _entityService,
           _recommendationsService,
           _tokenService,
+          _entityRegistry,
           _secretService,
           isManagedIngestionEnabled
           ).builder().build();
@@ -96,6 +108,7 @@ public class GraphQLEngineFactory {
         _entityService,
         _recommendationsService,
         _tokenService,
+        _entityRegistry,
         _secretService,
         isManagedIngestionEnabled).builder().build();
   }

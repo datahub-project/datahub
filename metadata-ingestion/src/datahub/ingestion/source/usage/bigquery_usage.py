@@ -1,6 +1,7 @@
 import collections
 import dataclasses
 import heapq
+import json
 import logging
 import re
 from dataclasses import dataclass
@@ -33,8 +34,10 @@ logger = logging.getLogger(__name__)
 # AuditLogEntry = ProtobufEntry
 AuditLogEntry = Any
 
+# BigQueryAuditMetadata is the v2 format in which audit logs are exported to BigQuery
+BigQueryAuditMetadata = Any
+
 DEBUG_INCLUDE_FULL_PAYLOADS = False
-GCP_LOGGING_PAGE_SIZE = 1000
 
 # Handle yearly, monthly, daily, or hourly partitioning.
 # See https://cloud.google.com/bigquery/docs/partitioned-tables.
@@ -46,6 +49,7 @@ PARTITIONED_TABLE_REGEX = re.compile(r"^(.+)[\$_](\d{4}|\d{6}|\d{8}|\d{10})$")
 SNAPSHOT_TABLE_REGEX = re.compile(r"^(.+)@(\d{13})$")
 
 BQ_DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
+BQ_DATE_SHARD_FORMAT = "%Y%m%d"
 BQ_FILTER_REGEX_ALLOW_TEMPLATE = """
 protoPayload.serviceData.jobCompletedEvent.job.jobStatistics.referencedTables.tableId =~ "{allow_pattern}"
 """
@@ -280,6 +284,62 @@ class QueryEvent:
 
         return queryEvent
 
+    @classmethod
+    def can_parse_exported_bigquery_audit_metadata(
+        cls, row: BigQueryAuditMetadata
+    ) -> bool:
+        try:
+            row["timestamp"]
+            row["protoPayload"]
+            row["metadata"]
+            return True
+        except (KeyError, TypeError):
+            return False
+
+    @classmethod
+    def from_exported_bigquery_audit_metadata(
+        cls, row: BigQueryAuditMetadata
+    ) -> "QueryEvent":
+        timestamp = row["timestamp"]
+        payload = row["protoPayload"]
+        metadata = json.loads(row["metadata"])
+
+        user = payload["authenticationInfo"]["principalEmail"]
+
+        job = metadata["jobChange"]["job"]
+
+        job_name = job.get("jobName")
+        raw_query = job["jobConfig"]["queryConfig"]["query"]
+
+        raw_dest_table = job["jobConfig"]["queryConfig"].get("destinationTable")
+        destination_table = None
+        if raw_dest_table:
+            destination_table = BigQueryTableRef.from_string_name(raw_dest_table)
+
+        raw_ref_tables = job["jobStats"]["queryStats"].get("referencedTables")
+        referenced_tables = None
+        if raw_ref_tables:
+            referenced_tables = [
+                BigQueryTableRef.from_string_name(spec) for spec in raw_ref_tables
+            ]
+
+        query_event = QueryEvent(
+            timestamp=timestamp,
+            actor_email=user,
+            query=raw_query,
+            destinationTable=destination_table,
+            referencedTables=referenced_tables,
+            jobName=job_name,
+            payload=payload if DEBUG_INCLUDE_FULL_PAYLOADS else None,
+        )
+        if not job_name:
+            logger.debug(
+                "jobName from query events is absent. "
+                "BigQueryAuditMetadata entry - {logEntry}".format(logEntry=row)
+            )
+
+        return query_event
+
 
 class BigQueryUsageConfig(BaseUsageConfig):
     projects: Optional[List[str]] = None
@@ -288,6 +348,7 @@ class BigQueryUsageConfig(BaseUsageConfig):
     env: str = builder.DEFAULT_ENV
     table_pattern: Optional[AllowDenyPattern] = None
 
+    log_page_size: Optional[pydantic.PositiveInt] = 1000
     query_log_delay: Optional[pydantic.PositiveInt] = None
     max_query_duration: timedelta = timedelta(minutes=15)
 
@@ -370,6 +431,26 @@ class BigQueryUsageSource(Source):
             or self.config.table_pattern.allow[0] != ".*"
         )
         use_deny_filter = self.config.table_pattern and self.config.table_pattern.deny
+        allow_regex = (
+            BQ_FILTER_REGEX_ALLOW_TEMPLATE.format(
+                allow_pattern=self.config.get_allow_pattern_string()
+            )
+            if use_allow_filter
+            else ""
+        )
+        deny_regex = (
+            BQ_FILTER_REGEX_DENY_TEMPLATE.format(
+                deny_pattern=self.config.get_deny_pattern_string(),
+                logical_operator="AND" if use_allow_filter else "",
+            )
+            if use_deny_filter
+            else ("" if use_allow_filter else "FALSE")
+        )
+
+        logger.debug(
+            f"use_allow_filter={use_allow_filter}, use_deny_filter={use_deny_filter}, "
+            f"allow_regex={allow_regex}, deny_regex={deny_regex}"
+        )
         filter = BQ_FILTER_RULE_TEMPLATE.format(
             start_time=(
                 self.config.start_time - self.config.max_query_duration
@@ -377,21 +458,8 @@ class BigQueryUsageSource(Source):
             end_time=(self.config.end_time + self.config.max_query_duration).strftime(
                 BQ_DATETIME_FORMAT
             ),
-            allow_regex=(
-                BQ_FILTER_REGEX_ALLOW_TEMPLATE.format(
-                    allow_pattern=self.config.get_allow_pattern_string()
-                )
-                if use_allow_filter
-                else ""
-            ),
-            deny_regex=(
-                BQ_FILTER_REGEX_DENY_TEMPLATE.format(
-                    deny_pattern=self.config.get_deny_pattern_string(),
-                    logical_operator="AND" if use_allow_filter else "",
-                )
-                if use_deny_filter
-                else ""
-            ),
+            allow_regex=allow_regex,
+            deny_regex=deny_regex,
         )
         logger.debug(filter)
 
@@ -402,7 +470,7 @@ class BigQueryUsageSource(Source):
         for client in clients:
             try:
                 list_entries: Iterable[AuditLogEntry] = client.list_entries(
-                    filter_=filter, page_size=GCP_LOGGING_PAGE_SIZE
+                    filter_=filter, page_size=self.config.log_page_size
                 )
                 list_entry_generators_across_clients.append(list_entries)
             except Exception as e:
@@ -414,7 +482,7 @@ class BigQueryUsageSource(Source):
                     f"{client.project}", f"unable to retrive log entrires {e}"
                 )
 
-        i: int
+        i: int = 0
         entry: AuditLogEntry
         for i, entry in enumerate(
             heapq.merge(
@@ -514,8 +582,6 @@ class BigQueryUsageSource(Source):
                         str(event.resource),
                         "failed to match table read event with job; try increasing `query_log_delay` or `max_query_duration`",
                     )
-                    # continue to avoid processing read events that aren't matched by query events
-                    continue
             yield event
 
         logger.info(f"Number of read events joined with query events: {num_joined}")

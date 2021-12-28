@@ -64,12 +64,14 @@ services:
     image: linkedin/datahub-gms:${DATAHUB_VERSION:-head}
     ports:
     - 8080:8080
+    volumes:
+    - ${HOME}/.datahub/plugins:/etc/datahub/plugins
   elasticsearch:
     container_name: elasticsearch
     environment:
     - discovery.type=single-node
     - xpack.security.enabled=false
-    - ES_JAVA_OPTS=-Xms256m -Xmx256m
+    - ES_JAVA_OPTS=-Xms256m -Xmx256m -Dlog4j2.formatMsgNoLookups=true
     healthcheck:
       retries: 4
       start_period: 2m

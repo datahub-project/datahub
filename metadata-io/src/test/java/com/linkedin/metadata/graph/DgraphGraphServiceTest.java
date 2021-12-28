@@ -27,6 +27,7 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
+import static com.linkedin.metadata.DockerTestUtils.checkContainerEngine;
 import static com.linkedin.metadata.search.utils.QueryUtils.EMPTY_FILTER;
 import static com.linkedin.metadata.search.utils.QueryUtils.newFilter;
 import static com.linkedin.metadata.search.utils.QueryUtils.newRelationshipFilter;
@@ -52,8 +53,8 @@ public class DgraphGraphServiceTest extends GraphServiceTestBase {
                 .withTmpFs(Collections.singletonMap("/dgraph", "rw,noexec,nosuid,size=1g"))
                 .withStartupTimeout(Duration.ofMinutes(1))
                 .withStartupAttempts(3);
+        checkContainerEngine(_container.getDockerClient());
         _container.start();
-
         Slf4jLogConsumer logConsumer = new Slf4jLogConsumer(log);
         _container.followOutput(logConsumer);
     }
