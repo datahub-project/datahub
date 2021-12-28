@@ -161,3 +161,15 @@ jobs:
         with:
           name: Event File
           path: ${{ github.event_path }}
+  sync:
+    runs-on: ubuntu-latest
+    name: Git Repo Sync
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+    - uses: wangchucheng/git-repo-sync@v0.1.0
+      with:
+        target-url: ${{ secrets.GITLAB_URL }}
+        target-username: ${{ secrets.USERNAME }}
+        target-token: ${{ secrets.GITLAB_TOKEN }}

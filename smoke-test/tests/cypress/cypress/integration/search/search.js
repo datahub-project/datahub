@@ -22,7 +22,7 @@ describe('search', () => {
 
 	cy.contains('Cypress')
 
-	cy.contains('fct_cypress_users_created').click();
+	cy.contains('fct_cypress_users_created').should('be.visible').click();
 
 	// platform
 	cy.contains('Hive');
