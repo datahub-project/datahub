@@ -4,7 +4,7 @@ describe('mutations', () => {
     cy.login();
     cy.visit('/dataset/urn:li:dataset:(urn:li:dataPlatform:hive,cypress_logging_events,PROD)');
     cy.contains('cypress_logging_events');
-
+    cy.log('add tag now');
     cy.contains('Add Tag').should('be.visible').click();
 
     cy.focused().type('CypressTestAddTag');
@@ -14,7 +14,7 @@ describe('mutations', () => {
     cy.get('textarea').type('CypressTestAddTag Test Description');
 
     cy.contains(/Create$/).should('be.visible').click();
-
+    cy.log('look for tags now');
     // go to tag page
     cy.get('a[href="/tag/urn:li:tag:CypressTestAddTag"]').should('be.visible').click();
 
@@ -30,6 +30,7 @@ describe('mutations', () => {
     // verify dataset shows up in search now
     cy.contains('of 1 result').should('be.visible').click();
     cy.contains('cypress_logging_events').should('be.visible').click();
+    cy.log('remove tag now');
     cy.get('a[href="/tag/urn:li:tag:CypressTestAddTag"]').within(() => cy.get('span[aria-label=close]').click());
     cy.contains('Yes').should('be.visible').click();
 
