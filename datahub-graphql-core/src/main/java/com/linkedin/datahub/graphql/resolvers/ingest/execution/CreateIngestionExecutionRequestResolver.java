@@ -18,6 +18,7 @@ import com.linkedin.execution.ExecutionRequestInput;
 import com.linkedin.execution.ExecutionRequestSource;
 import com.linkedin.ingestion.DataHubIngestionSourceInfo;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.config.IngestionConfiguration;
 import com.linkedin.metadata.key.ExecutionRequestKey;
 import com.linkedin.metadata.utils.GenericAspectUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -42,9 +43,11 @@ public class CreateIngestionExecutionRequestResolver implements DataFetcher<Comp
   private static final String VERSION_ARG_NAME = "version";
 
   private final EntityClient _entityClient;
+  private final IngestionConfiguration _ingestionConfiguration;
 
-  public CreateIngestionExecutionRequestResolver(final EntityClient entityClient) {
+  public CreateIngestionExecutionRequestResolver(final EntityClient entityClient, final IngestionConfiguration ingestionConfiguration) {
     _entityClient = entityClient;
+    _ingestionConfiguration = ingestionConfiguration;
   }
 
   @Override
@@ -98,6 +101,10 @@ public class CreateIngestionExecutionRequestResolver implements DataFetcher<Comp
 
           Map<String, String> arguments = new HashMap<>();
           arguments.put(RECIPE_ARG_NAME, ingestionSourceInfo.getConfig().getRecipe());
+          arguments.put(VERSION_ARG_NAME, ingestionSourceInfo.getConfig().hasVersion()
+              ? ingestionSourceInfo.getConfig().getVersion()
+              : _ingestionConfiguration.getDefaultCliVersion()
+          );
           if (ingestionSourceInfo.getConfig().hasVersion()) {
             arguments.put(VERSION_ARG_NAME, ingestionSourceInfo.getConfig().getVersion());
           }

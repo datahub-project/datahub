@@ -262,7 +262,7 @@ type IngestionConfig {
   """
   Advanced: The specific executor that should handle the execution request. Defaults to 'default'.
   """
-  executorId: String
+  executorId: String!
 
   """
   Advanced: The version of the ingestion framework to use
@@ -398,7 +398,7 @@ input UpdateIngestionSourceConfigInput {
   """
   The id of the executor to use for executing the recipe
   """
-  executorId: String
+  executorId: String!
 }
 
 """

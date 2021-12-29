@@ -15,12 +15,14 @@ import com.linkedin.entity.client.RestliEntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.execution.ExecutionRequestInput;
 import com.linkedin.execution.ExecutionRequestSource;
+import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;
 import com.linkedin.gms.factory.entity.RestliEntityClientFactory;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.ingestion.DataHubIngestionSourceInfo;
 import com.linkedin.ingestion.DataHubIngestionSourceSchedule;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.config.IngestionConfiguration;
 import com.linkedin.metadata.key.ExecutionRequestKey;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -97,13 +99,16 @@ public class IngestionSchedulerHook implements MetadataChangeLogHook {
   // Shared executor service used for executing an ingestion source on a schedule
   private final ScheduledExecutorService _sharedExecutorService = Executors.newScheduledThreadPool(1);
 
+  private final IngestionConfiguration _ingestionConfiguration;
+
   @Autowired
   public IngestionSchedulerHook(
       @Nonnull final EntityRegistry entityRegistry,
       @Nonnull final Authentication systemAuthentication,
-      @Nonnull final RestliEntityClient entityClient
+      @Nonnull final RestliEntityClient entityClient,
+      @Nonnull final ConfigurationProvider configProvider
   ) {
-    this(entityRegistry, systemAuthentication, entityClient, DEFAULT_DELAY_INTERVAL_SECONDS, DEFAULT_REFRESH_INTERVAL_SECONDS);
+    this(entityRegistry, systemAuthentication, entityClient, configProvider, DEFAULT_DELAY_INTERVAL_SECONDS, DEFAULT_REFRESH_INTERVAL_SECONDS);
   }
 
   // Visible for testing.
@@ -111,12 +116,14 @@ public class IngestionSchedulerHook implements MetadataChangeLogHook {
       @Nonnull final EntityRegistry entityRegistry,
       @Nonnull final Authentication systemAuthentication,
       @Nonnull final RestliEntityClient entityClient,
+      @Nonnull final ConfigurationProvider configProvider,
       final int batchGetDelayIntervalSeconds,
       final int batchGetRefreshIntervalSeconds
   ) {
     _entityRegistry = Objects.requireNonNull(entityRegistry);
     _systemAuthentication = Objects.requireNonNull(systemAuthentication);
     _entityClient = Objects.requireNonNull(entityClient);
+    _ingestionConfiguration = configProvider.getIngestion();
 
     final BatchRefreshSchedulesRunnable batchRefreshSchedulesRunnable = new BatchRefreshSchedulesRunnable(
         systemAuthentication,
@@ -239,6 +246,7 @@ public class IngestionSchedulerHook implements MetadataChangeLogHook {
         final ExecutionRequestRunnable executionRequestRunnable = new ExecutionRequestRunnable(
             _systemAuthentication,
             _entityClient,
+            _ingestionConfiguration,
             ingestionSourceUrn,
             newInfo,
             () -> _nextIngestionSourceExecutionCache.remove(ingestionSourceUrn),
@@ -362,6 +370,7 @@ public class IngestionSchedulerHook implements MetadataChangeLogHook {
 
     private final Authentication _systemAuthentication;
     private final EntityClient _entityClient;
+    private final IngestionConfiguration _ingestionConfiguration;
 
     // Information about the ingestion source being executed
     private final Urn _ingestionSourceUrn;
@@ -376,12 +385,14 @@ public class IngestionSchedulerHook implements MetadataChangeLogHook {
     public ExecutionRequestRunnable(
         @Nonnull final Authentication systemAuthentication,
         @Nonnull final EntityClient entityClient,
+        @Nonnull final IngestionConfiguration ingestionConfiguration,
         @Nonnull final Urn ingestionSourceUrn,
         @Nonnull final DataHubIngestionSourceInfo ingestionSourceInfo,
         @Nonnull final Runnable deleteNextIngestionSourceExecution,
         @Nonnull final BiConsumer<Urn, DataHubIngestionSourceInfo> scheduleNextIngestionSourceExecution) {
       _systemAuthentication = Objects.requireNonNull(systemAuthentication);
       _entityClient = Objects.requireNonNull(entityClient);
+      _ingestionConfiguration = Objects.requireNonNull(ingestionConfiguration);
       _ingestionSourceUrn = Objects.requireNonNull(ingestionSourceUrn);
       _ingestionSourceInfo = Objects.requireNonNull(ingestionSourceInfo);
       _deleteNextIngestionSourceExecution = Objects.requireNonNull(deleteNextIngestionSourceExecution);
@@ -420,9 +431,9 @@ public class IngestionSchedulerHook implements MetadataChangeLogHook {
 
         Map<String, String> arguments = new HashMap<>();
         arguments.put(RECIPE_ARGUMENT_NAME, _ingestionSourceInfo.getConfig().getRecipe());
-        if (_ingestionSourceInfo.getConfig().hasVersion()) {
-          arguments.put(VERSION_ARGUMENT_NAME, _ingestionSourceInfo.getConfig().getVersion());
-        }
+        arguments.put(VERSION_ARGUMENT_NAME, _ingestionSourceInfo.getConfig().hasVersion()
+          ? _ingestionSourceInfo.getConfig().getVersion()
+          : _ingestionConfiguration.getDefaultCliVersion());
         input.setArgs(new StringMap(arguments));
 
         proposal.setEntityType(Constants.EXECUTION_REQUEST_ENTITY_NAME);

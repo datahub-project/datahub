@@ -121,6 +121,7 @@ import com.linkedin.datahub.graphql.types.glossary.GlossaryTermType;
 
 import com.linkedin.datahub.graphql.types.usage.UsageType;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.config.IngestionConfiguration;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.recommendation.RecommendationsService;
@@ -131,6 +132,7 @@ import graphql.execution.DataFetcherResult;
 import graphql.schema.idl.RuntimeWiring;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Objects;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.IOUtils;
 import org.dataloader.BatchLoaderContextProvider;
@@ -167,7 +169,7 @@ public class GmsGraphQLEngine {
     private final TokenService tokenService;
     private final SecretService secretService;
 
-    private final boolean isManagedIngestionEnabled;
+    private final IngestionConfiguration ingestionConfiguration;
 
     private final DatasetType datasetType;
     private final CorpUserType corpUserType;
@@ -224,7 +226,7 @@ public class GmsGraphQLEngine {
             null,
             null,
             null,
-            false);
+            null);
     }
 
     public GmsGraphQLEngine(
@@ -237,7 +239,7 @@ public class GmsGraphQLEngine {
         final TokenService tokenService,
         final EntityRegistry entityRegistry,
         final SecretService secretService,
-        final boolean isManagedIngestionEnabled
+        final IngestionConfiguration ingestionConfiguration
         ) {
 
         this.entityClient = entityClient;
@@ -251,8 +253,7 @@ public class GmsGraphQLEngine {
         this.secretService = secretService;
         this.entityRegistry = entityRegistry;
 
-        // Feature flags - TODO: Migrate to a better configuration provider.
-        this.isManagedIngestionEnabled = isManagedIngestionEnabled;
+        this.ingestionConfiguration = Objects.requireNonNull(ingestionConfiguration);
 
         this.datasetType = new DatasetType(entityClient);
         this.corpUserType = new CorpUserType(entityClient);
@@ -448,7 +449,7 @@ public class GmsGraphQLEngine {
     private void configureQueryResolvers(final RuntimeWiring.Builder builder) {
         builder.type("Query", typeWiring -> typeWiring
             .dataFetcher("appConfig",
-                new AppConfigResolver(analyticsService != null, this.isManagedIngestionEnabled))
+                new AppConfigResolver(analyticsService != null, this.ingestionConfiguration))
             .dataFetcher("me", new AuthenticatedResolver<>(
                     new MeResolver(this.entityClient)))
             .dataFetcher("search", new AuthenticatedResolver<>(
@@ -561,7 +562,7 @@ public class GmsGraphQLEngine {
             .dataFetcher("createIngestionSource", new UpsertIngestionSourceResolver(this.entityClient))
             .dataFetcher("updateIngestionSource", new UpsertIngestionSourceResolver(this.entityClient))
             .dataFetcher("deleteIngestionSource", new DeleteIngestionSourceResolver(this.entityClient))
-            .dataFetcher("createIngestionExecutionRequest", new CreateIngestionExecutionRequestResolver(this.entityClient))
+            .dataFetcher("createIngestionExecutionRequest", new CreateIngestionExecutionRequestResolver(this.entityClient, this.ingestionConfiguration))
             .dataFetcher("cancelIngestionExecutionRequest", new CancelIngestionExecutionRequestResolver(this.entityClient))
         );
     }

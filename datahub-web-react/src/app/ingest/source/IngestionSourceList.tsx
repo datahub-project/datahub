@@ -21,7 +21,7 @@ import {
     getExecutionRequestStatusIcon,
     sourceTypeToIconUrl,
 } from './utils';
-import { SourceBuilderState } from './builder/types';
+import { DEFAULT_EXECUTOR_ID, SourceBuilderState } from './builder/types';
 import { UpdateIngestionSourceInput } from '../../../types.generated';
 import { capitalizeFirstLetter } from '../../shared/textUtil';
 
@@ -197,7 +197,7 @@ export const IngestionSourceList = () => {
                 config: {
                     recipe: recipeBuilderState.config?.recipe as string,
                     version: recipeBuilderState.config?.version as string,
-                    executorId: recipeBuilderState.config?.executorId as string,
+                    executorId: (recipeBuilderState.config?.executorId as string) || DEFAULT_EXECUTOR_ID,
                 },
                 schedule: recipeBuilderState.schedule && {
                     interval: recipeBuilderState.schedule?.interval as string,

@@ -9,13 +9,14 @@ import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
-import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.RestliEntityClient;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.ingestion.DataHubIngestionSourceConfig;
 import com.linkedin.ingestion.DataHubIngestionSourceInfo;
 import com.linkedin.ingestion.DataHubIngestionSourceSchedule;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.config.IngestionConfiguration;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.ListResult;
@@ -110,13 +111,16 @@ public class IngestionSchedulerHookTest {
         ingestionSourceUrn1, entityResponse1,
         ingestionSourceUrn2, entityResponse2));
 
+    ConfigurationProvider configurationProvider = new ConfigurationProvider();
+    configurationProvider.setIngestion(new IngestionConfiguration(true, "0.1.1"));
+
     _ingestionSchedulerHook = new IngestionSchedulerHook(
         registry,
         Mockito.mock(Authentication.class),
         mockClient,
+        configurationProvider,
         1,
-        1200
-    );
+        1200);
     Thread.sleep(2000); // Sleep so the runnable can execute. (not ideal)
   }
 

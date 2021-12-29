@@ -9,6 +9,7 @@ import com.linkedin.entity.client.JavaEntityClient;
 import com.linkedin.gms.factory.auth.DataHubTokenServiceFactory;
 import com.linkedin.gms.factory.common.IndexConventionFactory;
 import com.linkedin.gms.factory.common.RestHighLevelClientFactory;
+import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.gms.factory.entity.RestliEntityClientFactory;
 import com.linkedin.gms.factory.recommendation.RecommendationServiceFactory;
@@ -19,6 +20,7 @@ import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.secret.SecretService;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.usage.UsageClient;
+import java.util.Objects;
 import javax.annotation.Nonnull;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -78,15 +80,26 @@ public class GraphQLEngineFactory {
   @Qualifier("entityRegistry")
   private EntityRegistry _entityRegistry;
 
+  @Autowired
+  private ConfigurationProvider _configProvider;
+
   @Value("${platformAnalytics.enabled}") // TODO: Migrate to DATAHUB_ANALYTICS_ENABLED
   private Boolean isAnalyticsEnabled;
-
-  @Value("${managedIngestion.enabled}") // TODO: Migrate to DATAHUB_ANALYTICS_ENABLED
-  private Boolean isManagedIngestionEnabled;
 
   @Bean(name = "graphQLEngine")
   @Nonnull
   protected GraphQLEngine getInstance() {
+
+    if (_configProvider == null) {
+      System.out.println("Wtf its empty");
+    }
+    if (_configProvider.getAuthentication() == null) {
+      System.out.println("Auth its empty");
+    }
+    if (_configProvider.getIngestion() == null) {
+      System.out.println("Ingestion its empty");
+    }
+
     if (isAnalyticsEnabled) {
       return new GmsGraphQLEngine(
           _entityClient,
@@ -98,7 +111,7 @@ public class GraphQLEngineFactory {
           _tokenService,
           _entityRegistry,
           _secretService,
-          isManagedIngestionEnabled
+          _configProvider.getIngestion()
           ).builder().build();
     }
     return new GmsGraphQLEngine(
@@ -111,6 +124,6 @@ public class GraphQLEngineFactory {
         _tokenService,
         _entityRegistry,
         _secretService,
-        isManagedIngestionEnabled).builder().build();
+        _configProvider.getIngestion()).builder().build();
   }
 }

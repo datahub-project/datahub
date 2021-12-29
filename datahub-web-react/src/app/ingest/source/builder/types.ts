@@ -9,6 +9,11 @@ export enum ModalSize {
 }
 
 /**
+ * The default executor id used for ingestion
+ */
+export const DEFAULT_EXECUTOR_ID = 'default';
+
+/**
  * Props provided to each step as input.
  */
 export type StepProps = {
