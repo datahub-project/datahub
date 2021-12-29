@@ -1,28 +1,20 @@
 package com.linkedin.datahub.lineage.consumer.impl;
 
-import datahub.client.Emitter;
-import datahub.client.MetadataWriteResponse;
-import java.io.IOException;
-import java.io.PrintWriter;
-import java.io.StringWriter;
-import java.util.List;
-import java.util.Objects;
-import java.util.concurrent.ConcurrentHashMap;
-
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-import java.util.stream.Collectors;
-import org.apache.spark.SparkConf;
-import org.apache.spark.SparkEnv;
-
 import com.linkedin.datahub.lineage.spark.model.LineageConsumer;
 import com.linkedin.datahub.lineage.spark.model.LineageEvent;
 import com.linkedin.mxe.MetadataChangeProposal;
-
+import datahub.client.Emitter;
 import datahub.client.RestEmitter;
+import java.io.IOException;
+import java.util.List;
+import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.spark.SparkConf;
+import org.apache.spark.SparkEnv;
+
 
 @Slf4j
 public class McpEmitter implements LineageConsumer {
@@ -42,8 +34,7 @@ public class McpEmitter implements LineageConsumer {
           log.error("Failed to emit metadata to DataHub", ioException);
           return null;
         }
-      }).filter(Objects::nonNull).collect(Collectors.toList())
-      .forEach(future -> {
+      }).filter(Objects::nonNull).collect(Collectors.toList()).forEach(future -> {
         try {
           future.get();
         } catch (InterruptedException | ExecutionException e) {
@@ -51,21 +42,6 @@ public class McpEmitter implements LineageConsumer {
           log.error("Failed to emit metadata to DataHub", e);
         }
       });
-      /**
-      mcps.forEach(mcp -> {
-        log.debug("Emitting {}", mcp);
-        try {
-          emitter.emit(mcp, null).get();
-        } catch (IOException | InterruptedException | ExecutionException e) {
-          // log error, but don't impact thread
-          StringWriter s = new StringWriter();
-          PrintWriter p = new PrintWriter(s);
-          e.printStackTrace(p);
-          log.error(s.toString());
-          p.close();
-        }
-      });
-       **/
     }
   }
 
@@ -77,8 +53,7 @@ public class McpEmitter implements LineageConsumer {
       if (conf.contains(GMS_URL_KEY)) {
         String gmsUrl = conf.get(GMS_URL_KEY);
         log.debug("REST emitter configured with GMS url " + gmsUrl);
-        return RestEmitter.create($ -> $
-        .gmsUrl(gmsUrl));
+        return RestEmitter.create($ -> $.gmsUrl(gmsUrl));
       }
 
       log.error("GMS URL not configured.");
