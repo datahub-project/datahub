@@ -270,6 +270,19 @@ class MyPropertiesResolver(AddDatasetPropertiesResolverBase):
         return properties
 ```
 
+There also exists `simple_add_dataset_properties` transformer for directly assigning properties from the configuration.
+`properties` field is a dictionary of string values. Note in case of any key collision, the value in the config will
+overwrite the previous value.
+
+```yaml
+transformers:
+  - type: "simple_add_dataset_properties"
+    config:
+      properties:
+        prop1: value1
+        prop2: value2
+```
+
 ## Writing a custom transformer from scratch
 
 In the above couple of examples, we use classes that have already been implemented in the ingestion framework. However, it’s common for more advanced cases to pop up where custom code is required, for instance if you'd like to utilize conditional logic or rewrite properties. In such cases, we can add our own modules and define the arguments it takes as a custom transformer.

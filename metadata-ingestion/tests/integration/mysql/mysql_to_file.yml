@@ -26,9 +26,9 @@ source:
       include_field_mean_value: true
       include_field_median_value: true
       include_field_stddev_value: true
-      include_field_quantiles: false
+      include_field_quantiles: true
       include_field_distinct_value_frequencies: true
-      include_field_histogram: false
+      include_field_histogram: true
       include_field_sample_values: true
 sink:
   type: file
