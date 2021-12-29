@@ -35,6 +35,13 @@ dependencies {
     annotationProcessor externalDependency.lombok
 
     runtime externalDependency.logbackClassic
+
+    testCompile externalDependency.kafkaAvroConnect
+    testCompile externalDependency.kafkaConnectApi
+}
+
+test {
+    useJUnit()
 }
 
 task avroSchemaSources(type: Copy) {
