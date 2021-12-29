@@ -40,7 +40,10 @@ dependencies {
   
   testImplementation externalDependency.mockito
   
-  testImplementation(externalDependency.wiremock){
+  testImplementation(externalDependency.mockServer){
+    exclude group: "com.fasterxml.jackson.core"
+  } // older version to allow older guava
+  testImplementation(externalDependency.mockServerClient){
     exclude group: "com.fasterxml.jackson.core"
   } // older version to allow older guava
   
