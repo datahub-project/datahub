@@ -32,6 +32,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     UnionTypeClass,
 )
 from datahub.metadata.schema_classes import (
+    AuditStampClass,
     DataFlowInfoClass,
     DataFlowSnapshotClass,
     DataJobInfoClass,
@@ -561,6 +562,7 @@ class GlueSource(Source):
                 owners = []
             return OwnershipClass(
                 owners=owners,
+                lastModified=AuditStampClass(),
             )
 
         def get_dataset_properties() -> DatasetPropertiesClass:
@@ -617,6 +619,8 @@ class GlueSource(Source):
                 platform=f"urn:li:dataPlatform:{self.get_underlying_platform()}",
                 hash="",
                 platformSchema=MySqlDDL(tableSchema=""),
+                created=AuditStampClass(),
+                lastModified=AuditStampClass(),
             )
 
         dataset_snapshot = DatasetSnapshot(

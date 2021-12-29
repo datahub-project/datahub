@@ -23,6 +23,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
 )
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
+    AuditStampClass,
     ChartInfoClass,
     ChartQueryClass,
     ChartQueryTypeClass,
@@ -224,7 +225,8 @@ class MetabaseSource(Source):
                         owner=owner_urn,
                         type=OwnershipTypeClass.DATAOWNER,
                     )
-                ]
+                ],
+                lastModified=AuditStampClass(),
             )
             return ownership
 

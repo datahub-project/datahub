@@ -41,6 +41,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.metadata.key import DatasetKey
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
+    AuditStampClass,
     ChangeTypeClass,
     DatasetLineageTypeClass,
     UpstreamClass,
@@ -449,7 +450,7 @@ class BigQuerySource(SQLAlchemySource):
             for ref_table in sorted(self.lineage_metadata[str(bq_table)]):
                 upstream_table = BigQueryTableRef.from_string_name(ref_table)
                 upstream_table_class = UpstreamClass(
-                    mce_builder.make_dataset_urn(
+                    dataset=mce_builder.make_dataset_urn(
                         self.platform,
                         "{project}.{database}.{table}".format(
                             project=upstream_table.project,
@@ -458,7 +459,8 @@ class BigQuerySource(SQLAlchemySource):
                         ),
                         self.config.env,
                     ),
-                    DatasetLineageTypeClass.TRANSFORMED,
+                    type=DatasetLineageTypeClass.TRANSFORMED,
+                    auditStamp=AuditStampClass(),
                 )
                 upstream_list.append(upstream_table_class)
 

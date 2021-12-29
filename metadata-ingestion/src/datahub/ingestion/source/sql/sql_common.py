@@ -62,7 +62,11 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     StringTypeClass,
     TimeTypeClass,
 )
-from datahub.metadata.schema_classes import ChangeTypeClass, DatasetPropertiesClass
+from datahub.metadata.schema_classes import (
+    AuditStampClass,
+    ChangeTypeClass,
+    DatasetPropertiesClass,
+)
 from datahub.utilities.sqlalchemy_query_combiner import SQLAlchemyQueryCombinerReport
 
 if TYPE_CHECKING:
@@ -337,6 +341,8 @@ def get_schema_metadata(
         hash="",
         platformSchema=MySqlDDL(tableSchema=""),
         fields=canonical_schema,
+        created=AuditStampClass(),
+        lastModified=AuditStampClass(),
     )
     if foreign_keys is not None and foreign_keys != []:
         schema_metadata.foreignKeys = foreign_keys

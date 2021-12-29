@@ -14,6 +14,7 @@ from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.transformer.dataset_transformer import DatasetTransformer
 from datahub.metadata.schema_classes import (
+    AuditStampClass,
     DatasetSnapshotClass,
     MetadataChangeEventClass,
     OwnerClass,
@@ -113,6 +114,7 @@ class AddDatasetOwnership(DatasetTransformer):
                 mce,
                 OwnershipClass(
                     owners=[],
+                    lastModified=AuditStampClass(),
                 ),
             )
             ownership.owners.extend(owners_to_add)

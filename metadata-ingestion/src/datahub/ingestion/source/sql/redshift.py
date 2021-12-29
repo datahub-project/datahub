@@ -32,6 +32,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import UpstreamLineage
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
+    AuditStampClass,
     ChangeTypeClass,
     DatasetLineageTypeClass,
     DatasetPropertiesClass,
@@ -913,6 +914,7 @@ class RedshiftSource(SQLAlchemySource):
                         self.config.env,
                     ),
                     type=item.dataset_lineage_type,
+                    auditStamp=AuditStampClass(),
                 )
                 upstream_lineage.append(upstream_table)
 
@@ -924,7 +926,7 @@ class RedshiftSource(SQLAlchemySource):
             if schemaname in self.catalog_metadata[db_name]:
                 external_db_params = self.catalog_metadata[db_name][schemaname]
                 catalog_upstream = UpstreamClass(
-                    mce_builder.make_dataset_urn(
+                    dataset=mce_builder.make_dataset_urn(
                         self.eskind_to_platform[external_db_params["eskind"]],
                         "{database}.{table}".format(
                             database=external_db_params["external_database"],
@@ -932,7 +934,8 @@ class RedshiftSource(SQLAlchemySource):
                         ),
                         self.config.env,
                     ),
-                    DatasetLineageTypeClass.COPY,
+                    type=DatasetLineageTypeClass.COPY,
+                    auditStamp=AuditStampClass(),
                 )
                 upstream_lineage.append(catalog_upstream)
 

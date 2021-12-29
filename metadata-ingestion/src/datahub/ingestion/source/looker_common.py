@@ -41,6 +41,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     UnionTypeClass,
 )
 from datahub.metadata.schema_classes import (
+    AuditStampClass,
     BrowsePathsClass,
     ChangeTypeClass,
     DatasetPropertiesClass,
@@ -327,6 +328,8 @@ class LookerUtil:
             primaryKeys=primary_keys,
             hash="",
             platformSchema=OtherSchema(rawSchema=""),
+            lastModified=AuditStampClass(),
+            created=AuditStampClass(),
         )
         return schema_metadata
 
@@ -368,7 +371,8 @@ class LookerUtil:
                     owner="urn:li:corpuser:datahub",
                     type=OwnershipTypeClass.DATAOWNER,
                 )
-            ]
+            ],
+            lastModified=AuditStampClass(),
         )
         return MetadataChangeEvent(
             proposedSnapshot=TagSnapshotClass(
@@ -670,6 +674,7 @@ class LookerExplore:
                         view_name=view_name,
                     ).get_urn(config),
                     type=DatasetLineageTypeClass.VIEW,
+                    auditStamp=AuditStampClass(),
                 )
                 for view_name in sorted(self.upstream_views)
             ]

@@ -33,7 +33,11 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
 )
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
-from datahub.metadata.schema_classes import ChangeTypeClass, DatasetPropertiesClass
+from datahub.metadata.schema_classes import (
+    AuditStampClass,
+    ChangeTypeClass,
+    DatasetPropertiesClass,
+)
 
 register_custom_type(custom_types.TIMESTAMP_TZ, TimeTypeClass)
 register_custom_type(custom_types.TIMESTAMP_LTZ, TimeTypeClass)
@@ -210,6 +214,7 @@ QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name, upstream_table_na
                     self.platform, upstream_table_name, self.config.env
                 ),
                 type=DatasetLineageTypeClass.TRANSFORMED,
+                auditStamp=AuditStampClass(),
             )
             upstream_tables.append(upstream_table)
             # Update column-lineage for each down-stream column.

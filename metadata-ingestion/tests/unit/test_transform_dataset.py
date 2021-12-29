@@ -32,7 +32,7 @@ from datahub.ingestion.transformer.mark_dataset_status import MarkDatasetStatus
 from datahub.ingestion.transformer.remove_dataset_ownership import (
     SimpleRemoveDatasetOwnership,
 )
-from datahub.metadata.schema_classes import DatasetSnapshotClass
+from datahub.metadata.schema_classes import AuditStampClass, DatasetSnapshotClass
 
 
 def make_generic_dataset() -> models.MetadataChangeEventClass:
@@ -510,7 +510,10 @@ def gen_owners(
     ] = models.OwnershipTypeClass.DATAOWNER,
 ) -> models.OwnershipClass:
     return models.OwnershipClass(
-        owners=[models.OwnerClass(owner=owner, type=ownership_type) for owner in owners]
+        owners=[
+            models.OwnerClass(owner=owner, type=ownership_type) for owner in owners
+        ],
+        lastModified=AuditStampClass(),
     )
 
 

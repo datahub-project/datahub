@@ -34,7 +34,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     TimeTypeClass,
     UnionTypeClass,
 )
-from datahub.metadata.schema_classes import DatasetPropertiesClass
+from datahub.metadata.schema_classes import AuditStampClass, DatasetPropertiesClass
 
 logger = logging.getLogger(__name__)
 
@@ -526,6 +526,8 @@ class MongoDBSource(Source):
                         hash="",
                         platformSchema=SchemalessClass(),
                         fields=canonical_schema,
+                        created=AuditStampClass(),
+                        lastModified=AuditStampClass(),
                     )
 
                     dataset_snapshot.aspects.append(schema_metadata)

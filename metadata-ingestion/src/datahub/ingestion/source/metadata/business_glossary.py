@@ -98,7 +98,10 @@ def get_owners(owners: Owners) -> models.OwnershipClass:
             )
             for o in owners.groups
         ]
-    return models.OwnershipClass(owners=owners_meta)
+    return models.OwnershipClass(
+        owners=owners_meta,
+        lastModified=models.AuditStampClass(),
+    )
 
 
 def get_mces(

@@ -49,6 +49,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
 )
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
+    AuditStampClass,
     BrowsePathsClass,
     ChartInfoClass,
     ChartTypeClass,
@@ -531,7 +532,7 @@ class LookerDashboardSource(Source):
             type=chart_type,
             description=dashboard_element.description or "",
             title=dashboard_element.title or "",
-            lastModified=ChangeAuditStamps(),
+            lastModified=ChangeAuditStamps.construct_with_defaults(),
             chartUrl=dashboard_element.url(self.source_config.base_url),
             inputs=dashboard_element.get_view_urns(self.source_config),
             customProperties={
@@ -617,7 +618,7 @@ class LookerDashboardSource(Source):
             description=looker_dashboard.description or "",
             title=looker_dashboard.title,
             charts=[mce.proposedSnapshot.urn for mce in chart_mces],
-            lastModified=ChangeAuditStamps(),
+            lastModified=ChangeAuditStamps.construct_with_defaults(),
             dashboardUrl=looker_dashboard.url(self.source_config.base_url),
         )
 
@@ -652,7 +653,8 @@ class LookerDashboardSource(Source):
                             owner=owner_urn,
                             type=OwnershipTypeClass.DATAOWNER,
                         )
-                    ]
+                    ],
+                    lastModified=AuditStampClass(),
                 )
                 return ownership
         return None

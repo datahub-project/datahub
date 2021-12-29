@@ -25,6 +25,7 @@ from datahub.ingestion.source.looker_common import (
     ViewFieldType,
 )
 from datahub.metadata.schema_classes import (
+    AuditStampClass,
     ChangeTypeClass,
     DatasetPropertiesClass,
     SubTypesClass,
@@ -890,6 +891,7 @@ class LookMLSource(Source):
             upstream = UpstreamClass(
                 dataset=self._construct_datalineage_urn(sql_table_name, looker_view),
                 type=DatasetLineageTypeClass.VIEW,
+                auditStamp=AuditStampClass(),
             )
             upstreams.append(upstream)
 

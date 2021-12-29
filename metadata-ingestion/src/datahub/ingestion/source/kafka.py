@@ -25,7 +25,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     SchemaField,
     SchemaMetadata,
 )
-from datahub.metadata.schema_classes import BrowsePathsClass
+from datahub.metadata.schema_classes import AuditStampClass, BrowsePathsClass
 
 logger = logging.getLogger(__name__)
 
@@ -169,6 +169,8 @@ class KafkaSource(Source):
                     keySchema=key_schema_str,
                 ),
                 fields=key_fields + fields,
+                created=AuditStampClass(),
+                lastModified=AuditStampClass(),
             )
             dataset_snapshot.aspects.append(schema_metadata)
 

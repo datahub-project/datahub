@@ -46,6 +46,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     TimeTypeClass,
 )
 from datahub.metadata.schema_classes import (
+    AuditStampClass,
     ChangeTypeClass,
     DatasetKeyClass,
     DatasetPropertiesClass,
@@ -456,6 +457,7 @@ def get_upstream_lineage(upstream_urns: List[str]) -> UpstreamLineage:
         uc = UpstreamClass(
             dataset=dep,
             type=DatasetLineageTypeClass.TRANSFORMED,
+            auditStamp=AuditStampClass(),
         )
         ucl.append(uc)
 
@@ -537,7 +539,7 @@ def get_schema_metadata(
 
         canonical_schema.append(field)
 
-    last_modified = None
+    last_modified = AuditStampClass()
     if node.max_loaded_at is not None:
         actor = "urn:li:corpuser:dbt_executor"
         last_modified = AuditStamp(
@@ -553,6 +555,7 @@ def get_schema_metadata(
         platformSchema=MySqlDDL(tableSchema=""),
         lastModified=last_modified,
         fields=canonical_schema,
+        created=AuditStampClass(),
     )
 
 
@@ -835,6 +838,7 @@ class DBTSource(Source):
         ]
         return OwnershipClass(
             owners=owners,
+            lastModified=AuditStampClass(),
         )
 
     def _create_view_properties_aspect(self, node: DBTNode) -> ViewPropertiesClass:
@@ -875,7 +879,12 @@ class DBTSource(Source):
         meta_owner_aspects = meta_aspects.get(Constants.ADD_OWNER_OPERATION)
         aggregated_owners = self._aggregate_owners(node, meta_owner_aspects)
         if aggregated_owners:
-            aspects.append(OwnershipClass(owners=aggregated_owners))
+            aspects.append(
+                OwnershipClass(
+                    owners=aggregated_owners,
+                    lastModified=AuditStampClass(),
+                )
+            )
 
         # add tags aspects
         meta_tags_aspect = meta_aspects.get(Constants.ADD_TAG_OPERATION)

@@ -174,6 +174,7 @@ def make_lineage_mce(
                 UpstreamLineageClass(
                     upstreams=[
                         UpstreamClass(
+                            auditStamp=AuditStampClass(),
                             dataset=upstream_urn,
                             type=lineage_type,
                         )
@@ -275,6 +276,7 @@ def make_ownership_aspect_from_urn_list(
     ]
     return OwnershipClass(
         owners=owners_list,
+        lastModified=AuditStampClass(),
     )
 
 

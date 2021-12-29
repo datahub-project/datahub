@@ -30,6 +30,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
 )
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
+    AuditStampClass,
     BrowsePathsClass,
     DeploymentStatusClass,
     MLHyperParamClass,
@@ -286,7 +287,7 @@ class ModelProcessor:
                         if key not in redundant_fields
                     },
                 ),
-                OwnershipClass(owners),
+                OwnershipClass(owners, AuditStampClass()),
                 BrowsePathsClass(paths=[f"/sagemaker/{group_name}"]),
             ],
         )
