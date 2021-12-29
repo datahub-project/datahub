@@ -50,7 +50,6 @@ public class DefaultEntitySpec implements EntitySpec {
   @Override
   public EntityAnnotation getEntityAnnotation() {
     return _entityAnnotation;
-
   }
 
   @Override

@@ -7,7 +7,7 @@ import { useEntityRegistry } from '../useEntityRegistry';
 import { IconStyleType } from '../entity/Entity';
 import { NodeData, Direction, VizNode, EntitySelectParams } from './types';
 import { ANTD_GRAY } from '../entity/shared/constants';
-import { capitalizeFirstLetter } from '../shared/capitalizeFirstLetter';
+import { capitalizeFirstLetter } from '../shared/textUtil';
 
 const CLICK_DELAY_THRESHOLD = 1000;
 const DRAG_DISTANCE_THRESHOLD = 20;

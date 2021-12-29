@@ -14,7 +14,7 @@ import extendAsyncEntities from './utils/extendAsyncEntities';
 import useLazyGetEntityQuery from './utils/useLazyGetEntityQuery';
 import useGetEntityQuery from './utils/useGetEntityQuery';
 import { EntityType } from '../../types.generated';
-import { capitalizeFirstLetter } from '../shared/capitalizeFirstLetter';
+import { capitalizeFirstLetter } from '../shared/textUtil';
 import { ANTD_GRAY } from '../entity/shared/constants';
 
 const LoadingMessage = styled(Message)`

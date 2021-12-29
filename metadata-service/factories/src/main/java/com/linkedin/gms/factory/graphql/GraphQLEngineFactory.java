@@ -16,6 +16,7 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.recommendation.RecommendationsService;
 import com.linkedin.metadata.graph.GraphClient;
+import com.linkedin.metadata.secret.SecretService;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.usage.UsageClient;
 import javax.annotation.Nonnull;
@@ -70,11 +71,18 @@ public class GraphQLEngineFactory {
   private TokenService _tokenService;
 
   @Autowired
+  @Qualifier("dataHubSecretService")
+  private SecretService _secretService;
+
+  @Autowired
   @Qualifier("entityRegistry")
   private EntityRegistry _entityRegistry;
 
   @Value("${platformAnalytics.enabled}") // TODO: Migrate to DATAHUB_ANALYTICS_ENABLED
   private Boolean isAnalyticsEnabled;
+
+  @Value("${managedIngestion.enabled}") // TODO: Migrate to DATAHUB_ANALYTICS_ENABLED
+  private Boolean isManagedIngestionEnabled;
 
   @Bean(name = "graphQLEngine")
   @Nonnull
@@ -88,7 +96,10 @@ public class GraphQLEngineFactory {
           _entityService,
           _recommendationsService,
           _tokenService,
-          _entityRegistry).builder().build();
+          _entityRegistry,
+          _secretService,
+          isManagedIngestionEnabled
+          ).builder().build();
     }
     return new GmsGraphQLEngine(
         _entityClient,
@@ -98,6 +109,8 @@ public class GraphQLEngineFactory {
         _entityService,
         _recommendationsService,
         _tokenService,
-        _entityRegistry).builder().build();
+        _entityRegistry,
+        _secretService,
+        isManagedIngestionEnabled).builder().build();
   }
 }

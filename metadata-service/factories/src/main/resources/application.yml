@@ -24,6 +24,9 @@ authentication:
   # The max duration of a UI session in milliseconds. Defaults to 1 day.
   sessionTokenDurationMs: ${SESSION_TOKEN_DURATION_MS:86400000}
 
+secretService:
+  encryptionKey: ${SECRET_SERVICE_ENCRYPTION_KEY:ENCRYPTION_KEY}
+
 datahub:
   gms:
     host: ${DATAHUB_GMS_HOST:${GMS_HOST:localhost}}
@@ -58,6 +61,9 @@ authorizationManager:
 
 platformAnalytics:
   enabled: ${ANALYTICS_ENABLED:true}
+
+managedIngestion:
+  enabled: ${MANAGED_INGESTION_ENABLED:true}
 
 # Storage Layer
 ebean:
