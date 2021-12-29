@@ -74,6 +74,7 @@ public class GraphQLEngineFactory {
   @Qualifier("dataHubSecretService")
   private SecretService _secretService;
 
+  @Autowired
   @Qualifier("entityRegistry")
   private EntityRegistry _entityRegistry;
 
