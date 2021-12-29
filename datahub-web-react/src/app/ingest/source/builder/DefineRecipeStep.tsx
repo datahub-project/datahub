@@ -64,6 +64,7 @@ export const DefineRecipeStep = ({ state, updateState, goTo, prev }: StepProps) 
         const newState = {
             ...state,
             config: {
+                ...state.config,
                 recipe: recipeJson,
             },
         };

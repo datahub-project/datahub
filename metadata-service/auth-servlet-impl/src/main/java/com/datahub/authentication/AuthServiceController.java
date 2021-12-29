@@ -5,7 +5,7 @@ import com.datahub.authentication.token.TokenService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.linkedin.gms.factory.auth.ConfigurationProvider;
+import com.linkedin.gms.factory.config.ConfigurationProvider;
 import java.util.concurrent.CompletableFuture;
 import javax.inject.Inject;
 import lombok.extern.slf4j.Slf4j;

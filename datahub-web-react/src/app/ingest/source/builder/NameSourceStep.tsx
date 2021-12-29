@@ -1,7 +1,7 @@
 import { Button, Collapse, Form, Input, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { SourceBuilderState, StepProps } from './types';
+import { DEFAULT_EXECUTOR_ID, SourceBuilderState, StepProps } from './types';
 
 const ControlsContainer = styled.div`
     display: flex;
@@ -18,12 +18,23 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
         updateState(newState);
     };
 
-    const setExecutorId = (executorId: string) => {
+    const setExecutorId = (execId: string) => {
         const newState: SourceBuilderState = {
             ...state,
             config: {
                 ...state.config,
-                executorId,
+                executorId: execId,
+            },
+        };
+        updateState(newState);
+    };
+
+    const setVersion = (version: string) => {
+        const newState: SourceBuilderState = {
+            ...state,
+            config: {
+                ...state.config,
+                version,
             },
         };
         updateState(newState);
@@ -58,12 +69,23 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
                     <Collapse.Panel header={<Typography.Text type="secondary">Advanced</Typography.Text>} key="1">
                         <Form.Item label={<Typography.Text strong>Executor Id</Typography.Text>}>
                             <Typography.Paragraph>
-                                Provide the executor id to route execution requests to.
+                                Provide the executor id to route execution requests to. The built-in DataHub executor id
+                                is &apos;default&apos;. Do not change this unless you have configured a custom executor.
                             </Typography.Paragraph>
                             <Input
                                 placeholder="default"
-                                value={state.config?.executorId || ''}
+                                value={state.config?.executorId || DEFAULT_EXECUTOR_ID}
                                 onChange={(event) => setExecutorId(event.target.value)}
+                            />
+                        </Form.Item>
+                        <Form.Item label={<Typography.Text strong>CLI Version</Typography.Text>}>
+                            <Typography.Paragraph>
+                                Advanced: Provide a custom CLI version to use for ingestion.
+                            </Typography.Paragraph>
+                            <Input
+                                placeholder="0.8.19.1"
+                                value={state.config?.version || ''}
+                                onChange={(event) => setVersion(event.target.value)}
                             />
                         </Form.Item>
                     </Collapse.Panel>

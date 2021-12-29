@@ -11,6 +11,7 @@ import com.linkedin.datahub.graphql.generated.ManagedIngestionConfig;
 import com.linkedin.datahub.graphql.generated.PoliciesConfig;
 import com.linkedin.datahub.graphql.generated.Privilege;
 import com.linkedin.datahub.graphql.generated.ResourcePrivileges;
+import com.linkedin.metadata.config.IngestionConfiguration;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletableFuture;
@@ -23,11 +24,11 @@ import java.util.stream.Collectors;
 public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfig>> {
 
   private final boolean _isAnalyticsEnabled;
-  private final boolean _isManagedIngestionEnabled;
+  private final IngestionConfiguration _ingestionConfiguration;
 
-  public AppConfigResolver(final boolean isAnalyticsEnabled, final boolean isManagedIngestionEnabled) {
+  public AppConfigResolver(final boolean isAnalyticsEnabled, final IngestionConfiguration ingestionConfiguration) {
     _isAnalyticsEnabled = isAnalyticsEnabled;
-    _isManagedIngestionEnabled = isManagedIngestionEnabled;
+    _ingestionConfiguration = ingestionConfiguration;
   }
 
   @Override
@@ -68,8 +69,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
 
 
     final ManagedIngestionConfig ingestionConfig = new ManagedIngestionConfig();
-    ingestionConfig.setEnabled(_isManagedIngestionEnabled); // TODO : Extract this into a config.
-
+    ingestionConfig.setEnabled(_ingestionConfiguration.isEnabled());
     appConfig.setAnalyticsConfig(analyticsConfig);
     appConfig.setPoliciesConfig(policiesConfig);
     appConfig.setIdentityManagementConfig(identityManagementConfig);
