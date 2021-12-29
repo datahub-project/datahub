@@ -196,8 +196,14 @@ export const IngestionSourceList = () => {
                 name: recipeBuilderState.name as string,
                 config: {
                     recipe: recipeBuilderState.config?.recipe as string,
-                    version: recipeBuilderState.config?.version as string,
-                    executorId: (recipeBuilderState.config?.executorId as string) || DEFAULT_EXECUTOR_ID,
+                    version:
+                        (recipeBuilderState.config?.version?.length &&
+                            (recipeBuilderState.config?.version as string)) ||
+                        undefined,
+                    executorId:
+                        (recipeBuilderState.config?.executorId?.length &&
+                            (recipeBuilderState.config?.executorId as string)) ||
+                        DEFAULT_EXECUTOR_ID,
                 },
                 schedule: recipeBuilderState.schedule && {
                     interval: recipeBuilderState.schedule?.interval as string,
