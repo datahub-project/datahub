@@ -32,7 +32,7 @@ public class McpEmitter implements LineageConsumer {
       mcps.forEach(mcp -> {
         log.debug("Emitting {}", mcp);
         try {
-          emitter.emit(mcp,null).get();
+          emitter.emit(mcp, null).get();
         } catch (IOException | InterruptedException | ExecutionException e) {
           // log error, but don't impact thread
           StringWriter s = new StringWriter();
