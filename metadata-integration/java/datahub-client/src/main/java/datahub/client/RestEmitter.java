@@ -38,14 +38,12 @@ public class RestEmitter implements Emitter {
   private final CloseableHttpAsyncClient httpClient;
   private final EventFormatter eventFormatter;
 
-  public RestEmitter(
-      RestEmitterConfig config
-  ) {
+  public RestEmitter(RestEmitterConfig config) {
     this.config = config;
     // Override httpClient settings with RestEmitter configs if present
     if (config.getTimeoutSec() != null) {
       HttpAsyncClientBuilder httpClientBuilder = this.config.getAsyncHttpClientBuilder();
-        httpClientBuilder.setDefaultRequestConfig(RequestConfig.custom()
+      httpClientBuilder.setDefaultRequestConfig(RequestConfig.custom()
           .setConnectTimeout(config.getTimeoutSec() * 1000)
           .setSocketTimeout(config.getTimeoutSec() * 1000)
           .build());
@@ -57,13 +55,52 @@ public class RestEmitter implements Emitter {
     this.eventFormatter = this.config.getEventFormatter();
   }
 
+  private static MetadataWriteResponse mapResponse(HttpResponse response) {
+    MetadataWriteResponse.MetadataWriteResponseBuilder builder =
+        MetadataWriteResponse.builder().underlyingResponse(response);
+    if ((response != null) && (response.getStatusLine() != null) && (response.getStatusLine().getStatusCode() == 200
+        || response.getStatusLine().getStatusCode() == 201)) {
+      builder.success(true);
+    } else {
+      builder.success(false);
+      try {
+        ByteArrayOutputStream result = new ByteArrayOutputStream();
+        InputStream contentStream = response.getEntity().getContent();
+        byte[] buffer = new byte[1024];
+        int length = contentStream.read(buffer);
+        while (length > 0) {
+          result.write(buffer, 0, length);
+          length = contentStream.read(buffer);
+        }
+        builder.serverException(result.toString("UTF-8"));
+      } catch (Exception e) {
+        // Catch all exceptions and still return a valid response object
+        log.warn("Wasn't able to convert response into a string", e);
+      }
+    }
+    return builder.build();
+  }
+
+  public static RestEmitter create(Consumer<RestEmitterConfig.RestEmitterConfigBuilder> builderSupplier) {
+    RestEmitter restEmitter = new RestEmitter(RestEmitterConfig.builder().with(builderSupplier).build());
+    return restEmitter;
+  }
+
+  public static RestEmitter createWithDefaults() {
+    // No-op creator -> creates RestEmitter using default settings
+    return create(b -> {
+    });
+  }
+
   @Override
-  public Future<MetadataWriteResponse> emit(MetadataChangeProposalWrapper mcpw, Callback<MetadataWriteResponse> callback) throws IOException {
+  public Future<MetadataWriteResponse> emit(MetadataChangeProposalWrapper mcpw,
+      Callback<MetadataWriteResponse> callback) throws IOException {
     return emit(this.eventFormatter.convert(mcpw), callback);
   }
 
   @Override
-  public Future<MetadataWriteResponse> emit(MetadataChangeProposal mcp, Callback<MetadataWriteResponse> callback) throws IOException {
+  public Future<MetadataWriteResponse> emit(MetadataChangeProposal mcp, Callback<MetadataWriteResponse> callback)
+      throws IOException {
     DataMap map = new DataMap();
     map.put("proposal", mcp.data());
     String serializedMCP = dataTemplateCodec.mapToString(map);
@@ -71,7 +108,8 @@ public class RestEmitter implements Emitter {
     return this.postGeneric(this.ingestProposalUrl, serializedMCP, mcp, callback);
   }
 
-  private Future<MetadataWriteResponse> postGeneric(String urlStr, String payloadJson, Object originalRequest, Callback<MetadataWriteResponse> callback) throws IOException {
+  private Future<MetadataWriteResponse> postGeneric(String urlStr, String payloadJson, Object originalRequest,
+      Callback<MetadataWriteResponse> callback) throws IOException {
     HttpPost httpPost = new HttpPost(urlStr);
     httpPost.setHeader("Content-Type", "application/json");
     httpPost.setHeader("X-RestLi-Protocol-Version", "2.0.0");
@@ -113,31 +151,6 @@ public class RestEmitter implements Emitter {
     return new MetadataResponseFuture(requestFuture, responseAtomicReference, responseLatch);
   }
 
-  private static MetadataWriteResponse mapResponse(HttpResponse response) {
-      MetadataWriteResponse.MetadataWriteResponseBuilder builder = MetadataWriteResponse.builder()
-          .underlyingResponse(response);
-      if ((response!= null) && (response.getStatusLine()!=null) && (response.getStatusLine().getStatusCode() == 200 || response.getStatusLine().getStatusCode() == 201)) {
-        builder.success(true);
-      } else {
-        builder.success(false);
-        try {
-          ByteArrayOutputStream result = new ByteArrayOutputStream();
-          InputStream contentStream = response.getEntity().getContent();
-          byte[] buffer = new byte[1024];
-          for (int length; (length = contentStream.read(buffer)) != -1; ) {
-            result.write(buffer, 0, length);
-          }
-          builder.serverException(result.toString("UTF-8"));
-        }
-        catch (Exception e) {
-          // Catch all exceptions and still return a valid response object
-          log.warn("Wasn't able to convert response into a string", e);
-        }
-      }
-      return builder.build();
-  }
-
-
   private Future<MetadataWriteResponse> getGeneric(String urlStr) throws IOException {
     HttpGet httpGet = new HttpGet(urlStr);
     httpGet.setHeader("Content-Type", "application/json");
@@ -150,16 +163,6 @@ public class RestEmitter implements Emitter {
   @Override
   public boolean testConnection() throws IOException, ExecutionException, InterruptedException {
     return this.getGeneric(this.configUrl).get().isSuccess();
-  }
-
-  public static RestEmitter create(Consumer<RestEmitterConfig.RestEmitterConfigBuilder> builderSupplier) {
-    RestEmitter restEmitter = new RestEmitter(RestEmitterConfig.builder().with(builderSupplier).build());
-    return restEmitter;
-  }
-
-  public static RestEmitter createWithDefaults() {
-    // No-op creator -> creates RestEmitter using default settings
-    return create(b -> {});
   }
 
   @Override

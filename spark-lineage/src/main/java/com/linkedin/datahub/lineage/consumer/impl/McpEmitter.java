@@ -1,13 +1,19 @@
 package com.linkedin.datahub.lineage.consumer.impl;
 
 import datahub.client.Emitter;
+import datahub.client.MetadataWriteResponse;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.stream.Collectors;
 import org.apache.spark.SparkConf;
 import org.apache.spark.SparkEnv;
 
@@ -29,6 +35,23 @@ public class McpEmitter implements LineageConsumer {
   private void emit(List<MetadataChangeProposal> mcps) {
     Emitter emitter = emitter();
     if (emitter != null) {
+      mcps.stream().map(mcp -> {
+        try {
+          return emitter.emit(mcp, null);
+        } catch (IOException ioException) {
+          log.error("Failed to emit metadata to DataHub", ioException);
+          return null;
+        }
+      }).filter(Objects::nonNull).collect(Collectors.toList())
+      .forEach(future -> {
+        try {
+          future.get();
+        } catch (InterruptedException | ExecutionException e) {
+          // log error, but don't impact thread
+          log.error("Failed to emit metadata to DataHub", e);
+        }
+      });
+      /**
       mcps.forEach(mcp -> {
         log.debug("Emitting {}", mcp);
         try {
@@ -42,6 +65,7 @@ public class McpEmitter implements LineageConsumer {
           p.close();
         }
       });
+       **/
     }
   }
 

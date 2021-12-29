@@ -10,7 +10,6 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
-import javax.print.URIException;
 import lombok.SneakyThrows;
 
 
@@ -19,11 +18,8 @@ import lombok.SneakyThrows;
  */
 public class EventFormatter {
 
-  public enum Format {
-    PEGASUS_JSON,
-  };
-
   private final ObjectMapper objectMapper = new ObjectMapper().setSerializationInclusion(JsonInclude.Include.NON_NULL);
+
   private final JacksonDataTemplateCodec dataTemplateCodec = new JacksonDataTemplateCodec(objectMapper.getFactory());
   private final Format serializationFormat;
 
@@ -49,9 +45,13 @@ public class EventFormatter {
             .setValue(ByteString.unsafeWrap(serializedAspect.getBytes(StandardCharsets.UTF_8))));
       }
       break;
-      default: throw new EventValidationException("Cannot handle serialization format " + this.serializationFormat);
+      default:
+        throw new EventValidationException("Cannot handle serialization format " + this.serializationFormat);
     }
     return mcp;
   }
 
+  public enum Format {
+    PEGASUS_JSON,
+  }
 }

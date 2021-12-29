@@ -15,10 +15,9 @@ import org.apache.http.impl.nio.client.HttpAsyncClientBuilder;
 @Builder
 public class RestEmitterConfig {
 
-  private static final int DEFAULT_CONNECT_TIMEOUT_SEC = 30;
-  private static final int DEFAULT_READ_TIMEOUT_SEC = 30;
-  private static final String DEFAULT_AUTH_TOKEN = null;
-  //private static final HttpClientFactory DEFAULT_HTTP_CLIENT_FACTORY = new HttpClientFactory() {};
+  public static final int DEFAULT_CONNECT_TIMEOUT_SEC = 10;
+  public static final int DEFAULT_READ_TIMEOUT_SEC = 10;
+  public static final String DEFAULT_AUTH_TOKEN = null;
 
   @Builder.Default
   private final String gmsUrl = "http://localhost:8080";
