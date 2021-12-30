@@ -1,11 +1,13 @@
 package com.linkedin.metadata.config;
 
+import lombok.AllArgsConstructor;
 import lombok.Data;
 
 /**
  * POJO representing the "ingestion" configuration block in application.yml.
  */
 @Data
+@AllArgsConstructor
 public class IngestionConfiguration {
   /**
    * Whether managed ingestion is enabled

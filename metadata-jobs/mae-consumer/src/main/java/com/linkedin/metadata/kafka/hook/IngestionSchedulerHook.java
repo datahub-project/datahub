@@ -11,7 +11,7 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.entity.client.RestliEntityClient;
+import com.linkedin.entity.client.JavaEntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.execution.ExecutionRequestInput;
 import com.linkedin.execution.ExecutionRequestSource;
@@ -105,7 +105,7 @@ public class IngestionSchedulerHook implements MetadataChangeLogHook {
   public IngestionSchedulerHook(
       @Nonnull final EntityRegistry entityRegistry,
       @Nonnull final Authentication systemAuthentication,
-      @Nonnull final RestliEntityClient entityClient,
+      @Nonnull final JavaEntityClient entityClient,
       @Nonnull final ConfigurationProvider configProvider
   ) {
     this(entityRegistry, systemAuthentication, entityClient, configProvider, DEFAULT_DELAY_INTERVAL_SECONDS, DEFAULT_REFRESH_INTERVAL_SECONDS);
@@ -115,7 +115,7 @@ public class IngestionSchedulerHook implements MetadataChangeLogHook {
   IngestionSchedulerHook(
       @Nonnull final EntityRegistry entityRegistry,
       @Nonnull final Authentication systemAuthentication,
-      @Nonnull final RestliEntityClient entityClient,
+      @Nonnull final JavaEntityClient entityClient,
       @Nonnull final ConfigurationProvider configProvider,
       final int batchGetDelayIntervalSeconds,
       final int batchGetRefreshIntervalSeconds
