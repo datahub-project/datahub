@@ -209,6 +209,7 @@ module.exports = {
       "docs/how/auth/sso/configure-oidc-react",
       "docs/how/auth/sso/configure-oidc-react-google",
       "docs/how/auth/sso/configure-oidc-react-okta",
+      "docs/how/auth/sso/configure-oidc-react-azure",
       "docs/how/restore-indices",
       "docs/how/extract-container-logs",
       "docs/how/delete-metadata",
