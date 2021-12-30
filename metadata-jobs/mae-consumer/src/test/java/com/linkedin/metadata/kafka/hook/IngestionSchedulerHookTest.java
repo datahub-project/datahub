@@ -9,7 +9,7 @@ import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
-import com.linkedin.entity.client.RestliEntityClient;
+import com.linkedin.entity.client.JavaEntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.ingestion.DataHubIngestionSourceConfig;
@@ -91,7 +91,7 @@ public class IngestionSchedulerHookTest {
     EntityRegistry registry = new ConfigEntityRegistry(
         IngestionSchedulerHookTest.class.getClassLoader().getResourceAsStream("test-entity-registry.yml"));
 
-    RestliEntityClient mockClient = Mockito.mock(RestliEntityClient.class);
+    JavaEntityClient mockClient = Mockito.mock(JavaEntityClient.class);
 
     // Set up mocks for ingestion source batch fetching
     Mockito.when(mockClient.list(
