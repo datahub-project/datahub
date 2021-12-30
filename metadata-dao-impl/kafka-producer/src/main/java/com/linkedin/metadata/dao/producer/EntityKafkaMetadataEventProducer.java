@@ -1,15 +1,22 @@
 package com.linkedin.metadata.dao.producer;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.EventUtils;
 import com.linkedin.metadata.dao.exception.ModelConversionException;
 import com.linkedin.metadata.event.EntityEventProducer;
 import com.linkedin.metadata.models.AspectSpec;
+import com.linkedin.metadata.snapshot.Snapshot;
+import com.linkedin.mxe.MetadataAuditEvent;
+import com.linkedin.mxe.MetadataAuditOperation;
 import com.linkedin.mxe.MetadataChangeLog;
+import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.mxe.TopicConvention;
 import com.linkedin.mxe.TopicConventionImpl;
+import com.linkedin.mxe.Topics;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Optional;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -59,6 +66,58 @@ public class EntityKafkaMetadataEventProducer implements EntityEventProducer {
 
   @Override
   @WithSpan
+  public void produceMetadataAuditEvent(@Nonnull Urn urn, @Nullable Snapshot oldSnapshot, @Nonnull Snapshot newSnapshot,
+      @Nullable SystemMetadata oldSystemMetadata, @Nullable SystemMetadata newSystemMetadata,
+      MetadataAuditOperation operation) {
+    final MetadataAuditEvent metadataAuditEvent = new MetadataAuditEvent();
+    if (newSnapshot != null) {
+      metadataAuditEvent.setNewSnapshot(newSnapshot);
+    }
+    if (oldSnapshot != null) {
+      metadataAuditEvent.setOldSnapshot(oldSnapshot);
+    }
+    if (oldSystemMetadata != null) {
+      metadataAuditEvent.setOldSystemMetadata(oldSystemMetadata);
+    }
+    if (newSystemMetadata != null) {
+      metadataAuditEvent.setNewSystemMetadata(newSystemMetadata);
+    }
+    if (operation != null) {
+      metadataAuditEvent.setOperation(operation);
+    }
+
+    GenericRecord record;
+    try {
+      log.debug(String.format("Converting Pegasus snapshot to Avro snapshot urn %s\nMetadataAuditEvent: %s",
+          urn,
+          metadataAuditEvent.toString()));
+      record = EventUtils.pegasusToAvroMAE(metadataAuditEvent);
+    } catch (IOException e) {
+      log.error(String.format("Failed to convert Pegasus MAE to Avro: %s", metadataAuditEvent.toString()), e);
+      throw new ModelConversionException("Failed to convert Pegasus MAE to Avro", e);
+    }
+
+    if (_callback.isPresent()) {
+      _producer.send(new ProducerRecord(_topicConvention.getMetadataAuditEventTopicName(), urn.toString(), record),
+          _callback.get());
+    } else {
+      _producer.send(new ProducerRecord(_topicConvention.getMetadataAuditEventTopicName(), urn.toString(), record),
+          (metadata, e) -> {
+            if (e != null) {
+              log.error(String.format("Failed to emit MAE for entity with urn %s", urn), e);
+            } else {
+              log.debug(String.format("Successfully emitted MAE for entity with urn %s at offset %s, partition %s, topic %s",
+                  urn,
+                  metadata.offset(),
+                  metadata.partition(),
+                  metadata.topic()));
+            }
+          });
+    }
+  }
+
+  @Override
+  @WithSpan
   public void produceMetadataChangeLog(@Nonnull final Urn urn, @Nonnull AspectSpec aspectSpec,
       @Nonnull final MetadataChangeLog metadataChangeLog) {
     GenericRecord record;
@@ -92,5 +151,10 @@ public class EntityKafkaMetadataEventProducer implements EntityEventProducer {
         }
       });
     }
+  }
+
+  @VisibleForTesting
+  static boolean isValidAspectSpecificTopic(@Nonnull String topic) {
+    return Arrays.stream(Topics.class.getFields()).anyMatch(field -> field.getName().equals(topic));
   }
 }
