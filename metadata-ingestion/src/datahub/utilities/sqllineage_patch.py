@@ -1,8 +1,9 @@
 from typing import Optional
+
 from sqllineage.core.holders import SubQueryLineageHolder
 from sqllineage.core.models import Column
-from sqllineage.utils.constant import EdgeType
 from sqllineage.exceptions import SQLLineageException
+from sqllineage.utils.constant import EdgeType
 
 
 # Patch based on sqllineage v1.3.3
