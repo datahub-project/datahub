@@ -288,7 +288,7 @@ public class RestEmitterTest {
     MetadataChangeProposalWrapper mcpw = getMetadataChangeProposalWrapper("Test Dataset", "urn:li:dataset:foo");
     AtomicReference<MetadataWriteResponse> callbackResponse = new AtomicReference<>();
     CountDownLatch latch = new CountDownLatch(1);
-    Future<MetadataWriteResponse> future = emitter.emit(mcpw, new Callback<MetadataWriteResponse>() {
+    Future<MetadataWriteResponse> future = emitter.emit(mcpw, new Callback() {
       @Override
       public void onCompletion(MetadataWriteResponse response) {
         callbackResponse.set(response);

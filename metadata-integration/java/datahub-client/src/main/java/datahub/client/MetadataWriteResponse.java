@@ -1,6 +1,5 @@
 package datahub.client;
 
-import java.util.Map;
 import lombok.Builder;
 import lombok.Value;
 
@@ -15,8 +14,6 @@ public class MetadataWriteResponse {
   @Builder.Default
   boolean success = true;
 
-  Map<String, Object> responseMetadata;
-
   /**
    * If the write failed due to an exception thrown by the server
    * and we have access to it, then we store the stack trace here
@@ -28,8 +25,5 @@ public class MetadataWriteResponse {
    * (typically an HTTPResponse or a kafka.ResponseMetadata)
    */
   Object underlyingResponse;
-
-
-  Throwable clientException;
 
 }

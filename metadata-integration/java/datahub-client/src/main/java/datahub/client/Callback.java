@@ -3,7 +3,7 @@ package datahub.client;
 import javax.annotation.Nullable;
 
 
-public interface Callback<T> {
+public interface Callback {
 
   /**
    * Called when the client request has completed.
@@ -11,7 +11,7 @@ public interface Callback<T> {
    * this was a successfully processed request or not.
    * @param response
    */
-  void onCompletion(@Nullable T response);
+  void onCompletion(@Nullable MetadataWriteResponse response);
 
   /**
    * Called when the client request has thrown an exception before completion.

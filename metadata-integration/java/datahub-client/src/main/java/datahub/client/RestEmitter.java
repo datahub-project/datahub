@@ -94,12 +94,12 @@ public class RestEmitter implements Emitter {
 
   @Override
   public Future<MetadataWriteResponse> emit(MetadataChangeProposalWrapper mcpw,
-      Callback<MetadataWriteResponse> callback) throws IOException {
+      Callback callback) throws IOException {
     return emit(this.eventFormatter.convert(mcpw), callback);
   }
 
   @Override
-  public Future<MetadataWriteResponse> emit(MetadataChangeProposal mcp, Callback<MetadataWriteResponse> callback)
+  public Future<MetadataWriteResponse> emit(MetadataChangeProposal mcp, Callback callback)
       throws IOException {
     DataMap map = new DataMap();
     map.put("proposal", mcp.data());
@@ -109,7 +109,7 @@ public class RestEmitter implements Emitter {
   }
 
   private Future<MetadataWriteResponse> postGeneric(String urlStr, String payloadJson, Object originalRequest,
-      Callback<MetadataWriteResponse> callback) throws IOException {
+      Callback callback) throws IOException {
     HttpPost httpPost = new HttpPost(urlStr);
     httpPost.setHeader("Content-Type", "application/json");
     httpPost.setHeader("X-RestLi-Protocol-Version", "2.0.0");
@@ -133,18 +133,30 @@ public class RestEmitter implements Emitter {
         }
         responseLatch.countDown();
         if (callback != null) {
-          callback.onCompletion(writeResponse);
+          try {
+            callback.onCompletion(writeResponse);
+          } catch (Exception e) {
+            log.error("Error executing user callback on completion.", e);
+          }
         }
       }
 
       @Override
       public void failed(Exception ex) {
-        callback.onFailure(ex);
+        try {
+          callback.onFailure(ex);
+        } catch (Exception e) {
+          log.error("Error executing user callback on failure.", e);
+        }
       }
 
       @Override
       public void cancelled() {
-        callback.onFailure(new RuntimeException("Cancelled"));
+        try {
+          callback.onFailure(new RuntimeException("Cancelled"));
+        } catch (Exception e) {
+          log.error("Error executing user callback on failure due to cancellation.", e);
+        }
       }
     };
     Future<HttpResponse> requestFuture = httpClient.execute(httpPost, httpCallback);

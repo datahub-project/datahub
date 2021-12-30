@@ -10,9 +10,9 @@ import java.util.concurrent.Future;
 
 public interface Emitter extends Closeable {
 
-  Future<MetadataWriteResponse> emit(MetadataChangeProposalWrapper mcpw, Callback<MetadataWriteResponse> callback) throws IOException;
+  Future<MetadataWriteResponse> emit(MetadataChangeProposalWrapper mcpw, Callback callback) throws IOException;
 
-  Future<MetadataWriteResponse> emit(MetadataChangeProposal mcp, Callback<MetadataWriteResponse> callback) throws IOException;
+  Future<MetadataWriteResponse> emit(MetadataChangeProposal mcp, Callback callback) throws IOException;
 
   boolean testConnection() throws IOException, ExecutionException, InterruptedException;
 
