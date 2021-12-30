@@ -82,6 +82,16 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
     return sendClientRequest(ENTITIES_REQUEST_BUILDERS.get().id(urn.toString()), authentication).getEntity();
   }
 
+  /**
+   * Legacy! Use {#batchGetV2} instead, as this method leverages Snapshot models, and will not work
+   * for fetching entities + aspects added by Entity Registry configuration. 
+   *
+   * Batch get a set of {@link Entity} objects by urn.  
+   *
+   * @param urns the urns of the entities to batch get
+   * @param authentication the authentication to include in the request to the Metadata Service
+   * @throws RemoteInvocationException
+   */
   @Nonnull
   public Map<Urn, Entity> batchGet(@Nonnull final Set<Urn> urns, @Nonnull final Authentication authentication)
       throws RemoteInvocationException {
@@ -114,12 +124,45 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
   }
 
   /**
-   * Gets browse snapshot of a given path
+   * Batch get a set of aspects for a single entity. 
    *
+   * @param entityName the entity type to fetch 
+   * @param urns the urns of the entities to batch get
+   * @param aspectNames the aspect names to batch get
+   * @param authentication the authentication to include in the request to the Metadata Service
+   * @throws RemoteInvocationException
+   */
+  @Nonnull
+  public Map<Urn, EntityResponse> batchGetV2(@Nonnull String entityName, @Nonnull final Set<Urn> urns,
+      @Nullable final Set<String> aspectNames, @Nonnull final Authentication authentication) throws Exception {
+
+    final EntitiesV2BatchGetRequestBuilder requestBuilder = ENTITIES_V2_REQUEST_BUILDERS.batchGet()
+        .aspectsParam(aspectNames)
+        .ids(urns.stream().map(Urn::toString).collect(Collectors.toList()));
+
+    return sendClientRequest(requestBuilder, authentication).getEntity()
+        .getResults()
+        .entrySet()
+        .stream()
+        .collect(Collectors.toMap(entry -> {
+          try {
+            return Urn.createFromString(entry.getKey());
+          } catch (URISyntaxException e) {
+            throw new RuntimeException(
+                String.format("Failed to bind urn string with value %s into urn", entry.getKey()));
+          }
+        }, entry -> entry.getValue().getEntity()));
+  }
+
+  /**
+   * Autocomplete a search query for a particular field of an entity. 
+   *
+   * @param entityType the entity type to autocomplete against, e.g. 'dataset' 
    * @param query search query
    * @param field field of the dataset
    * @param requestFilters autocomplete filters
    * @param limit max number of autocomplete results
+   * @param field the field to autocomplete against, e.g. 'name'
    * @throws RemoteInvocationException
    */
   @Nonnull
@@ -136,8 +179,9 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
   }
 
   /**
-   * Gets browse snapshot of a given path
+   * Autocomplete a search query for a particular entity type. 
    *
+   * @param entityType the entity type to autocomplete against, e.g. 'dataset' 
    * @param query search query
    * @param requestFilters autocomplete filters
    * @param limit max number of autocomplete results
@@ -183,28 +227,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
   public void update(@Nonnull final Entity entity, @Nonnull final Authentication authentication)
       throws RemoteInvocationException {
     EntitiesDoIngestRequestBuilder requestBuilder = ENTITIES_REQUEST_BUILDERS.actionIngest().entityParam(entity);
-  }
-
-  @Nonnull
-  public Map<Urn, EntityResponse> batchGetV2(@Nonnull String entityName, @Nonnull final Set<Urn> urns,
-      @Nullable final Set<String> aspectNames, @Nonnull final Authentication authentication) throws Exception {
-
-    final EntitiesV2BatchGetRequestBuilder requestBuilder = ENTITIES_V2_REQUEST_BUILDERS.batchGet()
-        .aspectsParam(aspectNames)
-        .ids(urns.stream().map(Urn::toString).collect(Collectors.toList()));
-
-    return sendClientRequest(requestBuilder, authentication).getEntity()
-        .getResults()
-        .entrySet()
-        .stream()
-        .collect(Collectors.toMap(entry -> {
-          try {
-            return Urn.createFromString(entry.getKey());
-          } catch (URISyntaxException e) {
-            throw new RuntimeException(
-                String.format("Failed to bind urn string with value %s into urn", entry.getKey()));
-          }
-        }, entry -> entry.getValue().getEntity()));
+    sendClientRequest(requestBuilder, authentication);
   }
 
   public void updateWithSystemMetadata(@Nonnull final Entity entity, @Nullable final SystemMetadata systemMetadata,
