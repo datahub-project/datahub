@@ -25,8 +25,8 @@ authentication:
   sessionTokenDurationMs: ${SESSION_TOKEN_DURATION_MS:86400000}
 
 ingestion:
-  enabled: ${UI_INGESTION_ENABLED:true}
-  defaultCliVersion: ${UI_INGESTION_DEFAULT_CLI_VERSION:"0.8.20.0"}
+  enabled: ${UI_INGESTION_ENABLED:True}
+  defaultCliVersion: ${UI_INGESTION_DEFAULT_CLI_VERSION:0.8.20.0}
 
 secretService:
   encryptionKey: ${SECRET_SERVICE_ENCRYPTION_KEY:ENCRYPTION_KEY}
