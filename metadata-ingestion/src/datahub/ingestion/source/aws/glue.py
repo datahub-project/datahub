@@ -49,6 +49,7 @@ class GlueSourceConfig(AwsSourceConfig):
 
     extract_transforms: Optional[bool] = True
     underlying_platform: Optional[str] = None
+    ignore_unsupported_connectors: Optional[bool] = True
 
     @property
     def glue_client(self):
@@ -262,7 +263,9 @@ class GlueSource(Source):
 
             else:
 
-                raise ValueError(f"Unrecognized Glue data object type: {node_args}")
+                if not self.source_config.ignore_unsupported_connectors:
+
+                    raise ValueError(f"Unrecognized Glue data object type: {node_args}")
 
         # otherwise, a node represents a transformation
         else:
