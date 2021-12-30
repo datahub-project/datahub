@@ -1307,11 +1307,12 @@
         "type" : "enum",
         "name" : "JobStatus",
         "doc" : "Job statuses",
-        "symbols" : [ "STARTING", "IN_PROGRESS", "STOPPING", "STOPPED", "COMPLETED", "FAILED", "UNKNOWN" ],
+        "symbols" : [ "STARTING", "IN_PROGRESS", "STOPPING", "STOPPED", "COMPLETED", "FAILED", "UNKNOWN", "SKIPPED" ],
         "symbolDocs" : {
           "COMPLETED" : "Jobs with successful completion.",
           "FAILED" : "Jobs that have failed.",
           "IN_PROGRESS" : "Jobs currently running.",
+          "SKIPPED" : "Jobs that have been skipped.",
           "STARTING" : "Jobs being initialized.",
           "STOPPED" : "Jobs that have stopped.",
           "STOPPING" : "Jobs being stopped.",

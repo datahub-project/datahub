@@ -6,6 +6,11 @@
             "urn": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.array_struct_test,PROD)",
             "aspects": [
                 {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
                             "column_stats_accurate": "{\"BASIC_STATS\":\"true\"}",
@@ -15,7 +20,7 @@
                             "numrows": "1",
                             "rawdatasize": "32",
                             "totalsize": "33",
-                            "transient_lastddltime": "1638688532"
+                            "transient_lastddltime": "1639443036"
                         },
                         "externalUrl": null,
                         "description": "This table has array of structs",
@@ -145,6 +150,11 @@
             "urn": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.map_test,PROD)",
             "aspects": [
                 {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
                             "column_stats_accurate": "{\"BASIC_STATS\":\"true\"}",
@@ -152,7 +162,7 @@
                             "numrows": "0",
                             "rawdatasize": "0",
                             "totalsize": "0",
-                            "transient_lastddltime": "1638688536"
+                            "transient_lastddltime": "1639443040"
                         },
                         "externalUrl": null,
                         "description": null,
@@ -247,6 +257,11 @@
             "urn": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.nested_struct_test,PROD)",
             "aspects": [
                 {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
                             "column_stats_accurate": "{\"BASIC_STATS\":\"true\"}",
@@ -254,7 +269,7 @@
                             "numrows": "0",
                             "rawdatasize": "0",
                             "totalsize": "0",
-                            "transient_lastddltime": "1638688535"
+                            "transient_lastddltime": "1639443039"
                         },
                         "externalUrl": null,
                         "description": null,
@@ -414,9 +429,14 @@
             "urn": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.pokes,PROD)",
             "aspects": [
                 {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "transient_lastddltime": "1638688524"
+                            "transient_lastddltime": "1639443026"
                         },
                         "externalUrl": null,
                         "description": null,
@@ -525,6 +545,11 @@
             "urn": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.struct_test,PROD)",
             "aspects": [
                 {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
                             "column_stats_accurate": "{\"BASIC_STATS\":\"true\"}",
@@ -532,7 +557,7 @@
                             "numrows": "0",
                             "rawdatasize": "0",
                             "totalsize": "0",
-                            "transient_lastddltime": "1638688528"
+                            "transient_lastddltime": "1639443031"
                         },
                         "externalUrl": null,
                         "description": null,
@@ -660,11 +685,16 @@
             "urn": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.struct_test_view_materialized,PROD)",
             "aspects": [
                 {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
                             "numfiles": "0",
                             "totalsize": "0",
-                            "transient_lastddltime": "1638688535"
+                            "transient_lastddltime": "1639443039"
                         },
                         "externalUrl": null,
                         "description": null,
@@ -792,6 +822,11 @@
             "urn": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1._test_table_underscore,PROD)",
             "aspects": [
                 {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
                             "column_stats_accurate": "{\"BASIC_STATS\":\"true\"}",
@@ -799,7 +834,7 @@
                             "numrows": "0",
                             "rawdatasize": "0",
                             "totalsize": "0",
-                            "transient_lastddltime": "1638688527"
+                            "transient_lastddltime": "1639443031"
                         },
                         "externalUrl": null,
                         "description": null,
@@ -891,6 +926,11 @@
             "urn": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.union_test,PROD)",
             "aspects": [
                 {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
                             "column_stats_accurate": "{\"BASIC_STATS\":\"true\"}",
@@ -898,7 +938,7 @@
                             "numrows": "0",
                             "rawdatasize": "0",
                             "totalsize": "0",
-                            "transient_lastddltime": "1638688536"
+                            "transient_lastddltime": "1639443040"
                         },
                         "externalUrl": null,
                         "description": null,
@@ -1094,9 +1134,14 @@
             "urn": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.array_struct_test_view,PROD)",
             "aspects": [
                 {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "transient_lastddltime": "1638688535",
+                            "transient_lastddltime": "1639443039",
                             "view_definition": "SELECT \"property_id\", \"service\"\nFROM \"db1\".\"array_struct_test\"",
                             "is_view": "True"
                         },

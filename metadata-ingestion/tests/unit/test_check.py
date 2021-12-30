@@ -1,17 +1,13 @@
-from click.testing import CliRunner
-
-from datahub.entrypoints import datahub
+from tests.test_helpers.click_helpers import run_datahub_cmd
 
 
 def test_cli_help():
-    runner = CliRunner()
-    result = runner.invoke(datahub, ["--help"])
+    result = run_datahub_cmd(["--help"])
     assert result.output
 
 
 def test_cli_version():
-    runner = CliRunner()
-    result = runner.invoke(datahub, ["--debug", "version"])
+    result = run_datahub_cmd(["--debug", "version"])
     assert result.output
 
 
@@ -19,6 +15,5 @@ def test_check_local_docker():
     # This just verifies that it runs without error.
     # We don't actually know what environment this will be run in, so
     # we can't depend on the output. Eventually, we should mock the docker SDK.
-    runner = CliRunner()
-    result = runner.invoke(datahub, ["check", "local-docker"])
+    result = run_datahub_cmd(["check", "local-docker"], check_result=False)
     assert result.output

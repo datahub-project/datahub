@@ -2,7 +2,6 @@ package com.linkedin.entity.client;
 
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
-
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.aspect.GetTimeseriesAspectValuesResponse;
 import com.linkedin.common.AuditStamp;
@@ -329,20 +328,30 @@ public class JavaEntityClient implements EntityClient {
     @Override
     public List<EnvelopedAspect> getTimeseriesAspectValues(@Nonnull String urn, @Nonnull String entity,
         @Nonnull String aspect, @Nullable Long startTimeMillis, @Nullable Long endTimeMillis, @Nullable Integer limit,
-        @Nonnull final Authentication authentication) throws RemoteInvocationException {
-        GetTimeseriesAspectValuesResponse response = new GetTimeseriesAspectValuesResponse();
-        response.setEntityName(entity);
-        response.setAspectName(aspect);
-        if (startTimeMillis != null) {
-            response.setStartTimeMillis(startTimeMillis);
-        }
-        if (endTimeMillis != null) {
-            response.setEndTimeMillis(endTimeMillis);
-        }
-        response.setValues(new EnvelopedAspectArray(
-            _timeseriesAspectService.getAspectValues(Urn.createFromString(urn), entity, aspect, startTimeMillis, endTimeMillis,
-                limit)));
-        return response.getValues();
+        @Nonnull Boolean getLatestValue, @Nullable Filter filter, @Nonnull final Authentication authentication)
+        throws RemoteInvocationException {
+      GetTimeseriesAspectValuesResponse response = new GetTimeseriesAspectValuesResponse();
+      response.setEntityName(entity);
+      response.setAspectName(aspect);
+      if (startTimeMillis != null) {
+        response.setStartTimeMillis(startTimeMillis);
+      }
+      if (endTimeMillis != null) {
+        response.setEndTimeMillis(endTimeMillis);
+      }
+      if (limit != null) {
+        response.setLimit(limit);
+      }
+      if (getLatestValue != null) {
+        response.setGetLatestValue(getLatestValue);
+      }
+      if (filter != null) {
+        response.setFilter(filter);
+      }
+      response.setValues(new EnvelopedAspectArray(
+          _timeseriesAspectService.getAspectValues(Urn.createFromString(urn), entity, aspect, startTimeMillis,
+              endTimeMillis, limit, getLatestValue, filter)));
+      return response.getValues();
     }
 
     // TODO: Factor out ingest logic into a util that can be accessed by the java client and the resource

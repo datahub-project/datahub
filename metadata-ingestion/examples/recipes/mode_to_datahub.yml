@@ -2,12 +2,16 @@
 source:
   type: "mode"
   config:
-    token: 9fa6a90fcd33
-    password: a03bcbc011d6f77c585f5682
+    token: token
+    password: password
     connect_uri: https://app.mode.com/
-    workspace: "petabloc"
+    workspace: "workspace"
     default_schema: "public"
     owner_username_instead_of_email: False
+    api_options:
+      retry_backoff_multiplier: 2
+      max_retry_interval: 10
+      max_attempts: 5
 
 # see https://datahubproject.io/docs/metadata-ingestion/sink_docs/datahub for complete documentation
 sink:
