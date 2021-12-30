@@ -4,10 +4,7 @@ import pytest
 
 from datahub.utilities.delayed_iter import delayed_iter
 from datahub.utilities.groupby import groupby_unsorted
-from datahub.utilities.sql_parser import (
-    MetadataSQLSQLParser,
-    SqlLineageSQLParser,
-)
+from datahub.utilities.sql_parser import MetadataSQLSQLParser, SqlLineageSQLParser
 
 
 def test_delayed_iter():
