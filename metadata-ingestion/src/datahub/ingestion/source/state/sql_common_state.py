@@ -51,7 +51,7 @@ class BaseSQLAlchemyCheckpointState(CheckpointStateBase):
         self, checkpoint: "BaseSQLAlchemyCheckpointState"
     ) -> Iterable[str]:
         yield from self._get_urns_not_in(
-            checkpoint.encoded_view_urns, self.encoded_view_urns
+            self.encoded_view_urns, checkpoint.encoded_view_urns
         )
 
     def add_table_urn(self, table_urn: str) -> None:

@@ -1,17 +1,11 @@
 import time
 import urllib
-from typing import Any, Dict, Optional, cast
 
 import pytest
 import requests
-from sqlalchemy import create_engine
-from sqlalchemy.sql import text
-
 from datahub.cli.docker import check_local_docker_containers
 from datahub.ingestion.run.pipeline import Pipeline
-from datahub.ingestion.source.sql.mysql import MySQLConfig, MySQLSource
-from datahub.ingestion.source.sql.sql_common import BaseSQLAlchemyCheckpointState
-from datahub.ingestion.source.state.checkpoint import Checkpoint
+
 from tests.utils import ingest_file_via_rest
 
 GMS_ENDPOINT = "http://localhost:8080"
@@ -41,6 +35,7 @@ def test_healthchecks(wait_for_healthchecks):
     # Call to wait_for_healthchecks fixture will do the actual functionality.
     pass
 
+
 @pytest.fixture(scope="session")
 def frontend_session(wait_for_healthchecks):
     session = requests.Session()
@@ -49,12 +44,11 @@ def frontend_session(wait_for_healthchecks):
         "Content-Type": "application/json",
     }
     data = '{"username":"datahub", "password":"datahub"}'
-    response = session.post(
-        f"{FRONTEND_ENDPOINT}/logIn", headers=headers, data=data
-    )
+    response = session.post(f"{FRONTEND_ENDPOINT}/logIn", headers=headers, data=data)
     response.raise_for_status()
 
     yield session
+
 
 @pytest.mark.dependency(depends=["test_healthchecks"])
 def test_ingestion_via_rest(wait_for_healthchecks):
@@ -119,7 +113,9 @@ def test_gms_get_user():
 
     assert data["value"]
     assert data["value"]["com.linkedin.metadata.snapshot.CorpUserSnapshot"]
-    assert data["value"]["com.linkedin.metadata.snapshot.CorpUserSnapshot"]["urn"] == urn
+    assert (
+        data["value"]["com.linkedin.metadata.snapshot.CorpUserSnapshot"]["urn"] == urn
+    )
 
 
 @pytest.mark.parametrize(
@@ -160,7 +156,10 @@ def test_gms_get_dataset(platform, dataset_name, env):
 
     assert res_data["value"]
     assert res_data["value"]["com.linkedin.metadata.snapshot.DatasetSnapshot"]
-    assert res_data["value"]["com.linkedin.metadata.snapshot.DatasetSnapshot"]["urn"] == urn
+    assert (
+        res_data["value"]["com.linkedin.metadata.snapshot.DatasetSnapshot"]["urn"]
+        == urn
+    )
 
 
 @pytest.mark.parametrize(
@@ -173,18 +172,12 @@ def test_gms_get_dataset(platform, dataset_name, env):
 @pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
 def test_gms_search_dataset(query, min_expected_results):
 
-
-    json = {
-            "input": f"{query}",
-            "entity": "dataset",
-            "start": 0,
-            "count": 10
-    }
+    json = {"input": f"{query}", "entity": "dataset", "start": 0, "count": 10}
     print(json)
     response = requests.post(
         f"{GMS_ENDPOINT}/entities?action=search",
         headers=restli_default_headers,
-        json=json
+        json=json,
     )
     response.raise_for_status()
     res_data = response.json()
@@ -204,17 +197,12 @@ def test_gms_search_dataset(query, min_expected_results):
 @pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
 def test_gms_search_across_entities(query, min_expected_results):
 
-    json = {
-            "input": f"{query}",
-            "entities": [],
-            "start": 0,
-            "count": 10
-    }
+    json = {"input": f"{query}", "entities": [], "start": 0, "count": 10}
     print(json)
     response = requests.post(
         f"{GMS_ENDPOINT}/entities?action=searchAcrossEntities",
         headers=restli_default_headers,
-        json=json
+        json=json,
     )
     response.raise_for_status()
     res_data = response.json()
@@ -256,6 +244,7 @@ def test_gms_usage_fetch():
         "uniqueUserCount": 1,
     }
 
+
 @pytest.mark.dependency(depends=["test_healthchecks"])
 def test_frontend_auth(frontend_session):
     pass
@@ -281,17 +270,10 @@ def test_frontend_browse_datasets(frontend_session):
                             }\n
                         }\n
                     }""",
-        "variables": {
-            "input": {
-                "type": "DATASET",
-                "path": ["prod"]
-            }
-        }
+        "variables": {"input": {"type": "DATASET", "path": ["prod"]}},
     }
 
-    response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json
-    )
+    response = frontend_session.post(f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json)
 
     response.raise_for_status()
     res_data = response.json()
@@ -318,7 +300,7 @@ def test_frontend_search_datasets(frontend_session, query, min_expected_results)
             search(input: $input) {\n
                 start\n
                 count\n
-                total\n 
+                total\n
                 searchResults {\n
                     entity {\n
                         ... on Dataset {\n
@@ -330,18 +312,11 @@ def test_frontend_search_datasets(frontend_session, query, min_expected_results)
             }\n
         }""",
         "variables": {
-            "input": {
-                "type": "DATASET",
-                "query": f"{query}",
-                "start": 0,
-                "count": 10
-            }
-        }
+            "input": {"type": "DATASET", "query": f"{query}", "start": 0, "count": 10}
+        },
     }
 
-    response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json
-    )
+    response = frontend_session.post(f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json)
     response.raise_for_status()
     res_data = response.json()
 
@@ -368,7 +343,7 @@ def test_frontend_search_across_entities(frontend_session, query, min_expected_r
             searchAcrossEntities(input: $input) {\n
                 start\n
                 count\n
-                total\n 
+                total\n
                 searchResults {\n
                     entity {\n
                         ... on Dataset {\n
@@ -380,18 +355,11 @@ def test_frontend_search_across_entities(frontend_session, query, min_expected_r
             }\n
         }""",
         "variables": {
-            "input": {
-                "types": [],
-                "query": f"{query}",
-                "start": 0,
-                "count": 10
-            }
-        }
+            "input": {"types": [], "query": f"{query}", "start": 0, "count": 10}
+        },
     }
 
-    response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json
-    )
+    response = frontend_session.post(f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json)
     response.raise_for_status()
     res_data = response.json()
 
@@ -399,13 +367,16 @@ def test_frontend_search_across_entities(frontend_session, query, min_expected_r
     assert res_data["data"]
     assert res_data["data"]["searchAcrossEntities"]
     assert res_data["data"]["searchAcrossEntities"]["total"] >= min_expected_results
-    assert len(res_data["data"]["searchAcrossEntities"]["searchResults"]) >= min_expected_results
+    assert (
+        len(res_data["data"]["searchAcrossEntities"]["searchResults"])
+        >= min_expected_results
+    )
 
 
 @pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
 def test_frontend_user_info(frontend_session):
 
-    urn = f"urn:li:corpuser:datahub"
+    urn = "urn:li:corpuser:datahub"
     json = {
         "query": """query corpUser($urn: String!) {\n
             corpUser(urn: $urn) {\n
@@ -422,17 +393,13 @@ def test_frontend_user_info(frontend_session):
                 }\n
             }\n
         }""",
-        "variables": {
-            "urn": urn
-        }
+        "variables": {"urn": urn},
     }
-    response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json
-    )
+    response = frontend_session.post(f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json)
     response.raise_for_status()
     res_data = response.json()
 
-    assert res_data 
+    assert res_data
     assert res_data["data"]
     assert res_data["data"]["corpUser"]
     assert res_data["data"]["corpUser"]["urn"] == urn
@@ -474,14 +441,10 @@ def test_frontend_datasets(frontend_session, platform, dataset_name, env):
                 }\n
             }\n
         }""",
-        "variables": {
-            "urn": urn
-        }
+        "variables": {"urn": urn},
     }
     # Basic dataset info.
-    response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json
-    )
+    response = frontend_session.post(f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json)
     response.raise_for_status()
     res_data = response.json()
 
@@ -492,25 +455,39 @@ def test_frontend_datasets(frontend_session, platform, dataset_name, env):
     assert res_data["data"]["dataset"]["name"] == dataset_name
     assert res_data["data"]["dataset"]["platform"]["urn"] == platform
 
+
 @pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
 def test_ingest_with_system_metadata():
     response = requests.post(
         f"{GMS_ENDPOINT}/entities?action=ingest",
         headers=restli_default_headers,
         json={
-          'entity':
-            {
-              'value':
-                {'com.linkedin.metadata.snapshot.CorpUserSnapshot':
-                  {'urn': 'urn:li:corpuser:datahub', 'aspects':
-                    [{'com.linkedin.identity.CorpUserInfo': {'active': True, 'displayName': 'Data Hub', 'email': 'datahub@linkedin.com', 'title': 'CEO', 'fullName': 'Data Hub'}}]
-                   }
-                  }
-                },
-              'systemMetadata': {'lastObserved': 1628097379571, 'runId': 'af0fe6e4-f547-11eb-81b2-acde48001122'}
+            "entity": {
+                "value": {
+                    "com.linkedin.metadata.snapshot.CorpUserSnapshot": {
+                        "urn": "urn:li:corpuser:datahub",
+                        "aspects": [
+                            {
+                                "com.linkedin.identity.CorpUserInfo": {
+                                    "active": True,
+                                    "displayName": "Data Hub",
+                                    "email": "datahub@linkedin.com",
+                                    "title": "CEO",
+                                    "fullName": "Data Hub",
+                                }
+                            }
+                        ],
+                    }
+                }
+            },
+            "systemMetadata": {
+                "lastObserved": 1628097379571,
+                "runId": "af0fe6e4-f547-11eb-81b2-acde48001122",
+            },
         },
     )
     response.raise_for_status()
+
 
 @pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
 def test_ingest_with_blank_system_metadata():
@@ -518,19 +495,29 @@ def test_ingest_with_blank_system_metadata():
         f"{GMS_ENDPOINT}/entities?action=ingest",
         headers=restli_default_headers,
         json={
-          'entity':
-            {
-              'value':
-                {'com.linkedin.metadata.snapshot.CorpUserSnapshot':
-                  {'urn': 'urn:li:corpuser:datahub', 'aspects':
-                    [{'com.linkedin.identity.CorpUserInfo': {'active': True, 'displayName': 'Data Hub', 'email': 'datahub@linkedin.com', 'title': 'CEO', 'fullName': 'Data Hub'}}]
-                   }
-                  }
-                },
-              'systemMetadata': {}
+            "entity": {
+                "value": {
+                    "com.linkedin.metadata.snapshot.CorpUserSnapshot": {
+                        "urn": "urn:li:corpuser:datahub",
+                        "aspects": [
+                            {
+                                "com.linkedin.identity.CorpUserInfo": {
+                                    "active": True,
+                                    "displayName": "Data Hub",
+                                    "email": "datahub@linkedin.com",
+                                    "title": "CEO",
+                                    "fullName": "Data Hub",
+                                }
+                            }
+                        ],
+                    }
+                }
+            },
+            "systemMetadata": {},
         },
     )
     response.raise_for_status()
+
 
 @pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
 def test_ingest_without_system_metadata():
@@ -538,15 +525,24 @@ def test_ingest_without_system_metadata():
         f"{GMS_ENDPOINT}/entities?action=ingest",
         headers=restli_default_headers,
         json={
-          'entity':
-            {
-              'value':
-                {'com.linkedin.metadata.snapshot.CorpUserSnapshot':
-                  {'urn': 'urn:li:corpuser:datahub', 'aspects':
-                    [{'com.linkedin.identity.CorpUserInfo': {'active': True, 'displayName': 'Data Hub', 'email': 'datahub@linkedin.com', 'title': 'CEO', 'fullName': 'Data Hub'}}]
-                   }
-                  }
-             },
+            "entity": {
+                "value": {
+                    "com.linkedin.metadata.snapshot.CorpUserSnapshot": {
+                        "urn": "urn:li:corpuser:datahub",
+                        "aspects": [
+                            {
+                                "com.linkedin.identity.CorpUserInfo": {
+                                    "active": True,
+                                    "displayName": "Data Hub",
+                                    "email": "datahub@linkedin.com",
+                                    "title": "CEO",
+                                    "fullName": "Data Hub",
+                                }
+                            }
+                        ],
+                    }
+                }
+            },
         },
     )
     response.raise_for_status()
@@ -586,25 +582,26 @@ def test_frontend_list_policies(frontend_session):
         }""",
         "variables": {
             "input": {
-              "start": "0",
-              "count": "20",
+                "start": "0",
+                "count": "20",
             }
-        }
+        },
     }
-    response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json
-    )
+    response = frontend_session.post(f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json)
     response.raise_for_status()
     res_data = response.json()
 
     assert res_data
     assert res_data["data"]
     assert res_data["data"]["listPolicies"]
-    assert res_data["data"]["listPolicies"]["start"] is 0
+    assert res_data["data"]["listPolicies"]["start"] == 0
     assert res_data["data"]["listPolicies"]["count"] > 0
     assert len(res_data["data"]["listPolicies"]["policies"]) > 0
 
-@pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion", "test_frontend_list_policies"])
+
+@pytest.mark.dependency(
+    depends=["test_healthchecks", "test_run_ingestion", "test_frontend_list_policies"]
+)
 def test_frontend_update_policy(frontend_session):
 
     json = {
@@ -617,20 +614,18 @@ def test_frontend_update_policy(frontend_session):
                 "state": "INACTIVE",
                 "name": "Updated Platform Policy",
                 "description": "My Metadaata Policy",
-                "privileges": [ "MANAGE_POLICIES" ],
+                "privileges": ["MANAGE_POLICIES"],
                 "actors": {
-                  "users": ["urn:li:corpuser:datahub"],
-                  "resourceOwners": False,
-                  "allUsers": False,
-                  "allGroups": False
-                }
-            }
-        }
+                    "users": ["urn:li:corpuser:datahub"],
+                    "resourceOwners": False,
+                    "allUsers": False,
+                    "allGroups": False,
+                },
+            },
+        },
     }
 
-    response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json
-    )
+    response = frontend_session.post(f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json)
     response.raise_for_status()
     res_data = response.json()
 
@@ -639,20 +634,24 @@ def test_frontend_update_policy(frontend_session):
     assert res_data["data"]["updatePolicy"]
     assert res_data["data"]["updatePolicy"] == "urn:li:dataHubPolicy:7"
 
-@pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion", "test_frontend_list_policies", "test_frontend_update_policy"])
+
+@pytest.mark.dependency(
+    depends=[
+        "test_healthchecks",
+        "test_run_ingestion",
+        "test_frontend_list_policies",
+        "test_frontend_update_policy",
+    ]
+)
 def test_frontend_delete_policy(frontend_session):
 
     json = {
         "query": """mutation deletePolicy($urn: String!) {\n
             deletePolicy(urn: $urn) }""",
-        "variables": {
-            "urn": "urn:li:dataHubPolicy:7"
-        }
+        "variables": {"urn": "urn:li:dataHubPolicy:7"},
     }
 
-    response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json
-    )
+    response = frontend_session.post(f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json)
     response.raise_for_status()
     res_data = response.json()
 
@@ -670,23 +669,31 @@ def test_frontend_delete_policy(frontend_session):
         }""",
         "variables": {
             "input": {
-              "start": "0",
-              "count": "20",
+                "start": "0",
+                "count": "20",
             }
-        }
+        },
     }
-    response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json
-    )
+    response = frontend_session.post(f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json)
     response.raise_for_status()
     res_data = response.json()
 
     assert res_data
     assert res_data["data"]
     assert res_data["data"]["listPolicies"]
-    assert len(res_data["data"]["listPolicies"]["policies"]) is 7 # Length of default policies - 1
+    assert (
+        len(res_data["data"]["listPolicies"]["policies"]) == 7
+    )  # Length of default policies - 1
 
-@pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion", "test_frontend_list_policies", "test_frontend_delete_policy"])
+
+@pytest.mark.dependency(
+    depends=[
+        "test_healthchecks",
+        "test_run_ingestion",
+        "test_frontend_list_policies",
+        "test_frontend_delete_policy",
+    ]
+)
 def test_frontend_create_policy(frontend_session):
 
     # Policy tests are not idempotent. If you rerun this test it will be wrong.
@@ -699,24 +706,19 @@ def test_frontend_create_policy(frontend_session):
                 "name": "Test Metadata Policy",
                 "description": "My Metadaata Policy",
                 "state": "ACTIVE",
-                "resources": {
-                  "type": "dataset",
-                  "allResources": True
-                },
-                "privileges": [ "EDIT_ENTITY_TAGS" ],
+                "resources": {"type": "dataset", "allResources": True},
+                "privileges": ["EDIT_ENTITY_TAGS"],
                 "actors": {
-                  "users": ["urn:li:corpuser:datahub"],
-                  "resourceOwners": False,
-                  "allUsers": False,
-                  "allGroups": False
-                }
+                    "users": ["urn:li:corpuser:datahub"],
+                    "resourceOwners": False,
+                    "allUsers": False,
+                    "allGroups": False,
+                },
             }
-        }
+        },
     }
 
-    response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json
-    )
+    response = frontend_session.post(f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json)
     response.raise_for_status()
     res_data = response.json()
 
@@ -738,14 +740,12 @@ def test_frontend_create_policy(frontend_session):
         }""",
         "variables": {
             "input": {
-              "start": "0",
-              "count": "20",
+                "start": "0",
+                "count": "20",
             }
-        }
+        },
     }
-    response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json
-    )
+    response = frontend_session.post(f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json)
     response.raise_for_status()
     res_data = response.json()
 
@@ -753,7 +753,8 @@ def test_frontend_create_policy(frontend_session):
     assert res_data["data"]
     assert res_data["data"]["listPolicies"]
     # TODO: Check to see that the policy we created in inside the array.
-    assert len(res_data["data"]["listPolicies"]["policies"]) is 8 # Back up to 8
+    assert len(res_data["data"]["listPolicies"]["policies"]) == 8  # Back up to 8
+
 
 @pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
 def test_frontend_app_config(frontend_session):
@@ -786,9 +787,7 @@ def test_frontend_app_config(frontend_session):
         }"""
     }
 
-    response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json
-    )
+    response = frontend_session.post(f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json)
     response.raise_for_status()
     res_data = response.json()
 
@@ -797,6 +796,7 @@ def test_frontend_app_config(frontend_session):
     assert res_data["data"]["appConfig"]
     assert res_data["data"]["appConfig"]["analyticsConfig"]["enabled"] is True
     assert res_data["data"]["appConfig"]["policiesConfig"]["enabled"] is True
+
 
 @pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
 def test_frontend_me_query(frontend_session):
@@ -827,9 +827,7 @@ def test_frontend_me_query(frontend_session):
         }"""
     }
 
-    response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json
-    )
+    response = frontend_session.post(f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json)
     response.raise_for_status()
     res_data = response.json()
 
@@ -839,7 +837,10 @@ def test_frontend_me_query(frontend_session):
     assert res_data["data"]["me"]["platformPrivileges"]["viewAnalytics"] is True
     assert res_data["data"]["me"]["platformPrivileges"]["managePolicies"] is True
     assert res_data["data"]["me"]["platformPrivileges"]["manageIdentities"] is True
-    assert res_data["data"]["me"]["platformPrivileges"]["generatePersonalAccessTokens"] is True
+    assert (
+        res_data["data"]["me"]["platformPrivileges"]["generatePersonalAccessTokens"]
+        is True
+    )
 
 
 @pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
@@ -863,23 +864,24 @@ def test_list_users(frontend_session):
         }""",
         "variables": {
             "input": {
-              "start": "0",
-              "count": "2",
+                "start": "0",
+                "count": "2",
             }
-        }
+        },
     }
-    response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json
-    )
+    response = frontend_session.post(f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json)
     response.raise_for_status()
     res_data = response.json()
 
     assert res_data
     assert res_data["data"]
     assert res_data["data"]["listUsers"]
-    assert res_data["data"]["listUsers"]["start"] is 0
-    assert res_data["data"]["listUsers"]["count"] is 2
-    assert len(res_data["data"]["listUsers"]["users"]) >= 2 # Length of default user set.
+    assert res_data["data"]["listUsers"]["start"] == 0
+    assert res_data["data"]["listUsers"]["count"] == 2
+    assert (
+        len(res_data["data"]["listUsers"]["users"]) >= 2
+    )  # Length of default user set.
+
 
 @pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
 def test_list_groups(frontend_session):
@@ -902,25 +904,28 @@ def test_list_groups(frontend_session):
         }""",
         "variables": {
             "input": {
-              "start": "0",
-              "count": "2",
+                "start": "0",
+                "count": "2",
             }
-        }
+        },
     }
-    response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json
-    )
+    response = frontend_session.post(f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json)
     response.raise_for_status()
     res_data = response.json()
 
     assert res_data
     assert res_data["data"]
     assert res_data["data"]["listGroups"]
-    assert res_data["data"]["listGroups"]["start"] is 0
-    assert res_data["data"]["listGroups"]["count"] is 2
-    assert len(res_data["data"]["listGroups"]["groups"]) >= 2 # Length of default group set.
+    assert res_data["data"]["listGroups"]["start"] == 0
+    assert res_data["data"]["listGroups"]["count"] == 2
+    assert (
+        len(res_data["data"]["listGroups"]["groups"]) >= 2
+    )  # Length of default group set.
 
-@pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion", "test_list_groups"])
+
+@pytest.mark.dependency(
+    depends=["test_healthchecks", "test_run_ingestion", "test_list_groups"]
+)
 def test_add_remove_members_from_group(frontend_session):
 
     # Assert no group edges for user jdoe
@@ -933,20 +938,16 @@ def test_add_remove_members_from_group(frontend_session):
                 }\n
             }\n
         }""",
-        "variables": {
-            "urn": "urn:li:corpuser:jdoe"
-        }
+        "variables": {"urn": "urn:li:corpuser:jdoe"},
     }
-    response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json
-    )
+    response = frontend_session.post(f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json)
     response.raise_for_status()
     res_data = response.json()
 
     assert res_data
     assert res_data["data"]
     assert res_data["data"]["corpUser"]
-    assert res_data["data"]["corpUser"]["relationships"]["total"] is 0
+    assert res_data["data"]["corpUser"]["relationships"]["total"] == 0
 
     # Add jdoe to group
     json = {
@@ -955,14 +956,12 @@ def test_add_remove_members_from_group(frontend_session):
         "variables": {
             "input": {
                 "groupUrn": "urn:li:corpGroup:bfoo",
-                "userUrns": [ "urn:li:corpuser:jdoe" ],
+                "userUrns": ["urn:li:corpuser:jdoe"],
             }
-        }
+        },
     }
 
-    response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json
-    )
+    response = frontend_session.post(f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json)
     response.raise_for_status()
 
     # Sleep for edge store to be updated. Not ideal!
@@ -978,13 +977,9 @@ def test_add_remove_members_from_group(frontend_session):
                 }\n
             }\n
         }""",
-        "variables": {
-            "urn": "urn:li:corpuser:jdoe"
-        }
+        "variables": {"urn": "urn:li:corpuser:jdoe"},
     }
-    response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json
-    )
+    response = frontend_session.post(f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json)
     response.raise_for_status()
     res_data = response.json()
 
@@ -992,7 +987,7 @@ def test_add_remove_members_from_group(frontend_session):
     assert res_data["data"]
     assert res_data["data"]["corpUser"]
     assert res_data["data"]["corpUser"]["relationships"]
-    assert res_data["data"]["corpUser"]["relationships"]["total"] is 1
+    assert res_data["data"]["corpUser"]["relationships"]["total"] == 1
 
     # Now remove jdoe from the group
     json = {
@@ -1001,14 +996,12 @@ def test_add_remove_members_from_group(frontend_session):
         "variables": {
             "input": {
                 "groupUrn": "urn:li:corpGroup:bfoo",
-                "userUrns": [ "urn:li:corpuser:jdoe" ],
+                "userUrns": ["urn:li:corpuser:jdoe"],
             }
-        }
+        },
     }
 
-    response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json
-    )
+    response = frontend_session.post(f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json)
     response.raise_for_status()
 
     # Sleep for edge store to be updated. Not ideal!
@@ -1024,35 +1017,35 @@ def test_add_remove_members_from_group(frontend_session):
                 }\n
             }\n
         }""",
-        "variables": {
-            "urn": "urn:li:corpuser:jdoe"
-        }
+        "variables": {"urn": "urn:li:corpuser:jdoe"},
     }
-    response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json
-    )
+    response = frontend_session.post(f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json)
     response.raise_for_status()
     res_data = response.json()
 
     assert res_data
     assert res_data["data"]
     assert res_data["data"]["corpUser"]
-    assert res_data["data"]["corpUser"]["relationships"]["total"] is 0
+    assert res_data["data"]["corpUser"]["relationships"]["total"] == 0
 
-@pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion", "test_list_groups", "test_add_remove_members_from_group"])
+
+@pytest.mark.dependency(
+    depends=[
+        "test_healthchecks",
+        "test_run_ingestion",
+        "test_list_groups",
+        "test_add_remove_members_from_group",
+    ]
+)
 def test_remove_user(frontend_session):
 
     json = {
         "query": """mutation removeUser($urn: String!) {\n
             removeUser(urn: $urn) }""",
-        "variables": {
-            "urn": "urn:li:corpuser:jdoe"
-        }
+        "variables": {"urn": "urn:li:corpuser:jdoe"},
     }
 
-    response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json
-    )
+    response = frontend_session.post(f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json)
     response.raise_for_status()
 
     json = {
@@ -1064,13 +1057,9 @@ def test_remove_user(frontend_session):
                 }\n
             }\n
         }""",
-        "variables": {
-            "urn": "urn:li:corpuser:jdoe"
-        }
+        "variables": {"urn": "urn:li:corpuser:jdoe"},
     }
-    response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json
-    )
+    response = frontend_session.post(f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json)
     response.raise_for_status()
     res_data = response.json()
 
@@ -1079,20 +1068,24 @@ def test_remove_user(frontend_session):
     assert res_data["data"]["corpUser"]
     assert res_data["data"]["corpUser"]["properties"] is None
 
-@pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion", "test_list_groups", "test_add_remove_members_from_group"])
+
+@pytest.mark.dependency(
+    depends=[
+        "test_healthchecks",
+        "test_run_ingestion",
+        "test_list_groups",
+        "test_add_remove_members_from_group",
+    ]
+)
 def test_remove_group(frontend_session):
 
     json = {
         "query": """mutation removeGroup($urn: String!) {\n
             removeGroup(urn: $urn) }""",
-        "variables": {
-          "urn": "urn:li:corpGroup:bfoo"
-        }
+        "variables": {"urn": "urn:li:corpGroup:bfoo"},
     }
 
-    response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json
-    )
+    response = frontend_session.post(f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json)
     response.raise_for_status()
 
     json = {
@@ -1104,13 +1097,9 @@ def test_remove_group(frontend_session):
                 }\n
             }\n
         }""",
-        "variables": {
-            "urn": "urn:li:corpGroup:bfoo"
-        }
+        "variables": {"urn": "urn:li:corpGroup:bfoo"},
     }
-    response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json
-    )
+    response = frontend_session.post(f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json)
     response.raise_for_status()
     res_data = response.json()
 
@@ -1119,23 +1108,24 @@ def test_remove_group(frontend_session):
     assert res_data["data"]["corpGroup"]
     assert res_data["data"]["corpGroup"]["properties"] is None
 
-@pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion", "test_list_groups", "test_remove_group"])
+
+@pytest.mark.dependency(
+    depends=[
+        "test_healthchecks",
+        "test_run_ingestion",
+        "test_list_groups",
+        "test_remove_group",
+    ]
+)
 def test_create_group(frontend_session):
 
     json = {
         "query": """mutation createGroup($input: CreateGroupInput!) {\n
             createGroup(input: $input) }""",
-        "variables": {
-            "input": {
-                "name": "Test Group",
-                "description": "My test group"
-            }
-        }
+        "variables": {"input": {"name": "Test Group", "description": "My test group"}},
     }
 
-    response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json
-    )
+    response = frontend_session.post(f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json)
     response.raise_for_status()
 
     json = {
@@ -1147,13 +1137,9 @@ def test_create_group(frontend_session):
                 }\n
             }\n
         }""",
-        "variables": {
-          "urn": "urn:li:corpGroup:Test Group"
-        }
+        "variables": {"urn": "urn:li:corpGroup:Test Group"},
     }
-    response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json
-    )
+    response = frontend_session.post(f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json)
     response.raise_for_status()
     res_data = response.json()
 
@@ -1161,6 +1147,7 @@ def test_create_group(frontend_session):
     assert res_data["data"]
     assert res_data["data"]["corpGroup"]
     assert res_data["data"]["corpGroup"]["properties"]["displayName"] == "Test Group"
+
 
 @pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
 def test_home_page_recommendations(frontend_session):
@@ -1173,17 +1160,13 @@ def test_home_page_recommendations(frontend_session):
         "variables": {
             "input": {
                 "userUrn": "urn:li:corpuser:datahub",
-                "requestContext": {
-                  "scenario": "HOME"
-                },
-                "limit": 5
+                "requestContext": {"scenario": "HOME"},
+                "limit": 5,
             }
-        }
+        },
     }
 
-    response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json
-    )
+    response = frontend_session.post(f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json)
     response.raise_for_status()
     res_data = response.json()
     print(res_data)
@@ -1192,7 +1175,11 @@ def test_home_page_recommendations(frontend_session):
     assert res_data["data"]
     assert res_data["data"]["listRecommendations"]
     assert "error" not in res_data
-    assert len(res_data["data"]["listRecommendations"]["modules"]) > min_expected_recommendation_modules
+    assert (
+        len(res_data["data"]["listRecommendations"]["modules"])
+        > min_expected_recommendation_modules
+    )
+
 
 @pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
 def test_search_results_recommendations(frontend_session):
@@ -1205,20 +1192,15 @@ def test_search_results_recommendations(frontend_session):
             "input": {
                 "userUrn": "urn:li:corpuser:datahub",
                 "requestContext": {
-                  "scenario": "SEARCH_RESULTS",
-                  "searchRequestContext": {
-                    "query": "asdsdsdds",
-                    "filters": []
-                  }
+                    "scenario": "SEARCH_RESULTS",
+                    "searchRequestContext": {"query": "asdsdsdds", "filters": []},
                 },
-                "limit": 5
+                "limit": 5,
             }
-        }
+        },
     }
 
-    response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json
-    )
+    response = frontend_session.post(f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json)
     response.raise_for_status()
     res_data = response.json()
 
@@ -1237,17 +1219,15 @@ def test_generate_personal_access_token(frontend_session):
             }\n
         }""",
         "variables": {
-          "input": {
-              "type": "PERSONAL",
-              "actorUrn": "urn:li:corpuser:datahub",
-              "duration": "ONE_MONTH"
-          }
-        }
+            "input": {
+                "type": "PERSONAL",
+                "actorUrn": "urn:li:corpuser:datahub",
+                "duration": "ONE_MONTH",
+            }
+        },
     }
 
-    response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json
-    )
+    response = frontend_session.post(f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json)
     response.raise_for_status()
     res_data = response.json()
 
@@ -1262,114 +1242,17 @@ def test_generate_personal_access_token(frontend_session):
             accessToken\n
         }""",
         "variables": {
-          "input": {
-              "type": "PERSONAL",
-              "actorUrn": "urn:li:corpuser:jsmith",
-              "duration": "ONE_DAY"
-          }
-        }
+            "input": {
+                "type": "PERSONAL",
+                "actorUrn": "urn:li:corpuser:jsmith",
+                "duration": "ONE_DAY",
+            }
+        },
     }
 
-    response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json
-    )
+    response = frontend_session.post(f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json)
     response.raise_for_status()
     res_data = response.json()
 
     assert res_data
-    assert "errors" in res_data # Assert the request fails
-
-
-@pytest.mark.dependency(depends=["test_healthchecks"])
-def test_stateful_ingestion(wait_for_healthchecks):
-    def create_mysql_engine(mysql_source_config_dict: Dict[str, Any]) -> Any:
-        mysql_config = MySQLConfig.parse_obj(mysql_source_config_dict)
-        url = mysql_config.get_sql_alchemy_url()
-        return create_engine(url)
-
-    def create_table(engine: Any, name:str, defn:str) -> None:
-        create_table_query = text(f"CREATE TABLE IF NOT EXISTS {name}{defn};")
-        engine.execute(create_table_query)
-
-    def drop_table(engine: Any, table_name: str) -> None:
-        drop_table_query = text(f"DROP TABLE {table_name};")
-        engine.execute(drop_table_query)
-
-    def get_current_checkpoint_from_pipeline(
-            pipeline_config_dict: Dict[str, Any]
-    ) -> Optional[Checkpoint]:
-        pipeline = Pipeline.create(pipeline_config_dict)
-        pipeline.run()
-        pipeline.raise_from_status()
-        mysql_source = cast(MySQLSource, pipeline.source)
-        return mysql_source.get_current_checkpoint(
-            mysql_source.get_default_ingestion_job_id()
-        )
-
-    source_config_dict: Dict[str, Any] = {
-            "username": "datahub",
-            "password": "datahub",
-            "database": "datahub",
-            "stateful_ingestion": {
-                "enabled": True,
-                "remove_stale_metadata": True,
-                "state_provider": {
-                    "type": "datahub",
-                    "config": {"datahub_api": {"server": "http://localhost:8080"}},
-                },
-            },
-        }
-
-    pipeline_config_dict: Dict[str, Any] = {
-            "source": {
-                "type": "mysql",
-                "config": source_config_dict,
-            },
-            "sink": {
-                "type": "datahub-rest",
-                "config": {"server": "http://localhost:8080"},
-            },
-            "pipeline_name": "mysql_stateful_ingestion_smoke_test_pipeline",
-        }
-
-    # 1. Setup the SQL engine
-    mysql_engine = create_mysql_engine(source_config_dict)
-
-    # 2. Create test tables for first run of the  pipeline.
-    table_prefix = "stateful_ingestion_test"
-    table_defs = {
-        f"{table_prefix}_t1": "(id INT, name VARCHAR(10))",
-        f"{table_prefix}_t2": "(id INT)"
-    }
-    table_names = sorted(table_defs.keys())
-    for table_name, defn in table_defs.items():
-        create_table(mysql_engine, table_name, defn)
-
-    # 3. Do the first run of the pipeline and get the default job's checkpoint.
-    checkpoint1 = get_current_checkpoint_from_pipeline(
-        pipeline_config_dict=pipeline_config_dict
-    )
-    assert checkpoint1
-
-    # 4. Drop table t1 created during step 2 + rerun the pipeline and get the checkpoint state.
-    drop_table(mysql_engine, table_names[0])
-    checkpoint2 = get_current_checkpoint_from_pipeline(
-        pipeline_config_dict=pipeline_config_dict
-    )
-    assert checkpoint2
-
-    # 5. Perform all assertions on the states
-    state1 = cast(BaseSQLAlchemyCheckpointState, checkpoint1.state)
-    state2 = cast(BaseSQLAlchemyCheckpointState, checkpoint2.state)
-    difference_urns = list(state1.get_table_urns_not_in(state2))
-    assert len(difference_urns) == 1
-    assert (
-        difference_urns[0]
-        == "urn:li:dataset:(urn:li:dataPlatform:mysql,datahub.stateful_ingestion_test_t1,PROD)"
-    )
-
-    # 6. Perform all assertions on the config.
-    assert checkpoint1.config == checkpoint2.config
-
-    # 7. Cleanup table t2 as well to prevent other tests that rely on data in the smoke-test world.
-    drop_table(mysql_engine, table_names[1])
+    assert "errors" in res_data  # Assert the request fails

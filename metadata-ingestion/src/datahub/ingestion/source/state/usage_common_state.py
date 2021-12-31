@@ -1,3 +1,5 @@
+import pydantic
+
 from datahub.ingestion.source.state.checkpoint import CheckpointStateBase
 
 
@@ -8,5 +10,5 @@ class BaseUsageCheckpointState(CheckpointStateBase):
     Subclasses can define additional state as appropriate.
     """
 
-    begin_timestamp_millis: int
-    end_timestamp_millis: int
+    begin_timestamp_millis: pydantic.PositiveInt
+    end_timestamp_millis: pydantic.PositiveInt

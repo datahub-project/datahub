@@ -28,6 +28,7 @@ from datahub.ingestion.source.usage.usage_common import (
     BaseUsageConfig,
     GenericAggregatedDataset,
 )
+from datahub.metadata.schema_classes import JobStatusClass, TimeWindowSizeClass
 
 logger = logging.getLogger(__name__)
 
@@ -145,6 +146,7 @@ class SnowflakeUsageSource(StatefulIngestionSourceBase):
         super(SnowflakeUsageSource, self).__init__(config, ctx)
         self.config: SnowflakeUsageConfig = config
         self.report: SourceReport = SourceReport()
+        self.should_skip_this_run = self._should_skip_this_run()
 
     @classmethod
     def create(cls, config_dict, ctx):
@@ -229,9 +231,26 @@ class SnowflakeUsageSource(StatefulIngestionSourceBase):
     def _init_checkpoints(self):
         self.get_current_checkpoint(self.get_default_ingestion_job_id())
 
+    def update_default_job_summary(self) -> None:
+        summary = self.get_job_run_summary(self.get_default_ingestion_job_id())
+        if summary is not None:
+            summary.runStatus = (
+                JobStatusClass.SKIPPED
+                if self.should_skip_this_run
+                else JobStatusClass.COMPLETED
+            )
+            summary.messageId = datetime.now().strftime("%m-%d-%Y,%H:%M:%S")
+            summary.eventGranularity = TimeWindowSizeClass(
+                unit=self.config.bucket_duration, multiple=1
+            )
+            summary.numWarnings = len(self.report.warnings)
+            summary.numErrors = len(self.report.failures)
+            summary.numEntities = self.report.workunits_produced
+            summary.config = self.config.json()
+            summary.custom_summary = self.report.as_string()
+
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        skip_this_run: bool = self._should_skip_this_run()
-        if not skip_this_run:
+        if not self.should_skip_this_run:
             # Initialize the checkpoints
             self._init_checkpoints()
             # Generate the workunits.
@@ -402,5 +421,5 @@ class SnowflakeUsageSource(StatefulIngestionSourceBase):
         return self.report
 
     def close(self):
-        # Checkpoint this run
-        self.commit_checkpoints()
+        self.update_default_job_summary()
+        self.prepare_for_commit()

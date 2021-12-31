@@ -91,34 +91,43 @@ class Checkpoint:
             # Construct the config
             config_as_dict = json.loads(checkpoint_aspect.config)
             config_obj = config_class.parse_obj(config_as_dict)
-
-            # Construct the state
-            state_as_dict = (
-                CheckpointStateBase.from_bytes_to_dict(checkpoint_aspect.state.payload)
-                if checkpoint_aspect.state.payload is not None
-                else {}
-            )
-            state_as_dict["version"] = checkpoint_aspect.state.formatVersion
-            state_as_dict["serde"] = checkpoint_aspect.state.serde
-            state_obj = state_class.parse_obj(state_as_dict)
         except Exception as e:
-            logger.error(
-                "Failed to construct checkpoint class from checkpoint aspect.", e
+            # Failure to load config is probably okay...config structure has changed.
+            logger.warning(
+                "Failed to construct checkpoint's config from checkpoint aspect.", e
             )
         else:
-            # Construct the deserialized Checkpoint object from the raw aspect.
-            checkpoint = cls(
-                job_name=job_name,
-                pipeline_name=checkpoint_aspect.pipelineName,
-                platform_instance_id=checkpoint_aspect.platformInstanceId,
-                run_id=checkpoint_aspect.runId,
-                config=config_obj,
-                state=state_obj,
-            )
-            logger.info(
-                f"Successfully constructed last checkpoint state for job {job_name}"
-            )
-            return checkpoint
+            try:
+                # Construct the state
+                state_as_dict = (
+                    CheckpointStateBase.from_bytes_to_dict(
+                        checkpoint_aspect.state.payload
+                    )
+                    if checkpoint_aspect.state.payload is not None
+                    else {}
+                )
+                state_as_dict["version"] = checkpoint_aspect.state.formatVersion
+                state_as_dict["serde"] = checkpoint_aspect.state.serde
+                state_obj = state_class.parse_obj(state_as_dict)
+            except Exception as e:
+                logger.error(
+                    "Failed to construct checkpoint class from checkpoint aspect.", e
+                )
+                raise e
+            else:
+                # Construct the deserialized Checkpoint object from the raw aspect.
+                checkpoint = cls(
+                    job_name=job_name,
+                    pipeline_name=checkpoint_aspect.pipelineName,
+                    platform_instance_id=checkpoint_aspect.platformInstanceId,
+                    run_id=checkpoint_aspect.runId,
+                    config=config_obj,
+                    state=state_obj,
+                )
+                logger.info(
+                    f"Successfully constructed last checkpoint state for job {job_name}"
+                )
+                return checkpoint
         return None
 
     def to_checkpoint_aspect(

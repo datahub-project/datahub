@@ -35,8 +35,11 @@ NOTE: If either `dry-run` or `preview` mode are set, stateful ingestion will be 
 ## Use-cases powered by stateful ingestion.
 Following is the list of current use-cases powered by stateful ingestion in datahub.
 ### Removal of stale tables and views.
-Stateful ingestion can be used to automatically soft delete the tables and views that are seen in a previous run
+Stateful ingestion can be used to automatically soft-delete the tables and views that are seen in a previous run
 but absent in the current run (they are either deleted or no longer desired).
+
+![Stale Metadata Deletion](./images/stale_metadata_deletion.png)
+
 #### Supported sources
 * All sql based sources.
 #### Additional config details
@@ -124,22 +127,22 @@ sink:
     server: 'http://localhost:8080'
 ```
 
-## The Ingestion State Provider
-The ingestion state provider is responsible for saving and retrieving the ingestion state associated with the ingestion runs
-of various jobs inside the source connector of the ingestion pipeline. An ingestion state provider needs to implement the
-[IngestionStateProvider](https://github.com/linkedin/datahub/blob/master/metadata-ingestion/src/datahub/ingestion/api/ingestion_state_provider.py) interface and
-register itself with datahub by adding an entry under `datahub.ingestion.state_provider.plugins` key of the entry_points section in [setup.py](https://github.com/linkedin/datahub/blob/master/metadata-ingestion/setup.py) with its type and implementation class as shown below.
+## The Checkpointing Ingestion State Provider (Developer Guide)
+The ingestion checkpointing state provider is responsible for saving and retrieving the ingestion checkpoint state associated with the ingestion runs
+of various jobs inside the source connector of the ingestion pipeline. The checkpointing data model is [DatahubIngestionCheckpoint](https://github.com/linkedin/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/datajob/datahub/DatahubIngestionCheckpoint.pdl) and it supports any custom state to be stored using the [IngestionCheckpointState](https://github.com/linkedin/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/datajob/datahub/IngestionCheckpointState.pdl#L9). A checkpointing ingestion state provider needs to implement the
+[IngestionCheckpointingProviderBase](https://github.com/linkedin/datahub/blob/master/metadata-ingestion/src/datahub/ingestion/api/ingestion_job_checkpointing_provider_base.py) interface and
+register itself with datahub by adding an entry under `datahub.ingestion.checkpointing_provider.plugins` key of the entry_points section in [setup.py](https://github.com/linkedin/datahub/blob/master/metadata-ingestion/setup.py) with its type and implementation class as shown below.
 ```python
 entry_points = {
     # <snip other keys>"
-    "datahub.ingestion.state_provider.plugins": [
-        "datahub = datahub.ingestion.source.state_provider.datahub_ingestion_state_provider:DatahubIngestionStateProvider",
-    ]
+    "datahub.ingestion.checkpointing_provider.plugins": [
+        "datahub = datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider:DatahubIngestionCheckpointingProvider",
+    ],
 }
 ```
 
-### Datahub Ingestion State Provider
-This is the state provider implementation that is avialble out of the box. It's type is `datahub` and it is implemented on top
+### Datahub Checkpointing Ingestion State Provider
+This is the state provider implementation that is available out of the box. Its type is `datahub` and it is implemented on top
 of the `datahub_api` client and the timeseries aspect capabilities of the datahub-backend.
 #### Config details
 
