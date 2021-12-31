@@ -113,7 +113,7 @@ plugins: Dict[str, Set[str]] = {
     "looker": looker_common,
     # lkml>=1.1.2 is required to support the sql_preamble expression in LookML
     "lookml": looker_common | {"lkml>=1.1.2", "sql-metadata==2.2.2", "sqllineage==1.3.3"},
-    "metabase": {"requests"},
+    "metabase": {"requests", "sqllineage==1.3.3"},
     "mode": {"requests", "sqllineage==1.3.3"},
     "mongodb": {"pymongo>=3.11"},
     "mssql": sql_common | {"sqlalchemy-pytds>=0.3"},
