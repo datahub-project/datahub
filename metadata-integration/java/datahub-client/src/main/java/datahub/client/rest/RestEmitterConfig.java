@@ -1,4 +1,4 @@
-package datahub.client;
+package datahub.client.rest;
 
 import datahub.event.EventFormatter;
 import java.util.Collections;
@@ -20,7 +20,7 @@ public class RestEmitterConfig {
   public static final String DEFAULT_AUTH_TOKEN = null;
 
   @Builder.Default
-  private final String gmsUrl = "http://localhost:8080";
+  private final String server = "http://localhost:8080";
 
   private final Integer timeoutSec;
 

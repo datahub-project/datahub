@@ -4,7 +4,7 @@ import com.linkedin.datahub.lineage.spark.model.LineageConsumer;
 import com.linkedin.datahub.lineage.spark.model.LineageEvent;
 import com.linkedin.mxe.MetadataChangeProposal;
 import datahub.client.Emitter;
-import datahub.client.RestEmitter;
+import datahub.client.rest.RestEmitter;
 import java.io.IOException;
 import java.util.List;
 import java.util.Objects;
@@ -53,7 +53,7 @@ public class McpEmitter implements LineageConsumer {
       if (conf.contains(GMS_URL_KEY)) {
         String gmsUrl = conf.get(GMS_URL_KEY);
         log.debug("REST emitter configured with GMS url " + gmsUrl);
-        return RestEmitter.create($ -> $.gmsUrl(gmsUrl));
+        return RestEmitter.create($ -> $.server(gmsUrl));
       }
 
       log.error("GMS URL not configured.");

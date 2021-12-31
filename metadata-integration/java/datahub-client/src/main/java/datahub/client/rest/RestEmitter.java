@@ -1,10 +1,14 @@
-package datahub.client;
+package datahub.client.rest;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.JacksonDataTemplateCodec;
 import com.linkedin.mxe.MetadataChangeProposal;
+import datahub.client.Callback;
+import datahub.client.Emitter;
+import datahub.client.MetadataResponseFuture;
+import datahub.client.MetadataWriteResponse;
 import datahub.event.EventFormatter;
 import datahub.event.MetadataChangeProposalWrapper;
 import java.io.ByteArrayOutputStream;
@@ -50,8 +54,8 @@ public class RestEmitter implements Emitter {
     }
     this.httpClient = this.config.getAsyncHttpClientBuilder().build();
     this.httpClient.start();
-    this.ingestProposalUrl = this.config.getGmsUrl() + "/aspects?action=ingestProposal";
-    this.configUrl = this.config.getGmsUrl() + "/config";
+    this.ingestProposalUrl = this.config.getServer() + "/aspects?action=ingestProposal";
+    this.configUrl = this.config.getServer() + "/config";
     this.eventFormatter = this.config.getEventFormatter();
   }
 

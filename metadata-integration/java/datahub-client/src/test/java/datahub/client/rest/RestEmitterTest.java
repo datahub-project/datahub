@@ -1,8 +1,12 @@
-package datahub.client;
+package datahub.client.rest;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.events.metadata.ChangeType;
+import datahub.client.Callback;
+import datahub.client.MetadataWriteResponse;
+import datahub.client.rest.RestEmitter;
+import datahub.client.rest.RestEmitterConfig;
 import datahub.event.MetadataChangeProposalWrapper;
 import datahub.server.TestDataHubServer;
 import java.io.IOException;
@@ -133,7 +137,7 @@ public class RestEmitterTest {
   public void mockServerTest() throws InterruptedException, ExecutionException, IOException {
     TestDataHubServer testDataHubServer = new TestDataHubServer();
     Integer port = testDataHubServer.getMockServer().getPort();
-    RestEmitter emitter = RestEmitter.create(b -> b.gmsUrl("http://localhost:" + port));
+    RestEmitter emitter = RestEmitter.create(b -> b.server("http://localhost:" + port));
     Assert.assertTrue(emitter.testConnection());
   }
 
@@ -141,7 +145,7 @@ public class RestEmitterTest {
   public void multithreadedTestExecutors() throws Exception {
     TestDataHubServer testDataHubServer = new TestDataHubServer();
     Integer port = testDataHubServer.getMockServer().getPort();
-    RestEmitter emitter = RestEmitter.create(b -> b.gmsUrl("http://localhost:" + port));
+    RestEmitter emitter = RestEmitter.create(b -> b.server("http://localhost:" + port));
 
     testDataHubServer.getMockServer()
         .when(request().withMethod("POST")
@@ -218,7 +222,7 @@ public class RestEmitterTest {
   public void multithreadedTestSingleThreadCaller() throws Exception {
     TestDataHubServer testDataHubServer = new TestDataHubServer();
     Integer port = testDataHubServer.getMockServer().getPort();
-    RestEmitter emitter = RestEmitter.create(b -> b.gmsUrl("http://localhost:" + port));
+    RestEmitter emitter = RestEmitter.create(b -> b.server("http://localhost:" + port));
 
     testDataHubServer.getMockServer()
         .when(request().withMethod("POST")
@@ -276,7 +280,7 @@ public class RestEmitterTest {
   public void testCallback() throws Exception {
     TestDataHubServer testDataHubServer = new TestDataHubServer();
     Integer port = testDataHubServer.getMockServer().getPort();
-    RestEmitter emitter = RestEmitter.create(b -> b.gmsUrl("http://localhost:" + port));
+    RestEmitter emitter = RestEmitter.create(b -> b.server("http://localhost:" + port));
 
     testDataHubServer.getMockServer()
         .when(request().withMethod("POST")
@@ -311,7 +315,7 @@ public class RestEmitterTest {
   public void testTimeoutOnGet() {
     TestDataHubServer testDataHubServer = new TestDataHubServer();
     Integer port = testDataHubServer.getMockServer().getPort();
-    RestEmitter emitter = RestEmitter.create(b -> b.gmsUrl("http://localhost:" + port));
+    RestEmitter emitter = RestEmitter.create(b -> b.server("http://localhost:" + port));
 
     testDataHubServer.getMockServer().reset();
     testDataHubServer.getMockServer()
@@ -339,7 +343,7 @@ public class RestEmitterTest {
   public void testTimeoutOnGetWithTimeout() {
     TestDataHubServer testDataHubServer = new TestDataHubServer();
     Integer port = testDataHubServer.getMockServer().getPort();
-    RestEmitter emitter = RestEmitter.create(b -> b.gmsUrl("http://localhost:" + port));
+    RestEmitter emitter = RestEmitter.create(b -> b.server("http://localhost:" + port));
 
     testDataHubServer.getMockServer().reset();
     testDataHubServer.getMockServer()
