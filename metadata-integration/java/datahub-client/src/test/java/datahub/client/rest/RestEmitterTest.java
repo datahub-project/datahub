@@ -5,8 +5,6 @@ import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.events.metadata.ChangeType;
 import datahub.client.Callback;
 import datahub.client.MetadataWriteResponse;
-import datahub.client.rest.RestEmitter;
-import datahub.client.rest.RestEmitterConfig;
 import datahub.event.MetadataChangeProposalWrapper;
 import datahub.server.TestDataHubServer;
 import java.io.IOException;
