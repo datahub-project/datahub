@@ -86,6 +86,12 @@ module.exports = {
         Sinks: list_ids_in_directory("metadata-ingestion/sink_docs"),
       },
       {
+        "Custom Integrations": [
+          "metadata-ingestion/as-a-library",
+          "metadata-integration/java/as-a-library",
+        ],
+      },
+      {
         Scheduling: [
           "metadata-ingestion/schedule_docs/intro",
           "metadata-ingestion/schedule_docs/cron",

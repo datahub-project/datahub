@@ -46,7 +46,7 @@ import scala.runtime.AbstractPartialFunction;
 @Slf4j
 public class DatahubLineageEmitter extends SparkListener {
 
-  private static final int THREAD_CNT = 10;
+  private static final int THREAD_CNT = 16;
   public static final String CONSUMER_TYPE_KEY = "spark.datahub.lineage.consumerTypes";
 
   private final Map<String, AppStartEvent> appDetails = new ConcurrentHashMap<>();
