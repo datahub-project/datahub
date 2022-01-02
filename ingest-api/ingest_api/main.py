@@ -261,7 +261,7 @@ async def create_item(item: create_dataset_params) -> None:
     datasetName = make_dataset_urn(item.dataset_type, item.dataset_name)
     platformName = make_platform(item.dataset_type)
     item.browsepathList = [
-        item + "/" for item in item.browsepathList if not item.endswith("//")
+        item + "/" if not item.endswith("/") else item for item in item.browsepathList
     ]
     # this line is in case the endpoint is called by API and not UI, which will enforce ending with /.
     browsepaths = [path + "dataset" for path in item.browsepathList]
