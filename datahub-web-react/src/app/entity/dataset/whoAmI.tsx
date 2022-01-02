@@ -1,7 +1,9 @@
 // import * as React from 'react';
-import { useQuery } from '@apollo/client';
+import { gql, useQuery } from '@apollo/client';
+// import { useGetAccessTokenLazyQuery } from '../../../graphql/auth.generated';
 // import { GetDatasetOwnersGqlDocument } from '../../../graphql/dataset.generated';
 import { GetMeOnlyDocument } from '../../../graphql/me.generated';
+// import { AccessTokenDuration, AccessTokenType } from '../../../types.generated';
 
 export function FindWhoAmI() {
     const { loading, data } = useQuery(GetMeOnlyDocument);
@@ -9,7 +11,26 @@ export function FindWhoAmI() {
     const ans = data.me.corpUser.username;
     return ans;
 }
-
+export function GetMyToken(userUrn: string) {
+    const queryresult = gql`
+        query getAccessToken($input: GetAccessTokenInput!) {
+            getAccessToken(input: $input) {
+                accessToken
+            }
+        }
+    `;
+    const { data, loading } = useQuery(queryresult, {
+        variables: {
+            input: {
+                type: 'PERSONAL',
+                actorUrn: userUrn,
+                duration: 'ONE_HOUR',
+            },
+        },
+    });
+    if (loading) return 'Loading...';
+    return data?.getAccessToken?.accessToken;
+}
 // export function FindOwners(dataset) {
 //     console.log(`i call upon ${dataset}`);
 //     const { data, loading } = useQuery(GetDatasetOwnersGqlDocument, {
