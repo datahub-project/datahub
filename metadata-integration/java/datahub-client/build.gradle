@@ -1,0 +1,27 @@
+apply plugin: 'java'
+apply plugin: 'com.github.johnrengelman.shadow'
+
+dependencies {
+   
+    compile project(':metadata-models')
+    compile externalDependency.httpAsyncClient
+    compile externalDependency.jacksonDataBind 
+    compileOnly externalDependency.lombok
+    annotationProcessor externalDependency.lombok
+    testCompile externalDependency.mockito
+    testCompile externalDependency.mockServer
+    testCompile externalDependency.mockServerClient
+}
+
+test {
+  useJUnit()
+}
+
+shadowJar {
+  zip64=true
+  classifier=''
+}
+
+assemble {
+    dependsOn shadowJar
+}
