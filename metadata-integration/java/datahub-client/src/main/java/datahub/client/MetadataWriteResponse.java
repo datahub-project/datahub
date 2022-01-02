@@ -18,7 +18,7 @@ public class MetadataWriteResponse {
    * If the write failed due to an exception thrown by the server
    * and we have access to it, then we store the stack trace here
    */
-  String serverException;
+  String responseContent;
 
   /**
    * The underlying response object
