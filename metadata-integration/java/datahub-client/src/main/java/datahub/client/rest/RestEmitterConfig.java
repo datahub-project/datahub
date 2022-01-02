@@ -31,8 +31,6 @@ public class RestEmitterConfig {
   @NonNull
   private final Map<String, String> extraHeaders = Collections.EMPTY_MAP;
 
-  private final String caCertificatePath;
-
   private final HttpAsyncClientBuilder asyncHttpClientBuilder;
 
   @Builder.Default
