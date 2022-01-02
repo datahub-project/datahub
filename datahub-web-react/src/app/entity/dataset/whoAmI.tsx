@@ -27,6 +27,7 @@ export function GetMyToken(userUrn: string) {
                 duration: 'ONE_HOUR',
             },
         },
+        skip: userUrn === '',
     });
     if (loading) return 'Loading...';
     return data?.getAccessToken?.accessToken;
