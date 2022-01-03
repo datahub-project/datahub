@@ -21,9 +21,10 @@ dependencies {
   compileOnly externalDependency.lombok
   annotationProcessor externalDependency.lombok
 
-  implementation(project(':metadata-models')) {
+  implementation(project(':metadata-integration:java:datahub-client')) {
   	  exclude group: "org.antlr"
       exclude group: "com.google.guava" // causes issues with Guava Stopwatch constructor
+      exclude group: "com.fasterxml.jackson.core"
   }
   
   implementation(externalDependency.sparkSql){
@@ -33,11 +34,16 @@ dependencies {
     exclude group: "org.apache.hadoop"
   } 
   
-  testImplementation(externalDependency.postgresql)
+  testImplementation(externalDependency.postgresql){
+    exclude group: "com.fasterxml.jackson.core"
+  }
   
   testImplementation externalDependency.mockito
   
-  testImplementation(externalDependency.wiremock){
+  testImplementation(externalDependency.mockServer){
+    exclude group: "com.fasterxml.jackson.core"
+  } // older version to allow older guava
+  testImplementation(externalDependency.mockServerClient){
     exclude group: "com.fasterxml.jackson.core"
   } // older version to allow older guava
   
