@@ -15,7 +15,7 @@ import com.linkedin.common.urn.DataFlowUrn;
 import com.linkedin.data.ByteString;
 import com.linkedin.data.template.JacksonDataTemplateCodec;
 import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.datahub.lineage.consumer.impl.MCPEmitter;
+import com.linkedin.datahub.lineage.consumer.impl.McpEmitter;
 import com.linkedin.datahub.lineage.spark.model.LineageConsumer;
 import com.linkedin.mxe.GenericAspect;
 
@@ -38,7 +38,7 @@ public class LineageUtils {
 
   static {
     // system defined consumers
-    registerConsumer("mcpEmitter", new MCPEmitter());
+    registerConsumer("mcpEmitter", new McpEmitter());
   }
 
   private LineageUtils() {

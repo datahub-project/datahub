@@ -1,6 +1,9 @@
 import collections
 import functools
+import json
 import logging
+import os
+import tempfile
 import textwrap
 from datetime import timedelta
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
@@ -14,6 +17,7 @@ from google.cloud.bigquery import Client as BigQueryClient
 from google.cloud.logging_v2.client import Client as GCPLoggingClient
 from sqlalchemy.engine.reflection import Inspector
 
+from datahub.configuration import ConfigModel
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.emitter import mce_builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -140,19 +144,58 @@ register_custom_type(GEOGRAPHY)
 assert pybigquery.sqlalchemy_bigquery._type_map
 
 
+class BigQueryCredential(ConfigModel):
+    project_id: str
+    private_key_id: str
+    private_key: str
+    client_email: str
+    client_id: str
+    auth_uri: str = "https://accounts.google.com/o/oauth2/auth"
+    token_uri: str = "https://oauth2.googleapis.com/token"
+    auth_provider_x509_cert_url: str = "https://www.googleapis.com/oauth2/v1/certs"
+    type: str = "service_account"
+    client_x509_cert_url: Optional[str]
+
+    def __init__(self, **data: Any):
+        super().__init__(**data)  # type: ignore
+        if not self.client_x509_cert_url:
+            self.client_x509_cert_url = (
+                f"https://www.googleapis.com/robot/v1/metadata/x509/{self.client_email}"
+            )
+
+
+def create_credential_temp_file(credential: BigQueryCredential) -> str:
+    with tempfile.NamedTemporaryFile(delete=False) as fp:
+        cred_json = json.dumps(credential.dict(), indent=4, separators=(",", ": "))
+        fp.write(cred_json.encode())
+        return fp.name
+
+
 class BigQueryConfig(BaseTimeWindowConfig, SQLAlchemyConfig):
     scheme: str = "bigquery"
     project_id: Optional[str] = None
 
     log_page_size: Optional[pydantic.PositiveInt] = 1000
+    credential: Optional[BigQueryCredential]
     # extra_client_options, include_table_lineage and max_query_duration are relevant only when computing the lineage.
     extra_client_options: Dict[str, Any] = {}
     include_table_lineage: Optional[bool] = True
     max_query_duration: timedelta = timedelta(minutes=15)
 
+    credentials_path: Optional[str] = None
     bigquery_audit_metadata_datasets: Optional[List[str]] = None
     use_exported_bigquery_audit_metadata: bool = False
     use_date_sharded_audit_log_tables: bool = False
+
+    def __init__(self, **data: Any):
+        super().__init__(**data)
+
+        if self.credential:
+            self.credentials_path = create_credential_temp_file(self.credential)
+            logger.debug(
+                f"Creating temporary credential file at {self.credentials_path}"
+            )
+            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = self.credentials_path
 
     def get_sql_alchemy_url(self):
         if self.project_id:
@@ -479,3 +522,11 @@ class BigQuerySource(SQLAlchemySource):
         if segments[0] != schema:
             raise ValueError(f"schema {schema} does not match table {entity}")
         return segments[0], segments[1]
+
+    # We can't use close as it is not called if the ingestion is not successful
+    def __del__(self):
+        if self.config.credentials_path:
+            logger.debug(
+                f"Deleting temporary credential file at {self.config.credentials_path}"
+            )
+            os.unlink(self.config.credentials_path)

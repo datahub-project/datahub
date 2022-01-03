@@ -111,7 +111,8 @@ plugins: Dict[str, Set[str]] = {
     "kafka-connect": sql_common | {"requests", "JPype1"},
     "ldap": {"python-ldap>=2.4"},
     "looker": looker_common,
-    "lookml": looker_common | {"lkml>=1.1.0", "sql-metadata==2.2.2"},
+    # lkml>=1.1.2 is required to support the sql_preamble expression in LookML
+    "lookml": looker_common | {"lkml>=1.1.2", "sql-metadata==2.2.2"},
     "metabase": {"requests"},
     "mode": {"requests", "sqllineage"},
     "mongodb": {"pymongo>=3.11"},
