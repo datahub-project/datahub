@@ -1,17 +1,15 @@
 package com.linkedin.datahub.lineage.spark.model;
 
-import java.util.Arrays;
-import java.util.List;
-
 import com.linkedin.common.urn.DataFlowUrn;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.datahub.lineage.spark.interceptor.LineageUtils;
 import com.linkedin.datajob.DataFlowInfo;
-import com.linkedin.events.metadata.ChangeType;
-import com.linkedin.mxe.MetadataChangeProposal;
-
+import datahub.event.MetadataChangeProposalWrapper;
+import java.util.Collections;
+import java.util.List;
 import lombok.Getter;
 import lombok.ToString;
+
 
 @ToString
 @Getter
@@ -25,20 +23,13 @@ public class AppStartEvent extends LineageEvent {
   }
 
   @Override
-  public List<MetadataChangeProposal> toMcps() {
+  public List<MetadataChangeProposalWrapper> toMcps() {
     DataFlowUrn flowUrn = LineageUtils.flowUrn(getMaster(), getAppName());
 
-    DataFlowInfo flowInfo = new DataFlowInfo()
-        .setName(getAppName())
-        .setCustomProperties(customProps());
+    DataFlowInfo flowInfo = new DataFlowInfo().setName(getAppName()).setCustomProperties(customProps());
 
-    MetadataChangeProposal mcpFlowInfo = new MetadataChangeProposal();
-    mcpFlowInfo.setAspectName("dataFlowInfo");
-    mcpFlowInfo.setAspect(LineageUtils.serializeAspect(flowInfo));
-    mcpFlowInfo.setEntityUrn(flowUrn);
-    mcpFlowInfo.setEntityType("dataFlow");
-    mcpFlowInfo.setChangeType(ChangeType.UPSERT);
-    return Arrays.asList(mcpFlowInfo);
+    return Collections.singletonList(MetadataChangeProposalWrapper.create(
+        b -> b.entityType("dataFlow").entityUrn(flowUrn).upsert().aspect(flowInfo)));
   }
 
   StringMap customProps() {
