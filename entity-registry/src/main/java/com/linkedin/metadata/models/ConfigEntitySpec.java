@@ -10,25 +10,22 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+
 import lombok.ToString;
 
 
-/**
- * A partially specified entity spec that can be used with a {@link com.linkedin.metadata.models.registry.PatchEntityRegistry}.
- * Specifically, it does not require the following things compared to a {@link DefaultEntitySpec}
- * - a key aspect
- * - snapshot schemas for the entity
- * - typeref schemas for aspect
- */
 @ToString
-public class PartialEntitySpec implements EntitySpec {
+public class ConfigEntitySpec implements EntitySpec {
 
   private final EntityAnnotation _entityAnnotation;
   private final Map<String, AspectSpec> _aspectSpecs;
 
-  public PartialEntitySpec(@Nonnull final Collection<AspectSpec> aspectSpecs, final EntityAnnotation entityAnnotation) {
+  public ConfigEntitySpec(
+      @Nonnull final String entityName,
+      @Nonnull final String keyAspect,
+      @Nonnull final Collection<AspectSpec> aspectSpecs) {
     _aspectSpecs = aspectSpecs.stream().collect(Collectors.toMap(AspectSpec::getName, Function.identity()));
-    _entityAnnotation = entityAnnotation;
+    _entityAnnotation = new EntityAnnotation(entityName, keyAspect);
   }
 
   @Override
@@ -48,11 +45,7 @@ public class PartialEntitySpec implements EntitySpec {
 
   @Override
   public AspectSpec getKeyAspectSpec() {
-    if (_entityAnnotation.getKeyAspect() != null) {
-      return _aspectSpecs.get(_entityAnnotation.getKeyAspect());
-    } else {
-      return null;
-    }
+    return _aspectSpecs.get(_entityAnnotation.getKeyAspect());
   }
 
   @Override
@@ -77,12 +70,12 @@ public class PartialEntitySpec implements EntitySpec {
 
   @Override
   public RecordDataSchema getSnapshotSchema() {
-    throw new UnsupportedOperationException("Partial entity specs do not contain snapshot schemas");
+    throw new UnsupportedOperationException("Failed to find Snapshot associated with Config-based Entity");
   }
 
   @Override
   public TyperefDataSchema getAspectTyperefSchema() {
-      throw new UnsupportedOperationException("Partial entity specs do not contain aspect typeref schemas");
+    throw new UnsupportedOperationException("Failed to find Typeref schema associated with Config-based Entity");
   }
-
 }
+

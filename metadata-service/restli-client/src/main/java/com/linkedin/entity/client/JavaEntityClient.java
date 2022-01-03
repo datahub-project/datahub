@@ -10,6 +10,7 @@ import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.Entity;
+import com.linkedin.entity.EntityResponse;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.aspect.EnvelopedAspectArray;
@@ -69,6 +70,19 @@ public class JavaEntityClient implements EntityClient {
     @Nonnull
     public Entity get(@Nonnull final Urn urn, @Nonnull final Authentication authentication) {
       return _entityService.getEntity(urn, ImmutableSet.of());
+    }
+
+    @Nonnull
+    @Override
+    public Map<Urn, EntityResponse> batchGetV2(
+        @Nonnull String entityName,
+        @Nonnull Set<Urn> urns,
+        @Nullable Set<String> aspectNames,
+        @Nonnull Authentication authentication) throws Exception {
+        final Set<String> projectedAspects = aspectNames == null
+            ? _entityService.getEntityAspectNames(entityName)
+            : aspectNames;
+        return _entityService.getEntitiesV2(entityName, urns, projectedAspects);
     }
 
     @Nonnull
