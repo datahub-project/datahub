@@ -9,7 +9,7 @@ node {
   if (project.hasProperty('useSystemNode') && project.getProperty('useSystemNode').toBoolean()) {
     download = false
   } else {
-    download = false
+    download = true
   }
 
   // Version of node to use.
@@ -36,7 +36,7 @@ node {
   Wrappers around Yarn Tasks.
  */
 task yarnInstall(type: YarnTask) {
-  args = ['help']
+  args = ['install']
 }
 
 task yarnGenerate(type: YarnTask, dependsOn: yarnInstall) {
@@ -48,15 +48,15 @@ task yarnServe(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
 }
 
 task yarnTest(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
-  args = ['help']
+  args = ['run', 'test', '--watchAll', 'false']
 }
 
 task yarnLint(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
-  args = ['help']
+  args = ['run', 'lint']
 }
 
 task yarnBuild(type: YarnTask, dependsOn: [yarnInstall, yarnTest, yarnLint]) {
-  args = ['help']
+  args = ['run', 'build']
 }
 
 clean {
@@ -72,7 +72,7 @@ configurations {
 }
 
 distZip {
-  // dependsOn yarnBuild
+  dependsOn yarnBuild
   baseName 'datahub-web-react'
   from 'dist'
 }
