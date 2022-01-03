@@ -1,0 +1,79 @@
+app: dataportal
+team: data-eng
+env: # Optional: You can remove this parent if you are not using it
+  default: # global default variables
+    ENVIRONMENT: default
+  integration3: # global integration3 specific variables
+    ENVIRONMENT: integration3
+  uat: # global uat specific variables
+    ENVIRONMENT: uat
+  production: # global production specific variables
+    ENVIRONMENT: production
+webApps: # Optional: You can remove this parent if you are not using it
+  - name: dataportal-frontend
+    env:
+      default:
+        DATAHUB_GMS_HOST: datahub-gms
+        DATAHUB_GMS_PORT: 8080
+        DATAHUB_SECRET: YouKnowNothing
+        DATAHUB_APP_VERSION: 1.0
+        DATAHUB_PLAY_MEM_BUFFER_SIZE: 10MB
+        JAVA_OPTS: -Xms512m -Xmx512m -Dhttp.port=9002 -Dconfig.file=datahub-frontend/conf/application.conf -Djava.security.auth.login.config=datahub-frontend/conf/jaas.conf -Dlogback.configurationFile=datahub-frontend/conf/logback.xml -Dlogback.debug=false -Dpidfile.path=/dev/null
+        KAFKA_BOOTSTRAP_SERVER: broker:29092
+        DATAHUB_TRACKING_TOPIC: DataHubUsageEvent_v1
+        ELASTIC_CLIENT_HOST: elasticsearch
+        ELASTIC_CLIENT_PORT: 9200
+    image: "311088406905.dkr.ecr.us-east-1.amazonaws.com/dataportal-frontend-react"
+    iamRole: dataportal
+    accessPolicy: external # external or internal
+    routes: # "/" for everything.
+      - /
+    replicas: 1
+    port: 9002
+    command: "/usr/local/bin/with-secrets"
+    args:
+      - ./datahub-frontend/run/run-local-frontend
+    resources:
+      requests:
+        memory: 3Gi
+    healthcheckPath: /ping/
+    securityGroups:
+      default:
+        - vpc
+        - hq
+  - name: dataportal-gms
+    env:
+      default:
+        DATASET_ENABLE_SCSI: false
+        EBEAN_DATASOURCE_USERNAME: datahub
+        EBEAN_DATASOURCE_PASSWORD: datahub
+        EBEAN_DATASOURCE_HOST: mysql:3306
+        EBEAN_DATASOURCE_URL: jdbc:mysql://mysql:3306/datahub?verifyServerCertificate=false&useSSL=true&useUnicode=yes&characterEncoding=UTF-8
+        EBEAN_DATASOURCE_DRIVER: com.mysql.jdbc.Driver
+        KAFKA_BOOTSTRAP_SERVER: broker:29092
+        KAFKA_SCHEMAREGISTRY_URL: http://schema-registry:8081
+        ELASTICSEARCH_HOST: elasticsearch
+        ELASTICSEARCH_PORT: 9200
+        GRAPH_SERVICE_IMPL: elasticsearch
+        JAVA_OPTS: -Xms1g -Xmx1g
+        ENTITY_REGISTRY_CONFIG_PATH: /datahub/datahub-gms/resources/entity-registry.yml
+        MAE_CONSUMER_ENABLED: true
+        MCE_CONSUMER_ENABLED: true
+    image: "311088406905.dkr.ecr.us-east-1.amazonaws.com/dataportal-gms"
+    iamRole: dataportal
+    accessPolicy: external # external or internal
+    routes: # "/" for everything.
+      - /
+    replicas: 1
+    port: 8080
+    command: "/usr/local/bin/with-secrets"
+    args:
+      - ./gradlew :metadata-service:war:run
+    resources:
+      requests:
+        memory: 3Gi
+    healthcheckPath: /ping/
+    securityGroups:
+      default:
+        - vpc
+        - hq

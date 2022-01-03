@@ -53,3 +53,6 @@ MANIFEST
 
 # Metadata Ingestion Generated
 metadata-ingestion/generated/**
+
+# Terraform
+terraform/.terraform/**
