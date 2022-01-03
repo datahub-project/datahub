@@ -171,7 +171,6 @@ public abstract class EntityService {
       @Nonnull final Function<Optional<RecordTemplate>, RecordTemplate> updateLambda,
       @Nonnull final AuditStamp auditStamp, @Nonnull final SystemMetadata systemMetadata);
 
-//  TODO Improve doc
   /**
    * Same as ingestAspectToLocalDB but for multiple aspects
    */
