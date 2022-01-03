@@ -180,7 +180,7 @@ public abstract class EntityService {
     @Nonnull final AuditStamp auditStamp, @Nonnull final SystemMetadata providedSystemMetadata);
 
   @Nonnull
-  private SystemMetadata ensureSystemMetadata(SystemMetadata systemMetadata) {
+  private SystemMetadata generateSystemMetadataIfEmpty(SystemMetadata systemMetadata) {
     if (systemMetadata == null) {
       systemMetadata = new SystemMetadata();
       systemMetadata.setRunId(DEFAULT_RUN_ID);
@@ -189,7 +189,7 @@ public abstract class EntityService {
     return systemMetadata;
   }
 
-  private void ensureUrn(@Nonnull final Urn urn) {
+  private void validateUrn(@Nonnull final Urn urn) {
     if (!urn.toString().trim().equals(urn.toString())) {
       throw new IllegalArgumentException("Error: cannot provide an URN with leading or trailing whitespace");
     }
@@ -198,8 +198,8 @@ public abstract class EntityService {
   public void ingestAspects(@Nonnull final Urn urn, @Nonnull List<Pair<String, RecordTemplate>> aspectRecordsToIngest,
     @Nonnull final AuditStamp auditStamp, SystemMetadata systemMetadata) {
 
-    ensureUrn(urn);
-    systemMetadata = ensureSystemMetadata(systemMetadata);
+    validateUrn(urn);
+    systemMetadata = generateSystemMetadataIfEmpty(systemMetadata);
 
     Timer.Context ingestToLocalDBTimer = MetricUtils.timer(this.getClass(), "ingestAspectsToLocalDB").time();
     List<Pair<String, UpdateAspectResult>> ingestResults = ingestAspectsToLocalDB(urn, aspectRecordsToIngest, auditStamp, systemMetadata);
@@ -228,8 +228,8 @@ public abstract class EntityService {
 
     log.debug("Invoked ingestAspect with urn: {}, aspectName: {}, newValue: {}", urn, aspectName, newValue);
 
-    ensureUrn(urn);
-    systemMetadata = ensureSystemMetadata(systemMetadata);
+    validateUrn(urn);
+    systemMetadata = generateSystemMetadataIfEmpty(systemMetadata);
 
     Timer.Context ingestToLocalDBTimer = MetricUtils.timer(this.getClass(), "ingestAspectToLocalDB").time();
     UpdateAspectResult result = ingestAspectToLocalDB(urn, aspectName, ignored -> newValue, auditStamp, systemMetadata);
@@ -306,7 +306,7 @@ public abstract class EntityService {
     }
     log.debug("aspect = {}", aspect);
 
-    SystemMetadata systemMetadata = ensureSystemMetadata(metadataChangeProposal.getSystemMetadata());
+    SystemMetadata systemMetadata = generateSystemMetadataIfEmpty(metadataChangeProposal.getSystemMetadata());
     systemMetadata.setRegistryName(aspectSpec.getRegistryName());
     systemMetadata.setRegistryVersion(aspectSpec.getRegistryVersion().toString());
 
