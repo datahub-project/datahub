@@ -1,11 +1,3 @@
-pluginManagement {
-    repositories {
-        maven {
-            url 'https://artifacts.sys.dom:443/artifactory/maven/'
-        }
-    }
-}
-
 include 'datahub-web-react'
 include 'datahub-frontend'
 include 'datahub-graphql-core'
@@ -47,3 +39,5 @@ include 'metadata-perf'
 include 'docs-website'
 include 'metadata-models-custom'
 include 'entity-registry:custom-test-model'
+include 'spark-lineage'
+include 'metadata-integration:java:datahub-client'

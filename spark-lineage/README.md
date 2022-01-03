@@ -11,9 +11,9 @@ When running jobs using spark-submit, the listener is to be configured in the co
 spark.master                                 spark://spark-master:7077
 
 #Configuring datahub spark listener jar
-spark.jars.packages			     io.acryl:datahub-spark-lineage:0.0.2
+spark.jars.packages			     io.acryl:datahub-spark-lineage:0.0.3
 spark.extraListeners                         com.linkedin.datahub.lineage.spark.interceptor.DatahubLineageEmitter
-spark.datahub.lineage.mcpEmitter.gmsUrl      http://localhost:8080
+spark.datahub.rest.server                    http://localhost:8080
 ```
 
 ### Configuring with SparkSession Builder for notebooks
@@ -23,9 +23,9 @@ When running interactive jobs from a notebook, the listener can be configured wh
 spark = SparkSession.builder \
           .master("spark://spark-master:7077") \
           .appName("test-application") \
-          .config("spark.jars.packages","io.acryl:datahub-spark-lineage:0.0.2") \
+          .config("spark.jars.packages","io.acryl:datahub-spark-lineage:0.0.3") \
           .config("spark.extraListeners","com.linkedin.datahub.lineage.interceptor.spark.DatahubLineageEmitter") \
-          .config("spark.datahub.lineage.mcpEmitter.gmsUrl", "http://localhost:8080") \
+          .config("spark.datahub.rest.server", "http://localhost:8080") \
           .enableHiveSupport() \
           .getOrCreate()
 ```
@@ -42,7 +42,7 @@ The following custom properties in pipelines and tasks relate to the Spark UI:
 Other custom properties of pipelines and tasks capture the start and end times of execution etc. 
 The query plan is captured in the *queryPlan* property of a task.
 
-## Release notes for v0.0.2
+## Release notes for v0.0.3
 In this version, basic dataset-level lineage is captured using the model mapping as mentioned earlier.
 
 ### Spark versions supported
