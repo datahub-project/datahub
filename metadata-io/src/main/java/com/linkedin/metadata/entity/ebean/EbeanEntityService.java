@@ -197,7 +197,7 @@ public class EbeanEntityService extends EntityService {
   public ListResult<RecordTemplate> listLatestAspects(@Nonnull final String entityName,
       @Nonnull final String aspectName, final int start, final int count) {
 
-    log.debug("Invoked listLatestAspects with entityName: {}}, aspectName: {}, start: {}, count: {}", entityName,
+    log.debug("Invoked listLatestAspects with entityName: {}, aspectName: {}, start: {}, count: {}", entityName,
             aspectName, start, count);
 
     final ListResult<String> aspectMetadataList =

@@ -657,7 +657,7 @@ public abstract class EntityService {
     try {
       return Urn.createFromString(urnStr);
     } catch (URISyntaxException e) {
-      log.error("Failed to convert urn string {}} into Urn object", urnStr);
+      log.error("Failed to convert urn string {} into Urn object", urnStr);
       throw new ModelConversionException(String.format("Failed to convert urn string %s into Urn object ", urnStr), e);
     }
   }
