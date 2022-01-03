@@ -3,8 +3,16 @@ import { BookFilled, BookOutlined } from '@ant-design/icons';
 import { EntityType, GlossaryTerm, SearchResult } from '../../../types.generated';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
 import { Preview } from './preview/Preview';
-import GlossaryTermProfile from './profile/GlossaryTermProfile';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
+import { EntityProfile } from '../shared/containers/profile/EntityProfile';
+import { useGetGlossaryTermQuery, useUpdateGlossaryTermMutation } from '../../../graphql/glossaryTerm.generated';
+import { GenericEntityProperties } from '../shared/types';
+import { SchemaTab } from '../shared/tabs/Dataset/Schema/SchemaTab';
+import { SidebarAboutSection } from '../shared/containers/profile/sidebar/SidebarAboutSection';
+import GlossaryRelatedEntity from './profile/GlossaryRelatedEntity';
+import GlossayRelatedTerms from './profile/GlossaryRelatedTerms';
+import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
+import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/SidebarOwnerSection';
 
 /**
  * Definition of the DataHub Dataset entity.
@@ -45,7 +53,51 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
 
     getEntityName = () => 'Glossary Term';
 
-    renderProfile: (urn: string) => JSX.Element = (_) => <GlossaryTermProfile />;
+    renderProfile = (urn) => {
+        return (
+            <EntityProfile
+                urn={urn}
+                entityType={EntityType.GlossaryTerm}
+                useEntityQuery={useGetGlossaryTermQuery as any}
+                useUpdateQuery={useUpdateGlossaryTermMutation as any}
+                tabs={[
+                    {
+                        name: 'Schema',
+                        component: SchemaTab,
+                    },
+                    {
+                        name: 'Related Entities',
+                        component: GlossaryRelatedEntity,
+                    },
+                    {
+                        name: 'Related Terms',
+                        component: GlossayRelatedTerms,
+                    },
+                    {
+                        name: 'Properties',
+                        component: PropertiesTab,
+                    },
+                ]}
+                sidebarSections={[
+                    {
+                        component: SidebarAboutSection,
+                    },
+                    {
+                        component: SidebarOwnerSection,
+                    },
+                ]}
+                getOverrideProperties={this.getOverridePropertiesFromEntity}
+                properties={{
+                    hideProfileNavBar: true,
+                }}
+            />
+        );
+    };
+
+    getOverridePropertiesFromEntity = (): GenericEntityProperties => {
+        // if dataset has subTypes filled out, pick the most specific subtype and return it
+        return {};
+    };
 
     renderSearch = (result: SearchResult) => {
         return this.renderPreview(PreviewType.SEARCH, result.entity as GlossaryTerm);

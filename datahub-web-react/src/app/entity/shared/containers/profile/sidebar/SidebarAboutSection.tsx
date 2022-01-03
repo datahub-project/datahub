@@ -36,12 +36,13 @@ const LinkButton = styled(Button)`
     }
 `;
 
-export const SidebarAboutSection = () => {
+export const SidebarAboutSection = ({ properties }: { properties?: any }) => {
     const { entityData } = useEntityData();
     const refetch = useRefetch();
     const routeToTab = useRouteToTab();
-
-    const description = entityData?.editableProperties?.description || entityData?.properties?.description;
+    console.log(entityData);
+    const description =
+        properties?.description || entityData?.editableProperties?.description || entityData?.properties?.description;
     const links = entityData?.institutionalMemory?.elements || [];
 
     const isUntouched = !description && !(links?.length > 0);
@@ -67,12 +68,14 @@ export const SidebarAboutSection = () => {
                     <Typography.Paragraph type="secondary">
                         {EMPTY_MESSAGES.documentation.title}. {EMPTY_MESSAGES.documentation.description}
                     </Typography.Paragraph>
-                    <SpacedButton
-                        onClick={() => routeToTab({ tabName: 'Documentation', tabParams: { editing: true } })}
-                    >
-                        <EditOutlined /> Add Documentation
-                    </SpacedButton>
-                    <AddLinkModal refetch={refetch} />
+                    {!properties?.disableEditing && (
+                        <SpacedButton
+                            onClick={() => routeToTab({ tabName: 'Documentation', tabParams: { editing: true } })}
+                        >
+                            <EditOutlined /> Add Documentation
+                        </SpacedButton>
+                    )}
+                    {!properties?.disableEditing && <AddLinkModal refetch={refetch} />}
                 </>
             )}
             {description && (

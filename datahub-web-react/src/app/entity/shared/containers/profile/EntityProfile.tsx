@@ -19,6 +19,10 @@ import LineageExplorer from '../../../../lineage/LineageExplorer';
 import CompactContext from '../../../../shared/CompactContext';
 import DynamicTab from '../../tabs/Entity/weaklyTypedAspects/DynamicTab';
 
+type EntityProfileProperties = {
+    hideProfileNavBar?: boolean;
+};
+
 type Props<T, U> = {
     urn: string;
     entityType: EntityType;
@@ -41,6 +45,7 @@ type Props<T, U> = {
     getOverrideProperties: (T) => GenericEntityProperties;
     tabs: EntityTab[];
     sidebarSections: EntitySidebarSection[];
+    properties?: EntityProfileProperties;
 };
 
 const ContentContainer = styled.div`
@@ -105,11 +110,13 @@ export const EntityProfile = <T, U>({
     getOverrideProperties,
     tabs,
     sidebarSections,
+    properties,
 }: Props<T, U>): JSX.Element => {
     const isLineageMode = useIsLineageMode();
     const entityRegistry = useEntityRegistry();
     const history = useHistory();
     const isCompact = React.useContext(CompactContext);
+    console.log(properties);
     const tabsWithDefaults = tabs.map((tab) => ({ ...tab, display: { ...defaultTabDisplayConfig, ...tab.display } }));
     const sideBarSectionsWithDefaults = sidebarSections.map((sidebarSection) => ({
         ...sidebarSection,
@@ -207,7 +214,7 @@ export const EntityProfile = <T, U>({
             }}
         >
             <>
-                <EntityProfileNavBar urn={urn} entityType={entityType} />
+                {!properties?.hideProfileNavBar && <EntityProfileNavBar urn={urn} entityType={entityType} />}
                 {loading && <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />}
                 {!loading && error && (
                     <Alert type="error" message={error?.message || `Entity failed to load for urn ${urn}`} />

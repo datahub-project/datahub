@@ -83,7 +83,7 @@ export default function GlossaryTermProfile() {
             {
                 name: TabType.RelatedGlossaryTerms,
                 path: TabType.RelatedGlossaryTerms.toLocaleLowerCase(),
-                content: <GlossayRelatedTerms glossaryTerm={glossaryTerm || {}} />,
+                content: <GlossayRelatedTerms />,
             },
             {
                 name: TabType.Properties,
