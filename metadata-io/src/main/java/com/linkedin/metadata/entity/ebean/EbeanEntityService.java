@@ -246,7 +246,8 @@ public class EbeanEntityService extends EntityService {
       for (Pair<String, RecordTemplate> aspectRecord: aspectRecordsToIngest) {
         String aspectName = aspectRecord.getFirst();
         RecordTemplate newValue = aspectRecord.getSecond();
-        UpdateAspectResult updateResult = ingestAspectToLocalDBNoTransaction(urn, aspectName, ignored -> newValue, auditStamp, systemMetadata, latestAspects.get(aspectName));
+        UpdateAspectResult updateResult = ingestAspectToLocalDBNoTransaction(urn, aspectName, ignored -> newValue, auditStamp, systemMetadata, 
+          latestAspects.get(aspectName));
         result.add(new Pair<String, UpdateAspectResult>(aspectName, updateResult));
       }
       return result;
