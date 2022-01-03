@@ -1,7 +1,7 @@
 import React from 'react';
 import { FormOutlined } from '@ant-design/icons';
 import { ANTD_GRAY } from '../../../entity/shared/constants';
-// import bigqueryConfig from './bigquery/bigquery';
+import bigqueryConfig from './bigquery/bigquery';
 import redshiftConfig from './redshift/redshift';
 import snowflakeConfig from './snowflake/snowflake';
 import lookerConfig from './looker/looker';
@@ -31,7 +31,7 @@ sink:
     server: "${baseUrl}/api/gms"`;
 
 export const SOURCE_TEMPLATE_CONFIGS: Array<SourceConfig> = [
-    // bigqueryConfig, -- TODO: Until we resolve the env variable requirement.
+    bigqueryConfig,
     redshiftConfig,
     snowflakeConfig,
     kafkaConfig,
