@@ -68,9 +68,21 @@ public class EbeanEntityService extends EntityService {
     _entityDao = entityDao;
   }
 
-  @Override
+  @Nonnull Map<String, EbeanAspectV2> getLatestAspectEbeanForUrn(@Nonnull final Urn urn, 
+    @Nonnull final Set<String> aspectNames) {
+      Set<Urn> urns = new HashSet<>();
+      urns.add(urn);
+
+      Map<String, EbeanAspectV2> result = new HashMap<>();
+      getLatestAspectEbeans(urns, aspectNames).forEach((key, aspectEntry) -> {
+        final String aspectName = key.getAspect();
+        result.put(aspectName, aspectEntry);
+      });
+      return result;
+  }
+
   @Nonnull
-  public Map<Urn, List<RecordTemplate>> getLatestAspects(@Nonnull final Set<Urn> urns,
+  private Map<EbeanAspectV2.PrimaryKey, EbeanAspectV2> getLatestAspectEbeans(@Nonnull final Set<Urn> urns,
       @Nonnull final Set<String> aspectNames) {
 
     log.debug("Invoked getLatestAspects with urns: {}, aspectNames: {}", urns, aspectNames);
@@ -82,6 +94,19 @@ public class EbeanEntityService extends EntityService {
           .map(aspectName -> new EbeanAspectV2.PrimaryKey(urn.toString(), aspectName, ASPECT_LATEST_VERSION))
           .collect(Collectors.toList());
     }).flatMap(List::stream).collect(Collectors.toSet());
+
+    Map<EbeanAspectV2.PrimaryKey, EbeanAspectV2> batchGetResults = new HashMap<>();
+    Iterators.partition(dbKeys.iterator(), 500)
+        .forEachRemaining(batch -> batchGetResults.putAll(_entityDao.batchGet(ImmutableSet.copyOf(batch))));
+    return batchGetResults;
+  }
+
+  @Override
+  @Nonnull
+  public Map<Urn, List<RecordTemplate>> getLatestAspects(@Nonnull final Set<Urn> urns,
+      @Nonnull final Set<String> aspectNames) {
+
+    Map<EbeanAspectV2.PrimaryKey, EbeanAspectV2> batchGetResults = getLatestAspectEbeans(urns, aspectNames);
 
     // Fetch from db and populate urn -> aspect map.
     final Map<Urn, List<RecordTemplate>> urnToAspects = new HashMap<>();
@@ -96,10 +121,6 @@ public class EbeanEntityService extends EntityService {
       final RecordTemplate keyAspect = buildKeyAspect(key);
       urnToAspects.get(key).add(keyAspect);
     });
-
-    Map<EbeanAspectV2.PrimaryKey, EbeanAspectV2> batchGetResults = new HashMap<>();
-    Iterators.partition(dbKeys.iterator(), 500)
-        .forEachRemaining(batch -> batchGetResults.putAll(_entityDao.batchGet(ImmutableSet.copyOf(batch))));
 
     batchGetResults.forEach((key, aspectEntry) -> {
       final Urn urn = toUrn(key.getUrn());
@@ -200,7 +221,9 @@ public class EbeanEntityService extends EntityService {
       @Nonnull final AuditStamp auditStamp, @Nonnull final SystemMetadata providedSystemMetadata) {
 
     return _entityDao.runInTransactionWithRetry(() -> {
-      return ingestAspectToLocalDBNoTransaction(urn, aspectName, updateLambda, auditStamp, providedSystemMetadata);
+      final EbeanAspectV2 latest = _entityDao.getLatestAspect(urn.toString(), aspectName);
+
+      return ingestAspectToLocalDBNoTransaction(urn, aspectName, updateLambda, auditStamp, providedSystemMetadata, latest);
     }, DEFAULT_MAX_TRANSACTION_RETRY);
   }
 
@@ -212,11 +235,18 @@ public class EbeanEntityService extends EntityService {
 
     return _entityDao.runInTransactionWithRetry(() -> {
 
+      final Set<String> aspectNames = aspectRecordsToIngest
+        .stream()
+        .map(aspectRecord -> aspectRecord.getFirst())
+        .collect(Collectors.toSet());
+
+      Map<String, EbeanAspectV2> latestAspects = getLatestAspectEbeanForUrn(urn, aspectNames);
+
       List<Pair<String, UpdateAspectResult>> result = new ArrayList<>();
       for (Pair<String, RecordTemplate> aspectRecord: aspectRecordsToIngest) {
         String aspectName = aspectRecord.getFirst();
         RecordTemplate newValue = aspectRecord.getSecond();
-        UpdateAspectResult updateResult = ingestAspectToLocalDBNoTransaction(urn, aspectName, ignored -> newValue, auditStamp, systemMetadata);
+        UpdateAspectResult updateResult = ingestAspectToLocalDBNoTransaction(urn, aspectName, ignored -> newValue, auditStamp, systemMetadata, latestAspects.get(aspectName));
         result.add(new Pair<String, UpdateAspectResult>(aspectName, updateResult));
       }
       return result;
@@ -226,10 +256,7 @@ public class EbeanEntityService extends EntityService {
   @Nonnull
   private UpdateAspectResult ingestAspectToLocalDBNoTransaction(@Nonnull final Urn urn,
      @Nonnull final String aspectName, @Nonnull final Function<Optional<RecordTemplate>, RecordTemplate> updateLambda,
-     @Nonnull final AuditStamp auditStamp, @Nonnull final SystemMetadata providedSystemMetadata) {
-    // 1. Fetch the latest existing version of the aspect.
-    final EbeanAspectV2 latest = _entityDao.getLatestAspect(urn.toString(), aspectName);
-    final EbeanAspectV2 keyAspect = _entityDao.getLatestAspect(urn.toString(), getKeyAspectName(urn));
+     @Nonnull final AuditStamp auditStamp, @Nonnull final SystemMetadata providedSystemMetadata, @Nonnull final EbeanAspectV2 latest) {
 
     // 2. Compare the latest existing and new.
     final RecordTemplate oldValue =
