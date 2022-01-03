@@ -40,6 +40,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.HashSet;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -118,6 +119,9 @@ public abstract class EntityService {
    */
   public abstract Map<Urn, List<RecordTemplate>> getLatestAspects(@Nonnull final Set<Urn> urns,
       @Nonnull final Set<String> aspectNames);
+
+
+  public abstract Map<String, RecordTemplate> getLatestAspectsForUrn(@Nonnull final Urn urn, @Nonnull final Set<String> aspectNames);
 
   /**
    * Retrieves an aspect having a specific {@link Urn}, name, & version.
@@ -532,20 +536,40 @@ public abstract class EntityService {
             .collect(Collectors.toList())));
   }
 
+  private boolean shouldHaveAspect(String entityType, String aspectName, Set<String> includedAspects) {
+    return _entityRegistry.getEntitySpec(entityType).getAspectSpecMap().containsKey(aspectName)
+        && !includedAspects.contains(aspectName);
+  }
+
   public List<Pair<String, RecordTemplate>> generateDefaultAspectsIfMissing(@Nonnull final Urn urn,
       Set<String> includedAspects) {
 
+    Set<String> aspectsToGet = new HashSet<>();
+    String entityType = urnToEntityName(urn);
+
+    boolean shouldCheckBrowsePath = shouldHaveAspect(entityType, BROWSE_PATHS, includedAspects);
+    if (shouldCheckBrowsePath) {
+      aspectsToGet.add(BROWSE_PATHS);
+    }
+
+    boolean shouldCheckDataPlatform = shouldHaveAspect(entityType, DATA_PLATFORM_INSTANCE, includedAspects);
+    if (shouldCheckDataPlatform) {
+      aspectsToGet.add(DATA_PLATFORM_INSTANCE);
+    }
+
     List<Pair<String, RecordTemplate>> aspects = new ArrayList<>();
     final String keyAspectName = getKeyAspectName(urn);
-    RecordTemplate keyAspect = getLatestAspect(urn, keyAspectName);
+    aspectsToGet.add(keyAspectName);
+
+    Map<String, RecordTemplate> latestAspects = getLatestAspectsForUrn(urn, aspectsToGet);
+
+    RecordTemplate keyAspect = latestAspects.get(keyAspectName);
     if (keyAspect == null) {
       keyAspect = buildKeyAspect(urn);
       aspects.add(Pair.of(keyAspectName, keyAspect));
     }
 
-    String entityType = urnToEntityName(urn);
-    if (_entityRegistry.getEntitySpec(entityType).getAspectSpecMap().containsKey(BROWSE_PATHS)
-        && getLatestAspect(urn, BROWSE_PATHS) == null && !includedAspects.contains(BROWSE_PATHS)) {
+    if (shouldCheckBrowsePath && latestAspects.get(BROWSE_PATHS) == null) {
       try {
         BrowsePaths generatedBrowsePath = BrowsePathUtils.buildBrowsePath(urn, getEntityRegistry());
         if (generatedBrowsePath != null) {
@@ -556,8 +580,7 @@ public abstract class EntityService {
       }
     }
 
-    if (_entityRegistry.getEntitySpec(entityType).getAspectSpecMap().containsKey(DATA_PLATFORM_INSTANCE)
-        && getLatestAspect(urn, DATA_PLATFORM_INSTANCE) == null && !includedAspects.contains(DATA_PLATFORM_INSTANCE)) {
+    if (shouldCheckDataPlatform && latestAspects.get(DATA_PLATFORM_INSTANCE) == null) {
       DataPlatformInstanceUtils.buildDataPlatformInstance(entityType, keyAspect)
           .ifPresent(aspect -> aspects.add(Pair.of(DATA_PLATFORM_INSTANCE, aspect)));
     }

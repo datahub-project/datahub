@@ -29,6 +29,7 @@ import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
 import java.net.URISyntaxException;
 import java.sql.Timestamp;
+import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -99,6 +100,20 @@ public class EbeanEntityService extends EntityService {
     Iterators.partition(dbKeys.iterator(), 500)
         .forEachRemaining(batch -> batchGetResults.putAll(_entityDao.batchGet(ImmutableSet.copyOf(batch))));
     return batchGetResults;
+  }
+
+  @Override
+  @Nonnull
+  public Map<String, RecordTemplate> getLatestAspectsForUrn(@Nonnull final Urn urn, @Nonnull final Set<String> aspectNames) {
+    Map<EbeanAspectV2.PrimaryKey, EbeanAspectV2> batchGetResults = getLatestAspectEbeans(new HashSet<>(Arrays.asList(urn)), aspectNames);
+
+    final Map<String, RecordTemplate> result = new HashMap<>();
+    batchGetResults.forEach((key, aspectEntry) -> {
+      final String aspectName = key.getAspect();
+      final RecordTemplate aspectRecord = toAspectRecord(urn, aspectName, aspectEntry.getMetadata(), getEntityRegistry());
+      result.put(aspectName, aspectRecord);
+    });
+    return result;
   }
 
   @Override
