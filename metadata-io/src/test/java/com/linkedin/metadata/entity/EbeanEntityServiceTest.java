@@ -36,6 +36,7 @@ import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.PegasusUtils;
 import com.linkedin.mxe.GenericAspect;
+import com.linkedin.mxe.MetadataAuditOperation;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
@@ -154,6 +155,9 @@ public class EbeanEntityServiceTest {
     assertNull(mcl.getPreviousSystemMetadata());
     assertEquals(mcl.getChangeType(), ChangeType.UPSERT);
 
+    verify(_mockProducer, times(2)).produceMetadataAuditEvent(Mockito.eq(entityUrn), Mockito.eq(null), Mockito.any(),
+        Mockito.any(), Mockito.any(), Mockito.eq(MetadataAuditOperation.UPDATE));
+
     verifyNoMoreInteractions(_mockProducer);
   }
 
@@ -189,6 +193,9 @@ public class EbeanEntityServiceTest {
     assertNull(mcl.getPreviousAspectValue());
     assertNull(mcl.getPreviousSystemMetadata());
     assertEquals(mcl.getChangeType(), ChangeType.UPSERT);
+
+    verify(_mockProducer, times(2)).produceMetadataAuditEvent(Mockito.eq(entityUrn), Mockito.eq(null), Mockito.any(),
+        Mockito.any(), Mockito.any(), Mockito.eq(MetadataAuditOperation.UPDATE));
 
     verifyNoMoreInteractions(_mockProducer);
   }
@@ -257,6 +264,12 @@ public class EbeanEntityServiceTest {
     assertNull(mcl.getPreviousSystemMetadata());
     assertEquals(mcl.getChangeType(), ChangeType.UPSERT);
 
+    verify(_mockProducer, times(2)).produceMetadataAuditEvent(Mockito.eq(entityUrn1), Mockito.eq(null), Mockito.any(),
+        Mockito.any(), Mockito.any(), Mockito.eq(MetadataAuditOperation.UPDATE));
+
+    verify(_mockProducer, times(2)).produceMetadataAuditEvent(Mockito.eq(entityUrn2), Mockito.eq(null), Mockito.any(),
+        Mockito.any(), Mockito.any(), Mockito.eq(MetadataAuditOperation.UPDATE));
+
     verifyNoMoreInteractions(_mockProducer);
   }
 
@@ -288,7 +301,14 @@ public class EbeanEntityServiceTest {
     assertNull(mcl.getPreviousAspectValue());
     assertNull(mcl.getPreviousSystemMetadata());
     assertEquals(mcl.getChangeType(), ChangeType.UPSERT);
+
+    verify(_mockProducer, times(1)).produceMetadataAuditEvent(Mockito.eq(entityUrn), Mockito.any(), Mockito.any(),
+        Mockito.any(), Mockito.any(), Mockito.eq(MetadataAuditOperation.UPDATE));
+
+    verifyNoMoreInteractions(_mockProducer);
+
     reset(_mockProducer);
+
 
     // Ingest CorpUserInfo Aspect #2
     CorpUserInfo writeAspect2 = createCorpUserInfo("email2@test.com");
@@ -309,6 +329,9 @@ public class EbeanEntityServiceTest {
     assertNotNull(mcl.getPreviousAspectValue());
     assertNotNull(mcl.getPreviousSystemMetadata());
     assertEquals(mcl.getChangeType(), ChangeType.UPSERT);
+
+    verify(_mockProducer, times(1)).produceMetadataAuditEvent(Mockito.eq(entityUrn), Mockito.notNull(), Mockito.any(),
+        Mockito.any(), Mockito.any(), Mockito.eq(MetadataAuditOperation.UPDATE));
 
     verifyNoMoreInteractions(_mockProducer);
   }
@@ -341,6 +364,12 @@ public class EbeanEntityServiceTest {
     assertNull(mcl.getPreviousAspectValue());
     assertNull(mcl.getPreviousSystemMetadata());
     assertEquals(mcl.getChangeType(), ChangeType.UPSERT);
+
+    verify(_mockProducer, times(1)).produceMetadataAuditEvent(Mockito.eq(entityUrn), Mockito.eq(null), Mockito.any(),
+        Mockito.any(), Mockito.any(), Mockito.eq(MetadataAuditOperation.UPDATE));
+
+    verifyNoMoreInteractions(_mockProducer);
+
     reset(_mockProducer);
 
     // Ingest CorpUserInfo Aspect #2
@@ -362,6 +391,9 @@ public class EbeanEntityServiceTest {
     assertTrue(DataTemplateUtil.areEqual(EbeanUtils.parseSystemMetadata(readEbean2.getSystemMetadata()), metadata3));
 
     verify(_mockProducer, times(0)).produceMetadataChangeLog(Mockito.eq(entityUrn), Mockito.any(), mclCaptor.capture());
+
+    verify(_mockProducer, times(0)).produceMetadataAuditEvent(Mockito.eq(entityUrn), Mockito.notNull(), Mockito.any(),
+        Mockito.any(), Mockito.any(), Mockito.eq(MetadataAuditOperation.UPDATE));
 
     verifyNoMoreInteractions(_mockProducer);
   }
