@@ -40,7 +40,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -225,8 +224,10 @@ public abstract class EntityService {
       produceMCLTimer.stop();
 
       // For legacy reasons, keep producing to the MAE event stream without blocking ingest
-      produceMetadataAuditEventAsync(urn, aspectName, oldValue, updatedValue, result.getOldSystemMetadata(),
+      Timer.Context produceMAETimer = MetricUtils.timer(this.getClass(), "produceMAE").time();
+      produceMetadataAuditEvent(urn, aspectName, oldValue, updatedValue, result.getOldSystemMetadata(),
           result.getNewSystemMetadata(), MetadataAuditOperation.UPDATE);
+      produceMAETimer.stop();
     } else {
       log.debug(
           String.format("Skipped producing MetadataAuditEvent for ingested aspect %s, urn %s. Aspect has not changed.",
@@ -399,21 +400,11 @@ public abstract class EntityService {
         .collect(Collectors.toMap(Map.Entry::getKey, entry -> toEntity(entry.getValue())));
   }
 
-  public void produceMetadataAuditEventAsync(@Nonnull final Urn urn, @Nonnull final String aspectName,
-      @Nullable final RecordTemplate oldAspectValue, @Nullable final RecordTemplate newAspectValue,
-      @Nullable final SystemMetadata oldSystemMetadata, @Nullable final SystemMetadata newSystemMetadata,
-      @Nullable final MetadataAuditOperation operation) {
-    CompletableFuture.runAsync(
-        () -> produceMetadataAuditEvent(urn, aspectName, oldAspectValue, newAspectValue, oldSystemMetadata,
-            newSystemMetadata, operation));
-  }
-
   public void produceMetadataAuditEvent(@Nonnull final Urn urn, @Nonnull final String aspectName,
       @Nullable final RecordTemplate oldAspectValue, @Nullable final RecordTemplate newAspectValue,
       @Nullable final SystemMetadata oldSystemMetadata, @Nullable final SystemMetadata newSystemMetadata,
       @Nullable final MetadataAuditOperation operation) {
     log.debug(String.format("Producing MetadataAuditEvent for ingested aspect %s, urn %s", aspectName, urn));
-    Timer.Context produceMAETimer = MetricUtils.timer(this.getClass(), "produceMAE").time();
     if (aspectName.equals(getKeyAspectName(urn))) {
       produceMetadataAuditEventForKey(urn, newSystemMetadata);
     } else {
@@ -425,7 +416,6 @@ public abstract class EntityService {
       _producer.produceMetadataAuditEvent(urn, oldSnapshot, newSnapshot, oldSystemMetadata, newSystemMetadata,
           operation);
     }
-    produceMAETimer.stop();
   }
 
   protected Snapshot buildKeySnapshot(@Nonnull final Urn urn) {
