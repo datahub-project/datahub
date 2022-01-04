@@ -40,6 +40,10 @@ jobs:
           path: .
           repo: dataportal-gms
           tag: $CIRCLE_SHA1
+      - aws-ecr/push-image:
+          account-url: ECR_ENDPOINT
+          repo: dataportal-gms
+          tag: $CIRCLE_SHA1
   build_dataportal_frontend_react:
     environment:
       DOCKER_BUILDKIT: 1
@@ -64,6 +68,10 @@ jobs:
           account-url: ECR_ENDPOINT
           dockerfile: ./docker/datahub-frontend/Dockerfile
           path: .
+          repo: dataportal-frontend-react
+          tag: $CIRCLE_SHA1
+      - aws-ecr/push-image:
+          account-url: ECR_ENDPOINT
           repo: dataportal-frontend-react
           tag: $CIRCLE_SHA1
   build_dataportal_ingestion:
@@ -92,6 +100,10 @@ jobs:
           path: .
           repo: dataportal-ingestion
           tag: $CIRCLE_SHA1
+      - aws-ecr/push-image:
+          account-url: ECR_ENDPOINT
+          repo: dataportal-ingestion
+          tag: $CIRCLE_SHA1
   build_dataportal_mce_consumer:
     environment:
       DOCKER_BUILDKIT: 1
@@ -116,6 +128,10 @@ jobs:
           account-url: ECR_ENDPOINT
           dockerfile: ./docker/datahub-mce-consumer/Dockerfile
           path: .
+          repo: dataportal-mce-consumer
+          tag: $CIRCLE_SHA1
+      - aws-ecr/push-image:
+          account-url: ECR_ENDPOINT
           repo: dataportal-mce-consumer
           tag: $CIRCLE_SHA1
   build_dataportal_mae_consumer:
