@@ -236,9 +236,11 @@ public class EbeanEntityService extends EntityService {
       @Nonnull final AuditStamp auditStamp, @Nonnull final SystemMetadata providedSystemMetadata) {
 
     return _entityDao.runInTransactionWithRetry(() -> {
-      final EbeanAspectV2 latest = _entityDao.getLatestAspect(urn.toString(), aspectName);
+      final String urnStr = urn.toString();
+      final EbeanAspectV2 latest = _entityDao.getLatestAspect(urnStr, aspectName);
+      long nextVersion = _entityDao.getNextVersion(urnStr, aspectName);
 
-      return ingestAspectToLocalDBNoTransaction(urn, aspectName, updateLambda, auditStamp, providedSystemMetadata, latest);
+      return ingestAspectToLocalDBNoTransaction(urn, aspectName, updateLambda, auditStamp, providedSystemMetadata, latest, nextVersion);
     }, DEFAULT_MAX_TRANSACTION_RETRY);
   }
 
@@ -252,18 +254,21 @@ public class EbeanEntityService extends EntityService {
 
       final Set<String> aspectNames = aspectRecordsToIngest
         .stream()
-        .map(aspectRecord -> aspectRecord.getFirst())
+        .map(Pair::getFirst)
         .collect(Collectors.toSet());
 
       Map<String, EbeanAspectV2> latestAspects = getLatestAspectEbeanForUrn(urn, aspectNames);
+      Map<String, Long> nextVersions = _entityDao.getNextVersions(urn.toString(), aspectNames);
 
       List<Pair<String, UpdateAspectResult>> result = new ArrayList<>();
       for (Pair<String, RecordTemplate> aspectRecord: aspectRecordsToIngest) {
         String aspectName = aspectRecord.getFirst();
         RecordTemplate newValue = aspectRecord.getSecond();
+        EbeanAspectV2 latest = latestAspects.get(aspectName);
+        long nextVersion = nextVersions.get(aspectName);
         UpdateAspectResult updateResult = ingestAspectToLocalDBNoTransaction(urn, aspectName, ignored -> newValue, auditStamp, systemMetadata, 
-          latestAspects.get(aspectName));
-        result.add(new Pair<String, UpdateAspectResult>(aspectName, updateResult));
+          latest, nextVersion);
+        result.add(new Pair<>(aspectName, updateResult));
       }
       return result;
     }, DEFAULT_MAX_TRANSACTION_RETRY);
@@ -272,7 +277,8 @@ public class EbeanEntityService extends EntityService {
   @Nonnull
   private UpdateAspectResult ingestAspectToLocalDBNoTransaction(@Nonnull final Urn urn,
      @Nonnull final String aspectName, @Nonnull final Function<Optional<RecordTemplate>, RecordTemplate> updateLambda,
-     @Nonnull final AuditStamp auditStamp, @Nonnull final SystemMetadata providedSystemMetadata, @Nonnull final EbeanAspectV2 latest) {
+     @Nonnull final AuditStamp auditStamp, @Nonnull final SystemMetadata providedSystemMetadata, @Nullable final EbeanAspectV2 latest,
+     @Nonnull final Long nextVersion) {
 
     // 2. Compare the latest existing and new.
     final RecordTemplate oldValue =
@@ -301,7 +307,7 @@ public class EbeanEntityService extends EntityService {
             latest == null ? null : latest.getCreatedOn(), latest == null ? null : latest.getSystemMetadata(),
             toJsonAspect(newValue), auditStamp.getActor().toString(),
             auditStamp.hasImpersonator() ? auditStamp.getImpersonator().toString() : null,
-            new Timestamp(auditStamp.getTime()), toJsonAspect(providedSystemMetadata));
+            new Timestamp(auditStamp.getTime()), toJsonAspect(providedSystemMetadata), nextVersion);
 
     return new UpdateAspectResult(urn, oldValue, newValue,
             latest == null ? null : EbeanUtils.parseSystemMetadata(latest.getSystemMetadata()), providedSystemMetadata,
