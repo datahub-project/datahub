@@ -1,11 +1,5 @@
 package com.linkedin.datahub.lineage.spark.model;
 
-import java.util.Arrays;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Set;
-import java.util.TreeSet;
-
 import com.linkedin.common.DatasetUrnArray;
 import com.linkedin.common.urn.DataFlowUrn;
 import com.linkedin.common.urn.DataJobUrn;
@@ -15,11 +9,15 @@ import com.linkedin.datahub.lineage.spark.model.dataset.SparkDataset;
 import com.linkedin.datajob.DataJobInfo;
 import com.linkedin.datajob.DataJobInputOutput;
 import com.linkedin.datajob.JobStatus;
-import com.linkedin.events.metadata.ChangeType;
-import com.linkedin.mxe.MetadataChangeProposal;
-
+import datahub.event.MetadataChangeProposalWrapper;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Set;
+import java.util.TreeSet;
 import lombok.Getter;
 import lombok.ToString;
+
 
 @ToString
 @Getter
@@ -35,33 +33,23 @@ public class SQLQueryExecStartEvent extends LineageEvent {
   }
 
   @Override
-  public List<MetadataChangeProposal> toMcps() {
+  public List<MetadataChangeProposalWrapper> toMcps() {
     DataJobUrn jobUrn = jobUrn();
-    MetadataChangeProposal mcpJobIO = new MetadataChangeProposal();
-    mcpJobIO.setAspectName("dataJobInputOutput");
-    mcpJobIO.setAspect(LineageUtils.serializeAspect(jobIO()));
-    mcpJobIO.setEntityUrn(jobUrn);
-    mcpJobIO.setEntityType("dataJob");
-    mcpJobIO.setChangeType(ChangeType.UPSERT);
+    MetadataChangeProposalWrapper mcpJobIO =
+        MetadataChangeProposalWrapper.create(b -> b.entityType("dataJob").entityUrn(jobUrn).upsert().aspect(jobIO()));
 
     DataJobInfo jobInfo = jobInfo();
     jobInfo.setCustomProperties(customProps());
     jobInfo.setStatus(JobStatus.IN_PROGRESS);
 
-    MetadataChangeProposal mcpJobInfo = new MetadataChangeProposal();
-    mcpJobInfo.setAspectName("dataJobInfo");
-    mcpJobInfo.setAspect(LineageUtils.serializeAspect(jobInfo));
-    mcpJobInfo.setEntityUrn(jobUrn);
-    mcpJobInfo.setEntityType("dataJob");
-    mcpJobInfo.setChangeType(ChangeType.UPSERT);
+    MetadataChangeProposalWrapper mcpJobInfo =
+        MetadataChangeProposalWrapper.create(b -> b.entityType("dataJob").entityUrn(jobUrn).upsert().aspect(jobInfo));
 
     return Arrays.asList(mcpJobIO, mcpJobInfo);
   }
 
   DataJobInfo jobInfo() {
-    return new DataJobInfo()
-        .setName(datasetLineage.getCallSiteShort())
-        .setType(DataJobInfo.Type.create("sparkJob"));
+    return new DataJobInfo().setName(datasetLineage.getCallSiteShort()).setType(DataJobInfo.Type.create("sparkJob"));
   }
 
   DataJobUrn jobUrn() {
@@ -70,11 +58,11 @@ public class SQLQueryExecStartEvent extends LineageEvent {
      * Set<String> sourceUrns = datasetLineage.getSources() .parallelStream() .map(x
      * -> x.urn().toString()) .collect(Collectors.toSet()); sourceUrns = new
      * TreeSet<>(sourceUrns); //sort for consistency
-     * 
+     *
      * String sinkUrn = datasetLineage.getSink().urn().toString(); String plan =
      * LineageUtils.scrubPlan(datasetLineage.getPlan()); String id =
      * Joiner.on(",").join(sinkUrn, sourceUrns, plan);
-     * 
+     *
      * return new DataJobUrn(flowUrn(), "planHash_" + LineageUtils.hash(id));
      */
     return new DataJobUrn(flowUrn(), "QueryExecId_" + sqlQueryExecId);
@@ -106,7 +94,6 @@ public class SQLQueryExecStartEvent extends LineageEvent {
       public int compare(SparkDataset x, SparkDataset y) {
         return x.urn().toString().compareTo(y.urn().toString());
       }
-
     });
     sources.addAll(datasetLineage.getSources()); // maintain ordering
     for (SparkDataset source : sources) {

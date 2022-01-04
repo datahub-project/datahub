@@ -2,9 +2,9 @@ package com.linkedin.datahub.lineage.consumer.impl;
 
 import com.linkedin.datahub.lineage.spark.model.LineageConsumer;
 import com.linkedin.datahub.lineage.spark.model.LineageEvent;
-import com.linkedin.mxe.MetadataChangeProposal;
 import datahub.client.Emitter;
 import datahub.client.rest.RestEmitter;
+import datahub.event.MetadataChangeProposalWrapper;
 import java.io.IOException;
 import java.util.List;
 import java.util.Objects;
@@ -24,12 +24,12 @@ public class McpEmitter implements LineageConsumer {
 
   private ConcurrentHashMap<String, RestEmitter> singleton = new ConcurrentHashMap<>();
 
-  private void emit(List<MetadataChangeProposal> mcps) {
+  private void emit(List<MetadataChangeProposalWrapper> mcpws) {
     Emitter emitter = emitter();
     if (emitter != null) {
-      mcps.stream().map(mcp -> {
+      mcpws.stream().map(mcpw -> {
         try {
-          return emitter.emit(mcp, null);
+          return emitter.emit(mcpw);
         } catch (IOException ioException) {
           log.error("Failed to emit metadata to DataHub", ioException);
           return null;
