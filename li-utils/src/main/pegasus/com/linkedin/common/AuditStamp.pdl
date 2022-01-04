@@ -8,12 +8,12 @@ record AuditStamp {
   /**
    * When did the resource/association/sub-resource move into the specific lifecycle stage represented by this AuditEvent.
    */
-  time: Time
+  time: Time = 0
 
   /**
    * The entity (e.g. a member URN) which will be credited for moving the resource/association/sub-resource into the specific lifecycle stage. It is also the one used to authorize the change.
    */
-  actor: Urn
+  actor: Urn = "urn:li:corpuser:unknown"
 
   /**
    * The entity (e.g. a service URN) which performs the change on behalf of the Actor and must be authorized to act as the Actor.
