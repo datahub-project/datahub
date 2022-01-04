@@ -1,3 +1,4 @@
+import logging
 import typing
 from collections import defaultdict
 from dataclasses import dataclass
@@ -43,6 +44,8 @@ from datahub.metadata.schema_classes import (
     OwnershipClass,
     OwnershipTypeClass,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class GlueSourceConfig(AwsSourceConfig):
@@ -264,12 +267,12 @@ class GlueSource(Source):
             else:
 
                 if self.source_config.ignore_unsupported_connectors:
-                    
-                    self.report.report_warning(
+
+                    logger.info(
                         flow_urn,
                         f"Unrecognized Glue data object type: {node_args}. Skipping.",
                     )
-                    
+
                 else:
 
                     raise ValueError(f"Unrecognized Glue data object type: {node_args}")
