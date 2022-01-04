@@ -69,7 +69,7 @@ public class EbeanEntityService extends EntityService {
     _entityDao = entityDao;
   }
 
-  @Nonnull Map<String, EbeanAspectV2> getLatestAspectEbeanForUrn(@Nonnull final Urn urn, 
+  @Nonnull Map<String, EbeanAspectV2> getLatestEbeanAspectForUrn(@Nonnull final Urn urn,
     @Nonnull final Set<String> aspectNames) {
       Set<Urn> urns = new HashSet<>();
       urns.add(urn);
@@ -257,7 +257,7 @@ public class EbeanEntityService extends EntityService {
         .map(Pair::getFirst)
         .collect(Collectors.toSet());
 
-      Map<String, EbeanAspectV2> latestAspects = getLatestAspectEbeanForUrn(urn, aspectNames);
+      Map<String, EbeanAspectV2> latestAspects = getLatestEbeanAspectForUrn(urn, aspectNames);
       Map<String, Long> nextVersions = _entityDao.getNextVersions(urn.toString(), aspectNames);
 
       List<Pair<String, UpdateAspectResult>> result = new ArrayList<>();

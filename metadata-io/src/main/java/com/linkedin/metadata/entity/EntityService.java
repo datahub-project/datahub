@@ -358,7 +358,7 @@ public abstract class EntityService {
       produceMetadataChangeLog(entityUrn, aspectSpec, metadataChangeLog);
     } else {
       log.debug(
-          "Skipped producing MetadataAuditEvent for ingested aspect {}, urn {}. Aspect has not changed.",
+          "Skipped producing MetadataChangeLog for ingested aspect {}, urn {}. Aspect has not changed.",
               metadataChangeProposal.getAspectName(), entityUrn);
     }
 
