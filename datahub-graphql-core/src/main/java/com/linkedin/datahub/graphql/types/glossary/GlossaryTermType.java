@@ -7,14 +7,20 @@ import com.linkedin.common.urn.GlossaryTermUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.authorization.ConjunctivePrivilegeGroup;
 import com.linkedin.datahub.graphql.authorization.DisjunctivePrivilegeGroup;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
-import com.linkedin.datahub.graphql.generated.*;
 import com.linkedin.datahub.graphql.types.BrowsableEntityType;
 import com.linkedin.datahub.graphql.types.MutableType;
 import com.linkedin.datahub.graphql.types.SearchableEntityType;
+import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
+import com.linkedin.datahub.graphql.generated.BrowsePath;
+import com.linkedin.datahub.graphql.generated.BrowseResults;
+import com.linkedin.datahub.graphql.generated.GlossaryTerm;
+import com.linkedin.datahub.graphql.generated.FacetFilterInput;
+import com.linkedin.datahub.graphql.generated.SearchResults;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermSnapshotMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermUpdateInputSnapshotMapper;
 import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
@@ -163,7 +169,7 @@ public class GlossaryTermType implements SearchableEntityType<GlossaryTerm>, Bro
                 throw new RuntimeException(String.format("Failed to write entity with urn %s", input.getUrn()), e);
             }
 
-            return load(urn , context).getData();
+            return load(urn, context).getData();
         }
         throw new AuthorizationException("Unauthorized to perform this action. Please contact your Data workbench support.");
     }

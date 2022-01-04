@@ -1,7 +1,6 @@
 package com.linkedin.datahub.graphql.types.glossary.mappers;
 
 import com.linkedin.common.AuditStamp;
-import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.GlossaryTermUrn;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.generated.GlossaryTermUpdateInput;
@@ -41,7 +40,7 @@ public class GlossaryTermUpdateInputSnapshotMapper implements InputModelMapper<G
         auditStamp.setActor(actor, SetMode.IGNORE_NULL);
         auditStamp.setTime(System.currentTimeMillis());
         try {
-            GlossaryTermUrn glossaryTermUrn=   GlossaryTermUrn.createFromString(glossaryTermUpdateInput.getUrn());
+            GlossaryTermUrn glossaryTermUrn = GlossaryTermUrn.createFromString(glossaryTermUpdateInput.getUrn());
             result.setUrn(glossaryTermUrn);
         } catch (URISyntaxException e) {
             throw new IllegalArgumentException(
