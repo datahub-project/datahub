@@ -1,3 +1,9 @@
+# syntax=docker/dockerfile:1.2
+
+ARG TOOLCHAIN_REPO=311088406905.dkr.ecr.us-east-1.amazonaws.com/platform_tools
+ARG TOOLCHAIN_VERSION=master
+FROM $TOOLCHAIN_REPO:$TOOLCHAIN_VERSION as tools
+
 # Defining environment
 ARG APP_ENV=prod
 
@@ -30,6 +36,12 @@ USER datahub
 
 ENV JMX_OPTS=""
 ENV JAVA_OPTS=""
+
+#### WITH SECRETS DEPENDENCY
+COPY --from=tools /usr/local/bin/with-secrets /usr/local/bin/with-secrets
+COPY --from=tools /usr/local/bin/enter-db /usr/local/bin/enter-db
+COPY --from=tools /usr/local/bin/envconsul /usr/local/bin/
+COPY --from=tools /usr/local/bin/vault /usr/local/bin/
 
 EXPOSE 9090
 

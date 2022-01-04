@@ -1,3 +1,9 @@
+# syntax=docker/dockerfile:1.2
+
+ARG TOOLCHAIN_REPO=311088406905.dkr.ecr.us-east-1.amazonaws.com/platform_tools
+ARG TOOLCHAIN_VERSION=master
+FROM $TOOLCHAIN_REPO:$TOOLCHAIN_VERSION as tools
+
 # Defining environment
 ARG APP_ENV=prod
 
@@ -36,6 +42,12 @@ VOLUME [ "/datahub-frontend" ]
 FROM ${APP_ENV}-install as final
 USER datahub
 
+#### WITH SECRETS DEPENDENCY
+COPY --from=tools /usr/local/bin/with-secrets /usr/local/bin/with-secrets
+COPY --from=tools /usr/local/bin/enter-db /usr/local/bin/enter-db
+COPY --from=tools /usr/local/bin/envconsul /usr/local/bin/
+COPY --from=tools /usr/local/bin/vault /usr/local/bin/
+
 ARG SERVER_PORT=9002
 ENV SERVER_PORT=$SERVER_PORT
 RUN echo $SERVER_PORT
@@ -44,12 +56,12 @@ EXPOSE $SERVER_PORT
 HEALTHCHECK --start-period=2m --retries=4 CMD curl --fail http://localhost:$SERVER_PORT/admin || exit 1
 
 ENV JAVA_OPTS=" \
-   -Xms512m \
-   -Xmx1024m \
-   -Dhttp.port=$SERVER_PORT \
-   -Dconfig.file=datahub-frontend/conf/application.conf \
-   -Djava.security.auth.login.config=datahub-frontend/conf/jaas.conf \
-   -Dlogback.configurationFile=datahub-frontend/conf/logback.xml \
-   -Dlogback.debug=false \
-   -Dpidfile.path=/dev/null"
+    -Xms512m \
+    -Xmx1024m \
+    -Dhttp.port=$SERVER_PORT \
+    -Dconfig.file=datahub-frontend/conf/application.conf \
+    -Djava.security.auth.login.config=datahub-frontend/conf/jaas.conf \
+    -Dlogback.configurationFile=datahub-frontend/conf/logback.xml \
+    -Dlogback.debug=false \
+    -Dpidfile.path=/dev/null"
 CMD ["datahub-frontend/bin/playBinary"]
