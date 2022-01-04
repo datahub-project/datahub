@@ -263,7 +263,14 @@ class GlueSource(Source):
 
             else:
 
-                if not self.source_config.ignore_unsupported_connectors:
+                if self.source_config.ignore_unsupported_connectors:
+                    
+                    self.report.report_warning(
+                        flow_urn,
+                        f"Unrecognized Glue data object type: {node_args}. Skipping.",
+                    )
+                    
+                else:
 
                     raise ValueError(f"Unrecognized Glue data object type: {node_args}")
 
