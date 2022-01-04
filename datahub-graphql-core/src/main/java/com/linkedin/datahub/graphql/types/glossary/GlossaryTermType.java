@@ -22,6 +22,7 @@ import com.linkedin.datahub.graphql.generated.GlossaryTerm;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.SearchResults;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermSnapshotMapper;
+import com.linkedin.datahub.graphql.generated.GlossaryTermUpdateInput;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermUpdateInputSnapshotMapper;
 import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowsePathsMapper;
