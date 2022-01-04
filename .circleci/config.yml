@@ -160,6 +160,10 @@ jobs:
           path: .
           repo: dataportal-mae-consumer
           tag: $CIRCLE_SHA1
+      - aws-ecr/push-image:
+          account-url: ECR_ENDPOINT
+          repo: dataportal-mae-consumer
+          tag: $CIRCLE_SHA1
 
 workflows:
   version: 2
