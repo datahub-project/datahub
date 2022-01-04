@@ -2,47 +2,18 @@ import React, { useState } from 'react';
 import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
 import { DatasetProfile, Operation, UsageQueryResult } from '../../../../../../types.generated';
 import { useBaseEntity } from '../../../EntityContext';
+import {
+    toLocalDateString,
+    toLocalTimeString,
+    toLocalDateTimeString,
+    toUTCDateTimeString,
+} from '../../../../../shared/time/timeUtils';
 import HistoricalStats from './historical/HistoricalStats';
 import { LOOKBACK_WINDOWS } from './lookbackWindows';
 import ColumnStats from './snapshot/ColumnStats';
 import TableStats from './snapshot/TableStats';
 import StatsHeader from './StatsHeader';
 import { ViewType } from './viewType';
-
-const toLocalDateString = (time: number) => {
-    const date = new Date(time);
-    return date.toLocaleDateString();
-};
-
-const toLocalTimeString = (time: number) => {
-    const date = new Date(time);
-    return date.toLocaleTimeString();
-};
-
-const toLocalDateTimeString = (time: number) => {
-    const date = new Date(time);
-    return date.toLocaleString([], {
-        year: 'numeric',
-        month: 'numeric',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        timeZoneName: 'short',
-    });
-};
-
-const toUTCDateTimeString = (time: number) => {
-    const date = new Date(time);
-    return date.toLocaleString([], {
-        year: 'numeric',
-        month: 'numeric',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        timeZone: 'UTC',
-        timeZoneName: 'short',
-    });
-};
 
 export default function StatsTab() {
     const baseEntity = useBaseEntity<GetDatasetQuery>();

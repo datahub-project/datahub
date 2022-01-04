@@ -2,7 +2,7 @@ import collections
 import dataclasses
 import logging
 from datetime import datetime
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional, Union
 
 from dateutil import parser
 from pydantic import Field
@@ -132,7 +132,7 @@ class RedshiftUsageSource(Source):
                 yield wu
 
     def _get_operation_aspect_work_units(
-        self, operation_type: OperationTypeClass, engine: Engine
+        self, operation_type: Union[str, "OperationTypeClass"], engine: Engine
     ) -> Iterable[MetadataWorkUnit]:
         if operation_type == OperationTypeClass.INSERT:
             table_name = "stl_insert"
@@ -257,18 +257,18 @@ class RedshiftUsageSource(Source):
     def _aggregate_operation_aspect_events(
         self,
         events: List[RedshiftJoinedAccessEvent],
-        operation_type: OperationTypeClass,
+        operation_type: Union[str, "OperationTypeClass"],
     ) -> Iterable[MetadataWorkUnit]:
         for event in events:
-            if event.database and event.schema_ and event.table and event.endtime and event.usename:
+            if event.database and event.schema_ and event.table and event.endtime:
                 resource = f"{event.database}.{event.schema_}.{event.table}"
                 last_updated_timestamp: int = int(event.endtime.timestamp() * 1000)
-                user_email = event.usename
+                user_email = f"{event.usename if event.usename else 'unknown'}"
 
                 operation_aspect = OperationClass(
                     timestampMillis=last_updated_timestamp,
                     lastUpdatedTimestamp=last_updated_timestamp,
-                    actor=builder.make_user_urn(user_email),
+                    actor=builder.make_user_urn(user_email.split("@")[0]),
                     operationType=operation_type,
                 )
                 mcp = MetadataChangeProposalWrapper(

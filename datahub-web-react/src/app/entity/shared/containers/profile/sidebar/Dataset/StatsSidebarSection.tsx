@@ -48,7 +48,7 @@ export const SidebarStatsSection = () => {
 
     const hasUsageStats = baseEntity?.dataset?.usageStats !== undefined;
     const hasDatasetProfiles = baseEntity?.dataset?.datasetProfiles !== undefined;
-    const hasOperations = baseEntity?.dataset?.operations !== undefined;
+    const hasOperations = (baseEntity?.dataset?.operations?.length || 0) > 0;
 
     const usageStats = (hasUsageStats && (baseEntity?.dataset?.usageStats as UsageQueryResult)) || undefined;
     const datasetProfiles =

@@ -555,7 +555,7 @@ type Dataset implements EntityWithRelationships & Entity {
     datasetProfiles(startTimeMillis: Long, endTimeMillis: Long, limit: Int): [DatasetProfile!]
 
     """
-    TODO
+    Operational events for an entity.
     """
     operations(startTimeMillis: Long, endTimeMillis: Long, limit: Int): [Operation!]
 
@@ -3697,7 +3697,7 @@ type TimeWindow {
 }
 
 """
-A Dataset Profile associated with a Dataset, containing profiling statistics about the Dataset
+Operational info for an entity.
 """
 type Operation implements TimeSeriesAspect {
   """
@@ -3728,7 +3728,7 @@ type Operation implements TimeSeriesAspect {
   """
   Which other datasets were affected by this operation.
   """
-  affectedDatasets: [String]
+  affectedDatasets: [String!]
 }
 
 """

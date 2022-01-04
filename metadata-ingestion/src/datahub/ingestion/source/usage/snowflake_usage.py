@@ -74,7 +74,7 @@ ORDER BY query_start_time DESC
 ;
 """.strip()
 
-UPDATE_STATEMENT_TYPES = {
+OPERATION_STATEMENT_TYPES = {
     "INSERT": OperationTypeClass.INSERT,
     "UPDATE": OperationTypeClass.UPDATE,
     "DELETE": OperationTypeClass.DELETE,
@@ -118,8 +118,8 @@ class SnowflakeJoinedAccessEvent(PermissiveModel):
     first_name: Optional[str]
     last_name: Optional[str]
     display_name: Optional[str]
-    email: Optional[str]
-    role_name: Optional[str]
+    email: str
+    role_name: str
 
 
 class SnowflakeStatefulIngestionConfig(StatefulIngestionConfig):
@@ -284,8 +284,8 @@ class SnowflakeUsageSource(StatefulIngestionSourceBase):
         engine = create_engine(url, **self.config.options)
         return engine
 
-    def _get_snowflake_history() -> Iterable[SnowflakeJoinedAccessEvent]:
-        query = self._make_usage_query
+    def _get_snowflake_history(self) -> Iterable[SnowflakeJoinedAccessEvent]:
+        query = self._make_usage_query()
         engine = self._make_sql_engine()
 
         results = engine.execute(query)
@@ -376,13 +376,13 @@ class SnowflakeUsageSource(StatefulIngestionSourceBase):
         self, events: Iterable[SnowflakeJoinedAccessEvent]
     ) -> Iterable[MetadataWorkUnit]:
         for event in events:
-            if event.query_start_time and event.email and event.query_type in UPDATE_STATEMENT_TYPES:
+            if event.query_start_time and event.query_type in OPERATION_STATEMENT_TYPES:
                 start_time = event.query_start_time
                 query_type = event.query_type
                 user_email = event.email
-                operation_type = UPDATE_STATEMENT_TYPES[query_type]
+                operation_type = OPERATION_STATEMENT_TYPES[query_type]
                 last_updated_timestamp: int = int(start_time.timestamp() * 1000)
-                user_urn = builder.make_user_urn(user_email)
+                user_urn = builder.make_user_urn(user_email.split("@")[0])
                 for obj in event.base_objects_accessed:
                     resource = obj.objectName
                     dataset_urn = builder.make_dataset_urn(

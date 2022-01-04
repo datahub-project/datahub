@@ -21,7 +21,7 @@ record Operation includes TimeseriesAspectBase {
    * Actor who issued this operation.
    */
   @TimeseriesField = {}
-  actor: Urn
+  actor: optional Urn
 
   /**
    * Operation type of change.
