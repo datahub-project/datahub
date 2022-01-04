@@ -43,7 +43,14 @@ export default function layoutTree(
             .filter((urn) => !nodesByUrn[urn || '']);
 
         const layerSize = nodesToAddInCurrentLayer.length;
-        const layerHeight = VERTICAL_SPACE_PER_NODE * (layerSize - 1);
+
+        const layerHeight = nodesInCurrentLayer
+            .filter(({ node }) => nodesToAddInCurrentLayer.indexOf(node.urn || '') > -1)
+            // TODO
+            .map(({ node }) => node.name.length)
+            .reduce((acc, len) => acc + len, 0);
+
+        // const layerHeight = VERTICAL_SPACE_PER_NODE * (layerSize - 1);
 
         maxHeight = Math.max(maxHeight, layerHeight);
 
