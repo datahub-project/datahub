@@ -1,5 +1,8 @@
+ARG TOOLCHAIN_REPO=311088406905.dkr.ecr.us-east-1.amazonaws.com/platform_tools
+ARG TOOLCHAIN_VERSION=master
 # Defining environment
 ARG APP_ENV=prod
+FROM $TOOLCHAIN_REPO:$TOOLCHAIN_VERSION as tools
 
 FROM python:3.8 as base
 # ENV DOCKERIZE_VERSION v0.6.1
@@ -7,13 +10,13 @@ FROM python:3.8 as base
 #     && curl https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-runner/9.4.20.v20190813/jetty-runner-9.4.20.v20190813.jar --output jetty-runner.jar \
 #     && curl -L https://github.com/jwilder/dockerize/releases/download/$DOCKERIZE_VERSION/dockerize-linux-amd64-$DOCKERIZE_VERSION.tar.gz | tar -C /usr/local/bin -xzv
 RUN apt-get update && apt-get install -y \
-        jq \
-        librdkafka-dev \
-        python3-ldap \
-        libldap2-dev \
-        libsasl2-dev \
-        libsasl2-modules \
-        ldap-utils \
+    jq \
+    librdkafka-dev \
+    python3-ldap \
+    libldap2-dev \
+    libsasl2-dev \
+    libsasl2-modules \
+    ldap-utils \
     && python -m pip install --upgrade pip wheel setuptools==57.5.0
 
 
@@ -37,6 +40,12 @@ FROM base as dev-install
 # See this excellent thread https://github.com/docker/cli/issues/1134
 
 FROM ${APP_ENV}-install as final
+
+#### WITH SECRETS DEPENDENCY
+COPY --from=tools /usr/local/bin/with-secrets /usr/local/bin/with-secrets
+COPY --from=tools /usr/local/bin/enter-db /usr/local/bin/enter-db
+COPY --from=tools /usr/local/bin/envconsul /usr/local/bin/
+COPY --from=tools /usr/local/bin/vault /usr/local/bin/
 
 RUN addgroup --system datahub && adduser --system datahub --ingroup datahub
 USER datahub

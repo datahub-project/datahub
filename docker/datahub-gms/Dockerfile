@@ -1,11 +1,8 @@
-# syntax=docker/dockerfile:1.2
-
 ARG TOOLCHAIN_REPO=311088406905.dkr.ecr.us-east-1.amazonaws.com/platform_tools
 ARG TOOLCHAIN_VERSION=master
-FROM $TOOLCHAIN_REPO:$TOOLCHAIN_VERSION as tools
-
 # Defining environment
 ARG APP_ENV=prod
+FROM $TOOLCHAIN_REPO:$TOOLCHAIN_VERSION as tools
 
 FROM alpine:3.14.2 AS base
 
