@@ -30,7 +30,6 @@ webApps: # Optional: You can remove this parent if you are not using it
     resources:
       requests:
         memory: 3Gi
-    healthcheckPath: /ping/
     securityGroups:
       default:
         - vpc
@@ -59,7 +58,6 @@ webApps: # Optional: You can remove this parent if you are not using it
     resources:
       requests:
         memory: 3Gi
-    healthcheckPath: /ping/
     securityGroups:
       default:
         - vpc
