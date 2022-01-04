@@ -6,8 +6,11 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.mxe.FailedMetadataChangeEvent;
 import com.linkedin.mxe.MetadataAuditEvent;
 import com.linkedin.mxe.MetadataChangeEvent;
+
 import java.io.IOException;
 import java.io.InputStream;
+
+import io.confluent.connect.avro.AvroData;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericDatumReader;
 import org.apache.avro.generic.GenericRecord;
@@ -21,6 +24,17 @@ import static org.testng.Assert.*;
 
 
 public class EventUtilsTests {
+
+  @Test
+  public void testKakfkaConnectAvroRecordWithIllegalNullValue() throws IOException {
+    final Schema schema = com.linkedin.pegasus2avro.mxe.MetadataAuditEvent.SCHEMA$;
+    final GenericRecord record = genericRecordFromResource("test-avro2pegasus-mae.json", schema);
+    final AvroData avroData = new AvroData(1);
+    // Must not throw:
+    // Invalid class for string type, expecting String or CharSequence but found class
+    // org.apache.avro.JsonProperties$Null
+    avroData.toConnectData(schema, record);
+  }
 
   @Test
   public void testAvroToPegasusMAE() throws IOException {

@@ -7,6 +7,9 @@ dependencies {
 
   testCompile project(':test-models')
 
+  testCompile externalDependency.kafkaAvroConnect
+  testCompile externalDependency.kafkaConnectApi
+
   constraints {
     implementation("org.apache.logging.log4j:log4j-core:2.17.0") {
         because("previous versions are vulnerable to CVE-2021-45105")
