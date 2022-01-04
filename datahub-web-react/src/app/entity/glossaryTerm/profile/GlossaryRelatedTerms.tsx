@@ -58,7 +58,7 @@ export default function GlossayRelatedTerms() {
                 </Menu>
             </MenuWrapper>
             <Content>
-                {selectedKey && (
+                {selectedKey && entityData && (
                     <GlossaryRelatedTermsResult
                         glossaryRelatedTermType={RelatedTermTypes[selectedKey]}
                         glossaryRelatedTermResult={entityData[selectedKey]?.relationships || []}

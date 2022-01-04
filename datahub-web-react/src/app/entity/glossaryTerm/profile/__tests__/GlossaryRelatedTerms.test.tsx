@@ -41,7 +41,7 @@ describe('Glossary Related Terms', () => {
         const { getByText } = render(
             <MockedProvider mocks={mocks} addTypename={false}>
                 <TestPageContainer>
-                    <GlossaryRelatedTerms glossaryTerm={glossaryRelatedTermData} />
+                    <GlossaryRelatedTerms />
                 </TestPageContainer>
             </MockedProvider>,
         );
