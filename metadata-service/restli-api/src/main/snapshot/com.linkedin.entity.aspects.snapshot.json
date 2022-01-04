@@ -349,7 +349,8 @@
                 "doc" : "Number of milliseconds since midnight, January 1, 1970 UTC. It must be a positive number",
                 "ref" : "long"
               },
-              "doc" : "When did the resource/association/sub-resource move into the specific lifecycle stage represented by this AuditEvent."
+              "doc" : "When did the resource/association/sub-resource move into the specific lifecycle stage represented by this AuditEvent.",
+              "default" : 0
             }, {
               "name" : "actor",
               "type" : {
@@ -360,7 +361,8 @@
                   "class" : "com.linkedin.common.urn.Urn"
                 }
               },
-              "doc" : "The entity (e.g. a member URN) which will be credited for moving the resource/association/sub-resource into the specific lifecycle stage. It is also the one used to authorize the change."
+              "doc" : "The entity (e.g. a member URN) which will be credited for moving the resource/association/sub-resource into the specific lifecycle stage. It is also the one used to authorize the change.",
+              "default" : "urn:li:corpuser:unknown"
             }, {
               "name" : "impersonator",
               "type" : "Urn",
