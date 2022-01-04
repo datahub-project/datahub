@@ -74,16 +74,34 @@ extraEnvs:
 
 ## SSL
 
+### Kafka
 We are using the Spring Boot framework to start our apps, including setting up Kafka. You can
 [use environment variables to set system properties](https://docs.spring.io/spring-boot/docs/current/reference/html/spring-boot-features.html#boot-features-external-config-relaxed-binding-from-environment-variables),
 including [Kafka properties](https://docs.spring.io/spring-boot/docs/current/reference/html/appendix-application-properties.html#integration-properties).
 From there you can set your SSL configuration for Kafka.
 
-If Schema Registry is configured to use security (SSL), then you also need to set 
-[this config](https://docs.confluent.io/current/kafka/encryption.html#encryption-ssl-schema-registry).
+### Schema Registry
+If Schema Registry is configured to use security (SSL), then you also need to set additional values.
+
+The [MCE](../../metadata-jobs/mce-consumer-job) and [MAE](../../metadata-jobs/mae-consumer-job) consumers can set 
+default Spring Kafka environment values, for example:
+- `SPRING_KAFKA_PROPERTIES_SCHEMA_REGISTRY_SECURITY_PROTOCOL`
+- `SPRING_KAFKA_PROPERTIES_SCHEMA_REGISTRY_SSL_KEYSTORE_LOCATION`
+- `SPRING_KAFKA_PROPERTIES_SCHEMA_REGISTRY_SSL_KEYSTORE_PASSWORD`
+- `SPRING_KAFKA_PROPERTIES_SCHEMA_REGISTRY_SSL_TRUSTSTORE_LOCATION`
+- `SPRING_KAFKA_PROPERTIES_SCHEMA_REGISTRY_SSL_TRUSTSTORE_PASSWORD`
+
+[GMS](../what/gms.md) can set the following environment variables that will be passed as properties when creating the Schema Registry
+Client. 
+- `KAFKA_SCHEMA_REGISTRY_SECURITY_PROTOCOL`
+- `KAFKA_SCHEMA_REGISTRY_SSL_KEYSTORE_LOCATION`
+- `KAFKA_SCHEMA_REGISTRY_SSL_KEYSTORE_PASSWORD`
+- `KAFKA_SCHEMA_REGISTRY_SSL_TRUSTSTORE_LOCATION`
+- `KAFKA_SCHEMA_REGISTRY_SSL_TRUSTSTORE_PASSWORD`
 
 > **Note** In the logs you might see something like
 > `The configuration 'kafkastore.ssl.truststore.password' was supplied but isn't a known config.` The configuration is
 > not a configuration required for the producer. These WARN message can be safely ignored. Each of Datahub services are
 > passed a full set of configuration but may not require all the configurations that are passed to them. These warn
 > messages indicate that the service was passed a configuration that is not relevant to it and can be safely ignored.
+
