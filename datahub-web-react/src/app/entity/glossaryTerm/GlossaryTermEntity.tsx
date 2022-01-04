@@ -8,11 +8,11 @@ import { EntityProfile } from '../shared/containers/profile/EntityProfile';
 import { useGetGlossaryTermQuery, useUpdateGlossaryTermMutation } from '../../../graphql/glossaryTerm.generated';
 import { GenericEntityProperties } from '../shared/types';
 import { SchemaTab } from '../shared/tabs/Dataset/Schema/SchemaTab';
-import { SidebarAboutSection } from '../shared/containers/profile/sidebar/SidebarAboutSection';
 import GlossaryRelatedEntity from './profile/GlossaryRelatedEntity';
 import GlossayRelatedTerms from './profile/GlossaryRelatedTerms';
-import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
 import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/SidebarOwnerSection';
+import GlossarySidebarAboutSection from './profile/GlossarySidebarAboutSection';
+import { GlossaryTermPropertyTab } from './profile/GlossaryTermPropertyTab';
 
 /**
  * Definition of the DataHub Dataset entity.
@@ -75,12 +75,12 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
                     },
                     {
                         name: 'Properties',
-                        component: PropertiesTab,
+                        component: GlossaryTermPropertyTab,
                     },
                 ]}
                 sidebarSections={[
                     {
-                        component: SidebarAboutSection,
+                        component: GlossarySidebarAboutSection,
                     },
                     {
                         component: SidebarOwnerSection,
