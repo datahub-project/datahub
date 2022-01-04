@@ -26,7 +26,7 @@ webApps: # Optional: You can remove this parent if you are not using it
     port: 9002
     command: "/usr/local/bin/with-secrets"
     args:
-      - ./datahub-frontend/run/run-local-frontend
+      - datahub-frontend/bin/playBinary
     resources:
       requests:
         memory: 3Gi
@@ -55,7 +55,7 @@ webApps: # Optional: You can remove this parent if you are not using it
     port: 8080
     command: "/usr/local/bin/with-secrets"
     args:
-      - ./gradlew :metadata-service:war:run
+      - /datahub/datahub-gms/scripts/start.sh
     resources:
       requests:
         memory: 3Gi
