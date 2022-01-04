@@ -62,7 +62,7 @@ jobs:
             eval $LOGIN
       - aws-ecr/build-image:
           account-url: ECR_ENDPOINT
-          dockerfile: ./docker/datahub-frontend-react/Dockerfile
+          dockerfile: ./docker/datahub-frontend/Dockerfile
           path: .
           repo: dataportal-frontend-react
           tag: $CIRCLE_SHA1
