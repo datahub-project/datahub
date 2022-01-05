@@ -13,6 +13,7 @@ import com.linkedin.data.template.DataTemplateUtil;
 import com.linkedin.data.template.JacksonDataTemplateCodec;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.dataset.DatasetProfile;
+import com.linkedin.entity.Entity;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.events.metadata.ChangeType;
@@ -54,12 +55,19 @@ import io.ebean.EbeanServerFactory;
 import io.ebean.config.ServerConfig;
 import io.ebean.datasource.DataSourceConfig;
 
-import java.util.*;
+
 import javax.annotation.Nonnull;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.reset;
@@ -226,7 +234,7 @@ public class EbeanEntityServiceTest {
         ImmutableList.of(metadata1, metadata2));
 
     // 2. Retrieve Entities
-    Map<Urn, com.linkedin.entity.Entity> readEntities =
+    Map<Urn, Entity> readEntities =
         _entityService.getEntities(ImmutableSet.of(entityUrn1, entityUrn2), Collections.emptySet());
 
     // 3. Compare Entity Objects
