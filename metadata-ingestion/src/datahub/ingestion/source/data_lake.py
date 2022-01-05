@@ -813,6 +813,8 @@ class DataLakeSource(Source):
     ) -> Iterable[MetadataWorkUnit]:
 
         datasetUrn = f"urn:li:dataset:(urn:li:dataPlatform:{self.source_config.platform},{file_urn_path},{self.source_config.env})"
+        
+        dataset_name = os.path.basename(file_path)
 
         if self.source_config.platform == "s3":
             datasetUrn = make_s3_urn(file_path, self.source_config.env)
@@ -834,7 +836,7 @@ class DataLakeSource(Source):
 
             field = SchemaField(
                 fieldPath=field.name,
-                type=get_column_type(self.report, "test", field.dataType),
+                type=get_column_type(self.report, dataset_name, field.dataType),
                 nativeDataType=str(field.dataType),
                 recursive=False,
             )
@@ -842,7 +844,7 @@ class DataLakeSource(Source):
             column_fields.append(field)
 
         schema_metadata = SchemaMetadata(
-            schemaName="test",
+            schemaName=dataset_name,
             platform=f"urn:li:dataPlatform:{self.source_config.platform}",
             version=0,
             hash="",
