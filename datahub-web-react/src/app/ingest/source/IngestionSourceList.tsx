@@ -52,6 +52,18 @@ const ActionButtonContainer = styled.div`
 `;
 const DEFAULT_PAGE_SIZE = 25;
 
+const removeExecutionsFromIngestionSource = (source) => {
+    if (source) {
+        return {
+            name: source.name,
+            type: source.type,
+            schedule: source.schedule,
+            config: source.config,
+        };
+    }
+    return undefined;
+};
+
 export const IngestionSourceList = () => {
     const [page, setPage] = useState(1);
 
@@ -420,7 +432,7 @@ export const IngestionSourceList = () => {
                 </SourcePaginationContainer>
             </SourceContainer>
             <IngestionSourceBuilderModal
-                initialState={focusSource}
+                initialState={removeExecutionsFromIngestionSource(focusSource)}
                 visible={isBuildingSource}
                 onSubmit={onSubmit}
                 onCancel={onCancel}

@@ -1,7 +1,7 @@
 import { Button, Collapse, Form, Input, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { DEFAULT_EXECUTOR_ID, SourceBuilderState, StepProps } from './types';
+import { SourceBuilderState, StepProps } from './types';
 
 const ControlsContainer = styled.div`
     display: flex;
@@ -74,7 +74,7 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
                             </Typography.Paragraph>
                             <Input
                                 placeholder="default"
-                                value={state.config?.executorId || DEFAULT_EXECUTOR_ID}
+                                value={state.config?.executorId || ''}
                                 onChange={(event) => setExecutorId(event.target.value)}
                             />
                         </Form.Item>
