@@ -20,7 +20,7 @@
     "changeType": "UPSERT",
     "aspectName": "operation",
     "aspect": {
-        "value": "{\"timestampMillis\": 1631664000000, \"lastUpdatedTimestamp\": 1631664000000, \"actor\": \"urn:li:corpuser:real_shirshanka@acryl.io\", \"operationType\": \"INSERT\"}",
+        "value": "{\"timestampMillis\": 1631664000000, \"lastUpdatedTimestamp\": 1631664000000, \"actor\": \"urn:li:corpuser:real_shirshanka\", \"operationType\": \"INSERT\"}",
         "contentType": "application/json"
     },
     "systemMetadata": null
@@ -46,7 +46,7 @@
     "changeType": "UPSERT",
     "aspectName": "operation",
     "aspect": {
-        "value": "{\"timestampMillis\": 1631664000000, \"lastUpdatedTimestamp\": 1631664000000, \"actor\": \"urn:li:corpuser:real_shirshanka@acryl.io\", \"operationType\": \"DELETE\"}",
+        "value": "{\"timestampMillis\": 1631664000000, \"lastUpdatedTimestamp\": 1631664000000, \"actor\": \"urn:li:corpuser:real_shirshanka\", \"operationType\": \"DELETE\"}",
         "contentType": "application/json"
     },
     "systemMetadata": null
