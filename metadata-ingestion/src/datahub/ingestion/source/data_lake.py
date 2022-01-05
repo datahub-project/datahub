@@ -44,7 +44,12 @@ from pyspark.sql.types import (
 )
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
-from datahub.emitter.mce_builder import DEFAULT_ENV, get_sys_time, make_data_platform_urn, make_dataset_urn
+from datahub.emitter.mce_builder import (
+    DEFAULT_ENV,
+    get_sys_time,
+    make_data_platform_urn,
+    make_dataset_urn,
+)
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
@@ -625,7 +630,9 @@ class _SingleTableProfiler:
                         for value in column_histogram.index
                     ]
                     # sort so output is deterministic
-                    column_profile.distinctValueFrequencies = sorted(column_profile.distinctValueFrequencies,key=lambda x: x.value)
+                    column_profile.distinctValueFrequencies = sorted(
+                        column_profile.distinctValueFrequencies, key=lambda x: x.value
+                    )
 
                 else:
 
@@ -749,9 +756,11 @@ class DataLakeSource(Source):
     def get_table_schema(
         self, dataframe: DataFrame, file_path: str, file_urn_path: str
     ) -> Iterable[MetadataWorkUnit]:
-        
+
         data_platform_urn = make_data_platform_urn(self.source_config.platform)
-        dataset_urn = make_dataset_urn(self.source_config.platform, file_urn_path, self.source_config.env)
+        dataset_urn = make_dataset_urn(
+            self.source_config.platform, file_urn_path, self.source_config.env
+        )
 
         dataset_name = os.path.basename(file_path)
 
@@ -834,7 +843,6 @@ class DataLakeSource(Source):
             table, self.spark, self.source_config.profiling, self.report, full_path
         )
 
-        # TODO: implement ignored columns and max number of fields to profile
         logger.debug(
             f"Profiling {full_path}: preparing profilers to run {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
         )
@@ -856,7 +864,9 @@ class DataLakeSource(Source):
 
         mcp = MetadataChangeProposalWrapper(
             entityType="dataset",
-            entityUrn=make_dataset_urn(self.source_config.platform, file_urn_path, self.source_config.env),
+            entityUrn=make_dataset_urn(
+                self.source_config.platform, file_urn_path, self.source_config.env
+            ),
             changeType=ChangeTypeClass.UPSERT,
             aspectName="datasetProfile",
             aspect=table_profiler.profile,
@@ -906,7 +916,6 @@ class DataLakeSource(Source):
 
                 obj_path = f"s3a://{obj.bucket_name}/{obj.key}"
 
-                # TODO: fix relative path here
                 unordered_files.append(obj_path)
 
             for aws_file in sorted(unordered_files):
