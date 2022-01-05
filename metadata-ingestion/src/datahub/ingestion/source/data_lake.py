@@ -846,6 +846,9 @@ class DataLakeSource(Source):
         logger.debug(
             f"Profiling {full_path}: preparing profilers to run {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
         )
+        # instead of computing each profile individually, we run them all in a single analyzer.run() call
+        # we use a single call because the analyzer optimizes the number of calls to the underlying profiler
+        # since multiple profiles reuse computations, this saves a lot of time
         table_profiler.prepare_table_profiles()
 
         # compute the profiles
