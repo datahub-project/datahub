@@ -11,6 +11,8 @@ import com.linkedin.data.template.DataTemplateUtil;
 import com.linkedin.data.template.JacksonDataTemplateCodec;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.dataset.DatasetProfile;
+import com.linkedin.entity.EntityResponse;
+import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.identity.CorpUserInfo;
 import com.linkedin.metadata.aspect.Aspect;
@@ -37,6 +39,7 @@ import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.PegasusUtils;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataAuditOperation;
+import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.retention.DataHubRetentionConfig;
@@ -51,16 +54,19 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nonnull;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
@@ -143,8 +149,17 @@ public class EbeanEntityServiceTest {
     assertTrue(DataTemplateUtil.areEqual(expectedKey,
         readEntity.getValue().getCorpUserSnapshot().getAspects().get(0).getCorpUserKey())); // Key + Info aspect.
 
+    ArgumentCaptor<MetadataChangeLog> mclCaptor = ArgumentCaptor.forClass(MetadataChangeLog.class);
+    verify(_mockProducer, times(2)).produceMetadataChangeLog(Mockito.eq(entityUrn), Mockito.any(), mclCaptor.capture());
+    MetadataChangeLog mcl = mclCaptor.getValue();
+    assertEquals(mcl.getEntityType(), "corpuser");
+    assertNull(mcl.getPreviousAspectValue());
+    assertNull(mcl.getPreviousSystemMetadata());
+    assertEquals(mcl.getChangeType(), ChangeType.UPSERT);
+
     verify(_mockProducer, times(2)).produceMetadataAuditEvent(Mockito.eq(entityUrn), Mockito.eq(null), Mockito.any(),
         Mockito.any(), Mockito.any(), Mockito.eq(MetadataAuditOperation.UPDATE));
+
     verifyNoMoreInteractions(_mockProducer);
   }
 
@@ -173,8 +188,17 @@ public class EbeanEntityServiceTest {
     assertTrue(DataTemplateUtil.areEqual(expectedKey,
         readEntity.getValue().getCorpUserSnapshot().getAspects().get(0).getCorpUserKey())); // Key + Info aspect.
 
+    ArgumentCaptor<MetadataChangeLog> mclCaptor = ArgumentCaptor.forClass(MetadataChangeLog.class);
+    verify(_mockProducer, times(2)).produceMetadataChangeLog(Mockito.eq(entityUrn), Mockito.any(), mclCaptor.capture());
+    MetadataChangeLog mcl = mclCaptor.getValue();
+    assertEquals(mcl.getEntityType(), "corpuser");
+    assertNull(mcl.getPreviousAspectValue());
+    assertNull(mcl.getPreviousSystemMetadata());
+    assertEquals(mcl.getChangeType(), ChangeType.UPSERT);
+
     verify(_mockProducer, times(2)).produceMetadataAuditEvent(Mockito.eq(entityUrn), Mockito.eq(null), Mockito.any(),
         Mockito.any(), Mockito.any(), Mockito.eq(MetadataAuditOperation.UPDATE));
+
     verifyNoMoreInteractions(_mockProducer);
   }
 
@@ -225,6 +249,88 @@ public class EbeanEntityServiceTest {
     assertTrue(DataTemplateUtil.areEqual(expectedKey2,
         readEntity2.getValue().getCorpUserSnapshot().getAspects().get(0).getCorpUserKey())); // Key + Info aspect.
 
+    ArgumentCaptor<MetadataChangeLog> mclCaptor = ArgumentCaptor.forClass(MetadataChangeLog.class);
+    verify(_mockProducer, times(2)).produceMetadataChangeLog(Mockito.eq(entityUrn1), Mockito.any(),
+        mclCaptor.capture());
+    MetadataChangeLog mcl = mclCaptor.getValue();
+    assertEquals(mcl.getEntityType(), "corpuser");
+    assertNull(mcl.getPreviousAspectValue());
+    assertNull(mcl.getPreviousSystemMetadata());
+    assertEquals(mcl.getChangeType(), ChangeType.UPSERT);
+
+    verify(_mockProducer, times(2)).produceMetadataChangeLog(Mockito.eq(entityUrn2), Mockito.any(),
+        mclCaptor.capture());
+    mcl = mclCaptor.getValue();
+    assertEquals(mcl.getEntityType(), "corpuser");
+    assertNull(mcl.getPreviousAspectValue());
+    assertNull(mcl.getPreviousSystemMetadata());
+    assertEquals(mcl.getChangeType(), ChangeType.UPSERT);
+
+    verify(_mockProducer, times(2)).produceMetadataAuditEvent(Mockito.eq(entityUrn1), Mockito.eq(null), Mockito.any(),
+        Mockito.any(), Mockito.any(), Mockito.eq(MetadataAuditOperation.UPDATE));
+
+    verify(_mockProducer, times(2)).produceMetadataAuditEvent(Mockito.eq(entityUrn2), Mockito.eq(null), Mockito.any(),
+        Mockito.any(), Mockito.any(), Mockito.eq(MetadataAuditOperation.UPDATE));
+
+    verifyNoMoreInteractions(_mockProducer);
+  }
+
+  @Test
+  public void testIngestGetEntitiesV2() throws Exception {
+    // Test Writing a CorpUser Entity
+    Urn entityUrn1 = Urn.createFromString("urn:li:corpuser:tester1");
+    com.linkedin.entity.Entity writeEntity1 = createCorpUserEntity(entityUrn1, "tester@test.com");
+
+    Urn entityUrn2 = Urn.createFromString("urn:li:corpuser:tester2");
+    com.linkedin.entity.Entity writeEntity2 = createCorpUserEntity(entityUrn2, "tester2@test.com");
+
+    SystemMetadata metadata1 = new SystemMetadata();
+    metadata1.setLastObserved(1625792689);
+    metadata1.setRunId("run-123");
+
+    SystemMetadata metadata2 = new SystemMetadata();
+    metadata2.setLastObserved(1625792690);
+    metadata2.setRunId("run-123");
+
+    String aspectName = "corpUserInfo";
+    String keyName = "corpUserKey";
+
+    // 1. Ingest Entities
+    _entityService.ingestEntities(ImmutableList.of(writeEntity1, writeEntity2), TEST_AUDIT_STAMP,
+        ImmutableList.of(metadata1, metadata2));
+
+    // 2. Retrieve Entities
+    Map<Urn, EntityResponse> readEntities =
+        _entityService.getEntitiesV2("corpuser", ImmutableSet.of(entityUrn1, entityUrn2), ImmutableSet.of(aspectName));
+
+    // 3. Compare Entity Objects
+
+    // Entity 1
+    EntityResponse readEntityResponse1 = readEntities.get(entityUrn1);
+    assertEquals(2, readEntityResponse1.getAspects().size()); // Key + Info aspect.
+    EnvelopedAspect envelopedAspect1 = readEntityResponse1.getAspects().get(aspectName);
+    assertEquals(envelopedAspect1.getName(), aspectName);
+    assertTrue(
+        DataTemplateUtil.areEqual(writeEntity1.getValue().getCorpUserSnapshot().getAspects().get(0).getCorpUserInfo(),
+            new CorpUserInfo(envelopedAspect1.getValue().data())));
+    CorpUserKey expectedKey1 = new CorpUserKey();
+    expectedKey1.setUsername("tester1");
+    EnvelopedAspect envelopedKey1 = readEntityResponse1.getAspects().get(keyName);
+    assertTrue(DataTemplateUtil.areEqual(expectedKey1, new CorpUserKey(envelopedKey1.getValue().data())));
+
+    // Entity 2
+    EntityResponse readEntityResponse2 = readEntities.get(entityUrn2);
+    assertEquals(2, readEntityResponse2.getAspects().size()); // Key + Info aspect.
+    EnvelopedAspect envelopedAspect2 = readEntityResponse2.getAspects().get(aspectName);
+    assertEquals(envelopedAspect2.getName(), aspectName);
+    assertTrue(
+        DataTemplateUtil.areEqual(writeEntity2.getValue().getCorpUserSnapshot().getAspects().get(0).getCorpUserInfo(),
+            new CorpUserInfo(envelopedAspect2.getValue().data())));
+    CorpUserKey expectedKey2 = new CorpUserKey();
+    expectedKey2.setUsername("tester2");
+    EnvelopedAspect envelopedKey2 = readEntityResponse2.getAspects().get(keyName);
+    assertTrue(DataTemplateUtil.areEqual(expectedKey2, new CorpUserKey(envelopedKey2.getValue().data())));
+
     verify(_mockProducer, times(2)).produceMetadataAuditEvent(Mockito.eq(entityUrn1), Mockito.eq(null), Mockito.any(),
         Mockito.any(), Mockito.any(), Mockito.eq(MetadataAuditOperation.UPDATE));
 
@@ -255,6 +361,22 @@ public class EbeanEntityServiceTest {
     RecordTemplate readAspect1 = _entityService.getLatestAspect(entityUrn, aspectName);
     assertTrue(DataTemplateUtil.areEqual(writeAspect1, readAspect1));
 
+    ArgumentCaptor<MetadataChangeLog> mclCaptor = ArgumentCaptor.forClass(MetadataChangeLog.class);
+    verify(_mockProducer, times(1)).produceMetadataChangeLog(Mockito.eq(entityUrn), Mockito.any(), mclCaptor.capture());
+    MetadataChangeLog mcl = mclCaptor.getValue();
+    assertEquals(mcl.getEntityType(), "corpuser");
+    assertNull(mcl.getPreviousAspectValue());
+    assertNull(mcl.getPreviousSystemMetadata());
+    assertEquals(mcl.getChangeType(), ChangeType.UPSERT);
+
+    verify(_mockProducer, times(1)).produceMetadataAuditEvent(Mockito.eq(entityUrn), Mockito.any(), Mockito.any(),
+        Mockito.any(), Mockito.any(), Mockito.eq(MetadataAuditOperation.UPDATE));
+
+    verifyNoMoreInteractions(_mockProducer);
+
+    reset(_mockProducer);
+
+
     // Ingest CorpUserInfo Aspect #2
     CorpUserInfo writeAspect2 = createCorpUserInfo("email2@test.com");
 
@@ -265,6 +387,53 @@ public class EbeanEntityServiceTest {
     EbeanAspectV2 readEbean2 = _aspectDao.getAspect(entityUrn.toString(), aspectName, 0);
 
     assertTrue(DataTemplateUtil.areEqual(writeAspect2, readAspect2));
+    assertTrue(DataTemplateUtil.areEqual(EbeanUtils.parseSystemMetadata(readEbean2.getSystemMetadata()), metadata2));
+    assertTrue(DataTemplateUtil.areEqual(EbeanUtils.parseSystemMetadata(readEbean1.getSystemMetadata()), metadata1));
+
+    verify(_mockProducer, times(1)).produceMetadataChangeLog(Mockito.eq(entityUrn), Mockito.any(), mclCaptor.capture());
+    mcl = mclCaptor.getValue();
+    assertEquals(mcl.getEntityType(), "corpuser");
+    assertNotNull(mcl.getPreviousAspectValue());
+    assertNotNull(mcl.getPreviousSystemMetadata());
+    assertEquals(mcl.getChangeType(), ChangeType.UPSERT);
+
+    verify(_mockProducer, times(1)).produceMetadataAuditEvent(Mockito.eq(entityUrn), Mockito.notNull(), Mockito.any(),
+        Mockito.any(), Mockito.any(), Mockito.eq(MetadataAuditOperation.UPDATE));
+
+    verifyNoMoreInteractions(_mockProducer);
+  }
+
+  @Test
+  public void testIngestGetLatestEnvelopedAspect() throws Exception {
+    Urn entityUrn = Urn.createFromString("urn:li:corpuser:test");
+
+    // Ingest CorpUserInfo Aspect #1
+    CorpUserInfo writeAspect1 = createCorpUserInfo("email@test.com");
+    String aspectName = PegasusUtils.getAspectNameFromSchema(writeAspect1.schema());
+
+    SystemMetadata metadata1 = new SystemMetadata();
+    metadata1.setLastObserved(1625792689);
+    metadata1.setRunId("run-123");
+
+    SystemMetadata metadata2 = new SystemMetadata();
+    metadata2.setLastObserved(1635792689);
+    metadata2.setRunId("run-456");
+
+    // Validate retrieval of CorpUserInfo Aspect #1
+    _entityService.ingestAspect(entityUrn, aspectName, writeAspect1, TEST_AUDIT_STAMP, metadata1);
+    EnvelopedAspect readAspect1 = _entityService.getLatestEnvelopedAspect("corpuser", entityUrn, aspectName);
+    assertTrue(DataTemplateUtil.areEqual(writeAspect1, new CorpUserInfo(readAspect1.getValue().data())));
+
+    // Ingest CorpUserInfo Aspect #2
+    CorpUserInfo writeAspect2 = createCorpUserInfo("email2@test.com");
+
+    // Validate retrieval of CorpUserInfo Aspect #2
+    _entityService.ingestAspect(entityUrn, aspectName, writeAspect2, TEST_AUDIT_STAMP, metadata2);
+    EnvelopedAspect readAspect2 = _entityService.getLatestEnvelopedAspect("corpuser", entityUrn, aspectName);
+    EbeanAspectV2 readEbean1 = _aspectDao.getAspect(entityUrn.toString(), aspectName, 1);
+    EbeanAspectV2 readEbean2 = _aspectDao.getAspect(entityUrn.toString(), aspectName, 0);
+
+    assertTrue(DataTemplateUtil.areEqual(writeAspect2, new CorpUserInfo(readAspect2.getValue().data())));
     assertTrue(DataTemplateUtil.areEqual(EbeanUtils.parseSystemMetadata(readEbean2.getSystemMetadata()), metadata2));
     assertTrue(DataTemplateUtil.areEqual(EbeanUtils.parseSystemMetadata(readEbean1.getSystemMetadata()), metadata1));
 
@@ -298,6 +467,21 @@ public class EbeanEntityServiceTest {
     RecordTemplate readAspect1 = _entityService.getLatestAspect(entityUrn, aspectName);
     assertTrue(DataTemplateUtil.areEqual(writeAspect1, readAspect1));
 
+    ArgumentCaptor<MetadataChangeLog> mclCaptor = ArgumentCaptor.forClass(MetadataChangeLog.class);
+    verify(_mockProducer, times(1)).produceMetadataChangeLog(Mockito.eq(entityUrn), Mockito.any(), mclCaptor.capture());
+    MetadataChangeLog mcl = mclCaptor.getValue();
+    assertEquals(mcl.getEntityType(), "corpuser");
+    assertNull(mcl.getPreviousAspectValue());
+    assertNull(mcl.getPreviousSystemMetadata());
+    assertEquals(mcl.getChangeType(), ChangeType.UPSERT);
+
+    verify(_mockProducer, times(1)).produceMetadataAuditEvent(Mockito.eq(entityUrn), Mockito.eq(null), Mockito.any(),
+        Mockito.any(), Mockito.any(), Mockito.eq(MetadataAuditOperation.UPDATE));
+
+    verifyNoMoreInteractions(_mockProducer);
+
+    reset(_mockProducer);
+
     // Ingest CorpUserInfo Aspect #2
     CorpUserInfo writeAspect2 = createCorpUserInfo("email@test.com");
 
@@ -316,8 +500,7 @@ public class EbeanEntityServiceTest {
 
     assertTrue(DataTemplateUtil.areEqual(EbeanUtils.parseSystemMetadata(readEbean2.getSystemMetadata()), metadata3));
 
-    verify(_mockProducer, times(1)).produceMetadataAuditEvent(Mockito.eq(entityUrn), Mockito.eq(null), Mockito.any(),
-        Mockito.any(), Mockito.any(), Mockito.eq(MetadataAuditOperation.UPDATE));
+    verify(_mockProducer, times(0)).produceMetadataChangeLog(Mockito.eq(entityUrn), Mockito.any(), mclCaptor.capture());
 
     verify(_mockProducer, times(0)).produceMetadataAuditEvent(Mockito.eq(entityUrn), Mockito.notNull(), Mockito.any(),
         Mockito.any(), Mockito.any(), Mockito.eq(MetadataAuditOperation.UPDATE));

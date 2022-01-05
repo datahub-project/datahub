@@ -1,0 +1,23 @@
+namespace com.linkedin.entity
+
+import com.linkedin.common.Urn
+
+/**
+ * A DataHub 'entity', which is comprised of a set of latest aspects present for the aspect.
+ **/
+record EntityResponse {
+  /**
+   * The entity name
+   **/
+  entityName: string
+
+  /**
+   * The entity urn
+   **/
+  urn: Urn
+
+  /**
+   * A map of aspect name to aspect
+   **/
+  aspects: map[string, EnvelopedAspect]
+}

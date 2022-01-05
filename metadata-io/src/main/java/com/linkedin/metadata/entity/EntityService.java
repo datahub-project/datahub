@@ -11,6 +11,10 @@ import com.linkedin.data.schema.TyperefDataSchema;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.UnionTemplate;
 import com.linkedin.entity.Entity;
+import com.linkedin.entity.EntityResponse;
+import com.linkedin.entity.EnvelopedAspect;
+import com.linkedin.entity.EnvelopedAspectMap;
+import com.linkedin.metadata.utils.PegasusUtils;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.dao.exception.ModelConversionException;
@@ -26,7 +30,6 @@ import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.metadata.utils.DataPlatformInstanceUtils;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericAspectUtils;
-import com.linkedin.metadata.utils.PegasusUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataAuditOperation;
 import com.linkedin.mxe.MetadataChangeLog;
@@ -77,8 +80,8 @@ import static com.linkedin.metadata.utils.PegasusUtils.urnToEntityName;
  * of a given aspect + 1.
  *
  * Note that currently, implementations of this interface are responsible for producing Metadata Audit Events on
- * ingestion using {@link #produceMetadataAuditEvent(
- *Urn, RecordTemplate, RecordTemplate, SystemMetadata, SystemMetadata, MetadataAuditOperation)}.
+ * ingestion using {@link #produceMetadataChangeLog(Urn, String, String, AspectSpec, RecordTemplate, RecordTemplate,
+ * SystemMetadata, SystemMetadata, ChangeType)}.
  *
  * TODO: Consider whether we can abstract away virtual versioning semantics to subclasses of this class.
  * TODO: Extract out a nested 'AspectService'.
@@ -116,7 +119,8 @@ public abstract class EntityService {
    * @param aspectNames aspects to fetch for each urn in urns set
    * @return a map of provided {@link Urn} to a List containing the requested aspects.
    */
-  public abstract Map<Urn, List<RecordTemplate>> getLatestAspects(@Nonnull final Set<Urn> urns,
+  public abstract Map<Urn, List<RecordTemplate>> getLatestAspects(
+      @Nonnull final Set<Urn> urns,
       @Nonnull final Set<String> aspectNames);
 
   /**
@@ -132,6 +136,66 @@ public abstract class EntityService {
    */
   @Nullable
   public abstract RecordTemplate getAspect(@Nonnull final Urn urn, @Nonnull final String aspectName, long version);
+
+  /**
+   * Retrieves the latest aspects for the given set of urns as dynamic aspect objects
+   * (Without having to define union objects)
+   *
+   * @param entityName name of the entity to fetch
+   * @param urns set of urns to fetch
+   * @param aspectNames set of aspects to fetch
+   * @return a map of {@link Urn} to {@link Entity} object
+   */
+  public Map<Urn, EntityResponse> getEntitiesV2(
+      @Nonnull final String entityName,
+      @Nonnull final Set<Urn> urns,
+      @Nonnull final Set<String> aspectNames) throws Exception {
+    return getLatestEnvelopedAspects(entityName, urns, aspectNames)
+        .entrySet()
+        .stream()
+        .collect(Collectors.toMap(Map.Entry::getKey, entry -> toEntityResponse(entry.getKey(), entry.getValue())));
+  }
+
+  /**
+   * Retrieves the latest aspects for the given set of urns as a list of enveloped aspects
+   *
+   * @param entityName name of the entity to fetch
+   * @param urns set of urns to fetch
+   * @param aspectNames set of aspects to fetch
+   * @return a map of {@link Urn} to {@link EnvelopedAspect} object
+   */
+  public abstract Map<Urn, List<EnvelopedAspect>> getLatestEnvelopedAspects(
+      @Nonnull final String entityName,
+      @Nonnull final Set<Urn> urns,
+      @Nonnull final Set<String> aspectNames) throws Exception;
+
+  /**
+   * Retrieves the latest aspect for the given urn as a list of enveloped aspects
+   *
+   * @param entityName name of the entity to fetch
+   * @param urn urn to fetch
+   * @param aspectName name of the aspect to fetch
+   * @return {@link EnvelopedAspect} object, or null if one cannot be found
+   */
+  public abstract EnvelopedAspect getLatestEnvelopedAspect(
+      @Nonnull final String entityName,
+      @Nonnull final Urn urn,
+      @Nonnull final String aspectName) throws Exception;
+
+  /**
+   * Retrieves the specific version of the aspect for the given urn
+   *
+   * @param entityName name of the entity to fetch
+   * @param urn urn to fetch
+   * @param aspectName name of the aspect to fetch
+   * @param version version to fetch
+   * @return {@link EnvelopedAspect} object, or null if one cannot be found
+   */
+  public abstract EnvelopedAspect getEnvelopedAspect(
+      @Nonnull final String entityName,
+      @Nonnull final Urn urn,
+      @Nonnull final String aspectName,
+      long version) throws Exception;
 
   /**
    * Retrieves an {@link VersionedAspect}, or null if one cannot be found.
@@ -199,6 +263,8 @@ public abstract class EntityService {
 
     final RecordTemplate oldValue = result.getOldValue();
     final RecordTemplate updatedValue = result.getNewValue();
+    final SystemMetadata oldSystemMetadata = result.getOldSystemMetadata();
+    final SystemMetadata updatedSystemMetadata = result.getNewSystemMetadata();
 
     // Apply retention policies asynchronously if there was an update to existing aspect value
     if (oldValue != updatedValue && oldValue != null && retentionService != null) {
@@ -208,14 +274,23 @@ public abstract class EntityService {
 
     // Produce MAE after a successful update
     if (oldValue != updatedValue || _alwaysEmitAuditEvent) {
-      log.debug(String.format("Producing MetadataAuditEvent for ingested aspect %s, urn %s", aspectName, urn));
-      Timer.Context produceMAETimer = MetricUtils.timer(this.getClass(), "produceMAE").time();
-      if (aspectName.equals(getKeyAspectName(urn))) {
-        produceMetadataAuditEventForKey(urn, result.getNewSystemMetadata());
-      } else {
-        produceMetadataAuditEvent(urn, oldValue, updatedValue, result.getOldSystemMetadata(),
-            result.getNewSystemMetadata(), MetadataAuditOperation.UPDATE);
+      log.debug(String.format("Producing MetadataChangeLog for ingested aspect %s, urn %s", aspectName, urn));
+      String entityName = urnToEntityName(urn);
+      EntitySpec entitySpec = getEntityRegistry().getEntitySpec(entityName);
+      AspectSpec aspectSpec = entitySpec.getAspectSpec(aspectName);
+      if (aspectSpec == null) {
+        throw new RuntimeException(String.format("Unknown aspect %s for entity %s", aspectName, entityName));
       }
+
+      Timer.Context produceMCLTimer = MetricUtils.timer(this.getClass(), "produceMCL").time();
+      produceMetadataChangeLog(urn, entityName, aspectName, aspectSpec, oldValue, updatedValue, oldSystemMetadata,
+          updatedSystemMetadata, ChangeType.UPSERT);
+      produceMCLTimer.stop();
+
+      // For legacy reasons, keep producing to the MAE event stream without blocking ingest
+      Timer.Context produceMAETimer = MetricUtils.timer(this.getClass(), "produceMAE").time();
+      produceMetadataAuditEvent(urn, aspectName, oldValue, updatedValue, result.getOldSystemMetadata(),
+          result.getNewSystemMetadata(), MetadataAuditOperation.UPDATE);
       produceMAETimer.stop();
     } else {
       log.debug(
@@ -235,7 +310,8 @@ public abstract class EntityService {
     return ingestAspect(urn, aspectName, newValue, auditStamp, generatedSystemMetadata);
   }
 
-  public IngestProposalResult ingestProposal(@Nonnull MetadataChangeProposal metadataChangeProposal, AuditStamp auditStamp) {
+  public IngestProposalResult ingestProposal(@Nonnull MetadataChangeProposal metadataChangeProposal,
+      AuditStamp auditStamp) {
 
     log.debug("entity type = {}", metadataChangeProposal.getEntityType());
     EntitySpec entitySpec = getEntityRegistry().getEntitySpec(metadataChangeProposal.getEntityType());
@@ -388,24 +464,35 @@ public abstract class EntityService {
         .collect(Collectors.toMap(Map.Entry::getKey, entry -> toEntity(entry.getValue())));
   }
 
-  /**
-   * Produce metadata audit event and push.
-   *
-   * @param urn Urn to push
-   * @param oldAspectValue Value of aspect before the update.
-   * @param newAspectValue Value of aspect after the update
-   */
-  public void produceMetadataAuditEvent(@Nonnull final Urn urn, @Nullable final RecordTemplate oldAspectValue,
-      @Nullable final RecordTemplate newAspectValue, @Nullable final SystemMetadata oldSystemMetadata,
-      @Nullable final SystemMetadata newSystemMetadata, @Nullable final MetadataAuditOperation operation) {
-
-    final Snapshot newSnapshot = buildSnapshot(urn, newAspectValue);
-    Snapshot oldSnapshot = null;
-    if (oldAspectValue != null) {
-      oldSnapshot = buildSnapshot(urn, oldAspectValue);
+  public void produceMetadataAuditEvent(@Nonnull final Urn urn, @Nonnull final String aspectName,
+      @Nullable final RecordTemplate oldAspectValue, @Nullable final RecordTemplate newAspectValue,
+      @Nullable final SystemMetadata oldSystemMetadata, @Nullable final SystemMetadata newSystemMetadata,
+      @Nullable final MetadataAuditOperation operation) {
+    log.debug(String.format("Producing MetadataAuditEvent for ingested aspect %s, urn %s", aspectName, urn));
+    if (aspectName.equals(getKeyAspectName(urn))) {
+      produceMetadataAuditEventForKey(urn, newSystemMetadata);
+    } else {
+      final Snapshot newSnapshot = buildSnapshot(urn, newAspectValue);
+      Snapshot oldSnapshot = null;
+      if (oldAspectValue != null) {
+        oldSnapshot = buildSnapshot(urn, oldAspectValue);
+      }
+      _producer.produceMetadataAuditEvent(urn, oldSnapshot, newSnapshot, oldSystemMetadata, newSystemMetadata,
+          operation);
     }
+  }
 
-    _producer.produceMetadataAuditEvent(urn, oldSnapshot, newSnapshot, oldSystemMetadata, newSystemMetadata, operation);
+  protected Snapshot buildKeySnapshot(@Nonnull final Urn urn) {
+    final RecordTemplate keyAspectValue = buildKeyAspect(urn);
+    return toSnapshotUnion(toSnapshotRecord(urn, ImmutableList.of(toAspectUnion(urn, keyAspectValue))));
+  }
+
+  public void produceMetadataAuditEventForKey(@Nonnull final Urn urn,
+      @Nullable final SystemMetadata newSystemMetadata) {
+
+    final Snapshot newSnapshot = buildKeySnapshot(urn);
+
+    _producer.produceMetadataAuditEvent(urn, null, newSnapshot, null, newSystemMetadata, MetadataAuditOperation.UPDATE);
   }
 
   /**
@@ -443,14 +530,6 @@ public abstract class EntityService {
       metadataChangeLog.setPreviousSystemMetadata(oldSystemMetadata);
     }
     produceMetadataChangeLog(urn, aspectSpec, metadataChangeLog);
-  }
-
-  public void produceMetadataAuditEventForKey(@Nonnull final Urn urn,
-      @Nullable final SystemMetadata newSystemMetadata) {
-
-    final Snapshot newSnapshot = buildKeySnapshot(urn);
-
-    _producer.produceMetadataAuditEvent(urn, null, newSnapshot, null, newSystemMetadata, MetadataAuditOperation.UPDATE);
   }
 
   public RecordTemplate getLatestAspect(@Nonnull final Urn urn, @Nonnull final String aspectName) {
@@ -496,7 +575,8 @@ public abstract class EntityService {
   }
 
   @Nonnull
-  protected Map<Urn, List<UnionTemplate>> getLatestAspectUnions(@Nonnull final Set<Urn> urns,
+  protected Map<Urn, List<UnionTemplate>> getLatestAspectUnions(
+      @Nonnull final Set<Urn> urns,
       @Nonnull final Set<String> aspectNames) {
     return getLatestAspects(urns, aspectNames).entrySet()
         .stream()
@@ -566,11 +646,6 @@ public abstract class EntityService {
         toSnapshotRecord(urn, ImmutableList.of(toAspectUnion(urn, keyAspectValue), toAspectUnion(urn, aspectValue))));
   }
 
-  protected Snapshot buildKeySnapshot(@Nonnull final Urn urn) {
-    final RecordTemplate keyAspectValue = buildKeyAspect(urn);
-    return toSnapshotUnion(toSnapshotRecord(urn, ImmutableList.of(toAspectUnion(urn, keyAspectValue))));
-  }
-
   protected RecordTemplate buildKeyAspect(@Nonnull final Urn urn) {
     final EntitySpec spec = _entityRegistry.getEntitySpec(urnToEntityName(urn));
     final AspectSpec keySpec = spec.getKeyAspectSpec();
@@ -638,6 +713,16 @@ public abstract class EntityService {
     }
   }
 
+  private EntityResponse toEntityResponse(final Urn urn, final List<EnvelopedAspect> envelopedAspects) {
+    final EntityResponse response = new EntityResponse();
+    response.setUrn(urn);
+    response.setEntityName(urnToEntityName(urn));
+    response.setAspects(new EnvelopedAspectMap(
+        envelopedAspects.stream().collect(Collectors.toMap(EnvelopedAspect::getName, aspect -> aspect))
+    ));
+    return response;
+  }
+
   private Map<String, Set<String>> buildEntityToValidAspects(final EntityRegistry entityRegistry) {
     return entityRegistry.getEntitySpecs()
         .values()
@@ -662,7 +747,7 @@ public abstract class EntityService {
     return getEntityAspectNames(urnToEntityName(entityUrn));
   }
 
-  protected Set<String> getEntityAspectNames(final String entityName) {
+  public Set<String> getEntityAspectNames(final String entityName) {
     return _entityToValidAspects.get(entityName);
   }
 

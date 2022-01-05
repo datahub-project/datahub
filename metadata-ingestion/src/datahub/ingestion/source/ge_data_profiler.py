@@ -22,6 +22,8 @@ except ImportError:
     pass
 
 import pydantic
+import sqlalchemy as sa
+from great_expectations.core.util import convert_to_json_serializable
 from great_expectations.data_context import BaseDataContext
 from great_expectations.data_context.types.base import (
     DataContextConfig,
@@ -34,6 +36,7 @@ from great_expectations.datasource.sqlalchemy_datasource import SqlAlchemyDataso
 from great_expectations.profile.base import OrderedProfilerCardinality, ProfilerDataType
 from great_expectations.profile.basic_dataset_profiler import BasicDatasetProfilerBase
 from sqlalchemy.engine import Connection, Engine
+from sqlalchemy.exc import ProgrammingError
 from typing_extensions import Concatenate, ParamSpec
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
@@ -95,6 +98,59 @@ def _inject_connection_into_datasource(conn: Connection) -> Iterator[None]:
 class GEProfilerRequest:
     pretty_name: str
     batch_kwargs: dict
+
+
+def get_column_unique_count_patch(self, column):
+    if self.engine.dialect.name.lower() == "redshift":
+        element_values = self.engine.execute(
+            sa.select(
+                [sa.text(f"APPROXIMATE count(distinct {column})")]  # type:ignore
+            ).select_from(self._table)
+        )
+        return convert_to_json_serializable(element_values.fetchone()[0])
+    elif self.engine.dialect.name.lower() == "bigquery":
+        element_values = self.engine.execute(
+            sa.select(
+                [sa.text(f"APPROX_COUNT_DISTINCT ({column})")]  # type:ignore
+            ).select_from(self._table)
+        )
+        return convert_to_json_serializable(element_values.fetchone()[0])
+    elif self.engine.dialect.name.lower() == "snowflake":
+        element_values = self.engine.execute(
+            sa.select(
+                [sa.text(f"APPROX_COUNT_DISTINCT({column})")]  # type:ignore
+            ).select_from(self._table)
+        )
+        return convert_to_json_serializable(element_values.fetchone()[0])
+    return convert_to_json_serializable(
+        self.engine.execute(
+            sa.select([sa.func.count(sa.func.distinct(sa.column(column)))]).select_from(
+                self._table
+            )
+        ).scalar()
+    )
+
+
+def _get_column_quantiles_bigquery_patch(  # type:ignore
+    self, column: str, quantiles: Iterable
+) -> list:
+    quantile_queries = list()
+    for quantile in quantiles:
+        quantile_queries.append(
+            sa.text(f"approx_quantiles({column}, 100) OFFSET [{round(quantile * 100)}]")
+        )
+
+    quantiles_query = sa.select(quantile_queries).select_from(  # type:ignore
+        self._table
+    )
+    try:
+        quantiles_results = self.engine.execute(quantiles_query).fetchone()
+        return list(quantiles_results)
+
+    except ProgrammingError as pe:
+        # This treat quantile exception will raise a formatted exception and there won't be any return value here
+        self._treat_quantiles_exception(pe)
+        return list()
 
 
 class GEProfilingConfig(ConfigModel):
@@ -422,6 +478,7 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
 
             res = self.dataset.expect_column_quantile_values_to_be_between(
                 column,
+                allow_relative_error=True,
                 quantile_ranges={
                     "quantiles": quantiles,
                     "value_ranges": [[None, None]] * len(quantiles),
@@ -532,15 +589,23 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
 
             if self.config.include_field_null_count and non_null_count is not None:
                 null_count = row_count - non_null_count
-                assert null_count >= 0
+                if null_count < 0:
+                    null_count = 0
+
                 column_profile.nullCount = null_count
                 if row_count > 0:
                     column_profile.nullProportion = null_count / row_count
+                    # Sometimes this value is bigger than 1 because of the approx queries
+                    if column_profile.nullProportion > 1:
+                        column_profile.nullProportion = 1
 
             if unique_count is not None:
                 column_profile.uniqueCount = unique_count
                 if non_null_count is not None and non_null_count > 0:
                     column_profile.uniqueProportion = unique_count / non_null_count
+                    # Sometimes this value is bigger than 1 because of the approx queries
+                    if column_profile.uniqueProportion > 1:
+                        column_profile.uniqueProportion = 1
 
             self._get_dataset_column_sample_values(column_profile, column)
 
@@ -704,27 +769,34 @@ class DatahubGEProfiler:
             logger.info(
                 f"Will profile {len(requests)} table(s) with {max_workers} worker(s) - this may take a while"
             )
+            with unittest.mock.patch(
+                "great_expectations.dataset.sqlalchemy_dataset.SqlAlchemyDataset.get_column_unique_count",
+                get_column_unique_count_patch,
+            ):
+                with unittest.mock.patch(
+                    "great_expectations.dataset.sqlalchemy_dataset.SqlAlchemyDataset._get_column_quantiles_bigquery",
+                    _get_column_quantiles_bigquery_patch,
+                ):
+                    async_profiles = [
+                        async_executor.submit(
+                            self._generate_profile_from_request,
+                            query_combiner,
+                            request,
+                        )
+                        for request in requests
+                    ]
 
-            async_profiles = [
-                async_executor.submit(
-                    self._generate_profile_from_request,
-                    query_combiner,
-                    request,
-                )
-                for request in requests
-            ]
+                    # Avoid using as_completed so that the results are yielded in the
+                    # same order as the requests.
+                    # for async_profile in concurrent.futures.as_completed(async_profiles):
+                    for async_profile in async_profiles:
+                        yield async_profile.result()
 
-            # Avoid using as_completed so that the results are yielded in the
-            # same order as the requests.
-            # for async_profile in concurrent.futures.as_completed(async_profiles):
-            for async_profile in async_profiles:
-                yield async_profile.result()
+                    logger.info(
+                        f"Profiling {len(requests)} table(s) finished in {(timer.elapsed_seconds()):.3f} seconds"
+                    )
 
-            logger.info(
-                f"Profiling {len(requests)} table(s) finished in {(timer.elapsed_seconds()):.3f} seconds"
-            )
-
-            self.report.report_from_query_combiner(query_combiner.report)
+                    self.report.report_from_query_combiner(query_combiner.report)
 
     def _generate_profile_from_request(
         self,
