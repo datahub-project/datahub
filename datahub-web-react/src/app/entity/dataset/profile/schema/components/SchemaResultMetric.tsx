@@ -56,8 +56,8 @@ export default function SchemaResultMetric({ data }: Props) {
                             <Row key={e.timestamp}>
                                 <Col xs={8} sm={8} md={8} lg={8} xl={8}>{`Timestamp: ${e.timestamp}`}</Col>
                                 <Col xs={14} sm={14} md={14} lg={14} xl={14}>
-                                    {`Element Count: ${e.elementCount} | Unexpected Cound: ${e.unexpectedCount} | 
-                                    Unexpected Percent: ${e.unexpectedPercent}% | Missing Count: ${e.missingCound}`}
+                                    {`Element Count: ${e.elementCount} | Unexpected Count: ${e.unexpectedCount} | 
+                                    Unexpected Percent: ${e.unexpectedPercent}% | Missing Count: ${e.missingCount}`}
                                 </Col>
                             </Row>
                         );

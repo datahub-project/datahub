@@ -12,7 +12,7 @@ export type ResultMetrics = {
     /** count of records which satisfy unexpected precent of the constraint applied */
     unexpectedPercent: number;
     /** count of records which satisfy missing count of the constraint applied */
-    missingCound: number;
+    missingCount: number;
 };
 
 /** Data Quality- Constraints  */
