@@ -100,8 +100,7 @@
     "id": 1,
     "email": "admin@metabase.com",
     "first_name": "FirstName",
-    "last_name": "LastName",
-    "timestamp": "2021-12-13T17:48:37.11"
+    "last_name": "LastName"
   },
   "visualization_settings": {
     "graph.series_labels": ["number"],
