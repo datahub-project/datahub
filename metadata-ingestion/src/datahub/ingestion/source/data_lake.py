@@ -86,7 +86,7 @@ logging.getLogger("py4j").setLevel(logging.ERROR)
 logger: logging.Logger = logging.getLogger(__name__)
 
 
-NUM_SAMPLE_ROWS = 3
+NUM_SAMPLE_ROWS = 20
 QUANTILES = [0.05, 0.25, 0.5, 0.75, 0.95]
 MAX_HIST_BINS = 25
 
@@ -205,7 +205,6 @@ class DataLakeProfilerConfig(ConfigModel):
         if values.get("turn_off_expensive_profiling_metrics"):
             if not values.get(table_level_profiling_only_key):
                 expensive_field_level_metrics: List[str] = [
-                    "include_field_quantiles",
                     "include_field_distinct_value_frequencies",
                     "include_field_histogram",
                     "include_field_sample_values",
@@ -234,7 +233,7 @@ class DataLakeSourceConfig(ConfigModel):
 
     profiling: DataLakeProfilerConfig = DataLakeProfilerConfig()
 
-    spark_driver_memory: Optional[str] = "4g"
+    spark_driver_memory: str = "4g"
 
     @pydantic.root_validator()
     def ensure_profiling_pattern_is_passed_to_profiling(
@@ -384,7 +383,11 @@ class _SingleTableProfiler:
 
         if self.profiling_config.include_field_sample_values:
             # take sample and convert to Pandas DataFrame
-            rdd_sample = dataframe.rdd.takeSample(False, NUM_SAMPLE_ROWS, seed=0)
+            if self.row_count < NUM_SAMPLE_ROWS:
+                # if row count is less than number to sample, just take all rows
+                rdd_sample = dataframe.rdd.take(self.row_count)
+            else:
+                rdd_sample = dataframe.rdd.takeSample(False, NUM_SAMPLE_ROWS, seed=0)
 
         # init column specs with profiles
         for column in self.columns_to_profile:

@@ -14,11 +14,9 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
 from datahub.metadata.schema_classes import UsageAggregationClass
 
 try:
-    from black import FileMode, format_str
+    import black
 except ImportError:
-    has_black = False
-else:
-    has_black = True
+    black = None
 
 
 class WorkUnitRecordExtractor(Extractor):
@@ -53,8 +51,8 @@ class WorkUnitRecordExtractor(Extractor):
 
                 invalid_mce = str(workunit.metadata)
 
-                if has_black:
-                    invalid_mce = format_str(invalid_mce, mode=FileMode())
+                if black is not None:
+                    invalid_mce = black.format_str(invalid_mce, mode=black.FileMode())
 
                 raise ValueError(
                     f"source produced an invalid metadata work unit: {invalid_mce}"
@@ -71,9 +69,9 @@ class WorkUnitRecordExtractor(Extractor):
 
                 invalid_usage_stats = str(workunit.usageStats)
 
-                if has_black:
-                    invalid_usage_stats = format_str(
-                        invalid_usage_stats, mode=FileMode()
+                if black is not None:
+                    invalid_usage_stats = black.format_str(
+                        invalid_usage_stats, mode=black.FileMode()
                     )
 
                 raise ValueError(
