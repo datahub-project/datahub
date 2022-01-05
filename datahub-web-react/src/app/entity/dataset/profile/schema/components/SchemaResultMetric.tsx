@@ -3,7 +3,7 @@ import { Col, Row } from 'antd';
 import { ColumnsType } from 'antd/es/table';
 import styled from 'styled-components';
 import { StyledTable } from '../../../../shared/components/styled/StyledTable';
-import { Constraints } from '../../../../../../types.generated';
+import { Constraints } from '../utils/types';
 import SchemaResultMetricChart from './SchemaResultMetricChart';
 
 export type Props = {

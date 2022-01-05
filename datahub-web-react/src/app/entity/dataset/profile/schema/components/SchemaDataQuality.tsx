@@ -3,9 +3,8 @@ import { Typography } from 'antd';
 import styled from 'styled-components';
 import { ColumnsType } from 'antd/es/table';
 import { ANTD_GRAY } from '../../../../shared/constants';
-import { ExtendedDataQualitySchemaFields } from '../utils/types';
+import { ExtendedDataQualitySchemaFields, Constraints } from '../utils/types';
 import { StyledTable } from '../../../../shared/components/styled/StyledTable';
-import { Constraints } from '../../../../../../types.generated';
 import SchemaResultMetric from './SchemaResultMetric';
 
 export type Props = {
