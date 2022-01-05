@@ -40,5 +40,6 @@ record DatahubIngestionCheckpoint includes TimeseriesAspectBase {
   /**
    * The run identifier of this job.
    */
+  @TimeseriesField = {}
   runId: string
 }

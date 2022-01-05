@@ -6,6 +6,43 @@ For context on getting started with ingestion, check out our [metadata ingestion
 
 To install this plugin, run `pip install 'acryl-datahub[snowflake]'`.
 
+### Prerequisites
+
+In order to execute this source, your Snowflake user will need to have specific privileges granted to it for reading metadata
+from your warehouse. You can create a DataHub-specific role, assign it the required privileges, and assign it to a new DataHub user 
+by executing the following Snowflake commands from a user with the `ACCOUNTADMIN` role: 
+
+```sql
+create or replace role datahub_role;
+
+// Grant privileges to use and select from your target warehouses / dbs / schemas / tables
+grant operate, usage on warehouse <your-warehouse> to role datahub_role;
+grant usage on <your-database> to role datahub_role;
+grant usage on all schemas in database <your-database> to role datahub_role; 
+grant select on all tables in database <your-database> to role datahub_role; 
+grant select on all external tables in database <your-database> to role datahub_role;
+grant select on all views in database <your-database> to role datahub_role;
+
+// Grant privileges for all future schemas and tables created in a warehouse 
+grant usage on future schemas in database "<your-database>" to role datahub_role;
+grant select on future tables in database "<your-database>" to role datahub_role;
+
+// Create a new DataHub user and assign the DataHub role to it 
+create user datahub_user display_name = 'DataHub' password='' default_role = datahub_role default_warehouse = '<your-warehouse>';
+
+// Grant the datahub_role to the new DataHub user. 
+grant role datahub_role to user datahub_user;
+```
+
+This represents the bare minimum privileges required to extract databases, schemas, views, tables from Snowflake. 
+
+If you plan to enable extraction of table lineage, via the `include_table_lineage` config flag, you'll also need to grant privileges
+to access the Snowflake Account Usage views. You can execute the following using the `ACCOUNTADMIN` role to do so:
+
+```sql
+grant imported privileges on database snowflake to role datahub_role;
+```
+
 ## Capabilities
 
 This plugin extracts the following:
@@ -46,8 +83,11 @@ sink:
 
 ## Config details
 
-Note that a `.` is used to denote nested fields in the YAML recipe.
+Like all SQL-based sources, the Snowflake integration supports:
+- Stale Metadata Deletion: See [here](./stateful_ingestion.md) for more details on configuration.
+- SQL Profiling: See [here](./sql_profiles.md) for more details on configuration.
 
+Note that a `.` is used to denote nested fields in the YAML recipe.
 
 | Field                         | Required | Default                                                                     | Description                                                                                                                                                                             |
 | ----------------------------- | -------- | --------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -84,15 +124,26 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 
 Table lineage requires Snowflake's [Access History](https://docs.snowflake.com/en/user-guide/access-history.html) feature.
 
-## Snowflake Usage Stats
+# Snowflake Usage Stats
 
 For context on getting started with ingestion, check out our [metadata ingestion guide](../README.md).
 
-### Setup
+## Setup
 
 To install this plugin, run `pip install 'acryl-datahub[snowflake-usage]'`.
 
-### Capabilities
+### Prerequisites 
+
+In order to execute the snowflake-usage source, your Snowflake user will need to have specific privileges granted to it. Specifically,
+you'll need to grant access to the [Account Usage](https://docs.snowflake.com/en/sql-reference/account-usage.html) system tables, using which the DataHub source extracts information. Assuming
+you've followed the steps outlined above to create a DataHub-specific User & Role, you'll simply need to execute the following commands
+in Snowflake from a user with the `ACCOUNTADMIN` role: 
+
+```sql
+grant imported privileges on database snowflake to role datahub_role;
+```
+
+## Capabilities
 
 This plugin extracts the following:
 
@@ -109,7 +160,7 @@ This source only does usage statistics. To get the tables, views, and schemas in
 
 :::
 
-### Quickstart recipe
+## Quickstart recipe
 
 Check out the following recipe to get started with ingestion! See [below](#config-details) for full configuration options.
 
@@ -130,33 +181,45 @@ source:
 
     # Options
     top_n_queries: 10
-
+    email_domain: mycompany.com
 sink:
   # sink configs
 ```
 
-### Config details
+## Config details
+
+Snowflake integration also supports prevention of redundant reruns for the same data. See [here](./stateful_ingestion.md) for more details on configuration.
 
 Note that a `.` is used to denote nested fields in the YAML recipe.
 
 
-| Field             | Required | Default                                                             | Description                                                     |
-| ----------------- | -------- | --------------------------------------------------------------------| --------------------------------------------------------------- |
-| `username`        |          |                                                                     | Snowflake username.                                             |
-| `password`        |          |                                                                     | Snowflake password.                                             |
-| `host_port`       | ✅       |                                                                     | Snowflake host URL.                                             |
-| `warehouse`       |          |                                                                     | Snowflake warehouse.                                            |
-| `role`            |          |                                                                     | Snowflake role.                                                 |
-| `env`             |          | `"PROD"`                                                            | Environment to use in namespace when constructing URNs.         |
-| `bucket_duration` |          | `"DAY"`                                                             | Duration to bucket usage events by. Can be `"DAY"` or `"HOUR"`. |
-| `start_time`      |          | Last full day in UTC (or hour, depending on `bucket_duration`)      | Earliest date of usage logs to consider.                        |
-| `end_time`        |          | Last full day in UTC (or hour, depending on `bucket_duration`)      | Latest date of usage logs to consider.                          |
-| `top_n_queries`   |          | `10`                                                                | Number of top queries to save to each table.                    |
-| `database_pattern`|          | `"^UTIL_DB$" `<br />`"^SNOWFLAKE$"`<br />`"^SNOWFLAKE_SAMPLE_DATA$" | Allow/deny patterns for db in snowflake dataset names.          |
-| `schema_pattern`  |          |                                                                     | Allow/deny patterns for schema in snowflake dataset names.      |
-| `view_pattern`     |          |                                                                    | Allow/deny patterns for views in snowflake dataset names.       |
-| `table_pattern`     |          |                                                                   | Allow/deny patterns for tables in snowflake dataset names.       |
-### Compatibility
+| Field              | Required | Default                                                             | Description                                                                      |
+|--------------------|----------|---------------------------------------------------------------------|----------------------------------------------------------------------------------|
+| `username`         |          |                                                                     | Snowflake username.                                                              |
+| `password`         |          |                                                                     | Snowflake password.                                                              |
+| `host_port`        | ✅        |                                                                     | Snowflake host URL.                                                              |
+| `warehouse`        |          |                                                                     | Snowflake warehouse.                                                             |
+| `role`             |          |                                                                     | Snowflake role.                                                                  |
+| `env`              |          | `"PROD"`                                                            | Environment to use in namespace when constructing URNs.                          |
+| `bucket_duration`  |          | `"DAY"`                                                             | Duration to bucket usage events by. Can be `"DAY"` or `"HOUR"`.                  |
+| `email_domain`     |          |                                                                     | Email domain of your organisation so users can be displayed on UI appropriately. |
+| `start_time`       |          | Last full day in UTC (or hour, depending on `bucket_duration`)      | Earliest date of usage logs to consider.                                         |
+| `end_time`         |          | Last full day in UTC (or hour, depending on `bucket_duration`)      | Latest date of usage logs to consider.                                           |
+| `top_n_queries`    |          | `10`                                                                | Number of top queries to save to each table.                                     |
+| `database_pattern` |          | `"^UTIL_DB$" `<br />`"^SNOWFLAKE$"`<br />`"^SNOWFLAKE_SAMPLE_DATA$" | Allow/deny patterns for db in snowflake dataset names.                           |
+| `schema_pattern`   |          |                                                                     | Allow/deny patterns for schema in snowflake dataset names.                       |
+| `view_pattern`     |          |                                                                     | Allow/deny patterns for views in snowflake dataset names.                        |
+| `table_pattern`    |          |                                                                     | Allow/deny patterns for tables in snowflake dataset names.                       |
+
+:::caution
+
+User's without email address will be ignored from usage if you don't set `email_domain` property.
+
+:::
+
+
+
+# Compatibility
 
 Coming soon!
 

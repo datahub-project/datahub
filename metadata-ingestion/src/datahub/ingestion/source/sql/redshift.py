@@ -277,8 +277,10 @@ def _get_schema_column_info(self, connection, schema=None, **kw):
                    replace(
                    replace(
                    replace(
+                   replace(
                    replace(external_type, 'decimal', 'numeric'),
                     'varchar', 'character varying'),
+                    'string', 'character varying'),
                     'char(', 'character('),
                     'float', 'real'),
                     'double', 'float')
@@ -296,8 +298,10 @@ def _get_schema_column_info(self, connection, schema=None, **kw):
                    replace(
                    replace(
                    replace(
+                   replace(
                    replace(external_type, 'decimal', 'numeric'),
                     'varchar', 'character varying'),
+                    'string', 'character varying'),
                     'char(', 'character('),
                     'float', 'real'),
                     'double', 'float')
