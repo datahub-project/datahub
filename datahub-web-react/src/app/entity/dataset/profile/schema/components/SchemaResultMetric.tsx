@@ -4,6 +4,7 @@ import { ColumnsType } from 'antd/es/table';
 import styled from 'styled-components';
 import { StyledTable } from '../../../../shared/components/styled/StyledTable';
 import { Constraints } from '../../../../../../types.generated';
+import SchemaResultMetricChart from './SchemaResultMetricChart';
 
 export type Props = {
     data: Array<Constraints>;
@@ -24,9 +25,14 @@ const TableContainer = styled.div`
         padding-bottom: 600px;
         vertical-align: top;
     }
-    &&& .ant-table-tbody > tr {
-        cursor: pointer;
-    }
+`;
+const TableWrapper = styled.div`
+    padding: 15px 20px 0 20px;
+`;
+const Title = styled.span`
+    font-weight: 600;
+    font-size: 12px;
+    color: #595959;
 `;
 export default function SchemaResultMetric({ data }: Props) {
     const constraintColumn = {
@@ -61,17 +67,24 @@ export default function SchemaResultMetric({ data }: Props) {
     };
 
     const allColumns: ColumnsType<Constraints> = [constraintColumn, ResutMetricColumn];
-    console.log('resultmetric', data);
     return (
         <ResultMetric>
             <Row>
                 <Col xs={24} sm={24} md={24} lg={12} xl={12}>
-                    <TableContainer>
-                        <StyledTable columns={allColumns} dataSource={data} rowKey="resultMetric" pagination={false} />
-                    </TableContainer>
+                    <TableWrapper>
+                        <Title>Result Metric Table View:</Title>
+                        <TableContainer>
+                            <StyledTable
+                                columns={allColumns}
+                                dataSource={data}
+                                rowKey="resultMetric"
+                                pagination={false}
+                            />
+                        </TableContainer>
+                    </TableWrapper>
                 </Col>
                 <Col xs={24} sm={24} md={24} lg={12} xl={12}>
-                    Chart
+                    <SchemaResultMetricChart />
                 </Col>
             </Row>
         </ResultMetric>
