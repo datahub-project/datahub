@@ -50,6 +50,10 @@ from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.aws_common import AwsSourceConfig, make_s3_urn
+from datahub.ingestion.source.profiling.common import (
+    Cardinality,
+    _convert_to_cardinality,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
@@ -85,56 +89,6 @@ logger: logging.Logger = logging.getLogger(__name__)
 NUM_SAMPLE_ROWS = 3
 QUANTILES = [0.05, 0.25, 0.5, 0.75, 0.95]
 MAX_HIST_BINS = 25
-
-
-class Cardinality(Enum):
-    NONE = 0
-    ONE = 1
-    TWO = 2
-    VERY_FEW = 3
-    FEW = 4
-    MANY = 5
-    VERY_MANY = 6
-    UNIQUE = 7
-
-
-def _convert_to_cardinality(
-    unique_count: Optional[int], pct_unique: Optional[float]
-) -> Optional[Cardinality]:
-    """
-    Resolve the cardinality of a column based on the unique count and the percentage of unique values.
-
-    Logic adopted from Great Expectations.
-    See https://github.com/great-expectations/great_expectations/blob/develop/great_expectations/profile/base.py
-
-    Args:
-        unique_count: raw number of unique values
-        pct_unique: raw proportion of unique values
-
-    Returns:
-        Optional[Cardinality]: resolved cardinality
-    """
-
-    if unique_count is None:
-        return Cardinality.NONE
-
-    if pct_unique == 1.0:
-        cardinality = Cardinality.UNIQUE
-    elif unique_count == 1:
-        cardinality = Cardinality.ONE
-    elif unique_count == 2:
-        cardinality = Cardinality.TWO
-    elif 0 < unique_count < 20:
-        cardinality = Cardinality.VERY_FEW
-    elif 0 < unique_count < 60:
-        cardinality = Cardinality.FEW
-    elif unique_count is None or unique_count == 0 or pct_unique is None:
-        cardinality = Cardinality.NONE
-    elif pct_unique > 0.1:
-        cardinality = Cardinality.VERY_MANY
-    else:
-        cardinality = Cardinality.MANY
-    return cardinality
 
 
 def null_str(value: Any) -> Optional[str]:
@@ -813,7 +767,7 @@ class DataLakeSource(Source):
     ) -> Iterable[MetadataWorkUnit]:
 
         datasetUrn = f"urn:li:dataset:(urn:li:dataPlatform:{self.source_config.platform},{file_urn_path},{self.source_config.env})"
-        
+
         dataset_name = os.path.basename(file_path)
 
         if self.source_config.platform == "s3":
