@@ -347,15 +347,6 @@ public abstract class EntityService {
     return updatedValue;
   }
 
-  public RecordTemplate ingestAspect(@Nonnull final Urn urn, @Nonnull final String aspectName,
-      @Nonnull final RecordTemplate newValue, @Nonnull final AuditStamp auditStamp) {
-
-    SystemMetadata generatedSystemMetadata = new SystemMetadata();
-    generatedSystemMetadata.setLastObserved(System.currentTimeMillis());
-
-    return ingestAspect(urn, aspectName, newValue, auditStamp, generatedSystemMetadata);
-  }
-
   public IngestProposalResult ingestProposal(@Nonnull MetadataChangeProposal metadataChangeProposal,
       AuditStamp auditStamp) {
 

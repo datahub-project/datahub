@@ -1,5 +1,6 @@
 package com.linkedin.metadata.entity;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
@@ -19,6 +20,7 @@ import com.linkedin.metadata.aspect.Aspect;
 import com.linkedin.metadata.aspect.CorpUserAspect;
 import com.linkedin.metadata.aspect.CorpUserAspectArray;
 import com.linkedin.metadata.aspect.VersionedAspect;
+import com.linkedin.metadata.dao.utils.RecordUtils;
 import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.entity.ebean.EbeanEntityService;
@@ -45,6 +47,7 @@ import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.retention.DataHubRetentionConfig;
 import com.linkedin.retention.Retention;
 import com.linkedin.retention.VersionBasedRetention;
+import com.linkedin.util.Pair;
 import io.ebean.EbeanServer;
 import io.ebean.EbeanServerFactory;
 import io.ebean.config.ServerConfig;
@@ -338,6 +341,47 @@ public class EbeanEntityServiceTest {
         Mockito.any(), Mockito.any(), Mockito.eq(MetadataAuditOperation.UPDATE));
 
     verifyNoMoreInteractions(_mockProducer);
+  }
+
+  @Test
+  public void testIngestAspectsGetLatestAspects() throws Exception {
+
+    Urn entityUrn = Urn.createFromString("urn:li:corpuser:test");
+
+    List<Pair<String, RecordTemplate>> pairToIngest = new ArrayList<>();
+
+    CorpUserInfo writeAspect1 = createCorpUserInfo("email@test.com");
+    pairToIngest.add(getAspectRecordPair(writeAspect1, CorpUserInfo.class));
+
+    Status writeAspect2 = new Status().setRemoved(false);
+    pairToIngest.add(getAspectRecordPair(writeAspect2, Status.class));
+
+    SystemMetadata metadata1 = new SystemMetadata();
+    metadata1.setLastObserved(1625792689);
+    metadata1.setRunId("run-123");
+
+    _entityService.ingestAspects(entityUrn, pairToIngest, TEST_AUDIT_STAMP, metadata1);
+
+    RecordTemplate readAspect1 = _entityService.getLatestAspect(entityUrn, getAspectName(writeAspect1));
+    assertTrue(DataTemplateUtil.areEqual(writeAspect1, readAspect1));
+
+    RecordTemplate readAspect2 = _entityService.getLatestAspect(entityUrn, getAspectName(writeAspect2));
+    assertTrue(DataTemplateUtil.areEqual(writeAspect1, readAspect2));
+
+    ArgumentCaptor<MetadataChangeLog> mclCaptor = ArgumentCaptor.forClass(MetadataChangeLog.class);
+    verify(_mockProducer, times(1)).produceMetadataChangeLog(Mockito.eq(entityUrn), Mockito.any(), mclCaptor.capture());
+    MetadataChangeLog mcl1 = mclCaptor.getValue();
+    assertEquals(mcl1.getEntityType(), "corpuser");
+    assertNull(mcl1.getPreviousAspectValue());
+    assertNull(mcl1.getPreviousSystemMetadata());
+    assertEquals(mcl1.getChangeType(), ChangeType.UPSERT);
+
+    verify(_mockProducer, times(1)).produceMetadataChangeLog(Mockito.eq(entityUrn), Mockito.any(), mclCaptor.capture());
+    MetadataChangeLog mcl2 = mclCaptor.getValue();
+    assertEquals(mcl2.getEntityType(), "status");
+    assertNull(mcl2.getPreviousAspectValue());
+    assertNull(mcl2.getPreviousSystemMetadata());
+    assertEquals(mcl2.getChangeType(), ChangeType.UPSERT);
   }
 
   @Test
@@ -923,5 +967,16 @@ public class EbeanEntityServiceTest {
     corpUserInfo.setEmail(email);
     corpUserInfo.setActive(true);
     return corpUserInfo;
+  }
+  
+  private String getAspectName(RecordTemplate record) {
+    return PegasusUtils.getAspectNameFromSchema(record.schema());
+  }
+
+  private <T extends RecordTemplate> Pair<String, RecordTemplate> getAspectRecordPair(T aspect, Class<T> clazz)
+          throws Exception {
+    final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+    RecordTemplate recordTemplate = RecordUtils.toRecordTemplate(clazz, OBJECT_MAPPER.writeValueAsString(aspect));
+    return new Pair<>(getAspectName(aspect), recordTemplate);
   }
 }
