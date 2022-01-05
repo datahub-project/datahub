@@ -7,9 +7,6 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
-import javax.annotation.Nonnull;
-
-import static com.linkedin.common.urn.Urn.*;
 
 
 /**
@@ -91,12 +88,11 @@ public class TupleKey {
       if (o == null) {
         throw new NullPointerException("Cannot create a Urn from tuple with null parameter.");
       }
-        String objString = o.toString();
-        //TODO: Isn't this problematic? No support for an entity key that includes empty string values? Inconsistent w/ below
-        // Null check makes sense for weird scenarios where an object is written to return null in an overridden toString()
-        if (objString.isEmpty()) {
-          throw new IllegalArgumentException("Cannot create a Urn from tuple with an empty value.");
-        }
+
+      String objString = o.toString();
+      if (objString.isEmpty()) {
+        throw new IllegalArgumentException("Cannot create a Urn from tuple with an empty value.");
+      }
       parts.add(objString);
     }
     return new TupleKey(Collections.unmodifiableList(parts), false);
@@ -313,12 +309,6 @@ public class TupleKey {
     }
 
     parts.add(input.substring(partStart, lastPartEnd));
-    for(int i = 0; i < parts.size(); i++) {
-      String part = parts.get(i);
-      if(isUrn(part)) {
-        parts.set(i, new Urn(part).toString());
-      }
-    }
     return Collections.unmodifiableList(parts);
   }
 
@@ -356,9 +346,5 @@ public class TupleKey {
       i++;
     }
     return list;
-  }
-
-  private static boolean isUrn(@Nonnull String part) {
-    return part.startsWith(URN_START);
   }
 }

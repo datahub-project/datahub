@@ -1,6 +1,8 @@
 package com.linkedin.metadata.entity;
 
 import com.codahale.metrics.Timer;
+import com.datahub.util.RecordUtils;
+import com.datahub.util.exception.ModelConversionException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
 import com.linkedin.common.AuditStamp;
@@ -14,11 +16,8 @@ import com.linkedin.entity.Entity;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
-import com.linkedin.metadata.utils.PegasusUtils;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.VersionedAspect;
-import com.linkedin.metadata.dao.exception.ModelConversionException;
-import com.linkedin.metadata.dao.utils.RecordUtils;
 import com.linkedin.metadata.event.EntityEventProducer;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
@@ -30,6 +29,7 @@ import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.metadata.utils.DataPlatformInstanceUtils;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericAspectUtils;
+import com.linkedin.metadata.utils.PegasusUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataAuditOperation;
 import com.linkedin.mxe.MetadataChangeLog;
@@ -52,9 +52,8 @@ import lombok.Setter;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.metadata.Constants.ASPECT_LATEST_VERSION;
-import static com.linkedin.metadata.utils.PegasusUtils.getDataTemplateClassFromSchema;
-import static com.linkedin.metadata.utils.PegasusUtils.urnToEntityName;
+import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.utils.PegasusUtils.*;
 
 
 /**
@@ -622,7 +621,7 @@ public abstract class EntityService {
   private void ingestSnapshotUnion(@Nonnull final Snapshot snapshotUnion, @Nonnull final AuditStamp auditStamp,
       SystemMetadata systemMetadata) {
     final RecordTemplate snapshotRecord = RecordUtils.getSelectedRecordTemplateFromUnion(snapshotUnion);
-    final Urn urn = com.linkedin.metadata.dao.utils.ModelUtils.getUrnFromSnapshot(snapshotRecord);
+    final Urn urn = com.datahub.util.ModelUtils.getUrnFromSnapshot(snapshotRecord);
     final List<Pair<String, RecordTemplate>> aspectRecordsToIngest =
         NewModelUtils.getAspectsFromSnapshot(snapshotRecord);
 
@@ -687,7 +686,7 @@ public abstract class EntityService {
       @Nonnull final List<UnionTemplate> aspectUnionTemplates) {
     final String entityName = urnToEntityName(urn);
     final EntitySpec entitySpec = _entityRegistry.getEntitySpec(entityName);
-    return com.linkedin.metadata.dao.utils.ModelUtils.newSnapshot(
+    return com.datahub.util.ModelUtils.newSnapshot(
         getDataTemplateClassFromSchema(entitySpec.getSnapshotSchema(), RecordTemplate.class), urn,
         aspectUnionTemplates);
   }
@@ -700,7 +699,7 @@ public abstract class EntityService {
           String.format("Aspect schema for %s is null: v4 operation is not supported on this entity registry",
               entitySpec.getName()));
     }
-    return com.linkedin.metadata.dao.utils.ModelUtils.newAspectUnion(
+    return com.datahub.util.ModelUtils.newAspectUnion(
         getDataTemplateClassFromSchema(entitySpec.getAspectTyperefSchema(), UnionTemplate.class), aspectRecord);
   }
 

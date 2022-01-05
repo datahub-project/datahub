@@ -23,7 +23,6 @@ dependencies {
   annotationProcessor externalDependency.lombok
 
   testCompile project(':test-models')
-  testCompile project(':metadata-testing:metadata-test-utils')
 
   constraints {
       implementation("org.apache.logging.log4j:log4j-core:2.17.0") {

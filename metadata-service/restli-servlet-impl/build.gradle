@@ -45,7 +45,7 @@ dependencies {
 
   annotationProcessor externalDependency.lombok
 
-  testCompile project(':metadata-testing:metadata-test-utils')
+  testCompile project(':test-models')
   testCompile externalDependency.parseqTest
   testCompile externalDependency.mockito
   testCompile externalDependency.testng
@@ -53,7 +53,6 @@ dependencies {
   integTestImplementation externalDependency.junitJupiterApi
   integTestRuntimeOnly externalDependency.junitJupiterEngine
 
-  integTestCompile externalDependency.gmaElasticsearchIntegTest
   integTestCompile externalDependency.junitJupiterApi
   integTestCompile externalDependency.junitJupiterParams
 

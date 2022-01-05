@@ -1,10 +1,10 @@
 package com.linkedin.metadata.graph;
 
 import com.codahale.metrics.Timer;
+import com.datahub.util.Statement;
+import com.datahub.util.exception.RetryLimitReached;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.metadata.dao.exception.RetryLimitReached;
-import com.linkedin.metadata.dao.utils.Statement;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.CriterionArray;
