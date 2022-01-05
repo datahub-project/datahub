@@ -1,6 +1,7 @@
 import { Button, Modal, Steps, Typography } from 'antd';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
+import { isEqual } from 'lodash';
 import { ExpandAltOutlined, ShrinkOutlined } from '@ant-design/icons';
 import { SourceBuilderState, StepProps } from './types';
 import { CreateScheduleStep } from './CreateScheduleStep';
@@ -70,18 +71,20 @@ export const IngestionSourceBuilderModal = ({ initialState, visible, onSubmit, o
         : IngestionSourceBuilderStep.SELECT_TEMPLATE;
 
     const [stepStack, setStepStack] = useState([initialStep]);
-
-    // Reset the step stack to the initial step when the modal is re-opened.
-    useEffect(() => setStepStack([initialStep]), [initialState, initialStep, setStepStack]);
-
     const [modalExpanded, setModalExpanded] = useState(false);
-
     const [ingestionBuilderState, setIngestionBuilderState] = useState<SourceBuilderState>({});
 
     // Reset the ingestion builder modal state when the modal is re-opened.
+    const prevInitialState = useRef(initialState);
     useEffect(() => {
-        setIngestionBuilderState(initialState || {});
-    }, [initialState, setIngestionBuilderState]);
+        if (!isEqual(prevInitialState.current, initialState)) {
+            setIngestionBuilderState(initialState || {});
+            prevInitialState.current = initialState;
+        }
+    }, [initialState]);
+
+    // Reset the step stack to the initial step when the modal is re-opened.
+    useEffect(() => setStepStack([initialStep]), [initialStep]);
 
     const goTo = (step: IngestionSourceBuilderStep) => {
         setStepStack([...stepStack, step]);
