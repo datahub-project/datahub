@@ -44,7 +44,7 @@ from pyspark.sql.types import (
 )
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
-from datahub.emitter.mce_builder import DEFAULT_ENV, get_sys_time
+from datahub.emitter.mce_builder import DEFAULT_ENV, get_sys_time, make_data_platform_urn, make_dataset_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
@@ -413,42 +413,34 @@ class _SingleTableProfiler:
     def prep_min_value(self, column: str) -> None:
         if self.profiling_config.include_field_min_value:
             self.analyzer.addAnalyzer(Minimum(column))
-        return
 
     def prep_max_value(self, column: str) -> None:
         if self.profiling_config.include_field_max_value:
             self.analyzer.addAnalyzer(Maximum(column))
-        return
 
     def prep_mean_value(self, column: str) -> None:
         if self.profiling_config.include_field_mean_value:
             self.analyzer.addAnalyzer(Mean(column))
-        return
 
     def prep_median_value(self, column: str) -> None:
         if self.profiling_config.include_field_median_value:
             self.analyzer.addAnalyzer(ApproxQuantile(column, 0.5))
-        return
 
     def prep_stdev_value(self, column: str) -> None:
         if self.profiling_config.include_field_stddev_value:
             self.analyzer.addAnalyzer(StandardDeviation(column))
-        return
 
     def prep_quantiles(self, column: str) -> None:
         if self.profiling_config.include_field_quantiles:
             self.analyzer.addAnalyzer(ApproxQuantiles(column, QUANTILES))
-        return
 
     def prep_distinct_value_frequencies(self, column: str) -> None:
         if self.profiling_config.include_field_distinct_value_frequencies:
             self.analyzer.addAnalyzer(Histogram(column))
-        return
 
     def prep_field_histogram(self, column: str) -> None:
         if self.profiling_config.include_field_histogram:
             self.analyzer.addAnalyzer(Histogram(column, maxDetailBins=MAX_HIST_BINS))
-        return
 
     def prepare_table_profiles(self) -> None:
 
@@ -645,6 +637,7 @@ class _SingleTableProfiler:
                         )
                         for value in column_histogram.index
                     ]
+                    column_profile.distinctValueFrequencies = column_profile.distinctValueFrequencies.sort(lambda x: x.value)
 
                 else:
 
@@ -652,6 +645,7 @@ class _SingleTableProfiler:
                         [str(x) for x in column_histogram.index],
                         [float(x) for x in column_histogram],
                     )
+                    column_profile.histogram = column_profile.histogram.sort(lambda x: x.value)
 
             # append the column profile to the dataset profile
             self.profile.fieldProfiles.append(column_profile)
@@ -768,16 +762,17 @@ class DataLakeSource(Source):
     def get_table_schema(
         self, dataframe: DataFrame, file_path: str, file_urn_path: str
     ) -> Iterable[MetadataWorkUnit]:
-
-        datasetUrn = f"urn:li:dataset:(urn:li:dataPlatform:{self.source_config.platform},{file_urn_path},{self.source_config.env})"
+        
+        data_platform_urn = make_data_platform_urn(self.source_config.platform)
+        dataset_urn = make_dataset_urn(self.source_config.platform, file_urn_path, self.source_config.env)
 
         dataset_name = os.path.basename(file_path)
 
         if self.source_config.platform == "s3":
-            datasetUrn = make_s3_urn(file_path, self.source_config.env)
+            dataset_urn = make_s3_urn(file_path, self.source_config.env)
 
         dataset_snapshot = DatasetSnapshot(
-            urn=datasetUrn,
+            urn=dataset_urn,
             aspects=[],
         )
 
@@ -802,7 +797,7 @@ class DataLakeSource(Source):
 
         schema_metadata = SchemaMetadata(
             schemaName=dataset_name,
-            platform=f"urn:li:dataPlatform:{self.source_config.platform}",
+            platform=data_platform_urn,
             version=0,
             hash="",
             fields=column_fields,
@@ -874,7 +869,7 @@ class DataLakeSource(Source):
 
         mcp = MetadataChangeProposalWrapper(
             entityType="dataset",
-            entityUrn=f"urn:li:dataset:(urn:li:dataPlatform:{self.source_config.platform},{file_urn_path},{self.source_config.env})",
+            entityUrn=make_dataset_urn(self.source_config.platform, file_urn_path, self.source_config.env),
             changeType=ChangeTypeClass.UPSERT,
             aspectName="datasetProfile",
             aspect=table_profiler.profile,
