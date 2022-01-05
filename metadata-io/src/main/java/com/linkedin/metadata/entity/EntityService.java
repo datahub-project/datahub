@@ -381,7 +381,7 @@ public abstract class EntityService {
       ValidationUtils.validateOrThrow(aspect);
     } catch (ModelConversionException e) {
       throw new RuntimeException(
-          String.format("Could not deserialize {} for aspect {}", metadataChangeProposal.getAspect().getValue(),
+          String.format("Could not deserialize %s for aspect %s", metadataChangeProposal.getAspect().getValue(),
               metadataChangeProposal.getAspectName()));
     }
     log.debug("aspect = {}", aspect);
