@@ -270,19 +270,17 @@ class AzureADSource(Source):
                 self.report.report_failure("_get_azure_ad_data_", error_str)
                 continue
 
-    def _map_identity_to_urn(self, func, id_to_extract, mapping_identifier):
+    def _map_identity_to_urn(self, func, id_to_extract, mapping_identifier, id_type):
         result, error_str = None, None
         try:
             result = func(id_to_extract)
-        except ValueError as e:
-            error_str = (
-                "Failed to extract DataHub {} from Azure AD User {} due to '{}'".format(
-                    mapping_identifier, id_to_extract.get("displayName"), repr(e)
-                )
+        except Exception as e:
+            error_str = "Failed to extract DataHub {} from Azure AD {} with name {} due to '{}'".format(
+                id_type, id_type, id_to_extract.get("displayName"), repr(e)
             )
         if not result:
-            error_str = "Failed to extract DataHub {} from Azure AD User {} unkown reason".format(
-                mapping_identifier, id_to_extract.get("displayName")
+            error_str = "Failed to extract DataHub {} from Azure AD {} with name {} due to unkown reason".format(
+                id_type, id_type, id_to_extract.get("displayName")
             )
         if error_str is not None:
             logger.error(error_str)
@@ -295,6 +293,7 @@ class AzureADSource(Source):
                 self._map_azure_ad_group_to_urn,
                 azure_ad_group,
                 "azure_ad_group_mapping",
+                "group",
             )
             if error_str is not None:
                 continue
@@ -345,7 +344,7 @@ class AzureADSource(Source):
     def _map_azure_ad_users(self, azure_ad_users):
         for user in azure_ad_users:
             corp_user_urn, error_str = self._map_identity_to_urn(
-                self._map_azure_ad_user_to_urn, user, "azure_ad_user_mapping"
+                self._map_azure_ad_user_to_urn, user, "azure_ad_user_mapping", "user"
             )
             if error_str is not None:
                 continue
