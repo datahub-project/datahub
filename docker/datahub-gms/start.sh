@@ -1,8 +1,8 @@
 #!/bin/bash
 set -x
 
-echo "going to sleep for an hour"
-sleep 3600
+#setup key store
+echo $SPRING_KAFKA_ADMIN_SSL_KEYSTOREVALUE | base64 -d > $SPRING_KAFKA_ADMIN_SSL_KEYSTORELOCATION
 
 # Add default URI (http) scheme if needed
 if ! echo $NEO4J_HOST | grep -q "://" ; then
