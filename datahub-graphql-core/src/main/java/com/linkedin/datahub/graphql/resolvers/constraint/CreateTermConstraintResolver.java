@@ -6,6 +6,8 @@ import com.linkedin.constraint.ConstraintParams;
 import com.linkedin.constraint.GlossaryTermInNodeConstraint;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
+import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
+import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
 import com.linkedin.datahub.graphql.generated.ConstraintType;
 import com.linkedin.datahub.graphql.generated.CreateTermConstraintInput;
 import com.linkedin.entity.client.EntityClient;
@@ -38,7 +40,15 @@ public class CreateTermConstraintResolver implements DataFetcher<CompletableFutu
     if (ConstraintUtils.isAuthorizedToCreateConstraints(context)) {
       final CreateTermConstraintInput input = bindArgument(environment.getArgument("input"), CreateTermConstraintInput.class);
 
+      Urn nodeUrn = Urn.createFromString(input.getNodeUrn());
+      if (!nodeUrn.getEntityType().equals("glossaryNode")) {
+        throw new DataHubGraphQLException("Provided Urn is not an instance of a glossaryNode", DataHubGraphQLErrorCode.BAD_REQUEST);
+      }
+      if (_aspectClient.getAspectOrNull(nodeUrn.toString(), "glossaryNodeKey", 0L, context.getAuthentication()) == null) {
+        throw new DataHubGraphQLException(String.format("Failed to create constraint. %s does not exist.", nodeUrn), DataHubGraphQLErrorCode.BAD_REQUEST);
+      }
       return CompletableFuture.supplyAsync(() -> {
+
         try {
           // Create the Constraint key.
           final ConstraintKey key = new ConstraintKey();
