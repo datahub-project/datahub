@@ -366,8 +366,6 @@ public class EbeanEntityServiceTest {
 
     _entityService.ingestAspects(entityUrn, pairToIngest, TEST_AUDIT_STAMP, metadata1);
 
-    RecordTemplate readAspect2 = _entityService.getLatestAspect(entityUrn, aspectName2);
-
     Map<String, RecordTemplate> latestAspects = _entityService.getLatestAspectsForUrn(
             entityUrn,
             new HashSet<>(Arrays.asList(aspectName1, aspectName2))
