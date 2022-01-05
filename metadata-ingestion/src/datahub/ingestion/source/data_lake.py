@@ -160,8 +160,6 @@ class DataLakeProfilerConfig(ConfigModel):
 
     allow_deny_patterns: AllowDenyPattern = AllowDenyPattern.allow_all()
 
-    turn_off_expensive_profiling_metrics: bool = False
-
     max_number_of_fields_to_profile: Optional[pydantic.PositiveInt] = None
 
     include_field_null_count: bool = True
@@ -201,19 +199,6 @@ class DataLakeProfilerConfig(ConfigModel):
             assert (
                 max_num_fields_to_profile is None
             ), f"{max_num_fields_to_profile_key} should be set to None"
-
-        if values.get("turn_off_expensive_profiling_metrics"):
-            if not values.get(table_level_profiling_only_key):
-                expensive_field_level_metrics: List[str] = [
-                    "include_field_distinct_value_frequencies",
-                    "include_field_histogram",
-                    "include_field_sample_values",
-                ]
-                for expensive_field_metric in expensive_field_level_metrics:
-                    values[expensive_field_metric] = False
-            if max_num_fields_to_profile is None:
-                # We currently profile up to 10 non-filtered columns in this mode by default.
-                values[max_num_fields_to_profile_key] = 10
 
         return values
 
@@ -628,6 +613,8 @@ class _SingleTableProfiler:
             if column in histogram_columns:
 
                 column_histogram = histogram_counts.loc[column]
+                # sort so output is deterministic
+                column_histogram = column_histogram.sort_index()
 
                 if column_spec.histogram_distinct:
 
@@ -637,7 +624,8 @@ class _SingleTableProfiler:
                         )
                         for value in column_histogram.index
                     ]
-                    column_profile.distinctValueFrequencies = column_profile.distinctValueFrequencies.sort(lambda x: x.value)
+                    # sort so output is deterministic
+                    column_profile.distinctValueFrequencies = sorted(column_profile.distinctValueFrequencies,key=lambda x: x.value)
 
                 else:
 
@@ -645,7 +633,6 @@ class _SingleTableProfiler:
                         [str(x) for x in column_histogram.index],
                         [float(x) for x in column_histogram],
                     )
-                    column_profile.histogram = column_profile.histogram.sort(lambda x: x.value)
 
             # append the column profile to the dataset profile
             self.profile.fieldProfiles.append(column_profile)
