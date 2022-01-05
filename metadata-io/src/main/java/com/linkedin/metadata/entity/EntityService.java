@@ -274,7 +274,7 @@ public abstract class EntityService {
     ingestToLocalDBTimer.stop();
 
     for (Pair<String, UpdateAspectResult> result: ingestResults) {
-      sendMaeForUpdateAspectResult(urn, result.getFirst(), result.getSecond());
+      sendEventForUpdateAspectResult(urn, result.getFirst(), result.getSecond());
     }
   }
 
@@ -303,10 +303,10 @@ public abstract class EntityService {
     UpdateAspectResult result = ingestAspectToLocalDB(urn, aspectName, ignored -> newValue, auditStamp, systemMetadata);
     ingestToLocalDBTimer.stop();
 
-    return sendMaeForUpdateAspectResult(urn, aspectName, result);
+    return sendEventForUpdateAspectResult(urn, aspectName, result);
   }
 
-  private RecordTemplate sendMaeForUpdateAspectResult(@Nonnull final Urn urn, @Nonnull final String aspectName,
+  private RecordTemplate sendEventForUpdateAspectResult(@Nonnull final Urn urn, @Nonnull final String aspectName,
     @Nonnull UpdateAspectResult result) {
 
     final RecordTemplate oldValue = result.getOldValue();
@@ -620,7 +620,7 @@ public abstract class EntityService {
   Returns true if entityType should have some aspect as per its definition
     but aspects given does not have that aspect
    */
-  private boolean shouldAddAspect(String entityType, String aspectName, Set<String> aspects) {
+  private boolean isAspectProvided(String entityType, String aspectName, Set<String> aspects) {
     return _entityRegistry.getEntitySpec(entityType).getAspectSpecMap().containsKey(aspectName)
         && !aspects.contains(aspectName);
   }
@@ -631,12 +631,12 @@ public abstract class EntityService {
     Set<String> aspectsToGet = new HashSet<>();
     String entityType = urnToEntityName(urn);
 
-    boolean shouldCheckBrowsePath = shouldAddAspect(entityType, BROWSE_PATHS, includedAspects);
+    boolean shouldCheckBrowsePath = isAspectProvided(entityType, BROWSE_PATHS, includedAspects);
     if (shouldCheckBrowsePath) {
       aspectsToGet.add(BROWSE_PATHS);
     }
 
-    boolean shouldCheckDataPlatform = shouldAddAspect(entityType, DATA_PLATFORM_INSTANCE, includedAspects);
+    boolean shouldCheckDataPlatform = isAspectProvided(entityType, DATA_PLATFORM_INSTANCE, includedAspects);
     if (shouldCheckDataPlatform) {
       aspectsToGet.add(DATA_PLATFORM_INSTANCE);
     }
