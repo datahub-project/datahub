@@ -975,8 +975,8 @@ public class EbeanEntityServiceTest {
 
   private <T extends RecordTemplate> Pair<String, RecordTemplate> getAspectRecordPair(T aspect, Class<T> clazz)
           throws Exception {
-    final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
-    RecordTemplate recordTemplate = RecordUtils.toRecordTemplate(clazz, OBJECT_MAPPER.writeValueAsString(aspect));
+    final ObjectMapper objectMapper = new ObjectMapper();
+    RecordTemplate recordTemplate = RecordUtils.toRecordTemplate(clazz, objectMapper.writeValueAsString(aspect));
     return new Pair<>(getAspectName(aspect), recordTemplate);
   }
 }
