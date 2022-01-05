@@ -1,4 +1,4 @@
-import { SchemaField, GlobalTags } from '../../../../../../types.generated';
+import { SchemaField, GlobalTags, ConstraintsList, Constraints } from '../../../../../../types.generated';
 
 export interface ExtendedSchemaFields extends SchemaField {
     children?: Array<ExtendedSchemaFields>;
@@ -7,4 +7,8 @@ export interface ExtendedSchemaFields extends SchemaField {
     pastGlobalTags?: GlobalTags | null;
     isNewRow?: boolean;
     isDeletedRow?: boolean;
+}
+
+export interface ExtendedDataQualitySchemaFields extends ExtendedSchemaFields {
+    constraints?: ConstraintsList;
 }

@@ -5,6 +5,7 @@ import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
 // import { EditableSchemaFieldInfo, GlobalTagsUpdate } from '../../../../../types.generated';
 import SchemaHeader from '../../../../dataset/profile/schema/components/SchemaHeader';
 import SchemaRawView from '../../../../dataset/profile/schema/components/SchemaRawView';
+import SchemaDataQuality from '../../../../dataset/profile/schema/components/SchemaDataQuality';
 import { KEY_SCHEMA_PREFIX } from '../../../../dataset/profile/schema/utils/constants';
 import { groupByFieldPath } from '../../../../dataset/profile/schema/utils/utils';
 import { ANTD_GRAY } from '../../../constants';
@@ -84,6 +85,7 @@ export const SchemaTab = () => {
             ) : (
                 <NoSchema />
             )}
+            <SchemaDataQuality dataRows={rows} />
         </div>
     );
 };
