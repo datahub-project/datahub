@@ -37,7 +37,7 @@ data "aws_iam_policy_document" "glue-access" {
 
     resources = [
       "arn:aws:glue:*:${local.account_id}:schema/*",
-      "arn:aws:glue:us-west-2:${local.account_id}:registry/demo-shared"
+      "arn:aws:glue:us-east-1:${local.account_id}:registry/dataportal-schema-registry"
     ]
   }
   statement {
@@ -49,4 +49,55 @@ data "aws_iam_policy_document" "glue-access" {
       "*"
     ]
   }
+}
+
+locals {
+  workspace_key_prefix = "dataportal-services"
+}
+
+data "aws_s3_bucket" "tf_s3_bucket" {
+  bucket = "grnds-terraform-workspaces"
+}
+
+data "aws_dynamodb_table" "grnds_tf_lock" {
+  name = "grnds-tf-lock"
+}
+
+
+# required for terraforming kafka topics in preDeploy
+data "aws_iam_policy_document" "dataportal_read_write_terraform_state" {
+  statement {
+    sid    = "DataPortalListObjectsGrndsTerraformWorkspaces"
+    effect = "Allow"
+    actions = [
+      "s3:ListBucket",
+    ]
+    resources = [
+      data.aws_s3_bucket.tf_s3_bucket.arn,
+    ]
+  }
+  statement {
+    sid    = "DataPortalReadWriteKafkaTerraformState"
+    effect = "Allow"
+    actions = [
+      "s3:GetObject",
+      "s3:PutObject",
+    ]
+    resources = [
+      # allow updating anything under the workspace key prefix
+      "${data.aws_s3_bucket.tf_s3_bucket.arn}/${local.workspace_key_prefix}/*",
+      "${data.aws_s3_bucket.tf_s3_bucket.arn}/dataportal-kafka/*",
+    ]
+  }
+}
+
+resource "aws_iam_policy" "dataportal_terraform_kafka_topics" {
+  name        = "dataportal-read-write-kafka-terraform-state"
+  description = "Grants read/write  access to dataportal kafka terraform state"
+  policy      = data.aws_iam_policy_document.dataportal_read_write_terraform_state.json
+}
+
+resource "aws_iam_role_policy_attachment" "dataportal_terraform_kafka_topics" {
+  role       = "event-journal-server"
+  policy_arn = aws_iam_policy.dataportal_terraform_kafka_topics.arn
 }

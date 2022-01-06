@@ -2,7 +2,7 @@
 set -x
 
 #setup key store
-echo $SPRING_KAFKA_ADMIN_SSL_KEYSTOREVALUE | base64 -d > $SPRING_KAFKA_ADMIN_SSL_KEYSTORELOCATION
+echo $KAFKA_BASE64_ENCODED_KEY_STORE | base64 --decode > $SPRING_KAFKA_PROPERTIES_SSL_KEYSTORE_LOCATION
 
 # Add default URI (http) scheme if needed
 if ! echo $NEO4J_HOST | grep -q "://" ; then
