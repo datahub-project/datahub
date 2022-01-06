@@ -57,6 +57,6 @@ public class IngestRootUserStep implements BootstrapStep {
         RecordUtils.toRecordTemplate(CorpUserInfo.class, userObj.get("info").toString());
     final AuditStamp aspectAuditStamp =
         new AuditStamp().setActor(Urn.createFromString(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis());
-    _entityService.ingestAspect(urn, USER_INFO_ASPECT_NAME, info, aspectAuditStamp);
+    _entityService.ingestAspect(urn, USER_INFO_ASPECT_NAME, info, aspectAuditStamp, null);
   }
 }
