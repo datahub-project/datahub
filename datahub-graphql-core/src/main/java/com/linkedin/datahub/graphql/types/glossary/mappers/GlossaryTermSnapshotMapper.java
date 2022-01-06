@@ -19,7 +19,6 @@ import javax.annotation.Nonnull;
 
 /**
  * Maps Pegasus {@link RecordTemplate} objects to objects conforming to the GQL schema.
- * <p>
  * To be replaced by auto-generated mappers implementations
  */
 public class GlossaryTermSnapshotMapper implements ModelMapper<GlossaryTermSnapshot, GlossaryTerm> {
