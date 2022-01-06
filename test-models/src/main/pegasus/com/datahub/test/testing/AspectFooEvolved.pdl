@@ -1,0 +1,17 @@
+namespace com.datahub.test.testing
+
+/**
+ * For unit tests
+ */
+record AspectFooEvolved {
+
+  /**
+   * For unit tests
+   */
+  value: string
+
+  /**
+   * For unit tests
+   */
+  newValue: optional string
+}

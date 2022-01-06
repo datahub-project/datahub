@@ -1,12 +1,12 @@
 package com.linkedin.metadata.utils;
 
+import com.datahub.util.RecordUtils;
+import com.datahub.util.exception.ModelConversionException;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.schema.NamedDataSchema;
 import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.metadata.dao.exception.ModelConversionException;
-import com.linkedin.metadata.dao.utils.RecordUtils;
 import com.linkedin.metadata.models.annotation.AspectAnnotation;
 import com.linkedin.metadata.models.annotation.EntityAnnotation;
 import lombok.extern.slf4j.Slf4j;

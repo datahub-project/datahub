@@ -1,0 +1,23 @@
+namespace com.datahub.test.testing
+
+/**
+ * Pizza identifier.
+ */
+@java = {
+  "class" : "com.datahub.test.testing.urn.PizzaUrn",
+  "coercerClass" : "com.datahub.test.testing.urn.PizzaUrnCoercer"
+}
+@validate.`com.linkedin.common.validator.TypedUrnValidator` = {
+  "owningTeam" : "urn:li:internalTeam:metadata",
+  "entityType" : "pizza",
+  "namespace" : "li",
+  "name" : "Pizza",
+  "doc" : "Pizza identifier.",
+  "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
+  "fields" : [ {
+    "type" : "int",
+    "name" : "pizzaId",
+    "doc" : "GUID for this pizza"
+  } ]
+}
+typeref PizzaUrn = string

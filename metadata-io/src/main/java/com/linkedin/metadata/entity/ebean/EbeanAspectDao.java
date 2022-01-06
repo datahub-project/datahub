@@ -1,15 +1,15 @@
 package com.linkedin.metadata.entity.ebean;
 
+import com.datahub.util.exception.ModelConversionException;
+import com.datahub.util.exception.RetryLimitReached;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.metadata.dao.exception.ModelConversionException;
-import com.linkedin.metadata.dao.exception.RetryLimitReached;
-import com.linkedin.metadata.dao.utils.QueryUtils;
 import com.linkedin.metadata.entity.AspectStorageValidationUtil;
 import com.linkedin.metadata.entity.ListResult;
 import com.linkedin.metadata.query.ExtraInfo;
 import com.linkedin.metadata.query.ExtraInfoArray;
 import com.linkedin.metadata.query.ListResultMetadata;
+import com.linkedin.metadata.search.utils.QueryUtils;
 import io.ebean.DuplicateKeyException;
 import io.ebean.EbeanServer;
 import io.ebean.PagedList;
@@ -36,7 +36,7 @@ import javax.persistence.RollbackException;
 import javax.persistence.Table;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.metadata.Constants.ASPECT_LATEST_VERSION;
+import static com.linkedin.metadata.Constants.*;
 
 @Slf4j
 public class EbeanAspectDao {
