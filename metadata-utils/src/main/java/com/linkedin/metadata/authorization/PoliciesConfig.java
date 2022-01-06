@@ -165,37 +165,13 @@ public class PoliciesConfig {
       ImmutableList.of(EDIT_ENTITY_OWNERS_PRIVILEGE, EDIT_ENTITY_PRIVILEGE)
   );
 
-  //Glossary Term Priveleges
-  public static final Privilege EDIT_GLOSSARY_TERM_COL_TAGS_PRIVILEGE = Privilege.of(
-          "EDIT_GLOSSARY_TERM_COL_TAGS",
-          "Edit Business Glossary Column Tags",
-          "The ability to edit the column (field) tags associated with a business glossary schema."
-  );
-
-  public static final Privilege EDIT_GLOSSARY_TERM_COL_DESCRIPTION_PRIVILEGE = Privilege.of(
-          "EDIT_GLOSSARY_TERM_COL_DESCRIPTION",
-          "Edit Business Glossary Column Descriptions",
-          "The ability to edit the column (field) descriptions associated with a Business Glossary schema."
-  );
-
-  public static final ResourcePrivileges GLOSSARY_TERM_PRIVILEGES = ResourcePrivileges.of(
-          "glossary",
-          "GlossaryTerm",
-          "GlossaryTerm indexed by DataHub", Stream.of(
-                          COMMON_ENTITY_PRIVILEGES,
-                          ImmutableList.of(EDIT_GLOSSARY_TERM_COL_TAGS_PRIVILEGE, EDIT_GLOSSARY_TERM_COL_DESCRIPTION_PRIVILEGE))
-                  .flatMap(Collection::stream)
-                  .collect(Collectors.toList())
-  );
-
   public static final List<ResourcePrivileges> RESOURCE_PRIVILEGES = ImmutableList.of(
       DATASET_PRIVILEGES,
       DASHBOARD_PRIVILEGES,
       CHART_PRIVILEGES,
       DATA_FLOW_PRIVILEGES,
       DATA_JOB_PRIVILEGES,
-      TAG_PRIVILEGES,
-      GLOSSARY_TERM_PRIVILEGES
+      TAG_PRIVILEGES
   );
 
   @Data
