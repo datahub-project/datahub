@@ -27,7 +27,7 @@ export TF_WORKSPACE="${AWS_ENVIRONMENT}"
 export TF_IN_AUTOMATION=1
 
 # initialize backend
-"${TERRAFORM}" init -input=false
+TF_LOG=DEBUG "${TERRAFORM}" init -input=false
 
 # tf apply no questions asked
 "${TERRAFORM}" apply -auto-approve -input=false
