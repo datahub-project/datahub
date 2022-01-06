@@ -2982,6 +2982,13 @@
         "checksum": "038ac5af10d168699b8e5dcef54752c22a31a705eed010cacbf180e9ca214ceb",
         "name": "sha256"
       },
+      "meta": {
+        "business_owner": "jdoe.last@gmail.com",
+        "data_governance.team_owner": "Finance",
+        "has_pii": true,
+        "int_property": 1,
+        "double_property": 2.5
+      },
       "columns": {},
       "compiled": true,
       "compiled_sql": "\n\nSELECT\n    c.customer_id,\n    c.first_name || ' ' || c.last_name as \"full_name\",\n    c.email,\n    a.address,\n    m.city,\n    a.postal_code,\n    a.phone\nFROM\n    \"pagila\".\"public\".\"customer\" c\n    left outer join \"pagila\".\"public\".\"address\" a on c.address_id = a.address_id\n    left outer join \"pagila\".\"public\".\"city\" m on a.city_id = m.city_id",
@@ -3024,7 +3031,6 @@
         "transform",
         "customer_details"
       ],
-      "meta": {},
       "name": "customer_details",
       "original_file_path": "models/transform/customer_details.sql",
       "package_name": "sample_dbt",
@@ -3062,6 +3068,13 @@
       "checksum": {
         "checksum": "3f13dfa22648e3bb3e52082de053591b33b07ca028216db3b12a1a09d6bf747a",
         "name": "sha256"
+      },
+      "meta": {
+        "business_owner": "jdoe.last",
+        "data_governance.team_owner": "Sales",
+        "has_pii": false,
+        "int_property": 2,
+        "double_property": 3.5
       },
       "columns": {},
       "compiled": true,
@@ -3106,7 +3119,6 @@
         "billing",
         "monthly_billing_with_cust"
       ],
-      "meta": {},
       "name": "monthly_billing_with_cust",
       "original_file_path": "models/billing/monthly_billing_with_cust.sql",
       "package_name": "sample_dbt",
