@@ -120,7 +120,8 @@ public class DataJobType implements SearchableEntityType<DataJob>, BrowsableEnti
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
         String sortField = sort != null ? sort.getField() : null;
         SortOrder sortOrder = sort != null ? (sort.getSortOrder().equals(Sort.asc) ? SortOrder.ASCENDING : SortOrder.DESCENDING) : null;
-        final SearchResult searchResult = _dataJobsClient.search("dataJob", query, facetFilters, sortField, sortOrder, start, count, context.getAuthentication());
+        final SearchResult searchResult = _dataJobsClient.search("dataJob", query, facetFilters, sortField, sortOrder, start,
+                count, context.getAuthentication());
         return UrnSearchResultsMapper.map(searchResult);
     }
 

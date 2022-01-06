@@ -1,6 +1,5 @@
 package com.linkedin.datahub.graphql.resolvers.search;
 
-import com.linkedin.datahub.graphql.exception.ValidationException;
 import com.linkedin.datahub.graphql.generated.FieldSortInput;
 import com.linkedin.datahub.graphql.generated.SearchInput;
 import com.linkedin.datahub.graphql.generated.SearchResults;
@@ -8,7 +7,6 @@ import com.linkedin.datahub.graphql.generated.Sort;
 import com.linkedin.datahub.graphql.resolvers.EntityTypeMapper;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
-import com.linkedin.entity.client.RestliEntityClient;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.entity.client.EntityClient;
 import graphql.schema.DataFetcher;

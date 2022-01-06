@@ -325,8 +325,9 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
      * @throws RemoteInvocationException
      */
     @Nonnull
-    public SearchResult search(@Nonnull String entity, @Nonnull String input, @Nullable Filter filter, @Nullable String sortField, @Nullable SortOrder sortOrder,
-                               int start, int count, @Nonnull final Authentication authentication) throws RemoteInvocationException {
+    public SearchResult search(@Nonnull String entity, @Nonnull String input, @Nullable Filter filter,
+                               @Nullable String sortField, @Nullable SortOrder sortOrder, int start, int count,
+                               @Nonnull final Authentication authentication) throws RemoteInvocationException {
 
         SortCriterion sortCriterion = new SortCriterion();
 
@@ -510,8 +511,10 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
      */
     @Nonnull
     public List<EnvelopedAspect> getTimeseriesAspectValues(@Nonnull String urn, @Nonnull String entity,
-                                                           @Nonnull String aspect, @Nullable Long startTimeMillis, @Nullable Long endTimeMillis, @Nullable Integer limit,
-                                                           @Nonnull Boolean getLatestValue, @Nullable Filter filter, @Nonnull final Authentication authentication)
+                                                           @Nonnull String aspect, @Nullable Long startTimeMillis,
+                                                           @Nullable Long endTimeMillis, @Nullable Integer limit,
+                                                           @Nonnull Boolean getLatestValue, @Nullable Filter filter,
+                                                           @Nonnull final Authentication authentication)
             throws RemoteInvocationException {
 
         AspectsDoGetTimeseriesAspectValuesRequestBuilder requestBuilder =
@@ -555,8 +558,8 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
         return sendClientRequest(requestBuilder, authentication).getEntity();
     }
 
-    public <T extends RecordTemplate> Optional<T> getVersionedAspect(@Nonnull String urn, @Nonnull String aspect,
-                                                                     @Nonnull Long version, @Nonnull Class<T> aspectClass, @Nonnull final Authentication authentication)
+    public <T extends RecordTemplate> Optional<T> getVersionedAspect(@Nonnull String urn, @Nonnull String aspect, @Nonnull Long version,
+                                                                     @Nonnull Class<T> aspectClass, @Nonnull final Authentication authentication)
             throws RemoteInvocationException {
 
         AspectsGetRequestBuilder requestBuilder =

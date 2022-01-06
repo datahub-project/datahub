@@ -83,7 +83,8 @@ public class CorpUserType implements SearchableEntityType<CorpUser> {
                                 @Nonnull final QueryContext context) throws Exception {
         String sortField = sort != null ? sort.getField() : null;
         SortOrder sortOrder = sort != null ? (sort.getSortOrder().equals(Sort.asc) ? SortOrder.ASCENDING : SortOrder.DESCENDING) : null;
-        final SearchResult searchResult = _entityClient.search("corpuser", query, Collections.emptyMap(), sortField, sortOrder, start, count, context.getAuthentication());
+        final SearchResult searchResult = _entityClient.search("corpuser", query, Collections.emptyMap(), sortField, sortOrder,
+                start, count, context.getAuthentication());
         return UrnSearchResultsMapper.map(searchResult);
     }
 
