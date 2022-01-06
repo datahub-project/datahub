@@ -116,7 +116,6 @@ export const EntityProfile = <T, U>({
     const entityRegistry = useEntityRegistry();
     const history = useHistory();
     const isCompact = React.useContext(CompactContext);
-    console.log(properties);
     const tabsWithDefaults = tabs.map((tab) => ({ ...tab, display: { ...defaultTabDisplayConfig, ...tab.display } }));
     const sideBarSectionsWithDefaults = sidebarSections.map((sidebarSection) => ({
         ...sidebarSection,
