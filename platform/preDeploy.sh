@@ -12,7 +12,8 @@ TERRAFORM="${TMPDIR}/terraform"
 
 # put the required terraform files here
 cd /home/datahub/terraform
-
+echo "In Directory:"
+echo pwd
 CLIENT_CERT_PATH=`mktemp`
 PRIVATE_KEY_PATH=`mktemp`
 

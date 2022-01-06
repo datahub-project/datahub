@@ -66,5 +66,6 @@ EXPOSE 8080
 
 COPY ./terraform/kafka /home/datahub/terraform
 COPY ./platform/preDeploy.sh /usr/local/bin/preDeploy.sh
+RUN mkdir /home/datahub/terraform/.terraform
 
 CMD /datahub/datahub-gms/scripts/start.sh
