@@ -7,7 +7,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
 
 @Controller
-public class MaeConsumerConfig {
+public class MclConsumerConfig {
     Map<String, String> config = new HashMap<String, String>() {{
         put("noCode", "true");
     }};

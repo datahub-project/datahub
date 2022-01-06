@@ -1,32 +1,21 @@
 package com.linkedin.datahub.lineage.spark.interceptor;
 
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
+import com.linkedin.common.urn.DataFlowUrn;
+import com.linkedin.datahub.lineage.consumer.impl.McpEmitter;
+import com.linkedin.datahub.lineage.spark.model.LineageConsumer;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-
-import javax.annotation.Nonnull;
-
+import lombok.extern.slf4j.Slf4j;
 import org.apache.spark.SparkContext;
 import org.apache.spark.SparkContext$;
 import org.apache.spark.sql.SparkSession;
-
-import com.linkedin.common.urn.DataFlowUrn;
-import com.linkedin.data.ByteString;
-import com.linkedin.data.template.JacksonDataTemplateCodec;
-import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.datahub.lineage.consumer.impl.McpEmitter;
-import com.linkedin.datahub.lineage.spark.model.LineageConsumer;
-import com.linkedin.mxe.GenericAspect;
-
-import lombok.extern.slf4j.Slf4j;
 import scala.Option;
 import scala.runtime.AbstractFunction0;
 import scala.runtime.AbstractFunction1;
 
+
 @Slf4j
 public class LineageUtils {
-  private static final JacksonDataTemplateCodec DATA_TEMPLATE_CODEC = new JacksonDataTemplateCodec();
 
   private static Map<String, LineageConsumer> consumers = new ConcurrentHashMap<>();
 
@@ -58,44 +47,26 @@ public class LineageUtils {
     return new DataFlowUrn("spark", appName, master.replaceAll(":", "_").replaceAll("/", "_").replaceAll("[_]+", "_"));
   }
 
-  // Taken from GenericAspectUtils
-  public static GenericAspect serializeAspect(@Nonnull RecordTemplate aspect) {
-    GenericAspect genericAspect = new GenericAspect();
-
-    try {
-      String aspectStr = DATA_TEMPLATE_CODEC.mapToString(aspect.data());
-      genericAspect.setValue(
-          ByteString.unsafeWrap(aspectStr.getBytes(StandardCharsets.UTF_8)));
-      genericAspect.setContentType("application/json");
-      return genericAspect;
-    } catch (IOException e) {
-      throw new RuntimeException(e);
-    }
-
-  }
-
   public static Option<SparkContext> findSparkCtx() {
-    return SparkSession.getActiveSession()
-        .map(new AbstractFunction1<SparkSession, SparkContext>() {
+    return SparkSession.getActiveSession().map(new AbstractFunction1<SparkSession, SparkContext>() {
 
-          @Override
-          public SparkContext apply(SparkSession sess) {
-            return sess.sparkContext();
-          }
-        })
-        .orElse(new AbstractFunction0<Option<SparkContext>>() {
+      @Override
+      public SparkContext apply(SparkSession sess) {
+        return sess.sparkContext();
+      }
+    }).orElse(new AbstractFunction0<Option<SparkContext>>() {
 
-          @Override
-          public Option<SparkContext> apply() {
-            return SparkContext$.MODULE$.getActive();
-          }
-        });
+      @Override
+      public Option<SparkContext> apply() {
+        return SparkContext$.MODULE$.getActive();
+      }
+    });
   }
 
   public static String getMaster(SparkContext ctx) {
     return ctx.conf().get("spark.master");
   }
-  
+
   /* This is for generating urn from a hash of the plan */
   
 /*

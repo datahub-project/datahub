@@ -38,22 +38,23 @@ sink:
 
 Note that a `.` is used to denote nested fields in the YAML recipe.
 
-| Field                         | Required | Default      | Description                                                                        |
-| ----------------------------- | -------- | ------------ | ---------------------------------------------------------------------------------- |
-| `aws_region`                  | ✅       |              | AWS region code.                                                                   |
-| `env`                         |          | `"PROD"`     | Environment to use in namespace when constructing URNs.                            |
-| `aws_access_key_id`           |          | Autodetected | See https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html |
-| `aws_secret_access_key`       |          | Autodetected | See https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html |
-| `aws_session_token`           |          | Autodetected | See https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html |
-| `aws_role`                    |          | Autodetected | See https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html |
-| `extract_transforms`          |          | `True`       | Whether to extract Glue transform jobs.                                            |
-| `database_pattern.allow`      |          |              | List of regex patterns for databases to include in ingestion.                      |
-| `database_pattern.deny`       |          |              | List of regex patterns for databases to exclude from ingestion.                    |
-| `database_pattern.ignoreCase` |          | `True`       | Whether to ignore case sensitivity during pattern matching.                        |
-| `table_pattern.allow`         |          |              | List of regex patterns for tables to include in ingestion.                         |
-| `table_pattern.deny`          |          |              | List of regex patterns for tables to exclude from ingestion.                       |
-| `table_pattern.ignoreCase`    |          | `True`       | Whether to ignore case sensitivity during pattern matching.                        |
-| `underlying_platform`         |          | `glue`       | Override for platform name. Allowed values - `glue`, `athena`                      |
+| Field                           | Required | Default      | Description                                                                        |
+| ------------------------------- | -------- | ------------ | ---------------------------------------------------------------------------------- |
+| `aws_region`                    | ✅       |              | AWS region code.                                                                   |
+| `env`                           |          | `"PROD"`     | Environment to use in namespace when constructing URNs.                            |
+| `aws_access_key_id`             |          | Autodetected | See https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html |
+| `aws_secret_access_key`         |          | Autodetected | See https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html |
+| `aws_session_token`             |          | Autodetected | See https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html |
+| `aws_role`                      |          | Autodetected | See https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html |
+| `extract_transforms`            |          | `True`       | Whether to extract Glue transform jobs.                                            |
+| `database_pattern.allow`        |          |              | List of regex patterns for databases to include in ingestion.                      |
+| `database_pattern.deny`         |          |              | List of regex patterns for databases to exclude from ingestion.                    |
+| `database_pattern.ignoreCase`   |          | `True`       | Whether to ignore case sensitivity during pattern matching.                        |
+| `table_pattern.allow`           |          |              | List of regex patterns for tables to include in ingestion.                         |
+| `table_pattern.deny`            |          |              | List of regex patterns for tables to exclude from ingestion.                       |
+| `table_pattern.ignoreCase`      |          | `True`       | Whether to ignore case sensitivity during pattern matching.                        |
+| `underlying_platform`           |          | `glue`       | Override for platform name. Allowed values - `glue`, `athena`                      |
+| `ignore_unsupported_connectors` |          | `True`       | Whether to ignore unsupported connectors. If disabled, an error will be raised.    |
 
 ## Compatibility
 
