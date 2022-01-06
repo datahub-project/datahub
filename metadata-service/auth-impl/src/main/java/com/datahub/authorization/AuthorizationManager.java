@@ -40,6 +40,9 @@ import static com.linkedin.metadata.Constants.*;
 @Slf4j
 public class AuthorizationManager implements Authorizer {
 
+  // Credentials used to make / authorize requests as the internal system actor.
+  private final Authentication _systemAuthentication;
+
   // Maps privilege name to the associated set of policies for fast access.
   // Not concurrent data structure because writes are always against the entire thing.
   private final Map<String, List<DataHubPolicyInfo>> _policyCache = new HashMap<>(); // Shared Policy Cache.
@@ -57,6 +60,7 @@ public class AuthorizationManager implements Authorizer {
       final int delayIntervalSeconds,
       final int refreshIntervalSeconds,
       final AuthorizationMode mode) {
+    _systemAuthentication = systemAuthentication;
     _policyRefreshRunnable = new PolicyRefreshRunnable(systemAuthentication, entityClient, _policyCache);
     _refreshExecutorService.scheduleAtFixedRate(_policyRefreshRunnable, delayIntervalSeconds, refreshIntervalSeconds, TimeUnit.SECONDS);
     _mode = mode;
@@ -64,6 +68,12 @@ public class AuthorizationManager implements Authorizer {
   }
 
   public AuthorizationResult authorize(final AuthorizationRequest request) {
+
+    // 0. Short circuit: If the action is being performed by the system (root), always allow it.
+    if (isSystemRequest(request, this._systemAuthentication)) {
+      return new AuthorizationResult(request, Optional.empty(), AuthorizationResult.Type.ALLOW);
+    }
+
     // 1. Fetch the policies relevant to the requested privilege.
     final List<DataHubPolicyInfo> policiesToEvaluate = _policyCache.getOrDefault(request.privilege(), new ArrayList<>());
 
@@ -129,6 +139,14 @@ public class AuthorizationManager implements Authorizer {
 
   public void setMode(final AuthorizationMode mode) {
     _mode = mode;
+  }
+
+  /**
+   * Returns true if the request's is coming from the system itself, in which cases
+   * the action is always authorized.
+   */
+  private boolean isSystemRequest(final AuthorizationRequest request, final Authentication systemAuthentication) {
+    return systemAuthentication.getActor().toUrnStr().equals(request.actorUrn());
   }
 
   /**
