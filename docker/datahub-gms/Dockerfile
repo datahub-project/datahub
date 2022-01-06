@@ -62,6 +62,9 @@ COPY --from=tools /usr/local/bin/vault /usr/local/bin/
 
 EXPOSE 8080
 
-HEALTHCHECK --start-period=2m --retries=4 CMD curl --fail http://localhost:8080/health || exit 1
+# HEALTHCHECK --start-period=2m --retries=4 CMD curl --fail http://localhost:8080/health || exit 1
+
+COPY ./terraform/kafka /terraform
+
 
 CMD /datahub/datahub-gms/scripts/start.sh
