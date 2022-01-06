@@ -62,3 +62,9 @@ webApps: # Optional: You can remove this parent if you are not using it
       default:
         - vpc
         - hq
+preDeploy:
+  - command: /usr/local/bin/with-secrets
+    args:
+      - /usr/local/bin/preDeploy.sh
+    iamRole: dataportal
+    image: 311088406905.dkr.ecr.us-east-1.amazonaws.com/dataportal-gms
