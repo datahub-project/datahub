@@ -58,6 +58,7 @@ webApps: # Optional: You can remove this parent if you are not using it
     resources:
       requests:
         memory: 6Gi
+    healthcheckPath: /health
     securityGroups:
       default:
         - vpc
