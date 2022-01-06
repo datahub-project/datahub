@@ -1,13 +1,14 @@
 package com.linkedin.metadata.dao.producer;
 
+import com.datahub.metadata.dao.producer.BaseMetadataEventProducer;
+import com.datahub.util.ModelUtils;
+import com.datahub.util.RecordUtils;
+import com.datahub.util.exception.ModelConversionException;
 import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.UnionTemplate;
 import com.linkedin.metadata.EventUtils;
-import com.linkedin.metadata.dao.exception.ModelConversionException;
-import com.linkedin.metadata.dao.utils.ModelUtils;
-import com.linkedin.metadata.dao.utils.RecordUtils;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.mxe.MetadataAuditEvent;
 import com.linkedin.mxe.MetadataChangeEvent;

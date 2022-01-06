@@ -1,0 +1,23 @@
+namespace com.datahub.test.testing
+
+/**
+ * Foo identifier.
+ */
+@java = {
+  "class" : "com.datahub.test.testing.urn.FooUrn",
+  "coercerClass" : "com.datahub.test.testing.urn.FooUrnCoercer"
+}
+@validate.`com.linkedin.common.validator.TypedUrnValidator` = {
+  "owningTeam" : "urn:li:internalTeam:metadata",
+  "entityType" : "entityFoo",
+  "namespace" : "li",
+  "name" : "Foo",
+  "doc" : "Foo identifier.",
+  "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
+  "fields" : [ {
+    "type" : "int",
+    "name" : "fooId",
+    "doc" : "GUID for foo"
+  } ]
+}
+typeref FooUrn = string
