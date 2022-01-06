@@ -24,7 +24,7 @@ const Content = styled.div`
 `;
 
 export default function GlossayRelatedTerms() {
-    const { entityData }: any = useEntityData();
+    const { entityData } = useEntityData();
     const [selectedKey, setSelectedKey] = useState('');
     const menuOptionsArray = Object.keys(RelatedTermTypes);
 
