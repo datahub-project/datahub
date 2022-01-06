@@ -24,7 +24,6 @@ input DatasetUpdateInput {
     ownership: OwnershipUpdate
 }
 
-
 input OwnershipUpdate {
     owners: [OwnerUpdate!]
 }

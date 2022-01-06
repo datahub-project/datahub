@@ -115,7 +115,6 @@ type Mutation {
     """
     updateDataset(urn: String!, input: DatasetUpdateInput!): Dataset
 
-
     """
     Update the metadata about a particular Chart
     """
@@ -750,12 +749,6 @@ type GlossaryTerm implements Entity {
     Edges extending from this entity
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
-
-    
-    """
-    Schema metadata of the dataset
-    """
-    schema: Schema @deprecated(reason: "Use `schemaMetadata`")
 
     """
     Schema metadata of the dataset
@@ -2375,7 +2368,6 @@ input DatasetUpdateInput {
     """
     editableProperties: DatasetEditablePropertiesUpdate
 }
-
 
 """
 Update to editable schema metadata of the dataset
