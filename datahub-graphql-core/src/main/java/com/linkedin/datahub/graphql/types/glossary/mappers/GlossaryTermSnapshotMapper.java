@@ -4,7 +4,6 @@ import com.linkedin.common.Ownership;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.GlossaryTerm;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
-import com.linkedin.datahub.graphql.types.dataset.mappers.EditableSchemaMetadataMapper;
 import com.linkedin.datahub.graphql.types.dataset.mappers.SchemaMapper;
 import com.linkedin.datahub.graphql.types.glossary.GlossaryTermUtils;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
@@ -50,9 +49,7 @@ public class GlossaryTermSnapshotMapper implements ModelMapper<GlossaryTermSnaps
                         SchemaMapper.map((SchemaMetadata) aspect)
                 );
             }
-            if (aspect instanceof EditableSchemaMetadata) {
-                result.setEditableSchemaMetadata(EditableSchemaMetadataMapper.map((EditableSchemaMetadata) aspect));
-            }
+
         });
         return result;
     }

@@ -21,10 +21,6 @@ const TitleContainer = styled.div`
     margin-bottom: 30px;
 `;
 
-const ListItem = styled.div`
-    margin: 40px;
-`;
-
 export default ({ searchResult, entityPath }: Props) => {
     const entityRegistry = useEntityRegistry();
     const entityType = entityRegistry.getTypeFromPathName(entityPath || '');
@@ -42,10 +38,10 @@ export default ({ searchResult, entityPath }: Props) => {
                 dataSource={entitiesToShow}
                 renderItem={(item) => {
                     return (
-                        <ListItem>
+                        <>
                             {entityRegistry.renderPreview(entityType, PreviewType.PREVIEW, item.entity)}
                             <Divider />
-                        </ListItem>
+                        </>
                     );
                 }}
             />

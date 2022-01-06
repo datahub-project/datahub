@@ -587,20 +587,3 @@ fragment nonRecursiveMLModelGroupFields on MLModelGroup {
         ...ownershipFields
     }
 }
- fragment nonRecursiveGlossaryTerms on GlossaryTerm{
-  schemaMetadata(version: 0) {
-         ...schemaMetadataFields
-     }
-     previousSchemaMetadata: schemaMetadata(version: -1) {
-         ...schemaMetadataFields
-     }
-     editableSchemaMetadata {
-         editableSchemaFieldInfo {
-             fieldPath
-             description
-             globalTags {
-                 ...globalTagsFields
-             }
-         }
-     }
- }

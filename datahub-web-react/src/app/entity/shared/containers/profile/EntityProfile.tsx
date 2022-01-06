@@ -39,7 +39,7 @@ type Props<T, U> = {
             urn: string;
         }>
     >;
-    useUpdateQuery: (
+    useUpdateQuery?: (
         baseOptions?: MutationHookOptions<U, { urn: string; input: GenericEntityUpdate }> | undefined,
     ) => MutationTuple<U, { urn: string; input: GenericEntityUpdate }>;
     getOverrideProperties: (T) => GenericEntityProperties;
@@ -142,9 +142,13 @@ export const EntityProfile = <T, U>({
         variables: { urn },
     });
 
-    const [updateEntity] = useUpdateQuery({
-        onCompleted: () => refetch(),
-    });
+    let updateEntity;
+    if (useUpdateQuery) {
+        // eslint-disable-next-line react-hooks/rules-of-hooks
+        [updateEntity] = useUpdateQuery({
+            onCompleted: () => refetch(),
+        });
+    }
 
     const entityData =
         (data && getDataForEntityType({ data: data[Object.keys(data)[0]], entityType, getOverrideProperties })) || null;
@@ -233,7 +237,9 @@ export const EntityProfile = <T, U>({
                                             selectedTab={routedTab}
                                         />
                                     </Header>
-                                    <TabContent>{routedTab && <routedTab.component />}</TabContent>
+                                    <TabContent>
+                                        {routedTab && <routedTab.component properties={routedTab.properties} />}
+                                    </TabContent>
                                 </HeaderAndTabsFlex>
                             </HeaderAndTabs>
                             <Sidebar>

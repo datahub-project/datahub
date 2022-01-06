@@ -17,13 +17,15 @@ const NoSchema = styled(Empty)`
     padding-top: 60px;
 `;
 
-export const SchemaTab = () => {
+export const SchemaTab = ({ properties }: { properties?: any }) => {
     const { entityData } = useEntityData();
     const baseEntity = useBaseEntity<GetDatasetQuery>();
-
+    let editMode = true;
+    if (properties && properties.hasOwnProperty('editMode')) {
+        editMode = properties.editMode;
+    }
     const { schemaMetadata, editableSchemaMetadata } = entityData || {};
     const usageStats = baseEntity?.dataset?.usageStats;
-
     const [showRaw, setShowRaw] = useState(false);
     const hasRawSchema = useMemo(
         () =>
@@ -60,7 +62,7 @@ export const SchemaTab = () => {
     return (
         <div>
             <SchemaHeader
-                editMode
+                editMode={editMode}
                 showRaw={showRaw}
                 setShowRaw={setShowRaw}
                 hasRaw={hasRawSchema}
@@ -70,13 +72,17 @@ export const SchemaTab = () => {
             />
             {/* eslint-disable-next-line no-nested-ternary */}
             {showRaw ? (
-                <SchemaRawView schemaDiff={{ current: schemaMetadata }} editMode showKeySchema={showKeySchema} />
+                <SchemaRawView
+                    schemaDiff={{ current: schemaMetadata }}
+                    editMode={editMode}
+                    showKeySchema={showKeySchema}
+                />
             ) : rows && rows.length > 0 ? (
                 <>
                     <SchemaTable
                         schemaMetadata={schemaMetadata}
                         rows={rows}
-                        editMode
+                        editMode={editMode}
                         editableSchemaMetadata={editableSchemaMetadata}
                         usageStats={usageStats}
                     />

@@ -1,8 +1,4 @@
-mutation updateGlossaryTerm($input: GlossaryTermUpdateInput!) {
-    updateGlossaryTerm(input: $input) {
-        ...nonRecursiveGlossaryTerms
-    }
-}
+
 
 query getGlossaryTerm($urn: String!, $start: Int, $count: Int) {
     glossaryTerm(urn: $urn) {
@@ -54,39 +50,7 @@ query getGlossaryTerm($urn: String!, $start: Int, $count: Int) {
         previousSchemaMetadata: schemaMetadata(version: -1) {
             ...schemaMetadataFields
         }
-        editableSchemaMetadata {
-            editableSchemaFieldInfo {
-                fieldPath
-                description
-                globalTags {
-                    ...globalTagsFields
-                }
-            }
-        }
-
     }
 }
 
-query getGlossaryTermSchemaVersions($urn: String!, $version1: Long, $version2: Long) {
-    glossaryTerm(urn: $urn) {
-        urn
-        name
-        type
-        hierarchicalName
-        schemaMetadata(version: $version1) {
-            ...schemaMetadataFields
-        }
-        previousSchemaMetadata: schemaMetadata(version: $version2) {
-            ...schemaMetadataFields
-        }
-        editableSchemaMetadata {
-            editableSchemaFieldInfo {
-                fieldPath
-                description
-                globalTags {
-                    ...globalTagsFields
-                }
-            }
-        }
-    }
-}
+

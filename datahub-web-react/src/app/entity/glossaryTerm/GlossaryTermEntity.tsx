@@ -5,7 +5,7 @@ import { Entity, IconStyleType, PreviewType } from '../Entity';
 import { Preview } from './preview/Preview';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
-import { useGetGlossaryTermQuery, useUpdateGlossaryTermMutation } from '../../../graphql/glossaryTerm.generated';
+import { useGetGlossaryTermQuery } from '../../../graphql/glossaryTerm.generated';
 import { GenericEntityProperties } from '../shared/types';
 import { SchemaTab } from '../shared/tabs/Dataset/Schema/SchemaTab';
 import GlossaryRelatedEntity from './profile/GlossaryRelatedEntity';
@@ -59,11 +59,13 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
                 urn={urn}
                 entityType={EntityType.GlossaryTerm}
                 useEntityQuery={useGetGlossaryTermQuery as any}
-                useUpdateQuery={useUpdateGlossaryTermMutation as any}
                 tabs={[
                     {
                         name: 'Schema',
                         component: SchemaTab,
+                        properties: {
+                            editMode: false,
+                        },
                     },
                     {
                         name: 'Related Entities',

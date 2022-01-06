@@ -478,7 +478,6 @@ public class GmsGraphQLEngine {
             .dataFetcher("updateDashboard", new AuthenticatedResolver<>(new MutableTypeResolver<>(dashboardType)))
             .dataFetcher("updateDataJob", new AuthenticatedResolver<>(new MutableTypeResolver<>(dataJobType)))
             .dataFetcher("updateDataFlow", new AuthenticatedResolver<>(new MutableTypeResolver<>(dataFlowType)))
-            .dataFetcher("updateGlossaryTerm", new AuthenticatedResolver<>(new MutableTypeResolver<>(glossaryTermType)))
             .dataFetcher("addTag", new AuthenticatedResolver<>(new AddTagResolver(entityService)))
             .dataFetcher("removeTag", new AuthenticatedResolver<>(new RemoveTagResolver(entityService)))
             .dataFetcher("addTerm", new AuthenticatedResolver<>(new AddTermResolver(entityService)))
