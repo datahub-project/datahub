@@ -4,6 +4,22 @@ ARG TOOLCHAIN_VERSION=master
 ARG APP_ENV=prod
 FROM $TOOLCHAIN_REPO:$TOOLCHAIN_VERSION as tools
 
+FROM python:3.8-alpine as builder
+
+RUN apk add --no-cache \
+  curl \
+  make \
+  cmake \
+  gcc \
+  libc-dev \
+  libffi-dev \
+  openssl-dev \
+  && curl https://awscli.amazonaws.com/awscli-2.2.1.tar.gz | tar -xz \
+  && cd awscli-2.2.1 \
+  && ./configure --prefix=/opt/aws-cli/ --with-download-deps \
+  && make \
+  && make install
+
 FROM alpine:3.14.2 AS base
 
 ENV DOCKERIZE_VERSION v0.6.1
@@ -53,6 +69,11 @@ USER datahub
 
 ENV JMX_OPTS=""
 ENV JAVA_OPTS=""
+
+RUN apk --no-cache add groff
+
+COPY --from=builder /opt/aws-cli/ /opt/aws-cli/
+
 
 #### WITH SECRETS DEPENDENCY
 COPY --from=tools /usr/local/bin/with-secrets /usr/local/bin/with-secrets
