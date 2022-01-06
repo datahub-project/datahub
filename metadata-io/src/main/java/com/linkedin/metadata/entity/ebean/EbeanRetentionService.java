@@ -1,7 +1,7 @@
 package com.linkedin.metadata.entity.ebean;
 
 import com.linkedin.common.urn.Urn;
-import com.linkedin.metadata.dao.utils.RecordUtils;
+import com.datahub.util.RecordUtils;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.RetentionService;
 import com.linkedin.retention.DataHubRetentionConfig;
