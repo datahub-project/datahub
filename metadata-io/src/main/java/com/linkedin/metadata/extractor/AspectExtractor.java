@@ -1,13 +1,13 @@
 package com.linkedin.metadata.extractor;
 
+import com.datahub.util.ModelUtils;
 import com.linkedin.data.element.DataElement;
 import com.linkedin.data.it.IterationOrder;
 import com.linkedin.data.it.ObjectIterator;
 import com.linkedin.data.schema.PathSpec;
 import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.metadata.utils.PegasusUtils;
-import com.linkedin.metadata.dao.utils.ModelUtils;
 import com.linkedin.metadata.models.FieldSpec;
+import com.linkedin.metadata.utils.PegasusUtils;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
