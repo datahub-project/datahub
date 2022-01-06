@@ -8,7 +8,10 @@ from datahub.ingestion.transformer.add_dataset_ownership import (
     PatternAddDatasetOwnership,
     SimpleAddDatasetOwnership,
 )
-from datahub.ingestion.transformer.add_dataset_properties import AddDatasetProperties
+from datahub.ingestion.transformer.add_dataset_properties import (
+    AddDatasetProperties,
+    SimpleAddDatasetProperties,
+)
 from datahub.ingestion.transformer.add_dataset_tags import (
     AddDatasetTags,
     PatternAddDatasetTags,
@@ -45,3 +48,4 @@ transform_registry.register("simple_add_dataset_terms", SimpleAddDatasetTerms)
 transform_registry.register("pattern_add_dataset_terms", PatternAddDatasetTerms)
 
 transform_registry.register("add_dataset_properties", AddDatasetProperties)
+transform_registry.register("simple_add_dataset_properties", SimpleAddDatasetProperties)

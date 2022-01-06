@@ -26,12 +26,15 @@ import com.linkedin.entity.EntitiesDoSearchAcrossEntitiesRequestBuilder;
 import com.linkedin.entity.EntitiesDoSearchRequestBuilder;
 import com.linkedin.entity.EntitiesDoSetWritableRequestBuilder;
 import com.linkedin.entity.EntitiesRequestBuilders;
+import com.linkedin.entity.EntitiesV2BatchGetRequestBuilder;
+import com.linkedin.entity.EntitiesV2RequestBuilders;
 import com.linkedin.entity.Entity;
 import com.linkedin.entity.EntityArray;
+import com.linkedin.entity.EntityResponse;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.browse.BrowseResult;
-import com.linkedin.metadata.dao.utils.RecordUtils;
+import com.datahub.util.RecordUtils;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.ListResult;
 import com.linkedin.metadata.query.ListUrnsResult;
@@ -59,13 +62,14 @@ import javax.mail.MethodNotSupportedException;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.metadata.search.utils.QueryUtils.*;
+import static com.linkedin.metadata.search.utils.QueryUtils.newFilter;
 
 
 @Slf4j
 public class RestliEntityClient extends BaseClient implements EntityClient {
 
   private static final EntitiesRequestBuilders ENTITIES_REQUEST_BUILDERS = new EntitiesRequestBuilders();
+  private static final EntitiesV2RequestBuilders ENTITIES_V2_REQUEST_BUILDERS = new EntitiesV2RequestBuilders();
   private static final AspectsRequestBuilders ASPECTS_REQUEST_BUILDERS = new AspectsRequestBuilders();
 
   public RestliEntityClient(@Nonnull final Client restliClient) {
@@ -78,6 +82,16 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
     return sendClientRequest(ENTITIES_REQUEST_BUILDERS.get().id(urn.toString()), authentication).getEntity();
   }
 
+  /**
+   * Legacy! Use {#batchGetV2} instead, as this method leverages Snapshot models, and will not work
+   * for fetching entities + aspects added by Entity Registry configuration. 
+   *
+   * Batch get a set of {@link Entity} objects by urn.  
+   *
+   * @param urns the urns of the entities to batch get
+   * @param authentication the authentication to include in the request to the Metadata Service
+   * @throws RemoteInvocationException
+   */
   @Nonnull
   public Map<Urn, Entity> batchGet(@Nonnull final Set<Urn> urns, @Nonnull final Authentication authentication)
       throws RemoteInvocationException {
@@ -110,12 +124,45 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
   }
 
   /**
-   * Gets browse snapshot of a given path
+   * Batch get a set of aspects for a single entity. 
    *
+   * @param entityName the entity type to fetch 
+   * @param urns the urns of the entities to batch get
+   * @param aspectNames the aspect names to batch get
+   * @param authentication the authentication to include in the request to the Metadata Service
+   * @throws RemoteInvocationException
+   */
+  @Nonnull
+  public Map<Urn, EntityResponse> batchGetV2(@Nonnull String entityName, @Nonnull final Set<Urn> urns,
+      @Nullable final Set<String> aspectNames, @Nonnull final Authentication authentication) throws Exception {
+
+    final EntitiesV2BatchGetRequestBuilder requestBuilder = ENTITIES_V2_REQUEST_BUILDERS.batchGet()
+        .aspectsParam(aspectNames)
+        .ids(urns.stream().map(Urn::toString).collect(Collectors.toList()));
+
+    return sendClientRequest(requestBuilder, authentication).getEntity()
+        .getResults()
+        .entrySet()
+        .stream()
+        .collect(Collectors.toMap(entry -> {
+          try {
+            return Urn.createFromString(entry.getKey());
+          } catch (URISyntaxException e) {
+            throw new RuntimeException(
+                String.format("Failed to bind urn string with value %s into urn", entry.getKey()));
+          }
+        }, entry -> entry.getValue().getEntity()));
+  }
+
+  /**
+   * Autocomplete a search query for a particular field of an entity. 
+   *
+   * @param entityType the entity type to autocomplete against, e.g. 'dataset' 
    * @param query search query
    * @param field field of the dataset
    * @param requestFilters autocomplete filters
    * @param limit max number of autocomplete results
+   * @param field the field to autocomplete against, e.g. 'name'
    * @throws RemoteInvocationException
    */
   @Nonnull
@@ -132,8 +179,9 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
   }
 
   /**
-   * Gets browse snapshot of a given path
+   * Autocomplete a search query for a particular entity type. 
    *
+   * @param entityType the entity type to autocomplete against, e.g. 'dataset' 
    * @param query search query
    * @param requestFilters autocomplete filters
    * @param limit max number of autocomplete results
@@ -179,7 +227,6 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
   public void update(@Nonnull final Entity entity, @Nonnull final Authentication authentication)
       throws RemoteInvocationException {
     EntitiesDoIngestRequestBuilder requestBuilder = ENTITIES_REQUEST_BUILDERS.actionIngest().entityParam(entity);
-
     sendClientRequest(requestBuilder, authentication);
   }
 
