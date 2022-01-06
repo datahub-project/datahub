@@ -101,19 +101,9 @@ class RedshiftUsageSource(Source):
         """Gets Redshift usage stats as work units"""
         engine = self._make_sql_engine()
 
-        insert_work_units = self._get_operation_aspect_work_units(
-            OperationTypeClass.INSERT, engine
-        )
-        for insert_work_unit in insert_work_units:
-            self.report.report_workunit(insert_work_unit)
-            yield insert_work_unit
-
-        delete_work_units = self._get_operation_aspect_work_units(
-            OperationTypeClass.DELETE, engine
-        )
-        for delete_work_unit in delete_work_units:
-            self.report.report_workunit(delete_work_unit)
-            yield delete_work_unit
+        operation_aspect_work_units = self._get_all_operation_aspect_work_units_by_type(engine)
+        for operation_aspect_work_unit in operation_aspect_work_units:
+            yield operation_aspect_work_unit
 
         access_events = self._get_redshift_history(
             self._make_usage_query(redshift_usage_sql_comment), engine
@@ -131,7 +121,7 @@ class RedshiftUsageSource(Source):
                 self.report.report_workunit(wu)
                 yield wu
 
-    def _get_operation_aspect_work_units(
+    def _get_operation_aspect_work_units_by_type(
         self, operation_type: Union[str, "OperationTypeClass"], engine: Engine
     ) -> Iterable[MetadataWorkUnit]:
         if operation_type == OperationTypeClass.INSERT:
@@ -152,6 +142,23 @@ class RedshiftUsageSource(Source):
         for wu in work_units:
             self.report.report_workunit(wu)
             yield wu
+
+    def _get_all_operation_aspect_work_units_by_type(
+                self, engine: Engine
+        ) -> Iterable[MetadataWorkUnit]:
+        insert_work_units = self._get_operation_aspect_work_units_by_type(
+            OperationTypeClass.INSERT, engine
+        )
+        for insert_work_unit in insert_work_units:
+            self.report.report_workunit(insert_work_unit)
+            yield insert_work_unit
+
+        delete_work_units = self._get_operation_aspect_work_units_by_type(
+            OperationTypeClass.DELETE, engine
+        )
+        for delete_work_unit in delete_work_units:
+            self.report.report_workunit(delete_work_unit)
+            yield delete_work_unit
 
     def _make_usage_query(self, query: str) -> str:
         return query.format(

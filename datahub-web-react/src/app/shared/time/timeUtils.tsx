@@ -58,18 +58,18 @@ export const getFixedLookbackWindow = (windowSize: TimeWindowSize): TimeWindow =
     };
 };
 
-export const toLocalDateString = (time: number) => {
-    const date = new Date(time);
+export const toLocalDateString = (timeMs: number) => {
+    const date = new Date(timeMs);
     return date.toLocaleDateString();
 };
 
-export const toLocalTimeString = (time: number) => {
-    const date = new Date(time);
+export const toLocalTimeString = (timeMs: number) => {
+    const date = new Date(timeMs);
     return date.toLocaleTimeString();
 };
 
-export const toLocalDateTimeString = (time: number) => {
-    const date = new Date(time);
+export const toLocalDateTimeString = (timeMs: number) => {
+    const date = new Date(timeMs);
     return date.toLocaleString([], {
         year: 'numeric',
         month: 'numeric',
@@ -80,8 +80,8 @@ export const toLocalDateTimeString = (time: number) => {
     });
 };
 
-export const toUTCDateTimeString = (time: number) => {
-    const date = new Date(time);
+export const toUTCDateTimeString = (timeMs: number) => {
+    const date = new Date(timeMs);
     return date.toLocaleString([], {
         year: 'numeric',
         month: 'numeric',
