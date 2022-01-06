@@ -92,7 +92,8 @@ public class ESUtils {
       // TODO(https://github.com/linkedin/datahub-gma/issues/51): support multiple values a field can take without using
       // delimiters like comma. This is a hack to support equals with URN that has a comma in it.
       if (SearchUtils.isUrn(criterion.getValue())) {
-        filters.should(QueryBuilders.matchQuery(criterion.getField(), criterion.getValue().trim()));
+        // Add keyword index for any URN field types.
+        filters.should(QueryBuilders.matchQuery(criterion.getField() + ".keyword", criterion.getValue().trim()));
         return filters;
       }
 
