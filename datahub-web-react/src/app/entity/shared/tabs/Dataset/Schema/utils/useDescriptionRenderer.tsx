@@ -7,7 +7,7 @@ import { useEntityData, useRefetch } from '../../../../EntityContext';
 
 export default function useDescriptionRenderer(
     editableSchemaMetadata: EditableSchemaMetadata | null | undefined,
-    editMode: boolean = true,
+    editMode = true,
 ) {
     const { urn } = useEntityData();
     const refetch = useRefetch();
