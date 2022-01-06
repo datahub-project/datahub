@@ -14,6 +14,8 @@ from pydantic import BaseModel, ValidationError
 from requests.models import Response
 from requests.sessions import Session
 
+from datahub.emitter.rest_emitter import _make_curl_command
+
 log = logging.getLogger(__name__)
 
 DEFAULT_GMS_HOST = "http://localhost:8080"
@@ -90,6 +92,22 @@ def first_non_null(ls: List[Optional[str]]) -> Optional[str]:
     return next((el for el in ls if el is not None and el.strip() != ""), None)
 
 
+def guess_entity_type(urn: str) -> str:
+    assert urn.startswith("urn:li:"), "urns must start with urn:li:"
+    return urn.split(":")[2]
+
+
+def get_token():
+    _, gms_token_env = get_details_from_env()
+    if should_skip_config():
+        gms_token = gms_token_env
+    else:
+        ensure_datahub_config()
+        _, gms_token_conf = get_details_from_config()
+        gms_token = first_non_null([gms_token_env, gms_token_conf])
+    return gms_token
+
+
 def get_session_and_host():
     session = requests.Session()
 
@@ -130,8 +148,32 @@ def test_connection():
     response.raise_for_status()
 
 
-def parse_run_restli_response(response):
+def test_connectivity_complain_exit(operation_name: str) -> None:
+    """Test connectivty to metadata-service, log operation name and exit"""
+    # First test connectivity
+    try:
+        test_connection()
+    except Exception as e:
+        click.secho(
+            f"Failed to connect to DataHub server at {get_session_and_host()[1]}. Run with datahub --debug {operation_name} ... to get more information.",
+            fg="red",
+        )
+        log.debug(f"Failed to connect with {e}")
+        sys.exit(1)
+
+
+def parse_run_restli_response(response: requests.Response) -> dict:
     response_json = response.json()
+    if response.status_code != 200:
+        if isinstance(response_json, dict):
+            if "message" in response_json:
+                click.secho("Failed to execute operation", fg="red")
+                click.secho(f"{response_json['message']}", fg="red")
+            else:
+                click.secho(f"Failed with \n{response_json}", fg="red")
+        else:
+            response.raise_for_status()
+        exit()
 
     if not isinstance(response_json, dict):
         click.echo(f"Received error, please check your {CONDENSED_DATAHUB_CONFIG_PATH}")
@@ -161,20 +203,22 @@ def post_rollback_endpoint(
     response = session.post(url, payload)
 
     summary = parse_run_restli_response(response)
-    rows = summary.get("aspectRowSummaries")
-    entities_affected = summary.get("entitiesAffected")
-    aspects_affected = summary.get("aspectsAffected")
+    rows = summary.get("aspectRowSummaries", [])
+    entities_affected = summary.get("entitiesAffected", 0)
+    aspects_affected = summary.get("aspectsAffected", 0)
 
     if len(rows) == 0:
-        click.echo("No entities touched by this run. Double check your run id?")
+        click.secho(f"No entities found. Payload used: {payload}", fg="yellow")
 
+    local_timezone = datetime.now().astimezone().tzinfo
     structured_rows = [
         [
             row.get("urn"),
             row.get("aspectName"),
-            datetime.utcfromtimestamp(row.get("timestamp") / 1000).strftime(
+            datetime.fromtimestamp(row.get("timestamp") / 1000).strftime(
                 "%Y-%m-%d %H:%M:%S"
-            ),
+            )
+            + f" ({local_timezone})",
         ]
         for row in rows
     ]
@@ -206,8 +250,8 @@ def post_delete_endpoint_with_session_and_url(
     response = session.post(url, payload)
 
     summary = parse_run_restli_response(response)
-    urn = summary.get("urn")
-    rows_affected = summary.get("rows")
+    urn = summary.get("urn", "")
+    rows_affected = summary.get("rows", 0)
 
     return urn, rows_affected
 
@@ -240,16 +284,6 @@ def get_urns_by_filter(
         )
     if platform is not None and (
         entity_type.lower() == "chart" or entity_type.lower() == "dashboard"
-    ):
-        filter_criteria.append(
-            {
-                "field": "tool",
-                "value": platform,
-                "condition": "EQUAL",
-            }
-        )
-    if platform is not None and (
-        entity_type.lower() == "dataflow" or entity_type.lower() == "dashboard"
     ):
         filter_criteria.append(
             {
@@ -304,3 +338,41 @@ def get_entity(
 
     response = session.get(gms_host + endpoint)
     return response.json()
+
+
+def post_entity(
+    urn: str,
+    entity_type: str,
+    aspect_name: str,
+    aspect_value: Dict,
+    cached_session_host: Optional[Tuple[Session, str]] = None,
+) -> Dict:
+    if not cached_session_host:
+        session, gms_host = get_session_and_host()
+    else:
+        session, gms_host = cached_session_host
+
+    endpoint: str = "/aspects/?action=ingestProposal"
+
+    proposal = {
+        "proposal": {
+            "entityType": entity_type,
+            "entityUrn": urn,
+            "aspectName": aspect_name,
+            "changeType": "UPSERT",
+            "aspect": {
+                "contentType": "application/json",
+                "value": json.dumps(aspect_value),
+            },
+        }
+    }
+    payload = json.dumps(proposal)
+    url = gms_host + endpoint
+    curl_command = _make_curl_command(session, "POST", url, payload)
+    log.debug(
+        "Attempting to emit to DataHub GMS; using curl equivalent to:\n%s",
+        curl_command,
+    )
+    response = session.post(url, payload)
+    response.raise_for_status()
+    return response.status_code

@@ -9,7 +9,8 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
-import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilders;
+import com.linkedin.metadata.search.elasticsearch.ElasticSearchServiceTest;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.EntityIndexBuilders;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
@@ -32,6 +33,7 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
+import static com.linkedin.metadata.DockerTestUtils.checkContainerEngine;
 import static com.linkedin.metadata.ElasticSearchTestUtils.syncAfterWrite;
 import static org.testng.Assert.assertEquals;
 
@@ -57,6 +59,7 @@ public class SearchServiceTest {
     _indexConvention = new IndexConventionImpl(null);
     _elasticsearchContainer = new ElasticsearchContainer(IMAGE_NAME);
     _settingsBuilder = new SettingsBuilder(Collections.emptyList());
+    checkContainerEngine(_elasticsearchContainer.getDockerClient());
     _elasticsearchContainer.start();
     _searchClient = buildRestClient();
     _elasticSearchService = buildEntitySearchService();
@@ -86,11 +89,13 @@ public class SearchServiceTest {
 
   @Nonnull
   private ElasticSearchService buildEntitySearchService() {
-    ESIndexBuilders indexBuilders =
-        new ESIndexBuilders(_entityRegistry, _searchClient, _indexConvention, _settingsBuilder);
+    EntityIndexBuilders indexBuilders =
+        new EntityIndexBuilders(ElasticSearchServiceTest.getIndexBuilder(_searchClient), _entityRegistry,
+            _indexConvention, _settingsBuilder);
     ESSearchDAO searchDAO = new ESSearchDAO(_entityRegistry, _searchClient, _indexConvention);
     ESBrowseDAO browseDAO = new ESBrowseDAO(_entityRegistry, _searchClient, _indexConvention);
-    ESWriteDAO writeDAO = new ESWriteDAO(_entityRegistry, _searchClient, _indexConvention, 1, 1, 1, 1);
+    ESWriteDAO writeDAO = new ESWriteDAO(_entityRegistry, _searchClient, _indexConvention,
+        ElasticSearchServiceTest.getBulkProcessor(_searchClient));
     return new ElasticSearchService(indexBuilders, searchDAO, browseDAO, writeDAO);
   }
 

@@ -1,4 +1,5 @@
 import datetime
+import itertools
 import logging
 import uuid
 from typing import Any, Dict, Iterable, List, Optional
@@ -38,6 +39,7 @@ class PipelineConfig(ConfigModel):
     transformers: Optional[List[DynamicTypedConfig]]
     run_id: str = "__DEFAULT_RUN_ID"
     datahub_api: Optional[DatahubClientConfig] = None
+    pipeline_name: Optional[str] = None
 
     @validator("run_id", pre=True, always=True)
     def run_id_should_be_semantic(
@@ -93,10 +95,18 @@ class Pipeline:
     sink: Sink
     transformers: List[Transformer]
 
-    def __init__(self, config: PipelineConfig):
+    def __init__(
+        self, config: PipelineConfig, dry_run: bool = False, preview_mode: bool = False
+    ):
         self.config = config
+        self.dry_run = dry_run
+        self.preview_mode = preview_mode
         self.ctx = PipelineContext(
-            run_id=self.config.run_id, datahub_api=self.config.datahub_api
+            run_id=self.config.run_id,
+            datahub_api=self.config.datahub_api,
+            pipeline_name=self.config.pipeline_name,
+            dry_run=dry_run,
+            preview_mode=preview_mode,
         )
 
         source_type = self.config.source.type
@@ -131,26 +141,42 @@ class Pipeline:
                 )
 
     @classmethod
-    def create(cls, config_dict: dict) -> "Pipeline":
+    def create(
+        cls, config_dict: dict, dry_run: bool = False, preview_mode: bool = False
+    ) -> "Pipeline":
         config = PipelineConfig.parse_obj(config_dict)
-        return cls(config)
+        return cls(config, dry_run=dry_run, preview_mode=preview_mode)
 
     def run(self) -> None:
         callback = LoggingCallback()
         extractor: Extractor = self.extractor_class()
-        for wu in self.source.get_workunits():
+        for wu in itertools.islice(
+            self.source.get_workunits(), 10 if self.preview_mode else None
+        ):
             # TODO: change extractor interface
             extractor.configure({}, self.ctx)
 
-            self.sink.handle_work_unit_start(wu)
+            if not self.dry_run:
+                self.sink.handle_work_unit_start(wu)
             record_envelopes = extractor.get_records(wu)
             for record_envelope in self.transform(record_envelopes):
-                self.sink.write_record_async(record_envelope, callback)
+                if not self.dry_run:
+                    self.sink.write_record_async(record_envelope, callback)
 
             extractor.close()
-            self.sink.handle_work_unit_end(wu)
-        self.source.close()
+            if not self.dry_run:
+                self.sink.handle_work_unit_end(wu)
         self.sink.close()
+
+        # Temporary hack to prevent committing state if there are failures during the pipeline run.
+        try:
+            self.raise_from_status()
+        except Exception:
+            logger.warning(
+                "Pipeline failed. Not closing the source to prevent bad commits."
+            )
+        else:
+            self.source.close()
 
     def transform(self, records: Iterable[RecordEnvelope]) -> Iterable[RecordEnvelope]:
         """
@@ -177,7 +203,7 @@ class Pipeline:
                 "Source reported warnings", self.source.get_report()
             )
 
-    def pretty_print_summary(self) -> int:
+    def pretty_print_summary(self, warnings_as_failure: bool = False) -> int:
         click.echo()
         click.secho(f"Source ({self.config.source.type}) report:", bold=True)
         click.echo(self.source.get_report().as_string())
@@ -189,7 +215,7 @@ class Pipeline:
             return 1
         elif self.source.get_report().warnings or self.sink.get_report().warnings:
             click.secho("Pipeline finished with warnings", fg="yellow", bold=True)
-            return 0
+            return 1 if warnings_as_failure else 0
         else:
             click.secho("Pipeline finished successfully", fg="green", bold=True)
             return 0

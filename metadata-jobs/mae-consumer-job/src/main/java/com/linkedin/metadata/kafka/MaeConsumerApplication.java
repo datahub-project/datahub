@@ -9,7 +9,7 @@ import org.springframework.boot.autoconfigure.elasticsearch.rest.RestClientAutoC
 public class MaeConsumerApplication {
 
   public static void main(String[] args) {
-    Class<?>[] primarySources = {MaeConsumerApplication.class, com.linkedin.metadata.kafka.MaeConsumerConfig.class};
+    Class<?>[] primarySources = {MaeConsumerApplication.class, MclConsumerConfig.class};
     SpringApplication.run(primarySources, args);
   }
 }

@@ -556,7 +556,7 @@
             "Searchable" : {
               "addToFilters" : true,
               "fieldName" : "tags",
-              "fieldType" : "URN_PARTIAL",
+              "fieldType" : "URN",
               "filterNameOverride" : "Tag",
               "hasValuesFieldName" : "hasTags"
             }
@@ -633,7 +633,7 @@
       "Searchable" : {
         "addToFilters" : true,
         "fieldName" : "glossaryTerms",
-        "fieldType" : "URN_PARTIAL",
+        "fieldType" : "URN",
         "filterNameOverride" : "Glossary Term"
       }
     } ]
@@ -1025,22 +1025,19 @@
       "name" : "flowUrn",
       "type" : "com.linkedin.common.DataFlowUrn",
       "doc" : "DataFlow urn that this job is part of",
-      "optional" : true,
-      "Relationship" : {
-        "entityTypes" : [ "dataFlow" ],
-        "name" : "IsPartOf"
-      }
+      "optional" : true
     }, {
       "name" : "status",
       "type" : {
         "type" : "enum",
         "name" : "JobStatus",
         "doc" : "Job statuses",
-        "symbols" : [ "STARTING", "IN_PROGRESS", "STOPPING", "STOPPED", "COMPLETED", "FAILED", "UNKNOWN" ],
+        "symbols" : [ "STARTING", "IN_PROGRESS", "STOPPING", "STOPPED", "COMPLETED", "FAILED", "UNKNOWN", "SKIPPED" ],
         "symbolDocs" : {
           "COMPLETED" : "Jobs with successful completion.",
           "FAILED" : "Jobs that have failed.",
           "IN_PROGRESS" : "Jobs currently running.",
+          "SKIPPED" : "Jobs that have been skipped.",
           "STARTING" : "Jobs being initialized.",
           "STOPPED" : "Jobs that have stopped.",
           "STOPPING" : "Jobs being stopped.",
@@ -1866,20 +1863,21 @@
           "items" : {
             "type" : "record",
             "name" : "SchemaField",
-            "doc" : "SchemaField to describe metadata related to dataset schema. Schema normalization rules: http://go/tms-schema",
+            "doc" : "SchemaField to describe metadata related to dataset schema.",
             "fields" : [ {
               "name" : "fieldPath",
               "type" : "com.linkedin.dataset.SchemaFieldPath",
-              "doc" : "Flattened name of the field. Field is computed from jsonPath field. For data translation rules refer to wiki page above.",
+              "doc" : "Flattened name of the field. Field is computed from jsonPath field.",
               "Searchable" : {
                 "fieldName" : "fieldPaths",
-                "fieldType" : "TEXT_PARTIAL"
+                "fieldType" : "TEXT"
               }
             }, {
               "name" : "jsonPath",
               "type" : "string",
               "doc" : "Flattened name of a field in JSON Path notation.",
-              "optional" : true
+              "optional" : true,
+              "Deprecated" : true
             }, {
               "name" : "nullable",
               "type" : "boolean",
@@ -2017,7 +2015,7 @@
                 "/tags/*/tag" : {
                   "boostScore" : 0.5,
                   "fieldName" : "fieldTags",
-                  "fieldType" : "URN_PARTIAL"
+                  "fieldType" : "URN"
                 }
               }
             }, {
@@ -2029,7 +2027,7 @@
                 "/terms/*/urn" : {
                   "boostScore" : 0.5,
                   "fieldName" : "fieldGlossaryTerms",
-                  "fieldType" : "URN_PARTIAL"
+                  "fieldType" : "URN"
                 }
               }
             }, {
@@ -2037,6 +2035,11 @@
               "type" : "boolean",
               "doc" : "For schema fields that are part of complex keys, set this field to true\nWe do this to easily distinguish between value and key fields",
               "default" : false
+            }, {
+              "name" : "jsonProps",
+              "type" : "string",
+              "doc" : "For schema fields that have other properties that are not modeled explicitly,\nuse this field to serialize those properties into a JSON string",
+              "optional" : true
             } ]
           }
         },
@@ -2182,7 +2185,7 @@
                 "/tags/*/tag" : {
                   "boostScore" : 0.5,
                   "fieldName" : "editedFieldTags",
-                  "fieldType" : "URN_PARTIAL"
+                  "fieldType" : "URN"
                 }
               }
             }, {
@@ -2194,7 +2197,7 @@
                 "/terms/*/urn" : {
                   "boostScore" : 0.5,
                   "fieldName" : "editedFieldGlossaryTerms",
-                  "fieldType" : "URN_PARTIAL"
+                  "fieldType" : "URN"
                 }
               }
             } ]
@@ -2962,6 +2965,10 @@
     }, {
       "name" : "aspectsAffected",
       "type" : "long"
+    }, {
+      "name" : "entitiesDeleted",
+      "type" : "long",
+      "optional" : true
     } ]
   }, "com.linkedin.ml.metadata.BaseData", "com.linkedin.ml.metadata.CaveatDetails", "com.linkedin.ml.metadata.CaveatsAndRecommendations", "com.linkedin.ml.metadata.EthicalConsiderations", "com.linkedin.ml.metadata.EvaluationData", "com.linkedin.ml.metadata.HyperParameterValueType", "com.linkedin.ml.metadata.IntendedUse", "com.linkedin.ml.metadata.IntendedUserType", "com.linkedin.ml.metadata.MLFeatureProperties", "com.linkedin.ml.metadata.MLHyperParam", "com.linkedin.ml.metadata.MLMetric", "com.linkedin.ml.metadata.MLModelFactorPrompts", "com.linkedin.ml.metadata.MLModelFactors", "com.linkedin.ml.metadata.MLModelProperties", "com.linkedin.ml.metadata.Metrics", "com.linkedin.ml.metadata.QuantitativeAnalyses", "com.linkedin.ml.metadata.ResultsType", "com.linkedin.ml.metadata.SourceCode", "com.linkedin.ml.metadata.SourceCodeUrl", "com.linkedin.ml.metadata.SourceCodeUrlType", "com.linkedin.ml.metadata.TrainingData", "com.linkedin.schema.ArrayType", "com.linkedin.schema.BinaryJsonSchema", "com.linkedin.schema.BooleanType", "com.linkedin.schema.BytesType", "com.linkedin.schema.DatasetFieldForeignKey", "com.linkedin.schema.DateType", "com.linkedin.schema.EditableSchemaFieldInfo", "com.linkedin.schema.EditableSchemaMetadata", "com.linkedin.schema.EnumType", "com.linkedin.schema.EspressoSchema", "com.linkedin.schema.FixedType", "com.linkedin.schema.ForeignKeyConstraint", "com.linkedin.schema.ForeignKeySpec", "com.linkedin.schema.KafkaSchema", "com.linkedin.schema.KeyValueSchema", "com.linkedin.schema.MapType", "com.linkedin.schema.MySqlDDL", "com.linkedin.schema.NullType", "com.linkedin.schema.NumberType", "com.linkedin.schema.OracleDDL", "com.linkedin.schema.OrcSchema", "com.linkedin.schema.OtherSchema", "com.linkedin.schema.PrestoDDL", "com.linkedin.schema.RecordType", "com.linkedin.schema.SchemaField", "com.linkedin.schema.SchemaFieldDataType", "com.linkedin.schema.SchemaMetadata", "com.linkedin.schema.SchemaMetadataKey", "com.linkedin.schema.Schemaless", "com.linkedin.schema.StringType", "com.linkedin.schema.TimeType", "com.linkedin.schema.UnionType", "com.linkedin.schema.UrnForeignKey", "com.linkedin.tag.TagProperties" ],
   "schema" : {

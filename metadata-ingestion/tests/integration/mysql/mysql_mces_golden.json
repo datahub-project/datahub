@@ -6,6 +6,11 @@
             "urn": "urn:li:dataset:(urn:li:dataPlatform:mysql,datacharmer.employees,PROD)",
             "aspects": [
                 {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
                         "schemaName": "datacharmer.employees",
                         "platform": "urn:li:dataPlatform:mysql",
@@ -44,7 +49,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": true
+                                "isPartOfKey": true,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "birth_date",
@@ -60,7 +66,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "first_name",
@@ -76,7 +83,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "last_name",
@@ -92,7 +100,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "gender",
@@ -108,7 +117,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "hire_date",
@@ -124,7 +134,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             }
                         ],
                         "primaryKeys": null,
@@ -139,6 +150,8 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "mysql-test",
+        "registryName": null,
+        "registryVersion": null,
         "properties": null
     }
 },
@@ -148,6 +161,11 @@
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:mysql,datacharmer.salaries,PROD)",
             "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
                         "schemaName": "datacharmer.salaries",
@@ -187,7 +205,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": true
+                                "isPartOfKey": true,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "salary",
@@ -203,7 +222,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "from_date",
@@ -219,7 +239,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": true
+                                "isPartOfKey": true,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "to_date",
@@ -235,7 +256,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             }
                         ],
                         "primaryKeys": null,
@@ -250,6 +272,8 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "mysql-test",
+        "registryName": null,
+        "registryVersion": null,
         "properties": null
     }
 },
@@ -259,6 +283,11 @@
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_aspect,PROD)",
             "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
                         "schemaName": "metagalaxy.metadata_aspect",
@@ -298,7 +327,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": true
+                                "isPartOfKey": true,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "aspect",
@@ -314,7 +344,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": true
+                                "isPartOfKey": true,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "version",
@@ -330,7 +361,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": true
+                                "isPartOfKey": true,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "metadata",
@@ -346,7 +378,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "createdon",
@@ -362,7 +395,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "createdby",
@@ -378,7 +412,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "createdfor",
@@ -394,7 +429,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             }
                         ],
                         "primaryKeys": null,
@@ -409,6 +445,8 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "mysql-test",
+        "registryName": null,
+        "registryVersion": null,
         "properties": null
     }
 },
@@ -418,6 +456,11 @@
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_index,PROD)",
             "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
@@ -466,7 +509,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": true
+                                "isPartOfKey": true,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "urn",
@@ -482,7 +526,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "aspect",
@@ -498,7 +543,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "path",
@@ -514,7 +560,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "longVal",
@@ -530,7 +577,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "stringVal",
@@ -546,7 +594,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "doubleVal",
@@ -562,7 +611,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             }
                         ],
                         "primaryKeys": null,
@@ -577,6 +627,8 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "mysql-test",
+        "registryName": null,
+        "registryVersion": null,
         "properties": null
     }
 },
@@ -586,6 +638,11 @@
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_index_view,PROD)",
             "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
@@ -637,7 +694,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "urn",
@@ -653,7 +711,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "path",
@@ -669,7 +728,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "doubleVal",
@@ -685,7 +745,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             }
                         ],
                         "primaryKeys": null,
@@ -700,6 +761,8 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "mysql-test",
+        "registryName": null,
+        "registryVersion": null,
         "properties": null
     }
 },
@@ -709,6 +772,11 @@
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.customers,PROD)",
             "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
                         "schemaName": "northwind.customers",
@@ -748,7 +816,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": true
+                                "isPartOfKey": true,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "company",
@@ -764,7 +833,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "last_name",
@@ -780,7 +850,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "first_name",
@@ -796,7 +867,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "email_address",
@@ -812,7 +884,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "priority",
@@ -828,7 +901,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             }
                         ],
                         "primaryKeys": null,
@@ -843,6 +917,8 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "mysql-test",
+        "registryName": null,
+        "registryVersion": null,
         "properties": null
     }
 },
@@ -852,6 +928,11 @@
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.orders,PROD)",
             "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
                         "schemaName": "northwind.orders",
@@ -891,7 +972,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": true
+                                "isPartOfKey": true,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "description",
@@ -907,7 +989,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "customer_id",
@@ -923,7 +1006,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             }
                         ],
                         "primaryKeys": null,
@@ -949,6 +1033,8 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "mysql-test",
+        "registryName": null,
+        "registryVersion": null,
         "properties": null
     }
 },
@@ -958,6 +1044,11 @@
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:mysql,test_cases.test_empty,PROD)",
             "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
                         "schemaName": "test_cases.test_empty",
@@ -997,7 +1088,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             }
                         ],
                         "primaryKeys": null,
@@ -1012,6 +1104,8 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "mysql-test",
+        "registryName": null,
+        "registryVersion": null,
         "properties": null
     }
 },

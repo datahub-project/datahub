@@ -20,7 +20,7 @@ services:
         APP_ENV: dev
     volumes:
       - ./elasticsearch-setup/create-indices.sh:/create-indices.sh
-      - ../metadata-service/restli-impl/src/main/resources/index/:/index
+      - ../metadata-service/restli-servlet-impl/src/main/resources/index/:/index
 
   kafka-setup:
     image: linkedin/datahub-kafka-setup:debug
@@ -37,11 +37,14 @@ services:
       dockerfile: Dockerfile
       args:
         APP_ENV: dev
+    environment:
+      - SKIP_ELASTICSEARCH_CHECK=false
     volumes:
       - ./datahub-gms/start.sh:/datahub/datahub-gms/scripts/start.sh
       - ./monitoring/client-prometheus-config.yaml:/datahub/datahub-gms/scripts/prometheus-config.yaml
       - ../metadata-models/src/main/resources/:/datahub/datahub-gms/resources
       - ../metadata-service/war/build/libs/:/datahub/datahub-gms/bin
+      - ${HOME}/.datahub/plugins:/etc/datahub/plugins
 
   datahub-frontend-react:
     image: linkedin/datahub-frontend-react:debug

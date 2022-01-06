@@ -58,7 +58,7 @@ public class CorpGroupType implements SearchableEntityType<CorpGroup> {
                     .collect(Collectors.toList());
 
             final Map<Urn, Entity> corpGroupMap = _entityClient
-                    .batchGet(new HashSet<>(corpGroupUrns), context.getActor());
+                    .batchGet(new HashSet<>(corpGroupUrns), context.getAuthentication());
 
             final List<Entity> results = new ArrayList<>();
             for (CorpGroupUrn urn : corpGroupUrns) {
@@ -82,9 +82,8 @@ public class CorpGroupType implements SearchableEntityType<CorpGroup> {
                                 @Nonnull final QueryContext context) throws Exception {
         String sortField = sort != null ? sort.getField() : null;
         SortOrder sortOrder = sort != null ? (sort.getSortOrder().equals(Sort.asc) ? SortOrder.ASCENDING : SortOrder.DESCENDING) : null;
-        final SearchResult
-            searchResult = _entityClient.search("corpGroup", query, Collections.emptyMap(), sortField, sortOrder, start, count,
-            context.getActor());
+        final SearchResult searchResult = _entityClient.search("corpGroup", query, Collections.emptyMap(), sortField, sortOrder, start, count,
+                context.getAuthentication());
         return UrnSearchResultsMapper.map(searchResult);
     }
 
@@ -95,7 +94,7 @@ public class CorpGroupType implements SearchableEntityType<CorpGroup> {
                                             int limit,
                                             @Nonnull final QueryContext context) throws Exception {
         final AutoCompleteResult result = _entityClient.autoComplete("corpGroup", query, Collections.emptyMap(), limit,
-            context.getActor());
+            context.getAuthentication());
         return AutoCompleteResultsMapper.map(result);
     }
 

@@ -83,7 +83,7 @@ public class TagType implements com.linkedin.datahub.graphql.types.SearchableEnt
                     .stream()
                     .filter(Objects::nonNull)
                     .collect(Collectors.toSet()),
-                context.getActor());
+                context.getAuthentication());
 
             final List<Entity> gmsResults = new ArrayList<>();
             for (TagUrn urn : tagUrns) {
@@ -111,8 +111,7 @@ public class TagType implements com.linkedin.datahub.graphql.types.SearchableEnt
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
         String sortField = sort != null ? sort.getField() : null;
         SortOrder sortOrder = sort != null ? (sort.getSortOrder().equals(Sort.asc) ? SortOrder.ASCENDING : SortOrder.DESCENDING) : null;
-        final SearchResult searchResult = _entityClient.search("tag", query, facetFilters, sortField, sortOrder, start,
-                count, context.getActor());
+        final SearchResult searchResult = _entityClient.search("tag", query, facetFilters, sortField, sortOrder, start, count, context.getAuthentication());
         return UrnSearchResultsMapper.map(searchResult);
     }
 
@@ -123,7 +122,7 @@ public class TagType implements com.linkedin.datahub.graphql.types.SearchableEnt
                                             int limit,
                                             @Nonnull QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
-        final AutoCompleteResult result = _entityClient.autoComplete("tag", query, facetFilters, limit, context.getActor());
+        final AutoCompleteResult result = _entityClient.autoComplete("tag", query, facetFilters, limit, context.getAuthentication());
         return AutoCompleteResultsMapper.map(result);
     }
 
@@ -131,13 +130,13 @@ public class TagType implements com.linkedin.datahub.graphql.types.SearchableEnt
     @Override
     public Tag update(@Nonnull String urn, @Nonnull TagUpdateInput input, @Nonnull QueryContext context) throws Exception {
         if (isAuthorized(input, context)) {
-            final CorpuserUrn actor = CorpuserUrn.createFromString(context.getActor());
+            final CorpuserUrn actor = CorpuserUrn.createFromString(context.getAuthentication().getActor().toUrnStr());
             final TagSnapshot tagSnapshot = TagUpdateInputSnapshotMapper.map(input, actor);
             final Snapshot snapshot = Snapshot.create(tagSnapshot);
             try {
                 Entity entity = new Entity();
                 entity.setValue(snapshot);
-                _entityClient.update(entity, context.getActor());
+                _entityClient.update(entity, context.getAuthentication());
             } catch (RemoteInvocationException e) {
                 throw new RuntimeException(String.format("Failed to write entity with urn %s", urn), e);
             }
@@ -160,8 +159,8 @@ public class TagType implements com.linkedin.datahub.graphql.types.SearchableEnt
         final DisjunctivePrivilegeGroup orPrivilegeGroups = getAuthorizedPrivileges(update);
         return AuthorizationUtils.isAuthorized(
             context.getAuthorizer(),
-            context.getActor(),
-            PoliciesConfig.DATASET_PRIVILEGES.getResourceType(),
+            context.getAuthentication().getActor().toUrnStr(),
+            PoliciesConfig.TAG_PRIVILEGES.getResourceType(),
             update.getUrn(),
             orPrivilegeGroups);
     }

@@ -92,6 +92,18 @@
       } ],
       "returns" : "com.linkedin.metadata.run.DeleteEntityResponse"
     }, {
+      "name" : "deleteAll",
+      "parameters" : [ {
+        "name" : "registryId",
+        "type" : "string",
+        "optional" : true
+      }, {
+        "name" : "dryRun",
+        "type" : "boolean",
+        "optional" : true
+      } ],
+      "returns" : "com.linkedin.metadata.run.RollbackResponse"
+    }, {
       "name" : "filter",
       "parameters" : [ {
         "name" : "entity",

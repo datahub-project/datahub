@@ -14,8 +14,6 @@ import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.io.IOException;
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.Map;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -26,7 +24,6 @@ import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.client.core.CountRequest;
-import org.elasticsearch.index.query.QueryBuilders;
 
 
 /**
@@ -43,7 +40,7 @@ public class ESSearchDAO {
   public long docCount(@Nonnull String entityName) {
     EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
     CountRequest countRequest =
-        new CountRequest(indexConvention.getIndexName(entitySpec)).query(QueryBuilders.matchAllQuery());
+        new CountRequest(indexConvention.getIndexName(entitySpec)).query(SearchRequestHandler.getFilterQuery(null));
     try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "docCount").time()) {
       return client.count(countRequest, RequestOptions.DEFAULT).getCount();
     } catch (IOException e) {
@@ -61,7 +58,7 @@ public class ESSearchDAO {
       // extract results, validated against document model as well
       return SearchRequestHandler.getBuilder(entitySpec).extractResult(searchResponse, from, size);
     } catch (Exception e) {
-      log.error("Search query failed:" + e.getMessage());
+      log.error("Search query failed", e);
       throw new ESQueryException("Search query failed:", e);
     }
   }
@@ -80,11 +77,12 @@ public class ESSearchDAO {
   @Nonnull
   public SearchResult search(@Nonnull String entityName, @Nonnull String input, @Nullable Filter postFilters,
       @Nullable SortCriterion sortCriterion, int from, int size) {
+    final String finalInput = input.isEmpty() ? "*" : input;
     Timer.Context searchRequestTimer = MetricUtils.timer(this.getClass(), "searchRequest").time();
     EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
     // Step 1: construct the query
-    final SearchRequest searchRequest =
-        SearchRequestHandler.getBuilder(entitySpec).getSearchRequest(input, postFilters, sortCriterion, from, size);
+    final SearchRequest searchRequest = SearchRequestHandler.getBuilder(entitySpec)
+        .getSearchRequest(finalInput, postFilters, sortCriterion, from, size);
     searchRequest.indices(indexConvention.getIndexName(entitySpec));
     searchRequestTimer.stop();
     // Step 2: execute the query and extract results, validated against document model as well
@@ -140,23 +138,32 @@ public class ESSearchDAO {
   /**
    * Returns number of documents per field value given the field and filters
    *
-   * @param entityName name of the entity
+   * @param entityName name of the entity, if null, aggregates over all entities
    * @param field the field name for aggregate
    * @param requestParams filters to apply before aggregating
    * @param limit the number of aggregations to return
    * @return
    */
   @Nonnull
-  public Map<String, Long> aggregateByValue(@Nonnull String entityName, @Nonnull String field,
+  public Map<String, Long> aggregateByValue(@Nullable String entityName, @Nonnull String field,
       @Nullable Filter requestParams, int limit) {
-    EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
-    final SearchRequest searchRequest =
-        SearchRequestHandler.getBuilder(entitySpec).getAggregationRequest(field, requestParams, limit);
-    searchRequest.indices(indexConvention.getIndexName(entitySpec));
-    return executeAndExtract(entitySpec, searchRequest, 0, 0).getMetadata()
-        .getAggregations()
-        .stream()
-        .findFirst().<Map<String, Long>>map(aggregationMetadata -> new HashMap<>(aggregationMetadata.getAggregations()))
-        .orElse(Collections.emptyMap());
+    final SearchRequest searchRequest = SearchRequestHandler.getAggregationRequest(field, requestParams, limit);
+    String indexName;
+    if (entityName == null) {
+      indexName = indexConvention.getAllEntityIndicesPattern();
+    } else {
+      EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
+      indexName = indexConvention.getIndexName(entitySpec);
+    }
+    searchRequest.indices(indexName);
+
+    try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "esSearch").time()) {
+      final SearchResponse searchResponse = client.search(searchRequest, RequestOptions.DEFAULT);
+      // extract results, validated against document model as well
+      return SearchRequestHandler.extractTermAggregations(searchResponse, field);
+    } catch (Exception e) {
+      log.error("Aggregation query failed", e);
+      throw new ESQueryException("Aggregation query failed:", e);
+    }
   }
 }

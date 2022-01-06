@@ -7,7 +7,7 @@ from datahub.ingestion.run.pipeline import Pipeline
 GMS_ENDPOINT = "http://localhost:8080"
 FRONTEND_ENDPOINT = "http://localhost:9002"
 
-def ingest_file_via_rest(filename: str):
+def ingest_file_via_rest(filename: str) -> None:
     pipeline = Pipeline.create(
         {
             "source": {
@@ -24,7 +24,7 @@ def ingest_file_via_rest(filename: str):
     pipeline.raise_from_status()
 
 
-def delete_urns_from_file(filename: str):
+def delete_urns_from_file(filename: str) -> None:
     session = requests.Session()
     session.headers.update(
         {

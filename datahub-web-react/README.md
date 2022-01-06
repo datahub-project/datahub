@@ -1,3 +1,7 @@
+---
+title: "datahub-web-react"
+---
+
 # DataHub React App
 
 ## About

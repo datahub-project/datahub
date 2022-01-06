@@ -23,7 +23,7 @@ def get_long_description():
 base_requirements = {
     # Compatability.
     "dataclasses>=0.6; python_version < '3.7'",
-    "typing_extensions>=3.7.4; python_version < '3.8'",
+    "typing_extensions>=3.10.0.2,<4",
     "mypy_extensions>=0.4.3",
     # Actual dependencies.
     "typing-inspect",
@@ -59,7 +59,9 @@ kafka_common = {
 sql_common = {
     # Required for all SQL sources.
     "sqlalchemy==1.3.24",
-    "great-expectations",
+    # Required for SQL profiling.
+    "great-expectations>=0.13.40",
+    "greenlet",
 }
 
 aws_common = {
@@ -95,7 +97,7 @@ plugins: Dict[str, Set[str]] = {
     "bigquery": sql_common | bigquery_common | {"pybigquery >= 0.6.0"},
     "bigquery-usage": bigquery_common | {"cachetools"},
     "datahub-business-glossary": set(),
-    "dbt": set(),
+    "dbt": {"requests"},
     "druid": sql_common | {"pydruid>=0.6.2"},
     "feast": {"docker"},
     "glue": aws_common,
@@ -109,7 +111,10 @@ plugins: Dict[str, Set[str]] = {
     "kafka-connect": sql_common | {"requests", "JPype1"},
     "ldap": {"python-ldap>=2.4"},
     "looker": looker_common,
-    "lookml": looker_common | {"lkml>=1.1.0", "sql-metadata==2.2.2"},
+    # lkml>=1.1.2 is required to support the sql_preamble expression in LookML
+    "lookml": looker_common | {"lkml>=1.1.2", "sql-metadata==2.2.2", "sqllineage==1.3.3"},
+    "metabase": {"requests", "sqllineage==1.3.3"},
+    "mode": {"requests", "sqllineage==1.3.3"},
     "mongodb": {"pymongo>=3.11"},
     "mssql": sql_common | {"sqlalchemy-pytds>=0.3"},
     "mssql-odbc": sql_common | {"pyodbc"},
@@ -119,8 +124,9 @@ plugins: Dict[str, Set[str]] = {
     "okta": {"okta~=1.7.0"},
     "oracle": sql_common | {"cx_Oracle"},
     "postgres": sql_common | {"psycopg2-binary", "GeoAlchemy2"},
-    "redash": {"redash-toolbelt", "sql-metadata"},
-    "redshift": sql_common | {"sqlalchemy-redshift", "psycopg2-binary", "GeoAlchemy2"},
+    "redash": {"redash-toolbelt", "sql-metadata", "sqllineage==1.3.3"},
+    "redshift": sql_common
+    | {"sqlalchemy-redshift", "psycopg2-binary", "GeoAlchemy2", "sqllineage==1.3.3"},
     "redshift-usage": sql_common
     | {"sqlalchemy-redshift", "psycopg2-binary", "GeoAlchemy2"},
     "sagemaker": aws_common,
@@ -135,6 +141,14 @@ plugins: Dict[str, Set[str]] = {
         # PR is from same author as that of sqlalchemy-trino library below.
         "sqlalchemy-trino"
     },
+    "starburst-trino-usage": sql_common
+    | {
+        # SQLAlchemy support is coming up in trino python client
+        # subject to PR merging - https://github.com/trinodb/trino-python-client/pull/81.
+        # PR is from same author as that of sqlalchemy-trino library below.
+        "sqlalchemy-trino"
+    },
+    "nifi": {"requests"},
 }
 
 all_exclude_plugins: Set[str] = {
@@ -170,7 +184,8 @@ base_dev_requirements = {
     "flake8>=3.8.3",
     "flake8-tidy-imports>=4.3.0",
     "isort>=5.7.0",
-    "mypy>=0.901",
+    # Waiting for https://github.com/samuelcolvin/pydantic/pull/3175 before allowing mypy 0.920.
+    "mypy>=0.901,<0.920",
     "pytest>=6.2.2",
     "pytest-cov>=2.8.1",
     "pytest-docker>=0.10.3",
@@ -181,6 +196,7 @@ base_dev_requirements = {
     "jsonpickle",
     "build",
     "twine",
+    "pydot",
     *list(
         dependency
         for plugin in [
@@ -209,7 +225,11 @@ if is_py37_or_newer:
     # The trino plugin only works on Python 3.7 or newer.
     # The trino plugin can be supported on Python 3.6 with minimal changes to opensource sqlalchemy-trino sourcecode.
     base_dev_requirements = base_dev_requirements.union(
-        {dependency for plugin in ["lookml", "trino"] for dependency in plugins[plugin]}
+        {
+            dependency
+            for plugin in ["lookml", "trino", "starburst-trino-usage"]
+            for dependency in plugins[plugin]
+        }
     )
 
 dev_requirements = {
@@ -266,6 +286,7 @@ entry_points = {
         "looker = datahub.ingestion.source.looker:LookerDashboardSource",
         "lookml = datahub.ingestion.source.lookml:LookMLSource",
         "datahub-business-glossary = datahub.ingestion.source.metadata.business_glossary:BusinessGlossaryFileSource",
+        "mode = datahub.ingestion.source.mode:ModeSource",
         "mongodb = datahub.ingestion.source.mongodb:MongoDBSource",
         "mssql = datahub.ingestion.source.sql.mssql:SQLServerSource",
         "mysql = datahub.ingestion.source.sql.mysql:MySQLSource",
@@ -280,13 +301,19 @@ entry_points = {
         "snowflake-usage = datahub.ingestion.source.usage.snowflake_usage:SnowflakeUsageSource",
         "superset = datahub.ingestion.source.superset:SupersetSource",
         "openapi = datahub.ingestion.source.openapi:OpenApiSource",
+        "metabase = datahub.ingestion.source.metabase:MetabaseSource",
         "trino = datahub.ingestion.source.sql.trino:TrinoSource",
+        "starburst-trino-usage = datahub.ingestion.source.usage.starburst_trino_usage:TrinoUsageSource",
+        "nifi = datahub.ingestion.source.nifi:NifiSource",
     ],
     "datahub.ingestion.sink.plugins": [
         "file = datahub.ingestion.sink.file:FileSink",
         "console = datahub.ingestion.sink.console:ConsoleSink",
         "datahub-kafka = datahub.ingestion.sink.datahub_kafka:DatahubKafkaSink",
         "datahub-rest = datahub.ingestion.sink.datahub_rest:DatahubRestSink",
+    ],
+    "datahub.ingestion.state_provider.plugins": [
+        "datahub = datahub.ingestion.source.state_provider.datahub_ingestion_state_provider:DatahubIngestionStateProvider",
     ],
     "apache_airflow_provider": ["provider_info=datahub_provider:get_provider_info"],
 }

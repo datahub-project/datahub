@@ -68,7 +68,7 @@ public class DescriptionUtils {
 
     return AuthorizationUtils.isAuthorized(
         context.getAuthorizer(),
-        context.getActor(),
+        context.getActorUrn(),
         targetUrn.getEntityType(),
         targetUrn.toString(),
         orPrivilegeGroups);

@@ -28,6 +28,7 @@
 
   /* Navbar */
   --ifm-navbar-height: 70px;
+  --ifm-navbar-item-padding-horizontal: 1rem;
 
   /* Announcement Bar */
   --docusaurus-announcement-bar-height: 60px !important;
@@ -94,11 +95,23 @@ div[class^="announcementBarContent"] {
   }
 }
 
+@media only screen and (max-width: 1050px) {
+  .navbar__toggle {
+    display: inherit;
+  }
+  .navbar__item {
+    display: none;
+  }
+}
+
 .navbar {
   .navbar__logo {
     height: 3rem;
   }
   .navbar__item {
+    svg[class*="iconExternalLink"] {
+      display: none;
+    }
     &.item__icon {
       height: 34px;
       width: 46px;

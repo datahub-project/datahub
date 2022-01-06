@@ -63,7 +63,7 @@ public class MLFeatureType implements SearchableEntityType<MLFeature> {
                 .stream()
                 .filter(Objects::nonNull)
                 .collect(Collectors.toSet()),
-            context.getActor());
+            context.getAuthentication());
 
             final List<Entity> gmsResults = mlFeatureUrns.stream()
                 .map(featureUrn -> mlFeatureMap.getOrDefault(featureUrn, null)).collect(Collectors.toList());
@@ -90,8 +90,7 @@ public class MLFeatureType implements SearchableEntityType<MLFeature> {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
         String sortField = sort != null ? sort.getField() : null;
         SortOrder sortOrder = sort != null ? (sort.getSortOrder().equals(Sort.asc) ? SortOrder.ASCENDING : SortOrder.DESCENDING) : null;
-        final SearchResult searchResult = _entityClient.search("mlFeature", query, facetFilters, sortField, sortOrder, start,
-                count, context.getActor());
+        final SearchResult searchResult = _entityClient.search("mlFeature", query, facetFilters, sortField, sortOrder, start, count, context.getAuthentication());
         return UrnSearchResultsMapper.map(searchResult);
     }
 
@@ -102,7 +101,7 @@ public class MLFeatureType implements SearchableEntityType<MLFeature> {
                                             int limit,
                                             @Nonnull final QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
-        final AutoCompleteResult result = _entityClient.autoComplete("mlFeature", query, facetFilters, limit, context.getActor());
+        final AutoCompleteResult result = _entityClient.autoComplete("mlFeature", query, facetFilters, limit, context.getAuthentication());
         return AutoCompleteResultsMapper.map(result);
     }
 }
