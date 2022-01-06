@@ -600,6 +600,14 @@ public class GmsGraphQLEngine {
             );
     }
 
+    private void configureGlossaryTermResolvers(final RuntimeWiring.Builder builder) {
+        builder.type("GlossaryTerm", typeWiring -> typeWiring
+            .dataFetcher("schemaMetadata", new AuthenticatedResolver<>(
+                    new AspectResolver())
+            )
+        );
+    }
+
     /**
      * Configures resolvers responsible for resolving the {@link com.linkedin.datahub.graphql.generated.CorpUser} type.
      */
@@ -909,13 +917,5 @@ public class GmsGraphQLEngine {
                 throw new RuntimeException(String.format("Failed to retrieve usage stats", e));
             }
         }), loaderOptions);
-    }
-    private void configureGlossaryTermResolvers(final RuntimeWiring.Builder builder) {
-        builder
-                .type("GlossaryTerm", typeWiring -> typeWiring
-                        .dataFetcher("schemaMetadata", new AuthenticatedResolver<>(
-                                new AspectResolver())
-                        )
-                );
     }
 }
