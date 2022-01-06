@@ -193,31 +193,5 @@
       "type":"PLATFORM",
       "editable":true
     }
-  },
-  {
-    "urn": "urn:li:dataHubPolicy:9",
-    "info": {
-      "actors":{
-        "resourceOwners":false,
-        "allUsers":false,
-        "allGroups":false,
-        "users":[
-          "urn:li:corpuser:HESE",
-          "urn:li:corpuser:RANM"
-        ]
-      },
-      "privileges":[
-        "EDIT_ENTITY"
-      ],
-      "displayName":"Root User - Edit All Glossary Terms",
-      "resources":{
-        "type":"glossary",
-        "allResources":true
-      },
-      "description":"Grants full edit privileges for Glossary Term to root 'datahub' root user.",
-      "state":"ACTIVE",
-      "type":"METADATA",
-      "editable":false
-    }
   }
 ]
