@@ -198,19 +198,23 @@ public class RestEmitter implements Emitter {
 
       @Override
       public void failed(Exception ex) {
-        try {
-          callback.onFailure(ex);
-        } catch (Exception e) {
-          log.error("Error executing user callback on failure.", e);
+        if (callback != null) {
+          try {
+            callback.onFailure(ex);
+          } catch (Exception e) {
+            log.error("Error executing user callback on failure.", e);
+          }
         }
       }
 
       @Override
       public void cancelled() {
-        try {
-          callback.onFailure(new RuntimeException("Cancelled"));
-        } catch (Exception e) {
-          log.error("Error executing user callback on failure due to cancellation.", e);
+        if (callback != null) {
+          try {
+            callback.onFailure(new RuntimeException("Cancelled"));
+          } catch (Exception e) {
+            log.error("Error executing user callback on failure due to cancellation.", e);
+          }
         }
       }
     };

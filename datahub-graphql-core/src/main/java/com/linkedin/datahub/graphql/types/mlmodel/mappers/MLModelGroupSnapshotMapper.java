@@ -1,22 +1,21 @@
 package com.linkedin.datahub.graphql.types.mlmodel.mappers;
 
+import com.datahub.util.ModelUtils;
 import com.linkedin.common.Deprecation;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.Status;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.datahub.graphql.generated.DataPlatform;
+import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FabricType;
 import com.linkedin.datahub.graphql.generated.MLModelGroup;
-import com.linkedin.datahub.graphql.generated.EntityType;
-import com.linkedin.datahub.graphql.generated.DataPlatform;
 import com.linkedin.datahub.graphql.types.common.mappers.DeprecationMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
-import com.linkedin.metadata.dao.utils.ModelUtils;
 import com.linkedin.metadata.key.MLModelGroupKey;
 import com.linkedin.metadata.snapshot.MLModelGroupSnapshot;
 import com.linkedin.ml.metadata.MLModelGroupProperties;
-
 import javax.annotation.Nonnull;
 
 

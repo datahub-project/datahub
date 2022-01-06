@@ -1,9 +1,9 @@
 package com.linkedin.metadata.utils.elasticsearch;
 
-import com.linkedin.metadata.query.Condition;
-import com.linkedin.metadata.query.Criterion;
-import com.linkedin.metadata.query.Filter;
-import com.linkedin.metadata.query.SortCriterion;
+import com.linkedin.metadata.query.filter.Condition;
+import com.linkedin.metadata.query.filter.Criterion;
+import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.query.filter.SortCriterion;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.elasticsearch.index.query.BoolQueryBuilder;
@@ -87,7 +87,7 @@ public class ESUtils {
       searchSourceBuilder.sort(new ScoreSortBuilder().order(SortOrder.DESC));
     } else {
       final SortOrder esSortOrder =
-          (sortCriterion.getOrder() == com.linkedin.metadata.query.SortOrder.ASCENDING) ? SortOrder.ASC
+          (sortCriterion.getOrder() == com.linkedin.metadata.query.filter.SortOrder.ASCENDING) ? SortOrder.ASC
               : SortOrder.DESC;
       searchSourceBuilder.sort(new FieldSortBuilder(sortCriterion.getField()).order(esSortOrder));
     }

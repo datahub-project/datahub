@@ -59,16 +59,8 @@ import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.reset;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoMoreInteractions;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertNull;
-import static org.testng.Assert.assertTrue;
+import static org.mockito.Mockito.*;
+import static org.testng.Assert.*;
 
 
 public class EbeanEntityServiceTest {
@@ -337,6 +329,12 @@ public class EbeanEntityServiceTest {
     verify(_mockProducer, times(2)).produceMetadataAuditEvent(Mockito.eq(entityUrn2), Mockito.eq(null), Mockito.any(),
         Mockito.any(), Mockito.any(), Mockito.eq(MetadataAuditOperation.UPDATE));
 
+    verify(_mockProducer, times(2)).produceMetadataChangeLog(Mockito.eq(entityUrn1),
+        Mockito.any(), Mockito.any());
+
+    verify(_mockProducer, times(2)).produceMetadataChangeLog(Mockito.eq(entityUrn2),
+        Mockito.any(), Mockito.any());
+
     verifyNoMoreInteractions(_mockProducer);
   }
 
@@ -442,6 +440,9 @@ public class EbeanEntityServiceTest {
 
     verify(_mockProducer, times(1)).produceMetadataAuditEvent(Mockito.eq(entityUrn), Mockito.notNull(), Mockito.any(),
         Mockito.any(), Mockito.any(), Mockito.eq(MetadataAuditOperation.UPDATE));
+
+    verify(_mockProducer, times(2)).produceMetadataChangeLog(Mockito.eq(entityUrn),
+        Mockito.any(), Mockito.any());
 
     verifyNoMoreInteractions(_mockProducer);
   }
