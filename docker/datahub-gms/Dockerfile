@@ -65,6 +65,7 @@ EXPOSE 8080
 # HEALTHCHECK --start-period=2m --retries=4 CMD curl --fail http://localhost:8080/health || exit 1
 
 COPY ./terraform/kafka /home/datahub/terraform
+RUN chown -R datahub /home/datahub/terraform
 COPY ./platform/preDeploy.sh /usr/local/bin/preDeploy.sh
 RUN mkdir /home/datahub/terraform/.terraform
 
