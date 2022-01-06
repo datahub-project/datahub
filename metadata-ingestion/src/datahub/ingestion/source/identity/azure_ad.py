@@ -279,7 +279,7 @@ class AzureADSource(Source):
                 id_type, id_type, id_to_extract.get("displayName"), repr(e)
             )
         if not result:
-            error_str = "Failed to extract DataHub {} from Azure AD {} with name {} due to unkown reason".format(
+            error_str = "Failed to extract DataHub {} from Azure AD {} with name {} due to unknown reason".format(
                 id_type, id_type, id_to_extract.get("displayName")
             )
         if error_str is not None:
