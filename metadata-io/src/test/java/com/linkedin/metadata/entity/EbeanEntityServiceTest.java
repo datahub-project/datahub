@@ -347,9 +347,6 @@ public class EbeanEntityServiceTest {
     verify(_mockProducer, times(2)).produceMetadataAuditEvent(Mockito.eq(entityUrn2), Mockito.eq(null), Mockito.any(),
         Mockito.any(), Mockito.any(), Mockito.eq(MetadataAuditOperation.UPDATE));
 
-    verify(_mockProducer, times(2)).produceMetadataChangeLog(Mockito.eq(entityUrn1), Mockito.notNull(), Mockito.any());
-    verify(_mockProducer, times(2)).produceMetadataChangeLog(Mockito.eq(entityUrn2), Mockito.notNull(), Mockito.any());
-
     verifyNoMoreInteractions(_mockProducer);
   }
 
@@ -491,9 +488,7 @@ public class EbeanEntityServiceTest {
 
     verify(_mockProducer, times(1)).produceMetadataAuditEvent(Mockito.eq(entityUrn), Mockito.notNull(), Mockito.any(),
         Mockito.any(), Mockito.any(), Mockito.eq(MetadataAuditOperation.UPDATE));
-
-    verify(_mockProducer, times(2)).produceMetadataChangeLog(Mockito.eq(entityUrn), Mockito.notNull(), Mockito.any());
-
+    
     verifyNoMoreInteractions(_mockProducer);
   }
 
