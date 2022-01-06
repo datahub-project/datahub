@@ -11,7 +11,7 @@ unzip /tmp/terraform.zip -d "${TMPDIR}"
 TERRAFORM="${TMPDIR}/terraform"
 
 # put the required terraform files here
-cd /terraform/kafka
+cd /terraform
 
 CLIENT_CERT_PATH=`mktemp`
 PRIVATE_KEY_PATH=`mktemp`
