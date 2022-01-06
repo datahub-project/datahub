@@ -54,8 +54,7 @@ webApps: # Optional: You can remove this parent if you are not using it
     port: 8080
     command: "/usr/local/bin/with-secrets"
     args:
-      - sleep 3600
-      #- /datahub/datahub-gms/scripts/start.sh
+      - /datahub/datahub-gms/scripts/start.sh
     resources:
       requests:
         memory: 6Gi
