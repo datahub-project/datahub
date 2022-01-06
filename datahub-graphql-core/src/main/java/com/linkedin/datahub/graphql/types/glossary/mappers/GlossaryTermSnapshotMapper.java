@@ -10,7 +10,6 @@ import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.glossary.GlossaryTermInfo;
 import com.linkedin.metadata.dao.utils.ModelUtils;
 import com.linkedin.metadata.snapshot.GlossaryTermSnapshot;
-import com.linkedin.schema.EditableSchemaMetadata;
 import com.linkedin.schema.SchemaMetadata;
 
 
