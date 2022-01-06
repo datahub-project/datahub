@@ -7,7 +7,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.identity.CorpUserInfo;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.boot.BootstrapStep;
-import com.linkedin.metadata.dao.utils.RecordUtils;
+import com.datahub.util.RecordUtils;
 import com.linkedin.metadata.entity.EntityService;
 
 import java.io.IOException;

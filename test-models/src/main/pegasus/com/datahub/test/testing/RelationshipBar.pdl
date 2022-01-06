@@ -1,0 +1,23 @@
+namespace com.datahub.test.testing
+
+import com.linkedin.common.Urn
+
+/**
+ * For unit tests
+ */
+@pairings = [ {
+  "destination" : "com.linkedin.common.urn.Urn",
+  "source" : "com.linkedin.common.urn.Urn"
+} ]
+record RelationshipBar {
+
+  /**
+   * For unit tests
+   */
+  source: Urn
+
+  /**
+   * For unit tests
+   */
+  destination: Urn
+}

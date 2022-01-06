@@ -1,0 +1,12 @@
+namespace com.datahub.test.testing
+
+/**
+ * For unit tests
+ */
+record AspectInvalid {
+
+  /**
+   * For unit tests
+   */
+  value: string
+}
