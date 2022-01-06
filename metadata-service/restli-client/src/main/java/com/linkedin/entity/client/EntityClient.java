@@ -40,7 +40,9 @@ public interface EntityClient {
       @Nullable final Set<String> aspectNames,
       @Nonnull final Authentication authentication) throws Exception;
 
-  public Map<Urn, Entity> batchGet(@Nonnull final Set<Urn> urns, @Nonnull final Authentication authentication) throws RemoteInvocationException;
+  @Nonnull
+  public Map<Urn, Entity> batchGet(@Nonnull final Set<Urn> urns, @Nonnull final Authentication authentication)
+      throws RemoteInvocationException;
 
   /**
    * Gets browse snapshot of a given path

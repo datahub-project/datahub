@@ -35,10 +35,27 @@ public class MetadataChangeLogProcessor {
   private final Histogram kafkaLagStats = MetricUtils.get().histogram(MetricRegistry.name(this.getClass(), "kafkaLag"));
 
   @Autowired
+<<<<<<< HEAD
   public MetadataChangeLogProcessor(
       @Nonnull final UpdateIndicesHook updateIndicesHook,
       @Nonnull final IngestionSchedulerHook ingestionSchedulerHook) {
     this.hooks = ImmutableList.of(updateIndicesHook, ingestionSchedulerHook);
+=======
+  public MetadataChangeLogProcessor(GraphService graphService, EntitySearchService entitySearchService,
+      TimeseriesAspectService timeseriesAspectService, SystemMetadataService systemMetadataService,
+      EntityRegistry entityRegistry, SearchDocumentTransformer searchDocumentTransformer) {
+    _graphService = graphService;
+    _entitySearchService = entitySearchService;
+    _timeseriesAspectService = timeseriesAspectService;
+    _systemMetadataService = systemMetadataService;
+    _entityRegistry = entityRegistry;
+    _searchDocumentTransformer = searchDocumentTransformer;
+
+    _graphService.configure();
+    _entitySearchService.configure();
+    _systemMetadataService.configure();
+    _timeseriesAspectService.configure();
+>>>>>>> master
   }
 
   @KafkaListener(id = "${METADATA_CHANGE_LOG_KAFKA_CONSUMER_GROUP_ID:generic-mae-consumer-job-client}", topics = {

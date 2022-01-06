@@ -6,12 +6,18 @@ Doing this is a matter of configuring the Kafka Producer and Consumers used by D
 
 ## **Step 1: Create topics in Confluent Control Center**
 
-First, you'll need to create 4 new topics in the [Confluent Control Center](https://docs.confluent.io/platform/current/control-center/index.html). By default they have the following names:
+First, you'll need to create following new topics in the [Confluent Control Center](https://docs.confluent.io/platform/current/control-center/index.html). By default they have the following names:
 
 1. **MetadataChangeEvent_v4**: Metadata change proposal messages
 2. **MetadataAuditEvent_v4**: Metadata change log messages 
 3. **FailedMetadataChangeEvent_v4**: Failed to process #1 event
 4. **DataHubUsageEvent_v1**: User behavior tracking event for UI
+5. **MetadataChangeProposal_v1** 
+6. **FailedMetadataChangeProposal_v1**
+7. **MetadataChangeLog_Versioned_v1**
+8. **MetadataChangeLog_Timeseries_v1**
+
+The last 4 are exaplined in [MCP/MCL](../advanced/mcp-mcl.md)
 
 To do so, navigate to your **Cluster** and click "Create Topic". Feel free to tweak the default topic configurations to
 match your preferences.

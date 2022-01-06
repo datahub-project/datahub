@@ -7,7 +7,6 @@ dependencies {
   compile project(':entity-registry')
   compile project(':metadata-io')
 
-  compile externalDependency.gmaDaoApi
   compile externalDependency.kafkaClients
 
   compileOnly externalDependency.lombok
