@@ -101,7 +101,9 @@ class RedshiftUsageSource(Source):
         """Gets Redshift usage stats as work units"""
         engine = self._make_sql_engine()
 
-        operation_aspect_work_units = self._get_all_operation_aspect_work_units_by_type(engine)
+        operation_aspect_work_units = self._get_all_operation_aspect_work_units_by_type(
+            engine
+        )
         for operation_aspect_work_unit in operation_aspect_work_units:
             yield operation_aspect_work_unit
 
@@ -144,8 +146,8 @@ class RedshiftUsageSource(Source):
             yield wu
 
     def _get_all_operation_aspect_work_units_by_type(
-                self, engine: Engine
-        ) -> Iterable[MetadataWorkUnit]:
+        self, engine: Engine
+    ) -> Iterable[MetadataWorkUnit]:
         insert_work_units = self._get_operation_aspect_work_units_by_type(
             OperationTypeClass.INSERT, engine
         )
