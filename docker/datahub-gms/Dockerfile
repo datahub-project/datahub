@@ -66,6 +66,5 @@ EXPOSE 8080
 
 COPY ./terraform/kafka /terraform
 COPY ./platform/preDeploy.sh /usr/local/bin/preDeploy.sh
-RUN chmod +x /usr/local/bin/preDeploy.sh
 
 CMD /datahub/datahub-gms/scripts/start.sh
