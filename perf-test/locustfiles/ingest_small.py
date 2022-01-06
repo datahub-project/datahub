@@ -14,11 +14,16 @@ from locust import HttpUser, constant, task
 
 
 class IngestUser(HttpUser):
+    """
+    Same as Ingest test except we only test with less IDs
+    so we hit update existing asepct cases
+    """
+
     wait_time = constant(1)
 
     @task
     def ingest(self):
-        proposed_snapshot = self._build_snapshot(random.randint(1, 100000))
+        proposed_snapshot = self._build_snapshot(random.randint(1, 100))
         snapshot_fqn = (
             f"com.linkedin.metadata.snapshot.{proposed_snapshot.RECORD_SCHEMA.name}"
         )
