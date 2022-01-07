@@ -48,13 +48,12 @@ export default function layoutTree(
 
         const layerHeight = nodesInCurrentLayer
             .filter(({ node }) => nodesToAddInCurrentLayer.indexOf(node.urn || '') > -1)
-            // TODO
             .map(({ node }) => nodeHeightFromTitleLength(expandTitles ? node.name : undefined))
             .reduce((acc, height) => acc + height, 0);
 
         maxHeight = Math.max(maxHeight, layerHeight);
 
-        // approximate the starting position assuming each node has 1 line (its ok to be a bit off here)
+        // approximate the starting position assuming each node has a 1 line title (its ok to be a bit off here)
         let currentXPosition =
             -((nodeHeightFromTitleLength(undefined) + VERTICAL_SPACE_BETWEEN_NODES) * (layerSize - 1)) / 2 +
             canvasHeight / 2 +
