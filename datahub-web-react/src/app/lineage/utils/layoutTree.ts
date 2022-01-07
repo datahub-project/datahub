@@ -1,4 +1,5 @@
 import { CURVE_PADDING, HORIZONTAL_SPACE_PER_LAYER, VERTICAL_SPACE_BETWEEN_NODES } from '../constants';
+import { width as nodeWidth } from '../LineageEntityNode';
 import { Direction, NodeData, VizEdge, VizNode } from '../types';
 import { nodeHeightFromTitleLength } from './nodeHeightFromTitleLength';
 
@@ -7,7 +8,6 @@ type ProcessArray = {
     node: NodeData;
 }[];
 
-const nodeWidth = 212;
 const INSIDE_NODE_SHIFT = nodeWidth / 2 - 19;
 
 const HEADER_HEIGHT = 125;
@@ -25,7 +25,6 @@ export default function layoutTree(
     height: number;
     layers: number;
 } {
-    console.log('expandTitles', expandTitles);
     const nodesToRender: VizNode[] = [];
     const edgesToRender: VizEdge[] = [];
     let maxHeight = 0;

@@ -53,6 +53,13 @@ const UnselectableText = styled.text`
     user-select: none;
 `;
 
+const MultilineTitleText = styled.p`
+    margin-top: -2px;
+    font-size: 14px;
+    width: 125px;
+    word-break: 'break-all';
+`;
+
 export default function LineageEntityNode({
     node,
     isSelected,
@@ -259,16 +266,7 @@ export default function LineageEntityNode({
                     </UnselectableText>
                     {expandTitles ? (
                         <foreignObject x={textX} width="125" height="200">
-                            <p
-                                style={{
-                                    marginTop: '-2px',
-                                    fontSize: 14,
-                                    width: 125,
-                                    wordBreak: 'break-all',
-                                }}
-                            >
-                                {node.data.name}
-                            </p>
+                            <MultilineTitleText>{node.data.name}</MultilineTitleText>
                         </foreignObject>
                     ) : (
                         <UnselectableText

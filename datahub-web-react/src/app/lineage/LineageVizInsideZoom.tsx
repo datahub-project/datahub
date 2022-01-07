@@ -89,7 +89,7 @@ export default function LineageVizInsideZoom({
     selectedEntity,
     width,
     height,
-}: Props): JSX.Element {
+}: Props) {
     const [draggedNodes, setDraggedNodes] = useState<Record<string, { x: number; y: number }>>({});
 
     const [hoveredEntity, setHoveredEntity] = useState<EntitySelectParams | undefined>(undefined);
