@@ -101,11 +101,12 @@ class RedshiftUsageSource(Source):
         """Gets Redshift usage stats as work units"""
         engine = self._make_sql_engine()
 
-        operation_aspect_work_units = self._get_all_operation_aspect_work_units_by_type(
-            engine
-        )
-        for operation_aspect_work_unit in operation_aspect_work_units:
-            yield operation_aspect_work_unit
+        if self.config.include_operational_stats:
+            operation_aspect_work_units = (
+                self._get_all_operation_aspect_work_units_by_type(engine)
+            )
+            for operation_aspect_work_unit in operation_aspect_work_units:
+                yield operation_aspect_work_unit
 
         access_events = self._get_redshift_history(
             self._make_usage_query(redshift_usage_sql_comment), engine

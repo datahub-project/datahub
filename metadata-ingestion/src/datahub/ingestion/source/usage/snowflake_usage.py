@@ -258,12 +258,13 @@ class SnowflakeUsageSource(StatefulIngestionSourceBase):
             self._init_checkpoints()
             # Generate the workunits.
             access_events = self._get_snowflake_history()
-            operation_aspect_work_units = self._get_operation_aspect_work_units(
-                access_events
-            )
-            for wu in operation_aspect_work_units:
-                self.report.report_workunit(wu)
-                yield wu
+            if self.config.include_operational_stats:
+                operation_aspect_work_units = self._get_operation_aspect_work_units(
+                    access_events
+                )
+                for wu in operation_aspect_work_units:
+                    self.report.report_workunit(wu)
+                    yield wu
             aggregated_info = self._aggregate_access_events(access_events)
 
             for time_bucket in aggregated_info.values():

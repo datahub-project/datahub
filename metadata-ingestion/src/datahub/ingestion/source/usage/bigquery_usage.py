@@ -447,9 +447,10 @@ class BigQueryUsageSource(Source):
         last_updated_work_units: Iterable[MetadataWorkUnit] = cast(
             Iterable[MetadataWorkUnit], last_updated_work_units_uncasted
         )
-        for wu in last_updated_work_units:
-            self.report.report_workunit(wu)
-            yield wu
+        if self.config.include_operational_stats:
+            for wu in last_updated_work_units:
+                self.report.report_workunit(wu)
+                yield wu
         hydrated_read_events = self._join_events_by_job_id(parsed_events)
         aggregated_info = self._aggregate_enriched_read_events(hydrated_read_events)
 
