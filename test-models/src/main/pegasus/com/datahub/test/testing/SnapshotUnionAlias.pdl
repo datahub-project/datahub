@@ -1,0 +1,8 @@
+namespace com.datahub.test.testing
+
+/**
+ * For unit testing
+ */
+typeref SnapshotUnionAlias = union[
+  entity: EntitySnapshotAlias
+]

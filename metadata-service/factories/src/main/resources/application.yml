@@ -1,7 +1,7 @@
 # App Layer
 authentication:
   # Enable if you want all requests to the Metadata Service to be authenticated. Disabled by default.
-  enabled: ${METADATA_SERVICE_AUTH_ENABLED:false}
+  enabled: ${METADATA_SERVICE_AUTH_ENABLED:true}
 
   # Required if enabled is true! A configurable chain of Authenticators
   authenticators:

@@ -1,7 +1,7 @@
 package com.linkedin.metadata.utils.elasticsearch;
 
-import com.linkedin.metadata.query.Condition;
-import com.linkedin.metadata.query.Criterion;
+import com.linkedin.metadata.query.filter.Condition;
+import com.linkedin.metadata.query.filter.Criterion;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.WildcardQueryBuilder;
 import org.testng.annotations.Test;

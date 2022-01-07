@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.linkedin.metadata.boot.BootstrapStep;
-import com.linkedin.metadata.dao.utils.RecordUtils;
+import com.datahub.util.RecordUtils;
 import com.linkedin.metadata.entity.RetentionService;
 import com.linkedin.metadata.key.DataHubRetentionKey;
 import com.linkedin.retention.DataHubRetentionConfig;

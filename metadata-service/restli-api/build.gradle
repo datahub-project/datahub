@@ -2,8 +2,6 @@ apply plugin: 'pegasus'
 
 dependencies {
   dataModel project(':metadata-models')
-  dataModel externalDependency.gmaDaoApiDataTemplate
-  dataModel externalDependency.gmaRestliResourcesDataTemplate
   dataModel spec.product.pegasus.restliCommon
 
   dataTemplateCompile spec.product.pegasus.data

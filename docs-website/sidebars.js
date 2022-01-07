@@ -86,6 +86,12 @@ module.exports = {
         Sinks: list_ids_in_directory("metadata-ingestion/sink_docs"),
       },
       {
+        "Custom Integrations": [
+          "metadata-ingestion/as-a-library",
+          "metadata-integration/java/as-a-library",
+        ],
+      },
+      {
         Scheduling: [
           "metadata-ingestion/schedule_docs/intro",
           "metadata-ingestion/schedule_docs/cron",
@@ -98,7 +104,7 @@ module.exports = {
           "docs/lineage/airflow",
           "docker/airflow/local_airflow",
           "docs/lineage/sample_code",
-          "spark-lineage/README",
+          "metadata-integration/java/spark-lineage/README",
         ],
       },
       {
