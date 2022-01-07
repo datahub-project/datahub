@@ -42,6 +42,18 @@ task installDev(type: Exec, dependsOn: [install]) {
   commandLine 'bash', '-x', '-c',
     "${venv_name}/bin/pip install -e .[dev] && touch ${venv_name}/.build_install_dev_sentinel"
 }
+
+task modelDocGen(type: Exec, dependsOn: [codegen, installDev]) {
+    inputs.files(project.fileTree(dir: "../metadata-events/mxe-schemas/src/", include: "**/*.avsc"))
+    outputs.dir('generated/docs')
+    commandLine 'bash', '-c', "source ${venv_name}/bin/activate && ./scripts/modeldocgen.sh"
+}
+
+task modelDocUpload(type: Exec, dependsOn: [modelDocGen]) {
+    commandLine 'bash', '-c', "source ${venv_name}/bin/activate && ./scripts/modeldocupload.sh"
+}
+
+
 task lint(type: Exec, dependsOn: installDev) {
   /*
     The find/sed combo below is a temporary work-around for the following mypy issue with airflow 2.2.0:
@@ -66,7 +78,7 @@ task testQuick(type: Exec, dependsOn: installDev) {
   inputs.files(project.fileTree(dir: "tests/"))
   outputs.dir("${venv_name}")
   commandLine 'bash', '-x', '-c',
-    "source ${venv_name}/bin/activate && pytest -m 'not integration' -vv --continue-on-collection-errors --junit-xml=junit.quick.xml"
+    "source ${venv_name}/bin/activate && pytest -m 'not integration and not slow_integration' -vv --continue-on-collection-errors --junit-xml=junit.quick.xml"
 }
 
 task installDevTest(type: Exec, dependsOn: [installDev]) {
@@ -79,7 +91,6 @@ task installDevTest(type: Exec, dependsOn: [installDev]) {
 
 def testFile = hasProperty('testFile') ? testFile : 'unknown'
 task testSingle(dependsOn: [installDevTest]) {
-  println "$testFile"
   doLast {
   if (testFile != 'unknown')  {
   exec {
@@ -94,7 +105,12 @@ task testSingle(dependsOn: [installDevTest]) {
 
 task testFull(type: Exec, dependsOn: [testQuick, installDevTest]) {
   commandLine 'bash', '-x', '-c',
-    "source ${venv_name}/bin/activate && pytest -vv --continue-on-collection-errors --junit-xml=junit.full.xml"
+    "source ${venv_name}/bin/activate && pytest -m 'not slow_integration' -vv --continue-on-collection-errors --junit-xml=junit.full.xml"
+}
+
+task testSlowIntegration(type: Exec, dependsOn: [testQuick, installDevTest]) {
+  commandLine 'bash', '-x', '-c',
+    "source ${venv_name}/bin/activate && pytest -m 'slow_integration' -vv --continue-on-collection-errors --junit-xml=junit.full.xml"
 }
 
 task cleanPythonCache(type: Exec) {

@@ -9,8 +9,7 @@ import com.linkedin.datahub.upgrade.common.steps.ClearGraphServiceStep;
 import com.linkedin.datahub.upgrade.common.steps.ClearSearchServiceStep;
 import com.linkedin.datahub.upgrade.common.steps.GMSDisableWriteModeStep;
 import com.linkedin.datahub.upgrade.common.steps.GMSEnableWriteModeStep;
-import com.linkedin.datahub.upgrade.common.steps.GMSQualificationStep;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.RestliEntityClient;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -29,7 +28,7 @@ public class RestoreBackup implements Upgrade {
       final EntityService entityService,
       final EntityRegistry entityRegistry,
       final Authentication systemAuthentication,
-      final EntityClient entityClient,
+      final RestliEntityClient entityClient,
       final GraphService graphClient,
       final EntitySearchService searchClient) {
     _steps = buildSteps(server, entityService, entityRegistry, systemAuthentication, entityClient, graphClient, searchClient);
@@ -50,11 +49,10 @@ public class RestoreBackup implements Upgrade {
       final EntityService entityService,
       final EntityRegistry entityRegistry,
       final Authentication systemAuthentication,
-      final EntityClient entityClient,
+      final RestliEntityClient entityClient,
       final GraphService graphClient,
       final EntitySearchService searchClient) {
     final List<UpgradeStep> steps = new ArrayList<>();
-    steps.add(new GMSQualificationStep());
     steps.add(new GMSDisableWriteModeStep(systemAuthentication, entityClient));
     steps.add(new ClearSearchServiceStep(searchClient, true));
     steps.add(new ClearGraphServiceStep(graphClient, true));

@@ -9,10 +9,12 @@ import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
 import com.linkedin.metadata.search.SearchResult;
-import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilders;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.EntityIndexBuilders;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
+import com.linkedin.metadata.search.elasticsearch.update.BulkListener;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
@@ -20,9 +22,13 @@ import java.util.Collections;
 import javax.annotation.Nonnull;
 import org.apache.http.HttpHost;
 import org.apache.http.impl.nio.reactor.IOReactorConfig;
+import org.elasticsearch.action.bulk.BackoffPolicy;
+import org.elasticsearch.action.bulk.BulkProcessor;
+import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestClientBuilder;
 import org.elasticsearch.client.RestHighLevelClient;
+import org.elasticsearch.common.unit.TimeValue;
 import org.testcontainers.elasticsearch.ElasticsearchContainer;
 import org.testcontainers.shaded.com.google.common.collect.ImmutableMap;
 import org.testng.annotations.AfterTest;
@@ -80,13 +86,28 @@ public class ElasticSearchServiceTest {
     return new RestHighLevelClient(builder);
   }
 
+  public static BulkProcessor getBulkProcessor(RestHighLevelClient searchClient) {
+    return BulkProcessor.builder((request, bulkListener) -> {
+      searchClient.bulkAsync(request, RequestOptions.DEFAULT, bulkListener);
+    }, BulkListener.getInstance())
+        .setBulkActions(1)
+        .setFlushInterval(TimeValue.timeValueSeconds(1))
+        .setBackoffPolicy(BackoffPolicy.constantBackoff(TimeValue.timeValueSeconds(1000), 1))
+        .build();
+  }
+
+  public static ESIndexBuilder getIndexBuilder(RestHighLevelClient searchClient) {
+    return new ESIndexBuilder(searchClient, 1, 1);
+  }
+
   @Nonnull
   private ElasticSearchService buildService() {
-    ESIndexBuilders indexBuilders =
-        new ESIndexBuilders(_entityRegistry, _searchClient, _indexConvention, _settingsBuilder);
+    EntityIndexBuilders indexBuilders =
+        new EntityIndexBuilders(getIndexBuilder(_searchClient), _entityRegistry, _indexConvention, _settingsBuilder);
     ESSearchDAO searchDAO = new ESSearchDAO(_entityRegistry, _searchClient, _indexConvention);
     ESBrowseDAO browseDAO = new ESBrowseDAO(_entityRegistry, _searchClient, _indexConvention);
-    ESWriteDAO writeDAO = new ESWriteDAO(_entityRegistry, _searchClient, _indexConvention, 1, 1, 1, 1);
+    ESWriteDAO writeDAO =
+        new ESWriteDAO(_entityRegistry, _searchClient, _indexConvention, getBulkProcessor(_searchClient));
     return new ElasticSearchService(indexBuilders, searchDAO, browseDAO, writeDAO);
   }
 
