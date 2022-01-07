@@ -68,4 +68,5 @@ preDeploy:
     args:
       - /usr/local/bin/preDeploy.sh
     iamRole: dataportal
+    iamProvider: oidc
     image: 311088406905.dkr.ecr.us-east-1.amazonaws.com/dataportal-gms
