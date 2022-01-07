@@ -30,8 +30,6 @@ import com.linkedin.entity.EntitiesV2BatchGetRequestBuilder;
 import com.linkedin.entity.EntitiesV2RequestBuilders;
 import com.linkedin.entity.Entity;
 import com.linkedin.entity.EntityArray;
-import com.linkedin.entity.EntityBatchGetRequestBuilder;
-import com.linkedin.entity.EntityRequestBuilders;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.aspect.VersionedAspect;
@@ -50,7 +48,6 @@ import com.linkedin.restli.client.Client;
 import com.linkedin.restli.client.RestLiResponseException;
 import com.linkedin.restli.common.HttpStatus;
 import java.net.URISyntaxException;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -231,32 +228,6 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       throws RemoteInvocationException {
     EntitiesDoIngestRequestBuilder requestBuilder = ENTITIES_REQUEST_BUILDERS.actionIngest().entityParam(entity);
     sendClientRequest(requestBuilder, authentication);
-  }
-
-  @Nonnull
-  public Map<Urn, EntityResponse> batchGetV2(
-    @Nonnull String entityName,
-    @Nonnull final Set<Urn> urns,
-    @Nullable final Set<String> aspectNames,
-    @Nonnull final Authentication authentication) throws Exception {
-
-    final EntityBatchGetRequestBuilder requestBuilder = ENTITIES_V2_REQUEST_BUILDERS
-        .batchGet()
-        .aspectsParam(aspectNames)
-        .ids(urns.stream().map(Urn::toString).collect(Collectors.toList()));
-
-    return sendClientRequest(requestBuilder, authentication)
-        .getEntity()
-        .getResults()
-        .entrySet()
-        .stream()
-        .collect(Collectors.toMap(entry -> {
-          try {
-            return Urn.createFromString(entry.getKey());
-          } catch (URISyntaxException e) {
-            throw new RuntimeException(String.format("Failed to bind urn string with value %s into urn", entry.getKey()));
-          }
-        }, entry -> entry.getValue().getEntity()));
   }
 
   public void updateWithSystemMetadata(@Nonnull final Entity entity, @Nullable final SystemMetadata systemMetadata,

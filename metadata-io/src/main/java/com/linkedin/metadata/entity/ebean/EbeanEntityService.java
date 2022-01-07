@@ -15,8 +15,7 @@ import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.Aspect;
 import com.linkedin.metadata.aspect.VersionedAspect;
-import com.linkedin.metadata.dao.utils.RecordUtils;
-import com.linkedin.metadata.utils.EntityKeyUtils;
+import com.datahub.util.RecordUtils;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ListResult;
 import com.linkedin.metadata.entity.RollbackResult;
@@ -49,7 +48,6 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
-import com.linkedin.metadata.entity.EntityService.UpdateAspectResult;
 
 import static com.linkedin.metadata.Constants.ASPECT_LATEST_VERSION;
 import static com.linkedin.metadata.Constants.SYSTEM_ACTOR;
@@ -57,9 +55,6 @@ import static com.linkedin.metadata.entity.ebean.EbeanUtils.parseSystemMetadata;
 import static com.linkedin.metadata.entity.ebean.EbeanUtils.toAspectRecord;
 import static com.linkedin.metadata.entity.ebean.EbeanUtils.toJsonAspect;
 import static com.linkedin.metadata.utils.PegasusUtils.urnToEntityName;
-
-import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.utils.PegasusUtils.*;
 
 
 /**
@@ -701,23 +696,6 @@ public class EbeanEntityService extends EntityService {
 
       if (currAspectEntry == null) {
         // No aspect found.
-<<<<<<< HEAD
-        result.put(currKey, null);
-      } else {
-        // Aspect found. Now turn it into an EnvelopedAspect
-        final com.linkedin.entity.Aspect aspect = RecordUtils.toRecordTemplate(com.linkedin.entity.Aspect.class, currAspectEntry
-            .getMetadata());
-        final EnvelopedAspect envelopedAspect = new EnvelopedAspect();
-        envelopedAspect.setName(currAspectEntry.getKey().getAspect());
-        envelopedAspect.setVersion(currAspectEntry.getKey().getVersion());
-        envelopedAspect.setValue(aspect);
-        envelopedAspect.setCreated(new AuditStamp()
-            .setActor(Urn.createFromString(currAspectEntry.getCreatedBy()))
-            .setTime(currAspectEntry.getCreatedOn().getTime())
-        );
-        result.put(currKey, envelopedAspect);
-      }
-=======
         continue;
       }
 
@@ -733,45 +711,24 @@ public class EbeanEntityService extends EntityService {
           .setTime(currAspectEntry.getCreatedOn().getTime())
       );
       result.put(currKey, envelopedAspect);
->>>>>>> master
     }
     return result;
   }
 
-<<<<<<< HEAD
-  private List<EnvelopedAspect> getKeyAspectList(final String urnStr) throws Exception {
-    final Urn urn = Urn.createFromString(urnStr);
-    final EntitySpec spec = getEntityRegistry().getEntitySpec(urnToEntityName(urn));
-    final AspectSpec keySpec = spec.getKeyAspectSpec();
-    final RecordDataSchema keySchema = keySpec.getPegasusSchema();
-    final com.linkedin.entity.Aspect aspect = new com.linkedin.entity.Aspect(EntityKeyUtils.convertUrnToEntityKey(urn, keySchema).data());
-=======
   private EnvelopedAspect getKeyEnvelopedAspect(final Urn urn) throws Exception {
     final EntitySpec spec = getEntityRegistry().getEntitySpec(urnToEntityName(urn));
     final AspectSpec keySpec = spec.getKeyAspectSpec();
     final RecordDataSchema keySchema = keySpec.getPegasusSchema();
     final com.linkedin.entity.Aspect aspect =
         new com.linkedin.entity.Aspect(EntityKeyUtils.convertUrnToEntityKey(urn, keySchema).data());
->>>>>>> master
 
     final EnvelopedAspect envelopedAspect = new EnvelopedAspect();
     envelopedAspect.setName(keySpec.getName());
     envelopedAspect.setVersion(0L);
     envelopedAspect.setValue(aspect);
-<<<<<<< HEAD
-    envelopedAspect.setCreated(new AuditStamp()
-        .setActor(Urn.createFromString(SYSTEM_ACTOR))
-        .setTime(System.currentTimeMillis())
-    );
-
-    final List<EnvelopedAspect> result = new ArrayList<>();
-    result.add(envelopedAspect);
-    return result;
-=======
     envelopedAspect.setCreated(
         new AuditStamp().setActor(Urn.createFromString(SYSTEM_ACTOR)).setTime(System.currentTimeMillis()));
 
     return envelopedAspect;
->>>>>>> master
   }
 }
