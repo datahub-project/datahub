@@ -11,9 +11,12 @@ def query() -> None:
     pass
 
 
-def _get_aspect_from_entity(entity: Dict, aspect_key: str) -> Dict:
+def _get_aspect_from_entity(entity: Dict, aspect_type_name: str) -> Dict:
     aspects_list = list(entity["value"].values())[0]["aspects"]
-    return list(filter(lambda x: aspect_key in x, aspects_list))[0][aspect_key]
+    aspect_list = list(filter(lambda x: aspect_type_name in x, aspects_list))
+    if len(aspects_list) == 0 or aspect_type_name not in aspect_list[0]:
+        return dict()
+    return aspect_list[0][aspect_type_name]
 
 
 def _get_aspect_value(
