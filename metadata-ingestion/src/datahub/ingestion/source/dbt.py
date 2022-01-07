@@ -52,7 +52,6 @@ from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
     GlobalTagsClass,
     GlossaryTermsClass,
-    MapTypeClass,
     OwnerClass,
     OwnershipClass,
     OwnershipSourceTypeClass,
