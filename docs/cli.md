@@ -174,3 +174,19 @@ datahub --debug put --urn "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDa
 curl -X POST -H 'User-Agent: python-requests/2.26.0' -H 'Accept-Encoding: gzip, deflate' -H 'Accept: */*' -H 'Connection: keep-alive' -H 'X-RestLi-Protocol-Version: 2.0.0' -H 'Content-Type: application/json' --data '{"proposal": {"entityType": "dataset", "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)", "aspectName": "ownership", "changeType": "UPSERT", "aspect": {"contentType": "application/json", "value": "{\"owners\": [{\"owner\": \"urn:li:corpuser:jdoe\", \"type\": \"DEVELOPER\"}, {\"owner\": \"urn:li:corpuser:jdub\", \"type\": \"DATAOWNER\"}]}"}}}' 'http://localhost:8080/aspects/?action=ingestProposal'
 Update succeeded with status 200
 ```
+
+### query
+
+The `query` command has sub-commands that you can use to get details for an URN.
+
+e.g.
+```console
+> datahub query owner --urn "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)"
+[{'owner': 'urn:li:corpuser:jdoe', 'type': 'DATAOWNER'}, {'owner': 'urn:li:corpuser:datahub', 'type': 'DATAOWNER'}]
+
+> datahub query tag --urn "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)"
+[{'tag': 'urn:li:tag:Legacy'}]
+
+> datahub query glossary-term --urn "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)"
+[{'urn': 'urn:li:glossaryTerm:AccountBalance'}]
+```
