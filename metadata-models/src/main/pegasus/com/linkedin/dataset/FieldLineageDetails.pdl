@@ -6,9 +6,19 @@ import com.linkedin.common.Urn
  * Details of the parent fields and transformation resulting in new field.
  */
 record FieldLineageDetails {
-    transform: optional string
 
-    parentFields: array[Urn]
+  /**
+  * The transformation applied to the parent fields resulting in the derived new field.
+  */
+  // Could be UDF, expression etc.
+
+  transform: optional string
+
+  /**
+  * The parent fields from which the new field is derived.
+  */
+  // SchemaFieldPath
+  parentFields: array[Urn]
 
 /*
   Note that information of a particular lineage can be provided manually by a person on the UI, or sourced from another data platform, or determined by Datahub itself, or a combination of these.
