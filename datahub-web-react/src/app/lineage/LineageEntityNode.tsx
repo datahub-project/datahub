@@ -57,7 +57,7 @@ const MultilineTitleText = styled.p`
     margin-top: -2px;
     font-size: 14px;
     width: 125px;
-    word-break: 'break-all';
+    word-break: break-all;
 `;
 
 export default function LineageEntityNode({
