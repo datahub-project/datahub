@@ -1,12 +1,13 @@
 import { CURVE_PADDING, HORIZONTAL_SPACE_PER_LAYER, VERTICAL_SPACE_PER_NODE } from '../constants';
 import { Direction, NodeData, VizEdge, VizNode } from '../types';
-import { width as nodeWidth } from '../LineageEntityNode';
+import { nodeHeightFromTitleLength } from './nodeHeightFromTitleLength';
 
 type ProcessArray = {
     parent: VizNode | null;
     node: NodeData;
 }[];
 
+const nodeWidth = 212;
 const INSIDE_NODE_SHIFT = nodeWidth / 2 - 19;
 
 const HEADER_HEIGHT = 125;
@@ -16,6 +17,7 @@ export default function layoutTree(
     direction: Direction,
     draggedNodes: Record<string, { x: number; y: number }>,
     canvasHeight: number,
+    expandTitles: boolean,
 ): {
     nodesToRender: VizNode[];
     edgesToRender: VizEdge[];
@@ -23,6 +25,7 @@ export default function layoutTree(
     height: number;
     layers: number;
 } {
+    console.log('expandTitles', expandTitles);
     const nodesToRender: VizNode[] = [];
     const edgesToRender: VizEdge[] = [];
     let maxHeight = VERTICAL_SPACE_PER_NODE;
@@ -47,14 +50,12 @@ export default function layoutTree(
         const layerHeight = nodesInCurrentLayer
             .filter(({ node }) => nodesToAddInCurrentLayer.indexOf(node.urn || '') > -1)
             // TODO
-            .map(({ node }) => node.name.length)
-            .reduce((acc, len) => acc + len, 0);
-
-        // const layerHeight = VERTICAL_SPACE_PER_NODE * (layerSize - 1);
+            .map(({ node }) => nodeHeightFromTitleLength(expandTitles ? node.name : node.name.charAt(0)))
+            .reduce((acc, height) => acc + height, 0);
 
         maxHeight = Math.max(maxHeight, layerHeight);
 
-        let addedIndex = 0;
+        let currentXPosition = -(VERTICAL_SPACE_PER_NODE * (layerSize - 1)) / 2 + canvasHeight / 2 + HEADER_HEIGHT;
         // eslint-disable-next-line @typescript-eslint/no-loop-func
         nodesInCurrentLayer.forEach(({ node, parent }) => {
             if (!node.urn) return;
@@ -73,13 +74,11 @@ export default function layoutTree(
                           }
                         : {
                               data: node,
-                              x:
-                                  VERTICAL_SPACE_PER_NODE * addedIndex -
-                                  (VERTICAL_SPACE_PER_NODE * (layerSize - 1)) / 2 +
-                                  canvasHeight / 2 +
-                                  HEADER_HEIGHT,
+                              x: currentXPosition,
                               y: HORIZONTAL_SPACE_PER_LAYER * currentLayer * xModifier,
                           };
+                currentXPosition += nodeHeightFromTitleLength(expandTitles ? node.name : node.name.charAt(0));
+
                 nodesByUrn[node.urn] = vizNodeForNode;
                 nodesToRender.push(vizNodeForNode);
                 nodesInNextLayer = [
@@ -89,7 +88,6 @@ export default function layoutTree(
                         node: child,
                     })) || []),
                 ];
-                addedIndex++;
             }
 
             if (parent) {
