@@ -98,6 +98,6 @@ resource "aws_iam_policy" "dataportal_terraform_kafka_topics" {
 }
 
 resource "aws_iam_role_policy_attachment" "dataportal_terraform_kafka_topics" {
-  role       = "event-journal-server"
+  role       = aws_iam_role.dataportal.name
   policy_arn = aws_iam_policy.dataportal_terraform_kafka_topics.arn
 }

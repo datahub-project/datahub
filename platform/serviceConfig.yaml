@@ -67,5 +67,5 @@ preDeploy:
   - command: /usr/local/bin/with-secrets
     args:
       - /usr/local/bin/preDeploy.sh
-    iamRole: event-journal-server
+    iamRole: dataportal
     image: 311088406905.dkr.ecr.us-east-1.amazonaws.com/dataportal-gms
