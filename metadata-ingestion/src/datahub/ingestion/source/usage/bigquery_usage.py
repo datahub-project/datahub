@@ -42,7 +42,9 @@ DEBUG_INCLUDE_FULL_PAYLOADS = False
 # Handle yearly, monthly, daily, or hourly partitioning.
 # See https://cloud.google.com/bigquery/docs/partitioned-tables.
 # This REGEX handles both Partitioned Tables ($ separator) and Sharded Tables (_ separator)
-PARTITIONED_TABLE_REGEX = re.compile(r"^(.+)[\$_](\d{4}|\d{6}|\d{8}|\d{10})$")
+PARTITIONED_TABLE_REGEX = re.compile(
+    r"^(.+)[\$_](\d{4}|\d{6}|\d{8}|\d{10}|__PARTITIONS_SUMMARY__)$"
+)
 
 # Handle table snapshots
 # See https://cloud.google.com/bigquery/docs/table-snapshots-intro.
