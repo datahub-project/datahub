@@ -11,8 +11,8 @@ else
   ELASTICSEARCH_PROTOCOL=http
 fi
 
-if [[ ! -z $ELASTICSEARCH_USERNAME ]] && [[ -z $ELASTICSEARCH_AUTH_HEADER ]]; then
-  AUTH_TOKEN=$(echo -ne "$ELASTICSEARCH_USERNAME:$ELASTICSEARCH_PASSWORD" | base64 --wrap 0)
+if [[ ! -z $ELASTICSEARCH_MASTER_USERNAME ]] && [[ -z $ELASTICSEARCH_AUTH_HEADER ]]; then
+  AUTH_TOKEN=$(echo -ne "$ELASTICSEARCH_MASTER_USERNAME:$ELASTICSEARCH_MASTER_PASSWORD" | base64 --wrap 0)
   ELASTICSEARCH_AUTH_HEADER="Authorization:Basic $AUTH_TOKEN"
 fi
 
@@ -77,7 +77,7 @@ function create_user() {
   ROLE="${INDEX_PREFIX}_access"
   echo -e '\ncreating role' "${ROLE}"
   curl -XPUT --header "$ELASTICSEARCH_AUTH_HEADER" "$ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_HOST:$ELASTICSEARCH_PORT/_opendistro/_security/api/roles/${ROLE}" -H 'Content-Type: application/json' \
-    -d "{\"cluster_permissions\":[\"indices:*\"], \"index_permissions\":[{\"index_patterns\":[\"${INDEX_PREFIX}_*\"], \"allowed_actions\":[\"indices_all\"]}]}"
+    -d "{\"cluster_permissions\":[\"indices:*\", \"cluster:monitor/tasks/lists\"], \"index_permissions\":[{\"index_patterns\":[\"${INDEX_PREFIX}_*\"], \"allowed_actions\":[\"indices_all\"]}]}"
   echo -e '\ncreating user' "${ELASTICSEARCH_USERNAME}"
   curl -XPUT --header "$ELASTICSEARCH_AUTH_HEADER" "$ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_HOST:$ELASTICSEARCH_PORT/_opendistro/_security/api/internalusers/${ELASTICSEARCH_USERNAME}" -H 'Content-Type: application/json' \
     -d "{\"password\":\"${ELASTICSEARCH_PASSWORD}\", \"opendistro_security_roles\":[\"${ROLE}\"]}"
