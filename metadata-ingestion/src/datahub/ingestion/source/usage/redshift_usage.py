@@ -269,10 +269,10 @@ class RedshiftUsageSource(Source):
         operation_type: Union[str, "OperationTypeClass"],
     ) -> Iterable[MetadataWorkUnit]:
         for event in events:
-            if event.database and event.schema_ and event.table and event.endtime:
+            if event.database and event.usename and event.schema_ and event.table and event.endtime:
                 resource = f"{event.database}.{event.schema_}.{event.table}"
                 last_updated_timestamp: int = int(event.endtime.timestamp() * 1000)
-                user_email = f"{event.usename if event.usename else 'unknown'}"
+                user_email = event.usename
 
                 operation_aspect = OperationClass(
                     timestampMillis=last_updated_timestamp,

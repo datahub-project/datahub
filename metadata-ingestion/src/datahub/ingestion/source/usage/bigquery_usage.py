@@ -274,10 +274,7 @@ class QueryEvent:
 
     @classmethod
     def from_entry(cls, entry: AuditLogEntry) -> "QueryEvent":
-        try:
-            user = entry.payload["authenticationInfo"]["principalEmail"]
-        except (KeyError, TypeError):
-            user = "unknown"
+        user = entry.payload["authenticationInfo"]["principalEmail"]
 
         job = entry.payload["serviceData"]["jobCompletedEvent"]["job"]
         jobName = _job_name_ref(
@@ -340,10 +337,7 @@ class QueryEvent:
         payload = row["protoPayload"]
         metadata = json.loads(row["metadata"])
 
-        try:
-            user = payload["authenticationInfo"]["principalEmail"]
-        except KeyError:
-            user = "unknown"
+        user = payload["authenticationInfo"]["principalEmail"]
 
         job = metadata["jobChange"]["job"]
 
