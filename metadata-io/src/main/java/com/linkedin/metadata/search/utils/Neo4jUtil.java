@@ -1,8 +1,8 @@
 package com.linkedin.metadata.search.utils;
 
+import com.datahub.util.RecordUtils;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.metadata.dao.utils.RecordUtils;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.query.filter.RelationshipFilter;

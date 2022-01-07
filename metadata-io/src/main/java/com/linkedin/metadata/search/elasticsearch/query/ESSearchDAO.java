@@ -1,7 +1,7 @@
 package com.linkedin.metadata.search.elasticsearch.query;
 
 import com.codahale.metrics.Timer;
-import com.linkedin.metadata.dao.exception.ESQueryException;
+import com.datahub.util.exception.ESQueryException;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.AutoCompleteResult;

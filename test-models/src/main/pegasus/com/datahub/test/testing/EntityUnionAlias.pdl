@@ -1,0 +1,9 @@
+namespace com.datahub.test.testing
+
+/**
+ * For unit testing
+ */
+typeref EntityUnionAlias = union[
+  foo: EntityFoo,
+  bar: EntityBar
+]

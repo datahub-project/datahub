@@ -10,7 +10,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.schema.ArrayDataSchema;
 import com.linkedin.data.schema.DataSchema;
 import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.metadata.dao.utils.RecordUtils;
+import com.datahub.util.RecordUtils;
 import com.linkedin.metadata.extractor.FieldExtractor;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.TimeseriesFieldCollectionSpec;

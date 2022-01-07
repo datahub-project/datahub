@@ -1,0 +1,8 @@
+namespace com.datahub.test.testing
+
+/**
+ * For unit tests
+ */
+typeref DeltaUnionAlias = union[
+  entity: EntityDeltaAlias
+]

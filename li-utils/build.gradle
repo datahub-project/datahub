@@ -3,10 +3,14 @@ apply plugin: 'pegasus'
 
 dependencies {
     compile spec.product.pegasus.data
+    compile externalDependency.commonsLang
+    compile externalDependency.reflections
 
-    dataModel externalDependency.gmaCoreModels
+    compileOnly externalDependency.lombok
+    annotationProcessor externalDependency.lombok
 
     testCompile externalDependency.assertJ
+    testCompile project(':test-models')
 }
 
 idea {
