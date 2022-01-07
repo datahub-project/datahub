@@ -191,6 +191,7 @@ module.exports = {
             label: "Querying Metadata Entities",
             id: "docs/api/graphql/querying-entities",
           },
+          "docs/how/search",
         ],
       },
     ],
