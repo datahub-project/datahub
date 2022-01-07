@@ -1,10 +1,10 @@
 package com.linkedin.metadata.timeseries.elastic.query;
 
+import com.datahub.util.exception.ESQueryException;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.data.schema.DataSchema;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.data.template.StringArrayArray;
-import com.linkedin.metadata.dao.exception.ESQueryException;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.TimeseriesFieldCollectionSpec;
