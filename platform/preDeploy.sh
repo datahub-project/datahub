@@ -12,14 +12,12 @@ TERRAFORM="${TMPDIR}/terraform"
 
 # put the required terraform files here
 cd /home/datahub/terraform
-echo "In Directory:"
-echo pwd
 CLIENT_CERT_PATH=`mktemp`
 PRIVATE_KEY_PATH=`mktemp`
 
 echo "${KAFKA_CLIENT_CERT}" > "${CLIENT_CERT_PATH}"
 echo "${KAFKA_PRIVATE_KEY}" > "${PRIVATE_KEY_PATH}"
-export TF_VAR_bootstrap_servers=$(echo $KAFKA_BOOTSTRAP_SERVERS | sed -e 's/^/["/' -e 's/,/","/g' -e 's/$/"]/')
+export TF_VAR_bootstrap_servers=$(echo $KAFKA_BOOTSTRAP_SERVER | sed -e 's/^/["/' -e 's/,/","/g' -e 's/$/"]/')
 export TF_VAR_trust_store_path="${TRUSTSTORE_LOCATION}"
 export TF_VAR_client_cert_path="${CLIENT_CERT_PATH}"
 export TF_VAR_client_key_path="${PRIVATE_KEY_PATH}"

@@ -89,6 +89,18 @@ data "aws_iam_policy_document" "dataportal_read_write_terraform_state" {
       "${data.aws_s3_bucket.tf_s3_bucket.arn}/dataportal-kafka/*",
     ]
   }
+  statement {
+    sid    = "DataportalReadDynamo"
+    effect = "Allow"
+    actions = [
+      "dynamodb:GetItem",
+      "dynamodb:PutItem",
+      "dynamodb:DeleteItem",
+    ]
+    resources = [
+      data.aws_dynamodb_table.grnds_tf_lock.arn,
+    ]
+  }
 }
 
 resource "aws_iam_policy" "dataportal_terraform_kafka_topics" {
