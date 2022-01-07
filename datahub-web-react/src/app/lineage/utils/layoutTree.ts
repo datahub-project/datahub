@@ -1,4 +1,4 @@
-import { CURVE_PADDING, HORIZONTAL_SPACE_PER_LAYER, VERTICAL_SPACE_PER_NODE } from '../constants';
+import { CURVE_PADDING, HORIZONTAL_SPACE_PER_LAYER, VERTICAL_SPACE_BETWEEN_NODES } from '../constants';
 import { Direction, NodeData, VizEdge, VizNode } from '../types';
 import { nodeHeightFromTitleLength } from './nodeHeightFromTitleLength';
 
@@ -28,7 +28,7 @@ export default function layoutTree(
     console.log('expandTitles', expandTitles);
     const nodesToRender: VizNode[] = [];
     const edgesToRender: VizEdge[] = [];
-    let maxHeight = VERTICAL_SPACE_PER_NODE;
+    let maxHeight = 0;
 
     const nodesByUrn: Record<string, VizNode> = {};
     const xModifier = direction === Direction.Downstream ? 1 : -1;
@@ -50,12 +50,16 @@ export default function layoutTree(
         const layerHeight = nodesInCurrentLayer
             .filter(({ node }) => nodesToAddInCurrentLayer.indexOf(node.urn || '') > -1)
             // TODO
-            .map(({ node }) => nodeHeightFromTitleLength(expandTitles ? node.name : node.name.charAt(0)))
+            .map(({ node }) => nodeHeightFromTitleLength(expandTitles ? node.name : undefined))
             .reduce((acc, height) => acc + height, 0);
 
         maxHeight = Math.max(maxHeight, layerHeight);
 
-        let currentXPosition = -(VERTICAL_SPACE_PER_NODE * (layerSize - 1)) / 2 + canvasHeight / 2 + HEADER_HEIGHT;
+        // approximate the starting position assuming each node has 1 line (its ok to be a bit off here)
+        let currentXPosition =
+            -((nodeHeightFromTitleLength(undefined) + VERTICAL_SPACE_BETWEEN_NODES) * (layerSize - 1)) / 2 +
+            canvasHeight / 2 +
+            HEADER_HEIGHT;
         // eslint-disable-next-line @typescript-eslint/no-loop-func
         nodesInCurrentLayer.forEach(({ node, parent }) => {
             if (!node.urn) return;
@@ -77,7 +81,8 @@ export default function layoutTree(
                               x: currentXPosition,
                               y: HORIZONTAL_SPACE_PER_LAYER * currentLayer * xModifier,
                           };
-                currentXPosition += nodeHeightFromTitleLength(expandTitles ? node.name : node.name.charAt(0));
+                currentXPosition +=
+                    nodeHeightFromTitleLength(expandTitles ? node.name : undefined) + VERTICAL_SPACE_BETWEEN_NODES;
 
                 nodesByUrn[node.urn] = vizNodeForNode;
                 nodesToRender.push(vizNodeForNode);

@@ -1,6 +1,4 @@
-import { VERTICAL_SPACE_PER_NODE } from '../constants';
-
-export interface OptionalOptions {
+interface OptionalOptions {
     font?: string;
     fontSize?: string;
     fontWeight?: string;
@@ -18,10 +16,13 @@ interface Options {
     wordBreak: string;
 }
 
-export interface Size {
+interface Size {
     width: number;
     height: number;
 }
+
+const HEIGHT_WITHOUT_TEXT_HEIGHT = 66;
+const DEFAULT_TEXT_TO_GET_NON_ZERO_HEIGHT = 'a';
 
 function createDummyElement(text: string, options: Options): HTMLElement {
     const element = document.createElement('div');
@@ -82,6 +83,6 @@ const calcualteSize = (text: string, options: OptionalOptions = {}): Size => {
     return size;
 };
 
-export function nodeHeightFromTitleLength(title: string) {
-    return Math.floor(calcualteSize(title).height) + VERTICAL_SPACE_PER_NODE - 14;
+export function nodeHeightFromTitleLength(title?: string) {
+    return Math.floor(calcualteSize(title || DEFAULT_TEXT_TO_GET_NON_ZERO_HEIGHT).height) + HEIGHT_WITHOUT_TEXT_HEIGHT;
 }

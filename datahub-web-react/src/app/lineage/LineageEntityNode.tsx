@@ -97,7 +97,7 @@ export default function LineageEntityNode({
         [],
     );
 
-    const nodeHeight = nodeHeightFromTitleLength(expandTitles ? node.data.name : node.data.name.charAt(0)) - 40;
+    const nodeHeight = nodeHeightFromTitleLength(expandTitles ? node.data.name : undefined);
 
     return (
         <PointerGroup data-testid={`node-${node.data.urn}-${direction}`} top={node.x} left={node.y}>
