@@ -40,7 +40,10 @@ class GenericAggregatedDataset(Generic[ResourceType]):
     query_trimmer_string: str = " ..."
 
     def add_read_entry(
-        self, user_email: str, query: Optional[str], fields: List[str]
+        self,
+        user_email: str,
+        query: Optional[str],
+        fields: List[str],
     ) -> None:
         self.readCount += 1
         self.userFreq[user_email] += 1
@@ -112,6 +115,7 @@ class GenericAggregatedDataset(Generic[ResourceType]):
 
 class BaseUsageConfig(BaseTimeWindowConfig):
     top_n_queries: pydantic.PositiveInt = 10
+    include_operational_stats: bool = True
 
     @pydantic.validator("top_n_queries")
     def ensure_top_n_queries_is_not_too_big(cls, v: int) -> int:
