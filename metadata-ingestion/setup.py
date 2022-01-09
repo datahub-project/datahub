@@ -95,7 +95,7 @@ plugins: Dict[str, Set[str]] = {
     "athena": sql_common | {"PyAthena[SQLAlchemy]"},
     "azure-ad": set(),
     "bigquery": sql_common | bigquery_common | {"pybigquery >= 0.6.0"},
-    "bigquery-usage": bigquery_common | {"cachetools"},
+    "bigquery-usage": bigquery_common | {"cachetools", "more-itertools>=8.12.0"},
     "datahub-business-glossary": set(),
     "dbt": {"requests"},
     "druid": sql_common | {"pydruid>=0.6.2"},

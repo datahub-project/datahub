@@ -104,6 +104,9 @@ query getDataset($urn: String!) {
                 sampleValues
             }
         }
+        operations(limit: 1) {
+            timestampMillis
+        }
         incoming: relationships(
             input: { types: ["DownstreamOf", "Consumes", "Produces"], direction: INCOMING, start: 0, count: 100 }
         ) {
