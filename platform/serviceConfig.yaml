@@ -10,7 +10,7 @@ env: # Optional: You can remove this parent if you are not using it
   production: # global production specific variables
     ENVIRONMENT: production
 webApps: # Optional: You can remove this parent if you are not using it
-  - name: dataportal-frontend
+  - name: dataportal
     env:
       default:
         DATAHUB_APP_VERSION: 1.0

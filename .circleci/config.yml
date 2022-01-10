@@ -18,152 +18,62 @@ jobs:
     environment:
       DOCKER_BUILDKIT: 1
     docker:
-      - image: cimg/python:3.7.7-node
+      - image: 311088406905.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/image-builder:master
     steps:
       - checkout
-      - aws-cli/install
-      - aws-cli/configure
       - setup_remote_docker:
-          # https://support.circleci.com/hc/en-us/articles/360050934711-Docker-build-fails-with-EPERM-operation-not-permitted-copyfile-when-using-node-14-9-0-or-later-
-          version: 20.10.2
-          docker_layer_caching: true
+          version: 20.10.6
       - run:
-          name: Authenticate and loginto ECR
-          command: |
-            echo 'INFO: Authenticating ECR credentials'
-            LOGIN=$(aws ecr get-login --no-include-email)
-            echo 'INFO: Logging into AWS ECR'
-            eval $LOGIN
-      - aws-ecr/build-image:
-          account-url: ECR_ENDPOINT
-          dockerfile: ./docker/datahub-gms/Dockerfile
-          path: .
-          repo: dataportal-gms
-          tag: $CIRCLE_SHA1
-      - aws-ecr/push-image:
-          account-url: ECR_ENDPOINT
-          repo: dataportal-gms
-          tag: $CIRCLE_SHA1
+          name: build docker image
+          command: build-and-push --file ./docker/datahub-gms/Dockerfile --target dataportal-gms --image dataportal-gms --build-dir .
   build_dataportal_frontend_react:
     environment:
       DOCKER_BUILDKIT: 1
     docker:
-      - image: cimg/python:3.7.7-node
+      - image: 311088406905.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/image-builder:master
     steps:
       - checkout
-      - aws-cli/install
-      - aws-cli/configure
       - setup_remote_docker:
-          # https://support.circleci.com/hc/en-us/articles/360050934711-Docker-build-fails-with-EPERM-operation-not-permitted-copyfile-when-using-node-14-9-0-or-later-
-          version: 20.10.2
-          docker_layer_caching: true
+          version: 20.10.6
       - run:
-          name: Authenticate and loginto ECR
-          command: |
-            echo 'INFO: Authenticating ECR credentials'
-            LOGIN=$(aws ecr get-login --no-include-email)
-            echo 'INFO: Logging into AWS ECR'
-            eval $LOGIN
-      - aws-ecr/build-image:
-          account-url: ECR_ENDPOINT
-          dockerfile: ./docker/datahub-frontend/Dockerfile
-          path: .
-          repo: dataportal-frontend-react
-          tag: $CIRCLE_SHA1
-      - aws-ecr/push-image:
-          account-url: ECR_ENDPOINT
-          repo: dataportal-frontend-react
-          tag: $CIRCLE_SHA1
+          name: build docker image
+          command: build-and-push --file ./docker/datahub-frontend/Dockerfile --target dataportal-frontend-react --image dataportal-frontend-react --build-dir .
   build_dataportal_ingestion:
     environment:
       DOCKER_BUILDKIT: 1
     docker:
-      - image: cimg/python:3.7.7-node
+      - image: 311088406905.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/image-builder:master
     steps:
       - checkout
-      - aws-cli/install
-      - aws-cli/configure
       - setup_remote_docker:
-          # https://support.circleci.com/hc/en-us/articles/360050934711-Docker-build-fails-with-EPERM-operation-not-permitted-copyfile-when-using-node-14-9-0-or-later-
-          version: 20.10.2
-          docker_layer_caching: true
+          version: 20.10.6
       - run:
-          name: Authenticate and loginto ECR
-          command: |
-            echo 'INFO: Authenticating ECR credentials'
-            LOGIN=$(aws ecr get-login --no-include-email)
-            echo 'INFO: Logging into AWS ECR'
-            eval $LOGIN
-      - aws-ecr/build-image:
-          account-url: ECR_ENDPOINT
-          dockerfile: ./docker/datahub-ingestion/Dockerfile
-          path: .
-          repo: dataportal-ingestion
-          tag: $CIRCLE_SHA1
-      - aws-ecr/push-image:
-          account-url: ECR_ENDPOINT
-          repo: dataportal-ingestion
-          tag: $CIRCLE_SHA1
+          name: build docker image
+          command: build-and-push --file ./docker/datahub-ingestion/Dockerfile --target dataportal-ingestion --image dataportal-ingestion --build-dir .
   build_dataportal_mce_consumer:
     environment:
       DOCKER_BUILDKIT: 1
     docker:
-      - image: cimg/python:3.7.7-node
+      - image: 311088406905.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/image-builder:master
     steps:
       - checkout
-      - aws-cli/install
-      - aws-cli/configure
       - setup_remote_docker:
-          # https://support.circleci.com/hc/en-us/articles/360050934711-Docker-build-fails-with-EPERM-operation-not-permitted-copyfile-when-using-node-14-9-0-or-later-
-          version: 20.10.2
-          docker_layer_caching: true
+          version: 20.10.6
       - run:
-          name: Authenticate and loginto ECR
-          command: |
-            echo 'INFO: Authenticating ECR credentials'
-            LOGIN=$(aws ecr get-login --no-include-email)
-            echo 'INFO: Logging into AWS ECR'
-            eval $LOGIN
-      - aws-ecr/build-image:
-          account-url: ECR_ENDPOINT
-          dockerfile: ./docker/datahub-mce-consumer/Dockerfile
-          path: .
-          repo: dataportal-mce-consumer
-          tag: $CIRCLE_SHA1
-      - aws-ecr/push-image:
-          account-url: ECR_ENDPOINT
-          repo: dataportal-mce-consumer
-          tag: $CIRCLE_SHA1
+          name: build docker image
+          command: build-and-push --file ./docker/datahub-mce-consumer/Dockerfile --target dataportal-mce-consumer --image dataportal-mce-consumer --build-dir .
   build_dataportal_mae_consumer:
     environment:
       DOCKER_BUILDKIT: 1
     docker:
-      - image: cimg/python:3.7.7-node
+      - image: 311088406905.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/image-builder:master
     steps:
       - checkout
-      - aws-cli/install
-      - aws-cli/configure
       - setup_remote_docker:
-          # https://support.circleci.com/hc/en-us/articles/360050934711-Docker-build-fails-with-EPERM-operation-not-permitted-copyfile-when-using-node-14-9-0-or-later-
-          version: 20.10.2
-          docker_layer_caching: true
+          version: 20.10.6
       - run:
-          name: Authenticate and loginto ECR
-          command: |
-            echo 'INFO: Authenticating ECR credentials'
-            LOGIN=$(aws ecr get-login --no-include-email)
-            echo 'INFO: Logging into AWS ECR'
-            eval $LOGIN
-      - aws-ecr/build-image:
-          account-url: ECR_ENDPOINT
-          dockerfile: ./docker/datahub-mae-consumer/Dockerfile
-          path: .
-          repo: dataportal-mae-consumer
-          tag: $CIRCLE_SHA1
-      - aws-ecr/push-image:
-          account-url: ECR_ENDPOINT
-          repo: dataportal-mae-consumer
-          tag: $CIRCLE_SHA1
+          name: build docker image
+          command: build-and-push --file ./docker/datahub-mae-consumer/Dockerfile --target dataportal-mae-consumer --image dataportal-mae-consumer --build-dir .
 
 workflows:
   version: 2
