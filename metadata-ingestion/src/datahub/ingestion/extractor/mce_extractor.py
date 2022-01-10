@@ -16,7 +16,7 @@ from datahub.metadata.schema_classes import UsageAggregationClass
 try:
     import black
 except ImportError:
-    black = None # type: ignore
+    black = None  # type: ignore
 
 
 class WorkUnitRecordExtractor(Extractor):
