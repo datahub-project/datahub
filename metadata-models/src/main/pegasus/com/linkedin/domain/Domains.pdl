@@ -1,0 +1,16 @@
+namespace com.linkedin.domain
+
+import com.linkedin.common.Urn
+
+/**
+ * Links from an Asset to its Domains
+ */
+@Aspect = {
+  "name": "domains"
+}
+record Domains {
+  /**
+   * The Domains attached to an Asset
+   */
+  domains: array[Urn]
+}
