@@ -1,0 +1,21 @@
+namespace com.linkedin.domain
+
+/**
+ * Information about a Domain
+ */
+@Aspect = {
+  "name": "domainInfo"
+}
+record DomainInfo {
+
+  /**
+   * Display name of the Domain
+   */
+  name: string
+
+  /**
+   * Description of the Domain
+   */
+  description: optional string
+
+}

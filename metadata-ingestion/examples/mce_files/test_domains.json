@@ -1,0 +1,14 @@
+[
+  {
+    "auditHeader":null,
+    "entityType":"domain",
+    "entityUrn": "urn:li:domain:engineering",
+    "changeType":"UPSERT",
+    "aspectName":"datasetProfile",
+    "aspect":{
+      "value":"{\"name\": \"Engineering\", \"description\": \"My custom domain\" }",
+      "contentType":"application/json"
+    },
+    "systemMetadata":null
+  }
+]
