@@ -7,7 +7,7 @@ from json.decoder import JSONDecodeError
 from typing import Dict, List, Optional, Tuple, Union
 
 import requests
-import requests.adapters
+from requests.adapters import HTTPAdapter, Retry
 from requests.exceptions import HTTPError, RequestException
 
 from datahub import __package_name__
@@ -45,12 +45,21 @@ class DatahubRestEmitter:
     DEFAULT_READ_TIMEOUT_SEC = (
         30  # Any ingest call taking longer than 30 seconds should be abandoned
     )
+    DEFAULT_RETRY_STATUS_CODES = [  # Additional status codes to retry on
+        429,
+        502,
+        503,
+        504,
+    ]
+    DEFAULT_RETRY_MAX_TIMES = 1
 
     _gms_server: str
     _token: Optional[str]
     _session: requests.Session
     _connect_timeout_sec: float = DEFAULT_CONNECT_TIMEOUT_SEC
     _read_timeout_sec: float = DEFAULT_READ_TIMEOUT_SEC
+    _retry_status_codes: List[int] = DEFAULT_RETRY_STATUS_CODES
+    _retry_max_times: int = DEFAULT_RETRY_MAX_TIMES
 
     def __init__(
         self,
@@ -58,6 +67,8 @@ class DatahubRestEmitter:
         token: Optional[str] = None,
         connect_timeout_sec: Optional[float] = None,
         read_timeout_sec: Optional[float] = None,
+        retry_status_codes: Optional[List[int]] = None,
+        retry_max_times: Optional[int] = None,
         extra_headers: Optional[Dict[str, str]] = None,
         ca_certificate_path: Optional[str] = None,
     ):
@@ -69,9 +80,6 @@ class DatahubRestEmitter:
         self._token = token
 
         self._session = requests.Session()
-        adapter = requests.adapters.HTTPAdapter(pool_connections=100, pool_maxsize=100)
-        self._session.mount("http://", adapter)
-        self._session.mount("https://", adapter)
 
         self._session.headers.update(
             {
@@ -98,6 +106,24 @@ class DatahubRestEmitter:
             logger.warning(
                 f"Setting timeout values lower than 1 second is not recommended. Your configuration is connect_timeout:{self._connect_timeout_sec}s, read_timeout:{self._read_timeout_sec}s"
             )
+
+        if retry_status_codes is not None:  # Only if missing. Empty list is allowed
+            self._retry_status_codes = retry_status_codes
+
+        if retry_max_times:
+            self._retry_max_times = retry_max_times
+
+        retry_strategy = Retry(
+            total=self._retry_max_times,
+            status_forcelist=self._retry_status_codes,
+            backoff_factor=2,
+        )
+
+        adapter = HTTPAdapter(
+            pool_connections=100, pool_maxsize=100, max_retries=retry_strategy
+        )
+        self._session.mount("http://", adapter)
+        self._session.mount("https://", adapter)
 
     def test_connection(self) -> None:
         response = self._session.get(f"{self._gms_server}/config")
