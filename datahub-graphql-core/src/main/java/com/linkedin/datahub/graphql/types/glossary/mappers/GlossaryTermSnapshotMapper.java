@@ -4,21 +4,17 @@ import com.linkedin.common.Ownership;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.GlossaryTerm;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
-import com.linkedin.datahub.graphql.types.dataset.mappers.SchemaMetadataMapper;
 import com.linkedin.datahub.graphql.types.glossary.GlossaryTermUtils;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.glossary.GlossaryTermInfo;
 import com.linkedin.metadata.dao.utils.ModelUtils;
 import com.linkedin.metadata.snapshot.GlossaryTermSnapshot;
-import com.linkedin.schema.SchemaMetadata;
-import com.linkedin.metadata.aspect.VersionedAspect;
-
-
 import javax.annotation.Nonnull;
 
 
 /**
  * Maps Pegasus {@link RecordTemplate} objects to objects conforming to the GQL schema.
+ *
  * To be replaced by auto-generated mappers implementations
  */
 public class GlossaryTermSnapshotMapper implements ModelMapper<GlossaryTermSnapshot, GlossaryTerm> {
@@ -43,12 +39,6 @@ public class GlossaryTermSnapshotMapper implements ModelMapper<GlossaryTermSnaps
             if (aspect instanceof Ownership) {
                 result.setOwnership(OwnershipMapper.map(Ownership.class.cast(aspect)));
             }
-            // if (aspect instanceof SchemaMetadata) {
-            //     result.setSchemaMetadata(
-            //             SchemaMetadataMapper.map((VersionedAspect) aspect)
-            //     );
-            // }
-
         });
         return result;
     }
