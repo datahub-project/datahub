@@ -3,8 +3,12 @@ import datetime
 import json
 import logging
 import os
+import jwt
 import time
+import requests
+from urllib.parse import urljoin
 from typing import Dict, List, Optional, Type, TypeVar, Union
+from base64 import b64decode
 
 from datahub.ingestion.api import RecordEnvelope
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -17,6 +21,7 @@ log = logging.getLogger(__name__)
 DEFAULT_ENV = "PROD"
 DEFAULT_FLOW_CLUSTER = "prod"
 
+datahub_url = os.environ["DATAHUB_FRONTEND"]
 T = TypeVar("T")
 
 
@@ -322,3 +327,78 @@ def make_status_mce(
             urn=dataset_name, aspects=[StatusClass(removed=desired_status)]
         )
     )
+
+def verify_token(
+    token: str, user: str
+):
+    token_secret = os.environ["jwt_secret"]
+    try:
+        payload = jwt.decode(token, token_secret, algorithms="HS256")
+        if payload['payload']['actorId'] == user:
+            return True
+        return False
+    except:
+        return False
+
+def authenticate_action(
+    token: str, user: str, dataset: str
+    ):
+    if 'DATAHUB_AUTHENTICATE_INGEST' in os.environ:
+        authenticate_actions = os.environ['DATAHUB_AUTHENTICATE_INGEST']
+    else:
+        authenticate_actions = False
+    if authenticate_action:
+        if verify_token(token, user) and query_dataset_owner(token, dataset, user):
+            return True
+        else:
+            return False
+    else: #no need to authenticate, so always true
+        return True
+
+
+
+def query_dataset_owner(
+    token: str, dataset_urn: str, user: str
+):
+    """
+    Currently only queries users associated with dataset. 
+    Does not query members of groups that owns the dataset,
+    because that query is more complicated.
+    """
+    query_endpoint= urljoin(datahub_url, '/api/graphiql')
+    headers = {}
+    headers["Authorization"] = f"Bearer {token}"
+    headers["Content-Type"] = "application/json"
+    query = """
+        query owner($urn: String!){
+            dataset(urn: $urn) {
+                ownership{
+                    owners{
+                        __typename
+                        owner{
+                        ... on CorpUser{
+                            username
+                            }
+                        }        
+                    }      
+                }
+            }
+        }
+    """
+    variables = {"urn": dataset_urn}
+    resp = requests.post(
+        query_endpoint, 
+        headers=headers, 
+        json={
+            "query":query, 
+            "variables":  variables
+            } 
+        )
+    if resp.status_code!=200:
+        raise Exception("unable to query dataset ownership")
+    data_received = json.loads(resp.text)
+    owners_list = data_received['data']['dataset']['ownership']['owners']
+    owners = [item['owner']['username'] for item in owners_list]
+    if user not in owners:
+        return False
+    return True

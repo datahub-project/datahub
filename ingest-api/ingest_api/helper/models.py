@@ -73,24 +73,28 @@ class create_dataset_params(BaseModel):
 class dataset_status_params(BaseModel):
     dataset_name: str
     requestor: str
+    user_token:str
     desired_state: bool
 
 
 class browsepath_params(BaseModel):
     dataset_name: str
     requestor: str
+    user_token:str
     browsePaths: List[str]
 
 
 class schema_params(BaseModel):
     dataset_name: str
     requestor: str
+    user_token:str
     dataset_fields: List[FieldParamEdited]
 
 
 class prop_params(BaseModel):
     dataset_name: str
     requestor: str
+    user_token:str
     description: str
     properties: List[Dict]
 

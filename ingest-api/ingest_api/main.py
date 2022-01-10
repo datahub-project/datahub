@@ -16,7 +16,7 @@ from fastapi.responses import JSONResponse, PlainTextResponse
 from pydantic.main import BaseModel
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from ingest_api.helper.mce_convenience import (create_new_schema_mce,
+from ingest_api.helper.mce_convenience import (authenticate_action, create_new_schema_mce,
                                                derive_platform_name,
                                                generate_json_output,
                                                get_sys_time,
@@ -183,33 +183,39 @@ async def update_prop(item: prop_params):
     # schema will generate schema metatdata (not the editable version)
     # properties: get description from graphql and props from form. This will form DatasetProperty (Not EditableDatasetProperty)
     # platform info: needed for schema
+    
     rootLogger.info("update_schema_request_received {}".format(item))
     datasetName = item.dataset_name
-    dataset_snapshot = DatasetSnapshot(
-        urn=datasetName,
-        aspects=[],
-    )
-    description = item.description
-    properties = item.properties
-    all_properties = {}
-    for prop in properties:
-        if "propertyKey" and "propertyValue" in prop:
-            all_properties[prop.get("propertyKey")] = prop.get("propertyValue")
-    property_aspect = make_dataset_description_mce(
-        dataset_name=datasetName,
-        description=description,
-        customProperties=all_properties,
-    )
-    dataset_snapshot.aspects.append(property_aspect)
-    metadata_record = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-    response = emit_mce_respond(
-        metadata_record=metadata_record,
-        owner=item.requestor,
-        event="UI Update Properties",
-    )
-    return JSONResponse(
-        content=response.get("message", ""), status_code=response.get("status_code")
-    )
+    if authenticate_action(token, user, dataset=datasetName):
+        dataset_snapshot = DatasetSnapshot(
+            urn=datasetName,
+            aspects=[],
+        )
+        description = item.description
+        properties = item.properties
+        all_properties = {}
+        for prop in properties:
+            if "propertyKey" and "propertyValue" in prop:
+                all_properties[prop.get("propertyKey")] = prop.get("propertyValue")
+        property_aspect = make_dataset_description_mce(
+            dataset_name=datasetName,
+            description=description,
+            customProperties=all_properties,
+        )
+        dataset_snapshot.aspects.append(property_aspect)
+        metadata_record = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
+        response = emit_mce_respond(
+            metadata_record=metadata_record,
+            owner=item.requestor,
+            event="UI Update Properties",
+        )
+        return JSONResponse(
+            content=response.get("message", ""), status_code=response.get("status_code")
+        )
+    else:
+        return JSONResponse(
+            content="Authentication Failed", status_code=404
+        )
 
 
 def emit_mce_respond(
