@@ -15,5 +15,9 @@ record TagAssociation {
     "addToFilters": true,
     "filterNameOverride": "Tag"
   }
+  @Relationship = {
+    "name": "AssociatedWith",
+    "entityTypes": [ "tag" ]
+  }
   tag: TagUrn
 }
