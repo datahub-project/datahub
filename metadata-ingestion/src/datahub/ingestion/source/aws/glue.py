@@ -1,3 +1,4 @@
+import logging
 import typing
 from collections import defaultdict
 from dataclasses import dataclass
@@ -23,6 +24,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     MySqlDDL,
     NullTypeClass,
     NumberTypeClass,
+    RecordType,
     SchemaField,
     SchemaFieldDataType,
     SchemaMetadata,
@@ -44,11 +46,14 @@ from datahub.metadata.schema_classes import (
     OwnershipTypeClass,
 )
 
+logger = logging.getLogger(__name__)
+
 
 class GlueSourceConfig(AwsSourceConfig):
 
     extract_transforms: Optional[bool] = True
     underlying_platform: Optional[str] = None
+    ignore_unsupported_connectors: Optional[bool] = True
 
     @property
     def glue_client(self):
@@ -262,7 +267,16 @@ class GlueSource(Source):
 
             else:
 
-                raise ValueError(f"Unrecognized Glue data object type: {node_args}")
+                if self.source_config.ignore_unsupported_connectors:
+
+                    logger.info(
+                        flow_urn,
+                        f"Unrecognized Glue data object type: {node_args}. Skipping.",
+                    )
+
+                else:
+
+                    raise ValueError(f"Unrecognized Glue data object type: {node_args}")
 
         # otherwise, a node represents a transformation
         else:
@@ -648,7 +662,7 @@ def get_column_type(
         "set": ArrayTypeClass,
         "smallint": NumberTypeClass,
         "string": StringTypeClass,
-        "struct": MapTypeClass,
+        "struct": RecordType,
         "timestamp": TimeTypeClass,
         "tinyint": NumberTypeClass,
         "union": UnionTypeClass,
@@ -659,7 +673,7 @@ def get_column_type(
         "array": ArrayTypeClass,
         "set": ArrayTypeClass,
         "map": MapTypeClass,
-        "struct": MapTypeClass,
+        "struct": RecordType,
         "varchar": StringTypeClass,
         "decimal": NumberTypeClass,
     }

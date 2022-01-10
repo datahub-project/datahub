@@ -156,6 +156,16 @@ public class EntitySpecBuilder {
     return null;
   }
 
+  /**
+   * Build a config-based {@link EntitySpec}, as opposed to a Snapshot-based {@link EntitySpec}
+   */
+  public EntitySpec buildConfigEntitySpec(
+      @Nonnull final String entityName,
+      @Nonnull final String keyAspect,
+      @Nonnull final List<AspectSpec> aspectSpecs) {
+    return new ConfigEntitySpec(entityName, keyAspect, aspectSpecs);
+  }
+
   public EntitySpec buildPartialEntitySpec(@Nonnull final String entityName, @Nullable final String keyAspectName,
       @Nonnull final List<AspectSpec> aspectSpecs) {
       EntitySpec entitySpec = new PartialEntitySpec(aspectSpecs, new EntityAnnotation(entityName, keyAspectName));

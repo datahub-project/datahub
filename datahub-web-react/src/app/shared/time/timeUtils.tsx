@@ -57,3 +57,38 @@ export const getFixedLookbackWindow = (windowSize: TimeWindowSize): TimeWindow =
         endTime,
     };
 };
+
+export const toLocalDateString = (timeMs: number) => {
+    const date = new Date(timeMs);
+    return date.toLocaleDateString();
+};
+
+export const toLocalTimeString = (timeMs: number) => {
+    const date = new Date(timeMs);
+    return date.toLocaleTimeString();
+};
+
+export const toLocalDateTimeString = (timeMs: number) => {
+    const date = new Date(timeMs);
+    return date.toLocaleString([], {
+        year: 'numeric',
+        month: 'numeric',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZoneName: 'short',
+    });
+};
+
+export const toUTCDateTimeString = (timeMs: number) => {
+    const date = new Date(timeMs);
+    return date.toLocaleString([], {
+        year: 'numeric',
+        month: 'numeric',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZone: 'UTC',
+        timeZoneName: 'short',
+    });
+};
