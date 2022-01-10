@@ -504,6 +504,7 @@ class _SingleTableProfiler:
                     Cardinality.VERY_FEW,
                     Cardinality.FEW,
                 ]:
+                    column_spec.histogram_distinct = True
                     self.prep_distinct_value_frequencies(
                         column,
                     )
