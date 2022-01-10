@@ -24,6 +24,7 @@ jobs:
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
       publish: ${{ steps.publish.outputs.publish }}
+      python_release_version: ${{ steps.python_release_version.outputs.release_version }}
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -80,4 +81,4 @@ jobs:
           tags: ${{ steps.docker_meta.outputs.tags }}
           push: ${{ needs.setup.outputs.publish == 'true' }}
           build-args: |
-            RELEASE_VERSION=${{ needs.setup.outputs.release_version }}
+            RELEASE_VERSION=${{ needs.setup.outputs.python_release_version }}
