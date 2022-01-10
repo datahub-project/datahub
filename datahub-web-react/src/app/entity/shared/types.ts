@@ -23,7 +23,7 @@ import { FetchedEntity } from '../../lineage/types';
 
 export type GenericEntityTabProperties = {
     editMode: boolean;
-}
+};
 
 export type EntityTab = {
     name: string;
