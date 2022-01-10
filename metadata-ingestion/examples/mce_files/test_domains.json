@@ -4,9 +4,21 @@
     "entityType":"domain",
     "entityUrn": "urn:li:domain:engineering",
     "changeType":"UPSERT",
-    "aspectName":"datasetProfile",
+    "aspectName":"domainInfo",
     "aspect":{
       "value":"{\"name\": \"Engineering\", \"description\": \"My custom domain\" }",
+      "contentType":"application/json"
+    },
+    "systemMetadata":null
+  },
+  {
+    "auditHeader":null,
+    "entityType":"dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,information_schema.VIEWS,PROD)",
+    "changeType":"UPSERT",
+    "aspectName":"domains",
+    "aspect":{
+      "value":"{\"domains\": [\"urn:li:domain:engineering\"] }",
       "contentType":"application/json"
     },
     "systemMetadata":null
