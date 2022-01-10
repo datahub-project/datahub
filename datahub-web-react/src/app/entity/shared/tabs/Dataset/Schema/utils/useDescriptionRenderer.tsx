@@ -5,10 +5,7 @@ import { pathMatchesNewPath } from '../../../../../dataset/profile/schema/utils/
 import { useUpdateDescriptionMutation } from '../../../../../../../graphql/mutations.generated';
 import { useEntityData, useRefetch } from '../../../../EntityContext';
 
-export default function useDescriptionRenderer(
-    editableSchemaMetadata: EditableSchemaMetadata | null | undefined,
-    editMode = true,
-) {
+export default function useDescriptionRenderer(editableSchemaMetadata: EditableSchemaMetadata | null | undefined) {
     const { urn } = useEntityData();
     const refetch = useRefetch();
     const [updateDescription] = useUpdateDescriptionMutation();
@@ -35,7 +32,6 @@ export default function useDescriptionRenderer(
                         },
                     }).then(refetch)
                 }
-                editable={editMode}
             />
         );
     };

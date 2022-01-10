@@ -12,7 +12,7 @@ import GlossaryRelatedEntity from './profile/GlossaryRelatedEntity';
 import GlossayRelatedTerms from './profile/GlossaryRelatedTerms';
 import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/SidebarOwnerSection';
 import GlossarySidebarAboutSection from './profile/GlossarySidebarAboutSection';
-import { GlossaryTermPropertyTab } from './profile/GlossaryTermPropertyTab';
+import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
 
 /**
  * Definition of the DataHub Dataset entity.
@@ -77,7 +77,7 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
                     },
                     {
                         name: 'Properties',
-                        component: GlossaryTermPropertyTab,
+                        component: PropertiesTab,
                     },
                 ]}
                 sidebarSections={[
@@ -96,9 +96,11 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
         );
     };
 
-    getOverridePropertiesFromEntity = (): GenericEntityProperties => {
+    getOverridePropertiesFromEntity = (glossaryTerm?: GlossaryTerm | null): GenericEntityProperties => {
         // if dataset has subTypes filled out, pick the most specific subtype and return it
-        return {};
+        return {
+            customProperties: glossaryTerm?.glossaryTermInfo?.customProperties,
+        };
     };
 
     renderSearch = (result: SearchResult) => {

@@ -2,6 +2,7 @@ import { Empty } from 'antd';
 import React, { useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
 import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
+import SchemaEditableContext from '../../../../../shared/SchemaEditableContext';
 // import { EditableSchemaFieldInfo, GlobalTagsUpdate } from '../../../../../types.generated';
 import SchemaHeader from '../../../../dataset/profile/schema/components/SchemaHeader';
 import SchemaRawView from '../../../../dataset/profile/schema/components/SchemaRawView';
@@ -9,6 +10,7 @@ import { KEY_SCHEMA_PREFIX } from '../../../../dataset/profile/schema/utils/cons
 import { groupByFieldPath } from '../../../../dataset/profile/schema/utils/utils';
 import { ANTD_GRAY } from '../../../constants';
 import { useBaseEntity, useEntityData } from '../../../EntityContext';
+import { GenericEntityTabProperties } from '../../../types';
 
 import SchemaTable from './SchemaTable';
 
@@ -17,7 +19,7 @@ const NoSchema = styled(Empty)`
     padding-top: 60px;
 `;
 
-export const SchemaTab = ({ properties }: { properties?: any }) => {
+export const SchemaTab = ({ properties }: { properties?: GenericEntityTabProperties }) => {
     const { entityData } = useEntityData();
     const baseEntity = useBaseEntity<GetDatasetQuery>();
     let editMode = true;
@@ -79,13 +81,15 @@ export const SchemaTab = ({ properties }: { properties?: any }) => {
                 />
             ) : rows && rows.length > 0 ? (
                 <>
-                    <SchemaTable
-                        schemaMetadata={schemaMetadata}
-                        rows={rows}
-                        editMode={editMode}
-                        editableSchemaMetadata={editableSchemaMetadata}
-                        usageStats={usageStats}
-                    />
+                    <SchemaEditableContext.Provider value={editMode}>
+                        <SchemaTable
+                            schemaMetadata={schemaMetadata}
+                            rows={rows}
+                            editMode={editMode}
+                            editableSchemaMetadata={editableSchemaMetadata}
+                            usageStats={usageStats}
+                        />
+                    </SchemaEditableContext.Provider>
                 </>
             ) : (
                 <NoSchema />

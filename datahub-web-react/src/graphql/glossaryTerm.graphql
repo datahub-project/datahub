@@ -1,5 +1,3 @@
-
-
 query getGlossaryTerm($urn: String!, $start: Int, $count: Int) {
     glossaryTerm(urn: $urn) {
         urn
@@ -45,9 +43,6 @@ query getGlossaryTerm($urn: String!, $start: Int, $count: Int) {
             }
         }
          schemaMetadata(version: 0) {
-            ...schemaMetadataFields
-        }
-        previousSchemaMetadata: schemaMetadata(version: -1) {
             ...schemaMetadataFields
         }
     }
