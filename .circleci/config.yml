@@ -25,7 +25,7 @@ jobs:
           version: 20.10.6
       - run:
           name: build docker image
-          command: build-and-push --file ./docker/datahub-gms/Dockerfile --target dataportal-gms --image dataportal-gms --build-dir .
+          command: build-and-push --file ./docker/datahub-gms/Dockerfile --image dataportal-gms --build-dir .
   build_dataportal_frontend_react:
     environment:
       DOCKER_BUILDKIT: 1
@@ -37,7 +37,7 @@ jobs:
           version: 20.10.6
       - run:
           name: build docker image
-          command: build-and-push --file ./docker/datahub-frontend/Dockerfile --target dataportal-frontend-react --image dataportal-frontend-react --build-dir .
+          command: build-and-push --file ./docker/datahub-frontend/Dockerfile --image dataportal-frontend-react --build-dir .
   build_dataportal_ingestion:
     environment:
       DOCKER_BUILDKIT: 1
@@ -49,7 +49,7 @@ jobs:
           version: 20.10.6
       - run:
           name: build docker image
-          command: build-and-push --file ./docker/datahub-ingestion/Dockerfile --target dataportal-ingestion --image dataportal-ingestion --build-dir .
+          command: build-and-push --file ./docker/datahub-ingestion/Dockerfile --image dataportal-ingestion --build-dir .
   build_dataportal_mce_consumer:
     environment:
       DOCKER_BUILDKIT: 1
@@ -61,7 +61,7 @@ jobs:
           version: 20.10.6
       - run:
           name: build docker image
-          command: build-and-push --file ./docker/datahub-mce-consumer/Dockerfile --target dataportal-mce-consumer --image dataportal-mce-consumer --build-dir .
+          command: build-and-push --file ./docker/datahub-mce-consumer/Dockerfile --image dataportal-mce-consumer --build-dir .
   build_dataportal_mae_consumer:
     environment:
       DOCKER_BUILDKIT: 1
@@ -73,7 +73,7 @@ jobs:
           version: 20.10.6
       - run:
           name: build docker image
-          command: build-and-push --file ./docker/datahub-mae-consumer/Dockerfile --target dataportal-mae-consumer --image dataportal-mae-consumer --build-dir .
+          command: build-and-push --file ./docker/datahub-mae-consumer/Dockerfile --image dataportal-mae-consumer --build-dir .
 
 workflows:
   version: 2
