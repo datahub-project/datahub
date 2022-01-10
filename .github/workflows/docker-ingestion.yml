@@ -36,11 +36,11 @@ jobs:
           echo "tag=$TAG"
           echo "::set-output name=tag::$TAG"
       - name: Compute Python Release Version
-        id: python-release-version
+        id: python_release_version
         run: |
           echo "GITHUB_REF: $GITHUB_REF"
           SHORT_SHA=$(git rev-parse --short "$GITHUB_SHA")
-          RELEASE_VERSION=$(echo ${GITHUB_REF} | sed -e "s,refs/heads/master,0.0.0+git${SHORT_SHA},g" -e 's,refs/tags/v\(.+\),\1,g' -e 's,refs/pull/\([0-9]*\).*,0.0.0+pr\1,g')
+          RELEASE_VERSION=$(echo ${GITHUB_REF} | sed -e "s,refs/heads/master,0.0.0+docker.${SHORT_SHA},g" -e 's,refs/tags/v\(.+\),\1+docker,g' -e 's,refs/pull/\([0-9]*\).*,0.0.0+docker.pr\1,g')
           echo "release_version=$RELEASE_VERSION"
           echo "::set-output name=release_version::$RELEASE_VERSION"
       - name: Check whether publishing enabled
@@ -80,4 +80,4 @@ jobs:
           tags: ${{ steps.docker_meta.outputs.tags }}
           push: ${{ needs.setup.outputs.publish == 'true' }}
           build-args: |
-            RELEASE_VERSION=${{ steps.docker_meta.outputs.release_version }}
+            RELEASE_VERSION=${{ steps.python_release_version.outputs.release_version }}
