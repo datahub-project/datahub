@@ -212,6 +212,7 @@ public class JavaEntityClient implements EntityClient {
         SortCriterion sortCriterion = null;
 
         if (sortField != null) {
+            sortCriterion = new SortCriterion();
             sortCriterion.setField(sortField);
             SortOrder order = sortOrder != null ? sortOrder : SortOrder.DESCENDING;
             sortCriterion.setOrder(order);
@@ -264,6 +265,7 @@ public class JavaEntityClient implements EntityClient {
         SortCriterion sortCriterion = null;
 
         if (sortField != null) {
+            sortCriterion = new SortCriterion();
             sortCriterion.setField(sortField);
             SortOrder order = sortOrder != null ? sortOrder : SortOrder.DESCENDING;
             sortCriterion.setOrder(order);
