@@ -80,4 +80,4 @@ jobs:
           tags: ${{ steps.docker_meta.outputs.tags }}
           push: ${{ needs.setup.outputs.publish == 'true' }}
           build-args: |
-            RELEASE_VERSION=${{ steps.python_release_version.outputs.release_version }}
+            RELEASE_VERSION=${{ needs.setup.outputs.release_version }}
