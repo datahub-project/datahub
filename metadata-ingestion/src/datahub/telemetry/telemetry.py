@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, Optional, TypeVar, Union
 
 import requests
+import platform
 
 import datahub as datahub_package
 
@@ -122,7 +123,8 @@ class Telemetry:
                 req_url,
                 data=params,
                 headers={
-                    "user-agent": f"datahub {datahub_package.nice_version_name()}"
+                    # "user-agent": f"datahub {datahub_package.nice_version_name()}"
+                    "user-agent": f"{platform.system()} | Python {platform.python_version()}"
                 },
             )
         except Exception as e:

@@ -21,6 +21,7 @@ from datahub.ingestion.graph.client import DatahubClientConfig
 from datahub.ingestion.sink.sink_registry import sink_registry
 from datahub.ingestion.source.source_registry import source_registry
 from datahub.ingestion.transformer.transform_registry import transform_registry
+from datahub.telemetry import telemetry
 
 logger = logging.getLogger(__name__)
 
@@ -148,6 +149,9 @@ class Pipeline:
         return cls(config, dry_run=dry_run, preview_mode=preview_mode)
 
     def run(self) -> None:
+        
+        start_time = datetime.datetime.now()
+        
         callback = LoggingCallback()
         extractor: Extractor = self.extractor_class()
         for wu in itertools.islice(
@@ -177,6 +181,10 @@ class Pipeline:
             )
         else:
             self.source.close()
+            
+        end_time = datetime.datetime.now()
+        
+        self.time_taken = end_time - start_time
 
     def transform(self, records: Iterable[RecordEnvelope]) -> Iterable[RecordEnvelope]:
         """
@@ -203,6 +211,14 @@ class Pipeline:
                 "Source reported warnings", self.source.get_report()
             )
 
+    def send_telemetry_summary(self) -> None:
+        source_type = type(self.source).__name__
+        sink_type = type(self.sink).__name__
+
+        telemetry.telemetry_instance.ping("ingest", "source_type", source_type)
+        telemetry.telemetry_instance.ping("ingest", "sink_type", sink_type)
+        telemetry.telemetry_instance.ping("ingest", "ingestion_stats", "time_taken", int(self.time_taken.total_seconds()))
+
     def pretty_print_summary(self, warnings_as_failure: bool = False) -> int:
         click.echo()
         click.secho(f"Source ({self.config.source.type}) report:", bold=True)
@@ -210,6 +226,7 @@ class Pipeline:
         click.secho(f"Sink ({self.config.sink.type}) report:", bold=True)
         click.echo(self.sink.get_report().as_string())
         click.echo()
+        click.echo(f"Runtime: {self.time_taken.total_seconds()}s")
         if self.source.get_report().failures or self.sink.get_report().failures:
             click.secho("Pipeline finished with failures", fg="bright_red", bold=True)
             return 1
