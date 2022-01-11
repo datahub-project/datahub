@@ -15,7 +15,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -39,7 +38,6 @@ public class AutocompleteRequestHandler {
 
   private static final Map<EntitySpec, AutocompleteRequestHandler> AUTOCOMPLETE_QUERY_BUILDER_BY_ENTITY_NAME =
       new ConcurrentHashMap<>();
-  private QueryStringQueryBuilder _autocompleteQueryBuilder;
 
   public AutocompleteRequestHandler(@Nonnull EntitySpec entitySpec) {
     _defaultAutocompleteFields = entitySpec.getSearchableFieldSpecs()
@@ -70,17 +68,14 @@ public class AutocompleteRequestHandler {
   private QueryBuilder getQuery(@Nonnull String query, @Nullable String field) {
     BoolQueryBuilder finalQuery = QueryBuilders.boolQuery();
     // Search for exact matches with higher boost and ngram matches
-    List<String> fieldNames = getAutocompleteFields(field).stream()
-        .flatMap(fieldName -> Stream.of(fieldName, fieldName + ".ngram"))
-        .collect(Collectors.toList());
-    QueryStringQueryBuilder _autocompleteQueryBuilder = QueryBuilders.queryStringQuery(query);
-    _autocompleteQueryBuilder.analyzer(ANALYZER);
-    _autocompleteQueryBuilder.defaultOperator(Operator.AND);
+    QueryStringQueryBuilder autocompleteQueryBuilder = QueryBuilders.queryStringQuery(query);
+    autocompleteQueryBuilder.analyzer(ANALYZER);
+    autocompleteQueryBuilder.defaultOperator(Operator.AND);
     getAutocompleteFields(field).forEach(fieldName -> {
-      _autocompleteQueryBuilder.field(fieldName, 4);
-      _autocompleteQueryBuilder.field(fieldName + ".ngram");
+      autocompleteQueryBuilder.field(fieldName, 4);
+      autocompleteQueryBuilder.field(fieldName + ".ngram");
     });
-    finalQuery.must(_autocompleteQueryBuilder);
+    finalQuery.must(autocompleteQueryBuilder);
     finalQuery.mustNot(QueryBuilders.matchQuery("removed", true));
     return finalQuery;
   }
