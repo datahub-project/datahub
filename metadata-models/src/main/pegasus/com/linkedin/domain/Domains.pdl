@@ -12,5 +12,20 @@ record Domains {
   /**
    * The Domains attached to an Asset
    */
+  @Relationship = {
+    "/*": {
+      "name": "AssociatedWith",
+      "entityTypes": [ "domain" ]
+    }
+  }
+  @Searchable = {
+    "/*": {
+      "fieldName": "domains",
+      "fieldType": "URN",
+      "hasValuesFieldName": "hasDomain",
+      "addToFilters": true,
+      "filterNameOverride": "Domain"
+    }
+  }
   domains: array[Urn]
 }

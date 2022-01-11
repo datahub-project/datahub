@@ -2,11 +2,11 @@
   {
     "auditHeader":null,
     "entityType":"domain",
-    "entityUrn": "urn:li:domain:engineering",
+    "entityUrn": "urn:li:domain:sales",
     "changeType":"UPSERT",
     "aspectName":"domainInfo",
     "aspect":{
-      "value":"{\"name\": \"Engineering\", \"description\": \"My custom domain\" }",
+      "value":"{\"name\": \"Sales\", \"description\": \"My custom domain\" }",
       "contentType":"application/json"
     },
     "systemMetadata":null
@@ -18,7 +18,7 @@
     "changeType":"UPSERT",
     "aspectName":"domains",
     "aspect":{
-      "value":"{\"domains\": [\"urn:li:domain:engineering\"] }",
+      "value":"{\"domains\": [\"urn:li:domain:sales\"] }",
       "contentType":"application/json"
     },
     "systemMetadata":null

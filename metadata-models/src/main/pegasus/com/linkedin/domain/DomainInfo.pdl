@@ -11,6 +11,11 @@ record DomainInfo {
   /**
    * Display name of the Domain
    */
+  @Searchable = {
+    "fieldType": "TEXT_PARTIAL",
+    "enableAutocomplete": true,
+    "boostScore": 10.0
+  }
   name: string
 
   /**
