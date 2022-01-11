@@ -60,6 +60,11 @@ type Query {
     glossaryTerm(urn: String!): GlossaryTerm
 
     """
+    Fetch a Domain by primary key (urn)
+    """
+    domain(urn: String!): Domain
+
+    """
     List all DataHub Access Policies
     """
     listPolicies(input: ListPoliciesInput!): ListPoliciesResult
@@ -5106,4 +5111,114 @@ type SubTypes {
     The sub-types that this entity implements. e.g. Datasets that are views will implement the "view" subtype
    """
    typeNames: [String!]
+}
+
+"""
+A domain, or a logical grouping of Metadata Entities
+"""
+type Domain implements Entity {
+    """
+    The primary key of the domain
+    """
+    urn: String!
+
+    """
+    A standard Entity Type
+    """
+    type: EntityType!
+
+    """
+    Display name of the domain
+    """
+    name: String!
+
+    """
+    Properties about a domain
+    """
+    properties: DomainProperties
+
+    """
+    Children entities inside of the Domain
+    """
+    entities(input: ContainerEntitiesInput!): DomainEntitiesResult
+
+    """
+    Edges extending from this entity
+    """
+    relationships(input: RelationshipsInput!): EntityRelationshipsResult
+}
+
+"""
+Properties about a domain
+"""
+type DomainProperties {
+  """
+  Description of the Domain
+  """
+  description: String!
+}
+
+"""
+Input required to fetch the entities inside of a Domain.
+"""
+input DomainEntitiesInput {
+  """
+  Optional query filter for particular entities inside the domain
+  """
+  query: String
+
+  """
+  The offset of the result set
+  """
+  start: Int
+
+  """
+  The number of entities to include in result set
+  """
+  count: Int
+
+  """
+  Optional Facet filters to apply to the result set
+  """
+  filters: [FacetFilterInput!]
+}
+
+"""
+Result of a Domain Entities fetch
+"""
+type DomainEntitiesResult {
+  """
+  The offset of the result set
+  """
+  start: Int!
+
+  """
+  The number of entities included in the result set
+  """
+  count: Int!
+
+  """
+  The total number of search results matching the query and filters
+  """
+  total: Int!
+
+  """
+  The entity results
+  """
+  entities: [DomainEntityResult!]!
+
+  """
+  Candidate facet aggregations used for search filtering
+  """
+  facets: [FacetMetadata!]
+}
+
+"""
+Result of a Domain Entities fetch
+"""
+type DomainEntityResult {
+  """
+  The resolved DataHub Metadata Entity inside the domain
+  """
+  entity: Entity!
 }
