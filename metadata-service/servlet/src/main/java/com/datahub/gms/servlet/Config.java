@@ -59,8 +59,9 @@ public class Config extends HttpServlet {
     config.put("noCode", "true");
 
     GitVersion version = getGitVersion(req.getServletContext());
-    config.put("version", version.getVersion());
-    config.put("commit", version.getCommitId());
+    Map<String, Object> versionConfig = new HashMap<>();
+    versionConfig.put("linkedin/datahub", version.toConfig());
+    config.put("versions", versionConfig);
 
     resp.setContentType("application/json");
     PrintWriter out = resp.getWriter();

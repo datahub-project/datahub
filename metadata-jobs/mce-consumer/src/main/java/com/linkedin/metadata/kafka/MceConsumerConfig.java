@@ -1,5 +1,8 @@
 package com.linkedin.metadata.kafka;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.gms.factory.common.GitVersionFactory;
 import com.linkedin.metadata.version.GitVersion;
 import java.util.HashMap;
@@ -13,19 +16,25 @@ import org.springframework.web.bind.annotation.ResponseBody;
 @Controller
 @Import(GitVersionFactory.class)
 public class MceConsumerConfig {
-  private final Map<String, String> config;
+  private final Map<String, Object> config;
+  private final String configJson;
 
-  public MceConsumerConfig(GitVersion gitVersion) {
+  private static ObjectMapper OBJECT_MAPPER =
+      new ObjectMapper().setSerializationInclusion(JsonInclude.Include.NON_NULL);
+
+  public MceConsumerConfig(GitVersion gitVersion) throws JsonProcessingException {
     config = new HashMap<>();
     config.put("noCode", "true");
 
-    config.put("version", gitVersion.getVersion());
-    config.put("commit", gitVersion.getCommitId());
+    Map<String, Object> versionConfig = new HashMap<>();
+    versionConfig.put("linkedin/datahub", gitVersion.toConfig());
+    config.put("versions", versionConfig);
+    configJson = OBJECT_MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(config);
   }
 
   @GetMapping("/config")
   @ResponseBody
-  public Map<String, String> getConfig() {
-    return config;
+  public String getConfig() {
+    return configJson;
   }
 }
