@@ -4,7 +4,7 @@ We always welcome contributions to help make DataHub better. Take a moment to re
 
 ## Reporting issues
 
-We use GitHub issues to track bug reports, feature requests, and submitting pull requests.
+We use GitHub issues to track bug reports and submitting pull requests.
 
 If you find a bug:
 
