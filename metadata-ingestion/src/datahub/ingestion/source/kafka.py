@@ -1,7 +1,7 @@
 import logging
 from dataclasses import dataclass, field
 from hashlib import md5
-from typing import Dict, Iterable, List, Optional
+from typing import Iterable, List, Optional
 
 import confluent_kafka
 from confluent_kafka.schema_registry.schema_registry_client import (
@@ -92,26 +92,30 @@ class KafkaSource(Source):
                 self.report.report_dropped(t)
 
     def get_schema_str_replace_confluent_ref_avro(
-        self, schema: Schema, schema_seen: Dict = None
+        self, schema: Schema, schema_seen: Optional[set] = None
     ) -> str:
         if not schema.references:
             return schema.schema_str
 
         if schema_seen is None:
-            schema_seen = dict()
+            schema_seen = set()
         schema_str = schema.schema_str
         for schema_ref in schema.references:
             ref_subject = schema_ref["subject"]
-            ref_name = schema_ref["name"]
             if ref_subject in schema_seen:
                 continue
-            tmp_schema = self.schema_registry_client.get_latest_version(ref_subject)
-            schema_seen[ref_subject] = tmp_schema
-            logger.debug(f"ref for {ref_subject} is {tmp_schema.schema.schema_str}")
+            reference_schema = self.schema_registry_client.get_latest_version(
+                ref_subject
+            )
+            schema_seen.add(ref_subject)
+            logger.debug(
+                f"ref for {ref_subject} is {reference_schema.schema.schema_str}"
+            )
+            ref_name = schema_ref["name"]
             schema_str = schema_str.replace(
                 f'"{ref_name}"',
                 self.get_schema_str_replace_confluent_ref_avro(
-                    tmp_schema.schema, schema_seen
+                    reference_schema.schema, schema_seen
                 ),
             )
         return schema_str
