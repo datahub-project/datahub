@@ -1043,6 +1043,11 @@ type Container implements Entity {
     entities(input: ContainerEntitiesInput!): ContainerEntitiesResult
 
     """
+    Sub types of the container, e.g. "Database" etc
+    """
+    subTypes: SubTypes
+
+    """
     Edges extending from this entity
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
