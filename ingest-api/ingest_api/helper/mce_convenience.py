@@ -331,13 +331,15 @@ def make_status_mce(
 def verify_token(
     token: str, user: str
 ):
-    token_secret = os.environ["jwt_secret"]
+    token_secret = os.environ["JWT_SECRET"]
     try:
         payload = jwt.decode(token, token_secret, algorithms="HS256")
         if payload['payload']['actorId'] == user:
+            log.info(f"token verified for {user}")
             return True
         return False
     except:
+        log.error(f"I cannot verify token for user {user}")
         return False
 
 def authenticate_action(
@@ -349,8 +351,10 @@ def authenticate_action(
         authenticate_actions = False
     if authenticate_action:
         if verify_token(token, user) and query_dataset_owner(token, dataset, user):
+            log.info(f"user {user} is authorized to do something")
             return True
         else:
+            log.info(f"user {user} is NOT authorized to do something")
             return False
     else: #no need to authenticate, so always true
         return True

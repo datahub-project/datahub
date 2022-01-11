@@ -32,6 +32,7 @@ class create_dataset_params(BaseModel):
     hasHeader: str = "n/a"
     headerLine: int = 1
     browsepathList: List[str]
+    user_token:str
 
     class Config:
         schema_extra = {

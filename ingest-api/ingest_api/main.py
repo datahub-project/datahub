@@ -26,7 +26,7 @@ from ingest_api.helper.mce_convenience import (authenticate_action, create_new_s
                                                make_ownership_mce,
                                                make_platform, make_schema_mce,
                                                make_status_mce, make_user_urn,
-                                               update_field_param_class)
+                                               update_field_param_class, verify_token)
 from ingest_api.helper.models import (browsepath_params, create_dataset_params,
                                       dataset_status_params, determine_type,
                                       echo_param, prop_params, schema_params)
@@ -186,6 +186,8 @@ async def update_prop(item: prop_params):
     
     rootLogger.info("update_schema_request_received {}".format(item))
     datasetName = item.dataset_name
+    token = item.user_token
+    user = item.requestor
     if authenticate_action(token, user, dataset=datasetName):
         dataset_snapshot = DatasetSnapshot(
             urn=datasetName,
@@ -262,72 +264,78 @@ async def create_item(item: create_dataset_params) -> None:
     """
     rootLogger.info("make_dataset_request_received {}".format(item))
     item.dataset_type = determine_type(item.dataset_type)
-
-    item.dataset_name = "{}_{}".format(item.dataset_name, str(get_sys_time()))
-    datasetName = make_dataset_urn(item.dataset_type, item.dataset_name)
-    platformName = make_platform(item.dataset_type)
-    item.browsepathList = [
-        item + "/" for item in item.browsepathList if not item.endswith("//")
-    ]
-    # this line is in case the endpoint is called by API and not UI, which will enforce ending with /.
-    browsepaths = [path + "dataset" for path in item.browsepathList]
-
-    requestor = make_user_urn(item.dataset_owner)
-    headerRowNum = (
-        "n/a"
-        if item.dict().get("hasHeader", "n/a") == "no"
-        else str(item.dict().get("headerLine", "n/a"))
-    )
-    properties = {
-        "dataset_origin": item.dict().get("dataset_origin", ""),
-        "dataset_location": item.dict().get("dataset_location", ""),
-        "has_header": item.dict().get("hasHeader", "n/a"),
-        "header_row_number": headerRowNum,
-    }
-    if item.dataset_type == "json":  # json has no headers
-        properties.pop("has_header")
-        properties.pop("header_row_number")
-
-    dataset_description = item.dataset_description if item.dataset_description else ""
-    dataset_snapshot = DatasetSnapshot(
-        urn=datasetName,
-        aspects=[],
-    )
-    dataset_snapshot.aspects.append(
-        make_dataset_description_mce(
-            dataset_name=datasetName,
-            description=dataset_description,
-            customProperties=properties,
+    token = item.user_token
+    user = item.dataset_owner
+    if verify_token(token, user):
+        item.dataset_name = "{}_{}".format(item.dataset_name, str(get_sys_time()))
+        datasetName = make_dataset_urn(item.dataset_type, item.dataset_name)
+        platformName = make_platform(item.dataset_type)
+        item.browsepathList = [
+            item + "/" for item in item.browsepathList if not item.endswith("//")
+        ]
+        # this line is in case the endpoint is called by API and not UI, which will enforce ending with /.
+        browsepaths = [path + "dataset" for path in item.browsepathList]
+        
+        requestor = make_user_urn(item.dataset_owner)
+        headerRowNum = (
+            "n/a"
+            if item.dict().get("hasHeader", "n/a") == "no"
+            else str(item.dict().get("headerLine", "n/a"))
         )
-    )
+        properties = {
+            "dataset_origin": item.dict().get("dataset_origin", ""),
+            "dataset_location": item.dict().get("dataset_location", ""),
+            "has_header": item.dict().get("hasHeader", "n/a"),
+            "header_row_number": headerRowNum,
+        }
+        if item.dataset_type == "json":  # json has no headers
+            properties.pop("has_header")
+            properties.pop("header_row_number")
 
-    dataset_snapshot.aspects.append(
-        make_ownership_mce(actor=requestor, dataset_urn=datasetName)
-    )
-    dataset_snapshot.aspects.append(make_browsepath_mce(path=browsepaths))
-    field_params = []
-    for existing_field in item.fields:
-        current_field = {}
-        current_field.update(existing_field.dict())
-        current_field["fieldPath"] = current_field.pop("field_name")
-        if "field_description" not in current_field:
-            current_field["field_description"] = ""
-        field_params.append(current_field)
-
-    dataset_snapshot.aspects.append(
-        create_new_schema_mce(
-            platformName=platformName,
-            actor=requestor,
-            fields=field_params,
+        dataset_description = item.dataset_description if item.dataset_description else ""
+        dataset_snapshot = DatasetSnapshot(
+            urn=datasetName,
+            aspects=[],
         )
-    )
-    metadata_record = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-    response = emit_mce_respond(
-        metadata_record=metadata_record, owner=requestor, event="Create Dataset"
-    )
-    return JSONResponse(
-        content=response.get("message", ""), status_code=response.get("status_code")
-    )
+        dataset_snapshot.aspects.append(
+            make_dataset_description_mce(
+                dataset_name=datasetName,
+                description=dataset_description,
+                customProperties=properties,
+            )
+        )
+
+        dataset_snapshot.aspects.append(
+            make_ownership_mce(actor=requestor, dataset_urn=datasetName)
+        )
+        dataset_snapshot.aspects.append(make_browsepath_mce(path=browsepaths))
+        field_params = []
+        for existing_field in item.fields:
+            current_field = {}
+            current_field.update(existing_field.dict())
+            current_field["fieldPath"] = current_field.pop("field_name")
+            if "field_description" not in current_field:
+                current_field["field_description"] = ""
+            field_params.append(current_field)
+
+        dataset_snapshot.aspects.append(
+            create_new_schema_mce(
+                platformName=platformName,
+                actor=requestor,
+                fields=field_params,
+            )
+        )
+        metadata_record = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
+        response = emit_mce_respond(
+            metadata_record=metadata_record, owner=requestor, event="Create Dataset"
+        )
+        return JSONResponse(
+            content=response.get("message", ""), status_code=response.get("status_code")
+        )
+    else:
+        return JSONResponse(
+            content="Authentication Failed", status_code=404
+        )
 
 
 @app.post("/update_dataset_status")
