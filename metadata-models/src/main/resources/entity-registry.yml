@@ -8,6 +8,7 @@ entities:
       - datasetProfile
       - datasetUsageStatistics
       - operation
+      - container
   - name: dataHubPolicy
     doc: DataHub Policies represent access policies granted to users or groups on metadata operations like edit, view etc.
     keyAspect: dataHubPolicyKey
@@ -18,6 +19,19 @@ entities:
     aspects:
       - datahubIngestionRunSummary
       - datahubIngestionCheckpoint
+      - container
+  - name: dataFlow
+    keyAspect: dataFlowKey
+    aspects:
+      - container
+  - name: chart
+    keyAspect: chartKey
+    aspects:
+      - container
+  - name: dashboard
+    keyAspect: dashboardKey
+    aspects:
+      - container
   - name: corpuser
     doc: CorpUser represents an identity of a person (or an account) in the enterprise.
     keyAspect: corpUserKey
@@ -25,3 +39,15 @@ entities:
       - corpUserInfo
       - corpUserEditableInfo
       - corpUserStatus
+  - name: container
+    doc: A container of related data assets.
+    keyAspect: containerKey
+    aspects:
+      - containerInfo
+      - dataPlatformInstance
+      - subTypes
+      - ownership
+      - container
+      - globalTags
+      - glossaryTerms
+      - institutionalMemory

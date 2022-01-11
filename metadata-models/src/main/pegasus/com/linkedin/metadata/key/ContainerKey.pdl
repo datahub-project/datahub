@@ -1,0 +1,24 @@
+namespace com.linkedin.metadata.key
+
+/**
+* Key for an Asset Container
+*/
+@Aspect = {
+  "name": "containerKey"
+}
+record ContainerKey {
+	/**
+	* Data platform instance type
+	*/
+	platformType: string
+
+	/**
+	* Data platform instance id
+	*/
+	platformInstanceId: string
+
+	/**
+	* Unique id within the Platform Instance
+	*/
+	id: string
+}

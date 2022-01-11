@@ -1,0 +1,26 @@
+namespace com.linkedin.container
+
+/**
+ * Information about a Asset Container
+ */
+@Aspect = {
+  "name": "containerInfo"
+}
+record ContainerInfo {
+
+  /**
+   * Display name of the Asset Container
+   */
+  @Searchable = {
+    "fieldType": "TEXT_PARTIAL",
+    "enableAutocomplete": true,
+    "boostScore": 10.0
+  }
+  name: string
+
+  /**
+   * Description of the Asset Container
+   */
+  description: optional string
+
+}
