@@ -1,5 +1,8 @@
+ARG TOOLCHAIN_REPO=311088406905.dkr.ecr.us-east-1.amazonaws.com/platform_tools
+ARG TOOLCHAIN_VERSION=master
 # Defining environment
 ARG APP_ENV=prod
+FROM $TOOLCHAIN_REPO:$TOOLCHAIN_VERSION as tools
 
 FROM adoptopenjdk/openjdk8:alpine-jre as base
 ENV DOCKERIZE_VERSION v0.6.1
@@ -32,6 +35,12 @@ USER datahub
 
 ENV JMX_OPTS=""
 ENV JAVA_OPTS=""
+
+#### WITH SECRETS DEPENDENCY
+COPY --from=tools /usr/local/bin/with-secrets /usr/local/bin/with-secrets
+COPY --from=tools /usr/local/bin/enter-db /usr/local/bin/enter-db
+COPY --from=tools /usr/local/bin/envconsul /usr/local/bin/
+COPY --from=tools /usr/local/bin/vault /usr/local/bin/
 
 EXPOSE 9090
 

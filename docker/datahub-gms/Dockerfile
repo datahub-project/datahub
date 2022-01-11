@@ -1,5 +1,8 @@
+ARG TOOLCHAIN_REPO=311088406905.dkr.ecr.us-east-1.amazonaws.com/platform_tools
+ARG TOOLCHAIN_VERSION=master
 # Defining environment
 ARG APP_ENV=prod
+FROM $TOOLCHAIN_REPO:$TOOLCHAIN_VERSION as tools
 
 FROM alpine:3.14.2 AS base
 
@@ -7,26 +10,26 @@ ENV DOCKERIZE_VERSION v0.6.1
 
 # Upgrade Alpine and base packages
 RUN apk --no-cache --update-cache --available upgrade \
-    && if [ $(arch) = "aarch64" ]; then \
-       DOCKERIZE_ARCH='aarch64';\
-    elif [ $(arch) = "x86_64" ]; then \
-      DOCKERIZE_ARCH='amd64'; \
-    else \
-      echo >&2 "Unsupported architecture $(arch)" ; exit 1; \
-    fi \
-    && apk --no-cache add tar curl openjdk8-jre bash coreutils \
-    && curl https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-runner/9.4.20.v20190813/jetty-runner-9.4.20.v20190813.jar --output jetty-runner.jar \
-    && curl https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-jmx/9.4.20.v20190813/jetty-jmx-9.4.20.v20190813.jar --output jetty-jmx.jar \
-    && curl https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-util/9.4.20.v20190813/jetty-util-9.4.20.v20190813.jar --output jetty-util.jar \
-    && wget https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v1.4.1/opentelemetry-javaagent-all.jar \
-    && wget https://repo1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaagent/0.16.1/jmx_prometheus_javaagent-0.16.1.jar -O jmx_prometheus_javaagent.jar \
-    && curl -L https://github.com/treff7es/dockerize/releases/download/$DOCKERIZE_VERSION/dockerize-linux-${DOCKERIZE_ARCH}-$DOCKERIZE_VERSION.tar.gz | tar -C /usr/local/bin -xzv
+  && if [ $(arch) = "aarch64" ]; then \
+  DOCKERIZE_ARCH='aarch64';\
+  elif [ $(arch) = "x86_64" ]; then \
+  DOCKERIZE_ARCH='amd64'; \
+  else \
+  echo >&2 "Unsupported architecture $(arch)" ; exit 1; \
+  fi \
+  && apk --no-cache add tar curl openjdk8-jre bash coreutils \
+  && curl https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-runner/9.4.20.v20190813/jetty-runner-9.4.20.v20190813.jar --output jetty-runner.jar \
+  && curl https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-jmx/9.4.20.v20190813/jetty-jmx-9.4.20.v20190813.jar --output jetty-jmx.jar \
+  && curl https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-util/9.4.20.v20190813/jetty-util-9.4.20.v20190813.jar --output jetty-util.jar \
+  && wget https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v1.4.1/opentelemetry-javaagent-all.jar \
+  && wget https://repo1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaagent/0.16.1/jmx_prometheus_javaagent-0.16.1.jar -O jmx_prometheus_javaagent.jar \
+  && curl -L https://github.com/treff7es/dockerize/releases/download/$DOCKERIZE_VERSION/dockerize-linux-${DOCKERIZE_ARCH}-$DOCKERIZE_VERSION.tar.gz | tar -C /usr/local/bin -xzv
 
 FROM alpine:3.14.2 AS prod-build
 
 # Upgrade Alpine and base packages
 RUN apk --no-cache --update-cache --available upgrade \
-    && apk --no-cache add openjdk8 perl
+  && apk --no-cache add openjdk8 perl
 
 COPY . /datahub-src
 RUN cd /datahub-src && ./gradlew :metadata-service:war:build -x test
@@ -51,8 +54,18 @@ USER datahub
 ENV JMX_OPTS=""
 ENV JAVA_OPTS=""
 
+#### WITH SECRETS DEPENDENCY
+COPY --from=tools /usr/local/bin/with-secrets /usr/local/bin/with-secrets
+COPY --from=tools /usr/local/bin/enter-db /usr/local/bin/enter-db
+COPY --from=tools /usr/local/bin/envconsul /usr/local/bin/
+COPY --from=tools /usr/local/bin/vault /usr/local/bin/
+
 EXPOSE 8080
 
-HEALTHCHECK --start-period=2m --retries=4 CMD curl --fail http://localhost:8080/health || exit 1
+# HEALTHCHECK --start-period=2m --retries=4 CMD curl --fail http://localhost:8080/health || exit 1
+
+RUN mkdir /home/datahub/terraform
+COPY ./terraform/kafka /home/datahub/terraform
+COPY ./platform/preDeploy.sh /usr/local/bin/preDeploy.sh
 
 CMD /datahub/datahub-gms/scripts/start.sh

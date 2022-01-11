@@ -1,0 +1,86 @@
+version: 2.1
+
+orbs:
+  aws-cli: circleci/aws-cli@0.1.8
+  aws-ecr: circleci/aws-ecr@6.7.0
+
+# Depends on the following ENV vars:
+#
+#   * AWS_ACCESS_KEY_ID
+#   * AWS_SECRET_ACCESS_KEY
+#   * AWS_DEFAULT_REGION
+#   * AWS_REGION
+#   * AWS_ECR_ACCOUNT_URL
+#   * GITHUB_DEPLOY_TOKEN_USER
+#   * GITHUB_DEPLOY_TOKEN_SECRET
+jobs:
+  build_dataportal_gms:
+    environment:
+      DOCKER_BUILDKIT: 1
+    docker:
+      - image: 311088406905.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/image-builder:master
+    steps:
+      - checkout
+      - setup_remote_docker:
+          version: 20.10.6
+      - run:
+          name: build docker image
+          command: build-and-push --file ./docker/datahub-gms/Dockerfile --image dataportal-gms --build-dir .
+  build_dataportal_frontend_react:
+    environment:
+      DOCKER_BUILDKIT: 1
+    docker:
+      - image: 311088406905.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/image-builder:master
+    steps:
+      - checkout
+      - setup_remote_docker:
+          version: 20.10.6
+      - run:
+          name: build docker image
+          command: build-and-push --file ./docker/datahub-frontend/Dockerfile --image dataportal-frontend-react --build-dir .
+  build_dataportal_ingestion:
+    environment:
+      DOCKER_BUILDKIT: 1
+    docker:
+      - image: 311088406905.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/image-builder:master
+    steps:
+      - checkout
+      - setup_remote_docker:
+          version: 20.10.6
+      - run:
+          name: build docker image
+          command: build-and-push --file ./docker/datahub-ingestion/Dockerfile --image dataportal-ingestion --build-dir .
+  build_dataportal_mce_consumer:
+    environment:
+      DOCKER_BUILDKIT: 1
+    docker:
+      - image: 311088406905.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/image-builder:master
+    steps:
+      - checkout
+      - setup_remote_docker:
+          version: 20.10.6
+      - run:
+          name: build docker image
+          command: build-and-push --file ./docker/datahub-mce-consumer/Dockerfile --image dataportal-mce-consumer --build-dir .
+  build_dataportal_mae_consumer:
+    environment:
+      DOCKER_BUILDKIT: 1
+    docker:
+      - image: 311088406905.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/image-builder:master
+    steps:
+      - checkout
+      - setup_remote_docker:
+          version: 20.10.6
+      - run:
+          name: build docker image
+          command: build-and-push --file ./docker/datahub-mae-consumer/Dockerfile --image dataportal-mae-consumer --build-dir .
+
+workflows:
+  version: 2
+  build_and_test_workflow:
+    jobs:
+      - build_dataportal_gms
+      - build_dataportal_frontend_react
+      - build_dataportal_ingestion
+      - build_dataportal_mae_consumer
+      - build_dataportal_mce_consumer
