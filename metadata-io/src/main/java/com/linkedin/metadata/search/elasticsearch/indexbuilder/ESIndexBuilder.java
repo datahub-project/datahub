@@ -40,7 +40,7 @@ public class ESIndexBuilder {
   private final int numShards;
   private final int numReplicas;
 
-  private static final int NUM_RETRIES = 3;
+  private static final int NUM_RETRIES = Integer.parseInt(System.getenv("ES_INDEXBUILDER_NUM_RETRIES"));
   private static final List<String> SETTINGS_TO_COMPARE = ImmutableList.of("number_of_shards", "number_of_replicas");
 
   public void buildIndex(String indexName, Map<String, Object> mappings, Map<String, Object> settings)

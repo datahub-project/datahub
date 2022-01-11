@@ -7,6 +7,7 @@ services:
     - OTEL_EXPORTER_JAEGER_ENDPOINT=http://jaeger-all-in-one:14250
     - OTEL_METRICS_EXPORTER=none
     - OTEL_SERVICE_NAME=datahub-gms
+    - ES_INDEXBUILDER_NUM_RETRIES=10
     ports:
     - '4318'
   grafana:
