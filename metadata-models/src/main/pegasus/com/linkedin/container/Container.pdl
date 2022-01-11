@@ -17,12 +17,10 @@ record Container {
     "entityTypes": [ "container" ]
   }
   @Searchable = {
-    "/*": {
-      "fieldName": "container",
-      "fieldType": "URN",
-      "addToFilters": true,
-      "filterNameOverride": "Container"
-    }
+    "fieldName": "container",
+    "fieldType": "URN",
+    "addToFilters": true,
+    "filterNameOverride": "Container"
   }
   container: Urn
 }
