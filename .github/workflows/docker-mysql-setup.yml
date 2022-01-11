@@ -68,6 +68,7 @@ jobs:
       - name: Build and Push image
         uses: docker/build-push-action@v2
         with:
+          context: .
           file: ./docker/mysql-setup/Dockerfile
           tags: ${{ steps.docker_meta.outputs.tags }}
           push: ${{ needs.setup.outputs.publish == 'true' }}
