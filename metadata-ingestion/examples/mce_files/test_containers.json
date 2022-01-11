@@ -1,0 +1,50 @@
+[
+  {
+    "auditHeader":null,
+    "entityType":"container",
+    "entityUrn": "urn:li:container:(mysql,instance1,MySchema.Database)",
+    "changeType":"UPSERT",
+    "aspectName":"containerInfo",
+    "aspect":{
+      "value":"{\"name\": \"datahub\", \"description\": \"The DataHub container\" }",
+      "contentType":"application/json"
+    },
+    "systemMetadata":null
+  },
+  {
+    "auditHeader":null,
+    "entityType":"container",
+    "entityUrn": "urn:li:container:(mysql,instance1,MySchema.Database)",
+    "changeType":"UPSERT",
+    "aspectName":"container",
+    "aspect":{
+      "value":"{\"container\": \"urn:li:container:(mysql,instance1,MySchema.Database)\" }",
+      "contentType":"application/json"
+    },
+    "systemMetadata":null
+  },
+  {
+    "auditHeader":null,
+    "entityType":"container",
+    "entityUrn": "urn:li:container:(mysql,instance1,MySchema.Database)",
+    "changeType":"UPSERT",
+    "aspectName":"subTypes",
+    "aspect":{
+      "value":"{\"typeNames\": [ \"Database\" ] }",
+      "contentType":"application/json"
+    },
+    "systemMetadata":null
+  },
+  {
+    "auditHeader":null,
+    "entityType":"container",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,information_schema.VIEWS,PROD)",
+    "changeType":"UPSERT",
+    "aspectName":"container",
+    "aspect":{
+      "value":"{\"container\": \"urn:li:container:(mysql,instance1,MySchema.Database)\" }",
+      "contentType":"application/json"
+    },
+    "systemMetadata":null
+  }
+]
