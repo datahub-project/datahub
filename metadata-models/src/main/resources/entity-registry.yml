@@ -43,7 +43,8 @@ entities:
     doc: A container of related data assets.
     keyAspect: containerKey
     aspects:
-      - containerInfo
+      - containerProperties
+      - editableContainerProperties
       - dataPlatformInstance
       - subTypes
       - ownership
@@ -51,3 +52,4 @@ entities:
       - globalTags
       - glossaryTerms
       - institutionalMemory
+      - browsePaths # unclear if this will be used

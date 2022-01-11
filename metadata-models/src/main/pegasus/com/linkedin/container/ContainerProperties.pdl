@@ -1,13 +1,12 @@
 namespace com.linkedin.container
 
 /**
- * Information about a Asset Container
+ * Information about a Asset Container as received from a 3rd party source system
  */
 @Aspect = {
-  "name": "containerInfo"
+  "name": "containerProperties"
 }
-record ContainerInfo {
-
+record ContainerProperties {
   /**
    * Display name of the Asset Container
    */
@@ -19,8 +18,7 @@ record ContainerInfo {
   name: string
 
   /**
-   * Description of the Asset Container
+   * Description of the Asset Container as its received from a source system
    */
   description: optional string
-
 }

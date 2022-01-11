@@ -60,6 +60,11 @@ type Query {
     glossaryTerm(urn: String!): GlossaryTerm
 
     """
+    Fetch an Entity Container by primary key (urn)
+    """
+    container(urn: String!): Container
+
+    """
     List all DataHub Access Policies
     """
     listPolicies(input: ListPoliciesInput!): ListPoliciesResult
@@ -196,7 +201,7 @@ type Mutation {
     removeLink(input: RemoveLinkInput!): Boolean
 
     """
-    Incubating. Updates the description of a resource. Currently only supports Dataset Schema Fields
+    Incubating. Updates the description of a resource. Currently only supports Dataset Schema Fields, Containers
     """
     updateDescription(input: DescriptionUpdateInput!): Boolean
 
@@ -304,6 +309,11 @@ enum EntityType {
     The Glossary Term Entity
     """
     GLOSSARY_TERM
+
+    """
+    A container of Metadata Entities
+    """
+    CONTAINER
 
     """
     The ML Model Entity
@@ -996,6 +1006,131 @@ enum FabricType {
     Designates corporation fabrics
     """
     CORP
+}
+
+"""
+A container of other Metadata Entities
+"""
+type Container implements Entity {
+    """
+    The primary key of the container
+    """
+    urn: String!
+
+    """
+    A standard Entity Type
+    """
+    type: EntityType!
+
+    """
+    Display name of the container
+    """
+    name: String!
+
+    """
+    Read-only properties that originate in the source data platform
+    """
+    properties: ContainerProperties
+
+    """
+    Read-write properties that originate in DataHub
+    """
+    editableProperties: ContainerEditableProperties
+
+    """
+    Children entities inside of the Container
+    """
+    entities(input: ContainerEntitiesInput!): ContainerEntitiesResult
+
+    """
+    Edges extending from this entity
+    """
+    relationships(input: RelationshipsInput!): EntityRelationshipsResult
+}
+
+"""
+Read-only properties that originate in the source data platform
+"""
+type ContainerProperties {
+  """
+  System description of the Container
+  """
+  description: String!
+}
+
+"""
+Read-write properties that originate in DataHub
+"""
+type ContainerEditableProperties {
+  """
+  DataHub description of the Container
+  """
+  description: String!
+}
+
+"""
+Input required to fetch the entities inside of a container.
+"""
+input ContainerEntitiesInput {
+  """
+  Optional query filter for particular entities inside the container
+  """
+  query: String
+
+  """
+  The offset of the result set
+  """
+  start: Int
+
+  """
+  The number of entities to include in result set
+  """
+  count: Int
+
+  """
+  Optional Facet filters to apply to the result set
+  """
+  filters: [FacetFilterInput!]
+}
+
+"""
+Result of a Container Entities fetch
+"""
+type ContainerEntitiesResult {
+  """
+  The offset of the result set
+  """
+  start: Int!
+
+  """
+  The number of entities included in the result set
+  """
+  count: Int!
+
+  """
+  The total number of search results matching the query and filters
+  """
+  total: Int!
+
+  """
+  The entity results
+  """
+  entities: [ContainerEntityResult!]!
+
+  """
+  Candidate facet aggregations used for search filtering
+  """
+  facets: [FacetMetadata!]
+}
+
+"""
+Result of a Container Entities fetch
+"""
+type ContainerEntityResult {
+  """
+  The resolved DataHub Metadata Entity inside the container
+  """
+  entity: Entity!
 }
 
 """
@@ -3944,7 +4079,7 @@ input DescriptionUpdateInput {
     subResourceType: SubResourceType
 
     """
-    A sub resource identitifer, eg dataset field path
+    A sub resource identifier, eg dataset field path
     """
     subResource: String
 }
