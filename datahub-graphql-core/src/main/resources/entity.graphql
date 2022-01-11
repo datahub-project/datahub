@@ -5140,7 +5140,7 @@ type Domain implements Entity {
     """
     Children entities inside of the Domain
     """
-    entities(input: ContainerEntitiesInput!): DomainEntitiesResult
+    entities(input: DomainEntitiesInput!): DomainEntitiesResult
 
     """
     Edges extending from this entity

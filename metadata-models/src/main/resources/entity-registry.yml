@@ -43,5 +43,5 @@ entities:
     doc: A data domain within an organization.
     keyAspect: domainKey
     aspects:
-      - domainInfo
+      - domainProperties
       - ownership

@@ -4,9 +4,9 @@ namespace com.linkedin.domain
  * Information about a Domain
  */
 @Aspect = {
-  "name": "domainInfo"
+  "name": "domainProperties"
 }
-record DomainInfo {
+record DomainProperties {
 
   /**
    * Display name of the Domain
