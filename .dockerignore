@@ -7,7 +7,6 @@ out
 **/build/**/*.jar
 # Content in .git is used to get the git version
 # Just ignore the heavy parts that are not used
-#.git/objects
 .git/logs
 .git/COMMIT_*
 .git/index
