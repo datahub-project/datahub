@@ -19,7 +19,7 @@ public class MclConsumerConfig {
   private final Map<String, Object> config;
   private final String configJson;
 
-  private static ObjectMapper OBJECT_MAPPER =
+  private static final ObjectMapper OBJECT_MAPPER =
       new ObjectMapper().setSerializationInclusion(JsonInclude.Include.NON_NULL);
 
   public MclConsumerConfig(GitVersion gitVersion) throws JsonProcessingException {

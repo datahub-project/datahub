@@ -15,14 +15,14 @@ import org.springframework.web.bind.annotation.ResponseBody;
 
 @Controller
 @Import(GitVersionFactory.class)
-public class MceConsumerConfig {
+public class McpConsumerConfig {
   private final Map<String, Object> config;
   private final String configJson;
 
-  private static ObjectMapper OBJECT_MAPPER =
+  private static final ObjectMapper OBJECT_MAPPER =
       new ObjectMapper().setSerializationInclusion(JsonInclude.Include.NON_NULL);
 
-  public MceConsumerConfig(GitVersion gitVersion) throws JsonProcessingException {
+  public McpConsumerConfig(GitVersion gitVersion) throws JsonProcessingException {
     config = new HashMap<>();
     config.put("noCode", "true");
 
