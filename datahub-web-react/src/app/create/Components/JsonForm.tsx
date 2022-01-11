@@ -104,7 +104,7 @@ export const JsonForm = () => {
             fields: flattenFields,
             dataset_owner: user?.corpUser?.username,
             dataset_type: 'json',
-            user_token: userToken
+            user_token: userToken,
         };
         console.log('Received data:', data);
         // POST request using axios with error handling
