@@ -2,12 +2,12 @@ package com.linkedin.metadata.search.elasticsearch.query.request;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.data.template.StringArray;
-import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.search.utils.ESUtils;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -22,9 +22,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.index.query.BoolQueryBuilder;
-import org.elasticsearch.index.query.MultiMatchQueryBuilder;
+import org.elasticsearch.index.query.Operator;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.index.query.QueryStringQueryBuilder;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.elasticsearch.search.fetch.subphase.highlight.HighlightBuilder;
@@ -38,6 +39,7 @@ public class AutocompleteRequestHandler {
 
   private static final Map<EntitySpec, AutocompleteRequestHandler> AUTOCOMPLETE_QUERY_BUILDER_BY_ENTITY_NAME =
       new ConcurrentHashMap<>();
+  private QueryStringQueryBuilder _autocompleteQueryBuilder;
 
   public AutocompleteRequestHandler(@Nonnull EntitySpec entitySpec) {
     _defaultAutocompleteFields = entitySpec.getSearchableFieldSpecs()
@@ -71,10 +73,14 @@ public class AutocompleteRequestHandler {
     List<String> fieldNames = getAutocompleteFields(field).stream()
         .flatMap(fieldName -> Stream.of(fieldName, fieldName + ".ngram"))
         .collect(Collectors.toList());
-    MultiMatchQueryBuilder autocompleteQueryBuilder =
-        QueryBuilders.multiMatchQuery(query, fieldNames.toArray(new String[0]));
-    autocompleteQueryBuilder.analyzer(ANALYZER);
-    finalQuery.should(autocompleteQueryBuilder);
+    QueryStringQueryBuilder _autocompleteQueryBuilder = QueryBuilders.queryStringQuery(query);
+    _autocompleteQueryBuilder.analyzer(ANALYZER);
+    _autocompleteQueryBuilder.defaultOperator(Operator.AND);
+    getAutocompleteFields(field).forEach(fieldName -> {
+      _autocompleteQueryBuilder.field(fieldName, 4);
+      _autocompleteQueryBuilder.field(fieldName + ".ngram");
+    });
+    finalQuery.must(_autocompleteQueryBuilder);
     finalQuery.mustNot(QueryBuilders.matchQuery("removed", true));
     return finalQuery;
   }
