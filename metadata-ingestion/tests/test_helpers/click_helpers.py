@@ -5,8 +5,8 @@ from typing import List, Optional
 from click.testing import CliRunner, Result
 
 from datahub.entrypoints import datahub
-from tests.test_helpers import fs_helpers
 from datahub.telemetry.telemetry import telemetry_instance
+from tests.test_helpers import fs_helpers
 
 # disable telemetry for tests under this instance
 telemetry_instance.enabled = False
