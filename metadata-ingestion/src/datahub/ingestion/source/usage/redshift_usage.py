@@ -2,7 +2,7 @@ import collections
 import dataclasses
 import logging
 from datetime import datetime
-from typing import Dict, Iterable, List
+from typing import Any, Dict, Iterable, List, Optional, Union
 
 from dateutil import parser
 from pydantic import Field
@@ -12,12 +12,18 @@ from sqlalchemy.engine import Engine
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.time_window_config import get_time_bucket
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.redshift import RedshiftConfig
 from datahub.ingestion.source.usage.usage_common import (
     BaseUsageConfig,
     GenericAggregatedDataset,
+)
+from datahub.metadata.schema_classes import (
+    ChangeTypeClass,
+    OperationClass,
+    OperationTypeClass,
 )
 
 logger = logging.getLogger(__name__)
@@ -93,7 +99,18 @@ class RedshiftUsageSource(Source):
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         """Gets Redshift usage stats as work units"""
-        access_events = self._get_redshift_history()
+        engine = self._make_sql_engine()
+
+        if self.config.include_operational_stats:
+            operation_aspect_work_units = (
+                self._get_all_operation_aspect_work_units_by_type(engine)
+            )
+            for operation_aspect_work_unit in operation_aspect_work_units:
+                yield operation_aspect_work_unit
+
+        access_events = self._get_redshift_history(
+            self._make_usage_query(redshift_usage_sql_comment), engine
+        )
         # If the query results is empty, we don't want to proceed
         if not access_events:
             return []
@@ -107,11 +124,75 @@ class RedshiftUsageSource(Source):
                 self.report.report_workunit(wu)
                 yield wu
 
-    def _make_usage_query(self) -> str:
-        return redshift_usage_sql_comment.format(
+    def _get_operation_aspect_work_units_by_type(
+        self, operation_type: Union[str, "OperationTypeClass"], engine: Engine
+    ) -> Iterable[MetadataWorkUnit]:
+        if operation_type == OperationTypeClass.INSERT:
+            table_name = "stl_insert"
+        elif operation_type == OperationTypeClass.DELETE:
+            table_name = "stl_delete"
+        else:
+            return []
+        events = self._get_redshift_history(
+            self._make_redshift_operation_aspect_query(table_name), engine
+        )
+        if not events:
+            return []
+        access_events = self._get_joined_access_event(events)
+        work_units = self._aggregate_operation_aspect_events(
+            access_events, operation_type
+        )
+        for wu in work_units:
+            self.report.report_workunit(wu)
+            yield wu
+
+    def _get_all_operation_aspect_work_units_by_type(
+        self, engine: Engine
+    ) -> Iterable[MetadataWorkUnit]:
+        insert_work_units = self._get_operation_aspect_work_units_by_type(
+            OperationTypeClass.INSERT, engine
+        )
+        for insert_work_unit in insert_work_units:
+            self.report.report_workunit(insert_work_unit)
+            yield insert_work_unit
+
+        delete_work_units = self._get_operation_aspect_work_units_by_type(
+            OperationTypeClass.DELETE, engine
+        )
+        for delete_work_unit in delete_work_units:
+            self.report.report_workunit(delete_work_unit)
+            yield delete_work_unit
+
+    def _make_usage_query(self, query: str) -> str:
+        return query.format(
             start_time=self.config.start_time.strftime(redshift_datetime_format),
             end_time=self.config.end_time.strftime(redshift_datetime_format),
         )
+
+    def _make_redshift_operation_aspect_query(self, table_name: str) -> str:
+        return f"""
+        SELECT DISTINCT ss.userid,
+               ss.query,
+               ss.rows,
+               sui.usename,
+               ss.tbl,
+               sq.querytxt,
+               sti.database,
+               sti.schema,
+               sti.table,
+               sq.starttime,
+               sq.endtime,
+               sq.aborted
+        FROM {table_name} ss
+        JOIN svv_table_info sti ON ss.tbl = sti.table_id
+        JOIN stl_query sq ON ss.query = sq.query
+        JOIN svl_user_info sui ON sq.userid = sui.usesysid
+        WHERE ss.starttime >= '{self.config.start_time.strftime(redshift_datetime_format)}'
+        AND ss.starttime < '{self.config.end_time.strftime(redshift_datetime_format)}'
+        AND ss.rows > 0
+        AND sq.aborted = 0
+        ORDER BY ss.endtime DESC;
+        """.strip()
 
     def _make_sql_engine(self) -> Engine:
         url = self.config.get_sql_alchemy_url()
@@ -119,9 +200,9 @@ class RedshiftUsageSource(Source):
         engine = create_engine(url, **self.config.options)
         return engine
 
-    def _get_redshift_history(self):
-        query = self._make_usage_query()
-        engine = self._make_sql_engine()
+    def _get_redshift_history(
+        self, query: str, engine: Engine
+    ) -> Optional[Iterable[Any]]:
         results = engine.execute(query)
         events = []
         for row in results:
@@ -182,6 +263,44 @@ class RedshiftUsageSource(Source):
 
             joined_access_events.append(RedshiftJoinedAccessEvent(**event_dict))
         return joined_access_events
+
+    def _aggregate_operation_aspect_events(
+        self,
+        events: List[RedshiftJoinedAccessEvent],
+        operation_type: Union[str, "OperationTypeClass"],
+    ) -> Iterable[MetadataWorkUnit]:
+        for event in events:
+            if (
+                event.database
+                and event.usename
+                and event.schema_
+                and event.table
+                and event.endtime
+            ):
+                resource = f"{event.database}.{event.schema_}.{event.table}"
+                last_updated_timestamp: int = int(event.endtime.timestamp() * 1000)
+                user_email = event.usename
+
+                operation_aspect = OperationClass(
+                    timestampMillis=last_updated_timestamp,
+                    lastUpdatedTimestamp=last_updated_timestamp,
+                    actor=builder.make_user_urn(user_email.split("@")[0]),
+                    operationType=operation_type,
+                )
+                mcp = MetadataChangeProposalWrapper(
+                    entityType="dataset",
+                    aspectName="operation",
+                    changeType=ChangeTypeClass.UPSERT,
+                    entityUrn=builder.make_dataset_urn(
+                        "redshift", resource.lower(), self.config.env
+                    ),
+                    aspect=operation_aspect,
+                )
+                wu = MetadataWorkUnit(
+                    id=f"operation-aspect-{event.table}-{event.endtime.isoformat()}",
+                    mcp=mcp,
+                )
+                yield wu
 
     def _aggregate_access_events(
         self, events: List[RedshiftJoinedAccessEvent]

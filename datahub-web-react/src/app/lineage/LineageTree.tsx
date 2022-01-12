@@ -1,9 +1,10 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useContext, useEffect, useMemo, useState } from 'react';
 import { TransformMatrix } from '@vx/zoom/lib/types';
 
 import { NodeData, Direction, EntitySelectParams, TreeProps } from './types';
 import LineageTreeNodeAndEdgeRenderer from './LineageTreeNodeAndEdgeRenderer';
 import layoutTree from './utils/layoutTree';
+import { LineageExplorerContext } from './utils/LineageExplorerContext';
 
 type LineageTreeProps = {
     data: NodeData;
@@ -41,6 +42,7 @@ export default function LineageTree({
     setDraggedNodes,
 }: LineageTreeProps) {
     const [xCanvasScale, setXCanvasScale] = useState(1);
+    const { expandTitles } = useContext(LineageExplorerContext);
 
     useEffect(() => {
         setXCanvasScale(1);
@@ -49,8 +51,8 @@ export default function LineageTree({
     let dragState: { urn: string; x: number; y: number } | undefined;
 
     const { nodesToRender, edgesToRender, nodesByUrn, layers } = useMemo(
-        () => layoutTree(data, direction, draggedNodes, canvasHeight),
-        [data, direction, draggedNodes, canvasHeight],
+        () => layoutTree(data, direction, draggedNodes, canvasHeight, expandTitles),
+        [data, direction, draggedNodes, canvasHeight, expandTitles],
     );
 
     const dragContinue = (event: MouseEvent) => {

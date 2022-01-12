@@ -399,6 +399,7 @@ export const dataset3 = {
     tagProposals: null,
     termProposals: null,
     constraints: null,
+    operations: null,
     datasetProfiles: [
         {
             rowCount: 10,

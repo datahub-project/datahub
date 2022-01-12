@@ -109,6 +109,7 @@ import com.linkedin.datahub.graphql.resolvers.search.AutoCompleteForMultipleReso
 import com.linkedin.datahub.graphql.resolvers.search.SearchResolver;
 import com.linkedin.datahub.graphql.resolvers.type.EntityInterfaceTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.type.PlatformSchemaUnionTypeResolver;
+import com.linkedin.datahub.graphql.types.common.mappers.OperationMapper;
 import com.linkedin.datahub.graphql.types.dataset.mappers.DatasetProfileMapper;
 import com.linkedin.datahub.graphql.types.mlmodel.MLFeatureTableType;
 import com.linkedin.datahub.graphql.types.mlmodel.MLFeatureType;
@@ -126,6 +127,7 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.recommendation.RecommendationsService;
 import com.linkedin.metadata.graph.GraphClient;
+import com.linkedin.metadata.version.GitVersion;
 import com.linkedin.usage.UsageClient;
 import graphql.execution.DataFetcherResult;
 import graphql.schema.idl.RuntimeWiring;
@@ -165,6 +167,7 @@ public class GmsGraphQLEngine {
     private final RecommendationsService recommendationsService;
     private final EntityRegistry entityRegistry;
     private final TokenService tokenService;
+    private final GitVersion gitVersion;
 
     private final DatasetType datasetType;
     private final CorpUserType corpUserType;
@@ -219,6 +222,7 @@ public class GmsGraphQLEngine {
             null,
             null,
             null,
+            null,
             null);
     }
 
@@ -230,7 +234,8 @@ public class GmsGraphQLEngine {
         final EntityService entityService,
         final RecommendationsService recommendationsService,
         final TokenService tokenService,
-        final EntityRegistry entityRegistry
+        final EntityRegistry entityRegistry,
+        final GitVersion gitVersion
         ) {
 
         this.entityClient = entityClient;
@@ -242,6 +247,7 @@ public class GmsGraphQLEngine {
         this.recommendationsService = recommendationsService;
         this.tokenService = tokenService;
         this.entityRegistry = entityRegistry;
+        this.gitVersion = gitVersion;
 
         this.datasetType = new DatasetType(entityClient);
         this.corpUserType = new CorpUserType(entityClient);
@@ -458,7 +464,7 @@ public class GmsGraphQLEngine {
     private void configureQueryResolvers(final RuntimeWiring.Builder builder) {
         builder.type("Query", typeWiring -> typeWiring
             .dataFetcher("appConfig",
-                new AppConfigResolver(analyticsService != null))
+                new AppConfigResolver(gitVersion, analyticsService != null))
             .dataFetcher("me", new AuthenticatedResolver<>(
                     new MeResolver(this.entityClient)))
             .dataFetcher("search", new AuthenticatedResolver<>(
@@ -644,6 +650,14 @@ public class GmsGraphQLEngine {
                         "datasetProfile",
                         DatasetProfileMapper::map
                     )
+                ))
+                .dataFetcher("operations", new AuthenticatedResolver<>(
+                        new TimeSeriesAspectResolver(
+                                this.entityClient,
+                                "dataset",
+                                "operation",
+                                OperationMapper::map
+                        )
                 ))
                 .dataFetcher("usageStats", new AuthenticatedResolver<>(new UsageTypeResolver()))
                 .dataFetcher("schemaMetadata", new AuthenticatedResolver<>(
