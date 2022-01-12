@@ -224,6 +224,7 @@ class Pipeline:
         click.echo(self.source.get_report().as_string())
         click.secho(f"Sink ({self.config.sink.type}) report:", bold=True)
         click.echo(self.sink.get_report().as_string())
+        click.echo()
         if self.source.get_report().failures or self.sink.get_report().failures:
             click.secho("Pipeline finished with failures", fg="bright_red", bold=True)
             return 1
