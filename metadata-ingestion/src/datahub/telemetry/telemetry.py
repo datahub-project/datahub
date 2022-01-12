@@ -109,6 +109,10 @@ class Telemetry:
             "cid": self.client_id,  # client id
             "ec": category,  # event category
             "ea": action,  # event action
+            # use custom dimensions to capture OS and Python version
+            # see https://developers.google.com/analytics/devguides/collection/protocol/v1/parameters#cd_
+            "cd1": platform.system(),  # OS
+            "cd2": platform.python_version(),  # Python version
         }
 
         if label:
@@ -123,8 +127,7 @@ class Telemetry:
                 req_url,
                 data=params,
                 headers={
-                    # "user-agent": f"datahub {datahub_package.nice_version_name()}"
-                    "user-agent": f"{platform.system()} | Python {platform.python_version()}"
+                    "user-agent": f"datahub {datahub_package.nice_version_name()}"
                 },
             )
         except Exception as e:

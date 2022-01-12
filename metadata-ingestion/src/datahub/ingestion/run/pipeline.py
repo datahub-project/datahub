@@ -149,9 +149,11 @@ class Pipeline:
         return cls(config, dry_run=dry_run, preview_mode=preview_mode)
 
     def run(self) -> None:
-        
+
         start_time = datetime.datetime.now()
-        
+
+        total_records_ingested = 0
+
         callback = LoggingCallback()
         extractor: Extractor = self.extractor_class()
         for wu in itertools.islice(
@@ -166,6 +168,7 @@ class Pipeline:
             for record_envelope in self.transform(record_envelopes):
                 if not self.dry_run:
                     self.sink.write_record_async(record_envelope, callback)
+                    total_records_ingested += 1
 
             extractor.close()
             if not self.dry_run:
@@ -180,10 +183,11 @@ class Pipeline:
                 "Pipeline failed. Not closing the source to prevent bad commits."
             )
         else:
+            self.total_records_ingested = total_records_ingested
             self.source.close()
-            
+
         end_time = datetime.datetime.now()
-        
+
         self.time_taken = end_time - start_time
 
     def transform(self, records: Iterable[RecordEnvelope]) -> Iterable[RecordEnvelope]:
@@ -212,12 +216,15 @@ class Pipeline:
             )
 
     def send_telemetry_summary(self) -> None:
-        source_type = type(self.source).__name__
-        sink_type = type(self.sink).__name__
 
-        telemetry.telemetry_instance.ping("ingest", "source_type", source_type)
-        telemetry.telemetry_instance.ping("ingest", "sink_type", sink_type)
-        telemetry.telemetry_instance.ping("ingest", "ingestion_stats", "time_taken", int(self.time_taken.total_seconds()))
+        telemetry.telemetry_instance.ping("ingest", "source_type", self.config.source.type)
+        telemetry.telemetry_instance.ping("ingest", "sink_type", self.config.sink.type)
+        telemetry.telemetry_instance.ping(
+            "ingest",
+            "ingestion_stats",
+            "records_ingested",
+            self.sink.get_report().records_written,
+        )
 
     def pretty_print_summary(self, warnings_as_failure: bool = False) -> int:
         click.echo()
@@ -225,8 +232,6 @@ class Pipeline:
         click.echo(self.source.get_report().as_string())
         click.secho(f"Sink ({self.config.sink.type}) report:", bold=True)
         click.echo(self.sink.get_report().as_string())
-        click.echo()
-        click.echo(f"Runtime: {self.time_taken.total_seconds()}s")
         if self.source.get_report().failures or self.sink.get_report().failures:
             click.secho("Pipeline finished with failures", fg="bright_red", bold=True)
             return 1
