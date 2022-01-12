@@ -1,13 +1,13 @@
 import json
 import logging
 import os
+import platform
 import uuid
 from functools import wraps
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional, TypeVar, Union
 
 import requests
-import platform
 
 import datahub as datahub_package
 
