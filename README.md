@@ -81,8 +81,7 @@ There's a [hosted demo environment](https://datahubproject.io/docs/demo) where y
 
 ## Source Code and Repositories
 
-- [linkedin/datahub](https://github.com/linkedin/datahub): This repository contains the complete source code for both DataHub's frontend & backend services.
-- [linkedin/datahub-gma](https://github.com/linkedin/datahub-gma): This repository contains the source code for DataHub's metadata infrastructure libraries (Generalized Metadata Architecture, or GMA).
+- [linkedin/datahub](https://github.com/linkedin/datahub): This repository contains the complete source code for DataHub's metadata model, metadata services, integration connectors and the web application.
 
 ## Documentation
 
