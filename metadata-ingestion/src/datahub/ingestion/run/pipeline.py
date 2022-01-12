@@ -150,10 +150,6 @@ class Pipeline:
 
     def run(self) -> None:
 
-        start_time = datetime.datetime.now()
-
-        total_records_ingested = 0
-
         callback = LoggingCallback()
         extractor: Extractor = self.extractor_class()
         for wu in itertools.islice(
@@ -168,7 +164,6 @@ class Pipeline:
             for record_envelope in self.transform(record_envelopes):
                 if not self.dry_run:
                     self.sink.write_record_async(record_envelope, callback)
-                    total_records_ingested += 1
 
             extractor.close()
             if not self.dry_run:
@@ -183,12 +178,7 @@ class Pipeline:
                 "Pipeline failed. Not closing the source to prevent bad commits."
             )
         else:
-            self.total_records_ingested = total_records_ingested
             self.source.close()
-
-        end_time = datetime.datetime.now()
-
-        self.time_taken = end_time - start_time
 
     def transform(self, records: Iterable[RecordEnvelope]) -> Iterable[RecordEnvelope]:
         """
@@ -215,7 +205,7 @@ class Pipeline:
                 "Source reported warnings", self.source.get_report()
             )
 
-    def send_telemetry_summary(self) -> None:
+    def log_ingestion_stats(self) -> None:
 
         telemetry.telemetry_instance.ping("ingest", "source_type", self.config.source.type)
         telemetry.telemetry_instance.ping("ingest", "sink_type", self.config.sink.type)

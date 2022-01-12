@@ -82,7 +82,7 @@ def run(config: str, dry_run: bool, preview: bool, strict_warnings: bool) -> Non
     pipeline.run()
     logger.info("Finished metadata ingestion")
     ret = pipeline.pretty_print_summary(warnings_as_failure=strict_warnings)
-    pipeline.send_telemetry_summary()
+    pipeline.log_ingestion_stats()
     sys.exit(ret)
 
 
