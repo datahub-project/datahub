@@ -9,7 +9,7 @@ _If you have suggestions about what we should consider in future cycles, feel fr
 
 ## Historical Roadmap
 
-_This following represents the progress made on roadmap items as of January 2022. For incomplete roadmap items, we have created Feature Requests to gauge current community interest & impact to be considered in future cycles. We encourage Community Members to upvote on items that are still of high-interest, and to subscribe to posts for updates as we progress through the work in future cycles._
+_This following represents the progress made on historical roadmap items as of January 2022. For incomplete roadmap items, we have created Feature Requests to gauge current community interest & impact to be considered in future cycles. If you see something that is still of high-interest to you, please up-vote via the Feature Request portal link and subscribe to the post for updates as we progress through the work in future cycles._
 
 ### Q4 2021 [Oct - Dec 2021]
 
