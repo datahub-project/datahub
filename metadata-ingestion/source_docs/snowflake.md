@@ -193,23 +193,24 @@ Snowflake integration also supports prevention of redundant reruns for the same 
 Note that a `.` is used to denote nested fields in the YAML recipe.
 
 
-| Field              | Required | Default                                                             | Description                                                                      |
-|--------------------|----------|---------------------------------------------------------------------|----------------------------------------------------------------------------------|
-| `username`         |          |                                                                     | Snowflake username.                                                              |
-| `password`         |          |                                                                     | Snowflake password.                                                              |
-| `host_port`        | ✅        |                                                                     | Snowflake host URL.                                                              |
-| `warehouse`        |          |                                                                     | Snowflake warehouse.                                                             |
-| `role`             |          |                                                                     | Snowflake role.                                                                  |
-| `env`              |          | `"PROD"`                                                            | Environment to use in namespace when constructing URNs.                          |
-| `bucket_duration`  |          | `"DAY"`                                                             | Duration to bucket usage events by. Can be `"DAY"` or `"HOUR"`.                  |
-| `email_domain`     |          |                                                                     | Email domain of your organisation so users can be displayed on UI appropriately. |
-| `start_time`       |          | Last full day in UTC (or hour, depending on `bucket_duration`)      | Earliest date of usage logs to consider.                                         |
-| `end_time`         |          | Last full day in UTC (or hour, depending on `bucket_duration`)      | Latest date of usage logs to consider.                                           |
-| `top_n_queries`    |          | `10`                                                                | Number of top queries to save to each table.                                     |
-| `database_pattern` |          | `"^UTIL_DB$" `<br />`"^SNOWFLAKE$"`<br />`"^SNOWFLAKE_SAMPLE_DATA$" | Allow/deny patterns for db in snowflake dataset names.                           |
-| `schema_pattern`   |          |                                                                     | Allow/deny patterns for schema in snowflake dataset names.                       |
-| `view_pattern`     |          |                                                                     | Allow/deny patterns for views in snowflake dataset names.                        |
-| `table_pattern`    |          |                                                                     | Allow/deny patterns for tables in snowflake dataset names.                       |
+| Field                       | Required | Default                                                             | Description                                                                      |
+|-----------------------------|----------|---------------------------------------------------------------------|----------------------------------------------------------------------------------|
+| `username`                  |          |                                                                     | Snowflake username.                                                              |
+| `password`                  |          |                                                                     | Snowflake password.                                                              |
+| `host_port`                 | ✅        |                                                                     | Snowflake host URL.                                                              |
+| `warehouse`                 |          |                                                                     | Snowflake warehouse.                                                             |
+| `role`                      |          |                                                                     | Snowflake role.                                                                  |
+| `env`                       |          | `"PROD"`                                                            | Environment to use in namespace when constructing URNs.                          |
+| `bucket_duration`           |          | `"DAY"`                                                             | Duration to bucket usage events by. Can be `"DAY"` or `"HOUR"`.                  |
+| `email_domain`              |          |                                                                     | Email domain of your organisation so users can be displayed on UI appropriately. |
+| `start_time`                |          | Last full day in UTC (or hour, depending on `bucket_duration`)      | Earliest date of usage logs to consider.                                         |
+| `end_time`                  |          | Last full day in UTC (or hour, depending on `bucket_duration`)      | Latest date of usage logs to consider.                                           |
+| `top_n_queries`             |          | `10`                                                                | Number of top queries to save to each table.                                     |
+| `include_operational_stats` |          | `true`                                                              | Whether to display operational stats.                                            |
+| `database_pattern`          |          | `"^UTIL_DB$" `<br />`"^SNOWFLAKE$"`<br />`"^SNOWFLAKE_SAMPLE_DATA$" | Allow/deny patterns for db in snowflake dataset names.                           |
+| `schema_pattern`            |          |                                                                     | Allow/deny patterns for schema in snowflake dataset names.                       |
+| `view_pattern`              |          |                                                                     | Allow/deny patterns for views in snowflake dataset names.                        |
+| `table_pattern`             |          |                                                                     | Allow/deny patterns for tables in snowflake dataset names.                       |
 
 :::caution
 

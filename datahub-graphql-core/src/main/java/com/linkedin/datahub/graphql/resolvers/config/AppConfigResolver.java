@@ -10,6 +10,7 @@ import com.linkedin.datahub.graphql.generated.IdentityManagementConfig;
 import com.linkedin.datahub.graphql.generated.PoliciesConfig;
 import com.linkedin.datahub.graphql.generated.Privilege;
 import com.linkedin.datahub.graphql.generated.ResourcePrivileges;
+import com.linkedin.metadata.version.GitVersion;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletableFuture;
@@ -21,9 +22,11 @@ import java.util.stream.Collectors;
  */
 public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfig>> {
 
-  private final Boolean _isAnalyticsEnabled;
+  private final GitVersion _gitVersion;
+  private final boolean _isAnalyticsEnabled;
 
-  public AppConfigResolver(final Boolean isAnalyticsEnabled) {
+  public AppConfigResolver(final GitVersion gitVersion, final boolean isAnalyticsEnabled) {
+    _gitVersion = gitVersion;
     _isAnalyticsEnabled = isAnalyticsEnabled;
   }
 
@@ -33,6 +36,8 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
     final QueryContext context = environment.getContext();
 
     final AppConfig appConfig = new AppConfig();
+
+    appConfig.setAppVersion(_gitVersion.getVersion());
 
     final AnalyticsConfig analyticsConfig = new AnalyticsConfig();
     analyticsConfig.setEnabled(_isAnalyticsEnabled);
