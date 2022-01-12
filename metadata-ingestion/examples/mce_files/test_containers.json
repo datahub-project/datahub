@@ -4,7 +4,7 @@
     "entityType":"container",
     "entityUrn": "urn:li:container:(mysql,instance1,MySchema.Database)",
     "changeType":"UPSERT",
-    "aspectName":"containerInfo",
+    "aspectName":"containerProperties",
     "aspect":{
       "value":"{\"name\": \"datahub\", \"description\": \"The DataHub container\" }",
       "contentType":"application/json"
@@ -37,8 +37,8 @@
   },
   {
     "auditHeader":null,
-    "entityType":"container",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,information_schema.VIEWS,PROD)",
+    "entityType":"dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,datahub.metadata_index,PROD)",
     "changeType":"UPSERT",
     "aspectName":"container",
     "aspect":{
