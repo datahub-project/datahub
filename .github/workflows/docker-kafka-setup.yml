@@ -71,7 +71,6 @@ jobs:
       - name: Build and Push image
         uses: docker/build-push-action@v2
         with:
-          context: .
           file: ./docker/kafka-setup/Dockerfile
           platforms: linux/amd64,linux/arm64
           context: ./docker/kafka-setup
