@@ -214,7 +214,7 @@ class Pipeline:
         telemetry.telemetry_instance.ping(
             "ingest",
             "ingestion_stats",
-            "records_ingested",
+            "records_written",
             self.sink.get_report().records_written,
         )
 
