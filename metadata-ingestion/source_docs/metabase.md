@@ -81,10 +81,18 @@ sink:
 | `username`           |    ✅     |                    | Metabase username.                                                     |
 | `password`           |    ✅     |                    | Metabase password.                                                     |
 | `database_alias_map` |          |                    | Database name map to use when constructing dataset URN.                |
+| `engine_platform_map`|          |                    | Custom mappings between metabase database engines and DataHub platforms |
 | `default_schema`     |          | `public`           | Default schema name to use when schema is not provided in an SQL query |
 | `env`                |          | `"PROD"`           | Environment to use in namespace when constructing URNs.                |
 
-
+Metabase databases will be mapped to a DataHub platform based on the engine listed in the
+[api/database](https://www.metabase.com/docs/latest/api-documentation.html#database) response. This mapping can be
+customized by using the `engine_platform_map` config option. For example, to map databases using the `athena` engine to
+the underlying datasets in the `glue` platform, the following snippet can be used:
+```yml
+  engine_platform_map:
+    athena: glue
+```
 DataHub will try to determine database name from Metabase [api/database](https://www.metabase.com/docs/latest/api-documentation.html#database)
 payload. However, the name can be overridden from `database_alias_map` for a given database connected to Metabase.
 
