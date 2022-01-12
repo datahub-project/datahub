@@ -1,1 +1,1 @@
-dev-with-elastic.sh
+dev-with-elasticsearch.sh
