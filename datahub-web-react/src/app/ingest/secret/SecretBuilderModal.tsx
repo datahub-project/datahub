@@ -1,5 +1,5 @@
 import { Button, Form, Input, Modal, Typography } from 'antd';
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { SecretBuilderState } from './types';
 
 type Props = {
