@@ -110,11 +110,22 @@ def generate(compose_files, output_file) -> None:
     for modified_file in modified_files:
         dict_merge(merged_docker_config, modified_file)
 
+    # Preserve existing header comments
+    comments = []
+    if os.path.isfile(output_file):
+        with open(output_file, "r") as conf_file:
+            for line in conf_file:
+                if not line.startswith("#"):
+                    break
+                comments.append(line.strip())
+
     # Write output file
     output_dir = os.path.dirname(output_file)
     if len(output_dir) and not os.path.exists(output_dir):
         os.makedirs(output_dir)
     with open(output_file, "w") as new_conf_file:
+        for comment in comments:
+            print(comment, file=new_conf_file)
         yaml.dump(
             merged_docker_config,
             new_conf_file,

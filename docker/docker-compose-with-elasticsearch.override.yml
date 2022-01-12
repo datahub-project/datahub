@@ -26,7 +26,7 @@ services:
       - mysql
 
   datahub-gms:
-    env_file: datahub-gms/env/docker-with-elastic.env
+    env_file: datahub-gms/env/docker-with-elasticsearch.env
     depends_on:
       - mysql
     volumes:
