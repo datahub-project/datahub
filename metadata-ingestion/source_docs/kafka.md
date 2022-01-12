@@ -37,6 +37,14 @@ sink:
 
 If using Confluent Cloud you can use a recipe like this. In this `consumer_config.sasl.username` and `consumer_config.sasl.password` are the API credentials that you get (in the Confluent UI) from your cluster -> Data Integration -> API Keys. `schema_registry_config.basic.auth.user.info`  has API credentials for Confluent schema registry which you get (in Confluent UI) from Schema Registry -> API credentials.
 
+When creating API Key for the cluster ensure that the ACLs associated with the key are set like below. This is required for DataHub to read topic metadata from topics in Confluent Cloud.
+```
+Topic Name = *
+Permission = ALLOW
+Operation = DESCRIBE
+Pattern Type = LITERAL
+```
+
 ```yml
 source:
   type: "kafka"
