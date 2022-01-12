@@ -7,7 +7,7 @@ import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
 import { useBaseEntity } from '../../../EntityContext';
 import { SpecifyBrowsePath } from '../../../../../create/Components/SpecifyBrowsePath';
 // import { useGetAuthenticatedUser } from '../../../../../useGetAuthenticatedUser';
-import { FindWhoAmI } from '../../../../dataset/whoAmI';
+import { FindMyUrn, FindWhoAmI, GetMyToken } from '../../../../dataset/whoAmI';
 import adhocConfig from '../../../../../../conf/Adhoc';
 
 function computeFinal(input) {
@@ -47,6 +47,9 @@ export const EditBrowsePathTable = () => {
     // const currDataset = useBaseEntity<GetDatasetOwnersGqlQuery>()?.dataset?.urn;
     // const currUser = useGetAuthenticatedUser()?.corpUser?.username || '-';
     const currUser = FindWhoAmI();
+    const currUserUrn = FindMyUrn();
+    const userToken = GetMyToken(currUserUrn);
+    console.log(`user is ${currUser} and token is ${userToken}, received at ${Date().toLocaleString()}`);
     // console.log(currUrn);
     const [form] = Form.useForm();
     const queryresult = gql`
@@ -74,6 +77,7 @@ export const EditBrowsePathTable = () => {
                 dataset_name: currUrn,
                 requestor: currUser,
                 browsePaths: values.browsepathList,
+                user_token: userToken,
             })
             .then((response) => printSuccessMsg(response.status))
             .catch((error) => {

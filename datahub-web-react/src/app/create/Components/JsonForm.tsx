@@ -15,7 +15,7 @@ export const JsonForm = () => {
     const user = useGetAuthenticatedUser();
     const userUrn = user?.corpUser?.urn || '';
     const userToken = GetMyToken(userUrn);
-    console.log(`user is ${userUrn} and token is ${userToken}`);
+    console.log(`user is ${userUrn} and token is ${userToken}, received at ${Date().toLocaleString()}`);
     const [state, setState] = useState({
         jsonSchema: {},
         key: '',

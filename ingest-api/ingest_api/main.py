@@ -59,7 +59,7 @@ else:
     log_path = f"{os.getcwd()}/logs/ingest_api.log"
 # I think its fine even if the json and log files get mixed in the same folder when running locally
 
-log = TimedRotatingFileHandler(log_path, when="midnight", interval=1, backupCount=14)
+log = TimedRotatingFileHandler(log_path, when="midnight", interval=1, backupCount=365)
 log.setLevel(logging.INFO)
 log.setFormatter(logformatter)
 
@@ -71,7 +71,7 @@ app = FastAPI(
     description="For generating datasets",
     version="0.0.2",
 )
-origins = ["http://localhost:9002", "http://172.19.0.1:9002", "http://localhost:3000"]
+origins = ["http://localhost:9002", "http://172.19.0.1:9002", "http://172.19.0.1:3000", "http://localhost:3000"]
 if environ.get("ACCEPT_ORIGINS") is not None:
     new_origin = environ["ACCEPT_ORIGINS"]
     origins.append(new_origin)
@@ -136,6 +136,7 @@ async def update_browsepath(item: browsepath_params):
         metadata_record=metadata_record,
         owner=item.requestor,
         event="UI Update Browsepath",
+        token=item.user_token
     )
     return JSONResponse(
         content=response.get("message", ""), status_code=response.get("status_code")
@@ -169,7 +170,8 @@ async def update_schema(item: schema_params):
     dataset_snapshot.aspects.append(schemaMetadata_aspect)
     metadata_record = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
     response = emit_mce_respond(
-        metadata_record=metadata_record, owner=item.requestor, event="UI Update Schema"
+        metadata_record=metadata_record, owner=item.requestor, event="UI Update Schema",
+        token=item.user_token
     )
     return JSONResponse(
         content=response.get("message", ""), status_code=response.get("status_code")
@@ -188,7 +190,7 @@ async def update_prop(item: prop_params):
     datasetName = item.dataset_name
     token = item.user_token
     user = item.requestor
-    if authenticate_action(token, user, dataset=datasetName):
+    if authenticate_action(token=token, user=user, dataset = datasetName):
         dataset_snapshot = DatasetSnapshot(
             urn=datasetName,
             aspects=[],
@@ -210,18 +212,20 @@ async def update_prop(item: prop_params):
             metadata_record=metadata_record,
             owner=item.requestor,
             event="UI Update Properties",
+            token = token,
         )
         return JSONResponse(
             content=response.get("message", ""), status_code=response.get("status_code")
         )
     else:
         return JSONResponse(
-            content="Authentication Failed", status_code=404
+            content="Authentication Failed", status_code=401
         )
 
 
 def emit_mce_respond(
-    metadata_record: MetadataChangeEvent, owner: str, event: str
+    metadata_record: MetadataChangeEvent, owner: str, event: str,
+    token: str
 ) -> dict():
     datasetName = metadata_record.proposedSnapshot.urn
     for mce in metadata_record.proposedSnapshot.aspects:
@@ -238,7 +242,7 @@ def emit_mce_respond(
         generate_json_output(metadata_record, "/var/log/ingest/json/")
     try:
         rootLogger.info(metadata_record)
-        emitter = DatahubRestEmitter(rest_endpoint)
+        emitter = DatahubRestEmitter(rest_endpoint, token=token)
         emitter.emit_mce(metadata_record)
         emitter._session.close()
     except Exception as e:
@@ -327,14 +331,14 @@ async def create_item(item: create_dataset_params) -> None:
         )
         metadata_record = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
         response = emit_mce_respond(
-            metadata_record=metadata_record, owner=requestor, event="Create Dataset"
+            metadata_record=metadata_record, owner=requestor, event="Create Dataset", token=token,
         )
         return JSONResponse(
             content=response.get("message", ""), status_code=response.get("status_code")
         )
     else:
         return JSONResponse(
-            content="Authentication Failed", status_code=404
+            content="Authentication Failed", status_code=401
         )
 
 
@@ -351,6 +355,7 @@ async def delete_item(item: dataset_status_params) -> None:
         metadata_record=mce,
         owner=item.requestor,
         event=f"Status Update removed:{item.desired_state}",
+        token = item.user_token,
     )
     return JSONResponse(
         content=response.get("message", ""), status_code=response.get("status_code")

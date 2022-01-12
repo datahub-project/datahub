@@ -6,7 +6,7 @@ import axios from 'axios';
 import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
 // import { useGetAuthenticatedUser } from '../../../../../useGetAuthenticatedUser';
 import { useBaseEntity } from '../../../EntityContext';
-import { FindWhoAmI } from '../../../../dataset/whoAmI';
+import { FindMyUrn, FindWhoAmI, GetMyToken } from '../../../../dataset/whoAmI';
 import adhocConfig from '../../../../../../conf/Adhoc';
 
 // function CheckStatus(queryresult, currDataset) {
@@ -48,6 +48,9 @@ export const DeleteSchemaTabv2 = () => {
 
     // const currUser = useGetAuthenticatedUser()?.corpUser?.username || '-';
     const currUser = FindWhoAmI();
+    const currUserUrn = FindMyUrn();
+    const userToken = GetMyToken(currUserUrn);
+    console.log(`user is ${currUser} and token is ${userToken}, received at ${Date().toLocaleString()}`);
     const printSuccessMsg = (status) => {
         message.success(`Status:${status} - Request submitted successfully`, 3).then();
     };
@@ -61,6 +64,7 @@ export const DeleteSchemaTabv2 = () => {
                 dataset_name: currDataset,
                 requestor: currUser,
                 desired_state: !CheckStatus(baseEntity),
+                user_token: userToken,
             })
             .then((response) => printSuccessMsg(response.status))
             .catch((exception) => {

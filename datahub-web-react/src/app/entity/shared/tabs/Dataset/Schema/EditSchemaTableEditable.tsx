@@ -7,7 +7,7 @@ import adhocConfig from '../../../../../../conf/Adhoc';
 import { useBaseEntity } from '../../../EntityContext';
 import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
 // import { useGetAuthenticatedUser } from '../../../../../useGetAuthenticatedUser';
-import { FindWhoAmI } from '../../../../dataset/whoAmI';
+import { FindMyUrn, FindWhoAmI, GetMyToken } from '../../../../dataset/whoAmI';
 // import { useBaseEntity } from '../../../EntityContext';
 // import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
 // editable version
@@ -21,6 +21,10 @@ export const EditSchemaTableEditable = () => {
     const queryFields = useBaseEntity<GetDatasetQuery>()?.dataset?.schemaMetadata?.fields;
     const urn = useBaseEntity<GetDatasetQuery>()?.dataset?.urn;
     const currUser = FindWhoAmI();
+    const currUserUrn = FindMyUrn();
+    const userToken = GetMyToken(currUserUrn);
+    console.log(`user is ${currUserUrn} and token is ${userToken}, received at ${Date().toLocaleString()}`);
+
     const dataSource = queryFields?.map((x, ind) => {
         return {
             key: ind,
@@ -213,7 +217,12 @@ export const EditSchemaTableEditable = () => {
 
     const submitData = () => {
         const dataClone = data.map((x) => x);
-        const dataSubmission = { dataset_name: urn, requestor: currUser, dataset_fields: dataClone };
+        const dataSubmission = {
+            dataset_name: urn,
+            requestor: currUser,
+            dataset_fields: dataClone,
+            user_token: userToken,
+        };
         axios
             .post(url, dataSubmission)
             .then((response) => printSuccessMsg(response.status))

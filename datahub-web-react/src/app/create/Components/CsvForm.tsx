@@ -13,7 +13,7 @@ export const CsvForm = () => {
     const user = useGetAuthenticatedUser();
     const userUrn = user?.corpUser?.urn || '';
     const userToken = GetMyToken(userUrn);
-    console.log(`user is ${userUrn} and token is ${userToken}`);
+    console.log(`user is ${userUrn} and token is ${userToken}, received at ${Date().toLocaleString()}`);
     const [fileType, setFileType] = useState({ dataset_type: 'application/octet-stream' });
     const [hasHeader, setHasHeader] = useState('no');
 

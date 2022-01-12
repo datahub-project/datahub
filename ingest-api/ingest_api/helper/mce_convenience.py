@@ -21,6 +21,12 @@ log = logging.getLogger(__name__)
 DEFAULT_ENV = "PROD"
 DEFAULT_FLOW_CLUSTER = "prod"
 
+CLI_MODE = False if os.environ.get("RUNNING_IN_DOCKER") else True
+if CLI_MODE:
+    os.environ['JWT_SECRET']='WnEdIeTG/VVCLQqGwC/BAkqyY0k+H8NEAtWGejrBI94='
+    os.environ['DATAHUB_AUTHENTICATE_INGEST']='True'
+    os.environ['DATAHUB_FRONTEND']='http://172.19.0.1:9002'
+
 datahub_url = os.environ["DATAHUB_FRONTEND"]
 T = TypeVar("T")
 
@@ -332,9 +338,10 @@ def verify_token(
     token: str, user: str
 ):
     token_secret = os.environ["JWT_SECRET"]
+    log.error(f'signtaure secret is {token_secret}')
     try:
         payload = jwt.decode(token, token_secret, algorithms="HS256")
-        if payload['payload']['actorId'] == user:
+        if payload['actorId'] == user:
             log.info(f"token verified for {user}")
             return True
         return False
@@ -345,13 +352,16 @@ def verify_token(
 def authenticate_action(
     token: str, user: str, dataset: str
     ):
-    if 'DATAHUB_AUTHENTICATE_INGEST' in os.environ:
-        authenticate_actions = os.environ['DATAHUB_AUTHENTICATE_INGEST']
+    if 'DATAHUB_AUTHENTICATE_INGEST' in os.environ:        
+        must_authenticate_actions = True if os.environ['DATAHUB_AUTHENTICATE_INGEST']=='True' else False
     else:
-        authenticate_actions = False
-    if authenticate_action:
-        if verify_token(token, user) and query_dataset_owner(token, dataset, user):
-            log.info(f"user {user} is authorized to do something")
+        must_authenticate_actions = False
+    log.info(f'Authenticate user setting is {must_authenticate_actions}')
+    log.info(f"Dataset being updated is {dataset}, requestor is {user}")
+    if must_authenticate_actions:
+        # if verify_token(token, user) and query_dataset_owner(token, dataset, user):
+        if query_dataset_owner(token, dataset, user):
+            log.error(f"user {user} is authorized to do something")
             return True
         else:
             log.info(f"user {user} is NOT authorized to do something")
@@ -369,7 +379,9 @@ def query_dataset_owner(
     Does not query members of groups that owns the dataset,
     because that query is more complicated.
     """
+    log.info(f'UI endpoint is {datahub_url}')
     query_endpoint= urljoin(datahub_url, '/api/graphiql')
+    log.info(f'I will query {query_endpoint}')
     headers = {}
     headers["Authorization"] = f"Bearer {token}"
     headers["Content-Type"] = "application/json"

@@ -11,6 +11,14 @@ export function FindWhoAmI() {
     const ans = data.me.corpUser.username;
     return ans;
 }
+
+export function FindMyUrn() {
+    const { loading, data } = useQuery(GetMeOnlyDocument);
+    if (loading) return '';
+    const ans = data.me.corpUser.urn;
+    return ans;
+}
+
 export function GetMyToken(userUrn: string) {
     const queryresult = gql`
         query getAccessToken($input: GetAccessTokenInput!) {
@@ -19,18 +27,23 @@ export function GetMyToken(userUrn: string) {
             }
         }
     `;
-    const { data, loading } = useQuery(queryresult, {
+    console.log(`gettoken: ${userUrn} is the ident.`);
+    const input = userUrn === '' ? 'urn:li:corpuser:datahub' : userUrn;
+    const { data, loading, error } = useQuery(queryresult, {
         variables: {
             input: {
                 type: 'PERSONAL',
-                actorUrn: userUrn,
+                actorUrn: input,
                 duration: 'ONE_HOUR',
             },
         },
-        skip: userUrn === '',
+        skip: input === 'urn:li:corpuser:datahub',
     });
+    if (error) return 'error...';
     if (loading) return 'Loading...';
     return data?.getAccessToken?.accessToken;
+    // need to use skip else it will keep attempting to query with incomplete info
+    // which leads to <Unauthorised User> pop up in UI.
 }
 // export function FindOwners(dataset) {
 //     console.log(`i call upon ${dataset}`);
