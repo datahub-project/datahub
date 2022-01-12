@@ -76,6 +76,7 @@ public class AutocompleteRequestHandler {
       autocompleteQueryBuilder.field(fieldName + ".ngram");
     });
     finalQuery.must(autocompleteQueryBuilder);
+
     finalQuery.mustNot(QueryBuilders.matchQuery("removed", true));
     return finalQuery;
   }
