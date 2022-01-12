@@ -68,6 +68,49 @@ curl --location --request POST 'http://localhost:8080/api/graphql' \
 
 Note that per-field filtering criteria may additionally be provided. 
 
+### Querying for owners of a dataset
+
+As GraphQL:
+
+```graphql
+query {
+  dataset(urn: "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleHdfsDataset,PROD)") {
+    ownership {
+      owners {
+        owner {
+          ... on CorpUser {
+            urn
+            type
+          }
+          ... on CorpGroup {
+            urn
+            type
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+### Querying for tags of a dataset
+
+As GraphQL:
+
+```graphql 
+query {
+  dataset(urn: "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleHdfsDataset,PROD)") {
+    tags {
+      tags {
+        tag {
+          name
+        }
+      }
+    }
+  }
+}
+```
+
 ### Coming soon
 
 List Metadata Entities! listDatasets, listDashboards, listCharts, listDataFlows, listDataJobs, listTags
