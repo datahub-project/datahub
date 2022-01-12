@@ -79,7 +79,8 @@ looker_common = {
 
 bigquery_common = {
     # Google cloud logging library
-    "google-cloud-logging"
+    "google-cloud-logging",
+    "more-itertools>=8.12.0",
 }
 
 # Note: for all of these, framework_common will be added.
@@ -95,7 +96,7 @@ plugins: Dict[str, Set[str]] = {
     "athena": sql_common | {"PyAthena[SQLAlchemy]"},
     "azure-ad": set(),
     "bigquery": sql_common | bigquery_common | {"pybigquery >= 0.6.0"},
-    "bigquery-usage": bigquery_common | {"cachetools", "more-itertools>=8.12.0"},
+    "bigquery-usage": bigquery_common | {"cachetools"},
     "datahub-business-glossary": set(),
     "dbt": {"requests"},
     "druid": sql_common | {"pydruid>=0.6.2"},
@@ -112,7 +113,8 @@ plugins: Dict[str, Set[str]] = {
     "ldap": {"python-ldap>=2.4"},
     "looker": looker_common,
     # lkml>=1.1.2 is required to support the sql_preamble expression in LookML
-    "lookml": looker_common | {"lkml>=1.1.2", "sql-metadata==2.2.2", "sqllineage==1.3.3"},
+    "lookml": looker_common
+    | {"lkml>=1.1.2", "sql-metadata==2.2.2", "sqllineage==1.3.3"},
     "metabase": {"requests", "sqllineage==1.3.3"},
     "mode": {"requests", "sqllineage==1.3.3"},
     "mongodb": {"pymongo>=3.11"},
