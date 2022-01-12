@@ -11,8 +11,6 @@ From time to time we also use the opportunity to showcase upcoming features.
 
 You can join with this link https://zoom.datahubproject.io, or [RSVP](https://www.addevent.com/event/WE11214120) to get a calendar invite. 
 
-- Topic Proposals: [submit here](https://docs.google.com/forms/d/1v2ynbAXjJlqY97xE_X1DAntNrXDznOFiNfryUkMPtkI/)
-
 ## Agenda
 
 TBD!
