@@ -1,4 +1,4 @@
-# this file is copied to docker-compose-without-neo4j-m1.quickstart.yml, keep both in sync
+# this file is copied to docker-compose-without-neo4j.quickstart.yml, keep both in sync
 # see README.md for details
 networks:
   default:
@@ -17,26 +17,10 @@ services:
     - KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS=0
     - KAFKA_HEAP_OPTS=-Xms256m -Xmx256m
     hostname: broker
-    image: kymeric/cp-kafka:latest
+    image: confluentinc/cp-kafka:5.4.0
     ports:
     - 29092:29092
     - 9092:9092
-  datahub-actions:
-    depends_on:
-      - datahub-gms
-    environment:
-      - GMS_HOST=datahub-gms
-      - GMS_PORT=8080
-      - KAFKA_BOOTSTRAP_SERVER=broker:29092
-      - SCHEMA_REGISTRY_URL=http://schema-registry:8081
-      - METADATA_AUDIT_EVENT_NAME=MetadataAuditEvent_v4
-      - METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME=MetadataChangeLog_Versioned_v1
-      - DATAHUB_SYSTEM_CLIENT_ID=__datahub_system
-      - DATAHUB_SYSTEM_CLIENT_SECRET=JohnSnowKnowsNothing
-      - KAFKA_PROPERTIES_SECURITY_PROTOCOL=PLAINTEXT
-    hostname: actions
-    image: acryldata/datahub-actions:${ACTIONS_VERSION:-head}
-    restart: on-failure:5
   datahub-frontend-react:
     container_name: datahub-frontend-react
     depends_on:
@@ -58,8 +42,6 @@ services:
     image: linkedin/datahub-frontend-react:${DATAHUB_VERSION:-head}
     ports:
     - 9002:9002
-    volumes:
-      - ${HOME}/.datahub/plugins:/etc/datahub/plugins
   datahub-gms:
     container_name: datahub-gms
     depends_on:
@@ -80,15 +62,12 @@ services:
     - ENTITY_REGISTRY_CONFIG_PATH=/datahub/datahub-gms/resources/entity-registry.yml
     - MAE_CONSUMER_ENABLED=true
     - MCE_CONSUMER_ENABLED=true
-    - DATAHUB_SERVER_TYPE=${DATAHUB_SERVER_TYPE:-quickstart}
-    - DATAHUB_TELEMETRY_ENABLED=${DATAHUB_TELEMETRY_ENABLED:-true}
-    - PE_CONSUMER_ENABLED=true
     hostname: datahub-gms
     image: linkedin/datahub-gms:${DATAHUB_VERSION:-head}
     ports:
     - 8080:8080
     volumes:
-    - ${HOME}/.datahub/plugins:/etc/datahub/plugins
+    - ${HOME}/.datahub/plugins/:/etc/datahub/plugins
   elasticsearch:
     container_name: elasticsearch
     environment:
@@ -138,7 +117,7 @@ services:
     - MYSQL_PASSWORD=datahub
     - MYSQL_ROOT_PASSWORD=datahub
     hostname: mysql
-    image: mariadb:10.5.8
+    image: mysql:5.7
     ports:
     - 3306:3306
     volumes:
@@ -155,7 +134,7 @@ services:
     - MYSQL_PASSWORD=datahub
     - DATAHUB_DB_NAME=datahub
     hostname: mysql-setup
-    image: acryldata/datahub-mysql-setup:${DATAHUB_VERSION:-head}
+    image: acryldata/datahub-mysql-setup:head
   schema-registry:
     container_name: schema-registry
     depends_on:
@@ -165,7 +144,7 @@ services:
     - SCHEMA_REGISTRY_HOST_NAME=schemaregistry
     - SCHEMA_REGISTRY_KAFKASTORE_CONNECTION_URL=zookeeper:2181
     hostname: schema-registry
-    image: eugenetea/schema-registry-arm64:latest
+    image: confluentinc/cp-schema-registry:5.4.0
     ports:
     - 8081:8081
   zookeeper:
@@ -174,7 +153,7 @@ services:
     - ZOOKEEPER_CLIENT_PORT=2181
     - ZOOKEEPER_TICK_TIME=2000
     hostname: zookeeper
-    image: kymeric/cp-zookeeper:latest
+    image: confluentinc/cp-zookeeper:5.4.0
     ports:
     - 2181:2181
     volumes:

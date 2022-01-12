@@ -1,4 +1,4 @@
-# this file is a copy of docker-compose.quickstart.yml, keep both in sync
+# this file is a copy of docker-compose-with-elastic.quickstart.yml, keep both in sync
 # see README.md for details
 networks:
   default:
