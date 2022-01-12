@@ -27,7 +27,7 @@ _This following represents the progress made on historical roadmap items as of J
 #### ML Ecosystem
 - [x] Features (Feast)
 - [x] Models (Sagemaker)
-- [ ] Notebooks
+- [ ] Notebooks - View in Feature Request Portal](https://feature-requests.datahubproject.io/admin/p/jupyter-integration)
 
 #### Metrics Ecosystem
 [View in Feature Request Portal](https://feature-requests.datahubproject.io/b/User-Experience/p/ability-to-define-metrics-and-attach-them-to-entities)
