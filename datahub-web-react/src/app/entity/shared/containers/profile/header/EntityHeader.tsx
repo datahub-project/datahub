@@ -20,6 +20,7 @@ const PreviewImage = styled(Image)`
 const EntityTitle = styled(Typography.Title)`
     &&& {
         margin-bottom: 0;
+        word-break: break-all;
     }
 `;
 
