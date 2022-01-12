@@ -14,8 +14,8 @@ source:
 sink: 
     type: datahub-rest 
     config: 
-        server: "${baseUrl}/api/gms"
-        token: # Paste a Personal Access Token here`;
+        server: "${baseUrl}/gms"
+        token: token: <your-api-token-secret-here>`;
 
 const kafkaConfig: SourceConfig = {
     type: 'kafka',

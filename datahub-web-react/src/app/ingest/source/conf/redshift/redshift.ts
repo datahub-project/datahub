@@ -25,7 +25,8 @@ source:
 sink: 
     type: datahub-rest 
     config: 
-        server: "${baseUrl}/api/gms"`;
+        server: "${baseUrl}/gms
+        token: <your-api-token-secret-here>"`;
 
 const redshiftConfig: SourceConfig = {
     type: 'redshift',
