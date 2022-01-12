@@ -13,7 +13,7 @@ source venv/bin/activate
 
 pip install -r requirements.txt
 python generate_docker_quickstart.py ../docker-compose.yml ../docker-compose.override.yml temp.quickstart.yml
-python generate_docker_quickstart.py ../docker-compose-with-elastic.yml ../docker-compose-with-elasticsearch.override.yml temp-with-elasticsearch.quickstart.yml
+python generate_docker_quickstart.py ../docker-compose-with-elasticsearch.yml ../docker-compose-with-elasticsearch.override.yml temp-with-elasticsearch.quickstart.yml
 python generate_docker_quickstart.py ../docker-compose-with-neo4j.yml ../docker-compose-with-neo4j.override.yml temp-with-neo4j.quickstart.yml
 python generate_docker_quickstart.py ../docker-compose-with-dgraph.yml ../docker-compose-with-dgraph.override.yml temp-with-dgraph.quickstart.yml
 python generate_docker_quickstart.py ../docker-compose-without-neo4j.yml ../docker-compose-without-neo4j.override.yml temp-without-neo4j.quickstart.yml
