@@ -157,6 +157,7 @@ async def update_schema(item: schema_params):
         urn=datasetName,
         aspects=[],
     )
+    rootLogger.info(f"token check: {verify_token(item.user_token, item.requestor)}")
     platformName = derive_platform_name(datasetName)
     rootLogger.info(item.dataset_fields)
     field_params = update_field_param_class(item.dataset_fields)

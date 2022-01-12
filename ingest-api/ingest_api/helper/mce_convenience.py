@@ -286,8 +286,8 @@ def make_schema_mce(
         schemaName="OtherSchema",
         platform=platformName,
         version=0,
-        created=AuditStampClass(time=sys_time, actor=actor),
-        lastModified=AuditStampClass(time=sys_time, actor=actor),
+        created=AuditStampClass(time=sys_time, actor=make_user_urn(actor)),
+        lastModified=AuditStampClass(time=sys_time, actor=make_user_urn(actor)),
         hash="",
         platformSchema=OtherSchemaClass(rawSchema=""),
         fields=fields,
@@ -341,8 +341,9 @@ def verify_token(
     log.error(f'signtaure secret is {token_secret}')
     try:
         payload = jwt.decode(token, token_secret, algorithms="HS256")
+        log.info(f"payload is {payload}")
         if payload['actorId'] == user:
-            log.info(f"token verified for {user}")
+            log.info(f"token verified for {user}, expires {payload['exp']}")
             return True
         return False
     except:
