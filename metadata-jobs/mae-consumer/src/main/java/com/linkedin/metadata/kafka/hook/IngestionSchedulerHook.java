@@ -140,10 +140,10 @@ public class IngestionSchedulerHook implements MetadataChangeLogHook {
   public void invoke(@Nonnull MetadataChangeLog event) {
     if (isEligibleForProcessing(event)) {
 
-      log.info(String.format("Received %s to Ingestion Source. Rescheduling the source (if applicable). urn: %s, key: %s.",
+      log.info("Received {} to Ingestion Source. Rescheduling the source (if applicable). urn: {}, key: {}.",
           event.getChangeType(),
           event.getEntityUrn(),
-          event.getEntityKeyAspect()));
+          event.getEntityKeyAspect());
 
       final Urn urn = getUrnFromEvent(event);
 

@@ -30,7 +30,6 @@ public class DeleteIngestionSourceResolver implements DataFetcher<CompletableFut
       final Urn urn = Urn.createFromString(ingestionSourceUrn);
       return CompletableFuture.supplyAsync(() -> {
         try {
-          // TODO: Also delete the ingestion runs associated with the source.
           _entityClient.deleteEntity(urn, context.getAuthentication());
           return ingestionSourceUrn;
         } catch (Exception e) {

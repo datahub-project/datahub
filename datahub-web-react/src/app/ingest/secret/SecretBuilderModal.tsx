@@ -10,12 +10,7 @@ type Props = {
 };
 
 export const SecretBuilderModal = ({ initialState, visible, onSubmit, onCancel }: Props) => {
-    const [secretBuilderState, setSecretBuilderState] = useState<SecretBuilderState>({});
-    useEffect(() => {
-        if (initialState) {
-            setSecretBuilderState(initialState);
-        }
-    }, [initialState, setSecretBuilderState]);
+    const [secretBuilderState, setSecretBuilderState] = useState<SecretBuilderState>(initialState || {});
 
     const setName = (name: string) => {
         setSecretBuilderState({
