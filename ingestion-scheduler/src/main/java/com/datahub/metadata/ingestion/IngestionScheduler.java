@@ -1,4 +1,4 @@
-package com.linkedin.metadata.kafka.hook;
+package com.datahub.metadata.ingestion;
 
 import com.datahub.authentication.Authentication;
 import com.google.common.annotations.VisibleForTesting;
@@ -15,21 +15,13 @@ import com.linkedin.entity.client.JavaEntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.execution.ExecutionRequestInput;
 import com.linkedin.execution.ExecutionRequestSource;
-import com.linkedin.gms.factory.config.ConfigurationProvider;
-import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;
-import com.linkedin.gms.factory.entity.RestliEntityClientFactory;
-import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.ingestion.DataHubIngestionSourceInfo;
 import com.linkedin.ingestion.DataHubIngestionSourceSchedule;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.config.IngestionConfiguration;
 import com.linkedin.metadata.key.ExecutionRequestKey;
-import com.linkedin.metadata.models.EntitySpec;
-import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.ListResult;
-import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericAspectUtils;
-import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
 import java.util.ArrayList;
@@ -48,12 +40,8 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
 import javax.annotation.Nonnull;
-import javax.inject.Singleton;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Import;
 import org.springframework.scheduling.support.CronSequenceGenerator;
-import org.springframework.stereotype.Component;
 
 
 /**
@@ -80,15 +68,8 @@ import org.springframework.stereotype.Component;
  * schedules on a once-per-day cadence.
  */
 @Slf4j
-@Component
-@Singleton
-@Import({EntityRegistryFactory.class, SystemAuthenticationFactory.class, RestliEntityClientFactory.class})
-public class IngestionSchedulerHook implements MetadataChangeLogHook {
+public class IngestionScheduler {
 
-  private static final int DEFAULT_DELAY_INTERVAL_SECONDS = 30; // Wait 30 seconds before the initial batch load of schedules.
-  private static final int DEFAULT_REFRESH_INTERVAL_SECONDS = 86400; // Completely refresh the list of ingestion sources once per day.
-
-  private final EntityRegistry _entityRegistry;
   private final Authentication _systemAuthentication;
   private final EntityClient _entityClient;
 
@@ -98,32 +79,15 @@ public class IngestionSchedulerHook implements MetadataChangeLogHook {
 
   // Shared executor service used for executing an ingestion source on a schedule
   private final ScheduledExecutorService _sharedExecutorService = Executors.newScheduledThreadPool(1);
-
   private final IngestionConfiguration _ingestionConfiguration;
 
-  @Autowired
-  public IngestionSchedulerHook(
-      @Nonnull final EntityRegistry entityRegistry,
-      @Nonnull final Authentication systemAuthentication,
-      @Nonnull final JavaEntityClient entityClient,
-      @Nonnull final ConfigurationProvider configProvider
-  ) {
-    this(entityRegistry, systemAuthentication, entityClient, configProvider, DEFAULT_DELAY_INTERVAL_SECONDS, DEFAULT_REFRESH_INTERVAL_SECONDS);
-  }
-
   // Visible for testing.
-  IngestionSchedulerHook(
-      @Nonnull final EntityRegistry entityRegistry,
-      @Nonnull final Authentication systemAuthentication,
-      @Nonnull final JavaEntityClient entityClient,
-      @Nonnull final ConfigurationProvider configProvider,
-      final int batchGetDelayIntervalSeconds,
-      final int batchGetRefreshIntervalSeconds
-  ) {
-    _entityRegistry = Objects.requireNonNull(entityRegistry);
+  public IngestionScheduler(@Nonnull final Authentication systemAuthentication,
+      @Nonnull final JavaEntityClient entityClient, @Nonnull final IngestionConfiguration configuration,
+      final int batchGetDelayIntervalSeconds, final int batchGetRefreshIntervalSeconds) {
     _systemAuthentication = Objects.requireNonNull(systemAuthentication);
     _entityClient = Objects.requireNonNull(entityClient);
-    _ingestionConfiguration = configProvider.getIngestion();
+    _ingestionConfiguration = configuration;
 
     final BatchRefreshSchedulesRunnable batchRefreshSchedulesRunnable = new BatchRefreshSchedulesRunnable(
         systemAuthentication,
@@ -136,76 +100,10 @@ public class IngestionSchedulerHook implements MetadataChangeLogHook {
         TimeUnit.SECONDS);
   }
 
-  @Override
-  public void invoke(@Nonnull MetadataChangeLog event) {
-    if (isEligibleForProcessing(event)) {
-
-      log.info(String.format("Received %s to Ingestion Source. Rescheduling the source (if applicable). urn: %s, key: %s.",
-          event.getChangeType(),
-          event.getEntityUrn(),
-          event.getEntityKeyAspect()));
-
-      final Urn urn = getUrnFromEvent(event);
-
-      if (ChangeType.DELETE.equals(event.getChangeType())) {
-        unscheduleNextIngestionSourceExecution(urn);
-      } else {
-        // Update the scheduler to reflect the latest changes.
-        final DataHubIngestionSourceInfo info = getInfoFromEvent(event);
-        scheduleNextIngestionSourceExecution(urn, info);
-      }
-    }
-  }
-
-  /**
-   * Returns true if the event should be processed, which is only true if the event represents a create, update, or delete
-   * of an Ingestion Source Info aspect, which in turn contains the schedule associated with the source.
-   */
-  private boolean isEligibleForProcessing(final MetadataChangeLog event) {
-    return Constants.INGESTION_INFO_ASPECT_NAME.equals(event.getAspectName())
-        && (ChangeType.DELETE.equals(event.getChangeType())
-        || ChangeType.UPSERT.equals(event.getChangeType())
-        || ChangeType.CREATE.equals(event.getChangeType()));
-  }
-
-  /**
-   * Extracts and returns an {@link Urn} from a {@link MetadataChangeLog}. Extracts from either an entityUrn
-   * or entityKey field, depending on which is present.
-   */
-  private Urn getUrnFromEvent(final MetadataChangeLog event) {
-    EntitySpec entitySpec;
-    try {
-      entitySpec = _entityRegistry.getEntitySpec(event.getEntityType());
-    } catch (IllegalArgumentException e) {
-      log.error("Error while processing entity type {}: {}", event.getEntityType(), e.toString());
-      throw new RuntimeException("Failed to get urn from MetadataChangeLog event. Skipping processing.", e);
-    }
-    // Extract an URN from the Log Event.
-    return EntityKeyUtils.getUrnFromLog(event, entitySpec.getKeyAspectSpec());
-  }
-
-  /**
-   * Deserializes and returns an instance of {@link DataHubIngestionSourceInfo} extracted from a {@link MetadataChangeLog} event.
-   * The incoming event is expected to have a populated "aspect" field.
-   */
-  private DataHubIngestionSourceInfo getInfoFromEvent(final MetadataChangeLog event) {
-    EntitySpec entitySpec;
-    try {
-      entitySpec = _entityRegistry.getEntitySpec(event.getEntityType());
-    } catch (IllegalArgumentException e) {
-      log.error("Error while processing entity type {}: {}", event.getEntityType(), e.toString());
-      throw new RuntimeException("Failed to get Ingestion Source info from MetadataChangeLog event. Skipping processing.", e);
-    }
-    return (DataHubIngestionSourceInfo) GenericAspectUtils.deserializeAspect(
-        event.getAspect().getValue(),
-        event.getAspect().getContentType(),
-        entitySpec.getAspectSpec(Constants.INGESTION_INFO_ASPECT_NAME));
-  }
-
   /**
    * Removes the next scheduled execution of a particular ingestion source, if it exists.
    */
-  private void unscheduleNextIngestionSourceExecution(final Urn ingestionSourceUrn) {
+  public void unscheduleNextIngestionSourceExecution(final Urn ingestionSourceUrn) {
     // Deleting an ingestion source schedule. Un-schedule the next execution.
     ScheduledFuture<?> future = _nextIngestionSourceExecutionCache.get(ingestionSourceUrn);
     if (future != null) {
@@ -217,7 +115,7 @@ public class IngestionSchedulerHook implements MetadataChangeLogHook {
   /**
    * Computes and schedules the next execution time for a particular Ingestion Source, if it has not already been scheduled.
    */
-  private void scheduleNextIngestionSourceExecution(final Urn ingestionSourceUrn, final DataHubIngestionSourceInfo newInfo) {
+  public void scheduleNextIngestionSourceExecution(final Urn ingestionSourceUrn, final DataHubIngestionSourceInfo newInfo) {
 
     // 1. Attempt to un-schedule any previous executions
     unscheduleNextIngestionSourceExecution(ingestionSourceUrn);
@@ -432,8 +330,8 @@ public class IngestionSchedulerHook implements MetadataChangeLogHook {
         Map<String, String> arguments = new HashMap<>();
         arguments.put(RECIPE_ARGUMENT_NAME, _ingestionSourceInfo.getConfig().getRecipe());
         arguments.put(VERSION_ARGUMENT_NAME, _ingestionSourceInfo.getConfig().hasVersion()
-          ? _ingestionSourceInfo.getConfig().getVersion()
-          : _ingestionConfiguration.getDefaultCliVersion());
+            ? _ingestionSourceInfo.getConfig().getVersion()
+            : _ingestionConfiguration.getDefaultCliVersion());
         input.setArgs(new StringMap(arguments));
 
         proposal.setEntityType(Constants.EXECUTION_REQUEST_ENTITY_NAME);

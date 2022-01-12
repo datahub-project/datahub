@@ -34,11 +34,11 @@ record DataHubIngestionSourceInfo {
   schedule: optional DataHubIngestionSourceSchedule
 
   /**
-  * Type-specific parameters associated with the Ingestion Source
+  * Parameters associated with the Ingestion Source
   */
   config: record DataHubIngestionSourceConfig {
     /**
-     * Information about the recipe to use in ingestion, if the Type is INGESTION
+     * The JSON recipe to use for ingestion
      */
      recipe: string
 

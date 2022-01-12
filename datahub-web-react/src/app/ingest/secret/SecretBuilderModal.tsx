@@ -1,5 +1,5 @@
 import { Button, Form, Input, Modal, Typography } from 'antd';
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { SecretBuilderState } from './types';
 
 type Props = {
@@ -10,12 +10,7 @@ type Props = {
 };
 
 export const SecretBuilderModal = ({ initialState, visible, onSubmit, onCancel }: Props) => {
-    const [secretBuilderState, setSecretBuilderState] = useState<SecretBuilderState>({});
-    useEffect(() => {
-        if (initialState) {
-            setSecretBuilderState(initialState);
-        }
-    }, [initialState, setSecretBuilderState]);
+    const [secretBuilderState, setSecretBuilderState] = useState<SecretBuilderState>(initialState || {});
 
     const setName = (name: string) => {
         setSecretBuilderState({

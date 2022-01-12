@@ -20,7 +20,6 @@ import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.secret.SecretService;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.usage.UsageClient;
-import java.util.Objects;
 import javax.annotation.Nonnull;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -89,16 +88,6 @@ public class GraphQLEngineFactory {
   @Bean(name = "graphQLEngine")
   @Nonnull
   protected GraphQLEngine getInstance() {
-
-    if (_configProvider == null) {
-      System.out.println("Wtf its empty");
-    }
-    if (_configProvider.getAuthentication() == null) {
-      System.out.println("Auth its empty");
-    }
-    if (_configProvider.getIngestion() == null) {
-      System.out.println("Ingestion its empty");
-    }
 
     if (isAnalyticsEnabled) {
       return new GmsGraphQLEngine(

@@ -85,6 +85,7 @@ public class IngestTestUtils {
     ));
     input.setTask("RUN_INGEST");
     input.setExecutorId("default");
+    input.setRequestedAt(0L);
     input.setSource(new ExecutionRequestSource().setIngestionSource(TEST_INGESTION_SOURCE_URN).setType("SCHEDULED_INGESTION"));
     return input;
   }

@@ -11,6 +11,7 @@ import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.config.IngestionConfiguration;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetchingEnvironment;
@@ -44,7 +45,9 @@ public class CreateIngestionExecutionRequestResolverTest {
                     Constants.INGESTION_INFO_ASPECT_NAME,
                     new EnvelopedAspect().setValue(new Aspect(getTestIngestionSourceInfo().data()))
                 )))));
-    CreateIngestionExecutionRequestResolver resolver = new CreateIngestionExecutionRequestResolver(mockClient);
+    IngestionConfiguration ingestionConfiguration = new IngestionConfiguration();
+    ingestionConfiguration.setDefaultCliVersion("default");
+    CreateIngestionExecutionRequestResolver resolver = new CreateIngestionExecutionRequestResolver(mockClient, ingestionConfiguration);
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
@@ -65,7 +68,9 @@ public class CreateIngestionExecutionRequestResolverTest {
   public void testGetUnauthorized() throws Exception {
     // Create resolver
     EntityClient mockClient = Mockito.mock(EntityClient.class);
-    CreateIngestionExecutionRequestResolver resolver = new CreateIngestionExecutionRequestResolver(mockClient);
+    IngestionConfiguration ingestionConfiguration = new IngestionConfiguration();
+    ingestionConfiguration.setDefaultCliVersion("default");
+    CreateIngestionExecutionRequestResolver resolver = new CreateIngestionExecutionRequestResolver(mockClient, ingestionConfiguration);
 
     // Execute resolver
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
@@ -86,8 +91,9 @@ public class CreateIngestionExecutionRequestResolverTest {
     Mockito.doThrow(RemoteInvocationException.class).when(mockClient).ingestProposal(
         Mockito.any(),
         Mockito.any(Authentication.class));
-
-    CreateIngestionExecutionRequestResolver resolver = new CreateIngestionExecutionRequestResolver(mockClient);
+    IngestionConfiguration ingestionConfiguration = new IngestionConfiguration();
+    ingestionConfiguration.setDefaultCliVersion("default");
+    CreateIngestionExecutionRequestResolver resolver = new CreateIngestionExecutionRequestResolver(mockClient, ingestionConfiguration);
 
     // Execute resolver
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);

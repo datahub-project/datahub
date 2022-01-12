@@ -155,7 +155,7 @@ export const SecretsList = () => {
     return (
         <>
             {!data && loading && <Message type="loading" content="Loading secrets..." />}
-            {error && message.error('Failed to load secrets :(')}
+            {error && message.error({ content: `Failed to load secrets! \n ${error.message || ''}`, duration: 3 })}
             <div>
                 <TabToolbar>
                     <div>
