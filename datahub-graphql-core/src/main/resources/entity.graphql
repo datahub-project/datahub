@@ -252,9 +252,9 @@ type Mutation {
     unsetDomain(entityUrn: String!): Boolean
 
     """
-    Sets the Domain for a set of Datasets, Charts, Dashboards, Data Flows (Pipeline), or Data Jobs (Task). Returns true if the Domains were successfully added, or already exist. Requires the Edit Domains privilege for each Entity in the set.
+    Sets the Domain for a set of Datasets, Charts, Dashboards, Data Flows (Pipeline), or Data Jobs (Task). Returns true if the Domains were successfully added, or already exist. Requires the Edit Domain privilege for each Entity in the set.
     """
-    setDomains(entityUrns: [String!]!, domainUrn: String!): Boolean
+    batchSetDomains(entityUrns: [String!]!, domainUrn: String!): Boolean
 }
 
 """
