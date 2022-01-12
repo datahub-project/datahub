@@ -231,9 +231,30 @@ type Mutation {
     removeGroupMembers(input: RemoveGroupMembersInput!): Boolean
 
     """
-    Create a new group. Returns the urn of the newly created group. Requires Manage Users & Groups Platform Privilege
+    Create a new group. Returns the urn of the newly created group. Requires the Manage Users & Groups Platform Privilege
     """
     createGroup(input: CreateGroupInput!): String
+
+    """
+    Create a new Domain. Returns the urn of the newly created Domain. Requires the Manage Domains privilege. If a domain with the provided ID already exists,
+    it will be overwritten.
+    """
+    createDomain(input: CreateDomainInput!): String
+
+    """
+    Sets the Domain for a Dataset, Chart, Dashboard, Data Flow (Pipeline), or Data Job (Task). Returns true if the Domain was successfully added, or already exists. Requires the Edit Domains privilege for the Entity.
+    """
+    setDomain(entityUrn: String!, domainUrn: String!): Boolean
+
+    """
+    Sets the Domain for a Dataset, Chart, Dashboard, Data Flow (Pipeline), or Data Job (Task). Returns true if the Domain was successfully removed, or was already removed. Requires the Edit Domains privilege for an asset.
+    """
+    unsetDomain(entityUrn: String!): Boolean
+
+    """
+    Sets the Domain for a set of Datasets, Charts, Dashboards, Data Flows (Pipeline), or Data Jobs (Task). Returns true if the Domains were successfully added, or already exist. Requires the Edit Domains privilege for each Entity in the set.
+    """
+    setDomains(entityUrns: [String!]!, domainUrn: String!): Boolean
 }
 
 """
@@ -5128,9 +5149,9 @@ type Domain implements Entity {
     type: EntityType!
 
     """
-    Display name of the domain
+    Id of the domain
     """
-    name: String!
+    id: String!
 
     """
     Properties about a domain
@@ -5153,9 +5174,14 @@ Properties about a domain
 """
 type DomainProperties {
   """
+  Display name of the domain
+  """
+  name: String!
+
+  """
   Description of the Domain
   """
-  description: String!
+  description: String
 }
 
 """
@@ -5221,4 +5247,74 @@ type DomainEntityResult {
   The resolved DataHub Metadata Entity inside the domain
   """
   entity: Entity!
+}
+
+"""
+Input required to create a new Domain.
+"""
+type CreateDomainInput {
+  """
+  Optional! A custom id to use as the primary key identifier for the domain. If not provided, a random UUID will be generated as the id.
+  """
+  id: String
+
+  """
+  Display name for the Domain
+  """
+  name: String!
+
+  """
+  Optional description for the Domain
+  """
+  description: String
+}
+
+"""
+Input required to set the Domain for a Metadata Entity.
+"""
+type SetDomainInput {
+  """
+  Optional! A custom id to use as the primary key identifier for the domain. If not provided, a random UUID will be generated as the id.
+  """
+  id: String
+
+  """
+  Display name for the Domain
+  """
+  name: String!
+
+  """
+  Optional description for the Domain
+  """
+  description: String
+}
+
+"""
+Input required to unset the Domain for a Metadata Entity.
+"""
+type UnsetDomainInput {
+  """
+  The Urn of the Metadata Entity from which the Domain should be removed.
+  """
+  entityUrn: String!
+}
+
+"""
+Input provided when adding the association between a Metadata Entity and a Link
+"""
+input AddLinkInput {
+    """
+    The url of the link to add or remove
+    """
+    linkUrl: String!
+
+    """
+    A label to attach to the link
+    """
+    label: String!
+
+    """
+    The urn of the resource or entity to attach the link to, for example a dataset urn
+    """
+    resourceUrn: String!
 }
