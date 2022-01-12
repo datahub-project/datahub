@@ -34,4 +34,14 @@ enum OwnershipType {
    * A person or a group that has direct business interest
    */
   STAKEHOLDER
+
+  /**
+   * A person, group, or service that produces/generates the data
+   */
+  TRANSFORMATION_OWNER
+
+  /**
+   * A person, group, or service that owns the platform on which the dataset resides
+   */
+  PLATFORM_OWNER
 }

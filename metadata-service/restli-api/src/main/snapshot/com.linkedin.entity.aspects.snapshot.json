@@ -914,14 +914,16 @@
         "type" : "enum",
         "name" : "OwnershipType",
         "doc" : "Owner category or owner role",
-        "symbols" : [ "DEVELOPER", "DATAOWNER", "DELEGATE", "PRODUCER", "CONSUMER", "STAKEHOLDER" ],
+        "symbols" : [ "DEVELOPER", "DATAOWNER", "DELEGATE", "PRODUCER", "CONSUMER", "STAKEHOLDER", "TRANSFORMATION_OWNER", "PLATFORM_OWNER" ],
         "symbolDocs" : {
           "CONSUMER" : "A person, group, or service that consumes the data",
           "DATAOWNER" : "A person or group that is owning the data",
           "DELEGATE" : "A person or a group that overseas the operation, e.g. a DBA or SRE.",
           "DEVELOPER" : "A person or group that is in charge of developing the code",
+          "PLATFORM_OWNER" : "A person, group, or service that owns the platform on which the dataset resides",
           "PRODUCER" : "A person, group, or service that produces/generates the data",
-          "STAKEHOLDER" : "A person or a group that has direct business interest"
+          "STAKEHOLDER" : "A person or a group that has direct business interest",
+          "TRANSFORMATION_OWNER" : "A person, group, or service that produces/generates the data"
         }
       },
       "doc" : "The type of the ownership"
@@ -1167,11 +1169,7 @@
       "name" : "flowUrn",
       "type" : "com.linkedin.common.DataFlowUrn",
       "doc" : "DataFlow urn that this job is part of",
-      "optional" : true,
-      "Relationship" : {
-        "entityTypes" : [ "dataFlow" ],
-        "name" : "IsPartOf"
-      }
+      "optional" : true
     }, {
       "name" : "status",
       "type" : {
