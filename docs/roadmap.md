@@ -61,12 +61,12 @@ Included in Q1 2022 Roadmap - [Display Data Quality Checks in the UI](https://fe
 - Scope: Access control on entity-level, aspect-level and within aspects as well.
 
 #### Column-level lineage
-Included in Q1 2022 Roadmap - [Display Data Quality Checks in the UI](https://feature-requests.datahubproject.io/roadmap/541)
+Included in Q1 2022 Roadmap - [Column Level Lineage](https://feature-requests.datahubproject.io/roadmap/541)
 - [ ] Metadata Model
 - [ ] SQL Parsing
 
 #### Operational Metadata
-- [ ] Partitioned Datasets - - [View in Feature Reqeust Portal](https://feature-requests.datahubproject.io/b/User-Experience/p/advanced-dataset-schema-properties-partition-support)
+- [ ] Partitioned Datasets - - [View in Feature Request Portal](https://feature-requests.datahubproject.io/b/User-Experience/p/advanced-dataset-schema-properties-partition-support)
 - [x] Support for operational signals like completeness, freshness etc.
 
 ### Q2 2021 (Apr - Jun 2021)
