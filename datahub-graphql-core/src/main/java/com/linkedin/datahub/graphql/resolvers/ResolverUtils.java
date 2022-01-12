@@ -14,6 +14,7 @@ import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
+import com.linkedin.metadata.search.utils.ESUtils;
 import graphql.schema.DataFetchingEnvironment;
 import java.lang.reflect.InvocationTargetException;
 import java.util.stream.Collectors;
@@ -85,7 +86,7 @@ public class ResolverUtils {
             return null;
         }
         return new Filter().setOr(new ConjunctiveCriterionArray(new ConjunctiveCriterion().setAnd(new CriterionArray(facetFilterInputs.stream()
-            .map(filter -> new Criterion().setField(filter.getField()).setValue(filter.getValue()))
+            .map(filter -> new Criterion().setField(filter.getField() + ESUtils.KEYWORD_SUFFIX).setValue(filter.getValue()))
             .collect(Collectors.toList())))));
     }
 
