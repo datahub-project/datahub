@@ -18,7 +18,7 @@ export const YamlEditor = ({ initialText, onChange }: Props) => {
             }}
             height="55vh"
             defaultLanguage="yaml"
-            defaultValue={initialText}
+            value={initialText}
             onChange={onChange}
         />
     );

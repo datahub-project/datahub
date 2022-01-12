@@ -79,8 +79,8 @@ export const IngestionSourceBuilderModal = ({ initialState, visible, onSubmit, o
     useEffect(() => {
         if (!isEqual(prevInitialState.current, initialState)) {
             setIngestionBuilderState(initialState || {});
-            prevInitialState.current = initialState;
         }
+        prevInitialState.current = initialState;
     }, [initialState]);
 
     // Reset the step stack to the initial step when the modal is re-opened.

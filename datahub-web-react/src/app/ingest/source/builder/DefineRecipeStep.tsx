@@ -37,6 +37,11 @@ export const DefineRecipeStep = ({ state, updateState, goTo, prev }: StepProps) 
     const existingRecipeYaml = existingRecipeJson && jsonToYaml(existingRecipeJson);
 
     const [stagedRecipeYml, setStagedRecipeYml] = useState(existingRecipeYaml || '');
+
+    useEffect(() => {
+        setStagedRecipeYml(existingRecipeYaml || '');
+    }, [existingRecipeYaml]);
+
     const [stepComplete, setStepComplete] = useState(false);
 
     const { type } = state;
