@@ -1,0 +1,146 @@
+apply plugin: 'java'
+apply plugin: 'com.github.johnrengelman.shadow'
+apply plugin: 'maven'
+apply plugin: 'signing'
+apply plugin: 'jacoco'
+
+dependencies {
+
+  //Needed for tie breaking of guava version need for spark and wiremock
+  compile(externalDependency.hadoopMapreduceClient) {
+    force = true
+  }
+
+  compile(externalDependency.hadoopCommon) {
+    force = true
+  } // required for org.apache.hadoop.util.StopWatch  
+
+  compile(externalDependency.commonsIo) {
+    force = true
+  } // required for org.apache.commons.io.Charsets that is used internally
+  
+  compileOnly externalDependency.lombok
+  annotationProcessor externalDependency.lombok
+
+  implementation project(path: ':metadata-integration:java:datahub-client', configuration: 'shadow')
+
+
+  implementation(externalDependency.sparkSql)
+  implementation(externalDependency.sparkHive)
+
+  // Tests need a concrete log4j available. Providing it here
+  testImplementation 'org.apache.logging.log4j:log4j-api:2.17.1'
+  testImplementation 'org.apache.logging.log4j:log4j-core:2.17.1'
+  
+  
+  testImplementation(externalDependency.postgresql){
+    exclude group: "com.fasterxml.jackson.core"
+  }
+  
+  testImplementation externalDependency.mockito
+  
+  testImplementation(externalDependency.mockServer){
+    exclude group: "com.fasterxml.jackson.core"
+  } // older version to allow older guava
+  testImplementation(externalDependency.mockServerClient){
+    exclude group: "com.fasterxml.jackson.core"
+  } // older version to allow older guava
+  
+  testImplementation(externalDependency.testContainersPostgresql)
+}
+
+
+
+shadowJar {
+  zip64=true	
+  classifier=''
+  dependencies {
+    exclude(dependency("org.apache.hadoop::"))
+    exclude(dependency("org.apache.spark::"))
+    exclude(dependency(externalDependency.commonsIo))
+  }
+}
+
+jacocoTestReport {
+    dependsOn test // tests are required to run before generating the report
+}
+
+test {
+  useJUnit()
+  finalizedBy jacocoTestReport
+}
+
+assemble {
+    dependsOn shadowJar
+}
+
+task sourceJar(type: Jar) {
+    classifier 'sources'
+    from sourceSets.main.allJava
+}
+
+task javadocJar(type: Jar, dependsOn: javadoc) {
+    classifier 'javadoc'
+    from javadoc.destinationDir
+}
+
+artifacts {
+    archives shadowJar
+}
+
+// uploadArchives {
+//   repositories {
+//     mavenDeployer {
+//       def ossrhUsername = System.getenv('RELEASE_USERNAME')
+//       def ossrhPassword = System.getenv('RELEASE_PASSWORD')
+//       beforeDeployment { MavenDeployment deployment -> signing.signPom(deployment) }
+
+//       repository(url: "https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/") {
+//         authentication(userName: ossrhUsername, password: ossrhPassword)
+//       }
+
+//       snapshotRepository(url: "https://s01.oss.sonatype.org/content/repositories/snapshots/") {
+//         authentication(userName: ossrhUsername, password: ossrhPassword)
+//       }
+
+//       pom.project {
+//           //No need to specify name here. Name is always picked up from project name
+//         //name 'spark-lineage'
+//         packaging 'jar'
+//         // optionally artifactId can be defined here
+//         description 'Library to push data lineage from spark to datahub'
+//         url 'https://datahubproject.io'
+
+//         scm {
+//           connection 'scm:git:git://github.com/linkedin/datahub.git'
+//           developerConnection 'scm:git:ssh://github.com:linkedin/datahub.git'
+//           url 'https://github.com/linkedin/datahub.git'
+//         }
+
+//         licenses {
+//           license {
+//             name 'The Apache License, Version 2.0'
+//             url 'http://www.apache.org/licenses/LICENSE-2.0.txt'
+//           }
+//         }
+
+//         developers {
+//           developer {
+//             id 'datahub'
+//             name 'datahub'
+//             
+//           }
+//         }
+//       }
+//     }
+//   }
+// }
+
+
+// signing {
+//     def signingKey = findProperty("signingKey")
+//     def signingPassword = findProperty("signingPassword")
+//     useInMemoryPgpKeys(signingKey, signingPassword)
+//     sign configurations.archives
+// }
+

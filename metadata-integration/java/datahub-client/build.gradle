@@ -1,25 +1,64 @@
 apply plugin: 'java'
 apply plugin: 'com.github.johnrengelman.shadow'
+apply plugin: 'jacoco'
+
+jar.enabled = false // Since we only want to build shadow jars, disabling the regular jar creation
 
 dependencies {
    
-    compile project(':metadata-models')
-    compile externalDependency.httpAsyncClient
-    compile externalDependency.jacksonDataBind 
+    implementation project(':metadata-models')
+    shadow externalDependency.httpAsyncClient // we want our clients to provide this
+    implementation externalDependency.jacksonDataBind 
     compileOnly externalDependency.lombok
     annotationProcessor externalDependency.lombok
+    testCompile externalDependency.httpAsyncClient // needed as shadow excludes it
     testCompile externalDependency.mockito
     testCompile externalDependency.mockServer
     testCompile externalDependency.mockServerClient
 }
 
+jacocoTestReport {
+    dependsOn test // tests are required to run before generating the report
+}
+
 test {
   useJUnit()
+  finalizedBy jacocoTestReport
 }
+
+task checkShadowJar(type: Exec) { 
+   commandLine 'sh', '-c', 'scripts/check_jar.sh'
+}
+
 
 shadowJar {
   zip64=true
-  classifier=''
+  archiveClassifier = ''
+  dependencies {
+    exclude(dependency('org.apache.httpcomponents:httpasyncclient'))
+  }
+  mergeServiceFiles()
+  // we relocate namespaces manually, because we want to know exactly which libs we are exposing and why
+  // we can move to automatic relocation using ConfigureShadowRelocation after we get to a good place on these first
+  relocate 'com.fasterxml.jackson', 'datahub.shaded.jackson'
+  relocate 'net.jcip.annotations', 'datahub.shaded.annotations'
+  relocate 'javassist', 'datahub.shaded.javassist'
+  relocate 'edu.umd.cs.findbugs', 'datahub.shaded.findbugs'
+  relocate 'org.antlr', 'datahub.shaded.org.antlr'
+  relocate 'antlr', 'datahub.shaded.antlr'
+  relocate 'com.google.common', 'datahub.shaded.com.google.common'
+  relocate 'org.apache.commons', 'datahub.shaded.org.apache.commons'
+  relocate 'org.reflections', 'datahub.shaded.org.reflections'
+  relocate 'st4hidden', 'datahub.shaded.st4hidden'
+  relocate 'org.stringtemplate', 'datahub.shaded.org.stringtemplate'
+  relocate 'org.abego.treelayout', 'datahub.shaded.treelayout'
+  relocate 'org.slf4j', 'datahub.shaded.slf4j'
+  relocate 'javax.annotation', 'datahub.shaded.javax.annotation'
+  finalizedBy checkShadowJar
+}
+
+checkShadowJar {
+   dependsOn shadowJar
 }
 
 assemble {
