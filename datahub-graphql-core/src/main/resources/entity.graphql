@@ -282,6 +282,11 @@ A top level Metadata Entity Type
 """
 enum EntityType {
     """
+    A Domain containing Metadata Entities
+    """
+    DOMAIN
+
+    """
     The Dataset Entity
     """
     DATASET
@@ -5159,9 +5164,14 @@ type Domain implements Entity {
     properties: DomainProperties
 
     """
+    Ownership metadata of the dataset
+    """
+    ownership: Ownership
+
+    """
     Children entities inside of the Domain
     """
-    entities(input: DomainEntitiesInput!): DomainEntitiesResult
+    entities(input: DomainEntitiesInput!): SearchResults
 
     """
     Edges extending from this entity
@@ -5189,6 +5199,11 @@ Input required to fetch the entities inside of a Domain.
 """
 input DomainEntitiesInput {
   """
+  Optional entity type filter for particular entities inside the domain
+  """
+  entityType: EntityType
+
+  """
   Optional query filter for particular entities inside the domain
   """
   query: String
@@ -5210,46 +5225,6 @@ input DomainEntitiesInput {
 }
 
 """
-Result of a Domain Entities fetch
-"""
-type DomainEntitiesResult {
-  """
-  The offset of the result set
-  """
-  start: Int!
-
-  """
-  The number of entities included in the result set
-  """
-  count: Int!
-
-  """
-  The total number of search results matching the query and filters
-  """
-  total: Int!
-
-  """
-  The entity results
-  """
-  entities: [DomainEntityResult!]!
-
-  """
-  Candidate facet aggregations used for search filtering
-  """
-  facets: [FacetMetadata!]
-}
-
-"""
-Result of a Domain Entities fetch
-"""
-type DomainEntityResult {
-  """
-  The resolved DataHub Metadata Entity inside the domain
-  """
-  entity: Entity!
-}
-
-"""
 Input required to create a new Domain.
 """
 type CreateDomainInput {
@@ -5267,36 +5242,6 @@ type CreateDomainInput {
   Optional description for the Domain
   """
   description: String
-}
-
-"""
-Input required to set the Domain for a Metadata Entity.
-"""
-type SetDomainInput {
-  """
-  Optional! A custom id to use as the primary key identifier for the domain. If not provided, a random UUID will be generated as the id.
-  """
-  id: String
-
-  """
-  Display name for the Domain
-  """
-  name: String!
-
-  """
-  Optional description for the Domain
-  """
-  description: String
-}
-
-"""
-Input required to unset the Domain for a Metadata Entity.
-"""
-type UnsetDomainInput {
-  """
-  The Urn of the Metadata Entity from which the Domain should be removed.
-  """
-  entityUrn: String!
 }
 
 """

@@ -39,6 +39,8 @@ import com.linkedin.datahub.graphql.generated.MLPrimaryKey;
 import com.linkedin.datahub.graphql.generated.MLPrimaryKeyProperties;
 import com.linkedin.datahub.graphql.resolvers.MeResolver;
 import com.linkedin.datahub.graphql.resolvers.auth.GetAccessTokenResolver;
+import com.linkedin.datahub.graphql.resolvers.domain.SetDomainResolver;
+import com.linkedin.datahub.graphql.resolvers.domain.UnsetDomainResolver;
 import com.linkedin.datahub.graphql.resolvers.group.AddGroupMembersResolver;
 import com.linkedin.datahub.graphql.resolvers.group.CreateGroupResolver;
 import com.linkedin.datahub.graphql.resolvers.group.EntityCountsResolver;
@@ -368,6 +370,7 @@ public class GmsGraphQLEngine {
         configureMLFeatureTableResolvers(builder);
         configureGlossaryRelationshipResolvers(builder);
         configureAnalyticsResolvers(builder);
+        configureDomainResolvers(builder);
     }
 
     public GraphQLEngine.Builder builder() {
@@ -496,6 +499,8 @@ public class GmsGraphQLEngine {
             .dataFetcher("removeUser", new RemoveUserResolver(this.entityClient))
             .dataFetcher("removeGroup", new RemoveGroupResolver(this.entityClient))
             .dataFetcher("updateUserStatus", new UpdateUserStatusResolver(this.entityClient))
+            .dataFetcher("setDomain", new SetDomainResolver(this.entityClient, this.entityService))
+            .dataFetcher("unsetDomain", new UnsetDomainResolver(this.entityClient, this.entityService))
         );
     }
 
@@ -872,6 +877,16 @@ public class GmsGraphQLEngine {
 
     private void configureGlossaryRelationshipResolvers(final RuntimeWiring.Builder builder) {
         builder.type("GlossaryTerm", typeWiring -> typeWiring
+            .dataFetcher("relationships", new AuthenticatedResolver<>(
+                new EntityRelationshipsResultResolver(graphClient)
+            ))
+        );
+    }
+
+    private void configureDomainResolvers(final RuntimeWiring.Builder builder) {
+        builder.type("Domain", typeWiring -> typeWiring
+            .dataFetcher("entities", null
+            )
             .dataFetcher("relationships", new AuthenticatedResolver<>(
                 new EntityRelationshipsResultResolver(graphClient)
             ))

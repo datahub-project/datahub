@@ -1,13 +1,10 @@
 package com.linkedin.datahub.graphql.resolvers.mutate;
 
-import com.google.common.collect.ImmutableList;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.datahub.graphql.authorization.ConjunctivePrivilegeGroup;
 import com.linkedin.datahub.graphql.generated.SubResourceType;
 import com.linkedin.entity.Entity;
-import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.schema.EditableSchemaFieldInfo;
@@ -22,9 +19,6 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class MutationUtils {
   public static final String SCHEMA_ASPECT_NAME = "schemaMetadata";
-  private static final ConjunctivePrivilegeGroup ALL_PRIVILEGES_GROUP = new ConjunctivePrivilegeGroup(ImmutableList.of(
-      PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType()
-  ));
 
   private MutationUtils() { }
 

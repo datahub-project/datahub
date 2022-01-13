@@ -81,6 +81,11 @@ public class PoliciesConfig {
       "Edit Status",
       "The ability to edit the status of an entity (soft deleted or not).");
 
+  public static final Privilege EDIT_ENTITY_DOMAINS_PRIVILEGE = Privilege.of(
+      "EDIT_DOMAINS_PRIVILEGE",
+      "Edit Domain",
+      "The ability to edit the Domain of an entity.");
+
   public static final Privilege EDIT_ENTITY_PRIVILEGE = Privilege.of(
       "EDIT_ENTITY",
       "Edit All",
