@@ -53,3 +53,4 @@ entities:
       - glossaryTerms
       - institutionalMemory
       - browsePaths # unclear if this will be used
+      - status
