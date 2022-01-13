@@ -7,7 +7,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.dataplatform.DataPlatformInfo;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.boot.BootstrapStep;
-import com.linkedin.metadata.dao.utils.RecordUtils;
+import com.datahub.util.RecordUtils;
 import com.linkedin.metadata.entity.EntityService;
 
 import java.io.IOException;
@@ -59,7 +59,7 @@ public class IngestDataPlatformsStep implements BootstrapStep {
       final AuditStamp aspectAuditStamp =
           new AuditStamp().setActor(Urn.createFromString(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis());
 
-      _entityService.ingestAspect(urn, PLATFORM_ASPECT_NAME, info, aspectAuditStamp);
+      _entityService.ingestAspect(urn, PLATFORM_ASPECT_NAME, info, aspectAuditStamp, null);
     }
   }
 }

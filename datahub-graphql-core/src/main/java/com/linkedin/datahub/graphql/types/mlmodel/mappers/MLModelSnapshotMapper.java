@@ -1,8 +1,9 @@
 package com.linkedin.datahub.graphql.types.mlmodel.mappers;
 
+import com.datahub.util.ModelUtils;
 import com.linkedin.common.Cost;
-import com.linkedin.common.GlobalTags;
 import com.linkedin.common.Deprecation;
+import com.linkedin.common.GlobalTags;
 import com.linkedin.common.InstitutionalMemory;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.Status;
@@ -19,7 +20,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
-import com.linkedin.metadata.dao.utils.ModelUtils;
+import com.linkedin.metadata.key.MLModelKey;
 import com.linkedin.metadata.snapshot.MLModelSnapshot;
 import com.linkedin.ml.metadata.CaveatsAndRecommendations;
 import com.linkedin.ml.metadata.EthicalConsiderations;
@@ -30,8 +31,6 @@ import com.linkedin.ml.metadata.MLModelProperties;
 import com.linkedin.ml.metadata.Metrics;
 import com.linkedin.ml.metadata.QuantitativeAnalyses;
 import com.linkedin.ml.metadata.TrainingData;
-import com.linkedin.metadata.key.MLModelKey;
-
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 

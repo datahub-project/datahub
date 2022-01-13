@@ -1,0 +1,19 @@
+namespace com.datahub.test.testing.singleaspectentity
+
+import com.linkedin.common.Urn
+
+/**
+ * For unit tests
+ */
+record EntityDocument {
+
+  /**
+   * For unit tests
+   */
+  urn: Urn
+
+  /**
+   * string field
+   */
+  f1: optional string
+}

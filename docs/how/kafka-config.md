@@ -72,6 +72,29 @@ extraEnvs:
     value: "my-apps-mae-consumer"
 ```
 
+## Other Components that use Kafka can be configured using environment variables:
+- datahub-frontend
+- kafka-setup
+- schema-registry
+
+##  SASL/GSSAPI properties for kafka-setup and datahub-frontend via environment variables
+```bash
+KAFKA_BOOTSTRAP_SERVER=broker:29092
+KAFKA_SCHEMAREGISTRY_URL=http://schema-registry:8081
+KAFKA_PROPERTIES_SASL_KERBEROS_SERVICE_NAME=kafka
+KAFKA_PROPERTIES_SECURITY_PROTOCOL=SASL_PLAINTEXT
+KAFKA_PROPERTIES_SASL_JAAS_CONFIG=com.sun.security.auth.module.Krb5LoginModule required principal='principal@REALM' useKeyTab=true storeKey=true keyTab='/keytab';
+```
+
+## SASL/GSSAPI properties for schema-registry via environment variables
+```bash
+SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS=broker:29092
+SCHEMA_REGISTRY_KAFKASTORE_SASL_KERBEROS_SERVICE_NAME=kafka
+SCHEMA_REGISTRY_KAFKASTORE_SECURITY_PROTOCOL=SASL_PLAINTEXT
+SCHEMA_REGISTRY_KAFKASTORE_SASL_JAAS_CONFIG=com.sun.security.auth.module.Krb5LoginModule required principal='principal@REALM' useKeyTab=true storeKey=true keyTab='/keytab';
+```
+
+
 ## SSL
 
 ### Kafka
@@ -105,3 +128,4 @@ Client.
 > passed a full set of configuration but may not require all the configurations that are passed to them. These warn
 > messages indicate that the service was passed a configuration that is not relevant to it and can be safely ignored.
 
+>Other errors: `Failed to start bean 'org.springframework.kafka.config.internalKafkaListenerEndpointRegistry'; nested exception is org.apache.kafka.common.errors.TopicAuthorizationException: Not authorized to access topics: [DataHubUsageEvent_v1]`. Please check ranger permissions or kafka broker logs.
