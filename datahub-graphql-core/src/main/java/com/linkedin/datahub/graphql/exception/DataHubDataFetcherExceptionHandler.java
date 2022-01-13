@@ -21,7 +21,10 @@ public class DataHubDataFetcherExceptionHandler implements DataFetcherExceptionH
     log.error("Failed to execute DataFetcher", exception);
 
     DataHubGraphQLErrorCode errorCode = DataHubGraphQLErrorCode.SERVER_ERROR;
-    String message = "An unknown error occurred.";
+    String message = exception.getMessage();
+    if (message == null || message.length() == 0) {
+      message = "An unknown error occurred.";
+    }
 
     // note: make sure to access the true error message via `getCause()`
     if (exception.getCause() instanceof IllegalArgumentException) {

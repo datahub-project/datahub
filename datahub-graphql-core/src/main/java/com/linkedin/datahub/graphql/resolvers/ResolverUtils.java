@@ -9,11 +9,11 @@ import com.linkedin.datahub.graphql.exception.ValidationException;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 
 import com.linkedin.metadata.aspect.VersionedAspect;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
-import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
-import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.search.utils.ESUtils;
 import graphql.schema.DataFetchingEnvironment;
 import java.lang.reflect.InvocationTargetException;
@@ -89,6 +89,7 @@ public class ResolverUtils {
             .map(filter -> new Criterion().setField(filter.getField() + ESUtils.KEYWORD_SUFFIX).setValue(filter.getValue()))
             .collect(Collectors.toList())))));
     }
+
 
     private static Object constructAspectFromDataElement(DataElement aspectDataElement)
         throws ClassNotFoundException, IllegalAccessException, InvocationTargetException, InstantiationException {

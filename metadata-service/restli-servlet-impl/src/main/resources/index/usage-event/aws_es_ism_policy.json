@@ -10,7 +10,7 @@
         "actions": [
           {
             "rollover": {
-              "min_index_age": "1d"
+              "min_index_age": "7d"
             }
           }
         ],
@@ -18,7 +18,7 @@
           {
             "state_name": "ReadOnly",
             "conditions": {
-              "min_index_age": "7d"
+              "min_index_age": "14d"
             }
           }
         ]

@@ -3,12 +3,14 @@ on:
   push:
     branches:
       - master
+      - acryl-main
     paths-ignore:
       - "docs/**"
       - "**.md"
   pull_request:
     branches:
       - master
+      - acryl-main
     paths-ignore:
       - "docs/**"
       - "**.md"

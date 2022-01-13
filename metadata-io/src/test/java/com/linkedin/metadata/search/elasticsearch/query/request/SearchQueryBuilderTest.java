@@ -34,12 +34,13 @@ public class SearchQueryBuilderTest {
     assertEquals(textQuery.queryString(), "testQuery");
     assertEquals(textQuery.analyzer(), "word_delimited");
     Map<String, Float> textFields = textQuery.fields();
-    assertEquals(textFields.size(), 7);
+    assertEquals(textFields.size(), 8);
     assertEquals(textFields.get("keyPart1.delimited").floatValue(), 4.0f);
     assertFalse(textFields.containsKey("keyPart1.ngram"));
     assertEquals(textFields.get("textFieldOverride.delimited").floatValue(), 0.4f);
     assertFalse(textFields.containsKey("textFieldOverride.ngram"));
     assertEquals(textFields.get("textArrayField.delimited").floatValue(), 0.4f);
     assertEquals(textFields.get("textArrayField.ngram").floatValue(), 0.1f);
+    assertEquals(textFields.get("customProperties.delimited").floatValue(), 0.4f);
   }
 }

@@ -39,10 +39,14 @@ export const AdminConsole = (): JSX.Element => {
 
     const isAnalyticsEnabled = config?.analyticsConfig.enabled;
     const isPoliciesEnabled = config?.policiesConfig.enabled;
+    // Currently we only have a flag for metadata proposals.
+    // In the future, we may add configs for alerts, announcements, etc.
+    const isActionRequestsEnabled = config?.actionRequestsConfig.enabled;
 
     const showAnalytics = (isAnalyticsEnabled && me && me.platformPrivileges.viewAnalytics) || false;
     const showPolicyBuilder = (isPoliciesEnabled && me && me.platformPrivileges.managePolicies) || false;
-    const showAdminConsole = showAnalytics || showPolicyBuilder;
+    const showActionRequests = (isActionRequestsEnabled && me && me.platformPrivileges.viewMetadataProposals) || false;
+    const showAdminConsole = showAnalytics || showPolicyBuilder || showActionRequests;
 
     const onMenuItemClick = () => {
         setAdminConsoleOpen(false);
@@ -85,6 +89,13 @@ export const AdminConsole = (): JSX.Element => {
                             <Menu.Item key="policies" icon={<BankOutlined />}>
                                 <Link onClick={onMenuItemClick} to="/policies">
                                     Policies
+                                </Link>
+                            </Menu.Item>
+                        )}
+                        {showActionRequests && (
+                            <Menu.Item key="actionRequests" icon={<BankOutlined />}>
+                                <Link onClick={onMenuItemClick} to="/requests">
+                                    Requests
                                 </Link>
                             </Menu.Item>
                         )}

@@ -55,6 +55,7 @@ public class ESAggregatedStatsDAO {
   private static final String ES_TERMS_AGGREGATION_PREFIX = "terms_";
   private static final String ES_MAX_AGGREGATION_PREFIX = "max_";
   private static final String ES_FIELD_TIMESTAMP = "timestampMillis";
+  private static final String ES_FIELD_URN = "urn";
   private static final String ES_AGG_TIMESTAMP = ES_AGGREGATION_PREFIX + ES_FIELD_TIMESTAMP;
   private static final String ES_AGG_MAX_TIMESTAMP =
       ES_AGGREGATION_PREFIX + ES_MAX_AGGREGATION_PREFIX + ES_FIELD_TIMESTAMP;
@@ -171,11 +172,9 @@ public class ESAggregatedStatsDAO {
     if (fieldPath.equals(ES_FIELD_TIMESTAMP)) {
       return DataSchema.Type.LONG;
     }
-    /* TODO: Remove if not needed after merge.
-    if (fieldPath.equals(MappingsBuilder.EVENT_GRANULARITY)) {
-      return DataSchema.Type.RECORD;
+    if (fieldPath.equals(ES_FIELD_URN)) {
+      return DataSchema.Type.STRING;
     }
-    */
     String[] memberParts = fieldPath.split("\\.");
     if (memberParts.length == 1) {
       // Search in the timeseriesFieldSpecs.
@@ -426,18 +425,6 @@ public class ESAggregatedStatsDAO {
     }
 
     return lastAggregationBuilder;
-  }
-
-  private boolean isIntegralType(DataSchema.Type fieldType) {
-    switch (fieldType) {
-      case INT:
-      case FLOAT:
-      case DOUBLE:
-      case LONG:
-        return true;
-      default:
-        return false;
-    }
   }
 
   private GenericTable generateResponseFromElastic(SearchResponse searchResponse, GroupingBucket[] groupingBuckets,

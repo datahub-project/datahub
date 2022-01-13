@@ -1,5 +1,8 @@
 #!/bin/bash
 
+: ${SKIP_ELASTICSEARCH_CHECK:=true}
+: ${SKIP_KAFKA_CHECK:=true}
+
 # Add default URI (http) scheme if needed
 if ! echo $NEO4J_HOST | grep -q "://" ; then
     NEO4J_HOST="http://$NEO4J_HOST"

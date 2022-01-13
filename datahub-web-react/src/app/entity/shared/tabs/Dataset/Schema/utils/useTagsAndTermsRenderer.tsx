@@ -1,8 +1,9 @@
 import React from 'react';
 import { EditableSchemaMetadata, EntityType, GlobalTags, SchemaField } from '../../../../../../../types.generated';
 import TagTermGroup from '../../../../../../shared/tags/TagTermGroup';
+import { findFieldPathProposal } from '../../../../../../shared/tags/utils/proposalUtils';
 import { pathMatchesNewPath } from '../../../../../dataset/profile/schema/utils/utils';
-import { useEntityData, useRefetch } from '../../../../EntityContext';
+import { useBaseEntity, useEntityData, useRefetch } from '../../../../EntityContext';
 
 export default function useTagsAndTermsRenderer(
     editableSchemaMetadata: EditableSchemaMetadata | null | undefined,
@@ -11,6 +12,7 @@ export default function useTagsAndTermsRenderer(
     options: { showTags: boolean; showTerms: boolean },
 ) {
     const { urn } = useEntityData();
+    const baseEntity = useBaseEntity();
     const refetch = useRefetch();
 
     const tagAndTermRender = (tags: GlobalTags, record: SchemaField, rowIndex: number | undefined) => {
@@ -33,6 +35,28 @@ export default function useTagsAndTermsRenderer(
                 entityType={EntityType.Dataset}
                 entitySubresource={record.fieldPath}
                 refetch={refetch}
+                proposedGlossaryTerms={
+                    options.showTerms
+                        ? findFieldPathProposal(
+                              // eslint-disable-next-line
+                              // @ts-ignore
+                              // eslint-disable-next-line
+                              baseEntity?.['dataset']?.['termProposals'] || [],
+                              record.fieldPath,
+                          )
+                        : []
+                }
+                proposedTags={
+                    options.showTags
+                        ? findFieldPathProposal(
+                              // eslint-disable-next-line
+                              // @ts-ignore
+                              // eslint-disable-next-line
+                              baseEntity?.['dataset']?.['tagProposals'] || [],
+                              record.fieldPath,
+                          )
+                        : []
+                }
             />
         );
     };

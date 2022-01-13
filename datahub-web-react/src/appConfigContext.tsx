@@ -10,6 +10,9 @@ export const DEFAULT_APP_CONFIG = {
         platformPrivileges: [],
         resourcePrivileges: [],
     },
+    actionRequestsConfig: {
+        enabled: false,
+    },
     identityManagementConfig: {
         enabled: false,
     },

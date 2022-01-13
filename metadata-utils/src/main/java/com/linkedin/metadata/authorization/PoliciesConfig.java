@@ -42,11 +42,23 @@ public class PoliciesConfig {
       "Generate Personal Access Tokens",
       "Generate personal access tokens for use with DataHub APIs.");
 
+  public static final Privilege VIEW_METADATA_PROPOSALS_PRIVILEGE = Privilege.of(
+      "VIEW_METADATA_PROPOSALS",
+      "View Metadata Proposals",
+      "View the requests tab for viewing metadata proposals.");
+
+  public static final Privilege CREATE_CONSTRAINTS_PRIVILEGE = Privilege.of(
+      "CREATE_CONSTRAINTS",
+      "Create metadata constraints",
+      "Create metadata constraints.");
+
   public static final List<Privilege> PLATFORM_PRIVILEGES = ImmutableList.of(
       MANAGE_POLICIES_PRIVILEGE,
       MANAGE_USERS_AND_GROUPS_PRIVILEGE,
       VIEW_ANALYTICS_PRIVILEGE,
-      GENERATE_PERSONAL_ACCESS_TOKENS_PRIVILEGE
+      GENERATE_PERSONAL_ACCESS_TOKENS_PRIVILEGE,
+      VIEW_METADATA_PROPOSALS_PRIVILEGE,
+      CREATE_CONSTRAINTS_PRIVILEGE
   );
 
   // Resource Privileges //
@@ -56,10 +68,30 @@ public class PoliciesConfig {
       "Edit Tags",
       "The ability to add and remove tags to an asset.");
 
+  public static final Privilege PROPOSE_ENTITY_TAGS_PRIVILEGE = Privilege.of(
+      "PROPOSE_ENTITY_TAGS",
+      "Propose Tags",
+      "The ability to propose adding a tag to an asset.");
+
+  public static final Privilege MANAGE_ENTITY_TAGS_PRIVILEGE = Privilege.of(
+      "MANAGE_ENTITY_TAGS",
+      "Manage Tag Proposals",
+      "The ability to manage a proposal to add a tag to an asset.");
+
   public static final Privilege EDIT_ENTITY_GLOSSARY_TERMS_PRIVILEGE = Privilege.of(
       "EDIT_ENTITY_GLOSSARY_TERMS",
       "Edit Glossary Terms",
       "The ability to add and remove glossary terms to an asset.");
+
+  public static final Privilege PROPOSE_ENTITY_GLOSSARY_TERMS_PRIVILEGE = Privilege.of(
+      "PROPOSE_ENTITY_GLOSSARY_TERMS",
+      "Propose Glossary Terms",
+      "The ability to propose adding a glossary term to an asset.");
+
+  public static final Privilege MANAGE_ENTITY_GLOSSARY_TERMS_PRIVILEGE = Privilege.of(
+      "MANAGE_ENTITY_GLOSSARY_TERMS",
+      "Manage Glossary Term Proposals",
+      "The ability to manage a proposal to add a glossary term to an asset.");
 
   public static final Privilege EDIT_ENTITY_OWNERS_PRIVILEGE = Privilege.of(
       "EDIT_ENTITY_OWNERS",
@@ -88,6 +120,8 @@ public class PoliciesConfig {
 
   public static final List<Privilege> COMMON_ENTITY_PRIVILEGES = ImmutableList.of(
       EDIT_ENTITY_TAGS_PRIVILEGE,
+      PROPOSE_ENTITY_TAGS_PRIVILEGE,
+      PROPOSE_ENTITY_GLOSSARY_TERMS_PRIVILEGE, MANAGE_ENTITY_TAGS_PRIVILEGE, MANAGE_ENTITY_GLOSSARY_TERMS_PRIVILEGE,
       EDIT_ENTITY_GLOSSARY_TERMS_PRIVILEGE,
       EDIT_ENTITY_OWNERS_PRIVILEGE,
       EDIT_ENTITY_DOCS_PRIVILEGE,
@@ -103,10 +137,34 @@ public class PoliciesConfig {
       "The ability to edit the column (field) tags associated with a dataset schema."
   );
 
+  public static final Privilege PROPOSE_DATASET_COL_TAGS_PRIVILEGE = Privilege.of(
+      "PROPOSE_DATASET_COL_TAGS",
+      "Propose Dataset Column Tags",
+      "The ability to propose new column (field) tags associated with a dataset schema."
+  );
+
+  public static final Privilege MANAGE_DATASET_COL_TAGS_PRIVILEGE = Privilege.of(
+      "MANAGE_DATASET_COL_TAGS",
+      "Manage Dataset Column Tag Proposals",
+      "The ability to manage column (field) tag proposals associated with a dataset schema."
+  );
+
   public static final Privilege EDIT_DATASET_COL_GLOSSARY_TERMS_PRIVILEGE = Privilege.of(
       "EDIT_DATASET_COL_GLOSSARY_TERMS",
       "Edit Dataset Column Glossary Terms",
       "The ability to edit the column (field) glossary terms associated with a dataset schema."
+  );
+
+  public static final Privilege PROPOSE_DATASET_COL_GLOSSARY_TERMS_PRIVILEGE = Privilege.of(
+      "PROPOSE_DATASET_COL_GLOSSARY_TERMS",
+      "Propose Dataset Column Glossary Terms",
+      "The ability to propose column (field) glossary terms associated with a dataset schema."
+  );
+
+  public static final Privilege MANAGE_DATASET_COL_GLOSSARY_TERMS_PRIVILEGE = Privilege.of(
+      "MANAGE_DATASET_COL_GLOSSARY_TERMS",
+      "Manage Dataset Column Glossary Terms",
+      "The ability to manage column (field) glossary term proposals associated with a dataset schema."
   );
 
   public static final Privilege EDIT_DATASET_COL_DESCRIPTION_PRIVILEGE = Privilege.of(
@@ -120,7 +178,10 @@ public class PoliciesConfig {
       "Datasets",
       "Datasets indexed by DataHub", Stream.of(
           COMMON_ENTITY_PRIVILEGES,
-          ImmutableList.of(EDIT_DATASET_COL_DESCRIPTION_PRIVILEGE, EDIT_DATASET_COL_TAGS_PRIVILEGE, EDIT_DATASET_COL_GLOSSARY_TERMS_PRIVILEGE))
+          ImmutableList.of(EDIT_DATASET_COL_DESCRIPTION_PRIVILEGE, EDIT_DATASET_COL_TAGS_PRIVILEGE, EDIT_DATASET_COL_GLOSSARY_TERMS_PRIVILEGE,
+              PROPOSE_DATASET_COL_GLOSSARY_TERMS_PRIVILEGE, PROPOSE_DATASET_COL_TAGS_PRIVILEGE,
+              MANAGE_DATASET_COL_GLOSSARY_TERMS_PRIVILEGE, MANAGE_DATASET_COL_TAGS_PRIVILEGE
+              ))
           .flatMap(Collection::stream)
           .collect(Collectors.toList())
   );

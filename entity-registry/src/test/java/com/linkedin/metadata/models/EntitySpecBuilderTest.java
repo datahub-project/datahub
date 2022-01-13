@@ -118,7 +118,7 @@ public class EntitySpecBuilderTest {
     assertEquals(8, testEntityInfo.getSearchableFieldSpecs().size());
     assertEquals("customProperties", testEntityInfo.getSearchableFieldSpecMap().get(
         new PathSpec("customProperties").toString()).getSearchableAnnotation().getFieldName());
-    assertEquals(SearchableAnnotation.FieldType.KEYWORD, testEntityInfo.getSearchableFieldSpecMap().get(
+    assertEquals(SearchableAnnotation.FieldType.TEXT, testEntityInfo.getSearchableFieldSpecMap().get(
         new PathSpec("customProperties").toString())
         .getSearchableAnnotation().getFieldType());
     assertEquals("textFieldOverride", testEntityInfo.getSearchableFieldSpecMap().get(

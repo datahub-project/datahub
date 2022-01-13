@@ -54,4 +54,5 @@ services:
       args:
         APP_ENV: dev
     volumes:
+      - ./datahub-frontend/start.sh:/scripts/start.sh
       - ../datahub-frontend/build/stage/datahub-frontend:/datahub-frontend

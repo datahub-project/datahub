@@ -104,6 +104,40 @@ query getDataset($urn: String!) {
                 sampleValues
             }
         }
+        termProposals: proposals(type: TERM_ASSOCIATION) {
+            urn
+            type
+            status
+            result
+            subResourceType
+            subResource
+            params {
+                glossaryTermProposal {
+                    glossaryTerm {
+                        urn
+                        type
+                        name
+                    }
+                }
+            }
+        }
+        tagProposals: proposals(type: TAG_ASSOCIATION) {
+            urn
+            type
+            status
+            result
+            subResourceType
+            subResource
+            params {
+                tagProposal {
+                    tag {
+                        urn
+                        type
+                        name
+                    }
+                }
+            }
+        }
         operations(limit: 1) {
             timestampMillis
         }
@@ -118,6 +152,16 @@ query getDataset($urn: String!) {
             ...fullRelationshipResults
         }
         ...viewProperties
+        constraints {
+            displayName
+            description
+            type
+            params {
+                hasGlossaryTermInNodeParams {
+                    nodeName
+                }
+            }
+        }
         autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
             aspectName
             payload

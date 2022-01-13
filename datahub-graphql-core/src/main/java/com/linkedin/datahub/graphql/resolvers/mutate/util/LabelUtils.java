@@ -40,6 +40,7 @@ public class LabelUtils {
   public static final String GLOSSARY_TERM_ASPECT_NAME = "glossaryTerms";
   public static final String EDITABLE_SCHEMA_METADATA = "editableSchemaMetadata";
   public static final String TAGS_ASPECT_NAME = "globalTags";
+  public static final String SCHEMA_ASPECT_NAME = "schemaMetadata";
 
   public static void removeTermFromTarget(
       Urn labelUrn,

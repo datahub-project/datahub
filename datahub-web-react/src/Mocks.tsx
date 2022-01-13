@@ -396,6 +396,9 @@ export const dataset3 = {
     editableSchemaMetadata: null,
     deprecation: null,
     usageStats: null,
+    tagProposals: null,
+    termProposals: null,
+    constraints: null,
     operations: null,
     datasetProfiles: [
         {

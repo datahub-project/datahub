@@ -1,6 +1,7 @@
 package com.linkedin.metadata.resources.lineage;
 
 import com.codahale.metrics.MetricRegistry;
+
 import com.linkedin.common.EntityRelationship;
 
 import com.linkedin.common.EntityRelationshipArray;
@@ -32,7 +33,6 @@ import java.util.stream.Collectors;
 
 import static com.linkedin.metadata.search.utils.QueryUtils.newFilter;
 import static com.linkedin.metadata.search.utils.QueryUtils.newRelationshipFilter;
-
 
 /**
  * Rest.li entry point: /relationships?type={entityType}&direction={direction}&types={types}

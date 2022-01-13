@@ -17,10 +17,21 @@ query getMe {
                 teams
                 skills
             }
+            groups: relationships(input: { types: ["IsMemberOfGroup"], direction: OUTGOING, start: 0, count: 50 }) {
+                relationships {
+                    entity {
+                        ... on CorpGroup {
+                            urn
+                            name
+                        }
+                    }
+                }
+            }
         }
         platformPrivileges {
             viewAnalytics
             managePolicies
+            viewMetadataProposals
             manageIdentities
             generatePersonalAccessTokens
         }

@@ -1,6 +1,7 @@
 package com.linkedin.metadata.search;
 
 import com.linkedin.common.urn.Urn;
+
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.filter.Filter;

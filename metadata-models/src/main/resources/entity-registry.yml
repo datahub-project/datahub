@@ -25,3 +25,7 @@ entities:
       - corpUserInfo
       - corpUserEditableInfo
       - corpUserStatus
+  - name: constraint
+    keyAspect: constraintKey
+    aspects:
+      - constraintInfo

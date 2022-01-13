@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.config;
 
 import com.datahub.authorization.Authorizer;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.generated.ActionRequestsConfig;
 import com.linkedin.datahub.graphql.generated.AnalyticsConfig;
 import com.linkedin.datahub.graphql.generated.AppConfig;
 import com.linkedin.datahub.graphql.generated.EntityType;
@@ -57,11 +58,16 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
         .collect(Collectors.toList())
     );
 
+    appConfig.setAnalyticsConfig(analyticsConfig);
+    appConfig.setPoliciesConfig(policiesConfig);
+
+    final ActionRequestsConfig actionRequestsConfig = new ActionRequestsConfig();
+    actionRequestsConfig.setEnabled(true); // Always set to true in SaaS.
+
+    appConfig.setActionRequestsConfig(actionRequestsConfig);
     final IdentityManagementConfig identityManagementConfig = new IdentityManagementConfig();
     identityManagementConfig.setEnabled(true); // Identity Management always enabled. TODO: Understand if there's a case where this should change.
 
-    appConfig.setAnalyticsConfig(analyticsConfig);
-    appConfig.setPoliciesConfig(policiesConfig);
     appConfig.setIdentityManagementConfig(identityManagementConfig);
 
     return CompletableFuture.completedFuture(appConfig);

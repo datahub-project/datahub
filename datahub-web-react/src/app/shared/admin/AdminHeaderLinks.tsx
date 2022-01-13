@@ -1,14 +1,25 @@
 import styled from 'styled-components';
 import * as React from 'react';
-import { BankOutlined, BarChartOutlined, SettingOutlined, UsergroupAddOutlined } from '@ant-design/icons';
+import {
+    BankOutlined,
+    BarChartOutlined,
+    InboxOutlined,
+    SettingOutlined,
+    UsergroupAddOutlined,
+} from '@ant-design/icons';
 import { Link } from 'react-router-dom';
 import { Button } from 'antd';
-
 import { useAppConfig } from '../../useAppConfig';
 import { useGetAuthenticatedUser } from '../../useGetAuthenticatedUser';
 
 const AdminLink = styled.span`
     margin-right: 4px;
+    &&& .ant-btn-text {
+        color: ${(props) => props.theme.styles['heading-color']};
+        :hover {
+            color: ${(props) => props.theme.styles['primary-color']};
+        }
+    }
 `;
 
 export function AdminHeaderLinks() {
@@ -17,10 +28,14 @@ export function AdminHeaderLinks() {
 
     const isAnalyticsEnabled = config?.analyticsConfig.enabled;
     const isPoliciesEnabled = config?.policiesConfig.enabled;
+    // Currently we only have a flag for metadata proposals.
+    // In the future, we may add configs for alerts, announcements, etc.
+    const isActionRequestsEnabled = config?.actionRequestsConfig.enabled;
     const isIdentityManagementEnabled = config?.identityManagementConfig.enabled;
 
     const showAnalytics = (isAnalyticsEnabled && me && me.platformPrivileges.viewAnalytics) || false;
     const showPolicyBuilder = (isPoliciesEnabled && me && me.platformPrivileges.managePolicies) || false;
+    const showActionRequests = (isActionRequestsEnabled && me && me.platformPrivileges.viewMetadataProposals) || false;
     const showIdentityManagement =
         (isIdentityManagementEnabled && me && me.platformPrivileges.manageIdentities) || false;
     const showSettings = true;
@@ -41,6 +56,15 @@ export function AdminHeaderLinks() {
                     <Link to="/policies">
                         <Button type="text">
                             <BankOutlined /> Policies
+                        </Button>
+                    </Link>
+                </AdminLink>
+            )}
+            {showActionRequests && (
+                <AdminLink>
+                    <Link to="/requests">
+                        <Button type="text">
+                            <InboxOutlined /> My Requests
                         </Button>
                     </Link>
                 </AdminLink>

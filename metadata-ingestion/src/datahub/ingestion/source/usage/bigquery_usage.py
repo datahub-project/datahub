@@ -491,6 +491,7 @@ class BigQueryUsageSource(Source):
             or self.config.table_pattern.allow[0] != ".*"
         )
         use_deny_filter = self.config.table_pattern and self.config.table_pattern.deny
+
         allow_regex = (
             BQ_FILTER_REGEX_ALLOW_TEMPLATE.format(
                 allow_pattern=self.config.get_allow_pattern_string()
@@ -511,6 +512,7 @@ class BigQueryUsageSource(Source):
             f"use_allow_filter={use_allow_filter}, use_deny_filter={use_deny_filter}, "
             f"allow_regex={allow_regex}, deny_regex={deny_regex}"
         )
+
         filter = BQ_FILTER_RULE_TEMPLATE.format(
             start_time=(
                 self.config.start_time - self.config.max_query_duration
@@ -691,6 +693,8 @@ class BigQueryUsageSource(Source):
                         str(event.resource),
                         "failed to match table read event with job; try increasing `query_log_delay` or `max_query_duration`",
                     )
+                    # continue to avoid processing read events that aren't matched by query events
+                    continue
             yield event
 
         logger.info(f"Number of read events joined with query events: {num_joined}")

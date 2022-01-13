@@ -201,6 +201,26 @@ type Mutation {
     updateDescription(input: DescriptionUpdateInput!): Boolean
 
     """
+    Accepts a proposal for a given entity or subresource
+    """
+    acceptProposal(urn: String!): Boolean
+
+    """
+    Rejects a proposal for a given entity or subresource
+    """
+    rejectProposal(urn: String!): Boolean
+
+    """
+    Adds a term proposal for a given entity or subresource
+    """
+    proposeTerm(input: TermAssociationInput!): Boolean
+
+    """
+    Adds a term proposal for a given entity or subresource
+    """
+    proposeTag(input: TagAssociationInput!): Boolean
+
+    """
     Remove a user. Requires Manage Users & Groups Platform Privilege
     """
     removeUser(urn: String!): Boolean
@@ -5099,6 +5119,22 @@ enum CostType {
     Org Cost Type to which the Cost of this entity should be attributed to
     """
     ORG_COST_TYPE
+}
+
+
+"""
+Audit stamp containing a resolved actor
+"""
+type ResolvedAuditStamp {
+    """
+    When the audited action took place
+    """
+    time: Long!
+
+    """
+    Who performed the audited action
+    """
+    actor: CorpUser
 }
 
 type SubTypes {

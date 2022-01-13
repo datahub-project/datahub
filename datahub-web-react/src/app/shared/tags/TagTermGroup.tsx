@@ -1,11 +1,11 @@
-import { Modal, Tag, Typography, Button, message } from 'antd';
+import { Modal, Tag, Typography, Button, message, Tooltip } from 'antd';
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 import { BookOutlined, PlusOutlined } from '@ant-design/icons';
 
 import { useEntityRegistry } from '../../useEntityRegistry';
-import { EntityType, GlobalTags, GlossaryTerms, SubResourceType } from '../../../types.generated';
+import { ActionRequest, EntityType, GlobalTags, GlossaryTerms, SubResourceType } from '../../../types.generated';
 import AddTagTermModal from './AddTagTermModal';
 import { StyledTag } from '../../entity/shared/components/styled/StyledTag';
 import { EMPTY_MESSAGES } from '../../entity/shared/constants';
@@ -27,6 +27,9 @@ type Props = {
     entityType?: EntityType;
     entitySubresource?: string;
     refetch?: () => Promise<any>;
+
+    proposedGlossaryTerms?: ActionRequest[];
+    proposedTags?: ActionRequest[];
 };
 
 const TagWrapper = styled.div`
@@ -44,6 +47,10 @@ const NoElementButton = styled(Button)`
     }
 `;
 
+const ProposedTag = styled(Tag)`
+    opacity: 0.7;
+`;
+
 export default function TagTermGroup({
     uneditableTags,
     editableTags,
@@ -56,6 +63,8 @@ export default function TagTermGroup({
     maxShow,
     uneditableGlossaryTerms,
     editableGlossaryTerms,
+    proposedGlossaryTerms,
+    proposedTags,
     entityUrn,
     entityType,
     entitySubresource,
@@ -64,11 +73,14 @@ export default function TagTermGroup({
     const entityRegistry = useEntityRegistry();
     const [showAddModal, setShowAddModal] = useState(false);
     const [addModalType, setAddModalType] = useState(EntityType.Tag);
+
     const tagsEmpty =
         !editableTags?.tags?.length &&
         !uneditableTags?.tags?.length &&
         !editableGlossaryTerms?.terms?.length &&
-        !uneditableGlossaryTerms?.terms?.length;
+        !uneditableGlossaryTerms?.terms?.length &&
+        !proposedTags?.length &&
+        !proposedGlossaryTerms?.length;
     const [removeTagMutation] = useRemoveTagMutation();
     const [removeTermMutation] = useRemoveTermMutation();
 
@@ -172,6 +184,21 @@ export default function TagTermGroup({
                     </Tag>
                 </TagLink>
             ))}
+            {proposedGlossaryTerms?.map((actionRequest) => (
+                <TagLink
+                    to={`/${entityRegistry.getPathName(EntityType.GlossaryTerm)}/${
+                        actionRequest.params?.glossaryTermProposal?.glossaryTerm.urn
+                    }`}
+                    key={actionRequest.params?.glossaryTermProposal?.glossaryTerm.urn}
+                >
+                    <Tooltip overlay="Pending approval from owners">
+                        <ProposedTag closable={false}>
+                            {actionRequest.params?.glossaryTermProposal?.glossaryTerm.name}
+                            <BookOutlined style={{ marginLeft: '2%' }} />
+                        </ProposedTag>
+                    </Tooltip>
+                </TagLink>
+            ))}
             {/* uneditable tags are provided by ingestion pipelines exclusively */}
             {uneditableTags?.tags?.map((tag) => {
                 renderedTags += 1;
@@ -203,6 +230,20 @@ export default function TagTermGroup({
                     </TagLink>
                 );
             })}
+            {proposedTags?.map((actionRequest) => (
+                <TagLink
+                    to={`/${entityRegistry.getPathName(EntityType.Tag)}/${
+                        actionRequest?.params?.tagProposal?.tag?.urn
+                    }`}
+                    key={actionRequest?.params?.tagProposal?.tag?.urn}
+                >
+                    <Tooltip overlay="Pending approval from owners">
+                        <StyledTag disabled $colorHash={actionRequest?.params?.tagProposal?.tag?.urn}>
+                            {actionRequest?.params?.tagProposal?.tag?.name}
+                        </StyledTag>
+                    </Tooltip>
+                </TagLink>
+            ))}
             {showEmptyMessage && canAddTag && tagsEmpty && (
                 <Typography.Paragraph type="secondary">
                     {EMPTY_MESSAGES.tags.title}. {EMPTY_MESSAGES.tags.description}

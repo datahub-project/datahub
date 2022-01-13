@@ -1,6 +1,7 @@
 package com.linkedin.metadata.resources.lineage;
 
 import com.codahale.metrics.MetricRegistry;
+
 import com.linkedin.common.EntityRelationship;
 import com.linkedin.common.EntityRelationshipArray;
 import com.linkedin.common.EntityRelationships;
@@ -29,7 +30,6 @@ import javax.inject.Named;
 
 import static com.linkedin.metadata.search.utils.QueryUtils.newFilter;
 import static com.linkedin.metadata.search.utils.QueryUtils.newRelationshipFilter;
-
 
 /**
  * Deprecated! Use {@link Relationships} instead.

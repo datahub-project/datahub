@@ -1,8 +1,8 @@
 {
-  "urn": "urn:li:corpuser:datahub",
+  "urn": "urn:li:corpuser:admin",
   "info": {
     "active": true,
-    "displayName": "DataHub",
+    "displayName": "Admin",
     "title": "DataHub Root User"
   }
 }

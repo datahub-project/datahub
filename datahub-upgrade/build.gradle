@@ -12,7 +12,6 @@ dependencies {
   compile(externalDependency.hadoopClient) {
     exclude group: 'net.minidev', module: 'json-smart'
     exclude group: 'com.nimbusds', module: 'nimbus-jose-jwt'
-    exclude group: "org.apache.htrace", module: "htrace-core4"
   }
   compile externalDependency.lombok
   compile externalDependency.picocli
@@ -21,6 +20,10 @@ dependencies {
   compile externalDependency.springBootAutoconfigure
   compile externalDependency.springCore
   compile externalDependency.springKafka
+
+  compile externalDependency.awsJavaSdkCore
+  compile externalDependency.awsJavaSdkSts
+  compile externalDependency.awsJavaSdkS3
 
   runtime externalDependency.logbackClassic
   runtime externalDependency.mariadbConnector

@@ -307,7 +307,7 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
             .setValue(endTime.toString());
         criteria.add(endTimeCriterion);
       }
-      
+
       filter.setOr(new ConjunctiveCriterionArray(new ConjunctiveCriterion().setAnd(new CriterionArray(criteria))));
 
       // 2. Get buckets.

@@ -10,6 +10,7 @@ import { SearchPage } from './search/SearchPage';
 import { AnalyticsPage } from './analyticsDashboard/components/AnalyticsPage';
 import { PoliciesPage } from './policy/PoliciesPage';
 import AppConfigProvider from '../AppConfigProvider';
+import { ActionRequestsPage } from './actionrequest/ActionRequestsPage';
 import { ManageIdentitiesPage } from './identity/ManageIdentitiesPage';
 import { SettingsPage } from './settings/SettingsPage';
 
@@ -35,6 +36,7 @@ export const ProtectedRoutes = (): JSX.Element => {
                         <Route path={PageRoutes.BROWSE_RESULTS} render={() => <BrowseResultsPage />} />
                         <Route path={PageRoutes.ANALYTICS} render={() => <AnalyticsPage />} />
                         <Route path={PageRoutes.POLICIES} render={() => <PoliciesPage />} />
+                        <Route path={PageRoutes.ACTION_REQUESTS} render={() => <ActionRequestsPage />} />
                         <Route path={PageRoutes.IDENTITIES} render={() => <ManageIdentitiesPage />} />
                         <Route path={PageRoutes.SETTINGS} render={() => <SettingsPage />} />
                     </Switch>
