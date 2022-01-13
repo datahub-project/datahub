@@ -1,8 +1,8 @@
 import datetime
 import itertools
 import logging
-from math import log10
 import uuid
+from math import log10
 from typing import Any, Dict, Iterable, List, Optional
 
 import click
