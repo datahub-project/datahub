@@ -2,7 +2,7 @@ import React from 'react';
 import { Tooltip, Badge } from 'antd';
 import styled from 'styled-components';
 
-import { capitalizeFirstLetter } from '../../../../../../shared/capitalizeFirstLetter';
+import { capitalizeFirstLetter } from '../../../../../../shared/textUtil';
 import { SchemaFieldDataType } from '../../../../../../../types.generated';
 import { truncate } from '../../../../utils';
 import { ANTD_GRAY } from '../../../../constants';

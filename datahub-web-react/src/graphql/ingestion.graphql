@@ -1,0 +1,131 @@
+query listIngestionSources($input: ListIngestionSourcesInput!) {
+    listIngestionSources(input: $input) {
+        start
+        count
+        total
+        ingestionSources {
+            urn
+            name
+            type
+            config {
+                recipe
+                version
+                executorId
+            }
+            schedule {
+                interval
+                timezone
+            }
+            executions(start: 0, count: 1) {
+                start
+                count
+                total
+                executionRequests {
+                    urn
+                    input {
+                        requestedAt
+                    }
+                    result {
+                        status
+                        startTimeMs
+                        durationMs
+                    }
+                }
+            }
+        }
+    }
+}
+
+query getIngestionSource($urn: String!, $runStart: Int, $runCount: Int) {
+    ingestionSource(urn: $urn) {
+        urn
+        name
+        type
+        config {
+            recipe
+            version
+            executorId
+        }
+        schedule {
+            interval
+            timezone
+        }
+        executions(start: $runStart, count: $runCount) {
+            start
+            count
+            total
+            executionRequests {
+                urn
+                input {
+                    requestedAt
+                    source {
+                        type
+                    }
+                }
+                result {
+                    status
+                    startTimeMs
+                    durationMs
+                }
+            }
+        }
+    }
+}
+
+query getIngestionExecutionRequest($urn: String!) {
+    executionRequest(urn: $urn) {
+        urn
+        input {
+            source {
+                type
+            }
+        }
+        result {
+            status
+            startTimeMs
+            durationMs
+            report
+        }
+    }
+}
+
+mutation createIngestionSource($input: UpdateIngestionSourceInput!) {
+    createIngestionSource(input: $input)
+}
+
+mutation updateIngestionSource($urn: String!, $input: UpdateIngestionSourceInput!) {
+    updateIngestionSource(urn: $urn, input: $input)
+}
+
+mutation deleteIngestionSource($urn: String!) {
+    deleteIngestionSource(urn: $urn)
+}
+
+query listSecrets($input: ListSecretsInput!) {
+    listSecrets(input: $input) {
+        start
+        count
+        total
+        secrets {
+            urn
+            name
+            description
+        }
+    }
+}
+
+mutation createSecret($input: CreateSecretInput!) {
+    createSecret(input: $input)
+}
+
+mutation deleteSecret($urn: String!) {
+    deleteSecret(urn: $urn)
+}
+
+mutation createIngestionExecutionRequest($input: CreateIngestionExecutionRequestInput!) {
+    createIngestionExecutionRequest(input: $input)
+}
+
+mutation cancelIngestionExecutionRequest($input: CancelIngestionExecutionRequestInput!) {
+    cancelIngestionExecutionRequest(input: $input)
+}

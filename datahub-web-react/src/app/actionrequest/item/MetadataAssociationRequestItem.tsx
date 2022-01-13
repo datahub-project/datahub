@@ -6,7 +6,7 @@ import styled from 'styled-components';
 import { useAcceptProposalMutation, useRejectProposalMutation } from '../../../graphql/actionRequest.generated';
 import { ActionRequest, ActionRequestResult, ActionRequestStatus, EntityType } from '../../../types.generated';
 import { CustomAvatar } from '../../shared/avatar';
-import { capitalizeFirstLetter } from '../../shared/capitalizeFirstLetter';
+import { capitalizeFirstLetter } from '../../shared/textUtil';
 import { useEntityRegistry } from '../../useEntityRegistry';
 
 type Props = {

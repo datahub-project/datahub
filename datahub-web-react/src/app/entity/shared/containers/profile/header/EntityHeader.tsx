@@ -3,7 +3,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
-import { capitalizeFirstLetter } from '../../../../../shared/capitalizeFirstLetter';
+import { capitalizeFirstLetter } from '../../../../../shared/textUtil';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import { ANTD_GRAY } from '../../../constants';
 import { useEntityData } from '../../../EntityContext';

@@ -7,9 +7,11 @@ import com.linkedin.datahub.graphql.generated.AnalyticsConfig;
 import com.linkedin.datahub.graphql.generated.AppConfig;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.IdentityManagementConfig;
+import com.linkedin.datahub.graphql.generated.ManagedIngestionConfig;
 import com.linkedin.datahub.graphql.generated.PoliciesConfig;
 import com.linkedin.datahub.graphql.generated.Privilege;
 import com.linkedin.datahub.graphql.generated.ResourcePrivileges;
+import com.linkedin.metadata.config.IngestionConfiguration;
 import com.linkedin.metadata.version.GitVersion;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -22,12 +24,14 @@ import java.util.stream.Collectors;
  */
 public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfig>> {
 
-  private final GitVersion _gitVersion;
   private final boolean _isAnalyticsEnabled;
+  private final IngestionConfiguration _ingestionConfiguration;
+  private final GitVersion _gitVersion;
 
-  public AppConfigResolver(final GitVersion gitVersion, final boolean isAnalyticsEnabled) {
+  public AppConfigResolver(final GitVersion gitVersion, final boolean isAnalyticsEnabled, final IngestionConfiguration ingestionConfiguration) {
     _gitVersion = gitVersion;
     _isAnalyticsEnabled = isAnalyticsEnabled;
+    _ingestionConfiguration = ingestionConfiguration;
   }
 
   @Override
@@ -68,7 +72,13 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
     final IdentityManagementConfig identityManagementConfig = new IdentityManagementConfig();
     identityManagementConfig.setEnabled(true); // Identity Management always enabled. TODO: Understand if there's a case where this should change.
 
+
+    final ManagedIngestionConfig ingestionConfig = new ManagedIngestionConfig();
+    ingestionConfig.setEnabled(_ingestionConfiguration.isEnabled());
+    appConfig.setAnalyticsConfig(analyticsConfig);
+    appConfig.setPoliciesConfig(policiesConfig);
     appConfig.setIdentityManagementConfig(identityManagementConfig);
+    appConfig.setManagedIngestionConfig(ingestionConfig);
 
     return CompletableFuture.completedFuture(appConfig);
   }

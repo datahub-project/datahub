@@ -28,6 +28,9 @@ query appConfig {
         identityManagementConfig {
             enabled
         }
+        managedIngestionConfig {
+            enabled
+        }
     }
 }
 

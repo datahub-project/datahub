@@ -19,6 +19,9 @@ public class Constants {
   public static final String CORP_GROUP_ENTITY_NAME = "corpGroup";
   public static final String ACTION_REQUEST_ENTITY_NAME = "actionRequest";
   public static final String CONSTRAINT_ENTITY_NAME = "constraint";
+  public static final String INGESTION_SOURCE_ENTITY_NAME = "dataHubIngestionSource";
+  public static final String SECRETS_ENTITY_NAME = "dataHubSecret";
+  public static final String EXECUTION_REQUEST_ENTITY_NAME = "dataHubExecutionRequest";
 
   /**
    * Aspects
@@ -31,7 +34,11 @@ public class Constants {
   public static final String CORP_USER_STATUS_ASPECT_NAME = "corpUserStatus";
   public static final String CORP_USER_KEY_ASPECT_NAME = "corpUserKey";
   public static final String CONSTRAINT_INFO_ASPECT_NAME = "constraintInfo";
-
+  public static final String INGESTION_INFO_ASPECT_NAME = "dataHubIngestionSourceInfo";
+  public static final String SECRET_VALUE_ASPECT_NAME = "dataHubSecretValue";
+  public static final String EXECUTION_REQUEST_INPUT_ASPECT_NAME = "dataHubExecutionRequestInput";
+  public static final String EXECUTION_REQUEST_SIGNAL_ASPECT_NAME = "dataHubExecutionRequestSignal";
+  public static final String EXECUTION_REQUEST_RESULT_ASPECT_NAME = "dataHubExecutionRequestResult";
 
   /**
    * User Status

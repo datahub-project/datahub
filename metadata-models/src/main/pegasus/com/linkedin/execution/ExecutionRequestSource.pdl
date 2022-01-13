@@ -1,0 +1,24 @@
+namespace com.linkedin.execution
+
+import com.linkedin.common.Urn
+
+record ExecutionRequestSource {
+  /**
+  * The type of the execution request source, e.g. INGESTION_SOURCE
+  */
+  type: string
+
+  /**
+  * The urn of the ingestion source associated with the ingestion request. Present if type is INGESTION_SOURCE
+  */
+  @Relationship = {
+    "name": "ingestionSource",
+    "entityTypes": [ "dataHubIngestionSource" ]
+  }
+  @Searchable = {
+    "fieldName": "ingestionSource",
+    "fieldType": "KEYWORD",
+    "queryByDefault": false
+  }
+  ingestionSource: optional Urn
+}

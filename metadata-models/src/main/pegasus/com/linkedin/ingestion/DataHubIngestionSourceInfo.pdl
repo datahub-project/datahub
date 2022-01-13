@@ -1,0 +1,55 @@
+namespace com.linkedin.ingestion
+
+import com.linkedin.common.AuditStamp
+import com.linkedin.common.Urn
+
+/**
+ * Info about a DataHub ingestion source
+ */
+@Aspect = {
+  "name": "dataHubIngestionSourceInfo"
+}
+record DataHubIngestionSourceInfo {
+  /**
+   * The display name of the ingestion source
+   */
+  @Searchable = {
+   "fieldType": "TEXT_PARTIAL"
+  }
+  name: string
+
+  /**
+   * The type of the source itself, e.g. mysql, bigquery, bigquery-usage. Should match the recipe.
+   */
+  type: string
+
+  /**
+   * Data Platform URN associated with the source
+   */
+  platform: optional Urn
+
+  /**
+  * The schedule on which the ingestion source is executed
+  */
+  schedule: optional DataHubIngestionSourceSchedule
+
+  /**
+  * Parameters associated with the Ingestion Source
+  */
+  config: record DataHubIngestionSourceConfig {
+    /**
+     * The JSON recipe to use for ingestion
+     */
+     recipe: string
+
+     /**
+      * The PyPI version of the datahub CLI to use when executing a recipe
+      */
+      version: optional string
+
+     /**
+      * The id of the executor to use to execute the ingestion run
+      */
+      executorId: optional string
+  }
+}

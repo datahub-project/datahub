@@ -684,7 +684,10 @@ def test_frontend_delete_policy(frontend_session):
     assert res_data
     assert res_data["data"]
     assert res_data["data"]["listPolicies"]
-    assert len(res_data["data"]["listPolicies"]["policies"]) is 7 # Length of default policies - 1
+
+    # Verify that the URN is no longer in the list
+    result = filter(lambda x: x["urn"] == "urn:li:dataHubPolicy:7", res_data["data"]["listPolicies"]["policies"])
+    assert len(list(result)) is 0
 
 @pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion", "test_frontend_list_policies", "test_frontend_delete_policy"])
 def test_frontend_create_policy(frontend_session):
@@ -724,6 +727,11 @@ def test_frontend_create_policy(frontend_session):
     assert res_data["data"]
     assert res_data["data"]["createPolicy"]
 
+    new_urn = res_data["data"]["createPolicy"]
+
+    # Sleep for eventual consistency
+    time.sleep(1)
+
     # Now verify the policy has been added.
     json = {
         "query": """query listPolicies($input: ListPoliciesInput!) {\n
@@ -752,8 +760,11 @@ def test_frontend_create_policy(frontend_session):
     assert res_data
     assert res_data["data"]
     assert res_data["data"]["listPolicies"]
-    # TODO: Check to see that the policy we created in inside the array.
-    assert len(res_data["data"]["listPolicies"]["policies"]) is 8 # Back up to 8
+
+    # Verify that the URN appears in the list
+    result = filter(lambda x: x["urn"] == new_urn, res_data["data"]["listPolicies"]["policies"])
+    assert len(list(result)) is 1
+
 
 @pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
 def test_frontend_app_config(frontend_session):
@@ -1278,7 +1289,6 @@ def test_generate_personal_access_token(frontend_session):
 
     assert res_data
     assert "errors" in res_data # Assert the request fails
-
 
 @pytest.mark.dependency(depends=["test_healthchecks"])
 def test_stateful_ingestion(wait_for_healthchecks):

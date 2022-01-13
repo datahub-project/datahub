@@ -1,6 +1,7 @@
 import styled from 'styled-components';
 import * as React from 'react';
 import {
+    ApiOutlined,
     BankOutlined,
     BarChartOutlined,
     InboxOutlined,
@@ -32,6 +33,7 @@ export function AdminHeaderLinks() {
     // In the future, we may add configs for alerts, announcements, etc.
     const isActionRequestsEnabled = config?.actionRequestsConfig.enabled;
     const isIdentityManagementEnabled = config?.identityManagementConfig.enabled;
+    const isIngestionEnabled = config?.managedIngestionConfig.enabled;
 
     const showAnalytics = (isAnalyticsEnabled && me && me.platformPrivileges.viewAnalytics) || false;
     const showPolicyBuilder = (isPoliciesEnabled && me && me.platformPrivileges.managePolicies) || false;
@@ -39,6 +41,8 @@ export function AdminHeaderLinks() {
     const showIdentityManagement =
         (isIdentityManagementEnabled && me && me.platformPrivileges.manageIdentities) || false;
     const showSettings = true;
+    const showIngestion =
+        isIngestionEnabled && me && me.platformPrivileges.manageIngestion && me.platformPrivileges.manageSecrets;
 
     return (
         <>
@@ -74,6 +78,15 @@ export function AdminHeaderLinks() {
                     <Link to="/identities">
                         <Button type="text">
                             <UsergroupAddOutlined /> Users & Groups
+                        </Button>
+                    </Link>
+                </AdminLink>
+            )}
+            {showIngestion && (
+                <AdminLink>
+                    <Link to="/ingestion">
+                        <Button type="text">
+                            <ApiOutlined /> Ingestion
                         </Button>
                     </Link>
                 </AdminLink>

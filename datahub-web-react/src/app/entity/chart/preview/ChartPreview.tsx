@@ -3,7 +3,7 @@ import { AccessLevel, EntityType, GlobalTags, GlossaryTerms, Owner, SearchInsigh
 import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { getLogoFromPlatform } from '../../../shared/getLogoFromPlatform';
-import { capitalizeFirstLetter } from '../../../shared/capitalizeFirstLetter';
+import { capitalizeFirstLetter } from '../../../shared/textUtil';
 
 export const ChartPreview = ({
     urn,

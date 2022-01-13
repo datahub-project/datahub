@@ -16,6 +16,9 @@ export const DEFAULT_APP_CONFIG = {
     identityManagementConfig: {
         enabled: false,
     },
+    managedIngestionConfig: {
+        enabled: false,
+    },
 };
 
 export const AppConfigContext = React.createContext<{
