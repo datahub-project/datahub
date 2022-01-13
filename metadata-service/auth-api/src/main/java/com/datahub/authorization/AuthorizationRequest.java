@@ -1,5 +1,6 @@
 package com.datahub.authorization;
 
+import java.util.Objects;
 import java.util.Optional;
 
 public class AuthorizationRequest {
@@ -44,5 +45,14 @@ public class AuthorizationRequest {
     return this._actorUrn.equals(c._actorUrn)
         && this._privilege.equals(c._privilege)
         && this._resourceSpec.equals(c._resourceSpec);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(
+        this._actorUrn,
+        this._privilege,
+        this._resourceSpec
+    );
   }
 }
