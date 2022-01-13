@@ -1,5 +1,6 @@
 import collections
 import datetime
+import dataclasses
 import functools
 import json
 import logging
@@ -52,6 +53,8 @@ from datahub.metadata.schema_classes import (
     UpstreamClass,
     UpstreamLineageClass,
 )
+
+from datahub.emitter.mce_builder import PlatformKey, gen_containers
 
 logger = logging.getLogger(__name__)
 
@@ -265,6 +268,16 @@ class BigQueryConfig(BaseTimeWindowConfig, SQLAlchemyConfig):
     @pydantic.validator("platform")
     def platform_is_always_bigquery(cls, v):
         return "bigquery"
+
+
+@dataclasses.dataclass
+class ProjectIdKey(PlatformKey):
+    project_id: str
+
+
+@dataclasses.dataclass
+class BigQuerySchemaKey(ProjectIdKey):
+    schema: str
 
 
 class BigQuerySource(SQLAlchemySource):
@@ -735,6 +748,32 @@ WHERE
         if segments[0] != schema:
             raise ValueError(f"schema {schema} does not match table {entity}")
         return segments[0], segments[1]
+
+    def gen_schema_key(self, db_name: str, schema: str) -> PlatformKey:
+        return BigQuerySchemaKey(
+            project_id=db_name,
+            schema=schema,
+            platform=self.platform,
+            instance=self.config.env,
+        )
+
+    def gen_database_key(self, database: str) -> PlatformKey:
+        return ProjectIdKey(
+            project_id=database,
+            platform=self.platform,
+            instance=self.config.env,
+        )
+
+    def gen_database_containers(self, database: str) -> Iterable[MetadataWorkUnit]:
+        database_container_key = self.gen_database_key(database)
+
+        container_workunits = gen_containers(
+            database_container_key, database, ["ProjectId"]
+        )
+
+        for wu in container_workunits:
+            self.report.report_workunit(wu)
+            yield wu
 
     # We can't use close as it is not called if the ingestion is not successful
     def __del__(self):

@@ -10,6 +10,7 @@ import trino.sqlalchemy  # noqa: F401
 from sqlalchemy import exc, sql
 from sqlalchemy.engine import reflection
 from sqlalchemy.sql import sqltypes
+from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.sql.type_api import TypeEngine
 from trino.exceptions import TrinoQueryError  # noqa
 from trino.sqlalchemy import datatype, error

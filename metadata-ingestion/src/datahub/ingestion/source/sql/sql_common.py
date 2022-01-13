@@ -1,6 +1,7 @@
 import logging
 from abc import abstractmethod
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -28,6 +29,14 @@ from datahub.emitter.mce_builder import (
     make_dataplatform_instance_urn,
     make_dataset_urn_with_platform_instance,
     make_domain_urn,
+    DEFAULT_ENV,
+    DatabaseKey,
+    SchemaKey,
+    add_dataset_to_container,
+    gen_containers,
+    make_data_platform_urn,
+    make_dataset_urn,
+    PlatformKey,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import add_domain_to_entity_wu
@@ -140,6 +149,11 @@ def make_sqlalchemy_uri(
         )
         url = f"{url}?{params}"
     return url
+
+
+class SqlContainerSubTypes(str, Enum):
+    DATABASE = "Database"
+    SCHEMA = "Schema"
 
 
 @dataclass
@@ -336,7 +350,6 @@ def get_schema_metadata(
     foreign_keys: List[ForeignKeyConstraint] = None,
     canonical_schema: List[SchemaField] = [],
 ) -> SchemaMetadata:
-
     schema_metadata = SchemaMetadata(
         schemaName=dataset_name,
         platform=make_data_platform_urn(platform),
@@ -411,6 +424,14 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             inspector = inspect(conn)
             yield inspector
 
+    def get_db_name(self, inspector: Inspector) -> str:
+        engine = inspector.engine
+
+        if engine and hasattr(engine, "url") and hasattr(engine.url, "database"):
+            return str(engine.url.database).strip('"').lower()
+        else:
+            raise Exception("Unable to get database name from Sqlalchemy inspector")
+
     def is_checkpointing_enabled(self, job_id: JobId) -> bool:
         if (
             job_id == self.get_default_ingestion_job_id()
@@ -475,10 +496,17 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         ):
             logger.debug("Checking for stale entity removal.")
 
-            def soft_delete_dataset(urn: str, type: str) -> Iterable[MetadataWorkUnit]:
+            def soft_delete_item(urn: str, type: str) -> Iterable[MetadataWorkUnit]:
+                entity_type: str = "dataset"
+
+                if type in ["view", "table"]:
+                    entity_type = "dataset"
+                elif type == "container":
+                    entity_type = "container"
+
                 logger.info(f"Soft-deleting stale entity of type {type} - {urn}.")
                 mcp = MetadataChangeProposalWrapper(
-                    entityType="dataset",
+                    entityType=entity_type,
                     entityUrn=urn,
                     changeType=ChangeTypeClass.UPSERT,
                     aspectName="status",
@@ -499,12 +527,61 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             for table_urn in last_checkpoint_state.get_table_urns_not_in(
                 cur_checkpoint_state
             ):
-                yield from soft_delete_dataset(table_urn, "table")
+                yield from soft_delete_item(table_urn, "table")
 
             for view_urn in last_checkpoint_state.get_view_urns_not_in(
                 cur_checkpoint_state
             ):
-                yield from soft_delete_dataset(view_urn, "view")
+                yield from soft_delete_item(view_urn, "view")
+
+            for container_urn in last_checkpoint_state.get_container_urns_not_in(
+                cur_checkpoint_state
+            ):
+                yield from soft_delete_item(container_urn, "container")
+
+    def gen_schema_key(self, db_name: str, schema: str) -> PlatformKey:
+        return SchemaKey(
+            database=db_name,
+            schema=schema,
+            platform=self.platform,
+            instance=self.config.env,
+        )
+
+    def gen_database_key(self, database: str) -> PlatformKey:
+        return DatabaseKey(
+            database=database,
+            platform=self.platform,
+            instance=self.config.env,
+        )
+
+    def gen_database_containers(self, database: str) -> Iterable[MetadataWorkUnit]:
+        database_container_key = self.gen_database_key(database)
+
+        container_workunits = gen_containers(
+            database_container_key, database, [SqlContainerSubTypes.DATABASE]
+        )
+
+        for wu in container_workunits:
+            self.report.report_workunit(wu)
+            yield wu
+
+    def gen_schema_containers(
+        self, schema: str, db_name: str
+    ) -> Iterable[MetadataWorkUnit]:
+        schema_container_key = self.gen_schema_key(db_name, schema)
+
+        database_container_key = self.gen_database_key(database=db_name)
+
+        container_workunits = gen_containers(
+            schema_container_key,
+            schema,
+            [SqlContainerSubTypes.SCHEMA],
+            database_container_key,
+        )
+
+        for wu in container_workunits:
+            self.report.report_workunit(wu)
+            yield wu
 
     def get_workunits(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
         sql_config = self.config
@@ -525,10 +602,16 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             if sql_config.profiling.enabled:
                 profiler = self._get_profiler_instance(inspector)
 
+            db_name = self.get_db_name(inspector)
+            yield from self.gen_database_containers(db_name)
+
             for schema in self.get_schema_names(inspector):
                 if not sql_config.schema_pattern.allowed(schema):
                     self.report.report_dropped(f"{schema}.*")
                     continue
+
+                if db_name:
+                    yield from self.gen_schema_containers(schema, db_name)
 
                 if sql_config.include_tables:
                     yield from self.loop_tables(inspector, schema, sql_config)
@@ -687,6 +770,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                 urn=dataset_urn,
                 aspects=[StatusClass(removed=False)],
             )
+
             if self.is_stateful_ingestion_configured():
                 cur_checkpoint = self.get_current_checkpoint(
                     self.get_default_ingestion_job_id()
@@ -722,9 +806,13 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             )
             dataset_snapshot.aspects.append(schema_metadata)
 
+            db_name = self.get_db_name(inspector)
+            yield from self.add_table_to_schema_container(dataset_urn, db_name, schema)
+
             mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
             wu = SqlWorkUnit(id=dataset_name, mce=mce)
             self.report.report_workunit(wu)
+
             yield wu
 
             dpi_aspect = self.get_dataplatform_instance_aspect(dataset_urn=dataset_urn)
@@ -893,6 +981,9 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                 aspects=[StatusClass(removed=False)],
             )
 
+            db_name = self.get_db_name(inspector)
+            yield from self.add_table_to_schema_container(dataset_urn, db_name, schema)
+
             if self.is_stateful_ingestion_configured():
                 cur_checkpoint = self.get_current_checkpoint(
                     self.get_default_ingestion_job_id()
@@ -924,6 +1015,18 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                 yield dpi_aspect
 
             yield from self._get_domain_wu(dataset_name, dataset_urn, sql_config)
+    
+    def add_table_to_schema_container(
+        self, dataset_urn: str, db_name: str, schema: str
+    ):
+        schema_container_key = self.gen_schema_key(db_name, schema)
+        container_workunits = add_dataset_to_container(
+            container_key=schema_container_key,
+            dataset_urn=dataset_urn,
+        )
+        for wu in container_workunits:
+            self.report.report_workunit(wu)
+            yield wu
 
     def _get_profiler_instance(self, inspector: Inspector) -> "DatahubGEProfiler":
         from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler

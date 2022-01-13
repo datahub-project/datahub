@@ -1,17 +1,39 @@
 """Convenience functions for creating MCEs"""
+import dataclasses
+import hashlib
+import json
 import logging
 import re
 import time
 from enum import Enum
-from typing import Any, List, Optional, Type, TypeVar, Union, cast, get_type_hints
+from typing import (
+    Any,
+    Iterable,
+    List,
+    Optional,
+    Type,
+    TypeVar,
+    Union,
+    cast,
+    get_type_hints,
+)
 
 import typing_inspect
 from avrogen.dict_wrapper import DictWrapper
 
 from datahub.configuration.source_common import DEFAULT_ENV as DEFAULT_ENV_CONFIGURATION
-from datahub.metadata.com.linkedin.pegasus2avro.common import GlossaryTerms
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.metadata.com.linkedin.pegasus2avro.common import (
+    DataPlatformInstance,
+    GlossaryTerms,
+)
+from datahub.metadata.com.linkedin.pegasus2avro.container import ContainerProperties
 from datahub.metadata.schema_classes import (
     AuditStampClass,
+    ChangeTypeClass,
+    ContainerClass,
+    ContainerKeyClass,
     DatasetKeyClass,
     DatasetLineageTypeClass,
     DatasetSnapshotClass,
@@ -23,6 +45,7 @@ from datahub.metadata.schema_classes import (
     OwnershipSourceClass,
     OwnershipSourceTypeClass,
     OwnershipTypeClass,
+    SubTypesClass,
     TagAssociationClass,
     UpstreamClass,
     UpstreamLineageClass,
@@ -78,6 +101,38 @@ def dataset_urn_to_key(dataset_urn: str) -> Optional[DatasetKeyClass]:
     if results is not None:
         return DatasetKeyClass(
             platform=results.group(1), name=results.group(2), origin=results.group(3)
+        )
+    return None
+
+
+def make_container_new_urn(guid: str) -> str:
+    return f"urn:dh:container:0:({guid})"
+
+
+def container_new_urn_to_key(dataset_urn: str) -> Optional[ContainerKeyClass]:
+    pattern = r"urn:dh:container:0:\((.*)\)"
+    results = re.search(pattern, dataset_urn)
+    if results is not None:
+        return ContainerKeyClass(
+            guid=results.group(1),
+        )
+    return None
+
+
+# def make_container_urn(platform: str, name: str, env: str = DEFAULT_ENV) -> str:
+#    return f"urn:li:container:({make_data_platform_urn(platform)},{env},{name})"
+
+
+def make_container_urn(guid: str) -> str:
+    return f"urn:li:container:{guid}"
+
+
+def container_urn_to_key(guid: str) -> Optional[ContainerKeyClass]:
+    pattern = r"urn:li:container:\((.*)\)"
+    results = re.search(pattern, guid)
+    if results is not None:
+        return ContainerKeyClass(
+            guid=results.group(1),
         )
     return None
 
@@ -322,3 +377,135 @@ def set_aspect(
     remove_aspect_if_available(mce, aspect_type)
     if aspect is not None:
         mce.proposedSnapshot.aspects.append(aspect)  # type: ignore
+
+
+@dataclasses.dataclass
+class DatahubKey:
+    def guid(self) -> str:
+        nonnull_dict = {k: v for k, v in self.__dict__.items() if v}
+        json_urn = json.dumps(nonnull_dict, sort_keys=True, cls=DatahubKeyJSONEncoder)
+        md5_hash = hashlib.md5(json_urn.encode("utf-8"))
+        return str(md5_hash.hexdigest())
+
+
+@dataclasses.dataclass
+class PlatformKey(DatahubKey):
+    platform: str
+    instance: Optional[str]
+
+
+@dataclasses.dataclass
+class DatabaseKey(PlatformKey):
+    database: str
+
+
+@dataclasses.dataclass
+class SchemaKey(DatabaseKey):
+    schema: str
+
+
+class DatahubKeyJSONEncoder(json.JSONEncoder):
+
+    # overload method default
+    def default(self, obj: Any) -> Any:
+        if hasattr(obj, "guid"):
+            return obj.guid()
+        # Call the default method for other types
+        return json.JSONEncoder.default(self, obj)
+
+
+KeyType = TypeVar("KeyType", bound=PlatformKey)
+
+
+def gen_containers(
+    container_key: KeyType,
+    name: str,
+    sub_types: List[str],
+    parent_container_key: Optional[PlatformKey] = None,
+) -> Iterable[MetadataWorkUnit]:
+    container_urn = make_container_urn(
+        guid=container_key.guid(),
+    )
+    mcp = MetadataChangeProposalWrapper(
+        entityType="container",
+        changeType=ChangeTypeClass.UPSERT,
+        entityUrn=f"{container_urn}",
+        # entityKeyAspect=ContainerKeyClass(guid=schema_container_key.guid()),
+        aspectName="containerProperties",
+        aspect=ContainerProperties(
+            name=name, customProperties=dataclasses.asdict(container_key)
+        ),
+    )
+    wu = MetadataWorkUnit(id=f"container-info-{name}-{container_urn}", mcp=mcp)
+    yield wu
+
+    mcp = MetadataChangeProposalWrapper(
+        entityType="container",
+        changeType=ChangeTypeClass.UPSERT,
+        entityUrn=f"{container_urn}",
+        # entityKeyAspect=ContainerKeyClass(guid=schema_container_key.guid()),
+        aspectName="dataPlatformInstance",
+        aspect=DataPlatformInstance(
+            platform=f"{make_data_platform_urn(container_key.platform)}"
+        ),
+    )
+    wu = MetadataWorkUnit(
+        id=f"container-platforminstance-{name}-{container_urn}", mcp=mcp
+    )
+    yield wu
+
+    # Set subtype
+    subtype_mcp = MetadataChangeProposalWrapper(
+        entityType="container",
+        changeType=ChangeTypeClass.UPSERT,
+        entityUrn=f"{container_urn}",
+        # entityKeyAspect=ContainerKeyClass(guid=schema_container_key.guid()),
+        aspectName="subTypes",
+        aspect=SubTypesClass(typeNames=sub_types),
+    )
+    wu = MetadataWorkUnit(
+        id=f"container-subtypes-{name}-{container_urn}", mcp=subtype_mcp
+    )
+    yield wu
+
+    if parent_container_key:
+        parent_container_urn = make_container_urn(
+            guid=parent_container_key.guid(),
+        )
+
+        # Set database container
+        db_container_mcp = MetadataChangeProposalWrapper(
+            entityType="container",
+            changeType=ChangeTypeClass.UPSERT,
+            entityUrn=f"{container_urn}",
+            # entityKeyAspect=ContainerKeyClass(guid=schema_container_key.guid()),
+            aspectName="container",
+            aspect=ContainerClass(container=parent_container_urn),
+            # aspect=ContainerKeyClass(guid=database_container_key.guid())
+        )
+        wu = MetadataWorkUnit(
+            id=f"container-parent-container-{name}-{container_urn}-{parent_container_urn}",
+            mcp=db_container_mcp,
+        )
+
+        yield wu
+
+
+def add_dataset_to_container(
+    container_key: KeyType, dataset_urn: str
+) -> Iterable[Union[MetadataWorkUnit]]:
+
+    container_urn = make_container_urn(
+        guid=container_key.guid(),
+    )
+
+    mcp = MetadataChangeProposalWrapper(
+        entityType="dataset",
+        changeType=ChangeTypeClass.UPSERT,
+        entityUrn=f"{dataset_urn}",
+        aspectName="container",
+        aspect=ContainerClass(container=f"{container_urn}"),
+        # aspect=ContainerKeyClass(guid=schema_container_key.guid())
+    )
+    wu = MetadataWorkUnit(id=f"container-{container_urn}-to-{dataset_urn}", mcp=mcp)
+    yield wu
