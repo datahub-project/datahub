@@ -215,7 +215,7 @@ class Pipeline:
         telemetry.telemetry_instance.ping(
             "ingest",
             "ingestion_stats",
-            "records_written",
+            "records_written_log10",
             # bucket by taking floor of log of the number of records written
             int(log10(self.sink.get_report().records_written + 1)),
         )
