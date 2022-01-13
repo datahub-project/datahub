@@ -1,6 +1,7 @@
 import datetime
 import itertools
 import logging
+from math import log10
 import uuid
 from typing import Any, Dict, Iterable, List, Optional
 
@@ -215,7 +216,8 @@ class Pipeline:
             "ingest",
             "ingestion_stats",
             "records_written",
-            self.sink.get_report().records_written,
+            # bucket by taking floor of log of the number of records written
+            int(log10(self.sink.get_report().records_written + 1)),
         )
 
     def pretty_print_summary(self, warnings_as_failure: bool = False) -> int:
