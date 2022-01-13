@@ -52,13 +52,13 @@ HOSTED_DOCS_ONLY-->
 > 📣 Next DataHub town hall meeting on Dec 17th, 9am-10am PDT ([convert to your local time](https://greenwichmeantime.com/time/to/pacific-local/))
 >
 > - Topic Proposals: [submit here](https://docs.google.com/forms/d/1v2ynbAXjJlqY97xE_X1DAntNrXDznOFiNfryUkMPtkI/)
-> - Signup to get a calendar invite: [here](https://docs.google.com/forms/d/1r9bObXKS3tgKpISqqO3rw4yQog5zwuaFxg8IrJGUbvQ/)
+> - Signup to get a calendar invite: [here](https://www.addevent.com/event/WE11214120)
 > - Town-hall Zoom link: [zoom.datahubproject.io](https://zoom.datahubproject.io)
 > - [Meeting details](docs/townhalls.md) & [past recordings](docs/townhall-history.md)
 
 > ✨ Latest Update:
 >
-> - Monthly project update: [October 2021 Edition](https://blog.datahubproject.io/datahub-project-update-62adced87ad0).
+> - Read our Monthly Project Updates [here](https://blog.datahubproject.io/tagged/project-updates).
 > - Bringing The Power Of The DataHub Real-Time Metadata Graph To Everyone At Acryl Data: [Data Engineering Podcast](https://www.dataengineeringpodcast.com/acryl-data-datahub-metadata-graph-episode-230/)
 > - Unleashing Excellent DataOps with LinkedIn DataHub: [DataOps Unleashed Talk](https://www.youtube.com/watch?v=ccsIKK9nVxk).
 > - Latest blog post [DataHub: Popular Metadata Architectures Explained](https://engineering.linkedin.com/blog/2020/datahub-popular-metadata-architectures-explained) @ LinkedIn Engineering Blog.
@@ -81,8 +81,7 @@ There's a [hosted demo environment](https://datahubproject.io/docs/demo) where y
 
 ## Source Code and Repositories
 
-- [linkedin/datahub](https://github.com/linkedin/datahub): This repository contains the complete source code for both DataHub's frontend & backend services.
-- [linkedin/datahub-gma](https://github.com/linkedin/datahub-gma): This repository contains the source code for DataHub's metadata infrastructure libraries (Generalized Metadata Architecture, or GMA).
+- [linkedin/datahub](https://github.com/linkedin/datahub): This repository contains the complete source code for DataHub's metadata model, metadata services, integration connectors and the web application.
 
 ## Documentation
 
@@ -94,7 +93,7 @@ See [Releases](https://github.com/linkedin/datahub/releases) page for more detai
 
 ## Features & Roadmap
 
-Check out DataHub's [Features](docs/features.md) & [Roadmap](docs/roadmap.md).
+Check out DataHub's [Features](docs/features.md) & [Roadmap](https://feature-requests.datahubproject.io/roadmap).
 
 ## Contributing
 
