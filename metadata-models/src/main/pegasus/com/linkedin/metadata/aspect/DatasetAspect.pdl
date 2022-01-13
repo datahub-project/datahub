@@ -16,6 +16,7 @@ import com.linkedin.common.GlobalTags
 import com.linkedin.common.GlossaryTerms
 import com.linkedin.common.BrowsePaths
 import com.linkedin.common.DataPlatformInstance
+import com.linkedin.common.Operation
 
 /**
  * A union of all supported metadata aspects for a Dataset
@@ -36,5 +37,6 @@ typeref DatasetAspect = union[
   GlossaryTerms,
   BrowsePaths,
   DataPlatformInstance,
-  ViewProperties
+  ViewProperties,
+  Operation
 ]

@@ -1005,6 +1005,123 @@
     }
   }, {
     "type" : "record",
+    "name" : "Operation",
+    "namespace" : "com.linkedin.common",
+    "doc" : "Operational info for an entity.",
+    "include" : [ {
+      "type" : "record",
+      "name" : "TimeseriesAspectBase",
+      "namespace" : "com.linkedin.timeseries",
+      "fields" : [ {
+        "name" : "timestampMillis",
+        "type" : "long",
+        "doc" : "The event timestamp field as epoch at UTC in milli seconds."
+      }, {
+        "name" : "eventGranularity",
+        "type" : {
+          "type" : "record",
+          "name" : "TimeWindowSize",
+          "doc" : "Defines the size of a time window.",
+          "fields" : [ {
+            "name" : "unit",
+            "type" : {
+              "type" : "enum",
+              "name" : "CalendarInterval",
+              "symbols" : [ "SECOND", "MINUTE", "HOUR", "DAY", "WEEK", "MONTH", "QUARTER", "YEAR" ]
+            },
+            "doc" : "Interval unit such as minute/hour/day etc."
+          }, {
+            "name" : "multiple",
+            "type" : "int",
+            "doc" : "How many units. Defaults to 1.",
+            "default" : 1
+          } ]
+        },
+        "doc" : "Granularity of the event if applicable",
+        "optional" : true
+      }, {
+        "name" : "partitionSpec",
+        "type" : {
+          "type" : "record",
+          "name" : "PartitionSpec",
+          "doc" : "Defines how the data is partitioned",
+          "fields" : [ {
+            "name" : "partition",
+            "type" : "string",
+            "doc" : "String representation of the partition"
+          }, {
+            "name" : "timePartition",
+            "type" : {
+              "type" : "record",
+              "name" : "TimeWindow",
+              "fields" : [ {
+                "name" : "startTimeMillis",
+                "type" : "long",
+                "doc" : "Start time as epoch at UTC."
+              }, {
+                "name" : "length",
+                "type" : "TimeWindowSize",
+                "doc" : "The length of the window."
+              } ]
+            },
+            "doc" : "Time window of the partition if applicable",
+            "optional" : true
+          } ]
+        },
+        "doc" : "The optional partition specification.",
+        "optional" : true
+      }, {
+        "name" : "messageId",
+        "type" : "string",
+        "doc" : "The optional messageId, if provided serves as a custom user-defined unique identifier for an aspect value.",
+        "optional" : true
+      } ]
+    } ],
+    "fields" : [ {
+      "name" : "lastUpdatedTimestamp",
+      "type" : "long",
+      "doc" : "When the entity was last updated.",
+      "TimeseriesField" : { }
+    }, {
+      "name" : "actor",
+      "type" : "Urn",
+      "doc" : "Actor who issued this operation.",
+      "optional" : true,
+      "TimeseriesField" : { }
+    }, {
+      "name" : "operationType",
+      "type" : {
+        "type" : "enum",
+        "name" : "OperationType",
+        "doc" : "Enum to define the operation type when an entity changes.",
+        "symbols" : [ "INSERT", "UPDATE", "DELETE", "CREATE", "DROP", "UNKNOWN" ]
+      },
+      "doc" : "Operation type of change.",
+      "TimeseriesField" : { }
+    }, {
+      "name" : "numAffectedRows",
+      "type" : "long",
+      "doc" : "How many rows were affected by this operation.",
+      "optional" : true,
+      "TimeseriesField" : { }
+    }, {
+      "name" : "affectedDatasets",
+      "type" : {
+        "type" : "array",
+        "items" : "Urn"
+      },
+      "doc" : "Which other datasets were affected by this operation.",
+      "optional" : true,
+      "TimeseriesFieldCollection" : {
+        "key" : "datasetName"
+      }
+    } ],
+    "Aspect" : {
+      "name" : "operation",
+      "type" : "timeseries"
+    }
+  }, "com.linkedin.common.OperationType", {
+    "type" : "record",
     "name" : "Owner",
     "namespace" : "com.linkedin.common",
     "doc" : "Ownership information",
@@ -2851,7 +2968,7 @@
                   "Aspect" : {
                     "name" : "editableSchemaMetadata"
                   }
-                }, "com.linkedin.common.GlobalTags", "com.linkedin.common.GlossaryTerms", "com.linkedin.common.BrowsePaths", "com.linkedin.common.DataPlatformInstance", "com.linkedin.dataset.ViewProperties" ]
+                }, "com.linkedin.common.GlobalTags", "com.linkedin.common.GlossaryTerms", "com.linkedin.common.BrowsePaths", "com.linkedin.common.DataPlatformInstance", "com.linkedin.dataset.ViewProperties", "com.linkedin.common.Operation" ]
               }
             },
             "doc" : "The list of metadata aspects associated with the dataset. Depending on the use case, this can either be all, or a selection, of supported aspects."
@@ -5010,7 +5127,7 @@
       "doc" : "Additional properties",
       "optional" : true
     } ]
-  }, "com.linkedin.policy.DataHubActorFilter", "com.linkedin.policy.DataHubPolicyInfo", "com.linkedin.policy.DataHubResourceFilter", "com.linkedin.retention.DataHubRetentionConfig", "com.linkedin.retention.Retention", "com.linkedin.retention.TimeBasedRetention", "com.linkedin.retention.VersionBasedRetention", "com.linkedin.schema.ArrayType", "com.linkedin.schema.BinaryJsonSchema", "com.linkedin.schema.BooleanType", "com.linkedin.schema.BytesType", "com.linkedin.schema.DatasetFieldForeignKey", "com.linkedin.schema.DateType", "com.linkedin.schema.EditableSchemaFieldInfo", "com.linkedin.schema.EditableSchemaMetadata", "com.linkedin.schema.EnumType", "com.linkedin.schema.EspressoSchema", "com.linkedin.schema.FixedType", "com.linkedin.schema.ForeignKeyConstraint", "com.linkedin.schema.ForeignKeySpec", "com.linkedin.schema.KafkaSchema", "com.linkedin.schema.KeyValueSchema", "com.linkedin.schema.MapType", "com.linkedin.schema.MySqlDDL", "com.linkedin.schema.NullType", "com.linkedin.schema.NumberType", "com.linkedin.schema.OracleDDL", "com.linkedin.schema.OrcSchema", "com.linkedin.schema.OtherSchema", "com.linkedin.schema.PrestoDDL", "com.linkedin.schema.RecordType", "com.linkedin.schema.SchemaField", "com.linkedin.schema.SchemaFieldDataType", "com.linkedin.schema.SchemaMetadata", "com.linkedin.schema.SchemaMetadataKey", "com.linkedin.schema.Schemaless", "com.linkedin.schema.StringType", "com.linkedin.schema.TimeType", "com.linkedin.schema.UnionType", "com.linkedin.schema.UrnForeignKey", "com.linkedin.tag.TagProperties" ],
+  }, "com.linkedin.policy.DataHubActorFilter", "com.linkedin.policy.DataHubPolicyInfo", "com.linkedin.policy.DataHubResourceFilter", "com.linkedin.retention.DataHubRetentionConfig", "com.linkedin.retention.Retention", "com.linkedin.retention.TimeBasedRetention", "com.linkedin.retention.VersionBasedRetention", "com.linkedin.schema.ArrayType", "com.linkedin.schema.BinaryJsonSchema", "com.linkedin.schema.BooleanType", "com.linkedin.schema.BytesType", "com.linkedin.schema.DatasetFieldForeignKey", "com.linkedin.schema.DateType", "com.linkedin.schema.EditableSchemaFieldInfo", "com.linkedin.schema.EditableSchemaMetadata", "com.linkedin.schema.EnumType", "com.linkedin.schema.EspressoSchema", "com.linkedin.schema.FixedType", "com.linkedin.schema.ForeignKeyConstraint", "com.linkedin.schema.ForeignKeySpec", "com.linkedin.schema.KafkaSchema", "com.linkedin.schema.KeyValueSchema", "com.linkedin.schema.MapType", "com.linkedin.schema.MySqlDDL", "com.linkedin.schema.NullType", "com.linkedin.schema.NumberType", "com.linkedin.schema.OracleDDL", "com.linkedin.schema.OrcSchema", "com.linkedin.schema.OtherSchema", "com.linkedin.schema.PrestoDDL", "com.linkedin.schema.RecordType", "com.linkedin.schema.SchemaField", "com.linkedin.schema.SchemaFieldDataType", "com.linkedin.schema.SchemaMetadata", "com.linkedin.schema.SchemaMetadataKey", "com.linkedin.schema.Schemaless", "com.linkedin.schema.StringType", "com.linkedin.schema.TimeType", "com.linkedin.schema.UnionType", "com.linkedin.schema.UrnForeignKey", "com.linkedin.tag.TagProperties", "com.linkedin.timeseries.CalendarInterval", "com.linkedin.timeseries.PartitionSpec", "com.linkedin.timeseries.TimeWindow", "com.linkedin.timeseries.TimeWindowSize", "com.linkedin.timeseries.TimeseriesAspectBase" ],
   "schema" : {
     "name" : "entities",
     "namespace" : "com.linkedin.entity",
