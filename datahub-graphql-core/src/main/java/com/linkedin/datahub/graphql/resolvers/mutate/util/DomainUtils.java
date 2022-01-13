@@ -20,7 +20,7 @@ public class DomainUtils {
 
   private DomainUtils() { }
 
-  public static boolean isAuthorizedToUpdateDomains(@Nonnull QueryContext context, Urn entityUrn) {
+  public static boolean isAuthorizedToUpdateDomainsForEntity(@Nonnull QueryContext context, Urn entityUrn) {
     final DisjunctivePrivilegeGroup orPrivilegeGroups = new DisjunctivePrivilegeGroup(ImmutableList.of(
         ALL_PRIVILEGES_GROUP,
         new ConjunctivePrivilegeGroup(ImmutableList.of(PoliciesConfig.EDIT_ENTITY_DOMAINS_PRIVILEGE.getType()))

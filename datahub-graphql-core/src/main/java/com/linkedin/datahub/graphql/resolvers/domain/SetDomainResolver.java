@@ -35,7 +35,7 @@ public class SetDomainResolver implements DataFetcher<CompletableFuture<Boolean>
     final Urn entityUrn = Urn.createFromString(environment.getArgument("entityUrn"));
     final Urn domainUrn = Urn.createFromString(environment.getArgument("domainUrn"));
 
-    if (!DomainUtils.isAuthorizedToUpdateDomains(environment.getContext(), entityUrn)) {
+    if (!DomainUtils.isAuthorizedToUpdateDomainsForEntity(environment.getContext(), entityUrn)) {
       throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
     }
 
@@ -55,6 +55,7 @@ public class SetDomainResolver implements DataFetcher<CompletableFuture<Boolean>
 
         // Create the Domains aspects
         final MetadataChangeProposal proposal = new MetadataChangeProposal();
+        proposal.setEntityUrn(entityUrn);
         proposal.setEntityType(entityUrn.getEntityType());
         proposal.setAspectName(Constants.DOMAINS_ASPECT_NAME);
         proposal.setAspect(GenericAspectUtils.serializeAspect(domains));
@@ -81,24 +82,15 @@ public class SetDomainResolver implements DataFetcher<CompletableFuture<Boolean>
 
     if (!entityService.exists(entityUrn)) {
       throw new IllegalArgumentException(
-          String.format("Failed to add Entity %s to Domain %s. Entity does not exist.", entityUrn));
+          String.format("Failed to add Entity %s to Domain %s. Entity does not exist.", entityUrn, domainUrn));
     }
 
     return true;
   }
 
   private static void setDomain(Domains domains, Urn domainUrn) {
-    if (!domains.hasDomains()) {
-      domains.setDomains(new UrnArray());
-    }
-
-    UrnArray urnArray = domains.getDomains();
-
-    if (urnArray.stream().anyMatch(urn -> domainUrn.toString().equals(urn.toString()))) {
-      return;
-    }
-
-    urnArray.add(domainUrn);
+    final UrnArray newDomain = new UrnArray();
+    newDomain.add(domainUrn);
+    domains.setDomains(newDomain);
   }
-
 }

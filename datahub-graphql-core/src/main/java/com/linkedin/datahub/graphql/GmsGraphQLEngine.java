@@ -41,6 +41,7 @@ import com.linkedin.datahub.graphql.generated.MLPrimaryKey;
 import com.linkedin.datahub.graphql.generated.MLPrimaryKeyProperties;
 import com.linkedin.datahub.graphql.resolvers.MeResolver;
 import com.linkedin.datahub.graphql.resolvers.auth.GetAccessTokenResolver;
+import com.linkedin.datahub.graphql.resolvers.domain.CreateDomainResolver;
 import com.linkedin.datahub.graphql.resolvers.domain.DomainEntitiesResolver;
 import com.linkedin.datahub.graphql.resolvers.domain.SetDomainResolver;
 import com.linkedin.datahub.graphql.resolvers.domain.UnsetDomainResolver;
@@ -509,6 +510,7 @@ public class GmsGraphQLEngine {
             .dataFetcher("removeUser", new RemoveUserResolver(this.entityClient))
             .dataFetcher("removeGroup", new RemoveGroupResolver(this.entityClient))
             .dataFetcher("updateUserStatus", new UpdateUserStatusResolver(this.entityClient))
+            .dataFetcher("createDomain", new CreateDomainResolver(this.entityClient))
             .dataFetcher("setDomain", new SetDomainResolver(this.entityClient, this.entityService))
             .dataFetcher("unsetDomain", new UnsetDomainResolver(this.entityClient, this.entityService))
         );

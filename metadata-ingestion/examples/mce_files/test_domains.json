@@ -2,9 +2,9 @@
   {
     "auditHeader":null,
     "entityType":"domain",
-    "entityUrn": "urn:li:domain:sales",
+    "entityUrn": "urn:li:domain:marketing",
     "changeType":"UPSERT",
-    "aspectName":"domainInfo",
+    "aspectName":"domainProperties",
     "aspect":{
       "value":"{\"name\": \"Sales\", \"description\": \"My custom domain\" }",
       "contentType":"application/json"

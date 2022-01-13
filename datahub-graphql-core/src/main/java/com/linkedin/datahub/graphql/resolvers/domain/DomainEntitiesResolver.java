@@ -28,7 +28,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 @Slf4j
 public class DomainEntitiesResolver implements DataFetcher<CompletableFuture<SearchResults>> {
 
-  private static final String DOMAIN_FIELD_NAME = "domain";
+  private static final String DOMAINS_FIELD_NAME = "domains";
 
   private final EntityClient _entityClient;
 
@@ -54,7 +54,7 @@ public class DomainEntitiesResolver implements DataFetcher<CompletableFuture<Sea
 
         // 1. Fetch the related edges
         final Criterion filterCriterion =  new Criterion()
-            .setField(DOMAIN_FIELD_NAME + ".keyword")
+            .setField(DOMAINS_FIELD_NAME + ".keyword")
             .setCondition(Condition.EQUAL)
             .setValue(urn);
 

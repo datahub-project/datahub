@@ -5242,7 +5242,7 @@ input DomainEntitiesInput {
 """
 Input required to create a new Domain.
 """
-type CreateDomainInput {
+input CreateDomainInput {
   """
   Optional! A custom id to use as the primary key identifier for the domain. If not provided, a random UUID will be generated as the id.
   """
@@ -5257,24 +5257,4 @@ type CreateDomainInput {
   Optional description for the Domain
   """
   description: String
-}
-
-"""
-Input provided when adding the association between a Metadata Entity and a Link
-"""
-input AddLinkInput {
-    """
-    The url of the link to add or remove
-    """
-    linkUrl: String!
-
-    """
-    A label to attach to the link
-    """
-    label: String!
-
-    """
-    The urn of the resource or entity to attach the link to, for example a dataset urn
-    """
-    resourceUrn: String!
 }

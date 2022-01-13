@@ -42,11 +42,18 @@ public class PoliciesConfig {
       "Generate Personal Access Tokens",
       "Generate personal access tokens for use with DataHub APIs.");
 
+
+  public static final Privilege MANAGE_DOMAINS_PRIVILEGE = Privilege.of(
+      "MANAGE_DOMAINS",
+      "Manage Domains",
+      "Create and remove Asset Domains.");
+
   public static final List<Privilege> PLATFORM_PRIVILEGES = ImmutableList.of(
       MANAGE_POLICIES_PRIVILEGE,
       MANAGE_USERS_AND_GROUPS_PRIVILEGE,
       VIEW_ANALYTICS_PRIVILEGE,
-      GENERATE_PERSONAL_ACCESS_TOKENS_PRIVILEGE
+      GENERATE_PERSONAL_ACCESS_TOKENS_PRIVILEGE,
+      MANAGE_DOMAINS_PRIVILEGE
   );
 
   // Resource Privileges //

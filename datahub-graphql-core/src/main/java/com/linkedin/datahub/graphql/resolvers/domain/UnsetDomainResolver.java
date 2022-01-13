@@ -35,7 +35,7 @@ public class UnsetDomainResolver implements DataFetcher<CompletableFuture<Boolea
     final QueryContext context = environment.getContext();
     final Urn entityUrn = Urn.createFromString(environment.getArgument("entityUrn"));
 
-    if (!DomainUtils.isAuthorizedToUpdateDomains(environment.getContext(), entityUrn)) {
+    if (!DomainUtils.isAuthorizedToUpdateDomainsForEntity(environment.getContext(), entityUrn)) {
       throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
     }
 
@@ -54,6 +54,7 @@ public class UnsetDomainResolver implements DataFetcher<CompletableFuture<Boolea
 
         // Create the Domains aspects
         final MetadataChangeProposal proposal = new MetadataChangeProposal();
+        proposal.setEntityUrn(entityUrn);
         proposal.setEntityType(entityUrn.getEntityType());
         proposal.setAspectName(Constants.DOMAINS_ASPECT_NAME);
         proposal.setAspect(GenericAspectUtils.serializeAspect(domains));
