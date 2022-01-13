@@ -12,7 +12,9 @@ import com.linkedin.datahub.graphql.generated.Aspect;
 import com.linkedin.datahub.graphql.generated.BrowseResults;
 import com.linkedin.datahub.graphql.generated.Chart;
 import com.linkedin.datahub.graphql.generated.ChartInfo;
+import com.linkedin.datahub.graphql.generated.Dashboard;
 import com.linkedin.datahub.graphql.generated.DashboardInfo;
+import com.linkedin.datahub.graphql.generated.DataFlow;
 import com.linkedin.datahub.graphql.generated.DataJob;
 import com.linkedin.datahub.graphql.generated.DataJobInputOutput;
 import com.linkedin.datahub.graphql.generated.Dataset;
@@ -39,6 +41,7 @@ import com.linkedin.datahub.graphql.generated.MLPrimaryKey;
 import com.linkedin.datahub.graphql.generated.MLPrimaryKeyProperties;
 import com.linkedin.datahub.graphql.resolvers.MeResolver;
 import com.linkedin.datahub.graphql.resolvers.auth.GetAccessTokenResolver;
+import com.linkedin.datahub.graphql.resolvers.domain.DomainEntitiesResolver;
 import com.linkedin.datahub.graphql.resolvers.domain.SetDomainResolver;
 import com.linkedin.datahub.graphql.resolvers.domain.UnsetDomainResolver;
 import com.linkedin.datahub.graphql.resolvers.group.AddGroupMembersResolver;
@@ -100,6 +103,7 @@ import com.linkedin.datahub.graphql.resolvers.type.EntityInterfaceTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.type.PlatformSchemaUnionTypeResolver;
 import com.linkedin.datahub.graphql.types.common.mappers.OperationMapper;
 import com.linkedin.datahub.graphql.types.dataset.mappers.DatasetProfileMapper;
+import com.linkedin.datahub.graphql.types.domain.DomainType;
 import com.linkedin.datahub.graphql.types.mlmodel.MLFeatureTableType;
 import com.linkedin.datahub.graphql.types.mlmodel.MLFeatureType;
 import com.linkedin.datahub.graphql.types.mlmodel.MLPrimaryKeyType;
@@ -173,6 +177,8 @@ public class GmsGraphQLEngine {
     private final GlossaryTermType glossaryTermType;
     private final AspectType aspectType;
     private final UsageType usageType;
+    private final DomainType domainType;
+
 
     /**
      * Configures the graph objects that can be fetched primary key.
@@ -250,11 +256,12 @@ public class GmsGraphQLEngine {
         this.glossaryTermType = new GlossaryTermType(entityClient);
         this.aspectType = new AspectType(entityClient);
         this.usageType = new UsageType(this.usageClient);
+        this.domainType = new DomainType(entityClient);
 
         // Init Lists
         this.entityTypes = ImmutableList.of(datasetType, corpUserType, corpGroupType,
             dataPlatformType, chartType, dashboardType, tagType, mlModelType, mlModelGroupType, mlFeatureType,
-            mlFeatureTableType, mlPrimaryKeyType, dataFlowType, dataJobType, glossaryTermType
+            mlFeatureTableType, mlPrimaryKeyType, dataFlowType, dataJobType, glossaryTermType, domainType
         );
         this.loadableTypes = new ArrayList<>(entityTypes);
         this.ownerTypes = ImmutableList.of(corpUserType, corpGroupType);
@@ -443,6 +450,9 @@ public class GmsGraphQLEngine {
             .dataFetcher("glossaryTerm", new AuthenticatedResolver<>(
                     new LoadableTypeResolver<>(glossaryTermType,
                             (env) -> env.getArgument(URN_FIELD_NAME))))
+            .dataFetcher("domain",
+                new LoadableTypeResolver<>(domainType,
+                    (env) -> env.getArgument(URN_FIELD_NAME)))
             .dataFetcher("mlFeatureTable", new AuthenticatedResolver<>(
                     new LoadableTypeResolver<>(mlFeatureTableType,
                             (env) -> env.getArgument(URN_FIELD_NAME))))
@@ -555,6 +565,13 @@ public class GmsGraphQLEngine {
                 .dataFetcher("relationships", new AuthenticatedResolver<>(
                     new EntityRelationshipsResultResolver(graphClient)
                 ))
+                .dataFetcher("domain",
+                    new LoadableTypeResolver<>(
+                        domainType,
+                        (env) -> {
+                            final Dataset dataset = env.getSource();
+                            return dataset.getDomain() != null ? dataset.getDomain().getUrn() : null;
+                        }))
                 .dataFetcher("platform", new AuthenticatedResolver<>(
                         new LoadableTypeResolver<>(dataPlatformType,
                                 (env) -> ((Dataset) env.getSource()).getPlatform().getUrn()))
@@ -677,6 +694,14 @@ public class GmsGraphQLEngine {
             .dataFetcher("relationships", new AuthenticatedResolver<>(
                 new EntityRelationshipsResultResolver(graphClient)
             ))
+            .dataFetcher("domain",
+                new LoadableTypeResolver<>(
+                    domainType,
+                    (env) -> {
+                        final Dashboard dashboard = env.getSource();
+                        return dashboard.getDomain() != null ? dashboard.getDomain().getUrn() : null;
+                    })
+            )
         );
         builder.type("DashboardInfo", typeWiring -> typeWiring
             .dataFetcher("charts", new AuthenticatedResolver<>(
@@ -696,6 +721,14 @@ public class GmsGraphQLEngine {
             .dataFetcher("relationships", new AuthenticatedResolver<>(
                 new EntityRelationshipsResultResolver(graphClient)
             ))
+            .dataFetcher("domain",
+                new LoadableTypeResolver<>(
+                    domainType,
+                    (env) -> {
+                        final Chart chart = env.getSource();
+                        return chart.getDomain() != null ? chart.getDomain().getUrn() : null;
+                    })
+            )
         );
         builder.type("ChartInfo", typeWiring -> typeWiring
             .dataFetcher("inputs", new AuthenticatedResolver<>(
@@ -794,6 +827,14 @@ public class GmsGraphQLEngine {
                 .dataFetcher("relationships", new AuthenticatedResolver<>(
                     new EntityRelationshipsResultResolver(graphClient)
                 ))
+                .dataFetcher("domain",
+                    new LoadableTypeResolver<>(
+                        domainType,
+                        (env) -> {
+                            final DataFlow dataFlow = env.getSource();
+                            return dataFlow.getDomain() != null ? dataFlow.getDomain().getUrn() : null;
+                        })
+                )
             );
     }
 
@@ -885,8 +926,7 @@ public class GmsGraphQLEngine {
 
     private void configureDomainResolvers(final RuntimeWiring.Builder builder) {
         builder.type("Domain", typeWiring -> typeWiring
-            .dataFetcher("entities", null
-            )
+            .dataFetcher("entities", new DomainEntitiesResolver(this.entityClient))
             .dataFetcher("relationships", new AuthenticatedResolver<>(
                 new EntityRelationshipsResultResolver(graphClient)
             ))

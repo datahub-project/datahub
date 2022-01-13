@@ -250,11 +250,6 @@ type Mutation {
     Sets the Domain for a Dataset, Chart, Dashboard, Data Flow (Pipeline), or Data Job (Task). Returns true if the Domain was successfully removed, or was already removed. Requires the Edit Domains privilege for an asset.
     """
     unsetDomain(entityUrn: String!): Boolean
-
-    """
-    Sets the Domain for a set of Datasets, Charts, Dashboards, Data Flows (Pipeline), or Data Jobs (Task). Returns true if the Domains were successfully added, or already exist. Requires the Edit Domain privilege for each Entity in the set.
-    """
-    batchSetDomains(entityUrns: [String!]!, domainUrn: String!): Boolean
 }
 
 """
@@ -573,6 +568,11 @@ type Dataset implements EntityWithRelationships & Entity {
     The structured glossary terms associated with the dataset
     """
     glossaryTerms: GlossaryTerms
+
+    """
+    The Domain associated with the Dataset
+    """
+    domain: Domain
 
     """
     Statistics about how this Dataset is used
@@ -2670,6 +2670,11 @@ type Dashboard implements EntityWithRelationships & Entity {
     glossaryTerms: GlossaryTerms
 
     """
+    The Domain associated with the Dashboard
+    """
+    domain: Domain
+
+    """
     Edges extending from this entity
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
@@ -2866,6 +2871,11 @@ type Chart implements EntityWithRelationships & Entity {
     The structured glossary terms associated with the dashboard
     """
     glossaryTerms: GlossaryTerms
+
+    """
+    The Domain associated with the Chart
+    """
+    domain: Domain
 
     """
     Edges extending from this entity
@@ -3168,6 +3178,11 @@ type DataFlow implements Entity {
     The structured glossary terms associated with the dashboard
     """
     glossaryTerms: GlossaryTerms
+
+    """
+    The Domain associated with the DataFlow
+    """
+    domain: Domain
 
     """
     Edges extending from this entity
