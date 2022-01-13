@@ -165,13 +165,22 @@ public class PoliciesConfig {
       ImmutableList.of(EDIT_ENTITY_OWNERS_PRIVILEGE, EDIT_ENTITY_PRIVILEGE)
   );
 
+  // Container Privileges
+  public static final ResourcePrivileges CONTAINER_PRIVILEGES = ResourcePrivileges.of(
+      "container",
+      "Containers",
+      "Containers indexed by DataHub",
+      COMMON_ENTITY_PRIVILEGES
+  );
+
   public static final List<ResourcePrivileges> RESOURCE_PRIVILEGES = ImmutableList.of(
       DATASET_PRIVILEGES,
       DASHBOARD_PRIVILEGES,
       CHART_PRIVILEGES,
       DATA_FLOW_PRIVILEGES,
       DATA_JOB_PRIVILEGES,
-      TAG_PRIVILEGES
+      TAG_PRIVILEGES,
+      CONTAINER_PRIVILEGES
   );
 
   @Data

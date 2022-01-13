@@ -579,7 +579,11 @@ public class GmsGraphQLEngine {
                 )
                 .dataFetcher("container",
                     new LoadableTypeResolver<>(containerType,
-                        (env) -> ((Dataset) env.getSource()).getPlatform().getUrn()))
+                        (env) -> {
+                            final Dataset dataset = env.getSource();
+                            return dataset.getContainer() != null ? dataset.getContainer().getUrn() : null;
+                        })
+                )
                 .dataFetcher("datasetProfiles", new AuthenticatedResolver<>(
                     new TimeSeriesAspectResolver(
                         this.entityClient,
@@ -589,12 +593,12 @@ public class GmsGraphQLEngine {
                     )
                 ))
                 .dataFetcher("operations", new AuthenticatedResolver<>(
-                        new TimeSeriesAspectResolver(
-                                this.entityClient,
-                                "dataset",
-                                "operation",
-                                OperationMapper::map
-                        )
+                    new TimeSeriesAspectResolver(
+                            this.entityClient,
+                            "dataset",
+                            "operation",
+                            OperationMapper::map
+                    )
                 ))
                 .dataFetcher("usageStats", new AuthenticatedResolver<>(new UsageTypeResolver()))
                 .dataFetcher("schemaMetadata", new AuthenticatedResolver<>(
@@ -700,7 +704,10 @@ public class GmsGraphQLEngine {
             ))
             .dataFetcher("container",
                 new LoadableTypeResolver<>(containerType,
-                    (env) -> ((Dataset) env.getSource()).getPlatform().getUrn()))
+                    (env) -> {
+                        final Dataset dataset = env.getSource();
+                        return dataset.getContainer() != null ? dataset.getContainer().getUrn() : null;
+                    }))
         );
         builder.type("DashboardInfo", typeWiring -> typeWiring
             .dataFetcher("charts", new AuthenticatedResolver<>(
@@ -721,8 +728,13 @@ public class GmsGraphQLEngine {
                 new EntityRelationshipsResultResolver(graphClient)
             ))
             .dataFetcher("container",
-                new LoadableTypeResolver<>(containerType,
-                    (env) -> ((Dataset) env.getSource()).getPlatform().getUrn()))
+                new LoadableTypeResolver<>(
+                    containerType,
+                    (env) -> {
+                        final Dataset dataset = env.getSource();
+                        return dataset.getContainer() != null ? dataset.getContainer().getUrn() : null;
+                    })
+            )
         );
         builder.type("ChartInfo", typeWiring -> typeWiring
             .dataFetcher("inputs", new AuthenticatedResolver<>(
