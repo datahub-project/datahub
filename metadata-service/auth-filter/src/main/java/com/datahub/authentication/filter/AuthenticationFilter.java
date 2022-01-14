@@ -1,10 +1,10 @@
 package com.datahub.authentication.filter;
 
 import com.datahub.authentication.Authentication;
+
 import com.datahub.authentication.AuthenticationConfiguration;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authentication.AuthenticationException;
-import com.datahub.authentication.AuthenticationExpiredException;
 import com.datahub.authentication.Authenticator;
 import com.datahub.authentication.AuthenticatorConfiguration;
 import com.datahub.authentication.authenticator.AuthenticatorChain;
