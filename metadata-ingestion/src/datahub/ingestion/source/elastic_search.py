@@ -256,7 +256,6 @@ class ElasticsearchSource(Source):
         # 0. Dedup data_streams.
         data_stream = raw_index_metadata.get("data_stream")
         if data_stream:
-            assert index.startswith(".ds-")
             index = data_stream
             self.data_stream_partition_count[index] += 1
             if self.data_stream_partition_count[index] > 1:
