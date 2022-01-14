@@ -427,36 +427,36 @@ public class RecordUtils {
   }
 
   /**
-   * Similar to {@link #getFieldValue(RecordTemplate, PathSpec)} but takes string representation of Pegasus PathSpec as
+   * Similar to {@link #getFieldValue(Object, PathSpec)} but takes string representation of Pegasus PathSpec as
    * input.
    */
   @Nonnull
-  public static Optional<Object> getFieldValue(@Nonnull RecordTemplate recordTemplate,
+  public static Optional<Object> getFieldValue(@Nonnull Object record,
       @Nonnull String pathSpecAsString) {
     pathSpecAsString = LEADING_SPACESLASH_PATTERN.matcher(pathSpecAsString).replaceAll("");
     pathSpecAsString = TRAILING_SPACESLASH_PATTERN.matcher(pathSpecAsString).replaceAll("");
 
     if (!pathSpecAsString.isEmpty()) {
-      return getFieldValue(recordTemplate, new PathSpec(SLASH_PATERN.split(pathSpecAsString)));
+      return getFieldValue(record, new PathSpec(SLASH_PATERN.split(pathSpecAsString)));
     }
     return Optional.empty();
   }
 
   /**
-   * Given a {@link RecordTemplate} and {@link com.linkedin.data.schema.PathSpec} this will return value of the path from the record.
+   * Given a {@link Object} and {@link com.linkedin.data.schema.PathSpec} this will return value of the path from the record.
    * This handles only RecordTemplate, fields of which can be primitive types, typeRefs, arrays of primitive types or array of records.
    * Fetching of values in a RecordTemplate where the field has a default value will return the field default value.
    * Referencing field corresponding to a particular index or range of indices of an array is not supported.
    * Fields corresponding to 1) multi-dimensional array 2) UnionTemplate 3) AbstractMapTemplate 4) FixedTemplate are currently not supported.
    *
-   * @param recordTemplate {@link RecordTemplate} whose field specified by the pegasus path has to be accessed
+   * @param record {@link Object} RecordTemplate or a UnionTemplate to traverse
    * @param ps {@link PathSpec} representing the path whose value needs to be returned
    * @return Referenced object of the RecordTemplate corresponding to the PathSpec
    */
   @Nonnull
   @SuppressWarnings("rawtypes")
-  public static Optional<Object> getFieldValue(@Nonnull Object recordTemplate, @Nonnull PathSpec ps) {
-    Object reference = recordTemplate;
+  public static Optional<Object> getFieldValue(@Nonnull Object record, @Nonnull PathSpec ps) {
+    Object reference = record;
     final int pathSize = ps.getPathComponents().size();
     for (int i = 0; i < pathSize; i++) {
       final String part = ps.getPathComponents().get(i);
@@ -482,7 +482,7 @@ public class RecordUtils {
             new PathSpec(ps.getPathComponents().subList(i, pathSize))));
       } else {
         throw new UnsupportedOperationException(
-            String.format("Failed at extracting %s (%s from %s)", part, ps, recordTemplate));
+            String.format("Failed at extracting %s (%s from %s)", part, ps, record));
       }
     }
     return Optional.of(reference);
