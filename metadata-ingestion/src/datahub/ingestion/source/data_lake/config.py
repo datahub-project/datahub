@@ -18,6 +18,7 @@ class DataLakeSourceConfig(ConfigModel):
     base_path: str
 
     use_relative_path: bool = False
+    ignore_dotfiles: bool = True
 
     aws_config: Optional[AwsSourceConfig] = None
 

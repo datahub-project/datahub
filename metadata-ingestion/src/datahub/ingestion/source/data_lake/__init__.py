@@ -273,8 +273,6 @@ class DataLakeSource(Source):
         if self.source_config.path_spec is None:
             return relative_path
 
-        print(relative_path)
-
         def warn():
             self.report.report_warning(
                 relative_path,
@@ -404,6 +402,11 @@ class DataLakeSource(Source):
                 if obj.key.endswith("/"):
                     continue
 
+                file = os.path.basename(obj.key)
+
+                if self.source_config.ignore_dotfiles and file.startswith("."):
+                    continue
+
                 obj_path = f"s3a://{obj.bucket_name}/{obj.key}"
 
                 unordered_files.append(obj_path)
@@ -417,6 +420,9 @@ class DataLakeSource(Source):
         else:
             for root, dirs, files in os.walk(self.source_config.base_path):
                 for file in sorted(files):
+
+                    if self.source_config.ignore_dotfiles and file.startswith("."):
+                        continue
 
                     full_path = os.path.join(root, file)
 

@@ -21,7 +21,6 @@ def test_data_lake_ingest(pytestconfig, tmp_path, mock_time):
                     "use_relative_path": True,  # should be enabled for testing since full paths will differ on different machines
                     "path_spec": "./{name[0]}/{name[1]}.{format}",
                     "platform": "data-lake-test",
-                    "schema_patterns": {"deny": [".*/.DS_Store"]},
                     "profiling": {
                         "enabled": False,
                         "profile_table_level_only": False,
