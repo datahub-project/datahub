@@ -46,7 +46,8 @@ public class RecordUtils {
    * Using in-memory hash map to store the get/is methods of the schema fields of RecordTemplate.
    * Here map has RecordTemplate class as key, value being another map of field name with the associated get/is method
    */
-  private static final ConcurrentHashMap<Class<? extends RecordTemplate>, Map<String, Method>> METHOD_CACHE = new ConcurrentHashMap<>();
+  private static final ConcurrentHashMap<Class<? extends RecordTemplate>, Map<String, Method>> METHOD_CACHE =
+      new ConcurrentHashMap<>();
 
   private RecordUtils() {
     // Util class
@@ -146,14 +147,14 @@ public class RecordUtils {
    * @return the aspect which is included in the entity.
    * */
   @Nonnull
-  public static <ASPECT extends RecordTemplate, ENTITY extends RecordTemplate> ASPECT
-  extractAspectFromSingleAspectEntity(@Nonnull ENTITY entity, @Nonnull Class<ASPECT> aspectClass) {
+  public static <ASPECT extends RecordTemplate, ENTITY extends RecordTemplate> ASPECT extractAspectFromSingleAspectEntity(
+      @Nonnull ENTITY entity, @Nonnull Class<ASPECT> aspectClass) {
 
     // Create an empty aspect to extract it's field names
     final Constructor<ASPECT> constructor;
     try {
       @SuppressWarnings("rawtypes")
-      final Class[] constructorParamArray = new Class[] {};
+      final Class[] constructorParamArray = new Class[]{};
       constructor = aspectClass.getConstructor(constructorParamArray);
     } catch (NoSuchMethodException e) {
       throw new RuntimeException("Exception occurred while trying to get the default constructor for the aspect. ", e);
@@ -166,16 +167,12 @@ public class RecordUtils {
       throw new RuntimeException("Exception occurred while creating an instance of the aspect. ", e);
     }
 
-    final Set<String> aspectFields = aspect.schema().getFields()
-        .stream()
-        .map(RecordDataSchema.Field::getName)
-        .collect(Collectors.toSet());
+    final Set<String> aspectFields =
+        aspect.schema().getFields().stream().map(RecordDataSchema.Field::getName).collect(Collectors.toSet());
 
     // Get entity's field names and only keep fields which occur in the entity and not in the aspect
-    final Set<String> entityFields = entity.schema().getFields()
-        .stream()
-        .map(RecordDataSchema.Field::getName)
-        .collect(Collectors.toSet());
+    final Set<String> entityFields =
+        entity.schema().getFields().stream().map(RecordDataSchema.Field::getName).collect(Collectors.toSet());
     entityFields.removeAll(aspectFields);
 
     // remove non aspect fields from entity's cloned datamap and use it to create an aspect
@@ -303,12 +300,8 @@ public class RecordUtils {
         getProtectedMethod(UnionTemplate.class, "obtainWrapped", DataSchema.class, Class.class, String.class);
     final List<UnionDataSchema.Member> members = ((UnionDataSchema) unionTemplate.schema()).getMembers();
     for (UnionDataSchema.Member m : members) {
-      if (m.hasAlias() && m.getType()
-          .getDereferencedDataSchema()
-          .getUnionMemberKey()
-          .equals(clazz.getName())) {
-        return (V) invokeProtectedMethod(unionTemplate, obtainWrapped, dataSchema, clazz,
-            m.getAlias());
+      if (m.hasAlias() && m.getType().getDereferencedDataSchema().getUnionMemberKey().equals(clazz.getName())) {
+        return (V) invokeProtectedMethod(unionTemplate, obtainWrapped, dataSchema, clazz, m.getAlias());
       }
     }
     return (V) invokeProtectedMethod(unionTemplate, obtainWrapped, dataSchema, clazz,
@@ -375,8 +368,8 @@ public class RecordUtils {
       try {
         methodMap.put(field.getName(), recordTemplate.getClass().getMethod(getMethodName));
       } catch (NoSuchMethodException e) {
-        throw new RuntimeException(String.format("Failed to get method [%s], for class [%s], field [%s]",
-            getMethodName, recordTemplate.getClass().getCanonicalName(), field.getName()), e);
+        throw new RuntimeException(String.format("Failed to get method [%s], for class [%s], field [%s]", getMethodName,
+            recordTemplate.getClass().getCanonicalName(), field.getName()), e);
       }
     }
     return Collections.unmodifiableMap(methodMap);
@@ -397,9 +390,20 @@ public class RecordUtils {
     try {
       return METHOD_CACHE.get(record.getClass()).get(fieldName).invoke(record);
     } catch (IllegalAccessException | InvocationTargetException e) {
-      throw new RuntimeException(String.format("Failed to execute method for class [%s], field [%s]",
-          record.getClass().getCanonicalName(), fieldName), e);
+      throw new RuntimeException(
+          String.format("Failed to execute method for class [%s], field [%s]", record.getClass().getCanonicalName(),
+              fieldName), e);
     }
+  }
+
+  @Nullable
+  private static Object getUnionMember(@Nonnull UnionTemplate union, @Nonnull String memberName) {
+    if (union.data() instanceof DataMap) {
+      return ((DataMap) union.data()).get(memberName);
+    }
+    throw new RuntimeException(
+        String.format("Failed to extract member from union [%s], member [%s]", union.getClass().getCanonicalName(),
+            memberName));
   }
 
   /**
@@ -411,10 +415,11 @@ public class RecordUtils {
    */
   @Nonnull
   @SuppressWarnings("rawtypes")
-  private static List<Object> getReferenceForAbstractArray(@Nonnull AbstractArrayTemplate<RecordTemplate> reference, @Nonnull PathSpec ps) {
+  private static List<Object> getReferenceForAbstractArray(@Nonnull AbstractArrayTemplate<Object> reference,
+      @Nonnull PathSpec ps) {
     if (!reference.isEmpty()) {
       return Arrays.stream((reference).toArray())
-          .map(x -> getFieldValue(((RecordTemplate) x), ps))
+          .map(x -> getFieldValue(x, ps))
           .flatMap(o -> o.map(Stream::of).orElseGet(Stream::empty))
           .collect(Collectors.toList());
     }
@@ -422,35 +427,35 @@ public class RecordUtils {
   }
 
   /**
-   * Similar to {@link #getFieldValue(RecordTemplate, PathSpec)} but takes string representation of Pegasus PathSpec as
+   * Similar to {@link #getFieldValue(Object, PathSpec)} but takes string representation of Pegasus PathSpec as
    * input.
    */
   @Nonnull
-  public static Optional<Object> getFieldValue(@Nonnull RecordTemplate recordTemplate, @Nonnull String pathSpecAsString) {
+  public static Optional<Object> getFieldValue(@Nonnull Object record, @Nonnull String pathSpecAsString) {
     pathSpecAsString = LEADING_SPACESLASH_PATTERN.matcher(pathSpecAsString).replaceAll("");
     pathSpecAsString = TRAILING_SPACESLASH_PATTERN.matcher(pathSpecAsString).replaceAll("");
 
     if (!pathSpecAsString.isEmpty()) {
-      return getFieldValue(recordTemplate, new PathSpec(SLASH_PATERN.split(pathSpecAsString)));
+      return getFieldValue(record, new PathSpec(SLASH_PATERN.split(pathSpecAsString)));
     }
     return Optional.empty();
   }
 
   /**
-   * Given a {@link RecordTemplate} and {@link com.linkedin.data.schema.PathSpec} this will return value of the path from the record.
+   * Given a {@link Object} and {@link com.linkedin.data.schema.PathSpec} this will return value of the path from the record.
    * This handles only RecordTemplate, fields of which can be primitive types, typeRefs, arrays of primitive types or array of records.
    * Fetching of values in a RecordTemplate where the field has a default value will return the field default value.
    * Referencing field corresponding to a particular index or range of indices of an array is not supported.
-   * Fields corresponding to 1) multi-dimensional array 2) UnionTemplate 3) AbstractMapTemplate 4) FixedTemplate are currently not supported.
+   * Fields corresponding to 1) multi-dimensional array 2) AbstractMapTemplate 3) FixedTemplate are currently not supported.
    *
-   * @param recordTemplate {@link RecordTemplate} whose field specified by the pegasus path has to be accessed
+   * @param record {@link Object} Object to traverse the path. If record is of primitive type, and path is not empty, it will fail to traverse.
    * @param ps {@link PathSpec} representing the path whose value needs to be returned
    * @return Referenced object of the RecordTemplate corresponding to the PathSpec
    */
   @Nonnull
   @SuppressWarnings("rawtypes")
-  public static Optional<Object> getFieldValue(@Nonnull RecordTemplate recordTemplate, @Nonnull PathSpec ps) {
-    Object reference = recordTemplate;
+  public static Optional<Object> getFieldValue(@Nonnull Object record, @Nonnull PathSpec ps) {
+    Object reference = record;
     final int pathSize = ps.getPathComponents().size();
     for (int i = 0; i < pathSize; i++) {
       final String part = ps.getPathComponents().get(i);
@@ -458,18 +463,25 @@ public class RecordUtils {
         continue;
       }
       if (StringUtils.isNumeric(part)) {
-        throw new UnsupportedOperationException(String.format("Array indexing is not supported for %s (%s from %s)", part, ps, reference));
+        throw new UnsupportedOperationException(
+            String.format("Array indexing is not supported for %s (%s from %s)", part, ps, reference));
       }
       if (reference instanceof RecordTemplate) {
         reference = invokeMethod((RecordTemplate) reference, part);
         if (reference == null) {
           return Optional.empty();
         }
+      } else if (reference instanceof UnionTemplate) {
+        reference = getUnionMember((UnionTemplate) reference, part);
+        if (reference == null) {
+          return Optional.empty();
+        }
       } else if (reference instanceof AbstractArrayTemplate) {
-        return Optional.of(getReferenceForAbstractArray(
-            (AbstractArrayTemplate<RecordTemplate>) reference, new PathSpec(ps.getPathComponents().subList(i, pathSize))));
+        return Optional.of(getReferenceForAbstractArray((AbstractArrayTemplate<Object>) reference,
+            new PathSpec(ps.getPathComponents().subList(i, pathSize))));
       } else {
-        throw new UnsupportedOperationException(String.format("Failed at extracting %s (%s from %s)", part, ps, recordTemplate));
+        throw new UnsupportedOperationException(
+            String.format("Failed at extracting %s (%s from %s)", part, ps, record));
       }
     }
     return Optional.of(reference);
