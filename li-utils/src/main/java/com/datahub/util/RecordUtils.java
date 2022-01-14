@@ -431,8 +431,7 @@ public class RecordUtils {
    * input.
    */
   @Nonnull
-  public static Optional<Object> getFieldValue(@Nonnull Object record,
-      @Nonnull String pathSpecAsString) {
+  public static Optional<Object> getFieldValue(@Nonnull Object record, @Nonnull String pathSpecAsString) {
     pathSpecAsString = LEADING_SPACESLASH_PATTERN.matcher(pathSpecAsString).replaceAll("");
     pathSpecAsString = TRAILING_SPACESLASH_PATTERN.matcher(pathSpecAsString).replaceAll("");
 
@@ -447,9 +446,9 @@ public class RecordUtils {
    * This handles only RecordTemplate, fields of which can be primitive types, typeRefs, arrays of primitive types or array of records.
    * Fetching of values in a RecordTemplate where the field has a default value will return the field default value.
    * Referencing field corresponding to a particular index or range of indices of an array is not supported.
-   * Fields corresponding to 1) multi-dimensional array 2) UnionTemplate 3) AbstractMapTemplate 4) FixedTemplate are currently not supported.
+   * Fields corresponding to 1) multi-dimensional array 2) AbstractMapTemplate 3) FixedTemplate are currently not supported.
    *
-   * @param record {@link Object} RecordTemplate or a UnionTemplate to traverse
+   * @param record {@link Object} Object to traverse the path. If record is of primitive type, and path is not empty, it will fail to traverse.
    * @param ps {@link PathSpec} representing the path whose value needs to be returned
    * @return Referenced object of the RecordTemplate corresponding to the PathSpec
    */
