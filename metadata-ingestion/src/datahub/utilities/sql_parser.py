@@ -88,6 +88,8 @@ class MetadataSQLSQLParser(SQLParser):
 class SqlLineageSQLParser(SQLParser):
     _DATE_SWAP_TOKEN = "__d_a_t_e"
     _TIMESTAMP_SWAP_TOKEN = "__t_i_m_e_s_t_a_m_p"
+    _MYVIEW_SQL_TABLE_NAME_TOKEN = "__my_view__.__sql_table_name__"
+    _MYVIEW_LOOKER_TOKEN = "my_view.SQL_TABLE_NAME"
 
     def __init__(self, sql_query: str) -> None:
         super().__init__(sql_query)
@@ -103,9 +105,24 @@ class SqlLineageSQLParser(SQLParser):
             r"(\bdate\b)", rf"{self._DATE_SWAP_TOKEN}", sql_query, flags=re.IGNORECASE
         )
 
+        # MetadataSQLParser also makes mistakes on columns called "date", rename them
+        sql_query = re.sub(
+            rf"(\${{{self._MYVIEW_LOOKER_TOKEN}}})",
+            rf"{self._MYVIEW_SQL_TABLE_NAME_TOKEN}",
+            sql_query,
+        )
+
         # SqlLineageParser also makes mistakes on columns called "timestamp", rename them
         sql_query = re.sub(
             r"(\btimestamp\b)",
+            rf"{self._TIMESTAMP_SWAP_TOKEN}",
+            sql_query,
+            flags=re.IGNORECASE,
+        )
+
+        # SqlLineageParser lowercases table names which causes issue at Lookml source
+        sql_query = re.sub(
+            r"${}",
             rf"{self._TIMESTAMP_SWAP_TOKEN}",
             sql_query,
             flags=re.IGNORECASE,
@@ -157,7 +174,24 @@ class SqlLineageSQLParser(SQLParser):
         # Sort tables to make the list deterministic
         result.sort()
 
-        return result
+        # We need to revert TOKEN replacements
+        result = set(["date" if c == self._DATE_SWAP_TOKEN else c for c in result])
+        result = set(
+            [
+                "timestamp" if c == self._TIMESTAMP_SWAP_TOKEN else c
+                for c in list(result)
+            ]
+        )
+        result = set(
+            [
+                self._MYVIEW_LOOKER_TOKEN
+                if c == self._MYVIEW_SQL_TABLE_NAME_TOKEN
+                else c
+                for c in result
+            ]
+        )
+
+        return list(result)
 
     def get_columns(self) -> List[str]:
         graph: DiGraph = self._sql_holder.graph  # For mypy attribute checking
