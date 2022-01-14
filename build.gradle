@@ -43,6 +43,7 @@ project.ext.externalDependency = [
     'awsJavaSdkCore': 'com.amazonaws:aws-java-sdk-core:1.12.1',
     'awsJavaSdkSts': 'com.amazonaws:aws-java-sdk-sts:1.12.1',
     'awsJavaSdkS3': 'com.amazonaws:aws-java-sdk-s3:1.12.1',
+    'awsMskIamAuth': 'software.amazon.msk:aws-msk-iam-auth:1.1.1',
     'cacheApi' : 'javax.cache:cache-api:1.1.0',
     'commonsIo': 'commons-io:commons-io:2.4',
     'commonsLang': 'commons-lang:commons-lang:2.6',
