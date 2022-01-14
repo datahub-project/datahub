@@ -1,11 +1,11 @@
 package com.datahub.authentication.authenticator;
 
 import com.datahub.authentication.Authentication;
+
 import com.datahub.authentication.AuthenticationException;
 import com.datahub.authentication.AuthenticationExpiredException;
 import com.datahub.authentication.Authenticator;
 import com.datahub.authentication.AuthenticatorContext;
-import com.datahub.authentication.token.TokenException;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
