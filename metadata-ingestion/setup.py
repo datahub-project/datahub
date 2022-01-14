@@ -100,6 +100,7 @@ plugins: Dict[str, Set[str]] = {
     "datahub-business-glossary": set(),
     "dbt": {"requests"},
     "druid": sql_common | {"pydruid>=0.6.2"},
+    "elasticsearch": {"elasticsearch"},
     "feast": {"docker"},
     "glue": aws_common,
     "hive": sql_common
@@ -204,6 +205,7 @@ base_dev_requirements = {
         for plugin in [
             "bigquery",
             "bigquery-usage",
+            "elasticsearch",
             "looker",
             "glue",
             "mariadb",
@@ -278,6 +280,7 @@ entry_points = {
         "bigquery-usage = datahub.ingestion.source.usage.bigquery_usage:BigQueryUsageSource",
         "dbt = datahub.ingestion.source.dbt:DBTSource",
         "druid = datahub.ingestion.source.sql.druid:DruidSource",
+        "elasticsearch = datahub.ingestion.source.elastic_search:ElasticsearchSource",
         "feast = datahub.ingestion.source.feast:FeastSource",
         "glue = datahub.ingestion.source.aws.glue:GlueSource",
         "sagemaker = datahub.ingestion.source.aws.sagemaker:SagemakerSource",
