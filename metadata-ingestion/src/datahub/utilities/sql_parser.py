@@ -120,14 +120,6 @@ class SqlLineageSQLParser(SQLParser):
             flags=re.IGNORECASE,
         )
 
-        # SqlLineageParser lowercases table names which causes issue at Lookml source
-        sql_query = re.sub(
-            r"${}",
-            rf"{self._TIMESTAMP_SWAP_TOKEN}",
-            sql_query,
-            flags=re.IGNORECASE,
-        )
-
         # SqlLineageParser does not handle "encode" directives well. Remove them
         sql_query = re.sub(r"\sencode [a-zA-Z]*", "", sql_query, flags=re.IGNORECASE)
 
