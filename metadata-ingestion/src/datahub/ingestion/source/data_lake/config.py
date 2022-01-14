@@ -5,12 +5,10 @@ import pydantic
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.emitter.mce_builder import (
     DEFAULT_ENV,
-    get_sys_time,
-    make_data_platform_urn,
-    make_dataset_urn,
 )
 from datahub.ingestion.source.aws.aws_common import AwsSourceConfig
 from datahub.ingestion.source.data_lake.profiling import DataLakeProfilerConfig
+import parse
 
 
 class DataLakeSourceConfig(ConfigModel):
@@ -26,6 +24,8 @@ class DataLakeSourceConfig(ConfigModel):
     schema_patterns: AllowDenyPattern = AllowDenyPattern.allow_all()
     profile_patterns: AllowDenyPattern = AllowDenyPattern.allow_all()
 
+    path_spec: Optional[str] = None
+
     profiling: DataLakeProfilerConfig = DataLakeProfilerConfig()
 
     spark_driver_memory: str = "4g"
@@ -38,3 +38,28 @@ class DataLakeSourceConfig(ConfigModel):
         if profiling is not None and profiling.enabled:
             profiling.allow_deny_patterns = values["profile_patterns"]
         return values
+
+    @pydantic.validator("path_spec", always=True)
+    def validate_path_spec(
+        cls, value: Optional[str], values: Dict[str, Any]
+    ) -> Optional[str]:
+        if value is None:
+            return
+
+        if values.get("use_relative_path"):
+            if not value.startswith("./"):
+                raise ValueError(
+                    f"If using relative paths, path_spec must start with './'"
+                )
+
+        name_indices = sorted([x[0] for x in parse.findall("{{name[{:d}]}}", value)])
+
+        if len(name_indices) == 0:
+            raise ValueError("Path spec must contain at least one name identifier")
+
+        if name_indices != list(range(max(name_indices) + 1)):
+            raise ValueError(
+                "Path spec must contain consecutive name identifiers, starting at 0"
+            )
+
+        return value

@@ -19,9 +19,11 @@ def test_data_lake_ingest(pytestconfig, tmp_path, mock_time):
                 "config": {
                     "base_path": str(test_resources_dir / "test_data"),
                     "use_relative_path": True,  # should be enabled for testing since full paths will differ on different machines
+                    "path_spec": "./{category}/{name[0]}",
                     "platform": "test",
+                    "schema_patterns": {"deny": [".*/.DS_Store"]},
                     "profiling": {
-                        "enabled": True,
+                        "enabled": False,
                         "profile_table_level_only": False,
                         "include_field_min_value": True,
                         "include_field_max_value": True,

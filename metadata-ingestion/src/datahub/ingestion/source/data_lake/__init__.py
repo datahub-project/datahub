@@ -27,6 +27,7 @@ from pyspark.sql.types import (
     StructType,
     TimestampType,
 )
+import parse
 
 from datahub.emitter.mce_builder import make_data_platform_urn, make_dataset_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -214,12 +215,12 @@ class DataLakeSource(Source):
         return df.toDF(*(c.replace(".", "_") for c in df.columns))
 
     def get_table_schema(
-        self, dataframe: DataFrame, file_path: str, file_urn_path: str
+        self, dataframe: DataFrame, file_path: str, table_name: str
     ) -> Iterable[MetadataWorkUnit]:
 
         data_platform_urn = make_data_platform_urn(self.source_config.platform)
         dataset_urn = make_dataset_urn(
-            self.source_config.platform, file_urn_path, self.source_config.env
+            self.source_config.platform, table_name, self.source_config.env
         )
 
         dataset_name = os.path.basename(file_path)
@@ -267,17 +268,43 @@ class DataLakeSource(Source):
         self.report.report_workunit(wu)
         yield wu
 
+    def get_table_name(self, relative_path: str):
+
+        if self.source_config.path_spec is None:
+            return relative_path
+
+        print(relative_path)
+
+        def warn():
+            self.report.report_warning(
+                relative_path,
+                f"Unable to determine table name from provided path spec {self.source_config.path_spec} for file {relative_path}",
+            )
+
+        name_matches = parse.parse(self.source_config.path_spec, relative_path)
+
+        if name_matches is None:
+            warn()
+            return relative_path
+
+        name_matches_dict = name_matches.get("name")
+
+        if name_matches_dict is None:
+            warn()
+            return relative_path
+
+        # sort the dictionary of matches by key and take the values
+        name_components = [
+            v for k, v in sorted(name_matches_dict.items(), key=lambda x: int(x[0]))
+        ]
+
+        return ".".join(name_components)
+
     def ingest_table(
         self, full_path: str, relative_path: str
     ) -> Iterable[MetadataWorkUnit]:
 
-        if self.source_config.use_relative_path:
-            file_urn_path = relative_path
-        else:
-            file_urn_path = full_path
-
-        if file_urn_path.startswith("/"):
-            file_urn_path = file_urn_path[1:]
+        table_name = self.get_table_name(relative_path)
 
         table = self.read_file(full_path)
 
@@ -289,7 +316,7 @@ class DataLakeSource(Source):
         logger.debug(
             f"Ingesting {full_path}: making table schemas {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
         )
-        yield from self.get_table_schema(table, full_path, file_urn_path)
+        yield from self.get_table_schema(table, full_path, table_name)
 
         # If profiling is not enabled, skip the rest
         if not self.source_config.profiling.enabled:
@@ -328,7 +355,7 @@ class DataLakeSource(Source):
         mcp = MetadataChangeProposalWrapper(
             entityType="dataset",
             entityUrn=make_dataset_urn(
-                self.source_config.platform, file_urn_path, self.source_config.env
+                self.source_config.platform, table_name, self.source_config.env
             ),
             changeType=ChangeTypeClass.UPSERT,
             aspectName="datasetProfile",
@@ -352,19 +379,19 @@ class DataLakeSource(Source):
 
             for s3_prefix in s3_prefixes:
                 if self.source_config.base_path.startswith(s3_prefix):
-                    clean_path = self.source_config.base_path[len(s3_prefix) :]
+                    plain_base_path = self.source_config.base_path.lstrip(s3_prefix)
                     break
 
             if self.source_config.aws_config is None:
                 raise ValueError("AWS config is required for S3 file sources")
 
             s3 = self.source_config.aws_config.get_s3_resource()
-            bucket = s3.Bucket(clean_path.split("/")[0])
+            bucket = s3.Bucket(plain_base_path.split("/")[0])
 
             unordered_files = []
 
             for obj in bucket.objects.filter(
-                Prefix=clean_path.split("/", maxsplit=1)[1]
+                Prefix=plain_base_path.split("/", maxsplit=1)[1]
             ):
 
                 s3_path = f"s3://{obj.bucket_name}/{obj.key}"
@@ -383,8 +410,10 @@ class DataLakeSource(Source):
 
             for aws_file in sorted(unordered_files):
 
+                relative_path = "./" + aws_file.lstrip(f"s3a://{plain_base_path}")
+
                 # pass in the same relative_path as the full_path for S3 files
-                yield from self.ingest_table(aws_file, aws_file)
+                yield from self.ingest_table(aws_file, relative_path)
         else:
             for root, dirs, files in os.walk(self.source_config.base_path):
                 for relative_path in sorted(files):
@@ -395,7 +424,7 @@ class DataLakeSource(Source):
                     if not self.source_config.schema_patterns.allowed(full_path):
                         continue
 
-                    yield from self.ingest_table(full_path, relative_path)
+                    yield from self.ingest_table(full_path, "./" + relative_path)
 
     def get_report(self):
         return self.report
