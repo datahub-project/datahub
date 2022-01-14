@@ -3,6 +3,7 @@ import os
 from datetime import datetime
 from typing import Any, Iterable, Optional
 
+import parse
 import pydeequ
 from pydeequ.analyzers import AnalyzerContext
 from pyspark.conf import SparkConf
@@ -27,7 +28,6 @@ from pyspark.sql.types import (
     StructType,
     TimestampType,
 )
-import parse
 
 from datahub.emitter.mce_builder import make_data_platform_urn, make_dataset_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper

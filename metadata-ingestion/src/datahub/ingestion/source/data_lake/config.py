@@ -1,14 +1,12 @@
 from typing import Any, Dict, Optional
 
+import parse
 import pydantic
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
-from datahub.emitter.mce_builder import (
-    DEFAULT_ENV,
-)
+from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.source.aws.aws_common import AwsSourceConfig
 from datahub.ingestion.source.data_lake.profiling import DataLakeProfilerConfig
-import parse
 
 
 class DataLakeSourceConfig(ConfigModel):
