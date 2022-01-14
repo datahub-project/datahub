@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import platform
 import uuid
 from functools import wraps
 from pathlib import Path
@@ -108,6 +109,10 @@ class Telemetry:
             "cid": self.client_id,  # client id
             "ec": category,  # event category
             "ea": action,  # event action
+            # use custom dimensions to capture OS and Python version
+            # see https://developers.google.com/analytics/devguides/collection/protocol/v1/parameters#cd_
+            "cd1": platform.system(),  # OS
+            "cd2": platform.python_version(),  # Python version
         }
 
         if label:
