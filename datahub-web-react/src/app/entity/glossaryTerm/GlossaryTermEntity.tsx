@@ -5,7 +5,7 @@ import { Entity, IconStyleType, PreviewType } from '../Entity';
 import { Preview } from './preview/Preview';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
-import { useGetGlossaryTermQuery } from '../../../graphql/glossaryTerm.generated';
+import { GetGlossaryTermQuery, useGetGlossaryTermQuery } from '../../../graphql/glossaryTerm.generated';
 import { GenericEntityProperties } from '../shared/types';
 import { SchemaTab } from '../shared/tabs/Dataset/Schema/SchemaTab';
 import GlossaryRelatedEntity from './profile/GlossaryRelatedEntity';
@@ -65,6 +65,12 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
                         component: SchemaTab,
                         properties: {
                             editMode: false,
+                        },
+                        display: {
+                            visible: (_, glossaryTerm: GetGlossaryTermQuery) =>
+                                glossaryTerm.glossaryTerm?.schemaMetadata !== null,
+                            enabled: (_, glossaryTerm: GetGlossaryTermQuery) =>
+                                glossaryTerm.glossaryTerm?.schemaMetadata !== null,
                         },
                     },
                     {
