@@ -11,6 +11,6 @@ public class AuthenticationExpiredException extends AuthenticationException {
   }
 
   public AuthenticationExpiredException(final String message, final Throwable cause) {
-    super(String.format("Failed to authenticate inbound request: %s", message), cause);
+    super(message, cause);
   }
 }

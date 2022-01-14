@@ -61,14 +61,11 @@ public class AuthenticationFilter implements Filter {
     Authentication authentication = null;
     try {
       authentication = this.authenticatorChain.authenticate(context);
-    } catch (AuthenticationExpiredException e) {
+    } catch (AuthenticationException e) {
       // For AuthenticationExpiredExceptions, terminate and provide that feedback to the user
       log.debug("Failed to authenticate request. Received an AuthenticationExpiredException from authenticator chain.", e);
       ((HttpServletResponse) response).sendError(HttpServletResponse.SC_UNAUTHORIZED, e.getMessage());
       return;
-    } catch (AuthenticationException e) {
-      // For other AuthenticationExceptions, log & continue
-      log.debug("Failed to authenticate request. Received an AuthenticationExpiredException from authenticator chain.", e);
     }
 
     if (authentication != null) {
