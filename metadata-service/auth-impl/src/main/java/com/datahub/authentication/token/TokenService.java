@@ -29,7 +29,7 @@ import static com.datahub.authentication.token.TokenClaims.*;
  */
 public class TokenService {
 
-  private static final long DEFAULT_EXPIRES_IN_MS = 1L; // One day by default
+  private static final long DEFAULT_EXPIRES_IN_MS = 86400000L; // One day by default
   private static final List<String> SUPPORTED_ALGORITHMS = new ArrayList<>();
 
   static {
@@ -99,7 +99,7 @@ public class TokenService {
     Objects.requireNonNull(claims);
     final JwtBuilder builder = Jwts.builder()
       .addClaims(claims)
-      .setExpiration(new Date(System.currentTimeMillis() + 1))
+      .setExpiration(new Date(System.currentTimeMillis() + expiresInMs))
       .setId(UUID.randomUUID().toString())
       .setSubject(sub);
     if (this.iss != null) {
