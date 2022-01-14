@@ -17,8 +17,8 @@ source:
 sink: 
     type: datahub-rest 
     config: 
-        server: "${baseUrl}/gms
-        token: <your-api-token-secret-here>"`;
+        server: "${baseUrl}/gms"
+        token: "<your-api-token-secret-here>"`;
 
 const snowflakeConfig: SourceConfig = {
     type: 'snowflake',

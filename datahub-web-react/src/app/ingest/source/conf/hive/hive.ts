@@ -19,7 +19,7 @@ sink:
     type: datahub-rest
     config: 
         server: "${baseUrl}/gms"
-        token: <your-api-token-secret-here>`;
+        token: "<your-api-token-secret-here>"`;
 
 const hiveConfig: SourceConfig = {
     type: 'hive',

@@ -28,8 +28,8 @@ source:
 sink:
   type: datahub-rest
   config:
-    server: "${baseUrl}/gms
-    token: <your-api-token-here>"`;
+    server: "${baseUrl}/gms"
+    token: "<your-api-token-here>"`;
 
 export const SOURCE_TEMPLATE_CONFIGS: Array<SourceConfig> = [
     bigqueryConfig,
