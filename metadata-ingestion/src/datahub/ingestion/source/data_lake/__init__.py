@@ -287,11 +287,11 @@ class DataLakeSource(Source):
             warn()
             return relative_path
 
-        name_matches_dict = name_matches.get("name")
-
-        if name_matches_dict is None:
+        if "name" not in name_matches:
             warn()
             return relative_path
+
+        name_matches_dict = name_matches["name"]
 
         # sort the dictionary of matches by key and take the values
         name_components = [
@@ -410,21 +410,23 @@ class DataLakeSource(Source):
 
             for aws_file in sorted(unordered_files):
 
-                relative_path = "./" + aws_file.lstrip(f"s3a://{plain_base_path}")
+                relative_path = aws_file.lstrip(f"s3a://{plain_base_path}")
 
                 # pass in the same relative_path as the full_path for S3 files
                 yield from self.ingest_table(aws_file, relative_path)
         else:
             for root, dirs, files in os.walk(self.source_config.base_path):
-                for relative_path in sorted(files):
+                for file in sorted(files):
 
-                    full_path = os.path.join(root, relative_path)
+                    full_path = os.path.join(root, file)
+
+                    relative_path = full_path.lstrip(self.source_config.base_path)
 
                     # if table patterns do not allow this file, skip
                     if not self.source_config.schema_patterns.allowed(full_path):
                         continue
 
-                    yield from self.ingest_table(full_path, "./" + relative_path)
+                    yield from self.ingest_table(full_path, relative_path)
 
     def get_report(self):
         return self.report

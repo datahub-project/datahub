@@ -48,9 +48,12 @@ class DataLakeSourceConfig(ConfigModel):
 
         if values.get("use_relative_path"):
             if not value.startswith("./"):
+                # enforce this for semantics
                 raise ValueError(
                     f"If using relative paths, path_spec must start with './'"
                 )
+
+            value = value[2:]
 
         name_indices = sorted([x[0] for x in parse.findall("{{name[{:d}]}}", value)])
 

@@ -3,7 +3,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:test,./NPS.7.1.package_data_NPS.6.1_ARCN_Lakes_ChemistryData_v1_csv.csv,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:data-lake-test,cases_2.NPS,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -17,7 +17,7 @@
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
                         "schemaName": "NPS.7.1.package_data_NPS.6.1_ARCN_Lakes_ChemistryData_v1_csv.csv",
-                        "platform": "urn:li:dataPlatform:test",
+                        "platform": "urn:li:dataPlatform:data-lake-test",
                         "version": 0,
                         "created": {
                             "time": 0,
@@ -299,7 +299,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:test,./pokemon_abilities_json.json,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:data-lake-test,cases_2.pokemon_abilities_json,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -313,7 +313,7 @@
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
                         "schemaName": "pokemon_abilities_json.json",
-                        "platform": "urn:li:dataPlatform:test",
+                        "platform": "urn:li:dataPlatform:data-lake-test",
                         "version": 0,
                         "created": {
                             "time": 0,
@@ -510,7 +510,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:test,./small.csv,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:data-lake-test,cases_2.small,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -524,7 +524,7 @@
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
                         "schemaName": "small.csv",
-                        "platform": "urn:li:dataPlatform:test",
+                        "platform": "urn:li:dataPlatform:data-lake-test",
                         "version": 0,
                         "created": {
                             "time": 0,
@@ -653,7 +653,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:test,./wa_fn_usec_hr_employee_attrition_csv.csv,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:data-lake-test,cases_2.wa_fn_usec_hr_employee_attrition_csv,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -667,7 +667,7 @@
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
                         "schemaName": "wa_fn_usec_hr_employee_attrition_csv.csv",
-                        "platform": "urn:li:dataPlatform:test",
+                        "platform": "urn:li:dataPlatform:data-lake-test",
                         "version": 0,
                         "created": {
                             "time": 0,
@@ -1238,7 +1238,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:test,./chord_progressions_csv.csv,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:data-lake-test,cases_1.chord_progressions_csv,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -1252,7 +1252,7 @@
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
                         "schemaName": "chord_progressions_csv.csv",
-                        "platform": "urn:li:dataPlatform:test",
+                        "platform": "urn:li:dataPlatform:data-lake-test",
                         "version": 0,
                         "created": {
                             "time": 0,
@@ -1381,7 +1381,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:test,./countries_json.json,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:data-lake-test,cases_1.countries_json,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -1395,7 +1395,7 @@
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
                         "schemaName": "countries_json.json",
-                        "platform": "urn:li:dataPlatform:test",
+                        "platform": "urn:li:dataPlatform:data-lake-test",
                         "version": 0,
                         "created": {
                             "time": 0,
@@ -1456,7 +1456,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:test,./food_csv.csv,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:data-lake-test,cases_1.food_csv,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -1470,7 +1470,7 @@
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
                         "schemaName": "food_csv.csv",
-                        "platform": "urn:li:dataPlatform:test",
+                        "platform": "urn:li:dataPlatform:data-lake-test",
                         "version": 0,
                         "created": {
                             "time": 0,
@@ -1599,7 +1599,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:test,./food_parquet.parquet,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:data-lake-test,cases_1.food_parquet,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -1613,7 +1613,7 @@
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
                         "schemaName": "food_parquet.parquet",
-                        "platform": "urn:li:dataPlatform:test",
+                        "platform": "urn:li:dataPlatform:data-lake-test",
                         "version": 0,
                         "created": {
                             "time": 0,
