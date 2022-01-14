@@ -2,6 +2,7 @@ import datetime
 import itertools
 import logging
 import uuid
+from math import log10
 from typing import Any, Dict, Iterable, List, Optional
 
 import click
@@ -21,6 +22,7 @@ from datahub.ingestion.graph.client import DatahubClientConfig
 from datahub.ingestion.sink.sink_registry import sink_registry
 from datahub.ingestion.source.source_registry import source_registry
 from datahub.ingestion.transformer.transform_registry import transform_registry
+from datahub.telemetry import telemetry
 
 logger = logging.getLogger(__name__)
 
@@ -148,6 +150,7 @@ class Pipeline:
         return cls(config, dry_run=dry_run, preview_mode=preview_mode)
 
     def run(self) -> None:
+
         callback = LoggingCallback()
         extractor: Extractor = self.extractor_class()
         for wu in itertools.islice(
@@ -202,6 +205,20 @@ class Pipeline:
             raise PipelineExecutionError(
                 "Source reported warnings", self.source.get_report()
             )
+
+    def log_ingestion_stats(self) -> None:
+
+        telemetry.telemetry_instance.ping(
+            "ingest", "source_type", self.config.source.type
+        )
+        telemetry.telemetry_instance.ping("ingest", "sink_type", self.config.sink.type)
+        telemetry.telemetry_instance.ping(
+            "ingest",
+            "ingestion_stats",
+            "records_written_log10",
+            # bucket by taking floor of log of the number of records written
+            int(log10(self.sink.get_report().records_written + 1)),
+        )
 
     def pretty_print_summary(self, warnings_as_failure: bool = False) -> int:
         click.echo()

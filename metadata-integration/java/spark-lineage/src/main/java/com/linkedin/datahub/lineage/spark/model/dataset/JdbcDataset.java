@@ -32,6 +32,7 @@ public class JdbcDataset implements SparkDataset {
     url = url.replaceFirst("jdbc:", "");
     if (url.contains("postgres")) {
       url = url.substring(url.lastIndexOf('/') + 1);
+      url = url.substring(0, url.indexOf('?'));
     }
     // TODO different DBs have different formats. TBD mapping to data source names
     return url + "." + tbl;
