@@ -1,12 +1,8 @@
 import dataclasses
-import logging
-import os
-from dataclasses import field as dataclass_field
-from datetime import datetime
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, List, Optional
 
 import pydantic
-import pydeequ
+from pandas import DataFrame
 from pydeequ.analyzers import (
     AnalysisRunBuilder,
     AnalysisRunner,
@@ -20,11 +16,8 @@ from pydeequ.analyzers import (
     Minimum,
     StandardDeviation,
 )
-from pyspark.conf import SparkConf
 from pyspark.sql import SparkSession
-from pyspark.sql.dataframe import DataFrame
 from pyspark.sql.functions import col, count, isnan, when
-from pyspark.sql.types import ArrayType, BinaryType, BooleanType, ByteType
 from pyspark.sql.types import DataType as SparkDataType
 from pyspark.sql.types import (
     DateType,
@@ -33,62 +26,26 @@ from pyspark.sql.types import (
     FloatType,
     IntegerType,
     LongType,
-    MapType,
     NullType,
     ShortType,
     StringType,
-    StructField,
-    StructType,
     TimestampType,
 )
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
-from datahub.emitter.mce_builder import (
-    DEFAULT_ENV,
-    get_sys_time,
-    make_data_platform_urn,
-    make_dataset_urn,
-)
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.api.source import Source, SourceReport
-from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.aws.aws_common import AwsSourceConfig, make_s3_urn
+from datahub.emitter.mce_builder import get_sys_time
+from datahub.ingestion.source.data_lake.report import DataLakeSourceReport
 from datahub.ingestion.source.profiling.common import (
     Cardinality,
     _convert_to_cardinality,
 )
-from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
-from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
-from datahub.metadata.com.linkedin.pegasus2avro.schema import (
-    BooleanTypeClass,
-    BytesTypeClass,
-    DateTypeClass,
-    NullTypeClass,
-    NumberTypeClass,
-    RecordTypeClass,
-    SchemaField,
-    SchemaFieldDataType,
-    SchemaMetadata,
-    StringTypeClass,
-    TimeTypeClass,
-)
 from datahub.metadata.schema_classes import (
-    ChangeTypeClass,
     DatasetFieldProfileClass,
     DatasetProfileClass,
-    DatasetPropertiesClass,
     HistogramClass,
-    MapTypeClass,
-    OtherSchemaClass,
     QuantileClass,
     ValueFrequencyClass,
 )
-
-# hide annoying debug errors from py4j
-logging.getLogger("py4j").setLevel(logging.ERROR)
-logger: logging.Logger = logging.getLogger(__name__)
-
 
 NUM_SAMPLE_ROWS = 20
 QUANTILES = [0.05, 0.25, 0.5, 0.75, 0.95]
@@ -98,62 +55,6 @@ MAX_HIST_BINS = 25
 def null_str(value: Any) -> Optional[str]:
     # str() with a passthrough for None.
     return str(value) if value is not None else None
-
-
-# for a list of all types, see https://spark.apache.org/docs/3.0.3/api/python/_modules/pyspark/sql/types.html
-_field_type_mapping = {
-    NullType: NullTypeClass,
-    StringType: StringTypeClass,
-    BinaryType: BytesTypeClass,
-    BooleanType: BooleanTypeClass,
-    DateType: DateTypeClass,
-    TimestampType: TimeTypeClass,
-    DecimalType: NumberTypeClass,
-    DoubleType: NumberTypeClass,
-    FloatType: NumberTypeClass,
-    ByteType: BytesTypeClass,
-    IntegerType: NumberTypeClass,
-    LongType: NumberTypeClass,
-    ShortType: NumberTypeClass,
-    ArrayType: NullTypeClass,
-    MapType: MapTypeClass,
-    StructField: RecordTypeClass,
-    StructType: RecordTypeClass,
-}
-
-
-def get_column_type(
-    report: SourceReport, dataset_name: str, column_type: str
-) -> SchemaFieldDataType:
-    """
-    Maps known Spark types to datahub types
-    """
-    TypeClass: Any = _field_type_mapping.get(column_type)
-
-    # if still not found, report the warning
-    if TypeClass is None:
-
-        report.report_warning(
-            dataset_name, f"unable to map type {column_type} to metadata schema"
-        )
-        TypeClass = NullTypeClass
-
-    return SchemaFieldDataType(type=TypeClass())
-
-
-@dataclasses.dataclass
-class _SingleColumnSpec:
-    column: str
-    column_profile: DatasetFieldProfileClass
-
-    # if the histogram is a list of value frequencies (discrete data) or bins (continuous data)
-    histogram_distinct: Optional[bool] = None
-
-    type_: SparkDataType = NullType
-
-    unique_count: Optional[int] = None
-    non_null_count: Optional[int] = None
-    cardinality: Optional[Cardinality] = None
 
 
 class DataLakeProfilerConfig(ConfigModel):
@@ -207,43 +108,19 @@ class DataLakeProfilerConfig(ConfigModel):
         return values
 
 
-class DataLakeSourceConfig(ConfigModel):
-
-    env: str = DEFAULT_ENV
-    platform: str
-    base_path: str
-
-    use_relative_path: bool = False
-
-    aws_config: Optional[AwsSourceConfig] = None
-
-    schema_patterns: AllowDenyPattern = AllowDenyPattern.allow_all()
-    profile_patterns: AllowDenyPattern = AllowDenyPattern.allow_all()
-
-    profiling: DataLakeProfilerConfig = DataLakeProfilerConfig()
-
-    spark_driver_memory: str = "4g"
-
-    @pydantic.root_validator()
-    def ensure_profiling_pattern_is_passed_to_profiling(
-        cls, values: Dict[str, Any]
-    ) -> Dict[str, Any]:
-        profiling = values.get("profiling")
-        if profiling is not None and profiling.enabled:
-            profiling.allow_deny_patterns = values["profile_patterns"]
-        return values
-
-
 @dataclasses.dataclass
-class DataLakeSourceReport(SourceReport):
-    files_scanned = 0
-    filtered: List[str] = dataclass_field(default_factory=list)
+class _SingleColumnSpec:
+    column: str
+    column_profile: DatasetFieldProfileClass
 
-    def report_file_scanned(self) -> None:
-        self.files_scanned += 1
+    # if the histogram is a list of value frequencies (discrete data) or bins (continuous data)
+    histogram_distinct: Optional[bool] = None
 
-    def report_file_dropped(self, file: str) -> None:
-        self.filtered.append(file)
+    type_: SparkDataType = NullType
+
+    unique_count: Optional[int] = None
+    non_null_count: Optional[int] = None
+    cardinality: Optional[Cardinality] = None
 
 
 class _SingleTableProfiler:
@@ -643,302 +520,3 @@ class _SingleTableProfiler:
 
             # append the column profile to the dataset profile
             self.profile.fieldProfiles.append(column_profile)
-
-
-class DataLakeSource(Source):
-    source_config: DataLakeSourceConfig
-    report = DataLakeSourceReport()
-
-    def __init__(self, config: DataLakeSourceConfig, ctx: PipelineContext):
-        super().__init__(ctx)
-        self.source_config = config
-
-        conf = SparkConf()
-
-        conf.set("spark.jars.packages", "org.apache.hadoop:hadoop-aws:3.0.3")
-
-        if self.source_config.aws_config is not None:
-
-            aws_access_key_id = self.source_config.aws_config.aws_access_key_id
-            aws_secret_access_key = self.source_config.aws_config.aws_secret_access_key
-            aws_session_token = self.source_config.aws_config.aws_session_token
-
-            aws_provided_credentials = [
-                aws_access_key_id,
-                aws_secret_access_key,
-                aws_session_token,
-            ]
-
-            if any(x is not None for x in aws_provided_credentials):
-
-                # see https://hadoop.apache.org/docs/r3.0.3/hadoop-aws/tools/hadoop-aws/index.html#Changing_Authentication_Providers
-                if all(x is not None for x in aws_provided_credentials):
-
-                    conf.set(
-                        "spark.hadoop.fs.s3a.aws.credentials.provider",
-                        "org.apache.hadoop.fs.s3a.TemporaryAWSCredentialsProvider",
-                    )
-
-                else:
-                    conf.set(
-                        "spark.hadoop.fs.s3a.aws.credentials.provider",
-                        "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider",
-                    )
-
-                if aws_access_key_id is not None:
-                    conf.set("spark.hadoop.fs.s3a.access.key", aws_access_key_id)
-                if aws_secret_access_key is not None:
-                    conf.set(
-                        "spark.hadoop.fs.s3a.secret.key",
-                        aws_secret_access_key,
-                    )
-                if aws_session_token is not None:
-                    conf.set(
-                        "spark.hadoop.fs.s3a.session.token",
-                        aws_session_token,
-                    )
-            else:
-                # if no explicit AWS config is provided, use a default AWS credentials provider
-                conf.set(
-                    "spark.hadoop.fs.s3a.aws.credentials.provider",
-                    "org.apache.hadoop.fs.s3a.AnonymousAWSCredentialsProvider",
-                )
-
-        conf.set("spark.jars.packages", pydeequ.deequ_maven_coord)
-        conf.set("spark.jars.excludes", pydeequ.f2j_maven_coord)
-        conf.set("spark.driver.memory", config.spark_driver_memory)
-
-        self.spark = SparkSession.builder.config(conf=conf).getOrCreate()
-
-    @classmethod
-    def create(cls, config_dict, ctx):
-        config = DataLakeSourceConfig.parse_obj(config_dict)
-        return cls(config, ctx)
-
-    def read_file(self, file: str) -> Optional[DataFrame]:
-
-        if file.endswith(".parquet"):
-            df = self.spark.read.parquet(file)
-        elif file.endswith(".csv"):
-            # see https://sparkbyexamples.com/pyspark/pyspark-read-csv-file-into-dataframe
-            df = self.spark.read.csv(
-                file,
-                header="True",
-                inferSchema="True",
-                sep=",",
-                ignoreLeadingWhiteSpace=True,
-                ignoreTrailingWhiteSpace=True,
-            )
-        elif file.endswith(".tsv"):
-            df = self.spark.read.csv(
-                file,
-                header="True",
-                inferSchema="True",
-                sep="\t",
-                ignoreLeadingWhiteSpace=True,
-                ignoreTrailingWhiteSpace=True,
-            )
-        elif file.endswith(".json"):
-            df = self.spark.read.json(file)
-        # TODO: add support for more file types
-        # elif file.endswith(".orc"):
-        #     df = self.spark.read.orc(file)
-        # elif file.endswith(".avro"):
-        #     df = self.spark.read.avro(file)
-        else:
-            self.report.report_warning(file, f"file {file} has unsupported extension")
-            return None
-
-        # replace periods in names because they break PyDeequ
-        # see https://mungingdata.com/pyspark/avoid-dots-periods-column-names/
-        return df.toDF(*(c.replace(".", "_") for c in df.columns))
-
-    def get_table_schema(
-        self, dataframe: DataFrame, file_path: str, file_urn_path: str
-    ) -> Iterable[MetadataWorkUnit]:
-
-        data_platform_urn = make_data_platform_urn(self.source_config.platform)
-        dataset_urn = make_dataset_urn(
-            self.source_config.platform, file_urn_path, self.source_config.env
-        )
-
-        dataset_name = os.path.basename(file_path)
-
-        if self.source_config.platform == "s3":
-            dataset_urn = make_s3_urn(file_path, self.source_config.env)
-
-        dataset_snapshot = DatasetSnapshot(
-            urn=dataset_urn,
-            aspects=[],
-        )
-
-        dataset_properties = DatasetPropertiesClass(
-            description="",
-            customProperties={},
-        )
-        dataset_snapshot.aspects.append(dataset_properties)
-
-        column_fields = []
-
-        for field in dataframe.schema.fields:
-
-            field = SchemaField(
-                fieldPath=field.name,
-                type=get_column_type(self.report, dataset_name, field.dataType),
-                nativeDataType=str(field.dataType),
-                recursive=False,
-            )
-
-            column_fields.append(field)
-
-        schema_metadata = SchemaMetadata(
-            schemaName=dataset_name,
-            platform=data_platform_urn,
-            version=0,
-            hash="",
-            fields=column_fields,
-            platformSchema=OtherSchemaClass(rawSchema=""),
-        )
-
-        dataset_snapshot.aspects.append(schema_metadata)
-
-        mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-        wu = MetadataWorkUnit(id=file_path, mce=mce)
-        self.report.report_workunit(wu)
-        yield wu
-
-    def ingest_table(
-        self, full_path: str, relative_path: str
-    ) -> Iterable[MetadataWorkUnit]:
-
-        if self.source_config.use_relative_path:
-            file_urn_path = relative_path
-        else:
-            file_urn_path = full_path
-
-        if file_urn_path.startswith("/"):
-            file_urn_path = file_urn_path[1:]
-
-        table = self.read_file(full_path)
-
-        # if table is not readable, skip
-        if table is None:
-            return
-
-        # yield the table schema first
-        logger.debug(
-            f"Ingesting {full_path}: making table schemas {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
-        )
-        yield from self.get_table_schema(table, full_path, file_urn_path)
-
-        # If profiling is not enabled, skip the rest
-        if not self.source_config.profiling.enabled:
-            return
-
-        # init PySpark analysis object
-        logger.debug(
-            f"Profiling {full_path}: reading file and computing nulls+uniqueness {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
-        )
-        table_profiler = _SingleTableProfiler(
-            table, self.spark, self.source_config.profiling, self.report, full_path
-        )
-
-        logger.debug(
-            f"Profiling {full_path}: preparing profilers to run {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
-        )
-        # instead of computing each profile individually, we run them all in a single analyzer.run() call
-        # we use a single call because the analyzer optimizes the number of calls to the underlying profiler
-        # since multiple profiles reuse computations, this saves a lot of time
-        table_profiler.prepare_table_profiles()
-
-        # compute the profiles
-        logger.debug(
-            f"Profiling {full_path}: computing profiles {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
-        )
-        analysis_result = table_profiler.analyzer.run()
-        analysis_metrics = AnalyzerContext.successMetricsAsDataFrame(
-            self.spark, analysis_result
-        )
-
-        logger.debug(
-            f"Profiling {full_path}: extracting profiles {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
-        )
-        table_profiler.extract_table_profiles(analysis_metrics)
-
-        mcp = MetadataChangeProposalWrapper(
-            entityType="dataset",
-            entityUrn=make_dataset_urn(
-                self.source_config.platform, file_urn_path, self.source_config.env
-            ),
-            changeType=ChangeTypeClass.UPSERT,
-            aspectName="datasetProfile",
-            aspect=table_profiler.profile,
-        )
-        wu = MetadataWorkUnit(
-            id=f"profile-{self.source_config.platform}-{full_path}", mcp=mcp
-        )
-        self.report.report_workunit(wu)
-        yield wu
-
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-
-        s3_prefixes = ["s3://", "s3n://", "s3a://"]
-
-        # check if file is an s3 object
-        if any(
-            self.source_config.base_path.startswith(s3_prefix)
-            for s3_prefix in s3_prefixes
-        ):
-
-            for s3_prefix in s3_prefixes:
-                if self.source_config.base_path.startswith(s3_prefix):
-                    clean_path = self.source_config.base_path[len(s3_prefix) :]
-                    break
-
-            if self.source_config.aws_config is None:
-                raise ValueError("AWS config is required for S3 file sources")
-
-            s3 = self.source_config.aws_config.get_s3_resource()
-            bucket = s3.Bucket(clean_path.split("/")[0])
-
-            unordered_files = []
-
-            for obj in bucket.objects.filter(
-                Prefix=clean_path.split("/", maxsplit=1)[1]
-            ):
-
-                s3_path = f"s3://{obj.bucket_name}/{obj.key}"
-
-                # if table patterns do not allow this file, skip
-                if not self.source_config.schema_patterns.allowed(s3_path):
-                    continue
-
-                # if the file is a directory, skip it
-                if obj.key.endswith("/"):
-                    continue
-
-                obj_path = f"s3a://{obj.bucket_name}/{obj.key}"
-
-                unordered_files.append(obj_path)
-
-            for aws_file in sorted(unordered_files):
-
-                # pass in the same relative_path as the full_path for S3 files
-                yield from self.ingest_table(aws_file, aws_file)
-        else:
-            for root, dirs, files in os.walk(self.source_config.base_path):
-                for relative_path in sorted(files):
-
-                    full_path = os.path.join(root, relative_path)
-
-                    # if table patterns do not allow this file, skip
-                    if not self.source_config.schema_patterns.allowed(full_path):
-                        continue
-
-                    yield from self.ingest_table(full_path, relative_path)
-
-    def get_report(self):
-        return self.report
-
-    def close(self):
-        pass
