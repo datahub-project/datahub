@@ -1,5 +1,12 @@
 package com.linkedin.datahub.graphql.types.chart.mappers;
 
+import com.linkedin.chart.EditableChartProperties;
+import com.linkedin.common.GlobalTags;
+import com.linkedin.common.GlossaryTerms;
+import com.linkedin.common.InstitutionalMemory;
+import com.linkedin.common.Ownership;
+import com.linkedin.common.Status;
+import com.linkedin.data.DataMap;
 import com.linkedin.datahub.graphql.generated.AccessLevel;
 import com.linkedin.datahub.graphql.generated.Chart;
 import com.linkedin.datahub.graphql.generated.ChartInfo;
@@ -18,53 +25,62 @@ import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
-import com.linkedin.metadata.aspect.ChartAspect;
-import com.linkedin.metadata.snapshot.ChartSnapshot;
+import com.linkedin.entity.EntityResponse;
+import com.linkedin.metadata.key.ChartKey;
 
 import javax.annotation.Nonnull;
 import java.util.stream.Collectors;
 
-public class ChartSnapshotMapper implements ModelMapper<ChartSnapshot, Chart> {
+import static com.linkedin.metadata.Constants.*;
 
-    public static final ChartSnapshotMapper INSTANCE = new ChartSnapshotMapper();
 
-    public static Chart map(@Nonnull final ChartSnapshot chart) {
-        return INSTANCE.apply(chart);
+public class ChartMapper implements ModelMapper<EntityResponse, Chart> {
+
+    public static final ChartMapper INSTANCE = new ChartMapper();
+
+    public static Chart map(@Nonnull final EntityResponse entityResponse) {
+        return INSTANCE.apply(entityResponse);
     }
 
     @Override
-    public Chart apply(@Nonnull final ChartSnapshot chart) {
+    public Chart apply(@Nonnull final EntityResponse entityResponse) {
         final Chart result = new Chart();
 
-        // TODO: Replace with EntityKey to avoid requiring hardcoded URN.
-        result.setUrn(chart.getUrn().toString());
+        result.setUrn(entityResponse.getUrn().toString());
         result.setType(EntityType.CHART);
-        result.setChartId(chart.getUrn().getChartIdEntity());
-        result.setTool(chart.getUrn().getDashboardToolEntity());
 
-        for (ChartAspect aspect : chart.getAspects()) {
-            if (aspect.isChartInfo()) {
-                result.setInfo(mapChartInfo(aspect.getChartInfo()));
-                result.setProperties(mapChartInfoToProperties(aspect.getChartInfo()));
-            } else if (aspect.isChartQuery()) {
-                result.setQuery(mapChartQuery(aspect.getChartQuery()));
-            } else if (aspect.isOwnership()) {
-                result.setOwnership(OwnershipMapper.map(aspect.getOwnership()));
-            } else if (aspect.isStatus()) {
-                result.setStatus(StatusMapper.map(aspect.getStatus()));
-            } else if (aspect.isGlobalTags()) {
-                result.setGlobalTags(GlobalTagsMapper.map(aspect.getGlobalTags()));
-                result.setTags(GlobalTagsMapper.map(aspect.getGlobalTags()));
-            } else if (aspect.isEditableChartProperties()) {
+        entityResponse.getAspects().forEach((name, aspect) -> {
+            DataMap data = aspect.getValue().data();
+            if (CHART_KEY_ASPECT_NAME.equals(name)) {
+                final ChartKey gmsKey = new ChartKey(data);
+                result.setChartId(gmsKey.getChartId());
+                result.setTool(gmsKey.getDashboardTool());
+            } else if (CHART_INFO_ASPECT_NAME.equals(name)) {
+                final com.linkedin.chart.ChartInfo gmsChartInfo = new com.linkedin.chart.ChartInfo(data);
+                result.setInfo(mapChartInfo(gmsChartInfo));
+                result.setProperties(mapChartInfoToProperties(gmsChartInfo));
+            } else if (CHART_QUERY_ASPECT_NAME.equals(name)) {
+                final com.linkedin.chart.ChartQuery gmsChartQuery = new com.linkedin.chart.ChartQuery(data);
+                result.setQuery(mapChartQuery(gmsChartQuery));
+            } else if (EDITABLE_CHART_PROPERTIES_ASPECT_NAME.equals(name)) {
+                final EditableChartProperties editableChartProperties = new EditableChartProperties(data);
                 final ChartEditableProperties chartEditableProperties = new ChartEditableProperties();
-                chartEditableProperties.setDescription(aspect.getEditableChartProperties().getDescription());
+                chartEditableProperties.setDescription(editableChartProperties.getDescription());
                 result.setEditableProperties(chartEditableProperties);
-            } else if (aspect.isInstitutionalMemory()) {
-                result.setInstitutionalMemory(InstitutionalMemoryMapper.map(aspect.getInstitutionalMemory()));
-            } else if (aspect.isGlossaryTerms()) {
-                result.setGlossaryTerms(GlossaryTermsMapper.map(aspect.getGlossaryTerms()));
+            } else if (OWNERSHIP_ASPECT_NAME.equals(name)) {
+                result.setOwnership(OwnershipMapper.map(new Ownership(data)));
+            } else if (STATUS_ASPECT_NAME.equals(name)) {
+                result.setStatus(StatusMapper.map(new Status(data)));
+            } else if (GLOBAL_TAGS_ASPECT_NAME.equals(name)) {
+                com.linkedin.datahub.graphql.generated.GlobalTags globalTags = GlobalTagsMapper.map(new GlobalTags(data));
+                result.setGlobalTags(globalTags);
+                result.setTags(globalTags);
+            } else if (INSTITUTIONAL_MEMORY_ASPECT_NAME.equals(name)) {
+                result.setInstitutionalMemory(InstitutionalMemoryMapper.map(new InstitutionalMemory(data)));
+            } else if (GLOSSARY_TERMS_ASPECT_NAME.equals(name)) {
+                result.setGlossaryTerms(GlossaryTermsMapper.map(new GlossaryTerms(data)));
             }
-        }
+        });
 
         return result;
     }
