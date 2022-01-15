@@ -35,12 +35,21 @@ class WorkUnitRecordExtractor(Extractor):
         ]
     ]:
         if isinstance(workunit, MetadataWorkUnit):
-            if isinstance(workunit.metadata, MetadataChangeEvent):
-                mce = workunit.metadata
-                mce.systemMetadata = SystemMetadata(
+            if isinstance(
+                workunit.metadata,
+                (
+                    MetadataChangeEvent,
+                    MetadataChangeProposal,
+                    MetadataChangeProposalWrapper,
+                ),
+            ):
+                workunit.metadata.systemMetadata = SystemMetadata(
                     lastObserved=get_sys_time(), runId=self.ctx.run_id
                 )
-                if len(mce.proposedSnapshot.aspects) == 0:
+                if (
+                    isinstance(workunit.metadata, MetadataChangeEvent)
+                    and len(workunit.metadata.proposedSnapshot.aspects) == 0
+                ):
                     raise AttributeError("every mce must have at least one aspect")
             if not workunit.metadata.validate():
                 raise ValueError(
