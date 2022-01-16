@@ -3331,6 +3331,11 @@ type DataJob implements EntityWithRelationships & Entity {
     glossaryTerms: GlossaryTerms
 
     """
+    The Domain associated with the Data Job
+    """
+    domain: Domain
+
+    """
     Edges extending from this entity
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult

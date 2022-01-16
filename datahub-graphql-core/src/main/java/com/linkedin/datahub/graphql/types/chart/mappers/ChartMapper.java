@@ -15,6 +15,7 @@ import com.linkedin.datahub.graphql.generated.ChartQuery;
 import com.linkedin.datahub.graphql.generated.ChartQueryType;
 import com.linkedin.datahub.graphql.generated.ChartType;
 import com.linkedin.datahub.graphql.generated.Dataset;
+import com.linkedin.datahub.graphql.generated.Domain;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.ChartEditableProperties;
 import com.linkedin.datahub.graphql.types.common.mappers.AuditStampMapper;
@@ -25,6 +26,7 @@ import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
+import com.linkedin.domain.Domains;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.metadata.key.ChartKey;
 
@@ -79,6 +81,14 @@ public class ChartMapper implements ModelMapper<EntityResponse, Chart> {
                 result.setInstitutionalMemory(InstitutionalMemoryMapper.map(new InstitutionalMemory(data)));
             } else if (GLOSSARY_TERMS_ASPECT_NAME.equals(name)) {
                 result.setGlossaryTerms(GlossaryTermsMapper.map(new GlossaryTerms(data)));
+            } else if (DOMAINS_ASPECT_NAME.equals(name)) {
+                final Domains domains = new Domains(data);
+                // Currently we only take the first domain if it exists.
+                if (domains.getDomains().size() > 0) {
+                    result.setDomain(Domain.builder()
+                        .setType(EntityType.DOMAIN)
+                        .setUrn(domains.getDomains().get(0).toString()).build());
+                }
             }
         });
 
