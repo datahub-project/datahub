@@ -21,6 +21,10 @@ COPY --from=prod-build /datahub-src/docker/datahub-mae-consumer/start.sh /datahu
 COPY --from=prod-build /datahub-src/docker/monitoring/client-prometheus-config.yaml /datahub/datahub-mae-consumer/scripts/prometheus-config.yaml
 RUN chmod +x /datahub/datahub-mae-consumer/scripts/start.sh
 
+# Setup TLS JKS
+RUN apk add openjdk11
+RUN cp /usr/lib/jvm/java-11-openjdk/lib/security/cacerts /tmp/kafka.client.truststore.jks
+
 FROM base as dev-install
 # Dummy stage for development. Assumes code is built on your machine and mounted to this image.
 # See this excellent thread https://github.com/docker/cli/issues/1134

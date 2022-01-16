@@ -39,6 +39,10 @@ COPY --from=prod-build /datahub-src/docker/datahub-gms/start.sh /datahub/datahub
 COPY --from=prod-build /datahub-src/docker/monitoring/client-prometheus-config.yaml /datahub/datahub-gms/scripts/prometheus-config.yaml
 RUN chmod +x /datahub/datahub-gms/scripts/start.sh
 
+# Setup TLS JKS
+RUN apk add openjdk11
+RUN cp /usr/lib/jvm/java-11-openjdk/lib/security/cacerts /tmp/kafka.client.truststore.jks
+
 # Snappy Lib update
 RUN apk update && apk add --no-cache gcompat
 
