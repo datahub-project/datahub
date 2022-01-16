@@ -3,6 +3,7 @@ package com.linkedin.common.urn;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.FabricType;
 
+import java.net.URISyntaxException;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -44,6 +45,14 @@ public class UrnUtils {
                 return FabricType.DEV;
             default:
                 throw new IllegalArgumentException("Unsupported Fabric Type: " + fabric);
+        }
+    }
+
+    public static Urn getUrn(String urnStr) {
+        try {
+            return Urn.createFromString(urnStr);
+        } catch (URISyntaxException e) {
+            throw new RuntimeException(String.format("Failed to retrieve entity with urn %s, invalid urn", urnStr));
         }
     }
 

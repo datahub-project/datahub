@@ -22,18 +22,16 @@ dependencies {
   compileOnly externalDependency.lombok
   annotationProcessor externalDependency.lombok
 
-  implementation(project(':metadata-integration:java:datahub-client')) {
-      exclude group: "org.antlr"
-      exclude group: "com.google.guava" // causes issues with Guava Stopwatch constructor
-      exclude group: "com.fasterxml.jackson.core"
-  }
+  implementation project(path: ':metadata-integration:java:datahub-client', configuration: 'shadow')
+
+
+  implementation(externalDependency.sparkSql)
+  implementation(externalDependency.sparkHive)
+
+  // Tests need a concrete log4j available. Providing it here
+  testImplementation 'org.apache.logging.log4j:log4j-api:2.17.1'
+  testImplementation 'org.apache.logging.log4j:log4j-core:2.17.1'
   
-  implementation(externalDependency.sparkSql){
-    exclude group: "org.apache.hadoop"
-  } 
-  implementation(externalDependency.sparkHive){
-    exclude group: "org.apache.hadoop"
-  } 
   
   testImplementation(externalDependency.postgresql){
     exclude group: "com.fasterxml.jackson.core"
@@ -48,7 +46,7 @@ dependencies {
     exclude group: "com.fasterxml.jackson.core"
   } // older version to allow older guava
   
-  testImplementation(externalDependency.testContainersPostgresql)	  // older version to allow older jackson
+  testImplementation(externalDependency.testContainersPostgresql)
 }
 
 

@@ -1,49 +1,25 @@
 # DataHub Roadmap
 
-Here is DataHub's roadmap for the next six months (until end of the year 2021).
+## [The DataHub Roadmap has a new home!](https://feature-requests.datahubproject.io/roadmap)
 
-We publish only a short six month roadmap for the future, because we are evolving very fast and want to adapt to the community's needs. We will be checking off against this roadmap as we make progress over the next few months.
+Please refer to the [new DataHub Roadmap](https://feature-requests.datahubproject.io/roadmap) for the most up-to-date details of what we are working on!
 
-**Caveat**: ETA-s are subject to change. Do let us know before you commit to your stakeholders about deploying these capabilities at your company.
+_If you have suggestions about what we should consider in future cycles, feel free to submit a [feature request](https://feature-requests.datahubproject.io/) and/or upvote existing feature requests so we can get a sense of level of importance!_
 
-If you would like to suggest new items or request timeline changes to the existing items, please submit your request through this [form](https://docs.google.com/forms/d/1znDv7_CXXvUDcUsqzq92PgGqPSh_1yeYC3cl2xgizSE/) or submit a GitHub [feature request](https://github.com/linkedin/datahub/issues/new?assignees=&labels=feature-request&template=--feature-request.md&title=A+short+description+of+the+feature+request).
 
-Of course, you always have access to our community through [Slack](https://slack.datahubproject.io) or our [town halls](townhalls.md) to chat with us live!
+## Historical Roadmap
 
-## Current Roadmap
-### Q3 2021 [Jul - Sept 2021]
-
-#### Data Profiling and Dataset Previews
-Use Case: See sample data for a dataset and statistics on the shape of the data (column distribution, nullability etc.)
-- [x] Support for data profiling and preview extraction through ingestion pipeline (column samples, not rows)
-
-#### Data Quality
-- [x] Support for data profiling and time-series views
-- [ ] Support for data quality visualization
-- [ ] Support for data health score based on data quality results and pipeline observability
-- [ ] Integration with systems like Great Expectations, AWS deequ, dbt test etc.
-
-#### Fine-grained Access Control for Metadata
-- [x] Support for role-based access control to edit metadata
-- Scope: Access control on entity-level, aspect-level and within aspects as well.
-
-#### Column-level lineage
-- [ ] Metadata Model
-- [ ] SQL Parsing
-
-#### Operational Metadata
-- [ ] Partitioned Datasets
-- [ ] Support for operational signals like completeness, freshness etc.
-
+_This following represents the progress made on historical roadmap items as of January 2022. For incomplete roadmap items, we have created Feature Requests to gauge current community interest & impact to be considered in future cycles. If you see something that is still of high-interest to you, please up-vote via the Feature Request portal link and subscribe to the post for updates as we progress through the work in future cycles._
 
 ### Q4 2021 [Oct - Dec 2021]
 
 #### Data Lake Ecosystem Integration
-- [ ] Spark Delta Lake
-- [ ] Apache Iceberg
-- [ ] Apache Hudi
+- [ ] Spark Delta Lake - [View in Feature Reqeust Portal](https://feature-requests.datahubproject.io/b/feedback/p/spark-delta-lake)
+- [ ] Apache Iceberg - [Included in Q1 2022 Roadmap - Community-Driven Metadata Ingestion Sources](https://feature-requests.datahubproject.io/roadmap/540)
+- [ ] Apache Hudi - [View in Feature Request Portal](https://feature-requests.datahubproject.io/b/feedback/p/apachi-hudi-ingestion-support)
 
 #### Metadata Trigger Framework
+[View in Feature Request Portal](https://feature-requests.datahubproject.io/b/User-Experience/p/ability-to-subscribe-to-an-entity-to-receive-notifications-when-something-changes)
 - [ ] Stateful sensors for Airflow
 - [ ] Receive events for you to send alerts, email
 - [ ] Slack integration
@@ -51,9 +27,10 @@ Use Case: See sample data for a dataset and statistics on the shape of the data 
 #### ML Ecosystem
 - [x] Features (Feast)
 - [x] Models (Sagemaker)
-- [ ] Notebooks
+- [ ] Notebooks - View in Feature Request Portal](https://feature-requests.datahubproject.io/admin/p/jupyter-integration)
 
 #### Metrics Ecosystem
+[View in Feature Request Portal](https://feature-requests.datahubproject.io/b/User-Experience/p/ability-to-define-metrics-and-attach-them-to-entities)
 - [ ] Measures, Dimensions
 - [ ] Relationships to Datasets and Dashboards
 
@@ -62,18 +39,63 @@ Use Case: See sample data for a dataset and statistics on the shape of the data 
 - [ ] Analytics to enable Data Meshification
 
 #### Collaboration
+[View in Feature Reqeust Portal](https://feature-requests.datahubproject.io/b/User-Experience/p/collaboration-within-datahub-ui)
 - [ ] Conversations on the platform
 - [ ] Knowledge Posts (Gdocs, Gslides, Gsheets)
 
+### Q3 2021 [Jul - Sept 2021]
 
-## Beyond the horizon
+#### Data Profiling and Dataset Previews
+Use Case: See sample data for a dataset and statistics on the shape of the data (column distribution, nullability etc.)
+- [x] Support for data profiling and preview extraction through ingestion pipeline (column samples, not rows)
 
-### Let us know what you want!
-- Submit requests [here](https://docs.google.com/forms/d/1znDv7_CXXvUDcUsqzq92PgGqPSh_1yeYC3cl2xgizSE/) or
-- Submit a GitHub [feature request](https://github.com/linkedin/datahub/issues/new?assignees=&labels=feature-request&template=--feature-request.md&title=A+short+description+of+the+feature+request).
+#### Data Quality
+Included in Q1 2022 Roadmap - [Display Data Quality Checks in the UI](https://feature-requests.datahubproject.io/roadmap/544)
+- [x] Support for data profiling and time-series views
+- [ ] Support for data quality visualization
+- [ ] Support for data health score based on data quality results and pipeline observability
+- [ ] Integration with systems like Great Expectations, AWS deequ, dbt test etc. 
 
+#### Fine-grained Access Control for Metadata
+- [x] Support for role-based access control to edit metadata
+- Scope: Access control on entity-level, aspect-level and within aspects as well.
 
-## Historical Roadmap
+#### Column-level lineage
+Included in Q1 2022 Roadmap - [Column Level Lineage](https://feature-requests.datahubproject.io/roadmap/541)
+- [ ] Metadata Model
+- [ ] SQL Parsing
+
+#### Operational Metadata
+- [ ] Partitioned Datasets - - [View in Feature Request Portal](https://feature-requests.datahubproject.io/b/User-Experience/p/advanced-dataset-schema-properties-partition-support)
+- [x] Support for operational signals like completeness, freshness etc.
+
+### Q2 2021 (Apr - Jun 2021)
+
+#### Cloud Deployment
+- [X] Production-grade Helm charts for Kubernetes-based deployment
+- [ ] How-to guides for deploying DataHub to all the major cloud providers 
+  - [x] AWS
+  - [ ] Azure
+  - [x] GCP
+
+#### Product Analytics for DataHub
+- [x] Helping you understand how your users are interacting with DataHub
+- [x] Integration with common systems like Google Analytics etc.
+
+#### Usage-Based Insights
+- [x] Display frequently used datasets, etc.
+- [ ] Improved search relevance through usage data
+
+#### Role-based Access Control
+- Support for fine-grained access control for metadata operations (read, write, modify)
+- Scope: Access control on entity-level, aspect-level and within aspects as well.
+- This provides the foundation for Tag Governance, Dataset Preview access control etc.
+
+#### No-code Metadata Model Additions
+Use Case: Developers should be able to add new entities and aspects to the metadata model easily
+- [x] No need to write any code (in Java or Python) to store, retrieve, search and query metadata
+- [ ] No need to write any code (in GraphQL or UI) to visualize metadata
+
 ### Q1 2021 [Jan - Mar 2021]
 
 #### React UI
@@ -114,39 +136,3 @@ Use case: Search and Discover your Pipelines (e.g. Airflow DAGs) and understand 
 Use Case: See sample data for a dataset and statistics on the shape of the data (column distribution, nullability etc.)
 - [ ] Support for data profiling and preview extraction through ingestion pipeline
 - Out of scope for Q1: Access control of data profiles and sample data
-
-### Q2 2021 (Apr - Jun 2021)
-
-#### Cloud Deployment
-- [X] Production-grade Helm charts for Kubernetes-based deployment
-- [ ] How-to guides for deploying DataHub to all the major cloud providers 
-  - [x] AWS
-  - [ ] Azure
-  - [x] GCP
-
-
-#### Data Quality
-- [ ] Support for data quality visualization
-- [ ] Support for data health score based on data quality results and pipeline observability
-- [ ] Integration with systems like Great Expectations, AWS deequ etc.
-
-#### Product Analytics for DataHub
-- [x] Helping you understand how your users are interacting with DataHub
-- [x] Integration with common systems like Google Analytics etc.
-
-#### Usage-Based Insights
-- [x] Display frequently used datasets, etc.
-- [ ] Improved search relevance through usage data
-
-#### Role-based Access Control
-- Support for fine-grained access control for metadata operations (read, write, modify)
-- Scope: Access control on entity-level, aspect-level and within aspects as well.
-- This provides the foundation for Tag Governance, Dataset Preview access control etc.
-
-#### No-code Metadata Model Additions
-Use Case: Developers should be able to add new entities and aspects to the metadata model easily
-- [x] No need to write any code (in Java or Python) to store, retrieve, search and query metadata
-- [ ] No need to write any code (in GraphQL or UI) to visualize metadata
-
-
-
