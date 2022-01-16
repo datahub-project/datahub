@@ -42,6 +42,7 @@ class MetabaseConfig(ConfigModel):
     username: Optional[str] = None
     password: Optional[str] = None
     database_alias_map: Optional[dict] = None
+    engine_platform_map: Optional[dict] = None
     default_schema: str = "public"
     env: str = builder.DEFAULT_ENV
 
@@ -354,7 +355,7 @@ class MetabaseSource(Source):
         return chart_type
 
     def construct_card_custom_properties(self, card_details: dict) -> Dict:
-        result_metadata = card_details.get("result_metadata", [])
+        result_metadata = card_details.get("result_metadata") or []
         metrics, dimensions = [], []
         for meta_data in result_metadata:
             display_name = meta_data.get("display_name", "") or ""
@@ -385,13 +386,14 @@ class MetabaseSource(Source):
             source_table_id = (
                 card_details.get("dataset_query", {})
                 .get("query", {})
-                .get("source-table", {})
+                .get("source-table")
             )
-            schema_name, table_name = self.get_source_table_from_id(source_table_id)
-            if table_name:
-                source_paths.add(
-                    f"{schema_name + '.' if schema_name else ''}{table_name}"
-                )
+            if source_table_id is not None:
+                schema_name, table_name = self.get_source_table_from_id(source_table_id)
+                if table_name:
+                    source_paths.add(
+                        f"{schema_name + '.' if schema_name else ''}{table_name}"
+                    )
         else:
             try:
                 raw_query = (
@@ -476,6 +478,10 @@ class MetabaseSource(Source):
             "sqlserver": "mssql",
             "bigquery-cloud-sdk": "bigquery",
         }
+
+        if self.config.engine_platform_map is not None:
+            engine_mapping.update(self.config.engine_platform_map)
+
         if engine in engine_mapping:
             platform = engine_mapping[engine]
         else:
