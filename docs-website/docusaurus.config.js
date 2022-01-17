@@ -8,9 +8,7 @@ module.exports = {
   favicon: "img/favicon.ico",
   organizationName: "linkedin", // Usually your GitHub org/user name.
   projectName: "datahub", // Usually your repo name.
-  stylesheets: [
-    "https://fonts.googleapis.com/css2?family=Manrope:wght@400;600&display=swap",
-  ],
+  stylesheets: ["https://fonts.googleapis.com/css2?family=Manrope:wght@400;600&display=swap"],
   themeConfig: {
     colorMode: {
       switchConfig: {
@@ -68,7 +66,7 @@ module.exports = {
           position: "right",
         },
         {
-          to: "docs/roadmap",
+          href: "https://feature-requests.datahubproject.io/roadmap",
           label: "Roadmap",
           position: "right",
         },
@@ -151,7 +149,7 @@ module.exports = {
             },
             {
               label: "Roadmap",
-              to: "docs/roadmap",
+              href: "https://feature-requests.datahubproject.io/roadmap",
             },
             {
               label: "Contributing",
@@ -203,10 +201,7 @@ module.exports = {
     ],
   ],
   plugins: [
-    [
-      "@docusaurus/plugin-ideal-image",
-      { quality: 100, sizes: [320, 640, 1280, 1440, 1600] },
-    ],
+    ["@docusaurus/plugin-ideal-image", { quality: 100, sizes: [320, 640, 1280, 1440, 1600] }],
     "docusaurus-plugin-sass",
     [
       "docusaurus-graphql-plugin",
