@@ -1120,7 +1120,7 @@ type ContainerProperties {
   """
   System description of the Container
   """
-  description: String!
+  description: String
 }
 
 """
@@ -1130,7 +1130,7 @@ type ContainerEditableProperties {
   """
   DataHub description of the Container
   """
-  description: String!
+  description: String
 }
 
 """
