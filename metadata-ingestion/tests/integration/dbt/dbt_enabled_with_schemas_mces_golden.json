@@ -10,7 +10,13 @@
         "value": "{\"typeNames\": [\"ephemeral\", \"view\"]}",
         "contentType": "application/json"
     },
-    "systemMetadata": null
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "dbt-test-with-schemas-dbt-enabled",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
 },
 {
     "auditHeader": null,
@@ -191,7 +197,13 @@
         "value": "{\"typeNames\": [\"table\", \"view\"]}",
         "contentType": "application/json"
     },
-    "systemMetadata": null
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "dbt-test-with-schemas-dbt-enabled",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
 },
 {
     "auditHeader": null,
@@ -394,7 +406,13 @@
         "value": "{\"typeNames\": [\"view\", \"view\"]}",
         "contentType": "application/json"
     },
-    "systemMetadata": null
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "dbt-test-with-schemas-dbt-enabled",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
 },
 {
     "auditHeader": null,
@@ -652,7 +670,13 @@
         "value": "{\"typeNames\": [\"table\", \"view\"]}",
         "contentType": "application/json"
     },
-    "systemMetadata": null
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "dbt-test-with-schemas-dbt-enabled",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
 },
 {
     "auditHeader": null,
@@ -805,7 +829,13 @@
         "value": "{\"typeNames\": [\"source\"]}",
         "contentType": "application/json"
     },
-    "systemMetadata": null
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "dbt-test-with-schemas-dbt-enabled",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
 },
 {
     "auditHeader": null,
@@ -992,7 +1022,13 @@
         "value": "{\"typeNames\": [\"source\"]}",
         "contentType": "application/json"
     },
-    "systemMetadata": null
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "dbt-test-with-schemas-dbt-enabled",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
 },
 {
     "auditHeader": null,
@@ -1222,7 +1258,13 @@
         "value": "{\"typeNames\": [\"source\"]}",
         "contentType": "application/json"
     },
-    "systemMetadata": null
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "dbt-test-with-schemas-dbt-enabled",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
 },
 {
     "auditHeader": null,
@@ -1367,7 +1409,13 @@
         "value": "{\"typeNames\": [\"source\"]}",
         "contentType": "application/json"
     },
-    "systemMetadata": null
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "dbt-test-with-schemas-dbt-enabled",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
 },
 {
     "auditHeader": null,
@@ -1529,7 +1577,13 @@
         "value": "{\"typeNames\": [\"source\"]}",
         "contentType": "application/json"
     },
-    "systemMetadata": null
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "dbt-test-with-schemas-dbt-enabled",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
 },
 {
     "auditHeader": null,
@@ -1693,7 +1747,13 @@
         "value": "{\"typeNames\": [\"source\"]}",
         "contentType": "application/json"
     },
-    "systemMetadata": null
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "dbt-test-with-schemas-dbt-enabled",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
 },
 {
     "auditHeader": null,
@@ -1957,7 +2017,13 @@
         "value": "{\"typeNames\": [\"source\"]}",
         "contentType": "application/json"
     },
-    "systemMetadata": null
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "dbt-test-with-schemas-dbt-enabled",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
 },
 {
     "auditHeader": null,
@@ -2153,7 +2219,13 @@
         "value": "{\"typeNames\": [\"source\"]}",
         "contentType": "application/json"
     },
-    "systemMetadata": null
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "dbt-test-with-schemas-dbt-enabled",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
 },
 {
     "auditHeader": null,
@@ -2369,7 +2441,13 @@
         "value": "{\"typeNames\": [\"source\"]}",
         "contentType": "application/json"
     },
-    "systemMetadata": null
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "dbt-test-with-schemas-dbt-enabled",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
 },
 {
     "auditHeader": null,
@@ -2565,7 +2643,13 @@
         "value": "{\"typeNames\": [\"source\"]}",
         "contentType": "application/json"
     },
-    "systemMetadata": null
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "dbt-test-with-schemas-dbt-enabled",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
 },
 {
     "auditHeader": null,
@@ -2761,7 +2845,13 @@
         "value": "{\"typeNames\": [\"source\"]}",
         "contentType": "application/json"
     },
-    "systemMetadata": null
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "dbt-test-with-schemas-dbt-enabled",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
 },
 {
     "auditHeader": null,
@@ -2957,7 +3047,13 @@
         "value": "{\"typeNames\": [\"source\"]}",
         "contentType": "application/json"
     },
-    "systemMetadata": null
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "dbt-test-with-schemas-dbt-enabled",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
 },
 {
     "auditHeader": null,

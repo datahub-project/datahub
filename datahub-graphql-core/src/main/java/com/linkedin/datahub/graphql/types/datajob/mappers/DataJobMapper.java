@@ -1,12 +1,12 @@
 package com.linkedin.datahub.graphql.types.datajob.mappers;
 
-import com.datahub.util.ModelUtils;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.GlossaryTerms;
 import com.linkedin.common.InstitutionalMemory;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.Status;
+import com.linkedin.data.DataMap;
 import com.linkedin.datahub.graphql.generated.DataFlow;
 import com.linkedin.datahub.graphql.generated.DataJob;
 import com.linkedin.datahub.graphql.generated.DataJobEditableProperties;
@@ -23,52 +23,58 @@ import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
 import com.linkedin.datajob.EditableDataJobProperties;
-import com.linkedin.metadata.snapshot.DataJobSnapshot;
+import com.linkedin.entity.EntityResponse;
+import com.linkedin.metadata.key.DataJobKey;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 
+import static com.linkedin.metadata.Constants.*;
 
-public class DataJobSnapshotMapper implements ModelMapper<DataJobSnapshot, DataJob> {
 
-    public static final DataJobSnapshotMapper INSTANCE = new DataJobSnapshotMapper();
+public class DataJobMapper implements ModelMapper<EntityResponse, DataJob> {
 
-    public static DataJob map(@Nonnull final DataJobSnapshot dataJob) {
-        return INSTANCE.apply(dataJob);
+    public static final DataJobMapper INSTANCE = new DataJobMapper();
+
+    public static DataJob map(@Nonnull final EntityResponse entityResponse) {
+        return INSTANCE.apply(entityResponse);
     }
 
     @Override
-    public DataJob apply(@Nonnull final DataJobSnapshot dataJob) {
+    public DataJob apply(@Nonnull final EntityResponse entityResponse) {
         final DataJob result = new DataJob();
-        result.setUrn(dataJob.getUrn().toString());
+        result.setUrn(entityResponse.getUrn().toString());
         result.setType(EntityType.DATA_JOB);
-        result.setDataFlow(new DataFlow.Builder().setUrn(dataJob.getUrn().getFlowEntity().toString()).build());
-        result.setJobId(dataJob.getUrn().getJobIdEntity());
 
-        ModelUtils.getAspectsFromSnapshot(dataJob).forEach(aspect -> {
-            if (aspect instanceof com.linkedin.datajob.DataJobInfo) {
-                com.linkedin.datajob.DataJobInfo info = com.linkedin.datajob.DataJobInfo.class.cast(aspect);
-                result.setInfo(mapDataJobInfo(info));
-                result.setProperties(mapDataJobInfoToProperties(info));
-            } else if (aspect instanceof com.linkedin.datajob.DataJobInputOutput) {
-                com.linkedin.datajob.DataJobInputOutput inputOutput = com.linkedin.datajob.DataJobInputOutput.class.cast(aspect);
-                result.setInputOutput(mapDataJobInputOutput(inputOutput));
-            } else if (aspect instanceof Ownership) {
-                Ownership ownership = Ownership.class.cast(aspect);
-                result.setOwnership(OwnershipMapper.map(ownership));
-            } else if (aspect instanceof Status) {
-                Status status = Status.class.cast(aspect);
-                result.setStatus(StatusMapper.map(status));
-            } else if (aspect instanceof GlobalTags) {
-                result.setGlobalTags(GlobalTagsMapper.map(GlobalTags.class.cast(aspect)));
-                result.setTags(GlobalTagsMapper.map(GlobalTags.class.cast(aspect)));
-            } else if (aspect instanceof EditableDataJobProperties) {
+        entityResponse.getAspects().forEach((name, aspect) -> {
+            DataMap data = aspect.getValue().data();
+            if (DATA_JOB_KEY_ASPECT_NAME.equals(name)) {
+                final DataJobKey gmsKey = new DataJobKey(data);
+                result.setDataFlow(new DataFlow.Builder().setUrn(gmsKey.getFlow().toString()).build());
+                result.setJobId(gmsKey.getJobId());
+            } else if (DATA_JOB_INFO_ASPECT_NAME.equals(name)) {
+                final com.linkedin.datajob.DataJobInfo gmsDataJobInfo = new com.linkedin.datajob.DataJobInfo(data);
+                result.setInfo(mapDataJobInfo(gmsDataJobInfo));
+                result.setProperties(mapDataJobInfoToProperties(gmsDataJobInfo));
+            } else if (DATA_JOB_INPUT_OUTPUT_ASPECT_NAME.equals(name)) {
+                final com.linkedin.datajob.DataJobInputOutput gmsDataJobInputOutput = new com.linkedin.datajob.DataJobInputOutput(data);
+                result.setInputOutput(mapDataJobInputOutput(gmsDataJobInputOutput));
+            } else if (EDITABLE_DATA_JOB_PROPERTIES_ASPECT_NAME.equals(name)) {
+                final EditableDataJobProperties editableDataJobProperties = new EditableDataJobProperties(data);
                 final DataJobEditableProperties dataJobEditableProperties = new DataJobEditableProperties();
-                dataJobEditableProperties.setDescription(((EditableDataJobProperties) aspect).getDescription());
+                dataJobEditableProperties.setDescription(editableDataJobProperties.getDescription());
                 result.setEditableProperties(dataJobEditableProperties);
-            } else if (aspect instanceof InstitutionalMemory) {
-                result.setInstitutionalMemory(InstitutionalMemoryMapper.map((InstitutionalMemory) aspect));
-            } else if (aspect instanceof GlossaryTerms) {
-                result.setGlossaryTerms(GlossaryTermsMapper.map((GlossaryTerms) aspect));
+            } else if (OWNERSHIP_ASPECT_NAME.equals(name)) {
+                result.setOwnership(OwnershipMapper.map(new Ownership(data)));
+            } else if (STATUS_ASPECT_NAME.equals(name)) {
+                result.setStatus(StatusMapper.map(new Status(data)));
+            } else if (GLOBAL_TAGS_ASPECT_NAME.equals(name)) {
+                com.linkedin.datahub.graphql.generated.GlobalTags globalTags = GlobalTagsMapper.map(new GlobalTags(data));
+                result.setGlobalTags(globalTags);
+                result.setTags(globalTags);
+            } else if (INSTITUTIONAL_MEMORY_ASPECT_NAME.equals(name)) {
+                result.setInstitutionalMemory(InstitutionalMemoryMapper.map(new InstitutionalMemory(data)));
+            } else if (GLOSSARY_TERMS_ASPECT_NAME.equals(name)) {
+                result.setGlossaryTerms(GlossaryTermsMapper.map(new GlossaryTerms(data)));
             }
         });
 

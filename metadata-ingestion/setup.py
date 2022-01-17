@@ -101,6 +101,7 @@ plugins: Dict[str, Set[str]] = {
     "data-lake": {"pydeequ==1.0.1", "pyspark==3.0.3", "parse==1.19.0"},
     "dbt": {"requests"},
     "druid": sql_common | {"pydruid>=0.6.2"},
+    "elasticsearch": {"elasticsearch"},
     "feast": {"docker"},
     "glue": aws_common,
     "hive": sql_common
@@ -205,6 +206,7 @@ base_dev_requirements = {
         for plugin in [
             "bigquery",
             "bigquery-usage",
+            "elasticsearch",
             "looker",
             "glue",
             "mariadb",
@@ -281,6 +283,7 @@ entry_points = {
         "data-lake = datahub.ingestion.source.data_lake:DataLakeSource",
         "dbt = datahub.ingestion.source.dbt:DBTSource",
         "druid = datahub.ingestion.source.sql.druid:DruidSource",
+        "elasticsearch = datahub.ingestion.source.elastic_search:ElasticsearchSource",
         "feast = datahub.ingestion.source.feast:FeastSource",
         "glue = datahub.ingestion.source.aws.glue:GlueSource",
         "sagemaker = datahub.ingestion.source.aws.sagemaker:SagemakerSource",

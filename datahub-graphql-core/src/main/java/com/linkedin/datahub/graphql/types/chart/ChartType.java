@@ -6,12 +6,15 @@ import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.ChartUrn;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.authorization.ConjunctivePrivilegeGroup;
 import com.linkedin.datahub.graphql.authorization.DisjunctivePrivilegeGroup;
+import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
@@ -26,13 +29,12 @@ import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.BrowsableEntityType;
 import com.linkedin.datahub.graphql.types.MutableType;
 import com.linkedin.datahub.graphql.types.SearchableEntityType;
-import com.linkedin.datahub.graphql.types.chart.mappers.ChartSnapshotMapper;
+import com.linkedin.datahub.graphql.types.chart.mappers.ChartMapper;
 import com.linkedin.datahub.graphql.types.chart.mappers.ChartUpdateInputSnapshotMapper;
 import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowsePathsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowseResultMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
-import com.linkedin.metadata.extractor.AspectExtractor;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.search.SearchResult;
@@ -48,13 +50,25 @@ import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.stream.Collectors;
 
 import static com.linkedin.datahub.graphql.Constants.BROWSE_PATH_DELIMITER;
+import static com.linkedin.metadata.Constants.*;
+
 
 public class ChartType implements SearchableEntityType<Chart>, BrowsableEntityType<Chart>, MutableType<ChartUpdateInput> {
 
+    private static final Set<String> ASPECTS_TO_RESOLVE = ImmutableSet.of(
+        CHART_KEY_ASPECT_NAME,
+        CHART_INFO_ASPECT_NAME,
+        EDITABLE_CHART_PROPERTIES_ASPECT_NAME,
+        CHART_QUERY_ASPECT_NAME,
+        OWNERSHIP_ASPECT_NAME,
+        INSTITUTIONAL_MEMORY_ASPECT_NAME,
+        GLOBAL_TAGS_ASPECT_NAME,
+        GLOSSARY_TERMS_ASPECT_NAME,
+        STATUS_ASPECT_NAME
+    );
     private static final Set<String> FACET_FIELDS = ImmutableSet.of("access", "queryType", "tool", "type");
 
     private final EntityClient _entityClient;
@@ -79,29 +93,26 @@ public class ChartType implements SearchableEntityType<Chart>, BrowsableEntityTy
     }
 
     @Override
-    public List<DataFetcherResult<Chart>> batchLoad(@Nonnull List<String> urns, @Nonnull QueryContext context) throws Exception {
-        final List<Urn> chartUrns = urns.stream()
-                .map(this::getChartUrn)
-                .collect(Collectors.toList());
-
+    public List<DataFetcherResult<Chart>> batchLoad(@Nonnull List<String> urnStrs, @Nonnull QueryContext context) throws Exception {
+        final Set<Urn> urns = urnStrs.stream()
+            .map(UrnUtils::getUrn)
+            .collect(Collectors.toSet());
         try {
-            final Map<Urn, com.linkedin.entity.Entity> chartMap = _entityClient.batchGet(chartUrns
-                    .stream()
-                    .filter(Objects::nonNull)
-                    .collect(Collectors.toSet()),
-                context.getAuthentication());
+            final Map<Urn, EntityResponse> chartMap =
+                _entityClient.batchGetV2(
+                    Constants.CHART_ENTITY_NAME,
+                    urns, ASPECTS_TO_RESOLVE,
+                    context.getAuthentication());
 
-            final List<com.linkedin.entity.Entity> gmsResults = new ArrayList<>();
-            for (Urn urn : chartUrns) {
+            final List<EntityResponse> gmsResults = new ArrayList<>();
+            for (Urn urn : urns) {
                 gmsResults.add(chartMap.getOrDefault(urn, null));
             }
             return gmsResults.stream()
-                    .map(gmsChart -> gmsChart == null ? null
-                        : DataFetcherResult.<Chart>newResult()
-                            .data(ChartSnapshotMapper.map(gmsChart.getValue().getChartSnapshot()))
-                            .localContext(AspectExtractor.extractAspects(gmsChart.getValue().getChartSnapshot()))
-                            .build())
-                    .collect(Collectors.toList());
+                .map(gmsChart -> gmsChart == null ? null : DataFetcherResult.<Chart>newResult()
+                    .data(ChartMapper.map(gmsChart))
+                    .build())
+                .collect(Collectors.toList());
         } catch (Exception e) {
             throw new RuntimeException("Failed to batch load Charts", e);
         }
