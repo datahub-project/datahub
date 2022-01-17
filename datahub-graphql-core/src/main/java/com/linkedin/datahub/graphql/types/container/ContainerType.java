@@ -50,8 +50,14 @@ public class ContainerType implements com.linkedin.datahub.graphql.types.EntityT
           ImmutableSet.of(
               Constants.CONTAINER_KEY_ASPECT_NAME,
               Constants.CONTAINER_PROPERTIES_ASPECT_NAME,
-              Constants.CONTAINER_EDITABLE_PROPERTIES_ASPECT_NAME
-          ),
+              Constants.CONTAINER_EDITABLE_PROPERTIES_ASPECT_NAME,
+              Constants.OWNERSHIP_ASPECT_NAME,
+              Constants.INSTITUTIONAL_MEMORY_ASPECT_NAME,
+              Constants.STATUS_ASPECT_NAME,
+              Constants.SUB_TYPES_ASPECT_NAME,
+              Constants.GLOBAL_TAGS_ASPECT_NAME,
+              Constants.GLOSSARY_TERMS_ASPECT_NAME
+            ),
           context.getAuthentication());
 
       final List<EntityResponse> gmsResults = new ArrayList<>();

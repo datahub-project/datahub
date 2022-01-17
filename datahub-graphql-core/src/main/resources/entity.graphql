@@ -1073,14 +1073,34 @@ type Container implements Entity {
     editableProperties: ContainerEditableProperties
 
     """
-    Children entities inside of the Container
+    Ownership metadata of the dataset
     """
-    entities(input: ContainerEntitiesInput!): SearchResults
+    ownership: Ownership
+
+    """
+    References to internal resources related to the dataset
+    """
+    institutionalMemory: InstitutionalMemory
+
+    """
+    Tags used for searching dataset
+    """
+    tags: GlobalTags
+
+    """
+    The structured glossary terms associated with the dataset
+    """
+    glossaryTerms: GlossaryTerms
 
     """
     Sub types of the container, e.g. "Database" etc
     """
     subTypes: SubTypes
+
+    """
+    Children entities inside of the Container
+    """
+    entities(input: ContainerEntitiesInput!): SearchResults
 
     """
     Edges extending from this entity

@@ -1,5 +1,9 @@
 package com.linkedin.datahub.graphql.types.container.mappers;
 
+import com.linkedin.common.GlobalTags;
+import com.linkedin.common.GlossaryTerms;
+import com.linkedin.common.InstitutionalMemory;
+import com.linkedin.common.Ownership;
 import com.linkedin.common.SubTypes;
 import com.linkedin.common.urn.TupleKey;
 import com.linkedin.common.urn.Urn;
@@ -8,6 +12,10 @@ import com.linkedin.container.EditableContainerProperties;
 import com.linkedin.datahub.graphql.generated.Container;
 import com.linkedin.datahub.graphql.generated.DataPlatform;
 import com.linkedin.datahub.graphql.generated.EntityType;
+import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
+import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
+import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
@@ -25,6 +33,11 @@ public class ContainerMapper {
     result.setUrn(entityUrn.toString());
     result.setType(EntityType.CONTAINER);
 
+    final EnvelopedAspect envelopedContainerKey = aspects.get(Constants.CONTAINER_KEY_ASPECT_NAME);
+    if (envelopedContainerKey != null) {
+      result.setPlatform(mapPlatform(new ContainerKey(envelopedContainerKey.getValue().data())));
+    }
+
     final EnvelopedAspect envelopedContainerProperties = aspects.get(Constants.CONTAINER_PROPERTIES_ASPECT_NAME);
     if (envelopedContainerProperties != null) {
       result.setProperties(mapContainerProperties(new ContainerProperties(envelopedContainerProperties.getValue().data())));
@@ -35,14 +48,30 @@ public class ContainerMapper {
       result.setEditableProperties(mapContainerEditableProperties(new EditableContainerProperties(envelopedEditableContainerProperties.getValue().data())));
     }
 
+    final EnvelopedAspect envelopedOwnership = aspects.get(Constants.OWNERSHIP_ASPECT_NAME);
+    if (envelopedOwnership != null) {
+      result.setOwnership(OwnershipMapper.map(new Ownership(envelopedOwnership.getValue().data())));
+    }
+
+    final EnvelopedAspect envelopedTags = aspects.get(Constants.GLOBAL_TAGS_ASPECT_NAME);
+    if (envelopedTags != null) {
+      com.linkedin.datahub.graphql.generated.GlobalTags globalTags = GlobalTagsMapper.map(new GlobalTags(envelopedTags.getValue().data()));
+      result.setTags(globalTags);
+    }
+
+    final EnvelopedAspect envelopedTerms = aspects.get(Constants.GLOSSARY_TERMS_ASPECT_NAME);
+    if (envelopedTerms != null) {
+      result.setGlossaryTerms(GlossaryTermsMapper.map(new GlossaryTerms(envelopedTerms.getValue().data())));
+    }
+
+    final EnvelopedAspect envelopedInstitutionalMemory = aspects.get(Constants.INSTITUTIONAL_MEMORY_ASPECT_NAME);
+    if (envelopedInstitutionalMemory != null) {
+      result.setInstitutionalMemory(InstitutionalMemoryMapper.map(new InstitutionalMemory(envelopedInstitutionalMemory.getValue().data())));
+    }
+
     final EnvelopedAspect envelopedSubTypes = aspects.get(Constants.SUB_TYPES_ASPECT_NAME);
     if (envelopedSubTypes != null) {
       result.setSubTypes(mapSubTypes(new SubTypes(envelopedSubTypes.getValue().data())));
-    }
-
-    final EnvelopedAspect envelopedContainerKey = aspects.get(Constants.CONTAINER_KEY_ASPECT_NAME);
-    if (envelopedContainerKey != null) {
-      result.setPlatform(mapPlatform(new ContainerKey(envelopedContainerKey.getValue().data())));
     }
 
     return result;
