@@ -4203,7 +4203,7 @@
                   "Aspect" : {
                     "name" : "glossaryRelatedTerms"
                   }
-                }, "com.linkedin.schema.SchemaMetadata" ]
+                } ]
               }
             },
             "doc" : "The list of metadata aspects associated with the GlossaryTerm. Depending on the use case, this can either be all, or a selection, of supported aspects."

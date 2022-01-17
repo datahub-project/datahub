@@ -11,4 +11,4 @@ import com.linkedin.schema.SchemaMetadata
 /**
  * A union of all supported metadata aspects for a CorpUser
  */
-typeref GlossaryTermAspect = union[GlossaryTermKey, GlossaryTermInfo, Ownership, Status, BrowsePaths, GlossaryRelatedTerms, SchemaMetadata]
+typeref GlossaryTermAspect = union[GlossaryTermKey, GlossaryTermInfo, Ownership, Status, BrowsePaths, GlossaryRelatedTerms]
