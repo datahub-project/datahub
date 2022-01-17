@@ -93,7 +93,12 @@ def get_column_type(
     """
     Maps known Spark types to datahub types
     """
-    TypeClass: Any = _field_type_mapping.get(column_type)
+    TypeClass: Any = None
+
+    for field_type, type_class in _field_type_mapping.items():
+        if isinstance(column_type, field_type):
+            TypeClass = type_class
+            break
 
     # if still not found, report the warning
     if TypeClass is None:
@@ -225,7 +230,8 @@ class DataLakeSource(Source):
 
         dataset_name = os.path.basename(file_path)
 
-        if self.source_config.platform == "s3":
+        # if no path spec is provided and the file is in S3, then use the S3 path to construct an URN
+        if self.source_config.platform == "s3" and self.source_config.path_spec is None:
             dataset_urn = make_s3_urn(file_path, self.source_config.env)
 
         dataset_snapshot = DatasetSnapshot(
@@ -380,6 +386,10 @@ class DataLakeSource(Source):
                     plain_base_path = self.source_config.base_path.lstrip(s3_prefix)
                     break
 
+            # append a trailing slash if it's not there so prefix filtering works
+            if not plain_base_path.endswith("/"):
+                plain_base_path = plain_base_path + "/"
+
             if self.source_config.aws_config is None:
                 raise ValueError("AWS config is required for S3 file sources")
 
@@ -413,7 +423,7 @@ class DataLakeSource(Source):
 
             for aws_file in sorted(unordered_files):
 
-                relative_path = aws_file.lstrip(f"s3a://{plain_base_path}")
+                relative_path = "./" + aws_file[len(f"s3a://{plain_base_path}") :]
 
                 # pass in the same relative_path as the full_path for S3 files
                 yield from self.ingest_table(aws_file, relative_path)
