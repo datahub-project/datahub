@@ -578,6 +578,12 @@ fragment nonConflictingPlatformFields on DataPlatform {
 
 fragment entityContainer on Container {
     urn
+    platform {
+        name
+        info {
+            logoUrl
+        }
+    }
     properties {
         name
     }
