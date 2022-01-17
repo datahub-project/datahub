@@ -274,7 +274,7 @@ class DataLakeSource(Source):
         self.report.report_workunit(wu)
         yield wu
 
-    def get_table_name(self, relative_path: str):
+    def get_table_name(self, relative_path: str) -> str:
 
         if self.source_config.path_spec is None:
             return relative_path

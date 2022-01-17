@@ -43,7 +43,7 @@ class DataLakeSourceConfig(ConfigModel):
         cls, value: Optional[str], values: Dict[str, Any]
     ) -> Optional[str]:
         if value is None:
-            return
+            return None
 
         if not value.startswith("./"):
             # enforce this for semantics
