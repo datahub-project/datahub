@@ -1,12 +1,98 @@
 import unittest
 from unittest.mock import MagicMock, patch
 
+from confluent_kafka.schema_registry.schema_registry_client import (
+    RegisteredSchema,
+    Schema,
+)
+
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.kafka import KafkaSource
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 
 
 class KafkaSourceTest(unittest.TestCase):
+    def test_get_schema_str_replace_confluent_ref_avro(self):
+
+        schema_str_orig = """
+{
+  "fields": [
+    {
+      "name": "my_field1",
+      "type": "TestTopic1"
+    }
+  ],
+  "name": "TestTopic1Val",
+  "namespace": "io.acryl",
+  "type": "record"
+}
+"""
+        schema_str_ref = """
+{
+  "doc": "Sample schema to help you get started.",
+  "fields": [
+    {
+      "doc": "The int type is a 32-bit signed integer.",
+      "name": "my_field1",
+      "type": "int"
+    }
+  ],
+  "name": "TestTopic1",
+  "namespace": "io.acryl",
+  "type": "record"
+}
+"""
+
+        schema_str_final = (
+            """
+{
+  "fields": [
+    {
+      "name": "my_field1",
+      "type": """
+            + schema_str_ref
+            + """
+    }
+  ],
+  "name": "TestTopic1Val",
+  "namespace": "io.acryl",
+  "type": "record"
+}
+"""
+        )
+
+        ctx = PipelineContext(run_id="test")
+        kafka_source = KafkaSource.create(
+            {
+                "connection": {"bootstrap": "localhost:9092"},
+            },
+            ctx,
+        )
+
+        def new_get_latest_version(_):
+            return RegisteredSchema(
+                schema_id="schema_id_1",
+                schema=Schema(schema_str=schema_str_ref, schema_type="AVRO"),
+                subject="test",
+                version=1,
+            )
+
+        with patch.object(
+            kafka_source.schema_registry_client,
+            "get_latest_version",
+            new_get_latest_version,
+        ):
+            schema_str = kafka_source.get_schema_str_replace_confluent_ref_avro(
+                schema=Schema(
+                    schema_str=schema_str_orig,
+                    schema_type="AVRO",
+                    references=[
+                        dict(name="TestTopic1", subject="schema_subject_1", version=1)
+                    ],
+                )
+            )
+            assert schema_str == schema_str_final
+
     @patch("datahub.ingestion.source.kafka.confluent_kafka.Consumer", autospec=True)
     def test_kafka_source_configuration(self, mock_kafka):
         ctx = PipelineContext(run_id="test")
