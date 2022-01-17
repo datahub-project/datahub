@@ -3,7 +3,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:data-lake-test,cases_2.NPS,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:data-lake-test,cases_2/NPS.7.1.package_data_NPS.6.1_ARCN_Lakes_ChemistryData_v1_csv.csv,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -46,7 +46,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
                                 "nativeDataType": "StringType",
@@ -63,7 +63,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
                                 "nativeDataType": "StringType",
@@ -80,7 +80,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
                                 "nativeDataType": "StringType",
@@ -97,7 +97,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
                                 "nativeDataType": "DoubleType",
@@ -114,7 +114,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
                                 "nativeDataType": "DoubleType",
@@ -131,7 +131,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
                                 "nativeDataType": "StringType",
@@ -148,7 +148,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
                                 "nativeDataType": "StringType",
@@ -165,7 +165,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
                                 "nativeDataType": "StringType",
@@ -182,7 +182,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
                                 "nativeDataType": "StringType",
@@ -199,7 +199,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
                                 "nativeDataType": "StringType",
@@ -216,7 +216,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
                                 "nativeDataType": "DoubleType",
@@ -233,7 +233,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
                                 "nativeDataType": "DoubleType",
@@ -250,7 +250,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
                                 "nativeDataType": "DoubleType",
@@ -267,7 +267,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
                                 "nativeDataType": "StringType",
@@ -299,7 +299,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:data-lake-test,cases_2.pokemon_abilities_json,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:data-lake-test,cases_2/pokemon_abilities_json.json,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -393,7 +393,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.RecordType": {}
                                     }
                                 },
                                 "nativeDataType": "StructType(List(StructField(name,StringType,true),StructField(url,StringType,true)))",
@@ -410,7 +410,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
                                 "nativeDataType": "LongType",
@@ -427,7 +427,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.BooleanType": {}
                                     }
                                 },
                                 "nativeDataType": "BooleanType",
@@ -444,7 +444,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
                                 "nativeDataType": "StringType",
@@ -510,7 +510,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:data-lake-test,cases_2.small,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:data-lake-test,cases_2/small.csv,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -553,7 +553,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
                                 "nativeDataType": "IntegerType",
@@ -570,7 +570,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
                                 "nativeDataType": "IntegerType",
@@ -587,7 +587,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
                                 "nativeDataType": "IntegerType",
@@ -604,7 +604,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
                                 "nativeDataType": "IntegerType",
@@ -621,7 +621,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
                                 "nativeDataType": "StringType",
@@ -653,7 +653,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:data-lake-test,cases_2.wa_fn_usec_hr_employee_attrition_csv,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:data-lake-test,cases_2/wa_fn_usec_hr_employee_attrition_csv.csv,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -696,7 +696,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
                                 "nativeDataType": "IntegerType",
@@ -713,7 +713,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
                                 "nativeDataType": "StringType",
@@ -730,7 +730,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
                                 "nativeDataType": "StringType",
@@ -747,7 +747,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
                                 "nativeDataType": "IntegerType",
@@ -764,7 +764,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
                                 "nativeDataType": "StringType",
@@ -781,7 +781,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
                                 "nativeDataType": "IntegerType",
@@ -798,7 +798,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
                                 "nativeDataType": "IntegerType",
@@ -815,7 +815,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
                                 "nativeDataType": "StringType",
@@ -832,7 +832,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
                                 "nativeDataType": "IntegerType",
@@ -849,7 +849,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
                                 "nativeDataType": "IntegerType",
@@ -866,7 +866,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
                                 "nativeDataType": "StringType",
@@ -883,7 +883,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
                                 "nativeDataType": "IntegerType",
@@ -900,7 +900,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
                                 "nativeDataType": "IntegerType",
@@ -917,7 +917,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
                                 "nativeDataType": "StringType",
@@ -934,7 +934,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
                                 "nativeDataType": "IntegerType",
@@ -951,7 +951,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
                                 "nativeDataType": "StringType",
@@ -968,7 +968,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
                                 "nativeDataType": "IntegerType",
@@ -985,7 +985,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
                                 "nativeDataType": "StringType",
@@ -1002,7 +1002,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
                                 "nativeDataType": "StringType",
@@ -1019,7 +1019,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
                                 "nativeDataType": "IntegerType",
@@ -1036,7 +1036,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
                                 "nativeDataType": "IntegerType",
@@ -1053,7 +1053,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
                                 "nativeDataType": "IntegerType",
@@ -1070,7 +1070,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
                                 "nativeDataType": "IntegerType",
@@ -1087,7 +1087,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
                                 "nativeDataType": "IntegerType",
@@ -1104,7 +1104,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
                                 "nativeDataType": "IntegerType",
@@ -1121,7 +1121,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
                                 "nativeDataType": "IntegerType",
@@ -1138,7 +1138,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
                                 "nativeDataType": "IntegerType",
@@ -1155,7 +1155,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
                                 "nativeDataType": "IntegerType",
@@ -1172,7 +1172,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
                                 "nativeDataType": "IntegerType",
@@ -1189,7 +1189,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
                                 "nativeDataType": "IntegerType",
@@ -1206,7 +1206,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
                                 "nativeDataType": "IntegerType",
@@ -1238,7 +1238,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:data-lake-test,cases_1.chord_progressions_csv,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:data-lake-test,cases_1/chord_progressions_csv.csv,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -1281,7 +1281,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
                                 "nativeDataType": "IntegerType",
@@ -1298,7 +1298,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
                                 "nativeDataType": "IntegerType",
@@ -1315,7 +1315,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
                                 "nativeDataType": "IntegerType",
@@ -1332,7 +1332,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
                                 "nativeDataType": "IntegerType",
@@ -1349,7 +1349,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
                                 "nativeDataType": "StringType",
@@ -1381,7 +1381,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:data-lake-test,cases_1.countries_json,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:data-lake-test,cases_1/countries_json.json,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -1456,7 +1456,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:data-lake-test,cases_1.food_csv,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:data-lake-test,cases_1/food_csv.csv,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -1499,7 +1499,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
                                 "nativeDataType": "StringType",
@@ -1516,7 +1516,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
                                 "nativeDataType": "IntegerType",
@@ -1533,7 +1533,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
                                 "nativeDataType": "IntegerType",
@@ -1550,7 +1550,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
                                 "nativeDataType": "StringType",
@@ -1567,7 +1567,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.BooleanType": {}
                                     }
                                 },
                                 "nativeDataType": "BooleanType",
@@ -1599,7 +1599,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:data-lake-test,cases_1.food_parquet,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:data-lake-test,cases_1/food_parquet.parquet,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -1642,7 +1642,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
                                 "nativeDataType": "StringType",
@@ -1659,7 +1659,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
                                 "nativeDataType": "LongType",
@@ -1676,7 +1676,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
                                 "nativeDataType": "LongType",
@@ -1693,7 +1693,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
                                 "nativeDataType": "StringType",
@@ -1710,7 +1710,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.BooleanType": {}
                                     }
                                 },
                                 "nativeDataType": "BooleanType",
