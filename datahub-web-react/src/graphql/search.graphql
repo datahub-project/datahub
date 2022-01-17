@@ -232,6 +232,16 @@ fragment searchResults on SearchResults {
                     }
                 }
             }
+            ... on Domain {
+                urn
+                properties {
+                    name
+                    description
+                }
+                ownership {
+                    ...ownershipFields
+                }
+            }
             ... on MLFeatureTable {
                 urn
                 type
