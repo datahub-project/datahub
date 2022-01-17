@@ -17,20 +17,9 @@ from datahub.metadata.com.linkedin.pegasus2avro.common import Status
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
-    ArrayTypeClass,
-    BooleanTypeClass,
-    BytesTypeClass,
-    DateTypeClass,
     MySqlDDL,
-    NullTypeClass,
-    NumberTypeClass,
-    RecordType,
     SchemaField,
-    SchemaFieldDataType,
     SchemaMetadata,
-    StringTypeClass,
-    TimeTypeClass,
-    UnionTypeClass,
 )
 from datahub.metadata.schema_classes import (
     DataFlowInfoClass,
@@ -39,12 +28,12 @@ from datahub.metadata.schema_classes import (
     DataJobInputOutputClass,
     DataJobSnapshotClass,
     DatasetPropertiesClass,
-    MapTypeClass,
     MetadataChangeEventClass,
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
 )
+from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_column
 
 logger = logging.getLogger(__name__)
 
@@ -583,33 +572,24 @@ class GlueSource(Source):
             schema = table["StorageDescriptor"]["Columns"]
             fields: List[SchemaField] = []
             for field in schema:
-                schema_field = SchemaField(
-                    fieldPath=field["Name"],
-                    nativeDataType=field["Type"],
-                    type=get_column_type(
-                        glue_source, field["Type"], table_name, field["Name"]
-                    ),
+                schema_fields = get_schema_fields_for_hive_column(
+                    hive_column_name=field["Name"],
+                    hive_column_type=field["Type"],
                     description=field.get("Comment"),
-                    recursive=False,
-                    nullable=True,
+                    default_nullable=True,
                 )
-                fields.append(schema_field)
+                assert schema_fields
+                fields.extend(schema_fields)
 
             partition_keys = table.get("PartitionKeys", [])
             for partition_key in partition_keys:
-                schema_field = SchemaField(
-                    fieldPath=partition_key["Name"],
-                    nativeDataType=partition_key["Type"],
-                    type=get_column_type(
-                        glue_source,
-                        partition_key["Type"],
-                        table_name,
-                        partition_key["Name"],
-                    ),
-                    recursive=False,
-                    nullable=False,
+                schema_fields = get_schema_fields_for_hive_column(
+                    hive_column_name=partition_key["Name"],
+                    hive_column_type=partition_key["Type"],
+                    default_nullable=False,
                 )
-                fields.append(schema_field)
+                assert schema_fields
+                fields.extend(schema_fields)
 
             return SchemaMetadata(
                 schemaName=table_name,
@@ -638,60 +618,3 @@ class GlueSource(Source):
 
     def close(self):
         pass
-
-
-def get_column_type(
-    glue_source: GlueSource, field_type: str, table_name: str, field_name: str
-) -> SchemaFieldDataType:
-    field_type_mapping = {
-        "array": ArrayTypeClass,
-        "bigint": NumberTypeClass,
-        "binary": BytesTypeClass,
-        "boolean": BooleanTypeClass,
-        "char": StringTypeClass,
-        "date": DateTypeClass,
-        "decimal": NumberTypeClass,
-        "double": NumberTypeClass,
-        "float": NumberTypeClass,
-        "int": NumberTypeClass,
-        "integer": NumberTypeClass,
-        "interval": TimeTypeClass,
-        "long": NumberTypeClass,
-        "map": MapTypeClass,
-        "null": NullTypeClass,
-        "set": ArrayTypeClass,
-        "smallint": NumberTypeClass,
-        "string": StringTypeClass,
-        "struct": RecordType,
-        "timestamp": TimeTypeClass,
-        "tinyint": NumberTypeClass,
-        "union": UnionTypeClass,
-        "varchar": StringTypeClass,
-    }
-
-    field_starts_type_mapping = {
-        "array": ArrayTypeClass,
-        "set": ArrayTypeClass,
-        "map": MapTypeClass,
-        "struct": RecordType,
-        "varchar": StringTypeClass,
-        "decimal": NumberTypeClass,
-    }
-
-    type_class = None
-    if field_type in field_type_mapping:
-        type_class = field_type_mapping[field_type]
-    else:
-        for key in field_starts_type_mapping:
-            if field_type.startswith(key):
-                type_class = field_starts_type_mapping[key]
-                break
-
-    if type_class is None:
-        glue_source.report.report_warning(
-            field_type,
-            f"The type '{field_type}' is not recognised for field '{field_name}' in table '{table_name}', setting as StringTypeClass.",
-        )
-        type_class = StringTypeClass
-    data_type = SchemaFieldDataType(type=type_class())
-    return data_type

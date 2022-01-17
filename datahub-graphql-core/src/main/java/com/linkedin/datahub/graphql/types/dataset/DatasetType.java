@@ -5,12 +5,15 @@ import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.authorization.ConjunctivePrivilegeGroup;
 import com.linkedin.datahub.graphql.authorization.DisjunctivePrivilegeGroup;
+import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.DatasetUpdateInput;
@@ -25,14 +28,13 @@ import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.SearchResults;
 import com.linkedin.datahub.graphql.types.dataset.mappers.DatasetUpdateInputSnapshotMapper;
-import com.linkedin.datahub.graphql.types.dataset.mappers.DatasetSnapshotMapper;
+import com.linkedin.datahub.graphql.types.dataset.mappers.DatasetMapper;
 import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowsePathsMapper;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.mappers.BrowseResultMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
 import com.linkedin.entity.Entity;
-import com.linkedin.metadata.extractor.AspectExtractor;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.search.SearchResult;
@@ -46,13 +48,30 @@ import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.linkedin.datahub.graphql.Constants.BROWSE_PATH_DELIMITER;
+import static com.linkedin.metadata.Constants.*;
+
 
 public class DatasetType implements SearchableEntityType<Dataset>, BrowsableEntityType<Dataset>, MutableType<DatasetUpdateInput> {
+
+    private static final Set<String> ASPECTS_TO_RESOLVE = ImmutableSet.of(
+        DATASET_KEY_ASPECT_NAME,
+        DATASET_PROPERTIES_ASPECT_NAME,
+        EDITABLE_DATASET_PROPERTIES_ASPECT_NAME,
+        DATASET_DEPRECATION_ASPECT_NAME,
+        DATASET_UPSTREAM_LINEAGE_ASPECT_NAME,
+        UPSTREAM_LINEAGE_ASPECT_NAME,
+        EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
+        VIEW_PROPERTIES_ASPECT_NAME,
+        OWNERSHIP_ASPECT_NAME,
+        INSTITUTIONAL_MEMORY_ASPECT_NAME,
+        GLOBAL_TAGS_ASPECT_NAME,
+        GLOSSARY_TERMS_ASPECT_NAME,
+        STATUS_ASPECT_NAME
+    );
 
     private static final Set<String> FACET_FIELDS = ImmutableSet.of("origin", "platform");
     private static final String ENTITY_NAME = "dataset";
@@ -79,30 +98,25 @@ public class DatasetType implements SearchableEntityType<Dataset>, BrowsableEnti
     }
 
     @Override
-    public List<DataFetcherResult<Dataset>> batchLoad(final List<String> urns, final QueryContext context) {
-
-        final List<DatasetUrn> datasetUrns = urns.stream()
-                .map(DatasetUtils::getDatasetUrn)
-                .collect(Collectors.toList());
-
+    public List<DataFetcherResult<Dataset>> batchLoad(final List<String> urnStrs, final QueryContext context) {
+        final Set<Urn> urns = urnStrs.stream()
+            .map(UrnUtils::getUrn)
+            .collect(Collectors.toSet());
         try {
-            final Map<Urn, Entity> datasetMap = _entityClient.batchGet(datasetUrns
-                    .stream()
-                    .filter(Objects::nonNull)
-                    .collect(Collectors.toSet()),
-                context.getAuthentication());
+            final Map<Urn, EntityResponse> datasetMap =
+                _entityClient.batchGetV2(
+                    Constants.DATASET_ENTITY_NAME,
+                    urns, ASPECTS_TO_RESOLVE,
+                    context.getAuthentication());
 
-            final List<Entity> gmsResults = new ArrayList<>();
-            for (DatasetUrn urn : datasetUrns) {
+            final List<EntityResponse> gmsResults = new ArrayList<>();
+            for (Urn urn : urns) {
                 gmsResults.add(datasetMap.getOrDefault(urn, null));
             }
             return gmsResults.stream()
-                .map(gmsDataset ->
-                    gmsDataset == null ? null : DataFetcherResult.<Dataset>newResult()
-                            .data(DatasetSnapshotMapper.map(gmsDataset.getValue().getDatasetSnapshot()))
-                        .localContext(AspectExtractor.extractAspects(gmsDataset.getValue().getDatasetSnapshot()))
-                        .build()
-                )
+                .map(gmsDataset -> gmsDataset == null ? null : DataFetcherResult.<Dataset>newResult()
+                    .data(DatasetMapper.map(gmsDataset))
+                    .build())
                 .collect(Collectors.toList());
         } catch (Exception e) {
             throw new RuntimeException("Failed to batch load Datasets", e);
