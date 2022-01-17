@@ -33,3 +33,11 @@ mutation removeOwner($input: RemoveOwnerInput!) {
 mutation updateDescription($input: DescriptionUpdateInput!) {
     updateDescription(input: $input)
 }
+
+mutation setDomain($entityUrn: String!, $domainUrn: String!) {
+    setDomain(entityUrn: $entityUrn, domainUrn: $domainUrn)
+}
+
+mutation unsetDomain($entityUrn: String!) {
+    unsetDomain(entityUrn: $entityUrn)
+}

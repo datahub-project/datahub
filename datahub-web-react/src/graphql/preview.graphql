@@ -35,6 +35,9 @@ fragment entityPreview on Entity {
         subTypes {
             typeNames
         }
+        domain {
+            ...entityDomain
+        }
     }
     ... on CorpUser {
         username
@@ -106,6 +109,9 @@ fragment entityPreview on Entity {
         editableProperties {
             description
         }
+        domain {
+            ...entityDomain
+        }
     }
     ... on Chart {
         urn
@@ -134,6 +140,9 @@ fragment entityPreview on Entity {
         editableProperties {
             description
         }
+        domain {
+            ...entityDomain
+        }
     }
     ... on DataFlow {
         urn
@@ -158,6 +167,9 @@ fragment entityPreview on Entity {
         editableProperties {
             description
         }
+        domain {
+            ...entityDomain
+        }
     }
     ... on DataJob {
         urn
@@ -181,6 +193,9 @@ fragment entityPreview on Entity {
         }
         editableProperties {
             description
+        }
+        domain {
+            ...entityDomain
         }
     }
     ... on GlossaryTerm {

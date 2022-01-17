@@ -56,6 +56,9 @@ fragment searchResults on SearchResults {
                 subTypes {
                     typeNames
                 }
+                domain {
+                    ...entityDomain
+                }
             }
             ... on CorpUser {
                 username
@@ -127,6 +130,9 @@ fragment searchResults on SearchResults {
                 editableProperties {
                     description
                 }
+                domain {
+                    ...entityDomain
+                }
             }
             ... on Chart {
                 urn
@@ -155,6 +161,9 @@ fragment searchResults on SearchResults {
                 editableProperties {
                     description
                 }
+                domain {
+                    ...entityDomain
+                }
             }
             ... on DataFlow {
                 urn
@@ -179,6 +188,9 @@ fragment searchResults on SearchResults {
                 editableProperties {
                     description
                 }
+                domain {
+                    ...entityDomain
+                }
             }
             ... on DataJob {
                 urn
@@ -202,6 +214,9 @@ fragment searchResults on SearchResults {
                 }
                 editableProperties {
                     description
+                }
+                domain {
+                    ...entityDomain
                 }
             }
             ... on GlossaryTerm {
