@@ -436,7 +436,9 @@ class DataLakeSource(Source):
 
                     full_path = os.path.join(root, file)
 
-                    relative_path = full_path.lstrip(self.source_config.base_path)
+                    relative_path = "./" + os.path.relpath(
+                        full_path, self.source_config.base_path
+                    )
 
                     # if table patterns do not allow this file, skip
                     if not self.source_config.schema_patterns.allowed(full_path):

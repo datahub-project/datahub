@@ -22,7 +22,7 @@ def test_data_lake_ingest(pytestconfig, tmp_path, mock_time):
                     "path_spec": "./{name[0]}/{name[1]}.{format}",
                     "platform": "data-lake-test",
                     "profiling": {
-                        "enabled": False,
+                        "enabled": True,
                         "profile_table_level_only": False,
                         "include_field_min_value": True,
                         "include_field_max_value": True,
