@@ -1,20 +1,20 @@
 import json
+from typing import Dict, Tuple, Type
 
+import pytest
 from botocore.stub import Stubber
 from freezegun import freeze_time
 
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.aws.glue import (
-    GlueSource,
-    GlueSourceConfig,
-    get_column_type,
-)
+from datahub.ingestion.extractor.schema_util import avro_schema_to_mce_fields
+from datahub.ingestion.source.aws.glue import GlueSource, GlueSourceConfig
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     ArrayTypeClass,
     MapTypeClass,
-    SchemaFieldDataType,
+    RecordTypeClass,
     StringTypeClass,
 )
+from datahub.utilities.hive_schema_to_avro import get_avro_schema_for_hive_column
 from tests.test_helpers import mce_helpers
 from tests.unit.test_glue_source_stubs import (
     get_databases_response,
@@ -39,45 +39,26 @@ def glue_source() -> GlueSource:
     )
 
 
-def test_get_column_type_contains_key():
-
-    field_type = "char"
-    data_type = get_column_type(glue_source(), field_type, "a_table", "a_field")
-    assert data_type.to_obj() == SchemaFieldDataType(type=StringTypeClass()).to_obj()
-
-
-def test_get_column_type_contains_array():
-
-    field_type = "array_lol"
-    data_type = get_column_type(glue_source(), field_type, "a_table", "a_field")
-    assert data_type.to_obj() == SchemaFieldDataType(type=ArrayTypeClass()).to_obj()
+column_type_test_cases: Dict[str, Tuple[str, Type]] = {
+    "char": ("char", StringTypeClass),
+    "array": ("array<int>", ArrayTypeClass),
+    "map": ("map<string, int>", MapTypeClass),
+    "struct": ("struct<a:int, b:string>", RecordTypeClass),
+}
 
 
-def test_get_column_type_contains_map():
-
-    field_type = "map_hehe"
-    data_type = get_column_type(glue_source(), field_type, "a_table", "a_field")
-    assert data_type.to_obj() == SchemaFieldDataType(type=MapTypeClass()).to_obj()
-
-
-def test_get_column_type_contains_set():
-
-    field_type = "set_yolo"
-    data_type = get_column_type(glue_source(), field_type, "a_table", "a_field")
-    assert data_type.to_obj() == SchemaFieldDataType(type=ArrayTypeClass()).to_obj()
-
-
-def test_get_column_type_not_contained():
-
-    glue_source_instance = glue_source()
-
-    field_type = "bad_column_type"
-    data_type = get_column_type(glue_source_instance, field_type, "a_table", "a_field")
-    assert data_type.to_obj() == SchemaFieldDataType(type=StringTypeClass()).to_obj()
-    assert glue_source_instance.report.warnings["bad_column_type"] == [
-        "The type 'bad_column_type' is not recognised for field 'a_field' in table 'a_table', "
-        "setting as StringTypeClass."
-    ]
+@pytest.mark.parametrize(
+    "hive_column_type, expected_type",
+    column_type_test_cases.values(),
+    ids=column_type_test_cases.keys(),
+)
+def test_column_type(hive_column_type: str, expected_type: Type) -> None:
+    avro_schema = get_avro_schema_for_hive_column(
+        f"test_column_{hive_column_type}", hive_column_type
+    )
+    schema_fields = avro_schema_to_mce_fields(json.dumps(avro_schema))
+    actual_schema_field_type = schema_fields[0].type
+    assert type(actual_schema_field_type.type) == expected_type
 
 
 @freeze_time(FROZEN_TIME)
