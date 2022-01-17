@@ -42,6 +42,7 @@ class MetabaseConfig(ConfigModel):
     username: Optional[str] = None
     password: Optional[str] = None
     database_alias_map: Optional[dict] = None
+    engine_platform_map: Optional[dict] = None
     default_schema: str = "public"
     env: str = builder.DEFAULT_ENV
 
@@ -477,6 +478,10 @@ class MetabaseSource(Source):
             "sqlserver": "mssql",
             "bigquery-cloud-sdk": "bigquery",
         }
+
+        if self.config.engine_platform_map is not None:
+            engine_mapping.update(self.config.engine_platform_map)
+
         if engine in engine_mapping:
             platform = engine_mapping[engine]
         else:
