@@ -49,7 +49,8 @@ public class DomainType implements com.linkedin.datahub.graphql.types.EntityType
           ImmutableSet.of(
               Constants.DOMAIN_KEY_ASPECT_NAME,
               Constants.DOMAIN_PROPERTIES_ASPECT_NAME,
-              Constants.OWNERSHIP_ASPECT_NAME
+              Constants.OWNERSHIP_ASPECT_NAME,
+              Constants.INSTITUTIONAL_MEMORY_ASPECT_NAME
           ),
           context.getAuthentication());
 

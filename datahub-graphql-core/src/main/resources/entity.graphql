@@ -5189,6 +5189,11 @@ type Domain implements Entity {
     ownership: Ownership
 
     """
+    References to internal resources related to the dataset
+    """
+    institutionalMemory: InstitutionalMemory
+
+    """
     Children entities inside of the Domain
     """
     entities(input: DomainEntitiesInput!): SearchResults
