@@ -52,7 +52,7 @@ class DefaultConfig(ConfigModel):
     """Holds defaults for populating fields in glossary terms"""
 
     source: str
-    owners: Owners
+    owners: Optional[Owners]
     url: Optional[str] = None
     source_type: Optional[str] = "INTERNAL"
 
@@ -80,7 +80,9 @@ def make_glossary_term_urn(path: List[str]) -> str:
     return "urn:li:glossaryTerm:" + ".".join(path)
 
 
-def get_owners(owners: Owners) -> models.OwnershipClass:
+def get_owners(owners: Optional[Owners]) -> Optional[models.OwnershipClass]:
+    if owners is None:
+        return None
     owners_meta: List[models.OwnerClass] = []
     if owners.users is not None:
         owners_meta = owners_meta + [
@@ -139,7 +141,7 @@ def get_mces_from_node(
     glossaryNode: GlossaryNodeConfig,
     path: List[str],
     parentNode: Optional[str],
-    parentOwners: models.OwnershipClass,
+    parentOwners: Optional[models.OwnershipClass],
     defaults: DefaultConfig,
 ) -> List[models.MetadataChangeEventClass]:
     node_urn = make_glossary_node_urn(path)
@@ -152,9 +154,19 @@ def get_mces_from_node(
         assert glossaryNode.owners is not None
         node_owners = get_owners(glossaryNode.owners)
 
+    aspects: List[
+        Union[
+            models.GlossaryNodeKeyClass,
+            models.GlossaryNodeInfoClass,
+            models.OwnershipClass,
+            models.StatusClass,
+        ]
+    ] = [node_info, valid_status]
+    if node_owners is not None:
+        aspects.append(node_owners)
     node_snapshot = models.GlossaryNodeSnapshotClass(
         urn=node_urn,
-        aspects=[node_info, node_owners, valid_status],
+        aspects=aspects,
     )
     mces = [get_mce_from_snapshot(node_snapshot)]
     if glossaryNode.nodes:
@@ -183,7 +195,7 @@ def get_mces_from_term(
     glossaryTerm: GlossaryTermConfig,
     path: List[str],
     parentNode: Optional[str],
-    parentOwnership: models.OwnershipClass,
+    parentOwnership: Optional[models.OwnershipClass],
     defaults: DefaultConfig,
 ) -> List[models.MetadataChangeEventClass]:
     term_urn = make_glossary_term_urn(path)
@@ -228,11 +240,12 @@ def get_mces_from_term(
         )
         aspects.append(relatedTerms)
 
-    ownership: models.OwnershipClass = parentOwnership
+    ownership: Optional[models.OwnershipClass] = parentOwnership
     if glossaryTerm.owners is not None:
         assert glossaryTerm.owners is not None
         ownership = get_owners(glossaryTerm.owners)
-    aspects.append(ownership)
+    if ownership is not None:
+        aspects.append(ownership)
 
     term_browse = models.BrowsePathsClass(paths=["/" + "/".join(path)])
     aspects.append(term_browse)
