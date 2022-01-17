@@ -5,7 +5,7 @@ import { Maybe, UserUsageCounts } from '../../../../../../../types.generated';
 import UsageFacepile from '../../../../../dataset/profile/UsageFacepile';
 import { InfoItem } from '../../../../components/styled/InfoItem';
 import { ANTD_GRAY } from '../../../../constants';
-import { countFormatter } from '../../../../../../../utils/formatter/index';
+import { countFormatter, countSeparator } from '../../../../../../../utils/formatter/index';
 
 type Props = {
     rowCount?: number;
@@ -38,9 +38,11 @@ export default function TableStats({ rowCount, columnCount, queryCount, users, l
             <StatContainer justifyContent={justifyContent}>
                 {rowCount && (
                     <InfoItem title="Rows">
-                        <Typography.Text strong style={{ fontSize: 24 }}>
-                            {countFormatter(rowCount)}
-                        </Typography.Text>
+                        <Tooltip title={countSeparator(rowCount)} placement="right">
+                            <Typography.Text strong style={{ fontSize: 24 }}>
+                                {countFormatter(rowCount)}
+                            </Typography.Text>
+                        </Tooltip>
                     </InfoItem>
                 )}
                 {columnCount && (
