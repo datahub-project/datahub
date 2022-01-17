@@ -29,7 +29,7 @@ source:
     username: ""
     password: ""
     # Options
-    env = "prod"
+    env: "PROD"
     index_pattern:
         allow: [".*some_index_name_pattern*"]
         deny: [".*skip_index_name_pattern*"]
