@@ -49,7 +49,7 @@ class DataLakeSourceConfig(ConfigModel):
             if not value.startswith("./"):
                 # enforce this for semantics
                 raise ValueError(
-                    f"If using relative paths, path_spec must start with './'"
+                    "If using relative paths, path_spec must start with './'"
                 )
 
             value = value[2:]
