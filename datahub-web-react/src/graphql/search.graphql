@@ -230,6 +230,33 @@ fragment searchResults on SearchResults {
                     ...ownershipFields
                 }
             }
+            ... on Container {
+                urn
+                platform {
+                    ...platformFields
+                }
+                editableProperties {
+                    description
+                }
+                ownership {
+                    ...ownershipFields
+                }
+                globalTags {
+                    ...globalTagsFields
+                }
+                institutionalMemory {
+                    ...institutionalMemoryFields
+                }
+                glossaryTerms {
+                    ...glossaryTerms
+                }
+                subTypes {
+                    typeNames
+                }
+                entities(input: {}) {
+                    total
+                }
+            }
             ... on MLFeatureTable {
                 urn
                 type

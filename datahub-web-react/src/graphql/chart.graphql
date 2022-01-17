@@ -39,18 +39,7 @@ query getChart($urn: String!) {
             description
         }
         institutionalMemory {
-            elements {
-                url
-                author {
-                    urn
-                    username
-                }
-                label
-                created {
-                    time
-                    actor
-                }
-            }
+            ...institutionalMemoryFields
         }
         glossaryTerms {
             ...glossaryTerms
@@ -63,6 +52,9 @@ query getChart($urn: String!) {
         }
         dashboards: relationships(input: { types: ["Contains"], direction: INCOMING, start: 0, count: 100 }) {
             ...fullRelationshipResults
+        }
+        container {
+            ...entityContainer
         }
     }
 }

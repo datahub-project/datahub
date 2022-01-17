@@ -92,6 +92,21 @@ fragment ownershipFields on Ownership {
     }
 }
 
+fragment institutionalMemoryFields on InstitutionalMemory {
+    elements {
+        url
+        author {
+            urn
+            username
+        }
+        description
+        created {
+            actor
+            time
+        }
+    }
+}
+
 fragment nonRecursiveDatasetFields on Dataset {
     urn
     name
@@ -117,18 +132,7 @@ fragment nonRecursiveDatasetFields on Dataset {
         ...ownershipFields
     }
     institutionalMemory {
-        elements {
-            url
-            author {
-                urn
-                username
-            }
-            description
-            created {
-                actor
-                time
-            }
-        }
+        ...institutionalMemoryFields
     }
     schemaMetadata(version: 0) {
         ...schemaMetadataFields
@@ -162,6 +166,9 @@ fragment nonRecursiveDatasetFields on Dataset {
     }
     domain {
         ...entityDomain
+    }
+    container {
+        ...entityContainer
     }
 }
 
@@ -251,18 +258,7 @@ fragment dataJobFields on DataJob {
         ...globalTagsFields
     }
     institutionalMemory {
-        elements {
-            url
-            author {
-                urn
-                username
-            }
-            label
-            created {
-                time
-                actor
-            }
-        }
+        ...institutionalMemoryFields
     }
     glossaryTerms {
         ...glossaryTerms
@@ -301,18 +297,7 @@ fragment dashboardFields on Dashboard {
         ...globalTagsFields
     }
     institutionalMemory {
-        elements {
-            url
-            author {
-                urn
-                username
-            }
-            label
-            created {
-                time
-                actor
-            }
-        }
+        ...institutionalMemoryFields
     }
     glossaryTerms {
         ...glossaryTerms
@@ -322,6 +307,9 @@ fragment dashboardFields on Dashboard {
     }
     domain {
         ...entityDomain
+    }
+    container {
+        ...entityContainer
     }
 }
 
@@ -355,18 +343,7 @@ fragment nonRecursiveMLFeature on MLFeature {
         ...ownershipFields
     }
     institutionalMemory {
-        elements {
-            url
-            author {
-                urn
-                username
-            }
-            description
-            created {
-                actor
-                time
-            }
-        }
+        ...institutionalMemoryFields
     }
     status {
         removed
@@ -403,18 +380,7 @@ fragment nonRecursiveMLPrimaryKey on MLPrimaryKey {
         ...ownershipFields
     }
     institutionalMemory {
-        elements {
-            url
-            author {
-                urn
-                username
-            }
-            description
-            created {
-                actor
-                time
-            }
-        }
+        ...institutionalMemoryFields
     }
     status {
         removed
@@ -442,18 +408,7 @@ fragment nonRecursiveMLFeatureTable on MLFeatureTable {
         ...ownershipFields
     }
     institutionalMemory {
-        elements {
-            url
-            author {
-                urn
-                username
-            }
-            description
-            created {
-                actor
-                time
-            }
-        }
+        ...institutionalMemoryFields
     }
     status {
         removed
@@ -620,6 +575,14 @@ fragment nonConflictingPlatformFields on DataPlatform {
         displayName
         datasetNameDelimiter
         logoUrl
+
+fragment entityContainer on Container {
+    urn
+    properties {
+        name
+    }
+    subTypes {
+        typeNames
     }
 }
 
