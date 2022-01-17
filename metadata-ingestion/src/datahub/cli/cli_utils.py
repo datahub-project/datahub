@@ -5,16 +5,41 @@ import sys
 import typing
 import urllib.parse
 from datetime import datetime
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Type, Union
 
 import click
 import requests
 import yaml
+from avrogen.dict_wrapper import DictWrapper
 from pydantic import BaseModel, ValidationError
 from requests.models import Response
 from requests.sessions import Session
 
+from datahub.emitter.mce_builder import Aspect
 from datahub.emitter.rest_emitter import _make_curl_command
+from datahub.emitter.serialization_helper import post_json_transform
+from datahub.metadata.schema_classes import (
+    BrowsePathsClass,
+    DataJobInputOutputClass,
+    DataJobKeyClass,
+    DataPlatformInstanceClass,
+    DatasetKeyClass,
+    DatasetPropertiesClass,
+    EditableSchemaMetadataClass,
+    GlobalTagsClass,
+    GlossaryTermsClass,
+    InstitutionalMemoryClass,
+    MLFeatureKeyClass,
+    MLFeaturePropertiesClass,
+    MLPrimaryKeyKeyClass,
+    MLPrimaryKeyPropertiesClass,
+    OwnershipClass,
+    SchemaMetadataClass,
+    StatusClass,
+    SubTypesClass,
+    UpstreamLineageClass,
+    ViewPropertiesClass,
+)
 
 log = logging.getLogger(__name__)
 
@@ -320,9 +345,33 @@ def get_urns_by_filter(
         response.raise_for_status()
 
 
+def get_incoming_relationships(urn: str, types: List[str]) -> Iterable[Dict]:
+    yield from get_relationships(urn=urn, types=types, direction="INCOMING")
+
+
+def get_relationships(urn: str, types: List[str], direction: str) -> Iterable[Dict]:
+    session, gms_host = get_session_and_host()
+    encoded_urn = urllib.parse.quote(urn, safe="")
+    types_param_string = "List(" + ",".join(types) + ")"
+    endpoint: str = f"{gms_host}/relationships?urn={encoded_urn}&direction={direction}&types={types_param_string}"
+    response: Response = session.get(endpoint)
+    if response.status_code == 200:
+        results = response.json()
+        num_entities = results["count"]
+        entities_yielded: int = 0
+        for x in results["relationships"]:
+            entities_yielded += 1
+            yield x
+        if entities_yielded != num_entities:
+            log.warn("Yielded entities differ from num entities")
+    else:
+        log.error(f"Failed to execute relationships query with {str(response.content)}")
+        response.raise_for_status()
+
+
 def get_entity(
     urn: str,
-    aspect: Optional[List],
+    aspect: Optional[List] = None,
     cached_session_host: Optional[Tuple[Session, str]] = None,
 ) -> Dict:
     if not cached_session_host:
@@ -330,7 +379,7 @@ def get_entity(
     else:
         session, gms_host = cached_session_host
 
-    encoded_urn = urllib.parse.quote(urn)
+    encoded_urn = urllib.parse.quote(urn, safe="")
     endpoint: str = f"/entities/{encoded_urn}"
 
     if aspect is not None:
@@ -376,3 +425,73 @@ def post_entity(
     response = session.post(url, payload)
     response.raise_for_status()
     return response.status_code
+
+
+type_class_to_name_map = {
+    DatasetKeyClass: "datasetKey",
+    UpstreamLineageClass: "upstreamLineage",
+    DataJobKeyClass: "datajobKey",
+    DataJobInputOutputClass: "dataJobInputOutput",
+    SchemaMetadataClass: "schemaMetadata",
+    MLPrimaryKeyKeyClass: "mlPrimaryKey",
+    MLPrimaryKeyPropertiesClass: "mlPrimaryKeyProperties",
+    MLFeatureKeyClass: "mlFeatureKey",
+    MLFeaturePropertiesClass: "mlFeatureProperties",
+    InstitutionalMemoryClass: "institutionalMemory",
+    OwnershipClass: "ownership",
+    BrowsePathsClass: "browsePaths",
+    DataPlatformInstanceClass: "dataPlatformInstance",
+    GlobalTagsClass: "globalTags",
+    StatusClass: "status",
+    DatasetPropertiesClass: "datasetProperties",
+    GlossaryTermsClass: "glossaryTerms",
+    SubTypesClass: "subTypes",
+    EditableSchemaMetadataClass: "editableSchemaMetadata",
+    ViewPropertiesClass: "viewProperties",
+}
+
+
+def _get_pydantic_class_from_aspect_name(aspect_name: str) -> Optional[Type[Aspect]]:
+    candidates = [k for (k, v) in type_class_to_name_map.items() if v == aspect_name]
+    return candidates[0] or None
+
+
+def _get_aspect_name_from_aspect_class(aspect_class: str) -> str:
+    class_to_name_map = {
+        k.RECORD_SCHEMA.fullname.replace("pegasus2avro.", ""): v  # type: ignore
+        for (k, v) in type_class_to_name_map.items()
+    }
+    return class_to_name_map.get(aspect_class, "unknown")
+
+
+def get_aspects_for_entity(
+    entity_urn: str,
+    aspects: List[str],
+    typed: bool = False,
+    cached_session_host: Optional[Tuple[Session, str]] = None,
+) -> Dict[str, Union[dict, DictWrapper]]:
+    entity_response = get_entity(entity_urn, aspects, cached_session_host)
+    aspect_list: List[Dict[str, dict]] = list(entity_response["value"].values())[0][
+        "aspects"
+    ]
+    aspect_map: Dict[str, Union[dict, DictWrapper]] = {}
+    for a in aspect_list:
+        aspect_class = list(a.keys())[0]
+        aspect_name = _get_aspect_name_from_aspect_class(aspect_class)
+        aspect_py_class: Optional[Type[Any]] = _get_pydantic_class_from_aspect_name(
+            aspect_name
+        )
+        if aspect_name == "unknown":
+            print(f"Failed to find aspect_name for class {aspect_class}")
+
+        aspect_dict = list(a.values())[0]
+        if not typed:
+            aspect_map[aspect_name] = aspect_dict
+        elif aspect_py_class:
+            try:
+                post_json_obj = post_json_transform(aspect_dict)
+                aspect_map[aspect_name] = aspect_py_class.from_obj(post_json_obj)
+            except Exception as e:
+                log.error(f"Error on {json.dumps(aspect_dict)}", e)
+
+    return {k: v for (k, v) in aspect_map.items() if k in aspects}

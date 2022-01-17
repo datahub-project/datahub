@@ -137,7 +137,6 @@ class SnowflakeStatefulIngestionConfig(StatefulIngestionConfig):
 class SnowflakeUsageConfig(
     BaseSnowflakeConfig, BaseUsageConfig, StatefulIngestionConfigBase
 ):
-    env: str = builder.DEFAULT_ENV
     options: dict = {}
     database_pattern: AllowDenyPattern = AllowDenyPattern(
         deny=[r"^UTIL_DB$", r"^SNOWFLAKE$", r"^SNOWFLAKE_SAMPLE_DATA$"]
@@ -402,8 +401,11 @@ class SnowflakeUsageSource(StatefulIngestionSourceBase):
             user_urn = builder.make_user_urn(user_email.split("@")[0])
             for obj in event.base_objects_accessed:
                 resource = obj.objectName
-                dataset_urn = builder.make_dataset_urn(
-                    "snowflake", resource.lower(), self.config.env
+                dataset_urn = builder.make_dataset_urn_with_platform_instance(
+                    "snowflake",
+                    resource.lower(),
+                    self.config.platform_instance,
+                    self.config.env,
                 )
                 operation_aspect = OperationClass(
                     timestampMillis=last_updated_timestamp,
@@ -463,8 +465,11 @@ class SnowflakeUsageSource(StatefulIngestionSourceBase):
     def _make_usage_stat(self, agg: AggregatedDataset) -> MetadataWorkUnit:
         return agg.make_usage_workunit(
             self.config.bucket_duration,
-            lambda resource: builder.make_dataset_urn(
-                "snowflake", resource.lower(), self.config.env
+            lambda resource: builder.make_dataset_urn_with_platform_instance(
+                "snowflake",
+                resource.lower(),
+                self.config.platform_instance,
+                self.config.env,
             ),
             self.config.top_n_queries,
         )

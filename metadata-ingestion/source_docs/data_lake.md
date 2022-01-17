@@ -51,6 +51,11 @@ If you are ingesting datasets from AWS S3, we recommend running the ingestion on
 
 :::
 
+| Capability | Status | Details | 
+| -----------| ------ | ---- |
+| Platform Instance | 🛑 | [link](../../docs/platform-instances.md) |
+
+
 ## Quickstart recipe
 
 Check out the following recipe to get started with ingestion! See [below](#config-details) for full configuration options.

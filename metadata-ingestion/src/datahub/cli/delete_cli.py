@@ -13,7 +13,11 @@ from datahub.cli import cli_utils
 from datahub.cli.cli_utils import guess_entity_type
 from datahub.emitter import rest_emitter
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.metadata.schema_classes import ChangeTypeClass, StatusClass
+from datahub.metadata.schema_classes import (
+    ChangeTypeClass,
+    StatusClass,
+    SystemMetadataClass,
+)
 from datahub.telemetry import telemetry
 
 logger = logging.getLogger(__name__)
@@ -175,6 +179,10 @@ def delete(
         )
 
 
+def _get_current_time() -> int:
+    return int(time.time() * 1000.0)
+
+
 @telemetry.with_telemetry
 def delete_with_filters(
     dry_run: bool,
@@ -230,6 +238,8 @@ def _delete_one_urn(
     entity_type: str = "dataset",
     cached_session_host: Optional[Tuple[sessions.Session, str]] = None,
     cached_emitter: Optional[rest_emitter.DatahubRestEmitter] = None,
+    run_id: str = "delete-run-id",
+    deletion_timestamp: int = _get_current_time(),
 ) -> DeletionResult:
 
     deletion_result = DeletionResult()
@@ -252,6 +262,9 @@ def _delete_one_urn(
                     entityUrn=urn,
                     aspectName="status",
                     aspect=StatusClass(removed=True),
+                    systemMetadata=SystemMetadataClass(
+                        runId=run_id, lastObserved=deletion_timestamp
+                    ),
                 )
             )
         else:

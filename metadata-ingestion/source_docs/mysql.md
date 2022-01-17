@@ -14,6 +14,11 @@ This plugin extracts the following:
 - Column types and schema associated with each table
 - Table, row, and column statistics via optional [SQL profiling](./sql_profiles.md)
 
+| Capability | Status | Details | 
+| -----------| ------ | ---- |
+| Platform Instance | ✔️ | [link](../../docs/platform-instances.md) |
+
+
 ## Quickstart recipe
 
 Check out the following recipe to get started with ingestion! See [below](#config-details) for full configuration options.
@@ -52,6 +57,7 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `database`                  |          |                    | MySQL database.                                                                                                                                                                         |
 | `database_alias`            |          |                    | Alias to apply to database when ingesting.                                                                                                                                              |
 | `env`                       |          | `"PROD"`           | Environment to use in namespace when constructing URNs.                                                                                                                                 |
+| `platform_instance`         |          | None             | The Platform instance to use while constructing URNs.         |
 | `options.<option>`          |          |                    | Any options specified here will be passed to SQLAlchemy's `create_engine` as kwargs.<br />See https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine for details. |
 | `table_pattern.allow`       |          |                    | List of regex patterns for tables to include in ingestion.                                                                                                                              |
 | `table_pattern.deny`        |          |                    | List of regex patterns for tables to exclude from ingestion.                                                                                                                            |

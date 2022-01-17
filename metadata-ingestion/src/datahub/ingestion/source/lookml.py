@@ -15,6 +15,7 @@ from looker_sdk.error import SDKError
 from looker_sdk.sdk.api31.methods import Looker31SDK
 from looker_sdk.sdk.api31.models import DBConnection
 from pydantic import root_validator, validator
+from pydantic.fields import Field
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.source.looker_common import (
@@ -27,6 +28,7 @@ from datahub.ingestion.source.looker_common import (
 from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     DatasetPropertiesClass,
+    FabricTypeClass,
     SubTypesClass,
 )
 from datahub.utilities.sql_parser import SQLParser
@@ -92,8 +94,25 @@ class LookerConnectionDefinition(ConfigModel):
     platform: str
     default_db: str
     default_schema: Optional[str]  # Optional since some sources are two-level only
+    platform_instance: Optional[str] = None
+    platform_env: Optional[str] = Field(
+        default=None,
+        description="The environment that the platform is located in. Leaving this empty will inherit defaults from the top level Looker configuration",
+    )
 
-    @validator("*")
+    @validator("platform_env")
+    def platform_env_must_be_one_of(cls, v: str) -> str:
+        allowed_envs = [
+            FabricTypeClass.PROD,
+            FabricTypeClass.CORP,
+            FabricTypeClass.DEV,
+            FabricTypeClass.EI,
+        ]
+        if (v.upper()) not in allowed_envs:
+            raise ConfigurationError(f"env must be one of {allowed_envs}, found {v}")
+        return v.upper()
+
+    @validator("platform", "default_db", "default_schema")
     def lower_everything(cls, v):
         """We lower case all strings passed in to avoid casing issues later"""
         if v is not None:
@@ -132,6 +151,12 @@ class LookMLSourceConfig(LookerCommonConfig):
     sql_parser: str = "datahub.utilities.sql_parser.DefaultSQLParser"
     api: Optional[LookerAPIConfig]
     project_name: Optional[str]
+
+    @validator("platform_instance")
+    def platform_instance_not_supported(cls, v: str) -> str:
+        raise ConfigurationError(
+            "LookML Source doesn't support platform instance at the top level. However connection-specific platform instances are supported for generating lineage edges. Read the documentation to find out more."
+        )
 
     @validator("connection_to_platform_map", pre=True)
     def convert_string_to_connection_def(cls, conn_map):
@@ -839,8 +864,11 @@ class LookMLSource(Source):
             sql_table_name, connection_def
         )
 
-        return builder.make_dataset_urn(
-            connection_def.platform, sql_table_name.lower(), self.source_config.env
+        return builder.make_dataset_urn_with_platform_instance(
+            platform=connection_def.platform,
+            name=sql_table_name.lower(),
+            platform_instance=connection_def.platform_instance,
+            env=connection_def.platform_env or self.source_config.env,
         )
 
     def _get_connection_def_based_on_connection_string(
