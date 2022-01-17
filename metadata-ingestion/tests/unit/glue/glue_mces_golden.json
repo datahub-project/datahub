@@ -313,7 +313,7 @@
                 {
                   "fieldPath": "[version=2.0].[type=struct].[type=array].[type=struct].markers",
                   "jsonPath": null,
-                  "nullable": false,
+                  "nullable": true,
                   "description": null,
                   "type": {
                     "type": {
@@ -349,7 +349,7 @@
                 {
                   "fieldPath": "[version=2.0].[type=struct].[type=array].[type=struct].markers.[type=array].[type=double].position",
                   "jsonPath": null,
-                  "nullable": false,
+                  "nullable": true,
                   "description": null,
                   "type": {
                     "type": {
@@ -368,7 +368,7 @@
                 {
                   "fieldPath": "[version=2.0].[type=struct].[type=array].[type=struct].markers.[type=array].[type=double].location",
                   "jsonPath": null,
-                  "nullable": false,
+                  "nullable": true,
                   "description": null,
                   "type": {
                     "type": {

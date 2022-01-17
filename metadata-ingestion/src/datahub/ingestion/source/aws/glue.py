@@ -576,6 +576,7 @@ class GlueSource(Source):
                     hive_column_name=field["Name"],
                     hive_column_type=field["Type"],
                     description=field.get("Comment"),
+                    default_nullable=True,
                 )
                 assert schema_fields
                 fields.extend(schema_fields)
@@ -585,6 +586,7 @@ class GlueSource(Source):
                 schema_fields = get_schema_fields_for_hive_column(
                     hive_column_name=partition_key["Name"],
                     hive_column_type=partition_key["Type"],
+                    default_nullable=False,
                 )
                 assert schema_fields
                 fields.extend(schema_fields)
