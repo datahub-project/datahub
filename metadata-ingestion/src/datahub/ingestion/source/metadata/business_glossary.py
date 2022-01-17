@@ -10,7 +10,6 @@ from datahub.configuration.config_loader import load_config_file
 from datahub.emitter.mce_builder import get_sys_time, make_group_urn, make_user_urn
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit, UsageStatsWorkUnit
-from datahub.metadata.schema_classes import SchemaMetadataClass
 
 logger = logging.getLogger(__name__)
 
@@ -196,7 +195,6 @@ def get_mces_from_term(
             models.StatusClass,
             models.GlossaryTermKeyClass,
             models.BrowsePathsClass,
-            SchemaMetadataClass,
         ]
     ] = []
     term_info = models.GlossaryTermInfoClass(
