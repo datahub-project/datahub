@@ -1,0 +1,34 @@
+query getDomain($urn: String!) {
+    domain(urn: $urn) {
+        urn
+        id
+        properties {
+            name
+            description
+        }
+        ownership {
+            ...ownershipFields
+        }
+        institutionalMemory {
+            elements {
+                url
+                author {
+                    urn
+                    username
+                }
+                description
+                created {
+                    actor
+                    time
+                }
+            }
+        }
+        entities(input: {}) {
+            ...searchResults
+        }
+    }
+}
+
+mutation createDomain($input: CreateDomainInput!) {
+    createDomain(input: $input)
+}

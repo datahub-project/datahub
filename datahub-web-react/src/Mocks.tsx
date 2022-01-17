@@ -188,6 +188,7 @@ const dataset1 = {
             ],
         },
     ],
+    domain: null,
 };
 
 const dataset2 = {
@@ -258,6 +259,7 @@ const dataset2 = {
             ],
         },
     ],
+    domain: null,
 };
 
 export const dataset3 = {
@@ -444,6 +446,7 @@ export const dataset3 = {
             },
         },
     ],
+    domain: null,
 } as Dataset;
 
 export const dataset4 = {
@@ -871,6 +874,7 @@ export const dataFlow1 = {
     platform: {
         ...dataPlatform,
     },
+    domain: null,
 } as DataFlow;
 
 export const dataJob1 = {
@@ -938,6 +942,7 @@ export const dataJob1 = {
             },
         ],
     },
+    domain: null,
 } as DataJob;
 
 export const dataJob2 = {
@@ -991,6 +996,7 @@ export const dataJob2 = {
             },
         ],
     },
+    domain: null,
 } as DataJob;
 
 export const dataJob3 = {
@@ -1044,6 +1050,7 @@ export const dataJob3 = {
             },
         ],
     },
+    domain: null,
 } as DataJob;
 
 export const mlModel = {
