@@ -17,7 +17,7 @@ query getContainer($urn: String!) {
         ownership {
             ...ownershipFields
         }
-        globalTags {
+        tags {
             ...globalTagsFields
         }
         institutionalMemory {

@@ -241,7 +241,7 @@ fragment searchResults on SearchResults {
                 ownership {
                     ...ownershipFields
                 }
-                globalTags {
+                tags {
                     ...globalTagsFields
                 }
                 institutionalMemory {
