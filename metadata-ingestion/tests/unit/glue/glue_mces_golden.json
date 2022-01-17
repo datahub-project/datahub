@@ -82,7 +82,7 @@
               },
               "fields": [
                 {
-                  "fieldPath": "[version=2.0].[type=struct].[type=int].yr",
+                  "fieldPath": "[version=2.0].[type=int].yr",
                   "jsonPath": null,
                   "nullable": true,
                   "description": null,
@@ -99,7 +99,7 @@
                   "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
                 },
                 {
-                  "fieldPath": "[version=2.0].[type=struct].[type=string].flightdate",
+                  "fieldPath": "[version=2.0].[type=string].flightdate",
                   "jsonPath": null,
                   "nullable": true,
                   "description": null,
@@ -116,7 +116,7 @@
                   "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
                 },
                 {
-                  "fieldPath": "[version=2.0].[type=struct].[type=string].uniquecarrier",
+                  "fieldPath": "[version=2.0].[type=string].uniquecarrier",
                   "jsonPath": null,
                   "nullable": true,
                   "description": null,
@@ -133,7 +133,7 @@
                   "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
                 },
                 {
-                  "fieldPath": "[version=2.0].[type=struct].[type=int].airlineid",
+                  "fieldPath": "[version=2.0].[type=int].airlineid",
                   "jsonPath": null,
                   "nullable": true,
                   "description": null,
@@ -150,7 +150,7 @@
                   "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
                 },
                 {
-                  "fieldPath": "[version=2.0].[type=struct].[type=string].carrier",
+                  "fieldPath": "[version=2.0].[type=string].carrier",
                   "jsonPath": null,
                   "nullable": true,
                   "description": null,
@@ -167,7 +167,7 @@
                   "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
                 },
                 {
-                  "fieldPath": "[version=2.0].[type=struct].[type=string].flightnum",
+                  "fieldPath": "[version=2.0].[type=string].flightnum",
                   "jsonPath": null,
                   "nullable": true,
                   "description": null,
@@ -184,7 +184,7 @@
                   "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
                 },
                 {
-                  "fieldPath": "[version=2.0].[type=struct].[type=string].origin",
+                  "fieldPath": "[version=2.0].[type=string].origin",
                   "jsonPath": null,
                   "nullable": true,
                   "description": null,
@@ -201,7 +201,7 @@
                   "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
                 },
                 {
-                  "fieldPath": "[version=2.0].[type=struct].[type=string].year",
+                  "fieldPath": "[version=2.0].[type=string].year",
                   "jsonPath": null,
                   "nullable": true,
                   "description": null,
@@ -313,7 +313,7 @@
                 {
                   "fieldPath": "[version=2.0].[type=struct].[type=array].[type=struct].markers",
                   "jsonPath": null,
-                  "nullable": true,
+                  "nullable": false,
                   "description": null,
                   "type": {
                     "type": {
@@ -349,7 +349,7 @@
                 {
                   "fieldPath": "[version=2.0].[type=struct].[type=array].[type=struct].markers.[type=array].[type=double].position",
                   "jsonPath": null,
-                  "nullable": true,
+                  "nullable": false,
                   "description": null,
                   "type": {
                     "type": {
@@ -368,7 +368,7 @@
                 {
                   "fieldPath": "[version=2.0].[type=struct].[type=array].[type=struct].markers.[type=array].[type=double].location",
                   "jsonPath": null,
-                  "nullable": true,
+                  "nullable": false,
                   "description": null,
                   "type": {
                     "type": {
@@ -478,7 +478,7 @@
               },
               "fields": [
                 {
-                  "fieldPath": "[version=2.0].[type=struct].[type=int].yr",
+                  "fieldPath": "[version=2.0].[type=int].yr",
                   "jsonPath": null,
                   "nullable": true,
                   "description": null,
@@ -495,7 +495,7 @@
                   "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
                 },
                 {
-                  "fieldPath": "[version=2.0].[type=struct].[type=int].quarter",
+                  "fieldPath": "[version=2.0].[type=int].quarter",
                   "jsonPath": null,
                   "nullable": true,
                   "description": null,
@@ -512,7 +512,7 @@
                   "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
                 },
                 {
-                  "fieldPath": "[version=2.0].[type=struct].[type=int].month",
+                  "fieldPath": "[version=2.0].[type=int].month",
                   "jsonPath": null,
                   "nullable": true,
                   "description": null,
@@ -529,7 +529,7 @@
                   "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
                 },
                 {
-                  "fieldPath": "[version=2.0].[type=struct].[type=int].dayofmonth",
+                  "fieldPath": "[version=2.0].[type=int].dayofmonth",
                   "jsonPath": null,
                   "nullable": true,
                   "description": null,
@@ -546,7 +546,7 @@
                   "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
                 },
                 {
-                  "fieldPath": "[version=2.0].[type=struct].[type=string].year",
+                  "fieldPath": "[version=2.0].[type=string].year",
                   "jsonPath": null,
                   "nullable": true,
                   "description": null,

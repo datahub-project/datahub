@@ -1,6 +1,10 @@
+import json
 import re
 import uuid
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List, Optional, Union
+
+from datahub.ingestion.extractor.schema_util import avro_schema_to_mce_fields
+from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
 
 
 class HiveColumnToAvroConverter:
@@ -23,6 +27,8 @@ class HiveColumnToAvroConverter:
         "varchar": "string",
         "char": "string",
     }
+
+    _COMPLEX_TYPE = re.compile("^(struct|map|array|uniontype)")
 
     _FIXED_DECIMAL = re.compile(r"(decimal|numeric)(\(\s*(\d+)\s*,\s*(\d+)\s*\))?")
 
@@ -203,29 +209,60 @@ class HiveColumnToAvroConverter:
         parts.append(buf)
         return parts
 
+    @staticmethod
+    def is_primitive_hive_type(hive_type: str) -> bool:
+        return not HiveColumnToAvroConverter._COMPLEX_TYPE.match(hive_type)
+
     @classmethod
     def get_avro_schema_for_hive_column(
         cls, hive_column_name: str, hive_column_type: str
-    ) -> Dict[str, object]:
+    ) -> Union[object, Dict[str, object]]:
         converter = cls()
         # Below Record structure represents the dataset level
         # Inner fields represent the complex field (struct/array/map/union)
-        return {
-            "type": "record",
-            "name": "__struct_",
-            "fields": [
-                {
-                    "name": hive_column_name,
-                    "type": converter._parse_datatype_string(hive_column_type),
-                }
-            ],
-        }
+        if converter.is_primitive_hive_type(hive_column_type):
+            return converter._parse_datatype_string(hive_column_type)
+        else:
+            return {
+                "type": "record",
+                "name": "__struct_",
+                "fields": [
+                    {
+                        "name": hive_column_name,
+                        "type": converter._parse_datatype_string(hive_column_type),
+                    }
+                ],
+            }
 
 
 def get_avro_schema_for_hive_column(
     hive_column_name: str,
     hive_column_type: str,
-) -> Dict[str, object]:
+) -> Union[object, Dict[str, object]]:
     return HiveColumnToAvroConverter.get_avro_schema_for_hive_column(
         hive_column_name, hive_column_type
     )
+
+
+def get_schema_fields_for_hive_column(
+    hive_column_name: str,
+    hive_column_type: str,
+    description: Optional[str] = None,
+    default_nullable: bool = False,
+    is_part_of_key: bool = False,
+) -> List[SchemaField]:
+    avro_schema_json = get_avro_schema_for_hive_column(
+        hive_column_name=hive_column_name, hive_column_type=hive_column_type
+    )
+    schema_fields = avro_schema_to_mce_fields(
+        avro_schema_string=json.dumps(avro_schema_json),
+        default_nullable=default_nullable,
+    )
+    assert schema_fields
+    if HiveColumnToAvroConverter.is_primitive_hive_type(hive_column_type):
+        # Primitive avro schema does not have any field names. Append it to fieldPath.
+        schema_fields[0].fieldPath += f".{hive_column_name}"
+    if description:
+        schema_fields[0].description = description
+    schema_fields[0].isPartOfKey = is_part_of_key
+    return schema_fields

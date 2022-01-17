@@ -1,4 +1,3 @@
-import json
 import logging
 import typing
 from collections import defaultdict
@@ -13,7 +12,6 @@ from datahub.emitter import mce_builder
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.extractor.schema_util import avro_schema_to_mce_fields
 from datahub.ingestion.source.aws.aws_common import AwsSourceConfig, make_s3_urn
 from datahub.metadata.com.linkedin.pegasus2avro.common import Status
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
@@ -35,7 +33,7 @@ from datahub.metadata.schema_classes import (
     OwnershipClass,
     OwnershipTypeClass,
 )
-from datahub.utilities.hive_schema_to_avro import get_avro_schema_for_hive_column
+from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_column
 
 logger = logging.getLogger(__name__)
 
@@ -574,23 +572,19 @@ class GlueSource(Source):
             schema = table["StorageDescriptor"]["Columns"]
             fields: List[SchemaField] = []
             for field in schema:
-                avro_schema = get_avro_schema_for_hive_column(
-                    field["Name"], field["Type"]
-                )
-                schema_fields = avro_schema_to_mce_fields(
-                    json.dumps(avro_schema), default_nullable=True
+                schema_fields = get_schema_fields_for_hive_column(
+                    hive_column_name=field["Name"],
+                    hive_column_type=field["Type"],
+                    description=field.get("Comment"),
                 )
                 assert schema_fields
-                schema_fields[0].description = field.get("Comment")
                 fields.extend(schema_fields)
 
             partition_keys = table.get("PartitionKeys", [])
             for partition_key in partition_keys:
-                avro_schema = get_avro_schema_for_hive_column(
-                    partition_key["Name"], partition_key["Type"]
-                )
-                schema_fields = avro_schema_to_mce_fields(
-                    json.dumps(avro_schema), default_nullable=True
+                schema_fields = get_schema_fields_for_hive_column(
+                    hive_column_name=partition_key["Name"],
+                    hive_column_type=partition_key["Type"],
                 )
                 assert schema_fields
                 fields.extend(schema_fields)
