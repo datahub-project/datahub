@@ -33,7 +33,7 @@ datajob_input_output = DataJobInputOutputClass(
 # Construct a MetadataChangeProposalWrapper object.
 # NOTE: This will overwrite all of the existing lineage information associated with this job.
 datajob_input_output_mcp = MetadataChangeProposalWrapper(
-    entityType="datajob",
+    entityType="dataJob",
     changeType=ChangeTypeClass.UPSERT,
     entityUrn=builder.make_data_job_urn(
         orchestrator="airflow", flow_id="flow1", job_id="job1", cluster="PROD"
