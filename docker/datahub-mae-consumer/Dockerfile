@@ -21,6 +21,9 @@ COPY --from=prod-build /datahub-src/docker/datahub-mae-consumer/start.sh /datahu
 COPY --from=prod-build /datahub-src/docker/monitoring/client-prometheus-config.yaml /datahub/datahub-mae-consumer/scripts/prometheus-config.yaml
 RUN chmod +x /datahub/datahub-mae-consumer/scripts/start.sh
 
+# Snappy Lib update
+RUN apk update && apk add --no-cache gcompat
+
 FROM base as dev-install
 # Dummy stage for development. Assumes code is built on your machine and mounted to this image.
 # See this excellent thread https://github.com/docker/cli/issues/1134
