@@ -17,6 +17,7 @@ import { ChartDashboardsTab } from '../shared/tabs/Entity/ChartDashboardsTab';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { capitalizeFirstLetter } from '../../shared/capitalizeFirstLetter';
 import { EntityAndType } from '../../lineage/types';
+import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 
 /**
  * Definition of the DataHub Chart entity.
@@ -110,6 +111,9 @@ export class ChartEntity implements Entity<Chart> {
                 {
                     component: SidebarOwnerSection,
                 },
+                {
+                    component: SidebarDomainSection,
+                },
             ]}
         />
     );
@@ -147,6 +151,7 @@ export class ChartEntity implements Entity<Chart> {
                 owners={data.ownership?.owners}
                 tags={data?.globalTags || undefined}
                 glossaryTerms={data?.glossaryTerms}
+                domain={data.domain}
             />
         );
     };
@@ -164,6 +169,7 @@ export class ChartEntity implements Entity<Chart> {
                 tags={data?.globalTags || undefined}
                 glossaryTerms={data?.glossaryTerms}
                 insights={result.insights}
+                domain={data.domain}
             />
         );
     };

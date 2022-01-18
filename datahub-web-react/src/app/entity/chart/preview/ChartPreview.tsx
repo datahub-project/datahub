@@ -1,5 +1,13 @@
 import React from 'react';
-import { AccessLevel, EntityType, GlobalTags, GlossaryTerms, Owner, SearchInsight } from '../../../../types.generated';
+import {
+    AccessLevel,
+    Domain,
+    EntityType,
+    GlobalTags,
+    GlossaryTerms,
+    Owner,
+    SearchInsight,
+} from '../../../../types.generated';
 import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { getLogoFromPlatform } from '../../../shared/getLogoFromPlatform';
@@ -14,6 +22,7 @@ export const ChartPreview = ({
     owners,
     tags,
     glossaryTerms,
+    domain,
     insights,
 }: {
     urn: string;
@@ -24,6 +33,7 @@ export const ChartPreview = ({
     owners?: Array<Owner> | null;
     tags?: GlobalTags;
     glossaryTerms?: GlossaryTerms | null;
+    domain?: Domain | null;
     insights?: Array<SearchInsight> | null;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
@@ -41,6 +51,7 @@ export const ChartPreview = ({
             tags={tags}
             owners={owners}
             glossaryTerms={glossaryTerms || undefined}
+            domain={domain}
             insights={insights}
         />
     );

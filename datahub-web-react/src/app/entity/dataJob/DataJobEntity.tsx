@@ -17,6 +17,7 @@ import { GenericEntityProperties } from '../shared/types';
 import { DataJobFlowTab } from '../shared/tabs/Entity/DataJobFlowTab';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { capitalizeFirstLetter } from '../../shared/capitalizeFirstLetter';
+import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 
 /**
  * Definition of the DataHub DataJob entity.
@@ -102,6 +103,9 @@ export class DataJobEntity implements Entity<DataJob> {
                 {
                     component: SidebarOwnerSection,
                 },
+                {
+                    component: SidebarDomainSection,
+                },
             ]}
         />
     );
@@ -141,6 +145,7 @@ export class DataJobEntity implements Entity<DataJob> {
                 platformLogo={getLogoFromPlatform(data.dataFlow?.orchestrator || '')}
                 owners={data.ownership?.owners}
                 globalTags={data.globalTags || null}
+                domain={data.domain}
             />
         );
     };
@@ -159,6 +164,7 @@ export class DataJobEntity implements Entity<DataJob> {
                 platformLogo={getLogoFromPlatform(data.dataFlow?.orchestrator || '')}
                 owners={data.ownership?.owners}
                 globalTags={data.globalTags}
+                domain={data.domain}
                 insights={result.insights}
             />
         );

@@ -2,7 +2,7 @@ import { Image, Typography } from 'antd';
 import React, { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-import { GlobalTags, Owner, GlossaryTerms, SearchInsight } from '../../types.generated';
+import { GlobalTags, Owner, GlossaryTerms, SearchInsight, Domain } from '../../types.generated';
 import { useEntityRegistry } from '../useEntityRegistry';
 import AvatarsGroup from '../shared/avatar/AvatarsGroup';
 import TagTermGroup from '../shared/tags/TagTermGroup';
@@ -20,6 +20,7 @@ interface Props {
     qualifier?: string | null;
     tags?: GlobalTags;
     owners?: Array<Owner> | null;
+    domain?: Domain | null;
     snippet?: React.ReactNode;
     insights?: Array<SearchInsight> | null;
     glossaryTerms?: GlossaryTerms;
@@ -126,6 +127,7 @@ export default function DefaultPreviewCard({
     snippet,
     insights,
     glossaryTerms,
+    domain,
     titleSizePx,
     dataTestID,
     onClick,
@@ -153,6 +155,8 @@ export default function DefaultPreviewCard({
                             {platform && <PlatformText>{platform}</PlatformText>}
                             {(logoUrl || logoComponent || platform) && <PlatformDivider />}
                             <PlatformText>{type}</PlatformText>
+                            {domain && <PlatformDivider />}
+                            {domain && <PlatformText>{domain?.properties?.name}</PlatformText>}
                         </PlatformInfo>
                         <EntityTitle onClick={onClick} $titleSizePx={titleSizePx}>
                             {name || ' '}

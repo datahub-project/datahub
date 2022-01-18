@@ -1,6 +1,12 @@
 import styled from 'styled-components';
 import * as React from 'react';
-import { BankOutlined, BarChartOutlined, SettingOutlined, UsergroupAddOutlined } from '@ant-design/icons';
+import {
+    BankOutlined,
+    BarChartOutlined,
+    FolderOutlined,
+    SettingOutlined,
+    UsergroupAddOutlined,
+} from '@ant-design/icons';
 import { Link } from 'react-router-dom';
 import { Button } from 'antd';
 
@@ -24,6 +30,7 @@ export function AdminHeaderLinks() {
     const showIdentityManagement =
         (isIdentityManagementEnabled && me && me.platformPrivileges.manageIdentities) || false;
     const showSettings = true;
+    const showDomains = true; // Always show domains. TODO: Add a manage domains privilege check here.
 
     return (
         <>
@@ -41,6 +48,15 @@ export function AdminHeaderLinks() {
                     <Link to="/policies">
                         <Button type="text">
                             <BankOutlined /> Policies
+                        </Button>
+                    </Link>
+                </AdminLink>
+            )}
+            {showDomains && (
+                <AdminLink>
+                    <Link to="/domains">
+                        <Button type="text">
+                            <FolderOutlined /> Domains
                         </Button>
                     </Link>
                 </AdminLink>

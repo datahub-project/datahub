@@ -15,6 +15,7 @@ import { GenericEntityProperties } from '../shared/types';
 import { DataFlowJobsTab } from '../shared/tabs/Entity/DataFlowJobsTab';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { capitalizeFirstLetter } from '../../shared/capitalizeFirstLetter';
+import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 
 /**
  * Definition of the DataHub DataFlow entity.
@@ -90,6 +91,9 @@ export class DataFlowEntity implements Entity<DataFlow> {
                 {
                     component: SidebarOwnerSection,
                 },
+                {
+                    component: SidebarDomainSection,
+                },
             ]}
         />
     );
@@ -127,6 +131,7 @@ export class DataFlowEntity implements Entity<DataFlow> {
                 platformLogo={getLogoFromPlatform(data.orchestrator)}
                 owners={data.ownership?.owners}
                 globalTags={data.globalTags}
+                domain={data.domain}
             />
         );
     };
@@ -144,6 +149,7 @@ export class DataFlowEntity implements Entity<DataFlow> {
                 owners={data.ownership?.owners}
                 globalTags={data.globalTags}
                 insights={result.insights}
+                domain={data.domain}
             />
         );
     };

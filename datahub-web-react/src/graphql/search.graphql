@@ -326,6 +326,12 @@ fragment searchResults on SearchResults {
                         logoUrl
                     }
                 }
+                ... on Domain {
+                    urn
+                    properties {
+                        name
+                    }
+                }
             }
         }
     }

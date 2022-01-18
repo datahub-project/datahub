@@ -1,0 +1,87 @@
+import { Typography, Button, Tag, Modal, message } from 'antd';
+import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
+import { EditOutlined } from '@ant-design/icons';
+import { EMPTY_MESSAGES } from '../../../../constants';
+import { useEntityData, useRefetch } from '../../../../EntityContext';
+import { SidebarHeader } from '../SidebarHeader';
+import { SetDomainModal } from './SetDomainModal';
+import { useEntityRegistry } from '../../../../../../useEntityRegistry';
+import { EntityType } from '../../../../../../../types.generated';
+import { useUnsetDomainMutation } from '../../../../../../../graphql/mutations.generated';
+
+export const SidebarDomainSection = () => {
+    const { urn, entityData } = useEntityData();
+    const entityRegistry = useEntityRegistry();
+    const refetch = useRefetch();
+    const [unsetDomainMutation] = useUnsetDomainMutation();
+    const [showModal, setShowModal] = useState(false);
+    const isDomainEmpty = !entityData?.domain;
+    const domain = entityData?.domain;
+
+    const removeDomain = () => {
+        unsetDomainMutation({ variables: { entityUrn: urn } })
+            .then(() => {
+                message.success({ content: 'Removed Domain.', duration: 2 });
+                refetch?.();
+            })
+            .catch((e: unknown) => {
+                message.destroy();
+                if (e instanceof Error) {
+                    message.error({ content: `Failed to remove domain: \n ${e.message || ''}`, duration: 3 });
+                }
+            });
+    };
+
+    const onRemoveDomain = () => {
+        Modal.confirm({
+            title: `Confirm Domain Removal`,
+            content: `Are you sure you want to remove this domain?`,
+            onOk() {
+                removeDomain();
+            },
+            onCancel() {},
+            okText: 'Yes',
+            maskClosable: true,
+            closable: true,
+        });
+    };
+
+    return (
+        <div>
+            <SidebarHeader title="Domain" />
+            <div>
+                {!isDomainEmpty && (
+                    <Link to={entityRegistry.getEntityUrl(EntityType.Domain, domain?.urn as string)} key={domain?.urn}>
+                        <Tag
+                            closable
+                            onClose={(e) => {
+                                e.preventDefault();
+                                onRemoveDomain();
+                            }}
+                        >
+                            {entityRegistry.getDisplayName(EntityType.Domain, domain)}
+                        </Tag>
+                    </Link>
+                )}
+                {isDomainEmpty && (
+                    <>
+                        <Typography.Paragraph type="secondary">
+                            {EMPTY_MESSAGES.domain.title}. {EMPTY_MESSAGES.domain.description}
+                        </Typography.Paragraph>
+                        <Button type={isDomainEmpty ? 'default' : 'text'} onClick={() => setShowModal(true)}>
+                            <EditOutlined /> Set Domain
+                        </Button>
+                    </>
+                )}
+            </div>
+            <SetDomainModal
+                visible={showModal}
+                refetch={refetch}
+                onClose={() => {
+                    setShowModal(false);
+                }}
+            />
+        </div>
+    );
+};
