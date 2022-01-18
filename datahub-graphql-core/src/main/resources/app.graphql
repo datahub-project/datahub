@@ -51,6 +51,11 @@ type PlatformPrivileges {
   Whether the user should be able to generate personal access tokens
   """
   generatePersonalAccessTokens: Boolean!
+
+  """
+  Whether the user should be able to manage Domains
+  """
+  manageDomains: Boolean!
 }
 
 """
