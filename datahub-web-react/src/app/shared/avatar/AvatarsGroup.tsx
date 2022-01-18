@@ -37,7 +37,7 @@ export default function AvatarsGroup({ owners, entityRegistry, maxCount = 6, siz
                         owner.owner.__typename === 'CorpGroup' && (
                             <CustomAvatar
                                 size={size || 28}
-                                name={owner.owner.name}
+                                name={entityRegistry.getDisplayName(EntityType.CorpGroup, owner.owner)}
                                 url={`/${entityRegistry.getPathName(owner.owner.type || EntityType.CorpGroup)}/${
                                     owner.owner.urn
                                 }`}

@@ -43,6 +43,7 @@ fragment ownershipFields on Ownership {
                 type
                 name
                 info {
+                    displayName
                     email
                     admins {
                         urn
