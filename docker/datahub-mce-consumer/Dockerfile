@@ -19,9 +19,6 @@ COPY --from=prod-build /datahub-src/docker/datahub-mce-consumer/start.sh /datahu
 COPY --from=prod-build /datahub-src/docker/monitoring/client-prometheus-config.yaml /datahub/datahub-mce-consumer/scripts/prometheus-config.yaml
 RUN chmod +x /datahub/datahub-mce-consumer/scripts/start.sh
 
-# Snappy Lib update
-RUN apk update && apk add --no-cache gcompat
-
 # Setup TLS JKS
 RUN apk add openjdk11
 RUN cp /usr/lib/jvm/java-11-openjdk/lib/security/cacerts /tmp/kafka.client.truststore.jks
