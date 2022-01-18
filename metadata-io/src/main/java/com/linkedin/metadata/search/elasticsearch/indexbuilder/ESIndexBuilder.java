@@ -39,8 +39,8 @@ public class ESIndexBuilder {
   private final RestHighLevelClient searchClient;
   private final int numShards;
   private final int numReplicas;
+  private final int numRetries;
 
-  private static final int NUM_RETRIES = 3;
   private static final List<String> SETTINGS_TO_COMPARE = ImmutableList.of("number_of_shards", "number_of_replicas");
 
   public void buildIndex(String indexName, Map<String, Object> mappings, Map<String, Object> settings)
@@ -128,7 +128,7 @@ public class ESIndexBuilder {
     // There can be some delay between the reindex finishing and count being fully up to date, so try multiple times
     long originalCount = 0;
     long reindexedCount = 0;
-    for (int i = 0; i < NUM_RETRIES; i++) {
+    for (int i = 0; i < this.numRetries; i++) {
       // Check if reindex succeeded by comparing document counts
       originalCount = getCount(indexName);
       reindexedCount = getCount(tempIndexName);
