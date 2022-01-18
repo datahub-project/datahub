@@ -1314,6 +1314,168 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:data-lake-test,cases_1.chord_progressions_avro,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {},
+                        "externalUrl": null,
+                        "description": "",
+                        "uri": null,
+                        "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "chord_progressions_avro.avro",
+                        "platform": "urn:li:dataPlatform:data-lake-test",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown",
+                            "impersonator": null
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown",
+                            "impersonator": null
+                        },
+                        "deleted": null,
+                        "dataset": null,
+                        "cluster": null,
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.OtherSchema": {
+                                "rawSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "1st chord",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "LongType",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "2nd chord",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "LongType",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "3rd chord",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "LongType",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "4th chord",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "StringType",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "Progression Quality",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "DoubleType",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            }
+                        ],
+                        "primaryKeys": null,
+                        "foreignKeysSpecs": null,
+                        "foreignKeys": null
+                    }
+                }
+            ]
+        }
+    },
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "data-lake-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:data-lake-test,cases_1.chord_progressions_avro,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "value": "{\"timestampMillis\": 1615443388097, \"rowCount\": 28, \"columnCount\": 5, \"fieldProfiles\": [{\"fieldPath\": \"1st chord\", \"uniqueCount\": 5, \"uniqueProportion\": 0.17857142857142858, \"nullCount\": 0, \"nullProportion\": 0.0, \"distinctValueFrequencies\": [{\"value\": \"1\", \"frequency\": 5}, {\"value\": \"3\", \"frequency\": 1}, {\"value\": \"4\", \"frequency\": 10}, {\"value\": \"5\", \"frequency\": 7}, {\"value\": \"6\", \"frequency\": 5}], \"sampleValues\": [\"6\", \"4\", \"5\", \"1\", \"6\", \"4\", \"5\", \"4\", \"5\", \"4\", \"5\", \"1\", \"6\", \"1\", \"4\", \"3\", \"4\", \"4\", \"5\", \"1\"]}, {\"fieldPath\": \"2nd chord\", \"uniqueCount\": 7, \"uniqueProportion\": 0.25, \"nullCount\": 0, \"nullProportion\": 0.0, \"distinctValueFrequencies\": [{\"value\": \"1\", \"frequency\": 10}, {\"value\": \"2\", \"frequency\": 2}, {\"value\": \"3\", \"frequency\": 2}, {\"value\": \"4\", \"frequency\": 6}, {\"value\": \"5\", \"frequency\": 5}, {\"value\": \"6\", \"frequency\": 2}, {\"value\": \"7\", \"frequency\": 1}], \"sampleValues\": [\"4\", \"1\", \"6\", \"4\", \"2\", \"1\", \"1\", \"1\", \"4\", \"5\", \"5\", \"4\", \"2\", \"1\", \"1\", \"4\", \"3\", \"5\", \"4\", \"5\"]}, {\"fieldPath\": \"3rd chord\", \"uniqueCount\": 6, \"uniqueProportion\": 0.21428571428571427, \"nullCount\": 0, \"nullProportion\": 0.0, \"distinctValueFrequencies\": [{\"value\": \"1\", \"frequency\": 3}, {\"value\": \"3\", \"frequency\": 1}, {\"value\": \"4\", \"frequency\": 9}, {\"value\": \"5\", \"frequency\": 8}, {\"value\": \"6\", \"frequency\": 5}, {\"value\": \"7\", \"frequency\": 2}], \"sampleValues\": [\"5\", \"5\", \"5\", \"5\", \"4\", \"5\", \"4\", \"1\", \"4\", \"5\", \"1\", \"6\", \"5\", \"1\", \"4\", \"6\", \"6\", \"4\", \"3\", \"7\"]}, {\"fieldPath\": \"4th chord\", \"uniqueCount\": 20, \"uniqueProportion\": 0.7142857142857143, \"nullCount\": 0, \"nullProportion\": 0.0, \"distinctValueFrequencies\": [{\"value\": \"Alternative\", \"frequency\": 1}, {\"value\": \"Catchy\", \"frequency\": 1}, {\"value\": \"Didgeridoo\", \"frequency\": 1}, {\"value\": \"Dreadful\", \"frequency\": 2}, {\"value\": \"Endless\", \"frequency\": 1}, {\"value\": \"Energetic\", \"frequency\": 1}, {\"value\": \"Flamenco\", \"frequency\": 2}, {\"value\": \"Folk\", \"frequency\": 2}, {\"value\": \"Grunge\", \"frequency\": 1}, {\"value\": \"Jazz\", \"frequency\": 1}, {\"value\": \"Love\", \"frequency\": 1}, {\"value\": \"Memories\", \"frequency\": 1}, {\"value\": \"Moody\", \"frequency\": 2}, {\"value\": \"Pop\", \"frequency\": 2}, {\"value\": \"Rebellious\", \"frequency\": 1}, {\"value\": \"Sad\", \"frequency\": 3}, {\"value\": \"Simple\", \"frequency\": 2}, {\"value\": \"Sweet\", \"frequency\": 1}, {\"value\": \"Wildside\", \"frequency\": 1}, {\"value\": \"Wistful\", \"frequency\": 1}], \"sampleValues\": [\"Dreadful\", \"Memories\", \"Flamenco\", \"Rebellious\", \"Endless\", \"Alternative\", \"Folk\", \"Sweet\", \"Sad\", \"Sad\", \"Simple\", \"Wistful\", \"Dreadful\", \"Didgeridoo\", \"Simple\", \"Energetic\", \"Grunge\", \"Sad\", \"Flamenco\", \"Moody\"]}, {\"fieldPath\": \"Progression Quality\", \"uniqueCount\": 1, \"uniqueProportion\": 0.03571428571428571, \"nullCount\": 0, \"nullProportion\": 0.0, \"distinctValueFrequencies\": [{\"value\": \"NaN\", \"frequency\": 28}], \"sampleValues\": [\"nan\", \"nan\", \"nan\", \"nan\", \"nan\", \"nan\", \"nan\", \"nan\", \"nan\", \"nan\", \"nan\", \"nan\", \"nan\", \"nan\", \"nan\", \"nan\", \"nan\", \"nan\", \"nan\", \"nan\"]}]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "data-lake-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:data-lake-test,cases_1.chord_progressions_csv,PROD)",
             "aspects": [
                 {
@@ -1556,6 +1718,117 @@
     "aspectName": "datasetProfile",
     "aspect": {
         "value": "{\"timestampMillis\": 1615443388097, \"rowCount\": 1, \"columnCount\": 1, \"fieldProfiles\": [{\"fieldPath\": \"countries\", \"uniqueCount\": 1, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"[Row(code='DZ', name='Algeria'), Row(code='AR', name='Argentina'), Row(code='AU', name='Australia'), Row(code='AT', name='Austria'), Row(code=None, name='Austria-Hungary'), Row(code=None, name='Austrian Empire'), Row(code='AZ', name='Azerbaijan'), Row(code='BD', name='Bangladesh'), Row(code='BB', name='Barbados'), Row(code='DE', name='Bavaria'), Row(code='BY', name='Belarus'), Row(code='CD', name='Belgian Congo'), Row(code='BE', name='Belgium'), Row(code='BA', name='Bosnia'), Row(code='BA', name='Bosnia and Herzegovina'), Row(code='BR', name='Brazil'), Row(code='IN', name='British India'), Row(code='IL', name='British Mandate of Palestine'), Row(code='IL', name='British Protectorate of Palestine'), Row(code='LC', name='British West Indies'), Row(code='BG', name='Bulgaria'), Row(code='MM', name='Burma'), Row(code='CA', name='Canada'), Row(code='CL', name='Chile'), Row(code='CN', name='China'), Row(code='CO', name='Colombia'), Row(code='CR', name='Costa Rica'), Row(code='GR', name='Crete'), Row(code='HR', name='Croatia'), Row(code='CY', name='Cyprus'), Row(code='CZ', name='Czech Republic'), Row(code='CZ', name='Czechoslovakia'), Row(code='CD', name='Democratic Republic of the Congo'), Row(code='VN', name='Democratic Republic of Vietnam'), Row(code='DK', name='Denmark'), Row(code='DE', name='East Friesland'), Row(code='DE', name='East Germany'), Row(code='TL', name='East Timor'), Row(code='EG', name='Egypt'), Row(code='ET', name='Ethiopia'), Row(code='DK', name='Faroe Islands (Denmark)'), Row(code='FI', name='Finland'), Row(code='FR', name='France'), Row(code='PL', name='Free City of Danzig'), Row(code='DZ', name='French Algeria'), Row(code='GA', name='Gabon'), Row(code='PL', name='German-occupied Poland'), Row(code='DE', name='Germany'), Row(code='GH', name='Ghana'), Row(code='GH', name='Gold Coast'), Row(code='GR', name='Greece'), Row(code='GL', name='Greenland'), Row(code='GP', name='Guadeloupe Island'), Row(code='GT', name='Guatemala'), Row(code='DE', name='Hesse-Kassel'), Row(code='CZ', name='Hungarian Empire'), Row(code='HU', name='Hungary'), Row(code='IS', name='Iceland'), Row(code='IN', name='India'), Row(code='ID', name='Indonesia'), Row(code='IR', name='Iran'), Row(code='IQ', name='Iraq'), Row(code='IE', name='Ireland'), Row(code='IL', name='Israel'), Row(code='IT', name='Italy'), Row(code='JM', name='Jamaica'), Row(code='JP', name='Japan'), Row(code='ID', name='Java, Dutch East Indies'), Row(code='KE', name='Kenya'), Row(code='BR', name='Korea'), Row(code='LV', name='Latvia'), Row(code='LB', name='Lebanon'), Row(code='LR', name='Liberia'), Row(code='LT', name='Lithuania'), Row(code='LU', name='Luxembourg'), Row(code='MG', name='Madagascar'), Row(code='MU', name='Mauritius'), Row(code='DE', name='Mecklenburg'), Row(code='MX', name='Mexico'), Row(code='MA', name='Morocco'), Row(code='MM', name='Myanmar'), Row(code='NZ', name='New Zealand'), Row(code='NG', name='Nigeria'), Row(code='MK', name='North Macedonia'), Row(code='GB', name='Northern Ireland'), Row(code='ZM', name='Northern Rhodesia'), Row(code='NO', name='Norway'), Row(code='TR', name='Ottoman Empire'), Row(code='PK', name='Pakistan'), Row(code='US', name='Palestine'), Row(code='IR', name='Persia'), Row(code='PE', name='Peru'), Row(code='PH', name='Philippines'), Row(code='PL', name='Poland'), Row(code='PL', name='Poland, Russian Empire'), Row(code='PT', name='Portugal'), Row(code='PL', name='Prussia'), Row(code='PR', name='Puerto Rico'), Row(code='MK', name='Republic of Macedonia'), Row(code='RO', name='Romania'), Row(code='RU', name='Russia'), Row(code='RU', name='Russia, Soviet Union'), Row(code='AZ', name='Russian Empire'), Row(code='LC', name='Saint Lucia'), Row(code='DE', name='Schleswig'), Row(code='GB', name='Scotland'), Row(code='RS', name='Serbia'), Row(code='SG', name='Singapore'), Row(code='SK', name='Slovakia'), Row(code='SI', name='Slovenia'), Row(code='ZA', name='South Africa'), Row(code='KR', name='South Korea'), Row(code='ZW', name='Southern Rhodesia'), Row(code='ES', name='Spain'), Row(code='SE', name='Sweden'), Row(code='CH', name='Switzerland'), Row(code='TW', name='Taiwan'), Row(code='NL', name='the Netherlands'), Row(code='CN', name='Tibet'), Row(code='TT', name='Trinidad and Tobago'), Row(code='TN', name='Tunisia'), Row(code='TR', name='Turkey'), Row(code='IT', name='Tuscany'), Row(code='UA', name='Ukraine'), Row(code='ZA', name='Union of South Africa'), Row(code='GB', name='United Kingdom'), Row(code='US', name='USA'), Row(code='RU', name='USSR'), Row(code='VE', name='Venezuela'), Row(code='VN', name='Vietnam'), Row(code='DE', name='West Germany'), Row(code='DE', name='W\\u00fcrttemberg'), Row(code='YE', name='Yemen'), Row(code='YU', name='Yugoslavia'), Row(code='ZM', name='Zambia'), Row(code='ZW', name='Zimbabwe')]\"]}]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "data-lake-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:data-lake-test,cases_1.food_avro,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {},
+                        "externalUrl": null,
+                        "description": "",
+                        "uri": null,
+                        "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "food_avro.avro",
+                        "platform": "urn:li:dataPlatform:data-lake-test",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown",
+                            "impersonator": null
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown",
+                            "impersonator": null
+                        },
+                        "deleted": null,
+                        "dataset": null,
+                        "cluster": null,
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.OtherSchema": {
+                                "rawSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "weight",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "LongType",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "height",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "LongType",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            }
+                        ],
+                        "primaryKeys": null,
+                        "foreignKeysSpecs": null,
+                        "foreignKeys": null
+                    }
+                }
+            ]
+        }
+    },
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "data-lake-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:data-lake-test,cases_1.food_avro,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "value": "{\"timestampMillis\": 1615443388097, \"rowCount\": 70, \"columnCount\": 2, \"fieldProfiles\": [{\"fieldPath\": \"weight\", \"uniqueCount\": 10, \"uniqueProportion\": 0.14285714285714285, \"nullCount\": 0, \"nullProportion\": 0.0, \"distinctValueFrequencies\": [{\"value\": \"10\", \"frequency\": 7}, {\"value\": \"2\", \"frequency\": 7}, {\"value\": \"23\", \"frequency\": 7}, {\"value\": \"32\", \"frequency\": 7}, {\"value\": \"36\", \"frequency\": 7}, {\"value\": \"43\", \"frequency\": 7}, {\"value\": \"49\", \"frequency\": 7}, {\"value\": \"50\", \"frequency\": 7}, {\"value\": \"53\", \"frequency\": 7}, {\"value\": \"72\", \"frequency\": 7}], \"sampleValues\": [\"23\", \"50\", \"10\", \"50\", \"49\", \"43\", \"10\", \"23\", \"72\", \"72\", \"23\", \"10\", \"72\", \"50\", \"32\", \"32\", \"72\", \"49\", \"36\", \"43\"]}, {\"fieldPath\": \"height\", \"uniqueCount\": 4, \"uniqueProportion\": 0.05714285714285714, \"nullCount\": 0, \"nullProportion\": 0.0, \"distinctValueFrequencies\": [{\"value\": \"4\", \"frequency\": 24}, {\"value\": \"5\", \"frequency\": 15}, {\"value\": \"6\", \"frequency\": 23}, {\"value\": \"7\", \"frequency\": 8}], \"sampleValues\": [\"4\", \"6\", \"6\", \"4\", \"5\", \"5\", \"5\", \"4\", \"4\", \"6\", \"6\", \"7\", \"7\", \"4\", \"6\", \"4\", \"5\", \"6\", \"5\", \"4\"]}]}",
         "contentType": "application/json"
     },
     "systemMetadata": {
