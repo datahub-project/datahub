@@ -33,7 +33,7 @@ module.exports = {
     announcementBar: {
       id: "announcement",
       content:
-        '<div><img src="/img/acryl-logo-white-mark.svg" /><span><strong>Managed DataHub</strong> &nbsp;Acryl Data delivers an easy to consume DataHub platform for the enterprise</span></div> <a href="/docs/saas" target="_blank" class="button button--primary">Sign up for Managed DataHub →</a>',
+        '<div><img src="/img/acryl-logo-white-mark.svg" /><p><strong>Managed DataHub</strong><span> &nbsp;Acryl Data delivers an easy to consume DataHub platform for the enterprise</span></p></div> <a href="https://www.acryldata.io/datahub-beta" target="_blank" class="button button--primary">Sign up for Managed DataHub →</a>',
       backgroundColor: "#090a11",
       textColor: "#ffffff",
       isCloseable: false,
@@ -58,6 +58,21 @@ module.exports = {
           position: "right",
         },
         {
+          href: "https://blog.datahubproject.io/",
+          label: "Blog",
+          position: "right",
+        },
+        {
+          href: "https://feature-requests.datahubproject.io/",
+          label: "Feature Requests",
+          position: "right",
+        },
+        {
+          to: "docs/roadmap",
+          label: "Roadmap",
+          position: "right",
+        },
+        {
           href: "https://slack.datahubproject.io",
           "aria-label": "Slack",
           position: "right",
@@ -69,12 +84,7 @@ module.exports = {
           position: "right",
           className: "item__icon item__github",
         },
-        {
-          href: "https://medium.com/datahub-project",
-          "aria-label": "Blog",
-          position: "right",
-          className: "item__icon item__medium",
-        },
+
         {
           href: "https://www.youtube.com/channel/UC3qFQC5IiwR5fvWEqi_tJ5w",
           "aria-label": "YouTube",
@@ -119,6 +129,10 @@ module.exports = {
               href: "https://www.youtube.com/channel/UC3qFQC5IiwR5fvWEqi_tJ5w",
             },
             {
+              label: "Blog",
+              href: "https://blog.datahubproject.io/",
+            },
+            {
               label: "Town Halls",
               to: "docs/townhalls",
             },
@@ -147,6 +161,10 @@ module.exports = {
               label: "GitHub",
               href: "https://github.com/linkedin/datahub",
             },
+            {
+              label: "Feature Requests",
+              href: "https://feature-requests.datahubproject.io/",
+            },
           ],
         },
       ],
@@ -156,9 +174,6 @@ module.exports = {
       //   theme: require('prism-react-renderer/themes/github'),
       //   darkTheme: require('prism-react-renderer/themes/dracula'),
       additionalLanguages: ["ini"],
-    },
-    gtag: {
-      trackingID: "G-2G54RXWD4D",
     },
     algolia: {
       apiKey: "26a4b687e96e7476b5a6f11365a83336",

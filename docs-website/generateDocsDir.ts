@@ -302,7 +302,7 @@ function markdown_rewrite_urls(
       //
       // We do a little bit of parenthesis matching here to account for parens in URLs.
       // See https://stackoverflow.com/a/17759264 for explanation of the second capture group.
-      /\[(.+?)\]\(((?:[^)(]+|\((?:[^)(]+|\([^)(]*\))*\))*)\)/g,
+      /\[(.*?)\]\(((?:[^)(]+|\((?:[^)(]+|\([^)(]*\))*\))*)\)/g,
       (_, text, url) => {
         const updated = new_url(url.trim(), filepath);
         return `[${text}](${updated})`;

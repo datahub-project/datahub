@@ -15,8 +15,7 @@ def test_snowflake_uri():
             "role": "sysadmin",
         }
     )
-
     assert (
         config.get_sql_alchemy_url()
-        == "snowflake://user:password@acctname/?warehouse=COMPUTE_WH&role=sysadmin"
+        == "snowflake://user:password@acctname/?warehouse=COMPUTE_WH&role=sysadmin&application=acryl_datahub"
     )

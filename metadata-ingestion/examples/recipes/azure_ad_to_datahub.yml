@@ -9,9 +9,13 @@ source:
     authority: "https://login.microsoftonline.com/00000000-0000-0000-0000-000000000000"
     token_url: "https://login.microsoftonline.com/00000000-0000-0000-0000-000000000000/oauth2/token"
     graph_url: "https://graph.microsoft.com/v1.0"
-    ingest_users: True
+    ingest_users: False
     ingest_groups: True
     ingest_group_membership: True
+    ingest_groups_users: True
+    groups_pattern:
+      allow:
+        - ".*"
 sink:
   type: "datahub-rest"
   config:

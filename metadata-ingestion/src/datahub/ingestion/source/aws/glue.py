@@ -1,10 +1,11 @@
-import json
 import typing
 from collections import defaultdict
 from dataclasses import dataclass
 from dataclasses import field as dataclass_field
 from typing import Any, Dict, Iterable, Iterator, List, Optional, Set, Tuple, Union
 from urllib.parse import urlparse
+
+import yaml
 
 from datahub.emitter import mce_builder
 from datahub.ingestion.api.common import PipelineContext
@@ -157,6 +158,15 @@ class GlueSource(Source):
 
             return None
 
+    def get_s3_uri(self, node_args):
+        s3_uri = node_args.get("connection_options", {}).get("path")
+
+        # sometimes the path is a single element in a list rather than a single one
+        if s3_uri is None:
+            s3_uri = node_args.get("connection_options", {}).get("paths")[0]
+
+        return s3_uri
+
     def get_dataflow_s3_names(
         self, dataflow_graph: Dict[str, Any]
     ) -> Iterator[Tuple[str, Optional[str]]]:
@@ -169,12 +179,17 @@ class GlueSource(Source):
             # for nodes representing datasets, we construct a dataset URN accordingly
             if node_type in ["DataSource", "DataSink"]:
 
-                node_args = {x["Name"]: json.loads(x["Value"]) for x in node["Args"]}
+                node_args = {
+                    x["Name"]: yaml.safe_load(x["Value"]) for x in node["Args"]
+                }
 
                 # if data object is S3 bucket
                 if node_args.get("connection_type") == "s3":
 
-                    s3_uri = node_args["connection_options"]["path"]
+                    s3_uri = self.get_s3_uri(node_args)
+
+                    if s3_uri is None:
+                        continue
 
                     extension = node_args.get("format")
 
@@ -187,14 +202,14 @@ class GlueSource(Source):
         new_dataset_ids: List[str],
         new_dataset_mces: List[MetadataChangeEvent],
         s3_formats: typing.DefaultDict[str, Set[Union[str, None]]],
-    ) -> Dict[str, Any]:
+    ) -> Optional[Dict[str, Any]]:
 
         node_type = node["NodeType"]
 
         # for nodes representing datasets, we construct a dataset URN accordingly
         if node_type in ["DataSource", "DataSink"]:
 
-            node_args = {x["Name"]: json.loads(x["Value"]) for x in node["Args"]}
+            node_args = {x["Name"]: yaml.safe_load(x["Value"]) for x in node["Args"]}
 
             # if data object is Glue table
             if "database" in node_args and "table_name" in node_args:
@@ -207,7 +222,14 @@ class GlueSource(Source):
             # if data object is S3 bucket
             elif node_args.get("connection_type") == "s3":
 
-                s3_uri = node_args["connection_options"]["path"]
+                s3_uri = self.get_s3_uri(node_args)
+
+                if s3_uri is None:
+                    self.report.report_warning(
+                        f"{node['Nodetype']}-{node['Id']}",
+                        f"Could not find script path for job {node['Nodetype']}-{node['Id']} in flow {flow_urn}. Skipping",
+                    )
+                    return None
 
                 # append S3 format if different ones exist
                 if len(s3_formats[s3_uri]) > 1:
@@ -283,9 +305,12 @@ class GlueSource(Source):
         # iterate through each node to populate processed nodes
         for node in dataflow_graph["DagNodes"]:
 
-            nodes[node["Id"]] = self.process_dataflow_node(
+            processed_node = self.process_dataflow_node(
                 node, flow_urn, new_dataset_ids, new_dataset_mces, s3_formats
             )
+
+            if processed_node is not None:
+                nodes[node["Id"]] = processed_node
 
         # traverse edges to fill in node properties
         for edge in dataflow_graph["DagEdges"]:
@@ -353,9 +378,7 @@ class GlueSource(Source):
 
         return MetadataWorkUnit(id=job["Name"], mce=mce)
 
-    def get_datajob_wu(
-        self, node: Dict[str, Any], job: Dict[str, Any]
-    ) -> MetadataWorkUnit:
+    def get_datajob_wu(self, node: Dict[str, Any], job_name: str) -> MetadataWorkUnit:
         """
         Generate a DataJob workunit for a component (node) in a Glue job.
 
@@ -374,10 +397,10 @@ class GlueSource(Source):
                 urn=node["urn"],
                 aspects=[
                     DataJobInfoClass(
-                        name=f"{job['Name']}:{node['NodeType']}-{node['Id']}",
+                        name=f"{job_name}:{node['NodeType']}-{node['Id']}",
                         type="GLUE",
                         # there's no way to view an individual job node by link, so just show the graph
-                        externalUrl=f"https://{region}.console.aws.amazon.com/gluestudio/home?region={region}#/editor/job/{job['Name']}/graph",
+                        externalUrl=f"https://{region}.console.aws.amazon.com/gluestudio/home?region={region}#/editor/job/{job_name}/graph",
                         customProperties={
                             **{x["Name"]: x["Value"] for x in node["Args"]},
                             "transformType": node["NodeType"],
@@ -393,7 +416,7 @@ class GlueSource(Source):
             )
         )
 
-        return MetadataWorkUnit(id=f'{job["Name"]}-{node["Id"]}', mce=mce)
+        return MetadataWorkUnit(id=f'{job_name}-{node["Id"]}', mce=mce)
 
     def get_all_tables(self) -> List[dict]:
         def get_tables_from_database(database_name: str) -> List[dict]:
@@ -451,6 +474,7 @@ class GlueSource(Source):
         if self.extract_transforms:
 
             dags = {}
+            flow_names: Dict[str, str] = {}
 
             for job in self.get_all_jobs():
 
@@ -471,6 +495,7 @@ class GlueSource(Source):
                     dag = self.get_dataflow_graph(job_script_location)
 
                 dags[flow_urn] = dag
+                flow_names[flow_urn] = job["Name"]
 
             # run a first pass to pick up s3 bucket names and formats
             # in Glue, it's possible for two buckets to have files of different extensions
@@ -499,7 +524,7 @@ class GlueSource(Source):
                 for node in nodes.values():
 
                     if node["NodeType"] not in ["DataSource", "DataSink"]:
-                        job_wu = self.get_datajob_wu(node, job)
+                        job_wu = self.get_datajob_wu(node, flow_names[flow_urn])
                         self.report.report_workunit(job_wu)
                         yield job_wu
 

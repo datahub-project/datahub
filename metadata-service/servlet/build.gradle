@@ -5,5 +5,7 @@ dependencies {
   compile externalDependency.servletApi
   compile externalDependency.gson
   compile externalDependency.jacksonDataBind
+  compile externalDependency.springWebMVC
   annotationProcessor externalDependency.lombok
+  compile project(':entity-registry')
 }

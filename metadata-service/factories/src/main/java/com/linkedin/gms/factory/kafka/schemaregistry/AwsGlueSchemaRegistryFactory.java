@@ -4,6 +4,7 @@ import com.amazonaws.services.schemaregistry.deserializers.GlueSchemaRegistryKaf
 import com.amazonaws.services.schemaregistry.serializers.GlueSchemaRegistryKafkaSerializer;
 import com.amazonaws.services.schemaregistry.utils.AWSSchemaRegistryConstants;
 import com.amazonaws.services.schemaregistry.utils.AvroRecordType;
+import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -12,17 +13,19 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.PropertySource;
 
 
 @Slf4j
 @Configuration
+@PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
 public class AwsGlueSchemaRegistryFactory {
 
   public static final String TYPE = "AWS_GLUE";
 
-  @Value("${AWS_GLUE_SCHEMA_REGISTRY_REGION:us-east-1}")
+  @Value("${kafka.schemaRegistry.awsGlue.region}")
   private String awsRegion;
-  @Value("${AWS_GLUE_SCHEMA_REGISTRY_NAME:#{null}}")
+  @Value("${kafka.schemaRegistry.awsGlue.registryName}")
   private Optional<String> registryName;
 
   @Bean(name = "awsGlueSchemaRegistry")

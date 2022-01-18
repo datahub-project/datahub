@@ -15,7 +15,7 @@ export const DescriptionEditor = ({ onComplete }: { onComplete?: () => void }) =
     const refetch = useRefetch();
     const updateEntity = useEntityUpdate<GenericEntityUpdate>();
 
-    const description = entityData?.editableProperties?.description || entityData?.description || '';
+    const description = entityData?.editableProperties?.description || entityData?.properties?.description || '';
     const [updatedDescription, setUpdatedDescription] = useState(description);
 
     const handleSaveDescription = async () => {

@@ -70,7 +70,7 @@ public class GlossaryTermType implements SearchableEntityType<GlossaryTerm>, Bro
                     .stream()
                     .filter(Objects::nonNull)
                     .collect(Collectors.toSet()),
-                context.getActor());
+                context.getAuthentication());
 
             final List<Entity> gmsResults = new ArrayList<>();
             for (GlossaryTermUrn urn : glossaryTermUrns) {
@@ -97,7 +97,7 @@ public class GlossaryTermType implements SearchableEntityType<GlossaryTerm>, Bro
                                 @Nonnull final QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
         final SearchResult searchResult = _entityClient.search(
-            "glossaryTerm", query, facetFilters, start, count, context.getActor());
+            "glossaryTerm", query, facetFilters, start, count, context.getAuthentication());
         return UrnSearchResultsMapper.map(searchResult);
     }
 
@@ -109,7 +109,7 @@ public class GlossaryTermType implements SearchableEntityType<GlossaryTerm>, Bro
                                             @Nonnull final QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
         final AutoCompleteResult result = _entityClient.autoComplete(
-            "glossaryTerm", query, facetFilters, limit, context.getActor());
+            "glossaryTerm", query, facetFilters, limit, context.getAuthentication());
         return AutoCompleteResultsMapper.map(result);
     }
 
@@ -127,13 +127,13 @@ public class GlossaryTermType implements SearchableEntityType<GlossaryTerm>, Bro
                 facetFilters,
                 start,
                 count,
-            context.getActor());
+            context.getAuthentication());
         return BrowseResultMapper.map(result);
     }
 
     @Override
     public List<BrowsePath> browsePaths(@Nonnull String urn, @Nonnull final QueryContext context) throws Exception {
-        final StringArray result = _entityClient.getBrowsePaths(GlossaryTermUtils.getGlossaryTermUrn(urn), context.getActor());
+        final StringArray result = _entityClient.getBrowsePaths(GlossaryTermUtils.getGlossaryTermUrn(urn), context.getAuthentication());
         return BrowsePathsMapper.map(result);
     }
 

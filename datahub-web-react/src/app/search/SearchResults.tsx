@@ -17,6 +17,8 @@ import { EventType } from '../analytics';
 import { SearchCfg } from '../../conf';
 import { navigateToSearchUrl } from './utils/navigateToSearchUrl';
 import { ANTD_GRAY } from '../entity/shared/constants';
+import { SearchResultsRecommendations } from './SearchResultsRecommendations';
+import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
 
 const ResultList = styled(List)`
     &&& {
@@ -31,6 +33,7 @@ const ResultList = styled(List)`
 const SearchBody = styled.div`
     display: flex;
     flex-direction: row;
+    min-height: calc(100vh - 60px);
 `;
 
 const FiltersContainer = styled.div`
@@ -90,6 +93,10 @@ const ThinDivider = styled(Divider)`
     margin-bottom: 16px;
 `;
 
+const SearchResultsRecommendationsContainer = styled.div`
+    margin-top: 40px;
+`;
+
 interface Props {
     query: string;
     page: number;
@@ -117,6 +124,7 @@ export const SearchResults = ({
     const lastResultIndex = pageStart + pageSize > totalResults ? totalResults : pageStart + pageSize;
 
     const entityRegistry = useEntityRegistry();
+    const authenticatedUserUrn = useGetAuthenticatedUser()?.corpUser?.urn;
 
     const onResultClick = (result: SearchResult, index: number) => {
         analytics.event({
@@ -199,6 +207,15 @@ export const SearchResults = ({
                                     showSizeChanger={false}
                                 />
                             </PaginationControlContainer>
+                            {authenticatedUserUrn && (
+                                <SearchResultsRecommendationsContainer>
+                                    <SearchResultsRecommendations
+                                        userUrn={authenticatedUserUrn}
+                                        query={query}
+                                        filters={selectedFilters}
+                                    />
+                                </SearchResultsRecommendationsContainer>
+                            )}
                         </>
                     )}
                 </ResultContainer>

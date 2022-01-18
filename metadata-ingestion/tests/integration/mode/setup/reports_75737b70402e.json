@@ -1,0 +1,227 @@
+{
+  "_links": {
+    "self": {
+      "href": "/api/acryltest/collections/75737b70402e/reports"
+    }
+  },
+  "_embedded": {
+    "reports": [{
+      "token": "9d2da37fa91e",
+      "id": 2934237,
+      "name": "Report 1",
+      "description": "First Report",
+      "created_at": "2021-12-10T20:55:24.316Z",
+      "updated_at": "2021-12-11T00:31:54.501Z",
+      "published_at": null,
+      "edited_at": "2021-12-10T23:12:51.156Z",
+      "theme_id": 3,
+      "color_mappings": {},
+      "type": "Report",
+      "last_successful_sync_at": null,
+      "last_saved_at": "2021-12-11T00:31:24.451Z",
+      "archived": false,
+      "space_token": "75737b70402e",
+      "account_id": 751252,
+      "account_username": "acryltest",
+      "public": false,
+      "full_width": false,
+      "manual_run_disabled": false,
+      "run_privately": true,
+      "drilldowns_enabled": true,
+
+      "is_embedded": false,
+      "is_signed": false,
+      "shared": false,
+      "expected_runtime": 1.55649,
+      "last_successfully_run_at": "2021-12-10T23:12:53.142Z",
+      "last_run_at": "2021-12-10T23:12:51.490Z",
+      "web_preview_image": "https://s3.us-west-2.amazonaws.com/mode.production/report-run-previews/web/acryltest/9d2da37fa91e/4ec308153383/8143c22aed5a?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAJZYSJ2XHDM2CQN2Q%2F20211211%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20211211T003520Z&X-Amz-Expires=119&X-Amz-SignedHeaders=host&X-Amz-Signature=52ecb89b5f2ccdae05fbe249eb23f8482b9a25129f49f29518e8aacf65534dce",
+      "last_successful_run_token": "4ec308153383",
+      "flamingo_signature": "c2lnbmF0dXJlPTg5YTY4NDMwMDEzZjg1NzViZjhiOTRhMzA1ZGViNjhkNThhN2E5NWQ0NGEwNzMzMzZjZWNjNmEyMGVhN2I0N2Umb3JnYW5pemF0aW9uX3Rva2VuPTc5MTU4MWU0YTJhYSZzaGFyZWRfa2V5X2lkPWZsYW1pbmdvLXJlYWQtMSZ0YWdfZXhwcmVzc2lvbj1PXzc5MTU4MWU0YTJhYSslMjYlMjYrUl85ZDJkYTM3ZmE5MWUmdGltZXN0YW1wPTE2MzkxODI5MjAmdXNlcl90b2tlbj04NTE1NzIyODA5OTM=",
+      "query_count": 1,
+      "max_query_count": 160,
+      "chart_count": 1,
+      "runs_count": 27,
+      "schedules_count": 0,
+
+      "view_count": 6,
+      "_links": {
+        "self": {
+          "href": "/api/acryltest/reports/9d2da37fa91e"
+        },
+        "web": {
+          "href": "https://app.mode.com/acryltest/reports/9d2da37fa91e"
+        },
+        "web_edit": {
+          "href": "/editor/acryltest/reports/9d2da37fa91e"
+        },
+        "csv_export": {
+          "href": "/api/acryltest/reports/9d2da37fa91e/results/content.csv"
+        },
+        "share": {
+          "href": "/acryltest/reports/9d2da37fa91e"
+        },
+        "web_report_runs": {
+          "href": "/acryltest/reports/9d2da37fa91e/runs"
+        },
+        "account": {
+          "href": "/api/acryltest"
+        },
+        "report_run": {
+          "templated": true,
+          "href": "/api/acryltest/reports/9d2da37fa91e/runs/{id}?embed[result]=1"
+        },
+        "space": {
+          "href": "/api/acryltest/collections/75737b70402e"
+        },
+        "space_links": {
+          "href": "/api/acryltest/reports/9d2da37fa91e/space_links"
+        },
+        "queries": {
+          "href": "/api/acryltest/reports/9d2da37fa91e/queries"
+        },
+        "report_runs": {
+          "href": "/api/acryltest/reports/9d2da37fa91e/runs"
+        },
+        "report_pins": {
+          "href": "/api/acryltest/reports/9d2da37fa91e/pins"
+        },
+        "report_filters": {
+          "href": "/api/acryltest/reports/9d2da37fa91e/filters"
+        },
+        "report_schedules": {
+          "href": "/api/acryltest/reports/9d2da37fa91e/schedules"
+        },
+        "report_subscriptions": {
+          "href": "/api/acryltest/reports/9d2da37fa91e/subscriptions"
+        },
+        "python_visualizations": {
+          "href": "/api/acryltest/reports/9d2da37fa91e/layout_cells"
+        },
+        "last_run": {
+          "href": "/api/acryltest/reports/9d2da37fa91e/runs/4ec308153383"
+        },
+        "last_successful_run": {
+          "href": "/api/acryltest/reports/9d2da37fa91e/runs/4ec308153383"
+        },
+        "perspective_email_subscription_memberships": {
+          "href": "/api/acryltest/reports/9d2da37fa91e/perspective_email_report_subscription_memberships"
+        },
+        "validate_email_subscriber": {
+          "templated": true,
+          "href": "/api/acryltest/reports/9d2da37fa91e/email_report_subscribers/validate{?subscriber[email]}"
+        },
+        "creator": {
+          "href": "/api/modeuser"
+        },
+        "report_theme": {
+          "href": "/api/modeanalytics/report_themes/3818837139b7"
+        },
+        "report_index_web": {
+          "href": "/acryltest/spaces/75737b70402e/reports/9d2da37fa91e"
+        }
+      },
+      "_forms": {
+        "edit": {
+          "method": "patch",
+          "action": "/api/acryltest/reports/9d2da37fa91e",
+          "input": {
+            "report": {
+              "name": {
+                "type": "text",
+                "value": "Report 1"
+              },
+              "description": {
+                "type": "text",
+                "value": "First Report"
+              },
+              "account_id": {
+                "type": "text",
+                "value": 751252
+              },
+              "space_token": {
+                "type": "text",
+                "value": "75737b70402e"
+              },
+
+              "color_mappings": {
+                "type": "text",
+                "value": {}
+              },
+              "published": {
+                "type": "text",
+                "value": false
+              }
+            }
+          }
+        },
+        "destroy": {
+          "method": "delete",
+          "action": "/api/acryltest/reports/9d2da37fa91e"
+        },
+        "archive": {
+          "method": "patch",
+          "action": "/api/acryltest/reports/9d2da37fa91e/archive"
+        },
+        "unarchive": {
+          "method": "patch",
+          "action": "/api/acryltest/reports/9d2da37fa91e/unarchive"
+        },
+        "batch_edit_filters": {
+          "method": "patch",
+          "action": "/api/acryltest/reports/9d2da37fa91e/filters/update_batch",
+          "input": {
+            "report": {
+              "filters[]": {
+                "token": {
+                  "type": "text"
+                },
+                "options": {
+                  "type": "text"
+                }
+              }
+            }
+          }
+        },
+        "clone": {
+          "method": "post",
+          "action": "/acryltest/reports/9d2da37fa91e/runs/4ec308153383/clone",
+          "input": {
+            "owner_id": {
+              "type": "text",
+              "value": 751252
+            }
+          }
+        },
+        "update_settings": {
+          "method": "patch",
+          "action": "/api/acryltest/reports/9d2da37fa91e/update_settings",
+          "input": {
+            "report": {
+              "theme": {
+                "type": "select",
+                "options": [
+                  ["Mode Dark", 1],
+                  ["Mode Grey", 2],
+                  ["Mode Light", 3],
+                  ["Mode Subway", 5]
+                ],
+                "value": 3
+              },
+              "full_width": {
+                "type": "select",
+                "options": [true, false],
+                "value": false
+              },
+              "manual_run_disabled": {
+                "type": "select",
+                "options": [true, false],
+                "value": false
+              }
+            }
+          }
+        }
+      }
+    }]
+  }
+}

@@ -5,22 +5,23 @@ import com.linkedin.common.GlobalTags
 import com.linkedin.common.GlossaryTerms
 
 /**
- * SchemaField to describe metadata related to dataset schema. Schema normalization rules: http://go/tms-schema
+ * SchemaField to describe metadata related to dataset schema.
  */
 record SchemaField {
 
   /**
-   * Flattened name of the field. Field is computed from jsonPath field. For data translation rules refer to wiki page above.
+   * Flattened name of the field. Field is computed from jsonPath field.
    */
   @Searchable = {
     "fieldName": "fieldPaths",
-    "fieldType": "TEXT_PARTIAL"
+    "fieldType": "TEXT"
   }
   fieldPath: SchemaFieldPath
 
   /**
    * Flattened name of a field in JSON Path notation.
    */
+  @Deprecated
   jsonPath: optional string
 
   /**
@@ -59,7 +60,7 @@ record SchemaField {
   @Searchable = {
     "/tags/*/tag": {
       "fieldName": "fieldTags",
-      "fieldType": "URN_PARTIAL",
+      "fieldType": "URN",
       "boostScore": 0.5
     }
   }
@@ -71,7 +72,7 @@ record SchemaField {
    @Searchable = {
     "/terms/*/urn": {
       "fieldName": "fieldGlossaryTerms",
-      "fieldType": "URN_PARTIAL",
+      "fieldType": "URN",
       "boostScore": 0.5
     }
   }
@@ -82,4 +83,10 @@ record SchemaField {
    * We do this to easily distinguish between value and key fields
    */
   isPartOfKey: boolean = false
+
+  /**
+   * For schema fields that have other properties that are not modeled explicitly,
+   * use this field to serialize those properties into a JSON string
+   */
+  jsonProps: optional string
 }

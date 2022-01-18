@@ -1,0 +1,45 @@
+namespace com.linkedin.datajob.datahub
+
+import com.linkedin.timeseries.TimeseriesAspectBase
+import com.linkedin.timeseries.TimeWindowSize
+
+/**
+ * Checkpoint of a datahub ingestion run for a given job.
+ */
+@Aspect = {
+  "name": "datahubIngestionCheckpoint",
+  "type": "timeseries",
+}
+record DatahubIngestionCheckpoint includes TimeseriesAspectBase {
+
+  /**
+   * The name of the pipeline that ran ingestion, a stable unique user provided identifier.
+   *  e.g. my_snowflake1-to-datahub.
+   */
+  @TimeseriesField = {}
+  pipelineName: string
+
+
+  /**
+   * The id of the instance against which the ingestion pipeline ran.
+   * e.g.: Bigquery project ids, MySQL hostnames etc.
+   */
+  @TimeseriesField = {}
+  platformInstanceId: string
+
+  /**
+   * Json-encoded string representation of the non-secret members of the config .
+   */
+  config: string
+
+  /**
+   * Opaque blob of the state representation.
+   */
+  state: IngestionCheckpointState
+
+  /**
+   * The run identifier of this job.
+   */
+  @TimeseriesField = {}
+  runId: string
+}

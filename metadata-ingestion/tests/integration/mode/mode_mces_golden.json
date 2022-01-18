@@ -1,0 +1,156 @@
+[
+{
+    "auditHeader": null,
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DashboardSnapshot": {
+            "urn": "urn:li:dashboard:(mode,2934237)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.dashboard.DashboardInfo": {
+                        "customProperties": {},
+                        "externalUrl": null,
+                        "title": "Report 1",
+                        "description": "First Report",
+                        "charts": [
+                            "urn:li:chart:(mode,f622b9ee725b)"
+                        ],
+                        "lastModified": {
+                            "created": {
+                                "time": 1639169724316,
+                                "actor": "urn:li:corpuser:modeuser",
+                                "impersonator": null
+                            },
+                            "lastModified": {
+                                "time": 1639182684451,
+                                "actor": "urn:li:corpuser:modeuser",
+                                "impersonator": null
+                            },
+                            "deleted": null
+                        },
+                        "dashboardUrl": "https://app.mode.com/acryl/reports/9d2da37fa91e",
+                        "access": null,
+                        "lastRefreshed": null
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.BrowsePaths": {
+                        "paths": [
+                            "/mode/acryl/AcrylTest/Report 1"
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [
+                            {
+                                "owner": "urn:li:corpuser:modeuser",
+                                "type": "DATAOWNER",
+                                "source": null
+                            }
+                        ],
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown",
+                            "impersonator": null
+                        }
+                    }
+                }
+            ]
+        }
+    },
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "mode-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
+            "urn": "urn:li:chart:(mode,f622b9ee725b)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.chart.ChartInfo": {
+                        "customProperties": {
+                            "Columns": "payment_date,Staff First Name,amount,Staff Last Name",
+                            "Filters": "amount"
+                        },
+                        "externalUrl": null,
+                        "title": "Customer Staff Table",
+                        "description": "",
+                        "lastModified": {
+                            "created": {
+                                "time": 1639170083088,
+                                "actor": "urn:li:corpuser:modeuser",
+                                "impersonator": null
+                            },
+                            "lastModified": {
+                                "time": 1639182684438,
+                                "actor": "urn:li:corpuser:modeuser",
+                                "impersonator": null
+                            },
+                            "deleted": null
+                        },
+                        "chartUrl": "https://app.mode.com/acryltest/reports/9d2da37fa91e/viz/f622b9ee725b",
+                        "inputs": [
+                            {
+                                "string": "urn:li:dataset:(urn:li:dataPlatform:postgres,dvdrental.public.rental,PROD)"
+                            },
+                            {
+                                "string": "urn:li:dataset:(urn:li:dataPlatform:postgres,dvdrental.public.payment,PROD)"
+                            },
+                            {
+                                "string": "urn:li:dataset:(urn:li:dataPlatform:postgres,dvdrental.public.staff,PROD)"
+                            }
+                        ],
+                        "type": "TABLE",
+                        "access": null,
+                        "lastRefreshed": null
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.BrowsePaths": {
+                        "paths": [
+                            "/mode/acryl/AcrylTest/Report 1/Customer and staff/Customer Staff Table"
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.chart.ChartQuery": {
+                        "rawQuery": "SELECT  rental.*,  staff.first_name \"Staff First Name\", staff.last_name \"Staff Last Name\" FROM  {{  @join_on_definition    as                      rental  }} join staff on staff.staff_id = rental.staff_id",
+                        "type": "SQL"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [
+                            {
+                                "owner": "urn:li:corpuser:modeuser",
+                                "type": "DATAOWNER",
+                                "source": null
+                            }
+                        ],
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown",
+                            "impersonator": null
+                        }
+                    }
+                }
+            ]
+        }
+    },
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "mode-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+}
+]

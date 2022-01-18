@@ -8,6 +8,7 @@ import com.linkedin.datahub.graphql.resolvers.EntityTypeMapper;
 import com.linkedin.entity.client.EntityClient;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import io.opentelemetry.extension.annotations.WithSpan;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -25,6 +26,7 @@ public class EntityCountsResolver implements DataFetcher<CompletableFuture<Entit
   }
 
   @Override
+  @WithSpan
   public CompletableFuture<EntityCountResults> get(final DataFetchingEnvironment environment) throws Exception {
 
     final QueryContext context = environment.getContext();
@@ -36,7 +38,7 @@ public class EntityCountsResolver implements DataFetcher<CompletableFuture<Entit
         try {
           // First, get all counts
           Map<String, Long> gmsResult = _entityClient.batchGetTotalEntityCount(
-              input.getTypes().stream().map(type -> EntityTypeMapper.getName(type)).collect(Collectors.toList()), context.getActor());
+              input.getTypes().stream().map(type -> EntityTypeMapper.getName(type)).collect(Collectors.toList()), context.getAuthentication());
 
           // bind to a result.
           List<EntityCountResult> resultList = gmsResult.entrySet().stream().map(entry -> {

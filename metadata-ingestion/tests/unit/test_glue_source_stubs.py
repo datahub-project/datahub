@@ -296,7 +296,7 @@ get_jobs_response = {
 get_dataflow_graph_response_1 = {
     "DagNodes": [
         {
-            "Id": "Transform0",
+            "Id": "Transform0_job1",
             "NodeType": "Filter",
             "Args": [
                 {"Name": "f", "Value": "lambda row : ()", "Param": False},
@@ -309,7 +309,7 @@ get_dataflow_graph_response_1 = {
             "LineNumber": 32,
         },
         {
-            "Id": "Transform1",
+            "Id": "Transform1_job1",
             "NodeType": "ApplyMapping",
             "Args": [
                 {
@@ -326,7 +326,7 @@ get_dataflow_graph_response_1 = {
             "LineNumber": 37,
         },
         {
-            "Id": "Transform2",
+            "Id": "Transform2_job1",
             "NodeType": "ApplyMapping",
             "Args": [
                 {
@@ -343,7 +343,7 @@ get_dataflow_graph_response_1 = {
             "LineNumber": 22,
         },
         {
-            "Id": "Transform3",
+            "Id": "Transform3_job1",
             "NodeType": "Join",
             "Args": [
                 {
@@ -361,7 +361,7 @@ get_dataflow_graph_response_1 = {
             "LineNumber": 47,
         },
         {
-            "Id": "DataSource0",
+            "Id": "DataSource0_job1",
             "NodeType": "DataSource",
             "Args": [
                 {
@@ -379,7 +379,7 @@ get_dataflow_graph_response_1 = {
             "LineNumber": 17,
         },
         {
-            "Id": "DataSink0",
+            "Id": "DataSink0_job1",
             "NodeType": "DataSink",
             "Args": [
                 {
@@ -401,7 +401,7 @@ get_dataflow_graph_response_1 = {
             "LineNumber": 57,
         },
         {
-            "Id": "Transform4",
+            "Id": "Transform4_job1",
             "NodeType": "ApplyMapping",
             "Args": [
                 {
@@ -418,7 +418,7 @@ get_dataflow_graph_response_1 = {
             "LineNumber": 27,
         },
         {
-            "Id": "Transform5",
+            "Id": "Transform5_job1",
             "NodeType": "ApplyMapping",
             "Args": [
                 {
@@ -435,7 +435,7 @@ get_dataflow_graph_response_1 = {
             "LineNumber": 42,
         },
         {
-            "Id": "DataSink1",
+            "Id": "DataSink1_job1",
             "NodeType": "DataSink",
             "Args": [
                 {"Name": "connection_type", "Value": '"s3"', "Param": False},
@@ -456,23 +456,23 @@ get_dataflow_graph_response_1 = {
     ],
     "DagEdges": [
         {
-            "Source": "Transform2",
-            "Target": "Transform0",
+            "Source": "Transform2_job1",
+            "Target": "Transform0_job1",
             "TargetParameter": "frame",
         },
         {
-            "Source": "Transform0",
-            "Target": "Transform1",
+            "Source": "Transform0_job1",
+            "Target": "Transform1_job1",
             "TargetParameter": "frame",
         },
         {
-            "Source": "DataSource0",
-            "Target": "Transform2",
+            "Source": "DataSource0_job1",
+            "Target": "Transform2_job1",
             "TargetParameter": "frame",
         },
         {
-            "Source": "Transform4",
-            "Target": "Transform3",
+            "Source": "Transform4_job1",
+            "Target": "Transform3_job1",
             "TargetParameter": "frame1",
         },
     ],
@@ -481,7 +481,7 @@ get_dataflow_graph_response_1 = {
 get_dataflow_graph_response_2 = {
     "DagNodes": [
         {
-            "Id": "Transform0",
+            "Id": "Transform0_job2",
             "NodeType": "SplitFields",
             "Args": [
                 {
@@ -508,7 +508,7 @@ get_dataflow_graph_response_2 = {
             "LineNumber": 42,
         },
         {
-            "Id": "Transform1",
+            "Id": "Transform1_job2",
             "NodeType": "ApplyMapping",
             "Args": [
                 {
@@ -525,7 +525,7 @@ get_dataflow_graph_response_2 = {
             "LineNumber": 22,
         },
         {
-            "Id": "Transform2",
+            "Id": "Transform2_job2",
             "NodeType": "FillMissingValues",
             "Args": [
                 {
@@ -542,7 +542,7 @@ get_dataflow_graph_response_2 = {
             "LineNumber": 27,
         },
         {
-            "Id": "Transform3",
+            "Id": "Transform3_job2",
             "NodeType": "SelectFields",
             "Args": [
                 {"Name": "paths", "Value": "[]", "Param": False},
@@ -555,7 +555,7 @@ get_dataflow_graph_response_2 = {
             "LineNumber": 32,
         },
         {
-            "Id": "DataSource0",
+            "Id": "DataSource0_job2",
             "NodeType": "DataSource",
             "Args": [
                 {
@@ -577,7 +577,7 @@ get_dataflow_graph_response_2 = {
             "LineNumber": 17,
         },
         {
-            "Id": "DataSink0",
+            "Id": "DataSink0_job2",
             "NodeType": "DataSink",
             "Args": [
                 {"Name": "connection_type", "Value": '"s3"', "Param": False},
@@ -598,28 +598,28 @@ get_dataflow_graph_response_2 = {
     ],
     "DagEdges": [
         {
-            "Source": "Transform1",
-            "Target": "Transform0",
+            "Source": "Transform1_job2",
+            "Target": "Transform0_job2",
             "TargetParameter": "frame",
         },
         {
-            "Source": "DataSource0",
-            "Target": "Transform1",
+            "Source": "DataSource0_job2",
+            "Target": "Transform1_job2",
             "TargetParameter": "frame",
         },
         {
-            "Source": "Transform1",
-            "Target": "Transform2",
+            "Source": "Transform1_job2",
+            "Target": "Transform2_job2",
             "TargetParameter": "frame",
         },
         {
-            "Source": "Transform2",
-            "Target": "Transform3",
+            "Source": "Transform2_job2",
+            "Target": "Transform3_job2",
             "TargetParameter": "frame",
         },
         {
-            "Source": "Transform3",
-            "Target": "DataSink0",
+            "Source": "Transform3_job2",
+            "Target": "DataSink0_job2",
             "TargetParameter": "frame",
         },
     ],

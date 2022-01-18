@@ -8,8 +8,7 @@ import styled from 'styled-components';
 import { Message } from '../shared/Message';
 import { useEntityRegistry } from '../useEntityRegistry';
 import CompactContext from '../shared/CompactContext';
-import { Direction, EntityAndType, EntitySelectParams, FetchedEntities, LineageExpandParams } from './types';
-import getChildren from './utils/getChildren';
+import { EntityAndType, EntitySelectParams, FetchedEntities, LineageExpandParams } from './types';
 import LineageViz from './LineageViz';
 import extendAsyncEntities from './utils/extendAsyncEntities';
 import useLazyGetEntityQuery from './utils/useLazyGetEntityQuery';
@@ -68,13 +67,13 @@ export default function LineageExplorer({ urn, type }: Props) {
             if (entityAndType?.entity.urn && !asyncEntities[entityAndType?.entity.urn]?.fullyFetched) {
                 // record that we have added this entity
                 let newAsyncEntities = extendAsyncEntities(asyncEntities, entityRegistry, entityAndType, true);
+                const config = entityRegistry.getLineageVizConfig(entityAndType.type, entityAndType.entity);
 
-                // add the partially fetched downstream & upstream datasets
-                getChildren(entityAndType, Direction.Downstream).forEach((downstream) => {
+                config?.downstreamChildren?.forEach((downstream) => {
                     newAsyncEntities = extendAsyncEntities(newAsyncEntities, entityRegistry, downstream, false);
                 });
-                getChildren(entityAndType, Direction.Upstream).forEach((upstream) => {
-                    newAsyncEntities = extendAsyncEntities(newAsyncEntities, entityRegistry, upstream, false);
+                config?.upstreamChildren?.forEach((downstream) => {
+                    newAsyncEntities = extendAsyncEntities(newAsyncEntities, entityRegistry, downstream, false);
                 });
                 setAsyncEntities(newAsyncEntities);
             }
