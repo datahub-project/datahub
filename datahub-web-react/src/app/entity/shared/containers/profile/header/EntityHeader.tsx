@@ -75,7 +75,7 @@ export const EntityHeader = () => {
                         {!!platformLogoUrl && <PreviewImage preview={false} src={platformLogoUrl} alt={platformName} />}
                     </span>
                     <PlatformText>{platformName}</PlatformText>
-                    <PlatformDivider />
+                    {platformLogoUrl || (platformName && <PlatformDivider />)}
                     <PlatformText>{entityData?.entityTypeOverride || entityTypeCased}</PlatformText>
                 </PlatformContent>
                 <Link to={entityPath}>
