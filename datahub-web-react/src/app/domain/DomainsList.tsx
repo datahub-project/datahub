@@ -3,6 +3,7 @@ import { Button, Empty, List, message, Pagination } from 'antd';
 import styled from 'styled-components';
 import { PlusOutlined } from '@ant-design/icons';
 import { Domain } from '../../types.generated';
+import { useListDomainsQuery } from '../../graphql/domain.generated';
 import CreateDomainModal from './CreateDomainModal';
 import { Message } from '../shared/Message';
 import TabToolbar from '../entity/shared/components/styled/TabToolbar';
@@ -41,8 +42,10 @@ export const DomainsList = () => {
         fetchPolicy: 'no-cache',
     });
 
-    const totalDomains = data?.listGroups?.total || 0;
-    const domains = data?.listGroups?.domains || [];
+    const totalDomains = data?.listDomains?.total || 0;
+    const domains = (data?.listDomains?.domains || []).sort(
+        (a, b) => (b.entities?.total || 0) - (a.entities?.total || 0),
+    );
 
     const onChangePage = (newPage: number) => {
         setPage(newPage);

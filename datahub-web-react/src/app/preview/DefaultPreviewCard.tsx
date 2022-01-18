@@ -155,15 +155,18 @@ export default function DefaultPreviewCard({
                             {platform && <PlatformText>{platform}</PlatformText>}
                             {(logoUrl || logoComponent || platform) && <PlatformDivider />}
                             <PlatformText>{type}</PlatformText>
-                            {domain && <PlatformDivider />}
-                            {domain && <PlatformText>{domain?.properties?.name}</PlatformText>}
                         </PlatformInfo>
                         <EntityTitle onClick={onClick} $titleSizePx={titleSizePx}>
                             {name || ' '}
                         </EntityTitle>
                     </Link>
                     <TagContainer>
-                        <TagTermGroup uneditableGlossaryTerms={glossaryTerms} uneditableTags={tags} maxShow={3} />
+                        <TagTermGroup
+                            domain={domain}
+                            uneditableGlossaryTerms={glossaryTerms}
+                            uneditableTags={tags}
+                            maxShow={3}
+                        />
                     </TagContainer>
                 </TitleContainer>
                 {description && description.length > 0 && (

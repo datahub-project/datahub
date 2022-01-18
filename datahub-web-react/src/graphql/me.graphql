@@ -23,6 +23,7 @@ query getMe {
             managePolicies
             manageIdentities
             generatePersonalAccessTokens
+            manageDomains
         }
     }
 }

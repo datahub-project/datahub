@@ -30,7 +30,7 @@ export function AdminHeaderLinks() {
     const showIdentityManagement =
         (isIdentityManagementEnabled && me && me.platformPrivileges.manageIdentities) || false;
     const showSettings = true;
-    const showDomains = true; // Always show domains. TODO: Add a manage domains privilege check here.
+    const showDomains = me?.platformPrivileges?.manageDomains || false;
 
     return (
         <>
