@@ -1,5 +1,6 @@
-import { Typography, Image, Button } from 'antd';
-import React from 'react';
+import { CheckOutlined, LinkOutlined } from '@ant-design/icons';
+import { Typography, Image, Button, Tooltip } from 'antd';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
@@ -64,7 +65,7 @@ const MainHeaderContent = styled.div`
 export const EntityHeader = () => {
     const { urn, entityType, entityData } = useEntityData();
     const entityRegistry = useEntityRegistry();
-
+    const [copiedUrn, setCopiedUrn] = useState(false);
     const platformName = capitalizeFirstLetter(entityData?.platform?.name);
     const platformLogoUrl = entityData?.platform?.info?.logoUrl;
     const entityLogoComponent = entityRegistry.getIcon(entityType, 12, IconStyleType.ACCENT);
@@ -91,6 +92,17 @@ export const EntityHeader = () => {
                 </Link>
             </MainHeaderContent>
             {hasExternalUrl && <Button href={externalUrl}>View in {platformName}</Button>}
+            <Tooltip title="An URN uniquely identifies an entity on DataHub.">
+                <Button
+                    icon={copiedUrn ? <CheckOutlined /> : <LinkOutlined />}
+                    onClick={() => {
+                        navigator.clipboard.writeText(urn);
+                        setCopiedUrn(true);
+                    }}
+                >
+                    {copiedUrn ? 'Copied!' : 'Copy URN'}
+                </Button>
+            </Tooltip>
         </HeaderContainer>
     );
 };
