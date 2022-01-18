@@ -12,7 +12,11 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     StringTypeClass,
     TimeTypeClass,
 )
-from datahub.metadata.schema_classes import GlobalTagsClass, TagAssociationClass
+from datahub.metadata.schema_classes import (
+    BytesTypeClass,
+    GlobalTagsClass,
+    TagAssociationClass,
+)
 
 workbook_graphql_query = """
     {
@@ -40,11 +44,7 @@ workbook_graphql_query = """
           name
         }
         upstreamDatasources {
-          id,
-          name
-        }
-        upstreamTables {
-          id,
+          id
           name
         }
         datasourceFields {
@@ -53,7 +53,6 @@ workbook_graphql_query = """
           name
           description
           upstreamColumns {
-            id,
             name
           }
           ... on ColumnField {
@@ -127,8 +126,9 @@ workbook_graphql_query = """
           fullName
           connectionType
           description
-          contact {
+          columns {
             name
+            remoteType
           }
         }
         fields {
@@ -172,71 +172,6 @@ workbook_graphql_query = """
           name
           projectName
         }
-      }
-      upstreamDatasources {
-        __typename
-        id
-        name
-        hasExtracts
-        extractLastRefreshTime
-        extractLastIncrementalUpdateTime
-        extractLastUpdateTime
-        upstreamDatabases {
-          name
-        }
-        upstreamTables {
-          name
-          schema
-          fullName
-          connectionType
-          description
-          contact {
-            name
-          }
-        }
-        fields {
-          __typename
-          id
-          name
-          description
-          isHidden
-          folderName
-          ... on ColumnField {
-            dataCategory
-            role
-            dataType
-            defaultFormat
-            aggregation
-            columns {
-              table {
-                ... on CustomSQLTable {
-                  id
-                  name
-                }
-              }
-            }
-          }
-          ... on CalculatedField {
-            role
-            dataType
-            defaultFormat
-            aggregation
-            formula
-          }
-          ... on GroupField {
-            role
-            dataType
-          }
-        }
-        upstreamDatasources {
-          name
-        }
-        owner {
-          username
-        }
-        description
-        uri
-        projectName
       }
     }
 """
@@ -395,6 +330,7 @@ SOURCE_FIELD_TYPE_MAPPING = {
     "WDC_GEOMETRY": NullTypeClass,
 }
 
+# https://referencesource.microsoft.com/#system.data/System/Data/OleDb/OLEDB_Enum.cs,364
 TARGET_FIELD_TYPE_MAPPING = {
     "INTEGER": NumberTypeClass,
     "REAL": NumberTypeClass,
@@ -406,6 +342,50 @@ TARGET_FIELD_TYPE_MAPPING = {
     "BOOLEAN": BooleanTypeClass,
     "TABLE": ArrayTypeClass,
     "UNKNOWN": NullTypeClass,
+    "EMPTY": NullTypeClass,
+    "NULL": NullTypeClass,
+    "I2": NumberTypeClass,
+    "I4": NumberTypeClass,
+    "R4": NumberTypeClass,
+    "R8": NumberTypeClass,
+    "CY": NumberTypeClass,
+    "BSTR": StringTypeClass,
+    "IDISPATCH": NullTypeClass,
+    "ERROR": NullTypeClass,
+    "BOOL": BooleanTypeClass,
+    "VARIANT": NullTypeClass,
+    "IUNKNOWN": NullTypeClass,
+    "DECIMAL": NumberTypeClass,
+    "UI1": NumberTypeClass,
+    "ARRAY": ArrayTypeClass,
+    "BYREF": StringTypeClass,
+    "I1": NumberTypeClass,
+    "UI2": NumberTypeClass,
+    "UI4": NumberTypeClass,
+    "I8": NumberTypeClass,
+    "UI8": NumberTypeClass,
+    "GUID": StringTypeClass,
+    "VECTOR": ArrayTypeClass,
+    "FILETIME": TimeTypeClass,
+    "RESERVED": NullTypeClass,
+    "BYTES": BytesTypeClass,
+    "STR": StringTypeClass,
+    "WSTR": StringTypeClass,
+    "NUMERIC": NumberTypeClass,
+    "UDT": StringTypeClass,
+    "DBDATE": DateTypeClass,
+    "DBTIME": TimeTypeClass,
+    "DBTIMESTAMP": TimeTypeClass,
+    "HCHAPTER": NullTypeClass,
+    "PROPVARIANT": NullTypeClass,
+    "VARNUMERIC": NumberTypeClass,
+    "WDC_INT": NumberTypeClass,
+    "WDC_FLOAT": NumberTypeClass,
+    "WDC_STRING": StringTypeClass,
+    "WDC_DATETIME": TimeTypeClass,
+    "WDC_BOOL": BooleanTypeClass,
+    "WDC_DATE": DateTypeClass,
+    "WDC_GEOMETRY": NullTypeClass,
 }
 
 
@@ -443,16 +423,6 @@ def make_table_urn(
     urn = builder.make_dataset_urn(
         platform, f"{upstream_db}.{schema}.{final_name}", env
     )
-    return urn
-
-
-def make_dataset_urn(platform, env, *name_parts):
-    full_name = ""
-    for name in name_parts:
-        if full_name:
-            full_name += "."
-        full_name += name
-    urn = builder.make_dataset_urn(platform, full_name, env)
     return urn
 
 
