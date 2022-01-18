@@ -27,3 +27,7 @@ entities:
       - corpUserInfo
       - corpUserEditableInfo
       - corpUserStatus
+  - name: glossaryTerm
+    keyAspect: glossaryTermKey
+    aspects:
+      - schemaMetadata
