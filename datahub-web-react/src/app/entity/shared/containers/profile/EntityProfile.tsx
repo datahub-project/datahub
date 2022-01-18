@@ -77,7 +77,6 @@ const Header = styled.div`
     border-bottom: 1px solid ${ANTD_GRAY[4.5]};
     padding: 20px 20px 0 20px;
     flex-shrink: 0;
-    min-height: 137px;
 `;
 
 const TabContent = styled.div`
