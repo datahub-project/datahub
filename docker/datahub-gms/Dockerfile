@@ -42,9 +42,8 @@ RUN chmod +x /datahub/datahub-gms/scripts/start.sh
 # Snappy Lib update
 RUN apk update && apk add --no-cache gcompat
 
-# Setup TLS JKS
-RUN apk add openjdk11
-RUN cp /usr/lib/jvm/java-11-openjdk/lib/security/cacerts /tmp/kafka.client.truststore.jks
+## Setup TLS JKS
+RUN cp /usr/lib/jvm/java-1.8-openjdk/jre/lib/security/cacerts /tmp/kafka.client.truststore.jks
 
 FROM base as dev-install
 # Dummy stage for development. Assumes code is built on your machine and mounted to this image.
