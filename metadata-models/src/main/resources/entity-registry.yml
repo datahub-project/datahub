@@ -46,4 +46,5 @@ entities:
     keyAspect: domainKey
     aspects:
       - domainProperties
+      - institutionalMemory
       - ownership

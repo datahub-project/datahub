@@ -49,7 +49,7 @@ public class AllEntitiesSearchAggregator {
   private final EntitySearchServiceCache _entitySearchServiceCache;
 
   private static final List<String> FILTER_RANKING =
-      ImmutableList.of("entity", "typeNames", "platform", "origin", "tags", "glossaryTerms");
+      ImmutableList.of("entity", "typeNames", "platform", "domain", "tags", "glossaryTerms");
 
   public AllEntitiesSearchAggregator(EntityRegistry entityRegistry, EntitySearchService entitySearchService,
       SearchRanker searchRanker, CacheManager cacheManager, int batchSize) {
