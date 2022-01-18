@@ -9,6 +9,7 @@ import com.linkedin.datahub.graphql.generated.DataFlow;
 import com.linkedin.datahub.graphql.generated.DataJob;
 import com.linkedin.datahub.graphql.generated.DataPlatform;
 import com.linkedin.datahub.graphql.generated.Dataset;
+import com.linkedin.datahub.graphql.generated.Domain;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.GlossaryTerm;
 import com.linkedin.datahub.graphql.generated.Entity;
@@ -106,6 +107,11 @@ public class UrnToEntityMapper implements ModelMapper<com.linkedin.common.urn.Ur
       partialEntity = new DataPlatform();
       ((DataPlatform) partialEntity).setUrn(input.toString());
       ((DataPlatform) partialEntity).setType(EntityType.DATA_PLATFORM);
+    }
+    if (input.getEntityType().equals("domain")) {
+      partialEntity = new Domain();
+      ((Domain) partialEntity).setUrn(input.toString());
+      ((Domain) partialEntity).setType(EntityType.DOMAIN);
     }
     return partialEntity;
   }

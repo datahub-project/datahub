@@ -177,13 +177,22 @@ public class PoliciesConfig {
       ImmutableList.of(EDIT_ENTITY_OWNERS_PRIVILEGE, EDIT_ENTITY_PRIVILEGE)
   );
 
+  // Tag Privileges
+  public static final ResourcePrivileges DOMAIN_PRIVILEGES = ResourcePrivileges.of(
+      "domain",
+      "Domains",
+      "Domains created on DataHub",
+      ImmutableList.of(EDIT_ENTITY_OWNERS_PRIVILEGE, EDIT_ENTITY_DOCS_PRIVILEGE, EDIT_ENTITY_DOC_LINKS_PRIVILEGE, EDIT_ENTITY_PRIVILEGE)
+  );
+
   public static final List<ResourcePrivileges> RESOURCE_PRIVILEGES = ImmutableList.of(
       DATASET_PRIVILEGES,
       DASHBOARD_PRIVILEGES,
       CHART_PRIVILEGES,
       DATA_FLOW_PRIVILEGES,
       DATA_JOB_PRIVILEGES,
-      TAG_PRIVILEGES
+      TAG_PRIVILEGES,
+      DOMAIN_PRIVILEGES
   );
 
   @Data
