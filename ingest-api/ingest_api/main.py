@@ -38,7 +38,7 @@ api_emitting_port = 8001
 rest_endpoint = "http://datahub-gms:8080" if not CLI_MODE else "http://localhost:8080"
 
 rootLogger = logging.getLogger("__name__")
-logformatter = logging.Formatter("%(asctime)s;%(levelname)s;%(message)s")
+logformatter = logging.Formatter("%(asctime)s;%(levelname)s;%(funcName)s;%(message)s")
 rootLogger.setLevel(logging.DEBUG)
 
 streamLogger = logging.StreamHandler()

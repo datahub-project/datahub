@@ -1,14 +1,16 @@
 """Convenience functions for creating MCEs"""
-import datetime
 import json
 import logging
 import os
 import jwt
+from jwt import ExpiredSignatureError, InvalidTokenError
 import time
 import requests
 from urllib.parse import urljoin
 from typing import Dict, List, Optional, Type, TypeVar, Union
 from base64 import b64decode
+from sys import stdout
+from datetime import datetime as dt
 
 from datahub.ingestion.api import RecordEnvelope
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -17,6 +19,11 @@ from datahub.metadata.schema_classes import *
 from .models import FieldParamEdited
 
 log = logging.getLogger(__name__)
+logformatter = logging.Formatter("%(asctime)s;%(levelname)s;%(funcName)s;%(message)s")
+handler = logging.StreamHandler(stdout)
+handler.setFormatter(logformatter)
+log.addHandler(handler)
+
 
 DEFAULT_ENV = "PROD"
 DEFAULT_FLOW_CLUSTER = "prod"
@@ -249,7 +256,7 @@ def create_new_schema_mce(
 ) -> MetadataChangeEventClass:
     if system_time:
         try:
-            datetime.datetime.fromtimestamp(system_time / 1000)
+            dt.fromtimestamp(system_time / 1000)
             sys_time = system_time
         except ValueError as e:
             log.error("specified_time is out of range")
@@ -274,7 +281,7 @@ def make_schema_mce(
 ) -> MetadataChangeEventClass:
     if system_time:
         try:
-            datetime.datetime.fromtimestamp(system_time / 1000)
+            dt.fromtimestamp(system_time / 1000)
             sys_time = system_time
         except ValueError as e:
             log.error("specified_time is out of range")
@@ -338,17 +345,26 @@ def verify_token(
     token: str, user: str
 ):
     token_secret = os.environ["JWT_SECRET"]
-    log.error(f'signtaure secret is {token_secret}')
+    log.error(f'signature secret is {token_secret}')
     try:
         payload = jwt.decode(token, token_secret, algorithms="HS256")
-        log.info(f"payload is {payload}")
+        if payload['actorId']=='impossible':
+            raise Exception('User Impossible has occurred. Something has gone very wrong.')
+        exp_datetime = dt.fromtimestamp(int(payload['exp']))        
         if payload['actorId'] == user:
-            log.info(f"token verified for {user}, expires {payload['exp']}")
+            log.error(f"token verified for {user}, expires {exp_datetime.strftime('%Y:%m:%d %H:%M')}")
             return True
         return False
-    except:
-        log.error(f"I cannot verify token for user {user}")
+    except ExpiredSignatureError as e:
+        log.error('token has expired!')
+        return False    
+    except InvalidTokenError as e:
+        log.error(f"Invalid token for {user}")
         return False
+    except Exception as e:
+        log.error(f"I cant figure out this token for {user}, error {e}")
+        return False
+    
 
 def authenticate_action(
     token: str, user: str, dataset: str
@@ -357,15 +373,15 @@ def authenticate_action(
         must_authenticate_actions = True if os.environ['DATAHUB_AUTHENTICATE_INGEST']=='True' else False
     else:
         must_authenticate_actions = False
-    log.info(f'Authenticate user setting is {must_authenticate_actions}')
-    log.info(f"Dataset being updated is {dataset}, requestor is {user}")
+    log.error(f'Authenticate user setting is {must_authenticate_actions}')
+    log.error(f"Dataset being updated is {dataset}, requestor is {user}")
     if must_authenticate_actions:
         # if verify_token(token, user) and query_dataset_owner(token, dataset, user):
         if query_dataset_owner(token, dataset, user):
             log.error(f"user {user} is authorized to do something")
             return True
         else:
-            log.info(f"user {user} is NOT authorized to do something")
+            log.error(f"user {user} is NOT authorized to do something")
             return False
     else: #no need to authenticate, so always true
         return True
