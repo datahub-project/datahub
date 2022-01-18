@@ -1,5 +1,5 @@
 import React from 'react';
-import { EntityType, GlobalTags, Owner, SearchInsight } from '../../../../types.generated';
+import { Domain, EntityType, GlobalTags, Owner, SearchInsight } from '../../../../types.generated';
 import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { capitalizeFirstLetter } from '../../../shared/textUtil';
@@ -11,6 +11,7 @@ export const Preview = ({
     platformName,
     platformLogo,
     owners,
+    domain,
     globalTags,
     snippet,
     insights,
@@ -21,6 +22,7 @@ export const Preview = ({
     platformName: string;
     platformLogo?: string | null;
     owners?: Array<Owner> | null;
+    domain?: Domain | null;
     globalTags?: GlobalTags | null;
     snippet?: React.ReactNode | null;
     insights?: Array<SearchInsight> | null;
@@ -37,6 +39,7 @@ export const Preview = ({
             logoUrl={platformLogo || ''}
             owners={owners}
             tags={globalTags || undefined}
+            domain={domain}
             snippet={snippet}
             dataTestID="datajob-item-preview"
             insights={insights}

@@ -26,6 +26,7 @@ export function AdminHeaderLinks() {
     const showSettings = true;
     const showIngestion =
         isIngestionEnabled && me && me.platformPrivileges.manageIngestion && me.platformPrivileges.manageSecrets;
+    const showDomains = true; // Always show domains. TODO: Add a manage domains privilege check here.
 
     return (
         <>
@@ -43,6 +44,15 @@ export function AdminHeaderLinks() {
                     <Link to="/policies">
                         <Button type="text">
                             <BankOutlined /> Policies
+                        </Button>
+                    </Link>
+                </AdminLink>
+            )}
+            {showDomains && (
+                <AdminLink>
+                    <Link to="/domains">
+                        <Button type="text">
+                            <FolderOutlined /> Domains
                         </Button>
                     </Link>
                 </AdminLink>

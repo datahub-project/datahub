@@ -324,6 +324,12 @@ fragment searchResults on SearchResults {
                 ... on DataPlatform {
                     ...platformFields
                 }
+                ... on Domain {
+                    urn
+                    properties {
+                        name
+                    }
+                }
             }
         }
     }
