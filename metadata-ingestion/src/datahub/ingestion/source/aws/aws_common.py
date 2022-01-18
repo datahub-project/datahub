@@ -11,7 +11,7 @@ from datahub.emitter.mce_builder import DEFAULT_ENV
 if TYPE_CHECKING:
 
     from mypy_boto3_glue import GlueClient
-    from mypy_boto3_s3 import S3Client
+    from mypy_boto3_s3 import S3Client, S3ServiceResource
     from mypy_boto3_sagemaker import SageMakerClient
 
 
@@ -93,6 +93,9 @@ class AwsSourceConfig(ConfigModel):
 
     def get_s3_client(self) -> "S3Client":
         return self.get_session().client("s3")
+
+    def get_s3_resource(self) -> "S3ServiceResource":
+        return self.get_session().resource("s3")
 
     def get_glue_client(self) -> "GlueClient":
         return self.get_session().client("glue")
