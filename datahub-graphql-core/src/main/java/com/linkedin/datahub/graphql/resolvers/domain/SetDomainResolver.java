@@ -21,6 +21,10 @@ import lombok.extern.slf4j.Slf4j;
 import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
 
 
+
+/**
+ * Resolver used for updating the Domain associated with a Metadata Asset. Requires the EDIT_DOMAINS privilege for a particular asset.
+ */
 @Slf4j
 @RequiredArgsConstructor
 public class SetDomainResolver implements DataFetcher<CompletableFuture<Boolean>> {

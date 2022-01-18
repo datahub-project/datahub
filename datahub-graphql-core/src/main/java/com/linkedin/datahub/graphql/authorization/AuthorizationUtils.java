@@ -28,6 +28,13 @@ public class AuthorizationUtils {
     return isAuthorized(authorizer, actor, new DisjunctivePrivilegeGroup(ImmutableList.of(andGroup)));
   }
 
+  public static boolean canManageDomains(@Nonnull QueryContext context) {
+    final Authorizer authorizer = context.getAuthorizer();
+    final String actor = context.getActorUrn();
+    final ConjunctivePrivilegeGroup andGroup = new ConjunctivePrivilegeGroup(ImmutableList.of(PoliciesConfig.MANAGE_DOMAINS_PRIVILEGE.getType()));
+    return isAuthorized(authorizer, actor, new DisjunctivePrivilegeGroup(ImmutableList.of(andGroup)));
+  }
+
   public static boolean isAuthorized(
       @Nonnull Authorizer authorizer,
       @Nonnull String actor,

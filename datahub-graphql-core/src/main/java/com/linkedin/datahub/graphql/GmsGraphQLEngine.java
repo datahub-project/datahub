@@ -18,9 +18,11 @@ import com.linkedin.datahub.graphql.generated.DataFlow;
 import com.linkedin.datahub.graphql.generated.DataJob;
 import com.linkedin.datahub.graphql.generated.DataJobInputOutput;
 import com.linkedin.datahub.graphql.generated.Dataset;
+import com.linkedin.datahub.graphql.generated.Domain;
 import com.linkedin.datahub.graphql.generated.EntityRelationship;
 import com.linkedin.datahub.graphql.generated.EntityRelationshipLegacy;
 import com.linkedin.datahub.graphql.generated.ForeignKeyConstraint;
+import com.linkedin.datahub.graphql.generated.ListDomainsResult;
 import com.linkedin.datahub.graphql.generated.MLModelProperties;
 import com.linkedin.datahub.graphql.generated.RecommendationContent;
 import com.linkedin.datahub.graphql.generated.SearchResult;
@@ -43,6 +45,7 @@ import com.linkedin.datahub.graphql.resolvers.MeResolver;
 import com.linkedin.datahub.graphql.resolvers.auth.GetAccessTokenResolver;
 import com.linkedin.datahub.graphql.resolvers.domain.CreateDomainResolver;
 import com.linkedin.datahub.graphql.resolvers.domain.DomainEntitiesResolver;
+import com.linkedin.datahub.graphql.resolvers.domain.ListDomainsResolver;
 import com.linkedin.datahub.graphql.resolvers.domain.SetDomainResolver;
 import com.linkedin.datahub.graphql.resolvers.domain.UnsetDomainResolver;
 import com.linkedin.datahub.graphql.resolvers.group.AddGroupMembersResolver;
@@ -486,6 +489,8 @@ public class GmsGraphQLEngine {
                 new EntityCountsResolver(this.entityClient))
             .dataFetcher("getAccessToken",
                 new GetAccessTokenResolver(tokenService))
+            .dataFetcher("listDomains",
+                new ListDomainsResolver(this.entityClient))
         );
     }
 
@@ -560,6 +565,13 @@ public class GmsGraphQLEngine {
                         new ArrayList<>(entityTypes),
                         (env) -> ((EntityRelationship) env.getSource()).getEntity()))
                 )
+            )
+            .type("ListDomainsResult", typeWiring -> typeWiring
+                .dataFetcher("domains",
+                    new LoadableTypeBatchResolver<>(domainType,
+                        (env) -> ((ListDomainsResult) env.getSource()).getDomains().stream()
+                            .map(Domain::getUrn)
+                            .collect(Collectors.toList())))
             );
     }
 

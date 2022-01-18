@@ -25,7 +25,9 @@ import lombok.extern.slf4j.Slf4j;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
-
+/**
+ * Resolver used for creating a new Domain on DataHub. Requires the MANAGE_DOMAINS privilege.
+ */
 @Slf4j
 @RequiredArgsConstructor
 public class CreateDomainResolver implements DataFetcher<CompletableFuture<String>> {

@@ -108,6 +108,11 @@ type Query {
     Fetches the number of entities ingested by type
     """
     getEntityCounts(input: EntityCountInput): EntityCountResults
+
+    """
+    List all DataHub Domains
+    """
+    listDomains(input: ListDomainsInput!): ListDomainsResult
 }
 
 """
@@ -5267,4 +5272,44 @@ input CreateDomainInput {
   Optional description for the Domain
   """
   description: String
+}
+
+"""
+Input required when listing DataHub Domains
+"""
+input ListDomainsInput {
+  """
+  The starting offset of the result set returned
+  """
+  start: Int
+
+  """
+  The maximum number of Domains to be returned in the result set
+  """
+  count: Int
+}
+
+"""
+The result obtained when listing DataHub Domains
+"""
+type ListDomainsResult {
+  """
+  The starting offset of the result set returned
+  """
+  start: Int!
+
+  """
+  The number of Domains in the returned result set
+  """
+  count: Int!
+
+  """
+  The total number of Domains in the result set
+  """
+  total: Int!
+
+  """
+  The Domains themselves
+  """
+  domains: [Domain!]!
 }
