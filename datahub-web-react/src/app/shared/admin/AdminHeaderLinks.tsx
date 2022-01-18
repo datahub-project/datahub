@@ -26,7 +26,7 @@ export function AdminHeaderLinks() {
     const showSettings = true;
     const showIngestion =
         isIngestionEnabled && me && me.platformPrivileges.manageIngestion && me.platformPrivileges.manageSecrets;
-    const showDomains = true; // Always show domains. TODO: Add a manage domains privilege check here.
+    const showDomains = me?.platformPrivileges?.manageDomains || false;
 
     return (
         <>

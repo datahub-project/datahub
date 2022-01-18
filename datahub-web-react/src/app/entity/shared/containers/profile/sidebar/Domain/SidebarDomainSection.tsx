@@ -1,6 +1,5 @@
-import { Typography, Button, Tag, Modal, message } from 'antd';
+import { Typography, Button, Modal, message } from 'antd';
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
 import { EditOutlined } from '@ant-design/icons';
 import { EMPTY_MESSAGES } from '../../../../constants';
 import { useEntityData, useRefetch } from '../../../../EntityContext';
@@ -9,6 +8,7 @@ import { SetDomainModal } from './SetDomainModal';
 import { useEntityRegistry } from '../../../../../../useEntityRegistry';
 import { EntityType } from '../../../../../../../types.generated';
 import { useUnsetDomainMutation } from '../../../../../../../graphql/mutations.generated';
+import { DomainLink } from '../../../../../../shared/tags/DomainLink';
 
 export const SidebarDomainSection = () => {
     const { urn, entityData } = useEntityData();
@@ -16,7 +16,6 @@ export const SidebarDomainSection = () => {
     const refetch = useRefetch();
     const [unsetDomainMutation] = useUnsetDomainMutation();
     const [showModal, setShowModal] = useState(false);
-    const isDomainEmpty = !entityData?.domain;
     const domain = entityData?.domain;
 
     const removeDomain = () => {
@@ -51,25 +50,23 @@ export const SidebarDomainSection = () => {
         <div>
             <SidebarHeader title="Domain" />
             <div>
-                {!isDomainEmpty && (
-                    <Link to={entityRegistry.getEntityUrl(EntityType.Domain, domain?.urn as string)} key={domain?.urn}>
-                        <Tag
-                            closable
-                            onClose={(e) => {
-                                e.preventDefault();
-                                onRemoveDomain();
-                            }}
-                        >
-                            {entityRegistry.getDisplayName(EntityType.Domain, domain)}
-                        </Tag>
-                    </Link>
+                {domain && (
+                    <DomainLink
+                        urn={domain.urn}
+                        name={entityRegistry.getDisplayName(EntityType.Domain, domain)}
+                        closable
+                        onClose={(e) => {
+                            e.preventDefault();
+                            onRemoveDomain();
+                        }}
+                    />
                 )}
-                {isDomainEmpty && (
+                {!domain && (
                     <>
                         <Typography.Paragraph type="secondary">
                             {EMPTY_MESSAGES.domain.title}. {EMPTY_MESSAGES.domain.description}
                         </Typography.Paragraph>
-                        <Button type={isDomainEmpty ? 'default' : 'text'} onClick={() => setShowModal(true)}>
+                        <Button type="default" onClick={() => setShowModal(true)}>
                             <EditOutlined /> Set Domain
                         </Button>
                     </>

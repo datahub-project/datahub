@@ -184,7 +184,12 @@ export default function DefaultPreviewCard({
                         </EntityTitle>
                     </Link>
                     <TagContainer>
-                        <TagTermGroup uneditableGlossaryTerms={glossaryTerms} uneditableTags={tags} maxShow={3} />
+                        <TagTermGroup
+                            domain={domain}
+                            uneditableGlossaryTerms={glossaryTerms}
+                            uneditableTags={tags}
+                            maxShow={3}
+                        />
                     </TagContainer>
                 </TitleContainer>
                 {description && description.length > 0 && (

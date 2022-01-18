@@ -1,12 +1,25 @@
 import React, { useState } from 'react';
-import { message, Button, Input, Modal, Typography, Form, Collapse } from 'antd';
+import styled from 'styled-components';
+import { message, Button, Input, Modal, Typography, Form, Collapse, Tag } from 'antd';
 import { useCreateDomainMutation } from '../../graphql/domain.generated';
+
+const SuggestedNamesGroup = styled.div`
+    margin-top: 12px;
+`;
+
+const ClickableTag = styled(Tag)`
+    :hover {
+        cursor: pointer;
+    }
+`;
 
 type Props = {
     visible: boolean;
     onClose: () => void;
     onCreate: (id: string | undefined, name: string, description: string) => void;
 };
+
+const SUGGESTED_DOMAIN_NAMES = ['Engineering', 'Marketing', 'Sales', 'Product'];
 
 export default function CreateDomainModal({ visible, onClose, onCreate }: Props) {
     const [stagedName, setStagedName] = useState('');
@@ -59,12 +72,17 @@ export default function CreateDomainModal({ visible, onClose, onCreate }: Props)
         >
             <Form layout="vertical">
                 <Form.Item name="name" label={<Typography.Text strong>Name</Typography.Text>}>
-                    <Typography.Paragraph>Give your new Domain a name.</Typography.Paragraph>
+                    <Typography.Paragraph>Give your new Domain a name. </Typography.Paragraph>
                     <Input
                         placeholder="A name for your domain"
                         value={stagedName}
                         onChange={(event) => setStagedName(event.target.value)}
                     />
+                    <SuggestedNamesGroup>
+                        {SUGGESTED_DOMAIN_NAMES.map((name) => {
+                            return <ClickableTag onClick={() => setStagedName(name)}>{name}</ClickableTag>;
+                        })}
+                    </SuggestedNamesGroup>
                 </Form.Item>
                 <Form.Item name="description" label={<Typography.Text strong>Description</Typography.Text>}>
                     <Typography.Paragraph>
@@ -80,12 +98,13 @@ export default function CreateDomainModal({ visible, onClose, onCreate }: Props)
                     <Collapse.Panel header={<Typography.Text type="secondary">Advanced</Typography.Text>} key="1">
                         <Form.Item label={<Typography.Text strong>Domain Id</Typography.Text>}>
                             <Typography.Paragraph>
-                                By default, a random UUID will be generated to uniquely identify this domain. If you'd
-                                like to provide a custom id instead to more easily keep track of this domain, you may
-                                provide it here.
+                                By default, a random UUID will be generated to uniquely identify this domain. If
+                                you&apos;d like to provide a custom id instead to more easily keep track of this domain,
+                                you may provide it here. Be careful, you cannot easily change the domain id after
+                                creation.
                             </Typography.Paragraph>
                             <Input
-                                placeholder="default"
+                                placeholder="engineering"
                                 value={stagedId || ''}
                                 onChange={(event) => setStagedId(event.target.value)}
                             />

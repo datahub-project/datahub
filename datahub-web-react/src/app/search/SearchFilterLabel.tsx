@@ -13,6 +13,7 @@ import {
 } from '../../types.generated';
 import { StyledTag } from '../entity/shared/components/styled/StyledTag';
 import { capitalizeFirstLetter } from '../shared/textUtil';
+import { DomainLink } from '../shared/tags/DomainLink';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { ENTITY_FILTER_NAME } from './utils/constants';
 
@@ -85,9 +86,7 @@ export const SearchFilterLabel = ({ aggregation, field }: Props) => {
         const domain = aggregation.entity as Domain;
         return (
             <>
-                <span>
-                    {entityRegistry.getDisplayName(EntityType.Domain, domain)} ({countText})
-                </span>
+                <DomainLink urn={domain.urn} name={entityRegistry.getDisplayName(EntityType.Domain, domain)} />
             </>
         );
     }

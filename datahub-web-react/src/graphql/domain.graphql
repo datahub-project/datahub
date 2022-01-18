@@ -29,6 +29,28 @@ query getDomain($urn: String!) {
     }
 }
 
+query listDomains($input: ListDomainsInput!) {
+    listDomains(input: $input) {
+        start
+        count
+        total
+        domains {
+            urn
+            id
+            properties {
+                name
+                description
+            }
+            ownership {
+                ...ownershipFields
+            }
+            entities(input: { start: 0, count: 1 }) {
+                total
+            }
+        }
+    }
+}
+
 mutation createDomain($input: CreateDomainInput!) {
     createDomain(input: $input)
 }

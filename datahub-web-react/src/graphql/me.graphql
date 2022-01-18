@@ -25,6 +25,7 @@ query getMe {
             generatePersonalAccessTokens
             manageIngestion
             manageSecrets
+            manageDomains
         }
     }
 }
