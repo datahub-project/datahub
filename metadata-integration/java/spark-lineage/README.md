@@ -24,7 +24,7 @@ spark = SparkSession.builder \
           .master("spark://spark-master:7077") \
           .appName("test-application") \
           .config("spark.jars.packages","io.acryl:datahub-spark-lineage:0.0.3") \
-          .config("spark.extraListeners","com.linkedin.datahub.lineage.interceptor.spark.DatahubLineageEmitter") \
+          .config("spark.extraListeners","com.linkedin.datahub.lineage.spark.interceptor.DatahubLineageEmitter") \
           .config("spark.datahub.rest.server", "http://localhost:8080") \
           .enableHiveSupport() \
           .getOrCreate()
