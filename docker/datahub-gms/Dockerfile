@@ -14,7 +14,7 @@ RUN apk --no-cache --update-cache --available upgrade \
     else \
       echo >&2 "Unsupported architecture $(arch)" ; exit 1; \
     fi \
-    && apk --no-cache add tar curl openjdk8-jre bash coreutils \
+    && apk --no-cache add tar curl openjdk8-jre bash coreutils gcompat \
     && curl https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-runner/9.4.20.v20190813/jetty-runner-9.4.20.v20190813.jar --output jetty-runner.jar \
     && curl https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-jmx/9.4.20.v20190813/jetty-jmx-9.4.20.v20190813.jar --output jetty-jmx.jar \
     && curl https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-util/9.4.20.v20190813/jetty-util-9.4.20.v20190813.jar --output jetty-util.jar \
@@ -39,9 +39,6 @@ COPY --from=prod-build /datahub-src/metadata-models/src/main/resources/entity-re
 COPY --from=prod-build /datahub-src/docker/datahub-gms/start.sh /datahub/datahub-gms/scripts/start.sh
 COPY --from=prod-build /datahub-src/docker/monitoring/client-prometheus-config.yaml /datahub/datahub-gms/scripts/prometheus-config.yaml
 RUN chmod +x /datahub/datahub-gms/scripts/start.sh
-
-# Snappy Lib update
-RUN apk update && apk add --no-cache gcompat
 
 FROM base as dev-install
 # Dummy stage for development. Assumes code is built on your machine and mounted to this image.
