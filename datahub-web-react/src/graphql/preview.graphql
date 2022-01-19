@@ -266,4 +266,10 @@ fragment entityPreview on Entity {
     ... on DataPlatform {
         ...nonConflictingPlatformFields
     }
+    ... on Domain {
+        urn
+        properties {
+            name
+        }
+    }
 }
