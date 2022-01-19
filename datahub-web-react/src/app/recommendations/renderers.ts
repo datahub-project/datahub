@@ -6,6 +6,7 @@ import { PlatformListRenderer } from './renderer/PlatformListRenderer';
 import { TagSearchListRenderer } from './renderer/TagSearchListRenderer';
 import { GlossaryTermSearchListRenderer } from './renderer/GlossaryTermSearchListRenderer';
 import { RecommendationRenderProps } from './types';
+import { DomainSearchListRenderer } from './renderer/DomainSearchListRenderer';
 
 /**
  * Renderers that are responsible for rendering recommendations of a particular RenderType!
@@ -30,6 +31,10 @@ const renderers: Array<{ renderType: RecommendationRenderType; renderer: React.F
     {
         renderType: RecommendationRenderType.GlossaryTermSearchList,
         renderer: GlossaryTermSearchListRenderer,
+    },
+    {
+        renderType: RecommendationRenderType.DomainSearchList,
+        renderer: DomainSearchListRenderer,
     },
 ];
 

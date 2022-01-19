@@ -270,4 +270,10 @@ fragment entityPreview on Entity {
             logoUrl
         }
     }
+    ... on Domain {
+        urn
+        properties {
+            name
+        }
+    }
 }
