@@ -7,6 +7,7 @@ import com.linkedin.gms.factory.recommendation.candidatesource.TopPlatformsCandi
 import com.linkedin.gms.factory.recommendation.candidatesource.TopTagsCandidateSourceFactory;
 import com.linkedin.gms.factory.recommendation.candidatesource.TopTermsCandidateSourceFactory;
 import com.linkedin.metadata.recommendation.RecommendationsService;
+import com.linkedin.metadata.recommendation.candidatesource.DomainsCandidateSource;
 import com.linkedin.metadata.recommendation.candidatesource.MostPopularSource;
 import com.linkedin.metadata.recommendation.candidatesource.RecentlyViewedSource;
 import com.linkedin.metadata.recommendation.candidatesource.RecommendationSource;
@@ -48,6 +49,10 @@ public class RecommendationServiceFactory {
   @Qualifier("topTermsCandidateSource")
   private TopTermsSource topTermsCandidateSource;
 
+  @Autowired
+  @Qualifier("domainsCandidateSource")
+  private DomainsCandidateSource domainsCandidateSource;
+
   @Bean
   @Nonnull
   protected RecommendationsService getInstance() {
@@ -56,7 +61,8 @@ public class RecommendationServiceFactory {
     final List<RecommendationSource> candidateSources = ImmutableList.of(
         topPlatformsCandidateSource,
         recentlyViewedCandidateSource, _mostPopularCandidateSource,
-        topTagsCandidateSource, topTermsCandidateSource);
+        topTagsCandidateSource, topTermsCandidateSource,
+        domainsCandidateSource);
     return new RecommendationsService(candidateSources, new SimpleRecommendationRanker());
   }
 }

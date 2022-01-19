@@ -28,5 +28,10 @@ enum RecommendationRenderType {
   /**
    * A list of recommended searches
    */
-  SEARCH_QUERY_LIST
+  SEARCH_QUERY_LIST,
+
+  /**
+   * List of domains to search
+   */
+  DOMAIN_SEARCH_LIST
 }
