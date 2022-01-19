@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Button, Empty, List, message, Pagination } from 'antd';
+import { Button, Empty, List, message, Pagination, Typography } from 'antd';
 import styled from 'styled-components';
 import { PlusOutlined } from '@ant-design/icons';
 import { Domain } from '../../types.generated';
@@ -21,6 +21,17 @@ const DomainsStyledList = styled(List)`
 const DomainsPaginationContainer = styled.div`
     display: flex;
     justify-content: center;
+    padding: 12px;
+    padding-left: 16px;
+    border-bottom: 1px solid;
+    border-color: ${(props) => props.theme.styles['border-color-base']};
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+`;
+
+const PaginationInfo = styled(Typography.Text)`
+    padding: 0px;
 `;
 
 const DEFAULT_PAGE_SIZE = 25;
@@ -43,6 +54,7 @@ export const DomainsList = () => {
     });
 
     const totalDomains = data?.listDomains?.total || 0;
+    const lastResultIndex = start + pageSize > totalDomains ? totalDomains : start + pageSize;
     const domains = (data?.listDomains?.domains || []).sort(
         (a, b) => (b.entities?.total || 0) - (a.entities?.total || 0),
     );
@@ -74,8 +86,13 @@ export const DomainsList = () => {
                     renderItem={(item: any) => <DomainListItem domain={item as Domain} />}
                 />
                 <DomainsPaginationContainer>
+                    <PaginationInfo>
+                        <b>
+                            {lastResultIndex > 0 ? (page - 1) * pageSize + 1 : 0} - {lastResultIndex}
+                        </b>{' '}
+                        of <b>{totalDomains}</b>
+                    </PaginationInfo>
                     <Pagination
-                        style={{ margin: 40 }}
                         current={page}
                         pageSize={pageSize}
                         total={totalDomains}
@@ -83,6 +100,7 @@ export const DomainsList = () => {
                         onChange={onChangePage}
                         showSizeChanger={false}
                     />
+                    <span />
                 </DomainsPaginationContainer>
                 <CreateDomainModal
                     visible={isCreatingDomain}

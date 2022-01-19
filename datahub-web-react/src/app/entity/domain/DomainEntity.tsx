@@ -9,7 +9,7 @@ import { SidebarAboutSection } from '../shared/containers/profile/sidebar/Sideba
 import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/SidebarOwnerSection';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { useGetDomainQuery } from '../../../graphql/domain.generated';
-import { SearchableEntitiesTab } from '../shared/components/styled/SearchableEntitiesTab';
+import { DomainEntitiesTab } from './DomainEntitiesTab';
 
 /**
  * Definition of the DataHub Domain entity.
@@ -66,7 +66,7 @@ export class DomainEntity implements Entity<Domain> {
             tabs={[
                 {
                     name: 'Entities',
-                    component: SearchableEntitiesTab,
+                    component: DomainEntitiesTab,
                 },
                 {
                     name: 'Documentation',
