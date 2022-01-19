@@ -29,7 +29,7 @@ from ingest_api.helper.mce_convenience import (authenticate_action, create_new_s
                                                update_field_param_class, verify_token)
 from ingest_api.helper.models import (browsepath_params, create_dataset_params,
                                       dataset_status_params, determine_type,
-                                      echo_param, prop_params, schema_params)
+                                      prop_params, schema_params)
 
 # when DEBUG = true, im not running ingest_api from container, but from localhost python interpreter, hence need to change the endpoint used.
 CLI_MODE = False if environ.get("RUNNING_IN_DOCKER") else True
@@ -47,7 +47,12 @@ streamLogger.setLevel(logging.DEBUG)
 rootLogger.addHandler(streamLogger)
 rootLogger.info(f"CLI mode : {CLI_MODE}")
 
-if not CLI_MODE:
+
+
+if not CLI_MODE:    
+    for env_var in ["ACCEPT_ORIGINS", "RUNNING_IN_DOCKER","JWT_SECRET", "DATAHUB_AUTHENTICATE_INGEST", "DATAHUB_FRONTEND"]:
+        if not os.environment[env_var]:
+            raise Exception(f"{env_var} is not defined to operate in Container mode")
     if not os.path.exists("/var/log/ingest/"):
         os.mkdir("/var/log/ingest/")
     if not os.path.exists("/var/log/ingest/json"):
@@ -81,7 +86,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["POST", "GET", "OPTIONS"],
+    allow_methods=["POST", "GET"],
 )
 
 
@@ -116,67 +121,75 @@ async def hello_world() -> None:
 
 @app.post("/update_browsepath")
 async def update_browsepath(item: browsepath_params):
-    # i expect the following:
-    # name: do not touch
-    # schema will generate schema metatdata (not the editable version)
-    # properties: get description from graphql and props from form. This will form DatasetProperty (Not EditableDatasetProperty)
-    # platform info: needed for schema
+
     rootLogger.info("update_browsepath_request_received {}".format(item))
-    dataset_snapshot = DatasetSnapshot(
-        urn=item.dataset_name,
-        aspects=[],
-    )
-    all_paths = []
-    for path in item.browsePaths:
-        all_paths.append(path + "dataset")
-    browsepath_aspect = make_browsepath_mce(path=all_paths)
-    dataset_snapshot.aspects.append(browsepath_aspect)
-    metadata_record = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-    response = emit_mce_respond(
-        metadata_record=metadata_record,
-        owner=item.requestor,
-        event="UI Update Browsepath",
-        token=item.user_token
-    )
-    return JSONResponse(
-        content=response.get("message", ""), status_code=response.get("status_code")
-    )
+    datasetName = item.dataset_name
+    token = item.user_token
+    user = item.requestor 
+    if authenticate_action(token=token, user=user, dataset = datasetName):
+        dataset_snapshot = DatasetSnapshot(
+            urn=item.dataset_name,
+            aspects=[],
+        )
+        all_paths = []
+        for path in item.browsePaths:
+            all_paths.append(path + "dataset")
+        browsepath_aspect = make_browsepath_mce(path=all_paths)
+        dataset_snapshot.aspects.append(browsepath_aspect)
+        metadata_record = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
+        response = emit_mce_respond(
+            metadata_record=metadata_record,
+            owner=item.requestor,
+            event="UI Update Browsepath",
+            token=item.user_token
+        )
+        return JSONResponse(
+            content=response.get("message", ""), status_code=response.get("status_code")
+        )
+    else:
+        log.error(f'authentication failed for request (update_browsepath) from {user}')
+        return JSONResponse(
+            content="Authentication Failed", status_code=401
+        )
 
 
 @app.post("/update_schema")
 async def update_schema(item: schema_params):
-    # i expect the following:
-    # name: do not touch
-    # schema will generate schema metatdata (not the editable version)
-    # properties: get description from graphql and props from form. This will form DatasetProperty (Not EditableDatasetProperty)
-    # platform info: needed for schema
-    # rootLogger.info("update_schema_request_received {}".format(item))
 
+    rootLogger.info("update_dataset_schema_request_received {}".format(item))
     datasetName = item.dataset_name
-    dataset_snapshot = DatasetSnapshot(
-        urn=datasetName,
-        aspects=[],
-    )
-    rootLogger.info(f"token check: {verify_token(item.user_token, item.requestor)}")
-    platformName = derive_platform_name(datasetName)
-    rootLogger.info(item.dataset_fields)
-    field_params = update_field_param_class(item.dataset_fields)
-    rootLogger.info(field_params)
-    schemaMetadata_aspect = make_schema_mce(
-        platformName=platformName,
-        actor=item.requestor,
-        fields=field_params,
-    )
-    rootLogger.info(schemaMetadata_aspect)
-    dataset_snapshot.aspects.append(schemaMetadata_aspect)
-    metadata_record = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-    response = emit_mce_respond(
-        metadata_record=metadata_record, owner=item.requestor, event="UI Update Schema",
-        token=item.user_token
-    )
-    return JSONResponse(
-        content=response.get("message", ""), status_code=response.get("status_code")
-    )
+    token = item.user_token
+    user = item.requestor 
+    if authenticate_action(token=token, user=user, dataset = datasetName):
+        dataset_snapshot = DatasetSnapshot(
+            urn=datasetName,
+            aspects=[],
+        )
+        rootLogger.info(f"token check: {verify_token(item.user_token, item.requestor)}")
+        platformName = derive_platform_name(datasetName)
+        rootLogger.info(item.dataset_fields)
+        field_params = update_field_param_class(item.dataset_fields)
+        rootLogger.info(field_params)
+        schemaMetadata_aspect = make_schema_mce(
+            platformName=platformName,
+            actor=item.requestor,
+            fields=field_params,
+        )
+        rootLogger.info(schemaMetadata_aspect)
+        dataset_snapshot.aspects.append(schemaMetadata_aspect)
+        metadata_record = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
+        response = emit_mce_respond(
+            metadata_record=metadata_record, owner=item.requestor, event="UI Update Schema",
+            token=item.user_token
+        )
+        return JSONResponse(
+            content=response.get("message", ""), status_code=response.get("status_code")
+        )
+    else:
+        log.error(f'authentication failed for request (update_schema) from {user}')
+        return JSONResponse(
+            content="Authentication Failed", status_code=401
+        )
 
 
 @app.post("/update_properties")
@@ -187,10 +200,10 @@ async def update_prop(item: prop_params):
     # properties: get description from graphql and props from form. This will form DatasetProperty (Not EditableDatasetProperty)
     # platform info: needed for schema
     
-    rootLogger.info("update_schema_request_received {}".format(item))
+    rootLogger.info("update_dataset_property_request_received {}".format(item))
     datasetName = item.dataset_name
     token = item.user_token
-    user = item.requestor
+    user = item.requestor    
     if authenticate_action(token=token, user=user, dataset = datasetName):
         dataset_snapshot = DatasetSnapshot(
             urn=datasetName,
@@ -219,6 +232,7 @@ async def update_prop(item: prop_params):
             content=response.get("message", ""), status_code=response.get("status_code")
         )
     else:
+        log.error(f'authentication failed for request (update_props) from {user}')
         return JSONResponse(
             content="Authentication Failed", status_code=401
         )
@@ -349,25 +363,27 @@ async def delete_item(item: dataset_status_params) -> None:
     This endpoint is to support soft delete of datasets. Still require a database/ES chron job to remove the entries though, it only suppresses it from search and UI
     """
     rootLogger.info("remove_dataset_request_received {}".format(item))
-    mce = make_status_mce(
-        dataset_name=item.dataset_name, desired_status=item.desired_state
-    )
-    response = emit_mce_respond(
-        metadata_record=mce,
-        owner=item.requestor,
-        event=f"Status Update removed:{item.desired_state}",
-        token = item.user_token,
-    )
-    return JSONResponse(
-        content=response.get("message", ""), status_code=response.get("status_code")
-    )
-
-
-@app.post("/echo")
-async def echo_inputs(item: echo_param):
-    rootLogger.info(f"input received {item}")
-    return JSONResponse(content=item, status_code=201)
-
+    datasetName = item.dataset_name
+    token = item.user_token
+    user = item.requestor    
+    if authenticate_action(token=token, user=user, dataset = datasetName):
+        mce = make_status_mce(
+            dataset_name=item.dataset_name, desired_status=item.desired_state
+        )
+        response = emit_mce_respond(
+            metadata_record=mce,
+            owner=item.requestor,
+            event=f"Status Update removed:{item.desired_state}",
+            token = item.user_token,
+        )
+        return JSONResponse(
+            content=response.get("message", ""), status_code=response.get("status_code")
+        )
+    else:
+        log.error(f'authentication failed for request (update_schema) from {user}')
+        return JSONResponse(
+            content="Authentication Failed", status_code=401
+        )
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=api_emitting_port)

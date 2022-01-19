@@ -108,7 +108,7 @@ plugins: Dict[str, Set[str]] = {
         # and column comments, and also releases HTTP and HTTPS transport schemes.
         "acryl-pyhive[hive]>=0.6.11"
     },
-    "kudu": {"impyla>=0.16.3", "krbcontext>=0.10", "jaydebeapi", "pandas_profiling"},
+    "kudu": {"krbcontext>=0.10", "jaydebeapi", "pandas_profiling"},
     "kafka": kafka_common,
     "kafka-connect": sql_common | {"requests", "JPype1"},
     "ldap": {"python-ldap>=2.4"},

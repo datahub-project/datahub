@@ -23,6 +23,7 @@ logformatter = logging.Formatter("%(asctime)s;%(levelname)s;%(funcName)s;%(messa
 handler = logging.StreamHandler(stdout)
 handler.setFormatter(logformatter)
 log.addHandler(handler)
+log.setLevel(logging.INFO)
 
 
 DEFAULT_ENV = "PROD"
@@ -376,8 +377,7 @@ def authenticate_action(
     log.error(f'Authenticate user setting is {must_authenticate_actions}')
     log.error(f"Dataset being updated is {dataset}, requestor is {user}")
     if must_authenticate_actions:
-        # if verify_token(token, user) and query_dataset_owner(token, dataset, user):
-        if query_dataset_owner(token, dataset, user):
+        if verify_token(token, user) and query_dataset_owner(token, dataset, user):
             log.error(f"user {user} is authorized to do something")
             return True
         else:
@@ -394,11 +394,12 @@ def query_dataset_owner(
     """
     Currently only queries users associated with dataset. 
     Does not query members of groups that owns the dataset,
-    because that query is more complicated.
+    because that query is more complicated - to be expanded next time. 
+    Also, currently UI checks also only check for individual owners not owner groups.
     """
     log.info(f'UI endpoint is {datahub_url}')
-    query_endpoint= urljoin(datahub_url, '/api/graphiql')
-    log.info(f'I will query {query_endpoint}')
+    query_endpoint= urljoin(datahub_url, '/api/graphql')
+    log.info(f'I will query {query_endpoint} as {user}')
     headers = {}
     headers["Authorization"] = f"Bearer {token}"
     headers["Content-Type"] = "application/json"
@@ -427,11 +428,15 @@ def query_dataset_owner(
             "variables":  variables
             } 
         )
+    log.info(f'resp.status_code is {resp.status_code}')
     if resp.status_code!=200:
-        raise Exception("unable to query dataset ownership")
+        return False
     data_received = json.loads(resp.text)
     owners_list = data_received['data']['dataset']['ownership']['owners']
+    log.info(f"The list of owners for this dataset is {owners_list}")
     owners = [item['owner']['username'] for item in owners_list]
     if user not in owners:
+        log.error('Ownership Step: False')
         return False
+    log.info('Ownership Step: True')
     return True
