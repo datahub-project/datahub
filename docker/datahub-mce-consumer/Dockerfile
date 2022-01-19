@@ -6,6 +6,7 @@ ENV DOCKERIZE_VERSION v0.6.1
 RUN apk --no-cache add curl tar wget openjdk8-jre bash \
     && wget https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v1.4.1/opentelemetry-javaagent-all.jar \
     && wget https://repo1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaagent/0.16.1/jmx_prometheus_javaagent-0.16.1.jar -O jmx_prometheus_javaagent.jar \
+    && cp /usr/lib/jvm/java-1.8-openjdk/jre/lib/security/cacerts /tmp/kafka.client.truststore.jks \
     && curl -L https://github.com/jwilder/dockerize/releases/download/$DOCKERIZE_VERSION/dockerize-linux-amd64-$DOCKERIZE_VERSION.tar.gz | tar -C /usr/local/bin -xzv
 
 FROM openjdk:8 as prod-build
@@ -18,9 +19,6 @@ COPY --from=prod-build /mce-consumer-job.jar /datahub/datahub-mce-consumer/bin/
 COPY --from=prod-build /datahub-src/docker/datahub-mce-consumer/start.sh /datahub/datahub-mce-consumer/scripts/
 COPY --from=prod-build /datahub-src/docker/monitoring/client-prometheus-config.yaml /datahub/datahub-mce-consumer/scripts/prometheus-config.yaml
 RUN chmod +x /datahub/datahub-mce-consumer/scripts/start.sh
-
-# Setup TLS JKS
-RUN cp /usr/lib/jvm/java-1.8-openjdk/jre/lib/security/cacerts /tmp/kafka.client.truststore.jks
 
 FROM base as dev-install
 # Dummy stage for development. Assumes code is built on your machine and mounted to this image.
