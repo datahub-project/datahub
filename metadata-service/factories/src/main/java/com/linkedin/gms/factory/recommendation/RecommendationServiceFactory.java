@@ -61,9 +61,9 @@ public class RecommendationServiceFactory {
     // This is where you can add new recommendation modules.
     final List<RecommendationSource> candidateSources = ImmutableList.of(
         topPlatformsCandidateSource,
+        domainsCandidateSource,
         recentlyViewedCandidateSource, _mostPopularCandidateSource,
-        topTagsCandidateSource, topTermsCandidateSource,
-        domainsCandidateSource);
+        topTagsCandidateSource, topTermsCandidateSource);
     return new RecommendationsService(candidateSources, new SimpleRecommendationRanker());
   }
 }
