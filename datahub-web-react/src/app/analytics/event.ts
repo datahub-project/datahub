@@ -10,6 +10,7 @@ export enum EventType {
     SearchEvent,
     SearchResultsViewEvent,
     SearchResultClickEvent,
+    EntitySearchResultClickEvent,
     BrowseResultClickEvent,
     EntityViewEvent,
     EntitySectionViewEvent,
