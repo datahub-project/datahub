@@ -218,7 +218,7 @@ class DataLakeSource(Source):
         elif file.endswith(".avro"):
             try:
                 df = self.spark.read.format("avro").load(file)
-            except AnalysisException as e:
+            except AnalysisException:
                 self.report.report_warning(
                     file,
                     "To ingest avro files, please install the spark-avro package: https://mvnrepository.com/artifact/org.apache.spark/spark-avro_2.12/3.0.3",
