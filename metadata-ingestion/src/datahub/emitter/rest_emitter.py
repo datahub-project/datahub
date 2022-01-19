@@ -130,11 +130,14 @@ class DatahubRestEmitter:
         response.raise_for_status()
         config: dict = response.json()
         if "config" in config:
-            if "application" in config["config"]:
+            config_obj = config["config"]
+            if "application" in config_obj:
                 application = config["config"]["application"]
                 raise ValueError(
                     f"You should be connecting to GMS URL not {application}"
                 )
+            elif "shouldShowDatasetLineage" in config_obj:
+                raise ValueError("You should be connecting to GMS URL not frontend")
         if config.get("noCode") != "true":
             raise ValueError(
                 f"This version of {__package_name__} requires GMS v0.8.0 or higher"
