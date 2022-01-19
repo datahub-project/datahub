@@ -814,6 +814,14 @@ public class GmsGraphQLEngine {
                     new LoadableTypeResolver<>(dataFlowType,
                         (env) -> ((DataJob) env.getSource()).getDataFlow().getUrn()))
                 )
+                .dataFetcher("domain",
+                    new LoadableTypeResolver<>(
+                        domainType,
+                        (env) -> {
+                            final DataJob dataJob = env.getSource();
+                            return dataJob.getDomain() != null ? dataJob.getDomain().getUrn() : null;
+                        })
+                )
             )
             .type("DataJobInputOutput", typeWiring -> typeWiring
                 .dataFetcher("inputDatasets", new AuthenticatedResolver<>(
