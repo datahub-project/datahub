@@ -128,7 +128,7 @@ class DataLakeSource(Source):
                 [
                     "org.apache.hadoop:hadoop-aws:3.0.3",
                     "org.apache.spark:spark-avro_2.12:3.0.3",
-                    pydeequ.deequ_maven_coord
+                    pydeequ.deequ_maven_coord,
                 ]
             ),
         )
@@ -227,7 +227,7 @@ class DataLakeSource(Source):
 
         # TODO: add support for more file types
         # elif file.endswith(".orc"):
-            # df = self.spark.read.orc(file)
+        # df = self.spark.read.orc(file)
         else:
             self.report.report_warning(file, f"file {file} has unsupported extension")
             return None
