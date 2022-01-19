@@ -219,11 +219,11 @@ class DataLakeSource(Source):
             try:
                 df = self.spark.read.format("avro").load(file)
             except AnalysisException as e:
-                self.report.report_failure(
+                self.report.report_warning(
                     file,
                     "To ingest avro files, please install the spark-avro package: https://mvnrepository.com/artifact/org.apache.spark/spark-avro_2.12/3.0.3",
                 )
-                raise (e)
+                return None
 
         # TODO: add support for more file types
         # elif file.endswith(".orc"):
