@@ -132,7 +132,7 @@ class DatahubRestEmitter:
         if "config" in config:
             config_obj = config["config"]
             if "application" in config_obj:
-                application = config["config"]["application"]
+                application = config_obj["application"]
                 raise ValueError(
                     f"You should be connecting to GMS URL not {application}"
                 )
