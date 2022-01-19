@@ -129,6 +129,12 @@ class DatahubRestEmitter:
         response = self._session.get(f"{self._gms_server}/config")
         response.raise_for_status()
         config: dict = response.json()
+        if "config" in config:
+            if "application" in config["config"]:
+                application = config["config"]["application"]
+                raise ValueError(
+                    f"You should be connecting to GMS URL not {application}"
+                )
         if config.get("noCode") != "true":
             raise ValueError(
                 f"This version of {__package_name__} requires GMS v0.8.0 or higher"
