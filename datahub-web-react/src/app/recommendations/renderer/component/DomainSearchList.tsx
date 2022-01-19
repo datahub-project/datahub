@@ -36,7 +36,7 @@ export const DomainSearchList = ({ content, onClick }: Props) => {
                 <Link
                     to={{
                         pathname: `${PageRoutes.SEARCH}`,
-                        search: `?filter_domain=${urlEncodeUrn(domain.domain.urn)}`,
+                        search: `?filter_domains=${urlEncodeUrn(domain.domain.urn)}`,
                     }}
                     key={domain.domain.urn}
                     onClick={() => onClick?.(index)}
