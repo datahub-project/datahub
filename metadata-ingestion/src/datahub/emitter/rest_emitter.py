@@ -72,10 +72,6 @@ class DatahubRestEmitter:
         extra_headers: Optional[Dict[str, str]] = None,
         ca_certificate_path: Optional[str] = None,
     ):
-        if ":9002" in gms_server:
-            logger.warning(
-                "the rest emitter should connect to GMS (usually port 8080) instead of frontend"
-            )
         self._gms_server = gms_server
         self._token = token
 
@@ -129,6 +125,10 @@ class DatahubRestEmitter:
         response = self._session.get(f"{self._gms_server}/config")
         response.raise_for_status()
         config: dict = response.json()
+        if ":9002" in self._gms_server:
+            logger.warning(
+                "the rest emitter should connect to GMS (usually port 8080) instead of frontend"
+            )
         if "config" in config:
             config_obj = config["config"]
             if "application" in config_obj:
