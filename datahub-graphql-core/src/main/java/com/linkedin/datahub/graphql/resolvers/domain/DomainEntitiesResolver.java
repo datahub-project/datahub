@@ -29,6 +29,17 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 public class DomainEntitiesResolver implements DataFetcher<CompletableFuture<SearchResults>> {
 
   private static final String DOMAINS_FIELD_NAME = "domains";
+  private static final String INPUT_ARG_NAME = "input";
+  private static final String DEFAULT_QUERY = "*";
+  private static final Integer DEFAULT_START = 0;
+  private static final Integer DEFAULT_COUNT = 20;
+  private static final DomainEntitiesInput DEFAULT_ENTITIES_INPUT = new DomainEntitiesInput();
+
+  static {
+    DEFAULT_ENTITIES_INPUT.setQuery(DEFAULT_QUERY);
+    DEFAULT_ENTITIES_INPUT.setStart(DEFAULT_START);
+    DEFAULT_ENTITIES_INPUT.setCount(DEFAULT_COUNT);
+  }
 
   private final EntityClient _entityClient;
 
@@ -42,11 +53,13 @@ public class DomainEntitiesResolver implements DataFetcher<CompletableFuture<Sea
     final QueryContext context = environment.getContext();
     final String urn = ((Domain) environment.getSource()).getUrn();
 
-    final DomainEntitiesInput input = bindArgument(environment.getArgument("input"), DomainEntitiesInput.class);
+    final DomainEntitiesInput input = environment.getArgument(INPUT_ARG_NAME) != null
+        ? bindArgument(environment.getArgument(INPUT_ARG_NAME), DomainEntitiesInput.class)
+        : DEFAULT_ENTITIES_INPUT;
 
-    final String query = input.getQuery() != null ? input.getQuery() : "*";
-    final int start = input.getStart() != null ? input.getStart() : 0;
-    final int count = input.getCount() != null ? input.getCount() : 20;
+    final String query = input.getQuery() != null ? input.getQuery() : DEFAULT_QUERY;
+    final int start = input.getStart() != null ? input.getStart() : DEFAULT_START;
+    final int count = input.getCount() != null ? input.getCount() : DEFAULT_COUNT;
 
     return CompletableFuture.supplyAsync(() -> {
 

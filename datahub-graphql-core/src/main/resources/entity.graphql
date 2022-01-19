@@ -5201,7 +5201,7 @@ type Domain implements Entity {
     """
     Children entities inside of the Domain
     """
-    entities(input: DomainEntitiesInput!): SearchResults
+    entities(input: DomainEntitiesInput): SearchResults
 
     """
     Edges extending from this entity
