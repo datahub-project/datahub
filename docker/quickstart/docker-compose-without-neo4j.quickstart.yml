@@ -32,7 +32,6 @@ services:
     - JAVA_OPTS=-Xms512m -Xmx512m -Dhttp.port=9002 -Dconfig.file=datahub-frontend/conf/application.conf
       -Djava.security.auth.login.config=datahub-frontend/conf/jaas.conf -Dlogback.configurationFile=datahub-frontend/conf/logback.xml
       -Dlogback.debug=false -Dpidfile.path=/dev/null
-    - METADATA_SERVICE_AUTH_ENABLED=true
     - KAFKA_BOOTSTRAP_SERVER=broker:29092
     - DATAHUB_TRACKING_TOPIC=DataHubUsageEvent_v1
     - ELASTIC_CLIENT_HOST=elasticsearch
