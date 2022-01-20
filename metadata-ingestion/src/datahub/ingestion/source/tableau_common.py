@@ -225,7 +225,6 @@ custom_sql_graphql_query = """
 }
 """
 
-
 published_datasource_graphql_query = """
 {
     __typename
@@ -362,8 +361,6 @@ def get_tags_from_params(params: List[str] = []) -> GlobalTagsClass:
 
 
 @lru_cache(maxsize=None)
-# TODO how to make this generic. May be have overrides ?
-# TODO take care of datahub friendly mapping
 def make_table_urn(
     env: str, upstream_db: str, connection_type: str, schema: str, full_name: str
 ) -> str:

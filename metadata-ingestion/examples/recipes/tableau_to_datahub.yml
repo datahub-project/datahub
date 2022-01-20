@@ -2,16 +2,12 @@
 source:
   type: "tableau"
   config:
-    username: jawadqu@gmail.com
-    password: ab1cd2EF`
+    username: username@tableau.com
+    password: pass
     connect_uri: https://prod-ca-a.online.tableau.com/
     site: acryl
     projects: ["default", "Project 2"]
     default_schema: "public"
-#    api_options:
-#      retry_backoff_multiplier: 2
-#      max_retry_interval: 10
-#      max_attempts: 5
 
 # see https://datahubproject.io/docs/metadata-ingestion/sink_docs/datahub for complete documentation
 sink:
