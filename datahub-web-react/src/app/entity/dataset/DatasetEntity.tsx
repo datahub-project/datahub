@@ -52,7 +52,7 @@ export class DatasetEntity implements Entity<Dataset> {
         }
 
         return (
-            <DatabaseFilled
+            <DatabaseOutlined
                 style={{
                     fontSize,
                     color: '#BFBFBF',
@@ -198,6 +198,7 @@ export class DatasetEntity implements Entity<Dataset> {
                 globalTags={data.globalTags}
                 glossaryTerms={data.glossaryTerms}
                 domain={data.domain}
+                container={data.container}
             />
         );
     };
@@ -217,6 +218,7 @@ export class DatasetEntity implements Entity<Dataset> {
                 domain={data.domain}
                 glossaryTerms={data.glossaryTerms}
                 subtype={data.subTypes?.typeNames?.[0]}
+                container={data.container}
                 snippet={
                     // Add match highlights only if all the matched fields are in the FIELDS_TO_HIGHLIGHT
                     result.matchedFields.length > 0 &&

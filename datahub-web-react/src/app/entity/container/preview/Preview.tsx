@@ -1,5 +1,5 @@
 import React from 'react';
-import { EntityType, Owner, SearchInsight, SubTypes } from '../../../../types.generated';
+import { Container, EntityType, Owner, SearchInsight, SubTypes } from '../../../../types.generated';
 import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { IconStyleType } from '../../Entity';
@@ -7,22 +7,26 @@ import { IconStyleType } from '../../Entity';
 export const Preview = ({
     urn,
     name,
+    platformName,
+    platformLogo,
     description,
     owners,
     insights,
     subTypes,
     logoComponent,
-    logoUrl,
+    container,
     entityCount,
 }: {
     urn: string;
     name: string;
+    platformName: string;
+    platformLogo?: string | null;
     description?: string | null;
     owners?: Array<Owner> | null;
     insights?: Array<SearchInsight> | null;
     subTypes?: SubTypes | null;
-    logoUrl?: string | null;
     logoComponent?: JSX.Element;
+    container?: Container | null;
     entityCount?: number;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
@@ -31,12 +35,14 @@ export const Preview = ({
         <DefaultPreviewCard
             url={entityRegistry.getEntityUrl(EntityType.Container, urn)}
             name={name || ''}
+            platform={platformName}
             description={description || ''}
             type={typeName}
             owners={owners}
             insights={insights}
-            logoUrl={logoUrl || undefined}
+            logoUrl={platformLogo || undefined}
             logoComponent={logoComponent}
+            container={container || undefined}
             typeIcon={entityRegistry.getIcon(EntityType.Container, 12, IconStyleType.ACCENT)}
             entityCount={entityCount}
         />

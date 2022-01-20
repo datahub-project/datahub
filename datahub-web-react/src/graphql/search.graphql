@@ -53,8 +53,13 @@ fragment searchResults on SearchResults {
                 subTypes {
                     typeNames
                 }
+<<<<<<< HEAD
                 domain {
                     ...entityDomain
+=======
+                container {
+                    ...entityContainer
+>>>>>>> Adding more UI
                 }
             }
             ... on CorpUser {
@@ -112,8 +117,13 @@ fragment searchResults on SearchResults {
                 platform {
                     ...platformFields
                 }
+<<<<<<< HEAD
                 domain {
                     ...entityDomain
+=======
+                container {
+                    ...entityContainer
+>>>>>>> Adding more UI
                 }
             }
             ... on Chart {
@@ -146,8 +156,13 @@ fragment searchResults on SearchResults {
                 platform {
                     ...platformFields
                 }
+<<<<<<< HEAD
                 domain {
                     ...entityDomain
+=======
+                container {
+                    ...entityContainer
+>>>>>>> Adding more UI
                 }
             }
             ... on DataFlow {
@@ -256,6 +271,9 @@ fragment searchResults on SearchResults {
                 entities(input: {}) {
                     total
                 }
+                container {
+                    ...entityContainer
+                }
             }
             ... on MLFeatureTable {
                 urn
@@ -333,18 +351,17 @@ fragment searchResults on SearchResults {
                 ... on DataPlatform {
                     ...platformFields
                 }
-<<<<<<< HEAD
                 ... on Domain {
                     urn
-=======
+                    properties {
+                        name
+                    }
+                }
                 ... on Container {
                     urn
                     platform {
-                        info {
-                            logoUrl
-                        }
+                        ...platformFields
                     }
->>>>>>> adding to right side search filters
                     properties {
                         name
                     }

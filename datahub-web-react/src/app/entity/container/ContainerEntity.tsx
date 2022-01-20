@@ -12,6 +12,7 @@ import { useGetContainerQuery } from '../../../graphql/container.generated';
 import { ContainerEntitiesTab } from './ContainerEntitiesTab';
 import { SidebarRecommendationsSection } from '../shared/containers/profile/sidebar/Recommendations/SidebarRecommendationsSection';
 import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
+import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
 
 /**
  * Definition of the DataHub Container entity.
@@ -74,6 +75,10 @@ export class ContainerEntity implements Entity<Container> {
                     name: 'Documentation',
                     component: DocumentationTab,
                 },
+                {
+                    name: 'Properties',
+                    component: PropertiesTab,
+                },
             ]}
             sidebarSections={[
                 {
@@ -101,10 +106,12 @@ export class ContainerEntity implements Entity<Container> {
             <Preview
                 urn={data.urn}
                 name={this.displayName(data)}
+                platformName={data.platform.info?.displayName || data.platform.name}
+                platformLogo={data.platform.info?.logoUrl}
                 description={data.properties?.description}
                 owners={data.ownership?.owners}
-                logoUrl={data.platform.info?.logoUrl}
                 subTypes={data.subTypes}
+                container={data.container}
                 entityCount={data.entities?.total}
             />
         );
@@ -116,10 +123,12 @@ export class ContainerEntity implements Entity<Container> {
             <Preview
                 urn={data.urn}
                 name={this.displayName(data)}
-                logoUrl={data.platform.info?.logoUrl}
+                platformName={data.platform.info?.displayName || data.platform.name}
+                platformLogo={data.platform.info?.logoUrl}
                 description={data.properties?.description}
                 owners={data.ownership?.owners}
                 subTypes={data.subTypes}
+                container={data.container}
                 entityCount={data.entities?.total}
             />
         );

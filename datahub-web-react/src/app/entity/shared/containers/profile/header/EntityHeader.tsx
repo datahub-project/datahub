@@ -3,7 +3,6 @@ import { Typography, Image, Button, Tooltip } from 'antd';
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-
 import { capitalizeFirstLetter } from '../../../../../shared/textUtil';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import { IconStyleType } from '../../../../Entity';
@@ -73,20 +72,26 @@ const ExternalLinkButton = styled(Button)`
     margin-right: 12px;
 `;
 
+const TypeIcon = styled.span`
+    margin-right: 8px;
+`;
+
 export const EntityHeader = () => {
     const { urn, entityType, entityData } = useEntityData();
     const entityRegistry = useEntityRegistry();
     const [copiedUrn, setCopiedUrn] = useState(false);
-    const platformName = capitalizeFirstLetter(entityData?.platform?.name);
+    const basePlatformName = entityData?.platform?.displayName || entityData?.platform?.name;
+    const platformName = capitalizeFirstLetterOnly(basePlatformName);
     const platformLogoUrl = entityData?.platform?.properties?.logoUrl;
     const entityLogoComponent = entityRegistry.getIcon(entityType, 12, IconStyleType.ACCENT);
     const entityTypeCased =
-        (entityData?.subTypes?.typeNames?.length && capitalizeFirstLetter(entityData?.subTypes.typeNames[0])) ||
+        (entityData?.subTypes?.typeNames?.length && capitalizeFirstLetterOnly(entityData?.subTypes.typeNames[0])) ||
         entityRegistry.getEntityName(entityType);
     const entityPath = useEntityPath(entityType, urn);
     const externalUrl = entityData?.externalUrl || undefined;
     const hasExternalUrl = !!externalUrl;
     const entityCount = entityData?.entityCount;
+    const typeIcon = entityRegistry.getIcon(entityType, 12, IconStyleType.ACCENT);
     return (
         <HeaderContainer>
             <MainHeaderContent>
@@ -99,6 +104,7 @@ export const EntityHeader = () => {
                     </LogoContainer>
                     <PlatformText>{platformName}</PlatformText>
                     {(platformLogoUrl || platformName) && <PlatformDivider />}
+                    {typeIcon && <TypeIcon>{typeIcon}</TypeIcon>}
                     <PlatformText>{entityData?.entityTypeOverride || entityTypeCased}</PlatformText>
                     {entityCount && (
                         <>
