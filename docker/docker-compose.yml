@@ -26,6 +26,8 @@ services:
     ports:
       - "29092:29092"
       - "9092:9092"
+    volumes:
+      - broker://var/lib/kafka/data/
 
   # This "container" is a workaround to pre-create topics
   kafka-setup:
@@ -130,3 +132,4 @@ volumes:
   esdata:
   neo4jdata:
   zkdata:
+  broker:
