@@ -118,9 +118,13 @@ workbook_graphql_query = """
         extractLastIncrementalUpdateTime
         extractLastUpdateTime
         upstreamDatabases {
+          id
           name
+          connectionType
+          isEmbedded
         }
         upstreamTables {
+          id
           name
           schema
           fullName
@@ -175,7 +179,54 @@ workbook_graphql_query = """
       }
     }
 """
-datasource_graphql_query = """
+
+custom_sql_graphql_query = """
+{
+      id
+      name
+      query
+      columns {
+        id
+        name
+        remoteType
+        description
+        referencedByFields {
+          datasource {
+            __typename
+            id
+            name
+            upstreamDatabases {
+              id
+              name
+            }
+            upstreamTables {
+              id
+              name
+              schema
+              connectionType
+            }
+            ... on PublishedDatasource {
+              projectName
+            }
+            ... on EmbeddedDatasource {
+              workbook {
+                name
+                projectName
+              }
+            }
+          }
+        }
+      }
+      tables {
+        name
+        schema
+        connectionType
+      }
+}
+"""
+
+
+published_datasource_graphql_query = """
 {
     __typename
     id
@@ -242,96 +293,8 @@ datasource_graphql_query = """
 }
         """
 
-custom_sql_graphql_query = """
-{
-    id
-    name
-    query
-    columns {
-        id
-        name
-        remoteType
-        description
-        referencedByFields {
-            datasource {
-                __typename
-                id
-                name
-                ... on PublishedDatasource {
-                    projectName
-                    }
-                ... on EmbeddedDatasource {
-                    workbook {
-                        name
-                        projectName
-                        }
-                    }
-            }
-        }
-    }
-    tables {
-    name
-    schema
-    fullName
-    connectionType
-    description
-    contact {
-        name
-        }
-    }
-}
-"""
-
-SOURCE_FIELD_TYPE_MAPPING = {
-    "EMPTY": NullTypeClass,
-    "NULL": NullTypeClass,
-    "I2": NumberTypeClass,
-    "I4": NumberTypeClass,
-    "R4": NumberTypeClass,
-    "R8": NumberTypeClass,
-    "CY": NumberTypeClass,
-    "DATE": DateTypeClass,
-    "BSTR": StringTypeClass,
-    "IDISPATCH": NullTypeClass,
-    "ERROR": NullTypeClass,
-    "BOOL": BooleanTypeClass,
-    "VARIANT": NullTypeClass,
-    "IUNKNOWN": NullTypeClass,
-    "DECIMAL": NumberTypeClass,
-    "UI1": NumberTypeClass,
-    "ARRAY": ArrayTypeClass,
-    "BYREF": NullTypeClass,
-    "I1": NumberTypeClass,
-    "UI2": NumberTypeClass,
-    "UI4": NumberTypeClass,
-    "I8": NumberTypeClass,
-    "UI8": NumberTypeClass,
-    "GUID": NullTypeClass,
-    "VECTOR": NullTypeClass,
-    "FILETIME": TimeTypeClass,
-    "RESERVED": NullTypeClass,
-    "BYTES": NullTypeClass,
-    "STR": StringTypeClass,
-    "WSTR": StringTypeClass,
-    "NUMERIC": NumberTypeClass,
-    "UDT": NullTypeClass,
-    "DBDATE": DateTypeClass,
-    "DBTIME": TimeTypeClass,
-    "DBTIMESTAMP": TimeTypeClass,
-    "HCHAPTER": NullTypeClass,
-    "PROPVARIANT": NullTypeClass,
-    "VARNUMERIC": NumberTypeClass,
-    "WDC_INT": NumberTypeClass,
-    "WDC_FLOAT": NumberTypeClass,
-    "WDC_STRING": StringTypeClass,
-    "WDC_DATETIME": TimeTypeClass,
-    "WDC_BOOL": BooleanTypeClass,
-    "WDC_DATE": DateTypeClass,
-    "WDC_GEOMETRY": NullTypeClass,
-}
-
 # https://referencesource.microsoft.com/#system.data/System/Data/OleDb/OLEDB_Enum.cs,364
-TARGET_FIELD_TYPE_MAPPING = {
+FIELD_TYPE_MAPPING = {
     "INTEGER": NumberTypeClass,
     "REAL": NumberTypeClass,
     "STRING": StringTypeClass,
@@ -389,16 +352,12 @@ TARGET_FIELD_TYPE_MAPPING = {
 }
 
 
-# TODO list comprehension
 def get_tags_from_params(params: List[str] = []) -> GlobalTagsClass:
-    """
-    generate tags
-    """
-    tags = []
-    for tag in params:
-        if tag:
-            tags.append(TagAssociationClass(tag=builder.make_tag_urn(tag)))
-
+    tags = [
+        TagAssociationClass(tag=builder.make_tag_urn(tag.upper()))
+        for tag in params
+        if tag is not None
+    ]
     return GlobalTagsClass(tags=tags)
 
 
