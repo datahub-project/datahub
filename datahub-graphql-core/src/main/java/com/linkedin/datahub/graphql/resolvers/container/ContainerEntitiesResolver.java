@@ -32,7 +32,8 @@ public class ContainerEntitiesResolver implements DataFetcher<CompletableFuture<
   private static final List<String> CONTAINABLE_ENTITY_NAMES = ImmutableList.of(
       Constants.DATASET_ENTITY_NAME,
       Constants.CHART_ENTITY_NAME,
-      Constants.DASHBOARD_ENTITY_NAME
+      Constants.DASHBOARD_ENTITY_NAME,
+      Constants.CONTAINER_ENTITY_NAME
   );
   private static final String CONTAINER_FIELD_NAME = "container";
   private static final String INPUT_ARG_NAME = "input";

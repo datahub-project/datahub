@@ -1063,6 +1063,11 @@ type Container implements Entity {
     platform: DataPlatform!
 
     """
+    Fetch an Entity Container by primary key (urn)
+    """
+    container: Container
+
+    """
     Read-only properties that originate in the source data platform
     """
     properties: ContainerProperties

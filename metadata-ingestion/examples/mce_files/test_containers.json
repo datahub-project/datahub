@@ -6,7 +6,7 @@
     "changeType":"UPSERT",
     "aspectName":"containerProperties",
     "aspect":{
-      "value":"{\"name\": \"datahub\", \"description\": \"The DataHub container\" }",
+      "value":"{\"name\": \"datahub_db\", \"description\": \"The DataHub db\" }",
       "contentType":"application/json"
     },
     "systemMetadata":null
@@ -15,6 +15,18 @@
     "auditHeader":null,
     "entityType":"container",
     "entityUrn": "urn:li:container:(mysql,instance1,MySchema.Database)",
+    "changeType":"UPSERT",
+    "aspectName":"container",
+    "aspect":{
+      "value":"{\"container\": \"urn:li:container:(mysql,instance1,MySchema.OTHERDB)\" }",
+      "contentType":"application/json"
+    },
+    "systemMetadata":null
+  },
+  {
+    "auditHeader":null,
+    "entityType":"container",
+    "entityUrn": "urn:li:container:(mysql,instance1,MySchema.OTHERDB)",
     "changeType":"UPSERT",
     "aspectName":"container",
     "aspect":{
@@ -54,7 +66,43 @@
     "changeType":"UPSERT",
     "aspectName":"container",
     "aspect":{
-      "value":"{\"container\": \"urn:li:container:(mysql,instance1,MySchema.Database)\" }",
+      "value":"{\"container\": \"urn:li:container:(mysql,instance1,MySchema.OTHERDB)\" }",
+      "contentType":"application/json"
+    },
+    "systemMetadata":null
+  },
+  {
+    "auditHeader":null,
+    "entityType":"container",
+    "entityUrn": "urn:li:container:(mysql,instance1,MySchema.OTHERDB)",
+    "changeType":"UPSERT",
+    "aspectName":"containerProperties",
+    "aspect":{
+      "value":"{\"name\": \"datahub_schema\", \"description\": \"The DataHub schema\" }",
+      "contentType":"application/json"
+    },
+    "systemMetadata":null
+  },
+  {
+    "auditHeader":null,
+    "entityType":"container",
+    "entityUrn": "urn:li:container:(mysql,instance1,MySchema.OTHERDB)",
+    "changeType":"UPSERT",
+    "aspectName":"subTypes",
+    "aspect":{
+      "value":"{\"typeNames\": [ \"Schema\" ] }",
+      "contentType":"application/json"
+    },
+    "systemMetadata":null
+  },
+  {
+    "auditHeader":null,
+    "entityType":"container",
+    "entityUrn": "urn:li:container:(mysql,instance1,MySchema.OTHERDB)",
+    "changeType":"UPSERT",
+    "aspectName":"dataPlatformInstance",
+    "aspect":{
+      "value":"{\"platform\": \"urn:li:dataPlatform:mysql\" }",
       "contentType":"application/json"
     },
     "systemMetadata":null

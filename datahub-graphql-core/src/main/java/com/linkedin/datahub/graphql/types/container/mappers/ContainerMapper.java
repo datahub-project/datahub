@@ -74,6 +74,16 @@ public class ContainerMapper {
       result.setSubTypes(mapSubTypes(new SubTypes(envelopedSubTypes.getValue().data())));
     }
 
+    final EnvelopedAspect envelopedContainer = aspects.get(Constants.CONTAINER_ASPECT_NAME);
+    if (envelopedContainer != null) {
+      final com.linkedin.container.Container gmsContainer = new com.linkedin.container.Container(envelopedContainer.getValue().data());
+      result.setContainer(Container
+          .builder()
+          .setType(EntityType.CONTAINER)
+          .setUrn(gmsContainer.getContainer().toString())
+          .build());
+    }
+
     return result;
   }
 

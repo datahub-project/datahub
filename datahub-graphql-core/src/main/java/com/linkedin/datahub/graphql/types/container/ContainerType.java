@@ -45,7 +45,7 @@ public class ContainerType implements com.linkedin.datahub.graphql.types.EntityT
 
     try {
       final Map<Urn, EntityResponse> entities = _entityClient.batchGetV2(
-          Constants.DATASET_ENTITY_NAME,
+          Constants.CONTAINER_ENTITY_NAME,
           containerUrns,
           ImmutableSet.of(
               Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME,

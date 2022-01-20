@@ -12,6 +12,8 @@ import com.linkedin.datahub.graphql.generated.Aspect;
 import com.linkedin.datahub.graphql.generated.BrowseResults;
 import com.linkedin.datahub.graphql.generated.Chart;
 import com.linkedin.datahub.graphql.generated.ChartInfo;
+import com.linkedin.datahub.graphql.generated.Container;
+import com.linkedin.datahub.graphql.generated.Dashboard;
 import com.linkedin.datahub.graphql.generated.DashboardInfo;
 import com.linkedin.datahub.graphql.generated.DataJob;
 import com.linkedin.datahub.graphql.generated.DataJobInputOutput;
@@ -412,7 +414,14 @@ public class GmsGraphQLEngine {
                 .dataFetcher("entities", new ContainerEntitiesResolver(entityClient))
                 .dataFetcher("platform",
                     new LoadableTypeResolver<>(dataPlatformType,
-                        (env) -> ((Dataset) env.getSource()).getPlatform().getUrn()))
+                        (env) -> ((Container) env.getSource()).getPlatform().getUrn()))
+                .dataFetcher("container",
+                    new LoadableTypeResolver<>(containerType,
+                        (env) -> {
+                            final Container container = env.getSource();
+                            return container.getContainer() != null ? container.getContainer().getUrn() : null;
+                        })
+                )
             );
     }
 
@@ -706,8 +715,8 @@ public class GmsGraphQLEngine {
             .dataFetcher("container",
                 new LoadableTypeResolver<>(containerType,
                     (env) -> {
-                        final Dataset dataset = env.getSource();
-                        return dataset.getContainer() != null ? dataset.getContainer().getUrn() : null;
+                        final Dashboard dashboard = env.getSource();
+                        return dashboard.getContainer() != null ? dashboard.getContainer().getUrn() : null;
                     }))
         );
         builder.type("DashboardInfo", typeWiring -> typeWiring
@@ -732,8 +741,8 @@ public class GmsGraphQLEngine {
                 new LoadableTypeResolver<>(
                     containerType,
                     (env) -> {
-                        final Dataset dataset = env.getSource();
-                        return dataset.getContainer() != null ? dataset.getContainer().getUrn() : null;
+                        final Chart chart = env.getSource();
+                        return chart.getContainer() != null ? chart.getContainer().getUrn() : null;
                     })
             )
         );
