@@ -6,12 +6,48 @@ ext {
   python_executable = 'python3'
   venv_name = 'venv'
 }
-task setupPython(type: Exec){
-  commandLine 'bash', '-c', "${python_executable} -m venv ${venv_name} && source ${venv_name}/bin/activate && pip install --upgrade pip wheel setuptools==57.5.0"  
-  commandLine 'bash', '-c', "${python_executable} -m pip install ../metadata-ingestion/.[base] && pip install ."  
+
+task environmentSetup(type: Exec) {
+  inputs.file file('setup.py')
+  outputs.dir("${venv_name}")
+  commandLine 'bash', '-c', "${python_executable} -m venv ${venv_name} && ${venv_name}/bin/python -m pip install --upgrade pip wheel setuptools==57.5.0"
+}
+task installMetadata(dependsOn: [ environmentSetup,':metadata-ingestion:install'])
+
+task installPackage(type: Exec, dependsOn: installMetadata){
+  inputs.file file('setup.py')
+  outputs.dir("${venv_name}")
+  commandLine "${venv_name}/bin/pip", 'install', '-e', '.[test]'
+}
+
+task lint(type: Exec, dependsOn: installPackage) {
+  commandLine 'bash', '-x', '-c',
+    "source ${venv_name}/bin/activate && " +
+    "black ingest_api/ tests/ && " +
+    "isort ingest_api/ tests/ && " +
+    "flake8 ingest_api/ tests/"
+}
+
+task testQuick(type: Exec, dependsOn: lint) {
+  // We can't enforce the coverage requirements if we run a subset of the tests.
+  inputs.files(project.fileTree(dir: "src/", include: "**/*.py"))
+  inputs.files(project.fileTree(dir: "tests/"))
+  outputs.dir("${venv_name}")
+  commandLine 'bash', '-x', '-c',
+    "source ${venv_name}/bin/activate && pytest -vv --continue-on-collection-errors"
 }
 
 
+task cleanPythonCache(type: Exec) {
+  commandLine 'bash', '-x', '-c',
+    "find ingest_api -type f -name '*.py[co]' -delete -o -type d -name __pycache__ -delete -o -type d -empty -delete"
+}
+
+clean {
+  delete venv_name
+  delete 'build'
+}
+clean.dependsOn cleanPythonCache
 // tasks - setup: codegen then pip install metadata-ingestion, then pip install .
 //         test: pytest
 //         clean: 

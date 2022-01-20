@@ -1,13 +1,13 @@
-from typing import Any, Dict, List, Optional, TypeVar, Union
+# flake8: noqa
+from typing import Any, Dict, List, Optional, Union
 
 from pydantic import BaseModel, validator
-from typing_extensions import TypedDict
 
 
 class FieldParam(BaseModel):
     field_name: str
     field_type: str
-    field_description: str = None
+    field_description: str = ""
 
 
 class FieldParamEdited(BaseModel):
@@ -32,7 +32,7 @@ class create_dataset_params(BaseModel):
     hasHeader: str = "n/a"
     headerLine: int = 1
     browsepathList: List[str]
-    user_token:str
+    user_token: str
 
     class Config:
         schema_extra = {
@@ -42,7 +42,8 @@ class create_dataset_params(BaseModel):
                 "dataset_description": "What this dataset is about...",
                 "dataset_owner": "12345",
                 "dataset_location": "the file can be found here @...",
-                "dataset_origin": "this dataset found came from... ie internet",
+                "dataset_origin": "this dataset found came from...\
+                    ie internet",
                 "hasHeader": "no",
                 "headerLine": 1,
                 "browsepathList": ["/user/", "/csv/"],
@@ -63,7 +64,8 @@ class create_dataset_params(BaseModel):
 
     # @validator('dataset_name')
     # def dataset_name_alphanumeric(cls, v):
-    #     assert len(set(v).difference(ascii_letters+digits+' -_/\\'))==0, 'dataset_name must be alphanumeric/space character only'
+    #     assert len(set(v).difference(ascii_letters+digits+' -_/\\'))==0,
+    # 'dataset_name must be alphanumeric/space character only'
     #     return v
     # @validator('dataset_type')
     # def dataset_type_alphanumeric(cls, v):
@@ -74,28 +76,28 @@ class create_dataset_params(BaseModel):
 class dataset_status_params(BaseModel):
     dataset_name: str
     requestor: str
-    user_token:str
+    user_token: str
     desired_state: bool
 
 
 class browsepath_params(BaseModel):
     dataset_name: str
     requestor: str
-    user_token:str
+    user_token: str
     browsePaths: List[str]
 
 
 class schema_params(BaseModel):
     dataset_name: str
     requestor: str
-    user_token:str
+    user_token: str
     dataset_fields: List[FieldParamEdited]
 
 
 class prop_params(BaseModel):
     dataset_name: str
     requestor: str
-    user_token:str
+    user_token: str
     description: str
     properties: List[Dict]
 
@@ -112,12 +114,12 @@ def determine_type(type_input: Union[str, Dict[str, str]]) -> str:
     this list will grow when we have more dataset types in the form
     """
     if isinstance(type_input, Dict):
-        type_input = type_input.get("dataset_type", "")
-    if (type_input.lower() == "text/csv") or (
-        type_input.lower() == "application/octet-stream"
+        type_input_str = type_input.get("dataset_type", "")
+    if (type_input_str.lower() == "text/csv") or (
+        type_input_str.lower() == "application/octet-stream"
     ):
         return "csv"
-    if type_input.lower() == "json":
+    if type_input_str.lower() == "json":
         return "json"
     else:
         return "undefined"

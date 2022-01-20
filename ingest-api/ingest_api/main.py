@@ -1,3 +1,5 @@
+# flake8: noqa
+
 import logging
 import os
 import time
@@ -9,14 +11,13 @@ from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import \
     DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
-from fastapi import FastAPI, HTTPException, Request, status
+from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse
-from pydantic.main import BaseModel
-from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from ingest_api.helper.mce_convenience import (authenticate_action, create_new_schema_mce,
+from ingest_api.helper.mce_convenience import (authenticate_action,
+                                               create_new_schema_mce,
                                                derive_platform_name,
                                                generate_json_output,
                                                get_sys_time,
@@ -26,12 +27,15 @@ from ingest_api.helper.mce_convenience import (authenticate_action, create_new_s
                                                make_ownership_mce,
                                                make_platform, make_schema_mce,
                                                make_status_mce, make_user_urn,
-                                               update_field_param_class, verify_token)
+                                               update_field_param_class,
+                                               verify_token)
 from ingest_api.helper.models import (browsepath_params, create_dataset_params,
                                       dataset_status_params, determine_type,
                                       prop_params, schema_params)
 
-# when DEBUG = true, im not running ingest_api from container, but from localhost python interpreter, hence need to change the endpoint used.
+# when DEBUG = true, im not running ingest_api from container,
+# but from localhost python interpreter, hence need to change the
+# endpoint used.
 CLI_MODE = False if environ.get("RUNNING_IN_DOCKER") else True
 
 api_emitting_port = 8001
@@ -48,11 +52,19 @@ rootLogger.addHandler(streamLogger)
 rootLogger.info(f"CLI mode : {CLI_MODE}")
 
 
-
-if not CLI_MODE:    
-    for env_var in ["ACCEPT_ORIGINS", "RUNNING_IN_DOCKER","JWT_SECRET", "DATAHUB_AUTHENTICATE_INGEST", "DATAHUB_FRONTEND"]:
+if not CLI_MODE:
+    for env_var in [
+        "ACCEPT_ORIGINS",
+        "RUNNING_IN_DOCKER",
+        "JWT_SECRET",
+        "DATAHUB_AUTHENTICATE_INGEST",
+        "DATAHUB_FRONTEND",
+    ]:
         if not os.environment[env_var]:
-            raise Exception(f"{env_var} is not defined to operate in Container mode")
+            raise Exception(
+                f"{env_var} is not defined \
+                to operate in Container mode"
+            )
     if not os.path.exists("/var/log/ingest/"):
         os.mkdir("/var/log/ingest/")
     if not os.path.exists("/var/log/ingest/json"):
@@ -62,7 +74,8 @@ else:
     if not os.path.exists("./logs/"):
         os.mkdir(f"{os.getcwd()}/logs/")
     log_path = f"{os.getcwd()}/logs/ingest_api.log"
-# I think its fine even if the json and log files get mixed in the same folder when running locally
+# I think its fine even if the json and log files get mixed
+# in the same folder when running locally
 
 log = TimedRotatingFileHandler(log_path, when="midnight", interval=1, backupCount=365)
 log.setLevel(logging.INFO)
@@ -76,7 +89,12 @@ app = FastAPI(
     description="For generating datasets",
     version="0.0.2",
 )
-origins = ["http://localhost:9002", "http://172.19.0.1:9002", "http://172.19.0.1:3000", "http://localhost:3000"]
+origins = [
+    "http://localhost:9002",
+    "http://172.19.0.1:9002",
+    "http://172.19.0.1:3000",
+    "http://localhost:3000",
+]
 if environ.get("ACCEPT_ORIGINS") is not None:
     new_origin = environ["ACCEPT_ORIGINS"]
     origins.append(new_origin)
@@ -98,7 +116,10 @@ async def validation_exception_handler(request, exc):
     exc_str = f"{exc}".replace("\n", " ").replace("   ", " ")
 
     rootLogger.error(exc_str)
-    rootLogger.error(f"malformed POST request {request.body} from {request.client}")
+    rootLogger.error(
+        f"malformed POST request \
+        {request.body} from {request.client}"
+    )
     return PlainTextResponse(str(exc_str), status_code=400)
 
 
@@ -107,7 +128,7 @@ async def hello_world() -> None:
     """
     Just a hello world endpoint to ensure that the api is running.
     """
-    ## how to check that this dataset exist? - curl to GMS?
+    # how to check that this dataset exist? - curl to GMS?
     # rootLogger.info("hello world is called")
     return JSONResponse(
         content={
@@ -125,8 +146,8 @@ async def update_browsepath(item: browsepath_params):
     rootLogger.info("update_browsepath_request_received {}".format(item))
     datasetName = item.dataset_name
     token = item.user_token
-    user = item.requestor 
-    if authenticate_action(token=token, user=user, dataset = datasetName):
+    user = item.requestor
+    if authenticate_action(token=token, user=user, dataset=datasetName):
         dataset_snapshot = DatasetSnapshot(
             urn=item.dataset_name,
             aspects=[],
@@ -141,16 +162,17 @@ async def update_browsepath(item: browsepath_params):
             metadata_record=metadata_record,
             owner=item.requestor,
             event="UI Update Browsepath",
-            token=item.user_token
+            token=item.user_token,
         )
         return JSONResponse(
             content=response.get("message", ""), status_code=response.get("status_code")
         )
     else:
-        log.error(f'authentication failed for request (update_browsepath) from {user}')
-        return JSONResponse(
-            content="Authentication Failed", status_code=401
+        log.error(
+            f"authentication failed for request\
+            (update_browsepath) from {user}"
         )
+        return JSONResponse(content="Authentication Failed", status_code=401)
 
 
 @app.post("/update_schema")
@@ -159,13 +181,16 @@ async def update_schema(item: schema_params):
     rootLogger.info("update_dataset_schema_request_received {}".format(item))
     datasetName = item.dataset_name
     token = item.user_token
-    user = item.requestor 
-    if authenticate_action(token=token, user=user, dataset = datasetName):
+    user = item.requestor
+    if authenticate_action(token=token, user=user, dataset=datasetName):
         dataset_snapshot = DatasetSnapshot(
             urn=datasetName,
             aspects=[],
         )
-        rootLogger.info(f"token check: {verify_token(item.user_token, item.requestor)}")
+        rootLogger.info(
+            f"token check:\
+            {verify_token(item.user_token, item.requestor)}"
+        )
         platformName = derive_platform_name(datasetName)
         rootLogger.info(item.dataset_fields)
         field_params = update_field_param_class(item.dataset_fields)
@@ -179,17 +204,20 @@ async def update_schema(item: schema_params):
         dataset_snapshot.aspects.append(schemaMetadata_aspect)
         metadata_record = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
         response = emit_mce_respond(
-            metadata_record=metadata_record, owner=item.requestor, event="UI Update Schema",
-            token=item.user_token
+            metadata_record=metadata_record,
+            owner=item.requestor,
+            event="UI Update Schema",
+            token=item.user_token,
         )
         return JSONResponse(
             content=response.get("message", ""), status_code=response.get("status_code")
         )
     else:
-        log.error(f'authentication failed for request (update_schema) from {user}')
-        return JSONResponse(
-            content="Authentication Failed", status_code=401
+        log.error(
+            f"authentication failed for request\
+            (update_schema) from {user}"
         )
+        return JSONResponse(content="Authentication Failed", status_code=401)
 
 
 @app.post("/update_properties")
@@ -197,14 +225,15 @@ async def update_prop(item: prop_params):
     # i expect the following:
     # name: do not touch
     # schema will generate schema metatdata (not the editable version)
-    # properties: get description from graphql and props from form. This will form DatasetProperty (Not EditableDatasetProperty)
+    # properties: get description from graphql and props from form.
+    # This will form DatasetProperty (Not EditableDatasetProperty)
     # platform info: needed for schema
-    
+
     rootLogger.info("update_dataset_property_request_received {}".format(item))
     datasetName = item.dataset_name
     token = item.user_token
-    user = item.requestor    
-    if authenticate_action(token=token, user=user, dataset = datasetName):
+    user = item.requestor
+    if authenticate_action(token=token, user=user, dataset=datasetName):
         dataset_snapshot = DatasetSnapshot(
             urn=datasetName,
             aspects=[],
@@ -226,21 +255,21 @@ async def update_prop(item: prop_params):
             metadata_record=metadata_record,
             owner=item.requestor,
             event="UI Update Properties",
-            token = token,
+            token=token,
         )
         return JSONResponse(
             content=response.get("message", ""), status_code=response.get("status_code")
         )
     else:
-        log.error(f'authentication failed for request (update_props) from {user}')
-        return JSONResponse(
-            content="Authentication Failed", status_code=401
+        log.error(
+            f"authentication failed for request\
+            (update_props) from {user}"
         )
+        return JSONResponse(content="Authentication Failed", status_code=401)
 
 
 def emit_mce_respond(
-    metadata_record: MetadataChangeEvent, owner: str, event: str,
-    token: str
+    metadata_record: MetadataChangeEvent, owner: str, event: str, token: str
 ) -> dict():
     datasetName = metadata_record.proposedSnapshot.urn
     for mce in metadata_record.proposedSnapshot.aspects:
@@ -248,7 +277,8 @@ def emit_mce_respond(
             rootLogger.error(f"{mce.__class__} is not defined properly")
             return {
                 "status_code": 400,
-                "messsage": f"MCE was incorrectly defined. {event} was aborted",
+                "messsage": f"MCE was incorrectly defined.\
+                    {event} was aborted",
             }
 
     if CLI_MODE:
@@ -292,9 +322,10 @@ async def create_item(item: create_dataset_params) -> None:
         item.browsepathList = [
             item + "/" for item in item.browsepathList if not item.endswith("//")
         ]
-        # this line is in case the endpoint is called by API and not UI, which will enforce ending with /.
+        # this line is in case the endpoint is called by API and not UI,
+        # which will enforce ending with /.
         browsepaths = [path + "dataset" for path in item.browsepathList]
-        
+
         requestor = make_user_urn(item.dataset_owner)
         headerRowNum = (
             "n/a"
@@ -311,7 +342,9 @@ async def create_item(item: create_dataset_params) -> None:
             properties.pop("has_header")
             properties.pop("header_row_number")
 
-        dataset_description = item.dataset_description if item.dataset_description else ""
+        dataset_description = (
+            item.dataset_description if item.dataset_description else ""
+        )
         dataset_snapshot = DatasetSnapshot(
             urn=datasetName,
             aspects=[],
@@ -346,27 +379,30 @@ async def create_item(item: create_dataset_params) -> None:
         )
         metadata_record = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
         response = emit_mce_respond(
-            metadata_record=metadata_record, owner=requestor, event="Create Dataset", token=token,
+            metadata_record=metadata_record,
+            owner=requestor,
+            event="Create Dataset",
+            token=token,
         )
         return JSONResponse(
             content=response.get("message", ""), status_code=response.get("status_code")
         )
     else:
-        return JSONResponse(
-            content="Authentication Failed", status_code=401
-        )
+        return JSONResponse(content="Authentication Failed", status_code=401)
 
 
 @app.post("/update_dataset_status")
 async def delete_item(item: dataset_status_params) -> None:
     """
-    This endpoint is to support soft delete of datasets. Still require a database/ES chron job to remove the entries though, it only suppresses it from search and UI
+    This endpoint is to support soft delete of datasets. Still require
+    a database/ES chron job to remove the entries though, it only
+    suppresses it from search and UI
     """
     rootLogger.info("remove_dataset_request_received {}".format(item))
     datasetName = item.dataset_name
     token = item.user_token
-    user = item.requestor    
-    if authenticate_action(token=token, user=user, dataset = datasetName):
+    user = item.requestor
+    if authenticate_action(token=token, user=user, dataset=datasetName):
         mce = make_status_mce(
             dataset_name=item.dataset_name, desired_status=item.desired_state
         )
@@ -374,16 +410,18 @@ async def delete_item(item: dataset_status_params) -> None:
             metadata_record=mce,
             owner=item.requestor,
             event=f"Status Update removed:{item.desired_state}",
-            token = item.user_token,
+            token=item.user_token,
         )
         return JSONResponse(
             content=response.get("message", ""), status_code=response.get("status_code")
         )
     else:
-        log.error(f'authentication failed for request (update_schema) from {user}')
-        return JSONResponse(
-            content="Authentication Failed", status_code=401
+        log.error(
+            f"authentication failed for request\
+            (update_schema) from {user}"
         )
+        return JSONResponse(content="Authentication Failed", status_code=401)
+
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=api_emitting_port)
