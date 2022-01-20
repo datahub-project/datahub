@@ -258,7 +258,7 @@ class BigQueryConfig(BaseTimeWindowConfig, SQLAlchemyConfig):
 
 class BigQuerySource(SQLAlchemySource):
     config: BigQueryConfig
-    partiton_columns: Dict[str, dict[str, BigQueryPartitionColumn]] = dict()
+    partiton_columns: Dict[str, Dict[str, BigQueryPartitionColumn]] = dict()
     maximum_shard_ids: Dict[str, str] = dict()
     lineage_metadata: Optional[Dict[str, Set[str]]] = None
 
