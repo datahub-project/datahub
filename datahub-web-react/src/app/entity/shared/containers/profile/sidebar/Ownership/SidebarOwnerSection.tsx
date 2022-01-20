@@ -17,6 +17,11 @@ export const SidebarOwnerSection = () => {
         <div>
             <SidebarHeader title="Owners" />
             <div>
+                {!ownersEmpty && (
+                    <Typography.Paragraph type="secondary">
+                        Top tip: hover over the team to see the ownership type
+                    </Typography.Paragraph>
+                )}
                 {entityData?.ownership?.owners?.map((owner) => (
                     <ExpandedOwner entityUrn={urn} owner={owner} refetch={refetch} />
                 ))}
