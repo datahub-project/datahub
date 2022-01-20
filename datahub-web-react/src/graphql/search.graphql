@@ -333,8 +333,18 @@ fragment searchResults on SearchResults {
                 ... on DataPlatform {
                     ...platformFields
                 }
+<<<<<<< HEAD
                 ... on Domain {
                     urn
+=======
+                ... on Container {
+                    urn
+                    platform {
+                        info {
+                            logoUrl
+                        }
+                    }
+>>>>>>> adding to right side search filters
                     properties {
                         name
                     }
