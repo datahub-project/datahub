@@ -14,6 +14,7 @@ import com.linkedin.datahub.graphql.generated.DataPlatform;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.StringMapMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
 import com.linkedin.entity.EntityResponse;
@@ -80,6 +81,12 @@ public class ContainerMapper {
     final com.linkedin.datahub.graphql.generated.ContainerProperties propertiesResult = new com.linkedin.datahub.graphql.generated.ContainerProperties();
     propertiesResult.setName(gmsProperties.getName());
     propertiesResult.setDescription(gmsProperties.getDescription());
+    if (gmsProperties.hasExternalUrl()) {
+      propertiesResult.setExternalUrl(gmsProperties.getExternalUrl().toString());
+    }
+    if (gmsProperties.hasCustomProperties()) {
+      propertiesResult.setCustomProperties(StringMapMapper.map(gmsProperties.getCustomProperties()));
+    }
     return propertiesResult;
   }
 

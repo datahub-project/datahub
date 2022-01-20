@@ -1,12 +1,15 @@
 namespace com.linkedin.container
 
+import com.linkedin.common.CustomProperties
+import com.linkedin.common.ExternalReference
+
 /**
  * Information about a Asset Container as received from a 3rd party source system
  */
 @Aspect = {
   "name": "containerProperties"
 }
-record ContainerProperties {
+record ContainerProperties includes CustomProperties, ExternalReference {
   /**
    * Display name of the Asset Container
    */
@@ -18,7 +21,7 @@ record ContainerProperties {
   name: string
 
   /**
-   * Description of the Asset Container as its received from a source system
+   * Description of the Asset Container as it exists inside a source system
    */
   description: optional string
 }

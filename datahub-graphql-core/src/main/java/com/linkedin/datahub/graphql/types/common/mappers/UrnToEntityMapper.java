@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.types.common.mappers;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.generated.Chart;
+import com.linkedin.datahub.graphql.generated.Container;
 import com.linkedin.datahub.graphql.generated.CorpGroup;
 import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.generated.Dashboard;
@@ -106,6 +107,11 @@ public class UrnToEntityMapper implements ModelMapper<com.linkedin.common.urn.Ur
       partialEntity = new DataPlatform();
       ((DataPlatform) partialEntity).setUrn(input.toString());
       ((DataPlatform) partialEntity).setType(EntityType.DATA_PLATFORM);
+    }
+    if (input.getEntityType().equals("container")) {
+      partialEntity = new Container();
+      ((Container) partialEntity).setUrn(input.toString());
+      ((Container) partialEntity).setType(EntityType.CONTAINER);
     }
     return partialEntity;
   }
