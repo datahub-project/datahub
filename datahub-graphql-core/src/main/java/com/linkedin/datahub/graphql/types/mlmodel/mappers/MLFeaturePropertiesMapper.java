@@ -21,7 +21,9 @@ public class MLFeaturePropertiesMapper implements ModelMapper<com.linkedin.ml.me
         final MLFeatureProperties result = new MLFeatureProperties();
 
         result.setDescription(mlFeatureProperties.getDescription());
-        result.setDataType(MLFeatureDataType.valueOf(mlFeatureProperties.getDataType().toString()));
+        if (mlFeatureProperties.getDataType() != null) {
+            result.setDataType(MLFeatureDataType.valueOf(mlFeatureProperties.getDataType().toString()));
+        }
         if (mlFeatureProperties.getVersion() != null) {
             result.setVersion(VersionTagMapper.map(mlFeatureProperties.getVersion()));
         }

@@ -21,7 +21,9 @@ public class MLPrimaryKeyPropertiesMapper implements ModelMapper<com.linkedin.ml
         final MLPrimaryKeyProperties result = new MLPrimaryKeyProperties();
 
         result.setDescription(mlPrimaryKeyProperties.getDescription());
-        result.setDataType(MLFeatureDataType.valueOf(mlPrimaryKeyProperties.getDataType().toString()));
+        if (mlPrimaryKeyProperties.getDataType() != null) {
+            result.setDataType(MLFeatureDataType.valueOf(mlPrimaryKeyProperties.getDataType().toString()));
+        }
         if (mlPrimaryKeyProperties.getVersion() != null) {
             result.setVersion(VersionTagMapper.map(mlPrimaryKeyProperties.getVersion()));
         }

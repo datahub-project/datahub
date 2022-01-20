@@ -49,7 +49,9 @@ public class MLFeatureSnapshotMapper implements ModelMapper<MLFeatureSnapshot, M
                 MLFeatureProperties featureProperties = MLFeatureProperties.class.cast(aspect);
                 result.setFeatureProperties(MLFeaturePropertiesMapper.map(featureProperties));
                 result.setDescription(featureProperties.getDescription());
-                result.setDataType(MLFeatureDataType.valueOf(featureProperties.getDataType().toString()));
+                if (featureProperties.getDataType() != null) {
+                    result.setDataType(MLFeatureDataType.valueOf(featureProperties.getDataType().toString()));
+                }
             } else if (aspect instanceof InstitutionalMemory) {
                 InstitutionalMemory institutionalMemory = InstitutionalMemory.class.cast(aspect);
                 result.setInstitutionalMemory(InstitutionalMemoryMapper.map(institutionalMemory));
