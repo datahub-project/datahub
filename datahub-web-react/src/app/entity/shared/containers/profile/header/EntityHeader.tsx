@@ -42,6 +42,13 @@ const PlatformText = styled(Typography.Text)`
     color: ${ANTD_GRAY[7]};
 `;
 
+const EntityCountText = styled(Typography.Text)`
+    font-size: 12px;
+    line-height: 20px;
+    font-weight: 400;
+    color: ${ANTD_GRAY[7]};
+`;
+
 const PlatformDivider = styled.div`
     display: inline-block;
     padding-left: 10px;
@@ -62,6 +69,10 @@ const MainHeaderContent = styled.div`
     flex: 1;
 `;
 
+const ExternalLinkButton = styled(Button)`
+    margin-right: 12px;
+`;
+
 export const EntityHeader = () => {
     const { urn, entityType, entityData } = useEntityData();
     const entityRegistry = useEntityRegistry();
@@ -69,10 +80,13 @@ export const EntityHeader = () => {
     const platformName = capitalizeFirstLetter(entityData?.platform?.name);
     const platformLogoUrl = entityData?.platform?.properties?.logoUrl;
     const entityLogoComponent = entityRegistry.getIcon(entityType, 12, IconStyleType.ACCENT);
-    const entityTypeCased = entityRegistry.getEntityName(entityType);
+    const entityTypeCased =
+        (entityData?.subTypes?.typeNames?.length && capitalizeFirstLetter(entityData?.subTypes.typeNames[0])) ||
+        entityRegistry.getEntityName(entityType);
     const entityPath = useEntityPath(entityType, urn);
     const externalUrl = entityData?.externalUrl || undefined;
     const hasExternalUrl = !!externalUrl;
+    const entityCount = entityData?.entityCount;
     return (
         <HeaderContainer>
             <MainHeaderContent>
@@ -86,12 +100,18 @@ export const EntityHeader = () => {
                     <PlatformText>{platformName}</PlatformText>
                     {(platformLogoUrl || platformName) && <PlatformDivider />}
                     <PlatformText>{entityData?.entityTypeOverride || entityTypeCased}</PlatformText>
+                    {entityCount && (
+                        <>
+                            <PlatformDivider />
+                            <EntityCountText>{entityCount.toLocaleString()} entities</EntityCountText>
+                        </>
+                    )}
                 </PlatformContent>
                 <Link to={entityPath}>
                     <EntityTitle level={3}>{entityData?.name || ' '}</EntityTitle>
                 </Link>
             </MainHeaderContent>
-            {hasExternalUrl && <Button href={externalUrl}>View in {platformName}</Button>}
+            {hasExternalUrl && <ExternalLinkButton href={externalUrl}>View in {platformName}</ExternalLinkButton>}
             <Tooltip title="Copy URN. An URN uniquely identifies an entity on DataHub.">
                 <Button
                     icon={copiedUrn ? <CheckOutlined /> : <CopyOutlined />}

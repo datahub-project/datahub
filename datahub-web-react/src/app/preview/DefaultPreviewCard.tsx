@@ -11,6 +11,7 @@ import NoMarkdownViewer from '../entity/shared/components/styled/StripMarkdownTe
 import { getNumberWithOrdinal } from '../entity/shared/utils';
 import { useEntityData } from '../entity/shared/EntityContext';
 
+<<<<<<< HEAD
 interface Props {
     name: string;
     logoUrl?: string;
@@ -34,6 +35,8 @@ interface Props {
     path?: Entity[];
 }
 
+=======
+>>>>>>> Updating Entities Cards
 const PreviewContainer = styled.div`
     display: flex;
     width: 100%;
@@ -73,6 +76,13 @@ const PlatformText = styled(Typography.Text)`
     font-size: 12px;
     line-height: 20px;
     font-weight: 700;
+    color: ${ANTD_GRAY[7]};
+`;
+
+const EntityCountText = styled(Typography.Text)`
+    font-size: 12px;
+    line-height: 20px;
+    font-weight: 400;
     color: ${ANTD_GRAY[7]};
 `;
 
@@ -116,6 +126,34 @@ const InsightIconContainer = styled.span`
     margin-right: 4px;
 `;
 
+const TypeIcon = styled.span`
+    margin-right: 8px;
+`;
+
+interface Props {
+    name: string;
+    logoUrl?: string;
+    logoComponent?: JSX.Element;
+    url: string;
+    description?: string;
+    type?: string;
+    typeIcon?: JSX.Element;
+    platform?: string;
+    qualifier?: string | null;
+    tags?: GlobalTags;
+    owners?: Array<Owner> | null;
+    snippet?: React.ReactNode;
+    insights?: Array<SearchInsight> | null;
+    glossaryTerms?: GlossaryTerms;
+    entityCount?: number;
+    dataTestID?: string;
+    titleSizePx?: number;
+    onClick?: () => void;
+    // this is provided by the impact analysis view. it is used to display
+    // how the listed node is connected to the source node
+    path?: Entity[];
+}
+
 export default function DefaultPreviewCard({
     name,
     logoUrl,
@@ -123,6 +161,7 @@ export default function DefaultPreviewCard({
     url,
     description,
     type,
+    typeIcon,
     platform,
     // TODO(Gabe): support qualifier in the new preview card
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -133,6 +172,7 @@ export default function DefaultPreviewCard({
     insights,
     glossaryTerms,
     domain,
+    entityCount,
     titleSizePx,
     dataTestID,
     onClick,
@@ -163,7 +203,14 @@ export default function DefaultPreviewCard({
                                 logoComponent}
                             {platform && <PlatformText>{platform}</PlatformText>}
                             {(logoUrl || logoComponent || platform) && <PlatformDivider />}
+                            {typeIcon && <TypeIcon>{typeIcon}</TypeIcon>}
                             <PlatformText>{type}</PlatformText>
+                            {entityCount && (
+                                <>
+                                    <PlatformDivider />
+                                    <EntityCountText>{entityCount.toLocaleString()} entities</EntityCountText>
+                                </>
+                            )}
                             {path && (
                                 <span>
                                     <PlatformDivider />
@@ -175,7 +222,6 @@ export default function DefaultPreviewCard({
                                         <PlatformText>{getNumberWithOrdinal(path?.length + 1)}</PlatformText>
                                     </Tooltip>
                                 </span>
-                            )}
                         </PlatformInfo>
                         <EntityTitle onClick={onClick} $titleSizePx={titleSizePx}>
                             {name || ' '}
