@@ -258,8 +258,8 @@ class BigQueryConfig(BaseTimeWindowConfig, SQLAlchemyConfig):
 
 class BigQuerySource(SQLAlchemySource):
     config: BigQueryConfig
-    partiton_columns: dict[str, dict[str, BigQueryPartitionColumn]] = dict()
-    maximum_shard_ids: dict[str, str] = dict()
+    partiton_columns: Dict[str, dict[str, BigQueryPartitionColumn]] = dict()
+    maximum_shard_ids: Dict[str, str] = dict()
     lineage_metadata: Optional[Dict[str, Set[str]]] = None
 
     def __init__(self, config, ctx):
@@ -480,7 +480,7 @@ class BigQuerySource(SQLAlchemySource):
 
         return self.partiton_columns[schema].get(table)
 
-    def get_shard_from_table(self, table) -> Tuple[str, Optional[str]]:
+    def get_shard_from_table(self, table: str) -> Tuple[str, Optional[str]]:
         match = re.search(SHARDED_TABLE_REGEX, table, re.IGNORECASE)
         if match:
             table_name = match.group(1)
