@@ -54,15 +54,15 @@ class Telemetry:
                 )
         except IOError as x:
             if x.errno == errno.ENOENT:
-                print(
+                logger.debug(
                     f"{CONFIG_FILE} does not exist and could not be created. Please check permissions on the parent folder."
                 )
             elif x.errno == errno.EACCES:
-                print(
+                logger.debug(
                     f"{CONFIG_FILE} cannot be read. Please check the permissions on this file."
                 )
             else:
-                print(
+                logger.debug(
                     f"{CONFIG_FILE} had an IOError, please inspect this file for issues."
                 )
 
@@ -94,15 +94,15 @@ class Telemetry:
                 self.enabled = config["enabled"] & ENV_ENABLED
         except IOError as x:
             if x.errno == errno.ENOENT:
-                print(
+                logger.debug(
                     f"{CONFIG_FILE} does not exist and could not be created. Please check permissions on the parent folder."
                 )
             elif x.errno == errno.EACCES:
-                print(
+                logger.debug(
                     f"{CONFIG_FILE} cannot be read. Please check the permissions on this file."
                 )
             else:
-                print(
+                logger.debug(
                     f"{CONFIG_FILE} had an IOError, please inspect this file for issues."
                 )
 
