@@ -3,6 +3,7 @@ import 'antd/dist/antd.css';
 import { Agent } from 'https';
 import { Alert } from 'antd';
 import axios from 'axios';
+import ReactHtmlParser from 'react-html-parser';
 import announceConfig from '../../conf/Announcement';
 
 export const BannerSplash = () => {
@@ -54,7 +55,15 @@ export const BannerSplash = () => {
     console.log(`the retrieved timestamp is ${newObj.timestamp}`);
     console.log(`the timestamp is larger than localstorage time: ${closedTime < newObj.timestamp}`);
     if (showData) {
-        return <Alert message="Latest Update" description={newObj.message} type="error" closable onClose={onClose} />;
+        return (
+            <Alert
+                message="Latest Update"
+                description={ReactHtmlParser(newObj.message)}
+                type="error"
+                closable
+                onClose={onClose}
+            />
+        );
     }
     return <></>;
 };

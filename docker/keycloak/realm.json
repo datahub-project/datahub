@@ -561,7 +561,7 @@
   }, {
     "id" : "a10bcd82-6912-48f9-a650-e84b43c31dba",
     "clientId" : "datahub",
-    "rootUrl" : "http://172.19.0.1:9002/oidc/callback",
+    "rootUrl" : "http://172.19.0.1:9002/callback/oidc",
     "baseUrl" : "http://172.19.0.1:9002/",
     "surrogateAuthRequired" : false,
     "enabled" : true,
