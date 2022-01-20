@@ -1,5 +1,3 @@
-from re import A
-
 import pytest
 
 from datahub.ingestion.source.sql.snowflake import ExternalUrl
