@@ -1,10 +1,10 @@
-package com.linkedin.datahub.lineage.spark.model;
+package datahub.spark.model;
 
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 
-import com.linkedin.datahub.lineage.spark.model.dataset.SparkDataset;
+import datahub.spark.model.dataset.SparkDataset;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;

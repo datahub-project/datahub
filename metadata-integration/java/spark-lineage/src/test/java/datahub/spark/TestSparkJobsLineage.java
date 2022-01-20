@@ -1,14 +1,14 @@
-package com.linkedin.datahub.lineage;
+package datahub.spark;
 
-import com.linkedin.datahub.lineage.spark.interceptor.LineageUtils;
-import com.linkedin.datahub.lineage.spark.model.DatasetLineage;
-import com.linkedin.datahub.lineage.spark.model.LineageConsumer;
-import com.linkedin.datahub.lineage.spark.model.LineageEvent;
-import com.linkedin.datahub.lineage.spark.model.SQLQueryExecStartEvent;
-import com.linkedin.datahub.lineage.spark.model.dataset.CatalogTableDataset;
-import com.linkedin.datahub.lineage.spark.model.dataset.HdfsPathDataset;
-import com.linkedin.datahub.lineage.spark.model.dataset.JdbcDataset;
-import com.linkedin.datahub.lineage.spark.model.dataset.SparkDataset;
+import datahub.spark.model.LineageUtils;
+import datahub.spark.model.DatasetLineage;
+import datahub.spark.model.LineageConsumer;
+import datahub.spark.model.LineageEvent;
+import datahub.spark.model.SQLQueryExecStartEvent;
+import datahub.spark.model.dataset.CatalogTableDataset;
+import datahub.spark.model.dataset.HdfsPathDataset;
+import datahub.spark.model.dataset.JdbcDataset;
+import datahub.spark.model.dataset.SparkDataset;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -140,8 +140,8 @@ public class TestSparkJobsLineage {
     spark = SparkSession.builder()
         .appName(APP_NAME)
         .config("spark.master", MASTER)
-        .config("spark.extraListeners", "com.linkedin.datahub.lineage.spark.interceptor.DatahubLineageEmitter")
-        .config("spark.datahub.lineage.consumerTypes", "accumulator, mcpEmitter")
+        .config("spark.extraListeners", "datahub.spark.DatahubSparkListener")
+        .config("spark.datahub.lineage.consumerTypes", "accumulator")
         .config("spark.datahub.rest.server", "http://localhost:" + mockServer.getPort())
         .config("spark.sql.warehouse.dir", new File(WAREHOUSE_LOC).getAbsolutePath())
         .enableHiveSupport()
@@ -407,6 +407,7 @@ public class TestSparkJobsLineage {
   }
 
   private static class DatasetLineageAccumulator implements LineageConsumer {
+    boolean closed = false;
 
     private final List<DatasetLineage> lineages = new ArrayList<>();
 
@@ -420,9 +421,17 @@ public class TestSparkJobsLineage {
 
     @Override
     public void accept(LineageEvent e) {
+      if (closed) {
+        throw new RuntimeException("Called after close");
+      }
       if (e instanceof SQLQueryExecStartEvent) {
         lineages.add(((SQLQueryExecStartEvent) e).getDatasetLineage());
       }
+    }
+
+    @Override
+    public void close() throws IOException {
+      closed = true;
     }
   }
 }

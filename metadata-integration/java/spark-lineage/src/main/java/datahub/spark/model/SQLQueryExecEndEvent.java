@@ -1,4 +1,4 @@
-package com.linkedin.datahub.lineage.spark.model;
+package datahub.spark.model;
 
 import com.linkedin.common.urn.DataJobUrn;
 import com.linkedin.data.template.StringMap;
@@ -25,7 +25,7 @@ public class SQLQueryExecEndEvent extends LineageEvent {
   }
 
   @Override
-  public List<MetadataChangeProposalWrapper> toMcps() {
+  public List<MetadataChangeProposalWrapper> asMetadataEvents() {
     DataJobUrn jobUrn = start.jobUrn();
     StringMap customProps = start.customProps();
     customProps.put("completedAt", timeStr());

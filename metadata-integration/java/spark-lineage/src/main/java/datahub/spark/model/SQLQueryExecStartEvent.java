@@ -1,11 +1,10 @@
-package com.linkedin.datahub.lineage.spark.model;
+package datahub.spark.model;
 
 import com.linkedin.common.DatasetUrnArray;
 import com.linkedin.common.urn.DataFlowUrn;
 import com.linkedin.common.urn.DataJobUrn;
 import com.linkedin.data.template.StringMap;
-import com.linkedin.datahub.lineage.spark.interceptor.LineageUtils;
-import com.linkedin.datahub.lineage.spark.model.dataset.SparkDataset;
+import datahub.spark.model.dataset.SparkDataset;
 import com.linkedin.datajob.DataJobInfo;
 import com.linkedin.datajob.DataJobInputOutput;
 import com.linkedin.datajob.JobStatus;
@@ -33,7 +32,7 @@ public class SQLQueryExecStartEvent extends LineageEvent {
   }
 
   @Override
-  public List<MetadataChangeProposalWrapper> toMcps() {
+  public List<MetadataChangeProposalWrapper> asMetadataEvents() {
     DataJobUrn jobUrn = jobUrn();
     MetadataChangeProposalWrapper mcpJobIO =
         MetadataChangeProposalWrapper.create(b -> b.entityType("dataJob").entityUrn(jobUrn).upsert().aspect(jobIO()));
