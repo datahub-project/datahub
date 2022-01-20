@@ -481,7 +481,8 @@ class BigQuerySource(SQLAlchemySource):
         return self.partiton_columns[schema].get(table)
 
     def get_shard_from_table(self, table) -> Tuple[str, Optional[str]]:
-        if match := re.search(SHARDED_TABLE_REGEX, table, re.IGNORECASE):
+        match = re.search(SHARDED_TABLE_REGEX, table, re.IGNORECASE)
+        if match:
             table_name = match.group(1)
             shard = match.group(2)
             return table_name, shard
