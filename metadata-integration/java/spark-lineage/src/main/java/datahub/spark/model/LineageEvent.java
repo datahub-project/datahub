@@ -1,4 +1,4 @@
-package com.linkedin.datahub.lineage.spark.model;
+package datahub.spark.model;
 
 import datahub.event.MetadataChangeProposalWrapper;
 import java.util.Date;
@@ -13,7 +13,7 @@ public abstract class LineageEvent {
   private final String appId;
   private final long time;
 
-  public abstract List<MetadataChangeProposalWrapper> toMcps();
+  public abstract List<MetadataChangeProposalWrapper> asMetadataEvents();
 
   protected String timeStr() {
     return new Date(getTime()).toInstant().toString();

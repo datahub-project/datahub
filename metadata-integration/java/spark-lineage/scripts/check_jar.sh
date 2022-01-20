@@ -1,5 +1,5 @@
 # This script checks the shadow jar to ensure that we only have allowed classes being exposed through the jar
-jarFiles=$(find build/libs -name "datahub-client*.jar" | grep -v sources | grep -v javadoc)
+jarFiles=$(find build/libs -name "datahub-spark-lineage*.jar" | grep -v sources | grep -v javadoc)
 for jarFile in ${jarFiles}; do
 jar -tvf $jarFile |\
       grep -v "datahub/shaded" |\

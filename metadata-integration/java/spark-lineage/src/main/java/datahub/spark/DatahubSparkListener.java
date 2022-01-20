@@ -1,5 +1,16 @@
-package com.linkedin.datahub.lineage.spark.interceptor;
+package datahub.spark;
 
+import com.google.common.base.Splitter;
+import datahub.spark.model.LineageUtils;
+import datahub.spark.model.AppEndEvent;
+import datahub.spark.model.AppStartEvent;
+import datahub.spark.model.DatasetLineage;
+import datahub.spark.model.LineageConsumer;
+import datahub.spark.model.SQLQueryExecEndEvent;
+import datahub.spark.model.SQLQueryExecStartEvent;
+import datahub.spark.model.dataset.SparkDataset;
+import datahub.spark.consumer.impl.McpEmitter;
+import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.ArrayList;
@@ -7,13 +18,14 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
-
+import lombok.extern.slf4j.Slf4j;
 import org.apache.spark.SparkConf;
 import org.apache.spark.SparkContext;
 import org.apache.spark.SparkEnv;
@@ -28,41 +40,28 @@ import org.apache.spark.sql.execution.QueryExecution;
 import org.apache.spark.sql.execution.SQLExecution;
 import org.apache.spark.sql.execution.ui.SparkListenerSQLExecutionEnd;
 import org.apache.spark.sql.execution.ui.SparkListenerSQLExecutionStart;
-
-import com.google.common.base.Splitter;
-import com.linkedin.datahub.lineage.spark.model.AppEndEvent;
-import com.linkedin.datahub.lineage.spark.model.AppStartEvent;
-import com.linkedin.datahub.lineage.spark.model.DatasetLineage;
-import com.linkedin.datahub.lineage.spark.model.LineageConsumer;
-import com.linkedin.datahub.lineage.spark.model.SQLQueryExecEndEvent;
-import com.linkedin.datahub.lineage.spark.model.SQLQueryExecStartEvent;
-import com.linkedin.datahub.lineage.spark.model.dataset.SparkDataset;
-
-import lombok.extern.slf4j.Slf4j;
 import scala.collection.JavaConversions;
 import scala.runtime.AbstractFunction1;
 import scala.runtime.AbstractPartialFunction;
 
+
 @Slf4j
-public class DatahubLineageEmitter extends SparkListener {
+public class DatahubSparkListener extends SparkListener {
 
   private static final int THREAD_CNT = 16;
   public static final String CONSUMER_TYPE_KEY = "spark.datahub.lineage.consumerTypes";
+  public static final String DATAHUB_EMITTER = "mcpEmitter";
 
   private final Map<String, AppStartEvent> appDetails = new ConcurrentHashMap<>();
   private final Map<String, Map<Long, SQLQueryExecStartEvent>> appSqlDetails = new ConcurrentHashMap<>();
   private final Map<String, ExecutorService> appPoolDetails = new ConcurrentHashMap<>();
-
-//  private static LineageConsumer loggingConsumer() {
-//    log.warn("Lineage consumer not specified. Defaulting to LoggingConsumer.");
-//    return LineageUtils.LOGGING_CONSUMER;
-//  }
+  private final Map<String, McpEmitter> appEmitters = new ConcurrentHashMap<>();
 
   private class SqlStartTask implements Runnable {
 
-    private SparkListenerSQLExecutionStart sqlStart;
-    private SparkContext ctx;
-    private LogicalPlan plan;
+    private final SparkListenerSQLExecutionStart sqlStart;
+    private final SparkContext ctx;
+    private final LogicalPlan plan;
 
     public SqlStartTask(SparkListenerSQLExecutionStart sqlStart, LogicalPlan plan, SparkContext ctx) {
       this.sqlStart = sqlStart;
@@ -72,9 +71,10 @@ public class DatahubLineageEmitter extends SparkListener {
 
     @Override
     public void run() {
-      appSqlDetails.get(ctx.appName()).put(sqlStart.executionId(),
-          new SQLQueryExecStartEvent(ctx.conf().get("spark.master"), ctx.appName(), ctx.applicationId(),
-              sqlStart.time(), sqlStart.executionId(), null));
+      appSqlDetails.get(ctx.appName())
+          .put(sqlStart.executionId(),
+              new SQLQueryExecStartEvent(ctx.conf().get("spark.master"), ctx.appName(), ctx.applicationId(),
+                  sqlStart.time(), sqlStart.executionId(), null));
       log.debug("PLAN for execution id: " + ctx.appName() + ":" + sqlStart.executionId() + "\n");
       log.debug(plan.toString());
 
@@ -131,20 +131,21 @@ public class DatahubLineageEmitter extends SparkListener {
         });
       }
 
-      SQLQueryExecStartEvent evt = new SQLQueryExecStartEvent(ctx.conf().get("spark.master"), ctx.appName(),
-          ctx.applicationId(),
-          sqlStart.time(), sqlStart.executionId(), lineage);
+      SQLQueryExecStartEvent evt =
+          new SQLQueryExecStartEvent(ctx.conf().get("spark.master"), ctx.appName(), ctx.applicationId(),
+              sqlStart.time(), sqlStart.executionId(), lineage);
 
       appSqlDetails.get(ctx.appName()).put(sqlStart.executionId(), evt);
 
-      consumers().forEach(c -> c.accept(evt)); // TODO parallel stream here?
+      McpEmitter emitter = appEmitters.get(ctx.appName());
+      if (emitter != null) {
+        emitter.accept(evt);
+      }
+      consumers().forEach(c -> c.accept(evt));
 
-      log.debug("LINEAGE \n" + lineage + "\n");
-      log.debug("Parsed execution id " + ctx.appName() + ":" + sqlStart.executionId());
-
-      return;
+      log.debug("LINEAGE \n{}\n", lineage);
+      log.debug("Parsed execution id {}:{}", ctx.appName(), sqlStart.executionId());
     }
-
   }
 
   @Override
@@ -156,12 +157,13 @@ public class DatahubLineageEmitter extends SparkListener {
         @Override
         public Void apply(SparkContext sc) {
           String appId = applicationStart.appId().isDefined() ? applicationStart.appId().get() : "";
-          AppStartEvent evt = new AppStartEvent(LineageUtils.getMaster(sc), applicationStart.appName(), appId,
-              applicationStart.time(), applicationStart.sparkUser());
+          AppStartEvent evt =
+              new AppStartEvent(LineageUtils.getMaster(sc), applicationStart.appName(), appId, applicationStart.time(),
+                  applicationStart.sparkUser());
 
-          consumers().forEach(x -> x.accept(evt));
-          // TODO keyed by appName; only latest will be considered. Potential
-          // inconsistencies not mapped.
+          appEmitters.computeIfAbsent(applicationStart.appName(), s -> new McpEmitter()).accept(evt);
+          consumers().forEach(c -> c.accept(evt));
+
           appDetails.put(applicationStart.appName(), evt);
           appSqlDetails.put(applicationStart.appName(), new ConcurrentHashMap<>());
           ExecutorService pool = Executors.newFixedThreadPool(THREAD_CNT);
@@ -192,13 +194,29 @@ public class DatahubLineageEmitter extends SparkListener {
           appPoolDetails.remove(sc.appName()).shutdown();
           appSqlDetails.remove(sc.appName());
           if (start == null) {
-            log.error(
-                "Application end event received, but start event missing for appId " + sc.applicationId());
+            log.error("Application end event received, but start event missing for appId " + sc.applicationId());
           } else {
             AppEndEvent evt = new AppEndEvent(LineageUtils.getMaster(sc), sc.appName(), sc.applicationId(),
                 applicationEnd.time(), start);
 
-            consumers().forEach(x -> x.accept(evt));
+            McpEmitter emitter = appEmitters.get(sc.appName());
+            if (emitter != null) {
+              emitter.accept(evt);
+              try {
+                emitter.close();
+                appEmitters.remove(sc.appName());
+              } catch (Exception e) {
+                log.warn("Failed to close underlying emitter due to {}", e.getMessage());
+              }
+            }
+            consumers().forEach(x -> {
+              x.accept(evt);
+              try {
+                x.close();
+              } catch (IOException e) {
+                log.warn("Failed to close lineage consumer", e);
+              }
+            });
           }
           return null;
         }
@@ -243,17 +261,20 @@ public class DatahubLineageEmitter extends SparkListener {
       public Void apply(SparkContext sc) {
         SQLQueryExecStartEvent start = appSqlDetails.get(sc.appName()).remove(sqlEnd.executionId());
         if (start == null) {
-          log.error("Execution end event received, but start event missing for appId/sql exec Id " + sc.applicationId()
-              + ":" + sqlEnd.executionId());
+          log.error(
+              "Execution end event received, but start event missing for appId/sql exec Id " + sc.applicationId() + ":"
+                  + sqlEnd.executionId());
         } else if (start.getDatasetLineage() != null) {
 //              JobStatus status = jobEnd.jobResult().equals(org.apache.spark.scheduler.JobSucceeded$.MODULE$)
 //                  ? JobStatus.COMPLETED
 //                  : JobStatus.FAILED;
-          SQLQueryExecEndEvent evt = new SQLQueryExecEndEvent(LineageUtils.getMaster(sc), sc.appName(),
-              sc.applicationId(),
-              sqlEnd.time(), sqlEnd.executionId(), start);
-
-          consumers().forEach(x -> x.accept(evt));
+          SQLQueryExecEndEvent evt =
+              new SQLQueryExecEndEvent(LineageUtils.getMaster(sc), sc.appName(), sc.applicationId(), sqlEnd.time(),
+                  sqlEnd.executionId(), start);
+          McpEmitter emitter = appEmitters.get(sc.appName());
+          if (emitter != null) {
+            emitter.accept(evt);
+          }
         }
         return null;
       }
@@ -264,7 +285,8 @@ public class DatahubLineageEmitter extends SparkListener {
   private void processExecution(SparkListenerSQLExecutionStart sqlStart) {
     QueryExecution queryExec = SQLExecution.getQueryExecution(sqlStart.executionId());
     if (queryExec == null) {
-      log.error("Skipping processing for sql exec Id" + sqlStart.executionId() + " as Query execution context could not be read from current spark state");
+      log.error("Skipping processing for sql exec Id" + sqlStart.executionId()
+          + " as Query execution context could not be read from current spark state");
       return;
     }
     LogicalPlan plan = queryExec.optimizedPlan();
@@ -274,17 +296,16 @@ public class DatahubLineageEmitter extends SparkListener {
     pool.execute(new SqlStartTask(sqlStart, plan, ctx));
   }
 
-  private static List<LineageConsumer> consumers() {
+  private List<LineageConsumer> consumers() {
     SparkConf conf = SparkEnv.get().conf();
     if (conf.contains(CONSUMER_TYPE_KEY)) {
       String consumerTypes = conf.get(CONSUMER_TYPE_KEY);
-
       return StreamSupport.stream(Splitter.on(",").trimResults().split(consumerTypes).spliterator(), false)
-          .map(x -> LineageUtils.getConsumer(x)).filter(x -> x != null).collect(Collectors.toList());
+          .map(x -> LineageUtils.getConsumer(x)).filter(Objects::nonNull).collect(Collectors.toList());
     } else {
-      return Collections.singletonList(LineageUtils.getConsumer("mcpEmitter"));
+      return Collections.emptyList();
+      //singletonList(LineageUtils.getConsumer(DATAHUB_EMITTER));
     }
 
   }
-
 }
