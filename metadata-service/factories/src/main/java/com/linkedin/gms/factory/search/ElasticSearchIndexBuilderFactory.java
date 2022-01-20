@@ -28,9 +28,12 @@ public class ElasticSearchIndexBuilderFactory {
   @Value("${elasticsearch.index.numReplicas}")
   private Integer numReplicas;
 
+  @Value("${elasticsearch.index.numRetries}")
+  private Integer numRetries;
+
   @Bean(name = "elasticSearchIndexBuilder")
   @Nonnull
   protected ESIndexBuilder getInstance() {
-    return new ESIndexBuilder(searchClient, numShards, numReplicas);
+    return new ESIndexBuilder(searchClient, numShards, numReplicas, numRetries);
   }
 }
