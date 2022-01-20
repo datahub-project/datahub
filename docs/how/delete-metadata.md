@@ -38,6 +38,12 @@ You can optionally add `-f` or `--force` to skip confirmations
 
 _Note: make sure you surround your urn with quotes! If you do not include the quotes, your terminal may misinterpret the command._
 
+If you wish to hard-delete using a curl request you can use something like below. Replace the URN with the URN that you wish to delete
+
+```
+curl "http://localhost:8080/entities?action=delete" -X POST --data '{"urn": "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD)"}'
+```
+
 ## Delete using Broader Filters
 
 _Note: All these commands below support the soft-delete option (`-s/--soft`) as well as the dry-run option (`-n/--dry-run`)._ 
