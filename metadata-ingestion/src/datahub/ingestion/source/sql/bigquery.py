@@ -489,6 +489,8 @@ class BigQuerySource(SQLAlchemySource):
         return table, None
 
     def is_latest_shard(self, project_id: str, schema: str, table: str) -> bool:
+        # Getting latest shard from table names
+        # https://cloud.google.com/bigquery/docs/partitioned-tables#dt_partition_shard
         table_name, shard = self.get_shard_from_table(table)
         if shard:
             logger.debug(f"{table_name} is sharded and shard id is: {shard}")
@@ -523,6 +525,7 @@ class BigQuerySource(SQLAlchemySource):
         """
         Method returns partition id if table is partitioned or sharded and generate custom partition query for
         partitioned table.
+        See more about partitioned tables at https://cloud.google.com/bigquery/docs/partitioned-tables
         """
 
         partition = self.get_latest_partition(schema, table)
@@ -564,6 +567,10 @@ WHERE
     def is_dataset_eligable_profiling(
         self, dataset_name: str, sql_config: SQLAlchemyConfig
     ) -> bool:
+        """
+        Method overrides default profiling filter which checks profiling eligibility based on allow-deny pattern.
+        This one also don't profile those sharded tables which are not the latest.
+        """
         if not super().is_dataset_eligable_profiling(dataset_name, sql_config):
             return False
 
