@@ -10,6 +10,8 @@ buildscript {
     classpath 'com.commercehub.gradle.plugin:gradle-avro-plugin:0.8.1'
     classpath 'org.springframework.boot:spring-boot-gradle-plugin:2.1.4.RELEASE'
     classpath 'com.github.jengelman.gradle.plugins:shadow:5.2.0'
+    classpath "io.codearte.gradle.nexus:gradle-nexus-staging-plugin:0.30.0"
+    classpath "com.palantir.gradle.gitversion:gradle-git-version:0.12.3"
   }
 }
 
@@ -40,6 +42,7 @@ project.ext.externalDependency = [
     'avro_1_7': 'org.apache.avro:avro:1.7.7',
     'avroCompiler_1_7': 'org.apache.avro:avro-compiler:1.7.7',
     'awsGlueSchemaRegistrySerde': 'software.amazon.glue:schema-registry-serde:1.1.1',
+    'awsMskIamAuth': 'software.amazon.msk:aws-msk-iam-auth:1.1.1',
     'cacheApi' : 'javax.cache:cache-api:1.1.0',
     'commonsIo': 'commons-io:commons-io:2.4',
     'commonsLang': 'commons-lang:commons-lang:2.6',

@@ -132,10 +132,7 @@ def get_mces(
 
 
 def get_mce_from_snapshot(snapshot: Any) -> models.MetadataChangeEventClass:
-    return models.MetadataChangeEventClass(
-        proposedSnapshot=snapshot,
-        systemMetadata=models.SystemMetadataClass(runId="test-glossary"),
-    )
+    return models.MetadataChangeEventClass(proposedSnapshot=snapshot)
 
 
 def get_mces_from_node(
