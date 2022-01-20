@@ -398,7 +398,7 @@ def verify_token(token: str, user: str):
 def authenticate_action(token: str, user: str, dataset: str):
     if "DATAHUB_AUTHENTICATE_INGEST" in os.environ:
         must_authenticate_actions = (
-            True if os.environ["DATAHUB_AUTHENTICATE_INGEST"] == "True" else False
+            True if os.environ["DATAHUB_AUTHENTICATE_INGEST"] == "yes" else False
         )
     else:
         must_authenticate_actions = False

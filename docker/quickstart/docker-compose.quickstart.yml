@@ -108,7 +108,7 @@ services:
     - ACCEPT_ORIGINS=http://172.19.0.1:9002
     - RUNNING_IN_DOCKER=True
     - JWT_SECRET=WnEdIeTG/VVCLQqGwC/BAkqyY0k+H8NEAtWGejrBI94=
-    - DATAHUB_AUTHENTICATE_INGEST='True'
+    - DATAHUB_AUTHENTICATE_INGEST=yes
     - DATAHUB_FRONTEND=http://172.19.0.1:9002
     hostname: ingest-api
     ports:
