@@ -1,6 +1,5 @@
 import json
 import logging
-import re
 from collections import defaultdict
 from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 from urllib.parse import urlparse
