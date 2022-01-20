@@ -35,6 +35,17 @@ public class ContainerEntitiesResolver implements DataFetcher<CompletableFuture<
       Constants.DASHBOARD_ENTITY_NAME
   );
   private static final String CONTAINER_FIELD_NAME = "container";
+  private static final String INPUT_ARG_NAME = "input";
+  private static final String DEFAULT_QUERY = "*";
+  private static final Integer DEFAULT_START = 0;
+  private static final Integer DEFAULT_COUNT = 20;
+  private static final ContainerEntitiesInput DEFAULT_ENTITIES_INPUT = new ContainerEntitiesInput();
+
+  static {
+    DEFAULT_ENTITIES_INPUT.setQuery(DEFAULT_QUERY);
+    DEFAULT_ENTITIES_INPUT.setStart(DEFAULT_START);
+    DEFAULT_ENTITIES_INPUT.setCount(DEFAULT_COUNT);
+  }
 
   private final EntityClient _entityClient;
 
@@ -48,7 +59,9 @@ public class ContainerEntitiesResolver implements DataFetcher<CompletableFuture<
     final QueryContext context = environment.getContext();
     final String urn = ((Container) environment.getSource()).getUrn();
 
-    final ContainerEntitiesInput input = bindArgument(environment.getArgument("input"), ContainerEntitiesInput.class);
+    final ContainerEntitiesInput input = environment.getArgument(INPUT_ARG_NAME) != null
+        ? bindArgument(environment.getArgument(INPUT_ARG_NAME), ContainerEntitiesInput.class)
+        : DEFAULT_ENTITIES_INPUT;
 
     final String query = input.getQuery() != null ? input.getQuery() : "*";
     final int start = input.getStart() != null ? input.getStart() : 0;

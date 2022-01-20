@@ -1100,7 +1100,7 @@ type Container implements Entity {
     """
     Children entities inside of the Container
     """
-    entities(input: ContainerEntitiesInput!): SearchResults
+    entities(input: ContainerEntitiesInput): SearchResults
 
     """
     Edges extending from this entity

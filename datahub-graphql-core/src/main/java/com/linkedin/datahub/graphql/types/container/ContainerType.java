@@ -48,7 +48,7 @@ public class ContainerType implements com.linkedin.datahub.graphql.types.EntityT
           Constants.DATASET_ENTITY_NAME,
           containerUrns,
           ImmutableSet.of(
-              Constants.CONTAINER_KEY_ASPECT_NAME,
+              Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME,
               Constants.CONTAINER_PROPERTIES_ASPECT_NAME,
               Constants.CONTAINER_EDITABLE_PROPERTIES_ASPECT_NAME,
               Constants.OWNERSHIP_ASPECT_NAME,

@@ -37,6 +37,18 @@
   },
   {
     "auditHeader":null,
+    "entityType":"container",
+    "entityUrn": "urn:li:container:(mysql,instance1,MySchema.Database)",
+    "changeType":"UPSERT",
+    "aspectName":"dataPlatformInstance",
+    "aspect":{
+      "value":"{\"platform\": \"urn:li:dataPlatform:mysql\" }",
+      "contentType":"application/json"
+    },
+    "systemMetadata":null
+  },
+  {
+    "auditHeader":null,
     "entityType":"dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,information_schema.COLLATIONS,PROD)",
     "changeType":"UPSERT",

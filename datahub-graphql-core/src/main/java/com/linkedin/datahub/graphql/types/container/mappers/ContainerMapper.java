@@ -1,11 +1,11 @@
 package com.linkedin.datahub.graphql.types.container.mappers;
 
+import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.GlossaryTerms;
 import com.linkedin.common.InstitutionalMemory;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.SubTypes;
-import com.linkedin.common.urn.TupleKey;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.container.ContainerProperties;
 import com.linkedin.container.EditableContainerProperties;
@@ -20,7 +20,6 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.key.ContainerKey;
 
 
 public class ContainerMapper {
@@ -33,9 +32,9 @@ public class ContainerMapper {
     result.setUrn(entityUrn.toString());
     result.setType(EntityType.CONTAINER);
 
-    final EnvelopedAspect envelopedContainerKey = aspects.get(Constants.CONTAINER_KEY_ASPECT_NAME);
-    if (envelopedContainerKey != null) {
-      result.setPlatform(mapPlatform(new ContainerKey(envelopedContainerKey.getValue().data())));
+    final EnvelopedAspect envelopedPlatformInstance = aspects.get(Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME);
+    if (envelopedPlatformInstance != null) {
+      result.setPlatform(mapPlatform(new DataPlatformInstance(envelopedPlatformInstance.getValue().data())));
     }
 
     final EnvelopedAspect envelopedContainerProperties = aspects.get(Constants.CONTAINER_PROPERTIES_ASPECT_NAME);
@@ -98,10 +97,10 @@ public class ContainerMapper {
     return subTypes;
   }
 
-  private static DataPlatform mapPlatform(final ContainerKey gmsKey) {
+  private static DataPlatform mapPlatform(final DataPlatformInstance platformInstance) {
     // Set dummy platform to be resolved.
     final DataPlatform dummyPlatform = new DataPlatform();
-    dummyPlatform.setUrn(new Urn(Constants.DATASET_ENTITY_NAME, new TupleKey(gmsKey.getPlatformType())).toString());
+    dummyPlatform.setUrn(platformInstance.getPlatform().toString());
     return dummyPlatform;
   }
 

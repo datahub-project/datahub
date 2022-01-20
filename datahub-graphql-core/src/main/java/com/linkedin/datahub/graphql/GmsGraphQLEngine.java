@@ -410,10 +410,6 @@ public class GmsGraphQLEngine {
             .type("Container", typeWiring -> typeWiring
                 .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
                 .dataFetcher("entities", new ContainerEntitiesResolver(entityClient))
-                .dataFetcher("subTypes", new SubTypesResolver(
-                    this.entityClient,
-                    "container",
-                    "subTypes"))
                 .dataFetcher("platform",
                     new LoadableTypeResolver<>(dataPlatformType,
                         (env) -> ((Dataset) env.getSource()).getPlatform().getUrn()))
