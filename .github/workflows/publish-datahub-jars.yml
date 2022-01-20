@@ -6,12 +6,6 @@ on:
     types:
       - completed
 
-  pull_request:
-    branches:
-      - master
-    paths:
-      # Dummy path for now to trigger the action
-      - "metadata-integration/java/datahub-client/build.gradle"
   release:
     types: [published, edited]
 
