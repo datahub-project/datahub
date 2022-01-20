@@ -1,4 +1,4 @@
-import { CheckOutlined, LinkOutlined } from '@ant-design/icons';
+import { CheckOutlined, CopyOutlined } from '@ant-design/icons';
 import { Typography, Image, Button, Tooltip } from 'antd';
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -92,16 +92,14 @@ export const EntityHeader = () => {
                 </Link>
             </MainHeaderContent>
             {hasExternalUrl && <Button href={externalUrl}>View in {platformName}</Button>}
-            <Tooltip title="An URN uniquely identifies an entity on DataHub.">
+            <Tooltip title="Copy URN. An URN uniquely identifies an entity on DataHub.">
                 <Button
-                    icon={copiedUrn ? <CheckOutlined /> : <LinkOutlined />}
+                    icon={copiedUrn ? <CheckOutlined /> : <CopyOutlined />}
                     onClick={() => {
                         navigator.clipboard.writeText(urn);
                         setCopiedUrn(true);
                     }}
-                >
-                    {copiedUrn ? 'Copied!' : 'Copy URN'}
-                </Button>
+                />
             </Tooltip>
         </HeaderContainer>
     );
