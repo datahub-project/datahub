@@ -516,7 +516,6 @@ class BigQuerySource(SQLAlchemySource):
         else:
             return True
 
-
     def generate_partition_profiler_query(
         self, schema: str, table: str
     ) -> Tuple[Optional[str], Optional[str]]:
@@ -569,7 +568,9 @@ WHERE
 
         (project_id, schema, table) = dataset_name.split(".")
         if not self.is_latest_shard(project_id=project_id, table=table, schema=schema):
-            logger.warning(f"{dataset_name} is sharded but not the latest shard, skipping...")
+            logger.warning(
+                f"{dataset_name} is sharded but not the latest shard, skipping..."
+            )
             return False
         return True
 
