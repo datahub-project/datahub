@@ -17,10 +17,6 @@ class IngestUser(HttpUser):
     wait_time = constant(1)
 
     @task
-    def config(self):
-        self.client.get("/config")
-
-    @task
     def ingest(self):
         proposed_snapshot = self._build_snapshot(random.randint(1, 100000))
         snapshot_fqn = (

@@ -42,6 +42,8 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "looker-test",
+        "registryName": null,
+        "registryVersion": null,
         "properties": null
     }
 },
@@ -135,7 +137,8 @@
                                     ]
                                 },
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             }
                         ],
                         "primaryKeys": [],
@@ -150,6 +153,8 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "looker-test",
+        "registryName": null,
+        "registryVersion": null,
         "properties": null
     }
 },
@@ -164,7 +169,13 @@
         "value": "{\"typeNames\": [\"explore\"]}",
         "contentType": "application/json"
     },
-    "systemMetadata": null
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "looker-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
 },
 {
     "auditHeader": null,
@@ -201,6 +212,8 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "looker-test",
+        "registryName": null,
+        "registryVersion": null,
         "properties": null
     }
 },
@@ -239,6 +252,8 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "looker-test",
+        "registryName": null,
+        "registryVersion": null,
         "properties": null
     }
 },
@@ -277,6 +292,8 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "looker-test",
+        "registryName": null,
+        "registryVersion": null,
         "properties": null
     }
 }

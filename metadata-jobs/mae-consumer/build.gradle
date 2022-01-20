@@ -24,8 +24,6 @@ dependencies {
     compile project(':metadata-events:mxe-utils-avro-1.7')
 
     compile externalDependency.elasticSearchRest
-    compile externalDependency.gmaDaoApi
-    compile externalDependency.gmaNeo4jDao
     compile externalDependency.kafkaAvroSerde
     compile externalDependency.neo4jJavaDriver
 
@@ -37,6 +35,8 @@ dependencies {
     annotationProcessor externalDependency.lombok
 
     runtime externalDependency.logbackClassic
+
+    implementation externalDependency.awsMskIamAuth
 }
 
 task avroSchemaSources(type: Copy) {

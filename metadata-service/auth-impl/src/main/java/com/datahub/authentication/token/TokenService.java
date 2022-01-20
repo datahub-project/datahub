@@ -138,6 +138,8 @@ public class TokenService {
               actorId,
               claims.getExpiration().getTime());
       }
+    } catch (io.jsonwebtoken.ExpiredJwtException e) {
+      throw new TokenExpiredException("Failed to validate DataHub token. Token has expired.", e);
     } catch (Exception e) {
       throw new TokenException("Failed to validate DataHub token", e);
     }

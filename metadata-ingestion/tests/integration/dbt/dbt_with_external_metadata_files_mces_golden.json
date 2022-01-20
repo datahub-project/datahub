@@ -8,6 +8,11 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
+                            "business_owner": "jdoe.last@gmail.com",
+                            "data_governance.team_owner": "Finance",
+                            "has_pii": "True",
+                            "int_property": "1",
+                            "double_property": "2.5",
                             "node_type": "model",
                             "materialization": "ephemeral",
                             "dbt_file_path": "models/transform/customer_details.sql",
@@ -133,6 +138,11 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
+                            "business_owner": "jdoe.last",
+                            "data_governance.team_owner": "Sales",
+                            "has_pii": "False",
+                            "int_property": "2",
+                            "double_property": "3.5",
                             "node_type": "model",
                             "materialization": "table",
                             "dbt_file_path": "models/billing/monthly_billing_with_cust.sql",
@@ -800,11 +810,6 @@
                         "foreignKeysSpecs": null,
                         "foreignKeys": null
                     }
-                },
-                {
-                    "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
-                        "upstreams": []
-                    }
                 }
             ]
         }
@@ -1007,11 +1012,6 @@
                         "foreignKeysSpecs": null,
                         "foreignKeys": null
                     }
-                },
-                {
-                    "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
-                        "upstreams": []
-                    }
                 }
             ]
         }
@@ -1128,11 +1128,6 @@
                         "primaryKeys": null,
                         "foreignKeysSpecs": null,
                         "foreignKeys": null
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
-                        "upstreams": []
                     }
                 }
             ]
@@ -1267,11 +1262,6 @@
                         "primaryKeys": null,
                         "foreignKeysSpecs": null,
                         "foreignKeys": null
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
-                        "upstreams": []
                     }
                 }
             ]
@@ -1408,11 +1398,6 @@
                         "primaryKeys": null,
                         "foreignKeysSpecs": null,
                         "foreignKeys": null
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
-                        "upstreams": []
                     }
                 }
             ]
@@ -1650,11 +1635,6 @@
                         "foreignKeysSpecs": null,
                         "foreignKeys": null
                     }
-                },
-                {
-                    "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
-                        "upstreams": []
-                    }
                 }
             ]
         }
@@ -1822,11 +1802,6 @@
                         "primaryKeys": null,
                         "foreignKeysSpecs": null,
                         "foreignKeys": null
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
-                        "upstreams": []
                     }
                 }
             ]
@@ -2016,11 +1991,6 @@
                         "foreignKeysSpecs": null,
                         "foreignKeys": null
                     }
-                },
-                {
-                    "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
-                        "upstreams": []
-                    }
                 }
             ]
         }
@@ -2188,11 +2158,6 @@
                         "primaryKeys": null,
                         "foreignKeysSpecs": null,
                         "foreignKeys": null
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
-                        "upstreams": []
                     }
                 }
             ]
@@ -2362,11 +2327,6 @@
                         "foreignKeysSpecs": null,
                         "foreignKeys": null
                     }
-                },
-                {
-                    "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
-                        "upstreams": []
-                    }
                 }
             ]
         }
@@ -2535,11 +2495,6 @@
                         "foreignKeysSpecs": null,
                         "foreignKeys": null
                     }
-                },
-                {
-                    "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
-                        "upstreams": []
-                    }
                 }
             ]
         }
@@ -2707,11 +2662,6 @@
                         "primaryKeys": null,
                         "foreignKeysSpecs": null,
                         "foreignKeys": null
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
-                        "upstreams": []
                     }
                 }
             ]
