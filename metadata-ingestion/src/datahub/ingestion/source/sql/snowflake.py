@@ -2,6 +2,7 @@ import json
 import logging
 from collections import defaultdict
 from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
+from urllib.parse import urlparse
 
 import pydantic
 
@@ -45,6 +46,8 @@ logger: logging.Logger = logging.getLogger(__name__)
 APPLICATION_NAME = "acryl_datahub"
 
 snowdialect.ischema_names["GEOGRAPHY"] = sqltypes.NullType
+
+SCHEME_TO_PLATFORM_MAPPING = {"s3": "s3", "s3a": "s3", "s3n": "s3"}
 
 
 class BaseSnowflakeConfig(BaseTimeWindowConfig):
@@ -98,6 +101,30 @@ class SnowflakeConfig(BaseSnowflakeConfig, SQLAlchemyConfig):
         return super().get_sql_alchemy_url(database=database)
 
 
+class ExternalUrl:
+    def __init__(self, url):
+        self._parsed = urlparse(url, allow_fragments=False)
+
+    @property
+    def type(self):
+        return self._parsed.scheme
+
+    @property
+    def bucket(self):
+        return self._parsed.netloc
+
+    @property
+    def key(self):
+        return ".".join(self._parsed.path.lstrip("/").split("/"))
+
+    @property
+    def url(self):
+        return self._parsed.geturl()
+
+    def __str__(self) -> str:
+        return f"type={self.type} bucket={self.bucket}, key={self.key}, url={self.url}"
+
+
 class SnowflakeSource(SQLAlchemySource):
     config: SnowflakeConfig
     current_database: str
@@ -105,6 +132,7 @@ class SnowflakeSource(SQLAlchemySource):
     def __init__(self, config, ctx):
         super().__init__(config, ctx, "snowflake")
         self._lineage_map: Optional[Dict[str, List[Tuple[str, str, str]]]] = None
+        self._external_lineage_map = None
 
     @classmethod
     def create(cls, config_dict, ctx):
@@ -182,6 +210,24 @@ QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name, upstream_table_na
                 f"Please check your premissions. Continuing...\nError was {e}."
             )
 
+    def _populate_external_lineage(self):
+        url = self.config.get_sql_alchemy_url()
+        logger.debug(f"sql_alchemy_url={url}")
+        engine = create_engine(url, **self.config.options)
+
+        self._external_lineage_map = defaultdict(list)
+        try:
+            for db_row in engine.execute("SHOW EXTERNAL TABLES"):
+                key = (
+                    f"{db_row.database_name}.{db_row.schema_name}.{db_row.name}".lower()
+                )
+                self._external_lineage_map[key].append(db_row.location)
+        except Exception as e:
+            logger.warning(
+                f"Extracting external lineage from Snowflake failed."
+                f"Please check your premissions. Continuing...\nError was {e}."
+            )
+
     def _get_upstream_lineage_info(
         self, dataset_urn: str
     ) -> Optional[Tuple[UpstreamLineage, Dict[str, str]]]:
@@ -190,16 +236,41 @@ QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name, upstream_table_na
             logger.warning(f"Invalid dataset urn {dataset_urn}. Could not get key!")
             return None
 
+        dataset_name = dataset_key.name
+
+        if self._external_lineage_map is None:
+            self._populate_external_lineage()
+        assert self._external_lineage_map is not None
+        external_lineage = self._external_lineage_map.get(f"{dataset_name}", [])
+
         if self._lineage_map is None:
             self._populate_lineage()
         assert self._lineage_map is not None
-        dataset_name = dataset_key.name
-        lineage = self._lineage_map.get(f"{dataset_name}", None)
-        if lineage is None:
-            logger.debug(f"No lineage found for {dataset_name}")
-            return None
+        lineage = self._lineage_map.get(f"{dataset_name}", [])
+
         upstream_tables: List[UpstreamClass] = []
         column_lineage: Dict[str, str] = {}
+
+        for external_lineage_entry in external_lineage:
+            external_url = ExternalUrl(external_lineage_entry)
+            if external_url.type not in SCHEME_TO_PLATFORM_MAPPING.keys():
+                logger.warning(
+                    f"Unrecognized external lineage {external_lineage_entry} of type {external_url.type}"
+                )
+                continue
+            name = external_url.bucket
+            if len(external_url.key) > 0:
+                name = f"{name}.{external_url.key}"
+            upstream_table = UpstreamClass(
+                dataset=builder.make_dataset_urn(
+                    SCHEME_TO_PLATFORM_MAPPING[external_url.type],
+                    name,
+                    self.config.env,
+                ),
+                type=DatasetLineageTypeClass.VIEW,
+            )
+            upstream_tables.append(upstream_table)
+
         for lineage_entry in lineage:
             # Update the table-lineage
             upstream_table_name = lineage_entry[0]
@@ -231,7 +302,7 @@ QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name, upstream_table_na
             )
             column_lineage[column_lineage_key] = column_lineage_value
             logger.debug(f"{column_lineage_key}:{column_lineage_value}")
-        if upstream_tables:
+        if len(upstream_tables) > 0:
             return UpstreamLineage(upstreams=upstream_tables), column_lineage
         return None
 
