@@ -7,6 +7,7 @@ import com.linkedin.datahub.graphql.generated.EntityType;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 
+import java.util.Collections;
 import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Map;
@@ -40,7 +41,11 @@ public class BrowsePathsResolver implements DataFetcher<CompletableFuture<List<B
                     String.format("Fetch browse paths. entity type: %s, urn: %s",
                         input.getType(),
                         input.getUrn()));
-                return _typeToEntity.get(input.getType()).browsePaths(input.getUrn(), environment.getContext());
+                if (_typeToEntity.containsKey(input.getType())) {
+                    return _typeToEntity.get(input.getType()).browsePaths(input.getUrn(), environment.getContext());
+                }
+                // Browse path is impl detail.
+                return Collections.emptyList();
             } catch (Exception e) {
                 _logger.error("Failed to retrieve browse paths: "
                     + String.format("entity type %s, urn %s",
