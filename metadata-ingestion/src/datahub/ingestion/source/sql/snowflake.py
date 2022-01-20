@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 from collections import defaultdict
 from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 from urllib.parse import urlparse
@@ -120,6 +121,20 @@ class ExternalUrl:
     @property
     def url(self):
         return self._parsed.geturl()
+
+    @property
+    def dataset_name(self):
+        name = self.bucket
+        if len(self.key) > 0:
+            name = f"{name}.{self.key}"
+        return name
+
+    @property
+    def platform_name(self):
+        return SCHEME_TO_PLATFORM_MAPPING[self.type]
+
+    def is_known_platform(self) -> bool:
+        return self.type in SCHEME_TO_PLATFORM_MAPPING.keys()
 
     def __str__(self) -> str:
         return f"type={self.type} bucket={self.bucket}, key={self.key}, url={self.url}"
@@ -253,18 +268,15 @@ QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name, upstream_table_na
 
         for external_lineage_entry in external_lineage:
             external_url = ExternalUrl(external_lineage_entry)
-            if external_url.type not in SCHEME_TO_PLATFORM_MAPPING.keys():
+            if not external_url.is_known_platform():
                 logger.warning(
                     f"Unrecognized external lineage {external_lineage_entry} of type {external_url.type}"
                 )
                 continue
-            name = external_url.bucket
-            if len(external_url.key) > 0:
-                name = f"{name}.{external_url.key}"
             upstream_table = UpstreamClass(
                 dataset=builder.make_dataset_urn(
-                    SCHEME_TO_PLATFORM_MAPPING[external_url.type],
-                    name,
+                    external_url.platform_name,
+                    external_url.dataset_name,
                     self.config.env,
                 ),
                 type=DatasetLineageTypeClass.VIEW,

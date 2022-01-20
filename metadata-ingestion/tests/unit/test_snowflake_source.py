@@ -1,4 +1,32 @@
+from re import A
+
 import pytest
+
+from datahub.ingestion.source.sql.snowflake import ExternalUrl
+
+
+def test_external_url():
+    external_url = ExternalUrl("s3://bucket-name")
+
+    assert external_url.type == "s3"
+    assert external_url.bucket == "bucket-name"
+    assert external_url.key == ""
+    assert external_url.url == "s3://bucket-name"
+    assert external_url.is_known_platform()
+    assert external_url.dataset_name == "bucket-name"
+
+    external_url = ExternalUrl("s3n://bucket-name/patha/pathb")
+    assert external_url.type == "s3n"
+    assert external_url.platform_name == "s3"
+    assert external_url.bucket == "bucket-name"
+    assert external_url.key == "patha.pathb"
+    assert external_url.url == "s3n://bucket-name/patha/pathb"
+    assert external_url.is_known_platform()
+    assert external_url.dataset_name == "bucket-name.patha.pathb"
+
+    external_url = ExternalUrl("tmp://bucket-name")
+    assert external_url.type == "tmp"
+    assert not external_url.is_known_platform()
 
 
 @pytest.mark.integration
