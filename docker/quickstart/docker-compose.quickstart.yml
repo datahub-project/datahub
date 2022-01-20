@@ -32,11 +32,11 @@ services:
     - JAVA_OPTS=-Xms512m -Xmx512m -Dhttp.port=9002 -Dconfig.file=datahub-frontend/conf/application.conf
       -Djava.security.auth.login.config=datahub-frontend/conf/jaas.conf -Dlogback.configurationFile=datahub-frontend/conf/logback.xml
       -Dlogback.debug=false -Dpidfile.path=/dev/null
+    - METADATA_SERVICE_AUTH_ENABLED=true
     - KAFKA_BOOTSTRAP_SERVER=broker:29092
     - DATAHUB_TRACKING_TOPIC=DataHubUsageEvent_v1
     - ELASTIC_CLIENT_HOST=elasticsearch
     - ELASTIC_CLIENT_PORT=9200
-    - METADATA_SERVICE_AUTH_ENABLED=true
     hostname: datahub-frontend-react
     image: linkedin/datahub-frontend-react:${DATAHUB_VERSION:-head}
     ports:
@@ -105,7 +105,7 @@ services:
   ingest-api:
     container_name: ingest-api
     environment:
-    - ACCEPT_ORIGINS=http://172.19.0.1:9010
+    - ACCEPT_ORIGINS=http://172.19.0.1:9002
     - RUNNING_IN_DOCKER=True
     - JWT_SECRET=WnEdIeTG/VVCLQqGwC/BAkqyY0k+H8NEAtWGejrBI94=
     - DATAHUB_AUTHENTICATE_INGEST='True'
