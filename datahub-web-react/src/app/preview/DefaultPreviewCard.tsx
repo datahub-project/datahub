@@ -151,7 +151,7 @@ export default function DefaultPreviewCard({
                             {(logoUrl && <PreviewImage preview={false} src={logoUrl} alt={platform || ''} />) ||
                                 logoComponent}
                             {platform && <PlatformText>{platform}</PlatformText>}
-                            <PlatformDivider />
+                            {(logoUrl || logoComponent || platform) && <PlatformDivider />}
                             <PlatformText>{type}</PlatformText>
                         </PlatformInfo>
                         <EntityTitle onClick={onClick} $titleSizePx={titleSizePx}>
