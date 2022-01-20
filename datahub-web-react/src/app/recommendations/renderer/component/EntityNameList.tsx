@@ -71,7 +71,6 @@ export const EntityNameList = ({ entities, onClick }: Props) => {
                                 titleSizePx={14}
                                 tags={genericProps?.globalTags || undefined}
                                 glossaryTerms={genericProps?.glossaryTerms || undefined}
-                                domain={genericProps?.domain}
                                 onClick={() => onClick?.(index)}
                             />
                         </ListItem>
