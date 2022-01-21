@@ -17,6 +17,7 @@ from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.tableau_common import (
     FIELD_TYPE_MAPPING,
+    MetadataQueryException,
     clean_query,
     custom_sql_graphql_query,
     get_field_value_in_sheet,
@@ -67,10 +68,10 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 
 class TableauConfig(ConfigModel):
-    connect_uri: str = "localhost:8088"
+    connect_uri: str
     username: Optional[str] = None
     password: Optional[str] = None
-    site: Optional[str] = None
+    site: str
     projects: Optional[List] = None
     default_schema: str = "public"
     env: str = builder.DEFAULT_ENV
@@ -98,6 +99,7 @@ class TableauSource(Source):
         self.used_ds_id: List[str] = []
         self.used_csql_id: List[str] = []
         try:
+            # https://tableau.github.io/server-client-python/docs/api-ref#authentication
             auth = TableauAuth(config.username, config.password, self.config.site)
             self.server.auth.sign_in(auth)
         except ServerResponseError as e:
@@ -107,8 +109,6 @@ class TableauSource(Source):
                 f"{self.config.username}, "
                 f"Reason: {str(e)}",
             )
-        # TODO login through PersonalAccessTokenAuth class
-        # https://tableau.github.io/server-client-python/docs/api-ref#authentication
 
     def close(self) -> None:
         self.server.auth.sign_out()
@@ -178,9 +178,8 @@ class TableauSource(Source):
         for table in ds.get("upstreamTables", []):
             # skip upstream tables when there is no column info when retrieving embedded datasource
             # Schema details for these will be taken care in self.emit_custom_sql_ds()
-            if not isCustomSQL:
-                if not table.get("columns"):
-                    continue
+            if not isCustomSQL and not table.get("columns"):
+                continue
 
             schema = table.get("schema", "")
             if schema is None or not schema:
@@ -394,7 +393,7 @@ class TableauSource(Source):
         if wb is None:
             wb = ds
 
-        project = wb.get("projectName", "")
+        project = wb.get("projectName", "").replace("/", "|")
         ds_id = ds.get("id", uuid.uuid4())
         ds_name = f"{ds.get('name')}.{ds_id}"
         ds_urn = builder.make_dataset_urn(self.platform, ds_name, self.config.env)
@@ -404,12 +403,12 @@ class TableauSource(Source):
         )
         browse_paths = BrowsePathsClass(
             paths=[
-                f"/{self.config.env.lower()}/{self.platform}/{project.replace('/', '|')}/{ds.get('name', '')}/{ds_name}"
+                f"/{self.config.env.lower()}/{self.platform}/{project}/{ds.get('name', '')}/{ds_name}"
             ]
         )
         dataset_snapshot.aspects.append(browse_paths)
 
-        # maintain a list of ds being actively used and retrieve metadata for
+        # maintain a list of ds being actively used and retrieve metadata
         # only for those in self.emit_published_ds()
         if ds_id not in self.used_ds_id:
             self.used_ds_id.append(ds_id)
@@ -623,12 +622,14 @@ class TableauSource(Source):
                     lastModified=AuditStamp(time=modified_ts, actor=modified_actor),
                 )
 
-            if self.config.site is not None: # Tableau online
-                if sheet.get('path', ''):
+            if self.config.site is not None:  # Tableau online
+                if sheet.get("path", ""):
                     sheet_external_url = f"{self.config.connect_uri}#/site/{self.config.site}/views/{sheet.get('path', '')}"
                 else:
                     # sheet contained in dashboard
-                    dashboard_path = sheet.get('containedInDashboards')[0].get('path','')
+                    dashboard_path = sheet.get("containedInDashboards")[0].get(
+                        "path", ""
+                    )
                     sheet_external_url = f"{self.config.connect_uri}/t/{self.config.site}/authoring/{dashboard_path}/{sheet.get('name', '')}"
             else:
                 sheet_external_url = f"{self.config.connect_uri}#/{wb.get('uri', '').replace('sites/1/', '')}"
@@ -732,7 +733,7 @@ class TableauSource(Source):
             else:
                 dashboard_external_url = f"{self.config.connect_uri}#/{wb.get('uri', '').replace('sites/1/', '')}"
 
-            title = dashboard.get("name", "") or ""
+            title = dashboard.get("name", "").replace("/", "|") or ""
             chart_urns = [
                 self._get_chart_urn(s, wb) for s in dashboard.get("sheets", [])
             ]
@@ -750,8 +751,8 @@ class TableauSource(Source):
             browse_paths = BrowsePathsClass(
                 paths=[
                     f"/{self.platform}/{wb.get('projectName', '').replace('/', '|')}"
-                    f"/{wb.get('name', '')}"
-                    f"/{dashboard.get('name', '').replace('/', '|')}"
+                    f"/{wb.get('name', '').replace('/', '|')}"
+                    f"/{title}"
                 ]
             )
             dashboard_snapshot.aspects.append(browse_paths)
@@ -792,11 +793,17 @@ class TableauSource(Source):
         return cls(ctx, config)
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        yield from self.emit_workbook_mces(10)
-        if self.used_ds_id:
-            yield from self.emit_published_ds()
-        if self.used_csql_id:
-            yield from self.emit_custom_sql_ds()
+        try:
+            yield from self.emit_workbook_mces(10)
+            if self.used_ds_id:
+                yield from self.emit_published_ds()
+            if self.used_csql_id:
+                yield from self.emit_custom_sql_ds()
+        except MetadataQueryException as md_exception:
+            self.report.report_failure(
+                key="tableau-metadata",
+                reason=f"Unable to retrieve metadata from tableau. Information: {str(md_exception)}",
+            )
 
     def get_report(self) -> SourceReport:
         return self.report

@@ -10,10 +10,352 @@ See documentation for Tableau's metadata API at https://help.tableau.com/current
 
 ## Capabilities
 
-This plugin extracts Charts, Reports, and associated metadata from a given Mode workspace. This plugin is in beta and has only been tested
-on PostgreSQL database.
+This plugin extracts Sheets, Dashboards, Embedded and Published Data sources metadata within Workbooks in a given project
+on a Tableau Online site. This plugin is in beta and has only been tested on PostgreSQL database and sample workbooks 
+on Tableau online.
 
+Tableau's GraphQL interface is used to extract metadata information. Queries used to extract metadata are located
+in `metadata-ingestion/src/datahub/ingestion/source/tableau_common.py`
 
+- [Dashboard](#Dashboard)
+- [Sheet](#Sheet)
+- [Embedded Data source](#Embedded-Data-Source)
+- [Published Data source](#Published-Data-Source)
+- [Custom SQL Data source](#Custom-SQL-Data-Source)
+
+### Dashboard
+Dashboards from Tableau are ingested as Dashboard in datahub. <br/>
+- GraphQL query <br/>
+```
+{
+  workbooksConnection(first: 15, offset: 0, filter: {projectNameWithin: ["default", "Project 2"]}) {
+    nodes {
+      id
+      name
+      luid
+      projectName
+      owner {
+        username
+      }
+      description
+      uri
+      createdAt
+      updatedAt
+      dashboards {
+        id
+        name
+        path
+        createdAt
+        updatedAt
+        sheets {
+          id
+          name
+        }
+      }
+    }
+    pageInfo {
+      hasNextPage
+      endCursor
+    }
+    totalCount
+  }
+}
+
+```
+
+### Sheet
+Sheets from Tableau are ingested as charts in datahub. <br/>
+- GraphQL query <br/>
+```
+{
+  workbooksConnection(first: 10, offset: 0, filter: {projectNameWithin: ["default"]}) {
+    .....
+      sheets {
+        id
+        name
+        path
+        createdAt
+        updatedAt
+        tags {
+          name
+        }
+        containedInDashboards {
+          name
+          path
+        }
+        upstreamDatasources {
+          id
+          name
+        }
+        datasourceFields {
+          __typename
+          id
+          name
+          description
+          upstreamColumns {
+            name
+          }
+          ... on ColumnField {
+            dataCategory
+            role
+            dataType
+            aggregation
+          }
+          ... on CalculatedField {
+            role
+            dataType
+            aggregation
+            formula
+          }
+          ... on GroupField {
+            role
+            dataType
+          }
+          ... on DatasourceField {
+            remoteField {
+              __typename
+              id
+              name
+              description
+              folderName
+              ... on ColumnField {
+                dataCategory
+                role
+                dataType
+                aggregation
+              }
+              ... on CalculatedField {
+                role
+                dataType
+                aggregation
+                formula
+              }
+              ... on GroupField {
+                role
+                dataType
+              }
+            }
+          }
+        }
+      }
+    }
+     .....
+  }
+}
+```
+
+### Embedded Data Source
+Embedded Data source from Tableau is ingested as a generic data source in datahub.
+
+- GraphQL query <br/>
+```
+{
+  workbooksConnection(first: 15, offset: 0, filter: {projectNameWithin: ["default"]}) {
+    nodes {
+      ....
+      embeddedDatasources {
+        __typename
+        id
+        name
+        hasExtracts
+        extractLastRefreshTime
+        extractLastIncrementalUpdateTime
+        extractLastUpdateTime
+        upstreamDatabases {
+          id
+          name
+          connectionType
+          isEmbedded
+        }
+        upstreamTables {
+          name
+          schema
+          columns {
+            name
+            remoteType
+          }
+        }
+        fields {
+          __typename
+          id
+          name
+          description
+          isHidden
+          folderName
+          ... on ColumnField {
+            dataCategory
+            role
+            dataType
+            defaultFormat
+            aggregation
+            columns {
+              table {
+                ... on CustomSQLTable {
+                  id
+                  name
+                }
+              }
+            }
+          }
+          ... on CalculatedField {
+            role
+            dataType
+            defaultFormat
+            aggregation
+            formula
+          }
+          ... on GroupField {
+            role
+            dataType
+          }
+        }
+        upstreamDatasources {
+          name
+        }
+        workbook {
+          name
+          projectName
+        }
+      }
+    }
+    ....
+  }
+}
+```
+
+### Published Data Source
+Published Data source from Tableau is ingested as a generic data source in datahub.
+
+- GraphQL query <br/>
+```
+{
+  publishedDatasourcesConnection(filter: {idWithin: ["00cce29f-b561-bb41-3557-8e19660bb5dd", "618c87db-5959-338b-bcc7-6f5f4cc0b6c6"]}) {
+    nodes {
+      __typename
+      id
+      name
+      hasExtracts
+      extractLastRefreshTime
+      extractLastIncrementalUpdateTime
+      extractLastUpdateTime
+      downstreamSheets {
+        id
+        name
+      }
+      upstreamTables {
+        name
+        schema
+        fullName
+        connectionType
+        description
+        contact {
+          name
+        }
+      }
+      fields {
+        __typename
+        id
+        name
+        description
+        isHidden
+        folderName
+        ... on ColumnField {
+          dataCategory
+          role
+          dataType
+          defaultFormat
+          aggregation
+          columns {
+            table {
+              ... on CustomSQLTable {
+                id
+                name
+              }
+            }
+          }
+        }
+        ... on CalculatedField {
+          role
+          dataType
+          defaultFormat
+          aggregation
+          formula
+        }
+        ... on GroupField {
+          role
+          dataType
+        }
+      }
+      owner {
+        username
+      }
+      description
+      uri
+      projectName
+    }
+    pageInfo {
+      hasNextPage
+      endCursor
+    }
+    totalCount
+  }
+}
+```
+
+### Custom SQL Data Source
+For custom sql data sources, the query is viewable in UI under View Definition tab. <br/>
+- GraphQL query <br/>
+```
+{
+  customSQLTablesConnection(filter: {idWithin: ["22b0b4c3-6b85-713d-a161-5a87fdd78f40"]}) {
+    nodes {
+      id
+      name
+      query
+      columns {
+        id
+        name
+        remoteType
+        description
+        referencedByFields {
+          datasource {
+            id
+            name
+            upstreamDatabases {
+              id
+              name
+            }
+            upstreamTables {
+              id
+              name
+              schema
+              connectionType
+              columns {
+                id
+              }
+            }
+            ... on PublishedDatasource {
+              projectName
+            }
+            ... on EmbeddedDatasource {
+              workbook {
+                name
+                projectName
+              }
+            }
+          }
+        }
+      }
+      tables {
+        id
+        name
+        schema
+        connectionType
+      }
+    }
+  }
+}
+```
 
 ## Quickstart recipe
 
@@ -26,52 +368,44 @@ source:
   type: tableau
   config:
     # Coordinates
-    connect_uri: https://prod-ca-a.online.tableau.com/
-
+    connect_uri: https://prod-ca-a.online.tableau.com
+    site: acryl
+    projects: ["default", "Project 2"]
+    
     # Credentials
-    token: token
+    username: username@acrylio.com
     password: pass
     
     # Options
-    workspace: "datahub"
     default_schema: "public"
-    owner_username_instead_of_email: False
-    api_options:
-      retry_backoff_multiplier: 2
-      max_retry_interval: 10
-      max_attempts: 5
-
+    
 sink:
   # sink configs
 ```
 
 ## Config details
 
-| Field                             | Required | Default                  | Description                                                                                       |
-|-----------------------------------| -------- |--------------------------|---------------------------------------------------------------------------------------------------|
-| `connect_uri`                     |    ✅    | `"https://app.mode.com"` | Mode host URL.                                                                                    |
-| `token`                           |    ✅    |                          | Mode user token.                                                                                  |
-| `password`                        |    ✅    |                          | Mode password for authentication.                                                                 |
-| `default_schema`                  |          | `public`                 | Default schema to use when schema is not provided in an SQL query                                 |
-| `env`                             |          | `"PROD"`                 | Environment to use in namespace when constructing URNs.                                           |
-| `owner_username_instead_of_email` |          | `True`                   | Use username for owner URN instead of Email                                                       |
-| `api_options`                     |          |                          | Retry/Wait settings for Mode API to avoid "Too many Requests" error. See Mode API Options below   |
+| Field            | Required | Default   | Description                                                         |
+|------------------|----------|-----------|---------------------------------------------------------------------|
+| `connect_uri`    | ✅        |           | Tableau host URL.                                                   |
+| `username`       | ✅        |           | Tableau user name.                                                  |
+| `password`       | ✅        |           | Tableau password for authentication.                                |
+| `site`           | ✅        |           | Tableau Online Site                                                 |
+| `projects`       |          | `default` | Default project                                                     |
+| `default_schema` |          | `public`  | Default schema to use when schema is not found in Tableau response. |
+| `env`            |          | `"PROD"`  | Environment to use in namespace when constructing URNs.             |
 
-See Mode's [Authentication documentation](https://mode.com/developer/api-reference/authentication/) on how to generate `token` and `password`.
+### Authentication
 
-<br/>
-
-#### Mode API Options
-| Field                      | Required | Default | Description                                              |
-|----------------------------|----------|---------|----------------------------------------------------------|
-| `retry_backoff_multiplier` |          | `1`     | Multiplier for exponential backoff when waiting to retry |
-| `max_retry_interval`       |          | `10`    | Maximum interval to wait when retrying                   |
-| `max_attempts`             |          | `5`     | Maximum number of attempts to retry before failing       |
+Currently, authentication is supported on Tableau Online only using username and password. 
+Authenticating using a personal token is not supported. <br/>
+For more information on Tableau authentication, refer to [How to Authenticate](https://help.tableau.com/current/api/metadata_api/en-us/docs/meta_api_auth.html) guide.
 
 
 ## Compatibility
 
-N/A
+Tableau Server Version: 2021.4.0 (20214.22.0114.0959) 64-bit Linux <br/>
+Tableau Pod: prod-ca-a
 
 
 ## Questions

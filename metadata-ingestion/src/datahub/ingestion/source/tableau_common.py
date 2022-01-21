@@ -18,6 +18,11 @@ from datahub.metadata.schema_classes import (
     TagAssociationClass,
 )
 
+
+class MetadataQueryException(Exception):
+    pass
+
+
 workbook_graphql_query = """
     {
       id
@@ -374,7 +379,6 @@ def make_table_urn(
     elif connection_type == "excel-direct":
         platform = "local_file"
     else:
-        # TODO log warning
         platform = connection_type
 
     urn = builder.make_dataset_urn(
@@ -412,7 +416,6 @@ def clean_query(query):
     return query
 
 
-# TODO report failure
 def query_metadata(server, main_query, connection_name, first, offset, qry_filter=""):
     query = """{{
         {connection_name} (first:{first}, offset:{offset}, filter:{{{filter}}})
@@ -434,5 +437,7 @@ def query_metadata(server, main_query, connection_name, first, offset, qry_filte
     query_result = server.metadata.query(query)
 
     if "errors" in query_result:
-        raise Exception(query_result["errors"])
+        raise MetadataQueryException(
+            f"Connection: {connection_name} Error: {query_result['errors']}"
+        )
     return query_result
