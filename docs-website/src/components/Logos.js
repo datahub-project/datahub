@@ -86,6 +86,11 @@ const companyLogos = [
     imageUrl: "/img/logos/companies/hipages.png",
     size: "default",
   },
+  {
+    name: "Moloco",
+    imageUrl: "/img/logos/companies/moloco.png",
+    size: "default",
+  },
 ];
 
 const platformLogos = [
