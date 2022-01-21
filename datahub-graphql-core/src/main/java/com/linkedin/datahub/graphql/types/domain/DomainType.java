@@ -11,6 +11,7 @@ import com.linkedin.metadata.Constants;
 import graphql.execution.DataFetcherResult;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -38,14 +39,14 @@ public class DomainType implements com.linkedin.datahub.graphql.types.EntityType
 
   @Override
   public List<DataFetcherResult<Domain>> batchLoad(@Nonnull List<String> urns, @Nonnull QueryContext context) throws Exception {
-    final Set<Urn> containerUrns = urns.stream()
+    final List<Urn> containerUrns = urns.stream()
         .map(this::getUrn)
-        .collect(Collectors.toSet());
+        .collect(Collectors.toList());
 
     try {
       final Map<Urn, EntityResponse> entities = _entityClient.batchGetV2(
           Constants.DOMAIN_ENTITY_NAME,
-          containerUrns,
+          new HashSet<>(containerUrns),
           ImmutableSet.of(
               Constants.DOMAIN_KEY_ASPECT_NAME,
               Constants.DOMAIN_PROPERTIES_ASPECT_NAME,
