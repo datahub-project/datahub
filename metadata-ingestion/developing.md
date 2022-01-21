@@ -123,7 +123,7 @@ flake8 src/ tests/
 mypy src/ tests/
 
 # If you want to run only the quicker subtests
-pytest -m 'not integration' -vv
+pytest -m 'not integration and not slow_integration' -vv
 # Run the full testing suite
 pytest -vv
 
