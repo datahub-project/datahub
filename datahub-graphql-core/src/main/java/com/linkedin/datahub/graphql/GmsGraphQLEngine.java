@@ -518,7 +518,7 @@ public class GmsGraphQLEngine {
             .dataFetcher("createPolicy", new UpsertPolicyResolver(this.entityClient))
             .dataFetcher("updatePolicy", new UpsertPolicyResolver(this.entityClient))
             .dataFetcher("deletePolicy", new DeletePolicyResolver(this.entityClient))
-            .dataFetcher("updateDescription", new UpdateFieldDescriptionResolver(entityService))
+            .dataFetcher("updateDescription", new UpdateDescriptionResolver(entityService))
             .dataFetcher("addOwner", new AddOwnerResolver(entityService))
             .dataFetcher("removeOwner", new RemoveOwnerResolver(entityService))
             .dataFetcher("addLink", new AddLinkResolver(entityService))
@@ -532,7 +532,7 @@ public class GmsGraphQLEngine {
         );
     }
 
-    private void configureGenericEntityResolvers(final RuntimeWiring.Builder builder) {
+    private void configureGenericEntityResolvers(final RuntimeWiring.Builder builder) {iption
         builder
             .type("SearchResult", typeWiring -> typeWiring
                 .dataFetcher("entity", new AuthenticatedResolver<>(
