@@ -5,6 +5,7 @@ import { Maybe, UserUsageCounts } from '../../../../../../../types.generated';
 import UsageFacepile from '../../../../../dataset/profile/UsageFacepile';
 import { InfoItem } from '../../../../components/styled/InfoItem';
 import { ANTD_GRAY } from '../../../../constants';
+import { countFormatter, countSeparator } from '../../../../../../../utils/formatter/index';
 
 type Props = {
     rowCount?: number;
@@ -31,16 +32,17 @@ const StatContainer = styled.div<{ justifyContent }>`
 export default function TableStats({ rowCount, columnCount, queryCount, users, lastUpdated, lastUpdatedUTC }: Props) {
     // If there are less than 4 items, simply stack the stat views.
     const justifyContent = !queryCount && !users ? 'default' : 'space-between';
-
     return (
         <StatSection>
             <Typography.Title level={5}>Table Stats</Typography.Title>
             <StatContainer justifyContent={justifyContent}>
                 {rowCount && (
                     <InfoItem title="Rows">
-                        <Typography.Text strong style={{ fontSize: 24 }}>
-                            {rowCount}
-                        </Typography.Text>
+                        <Tooltip title={countSeparator(rowCount)} placement="right">
+                            <Typography.Text strong style={{ fontSize: 24 }}>
+                                {countFormatter(rowCount)}
+                            </Typography.Text>
+                        </Tooltip>
                     </InfoItem>
                 )}
                 {columnCount && (
