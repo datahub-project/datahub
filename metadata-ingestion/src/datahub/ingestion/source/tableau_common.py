@@ -431,6 +431,7 @@ def query_metadata(server, main_query, connection_name, first, offset, qry_filte
         main_query=main_query,
     )
     query_result = server.metadata.query(query)
+
     if "errors" in query_result:
         raise Exception(query_result["errors"])
     return query_result
