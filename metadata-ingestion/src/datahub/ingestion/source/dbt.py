@@ -9,7 +9,7 @@ import requests
 from pydantic import validator
 
 from datahub.configuration import ConfigModel
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, ConfigurationError
 from datahub.emitter import mce_builder
 from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -20,9 +20,13 @@ from datahub.ingestion.source.sql.sql_types import (
     BIGQUERY_TYPES_MAP,
     POSTGRES_TYPES_MAP,
     SNOWFLAKE_TYPES_MAP,
+    SPARK_SQL_TYPES_MAP,
     resolve_postgres_modified_type,
 )
-from datahub.metadata.com.linkedin.pegasus2avro.common import AuditStamp
+from datahub.metadata.com.linkedin.pegasus2avro.common import (
+    AuditStamp,
+    GlossaryTermAssociation,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetLineageTypeClass,
     UpstreamClass,
@@ -36,6 +40,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     MySqlDDL,
     NullTypeClass,
     NumberTypeClass,
+    RecordType,
     SchemaField,
     SchemaFieldDataType,
     SchemaMetadata,
@@ -47,14 +52,17 @@ from datahub.metadata.schema_classes import (
     DatasetKeyClass,
     DatasetPropertiesClass,
     GlobalTagsClass,
+    GlossaryTermsClass,
     OwnerClass,
     OwnershipClass,
+    OwnershipSourceTypeClass,
     OwnershipTypeClass,
     SubTypesClass,
     TagAssociationClass,
     UpstreamLineageClass,
     ViewPropertiesClass,
 )
+from datahub.utilities.mapping import Constants, OperationProcessor
 
 logger = logging.getLogger(__name__)
 DBT_PLATFORM = "dbt"
@@ -72,6 +80,10 @@ class DBTConfig(ConfigModel):
     tag_prefix: str = f"{DBT_PLATFORM}:"
     node_name_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
     disable_dbt_node_creation = False
+    meta_mapping: Dict = {}
+    enable_meta_mapping = True
+    write_semantics: str = "PATCH"
+    strip_user_ids_from_email: bool = False
 
     @validator("target_platform")
     def validate_target_platform_value(cls, target_platform: str) -> str:
@@ -81,6 +93,16 @@ class DBTConfig(ConfigModel):
                 "postgres."
             )
         return target_platform
+
+    @validator("write_semantics")
+    def validate_write_semantics(cls, write_semantics: str) -> str:
+        if write_semantics.lower() not in {"patch", "override"}:
+            raise ValueError(
+                "write_semantics cannot be any other value than PATCH or OVERRIDE. Default value is PATCH. "
+                "For PATCH semantics consider using the datahub-rest sink or "
+                "provide a datahub_api: configuration on your ingestion recipe"
+            )
+        return write_semantics
 
 
 @dataclass
@@ -99,7 +121,7 @@ class DBTColumn:
 
 @dataclass
 class DBTNode:
-    database: str
+    database: Optional[str]
     schema: str
     name: str  # name, identifier
     comment: str
@@ -167,7 +189,6 @@ def extract_dbt_entities(
     report: SourceReport,
     node_name_pattern: AllowDenyPattern,
 ) -> List[DBTNode]:
-
     sources_by_id = {x["unique_id"]: x for x in sources_results}
 
     dbt_entities = []
@@ -223,6 +244,9 @@ def extract_dbt_entities(
 
         tags = manifest_node.get("tags", [])
         tags = [tag_prefix + tag for tag in tags]
+        meta_props = manifest_node.get("meta", {})
+        if not meta:
+            meta_props = manifest_node.get("config", {}).get("meta", {})
         dbtNode = DBTNode(
             dbt_name=key,
             database=manifest_node["database"],
@@ -238,7 +262,7 @@ def extract_dbt_entities(
             materialization=materialization,
             catalog_type=catalog_type,
             columns=[],
-            meta=manifest_node.get("meta", {}),
+            meta=meta_props,
             tags=tags,
             owner=owner,
         )
@@ -340,19 +364,22 @@ def loadManifestAndCatalog(
     )
 
 
-def get_db_fqn(database: str, schema: str, name: str) -> str:
-    return f"{database}.{schema}.{name}".replace('"', "")
+def get_db_fqn(database: Optional[str], schema: str, name: str) -> str:
+    if database is not None:
+        fqn = f"{database}.{schema}.{name}"
+    else:
+        fqn = f"{schema}.{name}"
+    return fqn.replace('"', "")
 
 
 def get_urn_from_dbtNode(
-    database: str, schema: str, name: str, target_platform: str, env: str
+    database: Optional[str], schema: str, name: str, target_platform: str, env: str
 ) -> str:
     db_fqn = get_db_fqn(database, schema, name)
     return f"urn:li:dataset:(urn:li:dataPlatform:{target_platform},{db_fqn},{env})"
 
 
 def get_custom_properties(node: DBTNode) -> Dict[str, str]:
-
     # initialize custom properties to node's meta props
     # (dbt-native node properties)
     custom_properties = node.meta
@@ -452,9 +479,11 @@ _field_type_mapping = {
     "timestamp without time zone": DateTypeClass,
     "integer": NumberTypeClass,
     "float8": NumberTypeClass,
+    "struct": RecordType,
     **POSTGRES_TYPES_MAP,
     **SNOWFLAKE_TYPES_MAP,
     **BIGQUERY_TYPES_MAP,
+    **SPARK_SQL_TYPES_MAP,
 }
 
 
@@ -467,13 +496,11 @@ def get_column_type(
     TypeClass: Any = _field_type_mapping.get(column_type)
 
     if TypeClass is None:
-
         # attempt Postgres modified type
         TypeClass = resolve_postgres_modified_type(column_type)
 
     # if still not found, report the warning
     if TypeClass is None:
-
         report.report_warning(
             dataset_name, f"unable to map type {column_type} to metadata schema"
         )
@@ -553,6 +580,11 @@ class DBTSource(Source):
 
     # create workunits from dbt nodes
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+        if self.config.write_semantics == "PATCH" and not self.ctx.graph:
+            raise ConfigurationError(
+                "With PATCH semantics, dbt source requires a datahub_api to connect to. "
+                "Consider using the datahub-rest sink or provide a datahub_api: configuration on your ingestion recipe."
+            )
         (
             nodes,
             manifest_schema,
@@ -617,6 +649,13 @@ class DBTSource(Source):
         If  disable_dbt_node_creation = False
             Create platform entities with all metadata information.
         """
+        action_processor = OperationProcessor(
+            self.config.meta_mapping,
+            self.config.tag_prefix,
+            "SOURCE_CONTROL",
+            self.config.strip_user_ids_from_email,
+        )
+
         for node in dbt_nodes:
             node_datahub_urn = get_urn_from_dbtNode(
                 node.database,
@@ -625,9 +664,15 @@ class DBTSource(Source):
                 mce_platform,
                 self.config.env,
             )
+
+            meta_aspects: Dict[str, Any] = {}
+            if self.config.enable_meta_mapping and node.meta:
+                meta_aspects = action_processor.process(node.meta)
+
             aspects = self._generate_base_aspects(
-                node, additional_custom_props_filtered, mce_platform
+                node, additional_custom_props_filtered, mce_platform, meta_aspects
             )
+
             if mce_platform == DBT_PLATFORM:
                 # add upstream lineage
                 upstream_lineage_class = self._create_lineage_aspect_for_dbt_node(
@@ -646,6 +691,7 @@ class DBTSource(Source):
                 if sub_type_wu:
                     yield sub_type_wu
                     self.report.report_workunit(sub_type_wu)
+
             else:
                 if not self.config.disable_dbt_node_creation:
                     # if dbt node creation is enabled we are creating empty node for platform and only add
@@ -680,17 +726,88 @@ class DBTSource(Source):
                         aspects.append(key_aspect)
                 else:
                     # add upstream lineage
-                    aspects.append(
+                    platform_upstream_aspect = (
                         self._create_lineage_aspect_for_platform_node(
                             node, manifest_nodes_raw
                         )
                     )
+                    if platform_upstream_aspect:
+                        aspects.append(platform_upstream_aspect)
 
             dataset_snapshot = DatasetSnapshot(urn=node_datahub_urn, aspects=aspects)
             mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
+            if self.config.write_semantics == "PATCH":
+                mce = self.get_patched_mce(mce)
             wu = MetadataWorkUnit(id=dataset_snapshot.urn, mce=mce)
             self.report.report_workunit(wu)
             yield wu
+
+            # TODO: Remove. keeping this till PR review
+            # for meta_mcpw in meta_mcpw_list:
+            #     meta_wu = MetadataWorkUnit(
+            #         id=f"{self.platform}-{meta_mcpw.entityUrn}-{meta_mcpw.aspectName}",
+            #         mcp=meta_mcpw,
+            #     )
+            #     yield meta_wu
+            #     self.report.report_workunit(meta_wu)
+
+    def get_aspect_from_dataset(
+        self, dataset_snapshot: DatasetSnapshot, aspect_type: type
+    ) -> Any:
+        for aspect in dataset_snapshot.aspects:
+            if isinstance(aspect, aspect_type):
+                return aspect
+        return None
+
+    # TODO: Remove. keeping this till PR review
+    # def get_owners_from_dataset_snapshot(self, dataset_snapshot: DatasetSnapshot) -> Optional[OwnershipClass]:
+    #     for aspect in dataset_snapshot.aspects:
+    #         if isinstance(aspect, OwnershipClass):
+    #             return aspect
+    #     return None
+    #
+    # def get_tag_aspect_from_dataset_snapshot(self, dataset_snapshot: DatasetSnapshot) -> Optional[GlobalTagsClass]:
+    #     for aspect in dataset_snapshot.aspects:
+    #         if isinstance(aspect, GlobalTagsClass):
+    #             return aspect
+    #     return None
+    #
+    # def get_term_aspect_from_dataset_snapshot(self, dataset_snapshot: DatasetSnapshot) -> Optional[GlossaryTermsClass]:
+    #     for aspect in dataset_snapshot.aspects:
+    #         if isinstance(aspect, GlossaryTermsClass):
+    #             return aspect
+    #     return None
+
+    def get_patched_mce(self, mce):
+        owner_aspect = self.get_aspect_from_dataset(
+            mce.proposedSnapshot, OwnershipClass
+        )
+        if owner_aspect:
+            transformed_owner_list = self.get_transformed_owners_by_source_type(
+                owner_aspect.owners,
+                mce.proposedSnapshot.urn,
+                str(OwnershipSourceTypeClass.SOURCE_CONTROL),
+            )
+            owner_aspect.owners = transformed_owner_list
+
+        tag_aspect = self.get_aspect_from_dataset(mce.proposedSnapshot, GlobalTagsClass)
+        if tag_aspect:
+            transformed_tag_list = self.get_transformed_tags_by_prefix(
+                tag_aspect.tags,
+                mce.proposedSnapshot.urn,
+                f"urn:li:tag:{self.config.tag_prefix}",
+            )
+            tag_aspect.tags = transformed_tag_list
+
+        term_aspect: GlossaryTermsClass = self.get_aspect_from_dataset(
+            mce.proposedSnapshot, GlossaryTermsClass
+        )
+        if term_aspect:
+            transformed_terms = self.get_transformed_terms(
+                term_aspect.terms, mce.proposedSnapshot.urn
+            )
+            term_aspect.terms = transformed_terms
+        return mce
 
     def _create_dataset_properties_aspect(
         self, node: DBTNode, additional_custom_props_filtered: Dict[str, str]
@@ -744,6 +861,7 @@ class DBTSource(Source):
         node: DBTNode,
         additional_custom_props_filtered: Dict[str, str],
         mce_platform: str,
+        meta_aspects: Dict[str, Any],
     ) -> List[Any]:
         """
         There are some common aspects that get generated for both dbt node and platform node depending on whether dbt
@@ -761,12 +879,26 @@ class DBTSource(Source):
         aspects.append(dbt_properties)
 
         # add owners aspect
-        if node.owner:
-            aspects.append(self._get_owners_aspect(node))
+        # we need to aggregate owners added by meta properties and the owners that are coming from server.
+        meta_owner_aspects = meta_aspects.get(Constants.ADD_OWNER_OPERATION)
+        aggregated_owners = self._aggregate_owners(node, meta_owner_aspects)
+        if aggregated_owners:
+            aspects.append(OwnershipClass(owners=aggregated_owners))
 
         # add tags aspects
-        if node.tags:
-            aspects.append(mce_builder.make_global_tag_aspect_with_tag_list(node.tags))
+        meta_tags_aspect = meta_aspects.get(Constants.ADD_TAG_OPERATION)
+        aggregated_tags = self._aggregate_tags(node, meta_tags_aspect)
+        if aggregated_tags:
+            aspects.append(
+                mce_builder.make_global_tag_aspect_with_tag_list(aggregated_tags)
+            )
+
+        # add meta term aspects
+        if (
+            meta_aspects.get(Constants.ADD_TERM_OPERATION)
+            and self.config.enable_meta_mapping
+        ):
+            aspects.append(meta_aspects.get(Constants.ADD_TERM_OPERATION))
 
         # add schema metadata aspect
         schema_metadata = get_schema_metadata(self.report, node, mce_platform)
@@ -779,6 +911,34 @@ class DBTSource(Source):
             if self.config.load_schemas:
                 aspects.append(schema_metadata)
         return aspects
+
+    def _aggregate_owners(
+        self, node: DBTNode, meta_owner_aspects: Any
+    ) -> List[OwnerClass]:
+        owner_list: List[OwnerClass] = []
+        if node.owner:
+            owner_list.append(
+                OwnerClass(
+                    owner=f"urn:li:corpuser:{node.owner}",
+                    type=OwnershipTypeClass.DATAOWNER,
+                )
+            )
+        if meta_owner_aspects and self.config.enable_meta_mapping:
+            owner_list += meta_owner_aspects.owners
+
+        owner_list = sorted(owner_list, key=lambda x: x.owner)
+        return owner_list
+
+    def _aggregate_tags(self, node: DBTNode, meta_tag_aspect: Any) -> List[str]:
+        tags_list: List[str] = []
+        if node.tags:
+            tags_list = tags_list + node.tags
+        if meta_tag_aspect and self.config.enable_meta_mapping:
+            tags_list = tags_list + [
+                tag_association.tag[len("urn:li:tag:") :]
+                for tag_association in meta_tag_aspect.tags
+            ]
+        return sorted(tags_list)
 
     def _create_subType_wu(
         self, node: DBTNode, node_datahub_urn: str
@@ -840,7 +1000,7 @@ class DBTSource(Source):
 
     def _create_lineage_aspect_for_platform_node(
         self, node: DBTNode, manifest_nodes_raw: Dict[str, Dict[str, Any]]
-    ) -> UpstreamLineage:
+    ) -> Optional[UpstreamLineage]:
         """
         This methods created lineage amongst platform nodes. Called only when dbt creation is turned off.
         """
@@ -852,7 +1012,73 @@ class DBTSource(Source):
             self.config.env,
             self.config.disable_dbt_node_creation,
         )
-        return get_upstream_lineage(upstream_urns)
+        if upstream_urns:
+            return get_upstream_lineage(upstream_urns)
+        return None
+
+    # This method attempts to read-modify and return the owners of a dataset.
+    # From the existing owners it will remove the owners that are of the source_type_filter and
+    # then add all the new owners to that list.
+    def get_transformed_owners_by_source_type(
+        self, owners: List[OwnerClass], entity_urn: str, source_type_filter: str
+    ) -> List[OwnerClass]:
+        transformed_owners: List[OwnerClass] = []
+        if owners:
+            transformed_owners += owners
+        if self.ctx.graph:
+            existing_ownership = self.ctx.graph.get_ownership(entity_urn)
+            if not existing_ownership or not existing_ownership.owners:
+                return transformed_owners
+
+            for existing_owner in existing_ownership.owners:
+                if (
+                    existing_owner.source
+                    and existing_owner.source.type != source_type_filter
+                ):
+                    transformed_owners.append(existing_owner)
+        return sorted(transformed_owners, key=self.owner_sort_key)
+
+    def owner_sort_key(self, owner_class: OwnerClass) -> str:
+        return str(owner_class)
+        # TODO: Remove. keeping this till PR review
+        # assert owner_class is not None
+        # owner = owner_class.owner
+        # type = str(owner_class.type)
+        # source_type = "None" if not owner_class.source else str(owner_class.source.type)
+        # source_url = "None" if not owner_class.source else str(owner_class.source.url)
+        # return f"{owner}-{type}-{source_type}-{source_url}"
+
+    # This method attempts to read-modify and return the tags of a dataset.
+    # From the existing tags it will remove the tags that have a prefix tags_prefix_filter and
+    # then add all the new tags to that list.
+    def get_transformed_tags_by_prefix(
+        self,
+        new_tags: List[TagAssociationClass],
+        entity_urn: str,
+        tags_prefix_filter: str,
+    ) -> List[TagAssociationClass]:
+        tag_set = set([new_tag.tag for new_tag in new_tags])
+
+        if self.ctx.graph:
+            existing_tags_class = self.ctx.graph.get_tags(entity_urn)
+            if existing_tags_class and existing_tags_class.tags:
+                for exiting_tag in existing_tags_class.tags:
+                    if not exiting_tag.tag.startswith(tags_prefix_filter):
+                        tag_set.add(exiting_tag.tag)
+        return [TagAssociationClass(tag) for tag in sorted(tag_set)]
+
+    # This method attempts to read-modify and return the glossary terms of a dataset.
+    # This will combine all new and existing terms and return the final deduped list.
+    def get_transformed_terms(
+        self, new_terms: List[GlossaryTermAssociation], entity_urn: str
+    ) -> List[GlossaryTermAssociation]:
+        term_id_set = set([term.urn for term in new_terms])
+        if self.ctx.graph:
+            existing_terms_class = self.ctx.graph.get_glossary_terms(entity_urn)
+            if existing_terms_class and existing_terms_class.terms:
+                for existing_term in existing_terms_class.terms:
+                    term_id_set.add(existing_term.urn)
+        return [GlossaryTermAssociation(term_urn) for term_urn in sorted(term_id_set)]
 
     def get_report(self):
         return self.report

@@ -40,6 +40,8 @@ class DatahubRestSink(Sink):
             self.config.token,
             connect_timeout_sec=self.config.timeout_sec,  # reuse timeout_sec for connect timeout
             read_timeout_sec=self.config.timeout_sec,
+            retry_status_codes=self.config.retry_status_codes,
+            retry_max_times=self.config.retry_max_times,
             extra_headers=self.config.extra_headers,
             ca_certificate_path=self.config.ca_certificate_path,
         )

@@ -1,11 +1,14 @@
 package com.datahub.authentication.authenticator;
 
 import com.datahub.authentication.Actor;
+
 import com.datahub.authentication.Authentication;
+import com.datahub.authentication.AuthenticationExpiredException;
 import com.datahub.authentication.AuthenticatorContext;
 import com.datahub.authentication.AuthenticationException;
 import com.datahub.authentication.Authenticator;
 import com.datahub.authentication.token.TokenClaims;
+import com.datahub.authentication.token.TokenExpiredException;
 import com.datahub.authentication.token.TokenService;
 import javax.annotation.Nonnull;
 import java.util.Map;
@@ -66,6 +69,8 @@ public class DataHubTokenAuthenticator implements Authenticator {
           new Actor(claims.getActorType(), claims.getActorId()),
           credentials,
           claims.asMap());
+    } catch (TokenExpiredException e) {
+      throw new AuthenticationExpiredException(e.getMessage(), e);
     } catch (Exception e) {
       // Failed to validate the token
       throw new AuthenticationException("Unable to verify the provided token.", e);

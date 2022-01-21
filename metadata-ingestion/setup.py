@@ -23,7 +23,7 @@ def get_long_description():
 base_requirements = {
     # Compatability.
     "dataclasses>=0.6; python_version < '3.7'",
-    "typing_extensions>=3.10.0.2",
+    "typing_extensions>=3.10.0.2,<4",
     "mypy_extensions>=0.4.3",
     # Actual dependencies.
     "typing-inspect",
@@ -79,7 +79,8 @@ looker_common = {
 
 bigquery_common = {
     # Google cloud logging library
-    "google-cloud-logging"
+    "google-cloud-logging",
+    "more-itertools>=8.12.0",
 }
 
 # Note: for all of these, framework_common will be added.
@@ -97,8 +98,10 @@ plugins: Dict[str, Set[str]] = {
     "bigquery": sql_common | bigquery_common | {"pybigquery >= 0.6.0"},
     "bigquery-usage": bigquery_common | {"cachetools"},
     "datahub-business-glossary": set(),
+    "data-lake": {"pydeequ==1.0.1", "pyspark==3.0.3", "parse==1.19.0"},
     "dbt": {"requests"},
     "druid": sql_common | {"pydruid>=0.6.2"},
+    "elasticsearch": {"elasticsearch"},
     "feast": {"docker"},
     "glue": aws_common,
     "hive": sql_common
@@ -111,9 +114,11 @@ plugins: Dict[str, Set[str]] = {
     "kafka-connect": sql_common | {"requests", "JPype1"},
     "ldap": {"python-ldap>=2.4"},
     "looker": looker_common,
-    "lookml": looker_common | {"lkml>=1.1.0", "sql-metadata==2.2.2"},
-    "metabase": {"requests", "sqllineage"},
-    "mode": {"requests", "sqllineage"},
+    # lkml>=1.1.2 is required to support the sql_preamble expression in LookML
+    "lookml": looker_common
+    | {"lkml>=1.1.2", "sql-metadata==2.2.2", "sqllineage==1.3.3"},
+    "metabase": {"requests", "sqllineage==1.3.3"},
+    "mode": {"requests", "sqllineage==1.3.3"},
     "mongodb": {"pymongo>=3.11"},
     "mssql": sql_common | {"sqlalchemy-pytds>=0.3"},
     "mssql-odbc": sql_common | {"pyodbc"},
@@ -123,9 +128,9 @@ plugins: Dict[str, Set[str]] = {
     "okta": {"okta~=1.7.0"},
     "oracle": sql_common | {"cx_Oracle"},
     "postgres": sql_common | {"psycopg2-binary", "GeoAlchemy2"},
-    "redash": {"redash-toolbelt", "sql-metadata"},
+    "redash": {"redash-toolbelt", "sql-metadata", "sqllineage==1.3.3"},
     "redshift": sql_common
-    | {"sqlalchemy-redshift", "psycopg2-binary", "GeoAlchemy2", "sqllineage"},
+    | {"sqlalchemy-redshift", "psycopg2-binary", "GeoAlchemy2", "sqllineage==1.3.3"},
     "redshift-usage": sql_common
     | {"sqlalchemy-redshift", "psycopg2-binary", "GeoAlchemy2"},
     "sagemaker": aws_common,
@@ -202,6 +207,7 @@ base_dev_requirements = {
         for plugin in [
             "bigquery",
             "bigquery-usage",
+            "elasticsearch",
             "looker",
             "glue",
             "mariadb",
@@ -213,7 +219,8 @@ base_dev_requirements = {
             "datahub-rest",
             "redash",
             "redshift",
-            "redshift-usage"
+            "redshift-usage",
+            "data-lake"
             # airflow is added below
         ]
         for dependency in plugins[plugin]
@@ -274,8 +281,10 @@ entry_points = {
         "azure-ad = datahub.ingestion.source.identity.azure_ad:AzureADSource",
         "bigquery = datahub.ingestion.source.sql.bigquery:BigQuerySource",
         "bigquery-usage = datahub.ingestion.source.usage.bigquery_usage:BigQueryUsageSource",
+        "data-lake = datahub.ingestion.source.data_lake:DataLakeSource",
         "dbt = datahub.ingestion.source.dbt:DBTSource",
         "druid = datahub.ingestion.source.sql.druid:DruidSource",
+        "elasticsearch = datahub.ingestion.source.elastic_search:ElasticsearchSource",
         "feast = datahub.ingestion.source.feast:FeastSource",
         "glue = datahub.ingestion.source.aws.glue:GlueSource",
         "sagemaker = datahub.ingestion.source.aws.sagemaker:SagemakerSource",

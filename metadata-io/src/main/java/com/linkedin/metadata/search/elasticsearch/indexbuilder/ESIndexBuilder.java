@@ -13,6 +13,8 @@ import java.util.concurrent.TimeUnit;
 import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.elasticsearch.action.admin.cluster.node.tasks.list.ListTasksRequest;
+import org.elasticsearch.action.admin.cluster.node.tasks.list.ListTasksResponse;
 import org.elasticsearch.action.admin.indices.alias.IndicesAliasesRequest;
 import org.elasticsearch.action.admin.indices.alias.IndicesAliasesRequest.AliasActions;
 import org.elasticsearch.action.admin.indices.alias.get.GetAliasesRequest;
@@ -25,10 +27,10 @@ import org.elasticsearch.client.core.CountRequest;
 import org.elasticsearch.client.indices.CreateIndexRequest;
 import org.elasticsearch.client.indices.GetIndexRequest;
 import org.elasticsearch.client.indices.GetMappingsRequest;
+import org.elasticsearch.client.tasks.TaskSubmissionResponse;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.index.reindex.ReindexRequest;
-
 
 @Slf4j
 @RequiredArgsConstructor
@@ -37,8 +39,8 @@ public class ESIndexBuilder {
   private final RestHighLevelClient searchClient;
   private final int numShards;
   private final int numReplicas;
+  private final int numRetries;
 
-  private static final int NUM_RETRIES = 3;
   private static final List<String> SETTINGS_TO_COMPARE = ImmutableList.of("number_of_shards", "number_of_replicas");
 
   public void buildIndex(String indexName, Map<String, Object> mappings, Map<String, Object> settings)
@@ -89,9 +91,33 @@ public class ESIndexBuilder {
     String tempIndexName = indexName + "_" + System.currentTimeMillis();
     createIndex(tempIndexName, mappings, finalSettings);
     try {
-      searchClient.reindex(
-          new ReindexRequest().setSourceIndices(indexName).setDestIndex(tempIndexName),
-          RequestOptions.DEFAULT);
+      TaskSubmissionResponse reindexTask;
+      reindexTask = searchClient.submitReindexTask(new ReindexRequest().setSourceIndices(indexName).setDestIndex(tempIndexName),
+              RequestOptions.DEFAULT);
+
+      // wait up to 5 minutes for the task to complete
+      long startTime = System.currentTimeMillis();
+      long millisToWait60Minutes = 1000 * 60 * 60;
+      Boolean reindexTaskCompleted = false;
+
+      while ((System.currentTimeMillis() - startTime) < millisToWait60Minutes) {
+        log.info("Reindexing from {} to {} in progress...", indexName, tempIndexName);
+        ListTasksRequest request = new ListTasksRequest();
+        ListTasksResponse tasks = searchClient.tasks().list(request, RequestOptions.DEFAULT);
+        if (tasks.getTasks().stream().noneMatch(task -> task.getTaskId().toString().equals(reindexTask.getTask()))) {
+          log.info("Reindexing {} to {} task has completed, will now check if reindex was successful", indexName, tempIndexName);
+          reindexTaskCompleted = true;
+          break;
+        }
+        try {
+          Thread.sleep(5000);
+        } catch (InterruptedException e) {
+          log.info("Trouble sleeping while reindexing {} to {}: Exception {}. Retrying...", indexName, tempIndexName, e.toString());
+        }
+      }
+      if (!reindexTaskCompleted) {
+        throw new RuntimeException(String.format("Reindex from %s to %s failed-- task exceeded 60 minute limit", indexName, tempIndexName));
+      }
     } catch (Exception e) {
       log.info("Failed to reindex {} to {}: Exception {}", indexName, tempIndexName, e.toString());
       searchClient.indices().delete(new DeleteIndexRequest().indices(tempIndexName), RequestOptions.DEFAULT);
@@ -102,7 +128,7 @@ public class ESIndexBuilder {
     // There can be some delay between the reindex finishing and count being fully up to date, so try multiple times
     long originalCount = 0;
     long reindexedCount = 0;
-    for (int i = 0; i < NUM_RETRIES; i++) {
+    for (int i = 0; i < this.numRetries; i++) {
       // Check if reindex succeeded by comparing document counts
       originalCount = getCount(indexName);
       reindexedCount = getCount(tempIndexName);

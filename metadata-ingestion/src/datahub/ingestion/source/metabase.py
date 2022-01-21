@@ -1,3 +1,4 @@
+from datetime import datetime
 from functools import lru_cache
 from typing import Dict, Iterable, Optional
 
@@ -41,6 +42,7 @@ class MetabaseConfig(ConfigModel):
     username: Optional[str] = None
     password: Optional[str] = None
     database_alias_map: Optional[dict] = None
+    engine_platform_map: Optional[dict] = None
     default_schema: str = "public"
     env: str = builder.DEFAULT_ENV
 
@@ -131,6 +133,17 @@ class MetabaseSource(Source):
                 reason=f"Unable to retrieve dashboards. " f"Reason: {str(http_error)}",
             )
 
+    @staticmethod
+    def get_timestamp_millis_from_ts_string(ts_str: str) -> int:
+        """
+        Converts the given timestamp string to milliseconds. If parsing fails,
+        returns the utc-now in milliseconds.
+        """
+        try:
+            return int(dp.parse(ts_str).timestamp() * 1000)
+        except (dp.ParserError, OverflowError):
+            return int(datetime.utcnow().timestamp() * 1000)
+
     def construct_dashboard_from_api_data(
         self, dashboard_info: dict
     ) -> Optional[DashboardSnapshot]:
@@ -157,8 +170,8 @@ class MetabaseSource(Source):
         )
         last_edit_by = dashboard_details.get("last-edit-info") or {}
         modified_actor = builder.make_user_urn(last_edit_by.get("email", "unknown"))
-        modified_ts = int(
-            dp.parse(f"{last_edit_by.get('timestamp', 'now')}").timestamp() * 1000
+        modified_ts = self.get_timestamp_millis_from_ts_string(
+            f"{last_edit_by.get('timestamp')}"
         )
         title = dashboard_details.get("name", "") or ""
         description = dashboard_details.get("description", "") or ""
@@ -261,8 +274,8 @@ class MetabaseSource(Source):
 
         last_edit_by = card_details.get("last-edit-info") or {}
         modified_actor = builder.make_user_urn(last_edit_by.get("email", "unknown"))
-        modified_ts = int(
-            dp.parse(f"{last_edit_by.get('timestamp', 'now')}").timestamp() * 1000
+        modified_ts = self.get_timestamp_millis_from_ts_string(
+            f"{last_edit_by.get('timestamp')}"
         )
         last_modified = ChangeAuditStamps(
             created=AuditStamp(time=modified_ts, actor=modified_actor),
@@ -342,7 +355,7 @@ class MetabaseSource(Source):
         return chart_type
 
     def construct_card_custom_properties(self, card_details: dict) -> Dict:
-        result_metadata = card_details.get("result_metadata", [])
+        result_metadata = card_details.get("result_metadata") or []
         metrics, dimensions = [], []
         for meta_data in result_metadata:
             display_name = meta_data.get("display_name", "") or ""
@@ -373,13 +386,14 @@ class MetabaseSource(Source):
             source_table_id = (
                 card_details.get("dataset_query", {})
                 .get("query", {})
-                .get("source-table", {})
+                .get("source-table")
             )
-            schema_name, table_name = self.get_source_table_from_id(source_table_id)
-            if table_name:
-                source_paths.add(
-                    f"{schema_name + '.' if schema_name else ''}{table_name}"
-                )
+            if source_table_id is not None:
+                schema_name, table_name = self.get_source_table_from_id(source_table_id)
+                if table_name:
+                    source_paths.add(
+                        f"{schema_name + '.' if schema_name else ''}{table_name}"
+                    )
         else:
             try:
                 raw_query = (
@@ -464,6 +478,10 @@ class MetabaseSource(Source):
             "sqlserver": "mssql",
             "bigquery-cloud-sdk": "bigquery",
         }
+
+        if self.config.engine_platform_map is not None:
+            engine_mapping.update(self.config.engine_platform_map)
+
         if engine in engine_mapping:
             platform = engine_mapping[engine]
         else:

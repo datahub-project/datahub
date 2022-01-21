@@ -10,6 +10,7 @@ to be a secure environment and as such authentication is validated & enforced on
 
 1. [Configuring OIDC using Google](configure-oidc-react-google.md)
 2. [Configuring OIDC using Okta](configure-oidc-react-okta.md)
+3. [Configuring OIDC using Azure](configure-oidc-react-azure.md)
 
 ## Configuring OIDC in React 
 

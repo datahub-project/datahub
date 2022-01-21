@@ -273,15 +273,19 @@ def _get_schema_column_info(self, connection, schema=None, **kw):
               CASE
                 WHEN external_type = 'int' THEN 'integer'
                  ELSE
+                   regexp_replace(
+                   replace(
                    replace(
                    replace(
                    replace(
                    replace(
                    replace(external_type, 'decimal', 'numeric'),
                     'varchar', 'character varying'),
+                    'string', 'character varying'),
                     'char(', 'character('),
                     'float', 'real'),
-                    'double', 'float')
+                    'double', 'float'),
+                    '^array<(.*)>$', '$1[]', 1, 'p')
                  END AS "type",
               null as "distkey",
               0 as "sortkey",
@@ -292,15 +296,19 @@ def _get_schema_column_info(self, connection, schema=None, **kw):
               CASE
                  WHEN external_type = 'int' THEN 'integer'
                  ELSE
+                   regexp_replace(
+                   replace(
                    replace(
                    replace(
                    replace(
                    replace(
                    replace(external_type, 'decimal', 'numeric'),
                     'varchar', 'character varying'),
+                    'string', 'character varying'),
                     'char(', 'character('),
                     'float', 'real'),
-                    'double', 'float')
+                    'double', 'float'),
+                    '^array<(.*)>$', '$1[]', 1, 'p')
                  END AS "format_type",
               null as "default",
               null as "schema_oid",

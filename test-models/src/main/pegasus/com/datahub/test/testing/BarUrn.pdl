@@ -1,0 +1,23 @@
+namespace com.datahub.test.testing
+
+/**
+ * Bar identifier.
+ */
+@java = {
+  "class" : "com.datahub.test.testing.urn.BarUrn",
+  "coercerClass" : "com.datahub.test.testing.urn.BarUrnCoercer"
+}
+@validate.`com.linkedin.common.validator.TypedUrnValidator` = {
+  "owningTeam" : "urn:li:internalTeam:metadata",
+  "entityType" : "entityBar",
+  "namespace" : "li",
+  "name" : "Bar",
+  "doc" : "Bar identifier.",
+  "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
+  "fields" : [ {
+    "type" : "int",
+    "name" : "barId",
+    "doc" : "GUID for bar"
+  } ]
+}
+typeref BarUrn = string
