@@ -494,14 +494,14 @@ type Dataset implements EntityWithRelationships & Entity {
     type: EntityType!
 
     """
-    The parent container in which the entity resides
-    """
-    container: Container
-
-    """
     Standardized platform urn where the dataset is defined
     """
     platform: DataPlatform!
+
+    """
+    The parent container in which the entity resides
+    """
+    container: Container
 
     """
     The Dataset display name
