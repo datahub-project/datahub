@@ -22,7 +22,7 @@ public class BulkListener implements BulkProcessor.Listener {
   @Override
   public void afterBulk(long executionId, BulkRequest request, BulkResponse response) {
     if (response.hasFailures()) {
-      log.info("Failed to feed bulk request. Number of events: " + response.getItems().length + " Took time ms: "
+      log.error("Failed to feed bulk request. Number of events: " + response.getItems().length + " Took time ms: "
               + response.getIngestTookInMillis() + " Message: " + response.buildFailureMessage());
     } else {
       log.info("Successfully fed bulk request. Number of events: " + response.getItems().length + " Took time ms: "
@@ -32,6 +32,6 @@ public class BulkListener implements BulkProcessor.Listener {
 
   @Override
   public void afterBulk(long executionId, BulkRequest request, Throwable failure) {
-    log.info("Error feeding bulk request. No retries left", failure);
+    log.error("Error feeding bulk request. No retries left", failure);
   }
 }
