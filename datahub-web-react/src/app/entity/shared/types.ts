@@ -20,6 +20,7 @@ import {
     StringMapEntry,
     Domain,
     SubTypes,
+    Container,
 } from '../../../types.generated';
 import { FetchedEntity } from '../../lineage/types';
 
@@ -64,6 +65,7 @@ export type GenericEntityProperties = {
     autoRenderAspects?: Maybe<Array<RawAspect>>;
     subTypes?: Maybe<SubTypes>;
     entityCount?: number;
+    container?: Maybe<Container>;
 };
 
 export type GenericEntityUpdate = {
