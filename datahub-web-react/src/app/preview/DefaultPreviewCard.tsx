@@ -7,7 +7,7 @@ import { GlobalTags, Owner, GlossaryTerms, SearchInsight, Container, Entity, Ent
 import { useEntityRegistry } from '../useEntityRegistry';
 import AvatarsGroup from '../shared/avatar/AvatarsGroup';
 import TagTermGroup from '../shared/tags/TagTermGroup';
-import { ANTD_GRAY, REDESIGN_COLORS } from '../entity/shared/constants';
+import { ANTD_GRAY } from '../entity/shared/constants';
 import NoMarkdownViewer from '../entity/shared/components/styled/StripMarkdownText';
 import { getNumberWithOrdinal } from '../entity/shared/utils';
 import { useEntityData } from '../entity/shared/EntityContext';
@@ -34,7 +34,7 @@ const PreviewImage = styled(Image)`
     max-height: 18px;
     width: auto;
     object-fit: contain;
-    margin-right: 10px;
+    margin-right: 8px;
     background-color: transparent;
 `;
 
@@ -52,13 +52,6 @@ const PlatformText = styled(Typography.Text)`
     line-height: 20px;
     font-weight: 700;
     color: ${ANTD_GRAY[7]};
-`;
-
-const ContainerText = styled(Typography.Text)`
-    font-size: 12px;
-    line-height: 20px;
-    font-weight: 400;
-    color: ${REDESIGN_COLORS.BLUE};
 `;
 
 const EntityCountText = styled(Typography.Text)`
@@ -112,9 +105,15 @@ const TypeIcon = styled.span`
     margin-right: 8px;
 `;
 
+const ContainerText = styled(Typography.Text)`
+    font-size: 12px;
+    line-height: 20px;
+    font-weight: 400;
+    color: ${ANTD_GRAY[9]};
+`;
+
 const ContainerIcon = styled(FolderOpenOutlined)`
     &&& {
-        color: ${ANTD_GRAY[7]}
         font-size: 12px;
         margin-right: 4px;
     }
@@ -203,7 +202,7 @@ export default function DefaultPreviewCard({
                                     <PlatformDivider />
                                     <ContainerIcon
                                         style={{
-                                            color: REDESIGN_COLORS.BLUE,
+                                            color: ANTD_GRAY[9],
                                         }}
                                     />
                                     <ContainerText>

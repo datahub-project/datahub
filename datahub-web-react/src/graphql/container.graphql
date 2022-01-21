@@ -4,6 +4,7 @@ query getContainer($urn: String!) {
         platform {
             name
             info {
+                displayName
                 logoUrl
             }
         }
@@ -17,7 +18,7 @@ query getContainer($urn: String!) {
         ownership {
             ...ownershipFields
         }
-        tags  {
+        tags {
             ...globalTagsFields
         }
         institutionalMemory {
