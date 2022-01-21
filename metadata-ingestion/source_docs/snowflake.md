@@ -206,7 +206,7 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `start_time`                |          | Last full day in UTC (or hour, depending on `bucket_duration`)      | Earliest date of usage logs to consider.                                         |
 | `end_time`                  |          | Last full day in UTC (or hour, depending on `bucket_duration`)      | Latest date of usage logs to consider.                                           |
 | `top_n_queries`             |          | `10`                                                                | Number of top queries to save to each table.                                     |
-| `include_operational_stats` |          | `true`                                                              | Whether to display operational stats.                                            |
+| `include_operational_stats` |          | `false`                                                             | Whether to display operational stats.                                            |
 | `database_pattern`          |          | `"^UTIL_DB$" `<br />`"^SNOWFLAKE$"`<br />`"^SNOWFLAKE_SAMPLE_DATA$" | Allow/deny patterns for db in snowflake dataset names.                           |
 | `schema_pattern`            |          |                                                                     | Allow/deny patterns for schema in snowflake dataset names.                       |
 | `view_pattern`              |          |                                                                     | Allow/deny patterns for views in snowflake dataset names.                        |
