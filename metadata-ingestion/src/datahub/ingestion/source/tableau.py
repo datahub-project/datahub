@@ -24,8 +24,9 @@ from datahub.ingestion.source.tableau_common import (
     get_tags_from_params,
     make_description_from_params,
     make_table_urn,
+    published_datasource_graphql_query,
     query_metadata,
-    workbook_graphql_query, published_datasource_graphql_query,
+    workbook_graphql_query,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
     AuditStamp,
@@ -244,7 +245,7 @@ class TableauSource(Source):
                 "hasNextPage", False
             )
             current_count += count
-            # get relationship between custom sql and embedded datasources only via columns and fields
+            # get relationship between custom sql and embedded data sources only via columns and fields
             unique_customsql = []
             for customsql in c_sql_connection.get("nodes", []):
                 unique_csql = {
@@ -306,6 +307,7 @@ class TableauSource(Source):
 
                 #  lineage from custom sql -> datasets/tables
                 used_ds = []
+                fields: List[SchemaField] = []
                 for field in csql.get("columns", []):
                     datasources = [
                         ref.get("datasource") for ref in field.get("referencedByFields")
@@ -349,17 +351,18 @@ class TableauSource(Source):
                         description=field.get("description", ""),
                     )
                     fields.append(schema_field)
-                    schema_metadata = SchemaMetadata(
-                        schemaName="test",
-                        platform=f"urn:li:dataPlatform:{self.platform}",
-                        version=0,
-                        fields=fields,
-                        hash="",
-                        platformSchema=OtherSchema(rawSchema=""),
-                    )
 
-                    if schema_metadata is not None:
-                        dataset_snapshot.aspects.append(schema_metadata)
+                schema_metadata = SchemaMetadata(
+                    schemaName="test",
+                    platform=f"urn:li:dataPlatform:{self.platform}",
+                    version=0,
+                    fields=fields,
+                    hash="",
+                    platformSchema=OtherSchema(rawSchema=""),
+                )
+
+                if schema_metadata is not None:
+                    dataset_snapshot.aspects.append(schema_metadata)
 
                 view_properties = ViewPropertiesClass(
                     materialized=False,
@@ -388,12 +391,12 @@ class TableauSource(Source):
                 self.report.report_workunit(mcp_workunit)
                 yield mcp_workunit
 
-    def emit_datasource(self, ds: dict, wb: dict=None) -> Iterable[MetadataWorkUnit]:
+    def emit_datasource(self, ds: dict, wb: dict = None) -> Iterable[MetadataWorkUnit]:
         if wb is None:
             wb = ds
 
         project = wb.get("projectName", "")
-        ds_id = ds.get('id', uuid.uuid4())
+        ds_id = ds.get("id", uuid.uuid4())
         ds_name = f"{ds.get('name')}.{ds_id}"
         ds_urn = builder.make_dataset_urn(self.platform, ds_name, self.config.env)
         dataset_snapshot = DatasetSnapshot(
@@ -420,12 +423,11 @@ class TableauSource(Source):
             description=ds.get("name", ""),
             customProperties={
                 "hasExtracts": str(ds.get("hasExtracts", "")),
-                "extractLastRefreshTime": ds.get("extractLastRefreshTime", "")
-                                          or "",
+                "extractLastRefreshTime": ds.get("extractLastRefreshTime", "") or "",
                 "extractLastIncrementalUpdateTime": ds.get(
                     "extractLastIncrementalUpdateTime", ""
                 )
-                                                    or "",
+                or "",
                 "extractLastUpdateTime": ds.get("extractLastUpdateTime", "") or "",
                 "type": ds.get("__typename", ""),
             },
@@ -519,19 +521,43 @@ class TableauSource(Source):
 
     def emit_published_ds(self) -> Iterable[MetadataWorkUnit]:
         count_on_query = len(self.used_ds_id)
-        dss = query_metadata(self.server, published_datasource_graphql_query, 'publishedDatasourcesConnection', 0, 0, "idWithin: {}".format(json.dumps(self.used_ds_id)))
-        published_ds_conn = dss.get('data', {}).get('publishedDatasourcesConnection', {})
-        total_count = published_ds_conn.get('totalCount', 0)
-        has_next_page = published_ds_conn.get('pageInfo', {}).get('hasNextPage', False)
+        dss = query_metadata(
+            self.server,
+            published_datasource_graphql_query,
+            "publishedDatasourcesConnection",
+            0,
+            0,
+            "idWithin: {}".format(json.dumps(self.used_ds_id)),
+        )
+        published_ds_conn = dss.get("data", {}).get(
+            "publishedDatasourcesConnection", {}
+        )
+        total_count = published_ds_conn.get("totalCount", 0)
+        has_next_page = published_ds_conn.get("pageInfo", {}).get("hasNextPage", False)
         current_count = 0
         while has_next_page:
-            count = count_on_query if current_count + count_on_query < total_count else total_count - current_count
-            dss = query_metadata(self.server, published_datasource_graphql_query, 'publishedDatasourcesConnection', count, current_count, 'idWithin: {}'.format(json.dumps(self.used_ds_id)))
-            published_ds_conn = dss.get('data', {}).get('publishedDatasourcesConnection', {})
-            total_count = published_ds_conn.get('totalCount', 0)
-            has_next_page = published_ds_conn.get('pageInfo', {}).get('hasNextPage', False)
+            count = (
+                count_on_query
+                if current_count + count_on_query < total_count
+                else total_count - current_count
+            )
+            dss = query_metadata(
+                self.server,
+                published_datasource_graphql_query,
+                "publishedDatasourcesConnection",
+                count,
+                current_count,
+                "idWithin: {}".format(json.dumps(self.used_ds_id)),
+            )
+            published_ds_conn = dss.get("data", {}).get(
+                "publishedDatasourcesConnection", {}
+            )
+            total_count = published_ds_conn.get("totalCount", 0)
+            has_next_page = published_ds_conn.get("pageInfo", {}).get(
+                "hasNextPage", False
+            )
             current_count += count
-            for ds in published_ds_conn.get('nodes', []):
+            for ds in published_ds_conn.get("nodes", []):
                 yield from self.emit_datasource(ds)
 
     def emit_upstream_tables(self) -> Iterable[MetadataWorkUnit]:
@@ -618,7 +644,7 @@ class TableauSource(Source):
             datasource_urn = []
             data_sources = sheet.get("upstreamDatasources", [])
             for ds in data_sources:
-                ds_id = ds.get('id', uuid.uuid4())
+                ds_id = ds.get("id", uuid.uuid4())
                 ds_urn = builder.make_dataset_urn(
                     self.platform,
                     f"{ds.get('name')}.{ds_id}",
