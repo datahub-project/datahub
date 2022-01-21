@@ -12,9 +12,9 @@ import com.linkedin.metadata.Constants;
 import graphql.execution.DataFetcherResult;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 
@@ -39,14 +39,14 @@ public class ContainerType implements com.linkedin.datahub.graphql.types.EntityT
 
   @Override
   public List<DataFetcherResult<Container>> batchLoad(@Nonnull List<String> urns, @Nonnull QueryContext context) throws Exception {
-    final Set<Urn> containerUrns = urns.stream()
+    final List<Urn> containerUrns = urns.stream()
         .map(this::getUrn)
-        .collect(Collectors.toSet());
+        .collect(Collectors.toList());
 
     try {
       final Map<Urn, EntityResponse> entities = _entityClient.batchGetV2(
           Constants.CONTAINER_ENTITY_NAME,
-          containerUrns,
+          new HashSet<>(containerUrns),
           ImmutableSet.of(
               Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME,
               Constants.CONTAINER_PROPERTIES_ASPECT_NAME,
