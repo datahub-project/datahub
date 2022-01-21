@@ -27,7 +27,7 @@ services:
       - "29092:29092"
       - "9092:9092"
     volumes:
-      - broker://var/lib/kafka/data/
+      - broker:/var/lib/kafka/data/
 
   # This "container" is a workaround to pre-create topics
   kafka-setup:
