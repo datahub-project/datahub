@@ -24,7 +24,8 @@
                             "tags": [],
                             "containedInDashboards": [
                                 {
-                                    "name": "Email Performance by Campaign"
+                                    "name": "Email Performance by Campaign",
+                                    "path": "EmailPerformancebyCampaign/EmailPerformancebyCampaign"
                                 }
                             ],
                             "upstreamDatasources": [
@@ -135,7 +136,8 @@
                             "tags": [],
                             "containedInDashboards": [
                                 {
-                                    "name": "Email Performance by Campaign"
+                                    "name": "Email Performance by Campaign",
+                                    "path": "EmailPerformancebyCampaign/EmailPerformancebyCampaign"
                                 }
                             ],
                             "upstreamDatasources": [
@@ -423,7 +425,8 @@
                             "tags": [],
                             "containedInDashboards": [
                                 {
-                                    "name": "Email Performance by Campaign"
+                                    "name": "Email Performance by Campaign",
+                                    "path": "EmailPerformancebyCampaign/EmailPerformancebyCampaign"
                                 }
                             ],
                             "upstreamDatasources": [
@@ -733,7 +736,8 @@
                             "tags": [],
                             "containedInDashboards": [
                                 {
-                                    "name": "Email Performance by Campaign"
+                                    "name": "Email Performance by Campaign",
+                                    "path": "EmailPerformancebyCampaign/EmailPerformancebyCampaign"
                                 }
                             ],
                             "upstreamDatasources": [
@@ -2603,7 +2607,8 @@
                             "tags": [],
                             "containedInDashboards": [
                                 {
-                                    "name": "dvd Rental Dashboard"
+                                    "name": "dvd Rental Dashboard",
+                                    "path": "dvdrental/dvdRentalDashboard"
                                 }
                             ],
                             "upstreamDatasources": [
@@ -3846,7 +3851,8 @@
                             "tags": [],
                             "containedInDashboards": [
                                 {
-                                    "name": "Executive Dashboard"
+                                    "name": "Executive Dashboard",
+                                    "path": "ExecutiveDashboard/ExecutiveDashboard"
                                 }
                             ],
                             "upstreamDatasources": [
@@ -4114,7 +4120,8 @@
                             "tags": [],
                             "containedInDashboards": [
                                 {
-                                    "name": "Executive Dashboard"
+                                    "name": "Executive Dashboard",
+                                    "path": "ExecutiveDashboard/ExecutiveDashboard"
                                 }
                             ],
                             "upstreamDatasources": [
@@ -4352,7 +4359,8 @@
                             "tags": [],
                             "containedInDashboards": [
                                 {
-                                    "name": "Executive Dashboard"
+                                    "name": "Executive Dashboard",
+                                    "path": "ExecutiveDashboard/ExecutiveDashboard"
                                 }
                             ],
                             "upstreamDatasources": [
@@ -4623,7 +4631,8 @@
                             "tags": [],
                             "containedInDashboards": [
                                 {
-                                    "name": "Executive Dashboard"
+                                    "name": "Executive Dashboard",
+                                    "path": "ExecutiveDashboard/ExecutiveDashboard"
                                 }
                             ],
                             "upstreamDatasources": [
@@ -4812,7 +4821,8 @@
                             "tags": [],
                             "containedInDashboards": [
                                 {
-                                    "name": "Executive Dashboard"
+                                    "name": "Executive Dashboard",
+                                    "path": "ExecutiveDashboard/ExecutiveDashboard"
                                 }
                             ],
                             "upstreamDatasources": [
@@ -4975,7 +4985,8 @@
                             "tags": [],
                             "containedInDashboards": [
                                 {
-                                    "name": "Executive Dashboard"
+                                    "name": "Executive Dashboard",
+                                    "path": "ExecutiveDashboard/ExecutiveDashboard"
                                 }
                             ],
                             "upstreamDatasources": [
@@ -5167,7 +5178,8 @@
                             "tags": [],
                             "containedInDashboards": [
                                 {
-                                    "name": "Executive Dashboard"
+                                    "name": "Executive Dashboard",
+                                    "path": "ExecutiveDashboard/ExecutiveDashboard"
                                 }
                             ],
                             "upstreamDatasources": [
@@ -5378,7 +5390,8 @@
                             "tags": [],
                             "containedInDashboards": [
                                 {
-                                    "name": "Executive Dashboard"
+                                    "name": "Executive Dashboard",
+                                    "path": "ExecutiveDashboard/ExecutiveDashboard"
                                 }
                             ],
                             "upstreamDatasources": [
@@ -5583,7 +5596,8 @@
                             "tags": [],
                             "containedInDashboards": [
                                 {
-                                    "name": "Executive Dashboard"
+                                    "name": "Executive Dashboard",
+                                    "path": "ExecutiveDashboard/ExecutiveDashboard"
                                 }
                             ],
                             "upstreamDatasources": [
@@ -5730,7 +5744,8 @@
                             "tags": [],
                             "containedInDashboards": [
                                 {
-                                    "name": "Executive Dashboard"
+                                    "name": "Executive Dashboard",
+                                    "path": "ExecutiveDashboard/ExecutiveDashboard"
                                 }
                             ],
                             "upstreamDatasources": [
@@ -5985,7 +6000,8 @@
                             "tags": [],
                             "containedInDashboards": [
                                 {
-                                    "name": "Executive Dashboard"
+                                    "name": "Executive Dashboard",
+                                    "path": "ExecutiveDashboard/ExecutiveDashboard"
                                 }
                             ],
                             "upstreamDatasources": [
@@ -6505,7 +6521,8 @@
                             "tags": [],
                             "containedInDashboards": [
                                 {
-                                    "name": "Executive Dashboard"
+                                    "name": "Executive Dashboard",
+                                    "path": "ExecutiveDashboard/ExecutiveDashboard"
                                 }
                             ],
                             "upstreamDatasources": [
@@ -6680,7 +6697,8 @@
                             "tags": [],
                             "containedInDashboards": [
                                 {
-                                    "name": "Executive Dashboard"
+                                    "name": "Executive Dashboard",
+                                    "path": "ExecutiveDashboard/ExecutiveDashboard"
                                 }
                             ],
                             "upstreamDatasources": [
@@ -21601,7 +21619,8 @@
                             "tags": [],
                             "containedInDashboards": [
                                 {
-                                    "name": "InMail Engagement"
+                                    "name": "InMail Engagement",
+                                    "path": "InMailEngagement/InMailEngagement"
                                 }
                             ],
                             "upstreamDatasources": [
@@ -21786,7 +21805,8 @@
                             "tags": [],
                             "containedInDashboards": [
                                 {
-                                    "name": "InMail Engagement"
+                                    "name": "InMail Engagement",
+                                    "path": "InMailEngagement/InMailEngagement"
                                 }
                             ],
                             "upstreamDatasources": [
@@ -22030,7 +22050,8 @@
                             "tags": [],
                             "containedInDashboards": [
                                 {
-                                    "name": "InMail Engagement"
+                                    "name": "InMail Engagement",
+                                    "path": "InMailEngagement/InMailEngagement"
                                 }
                             ],
                             "upstreamDatasources": [
@@ -22263,7 +22284,8 @@
                             "tags": [],
                             "containedInDashboards": [
                                 {
-                                    "name": "InMail Engagement"
+                                    "name": "InMail Engagement",
+                                    "path": "InMailEngagement/InMailEngagement"
                                 }
                             ],
                             "upstreamDatasources": [
@@ -22507,7 +22529,8 @@
                             "tags": [],
                             "containedInDashboards": [
                                 {
-                                    "name": "InMail Engagement"
+                                    "name": "InMail Engagement",
+                                    "path": "InMailEngagement/InMailEngagement"
                                 }
                             ],
                             "upstreamDatasources": [
@@ -22725,7 +22748,8 @@
                             "tags": [],
                             "containedInDashboards": [
                                 {
-                                    "name": "InMail Engagement"
+                                    "name": "InMail Engagement",
+                                    "path": "InMailEngagement/InMailEngagement"
                                 }
                             ],
                             "upstreamDatasources": [
@@ -22958,7 +22982,8 @@
                             "tags": [],
                             "containedInDashboards": [
                                 {
-                                    "name": "InMail Engagement"
+                                    "name": "InMail Engagement",
+                                    "path": "InMailEngagement/InMailEngagement"
                                 }
                             ],
                             "upstreamDatasources": [
@@ -23191,7 +23216,8 @@
                             "tags": [],
                             "containedInDashboards": [
                                 {
-                                    "name": "InMail Engagement"
+                                    "name": "InMail Engagement",
+                                    "path": "InMailEngagement/InMailEngagement"
                                 }
                             ],
                             "upstreamDatasources": [
@@ -23442,7 +23468,8 @@
                             "tags": [],
                             "containedInDashboards": [
                                 {
-                                    "name": "InMail Engagement"
+                                    "name": "InMail Engagement",
+                                    "path": "InMailEngagement/InMailEngagement"
                                 }
                             ],
                             "upstreamDatasources": [
@@ -23645,7 +23672,8 @@
                             "tags": [],
                             "containedInDashboards": [
                                 {
-                                    "name": "InMail Engagement"
+                                    "name": "InMail Engagement",
+                                    "path": "InMailEngagement/InMailEngagement"
                                 }
                             ],
                             "upstreamDatasources": [
@@ -23889,7 +23917,8 @@
                             "tags": [],
                             "containedInDashboards": [
                                 {
-                                    "name": "InMail Engagement"
+                                    "name": "InMail Engagement",
+                                    "path": "InMailEngagement/InMailEngagement"
                                 }
                             ],
                             "upstreamDatasources": [
@@ -24133,7 +24162,8 @@
                             "tags": [],
                             "containedInDashboards": [
                                 {
-                                    "name": "InMail Engagement"
+                                    "name": "InMail Engagement",
+                                    "path": "InMailEngagement/InMailEngagement"
                                 }
                             ],
                             "upstreamDatasources": [
@@ -25174,7 +25204,8 @@
                             "tags": [],
                             "containedInDashboards": [
                                 {
-                                    "name": "Email Performance by Campaign"
+                                    "name": "Email Performance by Campaign",
+                                    "path": "EmailPerformance/EmailPerformancebyCampaign"
                                 }
                             ],
                             "upstreamDatasources": [
@@ -25484,7 +25515,8 @@
                             "tags": [],
                             "containedInDashboards": [
                                 {
-                                    "name": "Email Performance by Campaign"
+                                    "name": "Email Performance by Campaign",
+                                    "path": "EmailPerformance/EmailPerformancebyCampaign"
                                 }
                             ],
                             "upstreamDatasources": [
@@ -25772,7 +25804,8 @@
                             "tags": [],
                             "containedInDashboards": [
                                 {
-                                    "name": "Email Performance by Campaign"
+                                    "name": "Email Performance by Campaign",
+                                    "path": "EmailPerformance/EmailPerformancebyCampaign"
                                 }
                             ],
                             "upstreamDatasources": [
@@ -25883,7 +25916,8 @@
                             "tags": [],
                             "containedInDashboards": [
                                 {
-                                    "name": "Email Performance by Campaign"
+                                    "name": "Email Performance by Campaign",
+                                    "path": "EmailPerformance/EmailPerformancebyCampaign"
                                 }
                             ],
                             "upstreamDatasources": [
@@ -27756,18 +27790,19 @@
                     "description": "",
                     "uri": "sites/4989/workbooks/15626",
                     "createdAt": "2021-12-17T21:12:16Z",
-                    "updatedAt": "2021-12-17T21:12:46Z",
+                    "updatedAt": "2022-01-21T05:47:12Z",
                     "sheets": [
                         {
                             "id": "474d4fe3-8b71-15a6-f77d-9f2476f1a55d",
                             "name": "Hour",
                             "path": "",
                             "createdAt": "2021-12-17T21:12:16Z",
-                            "updatedAt": "2021-12-17T21:12:46Z",
+                            "updatedAt": "2022-01-21T05:47:12Z",
                             "tags": [],
                             "containedInDashboards": [
                                 {
-                                    "name": "Account Engagement"
+                                    "name": "Account Engagement",
+                                    "path": "AccountEngagement/AccountEngagement"
                                 }
                             ],
                             "upstreamDatasources": [
@@ -27859,11 +27894,12 @@
                             "name": "Summary (2)",
                             "path": "",
                             "createdAt": "2021-12-17T21:12:16Z",
-                            "updatedAt": "2021-12-17T21:12:46Z",
+                            "updatedAt": "2022-01-21T05:47:12Z",
                             "tags": [],
                             "containedInDashboards": [
                                 {
-                                    "name": "Account Engagement"
+                                    "name": "Account Engagement",
+                                    "path": "AccountEngagement/AccountEngagement"
                                 }
                             ],
                             "upstreamDatasources": [
@@ -28031,11 +28067,12 @@
                             "name": "Control Activity Type",
                             "path": "",
                             "createdAt": "2021-12-17T21:12:16Z",
-                            "updatedAt": "2021-12-17T21:12:46Z",
+                            "updatedAt": "2022-01-21T05:47:12Z",
                             "tags": [],
                             "containedInDashboards": [
                                 {
-                                    "name": "Account Engagement"
+                                    "name": "Account Engagement",
+                                    "path": "AccountEngagement/AccountEngagement"
                                 }
                             ],
                             "upstreamDatasources": [
@@ -28078,15 +28115,48 @@
                             ]
                         },
                         {
+                            "id": "6993c2a5-23d4-324b-00b5-4ba529b70744",
+                            "name": "Acct Engage Sheet",
+                            "path": "AccountEngagement/Sheet10",
+                            "createdAt": "2022-01-21T05:46:43Z",
+                            "updatedAt": "2022-01-21T05:47:12Z",
+                            "tags": [],
+                            "containedInDashboards": [],
+                            "upstreamDatasources": [
+                                {
+                                    "id": "5d799114-ac20-cff0-ddea-705dabba7856",
+                                    "name": "Oracle Eloqua"
+                                }
+                            ],
+                            "datasourceFields": [
+                                {
+                                    "__typename": "ColumnField",
+                                    "id": "5df994f4-b798-35ef-2945-223ed7eaf5d1",
+                                    "name": "Company",
+                                    "description": null,
+                                    "upstreamColumns": [
+                                        {
+                                            "name": "Company"
+                                        }
+                                    ],
+                                    "dataCategory": "NOMINAL",
+                                    "role": "DIMENSION",
+                                    "dataType": "STRING",
+                                    "aggregation": null
+                                }
+                            ]
+                        },
+                        {
                             "id": "8421f93a-39ac-201c-4584-5d600adadfa9",
                             "name": "Activities",
                             "path": "",
                             "createdAt": "2021-12-17T21:12:16Z",
-                            "updatedAt": "2021-12-17T21:12:46Z",
+                            "updatedAt": "2022-01-21T05:47:12Z",
                             "tags": [],
                             "containedInDashboards": [
                                 {
-                                    "name": "Account Engagement"
+                                    "name": "Account Engagement",
+                                    "path": "AccountEngagement/AccountEngagement"
                                 }
                             ],
                             "upstreamDatasources": [
@@ -28178,11 +28248,12 @@
                             "name": "Title",
                             "path": "",
                             "createdAt": "2021-12-17T21:12:16Z",
-                            "updatedAt": "2021-12-17T21:12:46Z",
+                            "updatedAt": "2022-01-21T05:47:12Z",
                             "tags": [],
                             "containedInDashboards": [
                                 {
-                                    "name": "Account Engagement"
+                                    "name": "Account Engagement",
+                                    "path": "AccountEngagement/AccountEngagement"
                                 }
                             ],
                             "upstreamDatasources": [
@@ -28229,11 +28300,12 @@
                             "name": "Timeline of Activity",
                             "path": "",
                             "createdAt": "2021-12-17T21:12:16Z",
-                            "updatedAt": "2021-12-17T21:12:46Z",
+                            "updatedAt": "2022-01-21T05:47:12Z",
                             "tags": [],
                             "containedInDashboards": [
                                 {
-                                    "name": "Account Engagement"
+                                    "name": "Account Engagement",
+                                    "path": "AccountEngagement/AccountEngagement"
                                 }
                             ],
                             "upstreamDatasources": [
@@ -28325,11 +28397,12 @@
                             "name": "Contacts",
                             "path": "",
                             "createdAt": "2021-12-17T21:12:16Z",
-                            "updatedAt": "2021-12-17T21:12:46Z",
+                            "updatedAt": "2022-01-21T05:47:12Z",
                             "tags": [],
                             "containedInDashboards": [
                                 {
-                                    "name": "Account Engagement"
+                                    "name": "Account Engagement",
+                                    "path": "AccountEngagement/AccountEngagement"
                                 }
                             ],
                             "upstreamDatasources": [
@@ -28436,11 +28509,12 @@
                             "name": "Weekday",
                             "path": "",
                             "createdAt": "2021-12-17T21:12:16Z",
-                            "updatedAt": "2021-12-17T21:12:46Z",
+                            "updatedAt": "2022-01-21T05:47:12Z",
                             "tags": [],
                             "containedInDashboards": [
                                 {
-                                    "name": "Account Engagement"
+                                    "name": "Account Engagement",
+                                    "path": "AccountEngagement/AccountEngagement"
                                 }
                             ],
                             "upstreamDatasources": [
@@ -28532,11 +28606,12 @@
                             "name": "Summary",
                             "path": "",
                             "createdAt": "2021-12-17T21:12:16Z",
-                            "updatedAt": "2021-12-17T21:12:46Z",
+                            "updatedAt": "2022-01-21T05:47:12Z",
                             "tags": [],
                             "containedInDashboards": [
                                 {
-                                    "name": "Account Engagement"
+                                    "name": "Account Engagement",
+                                    "path": "AccountEngagement/AccountEngagement"
                                 }
                             ],
                             "upstreamDatasources": [
@@ -28730,7 +28805,7 @@
                             "name": "Account Engagement",
                             "path": "AccountEngagement/AccountEngagement",
                             "createdAt": "2021-12-17T21:12:16Z",
-                            "updatedAt": "2021-12-17T21:12:46Z",
+                            "updatedAt": "2022-01-21T05:47:12Z",
                             "sheets": [
                                 {
                                     "id": "474d4fe3-8b71-15a6-f77d-9f2476f1a55d",
@@ -35416,7 +35491,8 @@
                             "tags": [],
                             "containedInDashboards": [
                                 {
-                                    "name": "Global Temperatures"
+                                    "name": "Global Temperatures",
+                                    "path": "Regional_16397753068010/GlobalTemperatures"
                                 }
                             ],
                             "upstreamDatasources": [
@@ -35497,7 +35573,8 @@
                             "tags": [],
                             "containedInDashboards": [
                                 {
-                                    "name": "Obesity"
+                                    "name": "Obesity",
+                                    "path": "Regional_16397753068010/Obesity"
                                 }
                             ],
                             "upstreamDatasources": [
@@ -35689,7 +35766,8 @@
                             "tags": [],
                             "containedInDashboards": [
                                 {
-                                    "name": "Economy"
+                                    "name": "Economy",
+                                    "path": "Regional_16397753068010/Economy"
                                 }
                             ],
                             "upstreamDatasources": [
@@ -35770,7 +35848,8 @@
                             "tags": [],
                             "containedInDashboards": [
                                 {
-                                    "name": "Global Temperatures"
+                                    "name": "Global Temperatures",
+                                    "path": "Regional_16397753068010/GlobalTemperatures"
                                 }
                             ],
                             "upstreamDatasources": [
@@ -36077,7 +36156,8 @@
                             "tags": [],
                             "containedInDashboards": [
                                 {
-                                    "name": "Economy"
+                                    "name": "Economy",
+                                    "path": "Regional_16397753068010/Economy"
                                 }
                             ],
                             "upstreamDatasources": [
@@ -36158,7 +36238,8 @@
                             "tags": [],
                             "containedInDashboards": [
                                 {
-                                    "name": "Economy"
+                                    "name": "Economy",
+                                    "path": "Regional_16397753068010/Economy"
                                 }
                             ],
                             "upstreamDatasources": [
@@ -36250,7 +36331,8 @@
                             "tags": [],
                             "containedInDashboards": [
                                 {
-                                    "name": "Obesity"
+                                    "name": "Obesity",
+                                    "path": "Regional_16397753068010/Obesity"
                                 }
                             ],
                             "upstreamDatasources": [

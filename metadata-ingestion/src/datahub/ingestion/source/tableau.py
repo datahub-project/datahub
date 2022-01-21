@@ -19,7 +19,6 @@ from datahub.ingestion.source.tableau_common import (
     FIELD_TYPE_MAPPING,
     clean_query,
     custom_sql_graphql_query,
-    find_sheet_path,
     get_field_value_in_sheet,
     get_tags_from_params,
     make_description_from_params,
@@ -624,11 +623,13 @@ class TableauSource(Source):
                     lastModified=AuditStamp(time=modified_ts, actor=modified_actor),
                 )
 
-            sheet_path = find_sheet_path(
-                sheet.get("name", ""), wb.get("dashboards", [])
-            )
-            if self.config.site is not None:
-                sheet_external_url = f"{self.config.connect_uri}/t/{self.config.site}/authoring/{sheet_path}"
+            if self.config.site is not None: # Tableau online
+                if sheet.get('path', ''):
+                    sheet_external_url = f"{self.config.connect_uri}#/site/{self.config.site}/views/{sheet.get('path', '')}"
+                else:
+                    # sheet contained in dashboard
+                    dashboard_path = sheet.get('containedInDashboards')[0].get('path','')
+                    sheet_external_url = f"{self.config.connect_uri}/t/{self.config.site}/authoring/{dashboard_path}/{sheet.get('name', '')}"
             else:
                 sheet_external_url = f"{self.config.connect_uri}#/{wb.get('uri', '').replace('sites/1/', '')}"
 

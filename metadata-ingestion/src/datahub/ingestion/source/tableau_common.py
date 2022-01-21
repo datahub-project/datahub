@@ -42,6 +42,7 @@ workbook_graphql_query = """
         }
         containedInDashboards {
           name
+          path
         }
         upstreamDatasources {
           id
@@ -435,13 +436,3 @@ def query_metadata(server, main_query, connection_name, first, offset, qry_filte
     if "errors" in query_result:
         raise Exception(query_result["errors"])
     return query_result
-
-
-# TODO get this info from graphQL
-def find_sheet_path(sheet_name, dashboards):
-    for dashboard in dashboards:
-        sheets = dashboard.get("sheets", [])
-        for sheet in sheets:
-            if sheet.get("name", "") == sheet_name:
-                return f"{dashboard.get('path', '')}/{sheet.get('name', '')}"
-    return None
