@@ -22,6 +22,8 @@ public class Constants {
   public static final String DASHBOARD_ENTITY_NAME = "dashboard";
   public static final String DATA_FLOW_ENTITY_NAME = "dataFlow";
   public static final String DATA_JOB_ENTITY_NAME = "dataJob";
+  public static final String DATA_PLATFORM_ENTITY_NAME = "dataPlatform";
+  public static final String GLOSSARY_TERM_ENTITY_NAME = "glossaryTerm";
 
   /**
    * Aspects
@@ -38,6 +40,8 @@ public class Constants {
   // User
   public static final String CORP_USER_KEY_ASPECT_NAME = "corpUserKey";
   public static final String GROUP_MEMBERSHIP_ASPECT_NAME = "groupMembership";
+  public static final String CORP_USER_EDITABLE_INFO_ASPECT_NAME = "corpUserEditableInfo";
+  public static final String CORP_USER_INFO_ASPECT_NAME = "corpUserInfo";
   public static final String CORP_USER_STATUS_ASPECT_NAME = "corpUserStatus";
 
   // Group
@@ -77,6 +81,32 @@ public class Constants {
   public static final String DATA_JOB_INPUT_OUTPUT_ASPECT_NAME = "dataJobInputOutput";
   public static final String EDITABLE_DATA_JOB_PROPERTIES_ASPECT_NAME = "editableDataJobProperties";
 
+  // DataPlatform
+  public static final String DATA_PLATFORM_KEY_ASPECT_NAME = "dataPlatformKey";
+  public static final String DATA_PLATFORM_INFO_ASPECT_NAME = "dataPlatformInfo";
+
+  //GlossaryTerm
+  public static final String GLOSSARY_TERM_KEY_ASPECT_NAME = "glossaryTermKey";
+  public static final String GLOSSARY_TERM_INFO_ASPECT_NAME = "glossaryTermInfo";
+
+  //ML Model
+  public static final String ML_MODEL_KEY_ASPECT_NAME = "mlModelKey";
+  public static final String ML_MODEL_PROPERTIES_ASPECT_NAME = "mlModelProperties";
+  public static final String INTENDED_USE_ASPECT_NAME = "intendedUse";
+  public static final String ML_MODEL_FACTOR_PROMPTS_ASPECT_NAME = "mlModelFactorPrompts";
+  public static final String METRICS_ASPECT_NAME = "metrics";
+  public static final String EVALUATION_DATA_ASPECT_NAME = "evaluationData";
+  public static final String TRAINING_DATA_ASPECT_NAME = "trainingData";
+  public static final String QUANTITATIVE_ANALYSES_ASPECT_NAME ="quantitativeAnalyses";
+  public static final String ETHICAL_CONSIDERATIONS_ASPECT_NAME = "ethicalConsiderations";
+  public static final String CAVEATS_AND_RECOMMENDATIONS_ASPECT_NAME = "caveatsAndRecommendations";
+  public static final String SOURCE_CODE_ASPECT_NAME = "sourceCode";
+  public static final String COST_ASPECT_NAME = "cost";
+  public static final String DEPRECATION_ASPECT_NAME = "deprecation";
+
+  //Tag
+  public static final String TAG_KEY_ASPECT_NAME = "tagKey";
+  public static final String TAG_PROPERTIES_ASPECT_NAME = "tagProperties";
 
   /**
    * User Status

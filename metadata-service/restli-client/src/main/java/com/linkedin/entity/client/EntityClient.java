@@ -19,10 +19,12 @@ import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.r2.RemoteInvocationException;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -216,6 +218,22 @@ public interface EntityClient {
 
   public String ingestProposal(@Nonnull final MetadataChangeProposal metadataChangeProposal,
       @Nonnull final Authentication authentication) throws RemoteInvocationException;
+
+  default String wrappedIngestProposal(@Nonnull MetadataChangeProposal metadataChangeProposal,
+      @Nonnull final Authentication authentication) {
+    try {
+      return ingestProposal(metadataChangeProposal, authentication);
+    } catch (RemoteInvocationException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  default List<String> batchIngestProposals(@Nonnull final Collection<MetadataChangeProposal> metadataChangeProposals,
+      @Nonnull final Authentication authentication) throws RemoteInvocationException {
+    return metadataChangeProposals.stream()
+        .map(proposal -> wrappedIngestProposal(proposal, authentication))
+        .collect(Collectors.toList());
+  }
 
   @Nonnull
   public <T extends RecordTemplate> Optional<T> getVersionedAspect(@Nonnull String urn, @Nonnull String aspect,

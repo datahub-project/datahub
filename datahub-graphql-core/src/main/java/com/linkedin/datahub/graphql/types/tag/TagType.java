@@ -8,40 +8,39 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.authorization.ConjunctivePrivilegeGroup;
 import com.linkedin.datahub.graphql.authorization.DisjunctivePrivilegeGroup;
-import com.linkedin.datahub.graphql.generated.TagUpdateInput;
-import com.linkedin.entity.client.EntityClient;
-import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.SearchResults;
 import com.linkedin.datahub.graphql.generated.Tag;
+import com.linkedin.datahub.graphql.generated.TagUpdateInput;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.MutableType;
 import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
-import com.linkedin.datahub.graphql.types.tag.mappers.TagSnapshotMapper;
+import com.linkedin.datahub.graphql.types.tag.mappers.TagMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.TagUpdateInputSnapshotMapper;
 import com.linkedin.entity.Entity;
+import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.extractor.AspectExtractor;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.metadata.snapshot.TagSnapshot;
 import com.linkedin.r2.RemoteInvocationException;
-
 import graphql.execution.DataFetcherResult;
-import java.util.Collections;
-import java.util.Set;
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 public class TagType implements com.linkedin.datahub.graphql.types.SearchableEntityType<Tag>, MutableType<TagUpdateInput> {
 
@@ -89,7 +88,7 @@ public class TagType implements com.linkedin.datahub.graphql.types.SearchableEnt
             return gmsResults.stream()
                     .map(gmsTag -> gmsTag == null ? null
                         : DataFetcherResult.<Tag>newResult()
-                            .data(TagSnapshotMapper.map(gmsTag.getValue().getTagSnapshot()))
+                            .data(TagMapper.map(gmsTag.getValue().getTagSnapshot()))
                             .localContext(AspectExtractor.extractAspects(gmsTag.getValue().getTagSnapshot()))
                             .build())
                     .collect(Collectors.toList());

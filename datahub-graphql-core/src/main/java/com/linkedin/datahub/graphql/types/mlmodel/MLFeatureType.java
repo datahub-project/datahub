@@ -1,34 +1,32 @@
 package com.linkedin.datahub.graphql.types.mlmodel;
 
 import com.google.common.collect.ImmutableSet;
-
 import com.linkedin.common.urn.MLFeatureUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.generated.MLFeature;
-import com.linkedin.datahub.graphql.generated.EntityType;
-import com.linkedin.datahub.graphql.generated.SearchResults;
-import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
+import com.linkedin.datahub.graphql.generated.EntityType;
+import com.linkedin.datahub.graphql.generated.FacetFilterInput;
+import com.linkedin.datahub.graphql.generated.MLFeature;
+import com.linkedin.datahub.graphql.generated.SearchResults;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.SearchableEntityType;
 import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
-import com.linkedin.datahub.graphql.types.mlmodel.mappers.MLFeatureSnapshotMapper;
+import com.linkedin.datahub.graphql.types.mlmodel.mappers.MLFeatureMapper;
 import com.linkedin.entity.Entity;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.extractor.AspectExtractor;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.search.SearchResult;
 import graphql.execution.DataFetcherResult;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 public class MLFeatureType implements SearchableEntityType<MLFeature> {
 
@@ -68,7 +66,7 @@ public class MLFeatureType implements SearchableEntityType<MLFeature> {
             return gmsResults.stream()
                 .map(gmsMlFeature -> gmsMlFeature == null ? null
                     : DataFetcherResult.<MLFeature>newResult()
-                        .data(MLFeatureSnapshotMapper.map(gmsMlFeature.getValue().getMLFeatureSnapshot()))
+                        .data(MLFeatureMapper.map(gmsMlFeature.getValue().getMLFeatureSnapshot()))
                         .localContext(AspectExtractor.extractAspects(gmsMlFeature.getValue().getMLFeatureSnapshot()))
                         .build())
                 .collect(Collectors.toList());
