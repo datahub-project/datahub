@@ -1,0 +1,272 @@
+import logging
+from datetime import datetime, timezone
+from unittest import mock
+
+import pytest
+from great_expectations.core.batch import Batch, BatchDefinition, BatchRequest
+from great_expectations.core.batch_spec import SqlAlchemyDatasourceBatchSpec
+from great_expectations.core.expectation_validation_result import (
+    ExpectationSuiteValidationResult,
+)
+from great_expectations.core.id_dict import IDDict
+from great_expectations.core.run_identifier import RunIdentifier
+from great_expectations.data_context import DataContext
+from great_expectations.data_context.types.resource_identifiers import (
+    ExpectationSuiteIdentifier,
+    ValidationResultIdentifier,
+)
+from great_expectations.execution_engine.pandas_execution_engine import (
+    PandasExecutionEngine,
+)
+from great_expectations.execution_engine.sqlalchemy_execution_engine import (
+    SqlAlchemyExecutionEngine,
+)
+from great_expectations.validator.validator import Validator
+
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.integrations.great_expectations.action import DatahubValidationAction
+from datahub.metadata.schema_classes import (
+    AssertionInfoClass,
+    AssertionResultClass,
+    AssertionTypeClass,
+    BatchAssertionResultClass,
+    BatchSpecClass,
+    DataPlatformInstanceClass,
+    DatasetRowsAssertionClass,
+    PartitionSpecClass,
+)
+
+logger = logging.getLogger(__name__)
+
+
+@pytest.fixture(scope="function")
+def ge_data_context(tmp_path: str) -> DataContext:
+    return DataContext.create(tmp_path)
+
+
+@pytest.fixture(scope="function")
+def ge_validator_sqlalchemy() -> Validator:
+    validator = Validator(
+        execution_engine=SqlAlchemyExecutionEngine(
+            connection_string="postgresql://localhost:5432/test"
+        ),
+        batches=[
+            Batch(
+                data=None,
+                batch_request=BatchRequest(
+                    datasource_name="my_postgresql_datasource",
+                    data_connector_name="whole_table",
+                    data_asset_name="foo2",
+                ),
+                batch_definition=BatchDefinition(
+                    datasource_name="my_postgresql_datasource",
+                    data_connector_name="whole_table",
+                    data_asset_name="foo2",
+                    batch_identifiers=IDDict(),
+                ),
+                batch_spec=SqlAlchemyDatasourceBatchSpec(
+                    {
+                        "data_asset_name": "foo2",
+                        "table_name": "foo2",
+                        "batch_identifiers": {},
+                        "schema_name": "public",
+                        "type": "table",
+                    }
+                ),
+            )
+        ],
+    )
+    return validator
+
+
+@pytest.fixture(scope="function")
+def ge_validator_pandas() -> Validator:
+    validator = Validator(execution_engine=PandasExecutionEngine())
+    return validator
+
+
+@pytest.fixture(scope="function")
+def ge_validation_result_suite() -> ExpectationSuiteValidationResult:
+    validation_result_suite = ExpectationSuiteValidationResult(
+        results=[
+            {
+                "success": True,
+                "result": {"observed_value": 10000},
+                "expectation_config": {
+                    "expectation_type": "expect_table_row_count_to_be_between",
+                    "kwargs": {
+                        "max_value": 10000,
+                        "min_value": 10000,
+                        "batch_id": "010ef8c1cd417910b971f4468f024ec5",
+                    },
+                    "meta": {},
+                },
+            }
+        ],
+        success=True,
+        statistics={
+            "evaluated_expectations": 1,
+            "successful_expectations": 1,
+            "unsuccessful_expectations": 0,
+            "success_percent": 100,
+        },
+        meta={
+            "great_expectations_version": "v0.13.40",
+            "expectation_suite_name": "asset.default",
+            "run_id": {
+                "run_name": "test_100",
+            },
+            "validation_time": "20211228T120000.000000Z",
+        },
+    )
+    return validation_result_suite
+
+
+@pytest.fixture(scope="function")
+def ge_validation_result_suite_id() -> ValidationResultIdentifier:
+    validation_result_suite_id = ValidationResultIdentifier(
+        expectation_suite_identifier=ExpectationSuiteIdentifier("asset.default"),
+        run_id=RunIdentifier(
+            run_name="test_100",
+            run_time=datetime.fromtimestamp(1640701702, tz=timezone.utc),
+        ),
+        batch_identifier="010ef8c1cd417910b971f4468f024ec5",
+    )
+
+    return validation_result_suite_id
+
+
+@mock.patch("datahub.emitter.rest_emitter.DatahubRestEmitter.emit_mcp", autospec=True)
+def test_DatahubValidationAction_basic(
+    mock_emitter: mock.MagicMock,
+    ge_data_context: DataContext,
+    ge_validator_sqlalchemy: Validator,
+    ge_validation_result_suite: ExpectationSuiteValidationResult,
+    ge_validation_result_suite_id: ValidationResultIdentifier,
+) -> None:
+
+    server_url = "http://localhost:9999"
+
+    datahub_action = DatahubValidationAction(
+        data_context=ge_data_context, server_url=server_url
+    )
+
+    assert datahub_action.run(
+        validation_result_suite_identifier=ge_validation_result_suite_id,
+        validation_result_suite=ge_validation_result_suite,
+        data_asset=ge_validator_sqlalchemy,
+    ) == {"datahub_notification_result": "Datahub notification succeeded"}
+
+    mock_emitter.assert_has_calls(
+        [
+            mock.call(
+                mock.ANY,
+                MetadataChangeProposalWrapper(
+                    entityType="assertion",
+                    changeType="UPSERT",
+                    entityUrn="urn:li:assertion:648c320cbde1e018bab1ecf8f1add9b6",
+                    aspectName="assertionInfo",
+                    aspect=AssertionInfoClass(
+                        customProperties={"expectation_suite_name": "asset.default"},
+                        datasets=[
+                            "urn:li:dataset:(urn:li:dataPlatform:postgres,test.public.foo2,PROD)"
+                        ],
+                        assertionType=AssertionTypeClass(
+                            scope="DATASET_ROWS",
+                            datasetRowsAssertion=DatasetRowsAssertionClass(
+                                stdOperator="BETWEEN",
+                                nativeOperator="expect_table_row_count_to_be_between",
+                                stdAggFunc="ROW_COUNT",
+                            ),
+                        ),
+                        assertionParameters={
+                            "max_value": "10000",
+                            "min_value": "10000",
+                        },
+                    ),
+                ),
+            ),
+            mock.call(
+                mock.ANY,
+                MetadataChangeProposalWrapper(
+                    entityType="assertion",
+                    changeType="UPSERT",
+                    entityUrn="urn:li:assertion:648c320cbde1e018bab1ecf8f1add9b6",
+                    aspectName="dataPlatformInstance",
+                    aspect=DataPlatformInstanceClass(
+                        platform="urn:li:dataPlatform:greatExpectations"
+                    ),
+                ),
+            ),
+            mock.call(
+                mock.ANY,
+                MetadataChangeProposalWrapper(
+                    entityType="dataset",
+                    changeType="UPSERT",
+                    entityUrn="urn:li:dataset:(urn:li:dataPlatform:postgres,test.public.foo2,PROD)",
+                    entityKeyAspect=None,
+                    aspectName="assertionResult",
+                    aspect=AssertionResultClass(
+                        timestampMillis=1640701702000,
+                        partitionSpec=PartitionSpecClass(
+                            type="FULL_TABLE",
+                            partition="FULL_TABLE_SNAPSHOT",
+                            timePartition=None,
+                        ),
+                        messageId="urn:li:assertion:648c320cbde1e018bab1ecf8f1add9b6",
+                        assertionUrn="urn:li:assertion:648c320cbde1e018bab1ecf8f1add9b6",
+                        asserteeUrn="urn:li:dataset:(urn:li:dataPlatform:postgres,test.public.foo2,PROD)",
+                        batchSpec=BatchSpecClass(
+                            customProperties={"data_asset_name": "foo2"},
+                            nativeBatchId="010ef8c1cd417910b971f4468f024ec5",
+                        ),
+                        batchAssertionResult=BatchAssertionResultClass(
+                            success=True,
+                            actualAggValue=10000,
+                        ),
+                        nativeEvaluatorRunId="2021-12-28T14:28:22Z",
+                    ),
+                ),
+            ),
+        ]
+    )
+
+
+def test_DatahubValidationAction_graceful_failure(
+    ge_data_context: DataContext,
+    ge_validator_sqlalchemy: Validator,
+    ge_validation_result_suite: ExpectationSuiteValidationResult,
+    ge_validation_result_suite_id: ValidationResultIdentifier,
+) -> None:
+
+    server_url = "http://localhost:9999"
+
+    datahub_action = DatahubValidationAction(
+        data_context=ge_data_context, server_url=server_url
+    )
+
+    assert datahub_action.run(
+        validation_result_suite_identifier=ge_validation_result_suite_id,
+        validation_result_suite=ge_validation_result_suite,
+        data_asset=ge_validator_sqlalchemy,
+    ) == {"datahub_notification_result": "Datahub notification failed"}
+
+
+def test_DatahubValidationAction_not_supported(
+    ge_data_context: DataContext,
+    ge_validator_pandas: Validator,
+    ge_validation_result_suite: ExpectationSuiteValidationResult,
+    ge_validation_result_suite_id: ValidationResultIdentifier,
+) -> None:
+
+    server_url = "http://localhost:99199"
+
+    datahub_action = DatahubValidationAction(
+        data_context=ge_data_context, server_url=server_url
+    )
+
+    assert datahub_action.run(
+        validation_result_suite_identifier=ge_validation_result_suite_id,
+        validation_result_suite=ge_validation_result_suite,
+        data_asset=ge_validator_pandas,
+    ) == {"datahub_notification_result": "none required"}
