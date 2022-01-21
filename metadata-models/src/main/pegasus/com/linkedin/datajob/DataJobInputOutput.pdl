@@ -2,7 +2,8 @@ namespace com.linkedin.datajob
 
 import com.linkedin.common.DatasetUrn
 import com.linkedin.common.DataJobUrn
-
+import com.linkedin.dataset.FineGrainedLineage
+import com.linkedin.common.Urn
 
 /**
  * Information about the inputs and outputs of a Data processing job
@@ -60,4 +61,36 @@ record DataJobInputOutput {
     }
   }
   inputDatajobs: optional array[DataJobUrn] 
+
+  /**
+  * Fields of the input datasets used by this job
+  */
+  @Searchable = {
+    "/*": {
+      "fieldName": "inputFields",
+      "fieldType": "URN",
+      "numValuesFieldName": "numInputFields",
+      "queryByDefault": false
+    }
+  }
+  inputDatasetFields: optional array[Urn]
+
+  /**
+  * Fields of the output datasets this job writes to
+  */
+
+  @Searchable = {
+    "/*": {
+      "fieldName": "outputFields",
+      "fieldType": "URN",
+      "numValuesFieldName": "numOutputFields",
+      "queryByDefault": false
+    }
+  }
+  outputDatasetFields: optional array[Urn]
+
+  /**
+   * Fine-grained column-level lineages
+   */
+  fineGrainedLineages: optional array[FineGrainedLineage]
 }
