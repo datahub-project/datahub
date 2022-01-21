@@ -2,7 +2,7 @@
   {
     "auditHeader":null,
     "entityType":"container",
-    "entityUrn": "urn:li:container:(mysql,instance1,MySchema.Database)",
+    "entityUrn": "urn:li:container:DATABASE",
     "changeType":"UPSERT",
     "aspectName":"containerProperties",
     "aspect":{
@@ -14,11 +14,11 @@
   {
     "auditHeader":null,
     "entityType":"container",
-    "entityUrn": "urn:li:container:(mysql,instance1,MySchema.Database)",
+    "entityUrn": "urn:li:container:SCHEMA",
     "changeType":"UPSERT",
     "aspectName":"container",
     "aspect":{
-      "value":"{\"container\": \"urn:li:container:(mysql,instance1,MySchema.OTHERDB)\" }",
+      "value":"{\"container\": \"urn:li:container:DATABASE\" }",
       "contentType":"application/json"
     },
     "systemMetadata":null
@@ -26,19 +26,7 @@
   {
     "auditHeader":null,
     "entityType":"container",
-    "entityUrn": "urn:li:container:(mysql,instance1,MySchema.OTHERDB)",
-    "changeType":"UPSERT",
-    "aspectName":"container",
-    "aspect":{
-      "value":"{\"container\": \"urn:li:container:(mysql,instance1,MySchema.Database)\" }",
-      "contentType":"application/json"
-    },
-    "systemMetadata":null
-  },
-  {
-    "auditHeader":null,
-    "entityType":"container",
-    "entityUrn": "urn:li:container:(mysql,instance1,MySchema.Database)",
+    "entityUrn": "urn:li:container:DATABASE",
     "changeType":"UPSERT",
     "aspectName":"subTypes",
     "aspect":{
@@ -50,7 +38,7 @@
   {
     "auditHeader":null,
     "entityType":"container",
-    "entityUrn": "urn:li:container:(mysql,instance1,MySchema.Database)",
+    "entityUrn": "urn:li:container:DATABASE",
     "changeType":"UPSERT",
     "aspectName":"dataPlatformInstance",
     "aspect":{
@@ -66,7 +54,7 @@
     "changeType":"UPSERT",
     "aspectName":"container",
     "aspect":{
-      "value":"{\"container\": \"urn:li:container:(mysql,instance1,MySchema.OTHERDB)\" }",
+      "value":"{\"container\": \"urn:li:container:SCHEMA\" }",
       "contentType":"application/json"
     },
     "systemMetadata":null
@@ -74,7 +62,7 @@
   {
     "auditHeader":null,
     "entityType":"container",
-    "entityUrn": "urn:li:container:(mysql,instance1,MySchema.OTHERDB)",
+    "entityUrn": "urn:li:container:SCHEMA",
     "changeType":"UPSERT",
     "aspectName":"containerProperties",
     "aspect":{
@@ -86,7 +74,7 @@
   {
     "auditHeader":null,
     "entityType":"container",
-    "entityUrn": "urn:li:container:(mysql,instance1,MySchema.OTHERDB)",
+    "entityUrn": "urn:li:container:SCHEMA",
     "changeType":"UPSERT",
     "aspectName":"subTypes",
     "aspect":{
@@ -98,7 +86,7 @@
   {
     "auditHeader":null,
     "entityType":"container",
-    "entityUrn": "urn:li:container:(mysql,instance1,MySchema.OTHERDB)",
+    "entityUrn": "urn:li:container:SCHEMA",
     "changeType":"UPSERT",
     "aspectName":"dataPlatformInstance",
     "aspect":{

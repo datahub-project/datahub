@@ -8,17 +8,7 @@ namespace com.linkedin.metadata.key
 }
 record ContainerKey {
 	/**
-	* Data platform instance type
+	* Unique guid for container
 	*/
-	platformType: string
-
-	/**
-	* Data platform instance id
-	*/
-	platformInstanceId: string
-
-	/**
-	* Unique id within the Platform Instance
-	*/
-	id: string
+	guid: optional string
 }

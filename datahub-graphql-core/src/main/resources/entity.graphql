@@ -1060,7 +1060,7 @@ type Container implements Entity {
     """
     Standardized platform.
     """
-    platform: DataPlatform!
+    platform: DataPlatform
 
     """
     Fetch an Entity Container by primary key (urn)
