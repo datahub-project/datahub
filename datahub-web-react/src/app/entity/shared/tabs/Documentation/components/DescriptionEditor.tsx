@@ -9,21 +9,44 @@ import TabToolbar from '../../../components/styled/TabToolbar';
 
 import { GenericEntityUpdate } from '../../../types';
 import { useEntityData, useEntityUpdate, useRefetch } from '../../../EntityContext';
+import { useUpdateDescriptionMutation } from '../../../../../../graphql/mutations.generated';
 
 export const DescriptionEditor = ({ onComplete }: { onComplete?: () => void }) => {
     const { urn, entityType, entityData } = useEntityData();
     const refetch = useRefetch();
     const updateEntity = useEntityUpdate<GenericEntityUpdate>();
+    const [updateDescriptionMutation] = useUpdateDescriptionMutation();
 
     const description = entityData?.editableProperties?.description || entityData?.properties?.description || '';
     const [updatedDescription, setUpdatedDescription] = useState(description);
 
+    const updateDescriptionLegacy = () => {
+        return updateEntity?.({
+            variables: { urn, input: { editableProperties: { description: updatedDescription || '' } } },
+        });
+    };
+
+    const updateDescription = () => {
+        return updateDescriptionMutation({
+            variables: {
+                input: {
+                    description: updatedDescription,
+                    resourceUrn: urn,
+                },
+            },
+        });
+    };
+
     const handleSaveDescription = async () => {
         message.loading({ content: 'Saving...' });
         try {
-            await updateEntity({
-                variables: { urn, input: { editableProperties: { description: updatedDescription || '' } } },
-            });
+            if (updateEntity) {
+                // Use the legacy update description path.
+                await updateDescriptionLegacy();
+            } else {
+                // Use the new update description path.
+                await updateDescription();
+            }
             message.destroy();
             analytics.event({
                 type: EventType.EntityActionEvent,
