@@ -43,6 +43,7 @@ import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.r2.RemoteInvocationException;
 
 import graphql.execution.DataFetcherResult;
+import java.util.HashSet;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
@@ -99,14 +100,15 @@ public class DatasetType implements SearchableEntityType<Dataset>, BrowsableEnti
 
     @Override
     public List<DataFetcherResult<Dataset>> batchLoad(final List<String> urnStrs, final QueryContext context) {
-        final Set<Urn> urns = urnStrs.stream()
+        final List<Urn> urns = urnStrs.stream()
             .map(UrnUtils::getUrn)
-            .collect(Collectors.toSet());
+            .collect(Collectors.toList());
         try {
             final Map<Urn, EntityResponse> datasetMap =
                 _entityClient.batchGetV2(
                     Constants.DATASET_ENTITY_NAME,
-                    urns, ASPECTS_TO_RESOLVE,
+                    new HashSet<>(urns),
+                    ASPECTS_TO_RESOLVE,
                     context.getAuthentication());
 
             final List<EntityResponse> gmsResults = new ArrayList<>();
