@@ -1,0 +1,84 @@
+name: metadata ingestion
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - "metadata-ingestion/**"
+      - "metadata-models/**"
+  pull_request:
+    branches:
+      - master
+    paths:
+      - "metadata-ingestion/**"
+      - "metadata-models/**"
+  release:
+    types: [published, edited]
+
+jobs:
+
+  metadata-ingestion-general:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.6", "3.9"]
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+      - uses: vemonet/setup-spark@v1 # spark is required for pyspark+pydeequ data lake profiling
+        with:
+          spark-version: '3.0.3'
+          hadoop-version: '3.2'
+      - name: Install dependencies
+        run: ./metadata-ingestion/scripts/install_deps.sh
+      - name: Run metadata-ingestion tests
+        run: ./gradlew :metadata-ingestion:build :metadata-ingestion:check
+      - uses: actions/upload-artifact@v2
+        if: always()
+        with:
+          name: Test Results (metadata ingestion general)
+          path: |
+            **/build/reports/tests/test/**
+            **/build/test-results/test/**
+            **/junit.*.xml
+
+  metadata-ingestion-by-version:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.6", "3.9"]
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+      - uses: vemonet/setup-spark@v1 # spark is required for pyspark+pydeequ data lake profiling
+        with:
+          spark-version: '3.0.3'
+          hadoop-version: '3.2'
+      - name: Install dependencies
+        run: ./metadata-ingestion/scripts/install_deps.sh && python -m pip install --upgrade pip && pip install tox tox-gh-actions
+      - name: Codegen
+        run: ./gradlew :metadata-ingestion:codegen
+      - name: Run tox tests
+        run: cd metadata-ingestion && tox
+      - uses: actions/upload-artifact@v2
+        if: always()
+        with:
+          name: Test Results (metadata ingestion ${{ matrix.python-version }})
+          path: |
+            **/build/reports/tests/test/**
+            **/build/test-results/test/**
+            **/junit.*.xml
+
+  event-file:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Upload
+        uses: actions/upload-artifact@v2
+        with:
+          name: Event File
+          path: ${{ github.event_path }}

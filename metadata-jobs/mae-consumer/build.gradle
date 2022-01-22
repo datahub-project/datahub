@@ -40,6 +40,7 @@ dependencies {
     runtime externalDependency.logbackClassic
 
     testCompile externalDependency.mockito
+    implementation externalDependency.awsMskIamAuth
 }
 
 task avroSchemaSources(type: Copy) {

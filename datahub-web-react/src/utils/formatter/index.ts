@@ -14,3 +14,7 @@ export const countFormatter: (num: number) => string = (num: number) => {
 
     return intlFormat(num);
 };
+
+export const countSeparator = (num) => {
+    return num.toLocaleString();
+};

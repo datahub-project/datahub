@@ -2,7 +2,12 @@
 
 DataHub comes with a friendly cli called `datahub` that allows you to perform a lot of common operations using just the command line.
 
-## Using pip
+## Release Notes
+
+You can find the release notes in [github releases](https://github.com/linkedin/datahub/releases). If you wish release notes for each bug-fix release you can find them in [acryldata releases](https://github.com/acryldata/datahub/releases).
+
+## Installation
+### Using pip
 
 We recommend python virtual environments (venv-s) to namespace pip modules. Here's an example setup:
 

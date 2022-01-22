@@ -16,6 +16,15 @@ export SPRING_KAFKA_PROPERTIES_SECURITY_PROTOCOL=SASL_PLAINTEXT
 export SPRING_KAFKA_PROPERTIES_SASL_JAAS_CONFIG=com.sun.security.auth.module.Krb5LoginModule required principal='principal@REALM' useKeyTab=true storeKey=true keyTab='/keytab';
 ```
 
+Here is another example of how SASL_SSL can be configured for AWS_MSK_IAM when connecting to MSK using IAM via environment variables
+```bash
+SPRING_KAFKA_PROPERTIES_SECURITY_PROTOCOL=SASL_SSL
+SPRING_KAFKA_PROPERTIES_SSL_TRUSTSTORE_LOCATION=/tmp/kafka.client.truststore.jks
+SPRING_KAFKA_PROPERTIES_SASL_MECHANISM=AWS_MSK_IAM
+SPRING_KAFKA_PROPERTIES_SASL_JAAS_CONFIG=software.amazon.msk.auth.iam.IAMLoginModule required;
+SPRING_KAFKA_PROPERTIES_SASL_CLIENT_CALLBACK_HANDLER_CLASS=software.amazon.msk.auth.iam.IAMClientCallbackHandler
+```
+
 These properties can be specified via `application.properties` or `application.yml` files, or as command line switches, or as environment variables. See Spring's [Externalized Configuration](https://docs.spring.io/spring-boot/docs/current/reference/html/spring-boot-features.html#boot-features-external-config) to see how this works.
 
 See [Kafka Connect Security](https://docs.confluent.io/current/connect/security.html) for more ways to connect.
