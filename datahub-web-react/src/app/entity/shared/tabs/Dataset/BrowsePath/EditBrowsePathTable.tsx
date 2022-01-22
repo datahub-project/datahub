@@ -49,7 +49,7 @@ export const EditBrowsePathTable = () => {
     const currUser = FindWhoAmI();
     const currUserUrn = FindMyUrn();
     const userToken = GetMyToken(currUserUrn);
-    console.log(`user is ${currUser} and token is ${userToken}, received at ${Date().toLocaleString()}`);
+    // console.log(`user is ${currUser} and token is ${userToken}, received at ${Date().toLocaleString()}`);
     // console.log(currUrn);
     const [form] = Form.useForm();
     const queryresult = gql`

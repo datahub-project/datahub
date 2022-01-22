@@ -24,7 +24,7 @@ export const EditPropertiesTableEditable = () => {
     const currUser = FindWhoAmI();
     const currUserUrn = FindMyUrn();
     const userToken = GetMyToken(currUserUrn);
-    console.log(`user is ${currUser} and token is ${userToken}, received at ${Date().toLocaleString()}`);
+    // console.log(`user is ${currUser} and token is ${userToken}, received at ${Date().toLocaleString()}`);
     const dataSource = queryFields?.map((x, ind) => {
         return {
             key: ind,

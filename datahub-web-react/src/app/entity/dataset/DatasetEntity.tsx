@@ -211,7 +211,7 @@ export class DatasetEntity implements Entity<Dataset> {
                                             : '',
                                     )
                                     .flat() || [];
-                            console.log(`ownersArray is ${ownersArray} and I am ${currUser}`);
+                            // console.log(`ownersArray is ${ownersArray} and I am ${currUser}`);
                             if (ownersArray.includes(currUser)) {
                                 return true;
                             }

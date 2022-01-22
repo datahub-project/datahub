@@ -33,7 +33,7 @@ export const BannerSplash = () => {
                 .then((res) => {
                     setData(res.data);
                     setShowData(closedTime < res.data.timestamp);
-                    console.log(`received data from axios call is ${res.data}`);
+                    // console.log(`received data from axios call is ${res.data}`);
                 })
                 .catch((error) => {
                     console.log(error.toString());
@@ -50,9 +50,9 @@ export const BannerSplash = () => {
 
     const newObj = Object(data);
 
-    console.log(`stored timestamp is ${closedTime}`);
-    console.log(`the retrieved message is ${newObj.message}`);
-    console.log(`the retrieved timestamp is ${newObj.timestamp}`);
+    // console.log(`stored timestamp is ${closedTime}`);
+    // console.log(`the retrieved message is ${newObj.message}`);
+    // console.log(`the retrieved timestamp is ${newObj.timestamp}`);
     console.log(`the timestamp is larger than localstorage time: ${closedTime < newObj.timestamp}`);
     if (showData) {
         return (

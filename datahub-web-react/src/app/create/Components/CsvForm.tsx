@@ -13,7 +13,7 @@ export const CsvForm = () => {
     const user = useGetAuthenticatedUser();
     const userUrn = user?.corpUser?.urn || '';
     const userToken = GetMyToken(userUrn);
-    console.log(`user is ${userUrn} and token is ${userToken}, received at ${Date().toLocaleString()}`);
+    // console.log(`user is ${userUrn} and token is ${userToken}, received at ${Date().toLocaleString()}`);
     const [fileType, setFileType] = useState({ dataset_type: 'application/octet-stream' });
     const [hasHeader, setHasHeader] = useState('no');
 
@@ -34,9 +34,9 @@ export const CsvForm = () => {
         },
     };
     const onFinish = (values) => {
-        console.log('Received values of form:', values);
+        // console.log('Received values of form:', values);
         const finalValue = { ...values, ...fileType, dataset_owner: user?.corpUser?.username, user_token: userToken };
-        console.log('Received finalValue:', finalValue);
+        // console.log('Received finalValue:', finalValue);
         // POST request using axios with error handling
         axios
             .post(adhocConfig, finalValue)

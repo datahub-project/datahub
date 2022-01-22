@@ -50,7 +50,7 @@ export const DeleteSchemaTabv2 = () => {
     const currUser = FindWhoAmI();
     const currUserUrn = FindMyUrn();
     const userToken = GetMyToken(currUserUrn);
-    console.log(`user is ${currUser} and token is ${userToken}, received at ${Date().toLocaleString()}`);
+    // console.log(`user is ${currUser} and token is ${userToken}, received at ${Date().toLocaleString()}`);
     const printSuccessMsg = (status) => {
         message.success(`Status:${status} - Request submitted successfully`, 3).then();
     };
@@ -87,7 +87,7 @@ export const DeleteSchemaTabv2 = () => {
     };
 
     const handleCancel = () => {
-        console.log('Clicked cancel button');
+        // console.log('Clicked cancel button');
         setVisible(false);
     };
     return (

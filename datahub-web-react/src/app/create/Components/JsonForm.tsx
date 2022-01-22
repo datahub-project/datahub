@@ -15,7 +15,7 @@ export const JsonForm = () => {
     const user = useGetAuthenticatedUser();
     const userUrn = user?.corpUser?.urn || '';
     const userToken = GetMyToken(userUrn);
-    console.log(`user is ${userUrn} and token is ${userToken}, received at ${Date().toLocaleString()}`);
+    // console.log(`user is ${userUrn} and token is ${userToken}, received at ${Date().toLocaleString()}`);
     const [state, setState] = useState({
         jsonSchema: {},
         key: '',
@@ -106,7 +106,7 @@ export const JsonForm = () => {
             dataset_type: 'json',
             user_token: userToken,
         };
-        console.log('Received data:', data);
+        // console.log('Received data:', data);
         // POST request using axios with error handling
         axios
             .post(adhocConfig, data)
