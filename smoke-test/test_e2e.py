@@ -163,7 +163,7 @@ def test_gms_get_dataset(platform, dataset_name, env):
     assert res_data["value"]["com.linkedin.metadata.snapshot.DatasetSnapshot"]["urn"] == urn
 
 @pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
-def test_gms_batch_get():
+def test_gms_batch_get_v2():
     platform = "urn:li:dataPlatform:bigquery"
     env = "PROD"
     name_1 = (
@@ -176,7 +176,7 @@ def test_gms_batch_get():
     urn2 = f"urn:li:dataset:({platform},{name_2},{env})"
 
     response = requests.get(
-        f"{GMS_ENDPOINT}/entitiesV2?ids=List({urllib.parse.quote(urn1)},{urllib.parse.quote(urn2)})?aspects=List(datasetProperties,ownership)",
+        f"{GMS_ENDPOINT}/entitiesV2?ids=List({urllib.parse.quote(urn1)},{urllib.parse.quote(urn2)})&aspects=List(datasetProperties,ownership)",
         headers={
             **restli_default_headers,
             "X-RestLi-Method": "batch_get",
@@ -192,7 +192,7 @@ def test_gms_batch_get():
     assert res_data["results"][urn1]["aspects"]["ownership"]
     assert res_data["results"][urn2]
     assert res_data["results"][urn2]["aspects"]["datasetProperties"]
-    assert res_data["results"][urn2]["aspects"]["ownership"] is None # Aspect does not exist.
+    assert "ownership" not in res_data["results"][urn2]["aspects"] # Aspect does not exist.
 
 @pytest.mark.parametrize(
     "query,min_expected_results",
