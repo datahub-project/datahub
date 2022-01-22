@@ -4,7 +4,7 @@ namespace com.mycompany.dq
   "name": "customDataQualityRules",
   "autoRender": true,
   "renderSpec": {
-    "displayType": "tabular", // or properties, markdown, syntax
+    "displayType": "tabular", // or properties
     "key": "rules",
     "displayName": "DQ Rules"
   }

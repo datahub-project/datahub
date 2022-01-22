@@ -1,8 +1,7 @@
-package com.linkedin.datahub.lineage.spark.model;
+package datahub.spark.model;
 
 import com.linkedin.common.urn.DataFlowUrn;
 import com.linkedin.data.template.StringMap;
-import com.linkedin.datahub.lineage.spark.interceptor.LineageUtils;
 import com.linkedin.datajob.DataFlowInfo;
 import datahub.event.MetadataChangeProposalWrapper;
 import java.util.Collections;
@@ -23,7 +22,7 @@ public class AppStartEvent extends LineageEvent {
   }
 
   @Override
-  public List<MetadataChangeProposalWrapper> toMcps() {
+  public List<MetadataChangeProposalWrapper> asMetadataEvents() {
     DataFlowUrn flowUrn = LineageUtils.flowUrn(getMaster(), getAppName());
 
     DataFlowInfo flowInfo = new DataFlowInfo().setName(getAppName()).setCustomProperties(customProps());
