@@ -18,15 +18,6 @@ source:
       - type: "executor"
         config:
           local_executor_enabled: True
-          remote_executor_enabled: ${REMOTE_EXECUTOR_ENABLED:-False}
-          remote_executor_type: ${REMOTE_EXECUTOR_TYPE:-acryl.executor.sqs.producer.sqs_producer.SqsRemoteExecutor}
-          remote_executor_config:
-            id: ${REMOTE_EXECUTOR_ID:-remote}
-            aws_access_key_id: ${AWS_ACCESS_KEY_ID:-""}
-            aws_secret_access_key: ${AWS_SECRET_ACCESS_KEY:-""}
-            aws_session_token: ${AWS_SESSION_TOKEN:-""}
-            aws_command_queue_url: ${AWS_COMMAND_QUEUE_URL:-""}
-            aws_region: ${AWS_REGION:-""}
 
     topic_routes:
       mae: ${METADATA_AUDIT_EVENT_NAME:-MetadataAuditEvent_v4}
