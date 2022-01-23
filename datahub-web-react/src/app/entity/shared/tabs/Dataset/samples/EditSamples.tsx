@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Button, Form, Select, Space } from 'antd';
 import { gql, useQuery } from '@apollo/client';
 import { useBaseEntity } from '../../../EntityContext';
 import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
+// import axios from 'axios';
 
 export const EditSamples = () => {
     const queryTimeStamps = gql`
@@ -15,6 +16,7 @@ export const EditSamples = () => {
         }
     `;
     const baseEntity = useBaseEntity<GetDatasetQuery>();
+    const [selectedValue, setSelectedValue] = useState<string>('');
     const currDataset = baseEntity && baseEntity?.dataset?.urn;
     const { data } = useQuery(queryTimeStamps, {
         variables: {
@@ -25,33 +27,38 @@ export const EditSamples = () => {
     const { Option } = Select;
     const timeStampValues = data?.dataset?.datasetProfiles || [];
     const refined = timeStampValues.map((item) => {
-        return new Intl.DateTimeFormat('en-US', {
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit',
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit',
-        }).format(item.timestampMillis);
+        return item.timestampMillis;
     });
-    console.log(`array is ${refined}`);
+    const deleteProfile = () => {
+        console.log(`delete profile ${selectedValue}`);
+        // axios delete profile endpoint
+    };
     return (
         <>
-            <Form.Item name="chooseSet" label="Select a Dataset Profile to edit">
+            <Form.Item name="chooseSet" label="Select a Timestamped Dataset Profile to edit">
                 <Select
                     defaultValue="select a timeperiod"
                     style={{ width: 300 }}
                     onChange={(value) => {
-                        console.log(`option has changed to ${value}!`);
+                        setSelectedValue(value);
                     }}
                 >
                     {refined.map((item) => (
-                        <Option value={item}>{item}</Option>
+                        <Option value={item} key={item}>
+                            {new Intl.DateTimeFormat('en-US', {
+                                year: 'numeric',
+                                month: '2-digit',
+                                day: '2-digit',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                second: '2-digit',
+                            }).format(item)}
+                        </Option>
                     ))}
                 </Select>
                 <Space />
                 <Button>Load Profile</Button>
-                <Button>Delete Profile</Button>
+                <Button onClick={deleteProfile}>Delete Profile</Button>
                 <Button>Create New Dataset Profile</Button>
             </Form.Item>
         </>
