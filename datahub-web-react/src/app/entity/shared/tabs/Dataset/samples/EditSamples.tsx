@@ -9,12 +9,29 @@ export const EditSamples = () => {
     const queryTimeStamps = gql`
         query getProfiles($urn: String!) {
             dataset(urn: $urn) {
-                datasetProfiles(limit: 10) {
+                datasetProfiles(limit: 15) {
                     timestampMillis
                 }
             }
         }
     `;
+
+    const queryProfile = gql`
+        query getProfiles($urn: String!, $timestamp: Long!) {
+            dataset(urn: $urn) {
+                datasetProfiles(
+                    limit: 1,
+                    startTimeMillis: $timestamp
+                ) 
+                {
+                    fieldProfiles{
+                        fieldPath
+                      }
+                }
+            }
+        }
+    `;
+
     const baseEntity = useBaseEntity<GetDatasetQuery>();
     const [selectedValue, setSelectedValue] = useState<string>('');
     const currDataset = baseEntity && baseEntity?.dataset?.urn;
@@ -33,6 +50,9 @@ export const EditSamples = () => {
         console.log(`delete profile ${selectedValue}`);
         // axios delete profile endpoint
     };
+    const loadProfile = () =>{
+        console.log(`Load profile ${selectedValue}`);
+    }
     return (
         <>
             <Form.Item name="chooseSet" label="Select a Timestamped Dataset Profile to edit">
@@ -57,7 +77,7 @@ export const EditSamples = () => {
                     ))}
                 </Select>
                 <Space />
-                <Button>Load Profile</Button>
+                <Button onClick={loadProfile}>Load Profile</Button>
                 <Button onClick={deleteProfile}>Delete Profile</Button>
                 <Button>Create New Dataset Profile</Button>
             </Form.Item>
