@@ -5,7 +5,7 @@ import { useBaseEntity } from '../../../EntityContext';
 import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
 // import axios from 'axios';
 
-export const EditSamples = () => {
+function GetProfileTimestamps(datasetUrn) {
     const queryTimeStamps = gql`
         query getProfiles($urn: String!) {
             dataset(urn: $urn) {
@@ -15,34 +15,74 @@ export const EditSamples = () => {
             }
         }
     `;
+    const { data } = useQuery(queryTimeStamps, {
+        variables: {
+            urn: datasetUrn,
+        },
+        skip: datasetUrn === undefined,
+    });
+    const timeStampValues = data?.dataset?.datasetProfiles || [];
+    return timeStampValues;
+}
 
-    const queryProfile = gql`
+function GetSpecificProfile(datasetUrn, inputtimestamp){
+    const queryTimeStamps = gql`
         query getProfiles($urn: String!, $timestamp: Long!) {
             dataset(urn: $urn) {
-                datasetProfiles(
-                    limit: 1,
-                    startTimeMillis: $timestamp
-                ) 
-                {
-                    fieldProfiles{
+                datasetProfiles(limit: 1, endTimeMillis: $timestamp) {
+                    fieldProfiles {
                         fieldPath
-                      }
+                        sampleValues
+                    }
                 }
             }
         }
     `;
+    const { data } = useQuery(queryTimeStamps, {
+        variables: {
+            urn: datasetUrn,
+            timestamp: inputtimestamp,
+        },
+        skip: datasetUrn === undefined, 
+    });
+    const timeStampValues = data?.dataset?.datasetProfiles?.fieldProfiles || [];
+    return timeStampValues;
+}
+
+export const EditSamples = () => {
+    // const queryTimeStamps = gql`
+    //     query getProfiles($urn: String!) {
+    //         dataset(urn: $urn) {
+    //             datasetProfiles(limit: 15) {
+    //                 timestampMillis
+    //             }
+    //         }
+    //     }
+    // `;
+
+    // const queryProfile = gql`
+    //     query getProfiles($urn: String!, $timestamp: Long!) {
+    //         dataset(urn: $urn) {
+    //             datasetProfiles(limit: 1, startTimeMillis: $timestamp) {
+    //                 fieldProfiles {
+    //                     fieldPath
+    //                 }
+    //             }
+    //         }
+    //     }
+    // `;
 
     const baseEntity = useBaseEntity<GetDatasetQuery>();
     const [selectedValue, setSelectedValue] = useState<string>('');
     const currDataset = baseEntity && baseEntity?.dataset?.urn;
-    const { data } = useQuery(queryTimeStamps, {
-        variables: {
-            urn: currDataset,
-        },
-        skip: currDataset === undefined,
-    });
+    // const { data } = useQuery(queryTimeStamps, {
+    //     variables: {
+    //         urn: currDataset,
+    //     },
+    //     skip: currDataset === undefined,
+    // });
     const { Option } = Select;
-    const timeStampValues = data?.dataset?.datasetProfiles || [];
+    const timeStampValues = GetProfileTimestamps(currDataset);
     const refined = timeStampValues.map((item) => {
         return item.timestampMillis;
     });
@@ -50,9 +90,9 @@ export const EditSamples = () => {
         console.log(`delete profile ${selectedValue}`);
         // axios delete profile endpoint
     };
-    const loadProfile = () =>{
+    const loadProfile = () => {
         console.log(`Load profile ${selectedValue}`);
-    }
+    };
     return (
         <>
             <Form.Item name="chooseSet" label="Select a Timestamped Dataset Profile to edit">
