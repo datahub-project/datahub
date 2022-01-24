@@ -1,7 +1,9 @@
 // import * as React from 'react';
-import { useQuery } from '@apollo/client';
+import { gql, useQuery } from '@apollo/client';
+// import { useGetAccessTokenLazyQuery } from '../../../graphql/auth.generated';
 // import { GetDatasetOwnersGqlDocument } from '../../../graphql/dataset.generated';
 import { GetMeOnlyDocument } from '../../../graphql/me.generated';
+// import { AccessTokenDuration, AccessTokenType } from '../../../types.generated';
 
 export function FindWhoAmI() {
     const { loading, data } = useQuery(GetMeOnlyDocument);
@@ -10,6 +12,78 @@ export function FindWhoAmI() {
     return ans;
 }
 
+export function FindMyUrn() {
+    const { loading, data } = useQuery(GetMeOnlyDocument);
+    if (loading) return '';
+    const ans = data.me.corpUser.urn;
+    return ans;
+}
+
+export function GetMyToken(userUrn: string) {
+    const queryresult = gql`
+        query getAccessToken($input: GetAccessTokenInput!) {
+            getAccessToken(input: $input) {
+                accessToken
+            }
+        }
+    `;
+    const input = userUrn === '' ? 'urn:li:corpuser:impossible' : userUrn;
+    const { data, loading, error } = useQuery(queryresult, {
+        variables: {
+            input: {
+                type: 'PERSONAL',
+                actorUrn: input,
+                duration: 'ONE_HOUR',
+            },
+        },
+        skip: input === 'urn:li:corpuser:impossible',
+        pollInterval: 1200000,
+    });
+    if (error) return 'error...';
+    if (loading) return 'Loading...';
+    return data?.getAccessToken?.accessToken;
+    // need to use skip else it will keep attempting to query with incomplete info
+    // which leads to <Unauthorised User> pop up in UI.
+}
+
+// export function GetMyToken2(userUrn: string) {
+//     const MINUTE_MS = 5000;
+//     const [token, setToken] = useState('');
+//     useEffect(() => {
+//     const interval = setInterval(() => {
+//         console.log('Logs every minute');
+//         const queryresult = gql`
+//             query getAccessToken($input: GetAccessTokenInput!) {
+//                 getAccessToken(input: $input) {
+//                     accessToken
+//                 }
+//             }
+//         `;
+//         console.log(`gettoken: ${userUrn} is the ident.`);
+//         const input = userUrn === '' ? 'urn:li:corpuser:impossible' : userUrn;
+//         const { data, loading, error } = useQuery(queryresult, {
+//             variables: {
+//                 input: {
+//                     type: 'PERSONAL',
+//                     actorUrn: input,
+//                     duration: 'ONE_HOUR',
+//                 },
+//             },
+//             skip: input === 'urn:li:corpuser:impossible',
+//         });
+//         if (error) return 'error...';
+//         if (loading) return 'Loading...';
+//         setToken(data?.getAccessToken?.accessToken);
+//     }, MINUTE_MS);
+
+//     return () => clearInterval(interval); // This represents the unmount function, in which you need to clear your interval to prevent memory leaks.
+//     }, [userUrn]);
+
+//     return token;
+
+//     // need to use skip else it will keep attempting to query with incomplete info
+//     // which leads to <Unauthorised User> pop up in UI.
+// }
 // export function FindOwners(dataset) {
 //     console.log(`i call upon ${dataset}`);
 //     const { data, loading } = useQuery(GetDatasetOwnersGqlDocument, {

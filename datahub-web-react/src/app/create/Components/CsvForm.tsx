@@ -3,15 +3,20 @@ import axios from 'axios';
 import { CSVReader } from 'react-papaparse';
 import { Form, Input, Space, Select, Button, message, Divider, InputNumber } from 'antd';
 import { MinusCircleOutlined, PlusOutlined } from '@ant-design/icons';
+// import { gql, useQuery } from '@apollo/client';
+import { CommonFields } from './CommonFields';
 import adhocConfig from '../../../conf/Adhoc';
 import { useGetAuthenticatedUser } from '../../useGetAuthenticatedUser';
-import { CommonFields } from './CommonFields';
+import { GetMyToken } from '../../entity/dataset/whoAmI';
 
 export const CsvForm = () => {
+    const user = useGetAuthenticatedUser();
+    const userUrn = user?.corpUser?.urn || '';
+    const userToken = GetMyToken(userUrn);
+    // console.log(`user is ${userUrn} and token is ${userToken}, received at ${Date().toLocaleString()}`);
     const [fileType, setFileType] = useState({ dataset_type: 'application/octet-stream' });
     const [hasHeader, setHasHeader] = useState('no');
 
-    const user = useGetAuthenticatedUser();
     const printSuccessMsg = (status) => {
         message.success(`Status:${status} - Request submitted successfully`, 3).then();
     };
@@ -29,9 +34,9 @@ export const CsvForm = () => {
         },
     };
     const onFinish = (values) => {
-        console.log('Received values of form:', values);
-        const finalValue = { ...values, ...fileType, dataset_owner: user?.corpUser?.username };
-        console.log('Received finalValue:', finalValue);
+        // console.log('Received values of form:', values);
+        const finalValue = { ...values, ...fileType, dataset_owner: user?.corpUser?.username, user_token: userToken };
+        // console.log('Received finalValue:', finalValue);
         // POST request using axios with error handling
         axios
             .post(adhocConfig, finalValue)

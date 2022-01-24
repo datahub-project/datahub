@@ -1,22 +1,61 @@
+# flake8: noqa
+
 """Convenience functions for creating MCEs"""
-import datetime
 import json
 import logging
 import os
 import time
-from typing import Dict, List, Optional, Type, TypeVar, Union
+from datetime import datetime as dt
+from sys import stdout
+from typing import Dict, List, Optional, TypeVar, Union
+from urllib.parse import urljoin
 
-from datahub.ingestion.api import RecordEnvelope
-from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.metadata.schema_classes import *
+import jwt
+import requests
+from datahub.metadata.schema_classes import (ArrayTypeClass, AuditStampClass,
+                                             BooleanTypeClass,
+                                             BrowsePathsClass, BytesTypeClass,
+                                             DatasetLineageTypeClass,
+                                             DatasetPropertiesClass,
+                                             DatasetSnapshotClass,
+                                             DateTypeClass, EnumTypeClass,
+                                             FixedTypeClass,
+                                             InstitutionalMemoryClass,
+                                             InstitutionalMemoryMetadataClass,
+                                             MapTypeClass,
+                                             MetadataChangeEventClass,
+                                             NullTypeClass, NumberTypeClass,
+                                             OtherSchemaClass, OwnerClass,
+                                             OwnershipClass,
+                                             OwnershipTypeClass,
+                                             RecordTypeClass, SchemaFieldClass,
+                                             SchemaFieldDataTypeClass,
+                                             SchemaMetadataClass, StatusClass,
+                                             StringTypeClass, TimeTypeClass,
+                                             UnionTypeClass, UpstreamClass,
+                                             UpstreamLineageClass)
+from jwt import ExpiredSignatureError, InvalidTokenError
 
 from .models import FieldParamEdited
 
 log = logging.getLogger(__name__)
+logformatter = logging.Formatter("%(asctime)s;%(levelname)s;%(funcName)s;%(message)s")
+handler = logging.StreamHandler(stdout)
+handler.setFormatter(logformatter)
+log.addHandler(handler)
+log.setLevel(logging.INFO)
+
 
 DEFAULT_ENV = "PROD"
 DEFAULT_FLOW_CLUSTER = "prod"
 
+CLI_MODE = False if os.environ.get("RUNNING_IN_DOCKER") else True
+if CLI_MODE:
+    os.environ["JWT_SECRET"] = "WnEdIeTG/VVCLQqGwC/BAkqyY0k+H8NEAtWGejrBI94="
+    os.environ["DATAHUB_AUTHENTICATE_INGEST"] = "True"
+    os.environ["DATAHUB_FRONTEND"] = "http://172.19.0.1:9002"
+
+datahub_url = os.environ["DATAHUB_FRONTEND"]
 T = TypeVar("T")
 
 
@@ -73,9 +112,9 @@ def make_browsepath_mce(
     path: List[str],
 ) -> BrowsePathsClass:
     """
-    Creates browsepath for dataset. By default, if not specified, Datahub assigns it to /prod/platform/datasetname
+    Creates browsepath for dataset. By default, if not specified,
+    Datahub assigns it to /prod/platform/datasetname
     """
-    sys_time = get_sys_time()
     mce = BrowsePathsClass(paths=path)
     return mce
 
@@ -102,7 +141,8 @@ def make_lineage_mce(
     ],
 ) -> MetadataChangeEventClass:
     """
-    Specifies Upstream Datasets relative to this dataset. Downstream is always referring to current dataset
+    Specifies Upstream Datasets relative to this dataset.
+    Downstream is always referring to current dataset
     urns should be created using make_dataset_urn
     lineage have to be one of the 3
     """
@@ -150,14 +190,16 @@ def make_dataset_description_mce(
 
 def update_field_param_class(field_inputs: List[FieldParamEdited]):
     """[summary]
-    generate a list of FieldParams that can be used to create metadata schema aspect.
+    generate a list of FieldParams that can be used to create
+    metadata schema aspect.
     This is for the update page call.
     field_name: str
     field_native_type: str
     datahub_type: str
     field_description - need to pull from graphql
     nullable - need to pull from graphql
-    This function is different from create_field_param because the field type is different.
+    This function is different from create_field_param because
+    the field type is different.
     """
     all_fields = []
 
@@ -192,7 +234,8 @@ def update_field_param_class(field_inputs: List[FieldParamEdited]):
 
 def create_field_param_class(inputs):
     """
-    generate a list of FieldParams that can be used to create metadata schema aspect.
+    generate a list of FieldParams that can be used to create
+    metadata schema aspect.
     This is for the create page call.
     Args:
         inputs ([type]): [description]
@@ -238,9 +281,9 @@ def create_new_schema_mce(
 ) -> MetadataChangeEventClass:
     if system_time:
         try:
-            datetime.datetime.fromtimestamp(system_time / 1000)
+            dt.fromtimestamp(system_time / 1000)
             sys_time = system_time
-        except ValueError as e:
+        except ValueError:
             log.error("specified_time is out of range")
             sys_time = get_sys_time()
     else:
@@ -263,9 +306,9 @@ def make_schema_mce(
 ) -> MetadataChangeEventClass:
     if system_time:
         try:
-            datetime.datetime.fromtimestamp(system_time / 1000)
+            dt.fromtimestamp(system_time / 1000)
             sys_time = system_time
-        except ValueError as e:
+        except ValueError:
             log.error("specified_time is out of range")
             sys_time = get_sys_time()
     else:
@@ -275,8 +318,8 @@ def make_schema_mce(
         schemaName="OtherSchema",
         platform=platformName,
         version=0,
-        created=AuditStampClass(time=sys_time, actor=actor),
-        lastModified=AuditStampClass(time=sys_time, actor=actor),
+        created=AuditStampClass(time=sys_time, actor=make_user_urn(actor)),
+        lastModified=AuditStampClass(time=sys_time, actor=make_user_urn(actor)),
         hash="",
         platformSchema=OtherSchemaClass(rawSchema=""),
         fields=fields,
@@ -322,3 +365,99 @@ def make_status_mce(
             urn=dataset_name, aspects=[StatusClass(removed=desired_status)]
         )
     )
+
+
+def verify_token(token: str, user: str):
+    token_secret = os.environ["JWT_SECRET"]
+    log.error(f"signature secret is {token_secret}")
+    try:
+        payload = jwt.decode(token, token_secret, algorithms="HS256")
+        if payload["actorId"] == "impossible":
+            raise Exception(
+                "User Impossible has occurred. Something has gone very wrong."
+            )
+        exp_datetime = dt.fromtimestamp(int(payload["exp"]))
+        if payload["actorId"] == user:
+            log.error(
+                f"token verified for {user}, expires \
+                    {exp_datetime.strftime('%Y:%m:%d %H:%M')}"
+            )
+            return True
+        return False
+    except ExpiredSignatureError:
+        log.error("token has expired!")
+        return False
+    except InvalidTokenError:
+        log.error(f"Invalid token for {user}")
+        return False
+    except Exception as e:
+        log.error(f"I cant figure out this token for {user}, error {e}")
+        return False
+
+
+def authenticate_action(token: str, user: str, dataset: str):
+    if "DATAHUB_AUTHENTICATE_INGEST" in os.environ:
+        must_authenticate_actions = (
+            True if os.environ["DATAHUB_AUTHENTICATE_INGEST"] == "yes" else False
+        )
+    else:
+        must_authenticate_actions = False
+    log.error(f"Authenticate user setting is {must_authenticate_actions}")
+    log.error(f"Dataset being updated is {dataset}, requestor is {user}")
+    if must_authenticate_actions:
+        if verify_token(token, user) and query_dataset_owner(token, dataset, user):
+            log.error(f"user {user} is authorized to do something")
+            return True
+        else:
+            log.error(f"user {user} is NOT authorized to do something")
+            return False
+    else:  # no need to authenticate, so always true
+        return True
+
+
+def query_dataset_owner(token: str, dataset_urn: str, user: str):
+    """
+    Currently only queries users associated with dataset.
+    Does not query members of groups that owns the dataset,
+    because that query is more complicated - to be expanded next time.
+    Also, currently UI checks also only check for individual owners,
+    not owner groups.
+    """
+    log.info(f"UI endpoint is {datahub_url}")
+    query_endpoint = urljoin(datahub_url, "/api/graphql")
+    log.info(f"I will query {query_endpoint} as {user}")
+    headers = {}
+    headers["Authorization"] = f"Bearer {token}"
+    headers["Content-Type"] = "application/json"
+    query = """
+        query owner($urn: String!){
+            dataset(urn: $urn) {
+                ownership{
+                    owners{
+                        __typename
+                        owner{
+                        ... on CorpUser{
+                            username
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    """
+    variables = {"urn": dataset_urn}
+    resp = requests.post(
+        query_endpoint, headers=headers, json={"query": query, "variables": variables}
+    )
+    log.info(f"resp.status_code is {resp.status_code}")
+    if resp.status_code != 200:
+        return False
+    data_received = json.loads(resp.text)
+    owners_list = data_received["data"]["dataset"]["ownership"]["owners"]
+    log.info(f"The list of owners for this dataset is {owners_list}")
+    owners = [item["owner"]["username"] for item in owners_list]
+    if user not in owners:
+        log.error("Ownership Step: False")
+        return False
+    log.info("Ownership Step: True")
+    return True

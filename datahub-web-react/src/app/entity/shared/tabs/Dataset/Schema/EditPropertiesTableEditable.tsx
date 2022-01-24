@@ -7,7 +7,7 @@ import adhocConfig from '../../../../../../conf/Adhoc';
 import { useBaseEntity } from '../../../EntityContext';
 import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
 // import { useGetAuthenticatedUser } from '../../../../../useGetAuthenticatedUser';
-import { FindWhoAmI } from '../../../../dataset/whoAmI';
+import { FindMyUrn, FindWhoAmI, GetMyToken } from '../../../../dataset/whoAmI';
 // import { useBaseEntity } from '../../../EntityContext';
 // import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
 // editable version
@@ -22,6 +22,9 @@ export const EditPropertiesTableEditable = () => {
     const urn = useBaseEntity<GetDatasetQuery>()?.dataset?.urn;
     // const currUser = useGetAuthenticatedUser()?.corpUser?.urn || '-';
     const currUser = FindWhoAmI();
+    const currUserUrn = FindMyUrn();
+    const userToken = GetMyToken(currUserUrn);
+    // console.log(`user is ${currUser} and token is ${userToken}, received at ${Date().toLocaleString()}`);
     const dataSource = queryFields?.map((x, ind) => {
         return {
             key: ind,
@@ -194,6 +197,7 @@ export const EditPropertiesTableEditable = () => {
             requestor: currUser,
             description: datasetDescription,
             properties: dataClone,
+            user_token: userToken,
         };
         console.log(dataSubmission);
         axios

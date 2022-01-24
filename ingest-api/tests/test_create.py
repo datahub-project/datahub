@@ -1,22 +1,32 @@
+# flake8: noqa
+
 import json
 import os
-import sys
+import time
 
+from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import \
+    DatasetSnapshot
+from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
+from datahub.metadata.schema_classes import *
 from datahub.metadata.schema_classes import DatasetLineageTypeClass
+from freezegun import freeze_time
 
-from ingest_api.helper.mce_convenience import (generate_json_output,
+from ingest_api.helper.mce_convenience import (create_new_schema_mce,
+                                               generate_json_output,
                                                make_browsepath_mce,
                                                make_dataset_description_mce,
                                                make_dataset_urn,
-                                               make_status_mce,
                                                make_institutionalmemory_mce,
                                                make_lineage_mce,
                                                make_ownership_mce,
-                                               make_platform, make_recover_mce,
-                                               make_schema_mce, make_user_urn)
+                                               make_platform, make_status_mce,
+                                               make_user_urn)
 from ingest_api.helper.models import determine_type
 
+FROZEN_TIME = "2021-07-01 02:58:30.242"
 
+
+@freeze_time(FROZEN_TIME)
 def test_make_csv_dataset(
     inputs={
         "dataset_name": "my_test_dataset",
@@ -53,8 +63,7 @@ def test_make_csv_dataset(
         platform=inputs["dataset_type"], name=inputs["dataset_name"]
     )
     owner_urn = make_user_urn(inputs["dataset_owner"])
-    output_mce = make_schema_mce(
-        dataset_urn=dataset_urn,
+    output_mce = create_new_schema_mce(
         platformName=make_platform(inputs["dataset_type"]),
         actor=owner_urn,
         fields=inputs["fields"],
@@ -83,44 +92,58 @@ def test_make_csv_dataset(
             "dataset_location": inputs["dataset_location"],
         },
     )
-    path_mce = make_browsepath_mce(
-        dataset_urn=dataset_urn, path=["/csv/my_test_dataset"]
-    )
+    path_mce = make_browsepath_mce(path=["/csv/my_test_dataset"])
     output_path = os.path.join(
-        os.path.dirname(os.path.realpath(__file__)), "test_create_output.json"
+        os.path.dirname(os.path.realpath(__file__)),
+        "my_test_dataset_1625108310242.json",
     )
     golden_file_path = os.path.join(
         os.path.dirname(os.path.realpath(__file__)), "golden_schema_mce.json"
     )
+    dataset_snapshot = DatasetSnapshot(
+        urn=dataset_urn,
+        aspects=[],
+    )
+    dataset_snapshot.aspects = [output_mce, description_mce, path_mce]
+    metadata_record = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
 
-    generate_json_output([output_mce, description_mce, path_mce], file_loc=output_path)
+    generate_json_output(metadata_record, os.path.dirname(os.path.realpath(__file__)))
     with open(output_path, "r") as f:
         generated_dict = json.dumps(json.load(f), sort_keys=True)
     with open(golden_file_path, "r") as f:
         golden_mce = json.dumps(json.load(f), sort_keys=True)
+    print(f"generated : {generated_dict}")
+    print("-------------")
+    print(f"golden {golden_mce}")
     assert generated_dict == golden_mce
+    os.remove(output_path)
 
 
-def test_delete_undo(
+@freeze_time(FROZEN_TIME)
+def test_delete(
     inputs={"dataset_name": "my_test_dataset", "dataset_type": "csv"}
 ) -> None:
     dataset_urn = make_dataset_urn(
         platform=inputs["dataset_type"], name=inputs["dataset_name"]
     )
-    delete_mce = make_status_mce(dataset_urn)
-    undo_delete_mce = make_recover_mce(dataset_urn)
-    output_path = os.path.join(
-        os.path.dirname(os.path.realpath(__file__)), "test_delete_mce_output.json"
-    )
+    delete_mce = make_status_mce(dataset_urn, desired_status=True)
+
     golden_file_path = os.path.join(
-        os.path.dirname(os.path.realpath(__file__)), "golden_delete_undo_mce.json"
+        os.path.dirname(os.path.realpath(__file__)), "golden_delete_mce.json"
     )
-    generate_json_output([delete_mce, undo_delete_mce], file_loc=output_path)
+    output_path = os.path.join(
+        os.path.dirname(os.path.realpath(__file__)),
+        f"{inputs['dataset_name']}_{int(time.time()*1000)}.json",
+    )
+    generate_json_output(
+        delete_mce, file_loc=os.path.dirname(os.path.realpath(__file__))
+    )
     with open(output_path, "r") as f:
         generated_dict = json.dumps(json.load(f), sort_keys=True)
     with open(golden_file_path, "r") as f:
         golden_mce = json.dumps(json.load(f), sort_keys=True)
     assert generated_dict == golden_mce
+    os.remove(output_path)
 
 
 def test_type_string():

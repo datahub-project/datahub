@@ -103,8 +103,11 @@ services:
   ingest-api:
     container_name: ingest-api
     environment:
-    - ACCEPT_ORIGINS=http://172.19.0.1:9010
+    - ACCEPT_ORIGINS=http://172.19.0.1:9002
     - RUNNING_IN_DOCKER=True
+    - JWT_SECRET=WnEdIeTG/VVCLQqGwC/BAkqyY0k+H8NEAtWGejrBI94=
+    - DATAHUB_AUTHENTICATE_INGEST=yes
+    - DATAHUB_FRONTEND=http://172.19.0.1:9002
     hostname: ingest-api
     ports:
     - 8001:8001
