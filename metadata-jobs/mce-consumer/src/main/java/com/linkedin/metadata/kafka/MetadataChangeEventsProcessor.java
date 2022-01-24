@@ -58,7 +58,7 @@ public class MetadataChangeEventsProcessor {
   public void consume(final ConsumerRecord<String, GenericRecord> consumerRecord) {
     kafkaLagStats.update(System.currentTimeMillis() - consumerRecord.timestamp());
     final GenericRecord record = consumerRecord.value();
-    log.debug("Record ", record);
+    log.debug("Record {}", record);
 
     MetadataChangeEvent event = new MetadataChangeEvent();
 
