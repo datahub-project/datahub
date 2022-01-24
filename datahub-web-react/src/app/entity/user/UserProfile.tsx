@@ -1,5 +1,7 @@
-import { Alert } from 'antd';
+import { Alert, Col, Row, Avatar, Divider, Space, Button, Tooltip } from 'antd';
 import React, { useMemo } from 'react';
+import styled from 'styled-components';
+import { EditOutlined, MailOutlined, PhoneOutlined, SlackOutlined } from '@ant-design/icons';
 import UserHeader from './UserHeader';
 import useUserParams from '../../shared/entitySearch/routingUtils/useUserParams';
 import { useGetUserQuery } from '../../../graphql/user.generated';
@@ -10,16 +12,91 @@ import { LegacyEntityProfile } from '../../shared/LegacyEntityProfile';
 import { CorpUser, EntityType, SearchResult, EntityRelationshipsResult } from '../../../types.generated';
 import UserGroups from './UserGroups';
 import { useEntityRegistry } from '../../useEntityRegistry';
+import { RoutedTabs } from '../../shared/RoutedTabs';
+import { UserAssets } from './UserAssets';
 
 const messageStyle = { marginTop: '10%' };
+export interface Props {
+    onTabChange: (selectedTab: string) => void;
+}
 
 export enum TabType {
+    Assets = 'Assets',
     Ownership = 'Ownership',
     Groups = 'Groups',
 }
-const ENABLED_TAB_TYPES = [TabType.Ownership, TabType.Groups];
+const ENABLED_TAB_TYPES = [TabType.Assets, TabType.Ownership, TabType.Groups];
 
 const GROUP_PAGE_SIZE = 20;
+const UserProfileWrapper = styled.div`
+    // padding: 0 20px;
+    &&& .ant-tabs-nav {
+        margin: 0;
+    }
+`;
+const UserSidebar = styled.div`
+    padding: 25px 18px 0 17px;
+    text-align: center;
+
+    font-style: normal;
+    font-weight: bold;
+    height: calc(100vh - 60px);
+    position: relative;
+
+    &&& .ant-avatar.ant-avatar-icon {
+        font-size: 46px !important;
+    }
+
+    // &&& .ant-divider-horizontal {
+    //     margin: 18px 0 15px 0;
+    // }
+`;
+const UserName = styled.div`
+    font-size: 20px;
+    line-height: 28px;
+    color: #262626;
+    margin: 13px 0 7px 0;
+`;
+const UserRole = styled.div`
+    font-size: 14px;
+    line-height: 22px;
+    color: #595959;
+    margin-bottom: 7px;
+`;
+const UserTeam = styled.div`
+    font-size: 12px;
+    line-height: 20px;
+    color: #8c8c8c;
+`;
+const UserSocialDetails = styled.div`
+    font-size: 12px;
+    line-height: 20px;
+    color: #262626;
+    text-align: left;
+    margin: 6px 0;
+`;
+const EditProfileButton = styled.div`
+    // margin-bottom: 24px;
+    bottom: 24px;
+    position: absolute;
+    right: 27px;
+    width: 80%;
+
+    button {
+        width: 100%;
+        font-size: 12px;
+        line-height: 20px;
+        color: #262626;
+    }
+`;
+const Content = styled.div`
+    color: #262626;
+    height: calc(100vh - 60px);
+
+    &&& .ant-tabs > .ant-tabs-nav .ant-tabs-nav-wrap {
+        padding-left: 15px;
+    }
+`;
 
 /**
  * Responsible for reading & writing users.
@@ -52,6 +129,21 @@ export default function UserProfile() {
             }
         });
         return filteredOwnershipResult;
+    }, [ownershipResult]);
+
+    // assetsForDetails- generate the search data for Assets Tab on UI
+    const assetsForDetails = useMemo(() => {
+        const assetsResult: Array<SearchResult> = [];
+        Object.keys(ownershipResult).forEach((type) => {
+            const entities = ownershipResult[type].data?.search?.searchResults;
+
+            if (entities && entities.length > 0) {
+                ownershipResult[type].data?.search?.searchResults.forEach((item) => {
+                    assetsResult.push(item);
+                });
+            }
+        });
+        return assetsResult;
     }, [ownershipResult]);
 
     if (error || (!loading && !error && !data)) {
@@ -92,9 +184,75 @@ export default function UserProfile() {
         );
     };
 
+    const tabs = [
+        {
+            name: TabType.Assets,
+            path: TabType.Assets.toLocaleLowerCase(),
+            content: <UserAssets searchResult={assetsForDetails} />,
+        },
+        {
+            name: TabType.Ownership,
+            path: TabType.Ownership.toLocaleLowerCase(),
+            content: <RelatedEntityResults searchResult={ownershipForDetails} />,
+        },
+        {
+            name: TabType.Groups,
+            path: TabType.Groups.toLocaleLowerCase(),
+            content: (
+                <UserGroups urn={urn} initialRelationships={groupMemberRelationships} pageSize={GROUP_PAGE_SIZE} />
+            ),
+        },
+    ];
+    const defaultTabPath = tabs && tabs?.length > 0 ? tabs[0].path : '';
+    const onTabChange = () => null;
+    console.log('ownershipForDetails', ownershipForDetails);
+
     return (
         <>
             {contentLoading && <Message type="loading" content="Loading..." style={messageStyle} />}
+            <UserProfileWrapper>
+                <Row>
+                    <Col xl={5} lg={5} md={5} sm={24} xs={24}>
+                        <UserSidebar>
+                            <Tooltip title="Change Avatar">
+                                <Avatar
+                                    className="avatar-picture"
+                                    size={{ xs: 212, sm: 212, md: 120, lg: 160, xl: 212, xxl: 100 }}
+                                    icon={<EditOutlined />}
+                                />
+                            </Tooltip>
+                            <UserName>{data?.corpUser?.info?.fullName}</UserName>
+                            <UserRole>{data?.corpUser?.info?.title}</UserRole>
+                            <UserTeam>Data Team</UserTeam>
+                            <Divider style={{ margin: '18px 0px 22px 0' }} />
+                            <UserSocialDetails>
+                                <Space>
+                                    <MailOutlined /> {data?.corpUser?.info?.email}
+                                </Space>
+                            </UserSocialDetails>
+                            <UserSocialDetails>
+                                <Space>
+                                    <SlackOutlined /> {` slack`}
+                                </Space>
+                            </UserSocialDetails>
+                            <UserSocialDetails>
+                                <Space>
+                                    <PhoneOutlined /> {` 928129129`}
+                                </Space>
+                            </UserSocialDetails>
+                            <Divider style={{ margin: '23px 0px 15px 0' }} />
+                            <EditProfileButton>
+                                <Button icon={<EditOutlined />}>Edit Profile</Button>
+                            </EditProfileButton>
+                        </UserSidebar>
+                    </Col>
+                    <Col xl={19} lg={19} md={19} sm={24} xs={24} style={{ borderLeft: '1px solid #E9E9E9' }}>
+                        <Content>
+                            <RoutedTabs defaultPath={defaultTabPath} tabs={tabs || []} onTabChange={onTabChange} />
+                        </Content>
+                    </Col>
+                </Row>
+            </UserProfileWrapper>
             {data && data.corpUser && (
                 <LegacyEntityProfile
                     title=""
