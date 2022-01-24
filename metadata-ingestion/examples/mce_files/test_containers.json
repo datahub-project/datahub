@@ -6,7 +6,7 @@
     "changeType":"UPSERT",
     "aspectName":"containerProperties",
     "aspect":{
-      "value":"{\"name\": \"datahub_db\", \"description\": \"The DataHub db\" }",
+      "value":"{\"name\": \"root_db\", \"description\": \"The root db\" }",
       "contentType":"application/json"
     },
     "systemMetadata":null
@@ -42,7 +42,7 @@
     "changeType":"UPSERT",
     "aspectName":"containerProperties",
     "aspect":{
-      "value":"{\"name\": \"datahub_schema\", \"description\": \"The DataHub schema\" }",
+      "value":"{\"name\": \"information_schema\", \"description\": \"The MySQL root schema.\" }",
       "contentType":"application/json"
     },
     "systemMetadata":null
@@ -86,7 +86,7 @@
   {
     "auditHeader":null,
     "entityType":"dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,information_schema.COLLATIONS,PROD)",
     "changeType":"UPSERT",
     "aspectName":"container",
     "aspect":{
