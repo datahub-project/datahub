@@ -42,8 +42,11 @@ export const SetDomainModal = ({ visible, onClose, refetch }: Props) => {
     const { urn } = useEntityData();
     const [selectedDomain, setSelectedDomain] = useState<SelectedDomain | undefined>(undefined);
     const [domainSearch, { data: domainSearchData }] = useGetSearchResultsLazyQuery();
-    const domainSearchResults = domainSearchData?.search?.searchResults;
+    const domainSearchResults = domainSearchData?.search?.searchResults || [];
     const [setDomainMutation] = useSetDomainMutation();
+
+    console.log('Re rendering');
+    console.log(domainSearchResults);
 
     const inputEl = useRef(null);
 
@@ -81,13 +84,13 @@ export const SetDomainModal = ({ visible, onClose, refetch }: Props) => {
             setSelectedDomain({
                 displayName: entityRegistry.getDisplayName(EntityType.Domain, domain),
                 type: EntityType.Domain,
-                urn: domain.urn,
+                urn: newUrn,
             });
         }
     };
 
     const handleSearch = (text: string) => {
-        if (text.length > 1) {
+        if (text.length > 2) {
             domainSearch({
                 variables: {
                     input: {
@@ -149,11 +152,15 @@ export const SetDomainModal = ({ visible, onClose, refetch }: Props) => {
                         onSelect={(domainUrn: any) => onSelectDomain(domainUrn)}
                         onDeselect={() => setSelectedDomain(undefined)}
                         onSearch={handleSearch}
+                        filterOption={false}
                         tagRender={(tagProps) => <Tag>{tagProps.value}</Tag>}
                     >
-                        {domainSearchResults?.map((result) => (
-                            <Select.Option value={result.entity.urn}>{renderSearchResult(result)}</Select.Option>
-                        ))}
+                        {domainSearchResults.map((result) => {
+                            console.log(result);
+                            return (
+                                <Select.Option value={result.entity.urn}>{renderSearchResult(result)}</Select.Option>
+                            );
+                        })}
                     </Select>
                 </Form.Item>
             </Form>

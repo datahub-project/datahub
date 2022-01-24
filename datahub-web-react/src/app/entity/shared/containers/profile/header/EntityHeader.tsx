@@ -1,5 +1,4 @@
 import { CheckOutlined, CopyOutlined } from '@ant-design/icons';
-import { CheckOutlined, LinkOutlined } from '@ant-design/icons';
 import { Typography, Image, Button, Tooltip } from 'antd';
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
