@@ -1,5 +1,9 @@
-package com.linkedin.datahub.lineage.spark.interceptor;
+package datahub.spark;
 
+import datahub.spark.model.dataset.CatalogTableDataset;
+import datahub.spark.model.dataset.HdfsPathDataset;
+import datahub.spark.model.dataset.JdbcDataset;
+import datahub.spark.model.dataset.SparkDataset;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
@@ -25,10 +29,6 @@ import org.apache.spark.sql.hive.execution.InsertIntoHiveTable;
 import org.apache.spark.sql.sources.BaseRelation;
 
 import com.google.common.collect.ImmutableSet;
-import com.linkedin.datahub.lineage.spark.model.dataset.CatalogTableDataset;
-import com.linkedin.datahub.lineage.spark.model.dataset.HdfsPathDataset;
-import com.linkedin.datahub.lineage.spark.model.dataset.JdbcDataset;
-import com.linkedin.datahub.lineage.spark.model.dataset.SparkDataset;
 
 import scala.Option;
 import scala.collection.JavaConversions;

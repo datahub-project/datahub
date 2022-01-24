@@ -1,4 +1,4 @@
-package com.linkedin.datahub.lineage.spark.model.dataset;
+package datahub.spark.model.dataset;
 
 import org.apache.hadoop.fs.Path;
 

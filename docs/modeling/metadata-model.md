@@ -196,7 +196,7 @@ A relationship query allows you to find Entity connected to a particular source 
 For example, to find the owners of a particular Chart, we can use the following CURL:
 
 ```
-curl --location --request GET --header 'X-RestLi-Protocol-Version: 2.0.0' 'http://localhost:8080/relationships?direction=OUTGOING&urn=urn:li:chart:customers&types=OwnedBy'
+curl --location --request GET --header 'X-RestLi-Protocol-Version: 2.0.0' 'http://localhost:8080/relationships?direction=OUTGOING&urn=urn%3Ali%3Achart%3Acustomers&types=List(OwnedBy)'
 ```
 
 The notable parameters are `direction`, `urn` and `types`. The response contains *Urns* associated with all entities connected 
@@ -351,7 +351,7 @@ Timeseries aspect cannot have any fields that have the @Searchable or @Relations
 completely different flow.
 
 Please refer
-to [DatasetProfile](https://github.com/linkedin/datahub/tree/master/metadata-models/src/main/pegasus/com/linkedin/dataset/DatasetProfile)
+to [DatasetProfile](https://github.com/linkedin/datahub/tree/master/metadata-models/src/main/pegasus/com/linkedin/dataset/DatasetProfile.pdl)
 to see an example of a timeseries aspect.
 
 Because timeseries aspects are updated on a frequent basis, ingests of these aspects go straight to elastic search (
@@ -393,9 +393,9 @@ entities:
 ```
 
 ##### Ingesting a Timeseries aspect
-The timeseries aspects can be ingested via the GSM REST endpoint `/aspects?action=ingestProposal` or via the python API.
+The timeseries aspects can be ingested via the GMS REST endpoint `/aspects?action=ingestProposal` or via the python API.
 
-Example1: Via GSM REST API using curl.
+Example1: Via GMS REST API using curl.
 
 ```shell
 curl --location --request POST 'http://localhost:8080/aspects?action=ingestProposal' \
@@ -451,7 +451,7 @@ my_emitter.emit(mcpw)
 
 ##### Performing an aggregation on a Timeseries aspect.
 
-Aggreations on timeseries aspects can be performed by the GSM REST API for `/analytics?action=getTimeseriesStats` which
+Aggreations on timeseries aspects can be performed by the GMS REST API for `/analytics?action=getTimeseriesStats` which
 accepts the following params.
 * `entityName` - The name of the entity the aspect is associated with.
 * `aspectName` - The name of the aspect.

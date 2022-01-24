@@ -1,8 +1,6 @@
-package com.linkedin.datahub.lineage.spark.interceptor;
+package datahub.spark.model;
 
 import com.linkedin.common.urn.DataFlowUrn;
-import com.linkedin.datahub.lineage.consumer.impl.McpEmitter;
-import com.linkedin.datahub.lineage.spark.model.LineageConsumer;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import lombok.extern.slf4j.Slf4j;
@@ -19,28 +17,12 @@ public class LineageUtils {
 
   private static Map<String, LineageConsumer> consumers = new ConcurrentHashMap<>();
 
-  public static final LineageConsumer LOGGING_CONSUMER = (x -> log.info(x.toString()));
-
   // hook for replacing paths during testing. Not the cleanest way, TODO improve.
   /* This is for generating urn from a hash of the plan */
   // private static Function<String, String> PATH_REPLACER = (x -> x);
 
-  static {
-    // system defined consumers
-    registerConsumer("mcpEmitter", new McpEmitter());
-  }
-
   private LineageUtils() {
 
-  }
-
-  // overwrites existing consumer entry of same type
-  public static void registerConsumer(String consumerType, LineageConsumer consumer) {
-    consumers.put(consumerType, consumer);
-  }
-
-  public static LineageConsumer getConsumer(String consumerType) {
-    return consumers.get(consumerType);
   }
 
   public static DataFlowUrn flowUrn(String master, String appName) {
@@ -66,6 +48,16 @@ public class LineageUtils {
   public static String getMaster(SparkContext ctx) {
     return ctx.conf().get("spark.master");
   }
+
+  // overwrites existing consumer entry of same type
+  public static void registerConsumer(String consumerType, LineageConsumer consumer) {
+    consumers.put(consumerType, consumer);
+  }
+
+  public static LineageConsumer getConsumer(String consumerType) {
+    return consumers.get(consumerType);
+  }
+
 
   /* This is for generating urn from a hash of the plan */
   
