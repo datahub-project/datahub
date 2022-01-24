@@ -68,9 +68,9 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
                         },
                         display: {
                             visible: (_, glossaryTerm: GetGlossaryTermQuery) =>
-                                glossaryTerm.glossaryTerm?.schemaMetadata !== null,
+                                glossaryTerm?.glossaryTerm?.schemaMetadata !== null,
                             enabled: (_, glossaryTerm: GetGlossaryTermQuery) =>
-                                glossaryTerm.glossaryTerm?.schemaMetadata !== null,
+                                glossaryTerm?.glossaryTerm?.schemaMetadata !== null,
                         },
                     },
                     {
