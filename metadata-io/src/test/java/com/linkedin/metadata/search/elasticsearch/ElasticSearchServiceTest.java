@@ -59,7 +59,7 @@ public class ElasticSearchServiceTest {
     _entityRegistry = new SnapshotEntityRegistry(new Snapshot());
     _indexConvention = new IndexConventionImpl(null);
     _elasticsearchContainer = new ElasticsearchContainer(IMAGE_NAME);
-    _settingsBuilder = new SettingsBuilder(Collections.emptyList());
+    _settingsBuilder = new SettingsBuilder(Collections.emptyList(), null);
     checkContainerEngine(_elasticsearchContainer.getDockerClient());
     _elasticsearchContainer.start();
     _searchClient = buildRestClient();

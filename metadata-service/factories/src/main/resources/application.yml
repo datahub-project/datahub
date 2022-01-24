@@ -80,6 +80,7 @@ elasticsearch:
   username: ${ELASTICSEARCH_USERNAME:#{null}}
   password: ${ELASTICSEARCH_PASSWORD:#{null}}
   pathPrefix: ${ELASTICSEARCH_PATH_PREFIX:#{null}}
+  mainTokenizer: ${ELASTICSEARCH_MAIN_TOKENIZER:#{null}}
   useSSL: ${ELASTICSEARCH_USE_SSL:false}
   sslContext: # Required if useSSL is true
     protocol: ${ELASTICSEARCH_SSL_PROTOCOL:#{null}}
