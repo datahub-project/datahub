@@ -2,6 +2,7 @@ namespace com.linkedin.glossary
 
 import com.linkedin.common.Url
 import com.linkedin.common.GlossaryNodeUrn
+import com.linkedin.common.CustomProperties
 
 /**
  * Properties associated with a GlossaryTerm
@@ -9,7 +10,7 @@ import com.linkedin.common.GlossaryNodeUrn
 @Aspect = {
    "name": "glossaryTermInfo"
 }
-record GlossaryTermInfo {
+record GlossaryTermInfo includes CustomProperties {
 
   /**
    * Definition of business term
@@ -42,11 +43,6 @@ record GlossaryTermInfo {
    * The abstracted URL such as https://spec.edmcouncil.org/fibo/ontology/FBC/FinancialInstruments/FinancialInstruments/CashInstrument.
    */
   sourceUrl: optional Url
-
-  /**
-   * A key-value map to capture any other non-standardized properties for the glossary term
-   */
-  customProperties: map[string, string] = { }
 
   /**
    * Schema definition of the glossary term
