@@ -138,7 +138,7 @@ plugins: Dict[str, Set[str]] = {
     "snowflake-usage": sql_common | {"snowflake-sqlalchemy<=1.2.4"},
     "sqlalchemy": sql_common,
     "superset": {"requests"},
-    "tableau": {"requests", "tableauserverclient"},
+    "tableau": {"tableauserverclient==0.17.0"},
     "trino": sql_common
     | {
         # SQLAlchemy support is coming up in trino python client
@@ -220,7 +220,8 @@ base_dev_requirements = {
             "redash",
             "redshift",
             "redshift-usage",
-            "data-lake"
+            "data-lake",
+            "tableau"
             # airflow is added below
         ]
         for dependency in plugins[plugin]
