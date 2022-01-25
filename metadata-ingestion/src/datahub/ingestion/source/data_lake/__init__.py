@@ -59,6 +59,7 @@ from datahub.metadata.schema_classes import (
     MapTypeClass,
     OtherSchemaClass,
 )
+from datahub.telemetry import telemetry
 
 # hide annoying debug errors from py4j
 logging.getLogger("py4j").setLevel(logging.ERROR)
@@ -109,6 +110,22 @@ def get_column_type(
         TypeClass = NullTypeClass
 
     return SchemaFieldDataType(type=TypeClass())
+
+
+# flags to emit telemetry for
+profiling_flags_to_report = [
+    "profile_table_level_only",
+    "include_field_null_count",
+    "include_field_min_value",
+    "include_field_max_value",
+    "include_field_mean_value",
+    "include_field_median_value",
+    "include_field_stddev_value",
+    "include_field_quantiles",
+    "include_field_distinct_value_frequencies",
+    "include_field_histogram",
+    "include_field_sample_values",
+]
 
 
 class DataLakeSource(Source):
@@ -179,9 +196,40 @@ class DataLakeSource(Source):
     @classmethod
     def create(cls, config_dict, ctx):
         config = DataLakeSourceConfig.parse_obj(config_dict)
+
+        telemetry.telemetry_instance.ping(
+            "data_lake_profiling",
+            "config",
+            "enabled",
+            1 if config.profiling.enabled else 0,
+        )
+
+        if config.profiling.enabled:
+
+            for config_flag in profiling_flags_to_report:
+                config_value = getattr(config.profiling, config_flag)
+                config_int = (
+                    1 if config_value else 0
+                )  # convert to int so it can be emitted as a value
+
+                telemetry.telemetry_instance.ping(
+                    "data_lake_profiling",
+                    "config",
+                    config_flag,
+                    config_int,
+                )
+
         return cls(config, ctx)
 
     def read_file(self, file: str) -> Optional[DataFrame]:
+        
+        extension = os.path.splitext(file)[1]
+        
+        telemetry.telemetry_instance.ping(
+            "data_lake_profiling",
+            "file_extension",
+            extension,
+        )
 
         if file.endswith(".parquet"):
             df = self.spark.read.parquet(file)
