@@ -61,10 +61,7 @@ fragment relationshipFields on Entity {
             description
         }
         platform {
-            name
-            info {
-                logoUrl
-            }
+            ...platformFields
         }
         ownership {
             ...ownershipFields
@@ -81,11 +78,7 @@ fragment relationshipFields on Entity {
         description
         origin
         platform {
-            name
-            info {
-                displayName
-                logoUrl
-            }
+            ...platformFields
         }
         ownership {
             ...ownershipFields
@@ -98,11 +91,7 @@ fragment relationshipFields on Entity {
         description
         origin
         platform {
-            name
-            info {
-                displayName
-                logoUrl
-            }
+            ...platformFields
         }
         ownership {
             ...ownershipFields

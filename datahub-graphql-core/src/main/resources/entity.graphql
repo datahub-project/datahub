@@ -2660,6 +2660,11 @@ type Dashboard implements EntityWithRelationships & Entity {
     The structured tags associated with the dashboard
     """
     globalTags: GlobalTags @deprecated
+
+    """
+    Standardized platform urn where the dashboard is defined
+    """
+    platform: DataPlatform!
 }
 
 """
@@ -2858,6 +2863,11 @@ type Chart implements EntityWithRelationships & Entity {
     The structured tags associated with the chart
     """
     globalTags: GlobalTags @deprecated
+
+    """
+    Standardized platform urn where the chart is defined
+    """
+    platform: DataPlatform!
 }
 
 """
@@ -3160,6 +3170,11 @@ type DataFlow implements Entity {
     Data Jobs
     """
     dataJobs: DataFlowDataJobsRelationships @deprecated
+
+    """
+    Standardized platform urn where the datflow is defined
+    """
+    platform: DataPlatform!
 }
 
 """
