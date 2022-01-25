@@ -1,5 +1,6 @@
 query appConfig {
     appConfig {
+        appVersion
         policiesConfig {
             enabled
             platformPrivileges {

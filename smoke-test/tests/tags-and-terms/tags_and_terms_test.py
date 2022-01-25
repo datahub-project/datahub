@@ -11,6 +11,7 @@ def ingest_cleanup_data(request):
     print("removing test data")
     delete_urns_from_file("tests/tags-and-terms/data.json")
 
+@pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
 def test_add_tag(frontend_session,wait_for_healthchecks):
     platform = "urn:li:dataPlatform:kafka"
     dataset_name = (
@@ -120,6 +121,7 @@ def test_add_tag(frontend_session,wait_for_healthchecks):
     assert res_data["data"]["dataset"]
     assert res_data["data"]["dataset"]["globalTags"] == {'tags': [] }
 
+@pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
 def test_add_tag_to_chart(frontend_session,wait_for_healthchecks):
     chart_urn = "urn:li:chart:(looker,test-tags-terms-sample-chart)"
 
@@ -222,6 +224,7 @@ def test_add_tag_to_chart(frontend_session,wait_for_healthchecks):
     assert res_data["data"]["chart"]
     assert res_data["data"]["chart"]["globalTags"] == {'tags': [] }
 
+@pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
 def test_add_term(frontend_session,wait_for_healthchecks):
     platform = "urn:li:dataPlatform:kafka"
     dataset_name = (
@@ -332,6 +335,7 @@ def test_add_term(frontend_session,wait_for_healthchecks):
     assert res_data["data"]["dataset"]
     assert res_data["data"]["dataset"]["glossaryTerms"] == {'terms': []}
 
+@pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
 def test_update_schemafield(frontend_session,wait_for_healthchecks):
     platform = "urn:li:dataPlatform:kafka"
     dataset_name = (

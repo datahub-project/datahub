@@ -20,6 +20,7 @@ from datahub.ingestion.source.sql.sql_types import (
     BIGQUERY_TYPES_MAP,
     POSTGRES_TYPES_MAP,
     SNOWFLAKE_TYPES_MAP,
+    SPARK_SQL_TYPES_MAP,
     resolve_postgres_modified_type,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
@@ -482,6 +483,7 @@ _field_type_mapping = {
     **POSTGRES_TYPES_MAP,
     **SNOWFLAKE_TYPES_MAP,
     **BIGQUERY_TYPES_MAP,
+    **SPARK_SQL_TYPES_MAP,
 }
 
 

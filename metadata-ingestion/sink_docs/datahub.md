@@ -36,6 +36,8 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | -------- | -------- | ------- | ---------------------------- |
 | `server` | ✅       |         | URL of DataHub GMS endpoint. |
 | `timeout_sec` |     | 30      | Per-HTTP request timeout.    |
+| `retry_max_times` | | 1 | Maximum times to retry if HTTP request fails. The delay between retries is increased exponentially |
+| `retry_status_codes`|    | [429, 502, 503, 504] | Retry HTTP request also on these status codes |
 | `token` |     |       | Bearer token used for authentication.    |
 | `extra_headers` |     |       | Extra headers which will be added to the request.    |
 | `max_threads`   |          | `1` |  Experimental: Max parallelism for REST API calls     |

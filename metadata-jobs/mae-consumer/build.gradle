@@ -35,6 +35,8 @@ dependencies {
     annotationProcessor externalDependency.lombok
 
     runtime externalDependency.logbackClassic
+
+    implementation externalDependency.awsMskIamAuth
 }
 
 task avroSchemaSources(type: Copy) {

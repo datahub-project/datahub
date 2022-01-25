@@ -59,6 +59,11 @@ This configuration dictates the behavior of the UI, such as which features are e
 """
 type AppConfig {
   """
+  App version
+  """
+  appVersion: String
+
+  """
   Configurations related to the Analytics Feature
   """
   analyticsConfig: AnalyticsConfig!

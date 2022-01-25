@@ -29,6 +29,8 @@ class DatahubClientConfig(ConfigModel):
     server: str = "http://localhost:8080"
     token: Optional[str]
     timeout_sec: Optional[int]
+    retry_status_codes: Optional[List[int]]
+    retry_max_times: Optional[int]
     extra_headers: Optional[Dict[str, str]]
     ca_certificate_path: Optional[str]
     max_threads: int = 1
@@ -42,6 +44,8 @@ class DataHubGraph(DatahubRestEmitter):
             token=self.config.token,
             connect_timeout_sec=self.config.timeout_sec,  # reuse timeout_sec for connect timeout
             read_timeout_sec=self.config.timeout_sec,
+            retry_status_codes=self.config.retry_status_codes,
+            retry_max_times=self.config.retry_max_times,
             extra_headers=self.config.extra_headers,
             ca_certificate_path=self.config.ca_certificate_path,
         )

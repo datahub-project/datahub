@@ -1,6 +1,8 @@
 import deepdiff
 import pytest
 
+from datahub.utilities.hive_schema_to_avro import get_avro_schema_for_hive_column
+
 
 @pytest.mark.integration
 def test_hive_configuration_get_identifier_with_database():
@@ -26,28 +28,9 @@ def test_hive_configuration_get_identifier_with_database():
 
 @pytest.mark.integration
 def test_hive_configuration_get_avro_schema_from_native_data_type():
-    from datahub.ingestion.api.common import PipelineContext
-    from datahub.ingestion.source.sql.hive import HiveConfig, HiveSource
-
-    test_db_name = "test_database"
-    # test_table_name = "test_table"
-    config_dict = {
-        "username": "test",
-        "password": "test",
-        "host_port": "test:80",
-        "database": test_db_name,
-        "scheme": "hive+https",
-    }
-    hive_config = HiveConfig.parse_obj(config_dict)
-    ctx = PipelineContext(run_id="test")
-    hive_source = HiveSource(hive_config, ctx)
-
     # Test 3  - struct of struct
     datatype_string = "struct<type:string,provider:array<int>,abc:struct<t1:string>>"
-
-    output = HiveSource.get_avro_schema_from_native_data_type(
-        hive_source, datatype_string, "service"
-    )
+    output = get_avro_schema_for_hive_column("service", datatype_string)
     diff = deepdiff.DeepDiff(
         (
             {
@@ -96,7 +79,7 @@ def test_hive_configuration_get_avro_schema_from_native_data_type():
                 ],
             }
         ),
-        output["fields"][0]["type"],
+        output["fields"][0]["type"],  # type: ignore
         exclude_regex_paths=[
             r"root\['name'\]",
             r"root\['fields'\]\[2\]\['type'\]\['name'\]",

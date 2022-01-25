@@ -86,7 +86,7 @@ export type EntityContextType = {
     entityType: EntityType;
     entityData: GenericEntityProperties | null;
     baseEntity: any;
-    updateEntity: UpdateEntityType<any>;
+    updateEntity?: UpdateEntityType<any> | null;
     routeToTab: (params: { tabName: string; tabParams?: Record<string, any>; method?: 'push' | 'replace' }) => void;
     refetch: () => Promise<any>;
     lineage: FetchedEntity | undefined;

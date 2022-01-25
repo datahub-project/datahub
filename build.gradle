@@ -12,7 +12,13 @@ buildscript {
     classpath('com.github.jengelman.gradle.plugins:shadow:5.2.0') {
       exclude group: 'org.apache.logging.log4j', module: 'log4j-core'
     }
+    classpath "io.codearte.gradle.nexus:gradle-nexus-staging-plugin:0.30.0"
+    classpath "com.palantir.gradle.gitversion:gradle-git-version:0.12.3"
   }
+}
+
+plugins {
+  id 'com.gorylenko.gradle-git-properties' version '2.4.0-rc2'
 }
 
 project.ext.spec = [
@@ -38,6 +44,7 @@ project.ext.externalDependency = [
     'avro_1_7': 'org.apache.avro:avro:1.7.7',
     'avroCompiler_1_7': 'org.apache.avro:avro-compiler:1.7.7',
     'awsGlueSchemaRegistrySerde': 'software.amazon.glue:schema-registry-serde:1.1.1',
+    'awsMskIamAuth': 'software.amazon.msk:aws-msk-iam-auth:1.1.1',
     'cacheApi' : 'javax.cache:cache-api:1.1.0',
     'commonsIo': 'commons-io:commons-io:2.4',
     'commonsLang': 'commons-lang:commons-lang:2.6',
@@ -123,9 +130,9 @@ project.ext.externalDependency = [
     'springKafka': 'org.springframework.kafka:spring-kafka:2.2.14.RELEASE',
     'springActuator': 'org.springframework.boot:spring-boot-starter-actuator:2.1.4.RELEASE',
     'testng': 'org.testng:testng:7.3.0',
-    'testContainers': 'org.testcontainers:testcontainers:1.15.1',
-    'testContainersJunit': 'org.testcontainers:junit-jupiter:1.15.1',
-    'testContainersPostgresql':'org.testcontainers:postgresql:1.2.0',
+    'testContainers': 'org.testcontainers:testcontainers:1.15.3',
+    'testContainersJunit': 'org.testcontainers:junit-jupiter:1.15.3',
+    'testContainersPostgresql':'org.testcontainers:postgresql:1.15.3',
     'testContainersElasticsearch': 'org.testcontainers:elasticsearch:1.15.3',
     'wiremock':'com.github.tomakehurst:wiremock:2.10.0',
     'zookeeper': 'org.apache.zookeeper:zookeeper:3.4.14'
@@ -137,12 +144,26 @@ allprojects {
   apply plugin: 'checkstyle'
 }
 
-subprojects {
-  apply plugin: 'maven'
+configure(subprojects.findAll {it.name != 'spark-lineage'}) {
 
   configurations.all {
     exclude group: "io.netty", module: "netty"
     exclude group: "log4j", module: "log4j"
+  }
+
+}
+
+subprojects {
+
+  apply plugin: 'maven'
+  apply plugin: 'com.gorylenko.gradle-git-properties'
+
+  gitProperties {
+    keys = ['git.commit.id','git.commit.id.describe','git.commit.time']
+    // using any tags (not limited to annotated tags) for "git.commit.id.describe" property
+    // see http://ajoberstar.org/grgit/grgit-describe.html for more info about the describe method and available parameters
+    // 'it' is an instance of org.ajoberstar.grgit.Grgit
+    customProperty 'git.commit.id.describe', { it.describe(tags: true) }
   }
 
   plugins.withType(JavaPlugin) {

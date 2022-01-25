@@ -2,9 +2,10 @@ import collections
 import json
 import logging
 from datetime import datetime, timezone
-from typing import Any, Dict, Iterable, List, Optional, cast
+from typing import Any, Dict, Iterable, List, Optional, Union, cast
 
 import pydantic.dataclasses
+from more_itertools import partition
 from pydantic import BaseModel
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
@@ -39,6 +40,7 @@ logger = logging.getLogger(__name__)
 
 SnowflakeTableRef = str
 AggregatedDataset = GenericAggregatedDataset[SnowflakeTableRef]
+AggregatedAccessEvents = Dict[datetime, Dict[SnowflakeTableRef, AggregatedDataset]]
 
 SNOWFLAKE_USAGE_SQL_TEMPLATE = """
 SELECT
@@ -258,16 +260,19 @@ class SnowflakeUsageSource(StatefulIngestionSourceBase):
             self._init_checkpoints()
             # Generate the workunits.
             access_events = self._get_snowflake_history()
-            if self.config.include_operational_stats:
-                operation_aspect_work_units = self._get_operation_aspect_work_units(
-                    access_events
-                )
-                for wu in operation_aspect_work_units:
-                    self.report.report_workunit(wu)
-                    yield wu
-            aggregated_info = self._aggregate_access_events(access_events)
+            aggregated_info_items_raw, operation_aspect_work_units_raw = partition(
+                lambda x: isinstance(x, MetadataWorkUnit),
+                self._aggregate_access_events(access_events),
+            )
+            for wu in cast(Iterable[MetadataWorkUnit], operation_aspect_work_units_raw):
+                self.report.report_workunit(wu)
+                yield wu
+            aggregated_info_items = list(aggregated_info_items_raw)
+            assert len(aggregated_info_items) == 1
 
-            for time_bucket in aggregated_info.values():
+            for time_bucket in cast(
+                AggregatedAccessEvents, aggregated_info_items[0]
+            ).values():
                 for aggregate in time_bucket.values():
                     wu = self._make_usage_stat(aggregate)
                     self.report.report_workunit(wu)
@@ -385,47 +390,47 @@ class SnowflakeUsageSource(StatefulIngestionSourceBase):
                     "usage", f"Failed to parse usage line {event_dict}"
                 )
 
-    def _get_operation_aspect_work_units(
-        self, events: Iterable[SnowflakeJoinedAccessEvent]
+    def _get_operation_aspect_work_unit(
+        self, event: SnowflakeJoinedAccessEvent
     ) -> Iterable[MetadataWorkUnit]:
-        for event in events:
-            if event.query_start_time and event.query_type in OPERATION_STATEMENT_TYPES:
-                start_time = event.query_start_time
-                query_type = event.query_type
-                user_email = event.email
-                operation_type = OPERATION_STATEMENT_TYPES[query_type]
-                last_updated_timestamp: int = int(start_time.timestamp() * 1000)
-                user_urn = builder.make_user_urn(user_email.split("@")[0])
-                for obj in event.base_objects_accessed:
-                    resource = obj.objectName
-                    dataset_urn = builder.make_dataset_urn(
-                        "snowflake", resource.lower(), self.config.env
-                    )
-                    operation_aspect = OperationClass(
-                        timestampMillis=last_updated_timestamp,
-                        lastUpdatedTimestamp=last_updated_timestamp,
-                        actor=user_urn,
-                        operationType=operation_type,
-                    )
-                    mcp = MetadataChangeProposalWrapper(
-                        entityType="dataset",
-                        aspectName="operation",
-                        changeType=ChangeTypeClass.UPSERT,
-                        entityUrn=dataset_urn,
-                        aspect=operation_aspect,
-                    )
-                    wu = MetadataWorkUnit(
-                        id=f"operation-aspect-{resource}-{start_time.isoformat()}",
-                        mcp=mcp,
-                    )
-                    yield wu
+        if event.query_start_time and event.query_type in OPERATION_STATEMENT_TYPES:
+            start_time = event.query_start_time
+            query_type = event.query_type
+            user_email = event.email
+            operation_type = OPERATION_STATEMENT_TYPES[query_type]
+            last_updated_timestamp: int = int(start_time.timestamp() * 1000)
+            user_urn = builder.make_user_urn(user_email.split("@")[0])
+            for obj in event.base_objects_accessed:
+                resource = obj.objectName
+                dataset_urn = builder.make_dataset_urn(
+                    "snowflake", resource.lower(), self.config.env
+                )
+                operation_aspect = OperationClass(
+                    timestampMillis=last_updated_timestamp,
+                    lastUpdatedTimestamp=last_updated_timestamp,
+                    actor=user_urn,
+                    operationType=operation_type,
+                )
+                mcp = MetadataChangeProposalWrapper(
+                    entityType="dataset",
+                    aspectName="operation",
+                    changeType=ChangeTypeClass.UPSERT,
+                    entityUrn=dataset_urn,
+                    aspect=operation_aspect,
+                )
+                wu = MetadataWorkUnit(
+                    id=f"operation-aspect-{resource}-{start_time.isoformat()}",
+                    mcp=mcp,
+                )
+                yield wu
 
     def _aggregate_access_events(
         self, events: Iterable[SnowflakeJoinedAccessEvent]
-    ) -> Dict[datetime, Dict[SnowflakeTableRef, AggregatedDataset]]:
-        datasets: Dict[
-            datetime, Dict[SnowflakeTableRef, AggregatedDataset]
-        ] = collections.defaultdict(dict)
+    ) -> Iterable[Union[AggregatedAccessEvents, MetadataWorkUnit]]:
+        """
+        Emits aggregated access events combined with operational workunits from the events.
+        """
+        datasets: AggregatedAccessEvents = collections.defaultdict(dict)
 
         for event in events:
             floored_ts = get_time_bucket(
@@ -450,8 +455,10 @@ class SnowflakeUsageSource(StatefulIngestionSourceBase):
                     if object.columns is not None
                     else [],
                 )
+            if self.config.include_operational_stats:
+                yield from self._get_operation_aspect_work_unit(event)
 
-        return datasets
+        yield datasets
 
     def _make_usage_stat(self, agg: AggregatedDataset) -> MetadataWorkUnit:
         return agg.make_usage_workunit(

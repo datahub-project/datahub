@@ -253,6 +253,44 @@ date :: date) <= 7
 @pytest.mark.skipif(
     sys.version_info < (3, 7), reason="The LookML source requires Python 3.7+"
 )
+def test_metadatasql_sql_parser_get_tables_from_templated_query():
+    sql_query = """
+        SELECT
+          country,
+          city,
+          timestamp,
+          measurement
+        FROM
+          ${my_view.SQL_TABLE_NAME} AS my_view
+"""
+    tables_list = MetadataSQLSQLParser(sql_query).get_tables()
+    tables_list.sort()
+    assert tables_list == ["my_view.SQL_TABLE_NAME"]
+
+
+@pytest.mark.integration
+@pytest.mark.skipif(
+    sys.version_info < (3, 7), reason="The LookML source requires Python 3.7+"
+)
+def test_sqllineage_sql_parser_get_tables_from_templated_query():
+    sql_query = """
+        SELECT
+          country,
+          city,
+          timestamp,
+          measurement
+        FROM
+          ${my_view.SQL_TABLE_NAME} AS my_view
+"""
+    tables_list = SqlLineageSQLParser(sql_query).get_tables()
+    tables_list.sort()
+    assert tables_list == ["my_view.SQL_TABLE_NAME"]
+
+
+@pytest.mark.integration
+@pytest.mark.skipif(
+    sys.version_info < (3, 7), reason="The LookML source requires Python 3.7+"
+)
 def test_metadatasql_sql_parser_get_columns_from_templated_query():
     sql_query = """
         SELECT
