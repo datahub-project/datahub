@@ -21,6 +21,16 @@ record ContainerProperties includes CustomProperties, ExternalReference {
   name: string
 
   /**
+   * Fully-qualified name of the Container
+   */
+  @Searchable = {
+    "fieldType": "TEXT_PARTIAL",
+    "enableAutocomplete": true,
+    "boostScore": 10.0
+  }
+  qualifiedName: optional string
+
+  /**
    * Description of the Asset Container as it exists inside a source system
    */
   description: optional string
