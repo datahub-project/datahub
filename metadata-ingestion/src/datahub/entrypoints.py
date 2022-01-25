@@ -82,7 +82,12 @@ def init() -> None:
         type=str,
         default="",
     )
-    write_datahub_config(host, token)
+    ca_cert = click.prompt(
+        "Enter CA cert path (Optional) (Supports env vars via `{VAR_NAME}` syntax)",
+        type=str,
+        default="",
+    )
+    write_datahub_config(host, token, ca_cert)
 
     click.echo(f"Written to {DATAHUB_CONFIG_PATH}")
 

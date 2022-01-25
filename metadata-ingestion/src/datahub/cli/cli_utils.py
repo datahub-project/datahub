@@ -25,22 +25,23 @@ DATAHUB_CONFIG_PATH = os.path.expanduser(CONDENSED_DATAHUB_CONFIG_PATH)
 ENV_SKIP_CONFIG = "DATAHUB_SKIP_CONFIG"
 ENV_METADATA_HOST = "DATAHUB_GMS_HOST"
 ENV_METADATA_TOKEN = "DATAHUB_GMS_TOKEN"
-
+ENV_METADATA_CA_CERT = "DATAHUB_GMS_CA_CERT"
 
 class GmsConfig(BaseModel):
     server: str
     token: Optional[str]
-
+    ca_cert: Optional[str]
 
 class DatahubConfig(BaseModel):
     gms: GmsConfig
 
 
-def write_datahub_config(host: str, token: Optional[str]) -> None:
+def write_datahub_config(host: str, token: Optional[str], ca_cert: Optional[str]) -> None:
     config = {
         "gms": {
             "server": host,
             "token": token,
+            "ca_cert": ca_cert,
         }
     }
     with open(DATAHUB_CONFIG_PATH, "w+") as outfile:
@@ -78,14 +79,17 @@ def get_details_from_config():
 
             gms_host = gms_config.server
             gms_token = gms_config.token
-            return gms_host, gms_token
+            gms_ca_cert = gms_config.ca_cert
+            return gms_host, gms_token, gms_ca_cert
         except yaml.YAMLError as exc:
             click.secho(f"{DATAHUB_CONFIG_PATH} malformatted, error: {exc}", bold=True)
-    return None, None
+    return None, None, None
 
 
 def get_details_from_env() -> Tuple[Optional[str], Optional[str]]:
-    return os.environ.get(ENV_METADATA_HOST), os.environ.get(ENV_METADATA_TOKEN)
+    return os.environ.get(ENV_METADATA_HOST), \
+        os.environ.get(ENV_METADATA_TOKEN), \
+        os.environ.get(ENV_METADATA_CA_CERT)
 
 
 def first_non_null(ls: List[Optional[str]]) -> Optional[str]:
@@ -98,28 +102,39 @@ def guess_entity_type(urn: str) -> str:
 
 
 def get_token():
-    _, gms_token_env = get_details_from_env()
+    _, gms_token_env, _ = get_details_from_env()
     if should_skip_config():
         gms_token = gms_token_env
     else:
         ensure_datahub_config()
-        _, gms_token_conf = get_details_from_config()
+        _, gms_token_conf, _ = get_details_from_config()
         gms_token = first_non_null([gms_token_env, gms_token_conf])
     return gms_token
 
+def get_ca_cert():
+    _, _, gms_ca_cert_env = get_details_from_env()
+    if should_skip_config():
+        gms_ca_cert = gms_ca_cert_env
+    else:
+        ensure_datahub_config()
+        _, _, gms_ca_cert_conf = get_details_from_config()
+        gms_ca_cert = first_non_null([gms_ca_cert_env, gms_ca_cert_conf])
+    return gms_ca_cert
 
 def get_session_and_host():
     session = requests.Session()
 
-    gms_host_env, gms_token_env = get_details_from_env()
+    gms_host_env, gms_token_env, gms_ca_cert_env = get_details_from_env()
     if should_skip_config():
         gms_host = gms_host_env
         gms_token = gms_token_env
+        gms_ca_cert = gms_ca_cert_env
     else:
         ensure_datahub_config()
-        gms_host_conf, gms_token_conf = get_details_from_config()
+        gms_host_conf, gms_token_conf, gms_ca_cert_conf = get_details_from_config()
         gms_host = first_non_null([gms_host_env, gms_host_conf])
         gms_token = first_non_null([gms_token_env, gms_token_conf])
+        gms_ca_cert = first_non_null([gms_ca_cert_env, gms_ca_cert_conf])
 
     if gms_host is None or gms_host.strip() == "":
         log.error(
@@ -137,6 +152,8 @@ def get_session_and_host():
         session.headers.update(
             {"Authorization": f"Bearer {gms_token.format(**os.environ)}"}
         )
+    if isinstance(gms_ca_cert, str) and len(gms_ca_cert) > 0:
+        session.verify = gms_ca_cert
 
     return session, gms_host
 
