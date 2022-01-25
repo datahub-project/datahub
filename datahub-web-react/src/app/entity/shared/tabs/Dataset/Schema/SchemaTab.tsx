@@ -10,7 +10,6 @@ import { KEY_SCHEMA_PREFIX } from '../../../../dataset/profile/schema/utils/cons
 import { groupByFieldPath } from '../../../../dataset/profile/schema/utils/utils';
 import { ANTD_GRAY } from '../../../constants';
 import { useBaseEntity, useEntityData } from '../../../EntityContext';
-import { GenericEntityTabProperties } from '../../../types';
 
 import SchemaTable from './SchemaTable';
 
@@ -19,7 +18,7 @@ const NoSchema = styled(Empty)`
     padding-top: 60px;
 `;
 
-export const SchemaTab = ({ properties }: { properties?: GenericEntityTabProperties }) => {
+export const SchemaTab = ({ properties }: { properties?: any }) => {
     const { entityData } = useEntityData();
     const baseEntity = useBaseEntity<GetDatasetQuery>();
     let editMode = true;

@@ -1,7 +1,6 @@
 package com.linkedin.datahub.graphql.types.glossary;
 
 import com.google.common.collect.ImmutableSet;
-import com.linkedin.common.urn.GlossaryTermUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.StringArray;

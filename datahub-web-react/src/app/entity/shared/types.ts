@@ -21,18 +21,14 @@ import {
 } from '../../../types.generated';
 import { FetchedEntity } from '../../lineage/types';
 
-export type GenericEntityTabProperties = {
-    editMode: boolean;
-};
-
 export type EntityTab = {
     name: string;
-    component: React.FunctionComponent<{ properties?: GenericEntityTabProperties }>;
+    component: React.FunctionComponent<{ properties?: any }>;
     display?: {
         visible: (GenericEntityProperties, T) => boolean; // Whether the tab is visible on the UI. Defaults to true.
         enabled: (GenericEntityProperties, T) => boolean; // Whether the tab is enabled on the UI. Defaults to true.
     };
-    properties?: GenericEntityTabProperties;
+    properties?: any;
 };
 
 export type EntitySidebarSection = {
