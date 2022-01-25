@@ -10,6 +10,7 @@ import com.linkedin.datahub.graphql.generated.DataFlow;
 import com.linkedin.datahub.graphql.generated.DataFlowEditableProperties;
 import com.linkedin.datahub.graphql.generated.DataFlowInfo;
 import com.linkedin.datahub.graphql.generated.DataFlowProperties;
+import com.linkedin.datahub.graphql.generated.DataPlatform;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
@@ -21,6 +22,8 @@ import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
 import com.linkedin.datajob.EditableDataFlowProperties;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.metadata.key.DataFlowKey;
+import com.linkedin.metadata.key.DataPlatformKey;
+import com.linkedin.metadata.utils.EntityKeyUtils;
 import javax.annotation.Nonnull;
 
 import static com.linkedin.metadata.Constants.*;
@@ -47,6 +50,11 @@ public class DataFlowMapper implements ModelMapper<EntityResponse, DataFlow> {
                 result.setOrchestrator(gmsKey.getOrchestrator());
                 result.setFlowId(gmsKey.getFlowId());
                 result.setCluster(gmsKey.getCluster());
+                result.setPlatform(DataPlatform.builder()
+                    .setType(EntityType.DATA_PLATFORM)
+                    .setUrn(EntityKeyUtils
+                        .convertEntityKeyToUrn(new DataPlatformKey()
+                            .setPlatformName(gmsKey.getOrchestrator()), DATA_PLATFORM_ENTITY_NAME).toString()).build());
             } else if (DATA_FLOW_INFO_ASPECT_NAME.equals(name)) {
                 final com.linkedin.datajob.DataFlowInfo gmsDataFlowInfo = new com.linkedin.datajob.DataFlowInfo(data);
                 result.setInfo(mapDataFlowInfo(gmsDataFlowInfo));

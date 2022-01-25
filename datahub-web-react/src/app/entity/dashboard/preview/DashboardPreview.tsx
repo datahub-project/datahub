@@ -2,7 +2,6 @@ import React from 'react';
 import { AccessLevel, EntityType, GlobalTags, GlossaryTerms, Owner, SearchInsight } from '../../../../types.generated';
 import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
-import { getLogoFromPlatform } from '../../../shared/getLogoFromPlatform';
 import { capitalizeFirstLetter } from '../../../shared/capitalizeFirstLetter';
 
 export const DashboardPreview = ({
@@ -15,6 +14,7 @@ export const DashboardPreview = ({
     tags,
     glossaryTerms,
     insights,
+    logoUrl,
 }: {
     urn: string;
     platform: string;
@@ -25,6 +25,7 @@ export const DashboardPreview = ({
     tags?: GlobalTags;
     glossaryTerms?: GlossaryTerms | null;
     insights?: Array<SearchInsight> | null;
+    logoUrl?: string | null;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     const capitalizedPlatform = capitalizeFirstLetter(platform);
@@ -35,7 +36,7 @@ export const DashboardPreview = ({
             name={name || ''}
             description={description || ''}
             type="Dashboard"
-            logoUrl={getLogoFromPlatform(platform) || ''}
+            logoUrl={logoUrl || ''}
             platform={capitalizedPlatform}
             qualifier={access}
             owners={owners}

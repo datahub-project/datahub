@@ -54,6 +54,8 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
                 name={data.name || ''}
                 description={data.description}
                 owners={data.ownership?.owners}
+                logoUrl={data.platform?.properties?.logoUrl}
+                platformName={data.platform?.displayName}
             />
         );
     };
@@ -66,6 +68,8 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
                 name={data.name || ''}
                 description={data.description || ''}
                 owners={data.ownership?.owners}
+                logoUrl={data.platform?.properties?.logoUrl}
+                platformName={data.platform?.displayName}
             />
         );
     };
@@ -77,7 +81,7 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
             type: EntityType.MlfeatureTable,
             upstreamChildren: [],
             downstreamChildren: [],
-            icon: entity.platform.info?.logoUrl || undefined,
+            icon: entity.platform.properties?.logoUrl || undefined,
             platform: entity.platform.name,
         };
     };

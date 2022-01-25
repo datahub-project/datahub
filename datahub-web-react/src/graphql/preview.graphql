@@ -6,11 +6,7 @@ fragment entityPreview on Entity {
         origin
         uri
         platform {
-            name
-            info {
-                displayName
-                logoUrl
-            }
+            ...platformFields
         }
         editableProperties {
             description
@@ -106,6 +102,9 @@ fragment entityPreview on Entity {
         editableProperties {
             description
         }
+        platform {
+            ...platformFields
+        }
     }
     ... on Chart {
         urn
@@ -134,6 +133,9 @@ fragment entityPreview on Entity {
         editableProperties {
             description
         }
+        platform {
+            ...platformFields
+        }
     }
     ... on DataFlow {
         urn
@@ -157,6 +159,9 @@ fragment entityPreview on Entity {
         }
         editableProperties {
             description
+        }
+        platform {
+            ...platformFields
         }
     }
     ... on DataJob {
@@ -213,6 +218,9 @@ fragment entityPreview on Entity {
         ownership {
             ...ownershipFields
         }
+        platform {
+            ...platformFields
+        }
     }
     ... on MLModel {
         name
@@ -222,11 +230,7 @@ fragment entityPreview on Entity {
             ...ownershipFields
         }
         platform {
-            name
-            info {
-                displayName
-                logoUrl
-            }
+            ...platformFields
         }
     }
     ... on MLModelGroup {
@@ -237,11 +241,7 @@ fragment entityPreview on Entity {
             ...ownershipFields
         }
         platform {
-            name
-            info {
-                displayName
-                logoUrl
-            }
+            ...platformFields
         }
     }
     ... on Tag {
@@ -249,10 +249,6 @@ fragment entityPreview on Entity {
         description
     }
     ... on DataPlatform {
-        name
-        info {
-            displayName
-            logoUrl
-        }
+        ...nonConflictingPlatformFields
     }
 }

@@ -9,11 +9,15 @@ export const Preview = ({
     name,
     description,
     owners,
+    logoUrl,
+    platformName,
 }: {
     urn: string;
     name: string;
     description?: string | null;
     owners?: Array<Owner> | null;
+    logoUrl?: string | null;
+    platformName?: string | null;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     return (
@@ -23,6 +27,8 @@ export const Preview = ({
             description={description || ''}
             type={entityRegistry.getEntityName(EntityType.MlfeatureTable)}
             owners={owners}
+            logoUrl={logoUrl || undefined}
+            platform={platformName || ''}
             logoComponent={entityRegistry.getIcon(EntityType.MlfeatureTable, 20, IconStyleType.HIGHLIGHT)}
         />
     );

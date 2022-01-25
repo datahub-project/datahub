@@ -189,7 +189,7 @@ export class DatasetEntity implements Entity<Dataset> {
                 subtype={data.subTypes?.typeNames?.[0]}
                 description={data.editableProperties?.description || data.properties?.description}
                 platformName={data.platform.displayName || data.platform.name}
-                platformLogo={data.platform.info?.logoUrl}
+                platformLogo={data.platform.properties?.logoUrl}
                 owners={data.ownership?.owners}
                 globalTags={data.globalTags}
                 glossaryTerms={data.glossaryTerms}
@@ -206,7 +206,7 @@ export class DatasetEntity implements Entity<Dataset> {
                 origin={data.origin}
                 description={data.editableProperties?.description || data.properties?.description}
                 platformName={data.platform.name}
-                platformLogo={data.platform.info?.logoUrl}
+                platformLogo={data.platform.properties?.logoUrl}
                 owners={data.ownership?.owners}
                 globalTags={data.globalTags}
                 glossaryTerms={data.glossaryTerms}
@@ -246,7 +246,7 @@ export class DatasetEntity implements Entity<Dataset> {
                 outgoingRelationships: entity?.['outgoing'],
                 direction: RelationshipDirection.Outgoing,
             }),
-            icon: entity?.platform?.info?.logoUrl || undefined,
+            icon: entity?.platform?.properties?.logoUrl || undefined,
             platform: entity?.platform?.name,
         };
     };
@@ -256,7 +256,7 @@ export class DatasetEntity implements Entity<Dataset> {
     };
 
     platformLogoUrl = (data: Dataset) => {
-        return data.platform.info?.logoUrl || undefined;
+        return data.platform.properties?.logoUrl || undefined;
     };
 
     getGenericEntityProperties = (data: Dataset) => {

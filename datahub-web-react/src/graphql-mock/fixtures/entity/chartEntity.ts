@@ -1,11 +1,41 @@
 import * as faker from 'faker';
-import { Chart, ChartType, EntityType, OwnershipType } from '../../../types.generated';
+// import { generatePlatform } from 'generateDataPlatform';
+import { Chart, ChartType, DataPlatform, EntityType, OwnershipType, PlatformType } from '../../../types.generated';
+import kafkaLogo from '../../../images/kafkalogo.png';
+import s3Logo from '../../../images/s3.png';
+import snowflakeLogo from '../../../images/snowflakelogo.png';
+import bigqueryLogo from '../../../images/bigquerylogo.png';
 import { findUserByUsername } from '../searchResult/userSearchResult';
+
+export const platformLogo = {
+    kafka: kafkaLogo,
+    s3: s3Logo,
+    snowflake: snowflakeLogo,
+    bigquery: bigqueryLogo,
+};
+
+export const generatePlatform = ({ platform, urn }): DataPlatform => {
+    return {
+        urn,
+        type: EntityType.Dataset,
+        name: platform,
+        properties: {
+            type: PlatformType.Others,
+            datasetNameDelimiter: '',
+            logoUrl: platformLogo[platform],
+            __typename: 'DataPlatformProperties',
+        },
+        __typename: 'DataPlatform',
+    };
+};
 
 export const chartEntity = (tool): Chart => {
     const name = `${faker.company.bsNoun()}_${faker.company.bsNoun()}_${faker.company.bsNoun()}`;
     const description = `${faker.commerce.productDescription()}`;
     const datahubUser = findUserByUsername('datahub');
+    const platform = 'snowflake';
+    const platformURN = `urn:li:dataPlatform:snowflake`;
+    const dataPlatform = generatePlatform({ platform, urn: platformURN });
 
     return {
         urn: `urn:li:chart:(${tool},${name})`,
@@ -36,6 +66,7 @@ export const chartEntity = (tool): Chart => {
             __typename: 'Ownership',
         },
         globalTags: null,
+        platform: dataPlatform,
         __typename: 'Chart',
     };
 };

@@ -1,5 +1,10 @@
 import * as faker from 'faker';
-import { DataFlow, EntityType, OwnershipType } from '../../../types.generated';
+// import { generatePlatform } from 'generateDataPlatform';
+import kafkaLogo from '../../../images/kafkalogo.png';
+import s3Logo from '../../../images/s3.png';
+import snowflakeLogo from '../../../images/snowflakelogo.png';
+import bigqueryLogo from '../../../images/bigquerylogo.png';
+import { DataFlow, DataPlatform, EntityType, OwnershipType, PlatformType } from '../../../types.generated';
 import { findUserByUsername } from '../searchResult/userSearchResult';
 
 export type DataFlowEntityArg = {
@@ -7,10 +12,35 @@ export type DataFlowEntityArg = {
     cluster: string;
 };
 
+export const platformLogo = {
+    kafka: kafkaLogo,
+    s3: s3Logo,
+    snowflake: snowflakeLogo,
+    bigquery: bigqueryLogo,
+};
+
+export const generatePlatform = ({ platform, urn }): DataPlatform => {
+    return {
+        urn,
+        type: EntityType.Dataset,
+        name: platform,
+        properties: {
+            type: PlatformType.Others,
+            datasetNameDelimiter: '',
+            logoUrl: platformLogo[platform],
+            __typename: 'DataPlatformProperties',
+        },
+        __typename: 'DataPlatform',
+    };
+};
+
 export const dataFlowEntity = ({ orchestrator, cluster }: DataFlowEntityArg): DataFlow => {
     const flowId = `${faker.company.bsNoun()}_${faker.company.bsNoun()}`;
     const description = `${faker.commerce.productDescription()}`;
     const datahubUser = findUserByUsername('datahub');
+    const platform = 'kafka';
+    const platformURN = `urn:li:dataPlatform:kafka`;
+    const dataPlatform = generatePlatform({ platform, urn: platformURN });
 
     return {
         urn: `urn:li:dataFlow:(${orchestrator},${flowId},${cluster})`,
@@ -38,6 +68,7 @@ export const dataFlowEntity = ({ orchestrator, cluster }: DataFlowEntityArg): Da
         },
         globalTags: { tags: [], __typename: 'GlobalTags' },
         dataJobs: null,
+        platform: dataPlatform,
         __typename: 'DataFlow',
     };
 };

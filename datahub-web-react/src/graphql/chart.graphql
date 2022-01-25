@@ -4,6 +4,9 @@ query getChart($urn: String!) {
         type
         tool
         chartId
+        platform {
+            ...platformFields
+        }
         properties {
             name
             description

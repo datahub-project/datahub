@@ -1,7 +1,34 @@
 import * as faker from 'faker';
+// import { generatePlatform } from 'generateDataPlatform';
+import kafkaLogo from '../../../images/kafkalogo.png';
+import s3Logo from '../../../images/s3.png';
+import snowflakeLogo from '../../../images/snowflakelogo.png';
+import bigqueryLogo from '../../../images/bigquerylogo.png';
 import { generateTag } from '../tag';
-import { Dashboard, EntityType, Ownership, OwnershipType } from '../../../types.generated';
+import { Dashboard, DataPlatform, EntityType, Ownership, OwnershipType, PlatformType } from '../../../types.generated';
 import { findUserByUsername } from '../searchResult/userSearchResult';
+
+export const platformLogo = {
+    kafka: kafkaLogo,
+    s3: s3Logo,
+    snowflake: snowflakeLogo,
+    bigquery: bigqueryLogo,
+};
+
+export const generatePlatform = ({ platform, urn }): DataPlatform => {
+    return {
+        urn,
+        type: EntityType.Dataset,
+        name: platform,
+        properties: {
+            type: PlatformType.Others,
+            datasetNameDelimiter: '',
+            logoUrl: platformLogo[platform],
+            __typename: 'DataPlatformProperties',
+        },
+        __typename: 'DataPlatform',
+    };
+};
 
 export const dashboardEntity = (tool): Dashboard => {
     const name = `${faker.company.bsNoun()}`;
@@ -31,6 +58,9 @@ export const dashboardEntity = (tool): Dashboard => {
         lastModified: { time: 1619993818664, __typename: 'AuditStamp' },
         __typename: 'Ownership',
     };
+    const platform = 's3';
+    const platformURN = `urn:li:dataPlatform:s3`;
+    const dataPlatform = generatePlatform({ platform, urn: platformURN });
 
     return {
         urn: `urn:li:dashboard:(${tool},${name})`,
@@ -82,6 +112,7 @@ export const dashboardEntity = (tool): Dashboard => {
             ],
             __typename: 'GlobalTags',
         },
+        platform: dataPlatform,
         __typename: 'Dashboard',
     };
 };

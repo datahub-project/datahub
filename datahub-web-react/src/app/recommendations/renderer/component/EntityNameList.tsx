@@ -51,9 +51,10 @@ export const EntityNameList = ({ entities, onClick }: Props) => {
             dataSource={entities}
             renderItem={(entity, index) => {
                 const genericProps = entityRegistry.getGenericEntityProperties(entity.type, entity);
-                const platformLogoUrl = genericProps?.platform?.info?.logoUrl;
+                const platformLogoUrl = genericProps?.platform?.properties?.logoUrl;
                 const platformName =
-                    genericProps?.platform?.info?.displayName || capitalizeFirstLetter(genericProps?.platform?.name);
+                    genericProps?.platform?.properties?.displayName ||
+                    capitalizeFirstLetter(genericProps?.platform?.name);
                 const entityTypeName = entityRegistry.getEntityName(entity.type);
                 const displayName = entityRegistry.getDisplayName(entity.type, entity);
                 const url = entityRegistry.getEntityUrl(entity.type, entity.urn);

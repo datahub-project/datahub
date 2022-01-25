@@ -64,9 +64,11 @@ export const SearchFilterLabel = ({ aggregation, field }: Props) => {
         const platform = aggregation.entity as DataPlatform;
         return (
             <>
-                {!!platform.info?.logoUrl && <PreviewImage src={platform.info?.logoUrl} alt={platform.name} />}
+                {!!platform.properties?.logoUrl && (
+                    <PreviewImage src={platform.properties?.logoUrl} alt={platform.name} />
+                )}
                 <span>
-                    {platform.info?.displayName || platform.name} ({countText})
+                    {platform.properties?.displayName || platform.name} ({countText})
                 </span>
             </>
         );

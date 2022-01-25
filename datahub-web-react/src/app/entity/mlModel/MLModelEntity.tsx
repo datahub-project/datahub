@@ -76,7 +76,7 @@ export class MLModelEntity implements Entity<MlModel> {
                 outgoingRelationships: entity?.['outgoing'],
                 direction: RelationshipDirection.Outgoing,
             }),
-            icon: entity.platform?.info?.logoUrl || undefined,
+            icon: entity.platform?.properties?.logoUrl || undefined,
             platform: entity.platform?.name,
         };
     };

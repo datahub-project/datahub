@@ -26,6 +26,7 @@ public class DataPlatformSnapshotMapper implements ModelMapper<DataPlatformSnaps
         for (DataPlatformAspect aspect : input.getAspects()) {
             if (aspect.isDataPlatformInfo()) {
                 result.setInfo(DataPlatformInfoMapper.map(aspect.getDataPlatformInfo()));
+                result.setProperties(DataPlatformPropertiesMapper.map(aspect.getDataPlatformInfo()));
             }
         }
         return result;

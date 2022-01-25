@@ -93,6 +93,18 @@ const user2 = {
     },
 };
 
+const dataPlatform = {
+    urn: 'urn:li:dataPlatform:hdfs',
+    name: 'HDFS',
+    type: EntityType.DataPlatform,
+    properties: {
+        displayName: 'HDFS',
+        type: PlatformType.FileSystem,
+        datasetNameDelimiter: '.',
+        logoUrl: '',
+    },
+};
+
 const dataset1 = {
     urn: 'urn:li:dataset:1',
     type: EntityType.Dataset,
@@ -100,7 +112,7 @@ const dataset1 = {
         urn: 'urn:li:dataPlatform:hdfs',
         name: 'HDFS',
         type: EntityType.DataPlatform,
-        info: {
+        properties: {
             displayName: 'HDFS',
             type: PlatformType.FileSystem,
             datasetNameDelimiter: '.',
@@ -856,6 +868,9 @@ export const dataFlow1 = {
             },
         ],
     },
+    platform: {
+        ...dataPlatform,
+    },
 } as DataFlow;
 
 export const dataJob1 = {
@@ -1175,7 +1190,7 @@ export const recommendationModules = [
                 entity: {
                     urn: 'urn:li:dataPlatform:snowflake',
                     type: EntityType.DataPlatform,
-                    info: {
+                    properties: {
                         displayName: 'Snowflake',
                     },
                 },

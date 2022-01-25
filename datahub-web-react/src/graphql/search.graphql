@@ -28,10 +28,7 @@ fragment searchResults on SearchResults {
                 origin
                 uri
                 platform {
-                    name
-                    info {
-                        logoUrl
-                    }
+                    ...platformFields
                 }
                 editableProperties {
                     description
@@ -127,6 +124,9 @@ fragment searchResults on SearchResults {
                 editableProperties {
                     description
                 }
+                platform {
+                    ...platformFields
+                }
             }
             ... on Chart {
                 urn
@@ -155,6 +155,9 @@ fragment searchResults on SearchResults {
                 editableProperties {
                     description
                 }
+                platform {
+                    ...platformFields
+                }
             }
             ... on DataFlow {
                 urn
@@ -178,6 +181,9 @@ fragment searchResults on SearchResults {
                 }
                 editableProperties {
                     description
+                }
+                platform {
+                    ...platformFields
                 }
             }
             ... on DataJob {
@@ -234,6 +240,9 @@ fragment searchResults on SearchResults {
                 ownership {
                     ...ownershipFields
                 }
+                platform {
+                    ...platformFields
+                }
             }
             ... on MLModel {
                 name
@@ -243,10 +252,7 @@ fragment searchResults on SearchResults {
                     ...ownershipFields
                 }
                 platform {
-                    name
-                    info {
-                        logoUrl
-                    }
+                    ...platformFields
                 }
             }
             ... on MLModelGroup {
@@ -257,10 +263,7 @@ fragment searchResults on SearchResults {
                     ...ownershipFields
                 }
                 platform {
-                    name
-                    info {
-                        logoUrl
-                    }
+                    ...platformFields
                 }
             }
             ... on Tag {
@@ -294,12 +297,7 @@ fragment searchResults on SearchResults {
                     name
                 }
                 ... on DataPlatform {
-                    name
-                    displayName
-                    info {
-                        displayName
-                        logoUrl
-                    }
+                    ...platformFields
                 }
             }
         }

@@ -14,7 +14,7 @@ export const CompactEntityNameList = ({ entities, onClick }: Props) => {
         <>
             {entities.map((entity, index) => {
                 const genericProps = entityRegistry.getGenericEntityProperties(entity.type, entity);
-                const platformLogoUrl = genericProps?.platform?.info?.logoUrl;
+                const platformLogoUrl = genericProps?.platform?.properties?.logoUrl;
                 const displayName = entityRegistry.getDisplayName(entity.type, entity);
                 const fallbackIcon = entityRegistry.getIcon(entity.type, 12, IconStyleType.ACCENT);
                 const url = entityRegistry.getEntityUrl(entity.type, entity.urn);
