@@ -1,0 +1,14 @@
+repoVisibility: public_0C3F0CE3E6E6448FAD341E7BFA50FCD333E06A20CFF05FCACE61154DDBBADF71
+
+leakDetectionExemptions:
+  - ruleId: 'cert_1'
+    filePaths:
+      - '/metadata-ingestion/examples/recipes/bigquery_to_datahub.yml'
+      - '/metadata-ingestion/source_docs/bigquery.md'
+    text: 'PRIVATE KEY'
+  - ruleId: 'aws_secret_access_key'
+    filePath: '/metadata-ingestion/tests/unit/test_redash_source.py'
+    text: '3MJOZjtshCa2mt3O4x6pzWNKMWcrLIOq5O0u6AVU'
+  - ruleId: 'play_http_secret_key'
+    filePath: '/datahub-frontend/conf/application.conf'
+    text: 'play.http.secret.key'
