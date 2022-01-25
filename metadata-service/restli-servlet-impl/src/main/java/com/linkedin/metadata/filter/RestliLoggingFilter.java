@@ -35,7 +35,8 @@ public class RestliLoggingFilter implements Filter {
       final FilterRequestContext requestContext,
       final FilterResponseContext responseContext) {
     logResponse(requestContext, responseContext);
-    log.error(th.getMessage());
+    // log full exception
+    log.error("Error: ", th);
     return CompletableFuture.completedFuture(null);
   }
 
