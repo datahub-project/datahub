@@ -78,6 +78,7 @@ public class GraphQLEngineFactory {
   @Autowired
   private ConfigurationProvider _configProvider;
 
+  @Autowired
   @Qualifier("gitVersion")
   private GitVersion _gitVersion;
 
