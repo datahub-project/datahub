@@ -39,6 +39,8 @@ For example, here are helpful links to the most popular entities in DataHub's me
 * Feature Table (a.k.a. MLFeatureTable): [Profile](https://demo.datahubproject.io/dataset/urn:li:dataset:(urn:li:dataPlatform:datahub,MlFeatureTable,PROD)/Schema?is_lineage_mode=false) [Documentation](https://demo.datahubproject.io/dataset/urn:li:dataset:(urn:li:dataPlatform:datahub,MlFeatureTable,PROD)/Documentation?is_lineage_mode=false)
 * For the full list of entities in the metadata model, browse them [here](https://demo.datahubproject.io/browse/dataset/prod/datahub/entities)
 
+During metadata ingestion, these entities are represented using [metadata events](../what/mxe.md).
+
 ### Generating documentation for the Metadata Model
 
 The metadata model documentation can be generated and uploaded into a running DataHub instance using the following command below.

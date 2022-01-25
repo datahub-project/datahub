@@ -40,19 +40,12 @@ dependencies {
   compile project(':metadata-io')
   compile spec.product.pegasus.restliServer
   compile externalDependency.lombok
-  compile externalDependency.gmaDaoApi
-  compile externalDependency.gmaDaoApiDataTemplate
-  compile externalDependency.gmaEbeanDao
-  compile externalDependency.gmaElasticsearchDao
-  compile externalDependency.gmaNeo4jDao
-  compile externalDependency.gmaRestliResources
-  compile externalDependency.gmaRestliResourcesDataTemplate
   compile externalDependency.neo4jJavaDriver
   compile externalDependency.opentelemetryAnnotations
 
   annotationProcessor externalDependency.lombok
 
-  testCompile project(':metadata-testing:metadata-test-utils')
+  testCompile project(':test-models')
   testCompile externalDependency.parseqTest
   testCompile externalDependency.mockito
   testCompile externalDependency.testng
@@ -60,7 +53,6 @@ dependencies {
   integTestImplementation externalDependency.junitJupiterApi
   integTestRuntimeOnly externalDependency.junitJupiterEngine
 
-  integTestCompile externalDependency.gmaElasticsearchIntegTest
   integTestCompile externalDependency.junitJupiterApi
   integTestCompile externalDependency.junitJupiterParams
 

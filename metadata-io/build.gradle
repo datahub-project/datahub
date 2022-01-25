@@ -19,10 +19,8 @@ dependencies {
   compile externalDependency.lombok
   compile externalDependency.elasticSearchRest
   compile externalDependency.elasticSearchTransport
+  compile externalDependency.javatuples
   compile externalDependency.kafkaClients
-  compile externalDependency.gmaEbeanDao
-  compile externalDependency.gmaRestliResources
-  compile externalDependency.gmaElasticsearchDao
   compile externalDependency.ebean
   enhance externalDependency.ebeanAgent
   compile externalDependency.opentelemetryAnnotations
@@ -59,6 +57,8 @@ dependencies {
 test {
   // https://docs.gradle.org/current/userguide/performance.html
   maxParallelForks = Runtime.runtime.availableProcessors().intdiv(2) ?: 1
+  testLogging.showStandardStreams = true
+  testLogging.exceptionFormat = 'full'
 }
 
 tasks.withType(Test) {

@@ -96,6 +96,7 @@ import com.linkedin.datahub.graphql.resolvers.search.AutoCompleteForMultipleReso
 import com.linkedin.datahub.graphql.resolvers.search.SearchResolver;
 import com.linkedin.datahub.graphql.resolvers.type.EntityInterfaceTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.type.PlatformSchemaUnionTypeResolver;
+import com.linkedin.datahub.graphql.types.common.mappers.OperationMapper;
 import com.linkedin.datahub.graphql.types.dataset.mappers.DatasetProfileMapper;
 import com.linkedin.datahub.graphql.types.mlmodel.MLFeatureTableType;
 import com.linkedin.datahub.graphql.types.mlmodel.MLFeatureType;
@@ -560,6 +561,14 @@ public class GmsGraphQLEngine {
                         "datasetProfile",
                         DatasetProfileMapper::map
                     )
+                ))
+                .dataFetcher("operations", new AuthenticatedResolver<>(
+                        new TimeSeriesAspectResolver(
+                                this.entityClient,
+                                "dataset",
+                                "operation",
+                                OperationMapper::map
+                        )
                 ))
                 .dataFetcher("usageStats", new AuthenticatedResolver<>(new UsageTypeResolver()))
                 .dataFetcher("schemaMetadata", new AuthenticatedResolver<>(

@@ -95,7 +95,7 @@ plugins: Dict[str, Set[str]] = {
     "athena": sql_common | {"PyAthena[SQLAlchemy]"},
     "azure-ad": set(),
     "bigquery": sql_common | bigquery_common | {"pybigquery >= 0.6.0"},
-    "bigquery-usage": bigquery_common | {"cachetools"},
+    "bigquery-usage": bigquery_common | {"cachetools", "more-itertools>=8.12.0"},
     "datahub-business-glossary": set(),
     "dbt": {"requests"},
     "druid": sql_common | {"pydruid>=0.6.2"},
@@ -112,9 +112,9 @@ plugins: Dict[str, Set[str]] = {
     "ldap": {"python-ldap>=2.4"},
     "looker": looker_common,
     # lkml>=1.1.2 is required to support the sql_preamble expression in LookML
-    "lookml": looker_common | {"lkml>=1.1.2", "sql-metadata==2.2.2"},
-    "metabase": {"requests"},
-    "mode": {"requests", "sqllineage"},
+    "lookml": looker_common | {"lkml>=1.1.2", "sql-metadata==2.2.2", "sqllineage==1.3.3"},
+    "metabase": {"requests", "sqllineage==1.3.3"},
+    "mode": {"requests", "sqllineage==1.3.3"},
     "mongodb": {"pymongo>=3.11"},
     "mssql": sql_common | {"sqlalchemy-pytds>=0.3"},
     "mssql-odbc": sql_common | {"pyodbc"},
@@ -124,9 +124,9 @@ plugins: Dict[str, Set[str]] = {
     "okta": {"okta~=1.7.0"},
     "oracle": sql_common | {"cx_Oracle"},
     "postgres": sql_common | {"psycopg2-binary", "GeoAlchemy2"},
-    "redash": {"redash-toolbelt", "sql-metadata"},
+    "redash": {"redash-toolbelt", "sql-metadata", "sqllineage==1.3.3"},
     "redshift": sql_common
-    | {"sqlalchemy-redshift", "psycopg2-binary", "GeoAlchemy2", "sqllineage"},
+    | {"sqlalchemy-redshift", "psycopg2-binary", "GeoAlchemy2", "sqllineage==1.3.3"},
     "redshift-usage": sql_common
     | {"sqlalchemy-redshift", "psycopg2-binary", "GeoAlchemy2"},
     "sagemaker": aws_common,

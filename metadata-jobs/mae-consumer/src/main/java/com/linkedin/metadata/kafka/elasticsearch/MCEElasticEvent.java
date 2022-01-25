@@ -4,7 +4,7 @@ import com.linkedin.data.template.RecordTemplate;
 import org.elasticsearch.common.xcontent.DeprecationHandler;
 import org.elasticsearch.common.xcontent.NamedXContentRegistry;
 import org.elasticsearch.common.xcontent.XContentBuilder;
-import com.linkedin.metadata.dao.utils.RecordUtils;
+import com.datahub.util.RecordUtils;
 import java.io.IOException;
 import javax.annotation.Nullable;
 import org.elasticsearch.common.xcontent.XContentFactory;

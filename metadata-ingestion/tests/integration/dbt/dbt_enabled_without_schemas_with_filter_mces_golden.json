@@ -21,6 +21,11 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
+                            "business_owner": "jdoe.last@gmail.com",
+                            "data_governance.team_owner": "Finance",
+                            "has_pii": "True",
+                            "int_property": "1",
+                            "double_property": "2.5",
                             "node_type": "model",
                             "materialization": "ephemeral",
                             "dbt_file_path": "models/transform/customer_details.sql",
@@ -139,6 +144,8 @@
     "systemMetadata": {
         "lastObserved": 1615443388097,
         "runId": "dbt-test-without-schemas-with-filter-dbt-enabled",
+        "registryName": null,
+        "registryVersion": null,
         "properties": null
     }
 },
@@ -164,6 +171,11 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
+                            "business_owner": "jdoe.last",
+                            "data_governance.team_owner": "Sales",
+                            "has_pii": "False",
+                            "int_property": "2",
+                            "double_property": "3.5",
                             "node_type": "model",
                             "materialization": "table",
                             "dbt_file_path": "models/billing/monthly_billing_with_cust.sql",
@@ -218,7 +230,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "billing_month",
@@ -234,7 +247,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "customer_id",
@@ -250,7 +264,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "email",
@@ -266,7 +281,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             }
                         ],
                         "primaryKeys": null,
@@ -312,6 +328,8 @@
     "systemMetadata": {
         "lastObserved": 1615443388097,
         "runId": "dbt-test-without-schemas-with-filter-dbt-enabled",
+        "registryName": null,
+        "registryVersion": null,
         "properties": null
     }
 },
@@ -391,7 +409,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "customer_id",
@@ -407,7 +426,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "payment_date",
@@ -423,7 +443,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "payment_id",
@@ -439,7 +460,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "rental_id",
@@ -455,7 +477,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "staff_id",
@@ -471,7 +494,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             }
                         ],
                         "primaryKeys": null,
@@ -562,6 +586,8 @@
     "systemMetadata": {
         "lastObserved": 1615443388097,
         "runId": "dbt-test-without-schemas-with-filter-dbt-enabled",
+        "registryName": null,
+        "registryVersion": null,
         "properties": null
     }
 },
@@ -641,7 +667,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "billing_month",
@@ -657,7 +684,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "customer_id",
@@ -673,7 +701,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             }
                         ],
                         "primaryKeys": null,
@@ -710,6 +739,8 @@
     "systemMetadata": {
         "lastObserved": 1615443388097,
         "runId": "dbt-test-without-schemas-with-filter-dbt-enabled",
+        "registryName": null,
+        "registryVersion": null,
         "properties": null
     }
 },
@@ -807,7 +838,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "first_name",
@@ -829,7 +861,8 @@
                                     ]
                                 },
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "last_name",
@@ -845,7 +878,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "last_update",
@@ -861,7 +895,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             }
                         ],
                         "primaryKeys": null,
@@ -891,6 +926,8 @@
     "systemMetadata": {
         "lastObserved": 1615443388097,
         "runId": "dbt-test-without-schemas-with-filter-dbt-enabled",
+        "registryName": null,
+        "registryVersion": null,
         "properties": null
     }
 },
@@ -969,7 +1006,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "address2",
@@ -985,7 +1023,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "address_id",
@@ -1001,7 +1040,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "city_id",
@@ -1017,7 +1057,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "district",
@@ -1033,7 +1074,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "last_update",
@@ -1049,7 +1091,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "phone",
@@ -1065,7 +1108,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "postal_code",
@@ -1081,7 +1125,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             }
                         ],
                         "primaryKeys": null,
@@ -1111,6 +1156,8 @@
     "systemMetadata": {
         "lastObserved": 1615443388097,
         "runId": "dbt-test-without-schemas-with-filter-dbt-enabled",
+        "registryName": null,
+        "registryVersion": null,
         "properties": null
     }
 },
@@ -1189,7 +1236,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "last_update",
@@ -1205,7 +1253,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "name",
@@ -1221,7 +1270,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             }
                         ],
                         "primaryKeys": null,
@@ -1251,6 +1301,8 @@
     "systemMetadata": {
         "lastObserved": 1615443388097,
         "runId": "dbt-test-without-schemas-with-filter-dbt-enabled",
+        "registryName": null,
+        "registryVersion": null,
         "properties": null
     }
 },
@@ -1329,7 +1381,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "city_id",
@@ -1345,7 +1398,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "country_id",
@@ -1361,7 +1415,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "last_update",
@@ -1377,7 +1432,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             }
                         ],
                         "primaryKeys": null,
@@ -1407,6 +1463,8 @@
     "systemMetadata": {
         "lastObserved": 1615443388097,
         "runId": "dbt-test-without-schemas-with-filter-dbt-enabled",
+        "registryName": null,
+        "registryVersion": null,
         "properties": null
     }
 },
@@ -1504,7 +1562,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "country_id",
@@ -1520,7 +1579,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "last_update",
@@ -1536,7 +1596,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             }
                         ],
                         "primaryKeys": null,
@@ -1566,6 +1627,8 @@
     "systemMetadata": {
         "lastObserved": 1615443388097,
         "runId": "dbt-test-without-schemas-with-filter-dbt-enabled",
+        "registryName": null,
+        "registryVersion": null,
         "properties": null
     }
 },
@@ -1644,7 +1707,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "activebool",
@@ -1660,7 +1724,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "address_id",
@@ -1676,7 +1741,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "create_date",
@@ -1692,7 +1758,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "customer_id",
@@ -1708,7 +1775,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "email",
@@ -1724,7 +1792,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "first_name",
@@ -1740,7 +1809,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "last_name",
@@ -1756,7 +1826,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "last_update",
@@ -1772,7 +1843,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "store_id",
@@ -1788,7 +1860,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             }
                         ],
                         "primaryKeys": null,
@@ -1818,6 +1891,8 @@
     "systemMetadata": {
         "lastObserved": 1615443388097,
         "runId": "dbt-test-without-schemas-with-filter-dbt-enabled",
+        "registryName": null,
+        "registryVersion": null,
         "properties": null
     }
 },
@@ -1896,7 +1971,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "customer_id",
@@ -1912,7 +1988,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "payment_date",
@@ -1928,7 +2005,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "payment_id",
@@ -1944,7 +2022,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "rental_id",
@@ -1960,7 +2039,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "staff_id",
@@ -1976,7 +2056,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             }
                         ],
                         "primaryKeys": null,
@@ -2006,6 +2087,8 @@
     "systemMetadata": {
         "lastObserved": 1615443388097,
         "runId": "dbt-test-without-schemas-with-filter-dbt-enabled",
+        "registryName": null,
+        "registryVersion": null,
         "properties": null
     }
 },
@@ -2104,7 +2187,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "customer_id",
@@ -2120,7 +2204,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "payment_date",
@@ -2136,7 +2221,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "payment_id",
@@ -2152,7 +2238,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "rental_id",
@@ -2168,7 +2255,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "staff_id",
@@ -2184,7 +2272,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             }
                         ],
                         "primaryKeys": null,
@@ -2214,6 +2303,8 @@
     "systemMetadata": {
         "lastObserved": 1615443388097,
         "runId": "dbt-test-without-schemas-with-filter-dbt-enabled",
+        "registryName": null,
+        "registryVersion": null,
         "properties": null
     }
 },
@@ -2292,7 +2383,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "customer_id",
@@ -2308,7 +2400,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "payment_date",
@@ -2324,7 +2417,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "payment_id",
@@ -2340,7 +2434,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "rental_id",
@@ -2356,7 +2451,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "staff_id",
@@ -2372,7 +2468,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             }
                         ],
                         "primaryKeys": null,
@@ -2402,6 +2499,8 @@
     "systemMetadata": {
         "lastObserved": 1615443388097,
         "runId": "dbt-test-without-schemas-with-filter-dbt-enabled",
+        "registryName": null,
+        "registryVersion": null,
         "properties": null
     }
 },
@@ -2480,7 +2579,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "customer_id",
@@ -2496,7 +2596,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "payment_date",
@@ -2512,7 +2613,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "payment_id",
@@ -2528,7 +2630,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "rental_id",
@@ -2544,7 +2647,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "staff_id",
@@ -2560,7 +2664,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             }
                         ],
                         "primaryKeys": null,
@@ -2590,6 +2695,8 @@
     "systemMetadata": {
         "lastObserved": 1615443388097,
         "runId": "dbt-test-without-schemas-with-filter-dbt-enabled",
+        "registryName": null,
+        "registryVersion": null,
         "properties": null
     }
 },
@@ -2668,7 +2775,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "customer_id",
@@ -2684,7 +2792,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "payment_date",
@@ -2700,7 +2809,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "payment_id",
@@ -2716,7 +2826,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "rental_id",
@@ -2732,7 +2843,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "staff_id",
@@ -2748,7 +2860,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             }
                         ],
                         "primaryKeys": null,
@@ -2778,6 +2891,8 @@
     "systemMetadata": {
         "lastObserved": 1615443388097,
         "runId": "dbt-test-without-schemas-with-filter-dbt-enabled",
+        "registryName": null,
+        "registryVersion": null,
         "properties": null
     }
 },
@@ -2809,6 +2924,8 @@
     "systemMetadata": {
         "lastObserved": 1615443388097,
         "runId": "dbt-test-without-schemas-with-filter-dbt-enabled",
+        "registryName": null,
+        "registryVersion": null,
         "properties": null
     }
 },
@@ -2840,6 +2957,8 @@
     "systemMetadata": {
         "lastObserved": 1615443388097,
         "runId": "dbt-test-without-schemas-with-filter-dbt-enabled",
+        "registryName": null,
+        "registryVersion": null,
         "properties": null
     }
 },
@@ -2871,6 +2990,8 @@
     "systemMetadata": {
         "lastObserved": 1615443388097,
         "runId": "dbt-test-without-schemas-with-filter-dbt-enabled",
+        "registryName": null,
+        "registryVersion": null,
         "properties": null
     }
 },
@@ -2894,6 +3015,8 @@
     "systemMetadata": {
         "lastObserved": 1615443388097,
         "runId": "dbt-test-without-schemas-with-filter-dbt-enabled",
+        "registryName": null,
+        "registryVersion": null,
         "properties": null
     }
 },
@@ -2917,6 +3040,8 @@
     "systemMetadata": {
         "lastObserved": 1615443388097,
         "runId": "dbt-test-without-schemas-with-filter-dbt-enabled",
+        "registryName": null,
+        "registryVersion": null,
         "properties": null
     }
 },
@@ -2940,6 +3065,8 @@
     "systemMetadata": {
         "lastObserved": 1615443388097,
         "runId": "dbt-test-without-schemas-with-filter-dbt-enabled",
+        "registryName": null,
+        "registryVersion": null,
         "properties": null
     }
 },
@@ -2963,6 +3090,8 @@
     "systemMetadata": {
         "lastObserved": 1615443388097,
         "runId": "dbt-test-without-schemas-with-filter-dbt-enabled",
+        "registryName": null,
+        "registryVersion": null,
         "properties": null
     }
 },
@@ -2986,6 +3115,8 @@
     "systemMetadata": {
         "lastObserved": 1615443388097,
         "runId": "dbt-test-without-schemas-with-filter-dbt-enabled",
+        "registryName": null,
+        "registryVersion": null,
         "properties": null
     }
 },
@@ -3009,6 +3140,8 @@
     "systemMetadata": {
         "lastObserved": 1615443388097,
         "runId": "dbt-test-without-schemas-with-filter-dbt-enabled",
+        "registryName": null,
+        "registryVersion": null,
         "properties": null
     }
 },
@@ -3032,6 +3165,8 @@
     "systemMetadata": {
         "lastObserved": 1615443388097,
         "runId": "dbt-test-without-schemas-with-filter-dbt-enabled",
+        "registryName": null,
+        "registryVersion": null,
         "properties": null
     }
 },
@@ -3055,6 +3190,8 @@
     "systemMetadata": {
         "lastObserved": 1615443388097,
         "runId": "dbt-test-without-schemas-with-filter-dbt-enabled",
+        "registryName": null,
+        "registryVersion": null,
         "properties": null
     }
 },
@@ -3078,6 +3215,8 @@
     "systemMetadata": {
         "lastObserved": 1615443388097,
         "runId": "dbt-test-without-schemas-with-filter-dbt-enabled",
+        "registryName": null,
+        "registryVersion": null,
         "properties": null
     }
 },
@@ -3101,6 +3240,8 @@
     "systemMetadata": {
         "lastObserved": 1615443388097,
         "runId": "dbt-test-without-schemas-with-filter-dbt-enabled",
+        "registryName": null,
+        "registryVersion": null,
         "properties": null
     }
 },
@@ -3124,6 +3265,8 @@
     "systemMetadata": {
         "lastObserved": 1615443388097,
         "runId": "dbt-test-without-schemas-with-filter-dbt-enabled",
+        "registryName": null,
+        "registryVersion": null,
         "properties": null
     }
 }

@@ -553,6 +553,11 @@ type Dataset implements EntityWithRelationships & Entity {
     If no start or end time are provided, the most recent events will be returned
     """
     datasetProfiles(startTimeMillis: Long, endTimeMillis: Long, limit: Int): [DatasetProfile!]
+    """
+
+    Operational events for an entity.
+    """
+    operations(startTimeMillis: Long, endTimeMillis: Long, limit: Int): [Operation!]
 
     """
     Edges extending from this entity
@@ -3689,6 +3694,64 @@ type TimeWindow {
   The end time of the time window
   """
   durationMillis: Long!
+}
+
+"""
+Operational info for an entity.
+"""
+type Operation implements TimeSeriesAspect {
+    """
+    The time at which the profile was reported
+    """
+    timestampMillis: Long!
+
+    """
+    When the entity was last updated.
+    """
+    lastUpdatedTimestamp: Long!
+
+    """
+    Actor who issued this operation.
+    """
+    actor: String
+
+    """
+    Operation type of change.
+    """
+    operationType: OperationType!
+
+    """
+    How many rows were affected by this operation.
+    """
+    numAffectedRows: Long
+
+    """
+    Which other datasets were affected by this operation.
+    """
+    affectedDatasets: [String!]
+}
+
+"""
+Enum to define the operation type when an entity changes.
+"""
+enum OperationType {
+    """
+    When data is inserted.
+    """
+    INSERT
+
+    """
+    When data is updated.
+    """
+    UPDATE
+    """
+    When data is deleted.
+    """
+    DELETE
+    """
+    When data is created.
+    """
+    CREATE
 }
 
 """

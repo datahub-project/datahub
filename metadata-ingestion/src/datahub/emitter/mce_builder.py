@@ -2,17 +2,25 @@
 import logging
 import re
 import time
-from typing import Any, List, Optional, Type, TypeVar, cast, get_type_hints
+from enum import Enum
+from typing import Any, List, Optional, Type, TypeVar, Union, cast, get_type_hints
 
 import typing_inspect
 from avrogen.dict_wrapper import DictWrapper
 
+from datahub.metadata.com.linkedin.pegasus2avro.common import GlossaryTerms
 from datahub.metadata.schema_classes import (
+    AuditStampClass,
     DatasetKeyClass,
     DatasetLineageTypeClass,
     DatasetSnapshotClass,
     GlobalTagsClass,
+    GlossaryTermAssociationClass,
     MetadataChangeEventClass,
+    OwnerClass,
+    OwnershipClass,
+    OwnershipSourceClass,
+    OwnershipSourceTypeClass,
     OwnershipTypeClass,
     TagAssociationClass,
     UpstreamClass,
@@ -25,6 +33,11 @@ UNKNOWN_USER = "urn:li:corpuser:unknown"
 
 
 logger = logging.getLogger(__name__)
+
+
+class OwnerType(Enum):
+    USER = "corpuser"
+    GROUP = "corpGroup"
 
 
 def get_sys_time() -> int:
@@ -62,6 +75,10 @@ def make_group_urn(groupname: str) -> str:
 
 def make_tag_urn(tag: str) -> str:
     return f"urn:li:tag:{tag}"
+
+
+def make_owner_urn(owner: str, owner_type: OwnerType) -> str:
+    return f"urn:li:{owner_type.value}:{owner}"
 
 
 def make_term_urn(term: str) -> str:
@@ -235,6 +252,43 @@ def make_global_tag_aspect_with_tag_list(tags: List[str]) -> GlobalTagsClass:
     return GlobalTagsClass(
         tags=[TagAssociationClass(f"urn:li:tag:{tag}") for tag in tags]
     )
+
+
+def make_ownership_aspect_from_urn_list(
+    owner_urns: List[str], source_type: Optional[Union[str, OwnershipSourceTypeClass]]
+) -> OwnershipClass:
+    for owner_urn in owner_urns:
+        assert owner_urn.startswith("urn:li:corpuser:") or owner_urn.startswith(
+            "urn:li:corpGroup:"
+        )
+    ownership_source_type: Union[None, OwnershipSourceClass] = None
+    if source_type:
+        ownership_source_type = OwnershipSourceClass(type=source_type)
+
+    owners_list = [
+        OwnerClass(
+            owner=owner_urn,
+            type=OwnershipTypeClass.DATAOWNER,
+            source=ownership_source_type,
+        )
+        for owner_urn in owner_urns
+    ]
+    return OwnershipClass(
+        owners=owners_list,
+    )
+
+
+def make_glossary_terms_aspect_from_urn_list(term_urns: List[str]) -> GlossaryTerms:
+    for term_urn in term_urns:
+        assert term_urn.startswith("urn:li:glossaryTerm:")
+    glossary_terms = GlossaryTerms(
+        [GlossaryTermAssociationClass(term_urn) for term_urn in term_urns],
+        AuditStampClass(
+            time=int(time.time() * 1000),
+            actor="urn:li:corpuser:datahub",
+        ),
+    )
+    return glossary_terms
 
 
 def set_aspect(

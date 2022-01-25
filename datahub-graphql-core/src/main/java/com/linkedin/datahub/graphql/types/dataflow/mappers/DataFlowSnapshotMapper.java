@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.types.dataflow.mappers;
 
+import com.datahub.util.ModelUtils;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.GlossaryTerms;
 import com.linkedin.common.InstitutionalMemory;
@@ -18,7 +19,6 @@ import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
 import com.linkedin.datajob.EditableDataFlowProperties;
-import com.linkedin.metadata.dao.utils.ModelUtils;
 import com.linkedin.metadata.snapshot.DataFlowSnapshot;
 import javax.annotation.Nonnull;
 

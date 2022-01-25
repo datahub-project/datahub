@@ -1,11 +1,11 @@
 package com.linkedin.metadata;
 
+import com.datahub.util.validator.AspectValidator;
+import com.datahub.util.validator.DeltaValidator;
+import com.datahub.util.validator.SnapshotValidator;
 import com.google.common.reflect.ClassPath;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.UnionTemplate;
-import com.linkedin.metadata.validator.AspectValidator;
-import com.linkedin.metadata.validator.DeltaValidator;
-import com.linkedin.metadata.validator.SnapshotValidator;
 import java.io.IOException;
 import java.util.List;
 import java.util.Set;
@@ -13,10 +13,8 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import org.testng.annotations.Test;
 
-import static com.linkedin.metadata.ModelValidationConstants.IGNORED_ASPECT_CLASSES;
-import static com.linkedin.metadata.ModelValidationConstants.IGNORED_DELTA_CLASSES;
-import static com.linkedin.metadata.ModelValidationConstants.IGNORED_SNAPSHOT_CLASSES;
-import static org.testng.AssertJUnit.assertFalse;
+import static com.linkedin.metadata.ModelValidationConstants.*;
+import static org.testng.AssertJUnit.*;
 
 
 public class ModelValidation {

@@ -270,16 +270,32 @@ class AzureADSource(Source):
                 self.report.report_failure("_get_azure_ad_data_", error_str)
                 continue
 
+    def _map_identity_to_urn(self, func, id_to_extract, mapping_identifier, id_type):
+        result, error_str = None, None
+        try:
+            result = func(id_to_extract)
+        except Exception as e:
+            error_str = "Failed to extract DataHub {} from Azure AD {} with name {} due to '{}'".format(
+                id_type, id_type, id_to_extract.get("displayName"), repr(e)
+            )
+        if not result:
+            error_str = "Failed to extract DataHub {} from Azure AD {} with name {} due to unknown reason".format(
+                id_type, id_type, id_to_extract.get("displayName")
+            )
+        if error_str is not None:
+            logger.error(error_str)
+            self.report.report_failure(mapping_identifier, error_str)
+        return result, error_str
+
     def _map_azure_ad_groups(self, azure_ad_groups):
         for azure_ad_group in azure_ad_groups:
-            corp_group_urn = self._map_azure_ad_group_to_urn(azure_ad_group)
-            if not corp_group_urn:
-                error_str = (
-                    "Failed to extract DataHub Group Name from Azure Group for group named {}. "
-                    "Skipping...".format(azure_ad_group.get("displayName"))
-                )
-                logger.error(error_str)
-                self.report.report_failure("azure_ad_group_mapping", error_str)
+            corp_group_urn, error_str = self._map_identity_to_urn(
+                self._map_azure_ad_group_to_urn,
+                azure_ad_group,
+                "azure_ad_group_mapping",
+                "group",
+            )
+            if error_str is not None:
                 continue
             group_name = self._extract_regex_match_from_dict_value(
                 azure_ad_group,
@@ -327,13 +343,10 @@ class AzureADSource(Source):
 
     def _map_azure_ad_users(self, azure_ad_users):
         for user in azure_ad_users:
-            corp_user_urn = self._map_azure_ad_user_to_urn(user)
-            if not corp_user_urn:
-                error_str = "Failed to extract DataHub Username from Azure AD User {}. Skipping...".format(
-                    user.get("displayName")
-                )
-                logger.error(error_str)
-                self.report.report_failure("azure_ad_user_mapping", error_str)
+            corp_user_urn, error_str = self._map_identity_to_urn(
+                self._map_azure_ad_user_to_urn, user, "azure_ad_user_mapping", "user"
+            )
+            if error_str is not None:
                 continue
             if not self.config.users_pattern.allowed(corp_user_urn):
                 self.report.report_filtered(f"{corp_user_urn}.*")

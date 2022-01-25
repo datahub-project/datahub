@@ -7,6 +7,7 @@ entities:
       - subTypes
       - datasetProfile
       - datasetUsageStatistics
+      - operation
   - name: dataHubPolicy
     doc: DataHub Policies represent access policies granted to users or groups on metadata operations like edit, view etc.
     keyAspect: dataHubPolicyKey

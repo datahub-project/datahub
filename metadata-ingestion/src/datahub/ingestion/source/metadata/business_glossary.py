@@ -52,8 +52,8 @@ class DefaultConfig(ConfigModel):
     """Holds defaults for populating fields in glossary terms"""
 
     source: str
-    url: str
     owners: Owners
+    url: Optional[str] = None
     source_type: Optional[str] = "INTERNAL"
 
 

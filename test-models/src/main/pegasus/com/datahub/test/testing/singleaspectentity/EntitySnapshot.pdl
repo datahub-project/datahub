@@ -1,0 +1,19 @@
+namespace com.datahub.test.testing.singleaspectentity
+
+import com.linkedin.common.Urn
+
+/**
+ * For unit tests
+ */
+record EntitySnapshot {
+
+  /**
+   * For unit tests
+   */
+  urn: Urn
+
+  /**
+   * For unit tests
+   */
+  aspects: array[EntityAspectUnion]
+}

@@ -1,4 +1,4 @@
-import { Typography } from 'antd';
+import { Tooltip, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 import { Maybe, UserUsageCounts } from '../../../../../../../types.generated';
@@ -11,6 +11,8 @@ type Props = {
     columnCount?: number;
     queryCount?: number;
     users?: Array<Maybe<UserUsageCounts>>;
+    lastUpdated?: string;
+    lastUpdatedUTC?: string;
 };
 
 const StatSection = styled.div`
@@ -26,7 +28,7 @@ const StatContainer = styled.div<{ justifyContent }>`
     padding: 12px 2px;
 `;
 
-export default function TableStats({ rowCount, columnCount, queryCount, users }: Props) {
+export default function TableStats({ rowCount, columnCount, queryCount, users, lastUpdated, lastUpdatedUTC }: Props) {
     // If there are less than 4 items, simply stack the stat views.
     const justifyContent = !queryCount && !users ? 'default' : 'space-between';
 
@@ -60,6 +62,15 @@ export default function TableStats({ rowCount, columnCount, queryCount, users }:
                         <div style={{ paddingTop: 8 }}>
                             <UsageFacepile users={users} />
                         </div>
+                    </InfoItem>
+                )}
+                {lastUpdated && (
+                    <InfoItem title="Last Updated" width="220px">
+                        <Tooltip title={lastUpdatedUTC}>
+                            <Typography.Text strong style={{ fontSize: 16 }}>
+                                {lastUpdated}
+                            </Typography.Text>
+                        </Tooltip>
                     </InfoItem>
                 )}
             </StatContainer>

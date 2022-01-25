@@ -10,7 +10,12 @@ from requests.models import HTTPError
 
 from datahub.configuration.common import ConfigModel, OperationalError
 from datahub.emitter.rest_emitter import DatahubRestEmitter
-from datahub.metadata.schema_classes import DatasetUsageStatisticsClass, OwnershipClass
+from datahub.metadata.schema_classes import (
+    DatasetUsageStatisticsClass,
+    GlobalTagsClass,
+    GlossaryTermsClass,
+    OwnershipClass,
+)
 
 # This bound isn't tight, but it's better than nothing.
 Aspect = TypeVar("Aspect", bound=DictWrapper)
@@ -114,6 +119,22 @@ class DataHubGraph(DatahubRestEmitter):
             aspect="ownership",
             aspect_type_name="com.linkedin.common.Ownership",
             aspect_type=OwnershipClass,
+        )
+
+    def get_tags(self, entity_urn: str) -> Optional[GlobalTagsClass]:
+        return self.get_aspect(
+            entity_urn=entity_urn,
+            aspect="globalTags",
+            aspect_type_name="com.linkedin.common.GlobalTags",
+            aspect_type=GlobalTagsClass,
+        )
+
+    def get_glossary_terms(self, entity_urn: str) -> Optional[GlossaryTermsClass]:
+        return self.get_aspect(
+            entity_urn=entity_urn,
+            aspect="glossaryTerms",
+            aspect_type_name="com.linkedin.common.GlossaryTerms",
+            aspect_type=GlossaryTermsClass,
         )
 
     def get_usage_aspects_from_urn(

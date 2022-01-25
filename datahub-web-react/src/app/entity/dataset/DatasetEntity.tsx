@@ -130,7 +130,8 @@ export class DatasetEntity implements Entity<Dataset> {
                         visible: (_, _1) => true,
                         enabled: (_, dataset: GetDatasetQuery) =>
                             (dataset?.dataset?.datasetProfiles?.length || 0) > 0 ||
-                            (dataset?.dataset?.usageStats?.buckets?.length || 0) > 0,
+                            (dataset?.dataset?.usageStats?.buckets?.length || 0) > 0 ||
+                            (dataset?.dataset?.operations?.length || 0) > 0,
                     },
                 },
             ]}
