@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Button, Form, Select, Space } from 'antd';
-import { gql, useQuery } from '@apollo/client';
+import { gql, useLazyQuery, useQuery } from '@apollo/client';
 import { useBaseEntity } from '../../../EntityContext';
 import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
 // import axios from 'axios';
@@ -25,7 +25,33 @@ function GetProfileTimestamps(datasetUrn) {
     return timeStampValues;
 }
 
-function GetSpecificProfile(datasetUrn, inputtimestamp){
+function GetCurrentSchema(datasetUrn) {
+    // to query the current schema in place so i can create an empty form with the existing schema
+    const querySchema = gql`
+        query getSchema($urn: String!) {
+            dataset(urn: $urn) {
+                schemaMetadata(version: 0) {
+                    fields {
+                        fieldPath
+                    }
+                }
+            }
+        }
+    `;
+    const { data: schema } = useQuery(querySchema, {
+        variables: {
+            urn: datasetUrn,
+        },
+        skip: datasetUrn === undefined,
+    });
+
+    const result = schema?.dataset?.schemaMetadata?.fields.map((item) => {
+        return item.fieldPath;
+    });
+    return result;
+}
+
+export const EditSampleForm = () => {
     const queryTimeStamps = gql`
         query getProfiles($urn: String!, $timestamp: Long!) {
             dataset(urn: $urn) {
@@ -38,49 +64,17 @@ function GetSpecificProfile(datasetUrn, inputtimestamp){
             }
         }
     `;
-    const { data } = useQuery(queryTimeStamps, {
-        variables: {
-            urn: datasetUrn,
-            timestamp: inputtimestamp,
-        },
-        skip: datasetUrn === undefined, 
-    });
-    const timeStampValues = data?.dataset?.datasetProfiles?.fieldProfiles || [];
-    return timeStampValues;
-}
-
-export const EditSamples = () => {
-    // const queryTimeStamps = gql`
-    //     query getProfiles($urn: String!) {
-    //         dataset(urn: $urn) {
-    //             datasetProfiles(limit: 15) {
-    //                 timestampMillis
-    //             }
-    //         }
-    //     }
-    // `;
-
-    // const queryProfile = gql`
-    //     query getProfiles($urn: String!, $timestamp: Long!) {
-    //         dataset(urn: $urn) {
-    //             datasetProfiles(limit: 1, startTimeMillis: $timestamp) {
-    //                 fieldProfiles {
-    //                     fieldPath
-    //                 }
-    //             }
-    //         }
-    //     }
-    // `;
-
     const baseEntity = useBaseEntity<GetDatasetQuery>();
-    const [selectedValue, setSelectedValue] = useState<string>('');
     const currDataset = baseEntity && baseEntity?.dataset?.urn;
-    // const { data } = useQuery(queryTimeStamps, {
-    //     variables: {
-    //         urn: currDataset,
-    //     },
-    //     skip: currDataset === undefined,
-    // });
+    const [selectedValue, setSelectedValue] = useState(0);
+    const [formData, setFormData] = useState([]);
+    const [getProfile, { data: profiledata }] = useLazyQuery(queryTimeStamps, {
+        variables: {
+            urn: currDataset,
+            timestamp: selectedValue,
+        },
+    });
+
     const { Option } = Select;
     const timeStampValues = GetProfileTimestamps(currDataset);
     const refined = timeStampValues.map((item) => {
@@ -91,8 +85,16 @@ export const EditSamples = () => {
         // axios delete profile endpoint
     };
     const loadProfile = () => {
-        console.log(`Load profile ${selectedValue}`);
+        console.log(`Load profile ${selectedValue} for ${currDataset}`);
+        getProfile();
+        setFormData(profiledata?.dataset?.datasetProfiles || {});
     };
+    const createNewProfile = () => {
+        const labels = GetCurrentSchema(currDataset);
+        console.log(labels);
+    };
+    // const outputData = profiledata?.dataset?.datasetProfiles || {};
+    console.log(JSON.stringify(formData));
     return (
         <>
             <Form.Item name="chooseSet" label="Select a Timestamped Dataset Profile to edit">
@@ -100,7 +102,7 @@ export const EditSamples = () => {
                     defaultValue="select a timeperiod"
                     style={{ width: 300 }}
                     onChange={(value) => {
-                        setSelectedValue(value);
+                        setSelectedValue(Number(value));
                     }}
                 >
                     {refined.map((item) => (
@@ -119,7 +121,7 @@ export const EditSamples = () => {
                 <Space />
                 <Button onClick={loadProfile}>Load Profile</Button>
                 <Button onClick={deleteProfile}>Delete Profile</Button>
-                <Button>Create New Dataset Profile</Button>
+                <Button onClick={createNewProfile}>Create New Dataset Profile</Button>
             </Form.Item>
         </>
     );

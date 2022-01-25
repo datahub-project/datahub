@@ -6,7 +6,7 @@ import { EntityType } from '../../../../../../types.generated';
 // import { useGetAuthenticatedUser } from '../../../../../useGetAuthenticatedUser';
 import { FindWhoAmI } from '../../../../dataset/whoAmI';
 import { useBaseEntity } from '../../../EntityContext';
-import { EditSamples } from '../samples/EditSamples';
+import { EditSampleForm } from '../samples/EditSampleForm';
 
 export const EditSampleTab = () => {
     const queryBase = useBaseEntity<GetDatasetQuery>()?.dataset?.ownership?.owners;
@@ -28,7 +28,7 @@ export const EditSampleTab = () => {
                 <Divider dashed orientation="left">
                     Edit Samples
                 </Divider>
-                <EditSamples />
+                <EditSampleForm />
             </>
         );
     }
