@@ -136,6 +136,28 @@ class DataLakeSource(Source):
         super().__init__(ctx)
         self.source_config = config
 
+        telemetry.telemetry_instance.ping(
+            "data_lake_profiling",
+            "config",
+            "enabled",
+            1 if config.profiling.enabled else 0,
+        )
+
+        if config.profiling.enabled:
+
+            for config_flag in profiling_flags_to_report:
+                config_value = getattr(config.profiling, config_flag)
+                config_int = (
+                    1 if config_value else 0
+                )  # convert to int so it can be emitted as a value
+
+                telemetry.telemetry_instance.ping(
+                    "data_lake_profiling",
+                    "config",
+                    config_flag,
+                    config_int,
+                )
+
         conf = SparkConf()
 
         conf.set("spark.jars.packages", "org.apache.hadoop:hadoop-aws:3.0.3")
@@ -197,34 +219,12 @@ class DataLakeSource(Source):
     def create(cls, config_dict, ctx):
         config = DataLakeSourceConfig.parse_obj(config_dict)
 
-        telemetry.telemetry_instance.ping(
-            "data_lake_profiling",
-            "config",
-            "enabled",
-            1 if config.profiling.enabled else 0,
-        )
-
-        if config.profiling.enabled:
-
-            for config_flag in profiling_flags_to_report:
-                config_value = getattr(config.profiling, config_flag)
-                config_int = (
-                    1 if config_value else 0
-                )  # convert to int so it can be emitted as a value
-
-                telemetry.telemetry_instance.ping(
-                    "data_lake_profiling",
-                    "config",
-                    config_flag,
-                    config_int,
-                )
-
         return cls(config, ctx)
 
     def read_file(self, file: str) -> Optional[DataFrame]:
-        
+
         extension = os.path.splitext(file)[1]
-        
+
         telemetry.telemetry_instance.ping(
             "data_lake_profiling",
             "file_extension",

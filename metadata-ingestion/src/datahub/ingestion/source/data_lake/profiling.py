@@ -316,10 +316,10 @@ class _SingleTableProfiler:
 
         telemetry.telemetry_instance.ping(
             "data_lake_profiling",
-            "rows_profiled_log10",
+            "rows_profiled",
             # bucket by taking floor of log of the number of rows scanned
             # report the bucket as a label so the count is not collapsed
-            str(int(log10(row_count + 1))),
+            str(10 ** int(log10(row_count + 1))),
         )
 
         # loop through the columns and add the analyzers

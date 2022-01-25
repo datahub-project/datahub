@@ -555,12 +555,13 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
 
         assert profile.rowCount is not None
         row_count: int = profile.rowCount
+
         telemetry.telemetry_instance.ping(
-            "profiling",
-            "rows_profiled_log10",
+            "sql_profiling",
+            "rows_profiled",
             # bucket by taking floor of log of the number of rows scanned
             # report the bucket as a label so the count is not collapsed
-            str(int(log10(row_count + 1))),
+            str(10 ** int(log10(row_count + 1))),
         )
 
         for column_spec in columns_profiling_queue:
