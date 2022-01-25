@@ -55,6 +55,8 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `table_pattern.ignoreCase`      |          | `True`       | Whether to ignore case sensitivity during pattern matching.                        |
 | `underlying_platform`           |          | `glue`       | Override for platform name. Allowed values - `glue`, `athena`                      |
 | `ignore_unsupported_connectors` |          | `True`       | Whether to ignore unsupported connectors. If disabled, an error will be raised.    |
+| `emit_s3_lineage`               |          | `True`       | Whether to emit S3-to-Glue lineage.                                                |
+| `glue_s3_lineage_direction`     |          | `upstream`   | If `upstream`, S3 is upstream to Glue. If `downstream` S3 is downstream to Glue.   |
 
 ## Compatibility
 

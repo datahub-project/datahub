@@ -34,8 +34,8 @@ source:
     username: your_username  # optional
     password: your_password  # optional
     forced_examples:  # optionals
-      /accounts/groupname/{name}: test
-      /accounts/username/{name}: test
+      /accounts/groupname/{name}: ['test']
+      /accounts/username/{name}: ['test']
     ignore_endpoints: [/ignore/this, /ignore/that, /also/that_other]  # optional, the endpoints to ignore
 
 sink:
@@ -164,7 +164,7 @@ By specifying in the configuration file
 
 ```yaml
     forced_examples:  # optionals
-      /accounts/groupname/{name}: test
+      /accounts/groupname/{name}: ['test']
 ```
 
 the plugin is able to build a correct URL, as follows:

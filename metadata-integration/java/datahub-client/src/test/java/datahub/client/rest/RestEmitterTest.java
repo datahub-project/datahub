@@ -16,6 +16,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.Random;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
@@ -362,5 +363,21 @@ public class RestEmitterTest {
     } catch (Exception ioe) {
       Assert.assertTrue(ioe instanceof TimeoutException);
     }
+  }
+
+  @Test
+  public void testUserAgentHeader() throws IOException, ExecutionException, InterruptedException {
+    TestDataHubServer testDataHubServer = new TestDataHubServer();
+    Integer port = testDataHubServer.getMockServer().getPort();
+    RestEmitter emitter = RestEmitter.create(b -> b.server("http://localhost:" + port));
+    testDataHubServer.getMockServer().reset();
+    emitter.testConnection();
+    Properties properties = new Properties();
+    properties.load(emitter.getClass().getClassLoader().getResourceAsStream("client.properties"));
+    Assert.assertNotNull(properties.getProperty("clientVersion"));
+    String version = properties.getProperty("clientVersion");
+    testDataHubServer.getMockServer().verify(
+        request("/config")
+            .withHeader("User-Agent", "DataHub-RestClient/" + version));
   }
 }

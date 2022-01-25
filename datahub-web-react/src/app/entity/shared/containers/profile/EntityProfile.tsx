@@ -82,7 +82,6 @@ const Header = styled.div`
     border-bottom: 1px solid ${ANTD_GRAY[4.5]};
     padding: 20px 20px 0 20px;
     flex-shrink: 0;
-    min-height: 137px;
 `;
 
 const TabContent = styled.div`
@@ -141,12 +140,12 @@ export const EntityProfile = <T, U>({
         variables: { urn },
     });
 
+    const maybeUpdateEntity = useUpdateQuery?.({
+        onCompleted: () => refetch(),
+    });
     let updateEntity;
-    if (useUpdateQuery) {
-        // eslint-disable-next-line react-hooks/rules-of-hooks
-        [updateEntity] = useUpdateQuery({
-            onCompleted: () => refetch(),
-        });
+    if (maybeUpdateEntity) {
+        [updateEntity] = maybeUpdateEntity;
     }
 
     const entityData =
@@ -203,6 +202,10 @@ export const EntityProfile = <T, U>({
         );
     }
 
+    const isBrowsable = entityRegistry.getBrowseEntityTypes().includes(entityType);
+    const isLineageEnabled = entityRegistry.getLineageEntityTypes().includes(entityType);
+    const showBrowseBar = isBrowsable || isLineageEnabled;
+
     return (
         <EntityContext.Provider
             value={{
@@ -217,7 +220,7 @@ export const EntityProfile = <T, U>({
             }}
         >
             <>
-                {!properties?.hideProfileNavBar && <EntityProfileNavBar urn={urn} entityType={entityType} />}
+                {showBrowseBar && <EntityProfileNavBar urn={urn} entityType={entityType} />}
                 {loading && <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />}
                 {!loading && error && (
                     <Alert type="error" message={error?.message || `Entity failed to load for urn ${urn}`} />

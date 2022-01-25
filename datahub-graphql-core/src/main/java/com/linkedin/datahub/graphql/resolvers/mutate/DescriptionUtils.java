@@ -42,7 +42,7 @@ public class DescriptionUtils {
 
       editableFieldInfo.setDescription(newDescription);
 
-      persistAspect(resourceUrn, editableSchemaMetadata, actor, entityService);
+      persistAspect(resourceUrn, EDITABLE_SCHEMA_METADATA, editableSchemaMetadata, actor, entityService);
   }
 
   public static Boolean validateFieldDescriptionInput(

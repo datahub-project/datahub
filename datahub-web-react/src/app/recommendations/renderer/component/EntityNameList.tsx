@@ -5,6 +5,7 @@ import { Entity } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
 import { IconStyleType } from '../../../entity/Entity';
+import { capitalizeFirstLetter } from '../../../shared/capitalizeFirstLetter';
 
 const StyledList = styled(List)`
     margin-top: -1px;
@@ -51,7 +52,8 @@ export const EntityNameList = ({ entities, onClick }: Props) => {
             renderItem={(entity, index) => {
                 const genericProps = entityRegistry.getGenericEntityProperties(entity.type, entity);
                 const platformLogoUrl = genericProps?.platform?.info?.logoUrl;
-                const platformName = genericProps?.platform?.info?.displayName;
+                const platformName =
+                    genericProps?.platform?.info?.displayName || capitalizeFirstLetter(genericProps?.platform?.name);
                 const entityTypeName = entityRegistry.getEntityName(entity.type);
                 const displayName = entityRegistry.getDisplayName(entity.type, entity);
                 const url = entityRegistry.getEntityUrl(entity.type, entity.urn);
@@ -67,6 +69,8 @@ export const EntityNameList = ({ entities, onClick }: Props) => {
                                 platform={platformName || undefined}
                                 type={entityTypeName}
                                 titleSizePx={14}
+                                tags={genericProps?.globalTags || undefined}
+                                glossaryTerms={genericProps?.glossaryTerms || undefined}
                                 onClick={() => onClick?.(index)}
                             />
                         </ListItem>

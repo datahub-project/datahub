@@ -196,7 +196,7 @@ A relationship query allows you to find Entity connected to a particular source 
 For example, to find the owners of a particular Chart, we can use the following CURL:
 
 ```
-curl --location --request GET --header 'X-RestLi-Protocol-Version: 2.0.0' 'http://localhost:8080/relationships?direction=OUTGOING&urn=urn:li:chart:customers&types=OwnedBy'
+curl --location --request GET --header 'X-RestLi-Protocol-Version: 2.0.0' 'http://localhost:8080/relationships?direction=OUTGOING&urn=urn%3Ali%3Achart%3Acustomers&types=List(OwnedBy)'
 ```
 
 The notable parameters are `direction`, `urn` and `types`. The response contains *Urns* associated with all entities connected 

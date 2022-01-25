@@ -162,6 +162,37 @@ def test_gms_get_dataset(platform, dataset_name, env):
     assert res_data["value"]["com.linkedin.metadata.snapshot.DatasetSnapshot"]
     assert res_data["value"]["com.linkedin.metadata.snapshot.DatasetSnapshot"]["urn"] == urn
 
+@pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
+def test_gms_batch_get_v2():
+    platform = "urn:li:dataPlatform:bigquery"
+    env = "PROD"
+    name_1 = (
+        "bigquery-public-data.covid19_geotab_mobility_impact.us_border_wait_times"
+    )
+    name_2 = (
+        "bigquery-public-data.covid19_geotab_mobility_impact.ca_border_wait_times"
+    )
+    urn1 = f"urn:li:dataset:({platform},{name_1},{env})"
+    urn2 = f"urn:li:dataset:({platform},{name_2},{env})"
+
+    response = requests.get(
+        f"{GMS_ENDPOINT}/entitiesV2?ids=List({urllib.parse.quote(urn1)},{urllib.parse.quote(urn2)})&aspects=List(datasetProperties,ownership)",
+        headers={
+            **restli_default_headers,
+            "X-RestLi-Method": "batch_get",
+        },
+    )
+    response.raise_for_status()
+    res_data = response.json()
+
+    # Verify both urns exist and have correct aspects
+    assert res_data["results"]
+    assert res_data["results"][urn1]
+    assert res_data["results"][urn1]["aspects"]["datasetProperties"]
+    assert res_data["results"][urn1]["aspects"]["ownership"]
+    assert res_data["results"][urn2]
+    assert res_data["results"][urn2]["aspects"]["datasetProperties"]
+    assert "ownership" not in res_data["results"][urn2]["aspects"] # Aspect does not exist.
 
 @pytest.mark.parametrize(
     "query,min_expected_results",
