@@ -19,10 +19,6 @@ import LineageExplorer from '../../../../lineage/LineageExplorer';
 import CompactContext from '../../../../shared/CompactContext';
 import DynamicTab from '../../tabs/Entity/weaklyTypedAspects/DynamicTab';
 
-type EntityProfileProperties = {
-    hideProfileNavBar?: boolean;
-};
-
 type Props<T, U> = {
     urn: string;
     entityType: EntityType;
@@ -45,7 +41,6 @@ type Props<T, U> = {
     getOverrideProperties: (T) => GenericEntityProperties;
     tabs: EntityTab[];
     sidebarSections: EntitySidebarSection[];
-    properties?: EntityProfileProperties;
 };
 
 const ContentContainer = styled.div`
@@ -109,7 +104,6 @@ export const EntityProfile = <T, U>({
     getOverrideProperties,
     tabs,
     sidebarSections,
-    properties,
 }: Props<T, U>): JSX.Element => {
     const isLineageMode = useIsLineageMode();
     const entityRegistry = useEntityRegistry();

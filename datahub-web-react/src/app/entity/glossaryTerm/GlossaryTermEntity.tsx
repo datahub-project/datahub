@@ -95,9 +95,6 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
                     },
                 ]}
                 getOverrideProperties={this.getOverridePropertiesFromEntity}
-                properties={{
-                    hideProfileNavBar: true,
-                }}
             />
         );
     };
