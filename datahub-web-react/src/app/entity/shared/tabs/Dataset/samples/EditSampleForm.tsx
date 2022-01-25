@@ -87,7 +87,11 @@ export const EditSampleForm = () => {
     const loadProfile = () => {
         console.log(`Load profile ${selectedValue} for ${currDataset}`);
         getProfile();
-        setFormData(profiledata?.dataset?.datasetProfiles || {});
+        setFormData(
+            profiledata?.dataset?.datasetProfiles?.[0].fieldProfiles.map((field) => {
+                return field;
+            }) || {},
+        );
     };
     const createNewProfile = () => {
         const labels = GetCurrentSchema(currDataset);
