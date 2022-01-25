@@ -74,7 +74,7 @@ def run(config: str, dry_run: bool, preview: bool, strict_warnings: bool) -> Non
     try:
         logger.debug(f"Using config: {pipeline_config}")
         pipeline = Pipeline.create(pipeline_config, dry_run, preview)
-    except ValidationError as e:
+    except (ValidationError, Exception) as e:
         click.echo(e, err=True)
         sys.exit(1)
 
