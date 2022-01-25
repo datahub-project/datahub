@@ -47,18 +47,24 @@ type Props = {
 
 // New design CSS
 const GroupsViewWrapper = styled.div`
-    // padding: 0 10px;
     height: calc(100vh - 114px);
     overflow-y: auto;
 `;
 const GroupItemColumn = styled(Col)`
-    // border: 1px solid red;
     padding: 10px;
 `;
 const GroupItem = styled.div`
     border: 1px solid #d9d9d9;
     padding: 10px;
     min-height: 107px;
+    max-height: 107px;
+
+    .title-row {
+        padding: 9px 11px 9px 11px;
+    }
+    .description-row {
+        padding: 2px 13px;
+    }
 `;
 const GroupTitle = styled.span`
     font-size: 14px;
@@ -78,9 +84,11 @@ const GroupDescription = styled.span`
     font-size: 12px;
     line-height: 20px;
     color: #262626;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+    height: 43px;
 `;
-const DummyGroupDescriptionText =
-    'Some text used for checking the content of the group item box. Some more text is added here.';
 export default function UserGroups({ urn, initialRelationships, pageSize }: Props) {
     // const [page, setPage] = useState(1);
     const entityRegistry = useEntityRegistry();
@@ -106,22 +114,21 @@ export default function UserGroups({ urn, initialRelationships, pageSize }: Prop
                     {userGroups &&
                         userGroups.map((item) => {
                             return (
-                                <GroupItemColumn xl={8} lg={8} md={8} sm={12} xs={24}>
+                                <GroupItemColumn xl={8} lg={8} md={12} sm={12} xs={24}>
                                     <Link to={entityRegistry.getEntityUrl(EntityType.CorpGroup, item.urn)}>
                                         <GroupItem>
-                                            <Row style={{ padding: '9px 11px 9px 11px' }}>
+                                            <Row className="title-row">
                                                 <GroupTitle>{item.name}</GroupTitle>
-                                                <GroupMember>10 members</GroupMember>
+                                                <GroupMember>
+                                                    {item.relationships?.total}
+                                                    {item.relationships?.total === 1 ? ' member' : ' members'}
+                                                </GroupMember>
                                             </Row>
-                                            <Row style={{ padding: '2px 13px' }}>
+                                            <Row className="description-row">
                                                 <GroupDescription>
-                                                    {item.info?.description && item.info?.description.length > 85 ? (
-                                                        <Tooltip title={item.info?.description}>
-                                                            {`${item.info?.description.slice(0, 80)} ...`}
-                                                        </Tooltip>
-                                                    ) : (
-                                                        item.info?.description
-                                                    )}
+                                                    <Tooltip title={item.info?.description}>
+                                                        {`${item.info?.description}`}
+                                                    </Tooltip>
                                                 </GroupDescription>
                                             </Row>
                                         </GroupItem>
@@ -130,51 +137,6 @@ export default function UserGroups({ urn, initialRelationships, pageSize }: Prop
                             );
                         })}
                     {/* dummy */}
-                    <GroupItemColumn xl={8} lg={8} md={8} sm={12} xs={24}>
-                        <GroupItem>
-                            <Row style={{ padding: '9px 11px 9px 11px' }}>
-                                <GroupTitle>Some title</GroupTitle>
-                                <GroupMember>10 members</GroupMember>
-                            </Row>
-                            <Row style={{ padding: '2px 13px' }}>
-                                <GroupDescription>
-                                    {DummyGroupDescriptionText.length > 85 ? (
-                                        <Tooltip title={DummyGroupDescriptionText}>
-                                            {`${DummyGroupDescriptionText.slice(0, 80)}...`}
-                                        </Tooltip>
-                                    ) : (
-                                        DummyGroupDescriptionText
-                                    )}
-                                </GroupDescription>
-                            </Row>
-                        </GroupItem>
-                    </GroupItemColumn>
-                    <GroupItemColumn xl={8} lg={8} md={8} sm={12} xs={24}>
-                        <GroupItem>
-                            <Row style={{ padding: '9px 11px 9px 11px' }}>
-                                <GroupTitle>Some title</GroupTitle>
-                                <GroupMember>10 members</GroupMember>
-                            </Row>
-                            <Row style={{ padding: '2px 13px' }}>
-                                <GroupDescription>
-                                    Some text used for checking the content of the group item box.
-                                </GroupDescription>
-                            </Row>
-                        </GroupItem>
-                    </GroupItemColumn>
-                    <GroupItemColumn xl={8} lg={8} md={8} sm={12} xs={24}>
-                        <GroupItem>
-                            <Row style={{ padding: '9px 11px 9px 11px' }}>
-                                <GroupTitle>Some title</GroupTitle>
-                                <GroupMember>10 members</GroupMember>
-                            </Row>
-                            <Row style={{ padding: '2px 13px' }}>
-                                <GroupDescription>
-                                    Some text used for checking the content of the group item box.
-                                </GroupDescription>
-                            </Row>
-                        </GroupItem>
-                    </GroupItemColumn>
                     {/* dummy end */}
                 </Row>
             </GroupsViewWrapper>
