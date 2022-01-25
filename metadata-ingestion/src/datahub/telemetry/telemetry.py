@@ -1,3 +1,4 @@
+import errno
 import json
 import logging
 import os
@@ -46,11 +47,24 @@ class Telemetry:
 
         if not DATAHUB_FOLDER.exists():
             os.makedirs(DATAHUB_FOLDER)
-
-        with open(CONFIG_FILE, "w") as f:
-            json.dump(
-                {"client_id": self.client_id, "enabled": self.enabled}, f, indent=2
-            )
+        try:
+            with open(CONFIG_FILE, "w") as f:
+                json.dump(
+                    {"client_id": self.client_id, "enabled": self.enabled}, f, indent=2
+                )
+        except IOError as x:
+            if x.errno == errno.ENOENT:
+                logger.debug(
+                    f"{CONFIG_FILE} does not exist and could not be created. Please check permissions on the parent folder."
+                )
+            elif x.errno == errno.EACCES:
+                logger.debug(
+                    f"{CONFIG_FILE} cannot be read. Please check the permissions on this file."
+                )
+            else:
+                logger.debug(
+                    f"{CONFIG_FILE} had an IOError, please inspect this file for issues."
+                )
 
     def enable(self) -> None:
         """
@@ -73,10 +87,24 @@ class Telemetry:
         Load the saved config for the telemetry client ID and enabled status.
         """
 
-        with open(CONFIG_FILE, "r") as f:
-            config = json.load(f)
-            self.client_id = config["client_id"]
-            self.enabled = config["enabled"] & ENV_ENABLED
+        try:
+            with open(CONFIG_FILE, "r") as f:
+                config = json.load(f)
+                self.client_id = config["client_id"]
+                self.enabled = config["enabled"] & ENV_ENABLED
+        except IOError as x:
+            if x.errno == errno.ENOENT:
+                logger.debug(
+                    f"{CONFIG_FILE} does not exist and could not be created. Please check permissions on the parent folder."
+                )
+            elif x.errno == errno.EACCES:
+                logger.debug(
+                    f"{CONFIG_FILE} cannot be read. Please check the permissions on this file."
+                )
+            else:
+                logger.debug(
+                    f"{CONFIG_FILE} had an IOError, please inspect this file for issues."
+                )
 
     def ping(
         self,

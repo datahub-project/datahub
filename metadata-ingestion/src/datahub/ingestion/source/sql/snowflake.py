@@ -17,6 +17,7 @@ from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.aws.aws_common import make_s3_urn
 from datahub.ingestion.source.sql.sql_common import (
     RecordTypeClass,
     SQLAlchemyConfig,
@@ -105,6 +106,7 @@ class SnowflakeSource(SQLAlchemySource):
     def __init__(self, config, ctx):
         super().__init__(config, ctx, "snowflake")
         self._lineage_map: Optional[Dict[str, List[Tuple[str, str, str]]]] = None
+        self._external_lineage_map: Optional[Dict[str, List[str]]] = None
 
     @classmethod
     def create(cls, config_dict, ctx):
@@ -135,6 +137,47 @@ class SnowflakeSource(SQLAlchemySource):
     def get_identifier(self, *, schema: str, entity: str, **kwargs: Any) -> str:
         regular = super().get_identifier(schema=schema, entity=entity, **kwargs)
         return f"{self.current_database.lower()}.{regular}"
+
+    def _populate_external_lineage(self) -> None:
+        url = self.config.get_sql_alchemy_url()
+        logger.debug(f"sql_alchemy_url={url}")
+        engine = create_engine(url, **self.config.options)
+        query: str = """
+WITH external_table_lineage_history AS (
+    SELECT
+        r.value:"locations" as upstream_locations,
+        w.value:"objectName" AS downstream_table_name,
+        w.value:"objectDomain" AS downstream_table_domain,
+        w.value:"columns" AS downstream_table_columns,
+        t.query_start_time AS query_start_time
+    FROM
+        (SELECT * from snowflake.account_usage.access_history) t,
+        lateral flatten(input => t.BASE_OBJECTS_ACCESSED) r,
+        lateral flatten(input => t.OBJECTS_MODIFIED) w
+    WHERE r.value:"locations" IS NOT NULL
+    AND w.value:"objectId" IS NOT NULL
+    AND t.query_start_time >= to_timestamp_ltz({start_time_millis}, 3)
+    AND t.query_start_time < to_timestamp_ltz({end_time_millis}, 3))
+SELECT upstream_locations, downstream_table_name, downstream_table_columns
+FROM external_table_lineage_history
+WHERE downstream_table_domain = 'Table'
+QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name ORDER BY query_start_time DESC) = 1
+       """.format(
+            start_time_millis=int(self.config.start_time.timestamp() * 1000),
+            end_time_millis=int(self.config.end_time.timestamp() * 1000),
+        )
+        self._external_lineage_map = {}
+        try:
+            for db_row in engine.execute(query):
+                # key is the down-stream table name
+                key: str = db_row[1].lower().replace('"', "")
+                self._external_lineage_map[key] = json.loads(db_row[0])
+                logger.debug(f"Lineage[{key}]:{self._external_lineage_map[key]}")
+        except Exception as e:
+            logger.warning(
+                f"Extracting lineage from Snowflake failed."
+                f"Please check your premissions. Continuing...\nError was {e}."
+            )
 
     def _populate_lineage(self) -> None:
         url = self.config.get_sql_alchemy_url()
@@ -192,10 +235,14 @@ QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name, upstream_table_na
 
         if self._lineage_map is None:
             self._populate_lineage()
+        if self._external_lineage_map is None:
+            self._populate_external_lineage()
         assert self._lineage_map is not None
+        assert self._external_lineage_map is not None
         dataset_name = dataset_key.name
-        lineage = self._lineage_map.get(f"{dataset_name}", None)
-        if lineage is None:
+        lineage = self._lineage_map.get(f"{dataset_name}", [])
+        external_lineage = self._external_lineage_map.get(f"{dataset_name}", [])
+        if not (lineage or external_lineage):
             logger.debug(f"No lineage found for {dataset_name}")
             return None
         upstream_tables: List[UpstreamClass] = []
@@ -231,6 +278,16 @@ QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name, upstream_table_na
             )
             column_lineage[column_lineage_key] = column_lineage_value
             logger.debug(f"{column_lineage_key}:{column_lineage_value}")
+
+        for external_lineage_entry in external_lineage:
+            # For now, populate only for S3
+            if external_lineage_entry.startswith("s3://"):
+                external_upstream_table = UpstreamClass(
+                    dataset=make_s3_urn(external_lineage_entry, self.config.env),
+                    type=DatasetLineageTypeClass.COPY,
+                )
+                upstream_tables.append(external_upstream_table)
+
         if upstream_tables:
             return UpstreamLineage(upstreams=upstream_tables), column_lineage
         return None
