@@ -81,6 +81,10 @@ const EditProfileButton = styled.div`
     position: absolute;
     right: 27px;
     width: 80%;
+    left: 50%;
+    -webkit-transform: translateX(-50%);
+    -moz-transform: translateX(-50%);
+    transform: translateX(-50%);
 
     button {
         width: 100%;
@@ -151,7 +155,7 @@ export default function UserProfile() {
     }
 
     const groupMemberRelationships = data?.corpUser?.relationships as EntityRelationshipsResult;
-
+    console.log('groupmember', groupMemberRelationships);
     const getTabs = () => {
         return [
             {
@@ -205,7 +209,7 @@ export default function UserProfile() {
     ];
     const defaultTabPath = tabs && tabs?.length > 0 ? tabs[0].path : '';
     const onTabChange = () => null;
-    console.log('ownershipForDetails', ownershipForDetails);
+    // console.log('ownershipForDetails', ownershipForDetails);
 
     return (
         <>
