@@ -1,4 +1,5 @@
 import dataclasses
+from math import log10
 from typing import Any, Dict, List, Optional
 
 import pydantic
@@ -46,6 +47,7 @@ from datahub.metadata.schema_classes import (
     QuantileClass,
     ValueFrequencyClass,
 )
+from datahub.telemetry import telemetry
 
 NUM_SAMPLE_ROWS = 20
 QUANTILES = [0.05, 0.25, 0.5, 0.75, 0.95]
@@ -311,6 +313,14 @@ class _SingleTableProfiler:
     def prepare_table_profiles(self) -> None:
 
         row_count = self.row_count
+
+        telemetry.telemetry_instance.ping(
+            "profiling",
+            "rows_profiled_log10",
+            # bucket by taking floor of log of the number of rows scanned
+            # report the bucket as a label so the count is not collapsed
+            str(int(log10(row_count + 1))),
+        )
 
         # loop through the columns and add the analyzers
         for column_spec in self.column_specs:

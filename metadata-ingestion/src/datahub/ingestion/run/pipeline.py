@@ -214,10 +214,10 @@ class Pipeline:
         telemetry.telemetry_instance.ping("ingest", "sink_type", self.config.sink.type)
         telemetry.telemetry_instance.ping(
             "ingest",
-            "ingestion_stats",
             "records_written_log10",
             # bucket by taking floor of log of the number of records written
-            int(log10(self.sink.get_report().records_written + 1)),
+            # report the bucket as a label so the count is not collapsed
+            str(int(log10(self.sink.get_report().records_written + 1))),
         )
 
     def pretty_print_summary(self, warnings_as_failure: bool = False) -> int:
