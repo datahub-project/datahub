@@ -38,23 +38,31 @@ const ThinDivider = styled(Divider)`
     margin: 0px;
 `;
 
+type AdditionalProperties = {
+    path?: Entity[];
+};
+
 type Props = {
+    // additional data about the search result that is not part of the entity used to enrich the
+    // presentation of the entity. For example, metadata about how the entity is related for the case
+    // of impact analysis
+    additionalPropertiesList?: Array<AdditionalProperties>;
     entities: Array<Entity>;
     onClick?: (index: number) => void;
 };
 
-export const EntityNameList = ({ entities, onClick }: Props) => {
+export const EntityNameList = ({ additionalPropertiesList, entities, onClick }: Props) => {
     const entityRegistry = useEntityRegistry();
     return (
         <StyledList
             bordered
             dataSource={entities}
             renderItem={(entity, index) => {
+                const additionalProperties = additionalPropertiesList?.[index];
                 const genericProps = entityRegistry.getGenericEntityProperties(entity.type, entity);
-                const platformLogoUrl = genericProps?.platform?.properties?.logoUrl;
+                const platformLogoUrl = genericProps?.platform?.info?.logoUrl;
                 const platformName =
-                    genericProps?.platform?.properties?.displayName ||
-                    capitalizeFirstLetter(genericProps?.platform?.name);
+                    genericProps?.platform?.info?.displayName || capitalizeFirstLetter(genericProps?.platform?.name);
                 const entityTypeName = entityRegistry.getEntityName(entity.type);
                 const displayName = entityRegistry.getDisplayName(entity.type, entity);
                 const url = entityRegistry.getEntityUrl(entity.type, entity.urn);
@@ -73,6 +81,7 @@ export const EntityNameList = ({ entities, onClick }: Props) => {
                                 tags={genericProps?.globalTags || undefined}
                                 glossaryTerms={genericProps?.glossaryTerms || undefined}
                                 onClick={() => onClick?.(index)}
+                                path={additionalProperties?.path}
                             />
                         </ListItem>
                         <ThinDivider />

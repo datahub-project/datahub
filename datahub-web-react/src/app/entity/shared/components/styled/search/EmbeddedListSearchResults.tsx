@@ -115,6 +115,12 @@ export const EmbeddedListSearchResults = ({
                                 entities={
                                     searchResponse?.searchResults?.map((searchResult) => searchResult.entity) || []
                                 }
+                                additionalPropertiesList={
+                                    searchResponse?.searchResults?.map((searchResult) => ({
+                                        // eslint-disable-next-line @typescript-eslint/dot-notation
+                                        path: searchResult['path'],
+                                    })) || []
+                                }
                             />
                         </>
                     )}

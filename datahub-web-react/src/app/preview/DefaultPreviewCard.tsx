@@ -1,13 +1,15 @@
-import { Image, Typography } from 'antd';
+import { Image, Tooltip, Typography } from 'antd';
 import React, { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-import { GlobalTags, Owner, GlossaryTerms, SearchInsight } from '../../types.generated';
+import { GlobalTags, Owner, GlossaryTerms, SearchInsight, Entity } from '../../types.generated';
 import { useEntityRegistry } from '../useEntityRegistry';
 import AvatarsGroup from '../shared/avatar/AvatarsGroup';
 import TagTermGroup from '../shared/tags/TagTermGroup';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import NoMarkdownViewer from '../entity/shared/components/styled/StripMarkdownText';
+import { getNumberWithOrdinal } from '../entity/shared/utils';
+import { useEntityData } from '../entity/shared/EntityContext';
 
 interface Props {
     name: string;
@@ -26,6 +28,9 @@ interface Props {
     dataTestID?: string;
     titleSizePx?: number;
     onClick?: () => void;
+    // this is provided by the impact analysis view. it is used to display
+    // how the listed node is connected to the source node
+    path?: Entity[];
 }
 
 const PreviewContainer = styled.div`
@@ -129,7 +134,11 @@ export default function DefaultPreviewCard({
     titleSizePx,
     dataTestID,
     onClick,
+    path,
 }: Props) {
+    // sometimes these lists will be rendered inside an entity container (for example, in the case of impact analysis)
+    // in those cases, we may want to enrich the preview w/ context about the container entity
+    const { entityData } = useEntityData();
     const entityRegistry = useEntityRegistry();
     const insightViews: Array<ReactNode> = [
         ...(insights?.map((insight) => (
@@ -153,6 +162,18 @@ export default function DefaultPreviewCard({
                             {platform && <PlatformText>{platform}</PlatformText>}
                             {(logoUrl || logoComponent || platform) && <PlatformDivider />}
                             <PlatformText>{type}</PlatformText>
+                            {path && (
+                                <span>
+                                    <PlatformDivider />
+                                    <Tooltip
+                                        title={`This entity is a ${getNumberWithOrdinal(
+                                            path?.length + 1,
+                                        )} degree connection to ${entityData?.name || 'the source entity'}`}
+                                    >
+                                        <PlatformText>{getNumberWithOrdinal(path?.length + 1)}</PlatformText>
+                                    </Tooltip>
+                                </span>
+                            )}
                         </PlatformInfo>
                         <EntityTitle onClick={onClick} $titleSizePx={titleSizePx}>
                             {name || ' '}
