@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Button, Select, Space } from 'antd';
+import { Button, Form, Select, Space } from 'antd';
 import { gql, useLazyQuery, useQuery } from '@apollo/client';
 import { useBaseEntity } from '../../../EntityContext';
 import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
@@ -111,6 +111,11 @@ export const EditSampleForm = () => {
                 {},
             ) || {},
         );
+        // setFormData(
+        //     profiledata?.dataset?.datasetProfiles?.[0].fieldProfiles.map((item) => {
+        //         return item.fieldPath;
+        //     }),
+        // );
     };
 
     const createNewProfile = () => {
@@ -127,54 +132,58 @@ export const EditSampleForm = () => {
                     return [item.fieldPath, []];
                 }) || {},
             ),
+            // schema,
         );
     };
     // const outputData = profiledata?.dataset?.datasetProfiles || {};
     console.log(` formdata is ${JSON.stringify(formData)}`);
-    console.log(` schemadata is ${JSON.stringify(schemaData)}`);
-    console.log(`keys are ${Object.keys(formData)}`);
-    console.log(`values are ${Object.values(formData)}`);
-    // const handleChange = (value) => {
-    //     console.log(`selected ${value}`);
-    // };
+    console.log(` schema is ${JSON.stringify(schema)}`);
+    // console.log(`keys are ${Object.keys(formData)}`);
+    // console.log(`values are ${Object.values(formData)}`);
+    const handleChange = (value) => {
+        setFormData(value);
+    };
     // const dummy = { first: [123, 45], second: [564, 657] };
     // const dummy = ['12', '34'];
     // const selectlabel = dummy.keys();
     // console.log(`selectlabel is ${typeof selectlabel}`);
     return (
         <>
-            {/* <Form.Item name="chooseSet" label="Select a Timestamped Dataset Profile to edit"> */}
-            <Select
-                defaultValue="select a timeperiod"
-                style={{ width: 300 }}
-                onChange={(value) => {
-                    setSelectedValue(Number(value));
-                }}
-            >
-                {timeStampValues.map((item) => (
-                    <Option value={item} key={item}>
-                        {new Intl.DateTimeFormat('en-US', {
-                            year: 'numeric',
-                            month: '2-digit',
-                            day: '2-digit',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                            second: '2-digit',
-                        }).format(item)}
-                    </Option>
-                ))}
-            </Select>
-            <Space />
-            <Button onClick={loadProfile}>Load Profile</Button>
-            <Button onClick={deleteProfile}>Delete Profile</Button>
-            <Button onClick={createNewProfile}>Create New Dataset Profile</Button>
-            {/* </Form.Item> */}
-            <Select
-                mode="tags"
-                style={{ width: '50%' }}
-                defaultValue={Object.keys(formData).map((key) => formData[key])}
-                tokenSeparators={[',']}
-            />
+            <Form.Item name="chooseSet" label="Select a Timestamped Dataset Profile to edit">
+                <Select
+                    placeholder="select a timeperiod"
+                    style={{ width: 300 }}
+                    onChange={(value) => {
+                        setSelectedValue(Number(value));
+                    }}
+                >
+                    {timeStampValues.map((item) => (
+                        <Option value={item} key={item}>
+                            {new Intl.DateTimeFormat('en-US', {
+                                year: 'numeric',
+                                month: '2-digit',
+                                day: '2-digit',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                second: '2-digit',
+                            }).format(item)}
+                        </Option>
+                    ))}
+                </Select>
+                <Space />
+                <Button onClick={loadProfile}>Load Profile</Button>
+                <Button onClick={deleteProfile}>Delete Profile</Button>
+                <Button onClick={createNewProfile}>Create New Dataset Profile</Button>
+            </Form.Item>
+            <Form.Item>
+                <Select
+                    mode="tags"
+                    style={{ width: '50%' }}
+                    value={Object.keys(formData).map((item) => item)}
+                    tokenSeparators={[',']}
+                    onChange={handleChange}
+                />
+            </Form.Item>
         </>
     );
 };
