@@ -25,13 +25,17 @@ public class DomainMapper {
     result.setUrn(entityUrn.toString());
     result.setType(EntityType.DOMAIN);
 
-    // Domains MUST have properties aspect to be rendered.
+    // Domains MUST have key aspect to be rendered.
+    final EnvelopedAspect envelopedDomainKey = aspects.get(Constants.DOMAIN_KEY_ASPECT_NAME);
+    if (envelopedDomainKey != null) {
+      result.setId(new DomainKey(envelopedDomainKey.getValue().data()).getId());
+    } else {
+      return null;
+    }
+
     final EnvelopedAspect envelopedDomainProperties = aspects.get(Constants.DOMAIN_PROPERTIES_ASPECT_NAME);
     if (envelopedDomainProperties != null) {
       result.setProperties(mapDomainProperties(new DomainProperties(envelopedDomainProperties.getValue().data())));
-    } else {
-      // Short Circuit
-      return null;
     }
 
     final EnvelopedAspect envelopedDomainKey = aspects.get(Constants.DOMAIN_KEY_ASPECT_NAME);
