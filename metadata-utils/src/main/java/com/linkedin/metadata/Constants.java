@@ -22,6 +22,7 @@ public class Constants {
   public static final String DASHBOARD_ENTITY_NAME = "dashboard";
   public static final String DATA_FLOW_ENTITY_NAME = "dataFlow";
   public static final String DATA_JOB_ENTITY_NAME = "dataJob";
+  public static final String DATA_PLATFORM_ENTITY_NAME = "dataPlatform";
   public static final String DOMAIN_ENTITY_NAME = "domain";
 
   /**
