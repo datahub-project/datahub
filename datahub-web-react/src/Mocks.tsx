@@ -2661,7 +2661,7 @@ export const mocks = [
                     requestContext: {
                         scenario: ScenarioType.Home,
                     },
-                    limit: 5,
+                    limit: 10,
                 },
             },
         },
