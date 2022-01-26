@@ -1197,9 +1197,14 @@ export const recommendationModules = [
                 entity: {
                     urn: 'urn:li:dataPlatform:snowflake',
                     type: EntityType.DataPlatform,
+                    name: 'snowflake',
                     properties: {
                         displayName: 'Snowflake',
+                        datasetNameDelimiter: '.',
+                        logoUrl: null,
                     },
+                    displayName: null,
+                    info: null,
                 },
                 params: {
                     contentParams: {
