@@ -41,8 +41,8 @@ class AzureADConfig(ConfigModel):
 
     # Optional: Customize the mapping to DataHub Username from an attribute in the REST API response
     # Reference: https://docs.microsoft.com/en-us/graph/api/user-list?view=graph-rest-1.0&tabs=http#response-1
-    azure_ad_response_to_username_attr: str = "mail"
-    azure_ad_response_to_username_regex: str = "([^@]+)"
+    azure_ad_response_to_username_attr: str = "userPrincipalName"
+    azure_ad_response_to_username_regex: str = "(.*)"
 
     # Optional: Customize the mapping to DataHub Groupname from an attribute in the REST API response
     # Reference: https://docs.microsoft.com/en-us/graph/api/group-list?view=graph-rest-1.0&tabs=http#response-1
