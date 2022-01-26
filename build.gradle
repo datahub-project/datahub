@@ -162,6 +162,7 @@ subprojects {
     // see http://ajoberstar.org/grgit/grgit-describe.html for more info about the describe method and available parameters
     // 'it' is an instance of org.ajoberstar.grgit.Grgit
     customProperty 'git.commit.id.describe', { it.describe(tags: true) }
+    failOnNoGitDirectory = false
   }
 
   plugins.withType(JavaPlugin) {
