@@ -15,6 +15,7 @@ import EmbeddedListSearchHeader from './EmbeddedListSearchHeader';
 import { useGetSearchResultsForMultipleQuery } from '../../../../../../graphql/search.generated';
 import { GetSearchResultsParams, SearchResultInterface } from './types';
 
+// this extracts the response from useGetSearchResultsForMultipleQuery into a common interface other search endpoints can also produce
 function useWrappedSearchResults(params: GetSearchResultsParams) {
     const { data, loading, error } = useGetSearchResultsForMultipleQuery(params);
     return { data: data?.searchAcrossEntities, loading, error };
