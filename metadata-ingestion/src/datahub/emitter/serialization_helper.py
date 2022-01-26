@@ -5,10 +5,10 @@ from typing import Any
 def pre_json_transform(obj: Any) -> Any:
     if isinstance(obj, (dict, OrderedDict)):
         if len(obj.keys()) == 1:
-            key = list(obj.keys())[0]
+            key: str = list(obj.keys())[0]
             value = obj[key]
-            if key.find("com.linkedin.pegasus2avro.") >= 0:
-                new_key = key.replace("com.linkedin.pegasus2avro.", "com.linkedin.")
+            if key.startswith("com.linkedin.pegasus2avro.") >= 0:
+                new_key = key.replace("com.linkedin.pegasus2avro.", "com.linkedin.", 1)
                 return {new_key: pre_json_transform(value)}
 
         if "fieldDiscriminator" in obj:

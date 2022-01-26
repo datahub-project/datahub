@@ -43,6 +43,7 @@ This connector supports both local files as well as those stored on AWS S3 (whic
 - TSV
 - Parquet
 - JSON
+- Apache Avro
 
 :::caution
 
