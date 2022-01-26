@@ -3,6 +3,8 @@ package com.linkedin.datahub.graphql.resolvers.ingest.source;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
+import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
+import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
 import com.linkedin.datahub.graphql.generated.UpdateIngestionSourceConfigInput;
 import com.linkedin.datahub.graphql.generated.UpdateIngestionSourceInput;
 import com.linkedin.datahub.graphql.generated.UpdateIngestionSourceScheduleInput;
@@ -18,6 +20,7 @@ import com.linkedin.metadata.utils.GenericAspectUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import java.net.URISyntaxException;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -40,44 +43,51 @@ public class UpsertIngestionSourceResolver implements DataFetcher<CompletableFut
   public CompletableFuture<String> get(final DataFetchingEnvironment environment) throws Exception {
     final QueryContext context = environment.getContext();
 
-    if (IngestionAuthUtils.canManageIngestion(context)) {
+    return CompletableFuture.supplyAsync(() -> {
 
-      final Optional<String> ingestionSourceUrn = Optional.ofNullable(environment.getArgument("urn"));
-      final UpdateIngestionSourceInput input = bindArgument(environment.getArgument("input"), UpdateIngestionSourceInput.class);
+      if (IngestionAuthUtils.canManageIngestion(context)) {
 
-      final MetadataChangeProposal proposal = new MetadataChangeProposal();
+        final Optional<String> ingestionSourceUrn = Optional.ofNullable(environment.getArgument("urn"));
+        final UpdateIngestionSourceInput input = bindArgument(environment.getArgument("input"), UpdateIngestionSourceInput.class);
 
-      if (ingestionSourceUrn.isPresent()) {
-        // Update existing ingestion source
-        proposal.setEntityUrn(Urn.createFromString(ingestionSourceUrn.get()));
-      } else {
-        // Create new ingestion source
-        // Since we are creating a new Ingestion Source, we need to generate a unique UUID.
-        final UUID uuid = UUID.randomUUID();
-        final String uuidStr = uuid.toString();
+        final MetadataChangeProposal proposal = new MetadataChangeProposal();
 
-        // Create the Ingestion source key
-        final DataHubIngestionSourceKey key = new DataHubIngestionSourceKey();
-        key.setId(uuidStr);
-        proposal.setEntityKeyAspect(GenericAspectUtils.serializeAspect(key));
-      }
+        if (ingestionSourceUrn.isPresent()) {
+          // Update existing ingestion source
+          try {
+            proposal.setEntityUrn(Urn.createFromString(ingestionSourceUrn.get()));
+          } catch (URISyntaxException e) {
+            throw new DataHubGraphQLException(
+                String.format("Malformed urn %s provided.", ingestionSourceUrn.get()),
+                DataHubGraphQLErrorCode.BAD_REQUEST);
+          }
+        } else {
+          // Create new ingestion source
+          // Since we are creating a new Ingestion Source, we need to generate a unique UUID.
+          final UUID uuid = UUID.randomUUID();
+          final String uuidStr = uuid.toString();
 
-      // Create the policy info.
-      final DataHubIngestionSourceInfo info = mapIngestionSourceInfo(input);
-      proposal.setEntityType(Constants.INGESTION_SOURCE_ENTITY_NAME);
-      proposal.setAspectName(Constants.INGESTION_INFO_ASPECT_NAME);
-      proposal.setAspect(GenericAspectUtils.serializeAspect(info));
-      proposal.setChangeType(ChangeType.UPSERT);
+          // Create the Ingestion source key
+          final DataHubIngestionSourceKey key = new DataHubIngestionSourceKey();
+          key.setId(uuidStr);
+          proposal.setEntityKeyAspect(GenericAspectUtils.serializeAspect(key));
+        }
 
-      return CompletableFuture.supplyAsync(() -> {
+        // Create the policy info.
+        final DataHubIngestionSourceInfo info = mapIngestionSourceInfo(input);
+        proposal.setEntityType(Constants.INGESTION_SOURCE_ENTITY_NAME);
+        proposal.setAspectName(Constants.INGESTION_INFO_ASPECT_NAME);
+        proposal.setAspect(GenericAspectUtils.serializeAspect(info));
+        proposal.setChangeType(ChangeType.UPSERT);
+
         try {
           return _entityClient.ingestProposal(proposal, context.getAuthentication());
         } catch (Exception e) {
           throw new RuntimeException(String.format("Failed to perform update against ingestion source with urn %s", input.toString()), e);
         }
-      });
-    }
-    throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
+      }
+      throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
+    });
   }
 
   private DataHubIngestionSourceInfo mapIngestionSourceInfo(final UpdateIngestionSourceInput input) {

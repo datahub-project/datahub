@@ -44,7 +44,7 @@ public class UpsertIngestionSourceResolverTest {
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
-    resolver.get(mockEnv);
+    resolver.get(mockEnv).join();
 
     // Verify ingest proposal has been called
     DataHubIngestionSourceInfo info = new DataHubIngestionSourceInfo();
@@ -64,10 +64,10 @@ public class UpsertIngestionSourceResolverTest {
         Mockito.eq(
             new MetadataChangeProposal()
               .setChangeType(ChangeType.UPSERT)
-            .setEntityType(Constants.INGESTION_SOURCE_ENTITY_NAME)
-            .setAspectName(Constants.INGESTION_INFO_ASPECT_NAME)
-            .setAspect(GenericAspectUtils.serializeAspect(info))
-            .setEntityUrn(TEST_INGESTION_SOURCE_URN)
+              .setEntityType(Constants.INGESTION_SOURCE_ENTITY_NAME)
+              .setAspectName(Constants.INGESTION_INFO_ASPECT_NAME)
+              .setAspect(GenericAspectUtils.serializeAspect(info))
+              .setEntityUrn(TEST_INGESTION_SOURCE_URN)
         ),
         Mockito.any(Authentication.class)
     );

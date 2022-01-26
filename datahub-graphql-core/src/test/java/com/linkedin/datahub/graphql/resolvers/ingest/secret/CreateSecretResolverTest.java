@@ -13,6 +13,7 @@ import com.linkedin.metadata.secret.SecretService;
 import com.linkedin.metadata.utils.GenericAspectUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
+import com.linkedin.restli.internal.server.util.DataMapUtils;
 import com.linkedin.secret.DataHubSecretValue;
 import graphql.schema.DataFetchingEnvironment;
 import org.mockito.Mockito;
@@ -43,7 +44,9 @@ public class CreateSecretResolverTest {
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
-    resolver.get(mockEnv);
+
+    // Invoke the resolver
+    resolver.get(mockEnv).join();
 
     // Verify ingest proposal has been called
     DataHubSecretKey key = new DataHubSecretKey();
