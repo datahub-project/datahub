@@ -5229,11 +5229,6 @@ Input required to fetch the entities inside of a Domain.
 """
 input DomainEntitiesInput {
   """
-  Optional entity type filter for particular entities inside the domain
-  """
-  entityType: EntityType
-
-  """
   Optional query filter for particular entities inside the domain
   """
   query: String

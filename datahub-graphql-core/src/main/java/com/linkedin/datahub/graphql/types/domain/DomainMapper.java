@@ -38,11 +38,6 @@ public class DomainMapper {
       result.setProperties(mapDomainProperties(new DomainProperties(envelopedDomainProperties.getValue().data())));
     }
 
-    final EnvelopedAspect envelopedDomainKey = aspects.get(Constants.DOMAIN_KEY_ASPECT_NAME);
-    if (envelopedDomainKey != null) {
-      result.setId(new DomainKey(envelopedDomainKey.getValue().data()).getId());
-    }
-
     final EnvelopedAspect envelopedOwnership = aspects.get(Constants.OWNERSHIP_ASPECT_NAME);
     if (envelopedOwnership != null) {
       result.setOwnership(OwnershipMapper.map(new Ownership(envelopedOwnership.getValue().data())));
