@@ -66,13 +66,6 @@ class LookerAPIConfig(ConfigModel):
     client_id: str
     client_secret: str
     base_url: str
-    external_base_url: str
-
-    @validator("external_base_url", pre=True, always=True)
-    def external_url_defaults_to_base_url(
-        cls, v: Optional[str], *, values: Dict[str, Any], **kwargs: Dict[str, Any]
-    ) -> str:
-        return v or values["base_url"]
 
 
 class LookerAPI:
@@ -110,6 +103,13 @@ class LookerDashboardSourceConfig(LookerAPIConfig, LookerCommonConfig):
     strip_user_ids_from_email: bool = False
     skip_personal_folders: bool = False
     max_threads: int = os.cpu_count() or 40
+    external_base_url: str = None  # validator will ensure this gets filled out
+
+    @validator("external_base_url", pre=True, always=True)
+    def external_url_defaults_to_api_config_base_url(
+        cls, v: Optional[str], *, values: Dict[str, Any], **kwargs: Dict[str, Any]
+    ) -> str:
+        return v or values["base_url"]
 
 
 @dataclass
