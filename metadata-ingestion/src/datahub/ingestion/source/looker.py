@@ -29,6 +29,7 @@ from looker_sdk.sdk.api31.models import (
     Query,
     User,
 )
+from pydantic import validator
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration import ConfigModel
@@ -65,7 +66,13 @@ class LookerAPIConfig(ConfigModel):
     client_id: str
     client_secret: str
     base_url: str
-    external_url_base_url: Optional[str]
+    external_base_url: str
+
+    @validator("external_base_url", pre=True, always=True)
+    def external_url_defaults_to_base_url(
+        cls, v: Optional[str], *, values, **kwargs
+    ) -> str:
+        return v or values["base_url"]
 
 
 class LookerAPI:
@@ -533,11 +540,7 @@ class LookerDashboardSource(Source):
             description=dashboard_element.description or "",
             title=dashboard_element.title or "",
             lastModified=ChangeAuditStamps(),
-            chartUrl=dashboard_element.url(
-                self.source_config.external_url_base_url
-                if self.source_config.external_url_base_url is not None
-                else self.source_config.base_url
-            ),
+            chartUrl=dashboard_element.url(self.source_config.external_base_url),
             inputs=dashboard_element.get_view_urns(self.source_config),
             customProperties={
                 "upstream_fields": ",".join(
@@ -623,11 +626,7 @@ class LookerDashboardSource(Source):
             title=looker_dashboard.title,
             charts=[mce.proposedSnapshot.urn for mce in chart_mces],
             lastModified=ChangeAuditStamps(),
-            dashboardUrl=looker_dashboard.url(
-                self.source_config.external_url_base_url
-                if self.source_config.external_url_base_url is not None
-                else self.source_config.base_url
-            ),
+            dashboardUrl=looker_dashboard.url(self.source_config.external_base_url),
         )
 
         dashboard_snapshot.aspects.append(dashboard_info)
