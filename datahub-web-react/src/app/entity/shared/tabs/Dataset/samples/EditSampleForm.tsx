@@ -25,31 +25,31 @@ function GetProfileTimestamps(datasetUrn) {
     return timeStampValues;
 }
 
-function GetCurrentSchema(datasetUrn) {
-    // to query the current schema in place so i can create an empty form with the existing schema
-    const querySchema = gql`
-        query getSchema($urn: String!) {
-            dataset(urn: $urn) {
-                schemaMetadata(version: 0) {
-                    fields {
-                        fieldPath
-                    }
-                }
-            }
-        }
-    `;
-    const { data: schema } = useQuery(querySchema, {
-        variables: {
-            urn: datasetUrn,
-        },
-        skip: datasetUrn === undefined,
-    });
+// function GetCurrentSchema(datasetUrn) {
+//     // to query the current schema in place so i can create an empty form with the existing schema
+//     const querySchema = gql`
+//         query getSchema($urn: String!) {
+//             dataset(urn: $urn) {
+//                 schemaMetadata(version: 0) {
+//                     fields {
+//                         fieldPath
+//                     }
+//                 }
+//             }
+//         }
+//     `;
+//     const { data: schema } = useQuery(querySchema, {
+//         variables: {
+//             urn: datasetUrn,
+//         },
+//         skip: datasetUrn === undefined,
+//     });
 
-    const result = schema?.dataset?.schemaMetadata?.fields.map((item) => {
-        return item.fieldPath;
-    });
-    return result;
-}
+//     const result = schema?.dataset?.schemaMetadata?.fields.map((item) => {
+//         return item.fieldPath;
+//     });
+//     return result;
+// }
 
 export const EditSampleForm = () => {
     const queryTimeStamps = gql`
@@ -64,22 +64,40 @@ export const EditSampleForm = () => {
             }
         }
     `;
+    const querySchema = gql`
+        query getSchema($urn: String!) {
+            dataset(urn: $urn) {
+                schemaMetadata(version: 0) {
+                    fields {
+                        fieldPath
+                    }
+                }
+            }
+        }
+    `;
     const baseEntity = useBaseEntity<GetDatasetQuery>();
     const currDataset = baseEntity && baseEntity?.dataset?.urn;
     const [selectedValue, setSelectedValue] = useState(0);
-    const [formData, setFormData] = useState([]);
+    const [formData, setFormData] = useState({});
     const [getProfile, { data: profiledata }] = useLazyQuery(queryTimeStamps, {
         variables: {
             urn: currDataset,
             timestamp: selectedValue,
         },
     });
-
+    const [getSchema, { data: schemaData }] = useLazyQuery(querySchema, {
+        variables: {
+            urn: currDataset,
+        },
+    });
     const { Option } = Select;
-    const timeStampValues = GetProfileTimestamps(currDataset);
-    const refined = timeStampValues.map((item) => {
+    const schema = schemaData?.dataset?.schemaMetadata?.fields || [];
+    const timeStampValues = GetProfileTimestamps(currDataset).map((item) => {
         return item.timestampMillis;
     });
+    // const refined = timeStampValues.map((item) => {
+    //     return item.timestampMillis;
+    // });
     const deleteProfile = () => {
         console.log(`delete profile ${selectedValue}`);
         // axios delete profile endpoint
@@ -88,17 +106,37 @@ export const EditSampleForm = () => {
         console.log(`Load profile ${selectedValue} for ${currDataset}`);
         getProfile();
         setFormData(
-            profiledata?.dataset?.datasetProfiles?.[0].fieldProfiles.map((field) => {
-                return field;
-            }) || {},
+            profiledata?.dataset?.datasetProfiles?.[0].fieldProfiles.reduce(
+                (obj, item) => ({ ...obj, [item.fieldPath]: item.sampleValues }),
+                {},
+            ) || {},
         );
     };
+
     const createNewProfile = () => {
-        const labels = GetCurrentSchema(currDataset);
-        console.log(labels);
+        getSchema();
+
+        setFormData(
+            // Object.fromEntries(
+            //     schemaData?.dataset?.schemaMetadata?.fields?.map((item) => {
+            //         return [item.fieldPath, []];
+            //     }) || {},
+            // ),
+            Object.fromEntries(
+                schema.map((item) => {
+                    return [item.fieldPath, []];
+                }) || {},
+            ),
+        );
     };
     // const outputData = profiledata?.dataset?.datasetProfiles || {};
-    console.log(JSON.stringify(formData));
+    console.log(` formdata is ${JSON.stringify(formData)}`);
+    console.log(` schemadata is ${JSON.stringify(schemaData)}`);
+    console.log(`keys are ${Object.keys(formData)}`);
+    console.log(`values are ${Object.values(formData)}`);
+    const handleChange = (value) => {
+        console.log(`selected ${value}`);
+    };
     return (
         <>
             <Form.Item name="chooseSet" label="Select a Timestamped Dataset Profile to edit">
@@ -109,7 +147,7 @@ export const EditSampleForm = () => {
                         setSelectedValue(Number(value));
                     }}
                 >
-                    {refined.map((item) => (
+                    {timeStampValues.map((item) => (
                         <Option value={item} key={item}>
                             {new Intl.DateTimeFormat('en-US', {
                                 year: 'numeric',
@@ -126,6 +164,9 @@ export const EditSampleForm = () => {
                 <Button onClick={loadProfile}>Load Profile</Button>
                 <Button onClick={deleteProfile}>Delete Profile</Button>
                 <Button onClick={createNewProfile}>Create New Dataset Profile</Button>
+            </Form.Item>
+            <Form.Item>
+                <Select mode="tags" style={{ width: '100%' }} onChange={handleChange} tokenSeparators={[',']} />
             </Form.Item>
         </>
     );
