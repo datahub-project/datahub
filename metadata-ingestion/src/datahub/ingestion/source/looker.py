@@ -70,7 +70,7 @@ class LookerAPIConfig(ConfigModel):
 
     @validator("external_base_url", pre=True, always=True)
     def external_url_defaults_to_base_url(
-        cls, v: Optional[str], *, values, **kwargs
+        cls, v: Optional[str], *, values: Dict[str, Any], **kwargs: Dict[str, Any]
     ) -> str:
         return v or values["base_url"]
 
