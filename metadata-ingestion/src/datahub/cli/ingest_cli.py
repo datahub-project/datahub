@@ -16,6 +16,7 @@ from datahub.cli.cli_utils import (
     get_session_and_host,
     post_rollback_endpoint,
 )
+from datahub.configuration import SensitiveError
 from datahub.configuration.config_loader import load_config_file
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.telemetry import telemetry
@@ -77,6 +78,10 @@ def run(config: str, dry_run: bool, preview: bool, strict_warnings: bool) -> Non
     except ValidationError as e:
         click.echo(e, err=True)
         sys.exit(1)
+    except Exception as e:
+        # The pipeline_config may contain sensitive information, so we wrap the exception
+        # in a SensitiveError to prevent detailed variable-level information from being logged.
+        raise SensitiveError() from e
 
     logger.info("Starting metadata ingestion")
     pipeline.run()
