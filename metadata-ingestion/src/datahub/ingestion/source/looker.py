@@ -65,7 +65,7 @@ class LookerAPIConfig(ConfigModel):
     client_id: str
     client_secret: str
     base_url: str
-
+    external_base_url: Optional[str]
 
 class LookerAPI:
     """A holder class for a Looker client"""
@@ -532,7 +532,7 @@ class LookerDashboardSource(Source):
             description=dashboard_element.description or "",
             title=dashboard_element.title or "",
             lastModified=ChangeAuditStamps(),
-            chartUrl=dashboard_element.url(self.source_config.base_url),
+            chartUrl=dashboard_element.url(self.source_config.external_base_url if self.source_config.external_base_url is not None else self.source_config.base_url),
             inputs=dashboard_element.get_view_urns(self.source_config),
             customProperties={
                 "upstream_fields": ",".join(
@@ -618,7 +618,7 @@ class LookerDashboardSource(Source):
             title=looker_dashboard.title,
             charts=[mce.proposedSnapshot.urn for mce in chart_mces],
             lastModified=ChangeAuditStamps(),
-            dashboardUrl=looker_dashboard.url(self.source_config.base_url),
+            dashboardUrl=looker_dashboard.url(self.source_config.external_base_url if self.source_config.external_base_url is not None else self.source_config.base_url),
         )
 
         dashboard_snapshot.aspects.append(dashboard_info)
