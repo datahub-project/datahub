@@ -103,7 +103,7 @@ class LookerDashboardSourceConfig(LookerAPIConfig, LookerCommonConfig):
     strip_user_ids_from_email: bool = False
     skip_personal_folders: bool = False
     max_threads: int = os.cpu_count() or 40
-    external_base_url: str = None  # validator will ensure this gets filled out
+    external_base_url: Optional[str]
 
     @validator("external_base_url", pre=True, always=True)
     def external_url_defaults_to_api_config_base_url(
@@ -534,13 +534,12 @@ class LookerDashboardSource(Source):
         )
 
         chart_type = self._get_chart_type(dashboard_element)
-
         chart_info = ChartInfoClass(
             type=chart_type,
             description=dashboard_element.description or "",
             title=dashboard_element.title or "",
             lastModified=ChangeAuditStamps(),
-            chartUrl=dashboard_element.url(self.source_config.external_base_url),
+            chartUrl=dashboard_element.url(self.source_config.external_base_url or ""),
             inputs=dashboard_element.get_view_urns(self.source_config),
             customProperties={
                 "upstream_fields": ",".join(
