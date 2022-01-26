@@ -532,7 +532,7 @@ public class GmsGraphQLEngine {
         );
     }
 
-    private void configureGenericEntityResolvers(final RuntimeWiring.Builder builder) {iption
+    private void configureGenericEntityResolvers(final RuntimeWiring.Builder builder) {
         builder
             .type("SearchResult", typeWiring -> typeWiring
                 .dataFetcher("entity", new AuthenticatedResolver<>(

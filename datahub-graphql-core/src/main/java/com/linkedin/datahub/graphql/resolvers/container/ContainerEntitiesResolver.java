@@ -29,7 +29,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 @Slf4j
 public class ContainerEntitiesResolver implements DataFetcher<CompletableFuture<SearchResults>> {
 
-  private static final List<String> CONTAINABLE_ENTITY_NAMES = ImmutableList.of(
+  static final List<String> CONTAINABLE_ENTITY_NAMES = ImmutableList.of(
       Constants.DATASET_ENTITY_NAME,
       Constants.CHART_ENTITY_NAME,
       Constants.DASHBOARD_ENTITY_NAME,
@@ -72,7 +72,6 @@ public class ContainerEntitiesResolver implements DataFetcher<CompletableFuture<
 
       try {
 
-        // 1. Fetch the related edges
         final Criterion filterCriterion =  new Criterion()
             .setField(CONTAINER_FIELD_NAME + ".keyword")
             .setCondition(Condition.EQUAL)

@@ -15,12 +15,25 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 
 
 public class ContainerType implements com.linkedin.datahub.graphql.types.EntityType<Container> {
 
+  static final Set<String> ASPECTS_TO_FETCH = ImmutableSet.of(
+      Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME,
+      Constants.CONTAINER_PROPERTIES_ASPECT_NAME,
+      Constants.CONTAINER_EDITABLE_PROPERTIES_ASPECT_NAME,
+      Constants.OWNERSHIP_ASPECT_NAME,
+      Constants.INSTITUTIONAL_MEMORY_ASPECT_NAME,
+      Constants.STATUS_ASPECT_NAME,
+      Constants.SUB_TYPES_ASPECT_NAME,
+      Constants.GLOBAL_TAGS_ASPECT_NAME,
+      Constants.GLOSSARY_TERMS_ASPECT_NAME,
+      Constants.CONTAINER_ASPECT_NAME
+  );
   private final EntityClient _entityClient;
 
   public ContainerType(final EntityClient entityClient)  {
@@ -47,18 +60,7 @@ public class ContainerType implements com.linkedin.datahub.graphql.types.EntityT
       final Map<Urn, EntityResponse> entities = _entityClient.batchGetV2(
           Constants.CONTAINER_ENTITY_NAME,
           new HashSet<>(containerUrns),
-          ImmutableSet.of(
-              Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME,
-              Constants.CONTAINER_PROPERTIES_ASPECT_NAME,
-              Constants.CONTAINER_EDITABLE_PROPERTIES_ASPECT_NAME,
-              Constants.OWNERSHIP_ASPECT_NAME,
-              Constants.INSTITUTIONAL_MEMORY_ASPECT_NAME,
-              Constants.STATUS_ASPECT_NAME,
-              Constants.SUB_TYPES_ASPECT_NAME,
-              Constants.GLOBAL_TAGS_ASPECT_NAME,
-              Constants.GLOSSARY_TERMS_ASPECT_NAME,
-              Constants.CONTAINER_ASPECT_NAME
-            ),
+          ASPECTS_TO_FETCH,
           context.getAuthentication());
 
       final List<EntityResponse> gmsResults = new ArrayList<>();

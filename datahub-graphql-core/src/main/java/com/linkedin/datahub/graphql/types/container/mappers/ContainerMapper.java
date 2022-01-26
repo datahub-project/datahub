@@ -39,7 +39,7 @@ public class ContainerMapper {
     if (envelopedPlatformInstance != null) {
       result.setPlatform(mapPlatform(new DataPlatformInstance(envelopedPlatformInstance.getValue().data())));
     } else {
-      // Containers must have DPI today.
+      // Containers must have DPI to be rendered.
       return null;
     }
 
