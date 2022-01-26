@@ -117,6 +117,7 @@ export const EmbeddedListSearchResults = ({
                                 }
                                 additionalPropertiesList={
                                     searchResponse?.searchResults?.map((searchResult) => ({
+                                        // when we add impact analysis, we will want to pipe the path to each element to the result this
                                         // eslint-disable-next-line @typescript-eslint/dot-notation
                                         path: searchResult['path'],
                                     })) || []
