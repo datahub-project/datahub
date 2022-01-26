@@ -30,7 +30,7 @@ RUN apk --no-cache --update-cache --available upgrade \
     && apk --no-cache add openjdk8 perl
 
 COPY . /datahub-src
-RUN cd /datahub-src && ./gradlew :metadata-service:war:build -x test -Dorg.gradle.internal.http.socketTimeout=900000 -Dorg.gradle.internal.http.connectionTimeout=900000
+RUN cd /datahub-src && ./gradlew :metadata-service:war:build -x test -Dorg.gradle.internal.http.socketTimeout=9000000 -Dorg.gradle.internal.http.connectionTimeout=9000000
 RUN cp /datahub-src/metadata-service/war/build/libs/war.war /war.war
 
 FROM base as prod-install
