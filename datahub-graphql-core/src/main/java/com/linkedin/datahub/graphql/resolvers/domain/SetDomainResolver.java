@@ -21,7 +21,6 @@ import lombok.extern.slf4j.Slf4j;
 import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
 
 
-
 /**
  * Resolver used for updating the Domain associated with a Metadata Asset. Requires the EDIT_DOMAINS privilege for a particular asset.
  */
@@ -39,15 +38,15 @@ public class SetDomainResolver implements DataFetcher<CompletableFuture<Boolean>
     final Urn entityUrn = Urn.createFromString(environment.getArgument("entityUrn"));
     final Urn domainUrn = Urn.createFromString(environment.getArgument("domainUrn"));
 
-    if (!DomainUtils.isAuthorizedToUpdateDomainsForEntity(environment.getContext(), entityUrn)) {
-      throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
-    }
-
     return CompletableFuture.supplyAsync(() -> {
+
+      if (!DomainUtils.isAuthorizedToUpdateDomainsForEntity(environment.getContext(), entityUrn)) {
+        throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
+      }
       validateSetDomainInput(
-          entityUrn,
-          domainUrn,
-          _entityService
+        entityUrn,
+        domainUrn,
+        _entityService
       );
       try {
         Domains domains = (Domains) getAspectFromEntity(

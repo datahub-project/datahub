@@ -41,12 +41,13 @@ public class ListDomainsResolver implements DataFetcher<CompletableFuture<ListDo
 
     final QueryContext context = environment.getContext();
 
-    if (AuthorizationUtils.canManageDomains(context)) {
-      final ListDomainsInput input = bindArgument(environment.getArgument("input"), ListDomainsInput.class);
-      final Integer start = input.getStart() == null ? DEFAULT_START : input.getStart();
-      final Integer count = input.getCount() == null ? DEFAULT_COUNT : input.getCount();
+    return CompletableFuture.supplyAsync(() -> {
 
-      return CompletableFuture.supplyAsync(() -> {
+      if (AuthorizationUtils.canManageDomains(context)) {
+        final ListDomainsInput input = bindArgument(environment.getArgument("input"), ListDomainsInput.class);
+        final Integer start = input.getStart() == null ? DEFAULT_START : input.getStart();
+        final Integer count = input.getCount() == null ? DEFAULT_COUNT : input.getCount();
+
         try {
           // First, get all group Urns.
           final ListResult gmsResult = _entityClient.list(
@@ -66,9 +67,9 @@ public class ListDomainsResolver implements DataFetcher<CompletableFuture<ListDo
         } catch (Exception e) {
           throw new RuntimeException("Failed to list domains", e);
         }
-      });
-    }
-    throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
+      }
+      throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
+    });
   }
 
   // This method maps urns returned from the list endpoint into Partial Domain objects which will be resolved be a separate Batch resolver.

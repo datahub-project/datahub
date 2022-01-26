@@ -37,11 +37,12 @@ public class UnsetDomainResolver implements DataFetcher<CompletableFuture<Boolea
     final QueryContext context = environment.getContext();
     final Urn entityUrn = Urn.createFromString(environment.getArgument("entityUrn"));
 
-    if (!DomainUtils.isAuthorizedToUpdateDomainsForEntity(environment.getContext(), entityUrn)) {
-      throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
-    }
-
     return CompletableFuture.supplyAsync(() -> {
+
+      if (!DomainUtils.isAuthorizedToUpdateDomainsForEntity(environment.getContext(), entityUrn)) {
+        throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
+      }
+
       validateUnsetDomainInput(
           entityUrn,
           _entityService

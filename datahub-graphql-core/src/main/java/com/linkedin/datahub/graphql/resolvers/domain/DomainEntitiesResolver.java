@@ -65,7 +65,6 @@ public class DomainEntitiesResolver implements DataFetcher<CompletableFuture<Sea
 
       try {
 
-        // 1. Fetch the related edges
         final Criterion filterCriterion =  new Criterion()
             .setField(DOMAINS_FIELD_NAME + ".keyword")
             .setCondition(Condition.EQUAL)

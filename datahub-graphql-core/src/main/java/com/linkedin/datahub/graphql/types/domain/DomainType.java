@@ -14,12 +14,19 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 
 
 public class DomainType implements com.linkedin.datahub.graphql.types.EntityType<Domain> {
 
+  static final Set<String> ASPECTS_TO_FETCH = ImmutableSet.of(
+    Constants.DOMAIN_KEY_ASPECT_NAME,
+    Constants.DOMAIN_PROPERTIES_ASPECT_NAME,
+    Constants.OWNERSHIP_ASPECT_NAME,
+    Constants.INSTITUTIONAL_MEMORY_ASPECT_NAME
+  );
   private final EntityClient _entityClient;
 
   public DomainType(final EntityClient entityClient)  {
@@ -38,24 +45,19 @@ public class DomainType implements com.linkedin.datahub.graphql.types.EntityType
 
   @Override
   public List<DataFetcherResult<Domain>> batchLoad(@Nonnull List<String> urns, @Nonnull QueryContext context) throws Exception {
-    final List<Urn> containerUrns = urns.stream()
+    final List<Urn> domainUrns = urns.stream()
         .map(this::getUrn)
         .collect(Collectors.toList());
 
     try {
       final Map<Urn, EntityResponse> entities = _entityClient.batchGetV2(
           Constants.DOMAIN_ENTITY_NAME,
-          new HashSet<>(containerUrns),
-          ImmutableSet.of(
-              Constants.DOMAIN_KEY_ASPECT_NAME,
-              Constants.DOMAIN_PROPERTIES_ASPECT_NAME,
-              Constants.OWNERSHIP_ASPECT_NAME,
-              Constants.INSTITUTIONAL_MEMORY_ASPECT_NAME
-          ),
+          new HashSet<>(domainUrns),
+          ASPECTS_TO_FETCH,
           context.getAuthentication());
 
       final List<EntityResponse> gmsResults = new ArrayList<>();
-      for (Urn urn : containerUrns) {
+      for (Urn urn : domainUrns) {
         gmsResults.add(entities.getOrDefault(urn, null));
       }
       return gmsResults.stream()
@@ -66,7 +68,7 @@ public class DomainType implements com.linkedin.datahub.graphql.types.EntityType
           )
           .collect(Collectors.toList());
     } catch (Exception e) {
-      throw new RuntimeException("Failed to batch load Container", e);
+      throw new RuntimeException("Failed to batch load Domains", e);
     }
   }
 
