@@ -14,6 +14,7 @@ from datahub.cli.get_cli import get
 from datahub.cli.ingest_cli import ingest
 from datahub.cli.put_cli import put
 from datahub.cli.telemetry import telemetry as telemetry_cli
+from datahub.configuration import SensitiveError
 from datahub.telemetry import telemetry
 
 logger = logging.getLogger(__name__)
@@ -107,12 +108,19 @@ def main(**kwargs):
         error.show()
         sys.exit(1)
     except Exception as exc:
+        kwargs = {}
+        sensitive_cause = SensitiveError.get_sensitive_cause(exc)
+        if sensitive_cause:
+            kwargs = {"show_vals": None}
+            exc = sensitive_cause
+
         logger.error(
             stackprinter.format(
                 exc,
                 line_wrap=MAX_CONTENT_WIDTH,
                 truncate_vals=10 * MAX_CONTENT_WIDTH,
                 suppressed_paths=[r"lib/python.*/site-packages/click/"],
+                **kwargs,
             )
         )
         sys.exit(1)
