@@ -73,7 +73,7 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `client_id`               | ✅       |                         | Looker API3 client ID.                                                                                       |
 | `client_secret`           | ✅       |                         | Looker API3 client secret.                                                                                   |
 | `base_url`                | ✅       |                         | Url to your Looker instance: `https://company.looker.com:19999` or `https://looker.company.com`, or similar. |
-| `external_url_base_url`   |          | `None`                  | Optional URL to use when constructing external URLs to Looker. If not provided, the external URL base will default to `base_url`.                        | 
+| `external_url_base_url`   |          | `None`                  | Optional URL to use when constructing external URLs to Looker. For example, `https://looker-public.company.com` If not provided, the external URL base will default to `base_url`.  | 
 | `platform_name`           |          | `"looker"`              | Platform to use in namespace when constructing URNs.                                                         |
 | `extract_owners`                     |          | `True`                | When enabled, extracts ownership from Looker directly. When disabled, ownership is left empty for dashboards and charts.                                                      |
 | `strip_user_ids_from_email`                     |          | `False`                | When enabled, converts Looker user emails of the form name@domain.com to urn:li:corpuser:name when assigning ownership                                                    |
