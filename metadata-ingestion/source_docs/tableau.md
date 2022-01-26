@@ -145,7 +145,7 @@ Sheets from Tableau are ingested as charts in datahub. <br/>
 ```
 
 ### Embedded Data Source
-Embedded Data source from Tableau is ingested as a generic data source in datahub.
+Embedded Data source from Tableau is ingested as a Dataset in datahub.
 
 - GraphQL query <br/>
 ```
@@ -224,7 +224,7 @@ Embedded Data source from Tableau is ingested as a generic data source in datahu
 ```
 
 ### Published Data Source
-Published Data source from Tableau is ingested as a generic data source in datahub.
+Published Data source from Tableau is ingested as a Dataset in datahub.
 
 - GraphQL query <br/>
 ```
@@ -375,9 +375,13 @@ source:
     # Credentials
     username: username@acrylio.com
     password: pass
+    token_name: Acryl
+    token_value: token_generated_from_tableau
     
     # Options
-    default_schema: "public"
+    default_schema_map:
+      mydatabase: public
+      anotherdatabase: anotherschema
     
 sink:
   # sink configs
@@ -385,15 +389,20 @@ sink:
 
 ## Config details
 
-| Field            | Required | Default   | Description                                                         |
-|------------------|----------|-----------|---------------------------------------------------------------------|
-| `connect_uri`    | ✅        |           | Tableau host URL.                                                   |
-| `username`       | ✅        |           | Tableau user name.                                                  |
-| `password`       | ✅        |           | Tableau password for authentication.                                |
-| `site`           | ✅        |           | Tableau Online Site                                                 |
-| `projects`       |          | `default` | Default project                                                     |
-| `default_schema` |          | `public`  | Default schema to use when schema is not found in Tableau response. |
-| `env`            |          | `"PROD"`  | Environment to use in namespace when constructing URNs.             |
+| Field                 | Required | Default   | Description                                                   |
+|-----------------------|----------|-----------|---------------------------------------------------------------|
+| `connect_uri`         | ✅        |           | Tableau host URL.                                             |
+| `site`                | ✅        |           | Tableau Online Site                                           |
+| `username`            |          |           | Tableau user name.                                            |
+| `password`            |          |           | Tableau password for authentication.                          |
+| `token_name`          |          |           | Tableau token name if authenticating using a personal token.  |
+| `token_value`         |          |           | Tableau token value if authenticating using a personal token. |
+| `projects`            |          | `default` | List of projects                                              |
+| `default_schema_map`* |          |           | Default schema to use when schema is not found.               |
+| `env`                 |          | `"PROD"`  | Environment to use in namespace when constructing URNs.       |
+
+*Tableau may not provide schema name when ingesting Custom SQL data source. Use `default_schema_map` to provide a default
+schema name to use when constructing a table URN.
 
 ### Authentication
 

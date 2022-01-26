@@ -3,11 +3,11 @@ import logging
 import uuid
 from datetime import datetime
 from functools import lru_cache
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 import dateutil.parser as dp
 from pydantic import validator
-from tableauserverclient import Server, ServerResponseError, TableauAuth
+from tableauserverclient import Server, ServerResponseError, TableauAuth, PersonalAccessTokenAuth
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigModel
@@ -66,14 +66,18 @@ from datahub.utilities import config_clean
 
 logger: logging.Logger = logging.getLogger(__name__)
 
+# Replace / with |
+REPLACE_SLASH_CHAR = "|"
 
 class TableauConfig(ConfigModel):
     connect_uri: str
     username: Optional[str] = None
     password: Optional[str] = None
+    token_name: Optional[str] = None
+    token_value: Optional[str] = None
     site: str
-    projects: Optional[List] = None
-    default_schema: str = "public"
+    projects: Optional[List] = ["default"]
+    default_schema_map: Optional[dict] = {}
     env: str = builder.DEFAULT_ENV
 
     @validator("connect_uri")
@@ -95,35 +99,54 @@ class TableauSource(Source):
         super().__init__(ctx)
         self.config = config
         self.report = SourceReport()
-        self.server = Server(config.connect_uri, use_server_version=True)
-        self.used_ds_id: List[str] = []
-        self.used_csql_id: List[str] = []
-        try:
-            # https://tableau.github.io/server-client-python/docs/api-ref#authentication
-            auth = TableauAuth(config.username, config.password, self.config.site)
-            self.server.auth.sign_in(auth)
-        except ServerResponseError as e:
-            self.report.report_failure(
-                key="tableau-login",
-                reason=f"Unable to Login for user "
-                f"{self.config.username}, "
-                f"Reason: {str(e)}",
-            )
+        # This list keeps track of datasource being actively used by workbooks, so we only retrieve those when emitting
+        # published data sources.
+        self.datasource_ids_being_used: List[str] = []
+        # This list keeps track of datasource being actively used by workbooks, so we only retrieve those when emitting
+        # custom SQL data sources.
+        self.custom_sql_ids_being_used: List[str] = []
+
+        self._authenticate()
 
     def close(self) -> None:
         self.server.auth.sign_out()
 
-    def emit_workbook_mces(self, count_on_query: int) -> Iterable[MetadataWorkUnit]:
-        projects = (
-            f"projectNameWithin: {json.dumps(self.config.projects)}"
-            if self.config.projects
-            else ""
-        )
+    def _authenticate(self):
+        # https://tableau.github.io/server-client-python/docs/api-ref#authentication
+        authentication = None
+        if self.config.username and self.config.password:
+            authentication = TableauAuth(self.config.username, self.config.password, self.config.site)
+        elif self.config.token_name and self.config.token_value:
+            authentication = PersonalAccessTokenAuth(self.config.token_name, self.config.token_value, self.config.site)
+        else:
+            self.report.report_failure(
+                key="tableau-login",
+                reason=f"No valid authentication was found"
+            )
 
-        wbs = query_metadata(
+        try:
+            self.server = Server(self.config.connect_uri, use_server_version=True)
+            self.server.auth.sign_in(authentication)
+        except ServerResponseError as e:
+            self.report.report_failure(
+                key="tableau-login",
+                reason=f"Unable to Login with credentials provided"
+                       f"Reason: {str(e)}",
+            )
+        except Exception as e:
+            self.report.report_failure(
+                key="tableau-login",
+                reason=f"Unable to Login"
+                       f"Reason: {str(e)}"
+            )
+
+    def emit_workbook_mces(self, count_on_query: int) -> Iterable[MetadataWorkUnit]:
+        projects = f"projectNameWithin: {json.dumps(self.config.projects)}"
+
+        workbooks_data = query_metadata(
             self.server, workbook_graphql_query, "workbooksConnection", 0, 0, projects
         )
-        workbook_connection = wbs.get("data", {}).get("workbooksConnection", {})
+        workbook_connection = workbooks_data.get("data", {}).get("workbooksConnection", {})
         total_count = workbook_connection.get("totalCount", 0)
         has_next_page = workbook_connection.get("pageInfo", {}).get(
             "hasNextPage", False
@@ -135,7 +158,7 @@ class TableauSource(Source):
                 if current_count + count_on_query < total_count
                 else total_count - current_count
             )
-            wbs = query_metadata(
+            workbooks_data = query_metadata(
                 self.server,
                 workbook_graphql_query,
                 "workbooksConnection",
@@ -143,33 +166,29 @@ class TableauSource(Source):
                 current_count,
                 projects,
             )
-            workbook_connection = wbs.get("data", {}).get("workbooksConnection", {})
+            workbook_connection = workbooks_data.get("data", {}).get("workbooksConnection", {})
             total_count = workbook_connection.get("totalCount", 0)
             has_next_page = workbook_connection.get("pageInfo", {}).get(
                 "hasNextPage", False
             )
             current_count += count
 
-            for wb in workbook_connection.get("nodes", []):
-                yield from self.emit_sheets_as_charts(wb)
-                yield from self.emit_dashboards(wb)
-                yield from self.emit_embedded_ds(wb)
+            for workbook in workbook_connection.get("nodes", []):
+                yield from self.emit_sheets_as_charts(workbook)
+                yield from self.emit_dashboards(workbook)
+                yield from self.emit_embedded_ds(workbook)
                 yield from self.emit_upstream_tables()
 
-    def _get_chart_urn(self, sheet: Dict, wb: Dict) -> str:
-        chart_urn = builder.make_chart_urn(
-            self.platform,
-            sheet.get(
-                "id",
-                f"{wb.get('projectName', '')}"
-                f".{wb.get('name', '')}"
-                f".{sheet.get('name', '')}",
-            ),
-        )
-        return chart_urn
+    @lru_cache(maxsize=None)
+    def _get_schema(self, schema_provided: str, database: str) -> str:
+        schema = schema_provided
+        if not schema_provided and database in self.config.default_schema_map:
+            schema = self.config.default_schema_map[database]
+
+        return schema
 
     def _create_upstream_table_lineage(
-        self, ds: dict, project: str, isCustomSQL: bool = False
+        self, ds: dict, project: str, is_custom_sql: bool = False
     ) -> List[UpstreamClass]:
         upstream_tables = []
         upstream_dbs = ds.get("upstreamDatabases", [])
@@ -178,13 +197,10 @@ class TableauSource(Source):
         for table in ds.get("upstreamTables", []):
             # skip upstream tables when there is no column info when retrieving embedded datasource
             # Schema details for these will be taken care in self.emit_custom_sql_ds()
-            if not isCustomSQL and not table.get("columns"):
+            if not is_custom_sql and not table.get("columns"):
                 continue
 
-            schema = table.get("schema", "")
-            if schema is None or not schema:
-                schema = self.config.default_schema
-
+            schema = self._get_schema(table.get("schema", ""), upstream_db)
             table_urn = make_table_urn(
                 self.config.env,
                 upstream_db,
@@ -198,7 +214,7 @@ class TableauSource(Source):
                 type=DatasetLineageTypeClass.TRANSFORMED,
             )
             upstream_tables.append(upstream_table)
-            table_path = f"{project.replace('/', '|')}/{ds.get('name', '')}/{table.get('name', '')}"
+            table_path = f"{project.replace('/', REPLACE_SLASH_CHAR)}/{ds.get('name', '')}/{table.get('name', '')}"
             self.upstream_tables[table_urn] = (
                 table.get("columns", []),
                 table_path,
@@ -206,20 +222,20 @@ class TableauSource(Source):
         return upstream_tables
 
     def emit_custom_sql_ds(self) -> Iterable[MetadataWorkUnit]:
-        count_on_query = len(self.used_csql_id)
-        customsqls = query_metadata(
+        count_on_query = len(self.custom_sql_ids_being_used)
+        custom_sql_data = query_metadata(
             self.server,
             custom_sql_graphql_query,
             "customSQLTablesConnection",
             0,
             0,
-            "idWithin: {}".format(json.dumps(self.used_csql_id)),
+            "idWithin: {}".format(json.dumps(self.custom_sql_ids_being_used)),
         )
-        c_sql_connection = customsqls.get("data", {}).get(
+        custom_sql_connection = custom_sql_data.get("data", {}).get(
             "customSQLTablesConnection", {}
         )
-        total_count = c_sql_connection.get("totalCount")
-        has_next_page = c_sql_connection.get("pageInfo", {}).get("hasNextPage", False)
+        total_count = custom_sql_connection.get("totalCount")
+        has_next_page = custom_sql_connection.get("pageInfo", {}).get("hasNextPage", False)
         current_count = 0
         while has_next_page:
             count = (
@@ -227,43 +243,43 @@ class TableauSource(Source):
                 if current_count + count_on_query < total_count
                 else total_count - current_count
             )
-            customsqls = query_metadata(
+            custom_sql_data = query_metadata(
                 self.server,
                 custom_sql_graphql_query,
                 "customSQLTablesConnection",
                 count,
                 current_count,
-                "idWithin: {}".format(json.dumps(self.used_csql_id)),
+                "idWithin: {}".format(json.dumps(self.custom_sql_ids_being_used)),
             )
-            c_sql_connection = customsqls.get("data", {}).get(
+            custom_sql_connection = custom_sql_data.get("data", {}).get(
                 "customSQLTablesConnection", {}
             )
-            total_count = c_sql_connection.get("totalCount")
-            has_next_page = c_sql_connection.get("pageInfo", {}).get(
+            total_count = custom_sql_connection.get("totalCount")
+            has_next_page = custom_sql_connection.get("pageInfo", {}).get(
                 "hasNextPage", False
             )
             current_count += count
             # get relationship between custom sql and embedded data sources only via columns and fields
-            unique_customsql = []
-            for customsql in c_sql_connection.get("nodes", []):
+            unique_custom_sql = []
+            for custom_sql in custom_sql_connection.get("nodes", []):
                 unique_csql = {
-                    "id": customsql.get("id"),
-                    "name": customsql.get("name"),
-                    "query": customsql.get("query"),
-                    "columns": customsql.get("columns"),
-                    "tables": customsql.get("tables"),
+                    "id": custom_sql.get("id"),
+                    "name": custom_sql.get("name"),
+                    "query": custom_sql.get("query"),
+                    "columns": custom_sql.get("columns"),
+                    "tables": custom_sql.get("tables"),
                 }
                 datasource_for_csql = []
-                for column in customsql.get("columns", []):
+                for column in custom_sql.get("columns", []):
                     for field in column.get("referencedByFields", []):
-                        ds = field.get("datasource")
-                        if ds not in datasource_for_csql:
-                            datasource_for_csql.append(ds)
+                        datasource = field.get("datasource")
+                        if datasource not in datasource_for_csql:
+                            datasource_for_csql.append(datasource)
 
                 unique_csql["datasources"] = datasource_for_csql
-                unique_customsql.append(unique_csql)
+                unique_custom_sql.append(unique_csql)
 
-            for csql in unique_customsql:
+            for csql in unique_custom_sql:
                 csql_name = f"{csql['name']}.{csql.get('id', uuid.uuid4())}"
                 csql_urn = builder.make_dataset_urn(
                     self.platform, csql_name, self.config.env
@@ -307,16 +323,17 @@ class TableauSource(Source):
                 used_ds = []
                 fields: List[SchemaField] = []
                 for field in csql.get("columns", []):
-                    datasources = [
-                        ref.get("datasource") for ref in field.get("referencedByFields")
+                    data_sources = [
+                        reference.get("datasource") for reference in field.get("referencedByFields")
+                        if reference.get("datasource") is not None
                     ]
-                    for ds in datasources:
-                        if ds.get("id", "") in used_ds:
+                    for datasource in data_sources:
+                        if datasource.get("id", "") in used_ds:
                             continue
-                        used_ds.append(ds.get("id", ""))
+                        used_ds.append(datasource.get("id", ""))
 
                         upstream_tables = self._create_upstream_table_lineage(
-                            ds, ds.get("workbook", {}).get("projectName", ""), True
+                            datasource, datasource.get("workbook", {}).get("projectName", ""), True
                         )
                         if upstream_tables:
                             upstream_lineage = UpstreamLineage(
@@ -379,7 +396,7 @@ class TableauSource(Source):
                     changeType=ChangeTypeClass.UPSERT,
                     entityUrn=dataset_snapshot.urn,
                     aspectName="subTypes",
-                    aspect=SubTypesClass(typeNames=["custom_sql", "view"]),
+                    aspect=SubTypesClass(typeNames=["View", "Custom SQL"]),
                 )
                 mcp_workunit = MetadataWorkUnit(
                     id=f"tableau-{mcp.entityUrn}-{mcp.aspectName}",
@@ -389,60 +406,59 @@ class TableauSource(Source):
                 self.report.report_workunit(mcp_workunit)
                 yield mcp_workunit
 
-    def emit_datasource(self, ds: dict, wb: dict = None) -> Iterable[MetadataWorkUnit]:
-        if wb is None:
-            wb = ds
+    def emit_datasource(self, datasource: dict, workbook: dict = None) -> Iterable[MetadataWorkUnit]:
+        datasource_info = datasource
+        if workbook is None:
+            datasource_info = datasource
 
-        project = wb.get("projectName", "").replace("/", "|")
-        ds_id = ds.get("id", uuid.uuid4())
-        ds_name = f"{ds.get('name')}.{ds_id}"
-        ds_urn = builder.make_dataset_urn(self.platform, ds_name, self.config.env)
+        project = datasource_info.get("projectName", "").replace("/", REPLACE_SLASH_CHAR)
+        datasource_id = datasource.get("id")
+        datasource_name = f"{datasource.get('name')}.{datasource_id}"
+        datasource_urn = builder.make_dataset_urn(self.platform, datasource_name, self.config.env)
         dataset_snapshot = DatasetSnapshot(
-            urn=ds_urn,
+            urn=datasource_urn,
             aspects=[],
         )
         browse_paths = BrowsePathsClass(
             paths=[
-                f"/{self.config.env.lower()}/{self.platform}/{project}/{ds.get('name', '')}/{ds_name}"
+                f"/{self.config.env.lower()}/{self.platform}/{project}/{datasource.get('name', '')}/{datasource_name}"
             ]
         )
         dataset_snapshot.aspects.append(browse_paths)
 
-        # maintain a list of ds being actively used and retrieve metadata
-        # only for those in self.emit_published_ds()
-        if ds_id not in self.used_ds_id:
-            self.used_ds_id.append(ds_id)
+        if datasource_id not in self.datasource_ids_being_used:
+            self.datasource_ids_being_used.append(datasource_id)
 
-        owner = self._get_ownership(wb.get("owner", {}).get("username", ""))
+        owner = self._get_ownership(datasource_info.get("owner", {}).get("username", ""))
         if owner is not None:
             dataset_snapshot.aspects.append(owner)
 
         dataset_props = DatasetPropertiesClass(
-            description=ds.get("name", ""),
+            description=datasource.get("name", ""),
             customProperties={
-                "hasExtracts": str(ds.get("hasExtracts", "")),
-                "extractLastRefreshTime": ds.get("extractLastRefreshTime", "") or "",
-                "extractLastIncrementalUpdateTime": ds.get(
+                "hasExtracts": str(datasource.get("hasExtracts", "")),
+                "extractLastRefreshTime": datasource.get("extractLastRefreshTime", "") or "",
+                "extractLastIncrementalUpdateTime": datasource.get(
                     "extractLastIncrementalUpdateTime", ""
                 )
                 or "",
-                "extractLastUpdateTime": ds.get("extractLastUpdateTime", "") or "",
-                "type": ds.get("__typename", ""),
+                "extractLastUpdateTime": datasource.get("extractLastUpdateTime", "") or "",
+                "type": datasource.get("__typename", ""),
             },
         )
         dataset_snapshot.aspects.append(dataset_props)
 
         # Upstream Tables
-        if ds.get("upstreamTables") is not None:
+        if datasource.get("upstreamTables") is not None:
             # datasource -> db table relations
-            upstream_tables = self._create_upstream_table_lineage(ds, project)
+            upstream_tables = self._create_upstream_table_lineage(datasource, project)
 
             if upstream_tables:
                 upstream_lineage = UpstreamLineage(upstreams=upstream_tables)
                 lineage_mcp = MetadataChangeProposalWrapper(
                     entityType="dataset",
                     changeType=ChangeTypeClass.UPSERT,
-                    entityUrn=ds_urn,
+                    entityUrn=datasource_urn,
                     aspectName="upstreamLineage",
                     aspect=upstream_lineage,
                 )
@@ -455,15 +471,15 @@ class TableauSource(Source):
                 yield mcp_workunit
 
         # Datasource Fields
-        ds_fields = ds.get("fields", []) or []
+        ds_fields = datasource.get("fields", []) or []
         fields = []
         for field in ds_fields:
             # check datasource - custom sql relations
             if field.get("__typename", "") == "ColumnField":
                 for column in field.get("columns", []):
                     table_id = column.get("table", {}).get("id")
-                    if table_id is not None and table_id not in self.used_csql_id:
-                        self.used_csql_id.append(table_id)
+                    if table_id is not None and table_id not in self.custom_sql_ids_being_used:
+                        self.custom_sql_ids_being_used.append(table_id)
 
             TypeClass = FIELD_TYPE_MAPPING.get(
                 field.get("dataType", "UNKNOWN"), NullTypeClass
@@ -507,7 +523,7 @@ class TableauSource(Source):
             changeType=ChangeTypeClass.UPSERT,
             entityUrn=dataset_snapshot.urn,
             aspectName="subTypes",
-            aspect=SubTypesClass(typeNames=["datasource"]),
+            aspect=SubTypesClass(typeNames=["Data Source"]),
         )
         mcp_workunit = MetadataWorkUnit(
             id=f"tableau-{mcp.entityUrn}-{mcp.aspectName}",
@@ -518,20 +534,20 @@ class TableauSource(Source):
         yield mcp_workunit
 
     def emit_published_ds(self) -> Iterable[MetadataWorkUnit]:
-        count_on_query = len(self.used_ds_id)
-        dss = query_metadata(
+        count_on_query = len(self.datasource_ids_being_used)
+        published_datasource_data = query_metadata(
             self.server,
             published_datasource_graphql_query,
             "publishedDatasourcesConnection",
             0,
             0,
-            "idWithin: {}".format(json.dumps(self.used_ds_id)),
+            "idWithin: {}".format(json.dumps(self.datasource_ids_being_used)),
         )
-        published_ds_conn = dss.get("data", {}).get(
+        published_datasource_connection = published_datasource_data.get("data", {}).get(
             "publishedDatasourcesConnection", {}
         )
-        total_count = published_ds_conn.get("totalCount", 0)
-        has_next_page = published_ds_conn.get("pageInfo", {}).get("hasNextPage", False)
+        total_count = published_datasource_connection.get("totalCount", 0)
+        has_next_page = published_datasource_connection.get("pageInfo", {}).get("hasNextPage", False)
         current_count = 0
         while has_next_page:
             count = (
@@ -539,13 +555,13 @@ class TableauSource(Source):
                 if current_count + count_on_query < total_count
                 else total_count - current_count
             )
-            dss = query_metadata(
+              = query_metadata(
                 self.server,
                 published_datasource_graphql_query,
                 "publishedDatasourcesConnection",
                 count,
                 current_count,
-                "idWithin: {}".format(json.dumps(self.used_ds_id)),
+                "idWithin: {}".format(json.dumps(self.datasource_ids_being_used)),
             )
             published_ds_conn = dss.get("data", {}).get(
                 "publishedDatasourcesConnection", {}
@@ -599,16 +615,15 @@ class TableauSource(Source):
             self.report.report_workunit(workunit)
             yield workunit
 
-    def emit_sheets_as_charts(self, wb: Dict) -> Iterable[MetadataWorkUnit]:
-        for sheet in wb.get("sheets", []):
-            chart_urn = self._get_chart_urn(sheet, wb)
+    def emit_sheets_as_charts(self, workbook: Dict) -> Iterable[MetadataWorkUnit]:
+        for sheet in workbook.get("sheets", []):
             chart_snapshot = ChartSnapshot(
-                urn=chart_urn,
+                urn=builder.make_chart_urn(self.platform, sheet.get("id")),
                 aspects=[],
             )
 
             last_modified = ChangeAuditStamps()
-            creator = wb.get("owner", {}).get("username", "")
+            creator = workbook.get("owner", {}).get("username", "")
             if creator is not None:
                 modified_actor = builder.make_user_urn(creator)
                 created_ts = int(
@@ -632,7 +647,7 @@ class TableauSource(Source):
                     )
                     sheet_external_url = f"{self.config.connect_uri}/t/{self.config.site}/authoring/{dashboard_path}/{sheet.get('name', '')}"
             else:
-                sheet_external_url = f"{self.config.connect_uri}#/{wb.get('uri', '').replace('sites/1/', '')}"
+                sheet_external_url = f"{self.config.connect_uri}#/{workbook.get('uri', '').replace('sites/1/', '')}"
 
             fields = {}
             for field in sheet.get("datasourceFields", ""):
@@ -653,8 +668,8 @@ class TableauSource(Source):
                     self.config.env,
                 )
                 datasource_urn.append(ds_urn)
-                if ds_id not in self.used_ds_id:
-                    self.used_ds_id.append(ds_id)
+                if ds_id not in self.datasource_ids_being_used:
+                    self.datasource_ids_being_used.append(ds_id)
 
             # Chart Info
             chart_info = ChartInfoClass(
@@ -669,9 +684,9 @@ class TableauSource(Source):
 
             browse_path = BrowsePathsClass(
                 paths=[
-                    f"/{self.platform}/{wb.get('projectName', '').replace('/', '|')}"
-                    f"/{wb.get('name', '')}"
-                    f"/{sheet.get('name', '').replace('/', '|')}"
+                    f"/{self.platform}/{workbook.get('projectName', '').replace('/', REPLACE_SLASH_CHAR)}"
+                    f"/{workbook.get('name', '')}"
+                    f"/{sheet.get('name', '').replace('/', REPLACE_SLASH_CHAR)}"
                 ]
             )
             chart_snapshot.aspects.append(browse_path)
@@ -696,19 +711,15 @@ class TableauSource(Source):
             self.report.report_workunit(wu)
             yield wu
 
-    def emit_dashboards(self, wb: Dict) -> Iterable[MetadataWorkUnit]:
-        for dashboard in wb.get("dashboards", []):
-            dashboard_urn = builder.make_dashboard_urn(
-                self.platform, dashboard.get("id", "")
-            )
-
+    def emit_dashboards(self, workbook: Dict) -> Iterable[MetadataWorkUnit]:
+        for dashboard in workbook.get("dashboards", []):
             dashboard_snapshot = DashboardSnapshot(
-                urn=dashboard_urn,
+                urn=builder.make_dashboard_urn(self.platform, dashboard.get("id", "")),
                 aspects=[],
             )
 
             last_modified = ChangeAuditStamps()
-            creator = wb.get("owner", {}).get("username", "")
+            creator = workbook.get("owner", {}).get("username", "")
             if creator is not None:
                 modified_actor = builder.make_user_urn(creator)
                 modified_ts = int(
@@ -731,11 +742,11 @@ class TableauSource(Source):
             if self.config.site is not None:
                 dashboard_external_url = f"{self.config.connect_uri}/#/site/{self.config.site}/views/{dashboard.get('path', '')}"
             else:
-                dashboard_external_url = f"{self.config.connect_uri}#/{wb.get('uri', '').replace('sites/1/', '')}"
+                dashboard_external_url = f"{self.config.connect_uri}#/{workbook.get('uri', '').replace('sites/1/', '')}"
 
-            title = dashboard.get("name", "").replace("/", "|") or ""
+            title = dashboard.get("name", "").replace("/", REPLACE_SLASH_CHAR) or ""
             chart_urns = [
-                self._get_chart_urn(s, wb) for s in dashboard.get("sheets", [])
+                builder.make_chart_urn(self.platform, sheet.get("id")) for sheet in dashboard.get("sheets", [])
             ]
             dashboard_info_class = DashboardInfoClass(
                 description="",
@@ -750,8 +761,8 @@ class TableauSource(Source):
             # browse path
             browse_paths = BrowsePathsClass(
                 paths=[
-                    f"/{self.platform}/{wb.get('projectName', '').replace('/', '|')}"
-                    f"/{wb.get('name', '').replace('/', '|')}"
+                    f"/{self.platform}/{workbook.get('projectName', '').replace('/', REPLACE_SLASH_CHAR)}"
+                    f"/{workbook.get('name', '').replace('/', REPLACE_SLASH_CHAR)}"
                     f"/{title}"
                 ]
             )
@@ -795,9 +806,9 @@ class TableauSource(Source):
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         try:
             yield from self.emit_workbook_mces(10)
-            if self.used_ds_id:
+            if self.datasource_ids_being_used:
                 yield from self.emit_published_ds()
-            if self.used_csql_id:
+            if self.custom_sql_ids_being_used:
                 yield from self.emit_custom_sql_ds()
         except MetadataQueryException as md_exception:
             self.report.report_failure(

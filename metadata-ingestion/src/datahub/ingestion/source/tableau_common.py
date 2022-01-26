@@ -371,18 +371,18 @@ def make_table_urn(
     env: str, upstream_db: str, connection_type: str, schema: str, full_name: str
 ) -> str:
     final_name = full_name.replace("[", "").replace("]", "")
-    if connection_type == "vertica":
-        platform = "vertica"
-        final_name = "da." + full_name.replace("[", "").replace("]", "")
-    elif connection_type == "textscan":
+    if connection_type == "textscan":
         platform = "local_file"
     elif connection_type == "excel-direct":
         platform = "local_file"
     else:
         platform = connection_type
 
+    database_name = f"{upstream_db}." if upstream_db else ""
+    schema_name = f"{schema}." if schema else ""
+
     urn = builder.make_dataset_urn(
-        platform, f"{upstream_db}.{schema}.{final_name}", env
+        platform, f"{database_name}{schema_name}{final_name}", env
     )
     return urn
 
