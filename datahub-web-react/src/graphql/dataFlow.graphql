@@ -4,6 +4,9 @@ fragment dataFlowFields on DataFlow {
     orchestrator
     flowId
     cluster
+    platform {
+        ...platformFields
+    }
     properties {
         name
         description
