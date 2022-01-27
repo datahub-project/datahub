@@ -17,6 +17,10 @@ This plugin extracts the following:
 - Table metadata, such as owner, description and parameters
 - Jobs and their component transformations, data sources, and data sinks
 
+| Capability | Status | Details | 
+| -----------| ------ | ---- |
+| Platform Instance | 🛑 | [link](../../docs/platform-instances.md) |
+
 ## Quickstart recipe
 
 Check out the following recipe to get started with ingestion! See [below](#config-details) for full configuration options.
