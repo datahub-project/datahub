@@ -94,6 +94,8 @@ logger: logging.Logger = logging.getLogger(__name__)
 def get_platform_from_sqlalchemy_uri(sqlalchemy_uri: str) -> str:
     if sqlalchemy_uri.startswith("bigquery"):
         return "bigquery"
+    if sqlalchemy_uri.startswith("clickhouse"):
+        return "clickhouse"
     if sqlalchemy_uri.startswith("druid"):
         return "druid"
     if sqlalchemy_uri.startswith("mssql"):

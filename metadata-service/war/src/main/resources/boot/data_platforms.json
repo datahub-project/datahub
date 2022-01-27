@@ -39,6 +39,16 @@
     }
   },
   {
+    "urn": "urn:li:dataPlatform:clickhouse",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "clickhouse",
+      "displayName": "ClickHouse",
+      "type": "RELATIONAL_DB",
+      "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/clickhouselogo.png"
+    }
+  },
+  {
     "urn": "urn:li:dataPlatform:couchbase",
     "aspect": {
       "datasetNameDelimiter": ".",
