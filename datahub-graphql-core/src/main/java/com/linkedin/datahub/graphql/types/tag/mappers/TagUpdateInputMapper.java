@@ -7,40 +7,41 @@ import com.linkedin.common.Ownership;
 import com.linkedin.common.OwnershipSource;
 import com.linkedin.common.OwnershipSourceType;
 import com.linkedin.common.OwnershipType;
-import com.linkedin.common.urn.TagUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.generated.TagUpdateInput;
+import com.linkedin.datahub.graphql.types.common.mappers.util.UpdateMappingHelper;
 import com.linkedin.datahub.graphql.types.mappers.InputModelMapper;
-import com.linkedin.metadata.aspect.TagAspect;
-import com.linkedin.metadata.aspect.TagAspectArray;
-import com.linkedin.metadata.snapshot.TagSnapshot;
-
+import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.tag.TagProperties;
+import java.util.ArrayList;
+import java.util.Collection;
 import javax.annotation.Nonnull;
 
-public class TagUpdateInputSnapshotMapper implements InputModelMapper<TagUpdateInput, TagSnapshot, Urn> {
+import static com.linkedin.metadata.Constants.*;
 
-  public static final TagUpdateInputSnapshotMapper INSTANCE = new TagUpdateInputSnapshotMapper();
 
-  public static TagSnapshot map(
+public class TagUpdateInputMapper implements InputModelMapper<TagUpdateInput, Collection<MetadataChangeProposal>, Urn> {
+
+  public static final TagUpdateInputMapper INSTANCE = new TagUpdateInputMapper();
+
+  public static Collection<MetadataChangeProposal> map(
       @Nonnull final TagUpdateInput tagUpdate,
       @Nonnull final Urn actor) {
     return INSTANCE.apply(tagUpdate, actor);
   }
 
   @Override
-  public TagSnapshot apply(
+  public Collection<MetadataChangeProposal> apply(
       @Nonnull final TagUpdateInput tagUpdate,
       @Nonnull final Urn actor) {
-    final TagSnapshot result = new TagSnapshot();
-    result.setUrn((new TagUrn(tagUpdate.getName())));
+    final Collection<MetadataChangeProposal> proposals = new ArrayList<>(2);
+    final UpdateMappingHelper updateMappingHelper = new UpdateMappingHelper(TAG_ENTITY_NAME);
 
     final AuditStamp auditStamp = new AuditStamp();
     auditStamp.setActor(actor, SetMode.IGNORE_NULL);
     auditStamp.setTime(System.currentTimeMillis());
 
-    final TagAspectArray aspects = new TagAspectArray();
 
     // Creator is the owner.
     final Ownership ownership = new Ownership();
@@ -50,17 +51,15 @@ public class TagUpdateInputSnapshotMapper implements InputModelMapper<TagUpdateI
     owner.setSource(new OwnershipSource().setType(OwnershipSourceType.SERVICE));
     ownership.setOwners(new OwnerArray(owner));
     ownership.setLastModified(auditStamp);
-    aspects.add(TagAspect.create(ownership));
+    proposals.add(updateMappingHelper.aspectToProposal(ownership));
 
     if (tagUpdate.getName() != null || tagUpdate.getDescription() != null) {
       TagProperties tagProperties = new TagProperties();
       tagProperties.setName(tagUpdate.getName());
       tagProperties.setDescription(tagUpdate.getDescription());
-      aspects.add(TagAspect.create(tagProperties));
+      proposals.add(updateMappingHelper.aspectToProposal(tagProperties));
     }
 
-    result.setAspects(aspects);
-
-    return result;
+    return proposals;
   }
 }

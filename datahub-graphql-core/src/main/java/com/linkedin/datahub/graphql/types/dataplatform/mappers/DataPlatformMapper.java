@@ -9,6 +9,7 @@ import com.linkedin.dataplatform.DataPlatformInfo;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.key.DataPlatformKey;
+import com.linkedin.metadata.utils.EntityKeyUtils;
 import javax.annotation.Nonnull;
 
 import static com.linkedin.metadata.Constants.*;
@@ -25,9 +26,12 @@ public class DataPlatformMapper implements ModelMapper<EntityResponse, DataPlatf
     @Override
     public DataPlatform apply(@Nonnull final EntityResponse entityResponse) {
         final DataPlatform result = new DataPlatform();
+        final DataPlatformKey dataPlatformKey = (DataPlatformKey) EntityKeyUtils.convertUrnToEntityKey(entityResponse.getUrn(),
+            new DataPlatformKey().schema());
         result.setType(EntityType.DATA_PLATFORM);
         Urn urn = entityResponse.getUrn();
         result.setUrn(urn.toString());
+        result.setName(dataPlatformKey.getPlatformName());
 
         EnvelopedAspectMap aspectMap = entityResponse.getAspects();
         MappingHelper<DataPlatform> mappingHelper = new MappingHelper<>(aspectMap, result);

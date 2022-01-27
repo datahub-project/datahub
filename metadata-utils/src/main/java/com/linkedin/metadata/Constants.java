@@ -24,6 +24,13 @@ public class Constants {
   public static final String DATA_JOB_ENTITY_NAME = "dataJob";
   public static final String DATA_PLATFORM_ENTITY_NAME = "dataPlatform";
   public static final String GLOSSARY_TERM_ENTITY_NAME = "glossaryTerm";
+  public static final String ML_FEATURE_ENTITY_NAME = "mlFeature";
+  public static final String ML_FEATURE_TABLE_ENTITY_NAME = "mlFeatureTable";
+  public static final String ML_MODEL_ENTITY_NAME = "mlModel";
+  public static final String ML_MODEL_GROUP_ENTITY_NAME = "mlModelGroup";
+  public static final String ML_PRIMARY_KEY_ENTITY_NAME = "mlPrimaryKey";
+  public static final String POLICY_ENTITY_NAME = "dataHubPolicy";
+  public static final String TAG_ENTITY_NAME = "tag";
 
   /**
    * Aspects
@@ -89,6 +96,14 @@ public class Constants {
   public static final String GLOSSARY_TERM_KEY_ASPECT_NAME = "glossaryTermKey";
   public static final String GLOSSARY_TERM_INFO_ASPECT_NAME = "glossaryTermInfo";
 
+  // ML Feature
+  public static final String ML_FEATURE_KEY_ASPECT_NAME = "mlFeatureKey";
+  public static final String ML_FEATURE_PROPERTIES_ASPECT_NAME = "mlFeatureProperties";
+
+  // ML Feature Table
+  public static final String ML_FEATURE_TABLE_KEY_ASPECT_NAME = "mlFeatureTableKey";
+  public static final String ML_FEATURE_TABLE_PROPERTIES_ASPECT_NAME = "mlFeatureTableProperties";
+
   //ML Model
   public static final String ML_MODEL_KEY_ASPECT_NAME = "mlModelKey";
   public static final String ML_MODEL_PROPERTIES_ASPECT_NAME = "mlModelProperties";
@@ -97,12 +112,23 @@ public class Constants {
   public static final String METRICS_ASPECT_NAME = "metrics";
   public static final String EVALUATION_DATA_ASPECT_NAME = "evaluationData";
   public static final String TRAINING_DATA_ASPECT_NAME = "trainingData";
-  public static final String QUANTITATIVE_ANALYSES_ASPECT_NAME ="quantitativeAnalyses";
+  public static final String QUANTITATIVE_ANALYSES_ASPECT_NAME = "quantitativeAnalyses";
   public static final String ETHICAL_CONSIDERATIONS_ASPECT_NAME = "ethicalConsiderations";
   public static final String CAVEATS_AND_RECOMMENDATIONS_ASPECT_NAME = "caveatsAndRecommendations";
   public static final String SOURCE_CODE_ASPECT_NAME = "sourceCode";
   public static final String COST_ASPECT_NAME = "cost";
   public static final String DEPRECATION_ASPECT_NAME = "deprecation";
+
+  // ML Model Group
+  public static final String ML_MODEL_GROUP_KEY_ASPECT_NAME = "mlModelGroupKey";
+  public static final String ML_MODEL_GROUP_PROPERTIES_ASPECT_NAME = "mlModelGroupProperties";
+
+  // ML Primary Key
+  public static final String ML_PRIMARY_KEY_KEY_ASPECT_NAME = "mlPrimaryKeyKey";
+  public static final String ML_PRIMARY_KEY_PROPERTIES_ASPECT_NAME = "mlPrimaryKeyProperties";
+
+  // Policy
+  public static final String DATAHUB_POLICY_INFO_ASPECT_NAME = "dataHubPolicyInfo";
 
   //Tag
   public static final String TAG_KEY_ASPECT_NAME = "tagKey";

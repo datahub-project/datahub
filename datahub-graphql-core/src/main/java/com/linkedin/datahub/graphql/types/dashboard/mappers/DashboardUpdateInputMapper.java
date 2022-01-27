@@ -1,6 +1,5 @@
 package com.linkedin.datahub.graphql.types.dashboard.mappers;
 
-import com.datahub.util.ModelUtils;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.TagAssociationArray;
@@ -9,36 +8,40 @@ import com.linkedin.dashboard.EditableDashboardProperties;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.generated.DashboardUpdateInput;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipUpdateMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.util.UpdateMappingHelper;
 import com.linkedin.datahub.graphql.types.mappers.InputModelMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.TagAssociationUpdateMapper;
-import com.linkedin.metadata.aspect.DashboardAspect;
-import com.linkedin.metadata.aspect.DashboardAspectArray;
-import com.linkedin.metadata.snapshot.DashboardSnapshot;
+import com.linkedin.mxe.MetadataChangeProposal;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 
+import static com.linkedin.metadata.Constants.*;
 
-public class DashboardUpdateInputSnapshotMapper implements
-                                                InputModelMapper<DashboardUpdateInput, DashboardSnapshot, Urn> {
-    public static final DashboardUpdateInputSnapshotMapper INSTANCE = new DashboardUpdateInputSnapshotMapper();
 
-    public static DashboardSnapshot map(@Nonnull final DashboardUpdateInput dashboardUpdateInput,
+public class DashboardUpdateInputMapper implements
+                                        InputModelMapper<DashboardUpdateInput, Collection<MetadataChangeProposal>, Urn> {
+    public static final DashboardUpdateInputMapper INSTANCE = new DashboardUpdateInputMapper();
+
+    public static Collection<MetadataChangeProposal> map(@Nonnull final DashboardUpdateInput dashboardUpdateInput,
                                 @Nonnull final Urn actor) {
         return INSTANCE.apply(dashboardUpdateInput, actor);
     }
 
     @Override
-    public DashboardSnapshot apply(@Nonnull final DashboardUpdateInput dashboardUpdateInput,
+    public Collection<MetadataChangeProposal> apply(@Nonnull final DashboardUpdateInput dashboardUpdateInput,
                            @Nonnull final Urn actor) {
-        final DashboardSnapshot result = new DashboardSnapshot();
+
+        final Collection<MetadataChangeProposal> proposals = new ArrayList<>(3);
+        final UpdateMappingHelper updateMappingHelper = new UpdateMappingHelper(DASHBOARD_ENTITY_NAME);
         final AuditStamp auditStamp = new AuditStamp();
         auditStamp.setActor(actor, SetMode.IGNORE_NULL);
         auditStamp.setTime(System.currentTimeMillis());
 
-        final DashboardAspectArray aspects = new DashboardAspectArray();
-
         if (dashboardUpdateInput.getOwnership() != null) {
-            aspects.add(DashboardAspect.create(OwnershipUpdateMapper.map(dashboardUpdateInput.getOwnership(), actor)));
+            proposals.add(updateMappingHelper.aspectToProposal(
+                OwnershipUpdateMapper.map(dashboardUpdateInput.getOwnership(), actor)));
         }
 
         if (dashboardUpdateInput.getTags() != null || dashboardUpdateInput.getGlobalTags() != null) {
@@ -61,7 +64,7 @@ public class DashboardUpdateInputSnapshotMapper implements
                     )
                 );
             }
-            aspects.add(DashboardAspect.create(globalTags));
+            proposals.add(updateMappingHelper.aspectToProposal(globalTags));
         }
 
         if (dashboardUpdateInput.getEditableProperties() != null) {
@@ -71,12 +74,10 @@ public class DashboardUpdateInputSnapshotMapper implements
                 editableDashboardProperties.setCreated(auditStamp);
             }
             editableDashboardProperties.setLastModified(auditStamp);
-            aspects.add(ModelUtils.newAspectUnion(DashboardAspect.class, editableDashboardProperties));
+            proposals.add(updateMappingHelper.aspectToProposal(editableDashboardProperties));
         }
 
-        result.setAspects(aspects);
-
-        return result;
+        return proposals;
     }
 
 }

@@ -1,51 +1,52 @@
 package com.linkedin.datahub.graphql.types.dataset.mappers;
 
 import com.linkedin.common.AuditStamp;
-import com.linkedin.data.template.SetMode;
-import com.linkedin.metadata.aspect.DatasetAspect;
-import com.linkedin.metadata.aspect.DatasetAspectArray;
-import com.linkedin.metadata.snapshot.DatasetSnapshot;
-import javax.annotation.Nonnull;
-
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.TagAssociationArray;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.generated.DatasetUpdateInput;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryUpdateMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipUpdateMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.util.UpdateMappingHelper;
 import com.linkedin.datahub.graphql.types.mappers.InputModelMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.TagAssociationUpdateMapper;
 import com.linkedin.dataset.DatasetDeprecation;
 import com.linkedin.dataset.EditableDatasetProperties;
+import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.schema.EditableSchemaFieldInfo;
 import com.linkedin.schema.EditableSchemaFieldInfoArray;
 import com.linkedin.schema.EditableSchemaMetadata;
-
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
 
-public class DatasetUpdateInputSnapshotMapper implements InputModelMapper<DatasetUpdateInput, DatasetSnapshot, Urn> {
+import static com.linkedin.metadata.Constants.*;
 
-  public static final DatasetUpdateInputSnapshotMapper INSTANCE = new DatasetUpdateInputSnapshotMapper();
 
-  public static DatasetSnapshot map(
+public class DatasetUpdateInputMapper implements InputModelMapper<DatasetUpdateInput, Collection<MetadataChangeProposal>, Urn> {
+
+  public static final DatasetUpdateInputMapper INSTANCE = new DatasetUpdateInputMapper();
+
+  public static Collection<MetadataChangeProposal> map(
       @Nonnull final DatasetUpdateInput datasetUpdateInput,
       @Nonnull final Urn actor) {
     return INSTANCE.apply(datasetUpdateInput, actor);
   }
 
   @Override
-  public DatasetSnapshot apply(
+  public Collection<MetadataChangeProposal> apply(
       @Nonnull final DatasetUpdateInput datasetUpdateInput,
       @Nonnull final Urn actor) {
-    final DatasetSnapshot result = new DatasetSnapshot();
+    final Collection<MetadataChangeProposal> proposals = new ArrayList<>(6);
+    final UpdateMappingHelper updateMappingHelper = new UpdateMappingHelper(DATASET_ENTITY_NAME);
     final AuditStamp auditStamp = new AuditStamp();
     auditStamp.setActor(actor, SetMode.IGNORE_NULL);
     auditStamp.setTime(System.currentTimeMillis());
 
-    final DatasetAspectArray aspects = new DatasetAspectArray();
-
     if (datasetUpdateInput.getOwnership() != null) {
-      aspects.add(DatasetAspect.create(
+      proposals.add(updateMappingHelper.aspectToProposal(
           OwnershipUpdateMapper.map(datasetUpdateInput.getOwnership(), actor)));
     }
 
@@ -57,11 +58,12 @@ public class DatasetUpdateInputSnapshotMapper implements InputModelMapper<Datase
       }
       deprecation.setNote(datasetUpdateInput.getDeprecation().getNote());
       deprecation.setActor(actor, SetMode.IGNORE_NULL);
-      aspects.add(DatasetAspect.create(deprecation));
+      proposals.add(updateMappingHelper.aspectToProposal(deprecation));
     }
 
     if (datasetUpdateInput.getInstitutionalMemory() != null) {
-      aspects.add(DatasetAspect.create(InstitutionalMemoryUpdateMapper.map(datasetUpdateInput.getInstitutionalMemory())));
+      proposals.add(updateMappingHelper.aspectToProposal(InstitutionalMemoryUpdateMapper
+          .map(datasetUpdateInput.getInstitutionalMemory())));
     }
 
     if (datasetUpdateInput.getTags() != null || datasetUpdateInput.getGlobalTags() != null) {
@@ -80,7 +82,7 @@ public class DatasetUpdateInputSnapshotMapper implements InputModelMapper<Datase
             .map(element -> TagAssociationUpdateMapper.map(element))
             .collect(Collectors.toList())));
       }
-      aspects.add(DatasetAspect.create(globalTags));
+      proposals.add(updateMappingHelper.aspectToProposal(globalTags));
     }
 
     if (datasetUpdateInput.getEditableSchemaMetadata() != null) {
@@ -92,7 +94,7 @@ public class DatasetUpdateInputSnapshotMapper implements InputModelMapper<Datase
               ).collect(Collectors.toList())));
       editableSchemaMetadata.setLastModified(auditStamp);
       editableSchemaMetadata.setCreated(auditStamp);
-      aspects.add(DatasetAspect.create(editableSchemaMetadata));
+      proposals.add(updateMappingHelper.aspectToProposal(editableSchemaMetadata));
     }
 
     if (datasetUpdateInput.getEditableProperties() != null) {
@@ -100,12 +102,10 @@ public class DatasetUpdateInputSnapshotMapper implements InputModelMapper<Datase
       editableDatasetProperties.setDescription(datasetUpdateInput.getEditableProperties().getDescription());
       editableDatasetProperties.setLastModified(auditStamp);
       editableDatasetProperties.setCreated(auditStamp);
-      aspects.add(DatasetAspect.create(editableDatasetProperties));
+      proposals.add(updateMappingHelper.aspectToProposal(editableDatasetProperties));
     }
 
-    result.setAspects(aspects);
-
-    return result;
+    return proposals;
   }
 
   private EditableSchemaFieldInfo mapSchemaFieldInfo(

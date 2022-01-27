@@ -1,6 +1,5 @@
 package com.linkedin.datahub.graphql.types.mlmodel.mappers;
 
-import com.datahub.util.ModelUtils;
 import com.linkedin.common.Deprecation;
 import com.linkedin.common.InstitutionalMemory;
 import com.linkedin.common.Ownership;
@@ -47,31 +46,13 @@ public class MLFeatureMapper implements ModelMapper<EntityResponse, MLFeature> {
         mappingHelper.mapToResult(ML_FEATURE_KEY_ASPECT_NAME, this::mapMLFeatureKey);
         mappingHelper.mapToResult(OWNERSHIP_ASPECT_NAME, (mlFeature, dataMap) ->
             mlFeature.setOwnership(OwnershipMapper.map(new Ownership(dataMap))));
-
-        ModelUtils.getAspectsFromSnapshot(entityResponse).forEach(aspect -> {
-            if (aspect instanceof Ownership) {
-                Ownership ownership = Ownership.class.cast(aspect);
-                result.setOwnership(OwnershipMapper.map(ownership));
-            } else if (aspect instanceof MLFeatureKey) {
-                MLFeatureKey mlFeatureKey = MLFeatureKey.class.cast(aspect);
-                result.setName(mlFeatureKey.getName());
-                result.setFeatureNamespace(mlFeatureKey.getFeatureNamespace());
-            } else if (aspect instanceof MLFeatureProperties) {
-                MLFeatureProperties featureProperties = MLFeatureProperties.class.cast(aspect);
-                result.setFeatureProperties(MLFeaturePropertiesMapper.map(featureProperties));
-                result.setDescription(featureProperties.getDescription());
-                result.setDataType(MLFeatureDataType.valueOf(featureProperties.getDataType().toString()));
-            } else if (aspect instanceof InstitutionalMemory) {
-                InstitutionalMemory institutionalMemory = InstitutionalMemory.class.cast(aspect);
-                result.setInstitutionalMemory(InstitutionalMemoryMapper.map(institutionalMemory));
-            } else if (aspect instanceof Status) {
-                Status status = Status.class.cast(aspect);
-                result.setStatus(StatusMapper.map(status));
-            } else if (aspect instanceof Deprecation) {
-                Deprecation deprecation = Deprecation.class.cast(aspect);
-                result.setDeprecation(DeprecationMapper.map(deprecation));
-            }
-        });
+        mappingHelper.mapToResult(ML_FEATURE_PROPERTIES_ASPECT_NAME, this::mapMLFeatureProperties);
+        mappingHelper.mapToResult(INSTITUTIONAL_MEMORY_ASPECT_NAME, (mlFeature, dataMap) ->
+            mlFeature.setInstitutionalMemory(InstitutionalMemoryMapper.map(new InstitutionalMemory(dataMap))));
+        mappingHelper.mapToResult(STATUS_ASPECT_NAME, (mlFeature, dataMap) ->
+            mlFeature.setStatus(StatusMapper.map(new Status(dataMap))));
+        mappingHelper.mapToResult(DEPRECATION_ASPECT_NAME, (mlFeature, dataMap) ->
+            mlFeature.setDeprecation(DeprecationMapper.map(new Deprecation(dataMap))));
 
         return mappingHelper.getResult();
     }
@@ -80,5 +61,14 @@ public class MLFeatureMapper implements ModelMapper<EntityResponse, MLFeature> {
         MLFeatureKey mlFeatureKey = new MLFeatureKey(dataMap);
         mlFeature.setName(mlFeatureKey.getName());
         mlFeature.setFeatureNamespace(mlFeatureKey.getFeatureNamespace());
+    }
+
+    private void mapMLFeatureProperties(MLFeature mlFeature, DataMap dataMap) {
+        MLFeatureProperties featureProperties = new MLFeatureProperties(dataMap);
+        mlFeature.setFeatureProperties(MLFeaturePropertiesMapper.map(featureProperties));
+        mlFeature.setDescription(featureProperties.getDescription());
+        if (featureProperties.getDataType() != null) {
+            mlFeature.setDataType(MLFeatureDataType.valueOf(featureProperties.getDataType().toString()));
+        }
     }
 }

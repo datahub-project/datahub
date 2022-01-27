@@ -19,6 +19,7 @@ import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.r2.RemoteInvocationException;
+import java.net.URISyntaxException;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -32,6 +33,7 @@ import javax.annotation.Nullable;
 public interface EntityClient {
 
   @Nonnull
+  @Deprecated
   public Entity get(@Nonnull final Urn urn, @Nonnull final Authentication authentication)
       throws RemoteInvocationException;
 
@@ -40,9 +42,10 @@ public interface EntityClient {
       @Nonnull String entityName,
       @Nonnull final Set<Urn> urns,
       @Nullable final Set<String> aspectNames,
-      @Nonnull final Authentication authentication) throws Exception;
+      @Nonnull final Authentication authentication) throws RemoteInvocationException, URISyntaxException;
 
   @Nonnull
+  @Deprecated
   public Map<Urn, Entity> batchGet(@Nonnull final Set<Urn> urns, @Nonnull final Authentication authentication)
       throws RemoteInvocationException;
 
@@ -88,12 +91,15 @@ public interface EntityClient {
       @Nullable Map<String, String> requestFilters, int start, int limit, @Nonnull Authentication authentication)
       throws RemoteInvocationException;
 
+  @Deprecated
   public void update(@Nonnull final Entity entity, @Nonnull final Authentication authentication)
       throws RemoteInvocationException;
 
+  @Deprecated
   public void updateWithSystemMetadata(@Nonnull final Entity entity, @Nullable final SystemMetadata systemMetadata,
       @Nonnull final Authentication authentication) throws RemoteInvocationException;
 
+  @Deprecated
   public void batchUpdate(@Nonnull final Set<Entity> entities, @Nonnull final Authentication authentication)
       throws RemoteInvocationException;
 
@@ -204,10 +210,12 @@ public interface EntityClient {
       int start, int count, @Nonnull Authentication authentication) throws RemoteInvocationException;
 
   @Nullable
+  @Deprecated
   public VersionedAspect getAspect(@Nonnull String urn, @Nonnull String aspect, @Nonnull Long version,
       @Nonnull Authentication authentication) throws RemoteInvocationException;
 
   @Nullable
+  @Deprecated
   public VersionedAspect getAspectOrNull(@Nonnull String urn, @Nonnull String aspect, @Nonnull Long version,
       @Nonnull Authentication authentication) throws RemoteInvocationException;
 
@@ -236,10 +244,12 @@ public interface EntityClient {
   }
 
   @Nonnull
+  @Deprecated
   public <T extends RecordTemplate> Optional<T> getVersionedAspect(@Nonnull String urn, @Nonnull String aspect,
       @Nonnull Long version, @Nonnull Class<T> aspectClass, @Nonnull Authentication authentication)
       throws RemoteInvocationException;
 
+  @Deprecated
   public DataMap getRawAspect(@Nonnull String urn, @Nonnull String aspect, @Nonnull Long version,
       @Nonnull Authentication authentication) throws RemoteInvocationException;
 }

@@ -2,8 +2,8 @@ package com.linkedin.datahub.graphql.types.tag;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.CorpuserUrn;
-import com.linkedin.common.urn.TagUrn;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.authorization.ConjunctivePrivilegeGroup;
@@ -20,29 +20,29 @@ import com.linkedin.datahub.graphql.types.MutableType;
 import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.TagMapper;
-import com.linkedin.datahub.graphql.types.tag.mappers.TagUpdateInputSnapshotMapper;
-import com.linkedin.entity.Entity;
+import com.linkedin.datahub.graphql.types.tag.mappers.TagUpdateInputMapper;
+import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.authorization.PoliciesConfig;
-import com.linkedin.metadata.extractor.AspectExtractor;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.search.SearchResult;
-import com.linkedin.metadata.snapshot.Snapshot;
-import com.linkedin.metadata.snapshot.TagSnapshot;
+import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.execution.DataFetcherResult;
-import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-public class TagType implements com.linkedin.datahub.graphql.types.SearchableEntityType<Tag>, MutableType<TagUpdateInput> {
+import static com.linkedin.metadata.Constants.*;
+
+
+public class TagType implements com.linkedin.datahub.graphql.types.SearchableEntityType<Tag>, MutableType<TagUpdateInput, Tag> {
 
     private static final Set<String> FACET_FIELDS = Collections.emptySet();
 
@@ -70,26 +70,22 @@ public class TagType implements com.linkedin.datahub.graphql.types.SearchableEnt
     @Override
     public List<DataFetcherResult<Tag>> batchLoad(final List<String> urns, final QueryContext context) {
 
-        final List<TagUrn> tagUrns = urns.stream()
-                .map(this::getTagUrn)
-                .collect(Collectors.toList());
+        final Set<Urn> tagUrns = urns.stream()
+                .map(UrnUtils::getUrn)
+                .collect(Collectors.toSet());
 
         try {
-            final Map<Urn, Entity> tagMap = _entityClient.batchGet(tagUrns
-                    .stream()
-                    .filter(Objects::nonNull)
-                    .collect(Collectors.toSet()),
+            final Map<Urn, EntityResponse> tagMap = _entityClient.batchGetV2(TAG_ENTITY_NAME, tagUrns, null,
                 context.getAuthentication());
 
-            final List<Entity> gmsResults = new ArrayList<>();
-            for (TagUrn urn : tagUrns) {
+            final List<EntityResponse> gmsResults = new ArrayList<>();
+            for (Urn urn : tagUrns) {
                 gmsResults.add(tagMap.getOrDefault(urn, null));
             }
             return gmsResults.stream()
                     .map(gmsTag -> gmsTag == null ? null
                         : DataFetcherResult.<Tag>newResult()
-                            .data(TagMapper.map(gmsTag.getValue().getTagSnapshot()))
-                            .localContext(AspectExtractor.extractAspects(gmsTag.getValue().getTagSnapshot()))
+                            .data(TagMapper.map(gmsTag))
                             .build())
                     .collect(Collectors.toList());
         } catch (Exception e) {
@@ -124,12 +120,10 @@ public class TagType implements com.linkedin.datahub.graphql.types.SearchableEnt
     public Tag update(@Nonnull String urn, @Nonnull TagUpdateInput input, @Nonnull QueryContext context) throws Exception {
         if (isAuthorized(input, context)) {
             final CorpuserUrn actor = CorpuserUrn.createFromString(context.getAuthentication().getActor().toUrnStr());
-            final TagSnapshot tagSnapshot = TagUpdateInputSnapshotMapper.map(input, actor);
-            final Snapshot snapshot = Snapshot.create(tagSnapshot);
+            final Collection<MetadataChangeProposal> proposals = TagUpdateInputMapper.map(input, actor);
+            proposals.forEach(proposal -> proposal.setEntityUrn(UrnUtils.getUrn(urn)));
             try {
-                Entity entity = new Entity();
-                entity.setValue(snapshot);
-                _entityClient.update(entity, context.getAuthentication());
+                _entityClient.batchIngestProposals(proposals, context.getAuthentication());
             } catch (RemoteInvocationException e) {
                 throw new RuntimeException(String.format("Failed to write entity with urn %s", urn), e);
             }
@@ -137,14 +131,6 @@ public class TagType implements com.linkedin.datahub.graphql.types.SearchableEnt
             return load(urn, context).getData();
         }
         throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
-    }
-
-    private TagUrn getTagUrn(final String urnStr) {
-        try {
-            return TagUrn.createFromString(urnStr);
-        } catch (URISyntaxException e) {
-            throw new RuntimeException(String.format("Failed to retrieve tag with urn %s, invalid urn", urnStr));
-        }
     }
 
     private boolean isAuthorized(@Nonnull TagUpdateInput update, @Nonnull QueryContext context) {

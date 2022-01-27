@@ -54,7 +54,7 @@ public class ListGroupsResolver implements DataFetcher<CompletableFuture<ListGro
 
           // Then, get hydrate all groups.
           final Map<Urn, EntityResponse> entities = _entityClient.batchGetV2(CORP_GROUP_ENTITY_NAME,
-              new HashSet<>(gmsResult.getEntities()), null , context.getAuthentication());
+              new HashSet<>(gmsResult.getEntities()), null, context.getAuthentication());
 
           // Now that we have entities we can bind this to a result.
           final ListGroupsResult result = new ListGroupsResult();

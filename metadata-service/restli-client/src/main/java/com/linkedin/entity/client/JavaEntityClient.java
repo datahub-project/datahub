@@ -33,6 +33,7 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.r2.RemoteInvocationException;
 import io.opentelemetry.extension.annotations.WithSpan;
+import java.net.URISyntaxException;
 import java.time.Clock;
 import java.util.List;
 import java.util.Map;
@@ -78,7 +79,7 @@ public class JavaEntityClient implements EntityClient {
         @Nonnull String entityName,
         @Nonnull Set<Urn> urns,
         @Nullable Set<String> aspectNames,
-        @Nonnull Authentication authentication) throws Exception {
+        @Nonnull Authentication authentication) throws RemoteInvocationException, URISyntaxException {
         final Set<String> projectedAspects = aspectNames == null
             ? _entityService.getEntityAspectNames(entityName)
             : aspectNames;
