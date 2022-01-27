@@ -33,6 +33,9 @@ query getBrowseResults($input: BrowseInput!) {
                 subTypes {
                     typeNames
                 }
+                domain {
+                    ...entityDomain
+                }
             }
             ... on Dashboard {
                 urn
@@ -62,6 +65,9 @@ query getBrowseResults($input: BrowseInput!) {
                 }
                 platform {
                     ...platformFields
+                }
+                domain {
+                    ...entityDomain
                 }
             }
             ... on GlossaryTerm {
@@ -110,6 +116,9 @@ query getBrowseResults($input: BrowseInput!) {
                 platform {
                     ...platformFields
                 }
+                domain {
+                    ...entityDomain
+                }
             }
             ... on DataFlow {
                 urn
@@ -136,6 +145,9 @@ query getBrowseResults($input: BrowseInput!) {
                 }
                 platform {
                     ...platformFields
+                }
+                domain {
+                    ...entityDomain
                 }
             }
             ... on MLFeatureTable {

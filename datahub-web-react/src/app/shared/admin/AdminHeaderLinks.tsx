@@ -1,6 +1,13 @@
 import styled from 'styled-components';
 import * as React from 'react';
-import { ApiOutlined, BankOutlined, BarChartOutlined, SettingOutlined, UsergroupAddOutlined } from '@ant-design/icons';
+import {
+    ApiOutlined,
+    BankOutlined,
+    BarChartOutlined,
+    SettingOutlined,
+    UsergroupAddOutlined,
+    FolderOutlined,
+} from '@ant-design/icons';
 import { Link } from 'react-router-dom';
 import { Button } from 'antd';
 import { useAppConfig } from '../../useAppConfig';
@@ -26,6 +33,7 @@ export function AdminHeaderLinks() {
     const showSettings = true;
     const showIngestion =
         isIngestionEnabled && me && me.platformPrivileges.manageIngestion && me.platformPrivileges.manageSecrets;
+    const showDomains = me?.platformPrivileges?.manageDomains || false;
 
     return (
         <>
@@ -43,6 +51,15 @@ export function AdminHeaderLinks() {
                     <Link to="/policies">
                         <Button type="text">
                             <BankOutlined /> Policies
+                        </Button>
+                    </Link>
+                </AdminLink>
+            )}
+            {showDomains && (
+                <AdminLink>
+                    <Link to="/domains">
+                        <Button type="text">
+                            <FolderOutlined /> Domains
                         </Button>
                     </Link>
                 </AdminLink>

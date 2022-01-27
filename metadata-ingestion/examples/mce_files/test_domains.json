@@ -18,7 +18,11 @@
     "changeType":"UPSERT",
     "aspectName":"domains",
     "aspect":{
+<<<<<<< HEAD
       "value":"{\"domains\": [\"urn:li:domain:sales\"] }",
+=======
+      "value":"{\"domains\": [\"urn:li:domain:marketing\"] }",
+>>>>>>> acryl/data-domains-ui
       "contentType":"application/json"
     },
     "systemMetadata":null
