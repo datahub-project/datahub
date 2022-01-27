@@ -584,7 +584,11 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
 
             self._get_dataset_column_sample_values(column_profile, column)
 
-            if type_ == ProfilerDataType.INT or type_ == ProfilerDataType.FLOAT:
+            if (
+                type_ == ProfilerDataType.INT
+                or type_ == ProfilerDataType.FLOAT
+                or type_ == ProfilerDataType.NUMERIC
+            ):
                 if cardinality == Cardinality.UNIQUE:
                     pass
                 elif cardinality in [
@@ -592,12 +596,6 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                     Cardinality.TWO,
                     Cardinality.VERY_FEW,
                     Cardinality.FEW,
-                ]:
-                    self._get_dataset_column_distinct_value_frequencies(
-                        column_profile,
-                        column,
-                    )
-                elif cardinality in [
                     Cardinality.MANY,
                     Cardinality.VERY_MANY,
                     Cardinality.UNIQUE,
@@ -606,11 +604,22 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                     self._get_dataset_column_max(column_profile, column)
                     self._get_dataset_column_mean(column_profile, column)
                     self._get_dataset_column_median(column_profile, column)
+
                     if type_ == ProfilerDataType.INT:
                         self._get_dataset_column_stdev(column_profile, column)
 
                     self._get_dataset_column_quantiles(column_profile, column)
                     self._get_dataset_column_histogram(column_profile, column)
+                    if cardinality in [
+                        Cardinality.ONE,
+                        Cardinality.TWO,
+                        Cardinality.VERY_FEW,
+                        Cardinality.FEW,
+                    ]:
+                        self._get_dataset_column_distinct_value_frequencies(
+                            column_profile,
+                            column,
+                        )
                 else:  # unknown cardinality - skip
                     pass
 
