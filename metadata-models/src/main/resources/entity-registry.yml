@@ -8,6 +8,7 @@ entities:
       - datasetProfile
       - datasetUsageStatistics
       - operation
+      - domains
       - schemaMetadata
       - status
   - name: dataHubPolicy
@@ -20,6 +21,19 @@ entities:
     aspects:
       - datahubIngestionRunSummary
       - datahubIngestionCheckpoint
+      - domains
+  - name: dataFlow
+    keyAspect: dataFlowKey
+    aspects:
+      - domains
+  - name: chart
+    keyAspect: chartKey
+    aspects:
+      - domains
+  - name: dashboard
+    keyAspect: dashboardKey
+    aspects:
+      - domains
   - name: corpuser
     doc: CorpUser represents an identity of a person (or an account) in the enterprise.
     keyAspect: corpUserKey
@@ -27,6 +41,13 @@ entities:
       - corpUserInfo
       - corpUserEditableInfo
       - corpUserStatus
+  - name: domain
+    doc: A data domain within an organization.
+    keyAspect: domainKey
+    aspects:
+      - domainProperties
+      - institutionalMemory
+      - ownership
   - name: dataHubIngestionSource
     keyAspect: dataHubIngestionSourceKey
     aspects:

@@ -23,6 +23,7 @@ public class Constants {
   public static final String DATA_FLOW_ENTITY_NAME = "dataFlow";
   public static final String DATA_JOB_ENTITY_NAME = "dataJob";
   public static final String DATA_PLATFORM_ENTITY_NAME = "dataPlatform";
+  public static final String DOMAIN_ENTITY_NAME = "domain";
   public static final String INGESTION_SOURCE_ENTITY_NAME = "dataHubIngestionSource";
   public static final String SECRETS_ENTITY_NAME = "dataHubSecret";
   public static final String EXECUTION_REQUEST_ENTITY_NAME = "dataHubExecutionRequest";
@@ -80,6 +81,11 @@ public class Constants {
   public static final String DATA_JOB_INFO_ASPECT_NAME = "dataJobInfo";
   public static final String DATA_JOB_INPUT_OUTPUT_ASPECT_NAME = "dataJobInputOutput";
   public static final String EDITABLE_DATA_JOB_PROPERTIES_ASPECT_NAME = "editableDataJobProperties";
+
+  // Domain
+  public static final String DOMAIN_KEY_ASPECT_NAME = "domainKey";
+  public static final String DOMAIN_PROPERTIES_ASPECT_NAME = "domainProperties";
+  public static final String DOMAINS_ASPECT_NAME = "domains";
 
   // DataHub Ingestion Source
   public static final String INGESTION_INFO_ASPECT_NAME = "dataHubIngestionSourceInfo";

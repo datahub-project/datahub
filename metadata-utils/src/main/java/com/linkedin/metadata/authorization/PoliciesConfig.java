@@ -52,10 +52,18 @@ public class PoliciesConfig {
       "Generate Personal Access Tokens",
       "Generate personal access tokens for use with DataHub APIs.");
 
+
+  public static final Privilege MANAGE_DOMAINS_PRIVILEGE = Privilege.of(
+      "MANAGE_DOMAINS",
+      "Manage Domains",
+      "Create and remove Asset Domains.");
+
   public static final List<Privilege> PLATFORM_PRIVILEGES = ImmutableList.of(
       MANAGE_POLICIES_PRIVILEGE,
       MANAGE_USERS_AND_GROUPS_PRIVILEGE,
       VIEW_ANALYTICS_PRIVILEGE,
+      GENERATE_PERSONAL_ACCESS_TOKENS_PRIVILEGE,
+      MANAGE_DOMAINS_PRIVILEGE,
       MANAGE_INGESTION_PRIVILEGE,
       MANAGE_SECRETS_PRIVILEGE,
       GENERATE_PERSONAL_ACCESS_TOKENS_PRIVILEGE
@@ -92,6 +100,11 @@ public class PoliciesConfig {
       "EDIT_ENTITY_STATUS",
       "Edit Status",
       "The ability to edit the status of an entity (soft deleted or not).");
+
+  public static final Privilege EDIT_ENTITY_DOMAINS_PRIVILEGE = Privilege.of(
+      "EDIT_DOMAINS_PRIVILEGE",
+      "Edit Domain",
+      "The ability to edit the Domain of an entity.");
 
   public static final Privilege EDIT_ENTITY_PRIVILEGE = Privilege.of(
       "EDIT_ENTITY",
@@ -177,13 +190,22 @@ public class PoliciesConfig {
       ImmutableList.of(EDIT_ENTITY_OWNERS_PRIVILEGE, EDIT_ENTITY_PRIVILEGE)
   );
 
+  // Tag Privileges
+  public static final ResourcePrivileges DOMAIN_PRIVILEGES = ResourcePrivileges.of(
+      "domain",
+      "Domains",
+      "Domains created on DataHub",
+      ImmutableList.of(EDIT_ENTITY_OWNERS_PRIVILEGE, EDIT_ENTITY_DOCS_PRIVILEGE, EDIT_ENTITY_DOC_LINKS_PRIVILEGE, EDIT_ENTITY_PRIVILEGE)
+  );
+
   public static final List<ResourcePrivileges> RESOURCE_PRIVILEGES = ImmutableList.of(
       DATASET_PRIVILEGES,
       DASHBOARD_PRIVILEGES,
       CHART_PRIVILEGES,
       DATA_FLOW_PRIVILEGES,
       DATA_JOB_PRIVILEGES,
-      TAG_PRIVILEGES
+      TAG_PRIVILEGES,
+      DOMAIN_PRIVILEGES
   );
 
   @Data
