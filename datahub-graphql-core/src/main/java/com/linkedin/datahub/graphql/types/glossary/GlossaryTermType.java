@@ -14,7 +14,7 @@ import com.linkedin.datahub.graphql.generated.BrowseResults;
 import com.linkedin.datahub.graphql.generated.GlossaryTerm;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.SearchResults;
-import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermSnapshotMapper;
+import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermMapper;
 import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowsePathsMapper;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
@@ -30,6 +30,7 @@ import graphql.execution.DataFetcherResult;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -69,9 +70,11 @@ public class GlossaryTermType implements SearchableEntityType<GlossaryTerm>, Bro
 
     @Override
     public List<DataFetcherResult<GlossaryTerm>> batchLoad(final List<String> urns, final QueryContext context) {
-        final Set<Urn> glossaryTermUrns = urns.stream()
+        final Set<Urn> glossaryTermUrns = new HashSet<>(
+            urns.stream()
                 .map(UrnUtils::getUrn)
-                .collect(Collectors.toSet());
+                .collect(Collectors.toList())
+            );
         try {
             final Map<Urn, EntityResponse> glossaryTermMap = _entityClient.batchGetV2(
                     GLOSSARY_TERM_ENTITY_NAME,
@@ -86,7 +89,7 @@ public class GlossaryTermType implements SearchableEntityType<GlossaryTerm>, Bro
                     .map(gmsGlossaryTerm ->
                         gmsGlossaryTerm == null ? null
                             : DataFetcherResult.<GlossaryTerm>newResult()
-                                .data(GlossaryTermSnapshotMapper.map(gmsGlossaryTerm))
+                                .data(GlossaryTermMapper.map(gmsGlossaryTerm))
                                 .build())
                     .collect(Collectors.toList());
         } catch (Exception e) {

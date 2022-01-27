@@ -19,9 +19,9 @@ import javax.annotation.Nonnull;
  *
  * To be replaced by auto-generated mappers implementations
  */
-public class GlossaryTermSnapshotMapper implements ModelMapper<EntityResponse, GlossaryTerm> {
+public class GlossaryTermMapper implements ModelMapper<EntityResponse, GlossaryTerm> {
 
-    public static final GlossaryTermSnapshotMapper INSTANCE = new GlossaryTermSnapshotMapper();
+    public static final GlossaryTermMapper INSTANCE = new GlossaryTermMapper();
 
     public static GlossaryTerm map(@Nonnull final EntityResponse entityResponse) {
         return INSTANCE.apply(entityResponse);
