@@ -1,6 +1,18 @@
 [
   {
     "auditHeader":null,
+    "entityType":"dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)",
+    "changeType":"UPSERT",
+    "aspectName":"container",
+    "aspect":{
+      "value":"{\"container\": \"urn:li:container:SCHEMA\" }",
+      "contentType":"application/json"
+    },
+    "systemMetadata":null
+  },
+  {
+    "auditHeader":null,
     "entityType":"container",
     "entityUrn": "urn:li:container:DATABASE",
     "changeType":"UPSERT",
@@ -52,6 +64,18 @@
     "entityType":"container",
     "entityUrn": "urn:li:container:SCHEMA",
     "changeType":"UPSERT",
+    "aspectName":"editableContainerProperties",
+    "aspect":{
+      "value":"{\"description\": \"custom description\"}",
+      "contentType":"application/json"
+    },
+    "systemMetadata":null
+  },
+  {
+    "auditHeader":null,
+    "entityType":"container",
+    "entityUrn": "urn:li:container:SCHEMA",
+    "changeType":"UPSERT",
     "aspectName":"subTypes",
     "aspect":{
       "value":"{\"typeNames\": [ \"Schema\" ] }",
@@ -85,12 +109,24 @@
   },
   {
     "auditHeader":null,
-    "entityType":"dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)",
+    "entityType":"tag",
+    "entityUrn": "urn:li:tag:Test",
     "changeType":"UPSERT",
-    "aspectName":"container",
+    "aspectName":"tagProperties",
     "aspect":{
-      "value":"{\"container\": \"urn:li:container:SCHEMA\" }",
+      "value":"{\"name\": \"Test\" }",
+      "contentType":"application/json"
+    },
+    "systemMetadata":null
+  },
+  {
+    "auditHeader":null,
+    "entityType":"glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:Term",
+    "changeType":"UPSERT",
+    "aspectName":"glossaryTermInfo",
+    "aspect":{
+      "value":"{\"definition\": \"Term\", \"termSource\": \"source\" }",
       "contentType":"application/json"
     },
     "systemMetadata":null

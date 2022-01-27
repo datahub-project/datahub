@@ -4,6 +4,7 @@ import com.google.common.collect.ImmutableList;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.container.ContainerProperties;
+import com.linkedin.container.EditableContainerProperties;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.authorization.ConjunctivePrivilegeGroup;
@@ -53,11 +54,11 @@ public class DescriptionUtils {
       Urn actor,
       EntityService entityService
   ) {
-    ContainerProperties containerProperties =
-        (ContainerProperties) getAspectFromEntity(
-            resourceUrn.toString(), Constants.CONTAINER_PROPERTIES_ASPECT_NAME, entityService, new ContainerProperties());
+    EditableContainerProperties containerProperties =
+        (EditableContainerProperties) getAspectFromEntity(
+            resourceUrn.toString(), Constants.CONTAINER_EDITABLE_PROPERTIES_ASPECT_NAME, entityService, new EditableContainerProperties());
     containerProperties.setDescription(newDescription);
-    persistAspect(resourceUrn, Constants.CONTAINER_PROPERTIES_ASPECT_NAME, containerProperties, actor, entityService);
+    persistAspect(resourceUrn, Constants.CONTAINER_EDITABLE_PROPERTIES_ASPECT_NAME, containerProperties, actor, entityService);
   }
 
   public static Boolean validateFieldDescriptionInput(

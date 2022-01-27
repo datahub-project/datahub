@@ -193,5 +193,30 @@
       "type":"PLATFORM",
       "editable":true
     }
+  },
+  {
+    "urn": "urn:li:dataHubPolicy:8",
+    "info": {
+      "actors":{
+        "resourceOwners":false,
+        "allUsers":false,
+        "allGroups":false,
+        "users":[
+          "urn:li:corpuser:datahub"
+        ]
+      },
+      "privileges":[
+        "EDIT_ENTITY"
+      ],
+      "displayName":"Root User - Edit All Containers",
+      "resources":{
+        "type":"container",
+        "allResources":true
+      },
+      "description":"Grants full edit privileges for Containers to root 'datahub' root user.",
+      "state":"ACTIVE",
+      "type":"METADATA",
+      "editable":false
+    }
   }
 ]
