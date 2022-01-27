@@ -67,9 +67,7 @@ def assert_mces_equal(
             )
         diff = clean_diff
 
-    assert (
-        not diff
-    ), f"MCEs differ\n{pprint.pformat(diff)}\noutput was:{json.dumps(output)}"
+    assert not diff, f"MCEs differ\n{pprint.pformat(diff)}"
 
 
 def check_golden_file(
