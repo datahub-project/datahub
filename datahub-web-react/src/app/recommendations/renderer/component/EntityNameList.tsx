@@ -54,9 +54,9 @@ type Props = {
 export const EntityNameList = ({ additionalPropertiesList, entities, onClick }: Props) => {
     const entityRegistry = useEntityRegistry();
     if (
-        additionalPropertiesList?.length != undefined &&
+        additionalPropertiesList?.length !== undefined &&
         additionalPropertiesList.length > 0 &&
-        additionalPropertiesList?.length != entities.length
+        additionalPropertiesList?.length !== entities.length
     ) {
         console.warn(
             'Warning: additionalPropertiesList length provided to EntityNameList does not match entity array length',
