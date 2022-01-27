@@ -19,6 +19,9 @@ import java.net.URISyntaxException;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
+import static com.linkedin.datahub.graphql.resolvers.ingest.IngestionAuthUtils.*;
+
+
 /**
  * GraphQL resolver responsible for resolving information about the currently
  * logged in User, including
@@ -53,6 +56,8 @@ public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUs
         platformPrivileges.setManagePolicies(canManagePolicies(context));
         platformPrivileges.setManageIdentities(canManageUsersGroups(context));
         platformPrivileges.setGeneratePersonalAccessTokens(canGeneratePersonalAccessToken(context));
+        platformPrivileges.setManageIngestion(canManageIngestion(context));
+        platformPrivileges.setManageSecrets(canManageSecrets(context));
 
         // Construct and return authenticated user object.
         final AuthenticatedUser authUser = new AuthenticatedUser();
