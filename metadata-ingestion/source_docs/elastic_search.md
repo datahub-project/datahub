@@ -13,6 +13,11 @@ This plugin extracts the following:
 - Metadata for indexes
 - Column types associated with each index field
 
+| Capability | Status | Details | 
+| -----------| ------ | ---- |
+| Platform Instance | ✔️ | [link](../../docs/platform-instances.md) |
+
+
 ## Quickstart recipe
 
 Check out the following recipe to get started with ingestion! See [below](#config-details) for full configuration options.
@@ -49,6 +54,7 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `username`                  |          | ""               | The username credential.                                      |
 | `password`                  |          | ""               | The password credential.                                      |
 | `env`                       |          | `"PROD"`         | Environment to use in namespace when constructing URNs.       |
+| `platform_instance`         |          | None             | The Platform instance to use while constructing URNs.         |
 | `index_pattern.allow`       |          |                  | List of regex patterns for indexes to include in ingestion.   |
 | `index_pattern.deny`        |          |                  | List of regex patterns for indexes to exclude from ingestion. |
 | `index_pattern.ignoreCase`  |          | `True`           | Whether regex matching should ignore case or not              |

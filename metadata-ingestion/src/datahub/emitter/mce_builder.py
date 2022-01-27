@@ -8,6 +8,7 @@ from typing import Any, List, Optional, Type, TypeVar, Union, cast, get_type_hin
 import typing_inspect
 from avrogen.dict_wrapper import DictWrapper
 
+from datahub.configuration.source_common import DEFAULT_ENV as DEFAULT_ENV_CONFIGURATION
 from datahub.metadata.com.linkedin.pegasus2avro.common import GlossaryTerms
 from datahub.metadata.schema_classes import (
     AuditStampClass,
@@ -27,7 +28,7 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
 )
 
-DEFAULT_ENV = "PROD"
+DEFAULT_ENV = DEFAULT_ENV_CONFIGURATION
 DEFAULT_FLOW_CLUSTER = "prod"
 UNKNOWN_USER = "urn:li:corpuser:unknown"
 
@@ -53,6 +54,22 @@ def make_data_platform_urn(platform: str) -> str:
 
 def make_dataset_urn(platform: str, name: str, env: str = DEFAULT_ENV) -> str:
     return f"urn:li:dataset:({make_data_platform_urn(platform)},{name},{env})"
+
+
+def make_dataplatform_instance_urn(platform: str, instance: str) -> str:
+    if instance.startswith("urn:li:dataPlatformInstance"):
+        return instance
+    else:
+        return f"urn:li:dataPlatformInstance:({make_data_platform_urn(platform)},{instance})"
+
+
+def make_dataset_urn_with_platform_instance(
+    platform: str, name: str, platform_instance: Optional[str], env: str = DEFAULT_ENV
+) -> str:
+    if platform_instance:
+        return f"urn:li:dataset:({make_data_platform_urn(platform)},{platform_instance}.{name},{env})"
+    else:
+        return make_dataset_urn(platform=platform, name=name, env=env)
 
 
 def dataset_urn_to_key(dataset_urn: str) -> Optional[DatasetKeyClass]:
