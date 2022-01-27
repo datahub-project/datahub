@@ -134,7 +134,7 @@ def should_use_neo4j_for_graph_service(graph_service_override: Optional[str]) ->
     "--version",
     type=str,
     default=None,
-    help="Datahub version to be deployed. If not set, deploy latest",
+    help="Datahub version to be deployed. If not set, deploy using the defaults from the quickstart compose",
 )
 @click.option(
     "--build-locally",
