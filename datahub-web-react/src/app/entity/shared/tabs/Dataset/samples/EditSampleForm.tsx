@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { Button, Form, Select, Space } from 'antd';
+import { Button, Form, Select } from 'antd';
 import { gql, useLazyQuery, useQuery } from '@apollo/client';
 import { useBaseEntity } from '../../../EntityContext';
 import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
+// import { width } from '../../../../../lineage/LineageEntityNode';
 
 function GetProfileTimestamps(datasetUrn) {
     const queryTimeStamps = gql`
@@ -74,9 +75,14 @@ export const EditSampleForm = () => {
             }
         }
     `;
+    const formItemLayout = {
+        labelCol: { span: 6 },
+        wrapperCol: { span: 14 },
+    };
     const baseEntity = useBaseEntity<GetDatasetQuery>();
     const currDataset = baseEntity && baseEntity?.dataset?.urn;
     const [selectedValue, setSelectedValue] = useState(0);
+    const [modifiedForm, setModifiedForm] = useState(false);
     const [formData, setFormData] = useState({});
     const [getProfile, { data: profiledata }] = useLazyQuery(queryTimeStamps, {
         variables: {
@@ -90,13 +96,12 @@ export const EditSampleForm = () => {
         },
     });
     const { Option } = Select;
-    const schema = schemaData?.dataset?.schemaMetadata?.fields || [];
+    const schema = schemaData?.dataset?.schemaMetadata?.fields.map((item) => item.fieldPath) || [];
     const timeStampValues = GetProfileTimestamps(currDataset).map((item) => {
         return item.timestampMillis;
     });
     const deleteProfile = () => {
         console.log(`delete profile ${selectedValue}`);
-        // axios delete profile endpoint
     };
     const loadProfile = () => {
         console.log(`Load profile ${selectedValue} for ${currDataset}`);
@@ -111,37 +116,36 @@ export const EditSampleForm = () => {
 
     const createNewProfile = () => {
         getSchema();
-
         setFormData(
-            // Object.fromEntries(
-            //     schemaData?.dataset?.schemaMetadata?.fields?.map((item) => {
-            //         return [item.fieldPath, []];
-            //     }) || {},
-            // ),
             Object.fromEntries(
                 schema.map((item) => {
-                    return [item.fieldPath, []];
+                    return [item, []];
                 }) || {},
             ),
-            // schema,
         );
     };
 
-    console.log(` formdata is ${JSON.stringify(formData)} and of type ${typeof formData}`);
+    console.log(` formdata is ${JSON.stringify(formData)}`);
     console.log(` schema is ${JSON.stringify(schema)}`);
-    const handleChange = (value, key) => {
-        console.log(`${key}:${value}, formData is currently ${formData}`);
-        setFormData((formData[key] = value));
+    const handleChange = (value, key: string) => {
+        console.log(`key is ${key}`);
+        const copyFormData: any = { ...formData };
+        copyFormData[key] = value;
+        setFormData(copyFormData);
+    };
+    const submitData = () => {
+        console.log(`data to be submitted is ${JSON.stringify(formData)}`);
     };
 
     return (
         <>
-            <Form.Item name="chooseSet" label="Select a Timestamped Dataset Profile to edit">
+            <Form.Item name="chooseSet" label="Select a existing Dataset Profile to Edit">
                 <Select
                     placeholder="select a timeperiod"
-                    style={{ width: 300 }}
+                    style={{ width: 250 }}
                     onChange={(value) => {
                         setSelectedValue(Number(value));
+                        setModifiedForm(true);
                     }}
                 >
                     {timeStampValues.map((item) => (
@@ -157,34 +161,34 @@ export const EditSampleForm = () => {
                         </Option>
                     ))}
                 </Select>
-                <Space />
-                <Button onClick={loadProfile}>Load Profile</Button>
-                <Button onClick={deleteProfile}>Delete Profile</Button>
-                <Button onClick={createNewProfile}>Create New Dataset Profile</Button>
+                <Button onClick={loadProfile} disabled={!modifiedForm} key="load">
+                    Load Profile
+                </Button>
+                <Button onClick={deleteProfile} key="delete">
+                    Delete Profile
+                </Button>
+                <Button onClick={createNewProfile} key="create">
+                    Create New Profile
+                </Button>
             </Form.Item>
-            {/* <Form.Item>
-                <p>{Object.keys(formData).map((item) => item)}</p>
-                <Select
-                    mode="tags"
-                    style={{ width: '50%' }}
-                    value={Object.keys(formData).map((item) => formData[item])}
-                    tokenSeparators={[',']}
-                    onChange={handleChange}
-                />
-            </Form.Item> */}
             {Object.keys(formData).map((mykey) => (
-                <Form.Item>
-                    <p>{mykey}</p>
+                <Form.Item label={mykey} {...formItemLayout}>
                     <Select
+                        id={mykey}
                         mode="tags"
-                        style={{ width: '50%' }}
-                        tokenSeparators={[',']}
+                        style={{ float: 'right', width: '100%' }}
+                        tokenSeparators={['|']}
                         value={formData[mykey]}
                         key={mykey}
                         onChange={(e) => handleChange(e, mykey)}
                     />
                 </Form.Item>
             ))}
+            <Form.Item style={{ margin: 30 }}>
+                <Button onClick={submitData} key="submit">
+                    Submit Changes
+                </Button>
+            </Form.Item>
         </>
     );
 };
