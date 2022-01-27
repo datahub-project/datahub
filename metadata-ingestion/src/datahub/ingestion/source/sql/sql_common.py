@@ -31,12 +31,12 @@ from datahub.emitter.mce_builder import (
     make_domain_urn,
     DEFAULT_ENV,
     DatabaseKey,
+    PlatformKey,
     SchemaKey,
     add_dataset_to_container,
     gen_containers,
     make_data_platform_urn,
     make_dataset_urn,
-    PlatformKey,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import add_domain_to_entity_wu
@@ -1018,7 +1018,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
     
     def add_table_to_schema_container(
         self, dataset_urn: str, db_name: str, schema: str
-    ):
+    ) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
         schema_container_key = self.gen_schema_key(db_name, schema)
         container_workunits = add_dataset_to_container(
             container_key=schema_container_key,

@@ -27,6 +27,7 @@ from datahub.configuration import ConfigModel
 from datahub.configuration.common import ConfigurationError
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.emitter import mce_builder
+from datahub.emitter.mce_builder import PlatformKey, gen_containers
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.sql_common import (
@@ -53,8 +54,6 @@ from datahub.metadata.schema_classes import (
     UpstreamClass,
     UpstreamLineageClass,
 )
-
-from datahub.emitter.mce_builder import PlatformKey, gen_containers
 
 logger = logging.getLogger(__name__)
 
