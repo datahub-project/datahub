@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
-import { capitalizeFirstLetter } from '../../../../../shared/capitalizeFirstLetter';
+import { capitalizeFirstLetter } from '../../../../../shared/textUtil';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import { IconStyleType } from '../../../../Entity';
 import { ANTD_GRAY } from '../../../constants';

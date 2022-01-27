@@ -27,6 +27,16 @@ public class PoliciesConfig {
       "Manage Policies",
       "Create and remove access control policies. Be careful - Actors with this privilege are effectively super users.");
 
+  public static final Privilege MANAGE_INGESTION_PRIVILEGE = Privilege.of(
+      "MANAGE_INGESTION",
+      "Manage Metadata Ingestion",
+      "Create, remove, and update Metadata Ingestion sources.");
+
+  public static final Privilege MANAGE_SECRETS_PRIVILEGE = Privilege.of(
+      "MANAGE_SECRETS",
+      "Manage Secrets",
+      "Create & remove Secrets stored inside DataHub.");
+
   public static final Privilege MANAGE_USERS_AND_GROUPS_PRIVILEGE = Privilege.of(
       "MANAGE_USERS_AND_GROUPS",
       "Manage Users & Groups",
@@ -53,7 +63,10 @@ public class PoliciesConfig {
       MANAGE_USERS_AND_GROUPS_PRIVILEGE,
       VIEW_ANALYTICS_PRIVILEGE,
       GENERATE_PERSONAL_ACCESS_TOKENS_PRIVILEGE,
-      MANAGE_DOMAINS_PRIVILEGE
+      MANAGE_DOMAINS_PRIVILEGE,
+      MANAGE_INGESTION_PRIVILEGE,
+      MANAGE_SECRETS_PRIVILEGE,
+      GENERATE_PERSONAL_ACCESS_TOKENS_PRIVILEGE
   );
 
   // Resource Privileges //
