@@ -27,3 +27,17 @@ entities:
       - corpUserInfo
       - corpUserEditableInfo
       - corpUserStatus
+  - name: dataHubIngestionSource
+    keyAspect: dataHubIngestionSourceKey
+    aspects:
+      - dataHubIngestionSourceInfo
+  - name: dataHubSecret
+    keyAspect: dataHubSecretKey
+    aspects:
+      - dataHubSecretValue
+  - name: dataHubExecutionRequest
+    keyAspect: dataHubExecutionRequestKey
+    aspects:
+      - dataHubExecutionRequestInput
+      - dataHubExecutionRequestSignal
+      - dataHubExecutionRequestResult

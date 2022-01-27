@@ -51,6 +51,16 @@ type PlatformPrivileges {
   Whether the user should be able to generate personal access tokens
   """
   generatePersonalAccessTokens: Boolean!
+
+  """
+  Whether the user is able to manage UI-based ingestion
+  """
+  manageIngestion: Boolean!
+
+  """
+  Whether the user is able to manage UI-based secrets
+  """
+  manageSecrets: Boolean!
 }
 
 """
@@ -77,6 +87,11 @@ type AppConfig {
   Configurations related to the User & Group management
   """
   identityManagementConfig: IdentityManagementConfig!
+
+  """
+  Configurations related to UI-based ingestion
+  """
+  managedIngestionConfig: ManagedIngestionConfig!
 }
 
 """
@@ -161,6 +176,16 @@ Configurations related to Identity Management
 type IdentityManagementConfig {
   """
   Whether identity management screen is able to be shown in the UI
+  """
+  enabled: Boolean!
+}
+
+"""
+Configurations related to managed, UI based ingestion
+"""
+type ManagedIngestionConfig {
+  """
+  Whether ingestion screen is enabled in the UI
   """
   enabled: Boolean!
 }

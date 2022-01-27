@@ -329,6 +329,16 @@ enum EntityType {
     The ML Primary Key Entity
     """
     MLPRIMARY_KEY
+
+    """
+    A DataHub Managed Ingestion Source
+    """
+    INGESTION_SOURCE
+
+    """
+    A DataHub ExecutionRequest
+    """
+    EXECUTION_REQUEST
 }
 
 """

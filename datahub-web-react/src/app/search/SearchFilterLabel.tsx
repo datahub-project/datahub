@@ -5,7 +5,7 @@ import styled from 'styled-components';
 
 import { AggregationMetadata, DataPlatform, EntityType, GlossaryTerm, Tag as TagType } from '../../types.generated';
 import { StyledTag } from '../entity/shared/components/styled/StyledTag';
-import { capitalizeFirstLetter } from '../shared/capitalizeFirstLetter';
+import { capitalizeFirstLetter } from '../shared/textUtil';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { ENTITY_FILTER_NAME } from './utils/constants';
 

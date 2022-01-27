@@ -12,6 +12,8 @@
       },
       "privileges":[
         "MANAGE_POLICIES",
+        "MANAGE_INGESTION",
+        "MANAGE_SECRETS",
         "MANAGE_USERS_AND_GROUPS",
         "VIEW_ANALYTICS",
         "GENERATE_PERSONAL_ACCESS_TOKENS"
