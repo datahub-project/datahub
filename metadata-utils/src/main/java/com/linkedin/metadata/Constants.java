@@ -23,6 +23,7 @@ public class Constants {
   public static final String DATA_FLOW_ENTITY_NAME = "dataFlow";
   public static final String DATA_JOB_ENTITY_NAME = "dataJob";
   public static final String GLOSSARY_TERM_ENTITY_NAME = "glossaryTerm";
+  public static final String DATA_PLATFORM_ENTITY_NAME = "dataPlatform";
 
   /**
    * Aspects
