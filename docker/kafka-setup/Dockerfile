@@ -1,9 +1,8 @@
+# Using as a base image because to get the needed jars for confluent utils
 FROM confluentinc/cp-base-new:6.1.4 as confluent_base
 
-# This "container" is a workaround to pre-create topics
+# Based on https://github.com/blacktop's alpine kafka build
 FROM python:3-alpine
-
-LABEL maintainer "https://github.com/blacktop"
 
 ENV KAFKA_VERSION 2.8.1
 ENV SCALA_VERSION 2.13
