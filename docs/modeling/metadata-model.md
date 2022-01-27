@@ -248,16 +248,12 @@ The notable parameters are `direction`, `urn` and `types`. The response contains
 to the primary entity (urn:li:chart:customer) by an relationship named "OwnedBy". That is, it permits fetching the owners of a given
 chart. 
 
-### Notable Aspects
+### Special Aspects
 
-There are a few common aspects worth mentioning: 
+There are a few special aspects worth mentioning: 
 
 1. Key aspects: Contain the properties that uniquely identify an Entity. 
-2. Browse Paths aspect: Represents a hierarchical path associated with an Entity. 
-3. Ownership aspect: Defines the users & groups that own an Entity. 
-4. Status aspect: Defines whether the Entity is "soft deleted" or not. 
-5. Tags aspect: Defines the set of tags attached to an Entity.
-6. Glossary Terms aspect: Defines the set of Glossary Terms attached to an Entity.
+2. Browse Paths aspect: Represents a hierarchical path associated with an Entity.
 
 #### Key aspects
 
@@ -384,7 +380,27 @@ Please note you must provide:
 - The "/"-delimited root path for which to fetch results.
 - An entity "type" using its common name ("dataset" in the example above). 
 
-#### Timeseries aspects
+### Types of Aspect
+
+There are 2 "types" of Metadata Aspects. Both are modeled using PDL schemas, and both can be ingested in the same way. 
+However, they differ in what they represent and how they are handled by DataHub's Metadata Service. 
+
+#### 1. Versioned Aspects
+ 
+Versioned Aspects each have a **numeric version** associated with them. When a field in an aspect changes, a new
+version is automatically created and stored within DataHub's backend. In practice, all versioned aspects are stored inside a relational database
+that can be backed up and restored. Versioned aspects power much of the UI experience you're used to, including Ownership, Descriptions,
+Tags, Glossary Terms, and more. Examples include Ownership, Global Tags, and Glossary Terms. 
+
+#### 2. Timeseries Aspects
+
+Timeseries Aspects each have a **timestamp** associated with them. They are useful for representing
+time-ordered events about an Entity. For example, the results of profiling a Dataset, or a set of Data Quality checks that
+run every day. It is important to note that Timeseries aspects are NOT persisted inside the relational store, and are instead
+persisted only in the search index (e.g. elasticsearch) and the message queue (Kafka). This makes restoring timeseries aspects
+in a disaster scenario a bit more challenge. Timeseries aspects can be queried by time range, which is what makes them most different from Versioned Aspects.
+A timeseries aspect can be identified by the "timeseries" [type](https://github.com/linkedin/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/dataset/DatasetProfile.pdl#L10) in its [@Aspect](https://github.com/linkedin/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/dataset/DatasetProfile.pdl#L8) annotation.
+Examples include [DatasetProfile](https://github.com/linkedin/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/dataset/DatasetProfile.pdl) & [DatasetUsageStatistics](https://github.com/linkedin/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/dataset/DatasetUsageStatistics.pdl).
 
 Timeseries aspects are aspects that have a timestampMillis field, and are meant for aspects that continuously change on a
 timely basis e.g. data profiles, usage statistics, etc.
@@ -405,12 +421,12 @@ instead of being stored in local DB).
 
 You can retrieve timeseries aspects using the "aspects?action=getTimeseriesAspectValues" end point. 
 
-#### Aggregatable Timeseries aspects
+##### Aggregatable Timeseries aspects
 Being able to perform SQL like *group by + aggregate* operations on the timeseries aspects is a very natural use-case for
 this kind of data (dataset profiles, usage statistics etc.). This section describes how to define, ingest and perform an
 aggregation query against a timeseries aspect.
 
-##### Defining a new aggregatable Timeseries aspect.
+###### Defining a new aggregatable Timeseries aspect.
 
 The *@TimeseriesField* and the *@TimeseriesFieldCollection* are two new annotations that can be attached to a field of
 a *Timeseries aspect* that allows it to be part of an aggregatable query. The kinds of aggregations allowed on these
@@ -438,7 +454,7 @@ entities:
       - datasetUsageStatistics
 ```
 
-##### Ingesting a Timeseries aspect
+###### Ingesting a Timeseries aspect
 The timeseries aspects can be ingested via the GMS REST endpoint `/aspects?action=ingestProposal` or via the python API.
 
 Example1: Via GMS REST API using curl.
@@ -495,7 +511,7 @@ my_emitter = DatahubKafkaEmitter("""<config>""")
 my_emitter.emit(mcpw)
 ```
 
-##### Performing an aggregation on a Timeseries aspect.
+###### Performing an aggregation on a Timeseries aspect.
 
 Aggreations on timeseries aspects can be performed by the GMS REST API for `/analytics?action=getTimeseriesStats` which
 accepts the following params.
