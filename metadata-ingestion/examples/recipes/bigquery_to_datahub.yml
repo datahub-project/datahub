@@ -1,7 +1,7 @@
 ---
 # see https://datahubproject.io/docs/metadata-ingestion/source_docs/bigquery for complete documentation
 source:
-  type: "redshift"
+  type: "bigquery"
   config:
     ## Coordinates
     project_id: project-id-1234567
