@@ -53,6 +53,11 @@ type PlatformPrivileges {
   generatePersonalAccessTokens: Boolean!
 
   """
+  Whether the user should be able to manage Domains
+  """
+  manageDomains: Boolean!
+
+  """
   Whether the user is able to manage UI-based ingestion
   """
   manageIngestion: Boolean!
