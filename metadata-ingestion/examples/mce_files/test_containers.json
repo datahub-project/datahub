@@ -14,18 +14,6 @@
   {
     "auditHeader":null,
     "entityType":"container",
-    "entityUrn": "urn:li:container:SCHEMA",
-    "changeType":"UPSERT",
-    "aspectName":"container",
-    "aspect":{
-      "value":"{\"container\": \"urn:li:container:DATABASE\" }",
-      "contentType":"application/json"
-    },
-    "systemMetadata":null
-  },
-  {
-    "auditHeader":null,
-    "entityType":"container",
     "entityUrn": "urn:li:container:DATABASE",
     "changeType":"UPSERT",
     "aspectName":"subTypes",
@@ -43,18 +31,6 @@
     "aspectName":"dataPlatformInstance",
     "aspect":{
       "value":"{\"platform\": \"urn:li:dataPlatform:mysql\" }",
-      "contentType":"application/json"
-    },
-    "systemMetadata":null
-  },
-  {
-    "auditHeader":null,
-    "entityType":"dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)",
-    "changeType":"UPSERT",
-    "aspectName":"container",
-    "aspect":{
-      "value":"{\"container\": \"urn:li:container:SCHEMA\" }",
       "contentType":"application/json"
     },
     "systemMetadata":null
@@ -91,6 +67,30 @@
     "aspectName":"dataPlatformInstance",
     "aspect":{
       "value":"{\"platform\": \"urn:li:dataPlatform:mysql\" }",
+      "contentType":"application/json"
+    },
+    "systemMetadata":null
+  },
+  {
+    "auditHeader":null,
+    "entityType":"container",
+    "entityUrn": "urn:li:container:SCHEMA",
+    "changeType":"UPSERT",
+    "aspectName":"container",
+    "aspect":{
+      "value":"{\"container\": \"urn:li:container:DATABASE\" }",
+      "contentType":"application/json"
+    },
+    "systemMetadata":null
+  },
+  {
+    "auditHeader":null,
+    "entityType":"dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)",
+    "changeType":"UPSERT",
+    "aspectName":"container",
+    "aspect":{
+      "value":"{\"container\": \"urn:li:container:SCHEMA\" }",
       "contentType":"application/json"
     },
     "systemMetadata":null
