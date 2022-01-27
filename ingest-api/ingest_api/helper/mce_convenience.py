@@ -33,7 +33,9 @@ from datahub.metadata.schema_classes import (ArrayTypeClass, AuditStampClass,
                                              SchemaMetadataClass, StatusClass,
                                              StringTypeClass, TimeTypeClass,
                                              UnionTypeClass, UpstreamClass,
-                                             UpstreamLineageClass)
+                                             UpstreamLineageClass, 
+                                             DatasetProfileClass, 
+                                             DatasetFieldProfileClass)
 from jwt import ExpiredSignatureError, InvalidTokenError
 
 from .models import FieldParamEdited
@@ -461,3 +463,17 @@ def query_dataset_owner(token: str, dataset_urn: str, user: str):
         return False
     log.info("Ownership Step: True")
     return True
+
+def make_profile_mcp(dataset_urn: str, 
+    	timestamp: int, 
+        sample_values:Dict[str, List[str]]) -> DatasetProfileClass:
+    all_fields = []
+    for field in sample_values.keys():
+        fieldProfile = DatasetFieldProfileClass(
+            fieldPath = field,
+            sampleValues=sample_values[field])
+        all_fields.append(fieldProfile)
+    datasetProfile = DatasetProfileClass(
+        timestampMillis=timestamp,
+        fieldProfiles=all_fields)
+    return datasetProfile    

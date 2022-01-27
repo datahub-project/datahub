@@ -1,8 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { Button, Form, Select } from 'antd';
+import axios from 'axios';
+import { Button, Form, message, Select } from 'antd';
 import { gql, useLazyQuery, useQuery } from '@apollo/client';
 import { useBaseEntity } from '../../../EntityContext';
 import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
+import { useGetAuthenticatedUser } from '../../../../../useGetAuthenticatedUser';
+import { GetMyToken } from '../../../../dataset/whoAmI';
+import adhocConfig from '../../../../../../conf/Adhoc';
 
 function GetProfileTimestamps(datasetUrn) {
     const queryTimeStamps = gql`
@@ -32,6 +36,10 @@ const formItemLayout = {
 // }
 
 export const EditSampleForm = () => {
+    const baseUrl = adhocConfig;
+    const branch = baseUrl.lastIndexOf('/');
+    const makeUrl = `${baseUrl.substring(0, branch)}/update_samples`;
+    // const delUrl = `${baseUrl.substring(0, branch)}/delete_samples`;
     const queryTimeStamps = gql`
         query getProfiles($urn: String!, $timestamp: Long!) {
             dataset(urn: $urn) {
@@ -57,6 +65,9 @@ export const EditSampleForm = () => {
     `;
     const baseEntity = useBaseEntity<GetDatasetQuery>();
     const currDataset = baseEntity && baseEntity?.dataset?.urn;
+    const user = useGetAuthenticatedUser();
+    const userUrn = user?.corpUser?.urn || '';
+    const userToken = GetMyToken(userUrn);
     const [selectedValue, setSelectedValue] = useState('');
     const [hasSelectedDate, setHasSelectedDate] = useState(false);
     const [hasModifiedForm, sethasModifiedForm] = useState(false);
@@ -116,7 +127,12 @@ export const EditSampleForm = () => {
         setHasSelectedDate(false);
         sethasModifiedForm(false);
     };
-
+    const printSuccessMsg = (status) => {
+        message.success(`Status:${status} - Request submitted successfully`, 3).then();
+    };
+    const printErrorMsg = (error) => {
+        message.error(error, 3).then();
+    };
     const handleValuesChange = (value, key: string) => {
         const copyFormData: any = { ...formData };
         copyFormData[key] = value;
@@ -125,9 +141,14 @@ export const EditSampleForm = () => {
     };
     const submitData = async () => {
         const formTimestamp = toggle ? Date.now() : Number(selectedValue);
-        console.log(`data to be submitted is ${JSON.stringify(formData)} for ${formTimestamp}`);
-        // await timeout(3000);
-        // window.location.reload();
+        const submission = { ...formData, user_token: userToken };
+        console.log(`data to be submitted is ${JSON.stringify(submission)} for ${formTimestamp}`);
+        axios
+            .post(makeUrl, submission)
+            .then((response) => printSuccessMsg(response.status))
+            .catch((error) => {
+                printErrorMsg(error.toString());
+            });
     };
     const updateSelect = (value) => {
         setSelectedValue(value);

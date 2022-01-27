@@ -10,7 +10,8 @@ import uvicorn
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import \
     DatasetSnapshot
-from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
+from datahub.metadata.com.linkedin.pegasus2avro.mxe import (MetadataChangeEvent,
+                                                            MetadataChangeProposal)
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -30,8 +31,8 @@ from ingest_api.helper.mce_convenience import (authenticate_action,
                                                update_field_param_class,
                                                verify_token)
 from ingest_api.helper.models import (browsepath_params, create_dataset_params,
-                                      dataset_status_params, determine_type,
-                                      prop_params, schema_params)
+                                      dataset_status_params, delete_sample_params, determine_type,
+                                      prop_params, add_sample_params, schema_params)
 
 # when DEBUG = true, im not running ingest_api from container,
 # but from localhost python interpreter, hence need to change the
@@ -104,7 +105,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["POST", "GET"],
+    allow_methods=["POST", "GET", "OPTIONS"],
 )
 
 
@@ -144,6 +145,75 @@ async def hello_world() -> None:
 async def update_browsepath(item: browsepath_params):
 
     rootLogger.info("update_browsepath_request_received {}".format(item))
+    datasetName = item.dataset_name
+    token = item.user_token
+    user = item.requestor
+    if authenticate_action(token=token, user=user, dataset=datasetName):
+        dataset_snapshot = DatasetSnapshot(
+            urn=item.dataset_name,
+            aspects=[],
+        )
+        all_paths = []
+        for path in item.browsePaths:
+            all_paths.append(path + "dataset")
+        browsepath_aspect = make_browsepath_mce(path=all_paths)
+        dataset_snapshot.aspects.append(browsepath_aspect)
+        metadata_record = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
+        response = emit_mce_respond(
+            metadata_record=metadata_record,
+            owner=item.requestor,
+            event="UI Update Browsepath",
+            token=item.user_token,
+        )
+        return JSONResponse(
+            content=response.get("message", ""), status_code=response.get("status_code")
+        )
+    else:
+        log.error(
+            f"authentication failed for request\
+            (update_browsepath) from {user}"
+        )
+        return JSONResponse(content="Authentication Failed", status_code=401)
+
+@app.post("/update_samples")
+async def update_samples(item: add_sample_params):
+
+    rootLogger.info("update_sample_request_received {}".format(item))
+    datasetName = item.dataset_name
+    token = item.user_token
+    user = item.requestor
+    return
+    # if authenticate_action(token=token, user=user, dataset=datasetName):
+    #     dataset_snapshot = DatasetSnapshot(
+    #         urn=item.dataset_name,
+    #         aspects=[],
+    #     )
+    #     all_paths = []
+    #     for path in item.browsePaths:
+    #         all_paths.append(path + "dataset")
+    #     browsepath_aspect = make_browsepath_mce(path=all_paths)
+    #     dataset_snapshot.aspects.append(browsepath_aspect)
+    #     metadata_record = (proposedSnapshot=dataset_snapshot)
+    #     response = emit_mce_respond(
+    #         metadata_record=metadata_record,
+    #         owner=item.requestor,
+    #         event="UI Update Browsepath",
+    #         token=item.user_token,
+    #     )
+    #     return JSONResponse(
+    #         content=response.get("message", ""), status_code=response.get("status_code")
+    #     )
+    # else:
+    #     log.error(
+    #         f"authentication failed for request\
+    #         (update_browsepath) from {user}"
+    #     )
+    #     return JSONResponse(content="Authentication Failed", status_code=401)
+
+@app.post("/delete_samples")
+async def delete_samples(item: delete_sample_params):
+
+    rootLogger.info("delete_sample_request_received {}".format(item))
     datasetName = item.dataset_name
     token = item.user_token
     user = item.requestor

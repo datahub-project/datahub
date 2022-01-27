@@ -86,6 +86,18 @@ class browsepath_params(BaseModel):
     user_token: str
     browsePaths: List[str]
 
+class add_sample_params(BaseModel):
+    dataset_name: str
+    requestor: str
+    user_token: str
+    samples: List[Dict]
+    timestamp: int
+
+class delete_sample_params(BaseModel):
+    dataset_name: str
+    requestor: str
+    user_token: str
+    timestamp: int
 
 class schema_params(BaseModel):
     dataset_name: str
