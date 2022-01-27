@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Button, Form, Select } from 'antd';
 import { gql, useLazyQuery, useQuery } from '@apollo/client';
 import { useBaseEntity } from '../../../EntityContext';
@@ -24,32 +24,6 @@ function GetProfileTimestamps(datasetUrn) {
     const timeStampValues = data?.dataset?.datasetProfiles || [];
     return timeStampValues;
 }
-
-// function GetCurrentSchema(datasetUrn) {
-//     // to query the current schema in place so i can create an empty form with the existing schema
-//     const querySchema = gql`
-//         query getSchema($urn: String!) {
-//             dataset(urn: $urn) {
-//                 schemaMetadata(version: 0) {
-//                     fields {
-//                         fieldPath
-//                     }
-//                 }
-//             }
-//         }
-//     `;
-//     const { data: schema } = useQuery(querySchema, {
-//         variables: {
-//             urn: datasetUrn,
-//         },
-//         skip: datasetUrn === undefined,
-//     });
-
-//     const result = schema?.dataset?.schemaMetadata?.fields.map((item) => {
-//         return item.fieldPath;
-//     });
-//     return result;
-// }
 
 export const EditSampleForm = () => {
     const queryTimeStamps = gql`
@@ -84,6 +58,8 @@ export const EditSampleForm = () => {
     const [selectedValue, setSelectedValue] = useState(0);
     const [modifiedForm, setModifiedForm] = useState(false);
     const [formData, setFormData] = useState({});
+    const [profileData, setprofileData] = useState({});
+    const [toggle, setToggle] = useState(true); // true = create,false = load. default true
     const [getProfile, { data: profiledata }] = useLazyQuery(queryTimeStamps, {
         variables: {
             urn: currDataset,
@@ -95,38 +71,54 @@ export const EditSampleForm = () => {
             urn: currDataset,
         },
     });
+    const [schema, setSchema] = useState([]);
+    useEffect(() => {
+        setSchema(schemaData?.dataset?.schemaMetadata?.fields.map((item) => item.fieldPath) || []);
+    }, [schemaData]);
+    useEffect(() => {
+        return toggle
+            ? setFormData(
+                  Object.fromEntries(
+                      schema.map((item) => {
+                          return [item, []];
+                      }) || {},
+                  ),
+              )
+            : setFormData(profileData);
+    }, [schema, toggle, profileData]);
+
+    useEffect(() => {
+        setprofileData(
+            profiledata?.dataset?.datasetProfiles?.[0].fieldProfiles.reduce(
+                (obj, item) => ({ ...obj, [item.fieldPath]: item.sampleValues }),
+                {},
+            ) || {},
+        );
+    }, [profiledata]);
     const { Option } = Select;
-    const schema = schemaData?.dataset?.schemaMetadata?.fields.map((item) => item.fieldPath) || [];
     const timeStampValues = GetProfileTimestamps(currDataset).map((item) => {
         return item.timestampMillis;
     });
     const deleteProfile = () => {
         console.log(`delete profile ${selectedValue}`);
     };
+
     const loadProfile = () => {
-        console.log(`Load profile ${selectedValue} for ${currDataset}`);
         getProfile();
-        setFormData(
-            profiledata?.dataset?.datasetProfiles?.[0].fieldProfiles.reduce(
-                (obj, item) => ({ ...obj, [item.fieldPath]: item.sampleValues }),
-                {},
-            ) || {},
-        );
+        setToggle(false);
+        // setFormData(
+        //     profiledata?.dataset?.datasetProfiles?.[0].fieldProfiles.reduce(
+        //         (obj, item) => ({ ...obj, [item.fieldPath]: item.sampleValues }),
+        //         {},
+        //     ) || {},
+        // );
     };
 
     const createNewProfile = () => {
         getSchema();
-        setFormData(
-            Object.fromEntries(
-                schema.map((item) => {
-                    return [item, []];
-                }) || {},
-            ),
-        );
+        setToggle(true);
     };
 
-    console.log(` formdata is ${JSON.stringify(formData)}`);
-    console.log(` schema is ${JSON.stringify(schema)}`);
     const handleChange = (value, key: string) => {
         console.log(`key is ${key}`);
         const copyFormData: any = { ...formData };
@@ -136,13 +128,12 @@ export const EditSampleForm = () => {
     const submitData = () => {
         console.log(`data to be submitted is ${JSON.stringify(formData)}`);
     };
-
     return (
         <>
             <Form.Item name="chooseSet" label="Select a existing Dataset Profile to Edit">
                 <Select
                     placeholder="select a timeperiod"
-                    style={{ width: 250 }}
+                    style={{ width: 200 }}
                     onChange={(value) => {
                         setSelectedValue(Number(value));
                         setModifiedForm(true);
@@ -170,6 +161,9 @@ export const EditSampleForm = () => {
                 <Button onClick={createNewProfile} key="create">
                     Create New Profile
                 </Button>
+                <Button onClick={submitData} key="submit">
+                    Submit Changes
+                </Button>
             </Form.Item>
             {Object.keys(formData).map((mykey) => (
                 <Form.Item label={mykey} {...formItemLayout}>
@@ -184,11 +178,6 @@ export const EditSampleForm = () => {
                     />
                 </Form.Item>
             ))}
-            <Form.Item style={{ margin: 30 }}>
-                <Button onClick={submitData} key="submit">
-                    Submit Changes
-                </Button>
-            </Form.Item>
         </>
     );
 };
