@@ -198,7 +198,7 @@ export class DatasetEntity implements Entity<Dataset> {
                     },
                 },
                 {
-                    name: 'Edit Stats&Samples',
+                    name: 'Edit Samples',
                     component: EditSampleTab,
                     display: {
                         visible: (_, _dataset: GetDatasetQuery) => {

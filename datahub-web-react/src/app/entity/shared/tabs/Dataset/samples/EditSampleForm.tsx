@@ -3,7 +3,6 @@ import { Button, Form, Select } from 'antd';
 import { gql, useLazyQuery, useQuery } from '@apollo/client';
 import { useBaseEntity } from '../../../EntityContext';
 import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
-// import { width } from '../../../../../lineage/LineageEntityNode';
 
 function GetProfileTimestamps(datasetUrn) {
     const queryTimeStamps = gql`
@@ -24,6 +23,13 @@ function GetProfileTimestamps(datasetUrn) {
     const timeStampValues = data?.dataset?.datasetProfiles || [];
     return timeStampValues;
 }
+const formItemLayout = {
+    labelCol: { span: 6 },
+    wrapperCol: { span: 14 },
+};
+// function timeout(delay: number) {
+//     return new Promise((res) => setTimeout(res, delay));
+// }
 
 export const EditSampleForm = () => {
     const queryTimeStamps = gql`
@@ -49,29 +55,22 @@ export const EditSampleForm = () => {
             }
         }
     `;
-    const formItemLayout = {
-        labelCol: { span: 6 },
-        wrapperCol: { span: 14 },
-    };
     const baseEntity = useBaseEntity<GetDatasetQuery>();
     const currDataset = baseEntity && baseEntity?.dataset?.urn;
-    const [selectedValue, setSelectedValue] = useState(0);
-    const [modifiedForm, setModifiedForm] = useState(false);
+    const [selectedValue, setSelectedValue] = useState('');
+    const [hasSelectedDate, setHasSelectedDate] = useState(false);
+    const [hasModifiedForm, sethasModifiedForm] = useState(false);
     const [formData, setFormData] = useState({});
     const [profileData, setprofileData] = useState({});
+    const [schema, setSchema] = useState([]);
     const [toggle, setToggle] = useState(true); // true = create,false = load. default true
-    const [getProfile, { data: profiledata }] = useLazyQuery(queryTimeStamps, {
-        variables: {
-            urn: currDataset,
-            timestamp: selectedValue,
-        },
-    });
+    const [getProfile, { data: profiledata }] = useLazyQuery(queryTimeStamps);
     const [getSchema, { data: schemaData }] = useLazyQuery(querySchema, {
         variables: {
             urn: currDataset,
         },
     });
-    const [schema, setSchema] = useState([]);
+
     useEffect(() => {
         setSchema(schemaData?.dataset?.schemaMetadata?.fields.map((item) => item.fieldPath) || []);
     }, [schemaData]);
@@ -88,6 +87,7 @@ export const EditSampleForm = () => {
     }, [schema, toggle, profileData]);
 
     useEffect(() => {
+        console.log(JSON.stringify(profiledata));
         setprofileData(
             profiledata?.dataset?.datasetProfiles?.[0].fieldProfiles.reduce(
                 (obj, item) => ({ ...obj, [item.fieldPath]: item.sampleValues }),
@@ -99,45 +99,59 @@ export const EditSampleForm = () => {
     const timeStampValues = GetProfileTimestamps(currDataset).map((item) => {
         return item.timestampMillis;
     });
-    const deleteProfile = () => {
+    const deleteProfile = async () => {
         console.log(`delete profile ${selectedValue}`);
+        // await timeout(3000);
+        // window.location.reload();
     };
-
-    const loadProfile = () => {
-        getProfile();
-        setToggle(false);
-        // setFormData(
-        //     profiledata?.dataset?.datasetProfiles?.[0].fieldProfiles.reduce(
-        //         (obj, item) => ({ ...obj, [item.fieldPath]: item.sampleValues }),
-        //         {},
-        //     ) || {},
-        // );
-    };
+    // const loadProfile = () => {
+    //     getProfile();
+    //     setToggle(false);
+    // };
 
     const createNewProfile = () => {
         getSchema();
         setToggle(true);
+        setSelectedValue('');
+        setHasSelectedDate(false);
+        sethasModifiedForm(false);
     };
 
-    const handleChange = (value, key: string) => {
-        console.log(`key is ${key}`);
+    const handleValuesChange = (value, key: string) => {
         const copyFormData: any = { ...formData };
         copyFormData[key] = value;
         setFormData(copyFormData);
+        sethasModifiedForm(true);
     };
-    const submitData = () => {
-        console.log(`data to be submitted is ${JSON.stringify(formData)}`);
+    const submitData = async () => {
+        const formTimestamp = toggle ? Date.now() : Number(selectedValue);
+        console.log(`data to be submitted is ${JSON.stringify(formData)} for ${formTimestamp}`);
+        // await timeout(3000);
+        // window.location.reload();
+    };
+    const updateSelect = (value) => {
+        setSelectedValue(value);
+        setHasSelectedDate(true);
+        sethasModifiedForm(false);
+        setToggle(false);
+        if (value !== '') {
+            console.log(`I call you ${selectedValue} and value ${value}`);
+            getProfile({
+                variables: {
+                    urn: currDataset,
+                    timestamp: Number(value),
+                },
+            });
+        }
     };
     return (
         <>
-            <Form.Item name="chooseSet" label="Select a existing Dataset Profile to Edit">
+            <Form.Item name="chooseSet" label="Select an existing Dataset Profile">
                 <Select
                     placeholder="select a timeperiod"
+                    value={selectedValue}
                     style={{ width: 200 }}
-                    onChange={(value) => {
-                        setSelectedValue(Number(value));
-                        setModifiedForm(true);
-                    }}
+                    onChange={updateSelect}
                 >
                     {timeStampValues.map((item) => (
                         <Option value={item} key={item}>
@@ -152,16 +166,16 @@ export const EditSampleForm = () => {
                         </Option>
                     ))}
                 </Select>
-                <Button onClick={loadProfile} disabled={!modifiedForm} key="load">
+                {/* <Button onClick={loadProfile} disabled={!modifiedForm} key="load">
                     Load Profile
-                </Button>
-                <Button onClick={deleteProfile} key="delete">
+                </Button> */}
+                <Button onClick={deleteProfile} disabled={!hasSelectedDate} key="delete">
                     Delete Profile
                 </Button>
                 <Button onClick={createNewProfile} key="create">
                     Create New Profile
                 </Button>
-                <Button onClick={submitData} key="submit">
+                <Button onClick={submitData} disabled={!hasModifiedForm} key="submit">
                     Submit Changes
                 </Button>
             </Form.Item>
@@ -174,7 +188,7 @@ export const EditSampleForm = () => {
                         tokenSeparators={['|']}
                         value={formData[mykey]}
                         key={mykey}
-                        onChange={(e) => handleChange(e, mykey)}
+                        onChange={(e) => handleValuesChange(e, mykey)}
                     />
                 </Form.Item>
             ))}

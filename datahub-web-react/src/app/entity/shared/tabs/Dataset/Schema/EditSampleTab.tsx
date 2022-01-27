@@ -26,7 +26,8 @@ export const EditSampleTab = () => {
         return (
             <>
                 <Divider dashed orientation="left">
-                    Create New Profile or Edit Existing Profile
+                    Create New Profile or Edit Existing Profile. A Profile contains Sample Values of the Dataset at a
+                    point in time
                 </Divider>
                 <EditSampleForm />
             </>
