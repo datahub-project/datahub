@@ -133,7 +133,7 @@ def should_use_neo4j_for_graph_service(graph_service_override: Optional[str]) ->
 @click.option(
     "--version",
     type=str,
-    default="head",
+    default=None,
     help="Datahub version to be deployed. If not set, deploy latest",
 )
 @click.option(
