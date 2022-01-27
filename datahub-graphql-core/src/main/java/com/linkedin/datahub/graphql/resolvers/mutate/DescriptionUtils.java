@@ -3,7 +3,6 @@ package com.linkedin.datahub.graphql.resolvers.mutate;
 import com.google.common.collect.ImmutableList;
 
 import com.linkedin.common.urn.Urn;
-import com.linkedin.container.ContainerProperties;
 import com.linkedin.container.EditableContainerProperties;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
