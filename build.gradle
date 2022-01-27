@@ -9,7 +9,9 @@ buildscript {
     classpath 'com.github.node-gradle:gradle-node-plugin:2.2.4'
     classpath 'com.commercehub.gradle.plugin:gradle-avro-plugin:0.8.1'
     classpath 'org.springframework.boot:spring-boot-gradle-plugin:2.1.4.RELEASE'
-    classpath 'com.github.jengelman.gradle.plugins:shadow:5.2.0'
+    classpath('com.github.jengelman.gradle.plugins:shadow:5.2.0') {
+      exclude group: 'org.apache.logging.log4j', module: 'log4j-core'
+    }
     classpath "io.codearte.gradle.nexus:gradle-nexus-staging-plugin:0.30.0"
     classpath "com.palantir.gradle.gitversion:gradle-git-version:0.12.3"
   }
