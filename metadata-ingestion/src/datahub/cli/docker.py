@@ -218,7 +218,8 @@ def quickstart(
             logger.debug(f"Copied to {path}")
 
     # set version
-    os.environ["DATAHUB_VERSION"] = version
+    if version is not None:
+        os.environ["DATAHUB_VERSION"] = version
 
     base_command: List[str] = [
         "docker-compose",
