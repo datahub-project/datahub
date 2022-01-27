@@ -3,7 +3,6 @@ import { Button, Form, Select, Space } from 'antd';
 import { gql, useLazyQuery, useQuery } from '@apollo/client';
 import { useBaseEntity } from '../../../EntityContext';
 import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
-// import axios from 'axios';
 
 function GetProfileTimestamps(datasetUrn) {
     const queryTimeStamps = gql`
@@ -95,9 +94,6 @@ export const EditSampleForm = () => {
     const timeStampValues = GetProfileTimestamps(currDataset).map((item) => {
         return item.timestampMillis;
     });
-    // const refined = timeStampValues.map((item) => {
-    //     return item.timestampMillis;
-    // });
     const deleteProfile = () => {
         console.log(`delete profile ${selectedValue}`);
         // axios delete profile endpoint
@@ -111,11 +107,6 @@ export const EditSampleForm = () => {
                 {},
             ) || {},
         );
-        // setFormData(
-        //     profiledata?.dataset?.datasetProfiles?.[0].fieldProfiles.map((item) => {
-        //         return item.fieldPath;
-        //     }),
-        // );
     };
 
     const createNewProfile = () => {
@@ -135,18 +126,14 @@ export const EditSampleForm = () => {
             // schema,
         );
     };
-    // const outputData = profiledata?.dataset?.datasetProfiles || {};
-    console.log(` formdata is ${JSON.stringify(formData)}`);
+
+    console.log(` formdata is ${JSON.stringify(formData)} and of type ${typeof formData}`);
     console.log(` schema is ${JSON.stringify(schema)}`);
-    // console.log(`keys are ${Object.keys(formData)}`);
-    // console.log(`values are ${Object.values(formData)}`);
-    const handleChange = (value) => {
-        setFormData(value);
+    const handleChange = (value, key) => {
+        console.log(`${key}:${value}, formData is currently ${formData}`);
+        setFormData((formData[key] = value));
     };
-    // const dummy = { first: [123, 45], second: [564, 657] };
-    // const dummy = ['12', '34'];
-    // const selectlabel = dummy.keys();
-    // console.log(`selectlabel is ${typeof selectlabel}`);
+
     return (
         <>
             <Form.Item name="chooseSet" label="Select a Timestamped Dataset Profile to edit">
@@ -175,15 +162,29 @@ export const EditSampleForm = () => {
                 <Button onClick={deleteProfile}>Delete Profile</Button>
                 <Button onClick={createNewProfile}>Create New Dataset Profile</Button>
             </Form.Item>
-            <Form.Item>
+            {/* <Form.Item>
+                <p>{Object.keys(formData).map((item) => item)}</p>
                 <Select
                     mode="tags"
                     style={{ width: '50%' }}
-                    value={Object.keys(formData).map((item) => item)}
+                    value={Object.keys(formData).map((item) => formData[item])}
                     tokenSeparators={[',']}
                     onChange={handleChange}
                 />
-            </Form.Item>
+            </Form.Item> */}
+            {Object.keys(formData).map((mykey) => (
+                <Form.Item>
+                    <p>{mykey}</p>
+                    <Select
+                        mode="tags"
+                        style={{ width: '50%' }}
+                        tokenSeparators={[',']}
+                        value={formData[mykey]}
+                        key={mykey}
+                        onChange={(e) => handleChange(e, mykey)}
+                    />
+                </Form.Item>
+            ))}
         </>
     );
 };

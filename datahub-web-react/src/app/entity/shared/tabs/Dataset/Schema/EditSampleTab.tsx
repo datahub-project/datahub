@@ -26,7 +26,7 @@ export const EditSampleTab = () => {
         return (
             <>
                 <Divider dashed orientation="left">
-                    Edit Samples
+                    Create New Profile or Edit Existing Profile
                 </Divider>
                 <EditSampleForm />
             </>
