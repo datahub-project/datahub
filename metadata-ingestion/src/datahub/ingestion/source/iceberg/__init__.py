@@ -53,7 +53,6 @@ _all_atomic_types = {
     IcebergTypes.StringType: "string",
 }
 
-
 class IcebergSource(Source):
     config: IcebergSourceConfig
     report: IcebergSourceReport = IcebergSourceReport()
@@ -69,7 +68,6 @@ class IcebergSource(Source):
     def create(cls, config_dict, ctx):
         config = IcebergSourceConfig.parse_obj(config_dict)
         return cls(config, ctx)
-
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         """
         Current code supports this table name scheme:
