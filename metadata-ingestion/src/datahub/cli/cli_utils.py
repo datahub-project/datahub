@@ -460,7 +460,6 @@ type_class_to_name_map = {
     ChartInfoClass: "chartInfo",
     DataProcessInfoClass: "dataProcessInfo",
     ChartKeyClass: "chartKey",
-
 }
 
 
