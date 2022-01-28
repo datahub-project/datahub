@@ -12,13 +12,10 @@ import com.linkedin.datahub.graphql.generated.Aspect;
 import com.linkedin.datahub.graphql.generated.BrowseResults;
 import com.linkedin.datahub.graphql.generated.Chart;
 import com.linkedin.datahub.graphql.generated.ChartInfo;
-<<<<<<< HEAD
 import com.linkedin.datahub.graphql.generated.Container;
-=======
 import com.linkedin.datahub.graphql.generated.CorpGroupInfo;
 import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.generated.CorpUserInfo;
->>>>>>> master
 import com.linkedin.datahub.graphql.generated.Dashboard;
 import com.linkedin.datahub.graphql.generated.DashboardInfo;
 import com.linkedin.datahub.graphql.generated.DataFlow;
@@ -48,9 +45,7 @@ import com.linkedin.datahub.graphql.generated.UserUsageCounts;
 import com.linkedin.datahub.graphql.resolvers.AuthenticatedResolver;
 import com.linkedin.datahub.graphql.resolvers.MeResolver;
 import com.linkedin.datahub.graphql.resolvers.auth.GetAccessTokenResolver;
-<<<<<<< HEAD
 import com.linkedin.datahub.graphql.resolvers.container.ContainerEntitiesResolver;
-=======
 import com.linkedin.datahub.graphql.resolvers.browse.BrowsePathsResolver;
 import com.linkedin.datahub.graphql.resolvers.browse.BrowseResolver;
 import com.linkedin.datahub.graphql.resolvers.config.AppConfigResolver;
@@ -59,7 +54,6 @@ import com.linkedin.datahub.graphql.resolvers.domain.DomainEntitiesResolver;
 import com.linkedin.datahub.graphql.resolvers.domain.ListDomainsResolver;
 import com.linkedin.datahub.graphql.resolvers.domain.SetDomainResolver;
 import com.linkedin.datahub.graphql.resolvers.domain.UnsetDomainResolver;
->>>>>>> master
 import com.linkedin.datahub.graphql.resolvers.group.AddGroupMembersResolver;
 import com.linkedin.datahub.graphql.resolvers.group.CreateGroupResolver;
 import com.linkedin.datahub.graphql.resolvers.group.EntityCountsResolver;
@@ -120,14 +114,10 @@ import com.linkedin.datahub.graphql.types.LoadableType;
 import com.linkedin.datahub.graphql.types.SearchableEntityType;
 import com.linkedin.datahub.graphql.types.aspect.AspectType;
 import com.linkedin.datahub.graphql.types.chart.ChartType;
-<<<<<<< HEAD
 import com.linkedin.datahub.graphql.types.container.ContainerType;
 import com.linkedin.datahub.graphql.types.corpuser.CorpUserType;
-=======
 import com.linkedin.datahub.graphql.types.common.mappers.OperationMapper;
->>>>>>> master
 import com.linkedin.datahub.graphql.types.corpgroup.CorpGroupType;
-import com.linkedin.datahub.graphql.types.corpuser.CorpUserType;
 import com.linkedin.datahub.graphql.types.dashboard.DashboardType;
 import com.linkedin.datahub.graphql.types.dataflow.DataFlowType;
 import com.linkedin.datahub.graphql.types.datajob.DataJobType;
@@ -212,12 +202,9 @@ public class GmsGraphQLEngine {
     private final GlossaryTermType glossaryTermType;
     private final AspectType aspectType;
     private final UsageType usageType;
-<<<<<<< HEAD
     private final ContainerType containerType;
-=======
     private final DomainType domainType;
 
->>>>>>> master
 
     /**
      * Configures the graph objects that can be fetched primary key.
@@ -305,14 +292,7 @@ public class GmsGraphQLEngine {
         this.glossaryTermType = new GlossaryTermType(entityClient);
         this.aspectType = new AspectType(entityClient);
         this.usageType = new UsageType(this.usageClient);
-<<<<<<< HEAD
         this.containerType = new ContainerType(entityClient);
-
-        // Init Lists
-        this.entityTypes = ImmutableList.of(datasetType, corpUserType, corpGroupType,
-            dataPlatformType, chartType, dashboardType, tagType, mlModelType, mlModelGroupType, mlFeatureType,
-            mlFeatureTableType, mlPrimaryKeyType, dataFlowType, dataJobType, glossaryTermType, containerType
-=======
         this.domainType = new DomainType(entityClient);
 
         // Init Lists
@@ -332,8 +312,8 @@ public class GmsGraphQLEngine {
             dataFlowType,
             dataJobType,
             glossaryTermType,
+            containerType,
             domainType
->>>>>>> master
         );
         this.loadableTypes = new ArrayList<>(entityTypes);
         this.ownerTypes = ImmutableList.of(corpUserType, corpGroupType);
@@ -462,11 +442,8 @@ public class GmsGraphQLEngine {
         configureGlossaryRelationshipResolvers(builder);
         configureIngestionSourceResolvers(builder);
         configureAnalyticsResolvers(builder);
-<<<<<<< HEAD
         configureContainerResolvers(builder);
-=======
         configureDomainResolvers(builder);
->>>>>>> master
     }
 
     public GraphQLEngine.Builder builder() {
@@ -588,11 +565,9 @@ public class GmsGraphQLEngine {
                 new EntityCountsResolver(this.entityClient))
             .dataFetcher("getAccessToken",
                 new GetAccessTokenResolver(tokenService))
-<<<<<<< HEAD
             .dataFetcher("container", new AuthenticatedResolver<>(
                 new LoadableTypeResolver<>(containerType,
                     (env) -> env.getArgument(URN_FIELD_NAME))))
-=======
             .dataFetcher("listDomains",
                 new ListDomainsResolver(this.entityClient))
             .dataFetcher("listSecrets",
@@ -605,7 +580,6 @@ public class GmsGraphQLEngine {
                 new GetIngestionSourceResolver(this.entityClient))
             .dataFetcher("executionRequest",
                 new GetIngestionExecutionRequestResolver(this.entityClient))
->>>>>>> master
         );
     }
 

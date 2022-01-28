@@ -89,11 +89,18 @@ public class DescriptionUtils {
     return true;
   }
 
-<<<<<<< HEAD
-  public static Boolean validateContainerInput(
-=======
   public static Boolean validateDomainInput(
->>>>>>> master
+      Urn resourceUrn,
+      EntityService entityService
+  ) {
+    if (!entityService.exists(resourceUrn)) {
+      throw new IllegalArgumentException(String.format("Failed to update %s. %s does not exist.", resourceUrn, resourceUrn));
+    }
+
+    return true;
+  }
+
+  public static Boolean validateContainerInput(
       Urn resourceUrn,
       EntityService entityService
   ) {
@@ -118,11 +125,7 @@ public class DescriptionUtils {
         orPrivilegeGroups);
   }
 
-<<<<<<< HEAD
-  public static boolean isAuthorizedToUpdateContainerDescription(@Nonnull QueryContext context, Urn targetUrn) {
-=======
   public static boolean isAuthorizedToUpdateDomainDescription(@Nonnull QueryContext context, Urn targetUrn) {
->>>>>>> master
     final DisjunctivePrivilegeGroup orPrivilegeGroups = new DisjunctivePrivilegeGroup(ImmutableList.of(
         ALL_PRIVILEGES_GROUP,
         new ConjunctivePrivilegeGroup(ImmutableList.of(PoliciesConfig.EDIT_ENTITY_DOCS_PRIVILEGE.getType()))
@@ -135,8 +138,18 @@ public class DescriptionUtils {
         targetUrn.toString(),
         orPrivilegeGroups);
   }
-<<<<<<< HEAD
-  
-=======
->>>>>>> master
+
+  public static boolean isAuthorizedToUpdateContainerDescription(@Nonnull QueryContext context, Urn targetUrn) {
+      final DisjunctivePrivilegeGroup orPrivilegeGroups = new DisjunctivePrivilegeGroup(ImmutableList.of(
+          ALL_PRIVILEGES_GROUP,
+          new ConjunctivePrivilegeGroup(ImmutableList.of(PoliciesConfig.EDIT_ENTITY_DOCS_PRIVILEGE.getType()))
+      ));
+
+      return AuthorizationUtils.isAuthorized(
+          context.getAuthorizer(),
+          context.getActorUrn(),
+          targetUrn.getEntityType(),
+          targetUrn.toString(),
+          orPrivilegeGroups);
+    }
 }
