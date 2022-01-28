@@ -87,8 +87,8 @@ export const SearchFilterLabel = ({ aggregation, field }: Props) => {
         const container = aggregation.entity as Container;
         return (
             <>
-                {!!container.platform?.info?.logoUrl && (
-                    <PreviewImage src={container.platform?.info?.logoUrl} alt={container.properties?.name} />
+                {!!container.platform?.properties?.logoUrl && (
+                    <PreviewImage src={container.platform?.properties?.logoUrl} alt={container.properties?.name} />
                 )}
                 <span>
                     {container.properties?.name} ({countText})

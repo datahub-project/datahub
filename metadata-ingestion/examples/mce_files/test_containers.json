@@ -6,7 +6,7 @@
     "changeType":"UPSERT",
     "aspectName":"containerProperties",
     "aspect":{
-      "value":"{\"name\": \"root_db\", \"description\": \"The root db\" }",
+      "value":"{\"name\": \"datahub_db\", \"description\": \"The Root DataHub DB\" }",
       "contentType":"application/json"
     },
     "systemMetadata":null
@@ -42,7 +42,7 @@
     "changeType":"UPSERT",
     "aspectName":"containerProperties",
     "aspect":{
-      "value":"{\"name\": \"information_schema\", \"description\": \"The MySQL root schema.\" }",
+      "value":"{\"name\": \"datahub_schema\", \"description\": \"The Root DataHub Schema\" }",
       "contentType":"application/json"
     },
     "systemMetadata":null
@@ -86,7 +86,7 @@
   {
     "auditHeader":null,
     "entityType":"dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,information_schema.COLLATIONS,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,datahub.metadata_aspect_v2,PROD)",
     "changeType":"UPSERT",
     "aspectName":"container",
     "aspect":{
@@ -98,7 +98,7 @@
   {
     "auditHeader":null,
     "entityType":"dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,information_schema.COLLATIONS,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,datahub.metadata_aspect,PROD)",
     "changeType":"UPSERT",
     "aspectName":"container",
     "aspect":{
@@ -110,7 +110,7 @@
   {
     "auditHeader":null,
     "entityType":"dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,information_schema.COLLATIONS,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,datahub.metadata_aspect_v3,PROD)",
     "changeType":"UPSERT",
     "aspectName":"container",
     "aspect":{

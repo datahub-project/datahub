@@ -166,11 +166,8 @@ export class DashboardEntity implements Entity<Dashboard> {
                 glossaryTerms={data?.glossaryTerms}
                 insights={result.insights}
                 logoUrl={data?.platform?.properties?.logoUrl || ''}
-<<<<<<< HEAD
                 domain={data.domain}
-=======
                 container={data.container}
->>>>>>> Adding more UI
             />
         );
     };

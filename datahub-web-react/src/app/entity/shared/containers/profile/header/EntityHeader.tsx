@@ -95,7 +95,7 @@ export const EntityHeader = () => {
     const { urn, entityType, entityData } = useEntityData();
     const entityRegistry = useEntityRegistry();
     const [copiedUrn, setCopiedUrn] = useState(false);
-    const basePlatformName = entityData?.platform?.displayName || entityData?.platform?.name;
+    const basePlatformName = entityData?.platform?.properties?.displayName || entityData?.platform?.name;
     const platformName = capitalizeFirstLetterOnly(basePlatformName);
     const platformLogoUrl = entityData?.platform?.properties?.logoUrl;
     const entityLogoComponent = entityRegistry.getIcon(entityType, 12, IconStyleType.ACCENT);
@@ -135,12 +135,12 @@ export const EntityHeader = () => {
                             </ContainerText>
                         </Link>
                     )}
-                    {entityCount && (
+                    {entityCount && entityCount > 0 ? (
                         <>
                             <PlatformDivider />
                             <EntityCountText>{entityCount.toLocaleString()} entities</EntityCountText>
                         </>
-                    )}
+                    ) : null}
                 </PlatformContent>
                 <Link to={entityPath}>
                     <EntityTitle level={3}>{entityData?.name || ' '}</EntityTitle>

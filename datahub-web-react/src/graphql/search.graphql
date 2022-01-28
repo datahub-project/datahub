@@ -53,13 +53,11 @@ fragment searchResults on SearchResults {
                 subTypes {
                     typeNames
                 }
-<<<<<<< HEAD
                 domain {
                     ...entityDomain
-=======
+                }
                 container {
                     ...entityContainer
->>>>>>> Adding more UI
                 }
             }
             ... on CorpUser {
@@ -117,13 +115,11 @@ fragment searchResults on SearchResults {
                 platform {
                     ...platformFields
                 }
-<<<<<<< HEAD
                 domain {
                     ...entityDomain
-=======
+                }
                 container {
                     ...entityContainer
->>>>>>> Adding more UI
                 }
             }
             ... on Chart {
@@ -156,13 +152,11 @@ fragment searchResults on SearchResults {
                 platform {
                     ...platformFields
                 }
-<<<<<<< HEAD
                 domain {
                     ...entityDomain
-=======
+                }
                 container {
                     ...entityContainer
->>>>>>> Adding more UI
                 }
             }
             ... on DataFlow {
@@ -247,6 +241,10 @@ fragment searchResults on SearchResults {
             }
             ... on Container {
                 urn
+                properties {
+                    name
+                    description
+                }
                 platform {
                     ...platformFields
                 }

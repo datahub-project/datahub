@@ -13,6 +13,7 @@ import { ContainerEntitiesTab } from './ContainerEntitiesTab';
 import { SidebarRecommendationsSection } from '../shared/containers/profile/sidebar/Recommendations/SidebarRecommendationsSection';
 import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
+import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 
 /**
  * Definition of the DataHub Container entity.
@@ -93,6 +94,9 @@ export class ContainerEntity implements Entity<Container> {
                 },
                 {
                     component: SidebarOwnerSection,
+                },
+                {
+                    component: SidebarDomainSection,
                 },
                 {
                     component: SidebarRecommendationsSection,

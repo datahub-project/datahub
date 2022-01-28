@@ -3,7 +3,16 @@ import React, { ReactNode } from 'react';
 import { FolderOpenOutlined } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-import { GlobalTags, Owner, GlossaryTerms, SearchInsight, Container, Entity, EntityType, Domain } from '../../types.generated';
+import {
+    GlobalTags,
+    Owner,
+    GlossaryTerms,
+    SearchInsight,
+    Container,
+    Entity,
+    EntityType,
+    Domain,
+} from '../../types.generated';
 import { useEntityRegistry } from '../useEntityRegistry';
 import AvatarsGroup from '../shared/avatar/AvatarsGroup';
 import TagTermGroup from '../shared/tags/TagTermGroup';
@@ -134,7 +143,7 @@ interface Props {
     snippet?: React.ReactNode;
     insights?: Array<SearchInsight> | null;
     glossaryTerms?: GlossaryTerms;
-    container?: Container;    
+    container?: Container;
     domain?: Domain | null;
     entityCount?: number;
     dataTestID?: string;
@@ -210,12 +219,12 @@ export default function DefaultPreviewCard({
                                     </ContainerText>
                                 </Link>
                             )}
-                            {entityCount && (
+                            {entityCount && entityCount > 0 ? (
                                 <>
                                     <PlatformDivider />
                                     <EntityCountText>{entityCount.toLocaleString()} entities</EntityCountText>
                                 </>
-                            )}
+                            ) : null}
                             {path && (
                                 <span>
                                     <PlatformDivider />
