@@ -767,7 +767,7 @@ WHERE
         database_container_key = self.gen_database_key(database)
 
         container_workunits = gen_containers(
-            database_container_key, database, ["ProjectId"]
+            database_container_key, database, ["Project"]
         )
 
         for wu in container_workunits:
