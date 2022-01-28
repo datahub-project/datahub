@@ -29,7 +29,6 @@ from datahub.ingestion.source.looker_common import (
 from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     DatasetPropertiesClass,
-    FabricTypeClass,
     SubTypesClass,
 )
 from datahub.utilities.sql_parser import SQLParser
