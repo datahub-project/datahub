@@ -62,7 +62,12 @@ def test_tableau_ingest(pytestconfig, tmp_path):
                         "connect_uri": "https://prod-ca-a.online.tableau.com/",
                         "site": "acryl",
                         "projects": ["default", "Project 2"],
-                        "default_schema": "public",
+                        "ingest_tags": True,
+                        "ingest_owner": True,
+                        "default_schema_map": {
+                            "dvdrental": "public",
+                            "someotherdb": "schema",
+                        },
                     },
                 },
                 "sink": {

@@ -379,6 +379,8 @@ source:
     token_value: token_generated_from_tableau
     
     # Options
+    ingest_tags: True
+    ingest_owner: True
     default_schema_map:
       mydatabase: public
       anotherdatabase: anotherschema
@@ -389,17 +391,20 @@ sink:
 
 ## Config details
 
-| Field                 | Required | Default   | Description                                                   |
-|-----------------------|----------|-----------|---------------------------------------------------------------|
-| `connect_uri`         | ✅        |           | Tableau host URL.                                             |
-| `site`                | ✅        |           | Tableau Online Site                                           |
-| `username`            |          |           | Tableau user name.                                            |
-| `password`            |          |           | Tableau password for authentication.                          |
-| `token_name`          |          |           | Tableau token name if authenticating using a personal token.  |
-| `token_value`         |          |           | Tableau token value if authenticating using a personal token. |
-| `projects`            |          | `default` | List of projects                                              |
-| `default_schema_map`* |          |           | Default schema to use when schema is not found.               |
-| `env`                 |          | `"PROD"`  | Environment to use in namespace when constructing URNs.       |
+| Field                 | Required | Default   | Description                                                              |
+|-----------------------|----------|-----------|--------------------------------------------------------------------------|
+| `connect_uri`         | ✅        |           | Tableau host URL.                                                        |
+| `site`                | ✅        |           | Tableau Online Site                                                      |
+| `env`                 |          | `"PROD"`  | Environment to use in namespace when constructing URNs.                  |
+| `username`            |          |           | Tableau user name.                                                       |
+| `password`            |          |           | Tableau password for authentication.                                     |
+| `token_name`          |          |           | Tableau token name if authenticating using a personal token.             |
+| `token_value`         |          |           | Tableau token value if authenticating using a personal token.            |
+| `projects`            |          | `default` | List of projects                                                         |
+| `default_schema_map`* |          |           | Default schema to use when schema is not found.                          |
+| `ingest_tags`         |          | `False`   | Ingest Tags from source. This will override Tags entered from UI         |
+| `ingest_owners`       |          | `False`   | Ingest Owner from source. This will override Owner info entered from UI  |
+
 
 *Tableau may not provide schema name when ingesting Custom SQL data source. Use `default_schema_map` to provide a default
 schema name to use when constructing a table URN.

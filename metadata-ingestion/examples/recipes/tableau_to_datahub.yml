@@ -2,12 +2,16 @@
 source:
   type: "tableau"
   config:
-    username: username@tableau.com
-    password: pass
+    token_name: token_name
+    token_value: token_value
     connect_uri: https://prod-ca-a.online.tableau.com/
     site: acryl
     projects: ["default", "Project 2"]
-    default_schema: "public"
+    ingest_tags: True
+    ingest_owner: True
+    default_schema_map:
+      dvdrental: public
+      someotherdb: schema
 
 # see https://datahubproject.io/docs/metadata-ingestion/sink_docs/datahub for complete documentation
 sink:
