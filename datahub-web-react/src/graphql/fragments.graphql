@@ -37,7 +37,6 @@ fragment ownershipFields on Ownership {
                     pictureLink
                 }
             }
-
             ... on CorpGroup {
                 urn
                 type
@@ -575,14 +574,13 @@ fragment nonConflictingPlatformFields on DataPlatform {
         displayName
         datasetNameDelimiter
         logoUrl
+    }
+}
 
 fragment entityContainer on Container {
     urn
     platform {
-        name
-        info {
-            logoUrl
-        }
+        ...platformFields
     }
     properties {
         name

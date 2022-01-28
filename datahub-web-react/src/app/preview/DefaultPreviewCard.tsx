@@ -227,6 +227,7 @@ export default function DefaultPreviewCard({
                                         <PlatformText>{getNumberWithOrdinal(path?.length + 1)}</PlatformText>
                                     </Tooltip>
                                 </span>
+                            )}
                         </PlatformInfo>
                         <EntityTitle onClick={onClick} $titleSizePx={titleSizePx}>
                             {name || ' '}
