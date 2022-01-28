@@ -39,7 +39,7 @@ const companyLogos = [
   {
     name: "Optum",
     imageUrl: "/img/logos/companies/optum.jpg",
-    size: "large",
+    size: "default",
   },
   {
     name: "SpotHero",
