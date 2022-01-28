@@ -12,6 +12,7 @@ import { PoliciesPage } from './policy/PoliciesPage';
 import AppConfigProvider from '../AppConfigProvider';
 import { ManageIdentitiesPage } from './identity/ManageIdentitiesPage';
 import { SettingsPage } from './settings/SettingsPage';
+import { ManageIngestionPage } from './ingest/ManageIngestionPage';
 
 /**
  * Container for all views behind an authentication wall.
@@ -36,6 +37,7 @@ export const ProtectedRoutes = (): JSX.Element => {
                         <Route path={PageRoutes.ANALYTICS} render={() => <AnalyticsPage />} />
                         <Route path={PageRoutes.POLICIES} render={() => <PoliciesPage />} />
                         <Route path={PageRoutes.IDENTITIES} render={() => <ManageIdentitiesPage />} />
+                        <Route path={PageRoutes.INGESTION} render={() => <ManageIngestionPage />} />
                         <Route path={PageRoutes.SETTINGS} render={() => <SettingsPage />} />
                     </Switch>
                 </Layout>

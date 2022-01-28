@@ -24,6 +24,13 @@ authentication:
   # The max duration of a UI session in milliseconds. Defaults to 1 day.
   sessionTokenDurationMs: ${SESSION_TOKEN_DURATION_MS:86400000}
 
+ingestion:
+  enabled: ${UI_INGESTION_ENABLED:true}
+  defaultCliVersion: '${UI_INGESTION_DEFAULT_CLI_VERSION:0.8.23.1}'
+
+secretService:
+  encryptionKey: ${SECRET_SERVICE_ENCRYPTION_KEY:ENCRYPTION_KEY}
+
 datahub:
   gms:
     host: ${DATAHUB_GMS_HOST:${GMS_HOST:localhost}}
