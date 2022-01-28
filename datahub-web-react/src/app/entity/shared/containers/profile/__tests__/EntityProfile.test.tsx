@@ -1009,7 +1009,7 @@ describe('EntityProfile', () => {
                                         return true;
                                     },
                                 },
-                            },                            
+                            },
                         ]}
                         sidebarSections={[
                             {
@@ -1025,7 +1025,5 @@ describe('EntityProfile', () => {
         userEvent.click(getByText('Edit Samples'));
         await waitFor(() => expect(screen.getByText('Submit Changes')).toBeInTheDocument());
         await waitFor(() => expect(screen.getByText('Submit Changes').closest('button')).toHaveAttribute('disabled'));
-        
-        
     });
 });
