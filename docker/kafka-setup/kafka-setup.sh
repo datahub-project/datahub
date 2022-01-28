@@ -21,17 +21,17 @@ if [[ $KAFKA_PROPERTIES_SECURITY_PROTOCOL == "SSL" ]]; then
 fi
 
 cub kafka-ready -c $CONNECTION_PROPERTIES_PATH -b $KAFKA_BOOTSTRAP_SERVER 1 60
-kafka-topics.sh --create --if-not-exists --command-config $CONNECTION_PROPERTIES_PATH --zookeeper $KAFKA_ZOOKEEPER_CONNECT --partitions $PARTITIONS --replication-factor $REPLICATION_FACTOR --topic $METADATA_AUDIT_EVENT_NAME
-kafka-topics.sh --create --if-not-exists --command-config $CONNECTION_PROPERTIES_PATH --zookeeper $KAFKA_ZOOKEEPER_CONNECT --partitions $PARTITIONS --replication-factor $REPLICATION_FACTOR --topic $METADATA_CHANGE_EVENT_NAME
-kafka-topics.sh --create --if-not-exists --command-config $CONNECTION_PROPERTIES_PATH --zookeeper $KAFKA_ZOOKEEPER_CONNECT --partitions $PARTITIONS --replication-factor $REPLICATION_FACTOR --topic $FAILED_METADATA_CHANGE_EVENT_NAME
+kafka-topics.sh --create --if-not-exists --command-config $CONNECTION_PROPERTIES_PATH --bootstrap-server $KAFKA_BOOTSTRAP_SERVER --partitions $PARTITIONS --replication-factor $REPLICATION_FACTOR --topic $METADATA_AUDIT_EVENT_NAME
+kafka-topics.sh --create --if-not-exists --command-config $CONNECTION_PROPERTIES_PATH --bootstrap-server $KAFKA_BOOTSTRAP_SERVER --partitions $PARTITIONS --replication-factor $REPLICATION_FACTOR --topic $METADATA_CHANGE_EVENT_NAME
+kafka-topics.sh --create --if-not-exists --command-config $CONNECTION_PROPERTIES_PATH --bootstrap-server $KAFKA_BOOTSTRAP_SERVER --partitions $PARTITIONS --replication-factor $REPLICATION_FACTOR --topic $FAILED_METADATA_CHANGE_EVENT_NAME
 
-kafka-topics.sh --create --if-not-exists --command-config $CONNECTION_PROPERTIES_PATH --zookeeper $KAFKA_ZOOKEEPER_CONNECT --partitions $PARTITIONS --replication-factor $REPLICATION_FACTOR --topic $METADATA_CHANGE_LOG_VERSIONED_TOPIC
+kafka-topics.sh --create --if-not-exists --command-config $CONNECTION_PROPERTIES_PATH --bootstrap-server $KAFKA_BOOTSTRAP_SERVER --partitions $PARTITIONS --replication-factor $REPLICATION_FACTOR --topic $METADATA_CHANGE_LOG_VERSIONED_TOPIC
 # Set retention to 90 days
-kafka-topics.sh --create --if-not-exists --command-config $CONNECTION_PROPERTIES_PATH --zookeeper $KAFKA_ZOOKEEPER_CONNECT --partitions $PARTITIONS --replication-factor $REPLICATION_FACTOR --config retention.ms=7776000000 --topic $METADATA_CHANGE_LOG_TIMESERIES_TOPIC
-kafka-topics.sh --create --if-not-exists --command-config $CONNECTION_PROPERTIES_PATH --zookeeper $KAFKA_ZOOKEEPER_CONNECT --partitions $PARTITIONS --replication-factor $REPLICATION_FACTOR --topic $METADATA_CHANGE_PROPOSAL_TOPIC
-kafka-topics.sh --create --if-not-exists --command-config $CONNECTION_PROPERTIES_PATH --zookeeper $KAFKA_ZOOKEEPER_CONNECT --partitions $PARTITIONS --replication-factor $REPLICATION_FACTOR --topic $FAILED_METADATA_CHANGE_PROPOSAL_TOPIC
+kafka-topics.sh --create --if-not-exists --command-config $CONNECTION_PROPERTIES_PATH --bootstrap-server $KAFKA_BOOTSTRAP_SERVER --partitions $PARTITIONS --replication-factor $REPLICATION_FACTOR --config retention.ms=7776000000 --topic $METADATA_CHANGE_LOG_TIMESERIES_TOPIC
+kafka-topics.sh --create --if-not-exists --command-config $CONNECTION_PROPERTIES_PATH --bootstrap-server $KAFKA_BOOTSTRAP_SERVER --partitions $PARTITIONS --replication-factor $REPLICATION_FACTOR --topic $METADATA_CHANGE_PROPOSAL_TOPIC
+kafka-topics.sh --create --if-not-exists --command-config $CONNECTION_PROPERTIES_PATH --bootstrap-server $KAFKA_BOOTSTRAP_SERVER --partitions $PARTITIONS --replication-factor $REPLICATION_FACTOR --topic $FAILED_METADATA_CHANGE_PROPOSAL_TOPIC
 
 # Create topic for datahub usage event
 if [[ $DATAHUB_ANALYTICS_ENABLED == true ]]; then
-  kafka-topics.sh --create --if-not-exists --command-config $CONNECTION_PROPERTIES_PATH --zookeeper $KAFKA_ZOOKEEPER_CONNECT --partitions $PARTITIONS --replication-factor $REPLICATION_FACTOR --topic $DATAHUB_USAGE_EVENT_NAME
+  kafka-topics.sh --create --if-not-exists --command-config $CONNECTION_PROPERTIES_PATH --bootstrap-server $KAFKA_BOOTSTRAP_SERVER --partitions $PARTITIONS --replication-factor $REPLICATION_FACTOR --topic $DATAHUB_USAGE_EVENT_NAME
 fi
