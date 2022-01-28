@@ -54,7 +54,11 @@ public class AllEntitiesSearchAggregator {
       "platform",
       "domains",
       "tags",
+      "proposedTags",
+      "proposedSchemaTags",
       "glossaryTerms",
+      "proposedGlossaryTerms",
+      "proposedSchemaGlossaryTerms",
       "container",
       "owners",
       "origin");

@@ -15,6 +15,8 @@ entities:
       - datasetUsageStatistics
       - operation
       - domains
+      - proposals
+      - schemaProposals
       - schemaMetadata
       - status
       - container
