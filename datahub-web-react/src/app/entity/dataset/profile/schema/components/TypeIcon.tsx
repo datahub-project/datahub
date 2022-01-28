@@ -11,7 +11,7 @@ import { Tooltip, Typography } from 'antd';
 import React, { FC } from 'react';
 import { VscSymbolString, VscFileBinary } from 'react-icons/vsc';
 import styled from 'styled-components';
-import { capitalizeFirstLetter } from '../../../../../shared/capitalizeFirstLetter';
+import { capitalizeFirstLetter } from '../../../../../shared/textUtil';
 import { SchemaFieldDataType } from '../../../../../../types.generated';
 
 const TypeIconContainer = styled.div`

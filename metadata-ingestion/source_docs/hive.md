@@ -15,6 +15,10 @@ This plugin extracts the following:
 - Detailed table and storage information
 - Table, row, and column statistics via optional [SQL profiling](./sql_profiles.md)
 
+| Capability | Status | Details | 
+| -----------| ------ | ---- |
+| Platform Instance | ✔️ | [link](../../docs/platform-instances.md) |
+
 ## Quickstart recipe
 
 Check out the following recipe to get started with ingestion! See [below](#config-details) for full configuration options.
@@ -110,8 +114,9 @@ As a SQL-based service, the Athena integration is also supported by our SQL prof
 | `password`                  |          |          | Database password.                                                                                                                                                                      |
 | `host_port`                 | ✅       |          | Host URL and port to connect to.                                                                                                                                                        |
 | `database`                  |          |          | Database to ingest.                                                                                                                                                                     |
-| `database_alias`            |          |          | Alias to apply to database when ingesting.                                                                                                                                              |
-| `env`                       |          | `"PROD"` | Environment to use in namespace when constructing URNs.                                                                                                                                 |
+| `database_alias`            |          |          | Alias to apply to database when ingesting. Use `platform_instance` instead of this for supporting multiple Hive instances.                                                                                                                                              |
+| `env`                       |          | `"PROD"` | Environment to use in namespace when constructing URNs.                                                                                                                  |
+| `platform_instance`         |          | None             | The Platform instance to use while constructing URNs.         |
 | `options.<option>`          |          |          | Any options specified here will be passed to SQLAlchemy's `create_engine` as kwargs.<br />See https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine for details. |
 | `table_pattern.allow`       |          |          | List of regex patterns for tables to include in ingestion.                                                                                                                              |
 | `table_pattern.deny`        |          |          | List of regex patterns for tables to exclude from ingestion.                                                                                                                            |

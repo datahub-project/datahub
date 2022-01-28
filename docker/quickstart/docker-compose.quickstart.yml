@@ -19,6 +19,21 @@ services:
     ports:
     - 29092:29092
     - 9092:9092
+  datahub-actions:
+    depends_on:
+    - datahub-gms
+    environment:
+    - GMS_HOST=datahub-gms
+    - GMS_PORT=8080
+    - KAFKA_BOOTSTRAP_SERVER=broker:29092
+    - SCHEMA_REGISTRY_URL=http://schema-registry:8081
+    - METADATA_AUDIT_EVENT_NAME=MetadataAuditEvent_v4
+    - METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME=MetadataChangeLog_Versioned_v1
+    - DATAHUB_SYSTEM_CLIENT_ID=__datahub_system
+    - DATAHUB_SYSTEM_CLIENT_SECRET=JohnSnowKnowsNothing
+    - KAFKA_PROPERTIES_SECURITY_PROTOCOL=PLAINTEXT
+    hostname: actions
+    image: public.ecr.aws/datahub/acryl-datahub-actions:${ACTIONS_VERSION:-head}
   datahub-frontend-react:
     container_name: datahub-frontend-react
     depends_on:
@@ -37,7 +52,7 @@ services:
     - ELASTIC_CLIENT_HOST=elasticsearch
     - ELASTIC_CLIENT_PORT=9200
     hostname: datahub-frontend-react
-    image: linkedin/datahub-frontend-react:${DATAHUB_VERSION:-v0.8.23}
+    image: linkedin/datahub-frontend-react:${DATAHUB_VERSION:-head}
     ports:
     - 9002:9002
   datahub-gms:
@@ -65,7 +80,7 @@ services:
     - MAE_CONSUMER_ENABLED=true
     - MCE_CONSUMER_ENABLED=true
     hostname: datahub-gms
-    image: linkedin/datahub-gms:${DATAHUB_VERSION:-v0.8.23}
+    image: linkedin/datahub-gms:${DATAHUB_VERSION:-head}
     ports:
     - 8080:8080
     volumes:
@@ -99,7 +114,7 @@ services:
     - ELASTICSEARCH_PORT=9200
     - ELASTICSEARCH_PROTOCOL=http
     hostname: elasticsearch-setup
-    image: linkedin/datahub-elasticsearch-setup:${DATAHUB_VERSION:-v0.8.23}
+    image: linkedin/datahub-elasticsearch-setup:${DATAHUB_VERSION:-head}
   kafka-setup:
     container_name: kafka-setup
     depends_on:
@@ -109,7 +124,7 @@ services:
     - KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181
     - KAFKA_BOOTSTRAP_SERVER=broker:29092
     hostname: kafka-setup
-    image: linkedin/datahub-kafka-setup:${DATAHUB_VERSION:-v0.8.23}
+    image: linkedin/datahub-kafka-setup:${DATAHUB_VERSION:-head}
   mysql:
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_bin
     container_name: mysql

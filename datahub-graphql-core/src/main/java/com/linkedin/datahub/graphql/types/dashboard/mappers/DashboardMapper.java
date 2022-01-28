@@ -14,6 +14,7 @@ import com.linkedin.datahub.graphql.generated.DashboardEditableProperties;
 import com.linkedin.datahub.graphql.generated.DashboardInfo;
 import com.linkedin.datahub.graphql.generated.DashboardProperties;
 import com.linkedin.datahub.graphql.generated.DataPlatform;
+import com.linkedin.datahub.graphql.generated.Domain;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.types.common.mappers.AuditStampMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
@@ -23,6 +24,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.StringMapMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
+import com.linkedin.domain.Domains;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.metadata.key.DashboardKey;
 import com.linkedin.metadata.key.DataPlatformKey;
@@ -79,6 +81,14 @@ public class DashboardMapper implements ModelMapper<EntityResponse, Dashboard> {
                 result.setInstitutionalMemory(InstitutionalMemoryMapper.map(new InstitutionalMemory(data)));
             } else if (GLOSSARY_TERMS_ASPECT_NAME.equals(name)) {
                 result.setGlossaryTerms(GlossaryTermsMapper.map(new GlossaryTerms(data)));
+            } else if (DOMAINS_ASPECT_NAME.equals(name)) {
+                final Domains domains = new Domains(data);
+                // Currently we only take the first domain if it exists.
+                if (domains.getDomains().size() > 0) {
+                    result.setDomain(Domain.builder()
+                        .setType(EntityType.DOMAIN)
+                        .setUrn(domains.getDomains().get(0).toString()).build());
+                }
             }
         });
 

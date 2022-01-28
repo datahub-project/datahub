@@ -31,6 +31,9 @@ fragment entityPreview on Entity {
         subTypes {
             typeNames
         }
+        domain {
+            ...entityDomain
+        }
     }
     ... on CorpUser {
         username
@@ -105,6 +108,9 @@ fragment entityPreview on Entity {
         platform {
             ...platformFields
         }
+        domain {
+            ...entityDomain
+        }
     }
     ... on Chart {
         urn
@@ -136,6 +142,9 @@ fragment entityPreview on Entity {
         platform {
             ...platformFields
         }
+        domain {
+            ...entityDomain
+        }
     }
     ... on DataFlow {
         urn
@@ -163,6 +172,9 @@ fragment entityPreview on Entity {
         platform {
             ...platformFields
         }
+        domain {
+            ...entityDomain
+        }
     }
     ... on DataJob {
         urn
@@ -186,6 +198,9 @@ fragment entityPreview on Entity {
         }
         editableProperties {
             description
+        }
+        domain {
+            ...entityDomain
         }
     }
     ... on GlossaryTerm {
@@ -250,5 +265,11 @@ fragment entityPreview on Entity {
     }
     ... on DataPlatform {
         ...nonConflictingPlatformFields
+    }
+    ... on Domain {
+        urn
+        properties {
+            name
+        }
     }
 }

@@ -91,6 +91,11 @@ const companyLogos = [
     imageUrl: "/img/logos/companies/moloco.png",
     size: "default",
   },
+  {
+    name: "Stash",
+    imageUrl: "/img/logos/companies/stash.svg",
+    size: "default",
+  },
 ];
 
 const platformLogos = [
@@ -116,6 +121,7 @@ const platformLogos = [
   },
   { name: "DBT", imageUrl: "/img/logos/platforms/dbt.svg" },
   { name: "Druid", imageUrl: "/img/logos/platforms/druid.svg" },
+  { name: "Elasticsearch", imageUrl: "/img/logos/platforms/elasticsearch.svg" },
   {
     name: "Feast",
     imageUrl: "/img/logos/platforms/feast.svg",
@@ -135,6 +141,8 @@ const platformLogos = [
   { name: "Kafka", imageUrl: "/img/logos/platforms/kafka.svg" },
   { name: "Kusto", imageUrl: "/img/logos/platforms/kusto.svg" },
   { name: "Looker", imageUrl: "/img/logos/platforms/looker.svg" },
+  { name: "Metabase", imageUrl: "/img/logos/platforms/metabase.svg" },
+  { name: "Mode", imageUrl: "/img/logos/platforms/mode.png" },
   { name: "MongoDB", imageUrl: "/img/logos/platforms/mongodb.svg" },
   {
     name: "MSSQL",
@@ -144,6 +152,7 @@ const platformLogos = [
     name: "MySQL",
     imageUrl: "/img/logos/platforms/mysql.svg",
   },
+  { name: "Nifi", imageUrl: "/img/logos/platforms/nifi.svg" },
   { name: "Oracle", imageUrl: "/img/logos/platforms/oracle.svg" },
   { name: "Pinot", imageUrl: "/img/logos/platforms/pinot.svg" },
   { name: "PostgreSQL", imageUrl: "/img/logos/platforms/postgres.svg" },

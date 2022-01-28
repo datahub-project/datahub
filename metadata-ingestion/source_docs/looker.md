@@ -17,6 +17,10 @@ This plugin extracts the following:
 
 **_NOTE:_** To get complete Looker metadata integration (including Looker views and lineage to the underlying warehouse tables), you must ALSO use the LookML source. Documentation for that is [here](./lookml.md)
 
+| Capability | Status | Details | 
+| -----------| ------ | ---- |
+| Platform Instance | 🛑 | [link](../../docs/platform-instances.md) |
+
 ## Configuration Notes
 
 See the [Looker authentication docs](https://docs.looker.com/reference/api-and-integration/api-auth#authentication_with_an_sdk) for the steps to create a client ID and secret. 

@@ -687,9 +687,13 @@
       }
     }, {
       "name" : "instance",
-      "type" : "string",
+      "type" : "Urn",
       "doc" : "Instance of the data platform (e.g. db instance)",
-      "optional" : true
+      "optional" : true,
+      "Searchable" : {
+        "fieldName" : "platformInstance",
+        "fieldType" : "URN"
+      }
     } ],
     "Aspect" : {
       "name" : "dataPlatformInstance"
