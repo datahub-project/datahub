@@ -106,8 +106,8 @@ export class ContainerEntity implements Entity<Container> {
             <Preview
                 urn={data.urn}
                 name={this.displayName(data)}
-                platformName={data.platform.info?.displayName || data.platform.name}
-                platformLogo={data.platform.info?.logoUrl}
+                platformName={data.platform.properties?.displayName || data.platform.name}
+                platformLogo={data.platform.properties?.logoUrl}
                 description={data.properties?.description}
                 owners={data.ownership?.owners}
                 subTypes={data.subTypes}
@@ -123,8 +123,8 @@ export class ContainerEntity implements Entity<Container> {
             <Preview
                 urn={data.urn}
                 name={this.displayName(data)}
-                platformName={data.platform.info?.displayName || data.platform.name}
-                platformLogo={data.platform.info?.logoUrl}
+                platformName={data.platform.properties?.displayName || data.platform.name}
+                platformLogo={data.platform.properties?.logoUrl}
                 description={data.properties?.description}
                 owners={data.ownership?.owners}
                 subTypes={data.subTypes}

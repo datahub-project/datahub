@@ -2,11 +2,7 @@ query getContainer($urn: String!) {
     container(urn: $urn) {
         urn
         platform {
-            name
-            info {
-                displayName
-                logoUrl
-            }
+            ...platformFields
         }
         properties {
             name
