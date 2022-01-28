@@ -12,7 +12,6 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.DependsOn;
 
 
-@Slf4j
 @Configuration
 public class EbeanServerFactory {
   public static final String EBEAN_MODEL_PACKAGE = EbeanAspectV2.class.getPackage().getName();
