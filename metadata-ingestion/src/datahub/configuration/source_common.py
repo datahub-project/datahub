@@ -35,7 +35,7 @@ class EnvBasedSourceConfigBase(ConfigModel):
     )
 
     @validator("env")
-    def env_must_be_one_of(cls, v: str) -> FabricTypeClass:
+    def env_must_be_one_of(cls, v: str) -> str:
         # Get all the constants from the FabricTypeClass. It's not an enum, so this is a bit hacky but works
         allowed_envs = [
             value
