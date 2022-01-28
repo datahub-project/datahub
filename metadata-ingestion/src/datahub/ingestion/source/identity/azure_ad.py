@@ -194,7 +194,7 @@ class AzureADSource(Source):
                 datahub_corp_user_snapshots, datahub_corp_user_urn_to_group_membership
             )
 
-        # Create MetadatWorkUnits for CorpUsers
+        # Create MetadataWorkUnits for CorpUsers
         if self.config.ingest_users:
             # 3) the users
             for azure_ad_users in self._get_azure_ad_users():

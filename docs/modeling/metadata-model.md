@@ -45,18 +45,18 @@ DataHub's "core" Entity types model the Data Assets that comprise the Modern Dat
 
 ## The Entity Registry
 
-Where are Entities and their aspects defined in DataHub? Where doe the Metadata Model "live"? The Metadata Model is "stitched together" by means 
+Where are Entities and their aspects defined in DataHub? Where does the Metadata Model "live"? The Metadata Model is stitched together by means 
 of an **Entity Registry**, a catalog of Entities that comprise the Metadata Graph along with the aspects associated with each. Put
-simply, this is where the "schema" of the model is represented. 
+simply, this is where the "schema" of the model is defined. 
 
-Traditionally, the Entity Registry was constructed using [Snapshot](https://github.com/linkedin/datahub/tree/master/metadata-models/src/main/pegasus/com/linkedin/metadata/snapshot) models, which Data Models (schemas) that explicitly tied 
-an Entity to the Aspects associated with it. An example is [DatasetSnapshot](https://github.com/linkedin/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/metadata/snapshot/DatasetSnapshot.pdl), which declares the core `Dataset` Entity. 
-The relationship particular aspects of a Dataset was captured via a "union" where the list of possible aspects was modeled. An example is 
+Traditionally, the Entity Registry was constructed using [Snapshot](https://github.com/linkedin/datahub/tree/master/metadata-models/src/main/pegasus/com/linkedin/metadata/snapshot) models, which are schemas that explicitly tie 
+an Entity to the Aspects associated with it. An example is [DatasetSnapshot](https://github.com/linkedin/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/metadata/snapshot/DatasetSnapshot.pdl), which defines the core `Dataset` Entity. 
+The Aspects of the Dataset entity are captured via a union field inside a special "Aspect" schema. An example is 
 [DatasetAspect](https://github.com/linkedin/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/metadata/aspect/DatasetAspect.pdl).
-This file associates dataset-specific aspects, such as [DatasetProperties](https://github.com/linkedin/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/dataset/DatasetProperties.pdl), as well as common aspects like [Ownership](https://github.com/linkedin/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/common/Ownership.pdl), 
+This file associates dataset-specific aspects (like [DatasetProperties](https://github.com/linkedin/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/dataset/DatasetProperties.pdl)) and common aspects  (like [Ownership](https://github.com/linkedin/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/common/Ownership.pdl), 
 [InstitutionalMemory](https://github.com/linkedin/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/common/InstitutionalMemory.pdl), 
-and [Status](https://github.com/linkedin/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/common/Status.pdl), 
-to the Dataset Entity. Similar Snapshots 
+and [Status](https://github.com/linkedin/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/common/Status.pdl)) 
+to the Dataset Entity. This approach to defining Entities will soon be deprecated in favor of a new approach. 
 
 As of January 2022, DataHub has deprecated support for Snapshot models as a means of adding new entities. Instead,
 the Entity Registry is defined inside a YAML configuration file called [entity-registry.yml](https://github.com/linkedin/datahub/blob/master/metadata-models/src/main/resources/entity-registry.yml),
@@ -67,7 +67,6 @@ each aspect name provided by configuration (via the [@Aspect](https://github.com
 By moving to this format, evolving the Metadata Model becomes much easier. Adding Entities & Aspects becomes a matter of adding a 
 to the YAML configuration, instead of creating new Snapshot / Aspect files. 
 
-> New to [PDL](https://linkedin.github.io/rest.li/pdl_schema) files? Don't fret. They are just a way to define a JSON document "schema" for Aspects in DataHub. All Data ingested to DataHub's Metadata Service is validated against a PDL schema, with each @Aspect corresponding to a single schema. Structurally, PDL is quite similar to [Protobuf](https://developers.google.com/protocol-buffers) and conveniently maps to JSON. 
 
 ## Exploring DataHub's Metadata Model
 
@@ -103,6 +102,8 @@ It will also generate a few files under `metadata-ingestion/generated/docs` such
 DataHub’s modeling language allows you to optimize metadata persistence to align with query patterns.
 
 There are three supported ways to query the metadata graph: by primary key lookup, a search query, and via relationship traversal. 
+
+> New to [PDL](https://linkedin.github.io/rest.li/pdl_schema) files? Don't fret. They are just a way to define a JSON document "schema" for Aspects in DataHub. All Data ingested to DataHub's Metadata Service is validated against a PDL schema, with each @Aspect corresponding to a single schema. Structurally, PDL is quite similar to [Protobuf](https://developers.google.com/protocol-buffers) and conveniently maps to JSON.
 
 ### Querying an Entity
 
