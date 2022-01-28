@@ -38,7 +38,7 @@ enum FabricType {
   /**
    * Designates non-production fabrics
    */
-  NONPROD
+  NON_PROD
   
   /**
    * Designates production fabrics
