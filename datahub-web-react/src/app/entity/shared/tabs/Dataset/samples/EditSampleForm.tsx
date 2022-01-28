@@ -31,15 +31,15 @@ const formItemLayout = {
     labelCol: { span: 6 },
     wrapperCol: { span: 14 },
 };
-// function timeout(delay: number) {
-//     return new Promise((res) => setTimeout(res, delay));
-// }
+function timeout(delay: number) {
+    return new Promise((res) => setTimeout(res, delay));
+}
 
 export const EditSampleForm = () => {
     const baseUrl = adhocConfig;
     const branch = baseUrl.lastIndexOf('/');
     const makeUrl = `${baseUrl.substring(0, branch)}/update_samples`;
-    // const delUrl = `${baseUrl.substring(0, branch)}/delete_samples`;
+    const delUrl = `${baseUrl.substring(0, branch)}/delete_samples`;
     const queryTimeStamps = gql`
         query getProfiles($urn: String!, $timestamp: Long!) {
             dataset(urn: $urn) {
@@ -110,15 +110,6 @@ export const EditSampleForm = () => {
     const timeStampValues = GetProfileTimestamps(currDataset).map((item) => {
         return item.timestampMillis;
     });
-    const deleteProfile = async () => {
-        console.log(`delete profile ${selectedValue}`);
-        // await timeout(3000);
-        // window.location.reload();
-    };
-    // const loadProfile = () => {
-    //     getProfile();
-    //     setToggle(false);
-    // };
 
     const createNewProfile = () => {
         getSchema();
@@ -139,16 +130,41 @@ export const EditSampleForm = () => {
         setFormData(copyFormData);
         sethasModifiedForm(true);
     };
-    const submitData = async () => {
-        const formTimestamp = toggle ? Date.now() : Number(selectedValue);
-        const submission = { ...formData, user_token: userToken };
-        console.log(`data to be submitted is ${JSON.stringify(submission)} for ${formTimestamp}`);
+    const deleteProfile = async () => {
+        const deleteSubmission = {
+            requestor: userUrn,
+            user_token: userToken,
+            timestamp: selectedValue,
+            dataset_name: currDataset,
+        };
+        console.log(`data to be submitted is ${JSON.stringify(deleteSubmission)}`);
         axios
-            .post(makeUrl, submission)
+            .post(delUrl, deleteSubmission)
             .then((response) => printSuccessMsg(response.status))
             .catch((error) => {
                 printErrorMsg(error.toString());
             });
+        await timeout(3000);
+        window.location.reload();
+    };
+    const submitData = async () => {
+        const formTimestamp = toggle ? Date.now() : Number(selectedValue);
+        const createSubmission = {
+            user_token: userToken,
+            requestor: userUrn,
+            dataset_name: currDataset,
+            samples: formData,
+            timestamp: formTimestamp,
+        };
+        console.log(`data to be submitted is ${JSON.stringify(createSubmission)}`);
+        axios
+            .post(makeUrl, createSubmission)
+            .then((response) => printSuccessMsg(response.status))
+            .catch((error) => {
+                printErrorMsg(error.toString());
+            });
+        await timeout(3000);
+        window.location.reload();
     };
     const updateSelect = (value) => {
         setSelectedValue(value);
@@ -173,6 +189,7 @@ export const EditSampleForm = () => {
                     value={selectedValue}
                     style={{ width: 200 }}
                     onChange={updateSelect}
+                    data-testid="selectprofileoption"
                 >
                     {timeStampValues.map((item) => (
                         <Option value={item} key={item}>
@@ -200,6 +217,9 @@ export const EditSampleForm = () => {
                     Submit Changes
                 </Button>
             </Form.Item>
+            <p>
+                Up to <b>3</b> sample values will be shown in UI for each field.
+            </p>
             {Object.keys(formData).map((mykey) => (
                 <Form.Item label={mykey} {...formItemLayout}>
                     <Select

@@ -9,33 +9,46 @@ from datetime import datetime as dt
 from sys import stdout
 from typing import Dict, List, Optional, TypeVar, Union
 from urllib.parse import urljoin
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 
 import jwt
 import requests
-from datahub.metadata.schema_classes import (ArrayTypeClass, AuditStampClass,
-                                             BooleanTypeClass,
-                                             BrowsePathsClass, BytesTypeClass,
-                                             DatasetLineageTypeClass,
-                                             DatasetPropertiesClass,
-                                             DatasetSnapshotClass,
-                                             DateTypeClass, EnumTypeClass,
-                                             FixedTypeClass,
-                                             InstitutionalMemoryClass,
-                                             InstitutionalMemoryMetadataClass,
-                                             MapTypeClass,
-                                             MetadataChangeEventClass,
-                                             NullTypeClass, NumberTypeClass,
-                                             OtherSchemaClass, OwnerClass,
-                                             OwnershipClass,
-                                             OwnershipTypeClass,
-                                             RecordTypeClass, SchemaFieldClass,
-                                             SchemaFieldDataTypeClass,
-                                             SchemaMetadataClass, StatusClass,
-                                             StringTypeClass, TimeTypeClass,
-                                             UnionTypeClass, UpstreamClass,
-                                             UpstreamLineageClass, 
-                                             DatasetProfileClass, 
-                                             DatasetFieldProfileClass)
+from datahub.metadata.schema_classes import (
+    ArrayTypeClass,
+    AuditStampClass,
+    BooleanTypeClass,
+    BrowsePathsClass,
+    BytesTypeClass,
+    ChangeTypeClass,
+    DatasetLineageTypeClass,
+    DatasetPropertiesClass,
+    DatasetSnapshotClass,
+    DateTypeClass,
+    EnumTypeClass,
+    FixedTypeClass,
+    InstitutionalMemoryClass,
+    InstitutionalMemoryMetadataClass,
+    MapTypeClass,
+    MetadataChangeEventClass,
+    NullTypeClass,
+    NumberTypeClass,
+    OtherSchemaClass,
+    OwnerClass,
+    OwnershipClass,
+    OwnershipTypeClass,
+    RecordTypeClass,
+    SchemaFieldClass,
+    SchemaFieldDataTypeClass,
+    SchemaMetadataClass,
+    StatusClass,
+    StringTypeClass,
+    TimeTypeClass,
+    UnionTypeClass,
+    UpstreamClass,
+    UpstreamLineageClass,
+    DatasetProfileClass,
+    DatasetFieldProfileClass,
+)
 from jwt import ExpiredSignatureError, InvalidTokenError
 
 from .models import FieldParamEdited
@@ -344,7 +357,7 @@ def make_ownership_mce(actor: str, dataset_urn: str) -> OwnershipClass:
     )
 
 
-def generate_json_output(mce: MetadataChangeEventClass, file_loc: str) -> None:
+def generate_json_output_mce(mce: MetadataChangeEventClass, file_loc: str) -> None:
     """
     Generates the json MCE files that can be ingested via CLI. For debugging
     """
@@ -358,6 +371,19 @@ def generate_json_output(mce: MetadataChangeEventClass, file_loc: str) -> None:
     with open(path, "w") as f:
         json.dump(mce_obj, f, indent=4)
 
+def generate_json_output_mcp(mcp: MetadataChangeProposalWrapper, file_loc: str) -> None:
+    """
+    Generates the json MCE files that can be ingested via CLI. For debugging
+    """
+    mcp_obj = mcp.to_obj()
+    sys_time = int(time.time() * 1000)
+    file_name = mcp.entityUrn.replace(
+        "urn:li:dataset:(urn:li:dataPlatform:", ""
+    ).split(",")[1]
+    path = os.path.join(file_loc, f"{file_name}_{sys_time}.json")
+
+    with open(path, "w") as f:
+        json.dump(mcp_obj, f, indent=4)
 
 def make_status_mce(
     dataset_name: str, desired_status: bool
@@ -464,16 +490,25 @@ def query_dataset_owner(token: str, dataset_urn: str, user: str):
     log.info("Ownership Step: True")
     return True
 
-def make_profile_mcp(dataset_urn: str, 
-    	timestamp: int, 
-        sample_values:Dict[str, List[str]]) -> DatasetProfileClass:
+
+def make_profile_mcp(
+    timestamp: int, sample_values: Dict[str, List], datasetName: str
+) -> MetadataChangeProposalWrapper:
     all_fields = []
     for field in sample_values.keys():
         fieldProfile = DatasetFieldProfileClass(
-            fieldPath = field,
-            sampleValues=sample_values[field])
+            fieldPath=field, sampleValues=[str(item) for item in sample_values[field]]
+        )
         all_fields.append(fieldProfile)
     datasetProfile = DatasetProfileClass(
-        timestampMillis=timestamp,
-        fieldProfiles=all_fields)
-    return datasetProfile    
+        timestampMillis=timestamp, fieldProfiles=all_fields,
+        messageId="testing"
+    )
+    mcpw = MetadataChangeProposalWrapper(
+        entityType="dataset",
+        changeType=ChangeTypeClass.UPSERT,
+        entityUrn = datasetName,
+        aspectName="datasetProfile",
+        aspect=datasetProfile,
+    )
+    return mcpw

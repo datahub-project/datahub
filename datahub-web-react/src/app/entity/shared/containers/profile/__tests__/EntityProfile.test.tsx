@@ -27,6 +27,7 @@ import { FindWhoAmI } from '../../../../dataset/whoAmI';
 import { AdminTab } from '../../../tabs/Dataset/Schema/AdminTab';
 import { EditSchemaTab } from '../../../tabs/Dataset/Schema/EditSchemaTab';
 import { EditPropertiesTab } from '../../../tabs/Dataset/Schema/EditPropertiesTab';
+import { EditSampleTab } from '../../../tabs/Dataset/Schema/EditSampleTab';
 
 describe('EntityProfile', () => {
     it('renders dataset page', async () => {
@@ -929,5 +930,102 @@ describe('EntityProfile', () => {
         // find the tab contents
         await waitFor(() => expect(getByText('autoField1')).toBeInTheDocument());
         await waitFor(() => expect(getByText('autoValue1')).toBeInTheDocument());
+    });
+
+    it('Render edit samples as owner', async () => {
+        const { getByText } = render(
+            <MockedProvider mocks={mocks2}>
+                <TestPageContainer initialEntries={['/dataset/urn:li:dataset:3']}>
+                    <EntityProfile
+                        urn="urn:li:dataset:3"
+                        entityType={EntityType.Dataset}
+                        useEntityQuery={useGetDatasetQuery}
+                        useUpdateQuery={useUpdateDatasetMutation}
+                        getOverrideProperties={() => ({})}
+                        tabs={[
+                            {
+                                name: 'Schema',
+                                component: SchemaTab,
+                            },
+                            {
+                                name: 'Documentation',
+                                component: DocumentationTab,
+                            },
+                            {
+                                name: 'Properties',
+                                component: PropertiesTab,
+                            },
+                            {
+                                name: 'Lineage',
+                                component: LineageTab,
+                                display: {
+                                    visible: (_, _1) => true,
+                                    enabled: (_, dataset: GetDatasetQuery) =>
+                                        (dataset?.dataset?.incoming?.count || 0) > 0 ||
+                                        (dataset?.dataset?.outgoing?.count || 0) > 0,
+                                },
+                            },
+                            {
+                                name: 'Queries',
+                                component: QueriesTab,
+                                display: {
+                                    visible: (_, _1) => true,
+                                    enabled: (_, dataset: GetDatasetQuery) =>
+                                        (dataset?.dataset?.usageStats?.buckets?.length || 0) > 0,
+                                },
+                            },
+                            {
+                                name: 'Stats',
+                                component: StatsTab,
+                                display: {
+                                    visible: (_, _1) => true,
+                                    enabled: (_, dataset: GetDatasetQuery) =>
+                                        (dataset?.dataset?.datasetProfiles?.length || 0) > 0 ||
+                                        (dataset?.dataset?.usageStats?.buckets?.length || 0) > 0,
+                                },
+                            },
+                            {
+                                name: 'Edit Samples',
+                                component: EditSampleTab,
+                                display: {
+                                    visible: (_, _dataset: GetDatasetQuery) => {
+                                        const currUser = FindWhoAmI();
+                                        const ownership = _dataset?.dataset?.ownership?.owners;
+                                        const ownersArray =
+                                            ownership
+                                                ?.map((x) =>
+                                                    x?.type === 'DATAOWNER' && x?.owner?.type === EntityType.CorpUser
+                                                        ? x?.owner?.urn.split(':').slice(-1)
+                                                        : '',
+                                                )
+                                                .flat() || [];
+                                        if (ownersArray.includes(currUser)) {
+                                            // console.log('I can see the tab');
+                                            return true;
+                                        }
+                                        return false;
+                                    },
+                                    enabled: (_, _dataset: GetDatasetQuery) => {
+                                        return true;
+                                    },
+                                },
+                            },                            
+                        ]}
+                        sidebarSections={[
+                            {
+                                component: SidebarAboutSection,
+                            },
+                        ]}
+                    />
+                </TestPageContainer>
+            </MockedProvider>,
+        );
+
+        await waitFor(() => expect(screen.getAllByText('Edit Samples')).toHaveLength(1));
+        userEvent.click(getByText('Edit Samples'));
+        await waitFor(() => expect(screen.getByText('Submit Changes')).toBeInTheDocument());
+        await waitFor(() => expect(screen.getByText('Submit Changes').closest('button')).toHaveAttribute('disabled'));
+        
+        
     });
 });

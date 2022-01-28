@@ -1,0 +1,13 @@
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:csv,my_test_dataset3,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "value": "{\"timestampMillis\": 12345, \"messageId\": \"testing\", \"fieldProfiles\": [{\"fieldPath\": \"field1\", \"sampleValues\": [\"f1s1\", \"f1s2\"]}, {\"fieldPath\": \"field2\", \"sampleValues\": [\"f2s1\", \"f2s2\"]}]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": null
+}
