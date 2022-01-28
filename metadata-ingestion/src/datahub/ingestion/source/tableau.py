@@ -2,7 +2,7 @@ import json
 import logging
 from datetime import datetime
 from functools import lru_cache
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 import dateutil.parser as dp
 from pydantic import validator
@@ -26,6 +26,7 @@ from datahub.ingestion.source.tableau_common import (
     custom_sql_graphql_query,
     get_field_value_in_sheet,
     get_tags_from_params,
+    get_unique_custom_sql,
     make_description_from_params,
     make_table_urn,
     published_datasource_graphql_query,
@@ -106,11 +107,11 @@ class TableauSource(Source):
         super().__init__(ctx)
         self.config = config
         self.report = SourceReport()
-        # This list keeps track of datasource being actively used by workbooks, so we only retrieve those when emitting
-        # published data sources.
+        # This list keeps track of datasource being actively used by workbooks so that we only retrieve those
+        # when emitting published data sources.
         self.datasource_ids_being_used: List[str] = []
-        # This list keeps track of datasource being actively used by workbooks, so we only retrieve those when emitting
-        # custom SQL data sources.
+        # This list keeps track of datasource being actively used by workbooks so that we only retrieve those
+        # when emitting custom SQL data sources.
         self.custom_sql_ids_being_used: List[str] = []
 
         self._authenticate()
@@ -196,13 +197,13 @@ class TableauSource(Source):
                 yield from self.emit_upstream_tables()
 
     def _create_upstream_table_lineage(
-        self, ds: dict, project: str, is_custom_sql: bool = False
+        self, datasource: dict, project: str, is_custom_sql: bool = False
     ) -> List[UpstreamClass]:
         upstream_tables = []
-        upstream_dbs = ds.get("upstreamDatabases", [])
+        upstream_dbs = datasource.get("upstreamDatabases", [])
         upstream_db = upstream_dbs[0].get("name", "") if upstream_dbs else ""
 
-        for table in ds.get("upstreamTables", []):
+        for table in datasource.get("upstreamTables", []):
             # skip upstream tables when there is no column info when retrieving embedded datasource
             # Schema details for these will be taken care in self.emit_custom_sql_ds()
             if not is_custom_sql and not table.get("columns"):
@@ -222,7 +223,7 @@ class TableauSource(Source):
                 type=DatasetLineageTypeClass.TRANSFORMED,
             )
             upstream_tables.append(upstream_table)
-            table_path = f"{project.replace('/', REPLACE_SLASH_CHAR)}/{ds.get('name', '')}/{table.get('name', '')}"
+            table_path = f"{project.replace('/', REPLACE_SLASH_CHAR)}/{datasource.get('name', '')}/{table.get('name', '')}"
             self.upstream_tables[table_urn] = (
                 table.get("columns", []),
                 table_path,
@@ -257,26 +258,10 @@ class TableauSource(Source):
                 current_count,
             )
             current_count += count
-            # get relationship between custom sql and embedded data sources only via columns and fields
-            unique_custom_sql = []
-            for custom_sql in custom_sql_connection.get("nodes", []):
-                unique_csql = {
-                    "id": custom_sql.get("id"),
-                    "name": custom_sql.get("name"),
-                    "query": custom_sql.get("query"),
-                    "columns": custom_sql.get("columns"),
-                    "tables": custom_sql.get("tables"),
-                }
-                datasource_for_csql = []
-                for column in custom_sql.get("columns", []):
-                    for field in column.get("referencedByFields", []):
-                        datasource = field.get("datasource")
-                        if datasource not in datasource_for_csql:
-                            datasource_for_csql.append(datasource)
 
-                unique_csql["datasources"] = datasource_for_csql
-                unique_custom_sql.append(unique_csql)
-
+            unique_custom_sql = get_unique_custom_sql(
+                custom_sql_connection.get("nodes", [])
+            )
             for csql in unique_custom_sql:
                 csql_id: str = csql.get("id", "")
                 csql_urn = builder.make_dataset_urn(
@@ -287,97 +272,29 @@ class TableauSource(Source):
                     aspects=[],
                 )
 
-                # lineage from datasource -> custom sql source
-                csql_datasource = csql.get("datasources", [])
-                if csql_datasource is not None:
-                    for ds in csql_datasource:
-                        ds_urn = builder.make_dataset_urn(
-                            self.platform, ds.get("id"), self.config.env
-                        )
-                        upstream_csql = UpstreamClass(
-                            dataset=csql_urn,
-                            type=DatasetLineageTypeClass.TRANSFORMED,
-                        )
+                # lineage from datasource -> custom sql source #
+                yield from self._create_lineage_from_csql_datasource(
+                    csql_urn, csql.get("datasources", [])
+                )
 
-                        upstream_lineage = UpstreamLineage(upstreams=[upstream_csql])
-                        lineage_mcp = MetadataChangeProposalWrapper(
-                            entityType="dataset",
-                            changeType=ChangeTypeClass.UPSERT,
-                            entityUrn=ds_urn,
-                            aspectName="upstreamLineage",
-                            aspect=upstream_lineage,
-                        )
-                        mcp_workunit = MetadataWorkUnit(
-                            id=f"tableau-{lineage_mcp.entityUrn}-{lineage_mcp.aspectName}-csql",
-                            mcp=lineage_mcp,
-                            treat_errors_as_warnings=True,
-                        )
-                        self.report.report_workunit(mcp_workunit)
-                        yield mcp_workunit
-
-                #  lineage from custom sql -> datasets/tables
-                used_ds = []
-                fields: List[SchemaField] = []
-                for field in csql.get("columns", []):
+                # lineage from custom sql -> datasets/tables #
+                columns = csql.get("columns", [])
+                for field in columns:
                     data_sources = [
                         reference.get("datasource")
                         for reference in field.get("referencedByFields")
                         if reference.get("datasource") is not None
                     ]
-                    for datasource in data_sources:
-                        if datasource.get("id", "") in used_ds:
-                            continue
-                        used_ds.append(datasource.get("id", ""))
-
-                        upstream_tables = self._create_upstream_table_lineage(
-                            datasource,
-                            datasource.get("workbook", {}).get("projectName", ""),
-                            True,
-                        )
-                        if upstream_tables:
-                            upstream_lineage = UpstreamLineage(
-                                upstreams=upstream_tables
-                            )
-                            lineage_mcp = MetadataChangeProposalWrapper(
-                                entityType="dataset",
-                                changeType=ChangeTypeClass.UPSERT,
-                                entityUrn=csql_urn,
-                                aspectName="upstreamLineage",
-                                aspect=upstream_lineage,
-                            )
-                            mcp_workunit = MetadataWorkUnit(
-                                id=f"tableau-{lineage_mcp.entityUrn}-{dataset_snapshot.urn}-{lineage_mcp.aspectName}-tables",
-                                mcp=lineage_mcp,
-                                treat_errors_as_warnings=True,
-                            )
-                            self.report.report_workunit(mcp_workunit)
-                            yield mcp_workunit
-
-                    # Datasource fields
-                    fields = []
-                    TypeClass = FIELD_TYPE_MAPPING.get(
-                        field.get("remoteType", "UNKNOWN"), NullTypeClass
+                    yield from self._create_lineage_to_upstream_tables(
+                        csql_urn, data_sources
                     )
-                    schema_field = SchemaField(
-                        fieldPath=field.get("name", ""),
-                        type=SchemaFieldDataType(type=TypeClass()),
-                        nativeDataType=field.get("remoteType", "UNKNOWN"),
-                        description=field.get("description", ""),
-                    )
-                    fields.append(schema_field)
 
-                schema_metadata = SchemaMetadata(
-                    schemaName="test",
-                    platform=f"urn:li:dataPlatform:{self.platform}",
-                    version=0,
-                    fields=fields,
-                    hash="",
-                    platformSchema=OtherSchema(rawSchema=""),
-                )
-
+                #  Schema Metadata
+                schema_metadata = self.get_schema_metadata(columns)
                 if schema_metadata is not None:
                     dataset_snapshot.aspects.append(schema_metadata)
 
+                # Browse path
                 browse_paths = BrowsePathsClass(
                     paths=[
                         f"/{self.config.env.lower()}/{self.platform}/Custom SQL/{csql.get('name', '')}/{csql_id}"
@@ -392,25 +309,101 @@ class TableauSource(Source):
                 )
                 dataset_snapshot.aspects.append(view_properties)
 
-                mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-                workunit = MetadataWorkUnit(id=dataset_snapshot.urn, mce=mce)
-                self.report.report_workunit(workunit)
-                yield workunit
-
-                mcp = MetadataChangeProposalWrapper(
-                    entityType="dataset",
-                    changeType=ChangeTypeClass.UPSERT,
-                    entityUrn=dataset_snapshot.urn,
-                    aspectName="subTypes",
+                yield self.get_metadata_change_event(dataset_snapshot)
+                yield self.get_metadata_change_proposal(
+                    dataset_snapshot.urn,
+                    aspect_name="subTypes",
                     aspect=SubTypesClass(typeNames=["View", "Custom SQL"]),
                 )
-                mcp_workunit = MetadataWorkUnit(
-                    id=f"tableau-{mcp.entityUrn}-{mcp.aspectName}",
-                    mcp=mcp,
-                    treat_errors_as_warnings=True,
+
+    def get_schema_metadata(self, columns: List[dict]) -> Optional[SchemaMetadata]:
+        schema_metadata = None
+        for field in columns:
+            # Datasource fields
+            fields = []
+            TypeClass = FIELD_TYPE_MAPPING.get(
+                field.get("remoteType", "UNKNOWN"), NullTypeClass
+            )
+            schema_field = SchemaField(
+                fieldPath=field.get("name", ""),
+                type=SchemaFieldDataType(type=TypeClass()),
+                nativeDataType=field.get("remoteType", "UNKNOWN"),
+                description=field.get("description", ""),
+            )
+            fields.append(schema_field)
+
+            schema_metadata = SchemaMetadata(
+                schemaName="test",
+                platform=f"urn:li:dataPlatform:{self.platform}",
+                version=0,
+                fields=fields,
+                hash="",
+                platformSchema=OtherSchema(rawSchema=""),
+            )
+        return schema_metadata
+
+    def _create_lineage_from_csql_datasource(
+        self, csql_urn: str, csql_datasource: List[dict]
+    ) -> Iterable[MetadataWorkUnit]:
+        for datasource in csql_datasource:
+            datasource_urn = builder.make_dataset_urn(
+                self.platform, datasource.get("id", ""), self.config.env
+            )
+            upstream_csql = UpstreamClass(
+                dataset=csql_urn,
+                type=DatasetLineageTypeClass.TRANSFORMED,
+            )
+
+            upstream_lineage = UpstreamLineage(upstreams=[upstream_csql])
+            yield self.get_metadata_change_proposal(
+                datasource_urn, aspect_name="upstreamLineage", aspect=upstream_lineage
+            )
+
+    def _create_lineage_to_upstream_tables(
+        self, csql_urn: str, data_sources: List[dict]
+    ) -> Iterable[MetadataWorkUnit]:
+        for datasource in data_sources:
+            upstream_tables = self._create_upstream_table_lineage(
+                datasource,
+                datasource.get("workbook", {}).get("projectName", ""),
+                True,
+            )
+            if upstream_tables:
+                upstream_lineage = UpstreamLineage(upstreams=upstream_tables)
+                yield self.get_metadata_change_proposal(
+                    csql_urn,
+                    aspect_name="upstreamLineage",
+                    aspect=upstream_lineage,
                 )
-                self.report.report_workunit(mcp_workunit)
-                yield mcp_workunit
+
+    def get_metadata_change_event(
+        self, snap_shot: Union["DatasetSnapshot", "DashboardSnapshot", "ChartSnapshot"]
+    ) -> MetadataWorkUnit:
+        mce = MetadataChangeEvent(proposedSnapshot=snap_shot)
+        work_unit = MetadataWorkUnit(id=snap_shot.urn, mce=mce)
+        self.report.report_workunit(work_unit)
+        return work_unit
+
+    def get_metadata_change_proposal(
+        self,
+        urn: str,
+        aspect_name: str,
+        aspect: Union["UpstreamLineage", "SubTypesClass"],
+    ) -> MetadataWorkUnit:
+        mcp = MetadataChangeProposalWrapper(
+            entityType="dataset",
+            changeType=ChangeTypeClass.UPSERT,
+            entityUrn=urn,
+            aspectName=aspect_name,
+            aspect=aspect,
+        )
+        mcp_workunit = MetadataWorkUnit(
+            id=f"tableau-{mcp.entityUrn}-{mcp.aspectName}",
+            mcp=mcp,
+            treat_errors_as_warnings=True,
+        )
+        self.report.report_workunit(mcp_workunit)
+        return mcp_workunit
 
     def emit_datasource(
         self, datasource: dict, workbook: dict = None
@@ -429,10 +422,14 @@ class TableauSource(Source):
         datasource_urn = builder.make_dataset_urn(
             self.platform, datasource_id, self.config.env
         )
+        if datasource_id not in self.datasource_ids_being_used:
+            self.datasource_ids_being_used.append(datasource_id)
+
         dataset_snapshot = DatasetSnapshot(
             urn=datasource_urn,
             aspects=[],
         )
+        # Browse path
         browse_paths = BrowsePathsClass(
             paths=[
                 f"/{self.config.env.lower()}/{self.platform}/{project}/{datasource.get('name', '')}/{datasource_name}"
@@ -440,9 +437,7 @@ class TableauSource(Source):
         )
         dataset_snapshot.aspects.append(browse_paths)
 
-        if datasource_id not in self.datasource_ids_being_used:
-            self.datasource_ids_being_used.append(datasource_id)
-
+        # Ownership
         owner = (
             self._get_ownership(datasource_info.get("owner", {}).get("username", ""))
             if datasource_info
@@ -475,23 +470,14 @@ class TableauSource(Source):
 
             if upstream_tables:
                 upstream_lineage = UpstreamLineage(upstreams=upstream_tables)
-                lineage_mcp = MetadataChangeProposalWrapper(
-                    entityType="dataset",
-                    changeType=ChangeTypeClass.UPSERT,
-                    entityUrn=datasource_urn,
-                    aspectName="upstreamLineage",
+                yield self.get_metadata_change_proposal(
+                    datasource_urn,
+                    aspect_name="upstreamLineage",
                     aspect=upstream_lineage,
                 )
-                mcp_workunit = MetadataWorkUnit(
-                    id=f"tableau-{lineage_mcp.entityUrn}-{dataset_snapshot.urn}-{lineage_mcp.aspectName}-tables",
-                    mcp=lineage_mcp,
-                    treat_errors_as_warnings=True,
-                )
-                self.report.report_workunit(mcp_workunit)
-                yield mcp_workunit
 
         # Datasource Fields
-        ds_fields = datasource.get("fields", []) or []
+        ds_fields = datasource.get("fields", [])
         fields = []
         for field in ds_fields:
             # check datasource - custom sql relations
@@ -537,26 +523,12 @@ class TableauSource(Source):
         if schema_metadata is not None:
             dataset_snapshot.aspects.append(schema_metadata)
 
-        dataset_mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-        workunit = MetadataWorkUnit(id=dataset_snapshot.urn, mce=dataset_mce)
-        self.report.report_workunit(workunit)
-        yield workunit
-
-        # Dataset Subtype as datasource
-        mcp = MetadataChangeProposalWrapper(
-            entityType="dataset",
-            changeType=ChangeTypeClass.UPSERT,
-            entityUrn=dataset_snapshot.urn,
-            aspectName="subTypes",
+        yield self.get_metadata_change_event(dataset_snapshot)
+        yield self.get_metadata_change_proposal(
+            dataset_snapshot.urn,
+            aspect_name="subTypes",
             aspect=SubTypesClass(typeNames=["Data Source"]),
         )
-        mcp_workunit = MetadataWorkUnit(
-            id=f"tableau-{mcp.entityUrn}-{mcp.aspectName}",
-            mcp=mcp,
-            treat_errors_as_warnings=True,
-        )
-        self.report.report_workunit(mcp_workunit)
-        yield mcp_workunit
 
     def emit_published_datasources(self) -> Iterable[MetadataWorkUnit]:
         count_on_query = len(self.datasource_ids_being_used)
@@ -602,7 +574,7 @@ class TableauSource(Source):
                 urn=table_urn,
                 aspects=[],
             )
-
+            # Browse path
             browse_paths = BrowsePathsClass(
                 paths=[f"/{self.config.env.lower()}/{self.platform}/{path}"]
             )
@@ -632,10 +604,7 @@ class TableauSource(Source):
             if schema_metadata is not None:
                 dataset_snapshot.aspects.append(schema_metadata)
 
-            dataset_mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-            workunit = MetadataWorkUnit(id=dataset_snapshot.urn, mce=dataset_mce)
-            self.report.report_workunit(workunit)
-            yield workunit
+            yield self.get_metadata_change_event(dataset_snapshot)
 
     def emit_sheets_as_charts(self, workbook: Dict) -> Iterable[MetadataWorkUnit]:
         for sheet in workbook.get("sheets", []):
@@ -687,6 +656,7 @@ class TableauSource(Source):
             )
             chart_snapshot.aspects.append(chart_info)
 
+            # Browse path
             browse_path = BrowsePathsClass(
                 paths=[
                     f"/{self.platform}/{workbook.get('projectName', '').replace('/', REPLACE_SLASH_CHAR)}"
@@ -711,10 +681,7 @@ class TableauSource(Source):
                     builder.make_global_tag_aspect_with_tag_list(tag_list_str)
                 )
 
-            mce = MetadataChangeEvent(proposedSnapshot=chart_snapshot)
-            wu = MetadataWorkUnit(id=chart_snapshot.urn, mce=mce)
-            self.report.report_workunit(wu)
-            yield wu
+            yield self.get_metadata_change_event(chart_snapshot)
 
     def emit_dashboards(self, workbook: Dict) -> Iterable[MetadataWorkUnit]:
         for dashboard in workbook.get("dashboards", []):
@@ -759,14 +726,11 @@ class TableauSource(Source):
             if owner is not None:
                 dashboard_snapshot.aspects.append(owner)
 
-            db_mce = MetadataChangeEvent(proposedSnapshot=dashboard_snapshot)
-            db_workunit = MetadataWorkUnit(id=dashboard_snapshot.urn, mce=db_mce)
-            self.report.report_workunit(db_workunit)
-            yield db_workunit
+            yield self.get_metadata_change_event(dashboard_snapshot)
 
-    def emit_embedded_datasource(self, wb: Dict) -> Iterable[MetadataWorkUnit]:
-        for datasource in wb.get("embeddedDatasources", []):
-            yield from self.emit_datasource(datasource, wb)
+    def emit_embedded_datasource(self, workbook: Dict) -> Iterable[MetadataWorkUnit]:
+        for datasource in workbook.get("embeddedDatasources", []):
+            yield from self.emit_datasource(datasource, workbook)
 
     @lru_cache(maxsize=None)
     def _get_schema(self, schema_provided: str, database: str) -> str:

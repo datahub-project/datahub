@@ -407,6 +407,28 @@ def get_field_value_in_sheet(field, field_name):
     return field_value
 
 
+def get_unique_custom_sql(custom_sql_list: List[dict]) -> List[dict]:
+    unique_custom_sql = []
+    for custom_sql in custom_sql_list:
+        unique_csql = {
+            "id": custom_sql.get("id"),
+            "name": custom_sql.get("name"),
+            "query": custom_sql.get("query"),
+            "columns": custom_sql.get("columns"),
+            "tables": custom_sql.get("tables"),
+        }
+        datasource_for_csql = []
+        for column in custom_sql.get("columns", []):
+            for field in column.get("referencedByFields", []):
+                datasource = field.get("datasource")
+                if datasource not in datasource_for_csql:
+                    datasource_for_csql.append(datasource)
+
+        unique_csql["datasources"] = datasource_for_csql
+        unique_custom_sql.append(unique_csql)
+    return unique_custom_sql
+
+
 def clean_query(query):
     """
     Clean special chars in query
