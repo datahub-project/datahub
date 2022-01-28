@@ -279,18 +279,10 @@ class TableauSource(Source):
 
                 # lineage from custom sql -> datasets/tables #
                 columns = csql.get("columns", [])
-                for field in columns:
-                    data_sources = [
-                        reference.get("datasource")
-                        for reference in field.get("referencedByFields")
-                        if reference.get("datasource") is not None
-                    ]
-                    yield from self._create_lineage_to_upstream_tables(
-                        csql_urn, data_sources
-                    )
+                yield from self._create_lineage_to_upstream_tables(csql_urn, columns)
 
                 #  Schema Metadata
-                schema_metadata = self.get_schema_metadata(columns)
+                schema_metadata = self.get_schema_metadata_for_custom_sql(columns)
                 if schema_metadata is not None:
                     dataset_snapshot.aspects.append(schema_metadata)
 
@@ -316,7 +308,9 @@ class TableauSource(Source):
                     aspect=SubTypesClass(typeNames=["View", "Custom SQL"]),
                 )
 
-    def get_schema_metadata(self, columns: List[dict]) -> Optional[SchemaMetadata]:
+    def get_schema_metadata_for_custom_sql(
+        self, columns: List[dict]
+    ) -> Optional[SchemaMetadata]:
         schema_metadata = None
         for field in columns:
             # Datasource fields
@@ -360,21 +354,83 @@ class TableauSource(Source):
             )
 
     def _create_lineage_to_upstream_tables(
-        self, csql_urn: str, data_sources: List[dict]
+        self, csql_urn: str, columns: List[dict]
     ) -> Iterable[MetadataWorkUnit]:
-        for datasource in data_sources:
-            upstream_tables = self._create_upstream_table_lineage(
-                datasource,
-                datasource.get("workbook", {}).get("projectName", ""),
-                True,
-            )
-            if upstream_tables:
-                upstream_lineage = UpstreamLineage(upstreams=upstream_tables)
-                yield self.get_metadata_change_proposal(
-                    csql_urn,
-                    aspect_name="upstreamLineage",
-                    aspect=upstream_lineage,
+        used_datasources = []
+        # Get data sources from columns' reference fields.
+        for field in columns:
+            data_sources = [
+                reference.get("datasource")
+                for reference in field.get("referencedByFields", {})
+                if reference.get("datasource") is not None
+            ]
+
+            for datasource in data_sources:
+                if datasource.get("id", "") in used_datasources:
+                    continue
+                used_datasources.append(datasource.get("id", ""))
+                upstream_tables = self._create_upstream_table_lineage(
+                    datasource,
+                    datasource.get("workbook", {}).get("projectName", ""),
+                    True,
                 )
+                if upstream_tables:
+                    upstream_lineage = UpstreamLineage(upstreams=upstream_tables)
+                    yield self.get_metadata_change_proposal(
+                        csql_urn,
+                        aspect_name="upstreamLineage",
+                        aspect=upstream_lineage,
+                    )
+
+    def _get_schema_metadata_for_embedded_datasource(
+        self, datasource_fields: List[dict]
+    ) -> Optional[SchemaMetadata]:
+        fields = []
+        schema_metadata = None
+        for field in datasource_fields:
+            # check datasource - custom sql relations
+            if field.get("__typename", "") == "ColumnField":
+                for column in field.get("columns", []):
+                    table_id = column.get("table", {}).get("id")
+                    if (
+                        table_id is not None
+                        and table_id not in self.custom_sql_ids_being_used
+                    ):
+                        self.custom_sql_ids_being_used.append(table_id)
+
+            TypeClass = FIELD_TYPE_MAPPING.get(
+                field.get("dataType", "UNKNOWN"), NullTypeClass
+            )
+            schema_field = SchemaField(
+                fieldPath=field["name"],
+                type=SchemaFieldDataType(type=TypeClass()),
+                description=make_description_from_params(
+                    field.get("description", ""), field.get("formula")
+                ),
+                nativeDataType=field.get("dataType", "UNKNOWN"),
+                globalTags=get_tags_from_params(
+                    [
+                        field.get("role", ""),
+                        field.get("__typename", ""),
+                        field.get("aggregation", ""),
+                    ]
+                )
+                if self.config.ingest_tags
+                else None,
+            )
+            fields.append(schema_field)
+
+        if fields:
+            schema_metadata = SchemaMetadata(
+                schemaName="test",
+                platform=f"urn:li:dataPlatform:{self.platform}",
+                version=0,
+                fields=fields,
+                hash="",
+                platformSchema=OtherSchema(rawSchema=""),
+            )
+
+        return schema_metadata
 
     def get_metadata_change_event(
         self, snap_shot: Union["DatasetSnapshot", "DashboardSnapshot", "ChartSnapshot"]
@@ -429,6 +485,7 @@ class TableauSource(Source):
             urn=datasource_urn,
             aspects=[],
         )
+
         # Browse path
         browse_paths = BrowsePathsClass(
             paths=[
@@ -446,6 +503,7 @@ class TableauSource(Source):
         if owner is not None:
             dataset_snapshot.aspects.append(owner)
 
+        # Dataset properties
         dataset_props = DatasetPropertiesClass(
             description=datasource.get("name", ""),
             customProperties={
@@ -477,48 +535,8 @@ class TableauSource(Source):
                 )
 
         # Datasource Fields
-        ds_fields = datasource.get("fields", [])
-        fields = []
-        for field in ds_fields:
-            # check datasource - custom sql relations
-            if field.get("__typename", "") == "ColumnField":
-                for column in field.get("columns", []):
-                    table_id = column.get("table", {}).get("id")
-                    if (
-                        table_id is not None
-                        and table_id not in self.custom_sql_ids_being_used
-                    ):
-                        self.custom_sql_ids_being_used.append(table_id)
-
-            TypeClass = FIELD_TYPE_MAPPING.get(
-                field.get("dataType", "UNKNOWN"), NullTypeClass
-            )
-            schema_field = SchemaField(
-                fieldPath=field["name"],
-                type=SchemaFieldDataType(type=TypeClass()),
-                description=make_description_from_params(
-                    field.get("description", ""), field.get("formula")
-                ),
-                nativeDataType=field.get("dataType", "UNKNOWN"),
-                globalTags=get_tags_from_params(
-                    [
-                        field.get("role"),
-                        field.get("__typename", ""),
-                        field.get("aggregation"),
-                    ]
-                )
-                if self.config.ingest_tags
-                else None,
-            )
-            fields.append(schema_field)
-
-        schema_metadata = SchemaMetadata(
-            schemaName="test",
-            platform=f"urn:li:dataPlatform:{self.platform}",
-            version=0,
-            fields=fields,
-            hash="",
-            platformSchema=OtherSchema(rawSchema=""),
+        schema_metadata = self._get_schema_metadata_for_embedded_datasource(
+            datasource.get("fields", [])
         )
         if schema_metadata is not None:
             dataset_snapshot.aspects.append(schema_metadata)
