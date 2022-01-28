@@ -20,11 +20,17 @@ from datahub.emitter.rest_emitter import _make_curl_command
 from datahub.emitter.serialization_helper import post_json_transform
 from datahub.metadata.schema_classes import (
     BrowsePathsClass,
+    ChartInfoClass,
+    ChartKeyClass,
     DataJobInputOutputClass,
     DataJobKeyClass,
     DataPlatformInstanceClass,
+    DataProcessInfoClass,
+    DatasetDeprecationClass,
     DatasetKeyClass,
     DatasetPropertiesClass,
+    DatasetUpstreamLineageClass,
+    EditableDatasetPropertiesClass,
     EditableSchemaMetadataClass,
     GlobalTagsClass,
     GlossaryTermsClass,
@@ -448,6 +454,12 @@ type_class_to_name_map = {
     SubTypesClass: "subTypes",
     EditableSchemaMetadataClass: "editableSchemaMetadata",
     ViewPropertiesClass: "viewProperties",
+    EditableDatasetPropertiesClass: "editableDatasetProperties",
+    DatasetDeprecationClass: "datasetDeprecation",
+    DatasetUpstreamLineageClass: "datasetUpstreamLineage",
+    ChartInfoClass: "chartInfo",
+    DataProcessInfoClass: "dataProcessInfo",
+    ChartKeyClass: "chartKey",
 }
 
 
