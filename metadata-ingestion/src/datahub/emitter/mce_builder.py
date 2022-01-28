@@ -130,6 +130,10 @@ def make_chart_urn(platform: str, name: str) -> str:
     return f"urn:li:chart:({platform},{name})"
 
 
+def make_domain_urn(domain: str) -> str:
+    return f"urn:li:domain:{domain}"
+
+
 def make_ml_primary_key_urn(feature_table_name: str, primary_key_name: str) -> str:
 
     return f"urn:li:mlPrimaryKey:({feature_table_name},{primary_key_name})"

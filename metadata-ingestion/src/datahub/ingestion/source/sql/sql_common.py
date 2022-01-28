@@ -27,8 +27,10 @@ from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
     make_dataset_urn_with_platform_instance,
+    make_domain_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.mcp_builder import add_domain_wu, add_domains_to_dataset_wu
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -196,6 +198,7 @@ class SQLAlchemyConfig(StatefulIngestionConfigBase):
     table_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
     view_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
     profile_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
+    domains: Dict[str, AllowDenyPattern] = dict()
 
     include_views: Optional[bool] = True
     include_tables: Optional[bool] = True
@@ -516,6 +519,10 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                 "max_overflow", sql_config.profiling.max_workers
             )
 
+        # Generating domain descriptions
+        for key in sql_config.domains:
+            yield from add_domain_wu(key, self.report)
+
         for inspector in self.get_inspectors():
             profiler = None
             profile_requests: List["GEProfilerRequest"] = []
@@ -603,12 +610,23 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
     def normalise_dataset_name(self, dataset_name: str) -> str:
         return dataset_name
 
+    def _get_domains_wu(
+        self, dataset_name: str, dataset_urn: str, sql_config: SQLAlchemyConfig
+    ) -> Iterable[Union[MetadataWorkUnit]]:
+        domain_urns: List = []
+        for domain, pattern in sql_config.domains.items():
+            if pattern.allowed(dataset_name):
+                domain_urns.append(make_domain_urn(domain))
+                break
+        if domain_urns:
+            yield from add_domains_to_dataset_wu(dataset_urn, domain_urns, self.report)
+
     def loop_tables(  # noqa: C901
         self,
         inspector: Inspector,
         schema: str,
         sql_config: SQLAlchemyConfig,
-    ) -> Iterable[SqlWorkUnit]:
+    ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
         tables_seen: Set[str] = set()
         for table in inspector.get_table_names(schema):
             schema, table = self.standardize_schema_table_names(
@@ -632,18 +650,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                 self.report.report_dropped(dataset_name)
                 continue
 
-            columns = []
-            try:
-                columns = inspector.get_columns(table, schema)
-                if len(columns) == 0:
-                    self.report.report_warning(
-                        dataset_name, "missing column information"
-                    )
-            except Exception as e:
-                self.report.report_warning(
-                    dataset_name,
-                    f"unable to get column information due to an error -> {e}",
-                )
+            columns = self._get_columns(dataset_name, inspector, schema, table)
 
             try:
                 # SQLALchemy stubs are incomplete and missing this method.
@@ -695,19 +702,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                 dataset_snapshot.aspects.append(dataset_properties)
 
             pk_constraints: dict = inspector.get_pk_constraint(table, schema)
-            try:
-                foreign_keys = [
-                    self.get_foreign_key_metadata(
-                        dataset_urn, schema, fk_rec, inspector
-                    )
-                    for fk_rec in inspector.get_foreign_keys(table, schema)
-                ]
-            except KeyError:
-                # certain databases like MySQL cause issues due to lower-case/upper-case irregularities
-                logger.debug(
-                    f"{dataset_urn}: failure in foreign key extraction... skipping"
-                )
-                foreign_keys = []
+            foreign_keys = self._get_foreign_keys(dataset_urn, inspector, schema, table)
 
             schema_fields = self.get_schema_fields(
                 dataset_name, columns, pk_constraints
@@ -733,6 +728,8 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             if dpi_aspect:
                 yield dpi_aspect
 
+            yield from self._get_domains_wu(dataset_name, dataset_urn, sql_config)
+
     def get_dataplatform_instance_aspect(
         self, dataset_urn: str
     ) -> Optional[SqlWorkUnit]:
@@ -755,6 +752,37 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             return wu
         else:
             return None
+
+    def _get_columns(
+        self, dataset_name: str, inspector: Inspector, schema: str, table: str
+    ) -> List[dict]:
+        columns = []
+        try:
+            columns = inspector.get_columns(table, schema)
+            if len(columns) == 0:
+                self.report.report_warning(dataset_name, "missing column information")
+        except Exception as e:
+            self.report.report_warning(
+                dataset_name,
+                f"unable to get column information due to an error -> {e}",
+            )
+        return columns
+
+    def _get_foreign_keys(
+        self, dataset_urn: str, inspector: Inspector, schema: str, table: str
+    ) -> List[ForeignKeyConstraint]:
+        try:
+            foreign_keys = [
+                self.get_foreign_key_metadata(dataset_urn, schema, fk_rec, inspector)
+                for fk_rec in inspector.get_foreign_keys(table, schema)
+            ]
+        except KeyError:
+            # certain databases like MySQL cause issues due to lower-case/upper-case irregularities
+            logger.debug(
+                f"{dataset_urn}: failure in foreign key extraction... skipping"
+            )
+            foreign_keys = []
+        return foreign_keys
 
     def get_schema_fields(
         self, dataset_name: str, columns: List[dict], pk_constraints: dict = None
@@ -791,7 +819,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         inspector: Inspector,
         schema: str,
         sql_config: SQLAlchemyConfig,
-    ) -> Iterable[SqlWorkUnit]:
+    ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
         for view in inspector.get_view_names(schema):
             schema, view = self.standardize_schema_table_names(
                 schema=schema, entity=view
@@ -891,6 +919,8 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             dpi_aspect = self.get_dataplatform_instance_aspect(dataset_urn=dataset_urn)
             if dpi_aspect:
                 yield dpi_aspect
+
+            yield from self._get_domains_wu(dataset_name, dataset_urn, sql_config)
 
     def _get_profiler_instance(self, inspector: Inspector) -> "DatahubGEProfiler":
         from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler

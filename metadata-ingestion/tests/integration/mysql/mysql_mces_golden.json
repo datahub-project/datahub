@@ -1,6 +1,25 @@
 [
   {
     "auditHeader": null,
+    "entityType": "domain",
+    "entityUrn": "urn:li:domain:sales",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "domainProperties",
+    "aspect": {
+      "value": "{\"name\": \"sales\"}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1586847600000,
+      "runId": "mysql-test",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
         "urn": "urn:li:dataset:(urn:li:dataPlatform:mysql,datacharmer.employees,PROD)",
@@ -452,6 +471,25 @@
   },
   {
     "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_aspect,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "domains",
+    "aspect": {
+      "value": "{\"domains\": [\"urn:li:domain:sales\"]}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1586847600000,
+      "runId": "mysql-test",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
         "urn": "urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_index,PROD)",
@@ -634,6 +672,25 @@
   },
   {
     "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_index,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "domains",
+    "aspect": {
+      "value": "{\"domains\": [\"urn:li:domain:sales\"]}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1586847600000,
+      "runId": "mysql-test",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
         "urn": "urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_index_view,PROD)",
@@ -758,6 +815,25 @@
       }
     },
     "proposedDelta": null,
+    "systemMetadata": {
+      "lastObserved": 1586847600000,
+      "runId": "mysql-test",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_index_view,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "domains",
+    "aspect": {
+      "value": "{\"domains\": [\"urn:li:domain:sales\"]}",
+      "contentType": "application/json"
+    },
     "systemMetadata": {
       "lastObserved": 1586847600000,
       "runId": "mysql-test",

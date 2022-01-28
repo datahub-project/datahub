@@ -1,7 +1,7 @@
 import logging
 from dataclasses import dataclass, field
 from hashlib import md5
-from typing import Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional
 
 import confluent_kafka
 from confluent_kafka.schema_registry.schema_registry_client import (
@@ -12,7 +12,8 @@ from confluent_kafka.schema_registry.schema_registry_client import (
 from datahub.configuration import ConfigModel
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.kafka import KafkaConsumerConnectionConfig
-from datahub.emitter.mce_builder import DEFAULT_ENV
+from datahub.emitter.mce_builder import DEFAULT_ENV, make_dataset_urn, make_domain_urn
+from datahub.emitter.mcp_builder import add_domain_wu, add_domains_to_dataset_wu
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -35,6 +36,7 @@ class KafkaSourceConfig(ConfigModel):
     # TODO: inline the connection config
     connection: KafkaConsumerConnectionConfig = KafkaConsumerConnectionConfig()
     topic_patterns: AllowDenyPattern = AllowDenyPattern(allow=[".*"], deny=["^_.*"])
+    domains: Dict[str, AllowDenyPattern] = dict()
 
 
 @dataclass
@@ -79,15 +81,16 @@ class KafkaSource(Source):
         return cls(config, ctx)
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+        # Generating domain descriptions
+        for key in self.source_config.domains:
+            yield from add_domain_wu(key, self.report)
+
         topics = self.consumer.list_topics().topics
         for t in topics:
             self.report.report_topic_scanned(t)
 
             if self.source_config.topic_patterns.allowed(t):
-                mce = self._extract_record(t)
-                wu = MetadataWorkUnit(id=f"kafka-{t}", mce=mce)
-                self.report.report_workunit(wu)
-                yield wu
+                yield from self._extract_record(t)
             else:
                 self.report.report_dropped(t)
 
@@ -120,13 +123,17 @@ class KafkaSource(Source):
             )
         return schema_str
 
-    def _extract_record(self, topic: str) -> MetadataChangeEvent:
+    def _extract_record(self, topic: str) -> Iterable[MetadataWorkUnit]:
         logger.debug(f"topic = {topic}")
         platform = "kafka"
         dataset_name = topic
 
+        dataset_urn = make_dataset_urn(
+            platform=platform, name=dataset_name, env=self.source_config.env
+        )
+
         dataset_snapshot = DatasetSnapshot(
-            urn=f"urn:li:dataset:(urn:li:dataPlatform:{platform},{dataset_name},{self.source_config.env})",
+            urn=dataset_urn,
             aspects=[],  # we append to this list later on
         )
         dataset_snapshot.aspects.append(Status(removed=False))
@@ -208,8 +215,18 @@ class KafkaSource(Source):
         )
         dataset_snapshot.aspects.append(browse_path)
 
-        metadata_record = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-        return metadata_record
+        mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
+        wu = MetadataWorkUnit(id=f"kafka-{topic}", mce=mce)
+        self.report.report_workunit(wu)
+        yield wu
+
+        domain_urns: List = []
+        for domain, pattern in self.source_config.domains.items():
+            if pattern.allowed(dataset_name):
+                domain_urns.append(make_domain_urn(domain))
+
+        if domain_urns:
+            yield from add_domains_to_dataset_wu(dataset_urn, domain_urns, self.report)
 
     def get_report(self):
         return self.report
