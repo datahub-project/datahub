@@ -19,7 +19,7 @@ ARG PYTHON_CONFLUENT_DOCKER_UTILS_INSTALL_SPEC="git+https://github.com/confluent
 LABEL name="kafka" version=${KAFKA_VERSION}
 
 RUN apk add --no-cache openjdk8-jre bash coreutils
-RUN apk add --no-cache -t .build-deps git curl ca-certificates jq gcc musl-dev libffi-dev
+RUN apk add --no-cache -t .build-deps git curl ca-certificates jq gcc musl-dev libffi-dev zip
 RUN mkdir -p /opt \
   && mirror=$(curl --stderr /dev/null https://www.apache.org/dyn/closer.cgi\?as_json\=1 | jq -r '.preferred') \
   && curl -sSL "${mirror}kafka/${KAFKA_VERSION}/kafka_${SCALA_VERSION}-${KAFKA_VERSION}.tgz" \
@@ -30,6 +30,8 @@ RUN mkdir -p /opt \
   && echo "===> Installing python packages ..."  \
   && pip install --no-cache-dir jinja2 requests \
   && pip install --prefer-binary --prefix=/usr/local --upgrade "${PYTHON_CONFLUENT_DOCKER_UTILS_INSTALL_SPEC}" \
+  && echo "===> Applying log4j log4shell fix based on https://www.slf4j.org/log4shell.html ..." \
+  && zip -d /opt/kafka/libs/log4j-1.2.17.jar org/apache/log4j/net/JMSAppender.class \
   && rm -rf /tmp/* \
   && apk del --purge .build-deps
 
