@@ -5,15 +5,15 @@ import os
 import time
 from logging.handlers import TimedRotatingFileHandler
 from os import environ
-from datahub.metadata.schema_classes import ChangeTypeClass
+
 import requests
 import uvicorn
-from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import \
     DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
-
+from datahub.metadata.schema_classes import ChangeTypeClass
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -22,19 +22,23 @@ from fastapi.responses import JSONResponse, PlainTextResponse
 from ingest_api.helper.mce_convenience import (authenticate_action,
                                                create_new_schema_mce,
                                                derive_platform_name,
-                                               generate_json_output_mce, generate_json_output_mcp,
+                                               generate_json_output_mce,
+                                               generate_json_output_mcp,
                                                get_sys_time,
                                                make_browsepath_mce,
                                                make_dataset_description_mce,
                                                make_dataset_urn,
                                                make_ownership_mce,
-                                               make_platform, make_profile_mcp, make_schema_mce,
+                                               make_platform, make_profile_mcp,
+                                               make_schema_mce,
                                                make_status_mce, make_user_urn,
                                                update_field_param_class,
                                                verify_token)
-from ingest_api.helper.models import (browsepath_params, create_dataset_params,
-                                      dataset_status_params, delete_sample_params, determine_type,
-                                      prop_params, add_sample_params, schema_params)
+from ingest_api.helper.models import (add_sample_params, browsepath_params,
+                                      create_dataset_params,
+                                      dataset_status_params,
+                                      delete_sample_params, determine_type,
+                                      prop_params, schema_params)
 
 CLI_MODE = False if environ.get("RUNNING_IN_DOCKER") else True
 
@@ -51,7 +55,7 @@ streamLogger.setLevel(logging.DEBUG)
 rootLogger.addHandler(streamLogger)
 rootLogger.info(f"CLI mode : {CLI_MODE}")
 
-#when running ingest-api from CLI, need to set some params.
+# when running ingest-api from CLI, need to set some params.
 if not CLI_MODE:
     for env_var in [
         "ACCEPT_ORIGINS",
@@ -59,7 +63,7 @@ if not CLI_MODE:
         "JWT_SECRET",
         "DATAHUB_AUTHENTICATE_INGEST",
         "DATAHUB_FRONTEND",
-        "ELASTIC_HOST"
+        "ELASTIC_HOST",
     ]:
         if not os.environment[env_var]:
             raise Exception(
@@ -170,11 +174,12 @@ async def update_browsepath(item: browsepath_params):
             content=response.get("message", ""), status_code=response.get("status_code")
         )
     else:
-        log.error(
+        rootLogger.error(
             f"authentication failed for request\
             (update_browsepath) from {user}"
         )
         return JSONResponse(content="Authentication Failed", status_code=401)
+
 
 @app.post("/update_samples")
 async def update_samples(item: add_sample_params):
@@ -184,7 +189,11 @@ async def update_samples(item: add_sample_params):
     token = item.user_token
     user = item.requestor
     if authenticate_action(token=token, user=user, dataset=datasetName):
-        generated_mcp = make_profile_mcp(sample_values=item.samples, timestamp=item.timestamp, datasetName=datasetName)
+        generated_mcp = make_profile_mcp(
+            sample_values=item.samples,
+            timestamp=item.timestamp,
+            datasetName=datasetName,
+        )
         response = emit_mcp_respond(
             metadata_record=generated_mcp,
             owner=item.requestor,
@@ -195,11 +204,12 @@ async def update_samples(item: add_sample_params):
             content=response.get("message", ""), status_code=response.get("status_code")
         )
     else:
-        log.error(
+        rootLogger.error(
             f"authentication failed for request\
             (update_samples) from {user}"
         )
         return JSONResponse(content="Authentication Failed", status_code=401)
+
 
 @app.post("/delete_samples")
 async def delete_samples(item: delete_sample_params):
@@ -209,29 +219,29 @@ async def delete_samples(item: delete_sample_params):
     token = item.user_token
     user = item.requestor
     headers = {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
     }
     elastic_host = os.environ["ELASTIC_HOST"]
     if authenticate_action(token=token, user=user, dataset=datasetName):
         data = """{{"query":{{"bool":{{"must":[{{"match":{{"timestampMillis":{timestamp}}}}},
-            {{"match":{{"urn":"{urn}"}}}}]}}}}}}"""\
-                .format(
-                    urn=datasetName, 
-                    timestamp=str(item.timestamp)
-                )
-        response = requests.post("{es_host}/dataset_datasetprofileaspect_v1/_delete_by_query"\
-            .format(es_host=elastic_host), headers=headers, data=data)
-        return JSONResponse(
-            content=response.text, status_code=response.status_code
+            {{"match":{{"urn":"{urn}"}}}}]}}}}}}""".format(
+            urn=datasetName, timestamp=str(item.timestamp)
         )
+        response = requests.post(
+            "{es_host}/dataset_datasetprofileaspect_v1/_delete_by_query".format(
+                es_host=elastic_host
+            ),
+            headers=headers,
+            data=data,
+        )
+        return JSONResponse(content=response.text, status_code=response.status_code)
     else:
-        log.error(
+        rootLogger.error(
             f"authentication failed for request\
             (delete_sample) from {user}"
         )
         return JSONResponse(content="Authentication Failed", status_code=401)
 
-    
 
 @app.post("/update_schema")
 async def update_schema(item: schema_params):
@@ -271,7 +281,7 @@ async def update_schema(item: schema_params):
             content=response.get("message", ""), status_code=response.get("status_code")
         )
     else:
-        log.error(
+        rootLogger.error(
             f"authentication failed for request\
             (update_schema) from {user}"
         )
@@ -319,7 +329,7 @@ async def update_prop(item: prop_params):
             content=response.get("message", ""), status_code=response.get("status_code")
         )
     else:
-        log.error(
+        rootLogger.error(
             f"authentication failed for request\
             (update_props) from {user}"
         )
@@ -361,6 +371,7 @@ def emit_mce_respond(
         "status_code": 201,
         "messsage": f"{event} completed successfully",
     }
+
 
 def emit_mcp_respond(
     metadata_record: MetadataChangeProposalWrapper, owner: str, event: str, token: str
@@ -501,7 +512,7 @@ async def delete_item(item: dataset_status_params) -> None:
             content=response.get("message", ""), status_code=response.get("status_code")
         )
     else:
-        log.error(
+        rootLogger.error(
             f"authentication failed for request\
             (update_schema) from {user}"
         )

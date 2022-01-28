@@ -86,18 +86,21 @@ class browsepath_params(BaseModel):
     user_token: str
     browsePaths: List[str]
 
+
 class add_sample_params(BaseModel):
     dataset_name: str
     requestor: str
     user_token: str
-    samples: List[Dict]
+    samples: Dict
     timestamp: int
+
 
 class delete_sample_params(BaseModel):
     dataset_name: str
     requestor: str
     user_token: str
     timestamp: int
+
 
 class schema_params(BaseModel):
     dataset_name: str
@@ -127,6 +130,8 @@ def determine_type(type_input: Union[str, Dict[str, str]]) -> str:
     """
     if isinstance(type_input, Dict):
         type_input_str = type_input.get("dataset_type", "")
+    else:
+        type_input_str = type_input
     if (type_input_str.lower() == "text/csv") or (
         type_input_str.lower() == "application/octet-stream"
     ):

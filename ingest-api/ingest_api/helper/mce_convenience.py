@@ -9,46 +9,35 @@ from datetime import datetime as dt
 from sys import stdout
 from typing import Dict, List, Optional, TypeVar, Union
 from urllib.parse import urljoin
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
 
 import jwt
 import requests
-from datahub.metadata.schema_classes import (
-    ArrayTypeClass,
-    AuditStampClass,
-    BooleanTypeClass,
-    BrowsePathsClass,
-    BytesTypeClass,
-    ChangeTypeClass,
-    DatasetLineageTypeClass,
-    DatasetPropertiesClass,
-    DatasetSnapshotClass,
-    DateTypeClass,
-    EnumTypeClass,
-    FixedTypeClass,
-    InstitutionalMemoryClass,
-    InstitutionalMemoryMetadataClass,
-    MapTypeClass,
-    MetadataChangeEventClass,
-    NullTypeClass,
-    NumberTypeClass,
-    OtherSchemaClass,
-    OwnerClass,
-    OwnershipClass,
-    OwnershipTypeClass,
-    RecordTypeClass,
-    SchemaFieldClass,
-    SchemaFieldDataTypeClass,
-    SchemaMetadataClass,
-    StatusClass,
-    StringTypeClass,
-    TimeTypeClass,
-    UnionTypeClass,
-    UpstreamClass,
-    UpstreamLineageClass,
-    DatasetProfileClass,
-    DatasetFieldProfileClass,
-)
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.metadata.schema_classes import (ArrayTypeClass, AuditStampClass,
+                                             BooleanTypeClass,
+                                             BrowsePathsClass, BytesTypeClass,
+                                             ChangeTypeClass,
+                                             DatasetFieldProfileClass,
+                                             DatasetLineageTypeClass,
+                                             DatasetProfileClass,
+                                             DatasetPropertiesClass,
+                                             DatasetSnapshotClass,
+                                             DateTypeClass, EnumTypeClass,
+                                             FixedTypeClass,
+                                             InstitutionalMemoryClass,
+                                             InstitutionalMemoryMetadataClass,
+                                             MapTypeClass,
+                                             MetadataChangeEventClass,
+                                             NullTypeClass, NumberTypeClass,
+                                             OtherSchemaClass, OwnerClass,
+                                             OwnershipClass,
+                                             OwnershipTypeClass,
+                                             RecordTypeClass, SchemaFieldClass,
+                                             SchemaFieldDataTypeClass,
+                                             SchemaMetadataClass, StatusClass,
+                                             StringTypeClass, TimeTypeClass,
+                                             UnionTypeClass, UpstreamClass,
+                                             UpstreamLineageClass)
 from jwt import ExpiredSignatureError, InvalidTokenError
 
 from .models import FieldParamEdited
@@ -371,19 +360,21 @@ def generate_json_output_mce(mce: MetadataChangeEventClass, file_loc: str) -> No
     with open(path, "w") as f:
         json.dump(mce_obj, f, indent=4)
 
+
 def generate_json_output_mcp(mcp: MetadataChangeProposalWrapper, file_loc: str) -> None:
     """
     Generates the json MCE files that can be ingested via CLI. For debugging
     """
     mcp_obj = mcp.to_obj()
     sys_time = int(time.time() * 1000)
-    file_name = mcp.entityUrn.replace(
-        "urn:li:dataset:(urn:li:dataPlatform:", ""
-    ).split(",")[1]
+    file_name = mcp.entityUrn.replace("urn:li:dataset:(urn:li:dataPlatform:", "").split(
+        ","
+    )[1]
     path = os.path.join(file_loc, f"{file_name}_{sys_time}.json")
 
     with open(path, "w") as f:
         json.dump(mcp_obj, f, indent=4)
+
 
 def make_status_mce(
     dataset_name: str, desired_status: bool
@@ -501,13 +492,12 @@ def make_profile_mcp(
         )
         all_fields.append(fieldProfile)
     datasetProfile = DatasetProfileClass(
-        timestampMillis=timestamp, fieldProfiles=all_fields,
-        messageId="testing"
+        timestampMillis=timestamp, fieldProfiles=all_fields, messageId="testing"
     )
     mcpw = MetadataChangeProposalWrapper(
         entityType="dataset",
         changeType=ChangeTypeClass.UPSERT,
-        entityUrn = datasetName,
+        entityUrn=datasetName,
         aspectName="datasetProfile",
         aspect=datasetProfile,
     )
