@@ -91,6 +91,7 @@ export const EntityNameList = ({ additionalPropertiesList, entities, onClick }: 
                                 titleSizePx={14}
                                 tags={genericProps?.globalTags || undefined}
                                 glossaryTerms={genericProps?.glossaryTerms || undefined}
+                                domain={genericProps?.domain}
                                 onClick={() => onClick?.(index)}
                                 path={additionalProperties?.path}
                             />
