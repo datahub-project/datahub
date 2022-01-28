@@ -2,7 +2,6 @@ import { LineChartOutlined } from '@ant-design/icons';
 import * as React from 'react';
 import { Chart, EntityType, PlatformType, SearchResult } from '../../../types.generated';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
-import { getLogoFromPlatform } from '../../shared/getLogoFromPlatform';
 import { ChartPreview } from './preview/ChartPreview';
 import { GetChartQuery, useGetChartQuery, useUpdateChartMutation } from '../../../graphql/chart.generated';
 import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
@@ -15,7 +14,7 @@ import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
 import { ChartInputsTab } from '../shared/tabs/Entity/ChartInputsTab';
 import { ChartDashboardsTab } from '../shared/tabs/Entity/ChartDashboardsTab';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
-import { capitalizeFirstLetter } from '../../shared/capitalizeFirstLetter';
+import { capitalizeFirstLetter } from '../../shared/textUtil';
 import { EntityAndType } from '../../lineage/types';
 
 /**
@@ -126,8 +125,8 @@ export class ChartEntity implements Entity<Chart> {
                 urn: `urn:li:dataPlatform:(${tool})`,
                 type: EntityType.DataPlatform,
                 name: tool,
-                info: {
-                    logoUrl: getLogoFromPlatform(tool),
+                properties: {
+                    logoUrl: chart?.platform?.properties?.logoUrl,
                     displayName: capitalizeFirstLetter(tool),
                     type: PlatformType.Others,
                     datasetNameDelimiter: '.',
@@ -147,6 +146,7 @@ export class ChartEntity implements Entity<Chart> {
                 owners={data.ownership?.owners}
                 tags={data?.globalTags || undefined}
                 glossaryTerms={data?.glossaryTerms}
+                logoUrl={data?.platform?.properties?.logoUrl}
             />
         );
     };
@@ -164,6 +164,7 @@ export class ChartEntity implements Entity<Chart> {
                 tags={data?.globalTags || undefined}
                 glossaryTerms={data?.glossaryTerms}
                 insights={result.insights}
+                logoUrl={data?.platform?.properties?.logoUrl || ''}
             />
         );
     };
@@ -181,7 +182,7 @@ export class ChartEntity implements Entity<Chart> {
             downstreamChildren: entity?.['dashboards']?.relationships?.map(
                 (relationship) => ({ entity: relationship.entity, type: relationship.entity.type } as EntityAndType),
             ),
-            icon: getLogoFromPlatform(entity.tool),
+            icon: entity?.platform?.properties?.logoUrl || '',
             platform: entity.tool,
         };
     };

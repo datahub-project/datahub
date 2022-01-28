@@ -31,6 +31,8 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
         return updateDatasetDescription(targetUrn, input, environment.getContext());
       case Constants.CONTAINER_ENTITY_NAME:
         return updateContainerDescription(targetUrn, input, environment.getContext());
+      case Constants.DOMAIN_ENTITY_NAME:
+        return updateDomainDescription(targetUrn, input, environment.getContext());
       default:
         throw new RuntimeException(
             String.format("Failed to update description. Unsupported resource type %s provided.", targetUrn));
@@ -61,6 +63,30 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
       }
     });
   }
+
+  private CompletableFuture<Boolean> updateDomainDescription(Urn targetUrn, DescriptionUpdateInput input, QueryContext context) {
+    return CompletableFuture.supplyAsync(() -> {
+
+      if (!DescriptionUtils.isAuthorizedToUpdateDomainDescription(context, targetUrn)) {
+        throw new AuthorizationException(
+            "Unauthorized to perform this action. Please contact your DataHub administrator.");
+      }
+        DescriptionUtils.validateDomainInput(targetUrn, _entityService);
+
+        try {
+          Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
+          DescriptionUtils.updateDomainDescription(
+              input.getDescription(),
+              targetUrn,
+              actor,
+              _entityService);
+          return true;
+        } catch (Exception e) {
+          log.error("Failed to perform update against input {}, {}", input.toString(), e.getMessage());
+          throw new RuntimeException(String.format("Failed to perform update against input %s", input.toString()), e);
+        }
+      });
+    }
 
   private CompletableFuture<Boolean> updateDatasetDescription(Urn targetUrn, DescriptionUpdateInput input, QueryContext context) {
 

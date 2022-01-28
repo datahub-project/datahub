@@ -10,6 +10,7 @@ import com.linkedin.datahub.graphql.generated.Container;
 import com.linkedin.datahub.graphql.generated.DataPlatform;
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.DatasetEditableProperties;
+import com.linkedin.datahub.graphql.generated.Domain;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FabricType;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
@@ -23,6 +24,7 @@ import com.linkedin.dataset.DatasetDeprecation;
 import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.dataset.EditableDatasetProperties;
 import com.linkedin.dataset.ViewProperties;
+import com.linkedin.domain.Domains;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.metadata.key.DatasetKey;
 import com.linkedin.schema.EditableSchemaMetadata;
@@ -116,6 +118,14 @@ public class DatasetMapper implements ModelMapper<EntityResponse, Dataset> {
                     .setType(EntityType.CONTAINER)
                     .setUrn(gmsContainer.getContainer().toString())
                     .build());
+            } else if (DOMAINS_ASPECT_NAME.equals(name)) {
+                final Domains domains = new Domains(data);
+                // Currently we only take the first domain if it exists.
+                if (domains.getDomains().size() > 0) {
+                    result.setDomain(Domain.builder()
+                        .setType(EntityType.DOMAIN)
+                        .setUrn(domains.getDomains().get(0).toString()).build());
+                }
             }
         });
         return result;

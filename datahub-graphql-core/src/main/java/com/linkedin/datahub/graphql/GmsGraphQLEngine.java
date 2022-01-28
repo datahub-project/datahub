@@ -12,36 +12,54 @@ import com.linkedin.datahub.graphql.generated.Aspect;
 import com.linkedin.datahub.graphql.generated.BrowseResults;
 import com.linkedin.datahub.graphql.generated.Chart;
 import com.linkedin.datahub.graphql.generated.ChartInfo;
+<<<<<<< HEAD
 import com.linkedin.datahub.graphql.generated.Container;
+=======
+import com.linkedin.datahub.graphql.generated.CorpGroupInfo;
+import com.linkedin.datahub.graphql.generated.CorpUser;
+import com.linkedin.datahub.graphql.generated.CorpUserInfo;
+>>>>>>> master
 import com.linkedin.datahub.graphql.generated.Dashboard;
 import com.linkedin.datahub.graphql.generated.DashboardInfo;
+import com.linkedin.datahub.graphql.generated.DataFlow;
 import com.linkedin.datahub.graphql.generated.DataJob;
 import com.linkedin.datahub.graphql.generated.DataJobInputOutput;
 import com.linkedin.datahub.graphql.generated.Dataset;
+import com.linkedin.datahub.graphql.generated.Domain;
 import com.linkedin.datahub.graphql.generated.EntityRelationship;
 import com.linkedin.datahub.graphql.generated.EntityRelationshipLegacy;
 import com.linkedin.datahub.graphql.generated.ForeignKeyConstraint;
-import com.linkedin.datahub.graphql.generated.MLModelProperties;
-import com.linkedin.datahub.graphql.generated.RecommendationContent;
-import com.linkedin.datahub.graphql.generated.SearchResult;
+import com.linkedin.datahub.graphql.generated.ListDomainsResult;
 import com.linkedin.datahub.graphql.generated.InstitutionalMemoryMetadata;
-import com.linkedin.datahub.graphql.generated.UsageQueryResult;
-import com.linkedin.datahub.graphql.generated.UserUsageCounts;
-import com.linkedin.datahub.graphql.generated.CorpUser;
-import com.linkedin.datahub.graphql.generated.CorpUserInfo;
-import com.linkedin.datahub.graphql.generated.CorpGroupInfo;
-import com.linkedin.datahub.graphql.generated.Owner;
-import com.linkedin.datahub.graphql.generated.MLModel;
-import com.linkedin.datahub.graphql.generated.MLModelGroup;
-import com.linkedin.datahub.graphql.generated.MLFeatureTable;
-import com.linkedin.datahub.graphql.generated.MLFeatureTableProperties;
 import com.linkedin.datahub.graphql.generated.MLFeature;
 import com.linkedin.datahub.graphql.generated.MLFeatureProperties;
+import com.linkedin.datahub.graphql.generated.MLFeatureTable;
+import com.linkedin.datahub.graphql.generated.MLFeatureTableProperties;
+import com.linkedin.datahub.graphql.generated.MLModel;
+import com.linkedin.datahub.graphql.generated.MLModelGroup;
+import com.linkedin.datahub.graphql.generated.MLModelProperties;
 import com.linkedin.datahub.graphql.generated.MLPrimaryKey;
 import com.linkedin.datahub.graphql.generated.MLPrimaryKeyProperties;
+import com.linkedin.datahub.graphql.generated.Owner;
+import com.linkedin.datahub.graphql.generated.RecommendationContent;
+import com.linkedin.datahub.graphql.generated.SearchResult;
+import com.linkedin.datahub.graphql.generated.UsageQueryResult;
+import com.linkedin.datahub.graphql.generated.UserUsageCounts;
+import com.linkedin.datahub.graphql.resolvers.AuthenticatedResolver;
 import com.linkedin.datahub.graphql.resolvers.MeResolver;
 import com.linkedin.datahub.graphql.resolvers.auth.GetAccessTokenResolver;
+<<<<<<< HEAD
 import com.linkedin.datahub.graphql.resolvers.container.ContainerEntitiesResolver;
+=======
+import com.linkedin.datahub.graphql.resolvers.browse.BrowsePathsResolver;
+import com.linkedin.datahub.graphql.resolvers.browse.BrowseResolver;
+import com.linkedin.datahub.graphql.resolvers.config.AppConfigResolver;
+import com.linkedin.datahub.graphql.resolvers.domain.CreateDomainResolver;
+import com.linkedin.datahub.graphql.resolvers.domain.DomainEntitiesResolver;
+import com.linkedin.datahub.graphql.resolvers.domain.ListDomainsResolver;
+import com.linkedin.datahub.graphql.resolvers.domain.SetDomainResolver;
+import com.linkedin.datahub.graphql.resolvers.domain.UnsetDomainResolver;
+>>>>>>> master
 import com.linkedin.datahub.graphql.resolvers.group.AddGroupMembersResolver;
 import com.linkedin.datahub.graphql.resolvers.group.CreateGroupResolver;
 import com.linkedin.datahub.graphql.resolvers.group.EntityCountsResolver;
@@ -49,11 +67,25 @@ import com.linkedin.datahub.graphql.resolvers.group.ListGroupsResolver;
 import com.linkedin.datahub.graphql.resolvers.group.RemoveGroupMembersResolver;
 import com.linkedin.datahub.graphql.resolvers.group.RemoveGroupResolver;
 import com.linkedin.datahub.graphql.resolvers.group.UpdateUserStatusResolver;
+import com.linkedin.datahub.graphql.resolvers.ingest.execution.CancelIngestionExecutionRequestResolver;
+import com.linkedin.datahub.graphql.resolvers.ingest.execution.CreateIngestionExecutionRequestResolver;
+import com.linkedin.datahub.graphql.resolvers.ingest.secret.CreateSecretResolver;
+import com.linkedin.datahub.graphql.resolvers.ingest.source.DeleteIngestionSourceResolver;
+import com.linkedin.datahub.graphql.resolvers.ingest.secret.DeleteSecretResolver;
+import com.linkedin.datahub.graphql.resolvers.ingest.execution.GetIngestionExecutionRequestResolver;
+import com.linkedin.datahub.graphql.resolvers.ingest.source.GetIngestionSourceResolver;
+import com.linkedin.datahub.graphql.resolvers.ingest.secret.GetSecretValuesResolver;
+import com.linkedin.datahub.graphql.resolvers.ingest.execution.IngestionSourceExecutionRequestsResolver;
+import com.linkedin.datahub.graphql.resolvers.ingest.source.ListIngestionSourcesResolver;
+import com.linkedin.datahub.graphql.resolvers.ingest.secret.ListSecretsResolver;
+import com.linkedin.datahub.graphql.resolvers.ingest.source.UpsertIngestionSourceResolver;
 import com.linkedin.datahub.graphql.resolvers.load.AspectResolver;
+import com.linkedin.datahub.graphql.resolvers.load.EntityRelationshipsResultResolver;
 import com.linkedin.datahub.graphql.resolvers.load.EntityTypeBatchResolver;
 import com.linkedin.datahub.graphql.resolvers.load.EntityTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.load.LoadableTypeBatchResolver;
-import com.linkedin.datahub.graphql.resolvers.load.EntityRelationshipsResultResolver;
+import com.linkedin.datahub.graphql.resolvers.load.LoadableTypeResolver;
+import com.linkedin.datahub.graphql.resolvers.load.OwnerTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.load.TimeSeriesAspectResolver;
 import com.linkedin.datahub.graphql.resolvers.load.UsageTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.AddLinkResolver;
@@ -68,12 +100,16 @@ import com.linkedin.datahub.graphql.resolvers.mutate.RemoveTermResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.UpdateDescriptionResolver;
 import com.linkedin.datahub.graphql.resolvers.policy.DeletePolicyResolver;
 import com.linkedin.datahub.graphql.resolvers.policy.ListPoliciesResolver;
-import com.linkedin.datahub.graphql.resolvers.config.AppConfigResolver;
 import com.linkedin.datahub.graphql.resolvers.policy.UpsertPolicyResolver;
 import com.linkedin.datahub.graphql.resolvers.recommendation.ListRecommendationsResolver;
+import com.linkedin.datahub.graphql.resolvers.search.AutoCompleteForMultipleResolver;
+import com.linkedin.datahub.graphql.resolvers.search.AutoCompleteResolver;
 import com.linkedin.datahub.graphql.resolvers.search.SearchAcrossEntitiesResolver;
+import com.linkedin.datahub.graphql.resolvers.search.SearchResolver;
 import com.linkedin.datahub.graphql.resolvers.type.AspectInterfaceTypeResolver;
+import com.linkedin.datahub.graphql.resolvers.type.EntityInterfaceTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.type.HyperParameterValueTypeResolver;
+import com.linkedin.datahub.graphql.resolvers.type.PlatformSchemaUnionTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.type.ResultsTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.type.TimeSeriesAspectInterfaceTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.user.ListUsersResolver;
@@ -84,64 +120,60 @@ import com.linkedin.datahub.graphql.types.LoadableType;
 import com.linkedin.datahub.graphql.types.SearchableEntityType;
 import com.linkedin.datahub.graphql.types.aspect.AspectType;
 import com.linkedin.datahub.graphql.types.chart.ChartType;
+<<<<<<< HEAD
 import com.linkedin.datahub.graphql.types.container.ContainerType;
 import com.linkedin.datahub.graphql.types.corpuser.CorpUserType;
-import com.linkedin.datahub.graphql.types.corpgroup.CorpGroupType;
-import com.linkedin.datahub.graphql.types.dashboard.DashboardType;
-import com.linkedin.datahub.graphql.types.dataplatform.DataPlatformType;
-import com.linkedin.datahub.graphql.types.dataset.DatasetType;
-import com.linkedin.datahub.graphql.resolvers.AuthenticatedResolver;
-import com.linkedin.datahub.graphql.resolvers.load.LoadableTypeResolver;
-import com.linkedin.datahub.graphql.resolvers.load.OwnerTypeResolver;
-import com.linkedin.datahub.graphql.resolvers.browse.BrowsePathsResolver;
-import com.linkedin.datahub.graphql.resolvers.browse.BrowseResolver;
-import com.linkedin.datahub.graphql.resolvers.search.AutoCompleteResolver;
-import com.linkedin.datahub.graphql.resolvers.search.AutoCompleteForMultipleResolver;
-import com.linkedin.datahub.graphql.resolvers.search.SearchResolver;
-import com.linkedin.datahub.graphql.resolvers.type.EntityInterfaceTypeResolver;
-import com.linkedin.datahub.graphql.resolvers.type.PlatformSchemaUnionTypeResolver;
+=======
 import com.linkedin.datahub.graphql.types.common.mappers.OperationMapper;
-import com.linkedin.datahub.graphql.types.dataset.mappers.DatasetProfileMapper;
-import com.linkedin.datahub.graphql.types.mlmodel.MLFeatureTableType;
-import com.linkedin.datahub.graphql.types.mlmodel.MLFeatureType;
-import com.linkedin.datahub.graphql.types.mlmodel.MLPrimaryKeyType;
-import com.linkedin.datahub.graphql.types.tag.TagType;
-import com.linkedin.datahub.graphql.types.mlmodel.MLModelType;
-import com.linkedin.datahub.graphql.types.mlmodel.MLModelGroupType;
+>>>>>>> master
+import com.linkedin.datahub.graphql.types.corpgroup.CorpGroupType;
+import com.linkedin.datahub.graphql.types.corpuser.CorpUserType;
+import com.linkedin.datahub.graphql.types.dashboard.DashboardType;
 import com.linkedin.datahub.graphql.types.dataflow.DataFlowType;
 import com.linkedin.datahub.graphql.types.datajob.DataJobType;
+import com.linkedin.datahub.graphql.types.dataplatform.DataPlatformType;
+import com.linkedin.datahub.graphql.types.dataset.DatasetType;
+import com.linkedin.datahub.graphql.types.dataset.mappers.DatasetProfileMapper;
+import com.linkedin.datahub.graphql.types.domain.DomainType;
 import com.linkedin.datahub.graphql.types.glossary.GlossaryTermType;
-
+import com.linkedin.datahub.graphql.types.mlmodel.MLFeatureTableType;
+import com.linkedin.datahub.graphql.types.mlmodel.MLFeatureType;
+import com.linkedin.datahub.graphql.types.mlmodel.MLModelGroupType;
+import com.linkedin.datahub.graphql.types.mlmodel.MLModelType;
+import com.linkedin.datahub.graphql.types.mlmodel.MLPrimaryKeyType;
+import com.linkedin.datahub.graphql.types.tag.TagType;
 import com.linkedin.datahub.graphql.types.usage.UsageType;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.config.IngestionConfiguration;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.recommendation.RecommendationsService;
-import com.linkedin.metadata.graph.GraphClient;
+import com.linkedin.metadata.secret.SecretService;
 import com.linkedin.metadata.version.GitVersion;
 import com.linkedin.usage.UsageClient;
 import graphql.execution.DataFetcherResult;
 import graphql.schema.idl.RuntimeWiring;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
+import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.IOUtils;
 import org.dataloader.BatchLoaderContextProvider;
 import org.dataloader.DataLoader;
 import org.dataloader.DataLoaderOptions;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.CompletableFuture;
-import java.util.function.Function;
-import java.util.function.Supplier;
-import java.util.stream.Collectors;
-
 import static com.linkedin.datahub.graphql.Constants.*;
-import static graphql.Scalars.GraphQLLong;
+import static graphql.Scalars.*;
 
 /**
  * A {@link GraphQLEngine} configured to provide access to the entities and aspects on the the GMS graph.
@@ -158,7 +190,10 @@ public class GmsGraphQLEngine {
     private final RecommendationsService recommendationsService;
     private final EntityRegistry entityRegistry;
     private final TokenService tokenService;
+    private final SecretService secretService;
     private final GitVersion gitVersion;
+
+    private final IngestionConfiguration ingestionConfiguration;
 
     private final DatasetType datasetType;
     private final CorpUserType corpUserType;
@@ -177,7 +212,12 @@ public class GmsGraphQLEngine {
     private final GlossaryTermType glossaryTermType;
     private final AspectType aspectType;
     private final UsageType usageType;
+<<<<<<< HEAD
     private final ContainerType containerType;
+=======
+    private final DomainType domainType;
+
+>>>>>>> master
 
     /**
      * Configures the graph objects that can be fetched primary key.
@@ -215,6 +255,8 @@ public class GmsGraphQLEngine {
             null,
             null,
             null,
+            null,
+            null,
             null);
     }
 
@@ -227,6 +269,8 @@ public class GmsGraphQLEngine {
         final RecommendationsService recommendationsService,
         final TokenService tokenService,
         final EntityRegistry entityRegistry,
+        final SecretService secretService,
+        final IngestionConfiguration ingestionConfiguration,
         final GitVersion gitVersion
         ) {
 
@@ -238,8 +282,11 @@ public class GmsGraphQLEngine {
         this.entityService = entityService;
         this.recommendationsService = recommendationsService;
         this.tokenService = tokenService;
+        this.secretService = secretService;
         this.entityRegistry = entityRegistry;
         this.gitVersion = gitVersion;
+
+        this.ingestionConfiguration = Objects.requireNonNull(ingestionConfiguration);
 
         this.datasetType = new DatasetType(entityClient);
         this.corpUserType = new CorpUserType(entityClient);
@@ -258,12 +305,35 @@ public class GmsGraphQLEngine {
         this.glossaryTermType = new GlossaryTermType(entityClient);
         this.aspectType = new AspectType(entityClient);
         this.usageType = new UsageType(this.usageClient);
+<<<<<<< HEAD
         this.containerType = new ContainerType(entityClient);
 
         // Init Lists
         this.entityTypes = ImmutableList.of(datasetType, corpUserType, corpGroupType,
             dataPlatformType, chartType, dashboardType, tagType, mlModelType, mlModelGroupType, mlFeatureType,
             mlFeatureTableType, mlPrimaryKeyType, dataFlowType, dataJobType, glossaryTermType, containerType
+=======
+        this.domainType = new DomainType(entityClient);
+
+        // Init Lists
+        this.entityTypes = ImmutableList.of(
+            datasetType,
+            corpUserType,
+            corpGroupType,
+            dataPlatformType,
+            chartType,
+            dashboardType,
+            tagType,
+            mlModelType,
+            mlModelGroupType,
+            mlFeatureType,
+            mlFeatureTableType,
+            mlPrimaryKeyType,
+            dataFlowType,
+            dataJobType,
+            glossaryTermType,
+            domainType
+>>>>>>> master
         );
         this.loadableTypes = new ArrayList<>(entityTypes);
         this.ownerTypes = ImmutableList.of(corpUserType, corpGroupType);
@@ -349,6 +419,18 @@ public class GmsGraphQLEngine {
         return recommendationsSchemaString;
     }
 
+    public static String ingestionSchema() {
+        String ingestionSchema;
+        try {
+            InputStream is = Thread.currentThread().getContextClassLoader().getResourceAsStream(INGESTION_SCHEMA_FILE);
+            ingestionSchema = IOUtils.toString(is, StandardCharsets.UTF_8);
+            is.close();
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to find GraphQL Schema with name " + INGESTION_SCHEMA_FILE, e);
+        }
+        return ingestionSchema;
+    }
+
     /**
      * Returns a {@link Supplier} responsible for creating a new {@link DataLoader} from
      * a {@link LoadableType}.
@@ -378,8 +460,13 @@ public class GmsGraphQLEngine {
         configureDataFlowResolvers(builder);
         configureMLFeatureTableResolvers(builder);
         configureGlossaryRelationshipResolvers(builder);
+        configureIngestionSourceResolvers(builder);
         configureAnalyticsResolvers(builder);
+<<<<<<< HEAD
         configureContainerResolvers(builder);
+=======
+        configureDomainResolvers(builder);
+>>>>>>> master
     }
 
     public GraphQLEngine.Builder builder() {
@@ -390,6 +477,7 @@ public class GmsGraphQLEngine {
             .addSchema(authSchema())
             .addSchema(analyticsSchema())
             .addSchema(recommendationsSchema())
+            .addSchema(ingestionSchema())
             .addDataLoaders(loaderSuppliers(loadableTypes))
             .addDataLoader("Aspect", (context) -> createAspectLoader(context))
             .addDataLoader("UsageQueryResult", (context) -> createUsageLoader(context))
@@ -428,7 +516,7 @@ public class GmsGraphQLEngine {
     private void configureQueryResolvers(final RuntimeWiring.Builder builder) {
         builder.type("Query", typeWiring -> typeWiring
             .dataFetcher("appConfig",
-                new AppConfigResolver(gitVersion, analyticsService != null))
+                new AppConfigResolver(gitVersion, analyticsService != null, this.ingestionConfiguration))
             .dataFetcher("me", new AuthenticatedResolver<>(
                     new MeResolver(this.entityClient)))
             .dataFetcher("search", new AuthenticatedResolver<>(
@@ -470,6 +558,9 @@ public class GmsGraphQLEngine {
             .dataFetcher("glossaryTerm", new AuthenticatedResolver<>(
                     new LoadableTypeResolver<>(glossaryTermType,
                             (env) -> env.getArgument(URN_FIELD_NAME))))
+            .dataFetcher("domain",
+                new LoadableTypeResolver<>(domainType,
+                    (env) -> env.getArgument(URN_FIELD_NAME)))
             .dataFetcher("mlFeatureTable", new AuthenticatedResolver<>(
                     new LoadableTypeResolver<>(mlFeatureTableType,
                             (env) -> env.getArgument(URN_FIELD_NAME))))
@@ -497,9 +588,24 @@ public class GmsGraphQLEngine {
                 new EntityCountsResolver(this.entityClient))
             .dataFetcher("getAccessToken",
                 new GetAccessTokenResolver(tokenService))
+<<<<<<< HEAD
             .dataFetcher("container", new AuthenticatedResolver<>(
                 new LoadableTypeResolver<>(containerType,
                     (env) -> env.getArgument(URN_FIELD_NAME))))
+=======
+            .dataFetcher("listDomains",
+                new ListDomainsResolver(this.entityClient))
+            .dataFetcher("listSecrets",
+                new ListSecretsResolver(this.entityClient))
+            .dataFetcher("getSecretValues",
+                new GetSecretValuesResolver(this.entityClient, this.secretService))
+            .dataFetcher("listIngestionSources",
+                new ListIngestionSourcesResolver(this.entityClient))
+            .dataFetcher("ingestionSource",
+                new GetIngestionSourceResolver(this.entityClient))
+            .dataFetcher("executionRequest",
+                new GetIngestionExecutionRequestResolver(this.entityClient))
+>>>>>>> master
         );
     }
 
@@ -529,6 +635,16 @@ public class GmsGraphQLEngine {
             .dataFetcher("removeUser", new RemoveUserResolver(this.entityClient))
             .dataFetcher("removeGroup", new RemoveGroupResolver(this.entityClient))
             .dataFetcher("updateUserStatus", new UpdateUserStatusResolver(this.entityClient))
+            .dataFetcher("createDomain", new CreateDomainResolver(this.entityClient))
+            .dataFetcher("setDomain", new SetDomainResolver(this.entityClient, this.entityService))
+            .dataFetcher("unsetDomain", new UnsetDomainResolver(this.entityClient, this.entityService))
+            .dataFetcher("createSecret", new CreateSecretResolver(this.entityClient, this.secretService))
+            .dataFetcher("deleteSecret", new DeleteSecretResolver(this.entityClient))
+            .dataFetcher("createIngestionSource", new UpsertIngestionSourceResolver(this.entityClient))
+            .dataFetcher("updateIngestionSource", new UpsertIngestionSourceResolver(this.entityClient))
+            .dataFetcher("deleteIngestionSource", new DeleteIngestionSourceResolver(this.entityClient))
+            .dataFetcher("createIngestionExecutionRequest", new CreateIngestionExecutionRequestResolver(this.entityClient, this.ingestionConfiguration))
+            .dataFetcher("cancelIngestionExecutionRequest", new CancelIngestionExecutionRequestResolver(this.entityClient))
         );
     }
 
@@ -571,6 +687,13 @@ public class GmsGraphQLEngine {
                         new ArrayList<>(entityTypes),
                         (env) -> ((EntityRelationship) env.getSource()).getEntity()))
                 )
+            )
+            .type("ListDomainsResult", typeWiring -> typeWiring
+                .dataFetcher("domains",
+                    new LoadableTypeBatchResolver<>(domainType,
+                        (env) -> ((ListDomainsResult) env.getSource()).getDomains().stream()
+                            .map(Domain::getUrn)
+                            .collect(Collectors.toList())))
             );
     }
 
@@ -583,6 +706,13 @@ public class GmsGraphQLEngine {
                 .dataFetcher("relationships", new AuthenticatedResolver<>(
                     new EntityRelationshipsResultResolver(graphClient)
                 ))
+                .dataFetcher("domain",
+                    new LoadableTypeResolver<>(
+                        domainType,
+                        (env) -> {
+                            final Dataset dataset = env.getSource();
+                            return dataset.getDomain() != null ? dataset.getDomain().getUrn() : null;
+                        }))
                 .dataFetcher("platform", new AuthenticatedResolver<>(
                     new LoadableTypeResolver<>(dataPlatformType,
                             (env) -> ((Dataset) env.getSource()).getPlatform().getUrn()))
@@ -712,12 +842,26 @@ public class GmsGraphQLEngine {
             .dataFetcher("relationships", new AuthenticatedResolver<>(
                 new EntityRelationshipsResultResolver(graphClient)
             ))
+            .dataFetcher("platform", new AuthenticatedResolver<>(
+                new LoadableTypeResolver<>(dataPlatformType,
+                    (env) -> ((Dashboard) env.getSource()).getPlatform().getUrn()))
+                )
+            .dataFetcher("domain",
+                new LoadableTypeResolver<>(
+                    domainType,
+                    (env) -> {
+                        final Dashboard dashboard = env.getSource();
+                        return dashboard.getDomain() != null ? dashboard.getDomain().getUrn() : null;
+                    }
+                )
+            )
             .dataFetcher("container",
                 new LoadableTypeResolver<>(containerType,
                     (env) -> {
                         final Dashboard dashboard = env.getSource();
                         return dashboard.getContainer() != null ? dashboard.getContainer().getUrn() : null;
-                    }))
+                    })
+            )
         );
         builder.type("DashboardInfo", typeWiring -> typeWiring
             .dataFetcher("charts", new AuthenticatedResolver<>(
@@ -737,6 +881,18 @@ public class GmsGraphQLEngine {
             .dataFetcher("relationships", new AuthenticatedResolver<>(
                 new EntityRelationshipsResultResolver(graphClient)
             ))
+            .dataFetcher("platform", new AuthenticatedResolver<>(
+                new LoadableTypeResolver<>(dataPlatformType,
+                    (env) -> ((Chart) env.getSource()).getPlatform().getUrn()))
+            )
+            .dataFetcher("domain",
+                new LoadableTypeResolver<>(
+                    domainType,
+                    (env) -> {
+                        final Chart chart = env.getSource();
+                        return chart.getDomain() != null ? chart.getDomain().getUrn() : null;
+                    })
+            )
             .dataFetcher("container",
                 new LoadableTypeResolver<>(
                     containerType,
@@ -811,6 +967,14 @@ public class GmsGraphQLEngine {
                     new LoadableTypeResolver<>(dataFlowType,
                         (env) -> ((DataJob) env.getSource()).getDataFlow().getUrn()))
                 )
+                .dataFetcher("domain",
+                    new LoadableTypeResolver<>(
+                        domainType,
+                        (env) -> {
+                            final DataJob dataJob = env.getSource();
+                            return dataJob.getDomain() != null ? dataJob.getDomain().getUrn() : null;
+                        })
+                )
             )
             .type("DataJobInputOutput", typeWiring -> typeWiring
                 .dataFetcher("inputDatasets", new AuthenticatedResolver<>(
@@ -843,6 +1007,18 @@ public class GmsGraphQLEngine {
                 .dataFetcher("relationships", new AuthenticatedResolver<>(
                     new EntityRelationshipsResultResolver(graphClient)
                 ))
+                .dataFetcher("platform", new AuthenticatedResolver<>(
+                    new LoadableTypeResolver<>(dataPlatformType,
+                        (env) -> ((DataFlow) env.getSource()).getPlatform().getUrn()))
+                )
+                .dataFetcher("domain",
+                    new LoadableTypeResolver<>(
+                        domainType,
+                        (env) -> {
+                            final DataFlow dataFlow = env.getSource();
+                            return dataFlow.getDomain() != null ? dataFlow.getDomain().getUrn() : null;
+                        })
+                )
             );
     }
 
@@ -925,13 +1101,18 @@ public class GmsGraphQLEngine {
     }
 
     private void configureGlossaryRelationshipResolvers(final RuntimeWiring.Builder builder) {
-        builder.type("GlossaryTerm", typeWiring -> typeWiring
+        builder.type("GlossaryTerm", typeWiring -> typeWiring.dataFetcher("relationships",
+            new AuthenticatedResolver<>(new EntityRelationshipsResultResolver(graphClient))));
+    }
+
+    private void configureDomainResolvers(final RuntimeWiring.Builder builder) {
+        builder.type("Domain", typeWiring -> typeWiring
+            .dataFetcher("entities", new DomainEntitiesResolver(this.entityClient))
             .dataFetcher("relationships", new AuthenticatedResolver<>(
                 new EntityRelationshipsResultResolver(graphClient)
             ))
         );
     }
-
 
     private <T> DataLoader<String, DataFetcherResult<T>> createDataLoader(final LoadableType<T> graphType, final QueryContext queryContext) {
         BatchLoaderContextProvider contextProvider = () -> queryContext;
@@ -945,6 +1126,10 @@ public class GmsGraphQLEngine {
                 throw new RuntimeException(String.format("Failed to retrieve entities of type %s", graphType.name()), e);
             }
         }), loaderOptions);
+    }
+
+    private void configureIngestionSourceResolvers(final RuntimeWiring.Builder builder) {
+        builder.type("IngestionSource", typeWiring -> typeWiring.dataFetcher("executions", new IngestionSourceExecutionRequestsResolver(entityClient)));
     }
 
     private DataLoader<VersionedAspectKey, DataFetcherResult<Aspect>> createAspectLoader(final QueryContext queryContext) {

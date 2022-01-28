@@ -43,12 +43,18 @@ This connector supports both local files as well as those stored on AWS S3 (whic
 - TSV
 - Parquet
 - JSON
+- Apache Avro
 
 :::caution
 
 If you are ingesting datasets from AWS S3, we recommend running the ingestion on a server in the same region to avoid high egress costs.
 
 :::
+
+| Capability | Status | Details | 
+| -----------| ------ | ---- |
+| Platform Instance | 🛑 | [link](../../docs/platform-instances.md) |
+
 
 ## Quickstart recipe
 

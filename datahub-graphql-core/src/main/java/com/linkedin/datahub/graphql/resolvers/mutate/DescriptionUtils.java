@@ -9,6 +9,7 @@ import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.authorization.ConjunctivePrivilegeGroup;
 import com.linkedin.datahub.graphql.authorization.DisjunctivePrivilegeGroup;
 import com.linkedin.datahub.graphql.generated.SubResourceType;
+import com.linkedin.domain.DomainProperties;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
@@ -60,6 +61,19 @@ public class DescriptionUtils {
     persistAspect(resourceUrn, Constants.CONTAINER_EDITABLE_PROPERTIES_ASPECT_NAME, containerProperties, actor, entityService);
   }
 
+  public static void updateDomainDescription(
+      String newDescription,
+      Urn resourceUrn,
+      Urn actor,
+      EntityService entityService
+  ) {
+    DomainProperties domainProperties =
+        (DomainProperties) getAspectFromEntity(
+            resourceUrn.toString(), Constants.DOMAIN_PROPERTIES_ASPECT_NAME, entityService, new DomainProperties());
+    domainProperties.setDescription(newDescription);
+    persistAspect(resourceUrn, Constants.DOMAIN_PROPERTIES_ASPECT_NAME, domainProperties, actor, entityService);
+  }
+
   public static Boolean validateFieldDescriptionInput(
       Urn resourceUrn,
       String subResource,
@@ -75,7 +89,11 @@ public class DescriptionUtils {
     return true;
   }
 
+<<<<<<< HEAD
   public static Boolean validateContainerInput(
+=======
+  public static Boolean validateDomainInput(
+>>>>>>> master
       Urn resourceUrn,
       EntityService entityService
   ) {
@@ -100,7 +118,11 @@ public class DescriptionUtils {
         orPrivilegeGroups);
   }
 
+<<<<<<< HEAD
   public static boolean isAuthorizedToUpdateContainerDescription(@Nonnull QueryContext context, Urn targetUrn) {
+=======
+  public static boolean isAuthorizedToUpdateDomainDescription(@Nonnull QueryContext context, Urn targetUrn) {
+>>>>>>> master
     final DisjunctivePrivilegeGroup orPrivilegeGroups = new DisjunctivePrivilegeGroup(ImmutableList.of(
         ALL_PRIVILEGES_GROUP,
         new ConjunctivePrivilegeGroup(ImmutableList.of(PoliciesConfig.EDIT_ENTITY_DOCS_PRIVILEGE.getType()))
@@ -113,5 +135,8 @@ public class DescriptionUtils {
         targetUrn.toString(),
         orPrivilegeGroups);
   }
+<<<<<<< HEAD
   
+=======
+>>>>>>> master
 }

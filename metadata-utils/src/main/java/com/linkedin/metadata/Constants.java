@@ -23,6 +23,11 @@ public class Constants {
   public static final String DATA_FLOW_ENTITY_NAME = "dataFlow";
   public static final String DATA_JOB_ENTITY_NAME = "dataJob";
   public static final String CONTAINER_ENTITY_NAME = "container";
+  public static final String DATA_PLATFORM_ENTITY_NAME = "dataPlatform";
+  public static final String DOMAIN_ENTITY_NAME = "domain";
+  public static final String INGESTION_SOURCE_ENTITY_NAME = "dataHubIngestionSource";
+  public static final String SECRETS_ENTITY_NAME = "dataHubSecret";
+  public static final String EXECUTION_REQUEST_ENTITY_NAME = "dataHubExecutionRequest";
 
   /**
    * Aspects
@@ -84,6 +89,22 @@ public class Constants {
   public static final String CONTAINER_PROPERTIES_ASPECT_NAME = "containerProperties";
   public static final String CONTAINER_EDITABLE_PROPERTIES_ASPECT_NAME = "editableContainerProperties";
   public static final String CONTAINER_ASPECT_NAME = "container"; // parent container
+
+  // Domain
+  public static final String DOMAIN_KEY_ASPECT_NAME = "domainKey";
+  public static final String DOMAIN_PROPERTIES_ASPECT_NAME = "domainProperties";
+  public static final String DOMAINS_ASPECT_NAME = "domains";
+
+  // DataHub Ingestion Source
+  public static final String INGESTION_INFO_ASPECT_NAME = "dataHubIngestionSourceInfo";
+
+  // DataHub Secret
+  public static final String SECRET_VALUE_ASPECT_NAME = "dataHubSecretValue";
+
+  // DataHub Execution Request
+  public static final String EXECUTION_REQUEST_INPUT_ASPECT_NAME = "dataHubExecutionRequestInput";
+  public static final String EXECUTION_REQUEST_SIGNAL_ASPECT_NAME = "dataHubExecutionRequestSignal";
+  public static final String EXECUTION_REQUEST_RESULT_ASPECT_NAME = "dataHubExecutionRequestResult";
 
   /**
    * User Status

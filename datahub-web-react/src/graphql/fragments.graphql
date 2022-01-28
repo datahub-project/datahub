@@ -43,6 +43,7 @@ fragment ownershipFields on Ownership {
                 type
                 name
                 info {
+                    displayName
                     email
                     admins {
                         urn
@@ -98,11 +99,7 @@ fragment nonRecursiveDatasetFields on Dataset {
     origin
     uri
     platform {
-        name
-        info {
-            displayName
-            logoUrl
-        }
+        ...platformFields
     }
     platformNativeType
     properties {
@@ -186,6 +183,9 @@ fragment nonRecursiveDataFlowFields on DataFlow {
     }
     ownership {
         ...ownershipFields
+    }
+    platform {
+        ...platformFields
     }
 }
 
@@ -305,6 +305,9 @@ fragment dashboardFields on Dashboard {
     glossaryTerms {
         ...glossaryTerms
     }
+    platform {
+        ...platformFields
+    }
 }
 
 fragment nonRecursiveMLFeature on MLFeature {
@@ -328,10 +331,7 @@ fragment nonRecursiveMLFeature on MLFeature {
             description
             uri
             platform {
-                name
-                info {
-                    logoUrl
-                }
+                ...platformFields
             }
             platformNativeType
         }
@@ -379,10 +379,7 @@ fragment nonRecursiveMLPrimaryKey on MLPrimaryKey {
             description
             uri
             platform {
-                name
-                info {
-                    logoUrl
-                }
+                ...platformFields
             }
             platformNativeType
         }
@@ -414,11 +411,7 @@ fragment nonRecursiveMLFeatureTable on MLFeatureTable {
     type
     name
     platform {
-        name
-        info {
-            displayName
-            logoUrl
-        }
+        ...platformFields
     }
     description
     featureTableProperties {
@@ -505,11 +498,7 @@ fragment schemaMetadataFields on SchemaMetadata {
                 description
             }
             platform {
-                name
-                info {
-                    displayName
-                    logoUrl
-                }
+                ...platformFields
             }
             platformNativeType
             ownership {
@@ -532,10 +521,7 @@ fragment nonRecursiveMLModel on MLModel {
     description
     origin
     platform {
-        name
-        info {
-            logoUrl
-        }
+        ...platformFields
     }
     ownership {
         ...ownershipFields
@@ -578,12 +564,46 @@ fragment nonRecursiveMLModelGroupFields on MLModelGroup {
     description
     origin
     platform {
-        name
-        info {
-            logoUrl
-        }
+        ...platformFields
     }
     ownership {
         ...ownershipFields
+    }
+}
+
+fragment platformFields on DataPlatform {
+    urn
+    type
+    name
+    properties {
+        type
+        displayName
+        datasetNameDelimiter
+        logoUrl
+    }
+    displayName
+    info {
+        type
+        displayName
+        datasetNameDelimiter
+        logoUrl
+    }
+}
+
+fragment nonConflictingPlatformFields on DataPlatform {
+    urn
+    type
+    name
+    properties {
+        displayName
+        datasetNameDelimiter
+        logoUrl
+    }
+    displayName
+    info {
+        type
+        displayName
+        datasetNameDelimiter
+        logoUrl
     }
 }

@@ -19,10 +19,7 @@ query getBrowseResults($input: BrowseInput!) {
                     description
                 }
                 platform {
-                    name
-                    info {
-                        logoUrl
-                    }
+                    ...platformFields
                 }
                 ownership {
                     ...ownershipFields
@@ -62,6 +59,9 @@ query getBrowseResults($input: BrowseInput!) {
                 }
                 glossaryTerms {
                     ...glossaryTerms
+                }
+                platform {
+                    ...platformFields
                 }
             }
             ... on GlossaryTerm {
@@ -107,6 +107,9 @@ query getBrowseResults($input: BrowseInput!) {
                 glossaryTerms {
                     ...glossaryTerms
                 }
+                platform {
+                    ...platformFields
+                }
             }
             ... on DataFlow {
                 urn
@@ -131,6 +134,9 @@ query getBrowseResults($input: BrowseInput!) {
                 glossaryTerms {
                     ...glossaryTerms
                 }
+                platform {
+                    ...platformFields
+                }
             }
             ... on MLFeatureTable {
                 urn
@@ -150,10 +156,7 @@ query getBrowseResults($input: BrowseInput!) {
                     ...ownershipFields
                 }
                 platform {
-                    name
-                    info {
-                        logoUrl
-                    }
+                    ...platformFields
                 }
             }
             ... on MLModel {
@@ -167,10 +170,7 @@ query getBrowseResults($input: BrowseInput!) {
                     ...globalTagsFields
                 }
                 platform {
-                    name
-                    info {
-                        logoUrl
-                    }
+                    ...platformFields
                 }
             }
             ... on MLModelGroup {
@@ -181,10 +181,7 @@ query getBrowseResults($input: BrowseInput!) {
                     ...ownershipFields
                 }
                 platform {
-                    name
-                    info {
-                        logoUrl
-                    }
+                    ...platformFields
                 }
             }
         }

@@ -28,6 +28,7 @@ graphqlCodegen {
         "$projectDir/src/main/resources/search.graphql".toString(),
         "$projectDir/src/main/resources/analytics.graphql".toString(),
         "$projectDir/src/main/resources/recommendation.graphql".toString(),
+        "$projectDir/src/main/resources/ingestion.graphql".toString(),
         "$projectDir/src/main/resources/auth.graphql".toString(),
     ]
     outputDir = new File("$projectDir/src/mainGeneratedGraphQL/java")

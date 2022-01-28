@@ -14,6 +14,8 @@ import com.linkedin.datahub.graphql.generated.Dashboard;
 import com.linkedin.datahub.graphql.generated.DashboardEditableProperties;
 import com.linkedin.datahub.graphql.generated.DashboardInfo;
 import com.linkedin.datahub.graphql.generated.DashboardProperties;
+import com.linkedin.datahub.graphql.generated.DataPlatform;
+import com.linkedin.datahub.graphql.generated.Domain;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.types.common.mappers.AuditStampMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
@@ -23,8 +25,11 @@ import com.linkedin.datahub.graphql.types.common.mappers.StringMapMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
+import com.linkedin.domain.Domains;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.metadata.key.DashboardKey;
+import com.linkedin.metadata.key.DataPlatformKey;
+import com.linkedin.metadata.utils.EntityKeyUtils;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 
@@ -51,6 +56,11 @@ public class DashboardMapper implements ModelMapper<EntityResponse, Dashboard> {
                 final DashboardKey gmsKey = new DashboardKey(data);
                 result.setDashboardId(gmsKey.getDashboardId());
                 result.setTool(gmsKey.getDashboardTool());
+                result.setPlatform(DataPlatform.builder()
+                    .setType(EntityType.DATA_PLATFORM)
+                    .setUrn(EntityKeyUtils
+                        .convertEntityKeyToUrn(new DataPlatformKey()
+                            .setPlatformName(gmsKey.getDashboardTool()), DATA_PLATFORM_ENTITY_NAME).toString()).build());
             } else if (DASHBOARD_INFO_ASPECT_NAME.equals(name)) {
                 final com.linkedin.dashboard.DashboardInfo gmsDashboardInfo = new com.linkedin.dashboard.DashboardInfo(data);
                 result.setInfo(mapDashboardInfo(gmsDashboardInfo));
@@ -79,6 +89,14 @@ public class DashboardMapper implements ModelMapper<EntityResponse, Dashboard> {
                     .setType(EntityType.CONTAINER)
                     .setUrn(gmsContainer.getContainer().toString())
                     .build());
+            } else if (DOMAINS_ASPECT_NAME.equals(name)) {
+                final Domains domains = new Domains(data);
+                // Currently we only take the first domain if it exists.
+                if (domains.getDomains().size() > 0) {
+                    result.setDomain(Domain.builder()
+                        .setType(EntityType.DOMAIN)
+                        .setUrn(domains.getDomains().get(0).toString()).build());
+                }
             }
         });
 

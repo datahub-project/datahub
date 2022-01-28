@@ -7,7 +7,6 @@ import {
 } from '../../../graphql/dashboard.generated';
 import { Dashboard, EntityType, PlatformType, SearchResult } from '../../../types.generated';
 import { EntityAndType } from '../../lineage/types';
-import { getLogoFromPlatform } from '../../shared/getLogoFromPlatform';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
 import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/SidebarOwnerSection';
@@ -19,7 +18,7 @@ import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
 import { GenericEntityProperties } from '../shared/types';
 import { DashboardPreview } from './preview/DashboardPreview';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
-import { capitalizeFirstLetter } from '../../shared/capitalizeFirstLetter';
+import { capitalizeFirstLetter } from '../../shared/textUtil';
 
 /**
  * Definition of the DataHub Dashboard entity.
@@ -121,8 +120,8 @@ export class DashboardEntity implements Entity<Dashboard> {
                 urn: `urn:li:dataPlatform:(${tool})`,
                 type: EntityType.DataPlatform,
                 name: tool,
-                info: {
-                    logoUrl: getLogoFromPlatform(tool),
+                properties: {
+                    logoUrl: dashboard?.platform?.properties?.logoUrl || '',
                     displayName: capitalizeFirstLetter(tool),
                     type: PlatformType.Others,
                     datasetNameDelimiter: '.',
@@ -142,6 +141,7 @@ export class DashboardEntity implements Entity<Dashboard> {
                 tags={data.globalTags || undefined}
                 owners={data.ownership?.owners}
                 glossaryTerms={data?.glossaryTerms}
+                logoUrl={data?.platform?.properties?.logoUrl}
             />
         );
     };
@@ -159,6 +159,7 @@ export class DashboardEntity implements Entity<Dashboard> {
                 owners={data.ownership?.owners}
                 glossaryTerms={data?.glossaryTerms}
                 insights={result.insights}
+                logoUrl={data?.platform?.properties?.logoUrl || ''}
             />
         );
     };
@@ -173,7 +174,7 @@ export class DashboardEntity implements Entity<Dashboard> {
                 (relationship) => ({ entity: relationship.entity, type: relationship.entity.type } as EntityAndType),
             ),
             downstreamChildren: undefined,
-            icon: getLogoFromPlatform(entity.tool),
+            icon: entity?.platform?.properties?.logoUrl || '',
             platform: entity.tool,
         };
     };
