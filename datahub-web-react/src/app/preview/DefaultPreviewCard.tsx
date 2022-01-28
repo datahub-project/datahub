@@ -2,7 +2,7 @@ import { Image, Tooltip, Typography } from 'antd';
 import React, { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-import { GlobalTags, Owner, GlossaryTerms, SearchInsight, Entity } from '../../types.generated';
+import { GlobalTags, Owner, GlossaryTerms, SearchInsight, Entity, Domain } from '../../types.generated';
 import { useEntityRegistry } from '../useEntityRegistry';
 import AvatarsGroup from '../shared/avatar/AvatarsGroup';
 import TagTermGroup from '../shared/tags/TagTermGroup';
@@ -22,6 +22,7 @@ interface Props {
     qualifier?: string | null;
     tags?: GlobalTags;
     owners?: Array<Owner> | null;
+    domain?: Domain | null;
     snippet?: React.ReactNode;
     insights?: Array<SearchInsight> | null;
     glossaryTerms?: GlossaryTerms;
@@ -131,6 +132,7 @@ export default function DefaultPreviewCard({
     snippet,
     insights,
     glossaryTerms,
+    domain,
     titleSizePx,
     dataTestID,
     onClick,
@@ -180,7 +182,12 @@ export default function DefaultPreviewCard({
                         </EntityTitle>
                     </Link>
                     <TagContainer>
-                        <TagTermGroup uneditableGlossaryTerms={glossaryTerms} uneditableTags={tags} maxShow={3} />
+                        <TagTermGroup
+                            domain={domain}
+                            uneditableGlossaryTerms={glossaryTerms}
+                            uneditableTags={tags}
+                            maxShow={3}
+                        />
                     </TagContainer>
                 </TitleContainer>
                 {description && description.length > 0 && (

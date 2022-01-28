@@ -85,8 +85,12 @@ export default function TagProfile() {
     const entityRegistry = useEntityRegistry();
     const history = useHistory();
 
+    console.log(data);
+
     const entityAndSchemaQuery = `tags:"${data?.tag?.name}" OR fieldTags:"${data?.tag?.name}" OR editedFieldTags:"${data?.tag?.name}"`;
     const entityQuery = `tags:"${data?.tag?.name}"`;
+
+    console.log(entityAndSchemaQuery);
 
     const allSearchResultsByType = useGetAllEntitySearchResults({
         query: entityAndSchemaQuery,

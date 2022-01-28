@@ -29,6 +29,9 @@ fragment relationshipFields on Entity {
         editableProperties {
             description
         }
+        domain {
+            ...entityDomain
+        }
     }
     ... on Dashboard {
         ...dashboardRelationshipsLeaf
@@ -49,6 +52,9 @@ fragment relationshipFields on Entity {
         }
         ownership {
             ...ownershipFields
+        }
+        domain {
+            ...entityDomain
         }
         ...chartRelationshipsLeaf
     }
