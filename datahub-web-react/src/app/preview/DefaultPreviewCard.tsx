@@ -164,8 +164,12 @@ export default function DefaultPreviewCard({
                             {platform && <PlatformText>{platform}</PlatformText>}
                             {(logoUrl || logoComponent || platform) && <PlatformDivider />}
                             <PlatformText>{type}</PlatformText>
-                            {domain && <PlatformDivider />}
-                            {domain && <PlatformText>{domain?.properties?.name}</PlatformText>}
+                            {domain && (
+                                <span>
+                                    <PlatformDivider />
+                                    <PlatformText>{domain?.properties?.name}</PlatformText>
+                                </span>
+                            )}
                             {path && (
                                 <span>
                                     <PlatformDivider />
