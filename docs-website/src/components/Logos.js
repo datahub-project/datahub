@@ -91,6 +91,11 @@ const companyLogos = [
     imageUrl: "/img/logos/companies/moloco.png",
     size: "default",
   },
+  {
+    name: "Stash",
+    imageUrl: "/img/logos/companies/stash.svg",
+    size: "default",
+  },
 ];
 
 const platformLogos = [
