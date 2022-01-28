@@ -1,5 +1,13 @@
 import React from 'react';
-import { EntityType, FabricType, Owner, GlobalTags, GlossaryTerms, SearchInsight } from '../../../../types.generated';
+import {
+    EntityType,
+    FabricType,
+    Owner,
+    GlobalTags,
+    GlossaryTerms,
+    SearchInsight,
+    Domain,
+} from '../../../../types.generated';
 import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { capitalizeFirstLetter } from '../../../shared/textUtil';
@@ -13,6 +21,7 @@ export const Preview = ({
     platformLogo,
     owners,
     globalTags,
+    domain,
     snippet,
     insights,
     glossaryTerms,
@@ -25,6 +34,7 @@ export const Preview = ({
     platformName: string;
     platformLogo?: string | null;
     owners?: Array<Owner> | null;
+    domain?: Domain | null;
     globalTags?: GlobalTags | null;
     snippet?: React.ReactNode | null;
     insights?: Array<SearchInsight> | null;
@@ -44,6 +54,7 @@ export const Preview = ({
             qualifier={origin}
             tags={globalTags || undefined}
             owners={owners}
+            domain={domain}
             snippet={snippet}
             glossaryTerms={glossaryTerms || undefined}
             insights={insights}
