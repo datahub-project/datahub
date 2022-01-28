@@ -15,7 +15,7 @@ import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Owners
 import { GenericEntityProperties } from '../shared/types';
 import { DataJobFlowTab } from '../shared/tabs/Entity/DataJobFlowTab';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
-import { capitalizeFirstLetter } from '../../shared/capitalizeFirstLetter';
+import { capitalizeFirstLetter } from '../../shared/textUtil';
 
 /**
  * Definition of the DataHub DataJob entity.

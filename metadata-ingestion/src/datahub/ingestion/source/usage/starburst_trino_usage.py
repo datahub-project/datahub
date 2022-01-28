@@ -236,8 +236,11 @@ if sys.version_info >= (3, 7):  # noqa: C901
         def _make_usage_stat(self, agg: AggregatedDataset) -> MetadataWorkUnit:
             return agg.make_usage_workunit(
                 self.config.bucket_duration,
-                lambda resource: builder.make_dataset_urn(
-                    "trino", resource.lower(), self.config.env
+                lambda resource: builder.make_dataset_urn_with_platform_instance(
+                    "trino",
+                    resource.lower(),
+                    self.config.platform_instance,
+                    self.config.env,
                 ),
                 self.config.top_n_queries,
             )

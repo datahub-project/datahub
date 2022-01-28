@@ -15,13 +15,16 @@ dependencies {
     compile (project(':metadata-service:factories')) {
         exclude group: 'org.neo4j.test'
     }
+    compile project(':metadata-service:auth-api')
     compile project(':metadata-service:restli-client')
     compile project(':metadata-io')
+    compile project(':ingestion-scheduler')
     compile project(':metadata-utils')
     compile project(":entity-registry")
     compile project(':metadata-events:mxe-avro-1.7')
     compile project(':metadata-events:mxe-registration')
     compile project(':metadata-events:mxe-utils-avro-1.7')
+
 
     compile externalDependency.elasticSearchRest
     compile externalDependency.kafkaAvroSerde
@@ -36,6 +39,7 @@ dependencies {
 
     runtime externalDependency.logbackClassic
 
+    testCompile externalDependency.mockito
     implementation externalDependency.awsMskIamAuth
 }
 

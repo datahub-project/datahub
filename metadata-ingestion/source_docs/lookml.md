@@ -18,6 +18,11 @@ This plugin extracts the following:
 
 **_NOTE_:** To get complete Looker metadata integration (including Looker dashboards and charts and lineage to the underlying Looker views, you must ALSO use the Looker source. Documentation for that is [here](./looker.md)
 
+| Capability | Status | Details | 
+| -----------| ------ | ---- |
+| Platform Instance | Partial (Lineage only) | Platform instances are supported for lineage edges between Looker and external data platforms like BigQuery, Snowflake etc. Not supported for Looker entities themselves. [link](../../docs/platform-instances.md) |
+
+
 ### Configuration Notes
 
 See the [Looker authentication docs](https://docs.looker.com/reference/api-and-integration/api-auth#authentication_with_an_sdk) for the steps to create a client ID and secret. 
@@ -46,17 +51,21 @@ source:
       client_id: client_id_from_looker 
       client_secret: client_secret_from_looker
       
-    # Alternative to API section above if you want a purely file-based ingestion with no api calls to Looker
+    # Alternative to API section above if you want a purely file-based ingestion with no api calls to Looker or if you want to provide platform_instance ids for your connections
     # project_name: PROJECT_NAME # See (https://docs.looker.com/data-modeling/getting-started/how-project-works) to understand what is your project name
     # connection_to_platform_map:
     #   connection_name_1:
     #     platform: snowflake # bigquery, hive, etc
     #     default_db: DEFAULT_DATABASE. # the default database configured for this connection
     #     default_schema: DEFAULT_SCHEMA # the default schema configured for this connection
+    #     platform_instance: snow_warehouse # optional
+    #     platform_env: PROD  # optional
     #   connection_name_2:
     #     platform: bigquery # snowflake, hive, etc
     #     default_db: DEFAULT_DATABASE. # the default database configured for this connection
     #     default_schema: DEFAULT_SCHEMA # the default schema configured for this connection
+    #     platform_instance: bq_warehouse # optional
+    #     platform_env: DEV  # optional
     
     github_info:
        repo: org/repo-name
@@ -79,6 +88,8 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `project_name` | ❓ if NOT using api         |           | The project name within with all the model files live. See (https://docs.looker.com/data-modeling/getting-started/how-project-works) to understand what the Looker project name should be. The simplest way to see your projects is to click on `Develop` followed by `Manage LookML Projects` in the Looker application. |
 | `connection_to_platform_map.<connection_name>` |          |            | Mappings between connection names in the model files to platform, database and schema values |
 | `connection_to_platform_map.<connection_name>.platform` | ❓ if NOT using api         |           | Mappings between connection name in the model files to platform name (e.g. snowflake, bigquery, etc) |
+| `connection_to_platform_map.<connection_name>.platform_instance` | ❓ if NOT using api or needing platform instances        |           | Mappings between connection name in the model files to platform instance. [link](../../docs/platform-instances.md) |
+| `connection_to_platform_map.<connection_name>.platform_env` | ❓ if NOT using api or needing platform instances        |           | Mappings between connection name in the model files to env (fabric) that the platform belongs to. [link](../../docs/platform-instances.md) |
 | `connection_to_platform_map.<connection_name>.default_db` | ❓ if NOT using api         |           | Mappings between connection name in the model files to default database configured for this platform on Looker |
 | `connection_to_platform_map.<connection_name>.default_schema` | ❓ if NOT using api         |           | Mappings between connection name in the model files to default schema configured for this platform on Looker |
 | `platform_name`                                |          | `"looker"` | Platform to use in namespace when constructing URNs.                    |
