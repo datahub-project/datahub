@@ -82,6 +82,14 @@ bigquery_common = {
     "google-cloud-logging"
 }
 
+snowflake_common = {
+    # Snowflake plugin utilizes sql common
+    *sql_common,
+    # Required for all Snowflake sources
+    "snowflake-sqlalchemy<=1.2.4",
+    "cryptography==3.4.8"
+}
+
 # Note: for all of these, framework_common will be added.
 plugins: Dict[str, Set[str]] = {
     # Sink plugins.
@@ -130,8 +138,8 @@ plugins: Dict[str, Set[str]] = {
     "redshift-usage": sql_common
     | {"sqlalchemy-redshift", "psycopg2-binary", "GeoAlchemy2"},
     "sagemaker": aws_common,
-    "snowflake": sql_common | {"snowflake-sqlalchemy<=1.2.4"},
-    "snowflake-usage": sql_common | {"snowflake-sqlalchemy<=1.2.4"},
+    "snowflake": snowflake_common,
+    "snowflake-usage": snowflake_common,
     "sqlalchemy": sql_common,
     "superset": {"requests"},
     "trino": sql_common

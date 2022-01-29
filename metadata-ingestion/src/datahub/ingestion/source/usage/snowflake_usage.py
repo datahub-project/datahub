@@ -254,7 +254,11 @@ class SnowflakeUsageSource(StatefulIngestionSourceBase):
     def _make_sql_engine(self) -> Engine:
         url = self.config.get_sql_alchemy_url()
         logger.debug(f"sql_alchemy_url={url}")
-        engine = create_engine(url, **self.config.options)
+        engine = create_engine(
+            url,
+            connect_args=self.config.get_sql_alchemy_connect_args(),
+            **self.config.options,
+        )
         return engine
 
     def _get_snowflake_history(self) -> Iterable[SnowflakeJoinedAccessEvent]:
