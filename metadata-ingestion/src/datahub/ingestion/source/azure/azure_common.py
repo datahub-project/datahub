@@ -1,10 +1,11 @@
+from typing import Optional
+
+from azure.storage.filedatalake import DataLakeServiceClient, FileSystemClient
+from pydantic import validator
+
 from datahub.configuration import ConfigModel
 from datahub.emitter.mce_builder import DEFAULT_ENV
 
-from azure.storage.filedatalake import FileSystemClient, DataLakeServiceClient
-
-from pydantic import validator
-from typing import Optional
 
 class AdlsSourceConfig(ConfigModel):
     """
@@ -28,14 +29,15 @@ class AdlsSourceConfig(ConfigModel):
 
     def get_service_client(self):
         return DataLakeServiceClient(
-            account_url=f"https://{self.account_name}.dfs.core.windows.net", 
-            credential=self.getCredentials())
-    
+            account_url=f"https://{self.account_name}.dfs.core.windows.net",
+            credential=self.getCredentials(),
+        )
+
     def getCredentials(self):
         return self.sas_token if (self.sas_token is not None) else self.account_key
 
-    @validator('sas_token')
+    @validator("sas_token")
     def check_sas_or_account_key(cls, sas_token, values):
-        if 'account_key' not in values and not sas_token:
-            raise ValueError('either account_key or sas_token is required')
+        if "account_key" not in values and not sas_token:
+            raise ValueError("either account_key or sas_token is required")
         return sas_token
