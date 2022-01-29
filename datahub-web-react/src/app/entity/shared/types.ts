@@ -18,6 +18,7 @@ import {
     OwnershipUpdate,
     SchemaMetadata,
     StringMapEntry,
+    Domain,
 } from '../../../types.generated';
 import { FetchedEntity } from '../../lineage/types';
 
@@ -48,6 +49,7 @@ export type GenericEntityProperties = {
     globalTags?: Maybe<GlobalTags>;
     glossaryTerms?: Maybe<GlossaryTerms>;
     ownership?: Maybe<Ownership>;
+    domain?: Maybe<Domain>;
     platform?: Maybe<DataPlatform>;
     customProperties?: Maybe<StringMapEntry[]>;
     institutionalMemory?: Maybe<InstitutionalMemory>;
