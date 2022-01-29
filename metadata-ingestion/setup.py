@@ -91,14 +91,6 @@ snowflake_common = {
     "cryptography==3.4.8"
 }
 
-snowflake_common = {
-    # Snowflake plugin utilizes sql common
-    *sql_common,
-    # Required for all Snowflake sources
-    "snowflake-sqlalchemy<=1.2.4",
-    "cryptography==3.4.8"
-}
-
 # Note: for all of these, framework_common will be added.
 plugins: Dict[str, Set[str]] = {
     # Sink plugins.
