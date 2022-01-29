@@ -1,17 +1,19 @@
 from dataclasses import dataclass, field
 from typing import List, Optional
+
 from azure.storage.filedatalake import FileSystemClient
-from datahub.configuration.common import AllowDenyPattern, ConfigModel
-from datahub.emitter.mce_builder import DEFAULT_ENV
-from datahub.ingestion.api.source import SourceReport
 from iceberg.core.filesystem.abfss_filesystem import AbfssFileSystem
 from iceberg.core.filesystem.filesystem_tables import FilesystemTables
 
+from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.emitter.mce_builder import DEFAULT_ENV
+from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.source.azure.azure_common import AdlsSourceConfig
 
 
 class IcebergProfilingConfig(ConfigModel):
     enabled: bool = False
+
 
 class IcebergSourceConfig(ConfigModel):
     env: str = DEFAULT_ENV
@@ -38,6 +40,7 @@ class IcebergSourceConfig(ConfigModel):
         if self.adls:
             return self.adls.get_abfss_url()
         raise ValueError("No filesystem client configured")
+
 
 @dataclass
 class IcebergSourceReport(SourceReport):

@@ -1,50 +1,44 @@
+import json
+import logging
 import uuid
 from typing import Any, Dict, Iterable, List, Optional, Tuple, Type, Union
 
+from azure.storage.filedatalake import PathProperties
+from iceberg.api import types as IcebergTypes
+from iceberg.api.table import Table
+from iceberg.api.types.types import NestedField
+
+from datahub.emitter.mce_builder import (
+    DEFAULT_ENV,
+    get_sys_time,
+    make_data_platform_urn,
+    make_dataset_urn,
+    make_user_urn,
+)
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.extractor import schema_util
-from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
+from datahub.ingestion.source.iceberg.iceberg_common import (
+    IcebergSourceConfig,
+    IcebergSourceReport,
+)
+from datahub.ingestion.source.iceberg.iceberg_profiler import IcebergProfiler
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
+from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
-    ArrayType,
-    ArrayTypeClass,
-    BooleanTypeClass,
-    BytesTypeClass,
-    MapTypeClass,
-    NullTypeClass,
-    NumberTypeClass,
-    RecordType,
-    RecordTypeClass,
     SchemaField,
-    SchemaFieldDataType,
     SchemalessClass,
     SchemaMetadata,
-    StringType,
-    StringTypeClass,
-    TimeTypeClass,
-    UnionTypeClass,
 )
-from datahub.emitter.mce_builder import make_dataset_urn, make_data_platform_urn, make_user_urn, get_sys_time, DEFAULT_ENV
-from iceberg.api.table import Table
-from iceberg.api import types as IcebergTypes
-from iceberg.api.types.types import NestedField
-
 from datahub.metadata.schema_classes import (
-    DatasetPropertiesClass, 
-    OwnerClass, 
-    OwnershipClass, 
-    OwnershipTypeClass, 
+    DatasetPropertiesClass,
     OperationClass,
     OperationTypeClass,
+    OwnerClass,
+    OwnershipClass,
+    OwnershipTypeClass,
 )
-import json
-import logging
-
-from datahub.ingestion.source.iceberg.iceberg_common import IcebergSourceConfig, IcebergSourceReport
-from datahub.ingestion.source.iceberg.iceberg_profiler import IcebergProfiler
-from azure.storage.filedatalake import PathProperties
 
 LOGGER = logging.getLogger(__name__)
 
@@ -57,6 +51,7 @@ _all_atomic_types = {
     IcebergTypes.BinaryType: "bytes",
     IcebergTypes.StringType: "string",
 }
+
 
 class IcebergSource(Source):
     config: IcebergSourceConfig
@@ -73,34 +68,49 @@ class IcebergSource(Source):
     def create(cls, config_dict, ctx):
         config = IcebergSourceConfig.parse_obj(config_dict)
         return cls(config, ctx)
-        
+
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         """
         Current code supports this table name scheme:
           {namespaceName}/{tableName}
         where each name is only one level deep
         """
-        namespaces = self.fsClient.get_paths(path=self.config.base_path, recursive=False)
+        namespaces = self.fsClient.get_paths(
+            path=self.config.base_path, recursive=False
+        )
         namespace: PathProperties
         for namespace in namespaces:
-            namespaceTables = self.fsClient.get_paths(path=namespace.name, recursive=False)
-            tablePath : PathProperties
+            namespaceTables = self.fsClient.get_paths(
+                path=namespace.name, recursive=False
+            )
+            tablePath: PathProperties
             for tablePath in namespaceTables:
                 try:
                     # TODO Stripping 'base_path/' from tablePath.  Weak code, need to be improved later
-                    namespace, tableName = tablePath.name[len(self.config.base_path)+1:].split('/')
+                    namespace, tableName = tablePath.name[
+                        len(self.config.base_path) + 1 :
+                    ].split("/")
                     datasetName = f"{namespace}.{tableName}"
                     if not self.config.table_pattern.allowed(datasetName):
                         self.report.report_dropped(datasetName)
                         continue
                     else:
-                        table: Table = self.icebergClient.load(f"{self.config.filesystem_url}/{tablePath.name}")
+                        table: Table = self.icebergClient.load(
+                            f"{self.config.filesystem_url}/{tablePath.name}"
+                        )
                         yield from self._createIcebergWorkunit(datasetName, table)
                 except Exception as e:
-                    self.report.report_failure("general", f"Failed to create workunit: {e}")
-                    LOGGER.exception(f"Exception while processing table {self.config.filesystem_url}/{tablePath.name}, skipping it.", e)
+                    self.report.report_failure(
+                        "general", f"Failed to create workunit: {e}"
+                    )
+                    LOGGER.exception(
+                        f"Exception while processing table {self.config.filesystem_url}/{tablePath.name}, skipping it.",
+                        e,
+                    )
 
-    def _createIcebergWorkunit(self, datasetName: str, table: Table) -> Iterable[MetadataWorkUnit]:
+    def _createIcebergWorkunit(
+        self, datasetName: str, table: Table
+    ) -> Iterable[MetadataWorkUnit]:
         self.report.report_table_scanned(datasetName)
         datasetUrn = make_dataset_urn(self.platform, datasetName, self.config.env)
         dataset_snapshot = DatasetSnapshot(
@@ -119,24 +129,26 @@ class IcebergSource(Source):
         dataset_snapshot.aspects.append(dataset_properties)
 
         # TODO: The following seems to go in OperationClass.  It is usually part of the "usage" source.  Should I create a new python module?
-        last_updated_time_millis=table.current_snapshot().timestamp_millis # Should we use last-updated-ms instead?  YES
+        last_updated_time_millis = (
+            table.current_snapshot().timestamp_millis
+        )  # Should we use last-updated-ms instead?  YES
         operation_aspect = OperationClass(
             timestampMillis=get_sys_time(),
             lastUpdatedTimestamp=last_updated_time_millis,
             operationType=OperationTypeClass.UNKNOWN,
         )
         # TODO: How do I add an operation_aspect?
-        
+
         if "owner" in table.properties():
             ownerEmail = table.properties()["owner"]
-            owners = [OwnerClass(
-                owner=make_user_urn(ownerEmail),
-                type=OwnershipTypeClass.PRODUCER,
-                source=None,
-            )]
-            dataset_ownership = OwnershipClass(
-                owners=owners
-            )
+            owners = [
+                OwnerClass(
+                    owner=make_user_urn(ownerEmail),
+                    type=OwnershipTypeClass.PRODUCER,
+                    source=None,
+                )
+            ]
+            dataset_ownership = OwnershipClass(owners=owners)
             dataset_snapshot.aspects.append(dataset_ownership)
 
         schemaMetadata = self._createSchemaMetadata(datasetName, table)
@@ -149,7 +161,9 @@ class IcebergSource(Source):
 
         if self.config.profiling.enabled:
             profiler = IcebergProfiler(self.report, self.config.profiling)
-            yield from profiler.profileTable(self.config.env, datasetName, table, schemaMetadata)
+            yield from profiler.profileTable(
+                self.config.env, datasetName, table, schemaMetadata
+            )
 
     def _createSchemaMetadata(self, dataset_name: str, table: Table) -> SchemaMetadata:
         schema_fields = self.get_schema_fields(dataset_name, table.schema().columns())
@@ -159,7 +173,7 @@ class IcebergSource(Source):
             platform=make_data_platform_urn(self.platform),
             version=0,
             hash="",
-            platformSchema=SchemalessClass(), # TODO: Not sure what to use here...
+            platformSchema=SchemalessClass(),  # TODO: Not sure what to use here...
             fields=schema_fields,
         )
         return schema_metadata
@@ -178,7 +192,9 @@ class IcebergSource(Source):
     ) -> List[SchemaField]:
         field_type: IcebergTypes.Type = column.type
         if field_type.is_primitive_type():
-            avro_schema = self.get_avro_schema_from_data_type(column.type, column.name)#_parse_datatype(column.type)
+            avro_schema = self.get_avro_schema_from_data_type(
+                column.type, column.name
+            )  # _parse_datatype(column.type)
             newfields = schema_util.avro_schema_to_mce_fields(
                 json.dumps(avro_schema), default_nullable=True
             )
@@ -220,6 +236,7 @@ class IcebergSource(Source):
     def close(self) -> None:
         pass
 
+
 def _parse_datatype(type: IcebergTypes.Type) -> Dict[str, Any]:
     # Check for complex types: struct, list, map
     if type.is_list_type():
@@ -248,6 +265,7 @@ def _parse_datatype(type: IcebergTypes.Type) -> Dict[str, Any]:
         # Primitive types
         return _parse_basic_datatype(type)
 
+
 def _parse_struct_fields(parts: tuple) -> Dict[str, Any]:
     fields = []
     for nestedField in parts:
@@ -260,6 +278,7 @@ def _parse_struct_fields(parts: tuple) -> Dict[str, Any]:
         "fields": fields,
         "native_data_type": "struct<{}>".format(parts),
     }
+
 
 def _parse_basic_datatype(type: IcebergTypes.PrimitiveType) -> Dict[str, Any]:
     """
@@ -276,19 +295,19 @@ def _parse_basic_datatype(type: IcebergTypes.PrimitiveType) -> Dict[str, Any]:
 
     # Fixed is a special case where it is not an atomic type and not a logical type.
     if isinstance(type, IcebergTypes.FixedType):
-        fixedType : IcebergTypes.FixedType = type
+        fixedType: IcebergTypes.FixedType = type
         return {
             "type": "fixed",
-            "name": "name", # TODO: Pass-in field name since it is required by Avro spec
+            "name": "name",  # TODO: Pass-in field name since it is required by Avro spec
             "size": fixedType.length,
             "native_data_type": repr(fixedType),
             "_nullable": True,
         }
-    
+
     # Not an atomic type, so check for a logical type.
     if isinstance(type, IcebergTypes.DecimalType):
         # Also of interest: https://avro.apache.org/docs/current/spec.html#Decimal
-        decimalType : IcebergTypes.DecimalType = type
+        decimalType: IcebergTypes.DecimalType = type
         return {
             "type": "fixed",
             "logicalType": "decimal",
@@ -298,7 +317,7 @@ def _parse_basic_datatype(type: IcebergTypes.PrimitiveType) -> Dict[str, Any]:
             "_nullable": True,
         }
     elif isinstance(type, IcebergTypes.UUIDType):
-        uuidType : IcebergTypes.UUIDType = type
+        uuidType: IcebergTypes.UUIDType = type
         return {
             "type": "string",
             "logicalType": "uuid",
@@ -306,7 +325,7 @@ def _parse_basic_datatype(type: IcebergTypes.PrimitiveType) -> Dict[str, Any]:
             "_nullable": True,
         }
     elif isinstance(type, IcebergTypes.DateType):
-        dateType : IcebergTypes.DateType = type
+        dateType: IcebergTypes.DateType = type
         return {
             "type": "int",
             "logicalType": "date",
@@ -314,7 +333,7 @@ def _parse_basic_datatype(type: IcebergTypes.PrimitiveType) -> Dict[str, Any]:
             "_nullable": True,
         }
     elif isinstance(type, IcebergTypes.TimeType):
-        timeType : IcebergTypes.TimeType = type
+        timeType: IcebergTypes.TimeType = type
         return {
             "type": "long",
             "logicalType": "time-micros",
@@ -322,19 +341,19 @@ def _parse_basic_datatype(type: IcebergTypes.PrimitiveType) -> Dict[str, Any]:
             "_nullable": True,
         }
     elif isinstance(type, IcebergTypes.TimestampType):
-        timestampType : IcebergTypes.TimestampType = type
+        timestampType: IcebergTypes.TimestampType = type
         # TODO: there are 2 options for this type: with or without timezone
         # Avro supports 2 types of timestamp:
         #  - Timestamp: independent of a particular timezone or calendar (TZ information is lost)
         #  - Local Timestamp: represents a timestamp in a local timezone, regardless of what specific time zone is considered local
-        utcAdjustment: bool = True
+        # utcAdjustment: bool = True
         return {
             "type": "long",
-            "logicalType": "timestamp-micros", # or "local-timestamp-micros"
+            "logicalType": "timestamp-micros",  # or "local-timestamp-micros"
             "native_data_type": repr(timestampType),
             "_nullable": True,
             # The following seems to only be available in Netflix implementation.
-            # "adjust-to-utc": utcAdjustment, 
+            # "adjust-to-utc": utcAdjustment,
         }
 
     return {"type": "null", "native_data_type": repr(type)}
