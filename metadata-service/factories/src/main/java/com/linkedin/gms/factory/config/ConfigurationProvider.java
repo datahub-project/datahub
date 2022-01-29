@@ -1,6 +1,7 @@
-package com.linkedin.gms.factory.auth;
+package com.linkedin.gms.factory.config;
 
 import com.datahub.authentication.AuthenticationConfiguration;
+import com.linkedin.metadata.config.IngestionConfiguration;
 import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -13,5 +14,12 @@ import org.springframework.context.annotation.PropertySource;
 @PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
 @Data
 public class ConfigurationProvider {
+  /**
+   * Authentication related configs
+   */
   private AuthenticationConfiguration authentication;
+  /**
+   * Ingestion related configs
+   */
+  private IngestionConfiguration ingestion;
 }

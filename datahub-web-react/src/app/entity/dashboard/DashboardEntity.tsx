@@ -18,7 +18,8 @@ import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
 import { GenericEntityProperties } from '../shared/types';
 import { DashboardPreview } from './preview/DashboardPreview';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
-import { capitalizeFirstLetter } from '../../shared/capitalizeFirstLetter';
+import { capitalizeFirstLetter } from '../../shared/textUtil';
+import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 
 /**
  * Definition of the DataHub Dashboard entity.
@@ -104,6 +105,9 @@ export class DashboardEntity implements Entity<Dashboard> {
                 {
                     component: SidebarOwnerSection,
                 },
+                {
+                    component: SidebarDomainSection,
+                },
             ]}
         />
     );
@@ -142,6 +146,7 @@ export class DashboardEntity implements Entity<Dashboard> {
                 owners={data.ownership?.owners}
                 glossaryTerms={data?.glossaryTerms}
                 logoUrl={data?.platform?.properties?.logoUrl}
+                domain={data.domain}
             />
         );
     };
@@ -160,6 +165,7 @@ export class DashboardEntity implements Entity<Dashboard> {
                 glossaryTerms={data?.glossaryTerms}
                 insights={result.insights}
                 logoUrl={data?.platform?.properties?.logoUrl || ''}
+                domain={data.domain}
             />
         );
     };

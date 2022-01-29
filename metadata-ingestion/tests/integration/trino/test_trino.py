@@ -14,7 +14,7 @@ FROZEN_TIME = "2021-09-23 12:00:00"
 
 @freeze_time(FROZEN_TIME)
 @pytest.mark.skipif(sys.version_info < (3, 7), reason="trino requires Python 3.7+")
-@pytest.mark.integration
+@pytest.mark.slow_integration
 def test_trino_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/trino"
 

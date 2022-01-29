@@ -19,11 +19,12 @@ import { SidebarTagsSection } from '../shared/containers/profile/sidebar/Sidebar
 import { SidebarStatsSection } from '../shared/containers/profile/sidebar/Dataset/StatsSidebarSection';
 import StatsTab from '../shared/tabs/Dataset/Stats/StatsTab';
 import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
-import { capitalizeFirstLetter } from '../../shared/capitalizeFirstLetter';
+import { capitalizeFirstLetter } from '../../shared/textUtil';
 import ViewDefinitionTab from '../shared/tabs/Dataset/View/ViewDefinitionTab';
 import { SidebarViewDefinitionSection } from '../shared/containers/profile/sidebar/Dataset/View/SidebarViewDefinitionSection';
 import { SidebarRecommendationsSection } from '../shared/containers/profile/sidebar/Recommendations/SidebarRecommendationsSection';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
+import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 
 const SUBTYPES = {
     VIEW: 'view',
@@ -165,6 +166,9 @@ export class DatasetEntity implements Entity<Dataset> {
                     component: SidebarOwnerSection,
                 },
                 {
+                    component: SidebarDomainSection,
+                },
+                {
                     component: SidebarRecommendationsSection,
                 },
             ]}
@@ -193,6 +197,7 @@ export class DatasetEntity implements Entity<Dataset> {
                 owners={data.ownership?.owners}
                 globalTags={data.globalTags}
                 glossaryTerms={data.glossaryTerms}
+                domain={data.domain}
             />
         );
     };
@@ -209,6 +214,7 @@ export class DatasetEntity implements Entity<Dataset> {
                 platformLogo={data.platform.properties?.logoUrl}
                 owners={data.ownership?.owners}
                 globalTags={data.globalTags}
+                domain={data.domain}
                 glossaryTerms={data.glossaryTerms}
                 subtype={data.subTypes?.typeNames?.[0]}
                 snippet={

@@ -1,8 +1,16 @@
 import React from 'react';
-import { AccessLevel, EntityType, GlobalTags, GlossaryTerms, Owner, SearchInsight } from '../../../../types.generated';
+import {
+    AccessLevel,
+    Domain,
+    EntityType,
+    GlobalTags,
+    GlossaryTerms,
+    Owner,
+    SearchInsight,
+} from '../../../../types.generated';
 import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
-import { capitalizeFirstLetter } from '../../../shared/capitalizeFirstLetter';
+import { capitalizeFirstLetter } from '../../../shared/textUtil';
 
 export const DashboardPreview = ({
     urn,
@@ -13,6 +21,7 @@ export const DashboardPreview = ({
     owners,
     tags,
     glossaryTerms,
+    domain,
     insights,
     logoUrl,
 }: {
@@ -24,6 +33,7 @@ export const DashboardPreview = ({
     owners?: Array<Owner> | null;
     tags?: GlobalTags;
     glossaryTerms?: GlossaryTerms | null;
+    domain?: Domain | null;
     insights?: Array<SearchInsight> | null;
     logoUrl?: string | null;
 }): JSX.Element => {
@@ -42,6 +52,7 @@ export const DashboardPreview = ({
             owners={owners}
             tags={tags}
             glossaryTerms={glossaryTerms || undefined}
+            domain={domain}
             insights={insights}
         />
     );

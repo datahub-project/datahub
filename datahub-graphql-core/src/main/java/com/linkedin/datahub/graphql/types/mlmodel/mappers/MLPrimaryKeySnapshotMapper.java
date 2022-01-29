@@ -49,7 +49,9 @@ public class MLPrimaryKeySnapshotMapper implements ModelMapper<MLPrimaryKeySnaps
                 MLPrimaryKeyProperties primaryKeyProperties = MLPrimaryKeyProperties.class.cast(aspect);
                 result.setPrimaryKeyProperties(MLPrimaryKeyPropertiesMapper.map(primaryKeyProperties));
                 result.setDescription(primaryKeyProperties.getDescription());
-                result.setDataType(MLFeatureDataType.valueOf(primaryKeyProperties.getDataType().toString()));
+                if (primaryKeyProperties.getDataType() != null) {
+                    result.setDataType(MLFeatureDataType.valueOf(primaryKeyProperties.getDataType().toString()));
+                }
             } else if (aspect instanceof InstitutionalMemory) {
                 InstitutionalMemory institutionalMemory = InstitutionalMemory.class.cast(aspect);
                 result.setInstitutionalMemory(InstitutionalMemoryMapper.map(institutionalMemory));

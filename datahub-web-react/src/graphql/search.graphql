@@ -53,6 +53,9 @@ fragment searchResults on SearchResults {
                 subTypes {
                     typeNames
                 }
+                domain {
+                    ...entityDomain
+                }
             }
             ... on CorpUser {
                 username
@@ -127,6 +130,9 @@ fragment searchResults on SearchResults {
                 platform {
                     ...platformFields
                 }
+                domain {
+                    ...entityDomain
+                }
             }
             ... on Chart {
                 urn
@@ -158,6 +164,9 @@ fragment searchResults on SearchResults {
                 platform {
                     ...platformFields
                 }
+                domain {
+                    ...entityDomain
+                }
             }
             ... on DataFlow {
                 urn
@@ -185,6 +194,9 @@ fragment searchResults on SearchResults {
                 platform {
                     ...platformFields
                 }
+                domain {
+                    ...entityDomain
+                }
             }
             ... on DataJob {
                 urn
@@ -209,6 +221,9 @@ fragment searchResults on SearchResults {
                 editableProperties {
                     description
                 }
+                domain {
+                    ...entityDomain
+                }
             }
             ... on GlossaryTerm {
                 name
@@ -221,6 +236,16 @@ fragment searchResults on SearchResults {
                         key
                         value
                     }
+                }
+            }
+            ... on Domain {
+                urn
+                properties {
+                    name
+                    description
+                }
+                ownership {
+                    ...ownershipFields
                 }
             }
             ... on MLFeatureTable {
@@ -298,6 +323,12 @@ fragment searchResults on SearchResults {
                 }
                 ... on DataPlatform {
                     ...platformFields
+                }
+                ... on Domain {
+                    urn
+                    properties {
+                        name
+                    }
                 }
             }
         }

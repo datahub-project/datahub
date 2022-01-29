@@ -8,6 +8,7 @@ from datahub.configuration.common import (
     ConfigurationError,
     DynamicTypedConfig,
 )
+from datahub.configuration.source_common import DatasetSourceConfigBase
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.ingestion_state_provider import IngestionStateProvider, JobId
 from datahub.ingestion.api.source import Source
@@ -46,7 +47,7 @@ class StatefulIngestionConfig(ConfigModel):
         return values
 
 
-class StatefulIngestionConfigBase(ConfigModel):
+class StatefulIngestionConfigBase(DatasetSourceConfigBase):
     """
     Base configuration class for stateful ingestion for source configs to inherit from.
     """

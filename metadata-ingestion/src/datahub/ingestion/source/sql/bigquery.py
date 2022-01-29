@@ -18,6 +18,7 @@ from google.cloud.logging_v2.client import Client as GCPLoggingClient
 from sqlalchemy.engine.reflection import Inspector
 
 from datahub.configuration import ConfigModel
+from datahub.configuration.common import ConfigurationError
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.emitter import mce_builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -204,6 +205,16 @@ class BigQueryConfig(BaseTimeWindowConfig, SQLAlchemyConfig):
         # based on the credentials or environment variables.
         # See https://github.com/mxmzdlv/pybigquery#authentication.
         return f"{self.scheme}://"
+
+    @pydantic.validator("platform_instance")
+    def bigquery_doesnt_need_platform_instance(cls, v):
+        raise ConfigurationError(
+            "BigQuery project ids are globally unique. You do not need to specify a platform instance."
+        )
+
+    @pydantic.validator("platform")
+    def platform_is_always_bigquery(cls, v):
+        return "bigquery"
 
 
 class BigQuerySource(SQLAlchemySource):
@@ -449,13 +460,14 @@ class BigQuerySource(SQLAlchemySource):
             for ref_table in sorted(self.lineage_metadata[str(bq_table)]):
                 upstream_table = BigQueryTableRef.from_string_name(ref_table)
                 upstream_table_class = UpstreamClass(
-                    mce_builder.make_dataset_urn(
+                    mce_builder.make_dataset_urn_with_platform_instance(
                         self.platform,
                         "{project}.{database}.{table}".format(
                             project=upstream_table.project,
                             database=upstream_table.dataset,
                             table=upstream_table.table,
                         ),
+                        self.config.platform_instance,
                         self.config.env,
                     ),
                     DatasetLineageTypeClass.TRANSFORMED,

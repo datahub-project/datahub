@@ -1,0 +1,26 @@
+namespace com.linkedin.domain
+
+/**
+ * Information about a Domain
+ */
+@Aspect = {
+  "name": "domainProperties"
+}
+record DomainProperties {
+
+  /**
+   * Display name of the Domain
+   */
+  @Searchable = {
+    "fieldType": "TEXT_PARTIAL",
+    "enableAutocomplete": true,
+    "boostScore": 10.0
+  }
+  name: string
+
+  /**
+   * Description of the Domain
+   */
+  description: optional string
+
+}

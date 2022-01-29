@@ -43,6 +43,7 @@ fragment ownershipFields on Ownership {
                 type
                 name
                 info {
+                    displayName
                     email
                     admins {
                         urn
@@ -159,6 +160,9 @@ fragment nonRecursiveDatasetFields on Dataset {
     subTypes {
         typeNames
     }
+    domain {
+        ...entityDomain
+    }
 }
 
 fragment nonRecursiveDataFlowFields on DataFlow {
@@ -186,6 +190,9 @@ fragment nonRecursiveDataFlowFields on DataFlow {
     platform {
         ...platformFields
     }
+    domain {
+        ...entityDomain
+    }
 }
 
 fragment nonRecursiveDataJobFields on DataJob {
@@ -201,6 +208,9 @@ fragment nonRecursiveDataJobFields on DataJob {
     }
     globalTags {
         ...globalTagsFields
+    }
+    domain {
+        ...entityDomain
     }
 }
 
@@ -257,6 +267,9 @@ fragment dataJobFields on DataJob {
     glossaryTerms {
         ...glossaryTerms
     }
+    domain {
+        ...entityDomain
+    }
 }
 
 fragment dashboardFields on Dashboard {
@@ -306,6 +319,9 @@ fragment dashboardFields on Dashboard {
     }
     platform {
         ...platformFields
+    }
+    domain {
+        ...entityDomain
     }
 }
 
@@ -604,5 +620,12 @@ fragment nonConflictingPlatformFields on DataPlatform {
         displayName
         datasetNameDelimiter
         logoUrl
+    }
+}
+
+fragment entityDomain on Domain {
+    urn
+    properties {
+        name
     }
 }

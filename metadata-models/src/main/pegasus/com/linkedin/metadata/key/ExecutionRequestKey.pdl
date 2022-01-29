@@ -1,0 +1,14 @@
+namespace com.linkedin.metadata.key
+
+/**
+ * Key for an DataHub Execution Request
+ */
+@Aspect = {
+  "name": "dataHubExecutionRequestKey"
+}
+record ExecutionRequestKey {
+  /**
+   * A unique id for the DataHub execution request.
+   */
+  id: string
+}

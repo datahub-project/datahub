@@ -105,6 +105,51 @@ def test_lookml_ingest_offline(pytestconfig, tmp_path, mock_time):
 
 @freeze_time(FROZEN_TIME)
 @pytest.mark.skipif(sys.version_info < (3, 7), reason="lkml requires Python 3.7+")
+def test_lookml_ingest_offline_platform_instance(pytestconfig, tmp_path, mock_time):
+    """New form of config with offline specification of connection defaults"""
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/lookml"
+    mce_out = "lookml_mces_offline_platform_instance.json"
+    pipeline = Pipeline.create(
+        {
+            "run_id": "lookml-test",
+            "source": {
+                "type": "lookml",
+                "config": {
+                    "base_folder": str(test_resources_dir / "lkml_samples"),
+                    "connection_to_platform_map": {
+                        "my_connection": {
+                            "platform": "snowflake",
+                            "platform_instance": "warehouse",
+                            "platform_env": "dev",
+                            "default_db": "default_db",
+                            "default_schema": "default_schema",
+                        }
+                    },
+                    "parse_table_names_from_sql": True,
+                    "project_name": "lkml_samples",
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": f"{tmp_path}/{mce_out}",
+                },
+            },
+        }
+    )
+    pipeline.run()
+    pipeline.pretty_print_summary()
+    pipeline.raise_from_status(raise_warnings=True)
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=tmp_path / mce_out,
+        golden_path=test_resources_dir / mce_out,
+    )
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.skipif(sys.version_info < (3, 7), reason="lkml requires Python 3.7+")
 def test_lookml_ingest_api_bigquery(pytestconfig, tmp_path, mock_time):
     # test with BigQuery connection
     ingestion_test(

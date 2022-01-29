@@ -3,9 +3,17 @@ import { Tag } from 'antd';
 import * as React from 'react';
 import styled from 'styled-components';
 
-import { AggregationMetadata, DataPlatform, EntityType, GlossaryTerm, Tag as TagType } from '../../types.generated';
+import {
+    AggregationMetadata,
+    DataPlatform,
+    Domain,
+    EntityType,
+    GlossaryTerm,
+    Tag as TagType,
+} from '../../types.generated';
 import { StyledTag } from '../entity/shared/components/styled/StyledTag';
-import { capitalizeFirstLetter } from '../shared/capitalizeFirstLetter';
+import { capitalizeFirstLetter } from '../shared/textUtil';
+import { DomainLink } from '../shared/tags/DomainLink';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { ENTITY_FILTER_NAME } from './utils/constants';
 
@@ -70,6 +78,15 @@ export const SearchFilterLabel = ({ aggregation, field }: Props) => {
                 <span>
                     {platform.properties?.displayName || platform.name} ({countText})
                 </span>
+            </>
+        );
+    }
+
+    if (aggregation.entity?.type === EntityType.Domain) {
+        const domain = aggregation.entity as Domain;
+        return (
+            <>
+                <DomainLink urn={domain.urn} name={entityRegistry.getDisplayName(EntityType.Domain, domain)} />
             </>
         );
     }
