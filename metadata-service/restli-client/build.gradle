@@ -9,8 +9,6 @@ dependencies {
 
   dataModel project(':li-utils')
 
-  compile externalDependency.gmaDaoApi
-  compile externalDependency.gmaRestliResources
   compile externalDependency.lombok
   annotationProcessor externalDependency.lombok
 

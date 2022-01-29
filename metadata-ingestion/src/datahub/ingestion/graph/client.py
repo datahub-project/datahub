@@ -2,18 +2,20 @@ import json
 import logging
 import urllib.parse
 from json.decoder import JSONDecodeError
-from typing import Any, Dict, List, Optional, Type, TypeVar
+from typing import Any, Dict, List, Optional, Type
 
-from avrogen.dict_wrapper import DictWrapper
 from requests.adapters import Response
 from requests.models import HTTPError
 
 from datahub.configuration.common import ConfigModel, OperationalError
+from datahub.emitter.mce_builder import Aspect
 from datahub.emitter.rest_emitter import DatahubRestEmitter
-from datahub.metadata.schema_classes import DatasetUsageStatisticsClass, OwnershipClass
-
-# This bound isn't tight, but it's better than nothing.
-Aspect = TypeVar("Aspect", bound=DictWrapper)
+from datahub.metadata.schema_classes import (
+    DatasetUsageStatisticsClass,
+    GlobalTagsClass,
+    GlossaryTermsClass,
+    OwnershipClass,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +26,8 @@ class DatahubClientConfig(ConfigModel):
     server: str = "http://localhost:8080"
     token: Optional[str]
     timeout_sec: Optional[int]
+    retry_status_codes: Optional[List[int]]
+    retry_max_times: Optional[int]
     extra_headers: Optional[Dict[str, str]]
     ca_certificate_path: Optional[str]
     max_threads: int = 1
@@ -37,6 +41,8 @@ class DataHubGraph(DatahubRestEmitter):
             token=self.config.token,
             connect_timeout_sec=self.config.timeout_sec,  # reuse timeout_sec for connect timeout
             read_timeout_sec=self.config.timeout_sec,
+            retry_status_codes=self.config.retry_status_codes,
+            retry_max_times=self.config.retry_max_times,
             extra_headers=self.config.extra_headers,
             ca_certificate_path=self.config.ca_certificate_path,
         )
@@ -114,6 +120,22 @@ class DataHubGraph(DatahubRestEmitter):
             aspect="ownership",
             aspect_type_name="com.linkedin.common.Ownership",
             aspect_type=OwnershipClass,
+        )
+
+    def get_tags(self, entity_urn: str) -> Optional[GlobalTagsClass]:
+        return self.get_aspect(
+            entity_urn=entity_urn,
+            aspect="globalTags",
+            aspect_type_name="com.linkedin.common.GlobalTags",
+            aspect_type=GlobalTagsClass,
+        )
+
+    def get_glossary_terms(self, entity_urn: str) -> Optional[GlossaryTermsClass]:
+        return self.get_aspect(
+            entity_urn=entity_urn,
+            aspect="glossaryTerms",
+            aspect_type_name="com.linkedin.common.GlossaryTerms",
+            aspect_type=GlossaryTermsClass,
         )
 
     def get_usage_aspects_from_urn(

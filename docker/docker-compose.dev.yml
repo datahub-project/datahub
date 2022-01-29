@@ -20,7 +20,7 @@ services:
         APP_ENV: dev
     volumes:
       - ./elasticsearch-setup/create-indices.sh:/create-indices.sh
-      - ../metadata-service/restli-impl/src/main/resources/index/:/index
+      - ../metadata-service/restli-servlet-impl/src/main/resources/index/:/index
 
   kafka-setup:
     image: linkedin/datahub-kafka-setup:debug

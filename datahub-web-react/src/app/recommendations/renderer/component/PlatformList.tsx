@@ -36,8 +36,8 @@ export const PlatformList = ({ content, onClick }: Props) => {
                     onClick={() => onClick?.(index)}
                 >
                     <LogoCountCard
-                        name={platform.platform.info?.displayName || ''}
-                        logoUrl={platform.platform.info?.logoUrl || ''}
+                        name={platform.platform.properties?.displayName || ''}
+                        logoUrl={platform.platform.properties?.logoUrl || ''}
                         count={platform.count}
                     />
                 </Link>

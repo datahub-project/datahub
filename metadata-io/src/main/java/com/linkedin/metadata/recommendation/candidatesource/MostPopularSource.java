@@ -1,8 +1,8 @@
 package com.linkedin.metadata.recommendation.candidatesource;
 
 import com.codahale.metrics.Timer;
+import com.datahub.util.exception.ESQueryException;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.metadata.dao.exception.ESQueryException;
 import com.linkedin.metadata.datahubusage.DataHubUsageEventConstants;
 import com.linkedin.metadata.datahubusage.DataHubUsageEventType;
 import com.linkedin.metadata.recommendation.EntityProfileParams;

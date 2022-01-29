@@ -92,6 +92,7 @@ export default function AddTagTermModal({
                     input: {
                         types: [type],
                         query,
+                        limit: 25,
                     },
                 },
             });

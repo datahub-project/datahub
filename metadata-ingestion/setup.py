@@ -139,7 +139,7 @@ plugins: Dict[str, Set[str]] = {
     | {"sqlalchemy-redshift", "psycopg2-binary", "GeoAlchemy2"},
     "sagemaker": aws_common,
     "snowflake": snowflake_common,
-    "snowflake-usage": snowflake_common,
+    "snowflake-usage": snowflake_common | {"more-itertools>=8.12.0"},
     "sqlalchemy": sql_common,
     "superset": {"requests"},
     "trino": sql_common

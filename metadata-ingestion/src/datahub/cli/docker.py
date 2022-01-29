@@ -133,8 +133,8 @@ def should_use_neo4j_for_graph_service(graph_service_override: Optional[str]) ->
 @click.option(
     "--version",
     type=str,
-    default="head",
-    help="Datahub version to be deployed. If not set, deploy latest",
+    default=None,
+    help="Datahub version to be deployed. If not set, deploy using the defaults from the quickstart compose",
 )
 @click.option(
     "--build-locally",
@@ -218,7 +218,8 @@ def quickstart(
             logger.debug(f"Copied to {path}")
 
     # set version
-    os.environ["DATAHUB_VERSION"] = version
+    if version is not None:
+        os.environ["DATAHUB_VERSION"] = version
 
     base_command: List[str] = [
         "docker-compose",

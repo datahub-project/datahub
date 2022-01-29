@@ -37,13 +37,41 @@ class DbtTestConfig:
         self.output_path = f"{tmp_path}/{output_file}"
 
         self.golden_path = f"{test_resources_dir}/{golden_file}"
-
         self.source_config = dict(
             {
                 "manifest_path": self.manifest_path,
                 "catalog_path": self.catalog_path,
                 "sources_path": self.sources_path,
                 "target_platform": self.target_platform,
+                "enable_meta_mapping": False,
+                "write_semantics": "OVERRIDE",
+                "meta_mapping": {
+                    "business_owner": {
+                        "match": ".*",
+                        "operation": "add_owner",
+                        "config": {"owner_type": "user"},
+                    },
+                    "has_pii": {
+                        "match": True,
+                        "operation": "add_tag",
+                        "config": {"tag": "has_pii_test"},
+                    },
+                    "int_property": {
+                        "match": 1,
+                        "operation": "add_tag",
+                        "config": {"tag": "int_meta_property"},
+                    },
+                    "double_property": {
+                        "match": 2.5,
+                        "operation": "add_term",
+                        "config": {"term": "double_meta_property"},
+                    },
+                    "data_governance.team_owner": {
+                        "match": "Finance",
+                        "operation": "add_term",
+                        "config": {"term": "Finance_test"},
+                    },
+                },
             },
             **source_config_modifiers,
         )
@@ -87,6 +115,7 @@ def test_dbt_ingest(pytestconfig, tmp_path, mock_time, **kwargs):
             source_config_modifiers={
                 "load_schemas": True,
                 "disable_dbt_node_creation": True,
+                "enable_meta_mapping": True,
             },
         ),
         DbtTestConfig(
@@ -135,7 +164,7 @@ def test_dbt_ingest(pytestconfig, tmp_path, mock_time, **kwargs):
             tmp_path,
             "dbt_enabled_with_schemas_mces.json",
             "dbt_enabled_with_schemas_mces_golden.json",
-            source_config_modifiers={"load_schemas": True},
+            source_config_modifiers={"load_schemas": True, "enable_meta_mapping": True},
         ),
         DbtTestConfig(
             "dbt-test-without-schemas-dbt-enabled",
@@ -163,7 +192,6 @@ def test_dbt_ingest(pytestconfig, tmp_path, mock_time, **kwargs):
     ]
 
     for config in config_variants:
-
         # test manifest, catalog, sources are generated from https://github.com/kevinhu/sample-dbt
         pipeline = Pipeline.create(
             {
