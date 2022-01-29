@@ -13,6 +13,8 @@ FROZEN_TIME = "2021-09-23 12:00:00"
 
 
 def skip_test():
+    # so that i dont have to comment out sys in imports
+    print(sys.executable)
     return 1
 
 
