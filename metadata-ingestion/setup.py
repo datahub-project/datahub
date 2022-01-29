@@ -83,6 +83,22 @@ bigquery_common = {
     "more-itertools>=8.12.0",
 }
 
+snowflake_common = {
+    # Snowflake plugin utilizes sql common
+    *sql_common,
+    # Required for all Snowflake sources
+    "snowflake-sqlalchemy<=1.2.4",
+    "cryptography==3.4.8"
+}
+
+snowflake_common = {
+    # Snowflake plugin utilizes sql common
+    *sql_common,
+    # Required for all Snowflake sources
+    "snowflake-sqlalchemy<=1.2.4",
+    "cryptography==3.4.8"
+}
+
 # Note: for all of these, framework_common will be added.
 plugins: Dict[str, Set[str]] = {
     # Sink plugins.
@@ -134,9 +150,8 @@ plugins: Dict[str, Set[str]] = {
     "redshift-usage": sql_common
     | {"sqlalchemy-redshift", "psycopg2-binary", "GeoAlchemy2"},
     "sagemaker": aws_common,
-    "snowflake": sql_common | {"snowflake-sqlalchemy<=1.2.4"},
-    "snowflake-usage": sql_common
-    | {"snowflake-sqlalchemy<=1.2.4", "more-itertools>=8.12.0"},
+    "snowflake": snowflake_common,
+    "snowflake-usage": snowflake_common | {"more-itertools>=8.12.0"},
     "sqlalchemy": sql_common,
     "superset": {"requests"},
     "trino": sql_common
