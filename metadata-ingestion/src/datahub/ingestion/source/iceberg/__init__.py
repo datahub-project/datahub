@@ -53,6 +53,7 @@ _all_atomic_types = {
     IcebergTypes.StringType: "string",
 }
 
+
 class IcebergSource(Source):
     config: IcebergSourceConfig
     report: IcebergSourceReport = IcebergSourceReport()
@@ -231,6 +232,7 @@ class IcebergSource(Source):
     def close(self) -> None:
         pass
 
+
 def _parse_datatype(type: IcebergTypes.Type) -> Dict[str, Any]:
     # Check for complex types: struct, list, map
     if type.is_list_type():
@@ -259,6 +261,7 @@ def _parse_datatype(type: IcebergTypes.Type) -> Dict[str, Any]:
         # Primitive types
         return _parse_basic_datatype(type)
 
+
 def _parse_struct_fields(parts: tuple) -> Dict[str, Any]:
     fields = []
     for nestedField in parts:
@@ -271,6 +274,7 @@ def _parse_struct_fields(parts: tuple) -> Dict[str, Any]:
         "fields": fields,
         "native_data_type": "struct<{}>".format(parts),
     }
+
 
 def _parse_basic_datatype(type: IcebergTypes.PrimitiveType) -> Dict[str, Any]:
     """
