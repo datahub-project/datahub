@@ -48,24 +48,22 @@ public class MetadataChangeLogProcessor {
   public void consume(final ConsumerRecord<String, GenericRecord> consumerRecord) {
     kafkaLagStats.update(System.currentTimeMillis() - consumerRecord.timestamp());
     final GenericRecord record = consumerRecord.value();
-    log.debug("Got Generic MCL");
+    log.debug("Got Generic MCL on topic: {}, partition: {}, offset: {}", consumerRecord.topic(), consumerRecord.partition(), consumerRecord.offset());
     MetricUtils.counter(this.getClass(), "received_mcl_count").inc();
 
     MetadataChangeLog event;
     try {
       event = EventUtils.avroToPegasusMCL(record);
-      log.debug(String.format("Successfully converted Avro MCL to Pegasus MCL. urn: %s, key: %s", event.getEntityUrn(),
-          event.getEntityKeyAspect()));
+      log.debug("Successfully converted Avro MCL to Pegasus MCL. urn: {}, key: {}", event.getEntityUrn(),
+          event.getEntityKeyAspect());
     } catch (Exception e) {
       MetricUtils.counter(this.getClass(), "avro_to_pegasus_conversion_failure").inc();
-      log.error("Error deserializing message: {}", e.toString());
+      log.error("Error deserializing message due to: ", e);
       log.error("Message: {}", record.toString());
       return;
     }
 
-    // TODO: debug
-    log.info(
-        String.format("Invoking MCL hooks for urn: %s, key: %s", event.getEntityUrn(), event.getEntityKeyAspect()));
+    log.debug("Invoking MCL hooks for urn: {}, key: {}", event.getEntityUrn(), event.getEntityKeyAspect());
 
     // Here - plug in additional "custom processor hooks"
     for (MetadataChangeLogHook hook : this.hooks) {
@@ -75,12 +73,11 @@ public class MetadataChangeLogProcessor {
       } catch (Exception e) {
         // Just skip this hook and continue.
         MetricUtils.counter(this.getClass(), hook.getClass().getSimpleName() + "_failure").inc();
-        log.error(String.format("Failed to execute MCL hook with name %s", hook.getClass().getCanonicalName()), e);
+        log.error("Failed to execute MCL hook with name {}", hook.getClass().getCanonicalName(), e);
       }
     }
-    // TODO: debug
     MetricUtils.counter(this.getClass(), "consumed_mcl_count").inc();
-    log.info(String.format("Successfully completed MCL hooks for urn: %s, key: %s", event.getEntityUrn(),
-        event.getEntityKeyAspect()));
+    log.debug("Successfully completed MCL hooks for urn: {}, key: {}", event.getEntityUrn(),
+        event.getEntityKeyAspect());
   }
 }
