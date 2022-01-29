@@ -2,12 +2,13 @@ package com.linkedin.metadata.kafka;
 
 import com.codahale.metrics.Histogram;
 import com.codahale.metrics.MetricRegistry;
+import com.codahale.metrics.Timer;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.metadata.EventUtils;
 import com.linkedin.metadata.kafka.config.MetadataChangeLogProcessorCondition;
-import com.linkedin.metadata.kafka.hook.ingestion.IngestionSchedulerHook;
 import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
 import com.linkedin.metadata.kafka.hook.UpdateIndicesHook;
+import com.linkedin.metadata.kafka.hook.ingestion.IngestionSchedulerHook;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.Topics;
@@ -27,7 +28,7 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @Component
 @Conditional(MetadataChangeLogProcessorCondition.class)
-@Import({ UpdateIndicesHook.class, IngestionSchedulerHook.class })
+@Import({UpdateIndicesHook.class, IngestionSchedulerHook.class})
 @EnableKafka
 public class MetadataChangeLogProcessor {
 
@@ -35,8 +36,7 @@ public class MetadataChangeLogProcessor {
   private final Histogram kafkaLagStats = MetricUtils.get().histogram(MetricRegistry.name(this.getClass(), "kafkaLag"));
 
   @Autowired
-  public MetadataChangeLogProcessor(
-      @Nonnull final UpdateIndicesHook updateIndicesHook,
+  public MetadataChangeLogProcessor(@Nonnull final UpdateIndicesHook updateIndicesHook,
       @Nonnull final IngestionSchedulerHook ingestionSchedulerHook) {
     this.hooks = ImmutableList.of(updateIndicesHook, ingestionSchedulerHook);
   }
@@ -49,37 +49,38 @@ public class MetadataChangeLogProcessor {
     kafkaLagStats.update(System.currentTimeMillis() - consumerRecord.timestamp());
     final GenericRecord record = consumerRecord.value();
     log.debug("Got Generic MCL");
+    MetricUtils.counter(this.getClass(), "received_mcl_count").inc();
 
     MetadataChangeLog event;
     try {
       event = EventUtils.avroToPegasusMCL(record);
-      log.debug(String.format("Successfully converted Avro MCL to Pegasus MCL. urn: %s, key: %s",
-          event.getEntityUrn(),
+      log.debug(String.format("Successfully converted Avro MCL to Pegasus MCL. urn: %s, key: %s", event.getEntityUrn(),
           event.getEntityKeyAspect()));
-
     } catch (Exception e) {
+      MetricUtils.counter(this.getClass(), "avro_to_pegasus_conversion_failure").inc();
       log.error("Error deserializing message: {}", e.toString());
       log.error("Message: {}", record.toString());
       return;
     }
 
     // TODO: debug
-    log.info(String.format("Invoking MCL hooks for urn: %s, key: %s",
-        event.getEntityUrn(),
-        event.getEntityKeyAspect()));
+    log.info(
+        String.format("Invoking MCL hooks for urn: %s, key: %s", event.getEntityUrn(), event.getEntityKeyAspect()));
 
     // Here - plug in additional "custom processor hooks"
     for (MetadataChangeLogHook hook : this.hooks) {
-      try {
+      try (Timer.Context ignored = MetricUtils.timer(this.getClass(), hook.getClass().getSimpleName() + "_latency")
+          .time()) {
         hook.invoke(event);
       } catch (Exception e) {
         // Just skip this hook and continue.
+        MetricUtils.counter(this.getClass(), hook.getClass().getSimpleName() + "_failure").inc();
         log.error(String.format("Failed to execute MCL hook with name %s", hook.getClass().getCanonicalName()), e);
       }
     }
     // TODO: debug
-    log.info(String.format("Successfully completed MCL hooks for urn: %s, key: %s",
-        event.getEntityUrn(),
+    MetricUtils.counter(this.getClass(), "consumed_mcl_count").inc();
+    log.info(String.format("Successfully completed MCL hooks for urn: %s, key: %s", event.getEntityUrn(),
         event.getEntityKeyAspect()));
   }
 }
