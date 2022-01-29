@@ -28,7 +28,7 @@ class AdlsSourceConfig(ConfigModel):
 
     def get_service_client(self):
         return DataLakeServiceClient(
-            account_url="{}://{}.dfs.core.windows.net".format("https", self.account_name), 
+            account_url=f"https://{self.account_name}.dfs.core.windows.net", 
             credential=self.getCredentials())
     
     def getCredentials(self):

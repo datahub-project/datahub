@@ -26,7 +26,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     TimeTypeClass,
     UnionTypeClass,
 )
-from datahub.emitter.mce_builder import make_dataset_urn, make_data_platform_urn, get_sys_time, DEFAULT_ENV
+from datahub.emitter.mce_builder import make_dataset_urn, make_data_platform_urn, make_user_urn, get_sys_time, DEFAULT_ENV
 from iceberg.api.table import Table
 from iceberg.api import types as IcebergTypes
 from iceberg.api.types.types import NestedField
@@ -89,7 +89,6 @@ class IcebergSource(Source):
                 try:
                     # TODO Stripping 'base_path/' from tablePath.  Weak code, need to be improved later
                     namespace, tableName = tablePath.name[len(self.config.base_path)+1:].split('/')
-                    # TODO I'm replacing '/' with '.' for the dataset name.  Is this wrong?  Should I keep the slashes?
                     datasetName = f"{namespace}.{tableName}"
                     if not self.config.table_pattern.allowed(datasetName):
                         self.report.report_dropped(datasetName)
@@ -131,7 +130,7 @@ class IcebergSource(Source):
         if "owner" in table.properties():
             ownerEmail = table.properties()["owner"]
             owners = [OwnerClass(
-                owner=f"urn:li:corpuser:{ownerEmail}",
+                owner=make_user_urn(ownerEmail),
                 type=OwnershipTypeClass.PRODUCER,
                 source=None,
             )]
@@ -221,7 +220,7 @@ class IcebergSource(Source):
     def close(self) -> None:
         pass
 
-def _parse_datatype(type: IcebergTypes.Type):
+def _parse_datatype(type: IcebergTypes.Type) -> Dict[str, Any]:
     # Check for complex types: struct, list, map
     if type.is_list_type():
         listType: IcebergTypes.ListType = type
@@ -249,7 +248,7 @@ def _parse_datatype(type: IcebergTypes.Type):
         # Primitive types
         return _parse_basic_datatype(type)
 
-def _parse_struct_fields(parts: tuple):
+def _parse_struct_fields(parts: tuple) -> Dict[str, Any]:
     fields = []
     for nestedField in parts:
         field_name = nestedField.name
@@ -262,7 +261,7 @@ def _parse_struct_fields(parts: tuple):
         "native_data_type": "struct<{}>".format(parts),
     }
 
-def _parse_basic_datatype(type: IcebergTypes.PrimitiveType):
+def _parse_basic_datatype(type: IcebergTypes.PrimitiveType) -> Dict[str, Any]:
     """
     See https://iceberg.apache.org/#spec/#avro
     """
