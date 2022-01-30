@@ -29,7 +29,7 @@ class StatefulIngestionConfig(ConfigModel):
     """
 
     enabled: bool = False
-    max_checkpoint_state_size: int = 2 ** 24  # 16MB
+    max_checkpoint_state_size: int = 2**24  # 16MB
     state_provider: Optional[DynamicTypedConfig] = DynamicTypedConfig(
         type="datahub", config=DatahubIngestionStateProviderConfig()
     )
