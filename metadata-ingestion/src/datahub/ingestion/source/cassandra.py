@@ -55,7 +55,6 @@ class CassandraConfig(ConfigModel):
     ips: List[str] = ['localhost']
     username: Optional[str] = None
     password: Optional[str] = None
-    keyspace: str
     cluster_kwargs: dict = {}
     env: str = DEFAULT_ENV
     schema_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
@@ -88,7 +87,7 @@ class CassandraSource(Source):
         self._client = Cluster(ips,
                                auth_provider=auth_provider,
                                **kwargs)
-        self._client.connect(self.config.keyspace)
+        self._client.connect()
 
     @classmethod
     def create(cls,

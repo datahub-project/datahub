@@ -28,7 +28,6 @@ source:
       - ip2
     username: user
     password: pass
-    keyspace: keyspace_test
     schema_pattern:
       deny:
         - "system"
@@ -45,7 +44,6 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 |-----------------------------| -------- |---------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `username`                  |          |               | Database username.                                                                                                                                                                      |
 | `password`                  |          |               | Database password.                                                                                                                                                                      |
-| `keyspace`                  | ✅       |               | Host URL and port to connect to.                                                                                                                                                        |
 | `ips`                       |          |`["localhost"]`| List of IP addresses for nodes in cluster.                                                                                                                                              |
 | `env`                       |          | `"PROD"`      | Environment to use in namespace when constructing URNs.                                                                                                                                 |
 | `cluster_kwargs`            |          | `{}`          | Kwargs passed to Cluster class.                                                                                                                                                         |

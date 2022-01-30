@@ -5,7 +5,6 @@ source:
   config:
     ips:
       - localhost
-    keyspace: keyspace_test
     schema_pattern:
       deny:
         - "system"
