@@ -402,6 +402,7 @@ def verify_token(token: str, user: str):
                     {exp_datetime.strftime('%Y:%m:%d %H:%M')}"
             )
             return True
+        log.error("user id does not match token payload user id!")
         return False
     except ExpiredSignatureError:
         log.error("token has expired!")

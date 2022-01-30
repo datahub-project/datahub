@@ -5,7 +5,7 @@ import { gql, useLazyQuery, useQuery } from '@apollo/client';
 import { useBaseEntity } from '../../../EntityContext';
 import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
 import { useGetAuthenticatedUser } from '../../../../../useGetAuthenticatedUser';
-import { GetMyToken } from '../../../../dataset/whoAmI';
+import { FindMyUrn, FindWhoAmI, GetMyToken } from '../../../../dataset/whoAmI';
 import adhocConfig from '../../../../../../conf/Adhoc';
 
 function GetProfileTimestamps(datasetUrn) {
@@ -66,7 +66,8 @@ export const EditSampleForm = () => {
     const baseEntity = useBaseEntity<GetDatasetQuery>();
     const currDataset = baseEntity && baseEntity?.dataset?.urn;
     const user = useGetAuthenticatedUser();
-    const userUrn = user?.corpUser?.urn || '';
+    const userUrn = FindMyUrn();
+    const currUser = FindWhoAmI();
     const userToken = GetMyToken(userUrn);
     const [selectedValue, setSelectedValue] = useState('');
     const [hasSelectedDate, setHasSelectedDate] = useState(false);
@@ -137,7 +138,7 @@ export const EditSampleForm = () => {
             timestamp: selectedValue,
             dataset_name: currDataset,
         };
-        console.log(`data to be submitted is ${JSON.stringify(deleteSubmission)}`);
+        // console.log(`data to be submitted is ${JSON.stringify(deleteSubmission)}`);
         axios
             .post(delUrl, deleteSubmission)
             .then((response) => printSuccessMsg(response.status))
@@ -151,12 +152,11 @@ export const EditSampleForm = () => {
         const formTimestamp = toggle ? Date.now() : Number(selectedValue);
         const createSubmission = {
             user_token: userToken,
-            requestor: userUrn,
+            requestor: currUser,
             dataset_name: currDataset,
             samples: formData,
             timestamp: formTimestamp,
-        };
-        console.log(`data to be submitted is ${JSON.stringify(createSubmission)}`);
+        };        
         axios
             .post(makeUrl, createSubmission)
             .then((response) => printSuccessMsg(response.status))
