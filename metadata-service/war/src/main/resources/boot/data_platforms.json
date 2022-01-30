@@ -365,5 +365,15 @@
       "type": "OTHERS",
       "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/elasticsearchlogo.png"
     }
+  },
+  {
+    "urn": "urn:li:dataPlatform:cassandra",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "cassandra",
+      "displayName": "Cassandra",
+      "type": "KEY_VALUE_STORE",
+      "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/cassandralogo.png"
+    }
   }
 ]
