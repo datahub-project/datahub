@@ -4,7 +4,6 @@ import { Button, Form, message, Select } from 'antd';
 import { gql, useLazyQuery, useQuery } from '@apollo/client';
 import { useBaseEntity } from '../../../EntityContext';
 import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
-import { useGetAuthenticatedUser } from '../../../../../useGetAuthenticatedUser';
 import { FindMyUrn, FindWhoAmI, GetMyToken } from '../../../../dataset/whoAmI';
 import adhocConfig from '../../../../../../conf/Adhoc';
 
@@ -65,7 +64,6 @@ export const EditSampleForm = () => {
     `;
     const baseEntity = useBaseEntity<GetDatasetQuery>();
     const currDataset = baseEntity && baseEntity?.dataset?.urn;
-    const user = useGetAuthenticatedUser();
     const userUrn = FindMyUrn();
     const currUser = FindWhoAmI();
     const userToken = GetMyToken(userUrn);
@@ -156,7 +154,7 @@ export const EditSampleForm = () => {
             dataset_name: currDataset,
             samples: formData,
             timestamp: formTimestamp,
-        };        
+        };
         axios
             .post(makeUrl, createSubmission)
             .then((response) => printSuccessMsg(response.status))
