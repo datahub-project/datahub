@@ -285,7 +285,6 @@ entry_points = {
         "data-lake = datahub.ingestion.source.data_lake:DataLakeSource",
         "dbt = datahub.ingestion.source.dbt:DBTSource",
         "cassandra = datahub.ingestion.source.cassandra:CassandraSource",
-        "clickhouse = datahub.ingestion.source.clickhouse:ClickhouseSource",
         "druid = datahub.ingestion.source.sql.druid:DruidSource",
         "elasticsearch = datahub.ingestion.source.elastic_search:ElasticsearchSource",
         "feast = datahub.ingestion.source.feast:FeastSource",
