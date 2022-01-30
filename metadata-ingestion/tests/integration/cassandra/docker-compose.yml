@@ -1,0 +1,10 @@
+version: "3"
+
+services:
+  cassandra:
+    container_name: "cassandra_datahub_test"
+    image: cassandra:3.11
+    volumes:
+      - "./cassandra_setup.cql:/cassandra_setup.cql"
+    ports:
+      - "9042:9042"

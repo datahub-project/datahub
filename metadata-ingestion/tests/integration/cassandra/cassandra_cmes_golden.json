@@ -1,0 +1,887 @@
+[
+{
+    "auditHeader": null,
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:cassandra,keyspace_test.table_example,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {
+                            "bloom_filter_fp_chance": "0.01",
+                            "caching": "{'keys': 'ALL', 'rows_per_partition': 'NONE'}",
+                            "cdc": "None",
+                            "comment": "",
+                            "compaction": "{'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4'}",
+                            "compression": "{'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor'}",
+                            "crc_check_chance": "1.0",
+                            "dclocal_read_repair_chance": "0.1",
+                            "default_time_to_live": "0",
+                            "gc_grace_seconds": "864000",
+                            "max_index_interval": "2048",
+                            "memtable_flush_period_in_ms": "0",
+                            "min_index_interval": "128",
+                            "read_repair_chance": "0.0",
+                            "speculative_retry": "99PERCENTILE"
+                        },
+                        "externalUrl": null,
+                        "description": "",
+                        "uri": null,
+                        "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "keyspace_test.table_example",
+                        "platform": "urn:li:dataPlatform:cassandra",
+                        "version": 0,
+                        "created": {
+                            "time": 1643504885828,
+                            "actor": "urn:li:corpuser:etl",
+                            "impersonator": null
+                        },
+                        "lastModified": {
+                            "time": 1643504885828,
+                            "actor": "urn:li:corpuser:etl",
+                            "impersonator": null
+                        },
+                        "deleted": null,
+                        "dataset": null,
+                        "cluster": null,
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.OtherSchema": {
+                                "rawSchema": "CREATE TABLE keyspace_test.table_example (\n    example_column_ascii ascii,\n    example_column_bigint bigint,\n    example_column_blob blob,\n    example_column_boolean boolean,\n    example_column_date date,\n    example_column_decimal decimal,\n    example_column_double double,\n    example_column_float float,\n    example_column_frozen frozen<set<int>>,\n    example_column_inet inet,\n    example_column_int int,\n    example_column_list list<int>,\n    example_column_map map<int, text>,\n    example_column_set set<int>,\n    example_column_smallint smallint,\n    example_column_text text static,\n    example_column_time time,\n    example_column_timestamp timestamp,\n    example_column_timeuuid timeuuid,\n    example_column_tinyint tinyint,\n    example_column_tuple frozen<tuple<int, int>>,\n    example_column_uuid uuid,\n    example_column_varchar text,\n    example_column_varint varint,\n    PRIMARY KEY ((example_column_ascii, example_column_bigint), example_column_blob, example_column_boolean)\n) WITH CLUSTERING ORDER BY (example_column_blob ASC, example_column_boolean ASC)\n    AND bloom_filter_fp_chance = 0.01\n    AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}\n    AND comment = ''\n    AND compaction = {'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4'}\n    AND compression = {'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor'}\n    AND crc_check_chance = 1.0\n    AND dclocal_read_repair_chance = 0.1\n    AND default_time_to_live = 0\n    AND gc_grace_seconds = 864000\n    AND max_index_interval = 2048\n    AND memtable_flush_period_in_ms = 0\n    AND min_index_interval = 128\n    AND read_repair_chance = 0.0\n    AND speculative_retry = '99PERCENTILE';\n\nCREATE MATERIALIZED VIEW keyspace_test.view_example AS\n    SELECT example_column_ascii, example_column_bigint, example_column_blob, example_column_boolean, example_column_date\n    FROM keyspace_test.table_example\n    WHERE example_column_ascii IS NOT NULL AND example_column_bigint IS NOT NULL AND example_column_blob IS NOT NULL AND example_column_boolean IS NOT NULL\n    PRIMARY KEY (example_column_ascii, example_column_bigint, example_column_blob, example_column_boolean)\n    WITH CLUSTERING ORDER BY (example_column_bigint ASC, example_column_blob ASC, example_column_boolean ASC)\n    AND bloom_filter_fp_chance = 0.01\n    AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}\n    AND comment = ''\n    AND compaction = {'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4'}\n    AND compression = {'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor'}\n    AND crc_check_chance = 1.0\n    AND dclocal_read_repair_chance = 0.1\n    AND default_time_to_live = 0\n    AND gc_grace_seconds = 864000\n    AND max_index_interval = 2048\n    AND memtable_flush_period_in_ms = 0\n    AND min_index_interval = 128\n    AND read_repair_chance = 0.0\n    AND speculative_retry = '99PERCENTILE';"
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "example_column_ascii",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "ascii",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "example_column_bigint",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "bigint",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "example_column_blob",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.BytesType": {}
+                                    }
+                                },
+                                "nativeDataType": "blob",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "example_column_boolean",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.BooleanType": {}
+                                    }
+                                },
+                                "nativeDataType": "boolean",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "example_column_date",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.DateType": {}
+                                    }
+                                },
+                                "nativeDataType": "date",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "example_column_decimal",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "decimal",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "example_column_double",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "double",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "example_column_float",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "float",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "example_column_frozen",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.RecordType": {}
+                                    }
+                                },
+                                "nativeDataType": "frozen<set<int>>",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "example_column_inet",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "inet",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "example_column_int",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "int",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "example_column_list",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.ArrayType": {
+                                            "nestedType": [
+                                                "int"
+                                            ]
+                                        }
+                                    }
+                                },
+                                "nativeDataType": "list<int>",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "example_column_map",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.MapType": {
+                                            "keyType": "int",
+                                            "valueType": "text"
+                                        }
+                                    }
+                                },
+                                "nativeDataType": "map<int, text>",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "example_column_set",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.ArrayType": {
+                                            "nestedType": [
+                                                "int"
+                                            ]
+                                        }
+                                    }
+                                },
+                                "nativeDataType": "set<int>",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "example_column_smallint",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "smallint",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "example_column_text",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "text",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "example_column_time",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
+                                    }
+                                },
+                                "nativeDataType": "time",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "example_column_timestamp",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
+                                    }
+                                },
+                                "nativeDataType": "timestamp",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "example_column_timeuuid",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "timeuuid",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "example_column_tinyint",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "tinyint",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "example_column_tuple",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.RecordType": {}
+                                    }
+                                },
+                                "nativeDataType": "frozen<tuple<int, int>>",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "example_column_uuid",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "uuid",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "example_column_varchar",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "text",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "example_column_varint",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "varint",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            }
+                        ],
+                        "primaryKeys": [
+                            "example_column_ascii",
+                            "example_column_bigint",
+                            "example_column_blob",
+                            "example_column_boolean"
+                        ],
+                        "foreignKeysSpecs": null,
+                        "foreignKeys": null
+                    }
+                }
+            ]
+        }
+    },
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1643504885829,
+        "runId": "cassandra-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:cassandra,keyspace_test.table_example_counter,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {
+                            "bloom_filter_fp_chance": "0.01",
+                            "caching": "{'keys': 'ALL', 'rows_per_partition': 'NONE'}",
+                            "cdc": "None",
+                            "comment": "",
+                            "compaction": "{'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4'}",
+                            "compression": "{'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor'}",
+                            "crc_check_chance": "1.0",
+                            "dclocal_read_repair_chance": "0.1",
+                            "default_time_to_live": "0",
+                            "gc_grace_seconds": "864000",
+                            "max_index_interval": "2048",
+                            "memtable_flush_period_in_ms": "0",
+                            "min_index_interval": "128",
+                            "read_repair_chance": "0.0",
+                            "speculative_retry": "99PERCENTILE"
+                        },
+                        "externalUrl": null,
+                        "description": "",
+                        "uri": null,
+                        "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "keyspace_test.table_example_counter",
+                        "platform": "urn:li:dataPlatform:cassandra",
+                        "version": 0,
+                        "created": {
+                            "time": 1643504885837,
+                            "actor": "urn:li:corpuser:etl",
+                            "impersonator": null
+                        },
+                        "lastModified": {
+                            "time": 1643504885837,
+                            "actor": "urn:li:corpuser:etl",
+                            "impersonator": null
+                        },
+                        "deleted": null,
+                        "dataset": null,
+                        "cluster": null,
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.OtherSchema": {
+                                "rawSchema": "CREATE TABLE keyspace_test.table_example_counter (\n    example_column_int int PRIMARY KEY,\n    example_column_counter counter\n) WITH bloom_filter_fp_chance = 0.01\n    AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}\n    AND comment = ''\n    AND compaction = {'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4'}\n    AND compression = {'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor'}\n    AND crc_check_chance = 1.0\n    AND dclocal_read_repair_chance = 0.1\n    AND default_time_to_live = 0\n    AND gc_grace_seconds = 864000\n    AND max_index_interval = 2048\n    AND memtable_flush_period_in_ms = 0\n    AND min_index_interval = 128\n    AND read_repair_chance = 0.0\n    AND speculative_retry = '99PERCENTILE';"
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "example_column_int",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "int",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "example_column_counter",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "counter",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            }
+                        ],
+                        "primaryKeys": [
+                            "example_column_int"
+                        ],
+                        "foreignKeysSpecs": null,
+                        "foreignKeys": null
+                    }
+                }
+            ]
+        }
+    },
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1643504885837,
+        "runId": "cassandra-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:cassandra,keyspace_test.table_example_with_udts,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {
+                            "bloom_filter_fp_chance": "0.01",
+                            "caching": "{'keys': 'ALL', 'rows_per_partition': 'NONE'}",
+                            "cdc": "None",
+                            "comment": "",
+                            "compaction": "{'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4'}",
+                            "compression": "{'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor'}",
+                            "crc_check_chance": "1.0",
+                            "dclocal_read_repair_chance": "0.1",
+                            "default_time_to_live": "0",
+                            "gc_grace_seconds": "864000",
+                            "max_index_interval": "2048",
+                            "memtable_flush_period_in_ms": "0",
+                            "min_index_interval": "128",
+                            "read_repair_chance": "0.0",
+                            "speculative_retry": "99PERCENTILE"
+                        },
+                        "externalUrl": null,
+                        "description": "",
+                        "uri": null,
+                        "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "keyspace_test.table_example_with_udts",
+                        "platform": "urn:li:dataPlatform:cassandra",
+                        "version": 0,
+                        "created": {
+                            "time": 1643504885840,
+                            "actor": "urn:li:corpuser:etl",
+                            "impersonator": null
+                        },
+                        "lastModified": {
+                            "time": 1643504885840,
+                            "actor": "urn:li:corpuser:etl",
+                            "impersonator": null
+                        },
+                        "deleted": null,
+                        "dataset": null,
+                        "cluster": null,
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.OtherSchema": {
+                                "rawSchema": "CREATE TABLE keyspace_test.table_example_with_udts (\n    name text PRIMARY KEY,\n    addresses map<text, frozen<udt_address>>\n) WITH bloom_filter_fp_chance = 0.01\n    AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}\n    AND comment = ''\n    AND compaction = {'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4'}\n    AND compression = {'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor'}\n    AND crc_check_chance = 1.0\n    AND dclocal_read_repair_chance = 0.1\n    AND default_time_to_live = 0\n    AND gc_grace_seconds = 864000\n    AND max_index_interval = 2048\n    AND memtable_flush_period_in_ms = 0\n    AND min_index_interval = 128\n    AND read_repair_chance = 0.0\n    AND speculative_retry = '99PERCENTILE';"
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "name",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "text",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "addresses",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.MapType": {
+                                            "keyType": "text",
+                                            "valueType": "frozen<udt_address>"
+                                        }
+                                    }
+                                },
+                                "nativeDataType": "map<text, frozen<udt_address>>",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            }
+                        ],
+                        "primaryKeys": [
+                            "name"
+                        ],
+                        "foreignKeysSpecs": null,
+                        "foreignKeys": null
+                    }
+                }
+            ]
+        }
+    },
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1643504885841,
+        "runId": "cassandra-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:cassandra,keyspace_test.view_example,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {
+                            "bloom_filter_fp_chance": "0.01",
+                            "caching": "{'keys': 'ALL', 'rows_per_partition': 'NONE'}",
+                            "cdc": "None",
+                            "comment": "",
+                            "compaction": "{'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4'}",
+                            "compression": "{'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor'}",
+                            "crc_check_chance": "1.0",
+                            "dclocal_read_repair_chance": "0.1",
+                            "default_time_to_live": "0",
+                            "gc_grace_seconds": "864000",
+                            "max_index_interval": "2048",
+                            "memtable_flush_period_in_ms": "0",
+                            "min_index_interval": "128",
+                            "read_repair_chance": "0.0",
+                            "speculative_retry": "99PERCENTILE"
+                        },
+                        "externalUrl": null,
+                        "description": "",
+                        "uri": null,
+                        "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "keyspace_test.view_example",
+                        "platform": "urn:li:dataPlatform:cassandra",
+                        "version": 0,
+                        "created": {
+                            "time": 1643504885844,
+                            "actor": "urn:li:corpuser:etl",
+                            "impersonator": null
+                        },
+                        "lastModified": {
+                            "time": 1643504885844,
+                            "actor": "urn:li:corpuser:etl",
+                            "impersonator": null
+                        },
+                        "deleted": null,
+                        "dataset": null,
+                        "cluster": null,
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.OtherSchema": {
+                                "rawSchema": "CREATE MATERIALIZED VIEW keyspace_test.view_example AS\n    SELECT example_column_ascii, example_column_bigint, example_column_blob, example_column_boolean, example_column_date\n    FROM keyspace_test.table_example\n    WHERE example_column_ascii IS NOT NULL AND example_column_bigint IS NOT NULL AND example_column_blob IS NOT NULL AND example_column_boolean IS NOT NULL\n    PRIMARY KEY (example_column_ascii, example_column_bigint, example_column_blob, example_column_boolean)\n    WITH CLUSTERING ORDER BY (example_column_bigint ASC, example_column_blob ASC, example_column_boolean ASC)\n    AND bloom_filter_fp_chance = 0.01\n    AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}\n    AND comment = ''\n    AND compaction = {'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4'}\n    AND compression = {'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor'}\n    AND crc_check_chance = 1.0\n    AND dclocal_read_repair_chance = 0.1\n    AND default_time_to_live = 0\n    AND gc_grace_seconds = 864000\n    AND max_index_interval = 2048\n    AND memtable_flush_period_in_ms = 0\n    AND min_index_interval = 128\n    AND read_repair_chance = 0.0\n    AND speculative_retry = '99PERCENTILE';"
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "example_column_ascii",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "ascii",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "example_column_bigint",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "bigint",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "example_column_blob",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.BytesType": {}
+                                    }
+                                },
+                                "nativeDataType": "blob",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "example_column_boolean",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.BooleanType": {}
+                                    }
+                                },
+                                "nativeDataType": "boolean",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "example_column_date",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.DateType": {}
+                                    }
+                                },
+                                "nativeDataType": "date",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            }
+                        ],
+                        "primaryKeys": [
+                            "example_column_ascii",
+                            "example_column_bigint",
+                            "example_column_blob",
+                            "example_column_boolean"
+                        ],
+                        "foreignKeysSpecs": null,
+                        "foreignKeys": null
+                    }
+                }
+            ]
+        }
+    },
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1643504885844,
+        "runId": "cassandra-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+}
+]

@@ -1,0 +1,16 @@
+run_id: cassandra-test
+
+source:
+  type: cassandra
+  config:
+    ips:
+      - localhost
+    keyspace: keyspace_test
+    schema_pattern:
+      deny:
+        - "system"
+
+sink:
+  type: file
+  config:
+    filename: ./cassandra_mces.json

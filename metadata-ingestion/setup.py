@@ -93,6 +93,7 @@ plugins: Dict[str, Set[str]] = {
         "apache-airflow >= 1.10.2",
     },
     # Source plugins
+    "cassandra": {"cassandra-driver"},
     "athena": sql_common | {"PyAthena[SQLAlchemy]"},
     "azure-ad": set(),
     "bigquery": sql_common | bigquery_common | {"pybigquery >= 0.6.0"},
@@ -283,6 +284,7 @@ entry_points = {
         "bigquery-usage = datahub.ingestion.source.usage.bigquery_usage:BigQueryUsageSource",
         "data-lake = datahub.ingestion.source.data_lake:DataLakeSource",
         "dbt = datahub.ingestion.source.dbt:DBTSource",
+        "cassandra = datahub.ingestion.source.cassandra:CassandraSource",
         "druid = datahub.ingestion.source.sql.druid:DruidSource",
         "elasticsearch = datahub.ingestion.source.elastic_search:ElasticsearchSource",
         "feast = datahub.ingestion.source.feast:FeastSource",
