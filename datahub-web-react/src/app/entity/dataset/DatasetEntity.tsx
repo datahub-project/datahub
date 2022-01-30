@@ -28,6 +28,7 @@ import { SidebarViewDefinitionSection } from '../shared/containers/profile/sideb
 import { SidebarRecommendationsSection } from '../shared/containers/profile/sidebar/Recommendations/SidebarRecommendationsSection';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { FindWhoAmI } from './whoAmI';
+import { EditSampleTab } from '../shared/tabs/Dataset/Schema/EditSampleTab';
 // import { useGetMeQuery } from '../../../graphql/me.generated';
 
 // function FindWhoAmI() {
@@ -186,6 +187,32 @@ export class DatasetEntity implements Entity<Dataset> {
                                     )
                                     .flat() || [];
                             // console.log(`ownersArray is ${ownersArray} and I am ${currUser}`);
+                            if (ownersArray.includes(currUser)) {
+                                return true;
+                            }
+                            return false;
+                        },
+                        enabled: (_, _dataset: GetDatasetQuery) => {
+                            return true;
+                        },
+                    },
+                },
+                {
+                    name: 'Edit Samples',
+                    component: EditSampleTab,
+                    display: {
+                        visible: (_, _dataset: GetDatasetQuery) => {
+                            const currUser = FindWhoAmI();
+                            const ownership = _dataset?.dataset?.ownership?.owners;
+                            const ownersArray =
+                                ownership
+                                    ?.map((x) =>
+                                        x?.type === 'DATAOWNER' && x?.owner?.type === EntityType.CorpUser
+                                            ? x?.owner?.urn.split(':').slice(-1)
+                                            : '',
+                                    )
+                                    .flat() || [];
+                            console.log(`ownersArray is ${ownersArray} and I am ${currUser}`);
                             if (ownersArray.includes(currUser)) {
                                 return true;
                             }

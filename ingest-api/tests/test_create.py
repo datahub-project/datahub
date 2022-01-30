@@ -12,15 +12,16 @@ from datahub.metadata.schema_classes import DatasetLineageTypeClass
 from freezegun import freeze_time
 
 from ingest_api.helper.mce_convenience import (create_new_schema_mce,
-                                               generate_json_output,
+                                               generate_json_output_mce,
+                                               generate_json_output_mcp,
                                                make_browsepath_mce,
                                                make_dataset_description_mce,
                                                make_dataset_urn,
                                                make_institutionalmemory_mce,
                                                make_lineage_mce,
                                                make_ownership_mce,
-                                               make_platform, make_status_mce,
-                                               make_user_urn)
+                                               make_platform, make_profile_mcp,
+                                               make_status_mce, make_user_urn)
 from ingest_api.helper.models import determine_type
 
 FROZEN_TIME = "2021-07-01 02:58:30.242"
@@ -107,7 +108,9 @@ def test_make_csv_dataset(
     dataset_snapshot.aspects = [output_mce, description_mce, path_mce]
     metadata_record = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
 
-    generate_json_output(metadata_record, os.path.dirname(os.path.realpath(__file__)))
+    generate_json_output_mce(
+        metadata_record, os.path.dirname(os.path.realpath(__file__))
+    )
     with open(output_path, "r") as f:
         generated_dict = json.dumps(json.load(f), sort_keys=True)
     with open(golden_file_path, "r") as f:
@@ -135,8 +138,41 @@ def test_delete(
         os.path.dirname(os.path.realpath(__file__)),
         f"{inputs['dataset_name']}_{int(time.time()*1000)}.json",
     )
-    generate_json_output(
+    generate_json_output_mce(
         delete_mce, file_loc=os.path.dirname(os.path.realpath(__file__))
+    )
+    with open(output_path, "r") as f:
+        generated_dict = json.dumps(json.load(f), sort_keys=True)
+    with open(golden_file_path, "r") as f:
+        golden_mce = json.dumps(json.load(f), sort_keys=True)
+    assert generated_dict == golden_mce
+    os.remove(output_path)
+
+
+@freeze_time(FROZEN_TIME)
+def test_create_profile(
+    inputs={
+        "dataset_name": "my_test_dataset3",
+        "timestamp": 12345,
+        "sample_values": {"field1": ["f1s1", "f1s2"], "field2": ["f2s1", "f2s2"]},
+        "dataset_type": "csv",
+    }
+) -> None:
+    dataset_urn = make_dataset_urn(
+        platform=inputs["dataset_type"], name=inputs["dataset_name"]
+    )
+    profile_mcpw = make_profile_mcp(
+        inputs["timestamp"], inputs["sample_values"], dataset_urn
+    )
+    golden_file_path = os.path.join(
+        os.path.dirname(os.path.realpath(__file__)), "golden_profile.json"
+    )
+    output_path = os.path.join(
+        os.path.dirname(os.path.realpath(__file__)),
+        f"{inputs['dataset_name']}_{int(time.time()*1000)}.json",
+    )
+    generate_json_output_mcp(
+        profile_mcpw, file_loc=os.path.dirname(os.path.realpath(__file__))
     )
     with open(output_path, "r") as f:
         generated_dict = json.dumps(json.load(f), sort_keys=True)

@@ -12,10 +12,14 @@ from urllib.parse import urljoin
 
 import jwt
 import requests
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import (ArrayTypeClass, AuditStampClass,
                                              BooleanTypeClass,
                                              BrowsePathsClass, BytesTypeClass,
+                                             ChangeTypeClass,
+                                             DatasetFieldProfileClass,
                                              DatasetLineageTypeClass,
+                                             DatasetProfileClass,
                                              DatasetPropertiesClass,
                                              DatasetSnapshotClass,
                                              DateTypeClass, EnumTypeClass,
@@ -342,7 +346,7 @@ def make_ownership_mce(actor: str, dataset_urn: str) -> OwnershipClass:
     )
 
 
-def generate_json_output(mce: MetadataChangeEventClass, file_loc: str) -> None:
+def generate_json_output_mce(mce: MetadataChangeEventClass, file_loc: str) -> None:
     """
     Generates the json MCE files that can be ingested via CLI. For debugging
     """
@@ -355,6 +359,21 @@ def generate_json_output(mce: MetadataChangeEventClass, file_loc: str) -> None:
 
     with open(path, "w") as f:
         json.dump(mce_obj, f, indent=4)
+
+
+def generate_json_output_mcp(mcp: MetadataChangeProposalWrapper, file_loc: str) -> None:
+    """
+    Generates the json MCE files that can be ingested via CLI. For debugging
+    """
+    mcp_obj = mcp.to_obj()
+    sys_time = int(time.time() * 1000)
+    file_name = mcp.entityUrn.replace("urn:li:dataset:(urn:li:dataPlatform:", "").split(
+        ","
+    )[1]
+    path = os.path.join(file_loc, f"{file_name}_{sys_time}.json")
+
+    with open(path, "w") as f:
+        json.dump(mcp_obj, f, indent=4)
 
 
 def make_status_mce(
@@ -383,6 +402,7 @@ def verify_token(token: str, user: str):
                     {exp_datetime.strftime('%Y:%m:%d %H:%M')}"
             )
             return True
+        log.error("user id does not match token payload user id!")
         return False
     except ExpiredSignatureError:
         log.error("token has expired!")
@@ -461,3 +481,25 @@ def query_dataset_owner(token: str, dataset_urn: str, user: str):
         return False
     log.info("Ownership Step: True")
     return True
+
+
+def make_profile_mcp(
+    timestamp: int, sample_values: Dict[str, List], datasetName: str
+) -> MetadataChangeProposalWrapper:
+    all_fields = []
+    for field in sample_values.keys():
+        fieldProfile = DatasetFieldProfileClass(
+            fieldPath=field, sampleValues=[str(item) for item in sample_values[field]]
+        )
+        all_fields.append(fieldProfile)
+    datasetProfile = DatasetProfileClass(
+        timestampMillis=timestamp, fieldProfiles=all_fields, messageId="testing"
+    )
+    mcpw = MetadataChangeProposalWrapper(
+        entityType="dataset",
+        changeType=ChangeTypeClass.UPSERT,
+        entityUrn=datasetName,
+        aspectName="datasetProfile",
+        aspect=datasetProfile,
+    )
+    return mcpw
