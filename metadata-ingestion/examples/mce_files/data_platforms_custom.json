@@ -8,7 +8,7 @@
           {
             "com.linkedin.pegasus2avro.dataplatform.DataPlatformInfo": {
               "datasetNameDelimiter": "/",
-              "name": "adlsGen1",
+              "name": "csv",
               "displayName": "CSV (Manual)",
               "type": "FILE_SYSTEM",
               "logoUrl": "https://raw.githubusercontent.com/neojunjie/datahub/edit-sample-formal/datahub-web-react/src/images/csv_format.png"
@@ -28,8 +28,8 @@
           {
             "com.linkedin.pegasus2avro.dataplatform.DataPlatformInfo": {
               "datasetNameDelimiter": "/",
-              "name": "adlsGen2",
-              "displayName": "Azure Data Lake (Gen 2)",
+              "name": "json",
+              "displayName": "JSON(Manual)",
               "type": "FILE_SYSTEM",
               "logoUrl": "https://raw.githubusercontent.com/neojunjie/datahub/edit-sample-formal/datahub-web-react/src/images/json_format.png"
             }
