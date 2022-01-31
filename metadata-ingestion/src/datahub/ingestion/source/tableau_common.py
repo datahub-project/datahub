@@ -370,11 +370,30 @@ def get_tags_from_params(params: List[str] = []) -> GlobalTagsClass:
 def make_table_urn(
     env: str, upstream_db: str, connection_type: str, schema: str, full_name: str
 ) -> str:
+    # connection_type taken from
+    # https://help.tableau.com/current/api/rest_api/en-us/REST/rest_api_concepts_connectiontype.htm
+    #  datahub platform mapping is found here
+    # https://github.com/linkedin/datahub/blob/master/metadata-service/war/src/main/resources/boot/data_platforms.json
+
     final_name = full_name.replace("[", "").replace("]", "")
-    if connection_type == "textscan":
-        platform = "local_file"
-    elif connection_type == "excel-direct":
-        platform = "local_file"
+    if connection_type in ("textscan", "textclean", "excel-direct", "excel", "csv"):
+        platform = "external"
+    elif connection_type in (
+        "hadoophive",
+        "hive",
+        "hortonworkshadoophive",
+        "maprhadoophive",
+        "awshadoophive",
+    ):
+        platform = "hive"
+    elif connection_type in ("mysql_odbc", "mysql"):
+        platform = "mysql"
+    elif connection_type in ("webdata-direct:oracle-eloqua", "oracle"):
+        platform = "oracle"
+    elif connection_type in ("tbio", "teradata"):
+        platform = "teradata"
+    elif connection_type in ("sqlserver"):
+        platform = "mssql"
     else:
         platform = connection_type
 

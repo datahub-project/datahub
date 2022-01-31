@@ -196,6 +196,18 @@ class TableauSource(Source):
                 yield from self.emit_embedded_datasource(workbook)
                 yield from self.emit_upstream_tables()
 
+    def _track_custom_sql_ids(self, field: dict) -> None:
+        # Tableau shows custom sql datasource as a table in ColumnField.
+        if field.get("__typename", "") == "ColumnField":
+            for column in field.get("columns", []):
+                table_id = column.get("table", {}).get("id")
+
+                if (
+                    table_id is not None
+                    and table_id not in self.custom_sql_ids_being_used
+                ):
+                    self.custom_sql_ids_being_used.append(table_id)
+
     def _create_upstream_table_lineage(
         self, datasource: dict, project: str, is_custom_sql: bool = False
     ) -> List[UpstreamClass]:
@@ -388,15 +400,8 @@ class TableauSource(Source):
         fields = []
         schema_metadata = None
         for field in datasource_fields:
-            # check datasource - custom sql relations
-            if field.get("__typename", "") == "ColumnField":
-                for column in field.get("columns", []):
-                    table_id = column.get("table", {}).get("id")
-                    if (
-                        table_id is not None
-                        and table_id not in self.custom_sql_ids_being_used
-                    ):
-                        self.custom_sql_ids_being_used.append(table_id)
+            # check datasource - custom sql relations from a field being referenced
+            self._track_custom_sql_ids(field)
 
             TypeClass = FIELD_TYPE_MAPPING.get(
                 field.get("dataType", "UNKNOWN"), NullTypeClass
