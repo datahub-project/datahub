@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.types.glossary.mappers;
 
+import com.datahub.util.ModelUtils;
 import com.linkedin.common.Ownership;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.GlossaryTerm;
@@ -7,7 +8,6 @@ import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.glossary.GlossaryTermUtils;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.glossary.GlossaryTermInfo;
-import com.linkedin.metadata.dao.utils.ModelUtils;
 import com.linkedin.metadata.snapshot.GlossaryTermSnapshot;
 import javax.annotation.Nonnull;
 

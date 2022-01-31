@@ -1,7 +1,6 @@
 package com.linkedin.metadata.resources.entity;
 
 import com.codahale.metrics.MetricRegistry;
-
 import com.linkedin.aspect.GetTimeseriesAspectValuesResponse;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
@@ -10,6 +9,7 @@ import com.linkedin.metadata.aspect.EnvelopedAspectArray;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ValidationException;
+import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.restli.RestliUtil;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -34,8 +34,7 @@ import javax.inject.Inject;
 import javax.inject.Named;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.metadata.restli.RestliConstants.PARAM_LIMIT;
-import static com.linkedin.metadata.restli.RestliConstants.PARAM_URN;
+import static com.linkedin.metadata.resources.restli.RestliConstants.*;
 
 
 /**
@@ -53,6 +52,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
   private static final String PARAM_PROPOSAL = "proposal";
   private static final String PARAM_START_TIME_MILLIS = "startTimeMillis";
   private static final String PARAM_END_TIME_MILLIS = "endTimeMillis";
+  private static final String PARAM_LATEST_VALUE = "latestValue";
 
   private final Clock _clock = Clock.systemUTC();
 
@@ -92,7 +92,9 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
       @ActionParam(PARAM_ASPECT) @Nonnull String aspectName,
       @ActionParam(PARAM_START_TIME_MILLIS) @Optional @Nullable Long startTimeMillis,
       @ActionParam(PARAM_END_TIME_MILLIS) @Optional @Nullable Long endTimeMillis,
-      @ActionParam(PARAM_LIMIT) @Optional("10000") int limit) throws URISyntaxException {
+      @ActionParam(PARAM_LIMIT) @Optional("10000") int limit,
+      @ActionParam(PARAM_LATEST_VALUE) @Optional("false") boolean latestValue,
+      @ActionParam(PARAM_FILTER) @Optional @Nullable Filter filter) throws URISyntaxException {
     log.info(
         "Get Timeseries Aspect values for aspect {} for entity {} with startTimeMillis {}, endTimeMillis {} and limit {}.",
         aspectName, entityName, startTimeMillis, endTimeMillis, limit);
@@ -109,8 +111,8 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
       }
       response.setLimit(limit);
       response.setValues(new EnvelopedAspectArray(
-          _timeseriesAspectService.getAspectValues(urn, entityName, aspectName, startTimeMillis, endTimeMillis,
-              limit)));
+          _timeseriesAspectService.getAspectValues(urn, entityName, aspectName, startTimeMillis, endTimeMillis, limit,
+              latestValue, filter)));
       return response;
     }, MetricRegistry.name(this.getClass(), "getTimeseriesAspectValues"));
   }
@@ -120,7 +122,6 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
   @WithSpan
   public Task<String> ingestProposal(
       @ActionParam(PARAM_PROPOSAL) @Nonnull MetadataChangeProposal metadataChangeProposal) throws URISyntaxException {
-
     log.info("INGEST PROPOSAL proposal: {}", metadataChangeProposal);
 
     // TODO: Use the actor present in the IC.
@@ -132,7 +133,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
     return RestliUtil.toTask(() -> {
       log.debug("Proposal: {}", metadataChangeProposal);
       try {
-        Urn urn = _entityService.ingestProposal(metadataChangeProposal, auditStamp);
+        Urn urn = _entityService.ingestProposal(metadataChangeProposal, auditStamp).getUrn();
         additionalChanges.forEach(proposal -> _entityService.ingestProposal(proposal, auditStamp));
         return urn.toString();
       } catch (ValidationException e) {

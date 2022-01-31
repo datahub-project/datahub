@@ -1,7 +1,7 @@
 # Running Airflow locally with DataHub
 
 ## Introduction
-This document describes how you can run Airflow side-by-side with DataHub's docker images to test out Airflow lineage with DataHub. 
+This document describes how you can run Airflow side-by-side with DataHub's quickstart docker images to test out Airflow lineage with DataHub. 
 This offers a much easier way to try out Airflow with DataHub, compared to configuring containers by hand, setting up configurations and networking connectivity between the two systems. 
 
 ## Pre-requisites
@@ -11,6 +11,7 @@ docker info | grep Memory
 
 > Total Memory: 7.775GiB
 ```
+- Quickstart: Ensure that you followed [quickstart](../../docs/quickstart.md) to get DataHub up and running.
 
 ## Step 1: Set up your Airflow area
 - Create an area to host your airflow installation
@@ -20,7 +21,7 @@ docker info | grep Memory
 ```
 mkdir -p airflow_install
 cd airflow_install
-# Download docker-compose
+# Download docker-compose file
 curl -L 'https://raw.githubusercontent.com/linkedin/datahub/master/docker/airflow/docker-compose.yaml' -o docker-compose.yaml
 # Create dags directory
 mkdir -p dags
@@ -94,7 +95,7 @@ Default username and password is:
 airflow:airflow
 ```
 
-## Step 4: Register DataHub connection (hook) to Airflow
+## Step 3: Register DataHub connection (hook) to Airflow
 
 ```
 docker exec -it `docker ps | grep webserver | cut -d " " -f 1` airflow connections add --conn-type 'datahub_rest' 'datahub_rest_default' --conn-host 'http://datahub-gms:8080'
@@ -111,7 +112,7 @@ Successfully added `conn_id`=datahub_rest_default : datahub_rest://:@http://data
 - Note: This is what requires Airflow to be able to connect to `datahub-gms` the host (this is the container running datahub-gms image) and this is why we needed to connect the Airflow containers to the `datahub_network` using our custom docker-compose file. 
 
 
-## Step 3: Find the DAGs and run it
+## Step 4: Find the DAGs and run it
 Navigate the Airflow UI to find the sample Airflow dag we just brought in
 
 ![Find the DAG](../../docs/imgs/airflow/find_the_dag.png) 
@@ -146,6 +147,8 @@ Here is how you can debug them.
 
 In this case, clearly the connection `datahub-rest` has not been registered. Looks like we forgot to register the connection with Airflow!
 Let's execute Step 4 to register the datahub connection with Airflow. 
+
+In case the connection was registered successfully but you are still seeing `Failed to establish a new connection`, check if the connection is `http://datahub-gms:8080` and not `http://localhost:8080`.
 
 After re-running the DAG, we see success!
 

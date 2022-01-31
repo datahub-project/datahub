@@ -1,3 +1,4 @@
+import logging
 import typing
 from collections import defaultdict
 from dataclasses import dataclass
@@ -6,8 +7,11 @@ from typing import Any, Dict, Iterable, Iterator, List, Optional, Set, Tuple, Un
 from urllib.parse import urlparse
 
 import yaml
+from pydantic import validator
 
+from datahub.configuration.common import ConfigurationError
 from datahub.emitter import mce_builder
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -16,39 +20,38 @@ from datahub.metadata.com.linkedin.pegasus2avro.common import Status
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
-    ArrayTypeClass,
-    BooleanTypeClass,
-    BytesTypeClass,
-    DateTypeClass,
     MySqlDDL,
-    NullTypeClass,
-    NumberTypeClass,
     SchemaField,
-    SchemaFieldDataType,
     SchemaMetadata,
-    StringTypeClass,
-    TimeTypeClass,
-    UnionTypeClass,
 )
 from datahub.metadata.schema_classes import (
+    ChangeTypeClass,
     DataFlowInfoClass,
     DataFlowSnapshotClass,
     DataJobInfoClass,
     DataJobInputOutputClass,
     DataJobSnapshotClass,
+    DatasetLineageTypeClass,
     DatasetPropertiesClass,
-    MapTypeClass,
     MetadataChangeEventClass,
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
+    UpstreamClass,
+    UpstreamLineageClass,
 )
+from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_column
+
+logger = logging.getLogger(__name__)
 
 
 class GlueSourceConfig(AwsSourceConfig):
 
     extract_transforms: Optional[bool] = True
     underlying_platform: Optional[str] = None
+    ignore_unsupported_connectors: Optional[bool] = True
+    emit_s3_lineage: bool = False
+    glue_s3_lineage_direction: str = "upstream"
 
     @property
     def glue_client(self):
@@ -57,6 +60,14 @@ class GlueSourceConfig(AwsSourceConfig):
     @property
     def s3_client(self):
         return self.get_s3_client()
+
+    @validator("glue_s3_lineage_direction")
+    def check_direction(cls, v: str) -> str:
+        if v.lower() not in ["upstream", "downstream"]:
+            raise ConfigurationError(
+                "glue_s3_lineage_direction must be either upstream or downstream"
+            )
+        return v.lower()
 
 
 @dataclass
@@ -262,7 +273,16 @@ class GlueSource(Source):
 
             else:
 
-                raise ValueError(f"Unrecognized Glue data object type: {node_args}")
+                if self.source_config.ignore_unsupported_connectors:
+
+                    logger.info(
+                        flow_urn,
+                        f"Unrecognized Glue data object type: {node_args}. Skipping.",
+                    )
+
+                else:
+
+                    raise ValueError(f"Unrecognized Glue data object type: {node_args}")
 
         # otherwise, a node represents a transformation
         else:
@@ -451,6 +471,55 @@ class GlueSource(Source):
             all_tables += get_tables_from_database(database)
         return all_tables
 
+    def get_lineage_if_enabled(
+        self, mce: MetadataChangeEventClass
+    ) -> Optional[MetadataChangeProposalWrapper]:
+        if self.source_config.emit_s3_lineage:
+            # extract dataset properties aspect
+            dataset_properties: Optional[
+                DatasetPropertiesClass
+            ] = mce_builder.get_aspect_if_available(mce, DatasetPropertiesClass)
+            if dataset_properties and "Location" in dataset_properties.customProperties:
+                location = dataset_properties.customProperties["Location"]
+                if location.startswith("s3://"):
+                    s3_dataset_urn = make_s3_urn(location, self.source_config.env)
+                    if self.source_config.glue_s3_lineage_direction == "upstream":
+                        upstream_lineage = UpstreamLineageClass(
+                            upstreams=[
+                                UpstreamClass(
+                                    dataset=s3_dataset_urn,
+                                    type=DatasetLineageTypeClass.COPY,
+                                )
+                            ]
+                        )
+                        mcp = MetadataChangeProposalWrapper(
+                            entityType="dataset",
+                            entityUrn=mce.proposedSnapshot.urn,
+                            changeType=ChangeTypeClass.UPSERT,
+                            aspectName="upstreamLineage",
+                            aspect=upstream_lineage,
+                        )
+                        return mcp
+                    else:
+                        # Need to mint the s3 dataset with upstream lineage from it to glue
+                        upstream_lineage = UpstreamLineageClass(
+                            upstreams=[
+                                UpstreamClass(
+                                    dataset=mce.proposedSnapshot.urn,
+                                    type=DatasetLineageTypeClass.COPY,
+                                )
+                            ]
+                        )
+                        mcp = MetadataChangeProposalWrapper(
+                            entityType="dataset",
+                            entityUrn=s3_dataset_urn,
+                            changeType=ChangeTypeClass.UPSERT,
+                            aspectName="upstreamLineage",
+                            aspect=upstream_lineage,
+                        )
+                        return mcp
+        return None
+
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
 
         tables = self.get_all_tables()
@@ -470,6 +539,13 @@ class GlueSource(Source):
             workunit = MetadataWorkUnit(full_table_name, mce=mce)
             self.report.report_workunit(workunit)
             yield workunit
+            mcp = self.get_lineage_if_enabled(mce)
+            if mcp:
+                mcp_wu = MetadataWorkUnit(
+                    id=f"{full_table_name}-upstreamLineage", mcp=mcp
+                )
+                self.report.report_workunit(mcp_wu)
+                yield mcp_wu
 
         if self.extract_transforms:
 
@@ -569,33 +645,24 @@ class GlueSource(Source):
             schema = table["StorageDescriptor"]["Columns"]
             fields: List[SchemaField] = []
             for field in schema:
-                schema_field = SchemaField(
-                    fieldPath=field["Name"],
-                    nativeDataType=field["Type"],
-                    type=get_column_type(
-                        glue_source, field["Type"], table_name, field["Name"]
-                    ),
+                schema_fields = get_schema_fields_for_hive_column(
+                    hive_column_name=field["Name"],
+                    hive_column_type=field["Type"],
                     description=field.get("Comment"),
-                    recursive=False,
-                    nullable=True,
+                    default_nullable=True,
                 )
-                fields.append(schema_field)
+                assert schema_fields
+                fields.extend(schema_fields)
 
             partition_keys = table.get("PartitionKeys", [])
             for partition_key in partition_keys:
-                schema_field = SchemaField(
-                    fieldPath=partition_key["Name"],
-                    nativeDataType=partition_key["Type"],
-                    type=get_column_type(
-                        glue_source,
-                        partition_key["Type"],
-                        table_name,
-                        partition_key["Name"],
-                    ),
-                    recursive=False,
-                    nullable=False,
+                schema_fields = get_schema_fields_for_hive_column(
+                    hive_column_name=partition_key["Name"],
+                    hive_column_type=partition_key["Type"],
+                    default_nullable=False,
                 )
-                fields.append(schema_field)
+                assert schema_fields
+                fields.extend(schema_fields)
 
             return SchemaMetadata(
                 schemaName=table_name,
@@ -624,60 +691,3 @@ class GlueSource(Source):
 
     def close(self):
         pass
-
-
-def get_column_type(
-    glue_source: GlueSource, field_type: str, table_name: str, field_name: str
-) -> SchemaFieldDataType:
-    field_type_mapping = {
-        "array": ArrayTypeClass,
-        "bigint": NumberTypeClass,
-        "binary": BytesTypeClass,
-        "boolean": BooleanTypeClass,
-        "char": StringTypeClass,
-        "date": DateTypeClass,
-        "decimal": NumberTypeClass,
-        "double": NumberTypeClass,
-        "float": NumberTypeClass,
-        "int": NumberTypeClass,
-        "integer": NumberTypeClass,
-        "interval": TimeTypeClass,
-        "long": NumberTypeClass,
-        "map": MapTypeClass,
-        "null": NullTypeClass,
-        "set": ArrayTypeClass,
-        "smallint": NumberTypeClass,
-        "string": StringTypeClass,
-        "struct": MapTypeClass,
-        "timestamp": TimeTypeClass,
-        "tinyint": NumberTypeClass,
-        "union": UnionTypeClass,
-        "varchar": StringTypeClass,
-    }
-
-    field_starts_type_mapping = {
-        "array": ArrayTypeClass,
-        "set": ArrayTypeClass,
-        "map": MapTypeClass,
-        "struct": MapTypeClass,
-        "varchar": StringTypeClass,
-        "decimal": NumberTypeClass,
-    }
-
-    type_class = None
-    if field_type in field_type_mapping:
-        type_class = field_type_mapping[field_type]
-    else:
-        for key in field_starts_type_mapping:
-            if field_type.startswith(key):
-                type_class = field_starts_type_mapping[key]
-                break
-
-    if type_class is None:
-        glue_source.report.report_warning(
-            field_type,
-            f"The type '{field_type}' is not recognised for field '{field_name}' in table '{table_name}', setting as StringTypeClass.",
-        )
-        type_class = StringTypeClass
-    data_type = SchemaFieldDataType(type=type_class())
-    return data_type

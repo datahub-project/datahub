@@ -118,6 +118,16 @@
     }
   },
   {
+    "urn": "urn:li:dataPlatform:mode",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "mode",
+      "displayName": "Mode",
+      "type": "KEY_VALUE_STORE",
+      "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/modelogo.png"
+    }
+  },
+  {
     "urn": "urn:li:dataPlatform:mongodb",
     "aspect": {
       "datasetNameDelimiter": ".",

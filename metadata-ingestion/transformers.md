@@ -1,4 +1,4 @@
-# Using transformers
+# Transformers
 
 ## What’s a transformer?
 
@@ -8,7 +8,7 @@ Moreover, a transformer allows one to have fine-grained control over the metadat
 
 ## Provided transformers
 
-Aside from the option of writing your own transformer (see below), we provide some simple transformers for the use cases of adding: dataset tags, dataset properties and ownership information.
+Aside from the option of writing your own transformer (see below), we provide some simple transformers for the use cases of adding: dataset tags, dataset glossary terms, dataset properties and ownership information.
 
 ### Adding a set of tags
 
@@ -24,6 +24,24 @@ transformers:
         - "urn:li:tag:NeedsDocumentation"
         - "urn:li:tag:Legacy"
 ```
+
+### Adding tags by dataset urn pattern
+
+Let’s suppose we’d like to append a series of tags to specific datasets. To do so, we can use the `pattern_add_dataset_tags` module that’s included in the ingestion framework.  This will match the regex pattern to `urn` of the dataset and assign the respective tags urns given in the array.
+
+The config, which we’d append to our ingestion recipe YAML, would look like this:
+
+```yaml
+transformers:
+  - type: "pattern_add_dataset_tags"
+    config:
+      tag_pattern:
+        rules:
+          ".*example1.*": ["urn:li:tag:NeedsDocumentation", "urn:li:tag:Legacy"]
+          ".*example2.*": ["urn:li:tag:NeedsDocumentation"]
+```
+
+### Add your own custom Transformer
 
 If you'd like to add more complex logic for assigning tags, you can use the more generic add_dataset_tags transformer, which calls a user-provided function to determine the tags for each dataset.
 
@@ -70,6 +88,36 @@ def custom_tags(current: DatasetSnapshotClass) -> List[TagAssociationClass]:
     logging.info(f"Tagging dataset {current.urn} with {tag_strings}.")
     return tags
 ```
+Finally, you can install and use your custom transformer as [shown here](#installing-the-package).
+
+### Adding a set of glossary terms
+
+We can use a similar convention to associate [Glossary Terms](https://datahubproject.io/docs/metadata-ingestion/source_docs/business_glossary) to datasets. We can use the `simple_add_dataset_terms` module that’s included in the ingestion framework.
+
+The config, which we’d append to our ingestion recipe YAML, would look like this:
+
+```yaml
+transformers:
+  - type: "simple_add_dataset_terms"
+    config:
+      term_urns:
+        - "urn:li:glossaryTerm:Email"
+        - "urn:li:glossaryTerm:Address"
+```
+
+### Adding glossary terms by dataset urn pattern
+
+Similar to the above example with tags, we can add glossary terms to datasets based on a regex filter.
+
+```yaml
+transformers:
+  - type: "pattern_add_dataset_terms"
+    config:
+      term_pattern:
+        rules:
+          ".*example1.*": ["urn:li:glossaryTerm:Email", "urn:li:glossaryTerm:Address"]
+          ".*example2.*": ["urn:li:glossaryTerm:PostalCode"]
+```
 
 ### Change owners
 
@@ -102,7 +150,7 @@ Note `ownership_type` is an optional field with `DATAOWNER` as default value.
 
 ### Setting ownership by dataset urn pattern
 
-Let’s suppose we’d like to append a series of users who we know to own a different dataset from a data source but aren't detected during normal ingestion. To do so, we can use the `pattern_add_dataset_ownership` module that’s included in the ingestion framework.  This will match the pattern to `urn` of the dataset and assign the respective owners.
+Again, let’s suppose we’d like to append a series of users who we know to own a different dataset from a data source but aren't detected during normal ingestion. To do so, we can use the `pattern_add_dataset_ownership` module that’s included in the ingestion framework.  This will match the pattern to `urn` of the dataset and assign the respective owners.
 
 The config, which we’d append to our ingestion recipe YAML, would look like this:
 
@@ -220,6 +268,19 @@ class MyPropertiesResolver(AddDatasetPropertiesResolverBase):
         properties= {'my_custom_property': 'property value'}
         logging.info(f"Adding properties: {properties} to dataset: {current.urn}.")
         return properties
+```
+
+There also exists `simple_add_dataset_properties` transformer for directly assigning properties from the configuration.
+`properties` field is a dictionary of string values. Note in case of any key collision, the value in the config will
+overwrite the previous value.
+
+```yaml
+transformers:
+  - type: "simple_add_dataset_properties"
+    config:
+      properties:
+        prop1: value1
+        prop2: value2
 ```
 
 ## Writing a custom transformer from scratch

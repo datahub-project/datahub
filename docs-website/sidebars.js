@@ -85,6 +85,37 @@ module.exports = {
       {
         Sinks: list_ids_in_directory("metadata-ingestion/sink_docs"),
       },
+      {
+        "Custom Integrations": [
+          "metadata-ingestion/as-a-library",
+          "metadata-integration/java/as-a-library",
+        ],
+      },
+      {
+        Scheduling: [
+          "metadata-ingestion/schedule_docs/intro",
+          "metadata-ingestion/schedule_docs/cron",
+          "metadata-ingestion/schedule_docs/airflow",
+        ],
+      },
+      {
+        Lineage: [
+          "docs/lineage/intro",
+          "docs/lineage/airflow",
+          "docker/airflow/local_airflow",
+          "docs/lineage/sample_code",
+          "metadata-integration/java/spark-lineage/README",
+        ],
+      },
+      {
+        Guides: [
+          "metadata-ingestion/adding-source",
+          "docs/how/add-custom-ingestion-source",
+          "docs/how/add-custom-data-platform",
+          "docs/platform-instances",
+          "docs/how/add-user-data",
+        ],
+      },
     ],
     "Metadata Modeling": [
       "docs/modeling/metadata-model",
@@ -169,7 +200,6 @@ module.exports = {
       // TODO: the titles of these should not be in question form in the sidebar
       "docs/developers",
       "docs/docker/development",
-      "metadata-ingestion/adding-source",
       {
         type: "doc",
         label: "Ingesting files from S3",
@@ -186,14 +216,12 @@ module.exports = {
       "docs/how/auth/sso/configure-oidc-react",
       "docs/how/auth/sso/configure-oidc-react-google",
       "docs/how/auth/sso/configure-oidc-react-okta",
+      "docs/how/auth/sso/configure-oidc-react-azure",
       "docs/how/restore-indices",
       "docs/how/extract-container-logs",
       "docs/how/delete-metadata",
       "datahub-web-react/src/app/analytics/README",
       "metadata-ingestion/developing",
-      "docker/airflow/local_airflow",
-      "docs/how/add-custom-data-platform",
-      "docs/how/add-custom-ingestion-source",
       {
         "Module READMEs": [
           "datahub-web-react/README",
@@ -208,6 +236,7 @@ module.exports = {
       {
         Advanced: [
           "docs/advanced/no-code-modeling",
+          "docs/advanced/db-retention",
           "docs/advanced/aspect-versioning",
           "docs/advanced/es-7-upgrade",
           "docs/advanced/high-cardinality",

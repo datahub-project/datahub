@@ -139,7 +139,7 @@ public class EntityKeyUtils {
     final List<String> urnParts = new ArrayList<>();
     for (RecordDataSchema.Field field : keyAspect.schema().getFields()) {
       Object value = keyAspect.data().get(field.getName());
-      String valueString = value.toString();
+      String valueString = value == null ? "" : value.toString();
       urnParts.add(valueString); // TODO: Determine whether all fields, including urns, should be URL encoded.
     }
     return Urn.createFromTuple(entityName, urnParts);

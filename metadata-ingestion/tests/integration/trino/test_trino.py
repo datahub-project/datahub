@@ -3,12 +3,10 @@ import sys
 
 import pytest
 import requests
-from click.testing import CliRunner
 from freezegun import freeze_time
 
-from datahub.entrypoints import datahub
 from tests.test_helpers import fs_helpers, mce_helpers
-from tests.test_helpers.click_helpers import assert_result_ok
+from tests.test_helpers.click_helpers import run_datahub_cmd
 from tests.test_helpers.docker_helpers import wait_for_port
 
 FROZEN_TIME = "2021-09-23 12:00:00"
@@ -16,7 +14,7 @@ FROZEN_TIME = "2021-09-23 12:00:00"
 
 @freeze_time(FROZEN_TIME)
 @pytest.mark.skipif(sys.version_info < (3, 7), reason="trino requires Python 3.7+")
-@pytest.mark.integration
+@pytest.mark.slow_integration
 def test_trino_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/trino"
 
@@ -38,13 +36,11 @@ def test_trino_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
         subprocess.run(command, shell=True, check=True)
 
         # Run the metadata ingestion pipeline.
-        runner = CliRunner()
         with fs_helpers.isolated_filesystem(tmp_path):
 
             # Run the metadata ingestion pipeline for trino catalog referring to postgres database
             config_file = (test_resources_dir / "trino_to_file.yml").resolve()
-            result = runner.invoke(datahub, ["ingest", "-c", f"{config_file}"])
-            assert_result_ok(result)
+            run_datahub_cmd(["ingest", "-c", f"{config_file}"])
             # Verify the output.
             mce_helpers.check_golden_file(
                 pytestconfig,
@@ -58,8 +54,7 @@ def test_trino_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
 
             # Run the metadata ingestion pipeline for trino catalog referring to hive database
             config_file = (test_resources_dir / "trino_hive_to_file.yml").resolve()
-            result = runner.invoke(datahub, ["ingest", "-c", f"{config_file}"])
-            assert_result_ok(result)
+            run_datahub_cmd(["ingest", "-c", f"{config_file}"])
 
             # Verify the output.
             mce_helpers.check_golden_file(

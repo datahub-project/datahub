@@ -13,7 +13,12 @@ from datahub.cli import cli_utils
 from datahub.cli.cli_utils import guess_entity_type
 from datahub.emitter import rest_emitter
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.metadata.schema_classes import ChangeTypeClass, StatusClass
+from datahub.metadata.schema_classes import (
+    ChangeTypeClass,
+    StatusClass,
+    SystemMetadataClass,
+)
+from datahub.telemetry import telemetry
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +58,7 @@ class DeletionResult:
             self.sample_records.extend(another_result.sample_records)
 
 
+@telemetry.with_telemetry
 def delete_for_registry(
     registry_id: str,
     soft: bool,
@@ -87,6 +93,7 @@ def delete_for_registry(
 @click.option("--query", required=False, type=str)
 @click.option("--registry-id", required=False, type=str)
 @click.option("-n", "--dry-run", required=False, is_flag=True)
+@telemetry.with_telemetry
 def delete(
     urn: str,
     force: bool,
@@ -121,7 +128,7 @@ def delete(
         session, host = cli_utils.get_session_and_host()
         entity_type = guess_entity_type(urn=urn)
         logger.info(f"DataHub configured with {host}")
-        deletion_result: DeletionResult = delete_one_urn(
+        deletion_result: DeletionResult = delete_one_urn_cmd(
             urn,
             soft=soft,
             dry_run=dry_run,
@@ -172,6 +179,11 @@ def delete(
         )
 
 
+def _get_current_time() -> int:
+    return int(time.time() * 1000.0)
+
+
+@telemetry.with_telemetry
 def delete_with_filters(
     dry_run: bool,
     soft: bool,
@@ -181,9 +193,12 @@ def delete_with_filters(
     env: Optional[str] = None,
     platform: Optional[str] = None,
 ) -> DeletionResult:
+
     session, gms_host = cli_utils.get_session_and_host()
+    token = cli_utils.get_token()
+
     logger.info(f"datahub configured with {gms_host}")
-    emitter = rest_emitter.DatahubRestEmitter(gms_server=gms_host)
+    emitter = rest_emitter.DatahubRestEmitter(gms_server=gms_host, token=token)
     batch_deletion_result = DeletionResult()
     urns = [
         u
@@ -203,7 +218,7 @@ def delete_with_filters(
         )
 
     for urn in progressbar.progressbar(urns, redirect_stdout=True):
-        one_result = delete_one_urn(
+        one_result = _delete_one_urn(
             urn,
             soft=soft,
             dry_run=dry_run,
@@ -216,14 +231,17 @@ def delete_with_filters(
     return batch_deletion_result
 
 
-def delete_one_urn(
+def _delete_one_urn(
     urn: str,
     soft: bool = False,
     dry_run: bool = False,
     entity_type: str = "dataset",
     cached_session_host: Optional[Tuple[sessions.Session, str]] = None,
     cached_emitter: Optional[rest_emitter.DatahubRestEmitter] = None,
+    run_id: str = "delete-run-id",
+    deletion_timestamp: int = _get_current_time(),
 ) -> DeletionResult:
+
     deletion_result = DeletionResult()
     deletion_result.num_entities = 1
     deletion_result.num_records = UNKNOWN_NUM_RECORDS  # Default is unknown
@@ -232,7 +250,8 @@ def delete_one_urn(
         # Add removed aspect
         if not cached_emitter:
             _, gms_host = cli_utils.get_session_and_host()
-            emitter = rest_emitter.DatahubRestEmitter(gms_server=gms_host)
+            token = cli_utils.get_token()
+            emitter = rest_emitter.DatahubRestEmitter(gms_server=gms_host, token=token)
         else:
             emitter = cached_emitter
         if not dry_run:
@@ -243,6 +262,9 @@ def delete_one_urn(
                     entityUrn=urn,
                     aspectName="status",
                     aspect=StatusClass(removed=True),
+                    systemMetadata=SystemMetadataClass(
+                        runId=run_id, lastObserved=deletion_timestamp
+                    ),
                 )
             )
         else:
@@ -262,3 +284,28 @@ def delete_one_urn(
 
     deletion_result.end()
     return deletion_result
+
+
+@telemetry.with_telemetry
+def delete_one_urn_cmd(
+    urn: str,
+    soft: bool = False,
+    dry_run: bool = False,
+    entity_type: str = "dataset",
+    cached_session_host: Optional[Tuple[sessions.Session, str]] = None,
+    cached_emitter: Optional[rest_emitter.DatahubRestEmitter] = None,
+) -> DeletionResult:
+    """
+    Wrapper around delete_one_urn because it is also called in a loop via delete_with_filters.
+
+    This is a separate function that is called only when a single URN is deleted via the CLI.
+    """
+
+    return _delete_one_urn(
+        urn,
+        soft,
+        dry_run,
+        entity_type,
+        cached_session_host,
+        cached_emitter,
+    )

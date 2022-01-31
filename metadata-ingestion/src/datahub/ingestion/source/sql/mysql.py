@@ -1,10 +1,28 @@
 # This import verifies that the dependencies are available.
 import pymysql  # noqa: F401
+from sqlalchemy.dialects.mysql import base
 
 from datahub.ingestion.source.sql.sql_common import (
     BasicSQLAlchemyConfig,
     SQLAlchemySource,
+    make_sqlalchemy_type,
+    register_custom_type,
 )
+
+GEOMETRY = make_sqlalchemy_type("GEOMETRY")
+POINT = make_sqlalchemy_type("POINT")
+LINESTRING = make_sqlalchemy_type("LINESTRING")
+POLYGON = make_sqlalchemy_type("POLYGON")
+
+register_custom_type(GEOMETRY)
+register_custom_type(POINT)
+register_custom_type(LINESTRING)
+register_custom_type(POLYGON)
+
+base.ischema_names["geometry"] = GEOMETRY
+base.ischema_names["point"] = POINT
+base.ischema_names["linestring"] = LINESTRING
+base.ischema_names["polygon"] = POLYGON
 
 
 class MySQLConfig(BasicSQLAlchemyConfig):

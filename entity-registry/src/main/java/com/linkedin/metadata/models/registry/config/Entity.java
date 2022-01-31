@@ -12,6 +12,7 @@ import lombok.Value;
 @AllArgsConstructor
 public class Entity {
   String name;
+  String doc;
   String keyAspect;
   List<String> aspects;
 }

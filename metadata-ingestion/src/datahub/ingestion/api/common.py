@@ -28,11 +28,16 @@ class WorkUnit(_WorkUnitId, metaclass=ABCMeta):
 
 
 class PipelineContext:
-    run_id: str
-    graph: Optional[DataHubGraph]
-
     def __init__(
-        self, run_id: str, datahub_api: Optional[DatahubClientConfig] = None
+        self,
+        run_id: str,
+        datahub_api: Optional[DatahubClientConfig] = None,
+        pipeline_name: Optional[str] = None,
+        dry_run: bool = False,
+        preview_mode: bool = False,
     ) -> None:
         self.run_id = run_id
         self.graph = DataHubGraph(datahub_api) if datahub_api is not None else None
+        self.pipeline_name = pipeline_name
+        self.dry_run_mode = dry_run
+        self.preview_mode = preview_mode

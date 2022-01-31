@@ -8,7 +8,10 @@ import threading
 import traceback
 import unittest.mock
 import uuid
+from math import log10
 from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, Tuple, Union
+
+from datahub.telemetry import telemetry
 
 # Fun compatibility hack! GE version 0.13.44 broke compatibility with SQLAlchemy 1.3.24.
 # This is a temporary workaround until GE fixes the issue on their end.
@@ -22,6 +25,8 @@ except ImportError:
     pass
 
 import pydantic
+import sqlalchemy as sa
+from great_expectations.core.util import convert_to_json_serializable
 from great_expectations.data_context import BaseDataContext
 from great_expectations.data_context.types.base import (
     DataContextConfig,
@@ -31,13 +36,18 @@ from great_expectations.data_context.types.base import (
 )
 from great_expectations.dataset.dataset import Dataset
 from great_expectations.datasource.sqlalchemy_datasource import SqlAlchemyDatasource
-from great_expectations.profile.base import OrderedProfilerCardinality, ProfilerDataType
+from great_expectations.profile.base import ProfilerDataType
 from great_expectations.profile.basic_dataset_profiler import BasicDatasetProfilerBase
 from sqlalchemy.engine import Connection, Engine
+from sqlalchemy.exc import ProgrammingError
 from typing_extensions import Concatenate, ParamSpec
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.emitter.mce_builder import get_sys_time
+from datahub.ingestion.source.profiling.common import (
+    Cardinality,
+    _convert_to_cardinality,
+)
 from datahub.ingestion.source.sql.sql_common import SQLSourceReport
 from datahub.metadata.schema_classes import (
     DatasetFieldProfileClass,
@@ -47,7 +57,10 @@ from datahub.metadata.schema_classes import (
     ValueFrequencyClass,
 )
 from datahub.utilities.perf_timer import PerfTimer
-from datahub.utilities.sqlalchemy_query_combiner import SQLAlchemyQueryCombiner
+from datahub.utilities.sqlalchemy_query_combiner import (
+    SQLAlchemyQueryCombiner,
+    get_query_columns,
+)
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -94,6 +107,59 @@ class GEProfilerRequest:
     batch_kwargs: dict
 
 
+def get_column_unique_count_patch(self, column):
+    if self.engine.dialect.name.lower() == "redshift":
+        element_values = self.engine.execute(
+            sa.select(
+                [sa.text(f"APPROXIMATE count(distinct {column})")]  # type:ignore
+            ).select_from(self._table)
+        )
+        return convert_to_json_serializable(element_values.fetchone()[0])
+    elif self.engine.dialect.name.lower() == "bigquery":
+        element_values = self.engine.execute(
+            sa.select(
+                [sa.text(f"APPROX_COUNT_DISTINCT ({column})")]  # type:ignore
+            ).select_from(self._table)
+        )
+        return convert_to_json_serializable(element_values.fetchone()[0])
+    elif self.engine.dialect.name.lower() == "snowflake":
+        element_values = self.engine.execute(
+            sa.select(
+                [sa.text(f"APPROX_COUNT_DISTINCT({column})")]  # type:ignore
+            ).select_from(self._table)
+        )
+        return convert_to_json_serializable(element_values.fetchone()[0])
+    return convert_to_json_serializable(
+        self.engine.execute(
+            sa.select([sa.func.count(sa.func.distinct(sa.column(column)))]).select_from(
+                self._table
+            )
+        ).scalar()
+    )
+
+
+def _get_column_quantiles_bigquery_patch(  # type:ignore
+    self, column: str, quantiles: Iterable
+) -> list:
+    quantile_queries = list()
+    for quantile in quantiles:
+        quantile_queries.append(
+            sa.text(f"approx_quantiles({column}, 100) OFFSET [{round(quantile * 100)}]")
+        )
+
+    quantiles_query = sa.select(quantile_queries).select_from(  # type:ignore
+        self._table
+    )
+    try:
+        quantiles_results = self.engine.execute(quantiles_query).fetchone()
+        return list(quantiles_results)
+
+    except ProgrammingError as pe:
+        # This treat quantile exception will raise a formatted exception and there won't be any return value here
+        self._treat_quantiles_exception(pe)
+        return list()
+
+
 class GEProfilingConfig(ConfigModel):
     enabled: bool = False
     limit: Optional[int] = None
@@ -109,9 +175,9 @@ class GEProfilingConfig(ConfigModel):
     include_field_mean_value: bool = True
     include_field_median_value: bool = True
     include_field_stddev_value: bool = True
-    include_field_quantiles: bool = True
-    include_field_distinct_value_frequencies: bool = True
-    include_field_histogram: bool = True
+    include_field_quantiles: bool = False
+    include_field_distinct_value_frequencies: bool = False
+    include_field_histogram: bool = False
     include_field_sample_values: bool = True
 
     allow_deny_patterns: AllowDenyPattern = AllowDenyPattern.allow_all()
@@ -174,37 +240,11 @@ class GEProfilingConfig(ConfigModel):
         return values
 
 
-def _convert_to_cardinality(
-    unique_count: Optional[int], pct_unique: Optional[float]
-) -> Optional[OrderedProfilerCardinality]:
-    # Logic adopted from Great Expectations.
-
-    cardinality = None
-    if unique_count is None or unique_count == 0 or pct_unique is None:
-        cardinality = OrderedProfilerCardinality.NONE
-    elif pct_unique == 1.0:
-        cardinality = OrderedProfilerCardinality.UNIQUE
-    elif pct_unique > 0.1:
-        cardinality = OrderedProfilerCardinality.VERY_MANY
-    elif pct_unique > 0.02:
-        cardinality = OrderedProfilerCardinality.MANY
-    else:
-        if unique_count == 1:
-            cardinality = OrderedProfilerCardinality.ONE
-        elif unique_count == 2:
-            cardinality = OrderedProfilerCardinality.TWO
-        elif unique_count < 60:
-            cardinality = OrderedProfilerCardinality.VERY_FEW
-        elif unique_count < 1000:
-            cardinality = OrderedProfilerCardinality.FEW
-        else:
-            cardinality = OrderedProfilerCardinality.MANY
-
-    return cardinality
-
-
 def _is_single_row_query_method(query: Any) -> bool:
-    SINGLE_ROW_QUERY_FILE = "great_expectations/dataset/sqlalchemy_dataset.py"
+    SINGLE_ROW_QUERY_FILES = {
+        # "great_expectations/dataset/dataset.py",
+        "great_expectations/dataset/sqlalchemy_dataset.py",
+    }
     SINGLE_ROW_QUERY_METHODS = {
         "get_row_count",
         "get_column_min",
@@ -214,8 +254,18 @@ def _is_single_row_query_method(query: Any) -> bool:
         "get_column_stdev",
         "get_column_nonnull_count",
         "get_column_unique_count",
-        # This actually returns two rows, not a single row, so we can't combine it with other queries.
-        # "get_column_median",
+    }
+    CONSTANT_ROW_QUERY_METHODS = {
+        # This actually returns two rows instead of a single row.
+        "get_column_median",
+    }
+    UNPREDICTABLE_ROW_QUERY_METHODS = {
+        "get_column_value_counts",
+    }
+    UNHANDLEABLE_ROW_QUERY_METHODS = {
+        "expect_column_kl_divergence_to_be_less_than",
+        "get_column_quantiles",  # this is here for now since SQLAlchemy anonymous columns need investigation
+        "get_column_hist",  # this requires additional investigation
     }
     COLUMN_MAP_QUERY_METHOD = "inner_wrapper"
     COLUMN_MAP_QUERY_SINGLE_ROW_COLUMNS = [
@@ -226,16 +276,27 @@ def _is_single_row_query_method(query: Any) -> bool:
 
     # We'll do this the inefficient way since the arrays are pretty small.
     stack = traceback.extract_stack()
-    for frame in stack:
-        if not frame.filename.endswith(SINGLE_ROW_QUERY_FILE):
+    for frame in reversed(stack):
+        if not any(frame.filename.endswith(file) for file in SINGLE_ROW_QUERY_FILES):
             continue
+
+        if frame.name in UNPREDICTABLE_ROW_QUERY_METHODS:
+            return False
+        if frame.name in UNHANDLEABLE_ROW_QUERY_METHODS:
+            return False
         if frame.name in SINGLE_ROW_QUERY_METHODS:
             return True
+        if frame.name in CONSTANT_ROW_QUERY_METHODS:
+            # TODO: figure out how to handle these.
+            # A cross join will return (`constant` ** `queries`) rows rather
+            # than `constant` rows with `queries` columns.
+            # See https://stackoverflow.com/questions/35638753/create-query-to-join-2-tables-1-on-1-with-nothing-in-common.
+            return False
 
         if frame.name == COLUMN_MAP_QUERY_METHOD:
             # Some column map expectations are single-row.
             # We can disambiguate by checking the column names.
-            query_columns = query.columns
+            query_columns = get_query_columns(query)
             column_names = [column.name for column in query_columns]
 
             if column_names == COLUMN_MAP_QUERY_SINGLE_ROW_COLUMNS:
@@ -266,7 +327,7 @@ class _SingleColumnSpec:
 
     unique_count: Optional[int] = None
     nonnull_count: Optional[int] = None
-    cardinality: Optional[OrderedProfilerCardinality] = None
+    cardinality: Optional[Cardinality] = None
 
 
 @dataclasses.dataclass
@@ -330,11 +391,13 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
         pct_unique = None
         try:
             unique_count = self.dataset.get_column_unique_count(column)
-            pct_unique = float(unique_count) / nonnull_count
+            if nonnull_count > 0:
+                pct_unique = float(unique_count) / nonnull_count
         except Exception:
             logger.exception(
                 f"Failed to get unique count for column {self.dataset_name}.{column}"
             )
+
         column_spec.unique_count = unique_count
 
         column_spec.cardinality = _convert_to_cardinality(unique_count, pct_unique)
@@ -393,6 +456,7 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
 
             res = self.dataset.expect_column_quantile_values_to_be_between(
                 column,
+                allow_relative_error=True,
                 quantile_ranges={
                     "quantiles": quantiles,
                     "value_ranges": [[None, None]] * len(quantiles),
@@ -446,6 +510,7 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
         self, column_profile: DatasetFieldProfileClass, column: str
     ) -> None:
         if self.config.include_field_sample_values:
+            # TODO do this without GE
             self.dataset.set_config_value("interactive_evaluation", True)
 
             res = self.dataset.expect_column_values_to_be_in_set(
@@ -491,6 +556,14 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
         assert profile.rowCount is not None
         row_count: int = profile.rowCount
 
+        telemetry.telemetry_instance.ping(
+            "sql_profiling",
+            "rows_profiled",
+            # bucket by taking floor of log of the number of rows scanned
+            # report the bucket as a label so the count is not collapsed
+            str(10 ** int(log10(row_count + 1))),
+        )
+
         for column_spec in columns_profiling_queue:
             column = column_spec.column
             column_profile = column_spec.column_profile
@@ -502,54 +575,71 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
 
             if self.config.include_field_null_count and non_null_count is not None:
                 null_count = row_count - non_null_count
-                assert null_count >= 0
+                if null_count < 0:
+                    null_count = 0
+
                 column_profile.nullCount = null_count
                 if row_count > 0:
                     column_profile.nullProportion = null_count / row_count
+                    # Sometimes this value is bigger than 1 because of the approx queries
+                    if column_profile.nullProportion > 1:
+                        column_profile.nullProportion = 1
 
             if unique_count is not None:
                 column_profile.uniqueCount = unique_count
                 if non_null_count is not None and non_null_count > 0:
                     column_profile.uniqueProportion = unique_count / non_null_count
+                    # Sometimes this value is bigger than 1 because of the approx queries
+                    if column_profile.uniqueProportion > 1:
+                        column_profile.uniqueProportion = 1
 
             self._get_dataset_column_sample_values(column_profile, column)
 
-            if type_ == ProfilerDataType.INT or type_ == ProfilerDataType.FLOAT:
-                if cardinality == OrderedProfilerCardinality.UNIQUE:
+            if (
+                type_ == ProfilerDataType.INT
+                or type_ == ProfilerDataType.FLOAT
+                or type_ == ProfilerDataType.NUMERIC
+            ):
+                if cardinality == Cardinality.UNIQUE:
                     pass
                 elif cardinality in [
-                    OrderedProfilerCardinality.ONE,
-                    OrderedProfilerCardinality.TWO,
-                    OrderedProfilerCardinality.VERY_FEW,
-                    OrderedProfilerCardinality.FEW,
-                ]:
-                    self._get_dataset_column_distinct_value_frequencies(
-                        column_profile,
-                        column,
-                    )
-                elif cardinality in [
-                    OrderedProfilerCardinality.MANY,
-                    OrderedProfilerCardinality.VERY_MANY,
-                    OrderedProfilerCardinality.UNIQUE,
+                    Cardinality.ONE,
+                    Cardinality.TWO,
+                    Cardinality.VERY_FEW,
+                    Cardinality.FEW,
+                    Cardinality.MANY,
+                    Cardinality.VERY_MANY,
+                    Cardinality.UNIQUE,
                 ]:
                     self._get_dataset_column_min(column_profile, column)
                     self._get_dataset_column_max(column_profile, column)
                     self._get_dataset_column_mean(column_profile, column)
                     self._get_dataset_column_median(column_profile, column)
+
                     if type_ == ProfilerDataType.INT:
                         self._get_dataset_column_stdev(column_profile, column)
 
                     self._get_dataset_column_quantiles(column_profile, column)
                     self._get_dataset_column_histogram(column_profile, column)
+                    if cardinality in [
+                        Cardinality.ONE,
+                        Cardinality.TWO,
+                        Cardinality.VERY_FEW,
+                        Cardinality.FEW,
+                    ]:
+                        self._get_dataset_column_distinct_value_frequencies(
+                            column_profile,
+                            column,
+                        )
                 else:  # unknown cardinality - skip
                     pass
 
             elif type_ == ProfilerDataType.STRING:
                 if cardinality in [
-                    OrderedProfilerCardinality.ONE,
-                    OrderedProfilerCardinality.TWO,
-                    OrderedProfilerCardinality.VERY_FEW,
-                    OrderedProfilerCardinality.FEW,
+                    Cardinality.ONE,
+                    Cardinality.TWO,
+                    Cardinality.VERY_FEW,
+                    Cardinality.FEW,
                 ]:
                     self._get_dataset_column_distinct_value_frequencies(
                         column_profile,
@@ -563,10 +653,10 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                 # FIXME: Re-add histogram once kl_divergence has been modified to support datetimes
 
                 if cardinality in [
-                    OrderedProfilerCardinality.ONE,
-                    OrderedProfilerCardinality.TWO,
-                    OrderedProfilerCardinality.VERY_FEW,
-                    OrderedProfilerCardinality.FEW,
+                    Cardinality.ONE,
+                    Cardinality.TWO,
+                    Cardinality.VERY_FEW,
+                    Cardinality.FEW,
                 ]:
                     self._get_dataset_column_distinct_value_frequencies(
                         column_profile,
@@ -575,10 +665,10 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
 
             else:
                 if cardinality in [
-                    OrderedProfilerCardinality.ONE,
-                    OrderedProfilerCardinality.TWO,
-                    OrderedProfilerCardinality.VERY_FEW,
-                    OrderedProfilerCardinality.FEW,
+                    Cardinality.ONE,
+                    Cardinality.TWO,
+                    Cardinality.VERY_FEW,
+                    Cardinality.FEW,
                 ]:
                     self._get_dataset_column_distinct_value_frequencies(
                         column_profile,
@@ -662,7 +752,9 @@ class DatahubGEProfiler:
     def generate_profiles(
         self, requests: List[GEProfilerRequest], max_workers: int
     ) -> Iterable[Tuple[GEProfilerRequest, Optional[DatasetProfileClass]]]:
-        with PerfTimer() as timer, SQLAlchemyQueryCombiner(
+        with PerfTimer() as timer, concurrent.futures.ThreadPoolExecutor(
+            max_workers=max_workers
+        ) as async_executor, SQLAlchemyQueryCombiner(
             enabled=self.config.query_combiner_enabled,
             catch_exceptions=self.config.catch_exceptions,
             is_single_row_query_method=_is_single_row_query_method,
@@ -672,27 +764,34 @@ class DatahubGEProfiler:
             logger.info(
                 f"Will profile {len(requests)} table(s) with {max_workers} worker(s) - this may take a while"
             )
-            with concurrent.futures.ThreadPoolExecutor(
-                max_workers=max_workers
-            ) as async_executor:
-                async_profiles = [
-                    async_executor.submit(
-                        self._generate_profile_from_request,
-                        query_combiner,
-                        request,
+            with unittest.mock.patch(
+                "great_expectations.dataset.sqlalchemy_dataset.SqlAlchemyDataset.get_column_unique_count",
+                get_column_unique_count_patch,
+            ):
+                with unittest.mock.patch(
+                    "great_expectations.dataset.sqlalchemy_dataset.SqlAlchemyDataset._get_column_quantiles_bigquery",
+                    _get_column_quantiles_bigquery_patch,
+                ):
+                    async_profiles = [
+                        async_executor.submit(
+                            self._generate_profile_from_request,
+                            query_combiner,
+                            request,
+                        )
+                        for request in requests
+                    ]
+
+                    # Avoid using as_completed so that the results are yielded in the
+                    # same order as the requests.
+                    # for async_profile in concurrent.futures.as_completed(async_profiles):
+                    for async_profile in async_profiles:
+                        yield async_profile.result()
+
+                    logger.info(
+                        f"Profiling {len(requests)} table(s) finished in {(timer.elapsed_seconds()):.3f} seconds"
                     )
-                    for request in requests
-                ]
 
-                # Avoid using as_completed so that the results are yielded in the
-                # same order as the requests.
-                # for async_profile in concurrent.futures.as_completed(async_profiles):
-                for async_profile in async_profiles:
-                    yield async_profile.result()
-
-            logger.info(
-                f"Profiling {len(requests)} table(s) finished in {(timer.elapsed_seconds()):.3f} seconds"
-            )
+                    self.report.report_from_query_combiner(query_combiner.report)
 
     def _generate_profile_from_request(
         self,

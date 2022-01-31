@@ -14,6 +14,11 @@ This plugin extracts the following:
 - Column types and schema associated with each table
 - Table, row, and column statistics via optional [SQL profiling](./sql_profiles.md)
 
+| Capability | Status | Details | 
+| -----------| ------ | ---- |
+| Platform Instance | ✔️ | [link](../../docs/platform-instances.md) |
+
+
 ## Quickstart recipe
 
 Check out the following recipe to get started with ingestion! See [below](#config-details) for full configuration options.
@@ -38,9 +43,11 @@ sink:
 
 ## Config details
 
-Note that a `.` is used to denote nested fields in the YAML recipe.
+Like all SQL-based sources, the MySQL integration supports:
+- Stale Metadata Deletion: See [here](./stateful_ingestion.md) for more details on configuration.
+- SQL Profiling: See [here](./sql_profiles.md) for more details on configuration.
 
-As a SQL-based service, the Athena integration is also supported by our SQL profiler. See [here](./sql_profiles.md) for more details on configuration.
+Note that a `.` is used to denote nested fields in the YAML recipe.
 
 | Field                       | Required | Default            | Description                                                                                                                                                                             |
 | --------------------------- | -------- | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -50,6 +57,7 @@ As a SQL-based service, the Athena integration is also supported by our SQL prof
 | `database`                  |          |                    | MySQL database.                                                                                                                                                                         |
 | `database_alias`            |          |                    | Alias to apply to database when ingesting.                                                                                                                                              |
 | `env`                       |          | `"PROD"`           | Environment to use in namespace when constructing URNs.                                                                                                                                 |
+| `platform_instance`         |          | None             | The Platform instance to use while constructing URNs.         |
 | `options.<option>`          |          |                    | Any options specified here will be passed to SQLAlchemy's `create_engine` as kwargs.<br />See https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine for details. |
 | `table_pattern.allow`       |          |                    | List of regex patterns for tables to include in ingestion.                                                                                                                              |
 | `table_pattern.deny`        |          |                    | List of regex patterns for tables to exclude from ingestion.                                                                                                                            |

@@ -19,10 +19,8 @@ dependencies {
   compile externalDependency.lombok
   compile externalDependency.elasticSearchRest
   compile externalDependency.elasticSearchTransport
+  compile externalDependency.javatuples
   compile externalDependency.kafkaClients
-  compile externalDependency.gmaEbeanDao
-  compile externalDependency.gmaRestliResources
-  compile externalDependency.gmaElasticsearchDao
   compile externalDependency.ebean
   enhance externalDependency.ebeanAgent
   compile externalDependency.opentelemetryAnnotations
@@ -45,11 +43,22 @@ dependencies {
   testCompile project(':test-models')
 
   testAnnotationProcessor externalDependency.lombok
+
+  constraints {
+    implementation("org.apache.logging.log4j:log4j-core:2.17.0") {
+        because("previous versions are vulnerable to CVE-2021-45105")
+    }
+    implementation("org.apache.logging.log4j:log4j-api:2.17.0") {
+        because("previous versions are vulnerable to CVE-2021-45105")
+    }
+  }
 }
 
 test {
   // https://docs.gradle.org/current/userguide/performance.html
   maxParallelForks = Runtime.runtime.availableProcessors().intdiv(2) ?: 1
+  testLogging.showStandardStreams = true
+  testLogging.exceptionFormat = 'full'
 }
 
 tasks.withType(Test) {

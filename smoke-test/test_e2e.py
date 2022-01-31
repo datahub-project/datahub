@@ -1,10 +1,17 @@
 import time
+import urllib
+from typing import Any, Dict, Optional, cast
 
 import pytest
 import requests
-import urllib
+from sqlalchemy import create_engine
+from sqlalchemy.sql import text
+
 from datahub.cli.docker import check_local_docker_containers
 from datahub.ingestion.run.pipeline import Pipeline
+from datahub.ingestion.source.sql.mysql import MySQLConfig, MySQLSource
+from datahub.ingestion.source.sql.sql_common import BaseSQLAlchemyCheckpointState
+from datahub.ingestion.source.state.checkpoint import Checkpoint
 from tests.utils import ingest_file_via_rest
 
 GMS_ENDPOINT = "http://localhost:8080"
@@ -155,6 +162,37 @@ def test_gms_get_dataset(platform, dataset_name, env):
     assert res_data["value"]["com.linkedin.metadata.snapshot.DatasetSnapshot"]
     assert res_data["value"]["com.linkedin.metadata.snapshot.DatasetSnapshot"]["urn"] == urn
 
+@pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
+def test_gms_batch_get_v2():
+    platform = "urn:li:dataPlatform:bigquery"
+    env = "PROD"
+    name_1 = (
+        "bigquery-public-data.covid19_geotab_mobility_impact.us_border_wait_times"
+    )
+    name_2 = (
+        "bigquery-public-data.covid19_geotab_mobility_impact.ca_border_wait_times"
+    )
+    urn1 = f"urn:li:dataset:({platform},{name_1},{env})"
+    urn2 = f"urn:li:dataset:({platform},{name_2},{env})"
+
+    response = requests.get(
+        f"{GMS_ENDPOINT}/entitiesV2?ids=List({urllib.parse.quote(urn1)},{urllib.parse.quote(urn2)})&aspects=List(datasetProperties,ownership)",
+        headers={
+            **restli_default_headers,
+            "X-RestLi-Method": "batch_get",
+        },
+    )
+    response.raise_for_status()
+    res_data = response.json()
+
+    # Verify both urns exist and have correct aspects
+    assert res_data["results"]
+    assert res_data["results"][urn1]
+    assert res_data["results"][urn1]["aspects"]["datasetProperties"]
+    assert res_data["results"][urn1]["aspects"]["ownership"]
+    assert res_data["results"][urn2]
+    assert res_data["results"][urn2]["aspects"]["datasetProperties"]
+    assert "ownership" not in res_data["results"][urn2]["aspects"] # Aspect does not exist.
 
 @pytest.mark.parametrize(
     "query,min_expected_results",
@@ -594,8 +632,8 @@ def test_frontend_list_policies(frontend_session):
     assert res_data["data"]
     assert res_data["data"]["listPolicies"]
     assert res_data["data"]["listPolicies"]["start"] is 0
-    assert res_data["data"]["listPolicies"]["count"] is 8
-    assert len(res_data["data"]["listPolicies"]["policies"]) is 8 # Length of default policies.
+    assert res_data["data"]["listPolicies"]["count"] > 0
+    assert len(res_data["data"]["listPolicies"]["policies"]) > 0
 
 @pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion", "test_frontend_list_policies"])
 def test_frontend_update_policy(frontend_session):
@@ -677,7 +715,10 @@ def test_frontend_delete_policy(frontend_session):
     assert res_data
     assert res_data["data"]
     assert res_data["data"]["listPolicies"]
-    assert len(res_data["data"]["listPolicies"]["policies"]) is 7 # Length of default policies - 1
+
+    # Verify that the URN is no longer in the list
+    result = filter(lambda x: x["urn"] == "urn:li:dataHubPolicy:7", res_data["data"]["listPolicies"]["policies"])
+    assert len(list(result)) is 0
 
 @pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion", "test_frontend_list_policies", "test_frontend_delete_policy"])
 def test_frontend_create_policy(frontend_session):
@@ -717,6 +758,11 @@ def test_frontend_create_policy(frontend_session):
     assert res_data["data"]
     assert res_data["data"]["createPolicy"]
 
+    new_urn = res_data["data"]["createPolicy"]
+
+    # Sleep for eventual consistency
+    time.sleep(1)
+
     # Now verify the policy has been added.
     json = {
         "query": """query listPolicies($input: ListPoliciesInput!) {\n
@@ -745,8 +791,11 @@ def test_frontend_create_policy(frontend_session):
     assert res_data
     assert res_data["data"]
     assert res_data["data"]["listPolicies"]
-    # TODO: Check to see that the policy we created in inside the array.
-    assert len(res_data["data"]["listPolicies"]["policies"]) is 8 # Back up to 8
+
+    # Verify that the URN appears in the list
+    result = filter(lambda x: x["urn"] == new_urn, res_data["data"]["listPolicies"]["policies"])
+    assert len(list(result)) is 1
+
 
 @pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
 def test_frontend_app_config(frontend_session):
@@ -1271,3 +1320,97 @@ def test_generate_personal_access_token(frontend_session):
 
     assert res_data
     assert "errors" in res_data # Assert the request fails
+
+@pytest.mark.dependency(depends=["test_healthchecks"])
+def test_stateful_ingestion(wait_for_healthchecks):
+    def create_mysql_engine(mysql_source_config_dict: Dict[str, Any]) -> Any:
+        mysql_config = MySQLConfig.parse_obj(mysql_source_config_dict)
+        url = mysql_config.get_sql_alchemy_url()
+        return create_engine(url)
+
+    def create_table(engine: Any, name:str, defn:str) -> None:
+        create_table_query = text(f"CREATE TABLE IF NOT EXISTS {name}{defn};")
+        engine.execute(create_table_query)
+
+    def drop_table(engine: Any, table_name: str) -> None:
+        drop_table_query = text(f"DROP TABLE {table_name};")
+        engine.execute(drop_table_query)
+
+    def get_current_checkpoint_from_pipeline(
+            pipeline_config_dict: Dict[str, Any]
+    ) -> Optional[Checkpoint]:
+        pipeline = Pipeline.create(pipeline_config_dict)
+        pipeline.run()
+        pipeline.raise_from_status()
+        mysql_source = cast(MySQLSource, pipeline.source)
+        return mysql_source.get_current_checkpoint(
+            mysql_source.get_default_ingestion_job_id()
+        )
+
+    source_config_dict: Dict[str, Any] = {
+            "username": "datahub",
+            "password": "datahub",
+            "database": "datahub",
+            "stateful_ingestion": {
+                "enabled": True,
+                "remove_stale_metadata": True,
+                "state_provider": {
+                    "type": "datahub",
+                    "config": {"datahub_api": {"server": "http://localhost:8080"}},
+                },
+            },
+        }
+
+    pipeline_config_dict: Dict[str, Any] = {
+            "source": {
+                "type": "mysql",
+                "config": source_config_dict,
+            },
+            "sink": {
+                "type": "datahub-rest",
+                "config": {"server": "http://localhost:8080"},
+            },
+            "pipeline_name": "mysql_stateful_ingestion_smoke_test_pipeline",
+        }
+
+    # 1. Setup the SQL engine
+    mysql_engine = create_mysql_engine(source_config_dict)
+
+    # 2. Create test tables for first run of the  pipeline.
+    table_prefix = "stateful_ingestion_test"
+    table_defs = {
+        f"{table_prefix}_t1": "(id INT, name VARCHAR(10))",
+        f"{table_prefix}_t2": "(id INT)"
+    }
+    table_names = sorted(table_defs.keys())
+    for table_name, defn in table_defs.items():
+        create_table(mysql_engine, table_name, defn)
+
+    # 3. Do the first run of the pipeline and get the default job's checkpoint.
+    checkpoint1 = get_current_checkpoint_from_pipeline(
+        pipeline_config_dict=pipeline_config_dict
+    )
+    assert checkpoint1
+
+    # 4. Drop table t1 created during step 2 + rerun the pipeline and get the checkpoint state.
+    drop_table(mysql_engine, table_names[0])
+    checkpoint2 = get_current_checkpoint_from_pipeline(
+        pipeline_config_dict=pipeline_config_dict
+    )
+    assert checkpoint2
+
+    # 5. Perform all assertions on the states
+    state1 = cast(BaseSQLAlchemyCheckpointState, checkpoint1.state)
+    state2 = cast(BaseSQLAlchemyCheckpointState, checkpoint2.state)
+    difference_urns = list(state1.get_table_urns_not_in(state2))
+    assert len(difference_urns) == 1
+    assert (
+        difference_urns[0]
+        == "urn:li:dataset:(urn:li:dataPlatform:mysql,datahub.stateful_ingestion_test_t1,PROD)"
+    )
+
+    # 6. Perform all assertions on the config.
+    assert checkpoint1.config == checkpoint2.config
+
+    # 7. Cleanup table t2 as well to prevent other tests that rely on data in the smoke-test world.
+    drop_table(mysql_engine, table_names[1])

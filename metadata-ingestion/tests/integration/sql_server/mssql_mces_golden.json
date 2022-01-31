@@ -6,6 +6,11 @@
             "urn": "urn:li:dataset:(urn:li:dataPlatform:mssql,DemoData.dbo.Products,PROD)",
             "aspects": [
                 {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
                         "schemaName": "DemoData.dbo.Products",
                         "platform": "urn:li:dataPlatform:mssql",
@@ -44,7 +49,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "ProductName",
@@ -60,7 +66,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             }
                         ],
                         "primaryKeys": null,
@@ -75,6 +82,8 @@
     "systemMetadata": {
         "lastObserved": 1615443388097,
         "runId": "mssql-test",
+        "registryName": null,
+        "registryVersion": null,
         "properties": null
     }
 },
@@ -84,6 +93,11 @@
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:mssql,DemoData.Foo.Items,PROD)",
             "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
                         "schemaName": "DemoData.Foo.Items",
@@ -123,7 +137,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "ItemName",
@@ -139,7 +154,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             }
                         ],
                         "primaryKeys": null,
@@ -154,6 +170,8 @@
     "systemMetadata": {
         "lastObserved": 1615443388097,
         "runId": "mssql-test",
+        "registryName": null,
+        "registryVersion": null,
         "properties": null
     }
 },
@@ -163,6 +181,11 @@
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:mssql,DemoData.Foo.Persons,PROD)",
             "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
                         "schemaName": "DemoData.Foo.Persons",
@@ -202,7 +225,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": true
+                                "isPartOfKey": true,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "LastName",
@@ -218,7 +242,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "FirstName",
@@ -234,7 +259,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "Age",
@@ -250,7 +276,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             }
                         ],
                         "primaryKeys": null,
@@ -265,6 +292,8 @@
     "systemMetadata": {
         "lastObserved": 1615443388097,
         "runId": "mssql-test",
+        "registryName": null,
+        "registryVersion": null,
         "properties": null
     }
 },
@@ -274,6 +303,11 @@
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:mssql,DemoData.Foo.SalesReason,PROD)",
             "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
                         "schemaName": "DemoData.Foo.SalesReason",
@@ -313,7 +347,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": true
+                                "isPartOfKey": true,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "Name",
@@ -329,7 +364,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             }
                         ],
                         "primaryKeys": null,
@@ -355,6 +391,8 @@
     "systemMetadata": {
         "lastObserved": 1615443388097,
         "runId": "mssql-test",
+        "registryName": null,
+        "registryVersion": null,
         "properties": null
     }
 }

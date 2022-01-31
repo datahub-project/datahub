@@ -2,7 +2,6 @@ package com.linkedin.entity.client;
 
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
-
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.aspect.GetTimeseriesAspectValuesResponse;
 import com.linkedin.common.AuditStamp;
@@ -11,12 +10,13 @@ import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.Entity;
+import com.linkedin.entity.EntityResponse;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.aspect.EnvelopedAspectArray;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.browse.BrowseResult;
-import com.linkedin.metadata.dao.utils.RecordUtils;
+import com.datahub.util.RecordUtils;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.filter.Filter;
@@ -70,6 +70,19 @@ public class JavaEntityClient implements EntityClient {
     @Nonnull
     public Entity get(@Nonnull final Urn urn, @Nonnull final Authentication authentication) {
       return _entityService.getEntity(urn, ImmutableSet.of());
+    }
+
+    @Nonnull
+    @Override
+    public Map<Urn, EntityResponse> batchGetV2(
+        @Nonnull String entityName,
+        @Nonnull Set<Urn> urns,
+        @Nullable Set<String> aspectNames,
+        @Nonnull Authentication authentication) throws Exception {
+        final Set<String> projectedAspects = aspectNames == null
+            ? _entityService.getEntityAspectNames(entityName)
+            : aspectNames;
+        return _entityService.getEntitiesV2(entityName, urns, projectedAspects);
     }
 
     @Nonnull
@@ -329,20 +342,30 @@ public class JavaEntityClient implements EntityClient {
     @Override
     public List<EnvelopedAspect> getTimeseriesAspectValues(@Nonnull String urn, @Nonnull String entity,
         @Nonnull String aspect, @Nullable Long startTimeMillis, @Nullable Long endTimeMillis, @Nullable Integer limit,
-        @Nonnull final Authentication authentication) throws RemoteInvocationException {
-        GetTimeseriesAspectValuesResponse response = new GetTimeseriesAspectValuesResponse();
-        response.setEntityName(entity);
-        response.setAspectName(aspect);
-        if (startTimeMillis != null) {
-            response.setStartTimeMillis(startTimeMillis);
-        }
-        if (endTimeMillis != null) {
-            response.setEndTimeMillis(endTimeMillis);
-        }
-        response.setValues(new EnvelopedAspectArray(
-            _timeseriesAspectService.getAspectValues(Urn.createFromString(urn), entity, aspect, startTimeMillis, endTimeMillis,
-                limit)));
-        return response.getValues();
+        @Nonnull Boolean getLatestValue, @Nullable Filter filter, @Nonnull final Authentication authentication)
+        throws RemoteInvocationException {
+      GetTimeseriesAspectValuesResponse response = new GetTimeseriesAspectValuesResponse();
+      response.setEntityName(entity);
+      response.setAspectName(aspect);
+      if (startTimeMillis != null) {
+        response.setStartTimeMillis(startTimeMillis);
+      }
+      if (endTimeMillis != null) {
+        response.setEndTimeMillis(endTimeMillis);
+      }
+      if (limit != null) {
+        response.setLimit(limit);
+      }
+      if (getLatestValue != null) {
+        response.setGetLatestValue(getLatestValue);
+      }
+      if (filter != null) {
+        response.setFilter(filter);
+      }
+      response.setValues(new EnvelopedAspectArray(
+          _timeseriesAspectService.getAspectValues(Urn.createFromString(urn), entity, aspect, startTimeMillis,
+              endTimeMillis, limit, getLatestValue, filter)));
+      return response.getValues();
     }
 
     // TODO: Factor out ingest logic into a util that can be accessed by the java client and the resource
@@ -355,7 +378,7 @@ public class JavaEntityClient implements EntityClient {
         final List<MetadataChangeProposal> additionalChanges =
             AspectUtils.getAdditionalChanges(metadataChangeProposal, _entityService);
 
-        Urn urn = _entityService.ingestProposal(metadataChangeProposal, auditStamp);
+        Urn urn = _entityService.ingestProposal(metadataChangeProposal, auditStamp).getUrn();
         additionalChanges.forEach(proposal -> _entityService.ingestProposal(proposal, auditStamp));
         return urn.toString();
     }

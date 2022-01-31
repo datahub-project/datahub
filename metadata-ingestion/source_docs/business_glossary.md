@@ -42,16 +42,17 @@ The business glossary source file should be a `.yml` file with the following top
 **Glossary**: the top level keys of the business glossary file
 - **version**: the version of business glossary file config the config conforms to. Currently the only version released is `1`.
 - **source**: the source format of the terms. Currently only supports `DataHub`
-- **owners**: (optional) owners contains two nested fields
+- **owners**: owners contains two nested fields
   - **users**: (optional) a list of user ids
   - **groups**: (optional) a list of group ids
 - **url**: (optional) external url pointing to where the glossary is defined externally, if applicable.
-- **nodes**: list of **GlossaryNode** objects, as defined below.
+- **nodes**: (optional) list of child **GlossaryNode** objects
+- **terms**: (optional) list of child **GlossaryTerm** objects
 
 
 **GlossaryNode**: a container of **GlossaryNode** and **GlossaryTerm** objects
 - **name**: name of the node
-- **description**: (optional) description of the node
+- **description**: description of the node
 - **owners**: (optional) owners contains two nested fields
   - **users**: (optional) a list of user ids
   - **groups**: (optional) a list of group ids
@@ -60,7 +61,7 @@ The business glossary source file should be a `.yml` file with the following top
 
 **GlossaryTerm**: a term in your business glossary
 - **name**: name of the term
-- **description**: (optional) description of the term
+- **description**: description of the term
 - **owners**: (optional) owners contains two nested fields
   - **users**: (optional) a list of user ids
   - **groups**: (optional) a list of group ids

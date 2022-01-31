@@ -1,25 +1,44 @@
 import collections
 import dataclasses
 import heapq
+import json
 import logging
 import re
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Any, Counter, Dict, Iterable, List, MutableMapping, Optional, Union
+from typing import (
+    Any,
+    Counter,
+    Dict,
+    Iterable,
+    List,
+    MutableMapping,
+    Optional,
+    Union,
+    cast,
+)
 
 import cachetools
 import pydantic
 from google.cloud.logging_v2.client import Client as GCPLoggingClient
+from more_itertools import partition
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, ConfigurationError
+from datahub.configuration.source_common import DatasetSourceConfigBase
 from datahub.configuration.time_window_config import get_time_bucket
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.usage.usage_common import (
     BaseUsageConfig,
     GenericAggregatedDataset,
+)
+from datahub.metadata.schema_classes import (
+    ChangeTypeClass,
+    OperationClass,
+    OperationTypeClass,
 )
 from datahub.utilities.delayed_iter import delayed_iter
 
@@ -33,18 +52,24 @@ logger = logging.getLogger(__name__)
 # AuditLogEntry = ProtobufEntry
 AuditLogEntry = Any
 
+# BigQueryAuditMetadata is the v2 format in which audit logs are exported to BigQuery
+BigQueryAuditMetadata = Any
+
 DEBUG_INCLUDE_FULL_PAYLOADS = False
 
 # Handle yearly, monthly, daily, or hourly partitioning.
 # See https://cloud.google.com/bigquery/docs/partitioned-tables.
 # This REGEX handles both Partitioned Tables ($ separator) and Sharded Tables (_ separator)
-PARTITIONED_TABLE_REGEX = re.compile(r"^(.+)[\$_](\d{4}|\d{6}|\d{8}|\d{10})$")
+PARTITIONED_TABLE_REGEX = re.compile(
+    r"^(.+)[\$_](\d{4}|\d{6}|\d{8}|\d{10}|__PARTITIONS_SUMMARY__)$"
+)
 
 # Handle table snapshots
 # See https://cloud.google.com/bigquery/docs/table-snapshots-intro.
 SNAPSHOT_TABLE_REGEX = re.compile(r"^(.+)@(\d{13})$")
 
 BQ_DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
+BQ_DATE_SHARD_FORMAT = "%Y%m%d"
 BQ_FILTER_REGEX_ALLOW_TEMPLATE = """
 protoPayload.serviceData.jobCompletedEvent.job.jobStatistics.referencedTables.tableId =~ "{allow_pattern}"
 """
@@ -81,6 +106,16 @@ timestamp >= "{start_time}"
 AND
 timestamp < "{end_time}"
 """.strip()
+OPERATION_STATEMENT_TYPES = {
+    "INSERT": OperationTypeClass.INSERT,
+    "UPDATE": OperationTypeClass.UPDATE,
+    "DELETE": OperationTypeClass.DELETE,
+    "MERGE": OperationTypeClass.UPDATE,
+    "CREATE": OperationTypeClass.CREATE,
+    "CREATE_TABLE_AS_SELECT": OperationTypeClass.CREATE,
+    "CREATE_SCHEMA": OperationTypeClass.CREATE,
+    "DROP_TABLE": OperationTypeClass.DROP,
+}
 
 
 @dataclass(frozen=True, order=True)
@@ -185,7 +220,6 @@ class ReadEvent:
 
     @classmethod
     def from_entry(cls, entry: AuditLogEntry) -> "ReadEvent":
-
         user = entry.payload["authenticationInfo"]["principalEmail"]
         resourceName = entry.payload["resourceName"]
         readInfo = entry.payload["metadata"]["tableDataRead"]
@@ -226,6 +260,7 @@ class QueryEvent:
     actor_email: str
 
     query: str
+    statementType: Optional[str]
     destinationTable: Optional[BigQueryTableRef]
     referencedTables: Optional[List[BigQueryTableRef]]
     jobName: Optional[str]
@@ -255,6 +290,11 @@ class QueryEvent:
         if rawDestTable:
             destinationTable = BigQueryTableRef.from_spec_obj(rawDestTable)
 
+        try:
+            statementType = job["jobConfiguration"]["query"]["statementType"]
+        except KeyError:
+            statementType = None
+
         rawRefTables = job["jobStatistics"].get("referencedTables")
         referencedTables = None
         if rawRefTables:
@@ -266,6 +306,7 @@ class QueryEvent:
             timestamp=entry.timestamp,
             actor_email=user,
             query=rawQuery,
+            statementType=statementType,
             destinationTable=destinationTable,
             referencedTables=referencedTables,
             jobName=jobName,
@@ -279,12 +320,73 @@ class QueryEvent:
 
         return queryEvent
 
+    @classmethod
+    def can_parse_exported_bigquery_audit_metadata(
+        cls, row: BigQueryAuditMetadata
+    ) -> bool:
+        try:
+            row["timestamp"]
+            row["protoPayload"]
+            row["metadata"]
+            return True
+        except (KeyError, TypeError):
+            return False
 
-class BigQueryUsageConfig(BaseUsageConfig):
+    @classmethod
+    def from_exported_bigquery_audit_metadata(
+        cls, row: BigQueryAuditMetadata
+    ) -> "QueryEvent":
+        timestamp = row["timestamp"]
+        payload = row["protoPayload"]
+        metadata = json.loads(row["metadata"])
+
+        user = payload["authenticationInfo"]["principalEmail"]
+
+        job = metadata["jobChange"]["job"]
+
+        job_name = job.get("jobName")
+        raw_query = job["jobConfig"]["queryConfig"]["query"]
+
+        raw_dest_table = job["jobConfig"]["queryConfig"].get("destinationTable")
+        destination_table = None
+        if raw_dest_table:
+            destination_table = BigQueryTableRef.from_string_name(raw_dest_table)
+
+        raw_ref_tables = job["jobStats"]["queryStats"].get("referencedTables")
+        referenced_tables = None
+        if raw_ref_tables:
+            referenced_tables = [
+                BigQueryTableRef.from_string_name(spec) for spec in raw_ref_tables
+            ]
+
+        try:
+            statementType = job["jobConfiguration"]["query"]["statementType"]
+        except KeyError:
+            statementType = None
+
+        query_event = QueryEvent(
+            timestamp=timestamp,
+            actor_email=user,
+            query=raw_query,
+            statementType=statementType,
+            destinationTable=destination_table,
+            referencedTables=referenced_tables,
+            jobName=job_name,
+            payload=payload if DEBUG_INCLUDE_FULL_PAYLOADS else None,
+        )
+        if not job_name:
+            logger.debug(
+                "jobName from query events is absent. "
+                "BigQueryAuditMetadata entry - {logEntry}".format(logEntry=row)
+            )
+
+        return query_event
+
+
+class BigQueryUsageConfig(DatasetSourceConfigBase, BaseUsageConfig):
     projects: Optional[List[str]] = None
     project_id: Optional[str] = None  # deprecated in favor of `projects`
     extra_client_options: dict = {}
-    env: str = builder.DEFAULT_ENV
     table_pattern: Optional[AllowDenyPattern] = None
 
     log_page_size: Optional[pydantic.PositiveInt] = 1000
@@ -298,6 +400,16 @@ class BigQueryUsageConfig(BaseUsageConfig):
         )
         values["projects"] = [v]
         return None
+
+    @pydantic.validator("platform")
+    def platform_is_always_bigquery(cls, v):
+        return "bigquery"
+
+    @pydantic.validator("platform_instance")
+    def bigquery_platform_instance_is_meaningless(cls, v):
+        raise ConfigurationError(
+            "BigQuery project-ids are globally unique. You don't need to provide a platform_instance"
+        )
 
     def get_allow_pattern_string(self) -> str:
         return "|".join(self.table_pattern.allow) if self.table_pattern else ""
@@ -331,7 +443,26 @@ class BigQueryUsageSource(Source):
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         clients = self._make_bigquery_clients()
         bigquery_log_entries = self._get_bigquery_log_entries(clients)
-        parsed_events = self._parse_bigquery_log_entries(bigquery_log_entries)
+        parsed_bigquery_log_events = self._parse_bigquery_log_entries(
+            bigquery_log_entries
+        )
+        parsed_events_uncasted: Iterable[Union[ReadEvent, QueryEvent, MetadataWorkUnit]]
+        last_updated_work_units_uncasted: Iterable[
+            Union[ReadEvent, QueryEvent, MetadataWorkUnit]
+        ]
+        parsed_events_uncasted, last_updated_work_units_uncasted = partition(
+            lambda x: isinstance(x, MetadataWorkUnit), parsed_bigquery_log_events
+        )
+        parsed_events: Iterable[Union[ReadEvent, QueryEvent]] = cast(
+            Iterable[Union[ReadEvent, QueryEvent]], parsed_events_uncasted
+        )
+        last_updated_work_units: Iterable[MetadataWorkUnit] = cast(
+            Iterable[MetadataWorkUnit], last_updated_work_units_uncasted
+        )
+        if self.config.include_operational_stats:
+            for wu in last_updated_work_units:
+                self.report.report_workunit(wu)
+                yield wu
         hydrated_read_events = self._join_events_by_job_id(parsed_events)
         aggregated_info = self._aggregate_enriched_read_events(hydrated_read_events)
 
@@ -434,9 +565,61 @@ class BigQueryUsageSource(Source):
             yield entry
         logger.info(f"Finished loading {i} log entries from BigQuery")
 
+    def _create_operation_aspect_work_unit(
+        self, event: QueryEvent
+    ) -> Optional[MetadataWorkUnit]:
+        if event.statementType in OPERATION_STATEMENT_TYPES and event.destinationTable:
+            destination_table: BigQueryTableRef
+            try:
+                destination_table = event.destinationTable.remove_extras()
+            except Exception as e:
+                self.report.report_warning(
+                    str(event.destinationTable),
+                    f"Failed to clean up destination table, {e}",
+                )
+                return None
+            last_updated_timestamp: int = int(event.timestamp.timestamp() * 1000)
+            affected_datasets = []
+            if event.referencedTables:
+                for table in event.referencedTables:
+                    try:
+                        affected_datasets.append(
+                            _table_ref_to_urn(
+                                table.remove_extras(),
+                                self.config.env,
+                            )
+                        )
+                    except Exception as e:
+                        self.report.report_warning(
+                            str(table),
+                            f"Failed to clean up table, {e}",
+                        )
+            operation_aspect = OperationClass(
+                timestampMillis=last_updated_timestamp,
+                lastUpdatedTimestamp=last_updated_timestamp,
+                actor=builder.make_user_urn(event.actor_email.split("@")[0]),
+                operationType=OPERATION_STATEMENT_TYPES[event.statementType],
+                affectedDatasets=affected_datasets,
+            )
+            mcp = MetadataChangeProposalWrapper(
+                entityType="dataset",
+                aspectName="operation",
+                changeType=ChangeTypeClass.UPSERT,
+                entityUrn=_table_ref_to_urn(
+                    destination_table,
+                    env=self.config.env,
+                ),
+                aspect=operation_aspect,
+            )
+            return MetadataWorkUnit(
+                id=f"operation-aspect-{destination_table}-{event.timestamp.isoformat()}",
+                mcp=mcp,
+            )
+        return None
+
     def _parse_bigquery_log_entries(
         self, entries: Iterable[AuditLogEntry]
-    ) -> Iterable[Union[ReadEvent, QueryEvent]]:
+    ) -> Iterable[Union[ReadEvent, QueryEvent, MetadataWorkUnit]]:
         num_read_events: int = 0
         num_query_events: int = 0
         for entry in entries:
@@ -448,6 +631,9 @@ class BigQueryUsageSource(Source):
                 elif QueryEvent.can_parse_entry(entry):
                     event = QueryEvent.from_entry(entry)
                     num_query_events += 1
+                    wu = self._create_operation_aspect_work_unit(event)
+                    if wu:
+                        yield wu
                 else:
                     self.report.report_warning(
                         f"{entry.log_name}-{entry.insert_id}",

@@ -1,0 +1,19 @@
+namespace com.linkedin.metadata.key
+
+/**
+ * Key for a DataHub Retention
+ */
+@Aspect = {
+  "name": "dataHubRetentionKey"
+}
+record DataHubRetentionKey {
+  /**
+   * Entity name to apply retention to. * (or empty) for applying defaults.
+   */
+  entityName: string
+
+  /**
+   * Aspect name to apply retention to. * (or empty) for applying defaults.
+   */
+  aspectName: string
+}

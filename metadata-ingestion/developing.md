@@ -97,10 +97,13 @@ pip install -e '.[dev]'
 pip install -e '.[integration-tests]'
 
 # Run unit tests.
-pytest -m 'not integration'
+pytest -m 'not integration and not slow_integration'
 
 # Run Docker-based integration tests.
 pytest -m 'integration'
+
+# Run Docker-based slow integration tests.
+pytest -m 'slow_integration'
 ```
 
 ### Sanity check code before committing
@@ -120,7 +123,7 @@ flake8 src/ tests/
 mypy src/ tests/
 
 # If you want to run only the quicker subtests
-pytest -m 'not integration' -vv
+pytest -m 'not integration and not slow_integration' -vv
 # Run the full testing suite
 pytest -vv
 

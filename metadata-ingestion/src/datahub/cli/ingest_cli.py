@@ -16,8 +16,10 @@ from datahub.cli.cli_utils import (
     get_session_and_host,
     post_rollback_endpoint,
 )
+from datahub.configuration import SensitiveError
 from datahub.configuration.config_loader import load_config_file
 from datahub.ingestion.run.pipeline import Pipeline
+from datahub.telemetry import telemetry
 
 logger = logging.getLogger(__name__)
 
@@ -61,8 +63,10 @@ def ingest() -> None:
     default=False,
     help="If enabled, ingestion runs with warnings will yield a non-zero error code",
 )
+@telemetry.with_telemetry
 def run(config: str, dry_run: bool, preview: bool, strict_warnings: bool) -> None:
     """Ingest metadata into DataHub."""
+
     logger.debug("DataHub CLI version: %s", datahub_package.nice_version_name())
 
     config_file = pathlib.Path(config)
@@ -74,11 +78,16 @@ def run(config: str, dry_run: bool, preview: bool, strict_warnings: bool) -> Non
     except ValidationError as e:
         click.echo(e, err=True)
         sys.exit(1)
+    except Exception as e:
+        # The pipeline_config may contain sensitive information, so we wrap the exception
+        # in a SensitiveError to prevent detailed variable-level information from being logged.
+        raise SensitiveError() from e
 
     logger.info("Starting metadata ingestion")
     pipeline.run()
     logger.info("Finished metadata ingestion")
     ret = pipeline.pretty_print_summary(warnings_as_failure=strict_warnings)
+    pipeline.log_ingestion_stats()
     sys.exit(ret)
 
 
@@ -108,8 +117,10 @@ def parse_restli_response(response):
 @ingest.command()
 @click.argument("page_offset", type=int, default=0)
 @click.argument("page_size", type=int, default=100)
+@telemetry.with_telemetry
 def list_runs(page_offset: int, page_size: int) -> None:
     """List recent ingestion runs to datahub"""
+
     session, gms_host = get_session_and_host()
 
     url = f"{gms_host}/runs?action=list"
@@ -143,8 +154,10 @@ def list_runs(page_offset: int, page_size: int) -> None:
 
 @ingest.command()
 @click.option("--run-id", required=True, type=str)
+@telemetry.with_telemetry
 def show(run_id: str) -> None:
     """Describe a provided ingestion run to datahub"""
+
     payload_obj = {"runId": run_id, "dryRun": True}
     structured_rows, entities_affected, aspects_affected = post_rollback_endpoint(
         payload_obj, "/runs?action=rollback"
@@ -171,6 +184,7 @@ def show(run_id: str) -> None:
 @ingest.command()
 @click.option("--run-id", required=True, type=str)
 @click.option("--dry-run", "-n", required=False, is_flag=True, default=False)
+@telemetry.with_telemetry
 def rollback(run_id: str, dry_run: bool) -> None:
     """Rollback a provided ingestion run to datahub"""
 

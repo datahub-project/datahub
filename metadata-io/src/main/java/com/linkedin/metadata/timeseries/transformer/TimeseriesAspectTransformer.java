@@ -10,7 +10,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.schema.ArrayDataSchema;
 import com.linkedin.data.schema.DataSchema;
 import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.metadata.dao.utils.RecordUtils;
+import com.datahub.util.RecordUtils;
 import com.linkedin.metadata.extractor.FieldExtractor;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.TimeseriesFieldCollectionSpec;
@@ -81,8 +81,17 @@ public class TimeseriesAspectTransformer {
         (Long) timeseriesAspect.data().get(MappingsBuilder.TIMESTAMP_MILLIS_FIELD));
     Object eventGranularity = timeseriesAspect.data().get(MappingsBuilder.EVENT_GRANULARITY);
     if (eventGranularity != null) {
-      document.put(MappingsBuilder.EVENT_GRANULARITY, eventGranularity.toString());
+      try {
+        document.put(MappingsBuilder.EVENT_GRANULARITY, OBJECT_MAPPER.writeValueAsString(eventGranularity));
+      } catch (JsonProcessingException e) {
+        throw new IllegalArgumentException("Failed to convert eventGranulairty to Json string!", e);
+      }
     }
+    String messageId = (String) timeseriesAspect.data().get(MappingsBuilder.MESSAGE_ID_FIELD);
+    if (messageId != null) {
+      document.put(MappingsBuilder.MESSAGE_ID_FIELD, messageId);
+    }
+
     return document;
   }
 
@@ -184,6 +193,10 @@ public class TimeseriesAspectTransformer {
     docId += document.get(MappingsBuilder.URN_FIELD).toString();
     if (collectionId != null) {
       docId += collectionId;
+    }
+    JsonNode messageId = document.get(MappingsBuilder.MESSAGE_ID_FIELD);
+    if (messageId != null) {
+      docId += messageId.toString();
     }
 
     return DigestUtils.md5Hex(docId);

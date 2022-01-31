@@ -1,14 +1,14 @@
 package com.linkedin.metadata.timeseries.elastic;
 
 import com.codahale.metrics.Timer;
+import com.datahub.util.RecordUtils;
+import com.datahub.util.exception.ESQueryException;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.ByteString;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
-import com.linkedin.metadata.dao.exception.ESQueryException;
-import com.linkedin.metadata.dao.utils.RecordUtils;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.Criterion;
@@ -119,9 +119,9 @@ public class ElasticSearchTimeseriesAspectService implements TimeseriesAspectSer
 
   @Override
   public List<EnvelopedAspect> getAspectValues(@Nonnull final Urn urn, @Nonnull String entityName,
-      @Nonnull String aspectName, @Nullable Long startTimeMillis, @Nullable Long endTimeMillis,
-      @Nullable Integer limit) {
-    final BoolQueryBuilder filterQueryBuilder = ESUtils.buildFilterQuery(null);
+      @Nonnull String aspectName, @Nullable Long startTimeMillis, @Nullable Long endTimeMillis, @Nullable Integer limit,
+      @Nullable Boolean getLatestValue, @Nullable Filter filter) {
+    final BoolQueryBuilder filterQueryBuilder = QueryBuilders.boolQuery().must(ESUtils.buildFilterQuery(filter));
     filterQueryBuilder.must(QueryBuilders.matchQuery("urn", urn.toString()));
     // NOTE: We are interested only in the un-exploded rows as only they carry the `event` payload.
     filterQueryBuilder.mustNot(QueryBuilders.termQuery(MappingsBuilder.IS_EXPLODED_FIELD, true));
@@ -139,6 +139,12 @@ public class ElasticSearchTimeseriesAspectService implements TimeseriesAspectSer
     }
     final SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
     searchSourceBuilder.query(filterQueryBuilder);
+    if (getLatestValue != null && getLatestValue) {
+      if (limit != null && limit > 1) {
+        log.warn(String.format("Changing limit from %s to 1, since getLatestValue is true", limit));
+      }
+      limit = 1;
+    }
     searchSourceBuilder.size(limit != null ? limit : DEFAULT_LIMIT);
     searchSourceBuilder.sort(SortBuilders.fieldSort("@timestamp").order(SortOrder.DESC));
 

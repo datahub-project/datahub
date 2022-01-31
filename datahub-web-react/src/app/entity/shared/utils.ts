@@ -1,5 +1,20 @@
 export function urlEncodeUrn(urn: string) {
-    return urn && urn.replace(/%/g, '%25').replace(/\//g, '%2F').replace(/\?/g, '%3F').replace(/#/g, '%23');
+    return (
+        urn &&
+        urn
+            .replace(/%/g, '%25')
+            .replace(/\//g, '%2F')
+            .replace(/\?/g, '%3F')
+            .replace(/#/g, '%23')
+            .replace(/\[/g, '%5B')
+            .replace(/\]/g, '%5D')
+    );
+}
+
+export function getNumberWithOrdinal(n) {
+    const suffixes = ['th', 'st', 'nd', 'rd'];
+    const v = n % 100;
+    return n + (suffixes[(v - 20) % 10] || suffixes[v] || suffixes[0]);
 }
 
 export function notEmpty<TValue>(value: TValue | null | undefined): value is TValue {

@@ -1,8 +1,8 @@
 package com.linkedin.metadata;
 
+import com.datahub.util.RecordUtils;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.metadata.dao.utils.RecordUtils;
 import com.linkedin.mxe.FailedMetadataChangeEvent;
 import com.linkedin.mxe.MetadataAuditEvent;
 import com.linkedin.mxe.MetadataChangeEvent;
@@ -16,7 +16,7 @@ import org.apache.avro.io.DecoderFactory;
 import org.apache.avro.io.JsonDecoder;
 import org.testng.annotations.Test;
 
-import static com.linkedin.metadata.utils.TestUtils.*;
+import static com.datahub.utils.TestUtils.*;
 import static org.testng.Assert.*;
 
 

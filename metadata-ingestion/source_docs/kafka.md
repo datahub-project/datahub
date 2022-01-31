@@ -13,6 +13,10 @@ This plugin extracts the following:
 - Topics from the Kafka broker
 - Schemas associated with each topic from the schema registry
 
+| Capability | Status | Details | 
+| -----------| ------ | ---- |
+| Platform Instance | 🛑 | [link](../../docs/platform-instances.md) |
+
 ## Quickstart recipe
 
 Check out the following recipe to get started with ingestion! See [below](#config-details) for full configuration options.
@@ -32,6 +36,38 @@ source:
 sink:
   # sink configs
 ```
+
+### Connecting to Confluent Cloud
+
+If using Confluent Cloud you can use a recipe like this. In this `consumer_config.sasl.username` and `consumer_config.sasl.password` are the API credentials that you get (in the Confluent UI) from your cluster -> Data Integration -> API Keys. `schema_registry_config.basic.auth.user.info`  has API credentials for Confluent schema registry which you get (in Confluent UI) from Schema Registry -> API credentials.
+
+When creating API Key for the cluster ensure that the ACLs associated with the key are set like below. This is required for DataHub to read topic metadata from topics in Confluent Cloud.
+```
+Topic Name = *
+Permission = ALLOW
+Operation = DESCRIBE
+Pattern Type = LITERAL
+```
+
+```yml
+source:
+  type: "kafka"
+  config:
+    connection:
+      bootstrap: "abc-defg.eu-west-1.aws.confluent.cloud:9092"
+      consumer_config:
+        security.protocol: "SASL_SSL"
+        sasl.mechanism: "PLAIN"
+        sasl.username: "CLUSTER_API_KEY_ID"
+        sasl.password: "CLUSTER_API_KEY_SECRET"
+      schema_registry_url: "https://abc-defgh.us-east-2.aws.confluent.cloud"
+      schema_registry_config:
+        basic.auth.user.info: "REGISTRY_API_KEY_ID:REGISTRY_API_KEY_SECRET"
+
+sink:
+  # sink configs
+```
+
 
 ## Config details
 

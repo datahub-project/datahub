@@ -1,0 +1,206 @@
+[
+{
+    "auditHeader": null,
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DashboardSnapshot": {
+            "urn": "urn:li:dashboard:(metabase,1)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.dashboard.DashboardInfo": {
+                        "customProperties": {},
+                        "externalUrl": null,
+                        "title": "Dashboard 1",
+                        "description": "",
+                        "charts": [
+                            "urn:li:chart:(metabase,1)",
+                            "urn:li:chart:(metabase,2)"
+                        ],
+                        "lastModified": {
+                            "created": {
+                                "time": 1639417721742,
+                                "actor": "urn:li:corpuser:admin@metabase.com",
+                                "impersonator": null
+                            },
+                            "lastModified": {
+                                "time": 1639417721742,
+                                "actor": "urn:li:corpuser:admin@metabase.com",
+                                "impersonator": null
+                            },
+                            "deleted": null
+                        },
+                        "dashboardUrl": "http://localhost:3000/dashboard/1",
+                        "access": null,
+                        "lastRefreshed": null
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [
+                            {
+                                "owner": "urn:li:corpuser:admin@metabase.com",
+                                "type": "DATAOWNER",
+                                "source": null
+                            }
+                        ],
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown",
+                            "impersonator": null
+                        }
+                    }
+                }
+            ]
+        }
+    },
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1636614000000,
+        "runId": "metabase-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
+            "urn": "urn:li:chart:(metabase,1)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.chart.ChartInfo": {
+                        "customProperties": {
+                            "Metrics": "",
+                            "Filters": "",
+                            "Dimensions": "customer_id, first_name, last_name, amount, payment_date, rental_id"
+                        },
+                        "externalUrl": null,
+                        "title": "Customer Payment",
+                        "description": "",
+                        "lastModified": {
+                            "created": {
+                                "time": 1639417592792,
+                                "actor": "urn:li:corpuser:admin@metabase.com",
+                                "impersonator": null
+                            },
+                            "lastModified": {
+                                "time": 1639417592792,
+                                "actor": "urn:li:corpuser:admin@metabase.com",
+                                "impersonator": null
+                            },
+                            "deleted": null
+                        },
+                        "chartUrl": "http://localhost:3000/card/1",
+                        "inputs": [
+                            {
+                                "string": "urn:li:dataset:(urn:li:dataPlatform:postgres,dvdrental.public.payment,PROD)"
+                            }
+                        ],
+                        "type": "TABLE",
+                        "access": null,
+                        "lastRefreshed": null
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.chart.ChartQuery": {
+                        "rawQuery": "SELECT\\n\\tcustomer.customer_id,\\n\\tfirst_name,\\n\\tlast_name,\\n\\tamount,\\n\\tpayment_date,\\n\\trental_id\\nFROM\\n\\tcustomer\\nINNER JOIN payment \\n    ON payment.customer_id = customer.customer_id\\nORDER BY payment_date",
+                        "type": "SQL"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [
+                            {
+                                "owner": "urn:li:corpuser:admin@metabase.com",
+                                "type": "DATAOWNER",
+                                "source": null
+                            }
+                        ],
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown",
+                            "impersonator": null
+                        }
+                    }
+                }
+            ]
+        }
+    },
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1636614000000,
+        "runId": "metabase-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
+            "urn": "urn:li:chart:(metabase,2)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.chart.ChartInfo": {
+                        "customProperties": {
+                            "Metrics": "Count",
+                            "Filters": "['=', ['field', 136, None], 2006]",
+                            "Dimensions": "Rating"
+                        },
+                        "externalUrl": null,
+                        "title": "Films, Count, Grouped by Rating, Filtered by Release Year, Sorted by [Unknown Field] descending",
+                        "description": "",
+                        "lastModified": {
+                            "created": {
+                                "time": 1639417717110,
+                                "actor": "urn:li:corpuser:admin@metabase.com",
+                                "impersonator": null
+                            },
+                            "lastModified": {
+                                "time": 1639417717110,
+                                "actor": "urn:li:corpuser:admin@metabase.com",
+                                "impersonator": null
+                            },
+                            "deleted": null
+                        },
+                        "chartUrl": "http://localhost:3000/card/2",
+                        "inputs": [
+                            {
+                                "string": "urn:li:dataset:(urn:li:dataPlatform:postgres,dvdrental.public.film,PROD)"
+                            }
+                        ],
+                        "type": "BAR",
+                        "access": null,
+                        "lastRefreshed": null
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [
+                            {
+                                "owner": "urn:li:corpuser:admin@metabase.com",
+                                "type": "DATAOWNER",
+                                "source": null
+                            }
+                        ],
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown",
+                            "impersonator": null
+                        }
+                    }
+                }
+            ]
+        }
+    },
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1636614000000,
+        "runId": "metabase-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+}
+]

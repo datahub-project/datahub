@@ -1,18 +1,64 @@
 entities:
   - name: dataset
+    doc: Datasets represent logical or physical data assets stored or represented in various data platforms. Tables, Views, Streams are all instances of datasets.
     keyAspect: datasetKey
     aspects:
       - viewProperties
       - subTypes
       - datasetProfile
       - datasetUsageStatistics
+      - operation
+      - domains
+      - schemaMetadata
+      - status
   - name: dataHubPolicy
+    doc: DataHub Policies represent access policies granted to users or groups on metadata operations like edit, view etc.
     keyAspect: dataHubPolicyKey
     aspects:
       - dataHubPolicyInfo
+  - name: dataJob
+    keyAspect: dataJobKey
+    aspects:
+      - datahubIngestionRunSummary
+      - datahubIngestionCheckpoint
+      - domains
+  - name: dataFlow
+    keyAspect: dataFlowKey
+    aspects:
+      - domains
+  - name: chart
+    keyAspect: chartKey
+    aspects:
+      - domains
+  - name: dashboard
+    keyAspect: dashboardKey
+    aspects:
+      - domains
   - name: corpuser
+    doc: CorpUser represents an identity of a person (or an account) in the enterprise.
     keyAspect: corpUserKey
     aspects:
       - corpUserInfo
       - corpUserEditableInfo
       - corpUserStatus
+  - name: domain
+    doc: A data domain within an organization.
+    keyAspect: domainKey
+    aspects:
+      - domainProperties
+      - institutionalMemory
+      - ownership
+  - name: dataHubIngestionSource
+    keyAspect: dataHubIngestionSourceKey
+    aspects:
+      - dataHubIngestionSourceInfo
+  - name: dataHubSecret
+    keyAspect: dataHubSecretKey
+    aspects:
+      - dataHubSecretValue
+  - name: dataHubExecutionRequest
+    keyAspect: dataHubExecutionRequestKey
+    aspects:
+      - dataHubExecutionRequestInput
+      - dataHubExecutionRequestSignal
+      - dataHubExecutionRequestResult

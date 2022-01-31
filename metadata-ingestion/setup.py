@@ -23,7 +23,7 @@ def get_long_description():
 base_requirements = {
     # Compatability.
     "dataclasses>=0.6; python_version < '3.7'",
-    "typing_extensions>=3.10.0.2",
+    "typing_extensions>=3.10.0.2,<4",
     "mypy_extensions>=0.4.3",
     # Actual dependencies.
     "typing-inspect",
@@ -79,7 +79,16 @@ looker_common = {
 
 bigquery_common = {
     # Google cloud logging library
-    "google-cloud-logging"
+    "google-cloud-logging",
+    "more-itertools>=8.12.0",
+}
+
+snowflake_common = {
+    # Snowflake plugin utilizes sql common
+    *sql_common,
+    # Required for all Snowflake sources
+    "snowflake-sqlalchemy<=1.2.4",
+    "cryptography==3.4.8"
 }
 
 # Note: for all of these, framework_common will be added.
@@ -97,8 +106,10 @@ plugins: Dict[str, Set[str]] = {
     "bigquery": sql_common | bigquery_common | {"pybigquery >= 0.6.0"},
     "bigquery-usage": bigquery_common | {"cachetools"},
     "datahub-business-glossary": set(),
-    "dbt": set(),
+    "data-lake": {"pydeequ==1.0.1", "pyspark==3.0.3", "parse==1.19.0"},
+    "dbt": {"requests"},
     "druid": sql_common | {"pydruid>=0.6.2"},
+    "elasticsearch": {"elasticsearch"},
     "feast": {"docker"},
     "glue": aws_common,
     "hive": sql_common
@@ -111,7 +122,11 @@ plugins: Dict[str, Set[str]] = {
     "kafka-connect": sql_common | {"requests", "JPype1"},
     "ldap": {"python-ldap>=2.4"},
     "looker": looker_common,
-    "lookml": looker_common | {"lkml>=1.1.0", "sql-metadata==2.2.2"},
+    # lkml>=1.1.2 is required to support the sql_preamble expression in LookML
+    "lookml": looker_common
+    | {"lkml>=1.1.2", "sql-metadata==2.2.2", "sqllineage==1.3.3"},
+    "metabase": {"requests", "sqllineage==1.3.3"},
+    "mode": {"requests", "sqllineage==1.3.3"},
     "mongodb": {"pymongo>=3.11"},
     "mssql": sql_common | {"sqlalchemy-pytds>=0.3"},
     "mssql-odbc": sql_common | {"pyodbc"},
@@ -121,13 +136,14 @@ plugins: Dict[str, Set[str]] = {
     "okta": {"okta~=1.7.0"},
     "oracle": sql_common | {"cx_Oracle"},
     "postgres": sql_common | {"psycopg2-binary", "GeoAlchemy2"},
-    "redash": {"redash-toolbelt", "sql-metadata"},
-    "redshift": sql_common | {"sqlalchemy-redshift", "psycopg2-binary", "GeoAlchemy2"},
+    "redash": {"redash-toolbelt", "sql-metadata", "sqllineage==1.3.3"},
+    "redshift": sql_common
+    | {"sqlalchemy-redshift", "psycopg2-binary", "GeoAlchemy2", "sqllineage==1.3.3"},
     "redshift-usage": sql_common
     | {"sqlalchemy-redshift", "psycopg2-binary", "GeoAlchemy2"},
     "sagemaker": aws_common,
-    "snowflake": sql_common | {"snowflake-sqlalchemy<=1.2.4"},
-    "snowflake-usage": sql_common | {"snowflake-sqlalchemy<=1.2.4"},
+    "snowflake": snowflake_common,
+    "snowflake-usage": snowflake_common | {"more-itertools>=8.12.0"},
     "sqlalchemy": sql_common,
     "superset": {"requests"},
     "trino": sql_common
@@ -144,6 +160,7 @@ plugins: Dict[str, Set[str]] = {
         # PR is from same author as that of sqlalchemy-trino library below.
         "sqlalchemy-trino"
     },
+    "nifi": {"requests"},
 }
 
 all_exclude_plugins: Set[str] = {
@@ -174,12 +191,13 @@ base_dev_requirements = {
     *base_requirements,
     *framework_common,
     *mypy_stubs,
-    "black>=19.10b0",
+    "black>=21.12b0",
     "coverage>=5.1",
     "flake8>=3.8.3",
     "flake8-tidy-imports>=4.3.0",
     "isort>=5.7.0",
-    "mypy>=0.901",
+    # Waiting for https://github.com/samuelcolvin/pydantic/pull/3175 before allowing mypy 0.920.
+    "mypy>=0.901,<0.920",
     "pytest>=6.2.2",
     "pytest-cov>=2.8.1",
     "pytest-docker>=0.10.3",
@@ -190,11 +208,13 @@ base_dev_requirements = {
     "jsonpickle",
     "build",
     "twine",
+    "pydot",
     *list(
         dependency
         for plugin in [
             "bigquery",
             "bigquery-usage",
+            "elasticsearch",
             "looker",
             "glue",
             "mariadb",
@@ -206,7 +226,8 @@ base_dev_requirements = {
             "datahub-rest",
             "redash",
             "redshift",
-            "redshift-usage"
+            "redshift-usage",
+            "data-lake"
             # airflow is added below
         ]
         for dependency in plugins[plugin]
@@ -267,8 +288,10 @@ entry_points = {
         "azure-ad = datahub.ingestion.source.identity.azure_ad:AzureADSource",
         "bigquery = datahub.ingestion.source.sql.bigquery:BigQuerySource",
         "bigquery-usage = datahub.ingestion.source.usage.bigquery_usage:BigQueryUsageSource",
+        "data-lake = datahub.ingestion.source.data_lake:DataLakeSource",
         "dbt = datahub.ingestion.source.dbt:DBTSource",
         "druid = datahub.ingestion.source.sql.druid:DruidSource",
+        "elasticsearch = datahub.ingestion.source.elastic_search:ElasticsearchSource",
         "feast = datahub.ingestion.source.feast:FeastSource",
         "glue = datahub.ingestion.source.aws.glue:GlueSource",
         "sagemaker = datahub.ingestion.source.aws.sagemaker:SagemakerSource",
@@ -279,6 +302,7 @@ entry_points = {
         "looker = datahub.ingestion.source.looker:LookerDashboardSource",
         "lookml = datahub.ingestion.source.lookml:LookMLSource",
         "datahub-business-glossary = datahub.ingestion.source.metadata.business_glossary:BusinessGlossaryFileSource",
+        "mode = datahub.ingestion.source.mode:ModeSource",
         "mongodb = datahub.ingestion.source.mongodb:MongoDBSource",
         "mssql = datahub.ingestion.source.sql.mssql:SQLServerSource",
         "mysql = datahub.ingestion.source.sql.mysql:MySQLSource",
@@ -293,14 +317,19 @@ entry_points = {
         "snowflake-usage = datahub.ingestion.source.usage.snowflake_usage:SnowflakeUsageSource",
         "superset = datahub.ingestion.source.superset:SupersetSource",
         "openapi = datahub.ingestion.source.openapi:OpenApiSource",
+        "metabase = datahub.ingestion.source.metabase:MetabaseSource",
         "trino = datahub.ingestion.source.sql.trino:TrinoSource",
         "starburst-trino-usage = datahub.ingestion.source.usage.starburst_trino_usage:TrinoUsageSource",
+        "nifi = datahub.ingestion.source.nifi:NifiSource",
     ],
     "datahub.ingestion.sink.plugins": [
         "file = datahub.ingestion.sink.file:FileSink",
         "console = datahub.ingestion.sink.console:ConsoleSink",
         "datahub-kafka = datahub.ingestion.sink.datahub_kafka:DatahubKafkaSink",
         "datahub-rest = datahub.ingestion.sink.datahub_rest:DatahubRestSink",
+    ],
+    "datahub.ingestion.state_provider.plugins": [
+        "datahub = datahub.ingestion.source.state_provider.datahub_ingestion_state_provider:DatahubIngestionStateProvider",
     ],
     "apache_airflow_provider": ["provider_info=datahub_provider:get_provider_info"],
 }
@@ -342,7 +371,8 @@ setuptools.setup(
     ],
     # Package info.
     zip_safe=False,
-    python_requires=">=3.6",
+    # restrict python to <=3.9.9 due to https://github.com/looker-open-source/sdk-codegen/issues/944
+    python_requires=">=3.6, <=3.9.9",
     package_dir={"": "src"},
     packages=setuptools.find_namespace_packages(where="./src"),
     package_data={

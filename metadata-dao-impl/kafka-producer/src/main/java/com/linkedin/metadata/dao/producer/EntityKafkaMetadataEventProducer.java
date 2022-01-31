@@ -1,9 +1,9 @@
 package com.linkedin.metadata.dao.producer;
 
+import com.datahub.util.exception.ModelConversionException;
 import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.EventUtils;
-import com.linkedin.metadata.dao.exception.ModelConversionException;
 import com.linkedin.metadata.event.EntityEventProducer;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.snapshot.Snapshot;

@@ -18,6 +18,7 @@ import {
     OwnershipUpdate,
     SchemaMetadata,
     StringMapEntry,
+    Domain,
 } from '../../../types.generated';
 import { FetchedEntity } from '../../lineage/types';
 
@@ -47,6 +48,7 @@ export type GenericEntityProperties = {
     globalTags?: Maybe<GlobalTags>;
     glossaryTerms?: Maybe<GlossaryTerms>;
     ownership?: Maybe<Ownership>;
+    domain?: Maybe<Domain>;
     platform?: Maybe<DataPlatform>;
     customProperties?: Maybe<StringMapEntry[]>;
     institutionalMemory?: Maybe<InstitutionalMemory>;
@@ -86,7 +88,7 @@ export type EntityContextType = {
     entityType: EntityType;
     entityData: GenericEntityProperties | null;
     baseEntity: any;
-    updateEntity: UpdateEntityType<any>;
+    updateEntity?: UpdateEntityType<any> | null;
     routeToTab: (params: { tabName: string; tabParams?: Record<string, any>; method?: 'push' | 'replace' }) => void;
     refetch: () => Promise<any>;
     lineage: FetchedEntity | undefined;

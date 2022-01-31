@@ -19,6 +19,7 @@ import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.Criterion;
+import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchServiceTest;
 import com.linkedin.metadata.search.utils.QueryUtils;
@@ -51,10 +52,9 @@ import org.testng.annotations.AfterTest;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
-import static com.linkedin.metadata.DockerTestUtils.checkContainerEngine;
-import static com.linkedin.metadata.ElasticSearchTestUtils.syncAfterWrite;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotNull;
+import static com.linkedin.metadata.DockerTestUtils.*;
+import static com.linkedin.metadata.ElasticSearchTestUtils.*;
+import static org.testng.Assert.*;
 
 
 public class ElasticSearchTimeseriesAspectServiceTest {
@@ -129,22 +129,23 @@ public class ElasticSearchTimeseriesAspectServiceTest {
    * Tests for upsertDocument API
    */
 
-  private void upsertDocument(TestEntityProfile dp) throws JsonProcessingException {
-    Map<String, JsonNode> documents = TimeseriesAspectTransformer.transform(TEST_URN, dp, _aspectSpec, null);
+  private void upsertDocument(TestEntityProfile dp, Urn urn) throws JsonProcessingException {
+    Map<String, JsonNode> documents = TimeseriesAspectTransformer.transform(urn, dp, _aspectSpec, null);
     assertEquals(documents.size(), 3);
-    documents.entrySet().forEach(document -> {
-      _elasticSearchTimeseriesAspectService.upsertDocument(ENTITY_NAME, ASPECT_NAME, document.getKey(),
-          document.getValue());
-    });
+    documents.forEach(
+        (key, value) -> _elasticSearchTimeseriesAspectService.upsertDocument(ENTITY_NAME, ASPECT_NAME, key, value));
   }
 
-  private TestEntityProfile makeTestProfile(long eventTime, long stat) {
+  private TestEntityProfile makeTestProfile(long eventTime, long stat, String messageId) {
     TestEntityProfile testEntityProfile = new TestEntityProfile();
     testEntityProfile.setTimestampMillis(eventTime);
     testEntityProfile.setStat(stat);
     testEntityProfile.setStrStat(String.valueOf(stat));
     testEntityProfile.setStrArray(new StringArray("sa_" + stat, "sa_" + (stat + 1)));
     testEntityProfile.setEventGranularity(new TimeWindowSize().setUnit(CalendarInterval.DAY).setMultiple(1));
+    if (messageId != null) {
+      testEntityProfile.setMessageId(messageId);
+    }
 
     // Add a couple of component profiles with cooked up stats.
     TestEntityComponentProfile componentProfile1 = new TestEntityComponentProfile();
@@ -163,9 +164,10 @@ public class ElasticSearchTimeseriesAspectServiceTest {
     _startTime = Calendar.getInstance().getTimeInMillis();
     _startTime = _startTime - _startTime % 86400000;
     // Create the testEntity profiles that we would like to use for testing.
-    TestEntityProfile firstProfile = makeTestProfile(_startTime, 20);
+    TestEntityProfile firstProfile = makeTestProfile(_startTime, 20, null);
     Stream<TestEntityProfile> testEntityProfileStream = Stream.iterate(firstProfile,
-        (TestEntityProfile prev) -> makeTestProfile(prev.getTimestampMillis() + TIME_INCREMENT, prev.getStat() + 10));
+        (TestEntityProfile prev) -> makeTestProfile(prev.getTimestampMillis() + TIME_INCREMENT, prev.getStat() + 10,
+            null));
 
     _testEntityProfiles = testEntityProfileStream.limit(NUM_PROFILES)
         .collect(Collectors.toMap(TestEntityProfile::getTimestampMillis, Function.identity()));
@@ -177,13 +179,44 @@ public class ElasticSearchTimeseriesAspectServiceTest {
     // Upsert the documents into the index.
     _testEntityProfiles.values().forEach(x -> {
       try {
-        upsertDocument(x);
+        upsertDocument(x, TEST_URN);
       } catch (JsonProcessingException jsonProcessingException) {
         jsonProcessingException.printStackTrace();
       }
     });
 
     syncAfterWrite(_searchClient);
+  }
+
+  @Test(groups = "upsertUniqueMessageId")
+  public void testUpsertProfilesWithUniqueMessageIds() throws Exception {
+    // Create the testEntity profiles that have the same value for timestampMillis, but use unique message ids.
+    // We should preserve all the documents we are going to upsert in the index.
+    final long curTimeMillis = Calendar.getInstance().getTimeInMillis();
+    final long startTime = curTimeMillis - curTimeMillis % 86400000;
+    final TestEntityProfile firstProfile = makeTestProfile(startTime, 20, "20");
+    Stream<TestEntityProfile> testEntityProfileStream = Stream.iterate(firstProfile,
+        (TestEntityProfile prev) -> makeTestProfile(prev.getTimestampMillis(), prev.getStat() + 10,
+            String.valueOf(prev.getStat() + 10)));
+
+    final List<TestEntityProfile> testEntityProfiles = testEntityProfileStream.limit(3).collect(Collectors.toList());
+
+    // Upsert the documents into the index.
+    final Urn urn = new TestEntityUrn("acryl", "testElasticSearchTimeseriesAspectService", "table2");
+    testEntityProfiles.forEach(x -> {
+      try {
+        upsertDocument(x, urn);
+      } catch (JsonProcessingException jsonProcessingException) {
+        jsonProcessingException.printStackTrace();
+      }
+    });
+
+    syncAfterWrite(_searchClient);
+
+    List<EnvelopedAspect> resultAspects =
+        _elasticSearchTimeseriesAspectService.getAspectValues(urn, ENTITY_NAME, ASPECT_NAME, null, null,
+            testEntityProfiles.size(), false, null);
+    assertEquals(resultAspects.size(), testEntityProfiles.size());
   }
 
   /*
@@ -209,8 +242,19 @@ public class ElasticSearchTimeseriesAspectServiceTest {
   public void testGetAspectTimeseriesValuesAll() {
     List<EnvelopedAspect> resultAspects =
         _elasticSearchTimeseriesAspectService.getAspectValues(TEST_URN, ENTITY_NAME, ASPECT_NAME, null, null,
-            NUM_PROFILES);
+            NUM_PROFILES, false, null);
     validateAspectValues(resultAspects, NUM_PROFILES);
+  }
+
+  @Test(groups = "getAspectValues", dependsOnGroups = "upsert")
+  public void testGetAspectTimeseriesValuesWithFilter() {
+    Filter filter = new Filter();
+    Criterion hasStatEqualsTwenty = new Criterion().setField("stat").setCondition(Condition.EQUAL).setValue("20");
+    filter.setCriteria(new CriterionArray(hasStatEqualsTwenty));
+    List<EnvelopedAspect> resultAspects =
+        _elasticSearchTimeseriesAspectService.getAspectValues(TEST_URN, ENTITY_NAME, ASPECT_NAME, null, null,
+            NUM_PROFILES, false, filter);
+    validateAspectValues(resultAspects, 1);
   }
 
   @Test(groups = "getAspectValues", dependsOnGroups = "upsert")
@@ -218,7 +262,7 @@ public class ElasticSearchTimeseriesAspectServiceTest {
     int expectedNumRows = 10;
     List<EnvelopedAspect> resultAspects =
         _elasticSearchTimeseriesAspectService.getAspectValues(TEST_URN, ENTITY_NAME, ASPECT_NAME, _startTime,
-            _startTime + TIME_INCREMENT * (expectedNumRows - 1), expectedNumRows);
+            _startTime + TIME_INCREMENT * (expectedNumRows - 1), expectedNumRows, false, null);
     validateAspectValues(resultAspects, expectedNumRows);
   }
 
@@ -228,7 +272,17 @@ public class ElasticSearchTimeseriesAspectServiceTest {
     List<EnvelopedAspect> resultAspects =
         _elasticSearchTimeseriesAspectService.getAspectValues(TEST_URN, ENTITY_NAME, ASPECT_NAME,
             _startTime + TIME_INCREMENT / 2, _startTime + TIME_INCREMENT * expectedNumRows + TIME_INCREMENT / 2,
-            expectedNumRows);
+            expectedNumRows, false, null);
+    validateAspectValues(resultAspects, expectedNumRows);
+  }
+
+  @Test(groups = "getAspectValues", dependsOnGroups = "upsert")
+  public void testGetAspectTimeseriesValuesSubRangeExclusiveOverlapLatestValueOnly() {
+    int expectedNumRows = 1;
+    List<EnvelopedAspect> resultAspects =
+        _elasticSearchTimeseriesAspectService.getAspectValues(TEST_URN, ENTITY_NAME, ASPECT_NAME,
+            _startTime + TIME_INCREMENT / 2, _startTime + TIME_INCREMENT * expectedNumRows + TIME_INCREMENT / 2,
+            expectedNumRows, true, null);
     validateAspectValues(resultAspects, expectedNumRows);
   }
 
@@ -237,7 +291,7 @@ public class ElasticSearchTimeseriesAspectServiceTest {
     int expectedNumRows = 1;
     List<EnvelopedAspect> resultAspects =
         _elasticSearchTimeseriesAspectService.getAspectValues(TEST_URN, ENTITY_NAME, ASPECT_NAME,
-            _startTime + TIME_INCREMENT / 2, _startTime + TIME_INCREMENT * 3 / 2, expectedNumRows);
+            _startTime + TIME_INCREMENT / 2, _startTime + TIME_INCREMENT * 3 / 2, expectedNumRows, false, null);
     validateAspectValues(resultAspects, expectedNumRows);
   }
 
@@ -246,7 +300,7 @@ public class ElasticSearchTimeseriesAspectServiceTest {
     Urn nonExistingUrn = new TestEntityUrn("missing", "missing", "missing");
     List<EnvelopedAspect> resultAspects =
         _elasticSearchTimeseriesAspectService.getAspectValues(nonExistingUrn, ENTITY_NAME, ASPECT_NAME, null, null,
-            NUM_PROFILES);
+            NUM_PROFILES, false, null);
     validateAspectValues(resultAspects, 0);
   }
 
@@ -537,7 +591,7 @@ public class ElasticSearchTimeseriesAspectServiceTest {
     // Validate rows
     assertNotNull(resultTable.getRows());
     assertEquals(resultTable.getRows().size(), 1);
-    // value is 20+30+40+... upto 10 terms = 650
+    // value is 20+30+40+... up to 10 terms = 650
     // TODO: Compute this caching the documents.
     assertEquals(resultTable.getRows(),
         new StringArrayArray(new StringArray(_startTime.toString(), String.valueOf(650))));

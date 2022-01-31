@@ -2,7 +2,7 @@ package com.linkedin.metadata.extractor;
 
 import com.linkedin.data.schema.PathSpec;
 import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.metadata.dao.utils.RecordUtils;
+import com.datahub.util.RecordUtils;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.FieldSpec;

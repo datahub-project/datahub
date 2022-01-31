@@ -8,7 +8,13 @@ import javax.annotation.Nullable;
 
 
 public interface SystemMetadataService {
-  Boolean delete(String urn, String aspect);
+  /**
+   * Deletes a specific aspect from the system metadata service.
+   *
+   * @param urn the urn of the entity
+   * @param aspect the aspect to delete
+   */
+  void deleteAspect(String urn, String aspect);
 
   void deleteUrn(String finalOldUrn);
 

@@ -98,7 +98,7 @@ public class SearchRequestHandler {
         .collect(Collectors.toSet());
   }
 
-  private static BoolQueryBuilder getFilterQuery(@Nullable Filter filter) {
+  public static BoolQueryBuilder getFilterQuery(@Nullable Filter filter) {
     BoolQueryBuilder filterQuery = ESUtils.buildFilterQuery(filter);
     // Filter out entities that are marked "removed"
     filterQuery.mustNot(QueryBuilders.matchQuery("removed", true));

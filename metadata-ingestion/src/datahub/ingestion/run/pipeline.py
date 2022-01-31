@@ -2,6 +2,7 @@ import datetime
 import itertools
 import logging
 import uuid
+from math import log10
 from typing import Any, Dict, Iterable, List, Optional
 
 import click
@@ -21,6 +22,7 @@ from datahub.ingestion.graph.client import DatahubClientConfig
 from datahub.ingestion.sink.sink_registry import sink_registry
 from datahub.ingestion.source.source_registry import source_registry
 from datahub.ingestion.transformer.transform_registry import transform_registry
+from datahub.telemetry import telemetry
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +41,7 @@ class PipelineConfig(ConfigModel):
     transformers: Optional[List[DynamicTypedConfig]]
     run_id: str = "__DEFAULT_RUN_ID"
     datahub_api: Optional[DatahubClientConfig] = None
+    pipeline_name: Optional[str] = None
 
     @validator("run_id", pre=True, always=True)
     def run_id_should_be_semantic(
@@ -101,7 +104,11 @@ class Pipeline:
         self.dry_run = dry_run
         self.preview_mode = preview_mode
         self.ctx = PipelineContext(
-            run_id=self.config.run_id, datahub_api=self.config.datahub_api
+            run_id=self.config.run_id,
+            datahub_api=self.config.datahub_api,
+            pipeline_name=self.config.pipeline_name,
+            dry_run=dry_run,
+            preview_mode=preview_mode,
         )
 
         source_type = self.config.source.type
@@ -143,6 +150,7 @@ class Pipeline:
         return cls(config, dry_run=dry_run, preview_mode=preview_mode)
 
     def run(self) -> None:
+
         callback = LoggingCallback()
         extractor: Extractor = self.extractor_class()
         for wu in itertools.islice(
@@ -161,8 +169,17 @@ class Pipeline:
             extractor.close()
             if not self.dry_run:
                 self.sink.handle_work_unit_end(wu)
-        self.source.close()
         self.sink.close()
+
+        # Temporary hack to prevent committing state if there are failures during the pipeline run.
+        try:
+            self.raise_from_status()
+        except Exception:
+            logger.warning(
+                "Pipeline failed. Not closing the source to prevent bad commits."
+            )
+        else:
+            self.source.close()
 
     def transform(self, records: Iterable[RecordEnvelope]) -> Iterable[RecordEnvelope]:
         """
@@ -188,6 +205,20 @@ class Pipeline:
             raise PipelineExecutionError(
                 "Source reported warnings", self.source.get_report()
             )
+
+    def log_ingestion_stats(self) -> None:
+
+        telemetry.telemetry_instance.ping(
+            "ingest", "source_type", self.config.source.type
+        )
+        telemetry.telemetry_instance.ping("ingest", "sink_type", self.config.sink.type)
+        telemetry.telemetry_instance.ping(
+            "ingest",
+            "records_written",
+            # bucket by taking floor of log of the number of records written
+            # report the bucket as a label so the count is not collapsed
+            str(10 ** int(log10(self.sink.get_report().records_written + 1))),
+        )
 
     def pretty_print_summary(self, warnings_as_failure: bool = False) -> int:
         click.echo()

@@ -15,4 +15,9 @@ record TimeseriesAspectBase {
    * The optional partition specification.
    */
   partitionSpec: optional PartitionSpec
+
+  /**
+   * The optional messageId, if provided serves as a custom user-defined unique identifier for an aspect value.
+   */
+  messageId: optional string
 }

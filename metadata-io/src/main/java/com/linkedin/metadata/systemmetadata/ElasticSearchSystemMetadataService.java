@@ -8,11 +8,11 @@ import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.mxe.SystemMetadata;
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -24,7 +24,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.elasticsearch.action.delete.DeleteResponse;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
@@ -73,21 +72,19 @@ public class ElasticSearchSystemMetadataService implements SystemMetadataService
     String rawDocId = urn + DOC_DELIMETER + aspect;
 
     try {
-      byte[] bytesOfRawDocID = rawDocId.getBytes("UTF-8");
+      byte[] bytesOfRawDocID = rawDocId.getBytes(StandardCharsets.UTF_8);
       MessageDigest md = MessageDigest.getInstance("MD5");
       byte[] thedigest = md.digest(bytesOfRawDocID);
-      return new String(thedigest, StandardCharsets.US_ASCII);
-    } catch (NoSuchAlgorithmException | UnsupportedEncodingException e) {
+      return Base64.getEncoder().encodeToString(thedigest);
+    } catch (NoSuchAlgorithmException e) {
       e.printStackTrace();
       return rawDocId;
     }
   }
 
   @Override
-  public Boolean delete(String urn, String aspect) {
-    String docId = toDocId(urn, aspect);
-    DeleteResponse response = _esDAO.deleteByDocId(docId);
-    return response.status().getStatus() >= 200 && response.status().getStatus() < 300;
+  public void deleteAspect(String urn, String aspect) {
+    _esDAO.deleteByUrnAspect(urn, aspect);
   }
 
   @Override

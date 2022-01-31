@@ -59,7 +59,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.maven.artifact.versioning.ComparableVersion;
 
 import static com.linkedin.metadata.entity.ValidationUtils.*;
-import static com.linkedin.metadata.restli.RestliConstants.*;
+import static com.linkedin.metadata.resources.restli.RestliConstants.*;
 import static com.linkedin.metadata.utils.PegasusUtils.*;
 
 

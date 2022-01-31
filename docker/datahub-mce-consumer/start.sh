@@ -1,4 +1,9 @@
-#!/bin/sh
+#!/bin/bash
+
+WAIT_FOR_KAFKA=""
+if [[ $SKIP_KAFKA_CHECK != true ]]; then
+  WAIT_FOR_KAFKA=" -wait tcp://$(echo $KAFKA_BOOTSTRAP_SERVER | sed 's/,/ -wait tcp:\/\//g') "
+fi
 
 OTEL_AGENT=""
 if [[ $ENABLE_OTEL == true ]]; then
@@ -11,6 +16,6 @@ if [[ $ENABLE_PROMETHEUS == true ]]; then
 fi
 
 dockerize \
-  -wait tcp://$(echo $KAFKA_BOOTSTRAP_SERVER | sed 's/,/ -wait tcp:\/\//g') \
+  $WAIT_FOR_KAFKA \
   -timeout 240s \
   java $JAVA_OPTS $JMX_OPTS $OTEL_AGENT $PROMETHEUS_AGENT -jar /datahub/datahub-mce-consumer/bin/mce-consumer-job.jar

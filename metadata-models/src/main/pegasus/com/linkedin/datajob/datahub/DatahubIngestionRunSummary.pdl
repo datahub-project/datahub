@@ -1,0 +1,155 @@
+namespace com.linkedin.datajob.datahub
+
+import com.linkedin.timeseries.TimeseriesAspectBase
+import com.linkedin.timeseries.TimeWindowSize
+import com.linkedin.datajob.JobStatus
+
+/**
+ * Summary of a datahub ingestion run for a given platform.
+ */
+@Aspect = {
+  "name": "datahubIngestionRunSummary",
+  "type": "timeseries",
+}
+record DatahubIngestionRunSummary includes TimeseriesAspectBase {
+  /**
+   * The name of the pipeline that ran ingestion, a stable unique user provided identifier.
+   *  e.g. my_snowflake1-to-datahub.
+   */
+  @TimeseriesField = {}
+  pipelineName: string
+
+  /**
+   * The id of the instance against which the ingestion pipeline ran.
+   * e.g.: Bigquery project ids, MySQL hostnames etc.
+   */
+  @TimeseriesField = {}
+  platformInstanceId: string
+
+  /**
+   * The runId for this pipeline instance.
+   */
+  @TimeseriesField = {}
+  runId: string
+
+  /**
+   * Run Status - Succeeded/Skipped/Failed etc.
+   */
+  @TimeseriesField = {}
+  runStatus: JobStatus
+
+
+  ////////////////////////////////////////////////////////////////////////////////
+  // The ingestion metrics specific data such as numWorkUnits,
+  //   numEntities, numAspects, latency etc.
+  ////////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * The number of workunits written to sink.
+   */
+  numWorkUnitsCommitted: optional long
+
+  /**
+   * The number of workunits that are produced.
+   */
+  numWorkUnitsCreated: optional long
+
+  /**
+   * The number of events produced (MCE + MCP).
+   */
+  numEvents: optional long
+
+  /**
+   * The total number of entities produced (unique entity urns).
+   */
+  numEntities: optional long
+
+  /**
+   * The total number of aspects produced across all entities.
+   */
+  numAspects: optional long
+
+  /**
+   * Total number of source API calls.
+   */
+   numSourceAPICalls: optional long
+
+  /**
+   * Total latency across all source API calls.
+   */
+  totalLatencySourceAPICalls: optional long
+
+  /**
+   * Total number of sink API calls.
+   */
+   numSinkAPICalls: optional long
+
+  /**
+   * Total latency across all sink API calls.
+   */
+  totalLatencySinkAPICalls: optional long
+
+  /**
+   * Number of warnings generated.
+   */
+  numWarnings: optional long
+
+  /**
+   * Number of errors generated.
+   */
+  numErrors: optional long
+
+  /**
+   * Number of entities skipped.
+   */
+  numEntitiesSkipped: optional long
+
+  ////////////////////////////////////////////////////////////////////////////////
+  // The ingestion context specific data such as softwareVersion,
+  //   hostinfo (operating system, available memory etc).
+  ////////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * The non-sensitive key-value pairs of the yaml config used as json string.
+   */
+  config: optional string
+
+  /**
+   * Custom value.
+   */
+  custom_summary: optional string
+
+  /**
+   * The software version of this ingestion.
+   */
+  @TimeseriesField = {}
+  softwareVersion: optional string
+
+  // Various host specific metrics.
+
+  /**
+   * The hostname the ingestion pipeline ran on.
+   */
+  systemHostName: optional string
+
+  /**
+   * The os the ingestion pipeline ran on.
+   */
+  @TimeseriesField = {}
+  operatingSystemName: optional string
+
+  /**
+   * The number of processors on the host the ingestion pipeline ran on.
+   */
+  numProcessors: optional int
+
+  /**
+   * The total amount of memory on the host the ingestion pipeline ran on.
+   */
+  totalMemory: optional long
+
+  /**
+   * The available memory on the host the ingestion pipeline ran on.
+   */
+  availableMemory: optional long
+}
