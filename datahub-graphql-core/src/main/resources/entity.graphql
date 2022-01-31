@@ -1035,9 +1035,33 @@ enum FabricType {
     DEV
 
     """
-    Designates early integration or staging fabrics
+    Designates testing fabrics
+    """
+    TEST
+
+    """
+    Designates quality assurance fabrics
+    """
+    QA
+
+    """
+    Designates user acceptance testing fabrics
+    """
+    UAT
+
+    """
+    Designates early integration fabrics
     """
     EI
+    """
+    Designates staging fabrics
+    """
+    STG
+
+    """
+    Designates non-production fabrics
+    """
+    NON_PROD
 
     """
     Designates production fabrics
