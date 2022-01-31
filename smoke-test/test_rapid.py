@@ -74,7 +74,8 @@ def test_ingestion_via_rest_rapid(frontend_session, wait_for_healthchecks):
                 "urn": urn
             }
         }
-    # Basic dataset info.
+    #
+    time.sleep(2)
     response = frontend_session.post(
         f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json
     )
