@@ -2,7 +2,7 @@ import json
 import logging
 from dataclasses import dataclass, field
 from hashlib import md5
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional, cast
 
 import confluent_kafka
 from confluent_kafka.schema_registry.schema_registry_client import (
@@ -10,15 +10,27 @@ from confluent_kafka.schema_registry.schema_registry_client import (
     SchemaRegistryClient,
 )
 
-from datahub.configuration import ConfigModel
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.kafka import KafkaConsumerConnectionConfig
-from datahub.emitter.mce_builder import DEFAULT_ENV, make_dataset_urn, make_domain_urn
+from datahub.emitter.mce_builder import (
+    DEFAULT_ENV,
+    make_dataset_urn_with_platform_instance,
+    make_domain_urn,
+)
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import add_domain_to_entity_wu
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.extractor import schema_util
+from datahub.ingestion.source.state.checkpoint import Checkpoint
+from datahub.ingestion.source.state.kafka_state import KafkaCheckpointState
+from datahub.ingestion.source.state.stateful_ingestion_base import (
+    JobId,
+    StatefulIngestionConfig,
+    StatefulIngestionConfigBase,
+    StatefulIngestionSourceBase,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.common import Status
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
@@ -27,23 +39,36 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     SchemaField,
     SchemaMetadata,
 )
-from datahub.metadata.schema_classes import BrowsePathsClass
+from datahub.metadata.schema_classes import BrowsePathsClass, ChangeTypeClass
 
 logger = logging.getLogger(__name__)
 
 
-class KafkaSourceConfig(ConfigModel):
+class KafkaSourceStatefulIngestionConfig(StatefulIngestionConfig):
+    """
+    Specialization of the basic StatefulIngestionConfig to add custom config.
+    This will be used to override the stateful_ingestion config param of StatefulIngestionConfigBase
+    in the KafkaSourceConfig.
+    """
+
+    remove_stale_metadata: bool = True
+
+
+class KafkaSourceConfig(StatefulIngestionConfigBase):
     env: str = DEFAULT_ENV
     # TODO: inline the connection config
     connection: KafkaConsumerConnectionConfig = KafkaConsumerConnectionConfig()
     topic_patterns: AllowDenyPattern = AllowDenyPattern(allow=[".*"], deny=["^_.*"])
     domain: Dict[str, AllowDenyPattern] = dict()
+    # Custom Stateful Ingestion settings
+    stateful_ingestion: Optional[KafkaSourceStatefulIngestionConfig] = None
 
 
 @dataclass
 class KafkaSourceReport(SourceReport):
     topics_scanned: int = 0
     filtered: List[str] = field(default_factory=list)
+    soft_deleted_stale_entities: List[str] = field(default_factory=list)
 
     def report_topic_scanned(self, topic: str) -> None:
         self.topics_scanned += 1
@@ -51,15 +76,19 @@ class KafkaSourceReport(SourceReport):
     def report_dropped(self, topic: str) -> None:
         self.filtered.append(topic)
 
+    def report_stale_entity_soft_deleted(self, urn: str) -> None:
+        self.soft_deleted_stale_entities.append(urn)
+
 
 @dataclass
-class KafkaSource(Source):
+class KafkaSource(StatefulIngestionSourceBase):
     source_config: KafkaSourceConfig
     consumer: confluent_kafka.Consumer
     report: KafkaSourceReport
+    platform: str = "kafka"
 
     def __init__(self, config: KafkaSourceConfig, ctx: PipelineContext):
-        super().__init__(ctx)
+        super().__init__(config, ctx)
         self.source_config = config
         self.consumer = confluent_kafka.Consumer(
             {
@@ -76,20 +105,102 @@ class KafkaSource(Source):
         )
         self.report = KafkaSourceReport()
 
+    def is_checkpointing_enabled(self, job_id: JobId) -> bool:
+        if (
+            job_id == self.get_default_ingestion_job_id()
+            and self.is_stateful_ingestion_configured()
+            and self.source_config.stateful_ingestion
+            and self.source_config.stateful_ingestion.remove_stale_metadata
+        ):
+            return True
+
+        return False
+
+    def get_default_ingestion_job_id(self) -> JobId:
+        """
+        Default ingestion job name that kafka provides.
+        """
+        return JobId("ingest_from_kafka_source")
+
+    def create_checkpoint(self, job_id: JobId) -> Optional[Checkpoint]:
+        """
+        Create the custom checkpoint with empty state for the job.
+        """
+        assert self.ctx.pipeline_name is not None
+        if job_id == self.get_default_ingestion_job_id():
+            return Checkpoint(
+                job_name=job_id,
+                pipeline_name=self.ctx.pipeline_name,
+                platform_instance_id=self.get_platform_instance_id(),
+                run_id=self.ctx.run_id,
+                config=self.source_config,
+                state=KafkaCheckpointState(),
+            )
+        return None
+
+    def get_platform_instance_id(self) -> str:
+        """
+        TODO: how should we put together the platform instance id for kafka?
+        """
+        return f"{self.platform}"
+
     @classmethod
     def create(cls, config_dict, ctx):
         config = KafkaSourceConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
+    def gen_removed_entity_workunits(self) -> Iterable[MetadataWorkUnit]:
+        last_checkpoint = self.get_last_checkpoint(
+            self.get_default_ingestion_job_id(), KafkaCheckpointState
+        )
+        cur_checkpoint = self.get_current_checkpoint(
+            self.get_default_ingestion_job_id()
+        )
+        if (
+            self.source_config.stateful_ingestion
+            and self.source_config.stateful_ingestion.remove_stale_metadata
+            and last_checkpoint is not None
+            and last_checkpoint.state is not None
+            and cur_checkpoint is not None
+            and cur_checkpoint.state is not None
+        ):
+            logger.debug("Checking for stale entity removal.")
+
+            def soft_delete_dataset(urn: str, type: str) -> Iterable[MetadataWorkUnit]:
+                logger.info(f"Soft-deleting stale entity of type {type} - {urn}.")
+                mcp = MetadataChangeProposalWrapper(
+                    entityType="dataset",
+                    entityUrn=urn,
+                    changeType=ChangeTypeClass.UPSERT,
+                    aspectName="status",
+                    aspect=Status(removed=True),
+                )
+                wu = MetadataWorkUnit(id=f"soft-delete-{type}-{urn}", mcp=mcp)
+                self.report.report_workunit(wu)
+                self.report.report_stale_entity_soft_deleted(urn)
+                yield wu
+
+            last_checkpoint_state = cast(KafkaCheckpointState, last_checkpoint.state)
+            cur_checkpoint_state = cast(KafkaCheckpointState, cur_checkpoint.state)
+
+            for topic_urn in last_checkpoint_state.get_topic_urns_not_in(
+                cur_checkpoint_state
+            ):
+                yield from soft_delete_dataset(topic_urn, "topic")
+
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         topics = self.consumer.list_topics().topics
         for t in topics:
             self.report.report_topic_scanned(t)
-
             if self.source_config.topic_patterns.allowed(t):
                 yield from self._extract_record(t)
+                # add topic to checkpoint if stateful ingestion is enabled
+                self._add_topic_to_checkpoint(t)
             else:
                 self.report.report_dropped(t)
+        if self.is_stateful_ingestion_configured():
+            # Clean up stale entities.
+            yield from self.gen_removed_entity_workunits()
 
     @staticmethod
     def _compact_schema(schema_str: str) -> str:
@@ -141,13 +252,31 @@ class KafkaSource(Source):
             )
         return schema_str
 
+    def _add_topic_to_checkpoint(self, topic: str) -> None:
+        if self.is_stateful_ingestion_configured():
+            cur_checkpoint = self.get_current_checkpoint(
+                self.get_default_ingestion_job_id()
+            )
+            if cur_checkpoint is not None:
+                checkpoint_state = cast(KafkaCheckpointState, cur_checkpoint.state)
+                checkpoint_state.add_topic_urn(
+                    make_dataset_urn_with_platform_instance(
+                        platform=self.platform,
+                        name=topic,
+                        platform_instance=None,
+                        env=self.source_config.env,
+                    )
+                )
+
     def _extract_record(self, topic: str) -> Iterable[MetadataWorkUnit]:
         logger.debug(f"topic = {topic}")
-        platform = "kafka"
         dataset_name = topic
 
-        dataset_urn = make_dataset_urn(
-            platform=platform, name=dataset_name, env=self.source_config.env
+        dataset_urn = make_dataset_urn_with_platform_instance(
+            platform=self.platform,
+            name=dataset_name,
+            platform_instance=None,
+            env=self.source_config.env,
         )
 
         dataset_snapshot = DatasetSnapshot(
@@ -219,7 +348,7 @@ class KafkaSource(Source):
                 schemaName=topic,
                 version=0,
                 hash=md5_hash,
-                platform=f"urn:li:dataPlatform:{platform}",
+                platform=f"urn:li:dataPlatform:{self.platform}",
                 platformSchema=KafkaSchema(
                     documentSchema=schema.schema_str if schema is not None else "",
                     keySchema=key_schema_str,
@@ -229,7 +358,7 @@ class KafkaSource(Source):
             dataset_snapshot.aspects.append(schema_metadata)
 
         browse_path = BrowsePathsClass(
-            [f"/{self.source_config.env.lower()}/{platform}/{topic}"]
+            [f"/{self.source_config.env.lower()}/{self.platform}/{topic}"]
         )
         dataset_snapshot.aspects.append(browse_path)
 
