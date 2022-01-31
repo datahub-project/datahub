@@ -1,0 +1,33 @@
+source:
+  type: "mysql"
+  config:
+    #Credentials
+    username: root
+    password: root
+    # Coordinates
+    host_port: localhost:3307
+    database: source
+    schema_pattern:
+        deny:
+            - "information_schema"
+            - "sys"
+            - "mysql"
+            - "performance_schema" 
+    table_pattern:
+        allow:
+            - "source.profile"
+    profiling:
+        enabled: true
+        #max_number_table_level_only: true
+        max_number_of_fields_to_profile: 10
+        include_field_min_value: true
+        include_field_max_value: true
+        include_field_mean_value: true
+        include_field_median_value: true
+        include_field_stddev_value: true
+        query_combiner_enabled: false   
+sink:
+  type: "datahub-kafka"
+  config:
+    connection:
+      bootstrap: "localhost:9092"

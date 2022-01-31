@@ -1,0 +1,25 @@
+# Docker compose file covering DataHub's default configuration, which is to run all containers on a single host.
+
+# Please see the README.md for instructions as to how to use and customize.
+
+# NOTE: This file will cannot build! No dockerfiles are set. See the README.md in this directory.
+---
+version: '3.8'
+services:   
+  kibana:
+    image: kibana:7.9.3
+    env_file: kibana/env/docker.env
+    container_name: kibana
+    hostname: kibana
+    ports:
+      - "5601:5601"
+    depends_on:
+      #- elasticsearch      
+
+networks:
+  default:
+    name: datahub_network
+
+volumes:
+  esdata:
+  zkdata:

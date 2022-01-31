@@ -156,6 +156,16 @@ services:
     - 2181:2181
     volumes:
     - zkdata:/var/opt/zookeeper
+  kibana:
+    image: kibana:7.9.3
+    env_file: kibana/env/docker.env
+    container_name: kibana
+    hostname: kibana
+    ports:
+      - "5601:5601"
+    depends_on:
+      - elasticsearch  
+
 version: '2.3'
 volumes:
   esdata: null

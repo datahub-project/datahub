@@ -3,11 +3,28 @@
 source:
   type: "mysql"
   config:
-    username: datahub
-    password: datahub
+    # Credentials
+    username: root
+    password: root
+    # Coordinates
+    host_port: localhost:3307
+    database: source
+    schema_pattern:
+        deny:
+            - "information_schema"
+            - "sys"
+            - "mysql"
+            - "performance_schema" 
+    table_pattern:
+        allow:
+            - "source.compras"
+        
+
+
 
 # see https://datahubproject.io/docs/metadata-ingestion/sink_docs/datahub for complete documentation
 sink:
-  type: "datahub-rest"
+  type: "datahub-kafka"
   config:
-    server: "http://localhost:8080"
+    connection:
+      bootstrap: "localhost:9092"

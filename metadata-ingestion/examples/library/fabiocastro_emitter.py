@@ -1,7 +1,6 @@
 from datahub.ingestion.run.pipeline import Pipeline
 
-# The pipeline configuration is similar to the recipe YAML files provided to the CLI tool.
-pipeline = Pipeline.create(
+emitter = Pipeline.create(
     {
         "source": {
             "type": "mysql",
@@ -28,8 +27,7 @@ pipeline = Pipeline.create(
     }
 )
 
-# Run the pipeline and report the results.
-pipeline.run()
-pipeline.pretty_print_summary()
+emitter.run()
+emitter.pretty_print_summary()
 
 

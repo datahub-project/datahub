@@ -1,0 +1,18 @@
+version: '3.8'
+services:
+  mysqlsource:
+    container_name: mysqlsource2
+    image: mysql:5.7
+    environment:
+        MYSQL_DATABASE: source
+        #MYSQL_USER: datahub
+        #MYSQL_PASSWORD: datahub
+        MYSQL_ROOT_PASSWORD: root
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_bin
+    ports:
+        - "3307:3306"
+    volumes:
+        - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+        - mysql-db:/var/lib/mysql
+volumes:
+  mysql-db:
