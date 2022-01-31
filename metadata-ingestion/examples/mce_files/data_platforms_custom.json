@@ -1,0 +1,62 @@
+[
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DataPlatformSnapshot": {
+        "urn": "urn:li:dataPlatform:csv",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataplatform.DataPlatformInfo": {
+              "datasetNameDelimiter": "/",
+              "name": "csv",
+              "displayName": "CSV (Manual)",
+              "type": "FILE_SYSTEM",
+              "logoUrl": "https://raw.githubusercontent.com/neojunjie/datahub/edit-sample-formal/datahub-web-react/src/images/csv_format.png"
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DataPlatformSnapshot": {
+        "urn": "urn:li:dataPlatform:json",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataplatform.DataPlatformInfo": {
+              "datasetNameDelimiter": "/",
+              "name": "json",
+              "displayName": "JSON(Manual)",
+              "type": "FILE_SYSTEM",
+              "logoUrl": "https://raw.githubusercontent.com/neojunjie/datahub/edit-sample-formal/datahub-web-react/src/images/json_format.png"
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DataPlatformSnapshot": {
+        "urn": "urn:li:dataPlatform:kudu",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataplatform.DataPlatformInfo": {
+              "datasetNameDelimiter": ".",
+              "name": "kudu",
+              "displayName": "Kudu",
+              "type": "FILE_SYSTEM",
+              "logoUrl": "https://raw.githubusercontent.com/neojunjie/datahub/edit-sample-formal/datahub-web-react/src/images/Apache_Kudu_logo.svg.png"
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  }
+]
