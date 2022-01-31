@@ -41,6 +41,10 @@ entities:
       - corpUserInfo
       - corpUserEditableInfo
       - corpUserStatus
+  - name: glossaryTerm
+    keyAspect: glossaryTermKey
+    aspects:
+      - schemaMetadata
   - name: domain
     doc: A data domain within an organization.
     keyAspect: domainKey

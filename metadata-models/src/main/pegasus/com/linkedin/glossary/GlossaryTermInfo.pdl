@@ -51,5 +51,6 @@ record GlossaryTermInfo {
   /**
    * Schema definition of the glossary term
    */
+  @deprecated
   rawSchema: optional string
 }
