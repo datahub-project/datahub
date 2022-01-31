@@ -144,10 +144,14 @@ class TestDatahubIngestionCheckpointProvider(unittest.TestCase):
         self.provider.state_to_commit = {
             # NOTE: state_to_commit accepts only the aspect version of the checkpoint.
             self.job_names[0]: job1_checkpoint.to_checkpoint_aspect(
-                max_allowed_state_size=2 ** 20
+                # fmt: off
+                max_allowed_state_size=2**20
+                # fmt: on
             ),
             self.job_names[1]: job2_checkpoint.to_checkpoint_aspect(
-                max_allowed_state_size=2 ** 20
+                # fmt: off
+                max_allowed_state_size=2**20
+                # fmt: on
             ),
         }
 

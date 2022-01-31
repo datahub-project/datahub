@@ -40,7 +40,9 @@ class StatefulIngestionConfig(ConfigModel):
     """
 
     enabled: bool = False
-    max_checkpoint_state_size: pydantic.PositiveInt = 2 ** 24  # 16MB
+    # fmt: off
+    max_checkpoint_state_size: pydantic.PositiveInt = 2**24  # 16MB
+    # fmt: on
     state_provider: Optional[DynamicTypedConfig] = None
     ignore_old_state: bool = False
     ignore_new_state: bool = False

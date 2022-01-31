@@ -192,7 +192,9 @@ stateful_ingestion_config_test_params: Dict[
         {},
         StatefulIngestionConfig(
             enabled=False,
-            max_checkpoint_state_size=2 ** 24,
+            # fmt: off
+            max_checkpoint_state_size=2**24,
+            # fmt: on
             ignore_old_state=False,
             ignore_new_state=False,
             state_provider=None,
@@ -205,7 +207,9 @@ stateful_ingestion_config_test_params: Dict[
         {"enabled": True},
         StatefulIngestionConfig(
             enabled=True,
-            max_checkpoint_state_size=2 ** 24,
+            # fmt: off
+            max_checkpoint_state_size=2**24,
+            # fmt: on
             ignore_old_state=False,
             ignore_new_state=False,
             state_provider=DynamicTypedConfig(type="datahub", config=None),

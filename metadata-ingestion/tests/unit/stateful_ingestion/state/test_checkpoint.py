@@ -114,7 +114,9 @@ def test_serde_idempotence(state_obj):
 
     # 2. Convert it to the aspect form.
     checkpoint_aspect = orig_checkpoint_obj.to_checkpoint_aspect(
-        max_allowed_state_size=2 ** 20
+        # fmt: off
+        max_allowed_state_size=2**20
+        # fmt: on
     )
     assert checkpoint_aspect is not None
 
