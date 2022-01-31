@@ -190,7 +190,7 @@ class TrinoUsageSource(Source):
         return joined_access_events
 
     def _aggregate_access_events(
-        self, events: List[TrinoJoinedAccessEvent]
+            self, events: List[TrinoJoinedAccessEvent]
     ) -> Dict[datetime, Dict[TrinoTableRef, AggregatedDataset]]:
         datasets: Dict[
             datetime, Dict[TrinoTableRef, AggregatedDataset]
