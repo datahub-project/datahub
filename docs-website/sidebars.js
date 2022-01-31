@@ -104,7 +104,7 @@ module.exports = {
           "docs/lineage/airflow",
           "docker/airflow/local_airflow",
           "docs/lineage/sample_code",
-          "spark-lineage/README",
+          "metadata-integration/java/spark-lineage/README",
         ],
       },
       {
@@ -112,6 +112,7 @@ module.exports = {
           "metadata-ingestion/adding-source",
           "docs/how/add-custom-ingestion-source",
           "docs/how/add-custom-data-platform",
+          "docs/platform-instances",
           "docs/how/add-user-data",
         ],
       },

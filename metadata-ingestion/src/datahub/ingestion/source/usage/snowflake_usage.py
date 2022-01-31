@@ -2,9 +2,10 @@ import collections
 import json
 import logging
 from datetime import datetime, timezone
-from typing import Any, Dict, Iterable, List, Optional, cast
+from typing import Any, Dict, Iterable, List, Optional, Union, cast
 
 import pydantic.dataclasses
+from more_itertools import partition
 from pydantic import BaseModel
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
@@ -12,6 +13,7 @@ from sqlalchemy.engine import Engine
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.time_window_config import get_time_bucket
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -28,12 +30,19 @@ from datahub.ingestion.source.usage.usage_common import (
     BaseUsageConfig,
     GenericAggregatedDataset,
 )
-from datahub.metadata.schema_classes import JobStatusClass, TimeWindowSizeClass
+from datahub.metadata.schema_classes import (
+    ChangeTypeClass,
+    JobStatusClass,
+    OperationClass,
+    OperationTypeClass,
+    TimeWindowSizeClass,
+)
 
 logger = logging.getLogger(__name__)
 
 SnowflakeTableRef = str
 AggregatedDataset = GenericAggregatedDataset[SnowflakeTableRef]
+AggregatedAccessEvents = Dict[datetime, Dict[SnowflakeTableRef, AggregatedDataset]]
 
 SNOWFLAKE_USAGE_SQL_TEMPLATE = """
 SELECT
@@ -41,6 +50,9 @@ SELECT
     access_history.query_start_time,
     query_history.query_text,
     query_history.query_type,
+    query_history.rows_inserted,
+    query_history.rows_updated,
+    query_history.rows_deleted,
     access_history.base_objects_accessed,
     access_history.direct_objects_accessed, -- when dealing with views, direct objects will show the view while base will show the underlying table
     -- query_history.execution_status, -- not really necessary, but should equal "SUCCESS"
@@ -66,6 +78,16 @@ ORDER BY query_start_time DESC
 ;
 """.strip()
 
+OPERATION_STATEMENT_TYPES = {
+    "INSERT": OperationTypeClass.INSERT,
+    "UPDATE": OperationTypeClass.UPDATE,
+    "DELETE": OperationTypeClass.DELETE,
+    "CREATE": OperationTypeClass.CREATE,
+    "CREATE_TABLE": OperationTypeClass.CREATE,
+    "CREATE_TABLE_AS_SELECT": OperationTypeClass.CREATE,
+    "CREATE_SCHEMA": OperationTypeClass.CREATE,
+}
+
 
 @pydantic.dataclasses.dataclass
 class SnowflakeColumnReference:
@@ -90,6 +112,9 @@ class SnowflakeJoinedAccessEvent(PermissiveModel):
     query_start_time: datetime
     query_text: str
     query_type: str
+    rows_inserted: Optional[int]
+    rows_updated: Optional[int]
+    rows_deleted: Optional[int]
     base_objects_accessed: List[SnowflakeObjectAccessEntry]
     direct_objects_accessed: List[SnowflakeObjectAccessEntry]
 
@@ -114,7 +139,6 @@ class SnowflakeStatefulIngestionConfig(StatefulIngestionConfig):
 class SnowflakeUsageConfig(
     BaseSnowflakeConfig, BaseUsageConfig, StatefulIngestionConfigBase
 ):
-    env: str = builder.DEFAULT_ENV
     options: dict = {}
     database_pattern: AllowDenyPattern = AllowDenyPattern(
         deny=[r"^UTIL_DB$", r"^SNOWFLAKE$", r"^SNOWFLAKE_SAMPLE_DATA$"]
@@ -255,9 +279,19 @@ class SnowflakeUsageSource(StatefulIngestionSourceBase):
             self._init_checkpoints()
             # Generate the workunits.
             access_events = self._get_snowflake_history()
-            aggregated_info = self._aggregate_access_events(access_events)
+            aggregated_info_items_raw, operation_aspect_work_units_raw = partition(
+                lambda x: isinstance(x, MetadataWorkUnit),
+                self._aggregate_access_events(access_events),
+            )
+            for wu in cast(Iterable[MetadataWorkUnit], operation_aspect_work_units_raw):
+                self.report.report_workunit(wu)
+                yield wu
+            aggregated_info_items = list(aggregated_info_items_raw)
+            assert len(aggregated_info_items) == 1
 
-            for time_bucket in aggregated_info.values():
+            for time_bucket in cast(
+                AggregatedAccessEvents, aggregated_info_items[0]
+            ).values():
                 for aggregate in time_bucket.values():
                     wu = self._make_usage_stat(aggregate)
                     self.report.report_workunit(wu)
@@ -273,7 +307,11 @@ class SnowflakeUsageSource(StatefulIngestionSourceBase):
     def _make_sql_engine(self) -> Engine:
         url = self.config.get_sql_alchemy_url()
         logger.debug(f"sql_alchemy_url={url}")
-        engine = create_engine(url, **self.config.options)
+        engine = create_engine(
+            url,
+            connect_args=self.config.get_sql_alchemy_connect_args(),
+            **self.config.options,
+        )
         return engine
 
     def _get_snowflake_history(self) -> Iterable[SnowflakeJoinedAccessEvent]:
@@ -292,7 +330,7 @@ class SnowflakeUsageSource(StatefulIngestionSourceBase):
                 event_dict = dict(row)
 
             # no use processing events that don't have a query text
-            if event_dict["query_text"] is None:
+            if not event_dict["query_text"]:
                 continue
 
             def is_unsupported_object_accessed(obj: Dict[str, Any]) -> bool:
@@ -375,12 +413,50 @@ class SnowflakeUsageSource(StatefulIngestionSourceBase):
                     "usage", f"Failed to parse usage line {event_dict}"
                 )
 
+    def _get_operation_aspect_work_unit(
+        self, event: SnowflakeJoinedAccessEvent
+    ) -> Iterable[MetadataWorkUnit]:
+        if event.query_start_time and event.query_type in OPERATION_STATEMENT_TYPES:
+            start_time = event.query_start_time
+            query_type = event.query_type
+            user_email = event.email
+            operation_type = OPERATION_STATEMENT_TYPES[query_type]
+            last_updated_timestamp: int = int(start_time.timestamp() * 1000)
+            user_urn = builder.make_user_urn(user_email.split("@")[0])
+            for obj in event.base_objects_accessed:
+                resource = obj.objectName
+                dataset_urn = builder.make_dataset_urn_with_platform_instance(
+                    "snowflake",
+                    resource.lower(),
+                    self.config.platform_instance,
+                    self.config.env,
+                )
+                operation_aspect = OperationClass(
+                    timestampMillis=last_updated_timestamp,
+                    lastUpdatedTimestamp=last_updated_timestamp,
+                    actor=user_urn,
+                    operationType=operation_type,
+                )
+                mcp = MetadataChangeProposalWrapper(
+                    entityType="dataset",
+                    aspectName="operation",
+                    changeType=ChangeTypeClass.UPSERT,
+                    entityUrn=dataset_urn,
+                    aspect=operation_aspect,
+                )
+                wu = MetadataWorkUnit(
+                    id=f"operation-aspect-{resource}-{start_time.isoformat()}",
+                    mcp=mcp,
+                )
+                yield wu
+
     def _aggregate_access_events(
         self, events: Iterable[SnowflakeJoinedAccessEvent]
-    ) -> Dict[datetime, Dict[SnowflakeTableRef, AggregatedDataset]]:
-        datasets: Dict[
-            datetime, Dict[SnowflakeTableRef, AggregatedDataset]
-        ] = collections.defaultdict(dict)
+    ) -> Iterable[Union[AggregatedAccessEvents, MetadataWorkUnit]]:
+        """
+        Emits aggregated access events combined with operational workunits from the events.
+        """
+        datasets: AggregatedAccessEvents = collections.defaultdict(dict)
 
         for event in events:
             floored_ts = get_time_bucket(
@@ -405,14 +481,19 @@ class SnowflakeUsageSource(StatefulIngestionSourceBase):
                     if object.columns is not None
                     else [],
                 )
+            if self.config.include_operational_stats:
+                yield from self._get_operation_aspect_work_unit(event)
 
-        return datasets
+        yield datasets
 
     def _make_usage_stat(self, agg: AggregatedDataset) -> MetadataWorkUnit:
         return agg.make_usage_workunit(
             self.config.bucket_duration,
-            lambda resource: builder.make_dataset_urn(
-                "snowflake", resource.lower(), self.config.env
+            lambda resource: builder.make_dataset_urn_with_platform_instance(
+                "snowflake",
+                resource.lower(),
+                self.config.platform_instance,
+                self.config.env,
             ),
             self.config.top_n_queries,
         )

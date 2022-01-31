@@ -2,7 +2,6 @@ package datahub.client.rest;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.dataset.DatasetProperties;
-import com.linkedin.events.metadata.ChangeType;
 import datahub.client.Callback;
 import datahub.client.MetadataWriteResponse;
 import datahub.event.MetadataChangeProposalWrapper;
@@ -17,6 +16,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.Random;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
@@ -97,9 +97,9 @@ public class RestEmitterTest {
     RestEmitter emitter = RestEmitter.create($ -> $.asyncHttpClientBuilder(mockHttpClientFactory));
 
     MetadataChangeProposalWrapper mcp = MetadataChangeProposalWrapper.create(b -> b.entityType("dataset")
-        .changeType(ChangeType.UPSERT)
-        .aspect(new DatasetProperties().setDescription("Test Dataset"))
-        .entityUrn("urn:li:dataset:(urn:li:dataPlatform:hive,foo.bar,PROD)"));
+        .entityUrn("urn:li:dataset:(urn:li:dataPlatform:hive,foo.bar,PROD)")
+        .upsert()
+        .aspect(new DatasetProperties().setDescription("Test Dataset")));
 
     Future<HttpResponse> mockFuture = Mockito.mock(Future.class);
     Mockito.when(mockClient.execute(Mockito.any(), Mockito.any())).thenReturn(mockFuture);
@@ -117,7 +117,7 @@ public class RestEmitterTest {
     RestEmitter emitter = RestEmitter.create(b -> b.asyncHttpClientBuilder(mockHttpClientFactory)
         .extraHeaders(Collections.singletonMap("Test-Header", "Test-Value")));
     MetadataChangeProposalWrapper mcpw = MetadataChangeProposalWrapper.create(
-        b -> b.entityType("dataset").entityUrn("urn:li:dataset:foo").aspect(new DatasetProperties()));
+        b -> b.entityType("dataset").entityUrn("urn:li:dataset:foo").upsert().aspect(new DatasetProperties()));
     Future<HttpResponse> mockFuture = Mockito.mock(Future.class);
     Mockito.when(mockClient.execute(Mockito.any(), Mockito.any())).thenReturn(mockFuture);
     emitter.emit(mcpw, null);
@@ -210,9 +210,9 @@ public class RestEmitterTest {
   private MetadataChangeProposalWrapper getMetadataChangeProposalWrapper(String description, String entityUrn) {
     return MetadataChangeProposalWrapper.builder()
         .entityType("dataset")
-        .changeType(ChangeType.UPSERT)
-        .aspect(new DatasetProperties().setDescription(description))
         .entityUrn(entityUrn)
+        .upsert()
+        .aspect(new DatasetProperties().setDescription(description))
         .build();
   }
 
@@ -363,5 +363,21 @@ public class RestEmitterTest {
     } catch (Exception ioe) {
       Assert.assertTrue(ioe instanceof TimeoutException);
     }
+  }
+
+  @Test
+  public void testUserAgentHeader() throws IOException, ExecutionException, InterruptedException {
+    TestDataHubServer testDataHubServer = new TestDataHubServer();
+    Integer port = testDataHubServer.getMockServer().getPort();
+    RestEmitter emitter = RestEmitter.create(b -> b.server("http://localhost:" + port));
+    testDataHubServer.getMockServer().reset();
+    emitter.testConnection();
+    Properties properties = new Properties();
+    properties.load(emitter.getClass().getClassLoader().getResourceAsStream("client.properties"));
+    Assert.assertNotNull(properties.getProperty("clientVersion"));
+    String version = properties.getProperty("clientVersion");
+    testDataHubServer.getMockServer().verify(
+        request("/config")
+            .withHeader("User-Agent", "DataHub-RestClient/" + version));
   }
 }

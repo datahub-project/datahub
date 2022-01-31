@@ -16,7 +16,7 @@ import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.aspect.EnvelopedAspectArray;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.browse.BrowseResult;
-import com.linkedin.metadata.dao.utils.RecordUtils;
+import com.datahub.util.RecordUtils;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.filter.Filter;

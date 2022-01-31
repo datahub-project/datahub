@@ -4,6 +4,9 @@ query getChart($urn: String!) {
         type
         tool
         chartId
+        platform {
+            ...platformFields
+        }
         properties {
             name
             description
@@ -51,6 +54,9 @@ query getChart($urn: String!) {
         }
         glossaryTerms {
             ...glossaryTerms
+        }
+        domain {
+            ...entityDomain
         }
         inputs: relationships(input: { types: ["Consumes"], direction: OUTGOING, start: 0, count: 100 }) {
             ...fullRelationshipResults

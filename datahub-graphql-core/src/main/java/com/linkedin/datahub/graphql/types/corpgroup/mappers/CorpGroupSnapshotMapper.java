@@ -1,10 +1,10 @@
 package com.linkedin.datahub.graphql.types.corpgroup.mappers;
 
+import com.datahub.util.ModelUtils;
 import com.linkedin.datahub.graphql.generated.CorpGroup;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.identity.CorpGroupInfo;
-import com.linkedin.metadata.dao.utils.ModelUtils;
 import com.linkedin.metadata.snapshot.CorpGroupSnapshot;
 import javax.annotation.Nonnull;
 

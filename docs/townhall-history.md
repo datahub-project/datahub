@@ -2,6 +2,19 @@
 
 A list of previous Town Halls, their planned schedule, and the recording of the meeting.
 
+## 12/17/2021
+[Full YouTube video](https://youtu.be/rYInKCwxu7o)
+
+## Agenda
+- Community & Roadmap Updates by Maggie Hays (Acryl Data)
+- Project Updates by Shirshanka Das (Acryl Data)
+- 2021 DataHub Community in Review by Maggie Hays
+- DataHub Basics -- Users, Groups, & Authentication 101 by Pedro Silva (Acryl Data)
+- Sneak Peek: UI-Based Ingestion by John Joyce (Acryl Data)
+- Case Study — DataHub at Grofers by Shubham Gupta
+- Top DataHub Contributors of 2021 - Maggie Hays
+- Final Surprise! We Interviewed a 10yo and a 70yo about DataHub
+
 ## 11/19/2021
 [Full YouTube video](https://youtu.be/to80sEDZz7k)
 

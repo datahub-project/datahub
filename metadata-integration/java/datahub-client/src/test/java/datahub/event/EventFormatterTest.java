@@ -16,9 +16,9 @@ public class EventFormatterTest {
     MetadataChangeProposalWrapper metadataChangeProposalWrapper = MetadataChangeProposalWrapper.builder()
         .entityType("dataset")
         .entityUrn("urn:li:foo")
+            .upsert()
         .aspect(new DatasetProperties().setDescription("A test dataset"))
         .build();
-    MetadataChangeProposalWrapper.validate(metadataChangeProposalWrapper);
     EventFormatter eventFormatter = new EventFormatter();
     MetadataChangeProposal mcp = eventFormatter.convert(metadataChangeProposalWrapper);
     Assert.assertEquals(mcp.getAspect().getContentType(), "application/json");

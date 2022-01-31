@@ -1,0 +1,16 @@
+namespace com.datahub.test.testing
+
+/**
+ * For unit testing
+ */
+record BarSearchDocument {
+  /**
+   * Urn of the entity.
+   */
+  urn: BarUrn
+
+  /**
+   * Value of th entity.
+   */
+  value: optional string
+}

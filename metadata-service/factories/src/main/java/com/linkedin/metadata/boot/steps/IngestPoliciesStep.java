@@ -8,7 +8,7 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.events.metadata.ChangeType;
-import com.linkedin.metadata.dao.utils.RecordUtils;
+import com.datahub.util.RecordUtils;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.utils.EntityKeyUtils;

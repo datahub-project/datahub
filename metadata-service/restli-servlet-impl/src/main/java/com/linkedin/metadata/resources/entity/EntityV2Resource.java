@@ -25,8 +25,8 @@ import javax.inject.Inject;
 import javax.inject.Named;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.metadata.restli.RestliConstants.PARAM_ASPECTS;
-import static com.linkedin.metadata.utils.PegasusUtils.urnToEntityName;
+import static com.linkedin.metadata.resources.restli.RestliConstants.*;
+import static com.linkedin.metadata.utils.PegasusUtils.*;
 
 
 /**

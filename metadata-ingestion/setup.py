@@ -79,7 +79,16 @@ looker_common = {
 
 bigquery_common = {
     # Google cloud logging library
-    "google-cloud-logging"
+    "google-cloud-logging",
+    "more-itertools>=8.12.0",
+}
+
+snowflake_common = {
+    # Snowflake plugin utilizes sql common
+    *sql_common,
+    # Required for all Snowflake sources
+    "snowflake-sqlalchemy<=1.2.4",
+    "cryptography==3.4.8"
 }
 
 # Note: for all of these, framework_common will be added.
@@ -97,8 +106,10 @@ plugins: Dict[str, Set[str]] = {
     "bigquery": sql_common | bigquery_common | {"pybigquery >= 0.6.0"},
     "bigquery-usage": bigquery_common | {"cachetools"},
     "datahub-business-glossary": set(),
+    "data-lake": {"pydeequ==1.0.1", "pyspark==3.0.3", "parse==1.19.0"},
     "dbt": {"requests"},
     "druid": sql_common | {"pydruid>=0.6.2"},
+    "elasticsearch": {"elasticsearch"},
     "feast": {"docker"},
     "glue": aws_common,
     "hive": sql_common
@@ -112,9 +123,10 @@ plugins: Dict[str, Set[str]] = {
     "ldap": {"python-ldap>=2.4"},
     "looker": looker_common,
     # lkml>=1.1.2 is required to support the sql_preamble expression in LookML
-    "lookml": looker_common | {"lkml>=1.1.2", "sql-metadata==2.2.2"},
-    "metabase": {"requests"},
-    "mode": {"requests", "sqllineage"},
+    "lookml": looker_common
+    | {"lkml>=1.1.2", "sql-metadata==2.2.2", "sqllineage==1.3.3"},
+    "metabase": {"requests", "sqllineage==1.3.3"},
+    "mode": {"requests", "sqllineage==1.3.3"},
     "mongodb": {"pymongo>=3.11"},
     "mssql": sql_common | {"sqlalchemy-pytds>=0.3"},
     "mssql-odbc": sql_common | {"pyodbc"},
@@ -124,30 +136,18 @@ plugins: Dict[str, Set[str]] = {
     "okta": {"okta~=1.7.0"},
     "oracle": sql_common | {"cx_Oracle"},
     "postgres": sql_common | {"psycopg2-binary", "GeoAlchemy2"},
-    "redash": {"redash-toolbelt", "sql-metadata"},
+    "redash": {"redash-toolbelt", "sql-metadata", "sqllineage==1.3.3"},
     "redshift": sql_common
-    | {"sqlalchemy-redshift", "psycopg2-binary", "GeoAlchemy2", "sqllineage"},
+    | {"sqlalchemy-redshift", "psycopg2-binary", "GeoAlchemy2", "sqllineage==1.3.3"},
     "redshift-usage": sql_common
     | {"sqlalchemy-redshift", "psycopg2-binary", "GeoAlchemy2"},
     "sagemaker": aws_common,
-    "snowflake": sql_common | {"snowflake-sqlalchemy<=1.2.4"},
-    "snowflake-usage": sql_common | {"snowflake-sqlalchemy<=1.2.4"},
+    "snowflake": snowflake_common,
+    "snowflake-usage": snowflake_common | {"more-itertools>=8.12.0"},
     "sqlalchemy": sql_common,
     "superset": {"requests"},
-    "trino": sql_common
-    | {
-        # SQLAlchemy support is coming up in trino python client
-        # subject to PR merging - https://github.com/trinodb/trino-python-client/pull/81.
-        # PR is from same author as that of sqlalchemy-trino library below.
-        "sqlalchemy-trino"
-    },
-    "starburst-trino-usage": sql_common
-    | {
-        # SQLAlchemy support is coming up in trino python client
-        # subject to PR merging - https://github.com/trinodb/trino-python-client/pull/81.
-        # PR is from same author as that of sqlalchemy-trino library below.
-        "sqlalchemy-trino"
-    },
+    "trino": sql_common | {"trino"},
+    "starburst-trino-usage": sql_common | {"trino"},
     "nifi": {"requests"},
 }
 
@@ -179,7 +179,7 @@ base_dev_requirements = {
     *base_requirements,
     *framework_common,
     *mypy_stubs,
-    "black>=19.10b0",
+    "black>=21.12b0",
     "coverage>=5.1",
     "flake8>=3.8.3",
     "flake8-tidy-imports>=4.3.0",
@@ -202,6 +202,7 @@ base_dev_requirements = {
         for plugin in [
             "bigquery",
             "bigquery-usage",
+            "elasticsearch",
             "looker",
             "glue",
             "mariadb",
@@ -213,7 +214,10 @@ base_dev_requirements = {
             "datahub-rest",
             "redash",
             "redshift",
-            "redshift-usage"
+            "redshift-usage",
+            "data-lake",
+            "trino",
+            "starburst-trino-usage",
             # airflow is added below
         ]
         for dependency in plugins[plugin]
@@ -222,14 +226,8 @@ base_dev_requirements = {
 
 if is_py37_or_newer:
     # The lookml plugin only works on Python 3.7 or newer.
-    # The trino plugin only works on Python 3.7 or newer.
-    # The trino plugin can be supported on Python 3.6 with minimal changes to opensource sqlalchemy-trino sourcecode.
     base_dev_requirements = base_dev_requirements.union(
-        {
-            dependency
-            for plugin in ["lookml", "trino", "starburst-trino-usage"]
-            for dependency in plugins[plugin]
-        }
+        {dependency for plugin in ["lookml"] for dependency in plugins[plugin]}
     )
 
 dev_requirements = {
@@ -274,8 +272,10 @@ entry_points = {
         "azure-ad = datahub.ingestion.source.identity.azure_ad:AzureADSource",
         "bigquery = datahub.ingestion.source.sql.bigquery:BigQuerySource",
         "bigquery-usage = datahub.ingestion.source.usage.bigquery_usage:BigQueryUsageSource",
+        "data-lake = datahub.ingestion.source.data_lake:DataLakeSource",
         "dbt = datahub.ingestion.source.dbt:DBTSource",
         "druid = datahub.ingestion.source.sql.druid:DruidSource",
+        "elasticsearch = datahub.ingestion.source.elastic_search:ElasticsearchSource",
         "feast = datahub.ingestion.source.feast:FeastSource",
         "glue = datahub.ingestion.source.aws.glue:GlueSource",
         "sagemaker = datahub.ingestion.source.aws.sagemaker:SagemakerSource",
@@ -358,7 +358,8 @@ setuptools.setup(
     ],
     # Package info.
     zip_safe=False,
-    python_requires=">=3.6",
+    # restrict python to <=3.9.9 due to https://github.com/looker-open-source/sdk-codegen/issues/944
+    python_requires=">=3.6, <=3.9.9",
     package_dir={"": "src"},
     packages=setuptools.find_namespace_packages(where="./src"),
     package_data={

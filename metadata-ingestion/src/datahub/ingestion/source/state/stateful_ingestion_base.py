@@ -11,6 +11,7 @@ from datahub.configuration.common import (
     ConfigurationError,
     DynamicTypedConfig,
 )
+from datahub.configuration.source_common import DatasetSourceConfigBase
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import (
     IngestionCheckpointingProviderBase,
@@ -54,7 +55,7 @@ class StatefulIngestionConfig(ConfigModel):
         return values
 
 
-class StatefulIngestionConfigBase(ConfigModel):
+class StatefulIngestionConfigBase(DatasetSourceConfigBase):
     """
     Base configuration class for stateful ingestion for source configs to inherit from.
     """

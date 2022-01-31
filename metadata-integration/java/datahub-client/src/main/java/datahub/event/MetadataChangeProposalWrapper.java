@@ -6,10 +6,10 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.mxe.MetadataChangeProposal;
 import java.net.URISyntaxException;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Consumer;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NonNull;
+import lombok.AllArgsConstructor;
+import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 
 
@@ -17,82 +17,127 @@ import lombok.extern.slf4j.Slf4j;
  * A class that makes it easy to create new {@link MetadataChangeProposal} events
  * @param <T>
  */
-@Data
-@Builder
+@Value
 @Slf4j
+@AllArgsConstructor
 public class MetadataChangeProposalWrapper<T extends DataTemplate> {
 
-  @NonNull
   String entityType;
-  @NonNull
   String entityUrn;
-  @Builder.Default
-  ChangeType changeType = ChangeType.UPSERT;
+  ChangeType changeType;
   T aspect;
   String aspectName;
 
-  /**
-   * Validates that this class is well formed.
-   * Mutates the class to auto-fill
-   * @throws EventValidationException is the event is not valid
-   */
-  protected static void validate(MetadataChangeProposalWrapper mcpw) throws EventValidationException {
-    try {
-      Urn.createFromString(mcpw.entityUrn);
-    } catch (URISyntaxException uie) {
-      throw new EventValidationException("Failed to parse a valid entity urn", uie);
+  public interface EntityTypeStepBuilder {
+    EntityUrnStepBuilder entityType(String entityType);
+  }
+
+  public interface EntityUrnStepBuilder {
+    ChangeStepBuilder entityUrn(String entityUrn);
+
+    ChangeStepBuilder entityUrn(Urn entityUrn);
+  }
+
+  public interface ChangeStepBuilder {
+    AspectStepBuilder upsert();
+  }
+
+  public interface AspectStepBuilder {
+    Build aspect(DataTemplate aspect);
+  }
+
+  public interface Build {
+    MetadataChangeProposalWrapper build();
+
+    Build aspectName(String aspectName);
+  }
+
+  public static class MetadataChangeProposalWrapperBuilder
+      implements EntityUrnStepBuilder, EntityTypeStepBuilder, ChangeStepBuilder, AspectStepBuilder, Build {
+
+    private String entityUrn;
+    private String entityType;
+    private ChangeType changeType;
+    private String aspectName;
+    private DataTemplate aspect;
+
+    @Override
+    public EntityUrnStepBuilder entityType(String entityType) {
+      Objects.requireNonNull(entityType, "entityType cannot be null");
+      this.entityType = entityType;
+      return this;
     }
 
-    if (mcpw.getAspect() != null && mcpw.getAspectName() == null) {
+    @Override
+    public ChangeStepBuilder entityUrn(String entityUrn) {
+      Objects.requireNonNull(entityUrn, "entityUrn cannot be null");
+      try {
+        Urn.createFromString(entityUrn);
+      } catch (URISyntaxException uie) {
+        throw new EventValidationException("Failed to parse a valid entity urn", uie);
+      }
+      this.entityUrn = entityUrn;
+      return this;
+    }
+
+    @Override
+    public ChangeStepBuilder entityUrn(Urn entityUrn) {
+      Objects.requireNonNull(entityUrn, "entityUrn cannot be null");
+      this.entityUrn = entityUrn.toString();
+      return this;
+    }
+
+    @Override
+    public AspectStepBuilder upsert() {
+      this.changeType = ChangeType.UPSERT;
+      return this;
+    }
+
+    @Override
+    public Build aspect(DataTemplate aspect) {
+      this.aspect = aspect;
       // Try to guess the aspect name from the aspect
-      Map<String, Object> schemaProps = mcpw.getAspect().schema().getProperties();
+      Map<String, Object> schemaProps = aspect.schema().getProperties();
       if (schemaProps != null && schemaProps.containsKey("Aspect")) {
         Object aspectProps = schemaProps.get("Aspect");
         if (aspectProps != null && aspectProps instanceof Map) {
           Map aspectMap = (Map) aspectProps;
           String aspectName = (String) aspectMap.get("name");
-          mcpw.setAspectName(aspectName);
+          this.aspectName = aspectName;
           log.debug("Inferring aspectName as {}", aspectName);
         }
       }
-      if (mcpw.getAspectName() == null) {
-        throw new EventValidationException("Aspect name was null and could not be inferred.");
+      if (this.aspectName == null) {
+        log.warn("Could not infer aspect name from aspect");
       }
-    }
-    if (mcpw.getChangeType() != ChangeType.UPSERT) {
-      throw new EventValidationException("Change type other than UPSERT is not supported at this time. Supplied " + mcpw.getChangeType());
-    }
-    if (mcpw.getChangeType() == ChangeType.UPSERT && mcpw.getAspect() == null) {
-      throw new EventValidationException("Aspect cannot be null if ChangeType is UPSERT");
-    }
-
-  }
-
-
-  public static MetadataChangeProposalWrapper create(Consumer<ValidatingMCPWBuilder> builderConsumer) {
-    return new ValidatingMCPWBuilder().with(builderConsumer).build();
-  }
-
-
-  public static MetadataChangeProposalWrapperBuilder builder() {
-    return new ValidatingMCPWBuilder();
-  }
-
-  public static class ValidatingMCPWBuilder extends MetadataChangeProposalWrapperBuilder {
-
-    @Override
-    public MetadataChangeProposalWrapper build() {
-      MetadataChangeProposalWrapper mcpw = super.build();
-      validate(mcpw);
-      return mcpw;
-    }
-
-    public ValidatingMCPWBuilder with(Consumer<ValidatingMCPWBuilder> builderConsumer) {
-      builderConsumer.accept(this);
       return this;
     }
 
+    @Override
+    public MetadataChangeProposalWrapper build() {
+      try {
+        Objects.requireNonNull(this.aspectName,
+            "aspectName could not be inferred from provided aspect and was not explicitly provided as an override");
+        return new MetadataChangeProposalWrapper(entityType, entityUrn, changeType, aspect, aspectName);
+      } catch (Exception e) {
+        throw new EventValidationException("Failed to create a metadata change proposal event", e);
+      }
+    }
 
+    @Override
+    public Build aspectName(String aspectName) {
+      this.aspectName = aspectName;
+      return this;
+    }
   }
 
+  public static MetadataChangeProposalWrapper create(Consumer<EntityTypeStepBuilder> builderConsumer) {
+    MetadataChangeProposalWrapperBuilder builder = new MetadataChangeProposalWrapperBuilder();
+    builderConsumer.accept(builder);
+    return builder.build();
+  }
+
+  public static EntityTypeStepBuilder builder() {
+    return new MetadataChangeProposalWrapperBuilder();
+  }
 }
