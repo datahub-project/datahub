@@ -3,13 +3,12 @@ import contextlib
 import dataclasses
 import functools
 import logging
-import os
 import threading
 import traceback
 import unittest.mock
 import uuid
 from math import log10
-from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, Tuple, Union
+from typing import Any, Callable, Iterable, Iterator, List, Optional, Tuple, Union
 
 from datahub.telemetry import telemetry
 
@@ -24,7 +23,6 @@ try:
 except ImportError:
     pass
 
-import pydantic
 import sqlalchemy as sa
 from great_expectations.core.util import convert_to_json_serializable
 from great_expectations.data_context import BaseDataContext
@@ -42,8 +40,8 @@ from sqlalchemy.engine import Connection, Engine
 from sqlalchemy.exc import ProgrammingError
 from typing_extensions import Concatenate, ParamSpec
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.emitter.mce_builder import get_sys_time
+from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
 from datahub.ingestion.source.profiling.common import (
     Cardinality,
     _convert_to_cardinality,
@@ -159,88 +157,6 @@ def _get_column_quantiles_bigquery_patch(  # type:ignore
         # This treat quantile exception will raise a formatted exception and there won't be any return value here
         self._treat_quantiles_exception(pe)
         return list()
-
-
-class GEProfilingConfig(ConfigModel):
-    enabled: bool = False
-    limit: Optional[int] = None
-    offset: Optional[int] = None
-
-    # These settings will override the ones below.
-    turn_off_expensive_profiling_metrics: bool = False
-    profile_table_level_only: bool = False
-
-    include_field_null_count: bool = True
-    include_field_min_value: bool = True
-    include_field_max_value: bool = True
-    include_field_mean_value: bool = True
-    include_field_median_value: bool = True
-    include_field_stddev_value: bool = True
-    include_field_quantiles: bool = False
-    include_field_distinct_value_frequencies: bool = False
-    include_field_histogram: bool = False
-    include_field_sample_values: bool = True
-
-    allow_deny_patterns: AllowDenyPattern = AllowDenyPattern.allow_all()
-    max_number_of_fields_to_profile: Optional[pydantic.PositiveInt] = None
-
-    # The default of (5 * cpu_count) is adopted from the default max_workers
-    # parameter of ThreadPoolExecutor. Given that profiling is often an I/O-bound
-    # task, it may make sense to increase this default value in the future.
-    # https://docs.python.org/3/library/concurrent.futures.html#concurrent.futures.ThreadPoolExecutor
-    max_workers: int = 5 * (os.cpu_count() or 4)
-
-    # The query combiner enables us to combine multiple queries into a single query,
-    # reducing the number of round-trips to the database and speeding up profiling.
-    query_combiner_enabled: bool = True
-
-    # Hidden option - used for debugging purposes.
-    catch_exceptions: bool = True
-
-    bigquery_temp_table_schema: Optional[str] = None
-
-    @pydantic.root_validator()
-    def ensure_field_level_settings_are_normalized(
-        cls: "GEProfilingConfig", values: Dict[str, Any]
-    ) -> Dict[str, Any]:
-        max_num_fields_to_profile_key = "max_number_of_fields_to_profile"
-        table_level_profiling_only_key = "profile_table_level_only"
-        max_num_fields_to_profile = values.get(max_num_fields_to_profile_key)
-        if values.get(table_level_profiling_only_key):
-            all_field_level_metrics: List[str] = [
-                "include_field_null_count",
-                "include_field_min_value",
-                "include_field_max_value",
-                "include_field_mean_value",
-                "include_field_median_value",
-                "include_field_stddev_value",
-                "include_field_quantiles",
-                "include_field_distinct_value_frequencies",
-                "include_field_histogram",
-                "include_field_sample_values",
-            ]
-            # Suppress all field-level metrics
-            for field_level_metric in all_field_level_metrics:
-                values[field_level_metric] = False
-            assert (
-                max_num_fields_to_profile is None
-            ), f"{max_num_fields_to_profile_key} should be set to None"
-
-        if values.get("turn_off_expensive_profiling_metrics"):
-            if not values.get(table_level_profiling_only_key):
-                expensive_field_level_metrics: List[str] = [
-                    "include_field_quantiles",
-                    "include_field_distinct_value_frequencies",
-                    "include_field_histogram",
-                    "include_field_sample_values",
-                ]
-                for expensive_field_metric in expensive_field_level_metrics:
-                    values[expensive_field_metric] = False
-            if max_num_fields_to_profile is None:
-                # We currently profile up to 10 non-filtered columns in this mode by default.
-                values[max_num_fields_to_profile_key] = 10
-
-        return values
 
 
 def _is_single_row_query_method(query: Any) -> bool:
