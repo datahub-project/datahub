@@ -10,8 +10,8 @@ from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.state.checkpoint import Checkpoint
 from tests.utils import ingest_file_via_rest
 
-bootstrap_small = "../metadata-ingestion/examples/mce_files/bootstrap_single.json"
-bootstrap_small_2 = "../metadata-ingestion/examples/mce_files/bootstrap_single2.json"
+bootstrap_small = "test_resources/bootstrap_single.json"
+bootstrap_small_2 = "test_resources/bootstrap_single2.json"
 FRONTEND_ENDPOINT = "http://localhost:9002"
 
 @pytest.fixture(scope="session")
