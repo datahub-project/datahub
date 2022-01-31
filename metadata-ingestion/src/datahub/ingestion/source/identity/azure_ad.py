@@ -41,8 +41,8 @@ class AzureADConfig(ConfigModel):
 
     # Optional: Customize the mapping to DataHub Username from an attribute in the REST API response
     # Reference: https://docs.microsoft.com/en-us/graph/api/user-list?view=graph-rest-1.0&tabs=http#response-1
-    azure_ad_response_to_username_attr: str = "mail"
-    azure_ad_response_to_username_regex: str = "([^@]+)"
+    azure_ad_response_to_username_attr: str = "userPrincipalName"
+    azure_ad_response_to_username_regex: str = "(.*)"
 
     # Optional: Customize the mapping to DataHub Groupname from an attribute in the REST API response
     # Reference: https://docs.microsoft.com/en-us/graph/api/group-list?view=graph-rest-1.0&tabs=http#response-1
@@ -194,7 +194,7 @@ class AzureADSource(Source):
                 datahub_corp_user_snapshots, datahub_corp_user_urn_to_group_membership
             )
 
-        # Create MetadatWorkUnits for CorpUsers
+        # Create MetadataWorkUnits for CorpUsers
         if self.config.ingest_users:
             # 3) the users
             for azure_ad_users in self._get_azure_ad_users():

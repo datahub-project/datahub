@@ -6,11 +6,7 @@ fragment entityPreview on Entity {
         origin
         uri
         platform {
-            name
-            info {
-                displayName
-                logoUrl
-            }
+            ...platformFields
         }
         editableProperties {
             description
@@ -34,6 +30,9 @@ fragment entityPreview on Entity {
         }
         subTypes {
             typeNames
+        }
+        domain {
+            ...entityDomain
         }
     }
     ... on CorpUser {
@@ -106,6 +105,12 @@ fragment entityPreview on Entity {
         editableProperties {
             description
         }
+        platform {
+            ...platformFields
+        }
+        domain {
+            ...entityDomain
+        }
     }
     ... on Chart {
         urn
@@ -134,6 +139,12 @@ fragment entityPreview on Entity {
         editableProperties {
             description
         }
+        platform {
+            ...platformFields
+        }
+        domain {
+            ...entityDomain
+        }
     }
     ... on DataFlow {
         urn
@@ -158,6 +169,12 @@ fragment entityPreview on Entity {
         editableProperties {
             description
         }
+        platform {
+            ...platformFields
+        }
+        domain {
+            ...entityDomain
+        }
     }
     ... on DataJob {
         urn
@@ -181,6 +198,9 @@ fragment entityPreview on Entity {
         }
         editableProperties {
             description
+        }
+        domain {
+            ...entityDomain
         }
     }
     ... on GlossaryTerm {
@@ -213,6 +233,9 @@ fragment entityPreview on Entity {
         ownership {
             ...ownershipFields
         }
+        platform {
+            ...platformFields
+        }
     }
     ... on MLModel {
         name
@@ -222,11 +245,7 @@ fragment entityPreview on Entity {
             ...ownershipFields
         }
         platform {
-            name
-            info {
-                displayName
-                logoUrl
-            }
+            ...platformFields
         }
     }
     ... on MLModelGroup {
@@ -237,11 +256,7 @@ fragment entityPreview on Entity {
             ...ownershipFields
         }
         platform {
-            name
-            info {
-                displayName
-                logoUrl
-            }
+            ...platformFields
         }
     }
     ... on Tag {
@@ -249,10 +264,12 @@ fragment entityPreview on Entity {
         description
     }
     ... on DataPlatform {
-        name
-        info {
-            displayName
-            logoUrl
+        ...nonConflictingPlatformFields
+    }
+    ... on Domain {
+        urn
+        properties {
+            name
         }
     }
 }
