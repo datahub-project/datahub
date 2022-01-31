@@ -1563,7 +1563,8 @@
       "name" : "rawSchema",
       "type" : "string",
       "doc" : "Schema definition of the glossary term",
-      "optional" : true
+      "optional" : true,
+      "deprecated" : true
     } ],
     "Aspect" : {
       "name" : "glossaryTermInfo"
