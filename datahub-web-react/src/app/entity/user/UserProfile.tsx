@@ -1,5 +1,5 @@
-import { Alert, Col, Row, Avatar, Divider, Space, Button, Tooltip } from 'antd';
-import React, { useMemo } from 'react';
+import { Alert, Col, Row, Avatar, Divider, Space, Button, Tooltip, Tag } from 'antd';
+import React, { useMemo, useState } from 'react';
 import styled from 'styled-components';
 import { EditOutlined, MailOutlined, PhoneOutlined, SlackOutlined } from '@ant-design/icons';
 import UserHeader from './UserHeader';
@@ -14,6 +14,8 @@ import UserGroups from './UserGroups';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { RoutedTabs } from '../../shared/RoutedTabs';
 import { UserAssets } from './UserAssets';
+import UserEditProfileModal from './UserEditProfileModal';
+import { ExtendedEntityRelationshipsResult } from './type';
 
 const messageStyle = { marginTop: '10%' };
 export interface Props {
@@ -93,6 +95,27 @@ const EditProfileButton = styled.div`
         color: #262626;
     }
 `;
+const GroupsSection = styled.div`
+    text-align: left;
+    font-weight: bold;
+    font-size: 14px;
+    line-height: 22px;
+    color: #262626;
+`;
+const TagsSection = styled.div`
+    height: 130px;
+    padding: 5px;
+`;
+const Tags = styled.div`
+    margin-top: 5px;
+`;
+const GroupsSeeMoreText = styled.span`
+    font-weight: 500;
+    font-size: 12px;
+    line-height: 20px;
+    color: #1890ff;
+    cursor: pointer;
+`;
 const Content = styled.div`
     color: #262626;
     height: calc(100vh - 60px);
@@ -110,10 +133,12 @@ export default function UserProfile() {
     const { loading, error, data } = useGetUserQuery({ variables: { urn, groupsCount: GROUP_PAGE_SIZE } });
     const entityRegistry = useEntityRegistry();
     const username = data?.corpUser?.username;
-
+    const [editProfileModal, setEditProfileModal] = useState(false);
     const ownershipResult = useGetAllEntitySearchResults({
         query: `owners:${username}`,
     });
+    const [groupSectionScroll, showGroupSectionScroll] = useState(false);
+    const groupsDetails = data?.corpUser?.relationships as ExtendedEntityRelationshipsResult;
 
     const contentLoading =
         Object.keys(ownershipResult).some((type) => {
@@ -155,7 +180,6 @@ export default function UserProfile() {
     }
 
     const groupMemberRelationships = data?.corpUser?.relationships as EntityRelationshipsResult;
-    console.log('groupmember', groupMemberRelationships);
     const getTabs = () => {
         return [
             {
@@ -221,7 +245,7 @@ export default function UserProfile() {
                             <Tooltip title="Change Avatar">
                                 <Avatar
                                     className="avatar-picture"
-                                    size={{ xs: 212, sm: 212, md: 120, lg: 160, xl: 212, xxl: 100 }}
+                                    size={{ xs: 180, sm: 180, md: 160, lg: 160, xl: 160, xxl: 180 }}
                                     icon={<EditOutlined />}
                                 />
                             </Tooltip>
@@ -245,8 +269,37 @@ export default function UserProfile() {
                                 </Space>
                             </UserSocialDetails>
                             <Divider style={{ margin: '23px 0px 15px 0' }} />
+                            <GroupsSection>
+                                Groups
+                                <TagsSection style={{ overflow: groupSectionScroll ? 'auto' : 'hidden' }}>
+                                    {!groupSectionScroll &&
+                                        groupsDetails?.relationships.slice(0, 3).map((item) => {
+                                            return (
+                                                <Tags>
+                                                    <Tag>{item.entity.name}</Tag>
+                                                </Tags>
+                                            );
+                                        })}
+                                    {groupSectionScroll &&
+                                        groupsDetails?.relationships.length > 2 &&
+                                        groupsDetails?.relationships.map((item) => {
+                                            return (
+                                                <Tags>
+                                                    <Tag>{item.entity.name}</Tag>
+                                                </Tags>
+                                            );
+                                        })}
+                                    {!groupSectionScroll && groupsDetails?.relationships.length > 2 && (
+                                        <GroupsSeeMoreText onClick={() => showGroupSectionScroll(!groupSectionScroll)}>
+                                            {`+${groupsDetails?.relationships.length - 3} more`}
+                                        </GroupsSeeMoreText>
+                                    )}
+                                </TagsSection>
+                            </GroupsSection>
                             <EditProfileButton>
-                                <Button icon={<EditOutlined />}>Edit Profile</Button>
+                                <Button icon={<EditOutlined />} onClick={() => setEditProfileModal(true)}>
+                                    Edit Profile
+                                </Button>
                             </EditProfileButton>
                         </UserSidebar>
                     </Col>
@@ -256,6 +309,14 @@ export default function UserProfile() {
                         </Content>
                     </Col>
                 </Row>
+                <UserEditProfileModal
+                    visible={editProfileModal}
+                    onClose={() => setEditProfileModal(false)}
+                    onCreate={() => {
+                        // Hack to deal with eventual consistency.
+                        console.log('getModalData');
+                    }}
+                />
             </UserProfileWrapper>
             {data && data.corpUser && (
                 <LegacyEntityProfile
