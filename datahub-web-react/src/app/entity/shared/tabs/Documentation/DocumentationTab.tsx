@@ -18,7 +18,7 @@ import { useEntityData, useRefetch, useRouteToTab } from '../../EntityContext';
 const DocumentationContainer = styled.div`
     margin: 0 auto;
     padding: 40px 0;
-    max-width: 550px;
+    max-width: calc(100% - 10px);
 `;
 
 export const DocumentationTab = () => {
