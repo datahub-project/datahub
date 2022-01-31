@@ -21,6 +21,7 @@ def ingest_file_via_rest(filename: str) -> None:
         }
     )
     pipeline.run()
+    pipeline.pretty_print_summary()
     pipeline.raise_from_status()
 
 

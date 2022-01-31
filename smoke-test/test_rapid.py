@@ -82,6 +82,7 @@ def test_ingestion_via_rest_rapid(frontend_session, wait_for_healthchecks):
     res_data = response.json()
 
     assert res_data
+    print(res_data)
     assert res_data["data"]
     assert res_data["data"]["dataset"]
     assert res_data["data"]["dataset"]["urn"] == urn
