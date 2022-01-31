@@ -4,7 +4,6 @@ source:
   type: "file"
   config:
     filename: "../smoke-test/sample_bq_data.json"
->
 
 # see https://datahubproject.io/docs/metadata-ingestion/sink_docs/datahub for complete documentation
 sink:
