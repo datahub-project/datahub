@@ -190,7 +190,7 @@ class TrinoUsageSource(Source):
         return joined_access_events
 
     def _aggregate_access_events(
-            self, events: List[TrinoJoinedAccessEvent]
+        self, events: List[TrinoJoinedAccessEvent]
     ) -> Dict[datetime, Dict[TrinoTableRef, AggregatedDataset]]:
         datasets: Dict[
             datetime, Dict[TrinoTableRef, AggregatedDataset]
@@ -217,7 +217,11 @@ class TrinoUsageSource(Source):
 
                 agg_bucket = datasets[floored_ts].setdefault(
                     resource,
-                    AggregatedDataset(bucket_start_time=floored_ts, resource=resource),
+                    AggregatedDataset(
+                        bucket_start_time=floored_ts,
+                        resource=resource,
+                        user_email_pattern=self.config.user_email_pattern,
+                    ),
                 )
 
                 # add @unknown.com to username
