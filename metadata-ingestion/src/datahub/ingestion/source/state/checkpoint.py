@@ -33,7 +33,7 @@ class CheckpointStateBase(ConfigModel):
         compressor: Callable[[bytes], bytes] = functools.partial(
             bz2.compress, compresslevel=9
         ),
-        max_allowed_state_size: int = 2 ** 22,  # 4MB
+        max_allowed_state_size: int = 2**22,  # 4MB
     ) -> bytes:
         """
         NOTE: Binary compression cannot be turned on yet as the current MCPs encode the GeneralizedAspect
