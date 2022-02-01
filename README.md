@@ -118,6 +118,7 @@ Here are the companies that have officially adopted DataHub. Please feel free to
 - [IOMED](https://iomed.health)
 - [Klarna](https://www.klarna.com)
 - [LinkedIn](http://linkedin.com)
+- [Moloco](https://www.moloco.com/en)
 - [Peloton](https://www.onepeloton.com)
 - [Saxo Bank](https://www.home.saxo)
 - [Stash](https://www.stash.com)

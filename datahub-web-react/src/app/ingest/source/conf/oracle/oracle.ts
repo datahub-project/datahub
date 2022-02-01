@@ -20,8 +20,12 @@ source:
 sink: 
     type: datahub-rest
     config: 
+<<<<<<< HEAD
         server: "${baseUrl}/gms"
         token: "<your-api-token-secret-here>"`;
+=======
+        server: "${baseUrl}/api/gms"`;
+>>>>>>> master
 
 const oracleConfig: SourceConfig = {
     type: 'oracle',

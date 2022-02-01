@@ -21,6 +21,10 @@ Giving a user unrestricted access to system tables gives the user visibility to 
 
 ## Capabilities
 
+| Capability | Status | Details | 
+| -----------| ------ | ---- |
+| Platform Instance | ✔️ | [link](../../docs/platform-instances.md) |
+
 This plugin extracts the following:
 
 - Metadata for databases, schemas, views and tables
@@ -28,6 +32,7 @@ This plugin extracts the following:
 - Also supports PostGIS extensions
 - Table, row, and column statistics via optional [SQL profiling](./sql_profiles.md)
 - Table lineage
+
 
 :::tip
 
@@ -103,6 +108,7 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `database`                  |          |                    | Redshift database.                                                                                                                                                                      |
 | `database_alias`            |          |                    | Alias to apply to database when ingesting.                                                                                                                                              |
 | `env`                       |          | `"PROD"`           | Environment to use in namespace when constructing URNs.                                                                                                                                 |
+| `platform_instance`         |          | None             | The Platform instance to use while constructing URNs.         |
 | `options.<option>`          |          |                    | Any options specified here will be passed to SQLAlchemy's `create_engine` as kwargs.<br />See https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine for details. |
 | `table_pattern.allow`       |          |                    | List of regex patterns for tables to include in ingestion.                                                                                                                              |
 | `table_pattern.deny`        |          |                    | List of regex patterns for tables to exclude from ingestion.                                                                                                                            |
@@ -181,6 +187,12 @@ ALTER USER datahub_user WITH SYSLOG ACCESS UNRESTRICTED;
 To install this plugin, run `pip install 'acryl-datahub[redshift-usage]'`.
 
 ## Capabilities
+
+| Capability | Status | Details | 
+| -----------| ------ | ---- |
+| Platform Instance | ✔️ | [link](../../docs/platform-instances.md) |
+
+
 This plugin has the below functionalities -
 1. For a specific dataset this plugin ingests the following statistics - 
    1. top n queries.
@@ -228,7 +240,8 @@ By default, we extract usage stats for the last day, with the recommendation tha
 | `password`                  |          |                                                                | Redshift password.                                                                                                                                                                      |
 | `host_port`                 | ✅        |                                                                | Redshift host URL.                                                                                                                                                                      |
 | `database`                  |          |                                                                | Redshift database.                                                                                                                                                                      |
-| `env`                       |          | `"PROD"`                                                       | Environment to use in namespace when constructing URNs.                                                                                                                                 |
+| `env`                       |          | `"PROD"`                                                       | Environment to use in namespace when constructing URNs.                                                                                                                                |
+| `platform_instance`         |          | None             | The Platform instance to use while constructing URNs.         |
 | `options.<option>`          |          |                                                                | Any options specified here will be passed to SQLAlchemy's `create_engine` as kwargs.<br />See https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine for details. |
 | `email_domain`              | ✅        |                                                                | Email domain of your organisation so users can be displayed on UI appropriately.                                                                                                        |
 | `start_time`                |          | Last full day in UTC (or hour, depending on `bucket_duration`) | Earliest date of usage to consider.                                                                                                                                                     |   

@@ -17,6 +17,10 @@ This plugin extracts the following:
 
 **_NOTE:_** To get complete Looker metadata integration (including Looker views and lineage to the underlying warehouse tables), you must ALSO use the LookML source. Documentation for that is [here](./lookml.md)
 
+| Capability | Status | Details | 
+| -----------| ------ | ---- |
+| Platform Instance | 🛑 | [link](../../docs/platform-instances.md) |
+
 ## Configuration Notes
 
 See the [Looker authentication docs](https://docs.looker.com/reference/api-and-integration/api-auth#authentication_with_an_sdk) for the steps to create a client ID and secret. 
@@ -72,7 +76,8 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | ------------------------- | -------- | ----------------------- | ------------------------------------------------------------------------------------------------------------ |
 | `client_id`               | ✅       |                         | Looker API3 client ID.                                                                                       |
 | `client_secret`           | ✅       |                         | Looker API3 client secret.                                                                                   |
-| `base_url`                | ✅       |                         | Url to your Looker instance: `https://company.looker.com:19999` or `https://looker.company.com`, or similar. |
+| `base_url`                | ✅       |                         | Url to your Looker instance: `https://company.looker.com:19999` or `https://looker.company.com`, or similar. Used for making API calls to Looker and constructing clickable dashboard and chart urls. |
+| `external_base_url`   |          | value of `base_url`                  | Optional URL to use when constructing external URLs to Looker if the `base_url` is not the correct one to use. For example, `https://looker-public.company.com`. If not provided, the external base URL will default to `base_url`.  | 
 | `platform_name`           |          | `"looker"`              | Platform to use in namespace when constructing URNs.                                                         |
 | `extract_owners`                     |          | `True`                | When enabled, extracts ownership from Looker directly. When disabled, ownership is left empty for dashboards and charts.                                                      |
 | `strip_user_ids_from_email`                     |          | `False`                | When enabled, converts Looker user emails of the form name@domain.com to urn:li:corpuser:name when assigning ownership                                                    |

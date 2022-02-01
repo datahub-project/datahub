@@ -291,8 +291,11 @@ class RedshiftUsageSource(Source):
                     entityType="dataset",
                     aspectName="operation",
                     changeType=ChangeTypeClass.UPSERT,
-                    entityUrn=builder.make_dataset_urn(
-                        "redshift", resource.lower(), self.config.env
+                    entityUrn=builder.make_dataset_urn_with_platform_instance(
+                        "redshift",
+                        resource.lower(),
+                        self.config.platform_instance,
+                        self.config.env,
                     ),
                     aspect=operation_aspect,
                 )
@@ -334,8 +337,11 @@ class RedshiftUsageSource(Source):
     def _make_usage_stat(self, agg: AggregatedDataset) -> MetadataWorkUnit:
         return agg.make_usage_workunit(
             self.config.bucket_duration,
-            lambda resource: builder.make_dataset_urn(
-                "redshift", resource.lower(), self.config.env
+            lambda resource: builder.make_dataset_urn_with_platform_instance(
+                "redshift",
+                resource.lower(),
+                self.config.platform_instance,
+                self.config.env,
             ),
             self.config.top_n_queries,
         )

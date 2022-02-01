@@ -4,7 +4,6 @@ import { DataJob, EntityType, PlatformType, RelationshipDirection, SearchResult 
 import { Preview } from './preview/Preview';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
 import { getChildrenFromRelationships } from '../../lineage/utils/getChildren';
-import { getLogoFromPlatform } from '../../shared/getLogoFromPlatform';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
 import { GetDataJobQuery, useGetDataJobQuery, useUpdateDataJobMutation } from '../../../graphql/dataJob.generated';
 import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
@@ -17,6 +16,7 @@ import { GenericEntityProperties } from '../shared/types';
 import { DataJobFlowTab } from '../shared/tabs/Entity/DataJobFlowTab';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { capitalizeFirstLetter } from '../../shared/textUtil';
+import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 
 /**
  * Definition of the DataHub DataJob entity.
@@ -102,6 +102,9 @@ export class DataJobEntity implements Entity<DataJob> {
                 {
                     component: SidebarOwnerSection,
                 },
+                {
+                    component: SidebarDomainSection,
+                },
             ]}
         />
     );
@@ -118,8 +121,8 @@ export class DataJobEntity implements Entity<DataJob> {
                 urn: `urn:li:dataPlatform:(${tool})`,
                 type: EntityType.DataPlatform,
                 name: tool,
-                info: {
-                    logoUrl: getLogoFromPlatform(tool),
+                properties: {
+                    logoUrl: dataJob?.dataFlow?.platform?.properties?.logoUrl || '',
                     displayName: capitalizeFirstLetter(tool),
                     type: PlatformType.Others,
                     datasetNameDelimiter: '.',
@@ -138,9 +141,10 @@ export class DataJobEntity implements Entity<DataJob> {
                 name={data.properties?.name || ''}
                 description={data.editableProperties?.description || data.properties?.description}
                 platformName={platformName}
-                platformLogo={getLogoFromPlatform(data.dataFlow?.orchestrator || '')}
+                platformLogo={data?.dataFlow?.platform?.properties?.logoUrl || ''}
                 owners={data.ownership?.owners}
                 globalTags={data.globalTags || null}
+                domain={data.domain}
             />
         );
     };
@@ -156,9 +160,10 @@ export class DataJobEntity implements Entity<DataJob> {
                 name={data.properties?.name || ''}
                 description={data.editableProperties?.description || data.properties?.description}
                 platformName={platformName}
-                platformLogo={getLogoFromPlatform(data.dataFlow?.orchestrator || '')}
+                platformLogo={data?.dataFlow?.platform?.properties?.logoUrl || ''}
                 owners={data.ownership?.owners}
                 globalTags={data.globalTags}
+                domain={data.domain}
                 insights={result.insights}
             />
         );
@@ -183,7 +188,7 @@ export class DataJobEntity implements Entity<DataJob> {
                 outgoingRelationships: entity?.['outgoing'],
                 direction: RelationshipDirection.Outgoing,
             }),
-            icon: getLogoFromPlatform(entity.dataFlow?.orchestrator || ''),
+            icon: entity?.dataFlow?.platform?.properties?.logoUrl || '',
             platform: entity?.dataFlow?.orchestrator || '',
         };
     };

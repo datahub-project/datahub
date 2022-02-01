@@ -9,12 +9,12 @@ from typing import Any, Dict, Generator, Iterable, List, Optional, Type
 from elasticsearch import Elasticsearch
 from pydantic import validator
 
-from datahub.configuration import ConfigModel
 from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.source_common import DatasetSourceConfigBase
 from datahub.emitter.mce_builder import (
-    DEFAULT_ENV,
     make_data_platform_urn,
-    make_dataset_urn,
+    make_dataplatform_instance_urn,
+    make_dataset_urn_with_platform_instance,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -31,6 +31,7 @@ from datahub.metadata.schema_classes import (
     BooleanTypeClass,
     BytesTypeClass,
     ChangeTypeClass,
+    DataPlatformInstanceClass,
     DatasetPropertiesClass,
     DateTypeClass,
     NullTypeClass,
@@ -163,11 +164,10 @@ class ElasticsearchSourceReport(SourceReport):
         self.filtered.append(index)
 
 
-class ElasticsearchSourceConfig(ConfigModel):
+class ElasticsearchSourceConfig(DatasetSourceConfigBase):
     host: str = "localhost:9092"
     username: str = ""
     password: str = ""
-    env: str = DEFAULT_ENV
     index_pattern: AllowDenyPattern = AllowDenyPattern(
         allow=[".*"], deny=["^_.*", "^ilm-history.*"]
     )
@@ -235,8 +235,11 @@ class ElasticsearchSource(Source):
         self,
     ) -> Iterable[MetadataChangeProposalWrapper]:
         for data_stream, count in self.data_stream_partition_count.items():
-            dataset_urn: str = make_dataset_urn(
-                self.platform, data_stream, self.source_config.env
+            dataset_urn: str = make_dataset_urn_with_platform_instance(
+                platform=self.platform,
+                name=data_stream,
+                env=self.source_config.env,
+                platform_instance=self.source_config.platform_instance,
             )
             yield MetadataChangeProposalWrapper(
                 entityType="dataset",
@@ -282,8 +285,11 @@ class ElasticsearchSource(Source):
         )
 
         # 1.3 Emit the mcp
-        dataset_urn: str = make_dataset_urn(
-            self.platform, index, self.source_config.env
+        dataset_urn: str = make_dataset_urn_with_platform_instance(
+            platform=self.platform,
+            name=index,
+            platform_instance=self.source_config.platform_instance,
+            env=self.source_config.env,
         )
         yield MetadataChangeProposalWrapper(
             entityType="dataset",
@@ -322,6 +328,21 @@ class ElasticsearchSource(Source):
                 aspectName="datasetProperties",
                 aspect=DatasetPropertiesClass(
                     customProperties={"aliases": ",".join(index_aliases)}
+                ),
+                changeType=ChangeTypeClass.UPSERT,
+            )
+
+        # 5. Construct and emit platform instance aspect
+        if self.source_config.platform_instance:
+            yield MetadataChangeProposalWrapper(
+                entityType="dataset",
+                entityUrn=dataset_urn,
+                aspectName="dataPlatformInstance",
+                aspect=DataPlatformInstanceClass(
+                    platform=make_data_platform_urn(self.platform),
+                    instance=make_dataplatform_instance_urn(
+                        self.platform, self.source_config.platform_instance
+                    ),
                 ),
                 changeType=ChangeTypeClass.UPSERT,
             )

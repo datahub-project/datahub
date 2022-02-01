@@ -17,7 +17,8 @@
         "MANAGE_USERS_AND_GROUPS",
         "VIEW_ANALYTICS",
         "GENERATE_PERSONAL_ACCESS_TOKENS",
-        "VIEW_METADATA_PROPOSALS"
+        "VIEW_METADATA_PROPOSALS",
+        "MANAGE_DOMAINS"
       ],
       "displayName":"Root User - All Platform Privileges",
       "description":"Grants full platform privileges to root datahub super user.",

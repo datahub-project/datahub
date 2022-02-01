@@ -39,6 +39,7 @@ dependencies {
 
     runtime externalDependency.logbackClassic
 
+    testCompile externalDependency.mockito
     implementation externalDependency.awsMskIamAuth
 
     testCompile externalDependency.mockito

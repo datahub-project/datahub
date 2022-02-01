@@ -41,17 +41,17 @@ import org.apache.http.impl.nio.client.HttpAsyncClientBuilder;
  *
  * Constructing a REST Emitter follows a lambda-based fluent builder pattern using the `create` method.
  * e.g.
- * RestEmitter emitter = RestEmitter.create(b -> b
+ * RestEmitter emitter = RestEmitter.create(b :: b
  *                                                .server("http://localhost:8080")
  *                                                .extraHeaders(Collections.singletonMap("Custom-Header", "custom-val")
  *                                                );
  * You can also customize the underlying
  * http client by calling the `customizeHttpAsyncClient` method on the builder.
  * e.g.
- * RestEmitter emitter = RestEmitter.create(b -> b
+ * RestEmitter emitter = RestEmitter.create(b :: b
  *                                                .server("http://localhost:8080")
  *                                                .extraHeaders(Collections.singletonMap("Custom-Header", "custom-val")
- *                                                .customizeHttpAsyncClient(c -> c.setConnectionTimeToLive(30, TimeUnit.SECONDS))
+ *                                                .customizeHttpAsyncClient(c :: c.setConnectionTimeToLive(30, TimeUnit.SECONDS))
  *                                                );
  */
 public class RestEmitter implements Emitter {
@@ -117,16 +117,16 @@ public class RestEmitter implements Emitter {
   /**
    * Constructing a REST Emitter follows a lambda-based fluent builder pattern using the `create` method.
    * e.g.
-   * RestEmitter emitter = RestEmitter.create(b -> b
+   * RestEmitter emitter = RestEmitter.create(b :: b
    *                                                .server("http://localhost:8080") // coordinates of gms server
    *                                                .extraHeaders(Collections.singletonMap("Custom-Header", "custom-val")
    *                                                );
    * You can also customize the underlying http client by calling the `customizeHttpAsyncClient` method on the builder.
    * e.g.
-   * RestEmitter emitter = RestEmitter.create(b -> b
+   * RestEmitter emitter = RestEmitter.create(b :: b
    *                                                .server("http://localhost:8080")
    *                                                .extraHeaders(Collections.singletonMap("Custom-Header", "custom-val")
-   *                                                .customizeHttpAsyncClient(c -> c.setConnectionTimeToLive(30, TimeUnit.SECONDS))
+   *                                                .customizeHttpAsyncClient(c :: c.setConnectionTimeToLive(30, TimeUnit.SECONDS))
    *                                                );
    * @param builderSupplier
    * @return a constructed RestEmitter. Call #testConnection to make sure this emitter has a valid connection to the server

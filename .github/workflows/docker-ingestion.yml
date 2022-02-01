@@ -41,7 +41,7 @@ jobs:
         run: |
           echo "GITHUB_REF: $GITHUB_REF"
           SHORT_SHA=$(git rev-parse --short "$GITHUB_SHA")
-          RELEASE_VERSION=$(echo ${GITHUB_REF} | sed -e "s,refs/heads/master,0.0.0+docker.${SHORT_SHA},g" -e 's,refs/tags/v\(.+\),\1+docker,g' -e 's,refs/pull/\([0-9]*\).*,0.0.0+docker.pr\1,g')
+          RELEASE_VERSION=$(echo ${GITHUB_REF} | sed -e "s,refs/heads/master,0.0.0+docker.${SHORT_SHA},g" -e 's,refs/tags/v\(.*\),\1+docker,g' -e 's,refs/pull/\([0-9]*\).*,0.0.0+docker.pr\1,g')
           echo "release_version=$RELEASE_VERSION"
           echo "::set-output name=release_version::$RELEASE_VERSION"
       - name: Check whether publishing enabled

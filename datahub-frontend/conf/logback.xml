@@ -59,6 +59,12 @@
   <logger name="controller" level="DEBUG">
     <appender-ref ref="DEBUG_FILE"/>
   </logger>
+  <logger name="auth" level="DEBUG">
+    <appender-ref ref="DEBUG_FILE"/>
+  </logger>
+  <logger name="org.pac4j" level="DEBUG">
+    <appender-ref ref="DEBUG_FILE"/>
+  </logger>
   <logger name="graphql" level="DEBUG">
     <appender-ref ref="DEBUG_FILE"/>
   </logger>

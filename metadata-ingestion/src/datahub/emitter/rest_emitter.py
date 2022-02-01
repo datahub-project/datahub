@@ -10,8 +10,7 @@ import requests
 from requests.adapters import HTTPAdapter, Retry
 from requests.exceptions import HTTPError, RequestException
 
-from datahub import __package_name__
-from datahub.configuration.common import OperationalError
+from datahub.configuration.common import ConfigurationError, OperationalError
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.serialization_helper import pre_json_transform
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
@@ -72,10 +71,6 @@ class DatahubRestEmitter:
         extra_headers: Optional[Dict[str, str]] = None,
         ca_certificate_path: Optional[str] = None,
     ):
-        if ":9002" in gms_server:
-            logger.warning(
-                "the rest emitter should connect to GMS (usually port 8080) instead of frontend"
-            )
         self._gms_server = gms_server
         self._token = token
 
@@ -127,12 +122,26 @@ class DatahubRestEmitter:
 
     def test_connection(self) -> None:
         response = self._session.get(f"{self._gms_server}/config")
-        response.raise_for_status()
-        config: dict = response.json()
-        if config.get("noCode") != "true":
-            raise ValueError(
-                f"This version of {__package_name__} requires GMS v0.8.0 or higher"
-            )
+        if response.status_code == 200:
+            config: dict = response.json()
+            if config.get("noCode") == "true":
+                return
+            else:
+                # Looks like we either connected to an old GMS or to some other service. Let's see if we can determine which before raising an error
+                # A common misconfiguration is connecting to datahub-frontend so we special-case this check
+                if (
+                    config.get("config", {}).get("application") == "datahub-frontend"
+                    or config.get("config", {}).get("shouldShowDatasetLineage")
+                    is not None
+                ):
+                    message = "You seem to have connected to the frontend instead of the GMS endpoint. The rest emitter should connect to DataHub GMS (usually <datahub-gms-host>:8080) or Frontend GMS API (usually <frontend>:9002/api/gms)"
+                else:
+                    message = "You have either connected to a pre-v0.8.0 DataHub GMS instance, or to a different server altogether! Please check your configuration and make sure you are talking to the DataHub GMS endpoint."
+                raise ConfigurationError(message)
+        else:
+            auth_message = "Maybe you need to set up authentication? "
+            message = f"Unable to connect to {self._gms_server}/config with status_code: {response.status_code}. {auth_message if response.status_code == 401 else ''}Please check your configuration and make sure you are talking to the DataHub GMS (usually <datahub-gms-host>:8080) or Frontend GMS API (usually <frontend>:9002/api/gms)."
+            raise ConfigurationError(message)
 
     def emit(
         self,

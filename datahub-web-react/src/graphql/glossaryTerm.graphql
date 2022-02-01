@@ -42,5 +42,10 @@ query getGlossaryTerm($urn: String!, $start: Int, $count: Int) {
                 value
             }
         }
+         schemaMetadata(version: 0) {
+            ...schemaMetadataFields
+        }
     }
 }
+
+

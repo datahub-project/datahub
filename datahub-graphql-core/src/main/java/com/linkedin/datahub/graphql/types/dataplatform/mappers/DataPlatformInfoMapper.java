@@ -3,9 +3,9 @@ package com.linkedin.datahub.graphql.types.dataplatform.mappers;
 import com.linkedin.datahub.graphql.generated.DataPlatformInfo;
 import com.linkedin.datahub.graphql.generated.PlatformType;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
-
 import javax.annotation.Nonnull;
 
+@Deprecated
 public class DataPlatformInfoMapper implements ModelMapper<com.linkedin.dataplatform.DataPlatformInfo, DataPlatformInfo> {
 
     public static final DataPlatformInfoMapper INSTANCE = new DataPlatformInfoMapper();

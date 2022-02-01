@@ -6,8 +6,6 @@ For context on getting started with ingestion, check out our [metadata ingestion
 
 To install this plugin, run `pip install 'acryl-datahub[trino]'`.
 
-Note! This plugin uses a package that requires Python 3.7+!
-
 ## Capabilities
 
 This plugin extracts the following:

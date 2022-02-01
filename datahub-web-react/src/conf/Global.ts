@@ -19,6 +19,7 @@ export enum PageRoutes {
     IDENTITIES = '/identities',
     INGESTION = '/ingestion',
     SETTINGS = '/settings',
+    DOMAINS = '/domains',
 }
 
 /**
