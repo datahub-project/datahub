@@ -34,9 +34,16 @@ g. Below, add a **Logout Redirect URI**. This should be formatted as
 https://your-datahub-domain.com
 ```
 
+h. [Optional] If you're enabling DataHub login as an Okta tile, you'll need to provide the **Initiate Login URI**. You
+can set if to
+
+```
+https://your-datahub-domain.com/authenticate
+```
+
 If you're just testing locally, this can be `http://localhost:9002`.
 
-h. Click **Save**
+i. Click **Save**
 
 
 ### 2. Obtain Client Credentials
