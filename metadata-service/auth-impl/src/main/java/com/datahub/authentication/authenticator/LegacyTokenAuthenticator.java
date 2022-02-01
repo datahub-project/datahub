@@ -25,7 +25,8 @@ import static com.datahub.authentication.AuthenticationConstants.*;
  *
  * This authenticator requires the following configurations:
  *
- *  - signingKey: a key used to sign all JWT tokens using the provided signingAlgorithm. This should be THE SAME ONE used by Acryl Admin Server to mint new auth tokens.
+ *  - signingKey: a key used to sign all JWT tokens using the provided signingAlgorithm.
+ *    This should be THE SAME ONE used by Acryl Admin Server to mint new auth tokens.
  */
 @Slf4j
 public class LegacyTokenAuthenticator implements Authenticator {
