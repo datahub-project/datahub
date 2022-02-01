@@ -1169,6 +1169,7 @@ def test_create_group(frontend_session):
             createGroup(input: $input) }""",
         "variables": {
             "input": {
+                "id": "test-id",
                 "name": "Test Group",
                 "description": "My test group"
             }
@@ -1190,7 +1191,7 @@ def test_create_group(frontend_session):
             }\n
         }""",
         "variables": {
-          "urn": "urn:li:corpGroup:Test Group"
+          "urn": "urn:li:corpGroup:test-id"
         }
     }
     response = frontend_session.post(
