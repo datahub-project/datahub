@@ -84,6 +84,7 @@ export const IngestionSourceExecutionList = ({ urn, lastRefresh, onRefresh }: Pr
             },
             onCancel() {},
             okText: 'Cancel',
+            cancelText: 'Close',
             maskClosable: true,
             closable: true,
         });
