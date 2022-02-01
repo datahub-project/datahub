@@ -110,7 +110,6 @@ export default function GlossaryTermProfile() {
                     tags={null}
                     header={getHeader(data?.glossaryTerm as GlossaryTerm)}
                     tabs={getTabs(data)}
-                    // TODO - Tab names are going in lower case instead of init case. Why?
                     onTabChange={(tab: string) => {
                         analytics.event({
                             type: EventType.EntitySectionViewEvent,

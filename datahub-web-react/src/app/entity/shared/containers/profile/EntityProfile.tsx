@@ -130,7 +130,7 @@ export const EntityProfile = <T, U>({
                 type: EventType.EntitySectionViewEvent,
                 entityType,
                 entityUrn: urn,
-                section: tabName,
+                section: tabName.toLowerCase(),
             });
             history[method](getEntityPath(entityType, urn, entityRegistry, false, tabName, tabParams));
         },
