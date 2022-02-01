@@ -103,14 +103,8 @@ public class EntityKeyUtils {
     final DataMap dataMap = new DataMap();
     for (int i = 0; i < urn.getEntityKey().getParts().size(); i++) {
       final String urnPart = urn.getEntityKey().get(i);
-      try {
-        final String decodedUrnPart = URLDecoder.decode(urnPart, StandardCharsets.UTF_8.toString());
-        final RecordDataSchema.Field field = keySchema.getFields().get(i);
-        dataMap.put(field.getName(), decodedUrnPart);
-      } catch (UnsupportedEncodingException e) {
-        throw new RuntimeException(
-            String.format("Failed to convert URN to Entity Key. Unable to URL decoded urn part %s", urnPart), e);
-      }
+      final RecordDataSchema.Field field = keySchema.getFields().get(i);
+      dataMap.put(field.getName(), urnPart);
     }
 
     // #3. Finally, instantiate the record template with the newly created DataMap.

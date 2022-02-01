@@ -1,6 +1,5 @@
 import { Alert } from 'antd';
 import React, { useMemo } from 'react';
-import { useHistory, useLocation } from 'react-router';
 import GroupHeader from './GroupHeader';
 import { useGetGroupQuery } from '../../../graphql/group.generated';
 import { useGetAllEntitySearchResults } from '../../../utils/customGraphQL/useGetAllEntitySearchResults';
@@ -11,6 +10,7 @@ import { Message } from '../../shared/Message';
 import GroupMembers from './GroupMembers';
 import { LegacyEntityProfile } from '../../shared/LegacyEntityProfile';
 import { useEntityRegistry } from '../../useEntityRegistry';
+import { decodeUrn } from '../shared/utils';
 
 const messageStyle = { marginTop: '10%' };
 
@@ -28,12 +28,9 @@ const MEMBER_PAGE_SIZE = 20;
  */
 export default function GroupProfile() {
     const entityRegistry = useEntityRegistry();
-    const location = useLocation();
-    const history = useHistory();
-    const { urn } = useUserParams();
+    const { urn: encodedUrn } = useUserParams();
+    const urn = encodedUrn && decodeUrn(encodedUrn);
     const { loading, error, data } = useGetGroupQuery({ variables: { urn, membersCount: MEMBER_PAGE_SIZE } });
-    console.log(location);
-    console.log(history);
 
     const ownershipResult = useGetAllEntitySearchResults({
         query: `owners:${data?.corpGroup?.name}`,

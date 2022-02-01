@@ -12,6 +12,7 @@ import { Properties as PropertiesView } from '../../shared/components/legacy/Pro
 import GlossayRelatedTerms from './GlossaryRelatedTerms';
 import GlossaryTermHeader from './GlossaryTermHeader';
 import SchemaView from './SchemaView';
+import { decodeUrn } from '../../shared/utils';
 
 const messageStyle = { marginTop: '10%' };
 
@@ -25,7 +26,8 @@ export enum TabType {
 const ENABLED_TAB_TYPES = [TabType.Properties, TabType.RelatedEntity, TabType.RelatedGlossaryTerms, TabType.Schema];
 
 export default function GlossaryTermProfile() {
-    const { urn } = useUserParams();
+    const { urn: encodedUrn } = useUserParams();
+    const urn = decodeUrn(encodedUrn);
     const { loading, error, data } = useGetGlossaryTermQuery({ variables: { urn } });
 
     const entityRegistry = useEntityRegistry();
