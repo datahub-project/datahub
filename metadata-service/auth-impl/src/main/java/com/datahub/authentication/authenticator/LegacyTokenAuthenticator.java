@@ -69,7 +69,7 @@ public class LegacyTokenAuthenticator implements Authenticator {
             credentials, Collections.emptyMap()
         );
       } else {
-        throw new AuthenticationException("Unable to verify the provided token.", e);
+        throw new AuthenticationException("Unable to verify the provided token. Token is invalid.");
       }
     } catch (Exception e) {
       // Failed to validate the token
@@ -89,7 +89,7 @@ public class LegacyTokenAuthenticator implements Authenticator {
           .parse(token)
           .getBody();
       final String issuer = claims.get("iss", String.class);
-      if (issuer != ACRYL_ISSUER) {
+      if (!issuer.equals(ACRYL_ISSUER)) {
         throw new TokenException(String.format("Failed to validate DataHub Token. Not issued by %s", ACRYL_ISSUER));
       }
       return true;
