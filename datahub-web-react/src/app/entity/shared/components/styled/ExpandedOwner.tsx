@@ -9,6 +9,7 @@ import { CustomAvatar } from '../../../../shared/avatar';
 import { useEntityRegistry } from '../../../../useEntityRegistry';
 import analytics, { EventType, EntityActionType } from '../../../../analytics';
 import { useEntityData } from '../../EntityContext';
+
 type Props = {
     entityUrn: string;
     owner: Owner;
