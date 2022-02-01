@@ -233,7 +233,9 @@ export const EntityProfile = <T, U>({
                                             selectedTab={routedTab}
                                         />
                                     </Header>
-                                    <TabContent>{routedTab && <routedTab.component />}</TabContent>
+                                    <TabContent>
+                                        {routedTab && <routedTab.component properties={routedTab.properties} />}
+                                    </TabContent>
                                 </HeaderAndTabsFlex>
                             </HeaderAndTabs>
                             <Sidebar>

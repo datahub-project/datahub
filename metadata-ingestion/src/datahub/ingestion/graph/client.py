@@ -2,13 +2,13 @@ import json
 import logging
 import urllib.parse
 from json.decoder import JSONDecodeError
-from typing import Any, Dict, List, Optional, Type, TypeVar
+from typing import Any, Dict, List, Optional, Type
 
-from avrogen.dict_wrapper import DictWrapper
 from requests.adapters import Response
 from requests.models import HTTPError
 
 from datahub.configuration.common import ConfigModel, OperationalError
+from datahub.emitter.mce_builder import Aspect
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.metadata.schema_classes import (
     DatasetUsageStatisticsClass,
@@ -16,9 +16,6 @@ from datahub.metadata.schema_classes import (
     GlossaryTermsClass,
     OwnershipClass,
 )
-
-# This bound isn't tight, but it's better than nothing.
-Aspect = TypeVar("Aspect", bound=DictWrapper)
 
 logger = logging.getLogger(__name__)
 

@@ -8,7 +8,10 @@ import threading
 import traceback
 import unittest.mock
 import uuid
+from math import log10
 from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, Tuple, Union
+
+from datahub.telemetry import telemetry
 
 # Fun compatibility hack! GE version 0.13.44 broke compatibility with SQLAlchemy 1.3.24.
 # This is a temporary workaround until GE fixes the issue on their end.
@@ -559,6 +562,14 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
         assert profile.rowCount is not None
         row_count: int = profile.rowCount
 
+        telemetry.telemetry_instance.ping(
+            "sql_profiling",
+            "rows_profiled",
+            # bucket by taking floor of log of the number of rows scanned
+            # report the bucket as a label so the count is not collapsed
+            str(10 ** int(log10(row_count + 1))),
+        )
+
         for column_spec in columns_profiling_queue:
             column = column_spec.column
             column_profile = column_spec.column_profile
@@ -590,7 +601,11 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
 
             self._get_dataset_column_sample_values(column_profile, column)
 
-            if type_ == ProfilerDataType.INT or type_ == ProfilerDataType.FLOAT:
+            if (
+                type_ == ProfilerDataType.INT
+                or type_ == ProfilerDataType.FLOAT
+                or type_ == ProfilerDataType.NUMERIC
+            ):
                 if cardinality == Cardinality.UNIQUE:
                     pass
                 elif cardinality in [
@@ -598,12 +613,6 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                     Cardinality.TWO,
                     Cardinality.VERY_FEW,
                     Cardinality.FEW,
-                ]:
-                    self._get_dataset_column_distinct_value_frequencies(
-                        column_profile,
-                        column,
-                    )
-                elif cardinality in [
                     Cardinality.MANY,
                     Cardinality.VERY_MANY,
                     Cardinality.UNIQUE,
@@ -612,11 +621,22 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                     self._get_dataset_column_max(column_profile, column)
                     self._get_dataset_column_mean(column_profile, column)
                     self._get_dataset_column_median(column_profile, column)
+
                     if type_ == ProfilerDataType.INT:
                         self._get_dataset_column_stdev(column_profile, column)
 
                     self._get_dataset_column_quantiles(column_profile, column)
                     self._get_dataset_column_histogram(column_profile, column)
+                    if cardinality in [
+                        Cardinality.ONE,
+                        Cardinality.TWO,
+                        Cardinality.VERY_FEW,
+                        Cardinality.FEW,
+                    ]:
+                        self._get_dataset_column_distinct_value_frequencies(
+                            column_profile,
+                            column,
+                        )
                 else:  # unknown cardinality - skip
                     pass
 

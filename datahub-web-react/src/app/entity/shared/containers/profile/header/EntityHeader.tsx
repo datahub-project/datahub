@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
-import { capitalizeFirstLetter } from '../../../../../shared/capitalizeFirstLetter';
+import { capitalizeFirstLetter } from '../../../../../shared/textUtil';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import { IconStyleType } from '../../../../Entity';
 import { ANTD_GRAY } from '../../../constants';
@@ -67,7 +67,7 @@ export const EntityHeader = () => {
     const entityRegistry = useEntityRegistry();
     const [copiedUrn, setCopiedUrn] = useState(false);
     const platformName = capitalizeFirstLetter(entityData?.platform?.name);
-    const platformLogoUrl = entityData?.platform?.info?.logoUrl;
+    const platformLogoUrl = entityData?.platform?.properties?.logoUrl;
     const entityLogoComponent = entityRegistry.getIcon(entityType, 12, IconStyleType.ACCENT);
     const entityTypeCased = entityRegistry.getEntityName(entityType);
     const entityPath = useEntityPath(entityType, urn);

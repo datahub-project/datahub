@@ -14,5 +14,6 @@ public class Constants {
     public static final String AUTH_SCHEMA_FILE = "auth.graphql";
     public static final String ANALYTICS_SCHEMA_FILE = "analytics.graphql";
     public static final String RECOMMENDATIONS_SCHEMA_FILE = "recommendation.graphql";
+    public static final String INGESTION_SCHEMA_FILE = "ingestion.graphql";
     public static final String BROWSE_PATH_DELIMITER = "/";
 }

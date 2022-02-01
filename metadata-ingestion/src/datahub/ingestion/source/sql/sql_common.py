@@ -24,9 +24,9 @@ from sqlalchemy.sql import sqltypes as types
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter.mce_builder import (
-    DEFAULT_ENV,
     make_data_platform_urn,
-    make_dataset_urn,
+    make_dataplatform_instance_urn,
+    make_dataset_urn_with_platform_instance,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -62,7 +62,12 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     StringTypeClass,
     TimeTypeClass,
 )
-from datahub.metadata.schema_classes import ChangeTypeClass, DatasetPropertiesClass
+from datahub.metadata.schema_classes import (
+    ChangeTypeClass,
+    DataPlatformInstanceClass,
+    DatasetPropertiesClass,
+)
+from datahub.telemetry import telemetry
 from datahub.utilities.sqlalchemy_query_combiner import SQLAlchemyQueryCombinerReport
 
 if TYPE_CHECKING:
@@ -84,7 +89,7 @@ def get_platform_from_sqlalchemy_uri(sqlalchemy_uri: str) -> str:
     if (
         sqlalchemy_uri.startswith("jdbc:postgres:")
         and sqlalchemy_uri.index("redshift.amazonaws") > 0
-    ):
+    ) or sqlalchemy_uri.startswith("redshift"):
         return "redshift"
     if sqlalchemy_uri.startswith("snowflake"):
         return "snowflake"
@@ -182,7 +187,6 @@ class SQLAlchemyStatefulIngestionConfig(StatefulIngestionConfig):
 
 
 class SQLAlchemyConfig(StatefulIngestionConfigBase):
-    env: str = DEFAULT_ENV
     options: dict = {}
     # Although the 'table_pattern' enables you to skip everything from certain schemas,
     # having another option to allow/deny on schema level is an optimization for the case when there is a large number
@@ -344,6 +348,24 @@ def get_schema_metadata(
     return schema_metadata
 
 
+# flags to emit telemetry for
+profiling_flags_to_report = [
+    "turn_off_expensive_profiling_metrics",
+    "profile_table_level_only",
+    "include_field_null_count",
+    "include_field_min_value",
+    "include_field_max_value",
+    "include_field_mean_value",
+    "include_field_median_value",
+    "include_field_stddev_value",
+    "include_field_quantiles",
+    "include_field_distinct_value_frequencies",
+    "include_field_histogram",
+    "include_field_sample_values",
+    "query_combiner_enabled",
+]
+
+
 class SQLAlchemySource(StatefulIngestionSourceBase):
     """A Base class for all SQL Sources that use SQLAlchemy to extend"""
 
@@ -352,6 +374,28 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         self.config = config
         self.platform = platform
         self.report = SQLSourceReport()
+
+        telemetry.telemetry_instance.ping(
+            "sql_profiling",
+            "config",
+            "enabled",
+            1 if config.profiling.enabled else 0,
+        )
+
+        if config.profiling.enabled:
+
+            for config_flag in profiling_flags_to_report:
+                config_value = getattr(config.profiling, config_flag)
+                config_int = (
+                    1 if config_value else 0
+                )  # convert to int so it can be emitted as a value
+
+                telemetry.telemetry_instance.ping(
+                    "sql_profiling",
+                    "config",
+                    config_flag,
+                    config_int,
+                )
 
     def get_inspectors(self) -> Iterable[Inspector]:
         # This method can be overridden in the case that you want to dynamically
@@ -541,8 +585,11 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             f"urn:li:schemaField:({dataset_urn},{f})"
             for f in fk_dict["constrained_columns"]
         ]
-        foreign_dataset = make_dataset_urn(
-            self.platform, referred_dataset_name, self.config.env
+        foreign_dataset = make_dataset_urn_with_platform_instance(
+            platform=self.platform,
+            name=referred_dataset_name,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
         )
         foreign_fields = [
             f"urn:li:schemaField:({foreign_dataset},{f})"
@@ -556,7 +603,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
     def normalise_dataset_name(self, dataset_name: str) -> str:
         return dataset_name
 
-    def loop_tables(
+    def loop_tables(  # noqa: C901
         self,
         inspector: Inspector,
         schema: str,
@@ -620,7 +667,12 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                 # The "properties" field is a non-standard addition to SQLAlchemy's interface.
                 properties = table_info.get("properties", {})
 
-            dataset_urn = make_dataset_urn(self.platform, dataset_name, self.config.env)
+            dataset_urn = make_dataset_urn_with_platform_instance(
+                self.platform,
+                dataset_name,
+                self.config.platform_instance,
+                self.config.env,
+            )
             dataset_snapshot = DatasetSnapshot(
                 urn=dataset_urn,
                 aspects=[StatusClass(removed=False)],
@@ -676,6 +728,33 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             wu = SqlWorkUnit(id=dataset_name, mce=mce)
             self.report.report_workunit(wu)
             yield wu
+
+            dpi_aspect = self.get_dataplatform_instance_aspect(dataset_urn=dataset_urn)
+            if dpi_aspect:
+                yield dpi_aspect
+
+    def get_dataplatform_instance_aspect(
+        self, dataset_urn: str
+    ) -> Optional[SqlWorkUnit]:
+        # If we are a platform instance based source, emit the instance aspect
+        if self.config.platform_instance:
+            mcp = MetadataChangeProposalWrapper(
+                entityType="dataset",
+                changeType=ChangeTypeClass.UPSERT,
+                entityUrn=dataset_urn,
+                aspectName="dataPlatformInstance",
+                aspect=DataPlatformInstanceClass(
+                    platform=make_data_platform_urn(self.platform),
+                    instance=make_dataplatform_instance_urn(
+                        self.platform, self.config.platform_instance
+                    ),
+                ),
+            )
+            wu = SqlWorkUnit(id=f"{dataset_urn}-dataPlatformInstance", mcp=mcp)
+            self.report.report_workunit(wu)
+            return wu
+        else:
+            return None
 
     def get_schema_fields(
         self, dataset_name: str, columns: List[dict], pk_constraints: dict = None
@@ -772,7 +851,12 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             properties["view_definition"] = view_definition
             properties["is_view"] = "True"
 
-            dataset_urn = make_dataset_urn(self.platform, dataset_name, self.config.env)
+            dataset_urn = make_dataset_urn_with_platform_instance(
+                self.platform,
+                dataset_name,
+                self.config.platform_instance,
+                self.config.env,
+            )
             dataset_snapshot = DatasetSnapshot(
                 urn=dataset_urn,
                 aspects=[StatusClass(removed=False)],
@@ -803,6 +887,10 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             wu = SqlWorkUnit(id=dataset_name, mce=mce)
             self.report.report_workunit(wu)
             yield wu
+
+            dpi_aspect = self.get_dataplatform_instance_aspect(dataset_urn=dataset_urn)
+            if dpi_aspect:
+                yield dpi_aspect
 
     def _get_profiler_instance(self, inspector: Inspector) -> "DatahubGEProfiler":
         from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler
@@ -876,7 +964,12 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             if profile is None:
                 continue
             dataset_name = request.pretty_name
-            dataset_urn = make_dataset_urn(self.platform, dataset_name, self.config.env)
+            dataset_urn = make_dataset_urn_with_platform_instance(
+                self.platform,
+                dataset_name,
+                self.config.platform_instance,
+                self.config.env,
+            )
             mcp = MetadataChangeProposalWrapper(
                 entityType="dataset",
                 entityUrn=dataset_urn,

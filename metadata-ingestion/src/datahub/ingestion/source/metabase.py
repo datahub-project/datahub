@@ -9,7 +9,7 @@ from requests.models import HTTPError
 from sqllineage.runner import LineageRunner
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.common import ConfigModel
+from datahub.configuration.source_common import DatasetLineageProviderConfigBase
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -35,16 +35,15 @@ from datahub.metadata.schema_classes import (
 from datahub.utilities import config_clean
 
 
-class MetabaseConfig(ConfigModel):
+class MetabaseConfig(DatasetLineageProviderConfigBase):
     # See the Metabase /api/session endpoint for details
     # https://www.metabase.com/docs/latest/api-documentation.html#post-apisession
     connect_uri: str = "localhost:3000"
     username: Optional[str] = None
     password: Optional[str] = None
     database_alias_map: Optional[dict] = None
-    engine_platform_map: Optional[dict] = None
+    engine_platform_map: Optional[Dict[str, str]] = None
     default_schema: str = "public"
-    env: str = builder.DEFAULT_ENV
 
     @validator("connect_uri")
     def remove_trailing_slash(cls, v):
@@ -376,7 +375,7 @@ class MetabaseSource(Source):
         return custom_properties
 
     def get_datasource_urn(self, card_details):
-        platform, database_name = self.get_datasource_from_id(
+        platform, database_name, platform_instance = self.get_datasource_from_id(
             card_details.get("database_id", "")
         )
         query_type = card_details.get("dataset_query", {}).get("type", {})
@@ -424,7 +423,12 @@ class MetabaseSource(Source):
         dbname = f"{database_name + '.' if database_name else ''}"
         source_tables = list(map(lambda tbl: f"{dbname}{tbl}", source_paths))
         dataset_urn = [
-            builder.make_dataset_urn(platform, name, self.config.env)
+            builder.make_dataset_urn_with_platform_instance(
+                platform=platform,
+                name=name,
+                platform_instance=platform_instance,
+                env=self.config.env,
+            )
             for name in source_tables
         ]
 
@@ -489,6 +493,12 @@ class MetabaseSource(Source):
                 key=f"metabase-platform-{datasource_id}",
                 reason=f"Platform was not found in DataHub. Using {platform} name as is",
             )
+        # Set platform_instance if configuration provides a mapping from platform name to instance
+        platform_instance = (
+            self.config.platform_instance_map.get(platform)
+            if self.config.platform_instance_map
+            else None
+        )
 
         field_for_dbname_mapping = {
             "postgres": "dbname",
@@ -519,7 +529,7 @@ class MetabaseSource(Source):
                 reason=f"Cannot determine database name for platform: {platform}",
             )
 
-        return platform, dbname
+        return platform, dbname, platform_instance
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> Source:
