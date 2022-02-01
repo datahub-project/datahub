@@ -119,8 +119,6 @@ def test_get_full_container(frontend_session, ingest_cleanup_data):
     assert container["properties"]["name"] == container_name
     assert container["properties"]["description"] == container_description
     assert container["subTypes"]["typeNames"][0] == "Schema"
-    assert container["entities"]["total"] == 1
-    # assert container["entities"]["searchResults"][0]["entity"]["urn"] == dataset_urn
     assert container["editableProperties"]["description"] == editable_container_description
     assert container["ownership"] is None
     assert container["institutionalMemory"] is None
