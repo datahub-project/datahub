@@ -436,6 +436,7 @@ public class GmsGraphQLEngine {
         configureGlossaryRelationshipResolvers(builder);
         configureIngestionSourceResolvers(builder);
         configureAnalyticsResolvers(builder);
+        configureGlossaryTermResolvers(builder);
         configureDomainResolvers(builder);
     }
 
@@ -715,6 +716,14 @@ public class GmsGraphQLEngine {
                                 (env) -> ((InstitutionalMemoryMetadata) env.getSource()).getAuthor().getUrn()))
                 )
             );
+    }
+
+    private void configureGlossaryTermResolvers(final RuntimeWiring.Builder builder) {
+        builder.type("GlossaryTerm", typeWiring -> typeWiring
+            .dataFetcher("schemaMetadata", new AuthenticatedResolver<>(
+                    new AspectResolver())
+            )
+        );
     }
 
     /**

@@ -25,6 +25,7 @@ from sqlalchemy.sql import sqltypes as types
 from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
+    make_dataplatform_instance_urn,
     make_dataset_urn_with_platform_instance,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -66,6 +67,7 @@ from datahub.metadata.schema_classes import (
     DataPlatformInstanceClass,
     DatasetPropertiesClass,
 )
+from datahub.telemetry import telemetry
 from datahub.utilities.sqlalchemy_query_combiner import SQLAlchemyQueryCombinerReport
 
 if TYPE_CHECKING:
@@ -346,6 +348,24 @@ def get_schema_metadata(
     return schema_metadata
 
 
+# flags to emit telemetry for
+profiling_flags_to_report = [
+    "turn_off_expensive_profiling_metrics",
+    "profile_table_level_only",
+    "include_field_null_count",
+    "include_field_min_value",
+    "include_field_max_value",
+    "include_field_mean_value",
+    "include_field_median_value",
+    "include_field_stddev_value",
+    "include_field_quantiles",
+    "include_field_distinct_value_frequencies",
+    "include_field_histogram",
+    "include_field_sample_values",
+    "query_combiner_enabled",
+]
+
+
 class SQLAlchemySource(StatefulIngestionSourceBase):
     """A Base class for all SQL Sources that use SQLAlchemy to extend"""
 
@@ -354,6 +374,28 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         self.config = config
         self.platform = platform
         self.report = SQLSourceReport()
+
+        telemetry.telemetry_instance.ping(
+            "sql_profiling",
+            "config",
+            "enabled",
+            1 if config.profiling.enabled else 0,
+        )
+
+        if config.profiling.enabled:
+
+            for config_flag in profiling_flags_to_report:
+                config_value = getattr(config.profiling, config_flag)
+                config_int = (
+                    1 if config_value else 0
+                )  # convert to int so it can be emitted as a value
+
+                telemetry.telemetry_instance.ping(
+                    "sql_profiling",
+                    "config",
+                    config_flag,
+                    config_int,
+                )
 
     def get_inspectors(self) -> Iterable[Inspector]:
         # This method can be overridden in the case that you want to dynamically
@@ -681,21 +723,32 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             self.report.report_workunit(wu)
             yield wu
 
-            # If we are a platform instance based source, emit the instance aspect
-            if self.config.platform_instance:
-                mcp = MetadataChangeProposalWrapper(
-                    entityType="dataset",
-                    changeType=ChangeTypeClass.UPSERT,
-                    entityUrn=dataset_urn,
-                    aspectName="dataPlatformInstance",
-                    aspect=DataPlatformInstanceClass(
-                        platform=make_data_platform_urn(self.platform),
-                        instance=self.config.platform_instance,
+            dpi_aspect = self.get_dataplatform_instance_aspect(dataset_urn=dataset_urn)
+            if dpi_aspect:
+                yield dpi_aspect
+
+    def get_dataplatform_instance_aspect(
+        self, dataset_urn: str
+    ) -> Optional[SqlWorkUnit]:
+        # If we are a platform instance based source, emit the instance aspect
+        if self.config.platform_instance:
+            mcp = MetadataChangeProposalWrapper(
+                entityType="dataset",
+                changeType=ChangeTypeClass.UPSERT,
+                entityUrn=dataset_urn,
+                aspectName="dataPlatformInstance",
+                aspect=DataPlatformInstanceClass(
+                    platform=make_data_platform_urn(self.platform),
+                    instance=make_dataplatform_instance_urn(
+                        self.platform, self.config.platform_instance
                     ),
-                )
-                wu = SqlWorkUnit(id=f"{dataset_name}-dataPlatformInstance", mcp=mcp)
-                self.report.report_workunit(wu)
-                yield wu
+                ),
+            )
+            wu = SqlWorkUnit(id=f"{dataset_urn}-dataPlatformInstance", mcp=mcp)
+            self.report.report_workunit(wu)
+            return wu
+        else:
+            return None
 
     def get_schema_fields(
         self, dataset_name: str, columns: List[dict], pk_constraints: dict = None
@@ -827,21 +880,9 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             self.report.report_workunit(wu)
             yield wu
 
-            # If we are a platform instance based source, emit the instance aspect
-            if self.config.platform_instance:
-                mcp = MetadataChangeProposalWrapper(
-                    entityType="dataset",
-                    changeType=ChangeTypeClass.UPSERT,
-                    entityUrn=dataset_urn,
-                    aspectName="dataPlatformInstance",
-                    aspect=DataPlatformInstanceClass(
-                        platform=make_data_platform_urn(self.platform),
-                        instance=self.config.platform_instance,
-                    ),
-                )
-                wu = SqlWorkUnit(id=f"{dataset_name}-dataPlatformInstance", mcp=mcp)
-                self.report.report_workunit(wu)
-                yield wu
+            dpi_aspect = self.get_dataplatform_instance_aspect(dataset_urn=dataset_urn)
+            if dpi_aspect:
+                yield dpi_aspect
 
     def _get_profiler_instance(self, inspector: Inspector) -> "DatahubGEProfiler":
         from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler
