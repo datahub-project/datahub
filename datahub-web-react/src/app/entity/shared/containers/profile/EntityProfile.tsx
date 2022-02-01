@@ -18,6 +18,7 @@ import { useEntityRegistry } from '../../../../useEntityRegistry';
 import LineageExplorer from '../../../../lineage/LineageExplorer';
 import CompactContext from '../../../../shared/CompactContext';
 import DynamicTab from '../../tabs/Entity/weaklyTypedAspects/DynamicTab';
+import analytics, { EventType } from '../../../../analytics';
 
 type Props<T, U> = {
     urn: string;
@@ -125,6 +126,12 @@ export const EntityProfile = <T, U>({
             tabParams?: Record<string, any>;
             method?: 'push' | 'replace';
         }) => {
+            analytics.event({
+                type: EventType.EntitySectionViewEvent,
+                entityType,
+                entityUrn: urn,
+                section: tabName,
+            });
             history[method](getEntityPath(entityType, urn, entityRegistry, false, tabName, tabParams));
         },
         [history, entityType, urn, entityRegistry],

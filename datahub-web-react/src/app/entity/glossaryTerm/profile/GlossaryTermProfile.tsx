@@ -12,6 +12,7 @@ import { Properties as PropertiesView } from '../../shared/components/legacy/Pro
 import GlossayRelatedTerms from './GlossaryRelatedTerms';
 import GlossaryTermHeader from './GlossaryTermHeader';
 import SchemaView from './SchemaView';
+import analytics, { EventType } from '../../../analytics';
 
 const messageStyle = { marginTop: '10%' };
 
@@ -109,6 +110,15 @@ export default function GlossaryTermProfile() {
                     tags={null}
                     header={getHeader(data?.glossaryTerm as GlossaryTerm)}
                     tabs={getTabs(data)}
+                    // TODO - Tab names are going in lower case instead of init case. Why?
+                    onTabChange={(tab: string) => {
+                        analytics.event({
+                            type: EventType.EntitySectionViewEvent,
+                            entityType: EntityType.GlossaryTerm,
+                            entityUrn: urn,
+                            section: tab,
+                        });
+                    }}
                 />
             )}
         </>
