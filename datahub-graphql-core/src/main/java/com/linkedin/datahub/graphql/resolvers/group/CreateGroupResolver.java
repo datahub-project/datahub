@@ -15,7 +15,6 @@ import com.linkedin.metadata.utils.GenericAspectUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
-import java.net.URLEncoder;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
