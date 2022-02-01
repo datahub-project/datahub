@@ -1,11 +1,15 @@
 import json
+from typing import Any, Dict, List
 
 import requests
+from confluent_kafka.admin import AdminClient, NewTopic
 from datahub.cli import cli_utils
 from datahub.ingestion.run.pipeline import Pipeline
 
 GMS_ENDPOINT = "http://localhost:8080"
 FRONTEND_ENDPOINT = "http://localhost:9002"
+KAFKA_BROKER = "localhost:9092"
+
 
 def ingest_file_via_rest(filename: str) -> None:
     pipeline = Pipeline.create(
@@ -36,15 +40,15 @@ def delete_urns_from_file(filename: str) -> None:
     with open(filename) as f:
         d = json.load(f)
         for entry in d:
-            is_mcp = 'entityUrn' in entry
+            is_mcp = "entityUrn" in entry
             urn = None
             # Kill Snapshot
             if is_mcp:
-              urn = entry['entityUrn']
+                urn = entry["entityUrn"]
             else:
-              snapshot_union = entry['proposedSnapshot']
-              snapshot = list(snapshot_union.values())[0]
-              urn = snapshot['urn']
+                snapshot_union = entry["proposedSnapshot"]
+                snapshot = list(snapshot_union.values())[0]
+                urn = snapshot["urn"]
             payload_obj = {"urn": urn}
 
             cli_utils.post_delete_endpoint_with_session_and_url(
@@ -52,3 +56,43 @@ def delete_urns_from_file(filename: str) -> None:
                 GMS_ENDPOINT + "/entities?action=delete",
                 payload_obj,
             )
+
+
+def create_kafka_topics(topics: List[NewTopic]) -> None:
+    """
+    creates new kafka topics
+    """
+    admin_config: Dict[str, Any] = {
+        "bootstrap.servers": f"{KAFKA_BROKER}",
+    }
+    a = AdminClient(admin_config)
+
+    fs = a.create_topics(topics, operation_timeout=3)
+
+    # Wait for operation to finish.
+    for topic, f in fs.items():
+        try:
+            f.result()  # The result itself is None
+            print("Topic {} created".format(topic))
+        except Exception as e:
+            print("Failed to create topic {}: {}".format(topic, e))
+
+
+def delete_kafka_topics(topics: List[str]) -> None:
+    """
+    delete a list of existing Kafka topics
+    """
+    admin_config: Dict[str, Any] = {
+        "bootstrap.servers": f"{KAFKA_BROKER}",
+    }
+    a = AdminClient(admin_config)
+
+    fs = a.delete_topics(topics, operation_timeout=3)
+
+    # Wait for operation to finish.
+    for topic, f in fs.items():
+        try:
+            f.result()  # The result itself is None
+            print("Topic {} deleted".format(topic))
+        except Exception as e:
+            print("Failed to delete topic {}: {}".format(topic, e))

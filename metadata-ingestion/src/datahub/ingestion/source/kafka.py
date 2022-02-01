@@ -387,5 +387,8 @@ class KafkaSource(StatefulIngestionSourceBase):
         return self.report
 
     def close(self):
+        if self.is_stateful_ingestion_configured():
+            # Commit the checkpoints for this run
+            self.commit_checkpoints()
         if self.consumer:
             self.consumer.close()
