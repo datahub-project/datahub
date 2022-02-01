@@ -136,7 +136,6 @@ As a SQL-based service, the Athena integration is also supported by our SQL prof
 | `bigquery_audit_metadata_datasets`     |                                                                           | None                                                                    | A list of datasets that contain a table named `cloudaudit_googleapis_com_data_access` which contain BigQuery audit logs, specifically, those containing `BigQueryAuditMetadata`. It is recommended that the project of the dataset is also specified, for example, `projectA.datasetB`. |
 
 
-
 The following parameters are only relevant if include_table_lineage is set to true:
 
 - max_query_duration 
@@ -150,9 +149,21 @@ Note: the bigquery_audit_metadata_datasets parameter receives a list of datasets
 
 Note: Since bigquery source also supports dataset level lineage, the auth client will require additional permissions to be able to access the google audit logs. Refer the permissions section in bigquery-usage section below which also accesses the audit logs.
 
-## Compatibility
+## Profiling
+For profiling you have to set a table schema where Great Expectation (the profiling framework we use) can create temporary
+views by setting `profiling.bigquery_temp_table_schema` property.
 
-Coming soon!
+```yaml
+     profiling:
+       enabled: true
+       bigquery_temp_table_schema: my-project-id.my-schema-where-views-can-be-created
+```
+
+:::note
+
+Due to performance reasons, we only profile the latest partition for Partitioned tables and the latest shard for sharded tables.
+
+:::
 
 # BigQuery Usage Stats
 
