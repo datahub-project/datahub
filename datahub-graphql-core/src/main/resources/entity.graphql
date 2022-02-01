@@ -800,6 +800,12 @@ type GlossaryTerm implements Entity {
     Edges extending from this entity
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+    """
+    Schema metadata of the dataset
+    """
+    schemaMetadata(version: Long): SchemaMetadata
+
 }
 
 """
